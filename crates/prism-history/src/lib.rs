@@ -10,14 +10,23 @@ use serde::{Deserialize, Serialize};
 pub struct HistorySnapshot {
     pub node_to_lineage: Vec<(NodeId, LineageId)>,
     pub events: Vec<LineageEvent>,
+    #[serde(default)]
+    pub co_change_counts: Vec<(LineageId, LineageId, u32)>,
     pub next_lineage: u64,
     pub next_event: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CoChangeNeighbor {
+    pub lineage: LineageId,
+    pub count: u32,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct HistoryStore {
     node_to_lineage: HashMap<NodeId, LineageId>,
     events: Vec<LineageEvent>,
+    co_change_counts: HashMap<(LineageId, LineageId), u32>,
     next_lineage: u64,
     next_event: u64,
 }
@@ -44,6 +53,7 @@ impl HistoryStore {
                 LineageEventKind::Updated,
                 vec![before.node.id.clone()],
                 vec![after.node.id.clone()],
+                1.0,
                 vec![LineageEvidence::ExactNodeId],
             ));
         }
@@ -58,7 +68,7 @@ impl HistoryStore {
             .map(|(_, added_index, _, _, _)| *added_index)
             .collect::<HashSet<_>>();
 
-        for (removed_index, added_index, kind, _confidence, evidence) in matches {
+        for (removed_index, added_index, kind, confidence, evidence) in matches {
             let before = &change_set.removed[removed_index];
             let after = &change_set.added[added_index];
             let lineage = self
@@ -73,6 +83,7 @@ impl HistoryStore {
                 kind,
                 vec![before.node.id.clone()],
                 vec![after.node.id.clone()],
+                confidence,
                 evidence,
             ));
         }
@@ -91,6 +102,7 @@ impl HistoryStore {
                 LineageEventKind::Died,
                 vec![removed.node.id.clone()],
                 Vec::new(),
+                1.0,
                 vec![LineageEvidence::FingerprintMatch],
             ));
         }
@@ -108,10 +120,12 @@ impl HistoryStore {
                 LineageEventKind::Born,
                 Vec::new(),
                 vec![added.node.id.clone()],
+                1.0,
                 vec![LineageEvidence::FingerprintMatch],
             ));
         }
 
+        self.record_co_changes(&emitted);
         self.events.extend(emitted.iter().cloned());
         emitted
     }
@@ -148,6 +162,54 @@ impl HistoryStore {
             .collect()
     }
 
+    pub fn co_change_neighbors(&self, lineage: &LineageId, limit: usize) -> Vec<CoChangeNeighbor> {
+        let mut neighbors = self
+            .co_change_counts
+            .iter()
+            .filter_map(|((left, right), count)| {
+                if left == lineage {
+                    Some(CoChangeNeighbor {
+                        lineage: right.clone(),
+                        count: *count,
+                    })
+                } else if right == lineage {
+                    Some(CoChangeNeighbor {
+                        lineage: left.clone(),
+                        count: *count,
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        neighbors.sort_by(|left, right| {
+            right
+                .count
+                .cmp(&left.count)
+                .then_with(|| left.lineage.0.cmp(&right.lineage.0))
+        });
+        if limit > 0 {
+            neighbors.truncate(limit);
+        }
+        neighbors
+    }
+
+    pub fn current_nodes_for_lineage(&self, lineage: &LineageId) -> Vec<NodeId> {
+        let mut nodes = self
+            .node_to_lineage
+            .iter()
+            .filter(|(_, mapped)| *mapped == lineage)
+            .map(|(node, _)| node.clone())
+            .collect::<Vec<_>>();
+        nodes.sort_by(|left, right| {
+            left.crate_name
+                .cmp(&right.crate_name)
+                .then_with(|| left.path.cmp(&right.path))
+                .then_with(|| left.kind.to_string().cmp(&right.kind.to_string()))
+        });
+        nodes
+    }
+
     pub fn snapshot(&self) -> HistorySnapshot {
         HistorySnapshot {
             node_to_lineage: self
@@ -156,6 +218,11 @@ impl HistoryStore {
                 .map(|(node, lineage)| (node.clone(), lineage.clone()))
                 .collect(),
             events: self.events.clone(),
+            co_change_counts: self
+                .co_change_counts
+                .iter()
+                .map(|((left, right), count)| (left.clone(), right.clone(), *count))
+                .collect(),
             next_lineage: self.next_lineage,
             next_event: self.next_event,
         }
@@ -165,6 +232,11 @@ impl HistoryStore {
         Self {
             node_to_lineage: snapshot.node_to_lineage.into_iter().collect(),
             events: snapshot.events,
+            co_change_counts: snapshot
+                .co_change_counts
+                .into_iter()
+                .map(|(left, right, count)| (normalize_lineage_pair(left, right), count))
+                .collect(),
             next_lineage: snapshot.next_lineage,
             next_event: snapshot.next_event,
         }
@@ -228,6 +300,7 @@ impl HistoryStore {
         kind: LineageEventKind,
         before: Vec<NodeId>,
         after: Vec<NodeId>,
+        confidence: f32,
         evidence: Vec<LineageEvidence>,
     ) -> LineageEvent {
         self.next_event += 1;
@@ -246,7 +319,7 @@ impl HistoryStore {
             kind,
             before,
             after,
-            confidence: 1.0,
+            confidence,
             evidence,
         }
     }
@@ -254,6 +327,32 @@ impl HistoryStore {
     fn alloc_lineage(&mut self) -> LineageId {
         self.next_lineage += 1;
         LineageId::new(format!("lineage:{}", self.next_lineage))
+    }
+
+    fn record_co_changes(&mut self, events: &[LineageEvent]) {
+        let mut lineages = events
+            .iter()
+            .map(|event| event.lineage.clone())
+            .collect::<Vec<_>>();
+        lineages.sort_by(|left, right| left.0.cmp(&right.0));
+        lineages.dedup();
+
+        for (index, left) in lineages.iter().enumerate() {
+            for right in lineages.iter().skip(index + 1) {
+                *self
+                    .co_change_counts
+                    .entry(normalize_lineage_pair(left.clone(), right.clone()))
+                    .or_insert(0) += 1;
+            }
+        }
+    }
+}
+
+fn normalize_lineage_pair(left: LineageId, right: LineageId) -> (LineageId, LineageId) {
+    if left.0 <= right.0 {
+        (left, right)
+    } else {
+        (right, left)
     }
 }
 
@@ -385,5 +484,49 @@ mod tests {
         assert!(history
             .lineage_of(&NodeId::new("demo", "demo::new_name", NodeKind::Function))
             .is_some());
+    }
+
+    #[test]
+    fn records_co_change_neighbors_from_single_change_set() {
+        let mut history = HistoryStore::new();
+        let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+        let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
+        history.seed_nodes([alpha.clone(), beta.clone()]);
+
+        history.apply(&ObservedChangeSet {
+            meta: EventMeta {
+                id: EventId::new("change:2"),
+                ts: 2,
+                actor: EventActor::System,
+                correlation: None,
+                causation: None,
+            },
+            trigger: ChangeTrigger::ManualReindex,
+            files: vec![FileId(1)],
+            added: Vec::new(),
+            removed: Vec::new(),
+            updated: vec![
+                (
+                    observed(node("demo::alpha", 1), 10, 20),
+                    observed(node("demo::alpha", 1), 10, 21),
+                ),
+                (
+                    observed(node("demo::beta", 1), 11, 30),
+                    observed(node("demo::beta", 1), 11, 31),
+                ),
+            ],
+            edge_added: Vec::new(),
+            edge_removed: Vec::new(),
+        });
+
+        let alpha_lineage = history.lineage_of(&alpha).unwrap();
+        let beta_lineage = history.lineage_of(&beta).unwrap();
+        assert_eq!(
+            history.co_change_neighbors(&alpha_lineage, 10),
+            vec![CoChangeNeighbor {
+                lineage: beta_lineage,
+                count: 1,
+            }]
+        );
     }
 }

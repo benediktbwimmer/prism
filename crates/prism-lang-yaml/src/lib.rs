@@ -32,7 +32,7 @@ impl LanguageAdapter for YamlAdapter {
             name: SmolStr::new(document_name(input)),
             kind: NodeKind::Document,
             file: input.file_id,
-            span: Span::whole_file(input.source.lines().count()),
+            span: Span::whole_file(input.source.len()),
             language: Language::Yaml,
         };
         result.record_fingerprint(
@@ -74,7 +74,7 @@ fn walk_value(
                     name: SmolStr::new(key),
                     kind: NodeKind::YamlKey,
                     file: input.file_id,
-                    span: Span::line(1),
+                    span: Span::whole_file(input.source.len()),
                     language: Language::Yaml,
                 };
                 result.record_fingerprint(

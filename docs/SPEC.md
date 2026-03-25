@@ -88,6 +88,9 @@ prism-mcp
 
 Critical boundaries:
 
+* `prism-core` is the orchestration layer that assembles a usable `Prism` from store, parser, history, memory, and runtime configuration
+* `prism-core` owns workspace loading, adapter registration, incremental reindex coordination, and long-lived service construction
+* `prism-core` is intentionally thin: it wires subsystems together, but does not redefine their storage, query, or memory semantics
 * `prism-store` owns persistence and raw observed change capture
 * `prism-history` owns lineage assignment and time-aware projection
 * `prism-memory` owns structured memory and outcomes, but not graph construction
@@ -189,6 +192,29 @@ Rules:
 * event streams may differ in semantics, but they share the same envelope
 
 ## 2.5 Node
+
+Supporting types used by nodes and adapters:
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Span {
+    pub start: u32,
+    pub end: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Language {
+    Rust,
+    Markdown,
+    Json,
+    Yaml,
+}
+```
+
+Rules:
+
+* `Span` is byte-offset based in v1 and is half-open: `[start, end)`
+* `Language` is the parser-selected document language, not an inferred semantic category
 
 ```rust
 pub struct Node {
@@ -353,6 +379,34 @@ pub struct FileRecord {
 }
 ```
 
+Unresolved reference records are deterministic parser outputs. They capture gaps in static resolution without guessing the answer:
+
+```rust
+pub struct UnresolvedCall {
+    pub caller: NodeId,
+    pub name: SmolStr,
+    pub span: Span,
+}
+
+pub struct UnresolvedImport {
+    pub importer: NodeId,
+    pub path: SmolStr,
+    pub span: Span,
+}
+
+pub struct UnresolvedImpl {
+    pub impl_node: NodeId,
+    pub target: SmolStr,
+    pub span: Span,
+}
+```
+
+Rules:
+
+* unresolved records are file-local parse artifacts, not durable identities
+* they are allowed to be lossy as long as they are deterministic and useful for later resolution or augmentation
+* agent augmentation may use them as input signals, but may not overwrite them in the authoritative parse result
+
 ## 3.5 Observed Change Stream
 
 The store emits raw observed facts only. It does not decide whether something was a rename, move, split, or merge.
@@ -389,6 +443,8 @@ Rules:
 * `ObservedChangeSet` is the canonical change stream for temporal projection
 * `updated` means "same current `NodeId`, content changed" and is not a rename claim
 * rename and move semantics are assigned later by `prism-history`
+* v1 should treat filesystem-detected edits as `FsWatch` by default
+* `AgentEdit` and `UserEdit` are reserved for future explicit attribution paths; the store should not guess based on the writer process alone
 
 If older code still expects `GraphChange`, derive it at the boundary from `ObservedChangeSet` as a compatibility convenience. It is not the canonical time model.
 
@@ -1103,6 +1159,15 @@ That means:
 * queries compose in one round-trip instead of chaining many tool calls
 * API discovery happens through an MCP resource, not repeated system prompt text
 
+Session and task model:
+
+* an MCP session may exist with no active `TaskId` while it is only reading
+* on the first mutation in a session with no active task, the server auto-creates a `TaskId` and binds it as the active task
+* agents may explicitly create and label task context with `prism_start_task`
+* one session may create many tasks over time; at most one task is the session default at a time
+* mutation tools inherit the active session `TaskId` when `task_id` is omitted
+* mutation tools may override attribution with an explicit `task_id`, so unrelated work can coexist in one session without opening a second MCP connection
+
 ## 10.2 Primary Tool
 
 ```text
@@ -1204,6 +1269,13 @@ Security and determinism constraints:
 * query errors must return structured diagnostics
 * broad or expensive queries should fail or truncate deterministically instead of degrading silently
 
+Default v1 safety limits:
+
+* max result nodes: `500`
+* max call-graph depth: `10`
+* max serialized JSON result size: `256 KiB`
+* limits should be configurable per session, but the defaults must exist even when the client provides no overrides
+
 ## 10.5 Binding Layer (prism-js)
 
 `prism-js` is the language-facing facade over `prism-query`.
@@ -1227,6 +1299,39 @@ interface PrismApi {
   diagnostics(): QueryDiagnostic[];
 }
 
+interface NodeId {
+  crateName: string;
+  path: string;
+  kind: NodeKind;
+}
+
+type NodeKind =
+  | "Workspace"
+  | "Package"
+  | "Document"
+  | "Module"
+  | "Function"
+  | "Struct"
+  | "Enum"
+  | "Trait"
+  | "Impl"
+  | "Method"
+  | "Field"
+  | "TypeAlias"
+  | "MarkdownHeading"
+  | "JsonKey"
+  | "YamlKey";
+
+type EdgeKind =
+  | "Contains"
+  | "Calls"
+  | "References"
+  | "Implements"
+  | "Defines"
+  | "Imports";
+
+type EdgeOrigin = "Static" | "Inferred";
+
 interface SymbolView {
   id: NodeId;
   name: string;
@@ -1236,6 +1341,47 @@ interface SymbolView {
   relations(): Relations;
   callGraph(depth: number): Subgraph;
   lineage(): LineageView | null;
+}
+
+interface SearchOptions {
+  limit?: number;
+  kind?: NodeKind;
+  path?: string;
+  includeInferred?: boolean;
+}
+
+interface Relations {
+  contains: SymbolView[];
+  callers: SymbolView[];
+  callees: SymbolView[];
+  references: SymbolView[];
+  imports: SymbolView[];
+  implements: SymbolView[];
+}
+
+interface Subgraph {
+  nodes: SymbolView[];
+  edges: {
+    kind: EdgeKind;
+    source: NodeId;
+    target: NodeId;
+    origin: EdgeOrigin;
+    confidence: number;
+  }[];
+  truncated?: boolean;
+  maxDepthReached?: number;
+}
+
+interface LineageView {
+  lineageId: string;
+  current: SymbolView;
+  status: "active" | "dead" | "ambiguous";
+  history: {
+    eventId: string;
+    ts: string;
+    kind: string;
+    confidence: number;
+  }[];
 }
 ```
 
@@ -1271,17 +1417,18 @@ Agents learn these surfaces best from examples. Recipes are not auxiliary docume
 The MCP server exposes explicit mutation tools alongside the read-only `prism_query`:
 
 ```text
+prism_start_task { description: string, tags?: string[] } -> { task_id: string }
 prism_outcome { kind: OutcomeKind, anchors: AnchorRef[], summary: string, result?: OutcomeResult, evidence?: OutcomeEvidence[], task_id?: string } -> EventId
-prism_note { anchors: AnchorRef[], content: string, trust?: float } -> MemoryId
-prism_infer_edge { source: NodeId, target: NodeId, kind: EdgeKind, confidence: float, scope?: InferredEdgeScope } -> EdgeId
+prism_note { anchors: AnchorRef[], content: string, trust?: float, task_id?: string } -> MemoryId
+prism_infer_edge { source: NodeId, target: NodeId, kind: EdgeKind, confidence: float, scope?: InferredEdgeScope, task_id?: string } -> EdgeId
 ```
 
 Convenience shortcuts for outcome logging:
 
 ```text
-prism_test_ran { anchors: AnchorRef[], test: string, passed: bool } -> EventId
-prism_failure_observed { anchors: AnchorRef[], summary: string, trace?: string } -> EventId
-prism_fix_validated { anchors: AnchorRef[], summary: string } -> EventId
+prism_test_ran { anchors: AnchorRef[], test: string, passed: bool, task_id?: string } -> EventId
+prism_failure_observed { anchors: AnchorRef[], summary: string, trace?: string, task_id?: string } -> EventId
+prism_fix_validated { anchors: AnchorRef[], summary: string, task_id?: string } -> EventId
 ```
 
 These fill in `EventMeta` automatically from the session context. The lower the friction, the more reliably agents will record outcomes.
@@ -1292,7 +1439,10 @@ Rules:
 
 * mutation tools are separate from `prism_query` to keep the query surface pure and predictable
 * all mutations produce structured confirmation (event ID or memory ID)
+* `prism_start_task` creates a task record and makes it the active session task
+* if the session has no active task, the first mutation auto-creates one before the mutation is recorded
 * outcome events inherit the session's `TaskId` automatically when available
+* explicit `task_id` arguments override the active session task without changing the session default
 * inferred edges default to `SessionOnly` scope unless explicitly promoted
 
 ## 10.8 Convenience Query Tools

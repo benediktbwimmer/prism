@@ -29,7 +29,7 @@ impl LanguageAdapter for JsonAdapter {
             name: SmolStr::new(document_name(input)),
             kind: NodeKind::Document,
             file: input.file_id,
-            span: Span::whole_file(input.source.lines().count()),
+            span: Span::whole_file(input.source.len()),
             language: Language::Json,
         };
         result.record_fingerprint(
@@ -68,7 +68,7 @@ fn walk_value(
                     name: SmolStr::new(key),
                     kind: NodeKind::JsonKey,
                     file: input.file_id,
-                    span: Span::line(1),
+                    span: Span::whole_file(input.source.len()),
                     language: Language::Json,
                 };
                 result.record_fingerprint(

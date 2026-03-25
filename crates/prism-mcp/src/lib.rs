@@ -16,14 +16,15 @@ use prism_ir::{
     AnchorRef, Edge, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta, NodeId, NodeKind, TaskId,
 };
 use prism_js::{
-    api_reference_markdown, runtime_prelude, ChangeImpactView, LineageView, QueryDiagnostic,
-    QueryEnvelope, RelationsView, SymbolView, API_REFERENCE_URI,
+    api_reference_markdown, runtime_prelude, ChangeImpactView, CoChangeView, LineageView,
+    QueryDiagnostic, QueryEnvelope, RelationsView, SymbolView, ValidationCheckView,
+    ValidationRecipeView, API_REFERENCE_URI,
 };
 use prism_memory::{
     EpisodicMemory, MemoryEntry, MemoryId, MemoryKind, MemoryModule, MemorySource, OutcomeEvent,
     OutcomeEvidence, OutcomeKind, OutcomeResult,
 };
-use prism_query::{ChangeImpact, Prism, Symbol};
+use prism_query::{ChangeImpact, CoChange, Prism, Symbol, ValidationCheck, ValidationRecipe};
 use rmcp::{
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::*,
@@ -43,7 +44,6 @@ const DEFAULT_CALL_GRAPH_DEPTH: usize = 3;
 const MAX_CALL_GRAPH_DEPTH: usize = 5;
 const MAX_ENTRYPOINTS: usize = 100;
 
-#[derive(Default)]
 struct SessionState {
     notes: EpisodicMemory,
     inferred_edges: InferenceStore,
@@ -52,6 +52,19 @@ struct SessionState {
 }
 
 impl SessionState {
+    fn new(prism: &Prism) -> Self {
+        Self::with_snapshots(prism, EpisodicMemory::new(), InferenceStore::new())
+    }
+
+    fn with_snapshots(prism: &Prism, notes: EpisodicMemory, inferred_edges: InferenceStore) -> Self {
+        Self {
+            notes,
+            inferred_edges,
+            current_task: Mutex::new(None),
+            next_event: AtomicU64::new(max_event_sequence(prism)),
+        }
+    }
+
     fn next_event_id(&self, prefix: &str) -> EventId {
         let sequence = self.next_event.fetch_add(1, Ordering::Relaxed) + 1;
         EventId::new(format!("{prefix}:{sequence}"))
@@ -161,7 +174,6 @@ enum OutcomeKindInput {
     NoteAdded,
     HypothesisProposed,
     PlanCreated,
-    PatchApplied,
     BuildRan,
     TestRan,
     ReviewFeedback,
@@ -229,13 +241,6 @@ struct PrismInferEdgeArgs {
     confidence: f32,
     scope: Option<InferredEdgeScopeInput>,
     evidence: Option<Vec<String>>,
-    task_id: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-struct PrismPatchAppliedArgs {
-    anchors: Vec<AnchorRefInput>,
-    summary: String,
     task_id: Option<String>,
 }
 
@@ -338,31 +343,6 @@ impl PrismMcpServer {
             .map_err(|err| {
                 McpError::internal_error(
                     "failed to serialize edge id",
-                    Some(json!({ "error": err.to_string() })),
-                )
-            })?]))
-    }
-
-    #[tool(description = "Convenience outcome for a patch applied during the current task.")]
-    fn prism_patch_applied(
-        &self,
-        Parameters(args): Parameters<PrismPatchAppliedArgs>,
-    ) -> Result<CallToolResult, McpError> {
-        let event_id = self
-            .host
-            .store_outcome(PrismOutcomeArgs {
-                kind: OutcomeKindInput::PatchApplied,
-                anchors: args.anchors,
-                summary: args.summary,
-                result: Some(OutcomeResultInput::Success),
-                evidence: None,
-                task_id: args.task_id,
-            })
-            .map_err(map_query_error)?;
-        Ok(CallToolResult::success(vec![Content::json(event_id)
-            .map_err(|err| {
-                McpError::internal_error(
-                    "failed to serialize outcome id",
                     Some(json!({ "error": err.to_string() })),
                 )
             })?]))
@@ -541,7 +521,7 @@ struct QueryHost {
 impl QueryHost {
     fn new(prism: Prism) -> Self {
         let prism = Arc::new(prism);
-        let session = Arc::new(SessionState::default());
+        let session = Arc::new(SessionState::new(prism.as_ref()));
         Self {
             prism: prism.clone(),
             session,
@@ -553,7 +533,23 @@ impl QueryHost {
     fn with_session(workspace: WorkspaceSession) -> Self {
         let workspace = Arc::new(workspace);
         let prism = workspace.prism_arc();
-        let session = Arc::new(SessionState::default());
+        let notes = workspace
+            .load_episodic_snapshot()
+            .ok()
+            .flatten()
+            .map(EpisodicMemory::from_snapshot)
+            .unwrap_or_else(EpisodicMemory::new);
+        let inferred_edges = workspace
+            .load_inference_snapshot()
+            .ok()
+            .flatten()
+            .map(InferenceStore::from_snapshot)
+            .unwrap_or_else(InferenceStore::new);
+        let session = Arc::new(SessionState::with_snapshots(
+            prism.as_ref(),
+            notes,
+            inferred_edges,
+        ));
         Self {
             prism,
             session,
@@ -569,12 +565,13 @@ impl QueryHost {
     }
 
     fn execute_typescript(&self, code: &str) -> Result<QueryEnvelope> {
+        self.refresh_workspace()?;
         let source = format!(
             "(function() {{\n  const __prismUserQuery = () => {{\n{}\n  }};\n  const __prismResult = __prismUserQuery();\n  return __prismResult === undefined ? \"null\" : JSON.stringify(__prismResult);\n}})();\n",
             code
         );
         let transpiled = transpile_typescript(&source)?;
-        let execution = QueryExecution::new(self.clone());
+        let execution = QueryExecution::new(self.clone(), self.current_prism());
         let raw_result = self.worker.execute(transpiled, execution.clone())?;
         let result =
             serde_json::from_str(&raw_result).context("failed to decode query result JSON")?;
@@ -584,108 +581,15 @@ impl QueryHost {
         })
     }
 
-    fn symbols(&self, query: &str) -> Result<Vec<SymbolView>> {
-        self.prism
-            .symbol(query)
-            .iter()
-            .map(|symbol| self.symbol_view(symbol))
-            .collect()
-    }
-
-    fn entrypoints(&self) -> Result<Vec<SymbolView>> {
-        self.prism
-            .entrypoints()
-            .iter()
-            .map(|symbol| self.symbol_view(symbol))
-            .collect()
-    }
-
-    fn relations(&self, id: &NodeId) -> Result<RelationsView> {
-        let relations = self.symbol_for(id)?.relations();
-        Ok(RelationsView {
-            outgoing_calls: merge_node_ids(
-                relations.outgoing_calls,
-                self.session
-                    .inferred_edges
-                    .edges_from(id, Some(EdgeKind::Calls))
-                    .into_iter()
-                    .map(|record| record.edge.target),
-            ),
-            incoming_calls: merge_node_ids(
-                relations.incoming_calls,
-                self.session
-                    .inferred_edges
-                    .edges_to(id, Some(EdgeKind::Calls))
-                    .into_iter()
-                    .map(|record| record.edge.source),
-            ),
-            outgoing_imports: merge_node_ids(
-                relations.outgoing_imports,
-                self.session
-                    .inferred_edges
-                    .edges_from(id, Some(EdgeKind::Imports))
-                    .into_iter()
-                    .map(|record| record.edge.target),
-            ),
-            incoming_imports: merge_node_ids(
-                relations.incoming_imports,
-                self.session
-                    .inferred_edges
-                    .edges_to(id, Some(EdgeKind::Imports))
-                    .into_iter()
-                    .map(|record| record.edge.source),
-            ),
-            outgoing_implements: merge_node_ids(
-                relations.outgoing_implements,
-                self.session
-                    .inferred_edges
-                    .edges_from(id, Some(EdgeKind::Implements))
-                    .into_iter()
-                    .map(|record| record.edge.target),
-            ),
-            incoming_implements: merge_node_ids(
-                relations.incoming_implements,
-                self.session
-                    .inferred_edges
-                    .edges_to(id, Some(EdgeKind::Implements))
-                    .into_iter()
-                    .map(|record| record.edge.source),
-            ),
-        })
-    }
-
-    fn lineage(&self, id: &NodeId) -> Result<Option<LineageView>> {
-        let Some(lineage) = self.prism.lineage_of(id) else {
-            return Ok(None);
-        };
-        Ok(Some(LineageView {
-            events: self.prism.lineage_history(&lineage),
-            lineage,
-        }))
-    }
-
-    fn related_failures_value(&self, id: &NodeId) -> Result<Value> {
-        serde_json::to_value(self.prism.related_failures(id)).map_err(Into::into)
-    }
-
-    fn blast_radius(&self, id: &NodeId) -> ChangeImpactView {
-        let mut impact = self.prism.blast_radius(id);
-        for record in self.session.inferred_edges.edges_from(id, None) {
-            impact.direct_nodes.push(record.edge.target);
-        }
-        for record in self.session.inferred_edges.edges_to(id, None) {
-            impact.direct_nodes.push(record.edge.source);
-        }
-        impact.direct_nodes = merge_node_ids(impact.direct_nodes, std::iter::empty());
-        change_impact_view(impact)
-    }
-
-    fn resume_task_value(&self, task_id: &TaskId) -> Result<Value> {
-        serde_json::to_value(self.prism.resume_task(task_id)).map_err(Into::into)
+    fn co_change_neighbors_value(&self, id: &NodeId) -> Result<Value> {
+        let prism = self.current_prism();
+        serde_json::to_value(prism.co_change_neighbors(id, 8)).map_err(Into::into)
     }
 
     fn store_outcome(&self, args: PrismOutcomeArgs) -> Result<EventId> {
-        let anchors = self.prism.anchors_for(&convert_anchors(args.anchors)?);
+        self.refresh_workspace()?;
+        let prism = self.current_prism();
+        let anchors = prism.anchors_for(&convert_anchors(args.anchors)?);
         let task_id = args
             .task_id
             .map(TaskId::new)
@@ -714,13 +618,15 @@ impl QueryHost {
                 .collect(),
             metadata: Value::Null,
         };
-        let id = self.prism.outcome_memory().store_event(event)?;
+        let id = prism.outcome_memory().store_event(event)?;
         self.persist_outcomes()?;
         Ok(id)
     }
 
     fn store_note(&self, args: PrismNoteArgs) -> Result<MemoryId> {
-        let anchors = self.prism.anchors_for(&convert_anchors(args.anchors)?);
+        self.refresh_workspace()?;
+        let prism = self.current_prism();
+        let anchors = prism.anchors_for(&convert_anchors(args.anchors)?);
         let mut entry = MemoryEntry::new(MemoryKind::Episodic, args.content);
         entry.anchors = anchors;
         entry.source = MemorySource::Agent;
@@ -728,7 +634,7 @@ impl QueryHost {
         let note_anchors = entry.anchors.clone();
         let note_content = entry.content.clone();
         let memory_id = self.session.notes.store(entry)?;
-        let _ = self.prism.outcome_memory().store_event(OutcomeEvent {
+        let _ = prism.outcome_memory().store_event(OutcomeEvent {
             meta: EventMeta {
                 id: self.session.next_event_id("outcome"),
                 ts: current_timestamp(),
@@ -744,6 +650,7 @@ impl QueryHost {
             metadata: Value::Null,
         });
         self.persist_outcomes()?;
+        self.persist_notes()?;
         Ok(memory_id)
     }
 
@@ -760,50 +667,34 @@ impl QueryHost {
             origin: EdgeOrigin::Inferred,
             confidence: args.confidence.clamp(0.0, 1.0),
         };
-        Ok(self.session.inferred_edges.store_edge(
+        let scope = args
+            .scope
+            .map(convert_inferred_scope)
+            .unwrap_or(InferredEdgeScope::SessionOnly);
+        let id = self.session.inferred_edges.store_edge(
             edge,
-            args.scope
-                .map(convert_inferred_scope)
-                .unwrap_or(InferredEdgeScope::SessionOnly),
+            scope,
             task,
             args.evidence.unwrap_or_default(),
-        ))
-    }
-
-    fn symbol_view(&self, symbol: &Symbol<'_>) -> Result<SymbolView> {
-        let node = symbol.node();
-        Ok(SymbolView {
-            id: symbol.id().clone(),
-            name: symbol.name().to_owned(),
-            kind: node.kind,
-            signature: symbol.signature(),
-            file_path: self
-                .prism
-                .graph()
-                .file_path(node.file)
-                .map(|path| path.to_string_lossy().into_owned()),
-            span: node.span,
-            language: node.language,
-            lineage_id: self.prism.lineage_of(symbol.id()),
-        })
-    }
-
-    fn symbol_for<'a>(&'a self, id: &NodeId) -> Result<Symbol<'a>> {
-        let node = self
-            .prism
-            .graph()
-            .node(id)
-            .ok_or_else(|| anyhow!("unknown symbol `{}`", id.path))?;
-        let matching = self.prism.search(
-            &node.id.path,
-            self.prism.graph().nodes.len().max(1),
-            Some(node.kind),
-            None,
         );
-        matching
-            .into_iter()
-            .find(|symbol| symbol.id() == id)
-            .ok_or_else(|| anyhow!("symbol `{}` is no longer queryable", id.path))
+        if scope != InferredEdgeScope::SessionOnly {
+            self.persist_inferred_edges()?;
+        }
+        Ok(id)
+    }
+
+    fn current_prism(&self) -> Arc<Prism> {
+        self.workspace
+            .as_ref()
+            .map(|workspace| workspace.prism_arc())
+            .unwrap_or_else(|| Arc::clone(&self.prism))
+    }
+
+    fn refresh_workspace(&self) -> Result<()> {
+        if let Some(workspace) = &self.workspace {
+            let _ = workspace.refresh_fs()?;
+        }
+        Ok(())
     }
 
     fn persist_outcomes(&self) -> Result<()> {
@@ -812,6 +703,20 @@ impl QueryHost {
         };
         workspace.persist_outcomes()
     }
+
+    fn persist_notes(&self) -> Result<()> {
+        let Some(workspace) = &self.workspace else {
+            return Ok(());
+        };
+        workspace.persist_episodic(&self.session.notes.snapshot())
+    }
+
+    fn persist_inferred_edges(&self) -> Result<()> {
+        let Some(workspace) = &self.workspace else {
+            return Ok(());
+        };
+        workspace.persist_inference(&self.session.inferred_edges.snapshot_persisted())
+    }
 }
 
 fn change_impact_view(impact: ChangeImpact) -> ChangeImpactView {
@@ -819,7 +724,52 @@ fn change_impact_view(impact: ChangeImpact) -> ChangeImpactView {
         direct_nodes: impact.direct_nodes,
         lineages: impact.lineages,
         likely_validations: impact.likely_validations,
+        validation_checks: impact
+            .validation_checks
+            .into_iter()
+            .map(validation_check_view)
+            .collect(),
+        co_change_neighbors: impact
+            .co_change_neighbors
+            .into_iter()
+            .map(co_change_view)
+            .collect(),
         risk_events: impact.risk_events,
+    }
+}
+
+fn validation_recipe_view(recipe: ValidationRecipe) -> ValidationRecipeView {
+    ValidationRecipeView {
+        target: recipe.target,
+        checks: recipe.checks,
+        scored_checks: recipe
+            .scored_checks
+            .into_iter()
+            .map(validation_check_view)
+            .collect(),
+        related_nodes: recipe.related_nodes,
+        co_change_neighbors: recipe
+            .co_change_neighbors
+            .into_iter()
+            .map(co_change_view)
+            .collect(),
+        recent_failures: recipe.recent_failures,
+    }
+}
+
+fn validation_check_view(check: ValidationCheck) -> ValidationCheckView {
+    ValidationCheckView {
+        label: check.label,
+        score: check.score,
+        last_seen: check.last_seen,
+    }
+}
+
+fn co_change_view(value: CoChange) -> CoChangeView {
+    CoChangeView {
+        lineage: value.lineage,
+        count: value.count,
+        nodes: value.nodes,
     }
 }
 
@@ -934,16 +884,147 @@ fn run_js_worker(rx: mpsc::Receiver<JsWorkerMessage>) -> Result<()> {
     Ok(())
 }
 
+fn symbol_view(prism: &Prism, symbol: &Symbol<'_>) -> Result<SymbolView> {
+    let node = symbol.node();
+    Ok(SymbolView {
+        id: symbol.id().clone(),
+        name: symbol.name().to_owned(),
+        kind: node.kind,
+        signature: symbol.signature(),
+        file_path: prism
+            .graph()
+            .file_path(node.file)
+            .map(|path| path.to_string_lossy().into_owned()),
+        span: node.span,
+        language: node.language,
+        lineage_id: prism.lineage_of(symbol.id()),
+    })
+}
+
+fn symbol_for<'a>(prism: &'a Prism, id: &NodeId) -> Result<Symbol<'a>> {
+    let node = prism
+        .graph()
+        .node(id)
+        .ok_or_else(|| anyhow!("unknown symbol `{}`", id.path))?;
+    let matching = prism.search(&node.id.path, prism.graph().nodes.len().max(1), Some(node.kind), None);
+    matching
+        .into_iter()
+        .find(|symbol| symbol.id() == id)
+        .ok_or_else(|| anyhow!("symbol `{}` is no longer queryable", id.path))
+}
+
+fn relations_view(prism: &Prism, session: &SessionState, id: &NodeId) -> Result<RelationsView> {
+    let relations = symbol_for(prism, id)?.relations();
+    Ok(RelationsView {
+        outgoing_calls: merge_node_ids(
+            relations.outgoing_calls,
+            session
+                .inferred_edges
+                .edges_from(id, Some(EdgeKind::Calls))
+                .into_iter()
+                .map(|record| record.edge.target),
+        ),
+        incoming_calls: merge_node_ids(
+            relations.incoming_calls,
+            session
+                .inferred_edges
+                .edges_to(id, Some(EdgeKind::Calls))
+                .into_iter()
+                .map(|record| record.edge.source),
+        ),
+        outgoing_imports: merge_node_ids(
+            relations.outgoing_imports,
+            session
+                .inferred_edges
+                .edges_from(id, Some(EdgeKind::Imports))
+                .into_iter()
+                .map(|record| record.edge.target),
+        ),
+        incoming_imports: merge_node_ids(
+            relations.incoming_imports,
+            session
+                .inferred_edges
+                .edges_to(id, Some(EdgeKind::Imports))
+                .into_iter()
+                .map(|record| record.edge.source),
+        ),
+        outgoing_implements: merge_node_ids(
+            relations.outgoing_implements,
+            session
+                .inferred_edges
+                .edges_from(id, Some(EdgeKind::Implements))
+                .into_iter()
+                .map(|record| record.edge.target),
+        ),
+        incoming_implements: merge_node_ids(
+            relations.incoming_implements,
+            session
+                .inferred_edges
+                .edges_to(id, Some(EdgeKind::Implements))
+                .into_iter()
+                .map(|record| record.edge.source),
+        ),
+    })
+}
+
+fn lineage_view(prism: &Prism, id: &NodeId) -> Result<Option<LineageView>> {
+    let Some(lineage) = prism.lineage_of(id) else {
+        return Ok(None);
+    };
+    Ok(Some(LineageView {
+        events: prism.lineage_history(&lineage),
+        lineage,
+    }))
+}
+
+fn blast_radius_view(prism: &Prism, session: &SessionState, id: &NodeId) -> ChangeImpactView {
+    let mut impact = prism.blast_radius(id);
+    for record in session.inferred_edges.edges_from(id, None) {
+        impact.direct_nodes.push(record.edge.target);
+    }
+    for record in session.inferred_edges.edges_to(id, None) {
+        impact.direct_nodes.push(record.edge.source);
+    }
+    impact.direct_nodes = merge_node_ids(impact.direct_nodes, std::iter::empty());
+    change_impact_view(impact)
+}
+
+fn validation_recipe_view_with(
+    prism: &Prism,
+    session: &SessionState,
+    id: &NodeId,
+) -> ValidationRecipeView {
+    let mut recipe = prism.validation_recipe(id);
+    recipe.related_nodes = merge_node_ids(
+        recipe.related_nodes,
+        session
+            .inferred_edges
+            .edges_from(id, None)
+            .into_iter()
+            .map(|record| record.edge.target)
+            .chain(
+                session
+                    .inferred_edges
+                    .edges_to(id, None)
+                    .into_iter()
+                    .map(|record| record.edge.source),
+            ),
+    );
+    validation_recipe_view(recipe)
+}
+
 #[derive(Clone)]
 struct QueryExecution {
     host: QueryHost,
+    prism: Arc<Prism>,
     diagnostics: Arc<Mutex<Vec<QueryDiagnostic>>>,
 }
 
 impl QueryExecution {
-    fn new(host: QueryHost) -> Self {
+    fn new(host: QueryHost, prism: Arc<Prism>) -> Self {
         Self {
             host,
+            prism,
             diagnostics: Arc::new(Mutex::new(Vec::new())),
         }
     }
@@ -987,7 +1068,7 @@ impl QueryExecution {
             }
             "symbols" => {
                 let args: SymbolQueryArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.host.symbols(&args.query)?)?)
+                Ok(serde_json::to_value(self.symbols(&args.query)?)?)
             }
             "search" => {
                 let args: SearchArgs = serde_json::from_value(args)?;
@@ -996,13 +1077,15 @@ impl QueryExecution {
             "entrypoints" => Ok(serde_json::to_value(self.entrypoints()?)?),
             "full" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(
-                    self.host.symbol_for(&args.id)?.full(),
-                )?)
+                Ok(serde_json::to_value(symbol_for(self.prism.as_ref(), &args.id)?.full())?)
             }
             "relations" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.host.relations(&args.id)?)?)
+                Ok(serde_json::to_value(relations_view(
+                    self.prism.as_ref(),
+                    self.host.session.as_ref(),
+                    &args.id,
+                )?)?)
             }
             "callGraph" => {
                 let args: CallGraphArgs = serde_json::from_value(args)?;
@@ -1010,19 +1093,50 @@ impl QueryExecution {
             }
             "lineage" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.host.lineage(&args.id)?)?)
+                let lineage = lineage_view(self.prism.as_ref(), &args.id)?;
+                if lineage
+                    .as_ref()
+                    .is_some_and(|view| {
+                        view.events.iter().any(|event| {
+                            matches!(event.kind, prism_ir::LineageEventKind::Ambiguous)
+                        })
+                    })
+                {
+                    self.push_diagnostic(
+                        "lineage_uncertain",
+                        format!("Lineage for `{}` contains ambiguous history.", args.id.path),
+                        Some(json!({ "id": args.id.path })),
+                    );
+                }
+                Ok(serde_json::to_value(lineage)?)
             }
             "relatedFailures" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                self.host.related_failures_value(&args.id)
+                serde_json::to_value(self.prism.related_failures(&args.id)).map_err(Into::into)
+            }
+            "coChangeNeighbors" => {
+                let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                self.host.co_change_neighbors_value(&args.id)
             }
             "blastRadius" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.host.blast_radius(&args.id))?)
+                Ok(serde_json::to_value(blast_radius_view(
+                    self.prism.as_ref(),
+                    self.host.session.as_ref(),
+                    &args.id,
+                ))?)
+            }
+            "validationRecipe" => {
+                let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(validation_recipe_view_with(
+                    self.prism.as_ref(),
+                    self.host.session.as_ref(),
+                    &args.id,
+                ))?)
             }
             "resumeTask" => {
                 let args: TaskTargetArgs = serde_json::from_value(args)?;
-                self.host.resume_task_value(&args.task_id)
+                serde_json::to_value(self.prism.resume_task(&args.task_id)).map_err(Into::into)
             }
             "diagnostics" => Ok(serde_json::to_value(self.diagnostics())?),
             other => {
@@ -1037,7 +1151,7 @@ impl QueryExecution {
     }
 
     fn best_symbol(&self, query: &str) -> Result<Option<SymbolView>> {
-        let matches = self.host.symbols(query)?;
+        let matches = self.symbols(query)?;
         if matches.is_empty() {
             self.push_diagnostic(
                 "anchor_unresolved",
@@ -1082,7 +1196,6 @@ impl QueryExecution {
         }
 
         let mut results = self
-            .host
             .prism
             .search(
                 &args.query,
@@ -1091,7 +1204,7 @@ impl QueryExecution {
                 args.path.as_deref(),
             )
             .iter()
-            .map(|symbol| self.host.symbol_view(symbol))
+            .map(|symbol| symbol_view(self.prism.as_ref(), symbol))
             .collect::<Result<Vec<_>>>()?;
 
         if results.len() > applied {
@@ -1113,7 +1226,7 @@ impl QueryExecution {
     }
 
     fn entrypoints(&self) -> Result<Vec<SymbolView>> {
-        let mut results = self.host.entrypoints()?;
+        let mut results = self.symbols_from(self.prism.entrypoints())?;
         if results.len() > MAX_ENTRYPOINTS {
             results.truncate(MAX_ENTRYPOINTS);
             self.push_diagnostic(
@@ -1142,7 +1255,7 @@ impl QueryExecution {
                 })),
             );
         }
-        let mut graph = self.host.symbol_for(&args.id)?.call_graph(applied);
+        let mut graph = symbol_for(self.prism.as_ref(), &args.id)?.call_graph(applied);
         let mut queue = vec![(args.id.clone(), 0usize)];
         let mut seen = std::collections::HashSet::from([args.id.clone()]);
 
@@ -1176,6 +1289,20 @@ impl QueryExecution {
             left.kind == right.kind && left.source == right.source && left.target == right.target
         });
         Ok(graph)
+    }
+
+    fn symbols(&self, query: &str) -> Result<Vec<SymbolView>> {
+        self.symbols_from(self.prism.symbol(query))
+    }
+
+    fn symbols_from<'a, I>(&self, symbols: I) -> Result<Vec<SymbolView>>
+    where
+        I: IntoIterator<Item = Symbol<'a>>,
+    {
+        symbols
+            .into_iter()
+            .map(|symbol| symbol_view(self.prism.as_ref(), &symbol))
+            .collect()
     }
 }
 
@@ -1243,7 +1370,6 @@ fn convert_outcome_kind(kind: OutcomeKindInput) -> OutcomeKind {
         OutcomeKindInput::NoteAdded => OutcomeKind::NoteAdded,
         OutcomeKindInput::HypothesisProposed => OutcomeKind::HypothesisProposed,
         OutcomeKindInput::PlanCreated => OutcomeKind::PlanCreated,
-        OutcomeKindInput::PatchApplied => OutcomeKind::PatchApplied,
         OutcomeKindInput::BuildRan => OutcomeKind::BuildRan,
         OutcomeKindInput::TestRan => OutcomeKind::TestRan,
         OutcomeKindInput::ReviewFeedback => OutcomeKind::ReviewFeedback,
@@ -1336,6 +1462,15 @@ fn current_timestamp() -> u64 {
         .as_secs()
 }
 
+fn max_event_sequence(prism: &Prism) -> u64 {
+    prism.outcome_snapshot()
+        .events
+        .into_iter()
+        .filter_map(|event| event.meta.id.0.rsplit(':').next()?.parse::<u64>().ok())
+        .max()
+        .unwrap_or(0)
+}
+
 fn parse_node_kind(value: &str) -> Result<NodeKind> {
     let normalized = value.trim().to_ascii_lowercase();
     let kind = match normalized.as_str() {
@@ -1383,6 +1518,10 @@ fn transpile_typescript(source: &str) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use prism_core::index_workspace_session;
     use super::*;
     use prism_history::HistoryStore;
     use prism_ir::{
@@ -1403,6 +1542,22 @@ mod tests {
 
     fn host_with_prism(prism: Prism) -> QueryHost {
         QueryHost::new(prism)
+    }
+
+    fn temp_workspace() -> PathBuf {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("prism-mcp-test-{suffix}"));
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        fs::write(root.join("src/lib.rs"), "pub fn alpha() { beta(); }\npub fn beta() {}\n").unwrap();
+        root
     }
 
     fn demo_node() -> Node {
@@ -1595,6 +1750,171 @@ return {
     }
 
     #[test]
+    fn exposes_validation_recipe() {
+        let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+
+        let mut graph = Graph::new();
+        graph.add_node(Node {
+            id: alpha.clone(),
+            name: "alpha".into(),
+            kind: NodeKind::Function,
+            file: FileId(1),
+            span: Span::line(1),
+            language: Language::Rust,
+        });
+
+        let mut history = HistoryStore::new();
+        history.seed_nodes([alpha.clone()]);
+
+        let outcomes = OutcomeMemory::new();
+        outcomes
+            .store_event(OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new("outcome:9"),
+                    ts: 9,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:alpha")),
+                    causation: None,
+                },
+                anchors: vec![AnchorRef::Node(alpha.clone())],
+                kind: OutcomeKind::FailureObserved,
+                result: OutcomeResult::Failure,
+                summary: "alpha broke validation".into(),
+                evidence: vec![OutcomeEvidence::Test {
+                    name: "alpha_validation".into(),
+                    passed: false,
+                }],
+                metadata: Value::Null,
+            })
+            .expect("outcome event should store");
+
+        let host = host_with_prism(Prism::with_history_and_outcomes(graph, history, outcomes));
+        let result = host
+            .execute(
+                r#"
+const sym = prism.symbol("alpha");
+return sym ? prism.validationRecipe(sym) : null;
+"#,
+                QueryLanguage::Ts,
+            )
+            .expect("query should succeed");
+
+        assert_eq!(result.result["target"]["path"], "demo::alpha");
+        assert_eq!(
+            result.result["checks"][0],
+            Value::String("test:alpha_validation".to_string())
+        );
+        assert_eq!(
+            result.result["scored_checks"][0]["label"],
+            Value::String("test:alpha_validation".to_string())
+        );
+        assert_eq!(
+            result.result["recent_failures"][0]["summary"],
+            "alpha broke validation"
+        );
+    }
+
+    #[test]
+    fn exposes_co_change_neighbors() {
+        let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+        let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
+
+        let mut graph = Graph::new();
+        for (id, line) in [(&alpha, 1), (&beta, 2)] {
+            graph.add_node(Node {
+                id: id.clone(),
+                name: id.path.rsplit("::").next().unwrap().into(),
+                kind: NodeKind::Function,
+                file: FileId(1),
+                span: Span::line(line),
+                language: Language::Rust,
+            });
+        }
+
+        let mut history = HistoryStore::new();
+        history.seed_nodes([alpha.clone(), beta.clone()]);
+        history.apply(&prism_ir::ObservedChangeSet {
+            meta: EventMeta {
+                id: EventId::new("observed:1"),
+                ts: 1,
+                actor: EventActor::System,
+                correlation: None,
+                causation: None,
+            },
+            trigger: prism_ir::ChangeTrigger::ManualReindex,
+            files: vec![FileId(1)],
+            added: Vec::new(),
+            removed: Vec::new(),
+            updated: vec![
+                (
+                    prism_ir::ObservedNode {
+                        node: Node {
+                            id: alpha.clone(),
+                            name: "alpha".into(),
+                            kind: NodeKind::Function,
+                            file: FileId(1),
+                            span: Span::line(1),
+                            language: Language::Rust,
+                        },
+                        fingerprint: prism_ir::SymbolFingerprint::with_parts(1, Some(10), None, None),
+                    },
+                    prism_ir::ObservedNode {
+                        node: Node {
+                            id: alpha.clone(),
+                            name: "alpha".into(),
+                            kind: NodeKind::Function,
+                            file: FileId(1),
+                            span: Span::line(1),
+                            language: Language::Rust,
+                        },
+                        fingerprint: prism_ir::SymbolFingerprint::with_parts(1, Some(11), None, None),
+                    },
+                ),
+                (
+                    prism_ir::ObservedNode {
+                        node: Node {
+                            id: beta.clone(),
+                            name: "beta".into(),
+                            kind: NodeKind::Function,
+                            file: FileId(1),
+                            span: Span::line(2),
+                            language: Language::Rust,
+                        },
+                        fingerprint: prism_ir::SymbolFingerprint::with_parts(2, Some(20), None, None),
+                    },
+                    prism_ir::ObservedNode {
+                        node: Node {
+                            id: beta.clone(),
+                            name: "beta".into(),
+                            kind: NodeKind::Function,
+                            file: FileId(1),
+                            span: Span::line(2),
+                            language: Language::Rust,
+                        },
+                        fingerprint: prism_ir::SymbolFingerprint::with_parts(2, Some(21), None, None),
+                    },
+                ),
+            ],
+            edge_added: Vec::new(),
+            edge_removed: Vec::new(),
+        });
+
+        let host = host_with_prism(Prism::with_history(graph, history));
+        let result = host
+            .execute(
+                r#"
+const sym = prism.symbol("alpha");
+return sym ? prism.coChangeNeighbors(sym) : [];
+"#,
+                QueryLanguage::Ts,
+            )
+            .expect("query should succeed");
+
+        assert_eq!(result.result[0]["count"], 1);
+        assert_eq!(result.result[0]["nodes"][0]["path"], "demo::beta");
+    }
+
+    #[test]
     fn inferred_edge_overlay_affects_relations_queries() {
         let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
         let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
@@ -1648,5 +1968,93 @@ return sym?.relations().outgoing_calls.map((node) => node.path) ?? [];
             .expect("query should succeed");
 
         assert_eq!(result.result[0], "demo::beta");
+    }
+
+    #[test]
+    fn persisted_inferred_edges_reload_with_workspace_session() {
+        let root = temp_workspace();
+        let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+        host.store_inferred_edge(PrismInferEdgeArgs {
+            source: NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::alpha".to_string(),
+                kind: "function".to_string(),
+            },
+            target: NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::beta".to_string(),
+                kind: "function".to_string(),
+            },
+            kind: "calls".to_string(),
+            confidence: 0.95,
+            scope: Some(InferredEdgeScopeInput::Persisted),
+            evidence: Some(vec!["persisted inference".to_string()]),
+            task_id: Some("task:persist".to_string()),
+        })
+        .expect("inferred edge should persist");
+
+        let reloaded = QueryHost::with_session(index_workspace_session(&root).unwrap());
+        let result = reloaded
+            .execute(
+                r#"
+const sym = prism.symbol("alpha");
+return sym?.relations().outgoing_calls.map((node) => node.path) ?? [];
+"#,
+                QueryLanguage::Ts,
+            )
+            .expect("query should succeed");
+
+        assert!(result
+            .result
+            .as_array()
+            .unwrap_or(&Vec::new())
+            .iter()
+            .any(|value| value == "demo::beta"));
+    }
+
+    #[test]
+    fn auto_refreshes_workspace_and_records_patch_events() {
+        let root = temp_workspace();
+        let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn alpha() { gamma(); }\npub fn gamma() {}\n",
+        )
+        .unwrap();
+
+        let result = host
+            .execute(
+                r#"
+const sym = prism.symbol("gamma");
+return { path: sym?.id.path, callers: prism.symbol("alpha")?.relations().outgoing_calls.map((node) => node.path) ?? [] };
+"#,
+                QueryLanguage::Ts,
+            )
+            .expect("query should succeed after external edit");
+
+        assert_eq!(result.result["path"], "demo::gamma");
+        assert!(result.result["callers"]
+            .as_array()
+            .unwrap_or(&Vec::new())
+            .iter()
+            .any(|value| value == "demo::gamma"));
+
+        let patch_events = host
+            .current_prism()
+            .outcome_memory()
+            .outcomes_for(
+                &[AnchorRef::Node(NodeId::new(
+                    "demo",
+                    "demo::gamma",
+                    NodeKind::Function,
+                ))],
+                10,
+            )
+            .into_iter()
+            .filter(|event| event.kind == OutcomeKind::PatchApplied)
+            .collect::<Vec<_>>();
+        assert_eq!(patch_events.len(), 1);
     }
 }

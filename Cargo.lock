@@ -1161,6 +1161,7 @@ name = "prism-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "prism-agent",
  "prism-history",
  "prism-ir",
  "prism-lang-json",
@@ -1300,6 +1301,7 @@ dependencies = [
  "prism-ir",
  "prism-memory",
  "prism-store",
+ "serde",
  "serde_json",
 ]
 

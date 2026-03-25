@@ -141,7 +141,7 @@ pub struct OutcomeMemorySnapshot {
     pub events: Vec<OutcomeEvent>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EpisodicMemorySnapshot {
     pub entries: Vec<MemoryEntry>,
 }
@@ -1017,6 +1017,30 @@ mod tests {
         let id = memory.store(entry).unwrap();
 
         assert_eq!(id.0, "episodic:1");
+    }
+
+    #[test]
+    fn episodic_snapshot_round_trip_preserves_ids() {
+        let memory = EpisodicMemory::new();
+        let mut entry = MemoryEntry::new(MemoryKind::Episodic, "alpha needed a follow-up fix");
+        entry.anchors = vec![anchor_node("alpha")];
+        entry.created_at = 42;
+        let id = memory.store(entry).unwrap();
+
+        let restored = EpisodicMemory::from_snapshot(memory.snapshot());
+        let results = restored
+            .recall(&RecallQuery {
+                focus: vec![anchor_node("alpha")],
+                text: None,
+                limit: 10,
+                kinds: None,
+                since: None,
+            })
+            .unwrap();
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].id, id);
+        assert_eq!(results[0].entry.created_at, 42);
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use anyhow::{Context, Result};
@@ -8,7 +8,7 @@ use prism_parser::{
     NodeFingerprint, ParseInput, ParseResult, UnresolvedCall, UnresolvedImpl, UnresolvedImport,
 };
 use smol_str::SmolStr;
-use tree_sitter::{Node as TsNode, Parser, Point};
+use tree_sitter::{Node as TsNode, Parser};
 
 pub struct RustAdapter;
 
@@ -40,7 +40,7 @@ impl LanguageAdapter for RustAdapter {
             name: SmolStr::new(last_segment(&module_path).unwrap_or(input.crate_name)),
             kind: NodeKind::Module,
             file: input.file_id,
-            span: Span::whole_file(input.source.lines().count()),
+            span: Span::whole_file(input.source.len()),
             language: Language::Rust,
         };
         push_fingerprinted_node(
@@ -354,10 +354,10 @@ fn parse_impl(
 
     if let (Some(trait_name), Some(trait_path)) = (trait_name, trait_path) {
         result.unresolved_impls.push(UnresolvedImpl {
-            source: id,
-            name: SmolStr::new(trait_name.rsplit('_').next().unwrap_or(&trait_name)),
+            impl_node: id,
+            target: SmolStr::new(trait_path),
+            span: node_span(node),
             module_path: SmolStr::new(scope.module_path.clone()),
-            trait_path: SmolStr::new(trait_path),
         });
     }
 }
@@ -489,10 +489,11 @@ fn parse_function(
     let Some(body) = node.child_by_field_name("body") else {
         return;
     };
-    for call in extract_calls(body, source) {
+    for (call, span) in extract_calls(body, source) {
         result.unresolved_calls.push(UnresolvedCall {
-            source: id.clone(),
+            caller: id.clone(),
             name: SmolStr::new(call),
+            span,
             module_path: SmolStr::new(scope.module_path.clone()),
         });
     }
@@ -517,24 +518,24 @@ fn parse_use(
             .unwrap_or(&canonical)
             .to_owned();
         result.unresolved_imports.push(UnresolvedImport {
-            source: scope.parent_id.clone(),
-            name: SmolStr::new(name),
+            importer: scope.parent_id.clone(),
+            path: SmolStr::new(canonical),
+            span: node_span(argument),
             module_path: SmolStr::new(scope.module_path.clone()),
-            target_path: SmolStr::new(canonical),
         });
     }
 }
 
-fn extract_calls(node: TsNode<'_>, source: &[u8]) -> Vec<String> {
-    let mut calls = BTreeSet::new();
+fn extract_calls(node: TsNode<'_>, source: &[u8]) -> Vec<(String, Span)> {
+    let mut calls = BTreeMap::new();
     collect_calls(node, source, &mut calls);
     calls.into_iter().collect()
 }
 
-fn collect_calls(node: TsNode<'_>, source: &[u8], calls: &mut BTreeSet<String>) {
+fn collect_calls(node: TsNode<'_>, source: &[u8], calls: &mut BTreeMap<String, Span>) {
     if node.kind() == "call_expression" {
         if let Some(name) = extract_call_name(node, source) {
-            calls.insert(name);
+            calls.entry(name).or_insert_with(|| node_span(node));
         }
     }
 
@@ -574,15 +575,7 @@ fn node_text(node: TsNode<'_>, source: &[u8]) -> String {
 }
 
 fn node_span(node: TsNode<'_>) -> Span {
-    let Point {
-        row: start_row,
-        column: start_col,
-    } = node.start_position();
-    let Point {
-        row: end_row,
-        column: end_col,
-    } = node.end_position();
-    Span::new(start_row + 1, start_col + 1, end_row + 1, end_col + 1)
+    Span::new(node.start_byte(), node.end_byte())
 }
 
 fn push_contains_edge(result: &mut ParseResult, source: NodeId, target: NodeId) {

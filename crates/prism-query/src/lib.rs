@@ -1,4 +1,4 @@
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
@@ -12,6 +12,7 @@ use prism_memory::{
     OutcomeEvent, OutcomeEvidence, OutcomeMemory, OutcomeMemorySnapshot, TaskReplay,
 };
 use prism_store::Graph;
+use serde::{Deserialize, Serialize};
 
 pub struct Prism {
     graph: Arc<Graph>,
@@ -24,7 +25,33 @@ pub struct ChangeImpact {
     pub direct_nodes: Vec<NodeId>,
     pub lineages: Vec<LineageId>,
     pub likely_validations: Vec<String>,
+    pub validation_checks: Vec<ValidationCheck>,
+    pub co_change_neighbors: Vec<CoChange>,
     pub risk_events: Vec<OutcomeEvent>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct ValidationCheck {
+    pub label: String,
+    pub score: f32,
+    pub last_seen: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CoChange {
+    pub lineage: LineageId,
+    pub count: u32,
+    pub nodes: Vec<NodeId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ValidationRecipe {
+    pub target: NodeId,
+    pub checks: Vec<String>,
+    pub scored_checks: Vec<ValidationCheck>,
+    pub related_nodes: Vec<NodeId>,
+    pub co_change_neighbors: Vec<CoChange>,
+    pub recent_failures: Vec<OutcomeEvent>,
 }
 
 impl Prism {
@@ -89,64 +116,91 @@ impl Prism {
     }
 
     pub fn blast_radius(&self, node: &NodeId) -> ChangeImpact {
-        let mut direct_nodes = self
-            .graph
-            .edges_from(node, None)
-            .into_iter()
-            .map(|edge| edge.target.clone())
-            .chain(
-                self.graph
-                    .edges_to(node, None)
-                    .into_iter()
-                    .map(|edge| edge.source.clone()),
-            )
-            .collect::<Vec<_>>();
-        direct_nodes.sort_by(|left, right| {
-            left.crate_name
-                .cmp(&right.crate_name)
-                .then_with(|| left.path.cmp(&right.path))
-                .then_with(|| left.kind.to_string().cmp(&right.kind.to_string()))
-        });
-        direct_nodes.dedup();
-
+        let mut direct_nodes = self.graph_neighbors(node);
         let mut lineages = direct_nodes
             .iter()
             .filter_map(|neighbor| self.lineage_of(neighbor))
             .collect::<Vec<_>>();
+        let co_change_neighbors = self.co_change_neighbors(node, 8);
         if let Some(lineage) = self.lineage_of(node) {
             lineages.push(lineage);
         }
+        lineages.extend(
+            co_change_neighbors
+                .iter()
+                .map(|neighbor| neighbor.lineage.clone()),
+        );
         lineages.sort_by(|left, right| left.0.cmp(&right.0));
         lineages.dedup();
 
-        let risk_events = self.related_failures(node);
-        let likely_validations = self
-            .outcomes_for(&[AnchorRef::Node(node.clone())], 50)
-            .into_iter()
-            .flat_map(|event| {
-                event
-                    .evidence
-                    .into_iter()
-                    .filter_map(|evidence| match evidence {
-                        OutcomeEvidence::Test { name, .. } => Some(format!("test:{name}")),
-                        OutcomeEvidence::Build { target, .. } => Some(format!("build:{target}")),
-                        _ => None,
-                    })
-            })
-            .collect::<HashSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>();
+        direct_nodes.extend(
+            lineages
+                .iter()
+                .flat_map(|lineage| self.history.current_nodes_for_lineage(lineage)),
+        );
+        direct_nodes.retain(|candidate| candidate != node);
+        sort_node_ids(&mut direct_nodes);
+
+        let mut impact_anchors = vec![AnchorRef::Node(node.clone())];
+        impact_anchors.extend(direct_nodes.iter().cloned().map(AnchorRef::Node));
+        impact_anchors.extend(lineages.iter().cloned().map(AnchorRef::Lineage));
+        let impact_anchors = self.expand_anchors(&impact_anchors);
+
+        let risk_events = self.outcomes.related_failures(&impact_anchors, 20);
+        let validation_checks = infer_validation_checks(
+            self.outcomes.outcomes_for(&impact_anchors, 100),
+            &impact_anchors,
+            8,
+        );
+        let likely_validations = validation_checks
+            .iter()
+            .map(|check| check.label.clone())
+            .collect();
 
         ChangeImpact {
             direct_nodes,
             lineages,
             likely_validations,
+            validation_checks,
+            co_change_neighbors,
             risk_events,
         }
     }
 
     pub fn resume_task(&self, task: &TaskId) -> TaskReplay {
         self.outcomes.resume_task(task)
+    }
+
+    pub fn co_change_neighbors(&self, node: &NodeId, limit: usize) -> Vec<CoChange> {
+        let Some(lineage) = self.lineage_of(node) else {
+            return Vec::new();
+        };
+
+        self.history
+            .co_change_neighbors(&lineage, limit)
+            .into_iter()
+            .map(|neighbor| {
+                let mut nodes = self.history.current_nodes_for_lineage(&neighbor.lineage);
+                sort_node_ids(&mut nodes);
+                CoChange {
+                    lineage: neighbor.lineage,
+                    count: neighbor.count,
+                    nodes,
+                }
+            })
+            .collect()
+    }
+
+    pub fn validation_recipe(&self, node: &NodeId) -> ValidationRecipe {
+        let impact = self.blast_radius(node);
+        ValidationRecipe {
+            target: node.clone(),
+            checks: impact.likely_validations,
+            scored_checks: impact.validation_checks,
+            related_nodes: impact.direct_nodes,
+            co_change_neighbors: impact.co_change_neighbors,
+            recent_failures: impact.risk_events,
+        }
     }
 
     pub fn symbol(&self, query: &str) -> Vec<Symbol<'_>> {
@@ -286,6 +340,23 @@ impl Prism {
         expanded.dedup();
         expanded
     }
+
+    fn graph_neighbors(&self, node: &NodeId) -> Vec<NodeId> {
+        let mut neighbors = self
+            .graph
+            .edges_from(node, None)
+            .into_iter()
+            .map(|edge| edge.target.clone())
+            .chain(
+                self.graph
+                    .edges_to(node, None)
+                    .into_iter()
+                    .map(|edge| edge.source.clone()),
+            )
+            .collect::<Vec<_>>();
+        sort_node_ids(&mut neighbors);
+        neighbors
+    }
 }
 
 struct Match<'a> {
@@ -376,14 +447,9 @@ impl<'a> Symbol<'a> {
             return String::new();
         };
 
-        let start = node.span.start_line.saturating_sub(1) as usize;
-        let end = node.span.end_line.max(node.span.start_line) as usize;
-        source
-            .lines()
-            .skip(start)
-            .take(end.saturating_sub(start))
-            .collect::<Vec<_>>()
-            .join("\n")
+        let start = usize::min(node.span.start as usize, source.len());
+        let end = usize::min(node.span.end as usize, source.len());
+        source.get(start..end).unwrap_or_default().to_owned()
     }
 
     pub fn call_graph(&self, depth: usize) -> Subgraph {
@@ -391,12 +457,14 @@ impl<'a> Symbol<'a> {
         let mut nodes = Vec::new();
         let mut edges = Vec::<Edge>::new();
         let mut queue = VecDeque::from([(self.id.clone(), 0usize)]);
+        let mut max_depth_reached = None;
 
         while let Some((current, current_depth)) = queue.pop_front() {
             if !visited.insert(current.clone()) {
                 continue;
             }
             nodes.push(current.clone());
+            max_depth_reached = Some(max_depth_reached.map_or(current_depth, |max| max.max(current_depth)));
 
             if current_depth >= depth {
                 continue;
@@ -412,6 +480,8 @@ impl<'a> Symbol<'a> {
             root: self.id.clone(),
             nodes,
             edges,
+            truncated: false,
+            max_depth_reached,
         }
     }
 
@@ -504,6 +574,86 @@ fn is_test_node(node: &Node) -> bool {
     path.contains("::tests::") || path.ends_with("::tests")
 }
 
+fn sort_node_ids(nodes: &mut Vec<NodeId>) {
+    nodes.sort_by(|left, right| {
+        left.crate_name
+            .cmp(&right.crate_name)
+            .then_with(|| left.path.cmp(&right.path))
+            .then_with(|| left.kind.to_string().cmp(&right.kind.to_string()))
+    });
+    nodes.dedup();
+}
+
+fn infer_validation_checks(
+    events: Vec<OutcomeEvent>,
+    focus: &[AnchorRef],
+    limit: usize,
+) -> Vec<ValidationCheck> {
+    let focus = focus.iter().collect::<HashSet<_>>();
+    let mut scores = HashMap::<String, (f32, u64)>::new();
+
+    for event in events {
+        let overlap = event
+            .anchors
+            .iter()
+            .filter(|anchor| focus.contains(anchor))
+            .count()
+            .max(1) as f32;
+        let event_weight = match event.kind {
+            prism_memory::OutcomeKind::FailureObserved
+            | prism_memory::OutcomeKind::RegressionObserved => 2.5,
+            prism_memory::OutcomeKind::FixValidated => 2.0,
+            prism_memory::OutcomeKind::BuildRan | prism_memory::OutcomeKind::TestRan => 1.25,
+            _ => 1.0,
+        };
+        let result_weight = match event.result {
+            prism_memory::OutcomeResult::Failure => 2.0,
+            prism_memory::OutcomeResult::Success => 1.0,
+            prism_memory::OutcomeResult::Partial => 0.75,
+            prism_memory::OutcomeResult::Unknown => 0.5,
+        };
+        let score = overlap * event_weight * result_weight;
+
+        for label in validation_labels(&event.evidence) {
+            let entry = scores.entry(label).or_insert((0.0, 0));
+            entry.0 += score;
+            entry.1 = entry.1.max(event.meta.ts);
+        }
+    }
+
+    let mut checks = scores.into_iter().collect::<Vec<_>>();
+    checks.sort_by(|left, right| {
+        right
+            .1
+            .0
+            .total_cmp(&left.1 .0)
+            .then_with(|| right.1 .1.cmp(&left.1 .1))
+            .then_with(|| left.0.cmp(&right.0))
+    });
+    if limit > 0 {
+        checks.truncate(limit);
+    }
+    checks
+        .into_iter()
+        .map(|(label, (score, last_seen))| ValidationCheck {
+            label,
+            score,
+            last_seen,
+        })
+        .collect()
+}
+
+fn validation_labels(evidence: &[OutcomeEvidence]) -> Vec<String> {
+    evidence
+        .iter()
+        .filter_map(|evidence| match evidence {
+            OutcomeEvidence::Test { name, .. } => Some(format!("test:{name}")),
+            OutcomeEvidence::Build { target, .. } => Some(format!("build:{target}")),
+            _ => None,
+        })
+        .collect()
+}
+
 fn anchor_sort_key(left: &AnchorRef, right: &AnchorRef) -> std::cmp::Ordering {
     anchor_label(left).cmp(&anchor_label(right))
 }
@@ -521,8 +671,8 @@ fn anchor_label(anchor: &AnchorRef) -> String {
 mod tests {
     use prism_history::HistoryStore;
     use prism_ir::{
-        AnchorRef, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId, Language, Node, NodeId,
-        NodeKind, Span, TaskId,
+        AnchorRef, ChangeTrigger, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId,
+        Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, Span, TaskId,
     };
     use prism_memory::{OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeResult};
     use prism_store::Graph;
@@ -848,6 +998,193 @@ mod tests {
             .likely_validations
             .iter()
             .any(|validation| validation == "test:alpha_unit"));
+        assert!(impact
+            .validation_checks
+            .iter()
+            .any(|check| check.label == "test:alpha_unit" && check.score > 0.0));
+    }
+
+    #[test]
+    fn blast_radius_uses_co_change_history_and_neighbor_validations() {
+        let mut graph = Graph::new();
+        let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+        let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
+        graph.add_node(Node {
+            id: alpha.clone(),
+            name: "alpha".into(),
+            kind: NodeKind::Function,
+            file: FileId(1),
+            span: Span::line(1),
+            language: Language::Rust,
+        });
+        graph.add_node(Node {
+            id: beta.clone(),
+            name: "beta".into(),
+            kind: NodeKind::Function,
+            file: FileId(1),
+            span: Span::line(2),
+            language: Language::Rust,
+        });
+
+        let mut history = HistoryStore::new();
+        history.seed_nodes([alpha.clone(), beta.clone()]);
+        history.apply(&ObservedChangeSet {
+            meta: EventMeta {
+                id: EventId::new("observed:cochange"),
+                ts: 10,
+                actor: EventActor::System,
+                correlation: None,
+                causation: None,
+            },
+            trigger: ChangeTrigger::ManualReindex,
+            files: vec![FileId(1)],
+            added: Vec::new(),
+            removed: Vec::new(),
+            updated: vec![
+                (
+                    ObservedNode {
+                        node: Node {
+                            id: alpha.clone(),
+                            name: "alpha".into(),
+                            kind: NodeKind::Function,
+                            file: FileId(1),
+                            span: Span::line(1),
+                            language: Language::Rust,
+                        },
+                        fingerprint: prism_ir::SymbolFingerprint::with_parts(10, Some(20), None, None),
+                    },
+                    ObservedNode {
+                        node: Node {
+                            id: alpha.clone(),
+                            name: "alpha".into(),
+                            kind: NodeKind::Function,
+                            file: FileId(1),
+                            span: Span::line(1),
+                            language: Language::Rust,
+                        },
+                        fingerprint: prism_ir::SymbolFingerprint::with_parts(10, Some(21), None, None),
+                    },
+                ),
+                (
+                    ObservedNode {
+                        node: Node {
+                            id: beta.clone(),
+                            name: "beta".into(),
+                            kind: NodeKind::Function,
+                            file: FileId(1),
+                            span: Span::line(2),
+                            language: Language::Rust,
+                        },
+                        fingerprint: prism_ir::SymbolFingerprint::with_parts(11, Some(30), None, None),
+                    },
+                    ObservedNode {
+                        node: Node {
+                            id: beta.clone(),
+                            name: "beta".into(),
+                            kind: NodeKind::Function,
+                            file: FileId(1),
+                            span: Span::line(2),
+                            language: Language::Rust,
+                        },
+                        fingerprint: prism_ir::SymbolFingerprint::with_parts(11, Some(31), None, None),
+                    },
+                ),
+            ],
+            edge_added: Vec::new(),
+            edge_removed: Vec::new(),
+        });
+
+        let beta_lineage = history.lineage_of(&beta).unwrap();
+        let outcomes = OutcomeMemory::new();
+        outcomes
+            .store_event(OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new("outcome:cochange"),
+                    ts: 11,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:beta")),
+                    causation: None,
+                },
+                anchors: vec![AnchorRef::Lineage(beta_lineage)],
+                kind: OutcomeKind::FailureObserved,
+                result: OutcomeResult::Failure,
+                summary: "beta changes usually need the integration test".into(),
+                evidence: vec![OutcomeEvidence::Test {
+                    name: "beta_integration".into(),
+                    passed: false,
+                }],
+                metadata: serde_json::Value::Null,
+            })
+            .unwrap();
+
+        let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
+        let impact = prism.blast_radius(&alpha);
+
+        assert!(impact.direct_nodes.contains(&beta));
+        assert!(impact
+            .co_change_neighbors
+            .iter()
+            .any(|neighbor| neighbor.count == 1 && neighbor.nodes.contains(&beta)));
+        assert!(impact
+            .likely_validations
+            .iter()
+            .any(|validation| validation == "test:beta_integration"));
+        assert!(impact
+            .validation_checks
+            .iter()
+            .any(|check| check.label == "test:beta_integration" && check.score > 0.0));
+        assert!(impact
+            .risk_events
+            .iter()
+            .any(|event| event.summary.contains("integration test")));
+    }
+
+    #[test]
+    fn validation_recipe_reuses_blast_radius_signal() {
+        let mut graph = Graph::new();
+        let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+        graph.add_node(Node {
+            id: alpha.clone(),
+            name: "alpha".into(),
+            kind: NodeKind::Function,
+            file: FileId(1),
+            span: Span::line(1),
+            language: Language::Rust,
+        });
+
+        let mut history = HistoryStore::new();
+        history.seed_nodes([alpha.clone()]);
+
+        let outcomes = OutcomeMemory::new();
+        outcomes
+            .store_event(OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new("outcome:5"),
+                    ts: 5,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:validate")),
+                    causation: None,
+                },
+                anchors: vec![AnchorRef::Node(alpha.clone())],
+                kind: OutcomeKind::FailureObserved,
+                result: OutcomeResult::Failure,
+                summary: "alpha broke an integration test".into(),
+                evidence: vec![OutcomeEvidence::Test {
+                    name: "alpha_integration".into(),
+                    passed: false,
+                }],
+                metadata: serde_json::Value::Null,
+            })
+            .unwrap();
+
+        let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
+        let recipe = prism.validation_recipe(&alpha);
+        assert_eq!(recipe.target, alpha);
+        assert_eq!(recipe.checks, vec!["test:alpha_integration"]);
+        assert_eq!(recipe.scored_checks.len(), 1);
+        assert_eq!(recipe.scored_checks[0].label, "test:alpha_integration");
+        assert_eq!(recipe.recent_failures.len(), 1);
+        assert_eq!(recipe.recent_failures[0].summary, "alpha broke an integration test");
     }
 
     #[test]

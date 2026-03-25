@@ -33,7 +33,7 @@ impl LanguageAdapter for MarkdownAdapter {
                 name: SmolStr::new(document_name(input)),
                 kind: NodeKind::Document,
                 file: input.file_id,
-                span: Span::whole_file(input.source.lines().count()),
+                span: Span::whole_file(input.source.len()),
                 language: Language::Markdown,
             },
             fingerprint_from_parts(["markdown", "document", document_shape.as_str()]),
@@ -66,7 +66,7 @@ impl LanguageAdapter for MarkdownAdapter {
                 name: SmolStr::new(title),
                 kind: NodeKind::MarkdownHeading,
                 file: input.file_id,
-                span: Span::line(index + 1),
+                span: line_span(input.source, index),
                 language: Language::Markdown,
             };
             let title_shape = normalized_shape_hash(title);
@@ -111,6 +111,18 @@ impl LanguageAdapter for MarkdownAdapter {
 
         Ok(result)
     }
+}
+
+fn line_span(source: &str, line_index: usize) -> Span {
+    let mut start = 0usize;
+    for (index, line) in source.split_inclusive('\n').enumerate() {
+        let end = start + line.len();
+        if index == line_index {
+            return Span::new(start, end);
+        }
+        start = end;
+    }
+    Span::new(source.len(), source.len())
 }
 
 fn push_fingerprinted_node(result: &mut ParseResult, node: Node, fingerprint: NodeFingerprint) {

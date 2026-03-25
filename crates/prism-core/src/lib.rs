@@ -3,19 +3,21 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, RwLock};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
 use prism_history::HistoryStore;
 use prism_ir::{
-    Edge, EdgeKind, EdgeOrigin, GraphChange, Language, Node, NodeId, NodeKind, ObservedChangeSet,
-    Span,
+    AnchorRef, ChangeTrigger, Edge, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta,
+    GraphChange, Language, Node, NodeId, NodeKind, ObservedChangeSet, Span,
 };
 use prism_lang_json::JsonAdapter;
 use prism_lang_markdown::MarkdownAdapter;
 use prism_lang_rust::RustAdapter;
 use prism_lang_yaml::YamlAdapter;
-use prism_memory::{EpisodicMemorySnapshot, OutcomeMemory};
+use prism_memory::{EpisodicMemorySnapshot, OutcomeEvent, OutcomeKind, OutcomeMemory, OutcomeResult};
 use prism_parser::{
     LanguageAdapter, ParseInput, ParseResult, SymbolTarget, UnresolvedCall, UnresolvedImpl,
     UnresolvedImport,
@@ -34,37 +36,55 @@ pub fn index_workspace(root: impl AsRef<Path>) -> Result<Prism> {
 }
 
 pub fn index_workspace_session(root: impl AsRef<Path>) -> Result<WorkspaceSession> {
-    let mut indexer = WorkspaceIndexer::new(root)?;
+    let root = root.as_ref().canonicalize()?;
+    let mut indexer = WorkspaceIndexer::new(&root)?;
     indexer.index()?;
-    Ok(indexer.into_session())
+    Ok(indexer.into_session(root))
 }
 
 pub struct WorkspaceSession {
-    prism: Arc<Prism>,
+    root: PathBuf,
+    prism: RwLock<Arc<Prism>>,
     store: Mutex<SqliteStore>,
 }
 
 impl WorkspaceSession {
-    pub fn prism(&self) -> &Prism {
-        self.prism.as_ref()
+    pub fn prism(&self) -> Arc<Prism> {
+        self.prism_arc()
     }
 
     pub fn prism_arc(&self) -> Arc<Prism> {
-        Arc::clone(&self.prism)
+        self.prism
+            .read()
+            .expect("workspace prism lock poisoned")
+            .clone()
+    }
+
+    pub fn refresh_fs(&self) -> Result<Vec<ObservedChangeSet>> {
+        let mut indexer = WorkspaceIndexer::new(&self.root)?;
+        let observed = indexer.index_with_trigger(ChangeTrigger::FsWatch)?;
+        let next = Arc::new(indexer.into_prism());
+        *self
+            .prism
+            .write()
+            .expect("workspace prism lock poisoned") = next;
+        Ok(observed)
     }
 
     pub fn persist_outcomes(&self) -> Result<()> {
+        let prism = self.prism_arc();
         self.store
             .lock()
             .expect("workspace store lock poisoned")
-            .save_outcome_snapshot(&self.prism.outcome_snapshot())
+            .save_outcome_snapshot(&prism.outcome_snapshot())
     }
 
     pub fn persist_history(&self) -> Result<()> {
+        let prism = self.prism_arc();
         self.store
             .lock()
             .expect("workspace store lock poisoned")
-            .save_history_snapshot(&self.prism.history_snapshot())
+            .save_history_snapshot(&prism.history_snapshot())
     }
 
     pub fn load_episodic_snapshot(&self) -> Result<Option<EpisodicMemorySnapshot>> {
@@ -102,6 +122,7 @@ pub struct WorkspaceIndexer<S: Store> {
     graph: Graph,
     history: HistoryStore,
     outcomes: OutcomeMemory,
+    had_prior_snapshot: bool,
     adapters: Vec<Box<dyn LanguageAdapter>>,
     store: S,
 }
@@ -139,13 +160,14 @@ impl WorkspaceIndexer<SqliteStore> {
         Self::with_store(root, store)
     }
 
-    pub fn into_session(self) -> WorkspaceSession {
+    pub fn into_session(self, root: PathBuf) -> WorkspaceSession {
         WorkspaceSession {
-            prism: Arc::new(Prism::with_history_and_outcomes(
+            root,
+            prism: RwLock::new(Arc::new(Prism::with_history_and_outcomes(
                 self.graph,
                 self.history,
                 self.outcomes,
-            )),
+            ))),
             store: Mutex::new(self.store),
         }
     }
@@ -155,7 +177,9 @@ impl<S: Store> WorkspaceIndexer<S> {
     pub fn with_store(root: impl AsRef<Path>, mut store: S) -> Result<Self> {
         let root = root.as_ref().canonicalize()?;
         let layout = discover_layout(&root)?;
-        let mut graph = store.load_graph()?.unwrap_or_default();
+        let stored_graph = store.load_graph()?;
+        let had_prior_snapshot = stored_graph.is_some();
+        let mut graph = stored_graph.unwrap_or_default();
         sync_root_nodes(&mut graph, &layout);
         let mut history = store
             .load_history_snapshot()?
@@ -173,6 +197,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             graph,
             history,
             outcomes,
+            had_prior_snapshot,
             adapters: default_adapters(),
             store,
         })
@@ -184,16 +209,20 @@ impl<S: Store> WorkspaceIndexer<S> {
     }
 
     pub fn index_with_changes(&mut self) -> Result<Vec<GraphChange>> {
-        let (_, changes) = self.index_impl()?;
+        let (_, changes) = self.index_impl(ChangeTrigger::ManualReindex)?;
         Ok(changes)
     }
 
     pub fn index_with_observed_changes(&mut self) -> Result<Vec<ObservedChangeSet>> {
-        let (observed, _) = self.index_impl()?;
+        self.index_with_trigger(ChangeTrigger::ManualReindex)
+    }
+
+    pub fn index_with_trigger(&mut self, trigger: ChangeTrigger) -> Result<Vec<ObservedChangeSet>> {
+        let (observed, _) = self.index_impl(trigger)?;
         Ok(observed)
     }
 
-    fn index_impl(&mut self) -> Result<(Vec<ObservedChangeSet>, Vec<GraphChange>)> {
+    fn index_impl(&mut self, trigger: ChangeTrigger) -> Result<(Vec<ObservedChangeSet>, Vec<GraphChange>)> {
         let mut pending = Vec::<PendingFileParse>::new();
         let mut seen_files = HashSet::<PathBuf>::new();
         let mut observed_changes = Vec::<ObservedChangeSet>::new();
@@ -271,7 +300,9 @@ impl<S: Store> WorkspaceIndexer<S> {
                 pending_file.hash,
                 &package,
                 parsed,
+                trigger.clone(),
             );
+            self.record_patch_outcome(&update.observed);
             let lineage_events = self.history.apply(&update.observed);
             self.outcomes.apply_lineage(&lineage_events)?;
             observed_changes.push(update.observed.clone());
@@ -282,7 +313,10 @@ impl<S: Store> WorkspaceIndexer<S> {
 
         for tracked in self.graph.tracked_files() {
             if !seen_files.contains(&tracked) && !moved_paths.contains(&tracked) {
-                let update = self.graph.remove_file_with_update(&tracked);
+                let update = self
+                    .graph
+                    .remove_file_with_observed(&tracked, default_outcome_meta("observed"), trigger.clone());
+                self.record_patch_outcome(&update.observed);
                 let lineage_events = self.history.apply(&update.observed);
                 self.outcomes.apply_lineage(&lineage_events)?;
                 observed_changes.push(update.observed.clone());
@@ -298,6 +332,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             .seed_nodes(self.graph.all_nodes().map(|node| node.id.clone()));
         self.store.save_history_snapshot(&self.history.snapshot())?;
         self.store.save_outcome_snapshot(&self.outcomes.snapshot())?;
+        self.had_prior_snapshot = true;
         Ok((observed_changes, changes))
     }
 
@@ -316,6 +351,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         hash: u64,
         package: &PackageInfo,
         parsed: ParseResult,
+        trigger: ChangeTrigger,
     ) -> prism_store::FileUpdate {
         let previous_state = previous_path
             .or(Some(path))
@@ -346,7 +382,7 @@ impl<S: Store> WorkspaceIndexer<S> {
 
         let mut edges = parsed.edges;
         edges.extend(package_edges);
-        self.graph.upsert_file_from(
+        self.graph.upsert_file_from_with_observed(
             previous_path,
             path,
             hash,
@@ -357,6 +393,8 @@ impl<S: Store> WorkspaceIndexer<S> {
             parsed.unresolved_imports,
             parsed.unresolved_impls,
             &reanchors,
+            default_outcome_meta("observed"),
+            trigger,
         )
     }
 
@@ -370,6 +408,110 @@ impl<S: Store> WorkspaceIndexer<S> {
         resolve_imports(&mut self.graph, unresolved_imports);
         resolve_impls(&mut self.graph, unresolved_impls);
     }
+
+    fn record_patch_outcome(&self, observed: &ObservedChangeSet) {
+        if !self.had_prior_snapshot || observed_is_empty(observed) {
+            return;
+        }
+
+        let mut anchors = observed
+            .files
+            .iter()
+            .copied()
+            .filter(|file_id| file_id.0 != 0)
+            .map(AnchorRef::File)
+            .collect::<Vec<_>>();
+        anchors.extend(
+            observed
+                .added
+                .iter()
+                .map(|node| AnchorRef::Node(node.node.id.clone())),
+        );
+        anchors.extend(
+            observed
+                .removed
+                .iter()
+                .map(|node| AnchorRef::Node(node.node.id.clone())),
+        );
+        anchors.extend(observed.updated.iter().flat_map(|(before, after)| {
+            [
+                AnchorRef::Node(before.node.id.clone()),
+                AnchorRef::Node(after.node.id.clone()),
+            ]
+        }));
+
+        let _ = self.outcomes.store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: auto_outcome_event_id("outcome"),
+                ts: observed.meta.ts,
+                actor: EventActor::System,
+                correlation: observed.meta.correlation.clone(),
+                causation: Some(observed.meta.id.clone()),
+            },
+            anchors: dedupe_anchors(anchors),
+            kind: OutcomeKind::PatchApplied,
+            result: OutcomeResult::Success,
+            summary: patch_summary(observed),
+            evidence: Vec::new(),
+            metadata: serde_json::json!({
+                "trigger": format!("{:?}", observed.trigger),
+                "files": observed.files.iter().map(|file_id| file_id.0).collect::<Vec<_>>(),
+            }),
+        });
+    }
+}
+
+static NEXT_AUTO_OUTCOME_ID: AtomicU64 = AtomicU64::new(1);
+
+fn default_outcome_meta(prefix: &str) -> EventMeta {
+    let sequence = NEXT_AUTO_OUTCOME_ID.fetch_add(1, Ordering::Relaxed);
+    EventMeta {
+        id: EventId::new(format!("{prefix}:{sequence}")),
+        ts: current_timestamp(),
+        actor: EventActor::System,
+        correlation: None,
+        causation: None,
+    }
+}
+
+fn auto_outcome_event_id(prefix: &str) -> EventId {
+    let sequence = NEXT_AUTO_OUTCOME_ID.fetch_add(1, Ordering::Relaxed);
+    EventId::new(format!("{prefix}:{sequence}"))
+}
+
+fn observed_is_empty(observed: &ObservedChangeSet) -> bool {
+    observed.added.is_empty()
+        && observed.removed.is_empty()
+        && observed.updated.is_empty()
+        && observed.edge_added.is_empty()
+        && observed.edge_removed.is_empty()
+}
+
+fn patch_summary(observed: &ObservedChangeSet) -> String {
+    format!(
+        "observed file change: {} added, {} removed, {} updated symbols",
+        observed.added.len(),
+        observed.removed.len(),
+        observed.updated.len(),
+    )
+}
+
+fn dedupe_anchors(anchors: Vec<AnchorRef>) -> Vec<AnchorRef> {
+    let mut seen = HashSet::new();
+    let mut deduped = Vec::new();
+    for anchor in anchors {
+        if seen.insert(anchor.clone()) {
+            deduped.push(anchor);
+        }
+    }
+    deduped
+}
+
+fn current_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock should be after unix epoch")
+        .as_secs()
 }
 
 fn detect_moved_files(
@@ -866,12 +1008,16 @@ fn should_walk(path: &Path, root: &Path) -> bool {
 mod tests {
     use std::fs;
     use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use prism_ir::{EdgeKind, GraphChange, NodeId, NodeKind};
+    use prism_ir::{AnchorRef, EdgeKind, GraphChange, NodeId, NodeKind};
+    use prism_memory::OutcomeKind;
     use prism_store::MemoryStore;
 
     use super::WorkspaceIndexer;
+
+    static NEXT_TEMP_WORKSPACE: AtomicU64 = AtomicU64::new(0);
 
     #[test]
     fn reindexes_incrementally_across_file_changes() {
@@ -890,6 +1036,7 @@ mod tests {
 
         let mut indexer = WorkspaceIndexer::with_store(&root, MemoryStore::default()).unwrap();
         indexer.index().unwrap();
+        assert!(indexer.outcomes.snapshot().events.is_empty());
 
         let initial_calls = indexer
             .graph()
@@ -905,6 +1052,21 @@ mod tests {
         )
         .unwrap();
         indexer.index().unwrap();
+
+        let patch_events = indexer
+            .outcomes
+            .outcomes_for(
+                &[AnchorRef::Node(NodeId::new(
+                    "demo",
+                    "demo::gamma",
+                    NodeKind::Function,
+                ))],
+                10,
+            )
+            .into_iter()
+            .filter(|event| event.kind == OutcomeKind::PatchApplied)
+            .collect::<Vec<_>>();
+        assert_eq!(patch_events.len(), 1);
 
         assert!(indexer
             .graph()
@@ -923,6 +1085,15 @@ mod tests {
 
         fs::remove_file(root.join("src/lib.rs")).unwrap();
         indexer.index().unwrap();
+
+        let removal_patch_events = indexer
+            .outcomes
+            .snapshot()
+            .events
+            .into_iter()
+            .filter(|event| event.kind == OutcomeKind::PatchApplied)
+            .count();
+        assert_eq!(removal_patch_events, 2);
 
         assert!(indexer.graph().nodes_by_name("alpha").is_empty());
         assert!(indexer
@@ -1117,6 +1288,10 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        std::env::temp_dir().join(format!("prism-test-{}-{stamp}", std::process::id()))
+        let sequence = NEXT_TEMP_WORKSPACE.fetch_add(1, Ordering::Relaxed);
+        std::env::temp_dir().join(format!(
+            "prism-test-{}-{stamp}-{sequence}",
+            std::process::id()
+        ))
     }
 }

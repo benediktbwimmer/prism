@@ -28,6 +28,11 @@ enum Command {
     Lineage {
         name: String,
     },
+    CoChange {
+        name: String,
+        #[arg(long, default_value_t = 8)]
+        limit: usize,
+    },
     Search {
         query: String,
         #[arg(long, default_value_t = 20)]
@@ -46,6 +51,9 @@ enum Command {
         depth: usize,
     },
     Risk {
+        name: String,
+    },
+    ValidationRecipe {
         name: String,
     },
     TaskResume {
@@ -189,6 +197,26 @@ fn main() -> Result<()> {
                 print_relations(symbol);
             }
         }
+        Command::CoChange { name, limit } => {
+            let symbols = prism.symbol(&name);
+            if symbols.is_empty() {
+                eprintln!("no symbol matched `{name}`");
+            }
+            for symbol in symbols {
+                println!("{}", symbol.signature());
+                let neighbors = prism.co_change_neighbors(symbol.id(), limit);
+                if neighbors.is_empty() {
+                    println!("no co-change history");
+                    continue;
+                }
+                for neighbor in neighbors {
+                    println!("  {} ({} co-changes)", neighbor.lineage.0, neighbor.count);
+                    for node in neighbor.nodes {
+                        println!("    {}", node.path);
+                    }
+                }
+            }
+        }
         Command::CallGraph { name, depth } => {
             let symbols = prism.symbol(&name);
             if symbols.is_empty() {
@@ -223,9 +251,64 @@ fn main() -> Result<()> {
                         println!("  {validation}");
                     }
                 }
+                if !impact.validation_checks.is_empty() {
+                    println!("scored validations:");
+                    for check in impact.validation_checks {
+                        println!("  {} score={:.2} last_seen={}", check.label, check.score, check.last_seen);
+                    }
+                }
+                if !impact.co_change_neighbors.is_empty() {
+                    println!("co-change neighbors:");
+                    for neighbor in impact.co_change_neighbors {
+                        println!("  {} count={}", neighbor.lineage.0, neighbor.count);
+                        for node in neighbor.nodes {
+                            println!("    {}", node.path);
+                        }
+                    }
+                }
                 if !impact.risk_events.is_empty() {
                     println!("risk events:");
                     for event in impact.risk_events {
+                        println!("  [{}] {}", event.meta.id.0, event.summary);
+                    }
+                }
+            }
+        }
+        Command::ValidationRecipe { name } => {
+            let symbols = prism.symbol(&name);
+            if symbols.is_empty() {
+                eprintln!("no symbol matched `{name}`");
+            }
+            for symbol in symbols {
+                let recipe = prism.validation_recipe(symbol.id());
+                println!("{}", symbol.signature());
+                if !recipe.checks.is_empty() {
+                    println!("checks:");
+                    for check in &recipe.checks {
+                        println!("  {check}");
+                    }
+                }
+                if !recipe.scored_checks.is_empty() {
+                    println!("scored checks:");
+                    for check in recipe.scored_checks {
+                        println!("  {} score={:.2} last_seen={}", check.label, check.score, check.last_seen);
+                    }
+                }
+                if !recipe.co_change_neighbors.is_empty() {
+                    println!("co-change neighbors:");
+                    for neighbor in recipe.co_change_neighbors {
+                        println!("  {} count={}", neighbor.lineage.0, neighbor.count);
+                        for node in neighbor.nodes {
+                            println!("    {}", node.path);
+                        }
+                    }
+                }
+                if !recipe.related_nodes.is_empty() {
+                    print_relation_section("related nodes", &recipe.related_nodes);
+                }
+                if !recipe.recent_failures.is_empty() {
+                    println!("recent failures:");
+                    for event in recipe.recent_failures {
                         println!("  [{}] {}", event.meta.id.0, event.summary);
                     }
                 }
@@ -264,7 +347,7 @@ fn main() -> Result<()> {
                     evidence: Vec::new(),
                     metadata: serde_json::Value::Null,
                 };
-                let outcome_id = record_outcome_event(&session, prism, event)?;
+                let outcome_id = record_outcome_event(&session, prism.as_ref(), event)?;
                 println!("recorded task start {}", outcome_id.0);
             }
             TaskCommand::Note {
@@ -288,7 +371,7 @@ fn main() -> Result<()> {
                     evidence: Vec::new(),
                     metadata: serde_json::Value::Null,
                 };
-                let outcome_id = record_outcome_event(&session, prism, event)?;
+                let outcome_id = record_outcome_event(&session, prism.as_ref(), event)?;
                 println!("recorded task note {}", outcome_id.0);
             }
             TaskCommand::Patch {
@@ -321,7 +404,7 @@ fn main() -> Result<()> {
                     evidence: vec![OutcomeEvidence::DiffSummary { text: diff_summary }],
                     metadata: serde_json::Value::Null,
                 };
-                let outcome_id = record_outcome_event(&session, prism, event)?;
+                let outcome_id = record_outcome_event(&session, prism.as_ref(), event)?;
                 println!("recorded task patch {}", outcome_id.0);
             }
         },
@@ -364,7 +447,7 @@ fn main() -> Result<()> {
                     ),
                     metadata: serde_json::Value::Null,
                 };
-                let id = record_outcome_event(&session, prism, event)?;
+                let id = record_outcome_event(&session, prism.as_ref(), event)?;
                 println!("recorded outcome {}", id.0);
             }
             OutcomeCommand::Test {
@@ -379,7 +462,7 @@ fn main() -> Result<()> {
                     run_validation_command(command, label, summary, OutcomeKind::TestRan)?;
                 record_validation_outcome(
                     &session,
-                    prism,
+                    prism.as_ref(),
                     symbol,
                     task,
                     validation,
@@ -398,7 +481,7 @@ fn main() -> Result<()> {
                     run_validation_command(command, label, summary, OutcomeKind::BuildRan)?;
                 record_validation_outcome(
                     &session,
-                    prism,
+                    prism.as_ref(),
                     symbol,
                     task,
                     validation,

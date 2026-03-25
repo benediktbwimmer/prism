@@ -20,28 +20,33 @@ pub enum Language {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Span {
-    pub start_line: u32,
-    pub start_col: u32,
-    pub end_line: u32,
-    pub end_col: u32,
+    pub start: u32,
+    pub end: u32,
 }
 
 impl Span {
-    pub fn new(start_line: usize, start_col: usize, end_line: usize, end_col: usize) -> Self {
+    pub fn new(start: usize, end: usize) -> Self {
         Self {
-            start_line: start_line as u32,
-            start_col: start_col as u32,
-            end_line: end_line as u32,
-            end_col: end_col as u32,
+            start: start as u32,
+            end: end as u32,
         }
     }
 
     pub fn line(line: usize) -> Self {
-        Self::new(line, 1, line, 1)
+        let offset = line.saturating_sub(1);
+        Self::new(offset, offset)
     }
 
-    pub fn whole_file(line_count: usize) -> Self {
-        Self::new(1, 1, line_count.max(1), 1)
+    pub fn whole_file(byte_len: usize) -> Self {
+        Self::new(0, byte_len)
+    }
+
+    pub fn len(&self) -> u32 {
+        self.end.saturating_sub(self.start)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.start >= self.end
     }
 }
 
@@ -260,6 +265,30 @@ impl SymbolFingerprint {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UnresolvedCall {
+    pub caller: NodeId,
+    pub name: SmolStr,
+    pub span: Span,
+    pub module_path: SmolStr,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UnresolvedImport {
+    pub importer: NodeId,
+    pub path: SmolStr,
+    pub span: Span,
+    pub module_path: SmolStr,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UnresolvedImpl {
+    pub impl_node: NodeId,
+    pub target: SmolStr,
+    pub span: Span,
+    pub module_path: SmolStr,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ObservedNode {
     pub node: Node,
@@ -330,6 +359,8 @@ pub struct Subgraph {
     pub root: NodeId,
     pub nodes: Vec<NodeId>,
     pub edges: Vec<Edge>,
+    pub truncated: bool,
+    pub max_depth_reached: Option<usize>,
 }
 
 impl Default for NodeId {

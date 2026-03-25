@@ -38,7 +38,33 @@ pub struct ChangeImpactView {
     pub direct_nodes: Vec<NodeId>,
     pub lineages: Vec<LineageId>,
     pub likely_validations: Vec<String>,
+    pub validation_checks: Vec<ValidationCheckView>,
+    pub co_change_neighbors: Vec<CoChangeView>,
     pub risk_events: Vec<OutcomeEvent>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ValidationCheckView {
+    pub label: String,
+    pub score: f32,
+    pub last_seen: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CoChangeView {
+    pub lineage: LineageId,
+    pub count: u32,
+    pub nodes: Vec<NodeId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ValidationRecipeView {
+    pub target: NodeId,
+    pub checks: Vec<String>,
+    pub scored_checks: Vec<ValidationCheckView>,
+    pub related_nodes: Vec<NodeId>,
+    pub co_change_neighbors: Vec<CoChangeView>,
+    pub recent_failures: Vec<OutcomeEvent>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -108,8 +134,10 @@ type PrismApi = {
   search(query: string, options?: SearchOptions): SymbolView[];
   entrypoints(): SymbolView[];
   lineage(target: SymbolView | NodeId): LineageView | null;
+  coChangeNeighbors(target: SymbolView | NodeId): CoChangeView[];
   relatedFailures(target: SymbolView | NodeId): OutcomeEvent[];
   blastRadius(target: SymbolView | NodeId): ChangeImpactView | null;
+  validationRecipe(target: SymbolView | NodeId): ValidationRecipeView | null;
   resumeTask(taskId: string): TaskReplay;
   diagnostics(): QueryDiagnostic[];
 };
@@ -147,7 +175,30 @@ type ChangeImpactView = {
   direct_nodes: NodeId[];
   lineages: string[];
   likely_validations: string[];
+  validation_checks: ValidationCheckView[];
+  co_change_neighbors: CoChangeView[];
   risk_events: OutcomeEvent[];
+};
+
+type ValidationRecipeView = {
+  target: NodeId;
+  checks: string[];
+  scored_checks: ValidationCheckView[];
+  related_nodes: NodeId[];
+  co_change_neighbors: CoChangeView[];
+  recent_failures: OutcomeEvent[];
+};
+
+type ValidationCheckView = {
+  label: string;
+  score: number;
+  last_seen: number;
+};
+
+type CoChangeView = {
+  lineage: string;
+  count: number;
+  nodes: NodeId[];
 };
 
 type OutcomeEvent = {
@@ -167,7 +218,7 @@ type TaskReplay = {
 - Search results are capped.
 - Call graph depth is capped.
 - Results are deterministically ordered by Prism before they reach the JS layer.
-- The graph stays live in memory for the MCP session, but the JS runtime is recreated per query in this initial implementation.
+- The graph and JS runtime both stay warm for the MCP session.
 
 ## Recipes
 
@@ -289,10 +340,24 @@ const sym = prism.symbol("handle_request");
 return sym ? prism.relatedFailures(sym) : [];
 ```
 
+### 13. Ask for explicit co-change neighbors
+
+```ts
+const sym = prism.symbol("handle_request");
+return sym ? prism.coChangeNeighbors(sym) : [];
+```
+
+### 14. Ask for a validation recipe instead of rebuilding one in the snippet
+
+```ts
+const sym = prism.symbol("handle_request");
+return sym ? prism.validationRecipe(sym) : null;
+```
+
 ## Current implementation surface
 
 - Available now: symbol lookup, search, entrypoints, relations, call graphs, source extraction, lineage history, related failures, blast radius, and task replay by id.
-- Not exposed yet: memory recall and validation recipes.
+- Not exposed yet: memory recall.
 - Keep query logic small. If you find yourself reconstructing semantics from raw low-level fields every time, that method probably belongs in Prism itself.
 
 ## Separate mutation tools
@@ -302,10 +367,11 @@ The query runtime is read-only. State changes happen through separate MCP tools:
 - `prism_outcome`
 - `prism_note`
 - `prism_infer_edge`
-- `prism_patch_applied`
 - `prism_test_ran`
 - `prism_failure_observed`
 - `prism_fix_validated`
+
+Patch observation is automatic. PRISM records file changes from `ObservedChangeSet` without requiring an explicit MCP call.
 "#
 }
 
@@ -395,6 +461,13 @@ globalThis.prism = Object.freeze({
     }
     return __prismHost("lineage", { id });
   },
+  coChangeNeighbors(target) {
+    const id = __prismNormalizeTarget(target);
+    if (id == null) {
+      return [];
+    }
+    return __prismHost("coChangeNeighbors", { id });
+  },
   relatedFailures(target) {
     const id = __prismNormalizeTarget(target);
     if (id == null) {
@@ -408,6 +481,13 @@ globalThis.prism = Object.freeze({
       return null;
     }
     return __prismHost("blastRadius", { id });
+  },
+  validationRecipe(target) {
+    const id = __prismNormalizeTarget(target);
+    if (id == null) {
+      return null;
+    }
+    return __prismHost("validationRecipe", { id });
   },
   resumeTask(taskId) {
     return __prismHost("resumeTask", { task_id: taskId });
@@ -433,6 +513,8 @@ mod tests {
         assert!(
             docs.contains("### 12. Pull prior failures without reconstructing anchors manually")
         );
+        assert!(docs.contains("coChangeNeighbors"));
+        assert!(docs.contains("validationRecipe"));
     }
 
     #[test]

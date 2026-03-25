@@ -1655,7 +1655,10 @@ fn from_sql_conversion_error(message: String) -> rusqlite::Error {
 mod tests {
     use std::path::Path;
 
+    use prism_agent::{EdgeId, InferenceSnapshot, InferredEdgeRecord, InferredEdgeScope};
+    use prism_history::HistorySnapshot;
     use prism_ir::{GraphChange, Span};
+    use prism_memory::{EpisodicMemorySnapshot, MemoryEntry, MemoryId, MemoryKind, MemorySource};
 
     use super::*;
 
@@ -1758,5 +1761,56 @@ mod tests {
         assert_eq!(update.observed.removed.len(), 2);
         assert!(update.observed.added.is_empty());
         assert!(update.observed.updated.is_empty());
+    }
+
+    #[test]
+    fn memory_store_round_trips_auxiliary_snapshots() {
+        let mut store = MemoryStore::default();
+        let history = HistorySnapshot {
+            node_to_lineage: Vec::new(),
+            events: Vec::new(),
+            co_change_counts: Vec::new(),
+            next_lineage: 0,
+            next_event: 0,
+        };
+        let episodic = EpisodicMemorySnapshot {
+            entries: vec![MemoryEntry {
+                id: MemoryId("episodic:7".to_string()),
+                anchors: Vec::new(),
+                kind: MemoryKind::Episodic,
+                content: "remember alpha".to_string(),
+                metadata: serde_json::Value::Null,
+                created_at: 7,
+                source: MemorySource::Agent,
+                trust: 0.7,
+            }],
+        };
+        let inference = InferenceSnapshot {
+            records: vec![InferredEdgeRecord {
+                id: EdgeId("edge:5".to_string()),
+                edge: Edge {
+                    kind: EdgeKind::Calls,
+                    source: NodeId::new("demo", "demo::alpha", NodeKind::Function),
+                    target: NodeId::new("demo", "demo::beta", NodeKind::Function),
+                    origin: EdgeOrigin::Inferred,
+                    confidence: 0.8,
+                },
+                scope: InferredEdgeScope::Persisted,
+                task: None,
+                evidence: vec!["stored for reuse".to_string()],
+            }],
+        };
+
+        store.save_history_snapshot(&history).unwrap();
+        store.save_episodic_snapshot(&episodic).unwrap();
+        store.save_inference_snapshot(&inference).unwrap();
+
+        let loaded_history = store.load_history_snapshot().unwrap().unwrap();
+        assert!(loaded_history.node_to_lineage.is_empty());
+        assert!(loaded_history.events.is_empty());
+        assert_eq!(loaded_history.next_lineage, history.next_lineage);
+        assert_eq!(loaded_history.next_event, history.next_event);
+        assert_eq!(store.load_episodic_snapshot().unwrap(), Some(episodic));
+        assert_eq!(store.load_inference_snapshot().unwrap(), Some(inference));
     }
 }

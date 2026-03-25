@@ -6,7 +6,8 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use prism_ir::{Edge, EdgeKind, FileId, Language, Node, NodeId, SymbolFingerprint};
 use serde::{Deserialize, Serialize};
-use smol_str::SmolStr;
+
+pub use prism_ir::{UnresolvedCall, UnresolvedImpl, UnresolvedImport};
 
 #[derive(Debug, Clone)]
 pub struct ParseInput<'a> {
@@ -16,29 +17,6 @@ pub struct ParseInput<'a> {
     pub path: &'a Path,
     pub file_id: FileId,
     pub source: &'a str,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct UnresolvedCall {
-    pub source: NodeId,
-    pub name: SmolStr,
-    pub module_path: SmolStr,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct UnresolvedImport {
-    pub source: NodeId,
-    pub name: SmolStr,
-    pub module_path: SmolStr,
-    pub target_path: SmolStr,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct UnresolvedImpl {
-    pub source: NodeId,
-    pub name: SmolStr,
-    pub module_path: SmolStr,
-    pub trait_path: SmolStr,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
