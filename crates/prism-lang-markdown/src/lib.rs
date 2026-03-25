@@ -72,7 +72,12 @@ impl LanguageAdapter for MarkdownAdapter {
             let title_shape = normalized_shape_hash(title);
             result.record_fingerprint(
                 &id,
-                fingerprint_from_parts(["markdown", "heading", &level.to_string(), title_shape.as_str()]),
+                fingerprint_from_parts([
+                    "markdown",
+                    "heading",
+                    &level.to_string(),
+                    title_shape.as_str(),
+                ]),
             );
             result.nodes.push(node);
 

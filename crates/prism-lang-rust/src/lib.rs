@@ -336,7 +336,11 @@ fn parse_impl(
         fingerprint_from_parts([
             "rust",
             "impl",
-            if trait_path.is_some() { "trait" } else { "inherent" },
+            if trait_path.is_some() {
+                "trait"
+            } else {
+                "inherent"
+            },
             method_count.to_string().as_str(),
             normalized_shape_hash(&node_text(node, source)).as_str(),
         ]),

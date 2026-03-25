@@ -1352,6 +1352,7 @@ mod tests {
             2,
             vec![node("renamed_alpha")],
             Vec::new(),
+            HashMap::new(),
             Vec::new(),
             Vec::new(),
             Vec::new(),

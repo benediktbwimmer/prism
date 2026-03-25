@@ -126,10 +126,23 @@ impl Prism {
     fn matches_path_filter(&self, node: &Node, path_filter: &str) -> bool {
         self.graph
             .file_path(node.file)
-            .map(|path| path.to_string_lossy().to_ascii_lowercase().contains(path_filter))
+            .map(|path| {
+                path.to_string_lossy()
+                    .to_ascii_lowercase()
+                    .contains(path_filter)
+            })
             .unwrap_or(false)
-            || node.id.path.as_str().to_ascii_lowercase().contains(path_filter)
-            || node.name.as_str().to_ascii_lowercase().contains(path_filter)
+            || node
+                .id
+                .path
+                .as_str()
+                .to_ascii_lowercase()
+                .contains(path_filter)
+            || node
+                .name
+                .as_str()
+                .to_ascii_lowercase()
+                .contains(path_filter)
     }
 }
 

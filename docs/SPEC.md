@@ -1,14 +1,27 @@
 # PRISM — Rust Implementation Specification
 
-## 0. Philosophy Recap
+## 0. Philosophy
 
-PRISM is a **deterministic, local-first perception layer** with optional probabilistic augmentation.
+PRISM is a deterministic, local-first perception layer with optional probabilistic augmentation.
 
 Core invariants:
 
-* Base graph must be reproducible and fast
-* Agent augmentation must be additive, never authoritative
-* Memory is composable and anchored to the perception graph
+* Structure is authoritative
+* Time and memory are layered on top of structure, not baked into it
+* Agents are additive, never authoritative
+* Every durable attachment must be evidence-backed and anchorable
+
+The central design move is to separate:
+
+* current-snapshot identity
+* temporal identity across change
+* experiential memory about outcomes
+
+That means:
+
+* `NodeId` answers "what is this symbol in the current graph?"
+* `LineageId` answers "what is the same thing through time?"
+* memory and outcomes attach through `AnchorRef`, not raw file offsets or transient parser details
 
 ---
 
@@ -16,7 +29,7 @@ Core invariants:
 
 Workspace layout:
 
-```
+```text
 prism/
   Cargo.toml
   crates/
@@ -28,19 +41,24 @@ prism/
     prism-lang-json/
     prism-lang-yaml/
     prism-store/
+    prism-history/
     prism-query/
-    prism-cli/
-    prism-agent/
     prism-memory/
+    prism-agent/
+    prism-cli/
 ```
 
-### Dependency Direction
+`prism-history` is the new conceptual layer that turns raw observed graph change into deterministic temporal lineage. It may begin life inside `prism-store::history`, but the intended boundary is separate.
 
-```
+Dependency direction:
+
+```text
 prism-cli
-  → prism-query → prism-store → prism-ir
+  → prism-query
+      → prism-store → prism-ir
+      → prism-history → prism-ir
+      → prism-memory → prism-ir
   → prism-agent → prism-ir
-  → prism-memory → prism-ir
   → prism-parser → prism-ir
       → prism-lang-rust
       → prism-lang-markdown
@@ -48,64 +66,107 @@ prism-cli
       → prism-lang-yaml
 ```
 
-Critical rule: `prism-memory` depends on `prism-ir` (for `NodeId`, `NodeKind`) but does **not** depend on `prism-store`, `prism-query`, or `prism-parser`. Memory knows about node identities but nothing about how the graph is built, stored, or queried.
+Critical boundaries:
 
-Current crate roles:
-
-* `prism-core` is the orchestration layer: workspace discovery, package/member-crate identity, incremental indexing, and deferred edge resolution
-* `prism-store` owns persistence boundaries and backend implementations; the in-memory `Graph` is the runtime model, while SQLite is the durable cache in v1
-* `prism-query` is the read/query layer over an already-built graph, not the place where indexing or persistence rules live
+* `prism-store` owns persistence and raw observed change capture
+* `prism-history` owns lineage assignment and time-aware projection
+* `prism-memory` owns structured memory and outcomes, but not graph construction
+* `prism-query` is the join layer over graph, lineage, and memory
 
 ---
 
 # 2. Core IR (prism-ir)
 
-## 2.1 NodeId (CRITICAL)
+## 2.1 NodeId
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NodeId {
     pub crate_name: SmolStr,
-    pub path: SmolStr,      // canonical path: crate::module::symbol
+    pub path: SmolStr,
     pub kind: NodeKind,
 }
 ```
 
 Rules:
 
-* Must be stable across runs
-* Must survive file movement when possible
-* Never rely on byte offsets
-* `crate_name` is the owning package/crate namespace, derived from the Cargo package for Rust and reused for co-located docs/config artifacts
-* For non-Rust languages, `path` is still package-relative and semantic, not workspace-layout-derived
-* Identity is semantic: package/module/symbol path first, file location second
-* `impl` nodes must use a canonical path shape: `crate::module::Type::impl::Trait` or `crate::module::Type::impl`
+* `NodeId` identifies a node in the current snapshot
+* it must be semantic, not byte-offset-based
+* it must not encode temporal identity
+* rename, move, split, or reparenting may legitimately change `NodeId`
+* cross-time continuity is handled by `LineageId`, not by stretching `NodeId`
 
-When a node survives a rename, move, split, or reparenting, PRISM should prefer emitting a re-anchoring event over treating it as pure removal.
+Canonicalization rules:
 
-## 2.2 GraphChange
+* `crate_name` is the owning package or crate namespace
+* `path` is semantic and package-relative, not workspace-layout-derived
+* `impl` nodes use `crate::module::Type::impl::Trait` or `crate::module::Type::impl`
+
+## 2.2 Stable Cross-Time and Task Identity
 
 ```rust
-pub enum GraphChange {
-    Added(NodeId),
-    Removed(NodeId),
-    Modified(NodeId),
-    Reanchored { old: NodeId, new: NodeId },
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LineageId(pub smol_str::SmolStr);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct EventId(pub smol_str::SmolStr);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TaskId(pub smol_str::SmolStr);
+```
+
+Rules:
+
+* `LineageId` is stable across renames, moves, and other re-anchorable changes
+* `EventId` identifies a single observed or outcome event
+* `TaskId` groups related agent, user, build, review, and validation actions into one resumable story
+
+## 2.3 AnchorRef
+
+```rust
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum AnchorRef {
+    Node(NodeId),
+    Lineage(LineageId),
+    File(FileId),
+    Kind(NodeKind),
 }
 ```
 
-`GraphChange::Reanchored` is the critical contract for memory. Invalidating on every identity churn is acceptable for a toy graph, but not for attached recall that users expect to survive code motion.
+Rules:
 
-Implementation note:
+* `AnchorRef::Node` is the v1-compatible anchor for current graph entities
+* `AnchorRef::Lineage` is the preferred durable anchor for cross-time memory
+* `AnchorRef::File` is for file-scoped events, diagnostics, and coarse outcome attachment
+* `AnchorRef::Kind` supports broad structural or policy rules
 
-* Adapters may emit stable parse fingerprints as an internal re-anchoring aid
-* Fingerprints are not public identity and must never replace `NodeId`
-* Fingerprints should prefer syntax-local shape over file paths or byte offsets
-* They exist to answer "is this probably the same node after a rename or move?" when `NodeId` itself has changed
+## 2.4 Event Envelope
 
----
+```rust
+pub struct EventMeta {
+    pub id: EventId,
+    pub ts: Timestamp,
+    pub actor: EventActor,
+    pub correlation: Option<TaskId>,
+    pub causation: Option<EventId>,
+}
 
-## 2.3 Node
+pub enum EventActor {
+    User,
+    Agent,
+    System,
+    GitAuthor { name: String, email: Option<String> },
+    CI,
+}
+```
+
+Rules:
+
+* `correlation` groups the events of one task or incident
+* `causation` points to the event that immediately led to this event
+* event streams may differ in semantics, but they share the same envelope
+
+## 2.5 Node
 
 ```rust
 pub struct Node {
@@ -118,23 +179,19 @@ pub struct Node {
 }
 ```
 
----
-
-## 2.4 FileId
+## 2.6 FileId
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct FileId(pub u32); // Opaque file identity; v1 may be an arena/index-backed handle
+pub struct FileId(pub u32);
 ```
 
 Rules:
 
-* `FileId` is intentionally opaque outside the store/indexer boundary
-* Path-based identity belongs in `NodeId`, not in `FileId`
+* `FileId` is opaque outside the store and indexer boundary
+* path-based meaning belongs in `NodeId`, not in `FileId`
 
----
-
-## 2.5 NodeKind
+## 2.7 NodeKind
 
 ```rust
 pub enum NodeKind {
@@ -156,9 +213,7 @@ pub enum NodeKind {
 }
 ```
 
----
-
-## 2.6 Edge
+## 2.8 Edge
 
 ```rust
 pub struct Edge {
@@ -170,9 +225,7 @@ pub struct Edge {
 }
 ```
 
----
-
-## 2.7 EdgeKind
+## 2.9 EdgeKind
 
 ```rust
 pub enum EdgeKind {
@@ -182,21 +235,51 @@ pub enum EdgeKind {
     Implements,
     Defines,
     Imports,
-    // Future:
-    // DependsOn,  // crate/package-level
 }
 ```
 
----
-
-## 2.8 EdgeOrigin
+## 2.10 EdgeOrigin
 
 ```rust
 pub enum EdgeOrigin {
-    Static,      // parser-derived
-    Inferred,    // agent-derived
+    Static,
+    Inferred,
 }
 ```
+
+## 2.11 Skeleton
+
+```rust
+pub struct Skeleton {
+    pub calls: Vec<NodeId>,
+}
+```
+
+## 2.12 SymbolFingerprint
+
+```rust
+pub struct SymbolFingerprint {
+    pub signature_hash: u64,
+    pub body_hash: Option<u64>,
+    pub skeleton_hash: Option<u64>,
+    pub child_shape_hash: Option<u64>,
+}
+```
+
+Rules:
+
+* no byte offsets
+* no whitespace sensitivity
+* no path sensitivity
+* derived from normalized structure and content only
+* deterministic and language-adapter-produced
+
+For Rust:
+
+* `signature_hash` is name-stripped signature shape plus generics, params, and return type
+* `body_hash` is normalized body content when available
+* `skeleton_hash` is normalized call skeleton
+* `child_shape_hash` captures fields, variants, or method names when relevant
 
 ---
 
@@ -204,23 +287,23 @@ pub enum EdgeOrigin {
 
 ## 3.1 Requirements
 
-* Fast read-heavy access
-* Incremental updates
-* Low memory footprint
+* fast read-heavy access
+* incremental updates
+* low memory footprint
+* raw change capture without speculative historical interpretation
 
 ## 3.2 Approach
 
 Hybrid:
 
-* In-memory graph (primary)
-* Disk-backed cache (`sqlite` in v1)
+* in-memory graph for runtime traversal
+* disk-backed cache with SQLite in v1
 
-The storage abstraction should be narrow and persistence-focused:
+The store boundary stays narrow:
 
 * runtime graph traversal stays in `Graph`
-* persistence lives behind a `Store` boundary
-* `MemoryStore` is for tests/dev
-* `SqliteStore` is the default durable backend
+* persistence and update bookkeeping live in `Store`
+* lineage inference does not live here
 
 ## 3.3 Graph Representation
 
@@ -232,33 +315,70 @@ pub struct Graph {
 }
 ```
 
-Note: `EdgeIndex` is a `usize` into the `edges` vec. This is acceptable for v1 if updates rebuild adjacency, but if edge churn or partial mutation grows, migrate to a `SlotMap`/arena so stable edge handles do not depend on vec layout.
+`EdgeIndex` may remain a `usize` in v1 if adjacency rebuilds on update. If edge churn grows, move to a stable arena or slot-map-backed handle.
 
----
-
-## 3.4 Incremental Updates
-
-Track per-file:
+## 3.4 File Records
 
 ```rust
 pub struct FileRecord {
     pub file_id: FileId,
     pub hash: u64,
     pub nodes: Vec<NodeId>,
+    pub fingerprints: HashMap<NodeId, SymbolFingerprint>,
     pub unresolved_calls: Vec<UnresolvedCall>,
     pub unresolved_imports: Vec<UnresolvedImport>,
     pub unresolved_impls: Vec<UnresolvedImpl>,
 }
 ```
 
-On change:
+## 3.5 Observed Change Stream
 
-* remove old nodes/edges
-* reparse file
-* insert new nodes/edges
-* persist file-local unresolved refs
-* rebuild derived edges (`Calls`, `Imports`, `Implements`)
-* emit `GraphChange` events for add/remove/modify/re-anchor
+The store emits raw observed facts only. It does not decide whether something was a rename, move, split, or merge.
+
+```rust
+pub struct ObservedNode {
+    pub node: Node,
+    pub fingerprint: SymbolFingerprint,
+}
+
+pub struct ObservedChangeSet {
+    pub meta: EventMeta,
+    pub trigger: ChangeTrigger,
+    pub files: Vec<FileId>,
+    pub added: Vec<ObservedNode>,
+    pub removed: Vec<ObservedNode>,
+    pub updated: Vec<(ObservedNode, ObservedNode)>,
+    pub edge_added: Vec<Edge>,
+    pub edge_removed: Vec<Edge>,
+}
+
+pub enum ChangeTrigger {
+    ManualReindex,
+    FsWatch,
+    AgentEdit,
+    UserEdit,
+    GitCheckout,
+    GitCommitImport,
+}
+```
+
+Rules:
+
+* `ObservedChangeSet` is the canonical change stream for temporal projection
+* `updated` means "same current `NodeId`, content changed" and is not a rename claim
+* rename and move semantics are assigned later by `prism-history`
+
+If older code still expects `GraphChange`, derive it at the boundary from `ObservedChangeSet` as a compatibility convenience. It is not the canonical time model.
+
+## 3.6 Incremental Update Flow
+
+On file change:
+
+* remove prior file-local nodes and edges from the current graph
+* reparse the file
+* update unresolved references
+* rebuild derived edges such as `Calls`, `Imports`, and `Implements`
+* emit one `ObservedChangeSet`
 
 ---
 
@@ -266,9 +386,9 @@ On change:
 
 ## 4.1 Tree-sitter Integration
 
-* One parser per language
-* File-level incremental indexing in v1
-* Tree reuse/incremental tree-sitter edits are a future optimization, not a current guarantee
+* one parser per language
+* file-level incremental indexing in v1
+* tree reuse and tree-sitter incremental edit reuse are future optimizations
 
 ## 4.2 Trait Interface
 
@@ -291,113 +411,184 @@ pub struct ParseInput<'a> {
 }
 ```
 
----
-
 ## 4.3 ParseResult
 
 ```rust
 pub struct ParseResult {
     pub nodes: Vec<Node>,
     pub edges: Vec<Edge>,
+    pub fingerprints: HashMap<NodeId, SymbolFingerprint>,
     pub unresolved_calls: Vec<UnresolvedCall>,
     pub unresolved_imports: Vec<UnresolvedImport>,
     pub unresolved_impls: Vec<UnresolvedImpl>,
 }
 ```
 
----
+Rules:
 
-# 5. Rust Adapter (prism-lang-rust)
-
-## 5.1 Responsibilities
-
-* Extract symbols
-* Build containment hierarchy
-* Detect function calls (heuristic)
+* language adapters produce fingerprints, but do not assign lineage
+* unresolved reference capture stays file-local and deterministic
 
 ---
 
-## 5.2 Symbol Extraction
+# 5. Language Adapters
 
-From AST:
+## 5.1 Rust Adapter (prism-lang-rust)
 
-* function_item
-* struct_item
-* enum_item
-* trait_item
-* impl_item
+Responsibilities:
 
-Canonicalization rules:
+* extract symbols
+* build containment hierarchy
+* detect calls heuristically
+* emit stable fingerprints for lineage resolution
 
-* root module identity is derived from the owning package, not the workspace checkout path
+Symbol extraction:
+
+* `function_item`
+* `struct_item`
+* `enum_item`
+* `trait_item`
+* `impl_item`
+
+Canonicalization:
+
+* root module identity is derived from the owning package
 * inline modules extend the containing module path
 * `impl Foo for Bar` becomes `...::Bar::impl::Foo`
 * inherent impls become `...::Bar::impl`
 
----
+Call detection in v1:
 
-## 5.3 Call Detection (v1)
-
-Detect:
-
-* call_expression
-* method_call_expression
-
-Resolution strategy:
-
+* `call_expression`
+* `method_call_expression`
 * direct name match
 * scoped lookup within module
 
+Skeleton extraction:
+
+* collect top-level calls
+* ignore literal and control-flow noise
+
+Fingerprint extraction:
+
+* signature shape
+* normalized body
+* call skeleton
+* child shape for structs, enums, and container-like symbols
+
+## 5.2 Markdown Adapter
+
+* one `Document` node per file
+* headings become nodes
+* containment is `Package -> Document -> Heading -> Heading`
+
+## 5.3 JSON and YAML Adapters
+
+* one `Document` node per file
+* keys become nodes
+* containment is `Package -> Document -> Key -> Key`
+
+These adapters matter for intent grounding later, so docs and config should be treated as first-class perception inputs rather than blob text.
+
 ---
 
-## 5.4 Skeleton Extraction
+# 6. History Layer (prism-history)
 
-Defined in `prism-ir` so both language adapters and `prism-query` can reference it.
+## 6.1 Purpose
 
-Walk function body:
+`prism-history` consumes `ObservedChangeSet` and produces:
 
-* collect top-level call expressions
-* ignore literals/control flow noise
+* `NodeId -> LineageId` mappings for the current graph
+* append-only lineage events
+* deterministic explanations for re-anchoring decisions
 
-Output:
+This is the layer that makes PRISM temporal without overloading the graph identity model.
+
+## 6.2 Lineage Events
 
 ```rust
-pub struct Skeleton {
-    pub calls: Vec<NodeId>,
+pub enum LineageEventKind {
+    Born,
+    Updated,
+    Renamed,
+    Moved,
+    Reparented,
+    Split,
+    Merged,
+    Died,
+    Revived,
+    Ambiguous,
+}
+
+pub struct LineageEvent {
+    pub meta: EventMeta,
+    pub lineage: LineageId,
+    pub kind: LineageEventKind,
+    pub before: Vec<NodeId>,
+    pub after: Vec<NodeId>,
+    pub confidence: f32,
+    pub evidence: Vec<LineageEvidence>,
+}
+
+pub enum LineageEvidence {
+    ExactNodeId,
+    FingerprintMatch,
+    SignatureMatch,
+    BodyHashMatch,
+    SkeletonMatch,
+    SameContainerLineage,
+    GitRenameHint,
+    FileMoveHint,
 }
 ```
 
+Rules:
+
+* every re-anchoring decision must be explainable
+* ambiguous matches must remain ambiguous rather than being overcommitted
+* lineage events are deterministic projections over observed change, not agent guesses
+
+## 6.3 Resolver Strategy
+
+The resolver should be deterministic and staged:
+
+1. exact `NodeId` match
+2. same kind plus strong fingerprint match in the same container lineage
+3. same kind plus strong fingerprint match with git rename or file-move hints
+4. one removed node matching many added nodes yields a split candidate
+5. many removed nodes matching one added node yields a merge candidate
+6. multiple equally strong candidates emit `Ambiguous`
+
+Trust rule:
+
+* prefer a graceful "not sure" over a confident but wrong lineage claim
+
+## 6.4 Derived Projections
+
+Once lineage exists, `prism-history` can project:
+
+* co-change maps
+* hotspot indices
+* lineage-local change frequency
+* ambiguity hot zones
+
+Those projections are derived views, not primary storage.
+
 ---
 
-# 6. Markdown Adapter
+# 7. Query Layer (prism-query)
 
-* one `Document` node per file
-* headings → nodes
-* containment is `Package -> Document -> Heading -> Heading`
-
----
-
-# 7. JSON/YAML Adapters
-
-* one `Document` node per file
-* keys → nodes
-* containment is `Package -> Document -> Key -> Key`
-
----
-
-# 8. Query Engine (prism-query)
-
-## 8.1 Entry API
+## 7.1 Entry API
 
 ```rust
 pub struct Prism {
     graph: Arc<Graph>,
+    history: Arc<HistoryStore>,
+    memory: Arc<dyn MemoryModule>,
 }
 ```
 
----
-
-## 8.2 Symbol Handle
+## 7.2 Symbol Handle
 
 ```rust
 pub struct Symbol<'a> {
@@ -406,14 +597,25 @@ pub struct Symbol<'a> {
 }
 ```
 
----
-
-## 8.3 Core Methods
+## 7.3 Core Methods
 
 ```rust
 impl Prism {
-    pub fn symbol(&self, query: &str) -> Vec<Symbol<'_>>; // best-match / exact-biased resolution
-    pub fn search(&self, query: &str, limit: usize, kind: Option<NodeKind>, path: Option<&str>) -> Vec<Symbol<'_>>; // broader ranked lookup with optional filters
+    pub fn symbol(&self, query: &str) -> Vec<Symbol<'_>>;
+    pub fn search(
+        &self,
+        query: &str,
+        limit: usize,
+        kind: Option<NodeKind>,
+        path: Option<&str>,
+    ) -> Vec<Symbol<'_>>;
+
+    pub fn lineage_of(&self, node: &NodeId) -> Option<LineageId>;
+    pub fn lineage_history(&self, lineage: &LineageId) -> Vec<LineageEvent>;
+    pub fn outcomes_for(&self, anchors: &[AnchorRef], limit: usize) -> Vec<OutcomeEvent>;
+    pub fn related_failures(&self, node: &NodeId) -> Vec<OutcomeEvent>;
+    pub fn blast_radius(&self, node: &NodeId) -> ChangeImpact;
+    pub fn resume_task(&self, task: &TaskId) -> TaskReplay;
 }
 
 impl<'a> Symbol<'a> {
@@ -421,33 +623,55 @@ impl<'a> Symbol<'a> {
     pub fn signature(&self) -> String;
     pub fn skeleton(&self) -> Skeleton;
     pub fn full(&self) -> String;
-
     pub fn call_graph(&self, depth: usize) -> Subgraph;
 }
 ```
 
+High-value query behaviors:
+
+* "why is this risky?"
+* "what usually changes with this?"
+* "what failed here before?"
+* "what happened the last time we touched this?"
+
+## 7.4 ChangeImpact
+
+`ChangeImpact` should be a structured answer, not just a flat edge walk. It should be able to include:
+
+* directly affected nodes
+* historically co-changing neighbors
+* relevant lineages
+* likely validations
+* attached outcome risks
+* unresolved ambiguities
+
+## 7.5 TaskReplay
+
+`TaskReplay` reconstructs the correlated story for a `TaskId`:
+
+* plan or hypothesis
+* patch events
+* tests or builds run
+* failures or review feedback
+* fix validation or rollback
+
 ---
 
-# 9. Agent Layer (prism-agent)
+# 8. Agent Layer (prism-agent)
 
-## 9.1 Purpose
+## 8.1 Purpose
 
-* augment graph
-* resolve ambiguity
+* augment the graph
+* resolve ambiguity where allowed
+* produce evidence-backed actions and notes
 
----
-
-## 9.2 Interface
+## 8.2 Interface
 
 ```rust
 pub trait Agent {
     fn infer_edges(&self, context: AgentContext) -> Vec<Edge>;
 }
 ```
-
----
-
-## 9.3 AgentContext
 
 ```rust
 pub struct AgentContext {
@@ -457,68 +681,67 @@ pub struct AgentContext {
 }
 ```
 
+## 8.3 Output Contract
+
+* inferred edges must include confidence
+* static edges are never overwritten
+* agent-authored memory and outcome events should carry `TaskId` correlation when possible
+* recommendations and patches should be traceable back to graph, lineage, memory, or runtime evidence
+
 ---
 
-## 9.4 Output Contract
+# 9. Memory Layer (prism-memory)
 
-* must include confidence
-* must not overwrite static edges
+## 9.1 Purpose
 
----
+Memory is a composable layer over PRISM's world model. It is not part of the deterministic graph, but it must remain anchorable to graph entities and durable across code motion when possible.
 
-# 10. Memory Layer (prism-memory)
+The long-term anchor model is `AnchorRef`, not raw `NodeId`.
 
-## 10.1 Purpose
+## 9.2 Architecture
 
-Composable, pluggable memory system anchored to PRISM's perception graph via `NodeId`. Memory is **not** part of the deterministic graph — it is a separate layer that attaches to it.
-
-## 10.2 Architecture
-
-```
-┌─────────────────────────────────────────────────┐
-│                MemoryComposite                  │
-│  (merges + deduplicates results from modules)   │
-├─────────────┬──────────────┬────────────────────┤
-│  Episodic   │  Structural  │     Semantic       │
-│  (events)   │  (patterns)  │     (vectors)      │
-└─────────────┴──────────────┴────────────────────┘
-         │              │               │
-         └──────────────┴───────────────┘
-                        │
-                    anchored to
-                        │
-                    NodeId (prism-ir)
+```text
+┌──────────────────────────────────────────────────────┐
+│                   MemoryComposite                    │
+│    merges and deduplicates results from modules      │
+├────────────────┬─────────────────┬───────────────────┤
+│ OutcomeMemory  │ StructuralMemory│   SemanticMemory  │
+│  (events)      │   (patterns)    │   (vectors/text)  │
+└────────────────┴─────────────────┴───────────────────┘
+                         │
+                     anchored to
+                         │
+                     AnchorRef
 ```
 
-## 10.3 Core Trait
+## 9.3 Core Trait
 
 ```rust
-/// A single memory module that can store and retrieve memories anchored to nodes.
 pub trait MemoryModule: Send + Sync {
     fn name(&self) -> &'static str;
-
-    /// Store a memory, anchored to zero or more NodeIds.
     fn store(&self, entry: MemoryEntry) -> Result<MemoryId>;
-
-    /// Recall memories relevant to a query context.
     fn recall(&self, query: &RecallQuery) -> Result<Vec<ScoredMemory>>;
-
-    /// Apply graph changes so memories can re-anchor instead of being dropped.
-    fn apply_changes(&self, changes: &[GraphChange]) -> Result<()>;
+    fn apply_lineage(&self, events: &[LineageEvent]) -> Result<()>;
 }
 ```
 
-## 10.4 MemoryEntry
+Rules:
+
+* v1 modules may only use `AnchorRef::Node`
+* the trait still accepts `AnchorRef` so later re-anchoring does not require a breaking redesign
+
+## 9.4 MemoryEntry
 
 ```rust
 pub struct MemoryEntry {
-    pub anchors: Vec<NodeId>,
+    pub id: MemoryId,
+    pub anchors: Vec<AnchorRef>,
     pub kind: MemoryKind,
     pub content: String,
     pub metadata: serde_json::Value,
     pub created_at: Timestamp,
     pub source: MemorySource,
-    pub trust: f32, // normalized to [0.0, 1.0]
+    pub trust: f32,
 }
 
 pub enum MemoryKind {
@@ -538,171 +761,229 @@ Rules:
 
 * `MemoryId` is store-generated in v1
 * `source` is provenance, not ranking by itself
-* `trust` is explicit so recall can down-rank fuzzy or speculative memories
-* At equal score, composite recall should prefer higher-trust memories, then `User`, then `System`, then `Agent`
+* `trust` is explicit so fuzzy or speculative memory can be down-ranked
+* at equal score, prefer higher trust, then `User`, then `System`, then `Agent`
 
-## 10.5 RecallQuery
+## 9.5 RecallQuery
 
 ```rust
 pub struct RecallQuery {
-    /// Node context — what are we looking at right now?
-    pub focus: Vec<NodeId>,
-    /// Free-text query (for semantic search modules)
+    pub focus: Vec<AnchorRef>,
     pub text: Option<String>,
-    /// Maximum results
     pub limit: usize,
-    /// Optional memory kinds to include
     pub kinds: Option<Vec<MemoryKind>>,
-    /// Optional lower bound on memory creation time
     pub since: Option<Timestamp>,
 }
 ```
 
 Anchor semantics:
 
-* `anchors: Vec<NodeId>` is disjunctive in v1
-* recall matches when **any** focus node overlaps
-* larger overlap should score higher than a single weak overlap
-* multi-anchor entries stay useful for structural memory later without requiring an all-or-nothing match rule today
+* anchor matching is disjunctive in v1
+* larger overlap should score higher than weak overlap
+* `Node` and `Lineage` anchors may both participate in the same entry
 
-## 10.6 ScoredMemory
+## 9.6 ScoredMemory
 
 ```rust
 pub struct ScoredMemory {
     pub id: MemoryId,
     pub entry: MemoryEntry,
-    pub score: f32, // normalized module-local score after weighting
+    pub score: f32,
     pub source_module: String,
     pub explanation: Option<String>,
 }
 ```
 
-## 10.7 MemoryComposite
+## 9.7 MemoryComposite
 
 ```rust
 pub struct MemoryComposite {
-    modules: Vec<(Box<dyn MemoryModule>, f32)>, // module + weight
-}
-
-impl MemoryModule for MemoryComposite {
-    fn recall(&self, query: &RecallQuery) -> Result<Vec<ScoredMemory>> {
-        // query all modules in parallel
-        // require each module to return scores normalized to [0.0, 1.0]
-        // clamp + weight scores by module weight
-        // deduplicate by MemoryId
-        // sort by final score
-        // truncate to query.limit
-    }
+    modules: Vec<(Box<dyn MemoryModule>, f32)>,
 }
 ```
 
-Normalization rule:
+Normalization rules:
 
-* module scores are not assumed comparable by default
-* each module must normalize into `[0.0, 1.0]` before composite weighting
-* composite ranking is undefined if a module returns raw cosine similarity, recency decay, or heuristic confidence without normalization
+* each module returns scores normalized into `[0.0, 1.0]`
+* composite weighting clamps and reweights module-local scores
+* deduplication happens on `MemoryId`
 
-## 10.8 Memory Module Types
+## 9.8 Outcome Memory
 
-### Episodic Memory — "what happened here before"
+Outcome memory is the first specialized structured memory worth building. It records what happened when code was touched.
 
-* Stores discrete events anchored to `NodeId`s
-* Examples: "Function X changed in commit abc123", "Bug report mentioned null handling in method Y", "User noted that struct Z is performance sensitive"
-* Storage: append-only log, indexed by `NodeId`
-* Recall: exact or overlap-based anchor match on `focus` nodes, then recency/provenance tie-breaks
-* **v1 target — build this first**
-* Keep v1 extremely literal; do not infer new world facts from episodic memory
+```rust
+pub struct OutcomeEvent {
+    pub meta: EventMeta,
+    pub anchors: Vec<AnchorRef>,
+    pub kind: OutcomeKind,
+    pub result: OutcomeResult,
+    pub summary: String,
+    pub evidence: Vec<OutcomeEvidence>,
+    pub metadata: serde_json::Value,
+}
 
-### Structural Memory — "patterns about this code"
+pub enum OutcomeKind {
+    NoteAdded,
+    HypothesisProposed,
+    PlanCreated,
+    PatchApplied,
+    BuildRan,
+    TestRan,
+    ReviewFeedback,
+    FailureObserved,
+    RegressionObserved,
+    FixValidated,
+    RollbackPerformed,
+    MigrationRequired,
+    IncidentLinked,
+    PerfSignalObserved,
+}
 
-* Stores learned invariants and relationships
-* Examples: "this module must be updated with module X", "changes to this struct require migration"
-* Storage: rule-like entries anchored to `NodeId`s or `NodeKind`s
-* Recall: match on `focus` nodes + walk graph neighbors
-* **v2 — where outcome-based learning lives**
+pub enum OutcomeResult {
+    Success,
+    Failure,
+    Partial,
+    Unknown,
+}
 
-### Semantic Memory — "fuzzy recall by meaning"
+pub enum OutcomeEvidence {
+    Commit { sha: String },
+    Test { name: String, passed: bool },
+    Build { target: String, passed: bool },
+    Reviewer { author: String },
+    Issue { id: String },
+    StackTrace { hash: String },
+    DiffSummary { text: String },
+}
+```
 
-* Stores embedded text chunks (classic RAG)
-* Examples: documentation snippets, past conversations, design decisions
-* Storage: vector DB (e.g. `hnsw` in-process)
-* Recall: embed `text` query, nearest-neighbor search
-* **v2 — escape hatch for unstructured knowledge**
-* Must help retrieval, not redefine the authoritative world model
+Recommended v1.5 starter kinds:
 
-## 10.9 Integration with PRISM Graph
+* `NoteAdded`
+* `PatchApplied`
+* `TestRan`
+* `FailureObserved`
+* `FixValidated`
 
-PRISM does not depend on memory. Integration points:
+Index outcome events by:
 
-1. **NodeId as anchor** — all memories attach to stable node identities
-2. **Change events** — when nodes are added/removed/modified/re-anchored during incremental updates, the store emits `GraphChange` events that memory modules can subscribe to
-3. **Optional annotation slot** — `prism-store` may expose a `HashMap<NodeId, Vec<Annotation>>` for lightweight metadata attachment without requiring the full memory system
+* `AnchorRef`
+* `TaskId`
+* `OutcomeKind`
+* recency
+* result
+* actor
+
+## 9.9 Module Types
+
+### OutcomeMemory
+
+* append-only structured event log
+* indexed by anchor, task, kind, and recency
+* source of "what happened here before?"
+
+### StructuralMemory
+
+* stores rules, invariants, and policy-like knowledge
+* examples: "changes here require migration", "these modules evolve together"
+
+### SemanticMemory
+
+* stores embedded text for fuzzy recall
+* escape hatch for unstructured knowledge, not the authoritative model
+
+## 9.10 Integration Points
+
+PRISM does not depend on memory. Integration happens at the boundaries:
+
+1. graph entities expose `AnchorRef`
+2. store emits `ObservedChangeSet`
+3. history emits `LineageEvent`
+4. memory can re-anchor or enrich recall with both
+
+The highest-value join is:
+
+* current node
+* mapped lineage
+* prior outcomes
+
+That is how memories survive renames, moves, and restructures.
 
 ---
 
-# 11. CLI (prism-cli)
+# 10. CLI (prism-cli)
 
-## Commands
+Commands:
 
-```
+```text
 prism entrypoints
 prism symbol <name>
 prism search <query> [--limit 20] [--kind <kind>] [--path <fragment>]
 prism call-graph <name> --depth 3
+prism lineage <symbol>
+prism risk <symbol>
+prism task resume <task-id>
 prism memory recall <symbol> [--text "query"]
 prism memory store <symbol> --content "note"
 ```
 
 ---
 
-# 12. Git Integration (v1)
+# 11. Git Integration
 
-Shell out:
+Shelling out is acceptable in v1 for:
 
-* git blame
-* git log -L
+* `git blame`
+* `git log -L`
+* rename and move hints used as lineage evidence
 
-V1 note:
-
-* shelling out is acceptable for speed of implementation
-* `gix` is the preferred future direction once structured access or process overhead becomes a real constraint
+`gix` is the preferred future direction once structured access or process overhead becomes a real constraint.
 
 ---
 
-# 13. Performance Strategy
+# 12. Performance Strategy
 
-* arena allocation for nodes
-* string interning (smol_str)
+* arena-style allocation for graph-heavy structures where needed
+* string interning with `smol_str`
 * lazy file loading
+* append-only event storage for history and outcomes
+* derived projections built incrementally rather than recomputed from scratch when possible
 
 ---
 
-# 14. Future Hooks
+# 13. Future Hooks
 
-* rust-analyzer integration
-* persistent graph store
-* distributed indexing
+These are explicitly not v1 requirements, but the architecture should leave room for them:
+
+* intent graph over docs, specs, ADRs, tests, and symbols
+* runtime grounding via coverage, traces, logs, stack traces, and profiler samples
+* first-class uncertainty tracking
+* policy and invariant layers
+* drift detection between implementation and intent
 
 ---
 
-# 15. Build Order
+# 14. Build Order
 
-```
-1. prism-ir          → types, NodeId, NodeKind, Edge, Skeleton
-2. prism-parser      → LanguageAdapter trait + ParseResult
-3. prism-lang-rust   → first real adapter (tree-sitter-rust)
-4. prism-store       → Graph + incremental updates + change events
-5. prism-query       → Prism entry point + Symbol handle
-6. prism-cli         → wire it all up (vertical slice)
-7. prism-lang-{md,json,yaml} → additional adapters
-8. prism-memory      → MemoryModule trait + EpisodicMemory + Composite
-9. prism-agent       → augmentation layer
-```
+Recommended sequence:
+
+1. land `LineageId`, `EventId`, `TaskId`, and `AnchorRef` in `prism-ir`
+2. make `prism-store` emit `ObservedChangeSet`
+3. implement deterministic lineage resolution in `prism-history`
+4. add structured `OutcomeEvent` logging in `prism-memory`
+5. expose `lineage_of`, `related_failures`, `blast_radius`, and `resume_task` in `prism-query`
+6. add derived projections such as co-change, hotspot, validation recipes, and drift detection
 
 ---
 
 # Final Principle
 
-PRISM is not trying to understand everything.
+PRISM should remember code as a living thing, not just a static graph.
 
-It builds a **clean, partial map**, then lets intelligence fill in the gaps — and remembers what it learned.
+The system model is:
+
+* structure tells PRISM what exists now
+* history tells PRISM what persisted through change
+* outcome memory tells PRISM what happened when it changed
+* queries and agents turn that into evidence-backed action

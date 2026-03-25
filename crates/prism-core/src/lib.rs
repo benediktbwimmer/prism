@@ -105,7 +105,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             }
 
             let path = entry.path();
-            let Some(adapter) = self
+            let Some(_adapter) = self
                 .adapters
                 .iter()
                 .find(|adapter| adapter.supports_path(path))
@@ -128,9 +128,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         let moved_paths = detect_moved_files(&self.graph, &seen_files, &mut pending);
 
         for pending_file in pending {
-            if pending_file
-                .previous_path
-                .is_none()
+            if pending_file.previous_path.is_none()
                 && self
                     .graph
                     .file_record(&pending_file.path)
@@ -169,7 +167,8 @@ impl<S: Store> WorkspaceIndexer<S> {
                 &package,
                 parsed,
             ));
-            self.store.save_file_state(&pending_file.path, &self.graph)?;
+            self.store
+                .save_file_state(&pending_file.path, &self.graph)?;
         }
 
         for tracked in self.graph.tracked_files() {
@@ -313,7 +312,11 @@ fn infer_reanchors(previous: &FileState, parsed: &ParseResult) -> Vec<(NodeId, N
     let mut old_by_fingerprint = HashMap::<String, Vec<NodeId>>::new();
     let mut new_by_fingerprint = HashMap::<String, Vec<NodeId>>::new();
 
-    for node in previous.nodes.iter().filter(|node| parsed_nodes.contains_key(&node.id)) {
+    for node in previous
+        .nodes
+        .iter()
+        .filter(|node| parsed_nodes.contains_key(&node.id))
+    {
         matched_old.insert(node.id.clone());
         matched_new.insert(node.id.clone());
     }
@@ -750,7 +753,7 @@ mod tests {
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use prism_ir::{EdgeKind, GraphChange, NodeKind};
+    use prism_ir::{EdgeKind, GraphChange, NodeId, NodeKind};
     use prism_store::MemoryStore;
 
     use super::WorkspaceIndexer;
@@ -935,7 +938,11 @@ mod tests {
             "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
         )
         .unwrap();
-        fs::write(root.join("src/lib.rs"), "fn alpha() { helper(); }\nfn helper() {}\n").unwrap();
+        fs::write(
+            root.join("src/lib.rs"),
+            "fn alpha() { helper(); }\nfn helper() {}\n",
+        )
+        .unwrap();
 
         let mut indexer = WorkspaceIndexer::with_store(&root, MemoryStore::default()).unwrap();
         indexer.index().unwrap();
