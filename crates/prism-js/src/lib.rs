@@ -1,42 +1,92 @@
-use prism_ir::{Language, LineageEvent, LineageId, NodeId, NodeKind, Span};
+use prism_ir::{AnchorRef, EdgeKind, EdgeOrigin, Language, NodeKind, Span};
 use prism_memory::OutcomeEvent;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub const API_REFERENCE_URI: &str = "prism://api-reference";
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NodeIdView {
+    pub crate_name: String,
+    pub path: String,
+    pub kind: NodeKind,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SymbolView {
-    pub id: NodeId,
+    pub id: NodeIdView,
     pub name: String,
     pub kind: NodeKind,
     pub signature: String,
     pub file_path: Option<String>,
     pub span: Span,
     pub language: Language,
-    pub lineage_id: Option<LineageId>,
+    pub lineage_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RelationsView {
-    pub outgoing_calls: Vec<NodeId>,
-    pub incoming_calls: Vec<NodeId>,
-    pub outgoing_imports: Vec<NodeId>,
-    pub incoming_imports: Vec<NodeId>,
-    pub outgoing_implements: Vec<NodeId>,
-    pub incoming_implements: Vec<NodeId>,
+    pub contains: Vec<SymbolView>,
+    pub callers: Vec<SymbolView>,
+    pub callees: Vec<SymbolView>,
+    pub references: Vec<SymbolView>,
+    pub imports: Vec<SymbolView>,
+    pub implements: Vec<SymbolView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LineageView {
-    pub lineage: LineageId,
-    pub events: Vec<LineageEvent>,
+    pub lineage_id: String,
+    pub current: SymbolView,
+    pub status: LineageStatus,
+    pub history: Vec<LineageEventView>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LineageStatus {
+    Active,
+    Dead,
+    Ambiguous,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LineageEventView {
+    pub event_id: String,
+    pub ts: u64,
+    pub kind: String,
+    pub confidence: f32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EdgeView {
+    pub kind: EdgeKind,
+    pub source: NodeIdView,
+    pub target: NodeIdView,
+    pub origin: EdgeOrigin,
+    pub confidence: f32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubgraphView {
+    pub nodes: Vec<SymbolView>,
+    pub edges: Vec<EdgeView>,
+    pub truncated: bool,
+    pub max_depth_reached: Option<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChangeImpactView {
-    pub direct_nodes: Vec<NodeId>,
-    pub lineages: Vec<LineageId>,
+    pub direct_nodes: Vec<NodeIdView>,
+    pub lineages: Vec<String>,
     pub likely_validations: Vec<String>,
     pub validation_checks: Vec<ValidationCheckView>,
     pub co_change_neighbors: Vec<CoChangeView>,
@@ -44,6 +94,7 @@ pub struct ChangeImpactView {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ValidationCheckView {
     pub label: String,
     pub score: f32,
@@ -51,20 +102,45 @@ pub struct ValidationCheckView {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CoChangeView {
-    pub lineage: LineageId,
+    pub lineage: String,
     pub count: u32,
-    pub nodes: Vec<NodeId>,
+    pub nodes: Vec<NodeIdView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ValidationRecipeView {
-    pub target: NodeId,
+    pub target: NodeIdView,
     pub checks: Vec<String>,
     pub scored_checks: Vec<ValidationCheckView>,
-    pub related_nodes: Vec<NodeId>,
+    pub related_nodes: Vec<NodeIdView>,
     pub co_change_neighbors: Vec<CoChangeView>,
     pub recent_failures: Vec<OutcomeEvent>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MemoryEntryView {
+    pub id: String,
+    pub anchors: Vec<AnchorRef>,
+    pub kind: String,
+    pub content: String,
+    pub metadata: Value,
+    pub created_at: u64,
+    pub source: String,
+    pub trust: f32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoredMemoryView {
+    pub id: String,
+    pub entry: MemoryEntryView,
+    pub score: f32,
+    pub source_module: String,
+    pub explanation: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -84,6 +160,11 @@ pub fn api_reference_markdown() -> &'static str {
     r#"# PRISM Query API
 
 `prism_query` executes a TypeScript snippet against a live in-memory PRISM graph.
+
+Secondary convenience MCP tools are also available for the most common lookups:
+
+- `prism_symbol { query }`
+- `prism_search { query, limit?, kind?, path? }`
 
 ## Mental model
 
@@ -117,7 +198,7 @@ Diagnostics are how the server tells you a query was ambiguous, truncated, or ca
 
 ```ts
 type NodeId = {
-  crate_name: string;
+  crateName: string;
   path: string;
   kind: string;
 };
@@ -127,6 +208,12 @@ type SearchOptions = {
   kind?: string;
   path?: string;
   includeInferred?: boolean;
+};
+
+type MemoryRecallOptions = {
+  focus?: Array<SymbolView | NodeId>;
+  text?: string;
+  limit?: number;
 };
 
 type PrismApi = {
@@ -140,6 +227,9 @@ type PrismApi = {
   blastRadius(target: SymbolView | NodeId): ChangeImpactView | null;
   validationRecipe(target: SymbolView | NodeId): ValidationRecipeView | null;
   resumeTask(taskId: string): TaskReplay;
+  memory: {
+    recall(options?: MemoryRecallOptions): ScoredMemoryView[];
+  };
   diagnostics(): QueryDiagnostic[];
 };
 
@@ -148,10 +238,10 @@ type SymbolView = {
   name: string;
   kind: string;
   signature: string;
-  file_path?: string;
+  filePath?: string;
   span: { start: number; end: number };
   language: string;
-  lineage_id?: string;
+  lineageId?: string;
   full(): string;
   relations(): RelationsView;
   callGraph(depth?: number): Subgraph;
@@ -159,41 +249,61 @@ type SymbolView = {
 };
 
 type RelationsView = {
-  outgoing_calls: NodeId[];
-  incoming_calls: NodeId[];
-  outgoing_imports: NodeId[];
-  incoming_imports: NodeId[];
-  outgoing_implements: NodeId[];
-  incoming_implements: NodeId[];
+  contains: SymbolView[];
+  callers: SymbolView[];
+  callees: SymbolView[];
+  references: SymbolView[];
+  imports: SymbolView[];
+  implements: SymbolView[];
 };
 
 type LineageView = {
-  lineage: string;
-  events: unknown[];
+  lineageId: string;
+  current: SymbolView;
+  status: "active" | "dead" | "ambiguous";
+  history: Array<{
+    eventId: string;
+    ts: number;
+    kind: string;
+    confidence: number;
+  }>;
+};
+
+type Subgraph = {
+  nodes: SymbolView[];
+  edges: Array<{
+    kind: string;
+    source: NodeId;
+    target: NodeId;
+    origin: string;
+    confidence: number;
+  }>;
+  truncated: boolean;
+  maxDepthReached?: number;
 };
 
 type ChangeImpactView = {
-  direct_nodes: NodeId[];
+  directNodes: NodeId[];
   lineages: string[];
-  likely_validations: string[];
-  validation_checks: ValidationCheckView[];
-  co_change_neighbors: CoChangeView[];
-  risk_events: OutcomeEvent[];
+  likelyValidations: string[];
+  validationChecks: ValidationCheckView[];
+  coChangeNeighbors: CoChangeView[];
+  riskEvents: OutcomeEvent[];
 };
 
 type ValidationRecipeView = {
   target: NodeId;
   checks: string[];
-  scored_checks: ValidationCheckView[];
-  related_nodes: NodeId[];
-  co_change_neighbors: CoChangeView[];
-  recent_failures: OutcomeEvent[];
+  scoredChecks: ValidationCheckView[];
+  relatedNodes: NodeId[];
+  coChangeNeighbors: CoChangeView[];
+  recentFailures: OutcomeEvent[];
 };
 
 type ValidationCheckView = {
   label: string;
   score: number;
-  last_seen: number;
+  lastSeen: number;
 };
 
 type CoChangeView = {
@@ -207,6 +317,31 @@ type OutcomeEvent = {
   result: string;
   kind: string;
 };
+
+type ScoredMemoryView = {
+  id: string;
+  entry: MemoryEntryView;
+  score: number;
+  sourceModule: string;
+  explanation?: string;
+};
+
+type MemoryEntryView = {
+  id: string;
+  anchors: AnchorRef[];
+  kind: string;
+  content: string;
+  metadata: unknown;
+  createdAt: number;
+  source: string;
+  trust: number;
+};
+
+type AnchorRef =
+  | { Node: NodeId }
+  | { Lineage: string }
+  | { File: number }
+  | { Kind: string };
 
 type TaskReplay = {
   task: string;
@@ -247,7 +382,7 @@ return prism.search("request", { limit: 5, kind: "function" });
 const sym = prism.symbol("handle_request");
 return {
   symbol: sym,
-  callers: sym?.relations().incoming_calls ?? [],
+  callers: sym?.relations().callers ?? [],
 };
 ```
 
@@ -263,7 +398,7 @@ return sym;
 ```ts
 return prism.entrypoints().map((sym) => ({
   path: sym.id.path,
-  file: sym.file_path,
+  file: sym.filePath,
 }));
 ```
 
@@ -310,9 +445,9 @@ return {
     left && right
       ? left
           .relations()
-          .incoming_calls
+          .callers
           .filter((caller) =>
-            right.relations().incoming_calls.some((other) => other.path === caller.path)
+            right.relations().callers.some((other) => other.id.path === caller.id.path)
           )
       : [],
 };
@@ -356,10 +491,21 @@ const sym = prism.symbol("handle_request");
 return sym ? prism.validationRecipe(sym) : null;
 ```
 
+### 15. Recall session memory for a symbol
+
+```ts
+const sym = prism.symbol("handle_request");
+return prism.memory.recall({
+  focus: sym ? [sym] : [],
+  text: "regression",
+  limit: 5,
+});
+```
+
 ## Current implementation surface
 
 - Available now: symbol lookup, search, entrypoints, relations, call graphs, source extraction, lineage history, related failures, blast radius, and task replay by id.
-- Not exposed yet: memory recall.
+- Available now: session/workspace episodic memory recall for notes recorded through `prism_note`.
 - Keep query logic small. If you find yourself reconstructing semantics from raw low-level fields every time, that method probably belongs in Prism itself.
 
 ## Separate mutation tools
@@ -373,6 +519,11 @@ The query runtime is read-only. State changes happen through separate MCP tools:
 - `prism_test_ran`
 - `prism_failure_observed`
 - `prism_fix_validated`
+
+Convenience query tools:
+
+- `prism_symbol`
+- `prism_search`
 
 Patch observation is automatic. PRISM records file changes from `ObservedChangeSet` without requiring an explicit MCP call.
 "#
@@ -415,19 +566,63 @@ function __prismEnrichSymbol(raw) {
       return __prismHost("full", { id: this.id });
     },
     relations() {
-      return __prismHost("relations", { id: this.id });
+      return __prismEnrichRelations(__prismHost("relations", { id: this.id }));
     },
     callGraph(depth = 3) {
-      return __prismHost("callGraph", { id: this.id, depth });
+      return __prismEnrichSubgraph(__prismHost("callGraph", { id: this.id, depth }));
     },
     lineage() {
-      return __prismHost("lineage", { id: this.id });
+      return __prismEnrichLineage(__prismHost("lineage", { id: this.id }));
     },
   };
 }
 
 function __prismEnrichSymbols(values) {
   return Array.isArray(values) ? values.map(__prismEnrichSymbol) : [];
+}
+
+function __prismEnrichRelations(raw) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    contains: __prismEnrichSymbols(raw.contains),
+    callers: __prismEnrichSymbols(raw.callers),
+    callees: __prismEnrichSymbols(raw.callees),
+    references: __prismEnrichSymbols(raw.references),
+    imports: __prismEnrichSymbols(raw.imports),
+    implements: __prismEnrichSymbols(raw.implements),
+  };
+}
+
+function __prismEnrichSubgraph(raw) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    nodes: __prismEnrichSymbols(raw.nodes),
+  };
+}
+
+function __prismEnrichLineage(raw) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    current: __prismEnrichSymbol(raw.current),
+  };
+}
+
+function __prismNormalizeFocus(values) {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+  return values
+    .map(__prismNormalizeTarget)
+    .filter((value) => value != null);
 }
 
 function __prismCleanupGlobals() {
@@ -462,7 +657,7 @@ globalThis.prism = Object.freeze({
     if (id == null) {
       return null;
     }
-    return __prismHost("lineage", { id });
+    return __prismEnrichLineage(__prismHost("lineage", { id }));
   },
   coChangeNeighbors(target) {
     const id = __prismNormalizeTarget(target);
@@ -495,6 +690,15 @@ globalThis.prism = Object.freeze({
   resumeTask(taskId) {
     return __prismHost("resumeTask", { task_id: taskId });
   },
+  memory: Object.freeze({
+    recall(options = {}) {
+      return __prismHost("memoryRecall", {
+        focus: __prismNormalizeFocus(options.focus),
+        text: options.text,
+        limit: options.limit,
+      });
+    },
+  }),
   diagnostics() {
     return __prismHost("diagnostics", {});
   },
@@ -518,6 +722,9 @@ mod tests {
         );
         assert!(docs.contains("coChangeNeighbors"));
         assert!(docs.contains("validationRecipe"));
+        assert!(docs.contains("prism.memory.recall"));
+        assert!(docs.contains("prism_symbol"));
+        assert!(docs.contains("prism_search"));
     }
 
     #[test]

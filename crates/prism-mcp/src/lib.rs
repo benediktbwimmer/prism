@@ -16,15 +16,18 @@ use prism_ir::{
     AnchorRef, Edge, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta, NodeId, NodeKind, TaskId,
 };
 use prism_js::{
-    api_reference_markdown, runtime_prelude, ChangeImpactView, CoChangeView, LineageView,
-    QueryDiagnostic, QueryEnvelope, RelationsView, SymbolView, ValidationCheckView,
+    api_reference_markdown, runtime_prelude, ChangeImpactView, CoChangeView, EdgeView,
+    LineageEventView, LineageStatus, LineageView, MemoryEntryView, NodeIdView, QueryDiagnostic,
+    QueryEnvelope, RelationsView, ScoredMemoryView, SubgraphView, SymbolView, ValidationCheckView,
     ValidationRecipeView, API_REFERENCE_URI,
 };
 use prism_memory::{
     EpisodicMemory, MemoryEntry, MemoryId, MemoryKind, MemoryModule, MemorySource, OutcomeEvent,
-    OutcomeEvidence, OutcomeKind, OutcomeResult,
+    OutcomeEvidence, OutcomeKind, OutcomeResult, RecallQuery, ScoredMemory,
 };
-use prism_query::{ChangeImpact, CoChange, Prism, Symbol, ValidationCheck, ValidationRecipe};
+use prism_query::{
+    ChangeImpact, CoChange, Prism, QueryLimits, Symbol, ValidationCheck, ValidationRecipe,
+};
 use rmcp::{
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::*,
@@ -39,27 +42,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 const DEFAULT_SEARCH_LIMIT: usize = 20;
-const MAX_RESULT_NODES: usize = 500;
 const DEFAULT_CALL_GRAPH_DEPTH: usize = 3;
-const MAX_CALL_GRAPH_DEPTH: usize = 10;
-const MAX_OUTPUT_JSON_BYTES: usize = 256 * 1024;
-
-#[derive(Debug, Clone, Copy)]
-struct SessionLimits {
-    max_result_nodes: usize,
-    max_call_graph_depth: usize,
-    max_output_json_bytes: usize,
-}
-
-impl Default for SessionLimits {
-    fn default() -> Self {
-        Self {
-            max_result_nodes: MAX_RESULT_NODES,
-            max_call_graph_depth: MAX_CALL_GRAPH_DEPTH,
-            max_output_json_bytes: MAX_OUTPUT_JSON_BYTES,
-        }
-    }
-}
 
 struct SessionState {
     notes: EpisodicMemory,
@@ -67,18 +50,24 @@ struct SessionState {
     current_task: Mutex<Option<TaskId>>,
     next_event: AtomicU64,
     next_task: AtomicU64,
-    limits: SessionLimits,
+    limits: QueryLimits,
 }
 
 impl SessionState {
-    fn new(prism: &Prism) -> Self {
-        Self::with_snapshots(prism, EpisodicMemory::new(), InferenceStore::new())
+    fn with_limits(
+        prism: &Prism,
+        notes: EpisodicMemory,
+        inferred_edges: InferenceStore,
+        limits: QueryLimits,
+    ) -> Self {
+        Self::with_snapshots(prism, notes, inferred_edges, limits)
     }
 
     fn with_snapshots(
         prism: &Prism,
         notes: EpisodicMemory,
         inferred_edges: InferenceStore,
+        limits: QueryLimits,
     ) -> Self {
         Self {
             notes,
@@ -86,7 +75,7 @@ impl SessionState {
             current_task: Mutex::new(None),
             next_event: AtomicU64::new(max_event_sequence(prism)),
             next_task: AtomicU64::new(max_task_sequence(prism)),
-            limits: SessionLimits::default(),
+            limits,
         }
     }
 
@@ -141,7 +130,7 @@ impl SessionState {
         self.start_task("session", &[])
     }
 
-    fn limits(&self) -> SessionLimits {
+    fn limits(&self) -> QueryLimits {
         self.limits
     }
 }
@@ -167,16 +156,24 @@ impl PrismMcpServer {
     }
 
     pub fn new(prism: Prism) -> Self {
+        Self::new_with_limits(prism, QueryLimits::default())
+    }
+
+    pub fn new_with_limits(prism: Prism, limits: QueryLimits) -> Self {
         Self {
             tool_router: Self::tool_router(),
-            host: Arc::new(QueryHost::new(prism)),
+            host: Arc::new(QueryHost::new_with_limits(prism, limits)),
         }
     }
 
     pub fn with_session(session: WorkspaceSession) -> Self {
+        Self::with_session_limits(session, QueryLimits::default())
+    }
+
+    pub fn with_session_limits(session: WorkspaceSession, limits: QueryLimits) -> Self {
         Self {
             tool_router: Self::tool_router(),
-            host: Arc::new(QueryHost::with_session(session)),
+            host: Arc::new(QueryHost::with_session_and_limits(session, limits)),
         }
     }
 
@@ -201,8 +198,27 @@ struct PrismQueryArgs {
     language: Option<QueryLanguage>,
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+struct PrismSymbolArgs {
+    #[schemars(description = "Best-effort symbol lookup query.")]
+    query: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct PrismSearchArgs {
+    #[schemars(description = "Full-text or symbol search query.")]
+    query: String,
+    #[schemars(description = "Maximum number of results to return.")]
+    limit: Option<usize>,
+    #[schemars(description = "Optional node kind filter.")]
+    kind: Option<String>,
+    #[schemars(description = "Optional path fragment filter.")]
+    path: Option<String>,
+}
+
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 struct NodeIdInput {
+    #[serde(alias = "crateName")]
     crate_name: String,
     path: String,
     kind: String,
@@ -212,6 +228,7 @@ struct NodeIdInput {
 #[serde(tag = "type", rename_all = "snake_case")]
 enum AnchorRefInput {
     Node {
+        #[serde(alias = "crateName")]
         crate_name: String,
         path: String,
         kind: String,
@@ -394,6 +411,66 @@ impl PrismMcpServer {
         let content = Content::json(envelope).map_err(|err| {
             McpError::internal_error(
                 "failed to serialize query result",
+                Some(json!({ "error": err.to_string() })),
+            )
+        })?;
+        Ok(CallToolResult::success(vec![content]))
+    }
+
+    #[tool(
+        description = "Convenience lookup for the best matching symbol. Returns the same structured query envelope as prism_query."
+    )]
+    fn prism_symbol(
+        &self,
+        Parameters(args): Parameters<PrismSymbolArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        if args.query.trim().is_empty() {
+            return Err(McpError::invalid_params(
+                "query cannot be empty",
+                Some(json!({ "field": "query" })),
+            ));
+        }
+
+        let envelope = self
+            .host
+            .symbol_query(&args.query)
+            .map_err(map_query_error)?;
+        let content = Content::json(envelope).map_err(|err| {
+            McpError::internal_error(
+                "failed to serialize symbol result",
+                Some(json!({ "error": err.to_string() })),
+            )
+        })?;
+        Ok(CallToolResult::success(vec![content]))
+    }
+
+    #[tool(
+        description = "Convenience search lookup. Returns the same structured query envelope as prism_query."
+    )]
+    fn prism_search(
+        &self,
+        Parameters(args): Parameters<PrismSearchArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        if args.query.trim().is_empty() {
+            return Err(McpError::invalid_params(
+                "query cannot be empty",
+                Some(json!({ "field": "query" })),
+            ));
+        }
+
+        let envelope = self
+            .host
+            .search_query(SearchArgs {
+                query: args.query,
+                limit: args.limit,
+                kind: args.kind,
+                path: args.path,
+                include_inferred: None,
+            })
+            .map_err(map_query_error)?;
+        let content = Content::json(envelope).map_err(|err| {
+            McpError::internal_error(
+                "failed to serialize search result",
                 Some(json!({ "error": err.to_string() })),
             )
         })?;
@@ -621,9 +698,19 @@ struct QueryHost {
 }
 
 impl QueryHost {
+    #[cfg(test)]
     fn new(prism: Prism) -> Self {
+        Self::new_with_limits(prism, QueryLimits::default())
+    }
+
+    fn new_with_limits(prism: Prism, limits: QueryLimits) -> Self {
         let prism = Arc::new(prism);
-        let session = Arc::new(SessionState::new(prism.as_ref()));
+        let session = Arc::new(SessionState::with_limits(
+            prism.as_ref(),
+            EpisodicMemory::new(),
+            InferenceStore::new(),
+            limits,
+        ));
         Self {
             prism: prism.clone(),
             session,
@@ -632,7 +719,12 @@ impl QueryHost {
         }
     }
 
+    #[cfg(test)]
     fn with_session(workspace: WorkspaceSession) -> Self {
+        Self::with_session_and_limits(workspace, QueryLimits::default())
+    }
+
+    fn with_session_and_limits(workspace: WorkspaceSession, limits: QueryLimits) -> Self {
         let workspace = Arc::new(workspace);
         let prism = workspace.prism_arc();
         let notes = workspace
@@ -651,6 +743,7 @@ impl QueryHost {
             prism.as_ref(),
             notes,
             inferred_edges,
+            limits,
         ));
         Self {
             prism,
@@ -664,6 +757,26 @@ impl QueryHost {
         match language {
             QueryLanguage::Ts => self.execute_typescript(code),
         }
+    }
+
+    fn symbol_query(&self, query: &str) -> Result<QueryEnvelope> {
+        self.refresh_workspace()?;
+        let execution = QueryExecution::new(self.clone(), self.current_prism());
+        let result = serde_json::to_value(execution.best_symbol(query)?)?;
+        Ok(QueryEnvelope {
+            result,
+            diagnostics: execution.diagnostics(),
+        })
+    }
+
+    fn search_query(&self, args: SearchArgs) -> Result<QueryEnvelope> {
+        self.refresh_workspace()?;
+        let execution = QueryExecution::new(self.clone(), self.current_prism());
+        let result = serde_json::to_value(execution.search(args)?)?;
+        Ok(QueryEnvelope {
+            result,
+            diagnostics: execution.diagnostics(),
+        })
     }
 
     fn execute_typescript(&self, code: &str) -> Result<QueryEnvelope> {
@@ -700,7 +813,14 @@ impl QueryHost {
 
     fn co_change_neighbors_value(&self, id: &NodeId) -> Result<Value> {
         let prism = self.current_prism();
-        serde_json::to_value(prism.co_change_neighbors(id, 8)).map_err(Into::into)
+        serde_json::to_value(
+            prism
+                .co_change_neighbors(id, 8)
+                .into_iter()
+                .map(co_change_view)
+                .collect::<Vec<_>>(),
+        )
+        .map_err(Into::into)
     }
 
     fn start_task(&self, description: String, tags: Vec<String>) -> Result<TaskId> {
@@ -724,7 +844,9 @@ impl QueryHost {
         if let Some(workspace) = &self.workspace {
             let _ = workspace.append_outcome(event)?;
         } else {
-            let _ = self.current_prism().outcome_memory().store_event(event)?;
+            let prism = self.current_prism();
+            prism.apply_outcome_event_to_projections(&event);
+            let _ = prism.outcome_memory().store_event(event)?;
             self.persist_outcomes()?;
         }
         Ok(task)
@@ -763,6 +885,7 @@ impl QueryHost {
         if let Some(workspace) = &self.workspace {
             workspace.append_outcome(event)
         } else {
+            prism.apply_outcome_event_to_projections(&event);
             let id = prism.outcome_memory().store_event(event)?;
             self.persist_outcomes()?;
             Ok(id)
@@ -802,6 +925,7 @@ impl QueryHost {
         if let Some(workspace) = &self.workspace {
             let _ = workspace.append_outcome(note_event)?;
         } else {
+            prism.apply_outcome_event_to_projections(&note_event);
             let _ = prism.outcome_memory().store_event(note_event)?;
             self.persist_outcomes()?;
         }
@@ -874,8 +998,12 @@ impl QueryHost {
 
 fn change_impact_view(impact: ChangeImpact) -> ChangeImpactView {
     ChangeImpactView {
-        direct_nodes: impact.direct_nodes,
-        lineages: impact.lineages,
+        direct_nodes: impact.direct_nodes.into_iter().map(node_id_view).collect(),
+        lineages: impact
+            .lineages
+            .into_iter()
+            .map(|lineage| lineage.0.to_string())
+            .collect(),
         likely_validations: impact.likely_validations,
         validation_checks: impact
             .validation_checks
@@ -893,20 +1021,43 @@ fn change_impact_view(impact: ChangeImpact) -> ChangeImpactView {
 
 fn validation_recipe_view(recipe: ValidationRecipe) -> ValidationRecipeView {
     ValidationRecipeView {
-        target: recipe.target,
+        target: node_id_view(recipe.target),
         checks: recipe.checks,
         scored_checks: recipe
             .scored_checks
             .into_iter()
             .map(validation_check_view)
             .collect(),
-        related_nodes: recipe.related_nodes,
+        related_nodes: recipe.related_nodes.into_iter().map(node_id_view).collect(),
         co_change_neighbors: recipe
             .co_change_neighbors
             .into_iter()
             .map(co_change_view)
             .collect(),
         recent_failures: recipe.recent_failures,
+    }
+}
+
+fn scored_memory_view(memory: ScoredMemory) -> ScoredMemoryView {
+    ScoredMemoryView {
+        id: memory.id.0,
+        entry: memory_entry_view(memory.entry),
+        score: memory.score,
+        source_module: memory.source_module,
+        explanation: memory.explanation,
+    }
+}
+
+fn memory_entry_view(entry: MemoryEntry) -> MemoryEntryView {
+    MemoryEntryView {
+        id: entry.id.0,
+        anchors: entry.anchors,
+        kind: format!("{:?}", entry.kind),
+        content: entry.content,
+        metadata: entry.metadata,
+        created_at: entry.created_at,
+        source: format!("{:?}", entry.source),
+        trust: entry.trust,
     }
 }
 
@@ -920,9 +1071,9 @@ fn validation_check_view(check: ValidationCheck) -> ValidationCheckView {
 
 fn co_change_view(value: CoChange) -> CoChangeView {
     CoChangeView {
-        lineage: value.lineage,
+        lineage: value.lineage.0.to_string(),
         count: value.count,
-        nodes: value.nodes,
+        nodes: value.nodes.into_iter().map(node_id_view).collect(),
     }
 }
 
@@ -1040,7 +1191,7 @@ fn run_js_worker(rx: mpsc::Receiver<JsWorkerMessage>) -> Result<()> {
 fn symbol_view(prism: &Prism, symbol: &Symbol<'_>) -> Result<SymbolView> {
     let node = symbol.node();
     Ok(SymbolView {
-        id: symbol.id().clone(),
+        id: node_id_view(symbol.id().clone()),
         name: symbol.name().to_owned(),
         kind: node.kind,
         signature: symbol.signature(),
@@ -1050,8 +1201,34 @@ fn symbol_view(prism: &Prism, symbol: &Symbol<'_>) -> Result<SymbolView> {
             .map(|path| path.to_string_lossy().into_owned()),
         span: node.span,
         language: node.language,
-        lineage_id: prism.lineage_of(symbol.id()),
+        lineage_id: prism
+            .lineage_of(symbol.id())
+            .map(|lineage| lineage.0.to_string()),
     })
+}
+
+fn node_id_view(node: NodeId) -> NodeIdView {
+    NodeIdView {
+        crate_name: node.crate_name.to_string(),
+        path: node.path.to_string(),
+        kind: node.kind,
+    }
+}
+
+fn edge_view(edge: Edge) -> EdgeView {
+    EdgeView {
+        kind: edge.kind,
+        source: node_id_view(edge.source),
+        target: node_id_view(edge.target),
+        origin: edge.origin,
+        confidence: edge.confidence,
+    }
+}
+
+fn symbol_views_for_ids(prism: &Prism, ids: Vec<NodeId>) -> Result<Vec<SymbolView>> {
+    ids.into_iter()
+        .map(|id| symbol_for(prism, &id).and_then(|symbol| symbol_view(prism, &symbol)))
+        .collect()
 }
 
 fn symbol_for<'a>(prism: &'a Prism, id: &NodeId) -> Result<Symbol<'a>> {
@@ -1074,54 +1251,75 @@ fn symbol_for<'a>(prism: &'a Prism, id: &NodeId) -> Result<Symbol<'a>> {
 fn relations_view(prism: &Prism, session: &SessionState, id: &NodeId) -> Result<RelationsView> {
     let relations = symbol_for(prism, id)?.relations();
     Ok(RelationsView {
-        outgoing_calls: merge_node_ids(
-            relations.outgoing_calls,
-            session
-                .inferred_edges
-                .edges_from(id, Some(EdgeKind::Calls))
+        contains: symbol_views_for_ids(
+            prism,
+            prism
+                .graph()
+                .edges_from(id, Some(EdgeKind::Contains))
                 .into_iter()
-                .map(|record| record.edge.target),
-        ),
-        incoming_calls: merge_node_ids(
-            relations.incoming_calls,
-            session
-                .inferred_edges
-                .edges_to(id, Some(EdgeKind::Calls))
-                .into_iter()
-                .map(|record| record.edge.source),
-        ),
-        outgoing_imports: merge_node_ids(
-            relations.outgoing_imports,
-            session
-                .inferred_edges
-                .edges_from(id, Some(EdgeKind::Imports))
-                .into_iter()
-                .map(|record| record.edge.target),
-        ),
-        incoming_imports: merge_node_ids(
-            relations.incoming_imports,
-            session
-                .inferred_edges
-                .edges_to(id, Some(EdgeKind::Imports))
-                .into_iter()
-                .map(|record| record.edge.source),
-        ),
-        outgoing_implements: merge_node_ids(
-            relations.outgoing_implements,
-            session
-                .inferred_edges
-                .edges_from(id, Some(EdgeKind::Implements))
-                .into_iter()
-                .map(|record| record.edge.target),
-        ),
-        incoming_implements: merge_node_ids(
-            relations.incoming_implements,
-            session
-                .inferred_edges
-                .edges_to(id, Some(EdgeKind::Implements))
-                .into_iter()
-                .map(|record| record.edge.source),
-        ),
+                .map(|edge| edge.target.clone())
+                .collect(),
+        )?,
+        callers: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                relations.incoming_calls,
+                session
+                    .inferred_edges
+                    .edges_to(id, Some(EdgeKind::Calls))
+                    .into_iter()
+                    .map(|record| record.edge.source),
+            ),
+        )?,
+        callees: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                relations.outgoing_calls,
+                session
+                    .inferred_edges
+                    .edges_from(id, Some(EdgeKind::Calls))
+                    .into_iter()
+                    .map(|record| record.edge.target),
+            ),
+        )?,
+        references: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                prism
+                    .graph()
+                    .edges_from(id, Some(EdgeKind::References))
+                    .into_iter()
+                    .map(|edge| edge.target.clone())
+                    .collect(),
+                prism
+                    .graph()
+                    .edges_to(id, Some(EdgeKind::References))
+                    .into_iter()
+                    .map(|edge| edge.source.clone()),
+            ),
+        )?,
+        imports: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                relations.outgoing_imports,
+                session
+                    .inferred_edges
+                    .edges_from(id, Some(EdgeKind::Imports))
+                    .into_iter()
+                    .map(|record| record.edge.target),
+            ),
+        )?,
+        implements: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                relations.outgoing_implements,
+                session
+                    .inferred_edges
+                    .edges_from(id, Some(EdgeKind::Implements))
+                    .into_iter()
+                    .map(|record| record.edge.target),
+            ),
+        )?,
     })
 }
 
@@ -1129,9 +1327,34 @@ fn lineage_view(prism: &Prism, id: &NodeId) -> Result<Option<LineageView>> {
     let Some(lineage) = prism.lineage_of(id) else {
         return Ok(None);
     };
+    let current = symbol_for(prism, id)?;
+    let events = prism.lineage_history(&lineage);
+    let status = if events
+        .iter()
+        .any(|event| matches!(event.kind, prism_ir::LineageEventKind::Ambiguous))
+    {
+        LineageStatus::Ambiguous
+    } else if events
+        .last()
+        .is_some_and(|event| matches!(event.kind, prism_ir::LineageEventKind::Died))
+    {
+        LineageStatus::Dead
+    } else {
+        LineageStatus::Active
+    };
     Ok(Some(LineageView {
-        events: prism.lineage_history(&lineage),
-        lineage,
+        lineage_id: lineage.0.to_string(),
+        current: symbol_view(prism, &current)?,
+        status,
+        history: events
+            .into_iter()
+            .map(|event| LineageEventView {
+                event_id: event.meta.id.0.to_string(),
+                ts: event.meta.ts,
+                kind: format!("{:?}", event.kind),
+                confidence: event.confidence,
+            })
+            .collect(),
     }))
 }
 
@@ -1235,16 +1458,18 @@ impl QueryExecution {
             "entrypoints" => Ok(serde_json::to_value(self.entrypoints()?)?),
             "full" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                let id = convert_node_id(args.id)?;
                 Ok(serde_json::to_value(
-                    symbol_for(self.prism.as_ref(), &args.id)?.full(),
+                    symbol_for(self.prism.as_ref(), &id)?.full(),
                 )?)
             }
             "relations" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                let id = convert_node_id(args.id)?;
                 Ok(serde_json::to_value(relations_view(
                     self.prism.as_ref(),
                     self.host.session.as_ref(),
-                    &args.id,
+                    &id,
                 )?)?)
             }
             "callGraph" => {
@@ -1253,47 +1478,55 @@ impl QueryExecution {
             }
             "lineage" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let lineage = lineage_view(self.prism.as_ref(), &args.id)?;
-                if lineage.as_ref().is_some_and(|view| {
-                    view.events
-                        .iter()
-                        .any(|event| matches!(event.kind, prism_ir::LineageEventKind::Ambiguous))
-                }) {
+                let id = convert_node_id(args.id)?;
+                let lineage = lineage_view(self.prism.as_ref(), &id)?;
+                if lineage
+                    .as_ref()
+                    .is_some_and(|view| view.history.iter().any(|event| event.kind == "Ambiguous"))
+                {
                     self.push_diagnostic(
                         "lineage_uncertain",
-                        format!("Lineage for `{}` contains ambiguous history.", args.id.path),
-                        Some(json!({ "id": args.id.path })),
+                        format!("Lineage for `{}` contains ambiguous history.", id.path),
+                        Some(json!({ "id": id.path })),
                     );
                 }
                 Ok(serde_json::to_value(lineage)?)
             }
             "relatedFailures" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                serde_json::to_value(self.prism.related_failures(&args.id)).map_err(Into::into)
+                let id = convert_node_id(args.id)?;
+                serde_json::to_value(self.prism.related_failures(&id)).map_err(Into::into)
             }
             "coChangeNeighbors" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                self.host.co_change_neighbors_value(&args.id)
+                let id = convert_node_id(args.id)?;
+                self.host.co_change_neighbors_value(&id)
             }
             "blastRadius" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                let id = convert_node_id(args.id)?;
                 Ok(serde_json::to_value(blast_radius_view(
                     self.prism.as_ref(),
                     self.host.session.as_ref(),
-                    &args.id,
+                    &id,
                 ))?)
             }
             "validationRecipe" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                let id = convert_node_id(args.id)?;
                 Ok(serde_json::to_value(validation_recipe_view_with(
                     self.prism.as_ref(),
                     self.host.session.as_ref(),
-                    &args.id,
+                    &id,
                 ))?)
             }
             "resumeTask" => {
                 let args: TaskTargetArgs = serde_json::from_value(args)?;
                 serde_json::to_value(self.prism.resume_task(&args.task_id)).map_err(Into::into)
+            }
+            "memoryRecall" => {
+                let args: MemoryRecallArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.memory_recall(args)?)?)
             }
             "diagnostics" => Ok(serde_json::to_value(self.diagnostics())?),
             other => {
@@ -1337,6 +1570,7 @@ impl QueryExecution {
     }
 
     fn search(&self, args: SearchArgs) -> Result<Vec<SymbolView>> {
+        let _include_inferred = args.include_inferred.unwrap_or(true);
         let kind = args.kind.as_deref().map(parse_node_kind).transpose()?;
         let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
         let limits = self.host.session.limits();
@@ -1405,8 +1639,9 @@ impl QueryExecution {
         Ok(results)
     }
 
-    fn call_graph(&self, args: CallGraphArgs) -> Result<prism_ir::Subgraph> {
+    fn call_graph(&self, args: CallGraphArgs) -> Result<SubgraphView> {
         let limits = self.host.session.limits();
+        let id = convert_node_id(args.id)?;
         let requested = args.depth.unwrap_or(DEFAULT_CALL_GRAPH_DEPTH);
         let applied = requested.min(limits.max_call_graph_depth);
         if requested > limits.max_call_graph_depth {
@@ -1422,9 +1657,9 @@ impl QueryExecution {
                 })),
             );
         }
-        let mut graph = symbol_for(self.prism.as_ref(), &args.id)?.call_graph(applied);
-        let mut queue = vec![(args.id.clone(), 0usize)];
-        let mut seen = std::collections::HashSet::from([args.id.clone()]);
+        let mut graph = symbol_for(self.prism.as_ref(), &id)?.call_graph(applied);
+        let mut queue = vec![(id.clone(), 0usize)];
+        let mut seen = std::collections::HashSet::from([id.clone()]);
 
         while let Some((current, depth)) = queue.pop() {
             if depth >= applied {
@@ -1471,16 +1706,63 @@ impl QueryExecution {
                 "result_truncated",
                 format!(
                     "Call graph for `{}` was truncated at {} nodes.",
-                    args.id.path, limits.max_result_nodes
+                    id.path, limits.max_result_nodes
                 ),
                 Some(json!({
-                    "query": args.id.path,
+                    "query": id.path,
                     "applied": limits.max_result_nodes,
                 })),
             );
         }
         graph.max_depth_reached = Some(applied);
-        Ok(graph)
+        Ok(SubgraphView {
+            nodes: symbol_views_for_ids(self.prism.as_ref(), graph.nodes)?,
+            edges: graph.edges.into_iter().map(edge_view).collect(),
+            truncated: graph.truncated,
+            max_depth_reached: graph.max_depth_reached,
+        })
+    }
+
+    fn memory_recall(&self, args: MemoryRecallArgs) -> Result<Vec<ScoredMemoryView>> {
+        let requested = args.limit.unwrap_or(5);
+        let limits = self.host.session.limits();
+        let applied = requested.min(limits.max_result_nodes);
+        if requested > limits.max_result_nodes {
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Memory recall limit was capped at {} instead of {requested}.",
+                    limits.max_result_nodes
+                ),
+                Some(json!({
+                    "requested": requested,
+                    "applied": applied,
+                })),
+            );
+        }
+
+        let mut focus = Vec::new();
+        if let Some(ids) = args.focus {
+            for id in ids {
+                focus.push(AnchorRef::Node(convert_node_id(id)?));
+            }
+        }
+        let focus = self.prism.anchors_for(&focus);
+        let results = self
+            .host
+            .session
+            .notes
+            .recall(&RecallQuery {
+                focus,
+                text: args.text,
+                limit: applied,
+                kinds: Some(vec![MemoryKind::Episodic]),
+                since: None,
+            })?
+            .into_iter()
+            .map(scored_memory_view)
+            .collect();
+        Ok(results)
     }
 
     fn symbols(&self, query: &str) -> Result<Vec<SymbolView>> {
@@ -1498,33 +1780,42 @@ impl QueryExecution {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct SymbolQueryArgs {
     query: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct SearchArgs {
     query: String,
     limit: Option<usize>,
     kind: Option<String>,
     path: Option<String>,
+    #[serde(alias = "includeInferred")]
+    include_inferred: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
 struct SymbolTargetArgs {
-    id: NodeId,
+    id: NodeIdInput,
 }
 
 #[derive(Debug, Deserialize)]
 struct CallGraphArgs {
-    id: NodeId,
+    id: NodeIdInput,
     depth: Option<usize>,
 }
 
 #[derive(Debug, Deserialize)]
 struct TaskTargetArgs {
     task_id: TaskId,
+}
+
+#[derive(Debug, Deserialize)]
+struct MemoryRecallArgs {
+    focus: Option<Vec<NodeIdInput>>,
+    text: Option<String>,
+    limit: Option<usize>,
 }
 
 fn convert_node_id(input: NodeIdInput) -> Result<NodeId> {
@@ -1797,6 +2088,157 @@ return { path: sym?.id.path, kind: sym?.kind };
     }
 
     #[test]
+    fn js_views_use_camel_case_and_enriched_nested_symbols() {
+        let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+        let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
+
+        let mut graph = Graph::new();
+        graph.add_node(Node {
+            id: alpha.clone(),
+            name: "alpha".into(),
+            kind: NodeKind::Function,
+            file: FileId(1),
+            span: Span::line(1),
+            language: Language::Rust,
+        });
+        graph.add_node(Node {
+            id: beta.clone(),
+            name: "beta".into(),
+            kind: NodeKind::Function,
+            file: FileId(1),
+            span: Span::line(2),
+            language: Language::Rust,
+        });
+        graph.add_edge(Edge {
+            kind: EdgeKind::Calls,
+            source: alpha.clone(),
+            target: beta,
+            origin: prism_ir::EdgeOrigin::Static,
+            confidence: 1.0,
+        });
+
+        let mut history = HistoryStore::new();
+        history.seed_nodes([alpha.clone()]);
+
+        let host = host_with_prism(Prism::with_history(graph, history));
+        let result = host
+            .execute(
+                r#"
+const sym = prism.symbol("alpha");
+const graph = sym?.callGraph(1);
+const lineage = sym?.lineage();
+return {
+  crateName: sym?.id.crateName,
+  callees: sym?.relations().callees.map((node) => node.id.path) ?? [],
+  graphNodes: graph?.nodes.map((node) => node.id.path) ?? [],
+  graphDepth: graph?.maxDepthReached ?? null,
+  lineageId: lineage?.lineageId ?? null,
+  lineageStatus: lineage?.status ?? null,
+  currentPath: lineage?.current.id.path ?? null,
+};
+"#,
+                QueryLanguage::Ts,
+            )
+            .expect("query should succeed");
+
+        assert_eq!(result.result["crateName"], "demo");
+        assert_eq!(result.result["callees"][0], "demo::beta");
+        assert_eq!(result.result["graphNodes"][0], "demo::alpha");
+        assert_eq!(result.result["graphNodes"][1], "demo::beta");
+        assert_eq!(result.result["graphDepth"], 1);
+        assert!(result.result["lineageId"]
+            .as_str()
+            .unwrap_or_default()
+            .starts_with("lineage:"));
+        assert_eq!(result.result["lineageStatus"], "active");
+        assert_eq!(result.result["currentPath"], "demo::alpha");
+    }
+
+    #[test]
+    fn custom_query_limits_apply_per_host() {
+        let mut graph = Graph::new();
+        graph.add_node(Node {
+            id: NodeId::new("demo", "demo::alpha", NodeKind::Function),
+            name: "alpha".into(),
+            kind: NodeKind::Function,
+            file: FileId(1),
+            span: Span::line(1),
+            language: Language::Rust,
+        });
+        graph.add_node(Node {
+            id: NodeId::new("demo", "demo::beta", NodeKind::Function),
+            name: "beta".into(),
+            kind: NodeKind::Function,
+            file: FileId(1),
+            span: Span::line(2),
+            language: Language::Rust,
+        });
+        graph.add_edge(Edge {
+            kind: EdgeKind::Calls,
+            source: NodeId::new("demo", "demo::alpha", NodeKind::Function),
+            target: NodeId::new("demo", "demo::beta", NodeKind::Function),
+            origin: prism_ir::EdgeOrigin::Static,
+            confidence: 1.0,
+        });
+
+        let host = QueryHost::new_with_limits(
+            Prism::new(graph),
+            QueryLimits {
+                max_result_nodes: 1,
+                max_call_graph_depth: 1,
+                max_output_json_bytes: 512,
+            },
+        );
+
+        let search = host
+            .execute(
+                r#"
+return prism.search("a", { limit: 10 }).map((sym) => sym.id.path);
+"#,
+                QueryLanguage::Ts,
+            )
+            .expect("search should succeed");
+        assert_eq!(search.result.as_array().map(|items| items.len()), Some(1));
+        assert_eq!(search.diagnostics[0].code, "result_truncated");
+
+        let depth = host
+            .execute(
+                r#"
+const sym = prism.symbol("alpha");
+return sym?.callGraph(9);
+"#,
+                QueryLanguage::Ts,
+            )
+            .expect("call graph should succeed");
+        assert_eq!(depth.result["maxDepthReached"], 1);
+        assert!(depth
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "depth_limited"));
+
+        let capped = QueryHost::new_with_limits(
+            Prism::new(Graph::new()),
+            QueryLimits {
+                max_result_nodes: 1,
+                max_call_graph_depth: 1,
+                max_output_json_bytes: 32,
+            },
+        )
+        .execute(
+            r#"
+return "abcdefghijklmnopqrstuvwxyz0123456789";
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed");
+        assert_eq!(capped.result, Value::Null);
+        assert!(capped
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "result_truncated"));
+    }
+
+    #[test]
     fn search_kind_filter_uses_cli_style_names() {
         let host = host_with_node(demo_node());
         let result = host
@@ -1948,7 +2390,7 @@ return {
             .expect("query should succeed");
 
         assert_eq!(
-            result.result["blast"]["direct_nodes"][0]["path"],
+            result.result["blast"]["directNodes"][0]["path"],
             "demo::beta"
         );
         assert_eq!(
@@ -2013,11 +2455,11 @@ return sym ? prism.validationRecipe(sym) : null;
             Value::String("test:alpha_validation".to_string())
         );
         assert_eq!(
-            result.result["scored_checks"][0]["label"],
+            result.result["scoredChecks"][0]["label"],
             Value::String("test:alpha_validation".to_string())
         );
         assert_eq!(
-            result.result["recent_failures"][0]["summary"],
+            result.result["recentFailures"][0]["summary"],
             "alpha broke validation"
         );
     }
@@ -2189,7 +2631,7 @@ return sym ? prism.coChangeNeighbors(sym) : [];
             .execute(
                 r#"
 const sym = prism.symbol("alpha");
-return sym?.relations().outgoing_calls.map((node) => node.path) ?? [];
+return sym ? sym.relations().callees.map((node) => node.id.path) : [];
 "#,
                 QueryLanguage::Ts,
             )
@@ -2227,7 +2669,7 @@ return sym?.relations().outgoing_calls.map((node) => node.path) ?? [];
             .execute(
                 r#"
 const sym = prism.symbol("alpha");
-return sym?.relations().outgoing_calls.map((node) => node.path) ?? [];
+return sym ? sym.relations().callees.map((node) => node.id.path) : [];
 "#,
                 QueryLanguage::Ts,
             )
@@ -2256,7 +2698,11 @@ return sym?.relations().outgoing_calls.map((node) => node.path) ?? [];
             .execute(
                 r#"
 const sym = prism.symbol("gamma");
-return { path: sym?.id.path, callers: prism.symbol("alpha")?.relations().outgoing_calls.map((node) => node.path) ?? [] };
+const alpha = prism.symbol("alpha");
+return {
+  path: sym?.id.path,
+  callers: alpha ? alpha.relations().callees.map((node) => node.id.path) : [],
+};
 "#,
                 QueryLanguage::Ts,
             )
@@ -2287,6 +2733,37 @@ return { path: sym?.id.path, callers: prism.symbol("alpha")?.relations().outgoin
     }
 
     #[test]
+    fn convenience_symbol_query_returns_diagnostics() {
+        let host = host_with_node(demo_node());
+
+        let envelope = host
+            .symbol_query("missing")
+            .expect("symbol query should succeed");
+        assert!(envelope.result.is_object() || envelope.result.is_null());
+        assert!(envelope
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "anchor_unresolved"));
+    }
+
+    #[test]
+    fn convenience_search_query_returns_structured_envelope() {
+        let host = host_with_node(demo_node());
+
+        let envelope = host
+            .search_query(SearchArgs {
+                query: "main".to_string(),
+                limit: Some(1),
+                kind: None,
+                path: None,
+                include_inferred: None,
+            })
+            .expect("search query should succeed");
+        assert!(envelope.result.is_array());
+        assert!(envelope.diagnostics.is_empty());
+    }
+
+    #[test]
     fn first_mutation_auto_creates_session_task() {
         let host = host_with_node(demo_node());
 
@@ -2309,6 +2786,43 @@ return { path: sym?.id.path, callers: prism.symbol("alpha")?.relations().outgoin
         assert_eq!(replay.task, task);
         assert_eq!(replay.events.len(), 1);
         assert_eq!(replay.events[0].kind, OutcomeKind::NoteAdded);
+    }
+
+    #[test]
+    fn recalls_session_memory_for_symbol_focus() {
+        let host = host_with_node(demo_node());
+
+        host.store_note(PrismNoteArgs {
+            anchors: vec![AnchorRefInput::Node {
+                crate_name: "demo".to_string(),
+                path: "demo::main".to_string(),
+                kind: "function".to_string(),
+            }],
+            content: "main previously regressed on null handling".to_string(),
+            trust: Some(0.9),
+            task_id: None,
+        })
+        .expect("note should store");
+
+        let result = host
+            .execute(
+                r#"
+const sym = prism.symbol("main");
+return prism.memory.recall({
+  focus: sym ? [sym] : [],
+  text: "null",
+  limit: 5,
+});
+"#,
+                QueryLanguage::Ts,
+            )
+            .expect("memory recall should succeed");
+
+        assert_eq!(
+            result.result[0]["entry"]["content"],
+            "main previously regressed on null handling"
+        );
+        assert_eq!(result.result[0]["entry"]["kind"], "Episodic");
     }
 
     #[test]

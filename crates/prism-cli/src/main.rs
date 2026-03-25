@@ -6,7 +6,10 @@ use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
 use prism_core::{index_workspace_session, WorkspaceSession};
 use prism_ir::{AnchorRef, EventActor, EventId, EventMeta, NodeId, NodeKind, TaskId};
-use prism_memory::{OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult};
+use prism_memory::{
+    EpisodicMemory, EpisodicMemorySnapshot, MemoryEntry, MemoryKind, MemoryModule, MemorySource,
+    OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult, RecallQuery, ScoredMemory,
+};
 use prism_query::{Relations, Symbol};
 
 #[derive(Parser)]
@@ -59,6 +62,10 @@ enum Command {
     TaskResume {
         id: String,
     },
+    Memory {
+        #[command(subcommand)]
+        command: MemoryCommand,
+    },
     Task {
         #[command(subcommand)]
         command: TaskCommand,
@@ -92,6 +99,22 @@ enum TaskCommand {
         summary: Option<String>,
         #[arg(long)]
         staged: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum MemoryCommand {
+    Recall {
+        name: String,
+        #[arg(long)]
+        text: Option<String>,
+        #[arg(long, default_value_t = 5)]
+        limit: usize,
+    },
+    Store {
+        name: String,
+        #[arg(long)]
+        content: String,
     },
 }
 
@@ -331,6 +354,38 @@ fn main() -> Result<()> {
                 }
             }
         }
+        Command::Memory { command } => match command {
+            MemoryCommand::Recall { name, text, limit } => {
+                let symbol = resolve_single_symbol(&prism, &name)?;
+                let memory = load_episodic_memory(&session)?;
+                let anchors = prism.anchors_for(&[AnchorRef::Node(symbol.id().clone())]);
+                let results = memory.recall(&RecallQuery {
+                    focus: anchors,
+                    text,
+                    limit,
+                    kinds: Some(vec![MemoryKind::Episodic]),
+                    since: None,
+                })?;
+                if results.is_empty() {
+                    eprintln!("no memory matched `{name}`");
+                } else {
+                    println!("{}", symbol.signature());
+                    for memory in results {
+                        print_scored_memory(memory);
+                    }
+                }
+            }
+            MemoryCommand::Store { name, content } => {
+                let symbol = resolve_single_symbol(&prism, &name)?;
+                let memory = load_episodic_memory(&session)?;
+                let mut entry = MemoryEntry::new(MemoryKind::Episodic, content);
+                entry.anchors = prism.anchors_for(&[AnchorRef::Node(symbol.id().clone())]);
+                entry.source = MemorySource::User;
+                let id = memory.store(entry)?;
+                session.persist_episodic(&memory.snapshot())?;
+                println!("stored memory {}", id.0);
+            }
+        },
         Command::Task { command } => match command {
             TaskCommand::Start {
                 id,
@@ -353,7 +408,7 @@ fn main() -> Result<()> {
                     evidence: Vec::new(),
                     metadata: serde_json::Value::Null,
                 };
-                let outcome_id = record_outcome_event(&session, prism.as_ref(), event)?;
+                let outcome_id = record_outcome_event(&session, event)?;
                 println!("recorded task start {}", outcome_id.0);
             }
             TaskCommand::Note {
@@ -377,7 +432,7 @@ fn main() -> Result<()> {
                     evidence: Vec::new(),
                     metadata: serde_json::Value::Null,
                 };
-                let outcome_id = record_outcome_event(&session, prism.as_ref(), event)?;
+                let outcome_id = record_outcome_event(&session, event)?;
                 println!("recorded task note {}", outcome_id.0);
             }
             TaskCommand::Patch {
@@ -410,7 +465,7 @@ fn main() -> Result<()> {
                     evidence: vec![OutcomeEvidence::DiffSummary { text: diff_summary }],
                     metadata: serde_json::Value::Null,
                 };
-                let outcome_id = record_outcome_event(&session, prism.as_ref(), event)?;
+                let outcome_id = record_outcome_event(&session, event)?;
                 println!("recorded task patch {}", outcome_id.0);
             }
         },
@@ -453,7 +508,7 @@ fn main() -> Result<()> {
                     ),
                     metadata: serde_json::Value::Null,
                 };
-                let id = record_outcome_event(&session, prism.as_ref(), event)?;
+                let id = record_outcome_event(&session, event)?;
                 println!("recorded outcome {}", id.0);
             }
             OutcomeCommand::Test {
@@ -590,6 +645,30 @@ fn print_relation_section(label: &str, values: &[NodeId]) {
     for value in values {
         println!("  {}", value.path);
     }
+}
+
+fn print_scored_memory(memory: ScoredMemory) {
+    println!(
+        "  [{}] score={:.2} source={} trust={:.2} created_at={}",
+        memory.id.0,
+        memory.score,
+        format!("{:?}", memory.entry.source),
+        memory.entry.trust,
+        memory.entry.created_at
+    );
+    println!("    {}", memory.entry.content);
+    if let Some(explanation) = memory.explanation {
+        println!("    explanation: {explanation}");
+    }
+}
+
+fn load_episodic_memory(session: &WorkspaceSession) -> Result<EpisodicMemory> {
+    let snapshot = session
+        .load_episodic_snapshot()?
+        .unwrap_or(EpisodicMemorySnapshot {
+            entries: Vec::new(),
+        });
+    Ok(EpisodicMemory::from_snapshot(snapshot))
 }
 
 fn parse_node_kind_filter(value: Option<&str>) -> Result<Option<NodeKind>> {
@@ -801,7 +880,7 @@ fn record_validation_outcome(
         evidence: validation.evidence,
         metadata: serde_json::Value::Null,
     };
-    let id = record_outcome_event(session, prism, event)?;
+    let id = record_outcome_event(session, event)?;
     println!("recorded outcome {}", id.0);
 
     if matches!(validation.result, OutcomeResult::Failure) {
@@ -811,14 +890,8 @@ fn record_validation_outcome(
     Ok(())
 }
 
-fn record_outcome_event(
-    session: &WorkspaceSession,
-    prism: &prism_query::Prism,
-    event: OutcomeEvent,
-) -> Result<EventId> {
-    let id = prism.outcome_memory().store_event(event)?;
-    session.persist_outcomes()?;
-    Ok(id)
+fn record_outcome_event(session: &WorkspaceSession, event: OutcomeEvent) -> Result<EventId> {
+    session.append_outcome(event)
 }
 
 fn current_timestamp() -> u64 {

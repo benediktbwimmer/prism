@@ -79,15 +79,9 @@ impl WorkspaceSession {
             .lock()
             .expect("workspace refresh lock poisoned");
         let prism = self.prism_arc();
-        prism.refresh_projections();
-        self.store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .save_outcome_snapshot(&prism.outcome_snapshot())?;
-        self.store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .save_projection_snapshot(&prism.projection_snapshot())
+        let mut store = self.store.lock().expect("workspace store lock poisoned");
+        store.save_outcome_snapshot(&prism.outcome_snapshot())?;
+        store.save_projection_snapshot(&prism.projection_snapshot())
     }
 
     pub fn persist_history(&self) -> Result<()> {
@@ -96,15 +90,9 @@ impl WorkspaceSession {
             .lock()
             .expect("workspace refresh lock poisoned");
         let prism = self.prism_arc();
-        prism.refresh_projections();
-        self.store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .save_history_snapshot(&prism.history_snapshot())?;
-        self.store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .save_projection_snapshot(&prism.projection_snapshot())
+        let mut store = self.store.lock().expect("workspace store lock poisoned");
+        store.save_history_snapshot(&prism.history_snapshot())?;
+        store.save_projection_snapshot(&prism.projection_snapshot())
     }
 
     pub fn load_episodic_snapshot(&self) -> Result<Option<EpisodicMemorySnapshot>> {
@@ -141,11 +129,11 @@ impl WorkspaceSession {
             .lock()
             .expect("workspace refresh lock poisoned");
         let prism = self.prism_arc();
+        prism.apply_outcome_event_to_projections(&event);
         let id = prism.outcome_memory().store_event(event)?;
-        self.store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .save_outcome_snapshot(&prism.outcome_snapshot())?;
+        let mut store = self.store.lock().expect("workspace store lock poisoned");
+        store.save_outcome_snapshot(&prism.outcome_snapshot())?;
+        store.save_projection_snapshot(&prism.projection_snapshot())?;
         Ok(id)
     }
 
@@ -456,9 +444,10 @@ impl<S: Store> WorkspaceIndexer<S> {
                 parsed,
                 trigger.clone(),
             );
-            self.record_patch_outcome(&update.observed);
             let lineage_events = self.history.apply(&update.observed);
+            self.projections.apply_lineage_events(&lineage_events);
             self.outcomes.apply_lineage(&lineage_events)?;
+            self.record_patch_outcome(&update.observed);
             observed_changes.push(update.observed.clone());
             changes.extend(update.changes);
             self.store
@@ -472,9 +461,10 @@ impl<S: Store> WorkspaceIndexer<S> {
                     default_outcome_meta("observed"),
                     trigger.clone(),
                 );
-                self.record_patch_outcome(&update.observed);
                 let lineage_events = self.history.apply(&update.observed);
+                self.projections.apply_lineage_events(&lineage_events);
                 self.outcomes.apply_lineage(&lineage_events)?;
+                self.record_patch_outcome(&update.observed);
                 observed_changes.push(update.observed.clone());
                 changes.extend(update.changes);
                 self.store.remove_file_state(&tracked)?;
@@ -486,8 +476,6 @@ impl<S: Store> WorkspaceIndexer<S> {
         self.store.finalize(&self.graph)?;
         self.history
             .seed_nodes(self.graph.all_nodes().map(|node| node.id.clone()));
-        self.projections =
-            ProjectionIndex::derive(&self.history.snapshot(), &self.outcomes.snapshot());
         self.store.save_history_snapshot(&self.history.snapshot())?;
         self.store
             .save_outcome_snapshot(&self.outcomes.snapshot())?;
@@ -575,7 +563,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         resolve_impls(&mut self.graph, unresolved_impls);
     }
 
-    fn record_patch_outcome(&self, observed: &ObservedChangeSet) {
+    fn record_patch_outcome(&mut self, observed: &ObservedChangeSet) {
         if !self.had_prior_snapshot || observed_is_empty(observed) {
             return;
         }
@@ -606,7 +594,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             ]
         }));
 
-        let _ = self.outcomes.store_event(OutcomeEvent {
+        let event = OutcomeEvent {
             meta: EventMeta {
                 id: auto_outcome_event_id("outcome"),
                 ts: observed.meta.ts,
@@ -623,7 +611,10 @@ impl<S: Store> WorkspaceIndexer<S> {
                 "trigger": format!("{:?}", observed.trigger),
                 "files": observed.files.iter().map(|file_id| file_id.0).collect::<Vec<_>>(),
             }),
-        });
+        };
+        self.projections
+            .apply_outcome_event(&event, |node| self.history.lineage_of(node));
+        let _ = self.outcomes.store_event(event);
     }
 }
 
@@ -1224,11 +1215,13 @@ mod tests {
     use std::time::Duration;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use prism_ir::{AnchorRef, EdgeKind, GraphChange, NodeId, NodeKind};
-    use prism_memory::OutcomeKind;
+    use prism_ir::{
+        AnchorRef, EdgeKind, EventActor, EventId, EventMeta, GraphChange, NodeId, NodeKind, TaskId,
+    };
+    use prism_memory::{OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult};
     use prism_store::MemoryStore;
 
-    use super::{index_workspace_session, WorkspaceIndexer};
+    use super::{index_workspace, index_workspace_session, WorkspaceIndexer};
 
     static NEXT_TEMP_WORKSPACE: AtomicU64 = AtomicU64::new(0);
 
@@ -1548,6 +1541,58 @@ mod tests {
             .filter(|event| event.kind == OutcomeKind::PatchApplied)
             .count();
         assert_eq!(patch_events, 1);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn appended_outcome_persists_projection_snapshot() {
+        let root = temp_workspace();
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+        let session = index_workspace_session(&root).unwrap();
+        let alpha = session
+            .prism()
+            .symbol("alpha")
+            .into_iter()
+            .next()
+            .unwrap()
+            .id()
+            .clone();
+        session
+            .append_outcome(OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new("outcome:test"),
+                    ts: 10,
+                    actor: EventActor::User,
+                    correlation: Some(TaskId::new("task:test")),
+                    causation: None,
+                },
+                anchors: vec![AnchorRef::Node(alpha.clone())],
+                kind: OutcomeKind::FailureObserved,
+                result: OutcomeResult::Failure,
+                summary: "alpha needs integration coverage".into(),
+                evidence: vec![OutcomeEvidence::Test {
+                    name: "alpha_integration".into(),
+                    passed: false,
+                }],
+                metadata: serde_json::Value::Null,
+            })
+            .unwrap();
+        drop(session);
+
+        let prism = index_workspace(&root).unwrap();
+        let recipe = prism.validation_recipe(&alpha);
+        assert!(recipe
+            .scored_checks
+            .iter()
+            .any(|check| check.label == "test:alpha_integration" && check.score > 0.0));
 
         let _ = fs::remove_dir_all(root);
     }

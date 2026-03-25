@@ -20,6 +20,23 @@ pub struct Prism {
     projections: RwLock<ProjectionIndex>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QueryLimits {
+    pub max_result_nodes: usize,
+    pub max_call_graph_depth: usize,
+    pub max_output_json_bytes: usize,
+}
+
+impl Default for QueryLimits {
+    fn default() -> Self {
+        Self {
+            max_result_nodes: 500,
+            max_call_graph_depth: 10,
+            max_output_json_bytes: 256 * 1024,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct ChangeImpact {
     pub direct_nodes: Vec<NodeId>,
@@ -121,6 +138,20 @@ impl Prism {
     pub fn refresh_projections(&self) {
         let next = ProjectionIndex::derive(&self.history.snapshot(), &self.outcomes.snapshot());
         *self.projections.write().expect("projection lock poisoned") = next;
+    }
+
+    pub fn apply_outcome_event_to_projections(&self, event: &OutcomeEvent) {
+        self.projections
+            .write()
+            .expect("projection lock poisoned")
+            .apply_outcome_event(event, |node| self.history.lineage_of(node));
+    }
+
+    pub fn apply_lineage_events_to_projections(&self, events: &[LineageEvent]) {
+        self.projections
+            .write()
+            .expect("projection lock poisoned")
+            .apply_lineage_events(events);
     }
 
     pub fn outcomes_for(&self, anchors: &[AnchorRef], limit: usize) -> Vec<OutcomeEvent> {
