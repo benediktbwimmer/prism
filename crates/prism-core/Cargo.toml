@@ -12,9 +12,12 @@ prism-lang-json = { path = "../prism-lang-json" }
 prism-lang-markdown = { path = "../prism-lang-markdown" }
 prism-lang-rust = { path = "../prism-lang-rust" }
 prism-lang-yaml = { path = "../prism-lang-yaml" }
+prism-memory = { path = "../prism-memory" }
 prism-parser = { path = "../prism-parser" }
 prism-query = { path = "../prism-query" }
 prism-store = { path = "../prism-store" }
+serde.workspace = true
+serde_json.workspace = true
 smol_str.workspace = true
 toml.workspace = true
 walkdir.workspace = true

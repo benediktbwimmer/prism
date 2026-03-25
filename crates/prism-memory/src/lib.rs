@@ -136,6 +136,11 @@ pub struct TaskReplay {
     pub events: Vec<OutcomeEvent>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OutcomeMemorySnapshot {
+    pub events: Vec<OutcomeEvent>,
+}
+
 pub trait MemoryModule: Send + Sync {
     fn name(&self) -> &'static str;
 
@@ -349,6 +354,21 @@ impl OutcomeMemory {
         }
 
         Ok(())
+    }
+
+    pub fn snapshot(&self) -> OutcomeMemorySnapshot {
+        let state = self.state.read().expect("outcome memory lock poisoned");
+        let mut events = state.events.values().cloned().collect::<Vec<_>>();
+        events.sort_by(compare_outcome_event);
+        OutcomeMemorySnapshot { events }
+    }
+
+    pub fn from_snapshot(snapshot: OutcomeMemorySnapshot) -> Self {
+        let memory = Self::new();
+        for event in snapshot.events {
+            let _ = memory.store_event(event);
+        }
+        memory
     }
 }
 

@@ -35,6 +35,14 @@ pub struct LineageView {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct QueryEnvelope {
     pub result: Value,
+    pub diagnostics: Vec<QueryDiagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct QueryDiagnostic {
+    pub code: String,
+    pub message: String,
+    pub data: Option<Value>,
 }
 
 pub fn api_reference_markdown() -> &'static str {
@@ -42,31 +50,58 @@ pub fn api_reference_markdown() -> &'static str {
 
 `prism_query` executes a TypeScript snippet against a live in-memory PRISM graph.
 
-Rules:
+## Mental model
 
-- The snippet runs with a global `prism` object.
+Treat this like a repo-specific read-only query shell.
+
+- TypeScript is for composition.
+- Prism is where semantic meaning should live.
 - Return the final value with `return ...`.
 - The returned value must be JSON-serializable.
 - `language` currently supports only `"ts"`.
+- `prism_query` is read-only in this implementation.
 
-## Global API
+## Result shape
 
 ```ts
-const prism: {
-  symbol(query: string): SymbolView | null;
-  symbols(query: string): SymbolView[];
-  search(
-    query: string,
-    options?: { limit?: number; kind?: string; path?: string }
-  ): SymbolView[];
-  entrypoints(): SymbolView[];
-  lineage(target: SymbolView | NodeId): LineageView | null;
-};
+interface QueryResult {
+  result: unknown;
+  diagnostics: QueryDiagnostic[];
+}
+
+interface QueryDiagnostic {
+  code: string;
+  message: string;
+  data?: Record<string, unknown>;
+}
 ```
 
-## SymbolView
+Diagnostics are how the server tells you a query was ambiguous, truncated, or capped.
+
+## Type surface
 
 ```ts
+type NodeId = {
+  crate_name: string;
+  path: string;
+  kind: string;
+};
+
+type SearchOptions = {
+  limit?: number;
+  kind?: string;
+  path?: string;
+};
+
+type PrismApi = {
+  symbol(query: string): SymbolView | null;
+  symbols(query: string): SymbolView[];
+  search(query: string, options?: SearchOptions): SymbolView[];
+  entrypoints(): SymbolView[];
+  lineage(target: SymbolView | NodeId): LineageView | null;
+  diagnostics(): QueryDiagnostic[];
+};
+
 type SymbolView = {
   id: NodeId;
   name: string;
@@ -81,28 +116,140 @@ type SymbolView = {
   callGraph(depth?: number): Subgraph;
   lineage(): LineageView | null;
 };
+
+type RelationsView = {
+  outgoing_calls: NodeId[];
+  incoming_calls: NodeId[];
+  outgoing_imports: NodeId[];
+  incoming_imports: NodeId[];
+  outgoing_implements: NodeId[];
+  incoming_implements: NodeId[];
+};
+
+type LineageView = {
+  lineage: string;
+  events: unknown[];
+};
 ```
 
-## Examples
+## Limits and determinism
+
+- Search results are capped.
+- Call graph depth is capped.
+- Results are deterministically ordered by Prism before they reach the JS layer.
+- The graph stays live in memory for the MCP session, but the JS runtime is recreated per query in this initial implementation.
+
+## Recipes
+
+### 1. Find a symbol and show call graph plus lineage
 
 ```ts
 const sym = prism.symbol("main");
 return {
   symbol: sym,
+  callGraph: sym?.callGraph(2),
   lineage: sym?.lineage(),
-  callers: sym?.relations().incoming_calls ?? [],
 };
 ```
+
+### 2. Search only functions
 
 ```ts
 return prism.search("request", { limit: 5, kind: "function" });
 ```
 
-## Current limitations
+### 3. Find callers of the best symbol match
 
-- The graph stays live in memory for the MCP session, but the JS runtime is recreated per query in this initial implementation.
-- The query surface currently covers symbol lookup, search, entrypoints, relations, call graphs, source extraction, and lineage history.
-- Memory recall, blast radius, and task replay are not exposed yet.
+```ts
+const sym = prism.symbol("handle_request");
+return {
+  symbol: sym,
+  callers: sym?.relations().incoming_calls ?? [],
+};
+```
+
+### 4. Fall back from exact-ish lookup to search
+
+```ts
+const sym = prism.symbol("RequestContext") ?? prism.search("RequestContext", { limit: 1 })[0];
+return sym;
+```
+
+### 5. Summarize entrypoints
+
+```ts
+return prism.entrypoints().map((sym) => ({
+  path: sym.id.path,
+  file: sym.file_path,
+}));
+```
+
+### 6. Pull source plus relations in one round-trip
+
+```ts
+const sym = prism.symbol("main");
+return {
+  symbol: sym,
+  source: sym?.full(),
+  relations: sym?.relations(),
+};
+```
+
+### 7. Inspect diagnostics after an ambiguous lookup
+
+```ts
+const sym = prism.symbol("parse");
+return {
+  symbol: sym,
+  diagnostics: prism.diagnostics(),
+};
+```
+
+### 8. Narrow by path fragment
+
+```ts
+return prism.search("config", {
+  kind: "struct",
+  path: "src/settings",
+  limit: 10,
+});
+```
+
+### 9. Compare two related symbols
+
+```ts
+const left = prism.symbol("handle_request");
+const right = prism.symbol("handle_response");
+return {
+  left,
+  right,
+  sharedCallers:
+    left && right
+      ? left
+          .relations()
+          .incoming_calls
+          .filter((caller) =>
+            right.relations().incoming_calls.some((other) => other.path === caller.path)
+          )
+      : [],
+};
+```
+
+### 10. Return both data and repair hints
+
+```ts
+const results = prism.search("parse", { limit: 1000 });
+return {
+  results,
+  diagnostics: prism.diagnostics(),
+};
+```
+
+## Current implementation surface
+
+- Available now: symbol lookup, search, entrypoints, relations, call graphs, source extraction, and lineage history.
+- Not exposed yet: memory recall, related failures, blast radius, validation recipes, and task replay.
+- Keep query logic small. If you find yourself reconstructing semantics from raw low-level fields every time, that method probably belongs in Prism itself.
 "#
 }
 
@@ -180,6 +327,9 @@ globalThis.prism = Object.freeze({
     }
     return __prismHost("lineage", { id });
   },
+  diagnostics() {
+    return __prismHost("diagnostics", {});
+  },
 });
 "#
 }
@@ -192,7 +342,8 @@ mod tests {
     fn api_reference_mentions_primary_tool() {
         let docs = api_reference_markdown();
         assert!(docs.contains("prism_query"));
-        assert!(docs.contains("symbol(query: string)"));
+        assert!(docs.contains("type PrismApi"));
+        assert!(docs.contains("### 10. Return both data and repair hints"));
     }
 
     #[test]

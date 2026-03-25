@@ -4,6 +4,15 @@ use prism_ir::{
     EventId, EventMeta, LineageEvent, LineageEventKind, LineageEvidence, LineageId, NodeId,
     ObservedChangeSet, ObservedNode, SymbolFingerprint,
 };
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HistorySnapshot {
+    pub node_to_lineage: Vec<(NodeId, LineageId)>,
+    pub events: Vec<LineageEvent>,
+    pub next_lineage: u64,
+    pub next_event: u64,
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct HistoryStore {
@@ -137,6 +146,28 @@ impl HistoryStore {
             .filter(|event| &event.lineage == lineage)
             .cloned()
             .collect()
+    }
+
+    pub fn snapshot(&self) -> HistorySnapshot {
+        HistorySnapshot {
+            node_to_lineage: self
+                .node_to_lineage
+                .iter()
+                .map(|(node, lineage)| (node.clone(), lineage.clone()))
+                .collect(),
+            events: self.events.clone(),
+            next_lineage: self.next_lineage,
+            next_event: self.next_event,
+        }
+    }
+
+    pub fn from_snapshot(snapshot: HistorySnapshot) -> Self {
+        Self {
+            node_to_lineage: snapshot.node_to_lineage.into_iter().collect(),
+            events: snapshot.events,
+            next_lineage: snapshot.next_lineage,
+            next_event: snapshot.next_event,
+        }
     }
 
     fn match_lineage_candidates(

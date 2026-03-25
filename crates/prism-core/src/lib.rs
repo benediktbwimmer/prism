@@ -5,7 +5,7 @@ use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use prism_history::HistoryStore;
+use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
     Edge, EdgeKind, EdgeOrigin, GraphChange, Language, Node, NodeId, NodeKind, ObservedChangeSet,
     Span,
@@ -14,6 +14,7 @@ use prism_lang_json::JsonAdapter;
 use prism_lang_markdown::MarkdownAdapter;
 use prism_lang_rust::RustAdapter;
 use prism_lang_yaml::YamlAdapter;
+use prism_memory::{OutcomeMemory, OutcomeMemorySnapshot};
 use prism_parser::{
     LanguageAdapter, ParseInput, ParseResult, SymbolTarget, UnresolvedCall, UnresolvedImpl,
     UnresolvedImport,
@@ -35,6 +36,7 @@ pub struct WorkspaceIndexer<S: Store> {
     layout: WorkspaceLayout,
     graph: Graph,
     history: HistoryStore,
+    outcomes: OutcomeMemory,
     adapters: Vec<Box<dyn LanguageAdapter>>,
     store: S,
 }
@@ -79,14 +81,20 @@ impl<S: Store> WorkspaceIndexer<S> {
         let layout = discover_layout(&root)?;
         let mut graph = store.load_graph()?.unwrap_or_default();
         sync_root_nodes(&mut graph, &layout);
-        let mut history = HistoryStore::new();
+        let mut history = load_history_snapshot(&root)
+            .map(HistoryStore::from_snapshot)
+            .unwrap_or_else(HistoryStore::new);
         history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
+        let outcomes = load_outcome_snapshot(&root)
+            .map(OutcomeMemory::from_snapshot)
+            .unwrap_or_else(OutcomeMemory::new);
 
         Ok(Self {
             root,
             layout,
             graph,
             history,
+            outcomes,
             adapters: default_adapters(),
             store,
         })
@@ -186,7 +194,8 @@ impl<S: Store> WorkspaceIndexer<S> {
                 &package,
                 parsed,
             );
-            self.history.apply(&update.observed);
+            let lineage_events = self.history.apply(&update.observed);
+            self.outcomes.apply_lineage(&lineage_events)?;
             observed_changes.push(update.observed.clone());
             changes.extend(update.changes);
             self.store
@@ -196,7 +205,8 @@ impl<S: Store> WorkspaceIndexer<S> {
         for tracked in self.graph.tracked_files() {
             if !seen_files.contains(&tracked) && !moved_paths.contains(&tracked) {
                 let update = self.graph.remove_file_with_update(&tracked);
-                self.history.apply(&update.observed);
+                let lineage_events = self.history.apply(&update.observed);
+                self.outcomes.apply_lineage(&lineage_events)?;
                 observed_changes.push(update.observed.clone());
                 changes.extend(update.changes);
                 self.store.remove_file_state(&tracked)?;
@@ -208,6 +218,8 @@ impl<S: Store> WorkspaceIndexer<S> {
         self.store.finalize(&self.graph)?;
         self.history
             .seed_nodes(self.graph.all_nodes().map(|node| node.id.clone()));
+        save_history_snapshot(&self.root, &self.history.snapshot())?;
+        save_outcome_snapshot(&self.root, &self.outcomes.snapshot())?;
         Ok((observed_changes, changes))
     }
 
@@ -216,7 +228,7 @@ impl<S: Store> WorkspaceIndexer<S> {
     }
 
     pub fn into_prism(self) -> Prism {
-        Prism::with_history(self.graph, self.history)
+        Prism::with_history_and_outcomes(self.graph, self.history, self.outcomes)
     }
 
     fn upsert_parsed_file(
@@ -751,6 +763,49 @@ fn normalize_identifier(value: &str) -> String {
 
 fn cache_path(root: &Path) -> PathBuf {
     root.join(".prism").join("cache.db")
+}
+
+fn history_snapshot_path(root: &Path) -> PathBuf {
+    root.join(".prism").join("history.json")
+}
+
+fn outcome_snapshot_path(root: &Path) -> PathBuf {
+    root.join(".prism").join("outcomes.json")
+}
+
+fn load_history_snapshot(root: &Path) -> Option<HistorySnapshot> {
+    load_json_snapshot(history_snapshot_path(root))
+}
+
+fn load_outcome_snapshot(root: &Path) -> Option<OutcomeMemorySnapshot> {
+    load_json_snapshot(outcome_snapshot_path(root))
+}
+
+fn save_history_snapshot(root: &Path, snapshot: &HistorySnapshot) -> Result<()> {
+    save_json_snapshot(history_snapshot_path(root), snapshot)
+}
+
+fn save_outcome_snapshot(root: &Path, snapshot: &OutcomeMemorySnapshot) -> Result<()> {
+    save_json_snapshot(outcome_snapshot_path(root), snapshot)
+}
+
+fn load_json_snapshot<T>(path: PathBuf) -> Option<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    let data = fs::read_to_string(path).ok()?;
+    serde_json::from_str(&data).ok()
+}
+
+fn save_json_snapshot<T>(path: PathBuf, snapshot: &T) -> Result<()>
+where
+    T: serde::Serialize,
+{
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, serde_json::to_vec_pretty(snapshot)?)?;
+    Ok(())
 }
 
 fn cleanup_legacy_cache(root: &Path) -> Result<()> {

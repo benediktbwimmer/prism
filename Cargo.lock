@@ -1163,9 +1163,12 @@ dependencies = [
  "prism-lang-markdown",
  "prism-lang-rust",
  "prism-lang-yaml",
+ "prism-memory",
  "prism-parser",
  "prism-query",
  "prism-store",
+ "serde",
+ "serde_json",
  "smol_str",
  "toml",
  "walkdir",
@@ -1176,6 +1179,7 @@ name = "prism-history"
 version = "0.1.0"
 dependencies = [
  "prism-ir",
+ "serde",
  "smol_str",
 ]
 

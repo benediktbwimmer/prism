@@ -961,6 +961,8 @@ Rules:
 * the query executes with a pre-bound `prism` object
 * the final value returned by the snippet must be JSON-serializable
 * execution happens against the already-loaded in-memory graph for the active MCP session
+* `prism_query` is read-only in v1
+* mutations such as memory writes, task mutation, or patch application should remain separate explicit operations
 
 Expected query shape:
 
@@ -972,6 +974,29 @@ const lineage = sym?.lineage();
 return { sym, cg, lineage };
 ```
 
+Structured output:
+
+```ts
+interface QueryResult {
+  result: unknown;
+  diagnostics: QueryDiagnostic[];
+}
+
+interface QueryDiagnostic {
+  code:
+    | "ambiguous_symbol"
+    | "result_truncated"
+    | "depth_limited"
+    | "unknown_method"
+    | "lineage_uncertain"
+    | "anchor_unresolved";
+  message: string;
+  data?: Record<string, unknown>;
+}
+```
+
+The goal is that agents can repair and narrow queries from machine-readable diagnostics instead of guessing from free-form error text.
+
 ## 10.3 Discovery Resource
 
 The MCP server must expose at least one resource:
@@ -982,13 +1007,17 @@ prism://api-reference
 
 This resource should document:
 
+* a short conceptual overview
+* a `d.ts`-style surface contract
 * the `prism` global
 * available methods and return types
-* supported query-language conventions
-* runnable examples
+* supported query-language conventions and limits
+* runnable examples and recipes
 * current limitations
 
 The resource is the canonical discovery path for agents. The tool description should stay short and point to the resource instead of embedding the full API in prompt text.
+
+The resource should feel more like a tiny SDK README plus type definition file than a dry protocol appendix.
 
 ## 10.4 Runtime Model
 
@@ -1011,12 +1040,14 @@ Execution requirements:
 * TypeScript should transpile to JavaScript before evaluation
 * runtime bindings must expose structured data, not formatted CLI text
 * query results must serialize back to JSON for MCP tool output
+* the query runtime should apply hard safety limits for breadth, depth, and output size
 
 Security and determinism constraints:
 
 * the runtime should expose only PRISM query capabilities, not arbitrary filesystem or process access
 * host-call boundaries should be explicit and auditable
 * query errors must return structured diagnostics
+* broad or expensive queries should fail or truncate deterministically instead of degrading silently
 
 ## 10.5 Binding Layer (prism-js)
 
@@ -1028,6 +1059,7 @@ Responsibilities:
 * provide the runtime shim loaded into the embedded engine
 * publish the API reference resource text
 * keep the JS-visible contract stable even as Rust internals evolve
+* present plain structured views rather than leaking Rust internals or opaque runtime handles
 
 Representative surface:
 
@@ -1037,13 +1069,14 @@ interface PrismApi {
   symbols(query: string): SymbolView[];
   search(query: string, options?: SearchOptions): SymbolView[];
   entrypoints(): SymbolView[];
+  diagnostics(): QueryDiagnostic[];
 }
 
 interface SymbolView {
   id: NodeId;
   name: string;
   kind: NodeKind;
-  signature(): string;
+  signature: string;
   full(): string;
   relations(): Relations;
   callGraph(depth: number): Subgraph;
@@ -1056,8 +1089,29 @@ Rules:
 * the JS API should prefer plain data plus a small set of ergonomic methods
 * methods should compose naturally inside one snippet
 * the JS contract should reflect `prism-query`, not the CLI
+* TypeScript is for composition; Prism is where semantic meaning should live
+* high-value semantic operations should graduate into first-class `prism-query` methods instead of being reimplemented ad hoc in snippets
 
-## 10.6 Convenience Tools
+Examples of good semantic methods to expose over time:
+
+* `prism.relatedFailures(nodeId)`
+* `prism.blastRadius(nodeId)`
+* `prism.validationRecipe(nodeId)`
+* `prism.resumeTask(taskId)`
+
+## 10.6 Recipes And Examples
+
+The API reference should ship with concrete copy-pastable recipes such as:
+
+* find a symbol and return its call graph plus lineage
+* search for likely risky neighbors
+* compare prior failures for one lineage
+* summarize entrypoints in one package
+* explain why a query was truncated and how to narrow it
+
+Agents learn these surfaces best from examples. Recipes are not auxiliary documentation; they are part of the product surface.
+
+## 10.7 Convenience Tools
 
 Optional convenience tools may exist later for high-frequency lookups:
 

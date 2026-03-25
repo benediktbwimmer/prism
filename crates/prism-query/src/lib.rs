@@ -3,12 +3,14 @@ use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
-use prism_history::HistoryStore;
+use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
     AnchorRef, Edge, EdgeKind, LineageEvent, LineageId, Node, NodeId, NodeKind, Skeleton, Subgraph,
     TaskId,
 };
-use prism_memory::{OutcomeEvent, OutcomeEvidence, OutcomeMemory, TaskReplay};
+use prism_memory::{
+    OutcomeEvent, OutcomeEvidence, OutcomeMemory, OutcomeMemorySnapshot, TaskReplay,
+};
 use prism_store::Graph;
 
 pub struct Prism {
@@ -62,6 +64,14 @@ impl Prism {
 
     pub fn outcome_memory(&self) -> Arc<OutcomeMemory> {
         Arc::clone(&self.outcomes)
+    }
+
+    pub fn history_snapshot(&self) -> HistorySnapshot {
+        self.history.snapshot()
+    }
+
+    pub fn outcome_snapshot(&self) -> OutcomeMemorySnapshot {
+        self.outcomes.snapshot()
     }
 
     pub fn outcomes_for(&self, anchors: &[AnchorRef], limit: usize) -> Vec<OutcomeEvent> {

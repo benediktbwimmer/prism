@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
 use prism_core::index_workspace;
-use prism_ir::{NodeId, NodeKind};
+use prism_ir::{NodeId, NodeKind, TaskId};
 use prism_query::{Relations, Symbol};
 
 #[derive(Parser)]
@@ -22,6 +22,9 @@ enum Command {
     Symbol {
         name: String,
     },
+    Lineage {
+        name: String,
+    },
     Search {
         query: String,
         #[arg(long, default_value_t = 20)]
@@ -38,6 +41,12 @@ enum Command {
         name: String,
         #[arg(long, default_value_t = 3)]
         depth: usize,
+    },
+    Risk {
+        name: String,
+    },
+    TaskResume {
+        id: String,
     },
 }
 
@@ -75,6 +84,15 @@ fn main() -> Result<()> {
                 println!("{}", symbol.signature());
             }
         }
+        Command::Lineage { name } => {
+            let symbols = prism.symbol(&name);
+            if symbols.is_empty() {
+                eprintln!("no symbol matched `{name}`");
+            }
+            for symbol in symbols {
+                print_lineage(&prism, symbol);
+            }
+        }
         Command::Relations { name } => {
             let symbols = prism.symbol(&name);
             if symbols.is_empty() {
@@ -94,6 +112,46 @@ fn main() -> Result<()> {
                 println!("root: {}", graph.root.path);
                 for edge in graph.edges {
                     println!("{} -> {}", edge.source.path, edge.target.path);
+                }
+            }
+        }
+        Command::Risk { name } => {
+            let symbols = prism.symbol(&name);
+            if symbols.is_empty() {
+                eprintln!("no symbol matched `{name}`");
+            }
+            for symbol in symbols {
+                let impact = prism.blast_radius(symbol.id());
+                println!("{}", symbol.signature());
+                print_relation_section("directly related", &impact.direct_nodes);
+                if !impact.lineages.is_empty() {
+                    println!("lineages:");
+                    for lineage in impact.lineages {
+                        println!("  {}", lineage.0);
+                    }
+                }
+                if !impact.likely_validations.is_empty() {
+                    println!("likely validations:");
+                    for validation in impact.likely_validations {
+                        println!("  {validation}");
+                    }
+                }
+                if !impact.risk_events.is_empty() {
+                    println!("risk events:");
+                    for event in impact.risk_events {
+                        println!("  [{}] {}", event.meta.id.0, event.summary);
+                    }
+                }
+            }
+        }
+        Command::TaskResume { id } => {
+            let replay = prism.resume_task(&TaskId::new(id.clone()));
+            if replay.events.is_empty() {
+                eprintln!("no events recorded for task `{id}`");
+            } else {
+                println!("task: {}", replay.task.0);
+                for event in replay.events {
+                    println!("[{}] {}", event.meta.id.0, event.summary);
                 }
             }
         }
@@ -120,6 +178,30 @@ fn print_relations(symbol: Symbol<'_>) {
     println!("{}", symbol.signature());
     let relations = symbol.relations();
     print_named_relations(relations);
+}
+
+fn print_lineage(prism: &prism_query::Prism, symbol: Symbol<'_>) {
+    println!("{}", symbol.signature());
+    let Some(lineage) = prism.lineage_of(symbol.id()) else {
+        println!("no lineage");
+        return;
+    };
+    println!("lineage: {}", lineage.0);
+    for event in prism.lineage_history(&lineage) {
+        let before = event
+            .before
+            .iter()
+            .map(|node| node.path.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let after = event
+            .after
+            .iter()
+            .map(|node| node.path.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        println!("  {:?}: [{}] -> [{}]", event.kind, before, after);
+    }
 }
 
 fn print_named_relations(relations: Relations) {
