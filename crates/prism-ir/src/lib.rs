@@ -1,13 +1,14 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 
 pub type EdgeIndex = usize;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FileId(pub u32);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Language {
     Rust,
     Markdown,
@@ -16,7 +17,7 @@ pub enum Language {
     Unknown,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Span {
     pub start_line: u32,
     pub start_col: u32,
@@ -43,7 +44,7 @@ impl Span {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum NodeKind {
     Workspace,
     Package,
@@ -83,7 +84,7 @@ impl fmt::Display for NodeKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct NodeId {
     pub crate_name: SmolStr,
     pub path: SmolStr,
@@ -106,7 +107,7 @@ impl fmt::Display for NodeId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Node {
     pub id: NodeId,
     pub name: SmolStr,
@@ -116,7 +117,7 @@ pub struct Node {
     pub language: Language,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EdgeKind {
     Contains,
     Calls,
@@ -127,13 +128,13 @@ pub enum EdgeKind {
     DependsOn,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum EdgeOrigin {
     Static,
     Inferred,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Edge {
     pub kind: EdgeKind,
     pub source: NodeId,
@@ -142,12 +143,12 @@ pub struct Edge {
     pub confidence: f32,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Skeleton {
     pub calls: Vec<NodeId>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Subgraph {
     pub root: NodeId,
     pub nodes: Vec<NodeId>,

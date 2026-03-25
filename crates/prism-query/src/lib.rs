@@ -67,6 +67,16 @@ pub struct Symbol<'a> {
     id: NodeId,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct Relations {
+    pub outgoing_calls: Vec<NodeId>,
+    pub incoming_calls: Vec<NodeId>,
+    pub outgoing_imports: Vec<NodeId>,
+    pub incoming_imports: Vec<NodeId>,
+    pub outgoing_implements: Vec<NodeId>,
+    pub incoming_implements: Vec<NodeId>,
+}
+
 impl<'a> Symbol<'a> {
     pub fn id(&self) -> &NodeId {
         &self.id
@@ -88,14 +98,39 @@ impl<'a> Symbol<'a> {
     }
 
     pub fn skeleton(&self) -> Skeleton {
-        let calls = self
-            .prism
-            .graph
-            .edges_from(&self.id, Some(EdgeKind::Calls))
-            .into_iter()
-            .map(|edge| edge.target.clone())
-            .collect();
+        let calls = self.targets(EdgeKind::Calls);
         Skeleton { calls }
+    }
+
+    pub fn imports(&self) -> Vec<NodeId> {
+        self.targets(EdgeKind::Imports)
+    }
+
+    pub fn imported_by(&self) -> Vec<NodeId> {
+        self.sources(EdgeKind::Imports)
+    }
+
+    pub fn implements(&self) -> Vec<NodeId> {
+        self.targets(EdgeKind::Implements)
+    }
+
+    pub fn implemented_by(&self) -> Vec<NodeId> {
+        self.sources(EdgeKind::Implements)
+    }
+
+    pub fn callers(&self) -> Vec<NodeId> {
+        self.sources(EdgeKind::Calls)
+    }
+
+    pub fn relations(&self) -> Relations {
+        Relations {
+            outgoing_calls: self.targets(EdgeKind::Calls),
+            incoming_calls: self.sources(EdgeKind::Calls),
+            outgoing_imports: self.targets(EdgeKind::Imports),
+            incoming_imports: self.sources(EdgeKind::Imports),
+            outgoing_implements: self.targets(EdgeKind::Implements),
+            incoming_implements: self.sources(EdgeKind::Implements),
+        }
     }
 
     pub fn full(&self) -> String {
@@ -144,5 +179,23 @@ impl<'a> Symbol<'a> {
             nodes,
             edges,
         }
+    }
+
+    fn targets(&self, kind: EdgeKind) -> Vec<NodeId> {
+        self.prism
+            .graph
+            .edges_from(&self.id, Some(kind))
+            .into_iter()
+            .map(|edge| edge.target.clone())
+            .collect()
+    }
+
+    fn sources(&self, kind: EdgeKind) -> Vec<NodeId> {
+        self.prism
+            .graph
+            .edges_to(&self.id, Some(kind))
+            .into_iter()
+            .map(|edge| edge.source.clone())
+            .collect()
     }
 }

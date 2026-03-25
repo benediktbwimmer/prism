@@ -79,6 +79,8 @@ impl LanguageAdapter for MarkdownAdapter {
             nodes,
             edges,
             unresolved_calls: Vec::new(),
+            unresolved_imports: Vec::new(),
+            unresolved_impls: Vec::new(),
         })
     }
 }

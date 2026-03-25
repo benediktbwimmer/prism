@@ -8,5 +8,6 @@ license.workspace = true
 anyhow.workspace = true
 prism-ir = { path = "../prism-ir" }
 prism-parser = { path = "../prism-parser" }
-regex.workspace = true
 smol_str.workspace = true
+tree-sitter.workspace = true
+tree-sitter-rust = "0.24.1"

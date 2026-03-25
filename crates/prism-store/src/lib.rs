@@ -2,15 +2,20 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use prism_ir::{Edge, EdgeIndex, EdgeKind, FileId, Node, NodeId};
+use prism_parser::{UnresolvedCall, UnresolvedImpl, UnresolvedImport};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileRecord {
     pub file_id: FileId,
     pub hash: u64,
     pub nodes: Vec<NodeId>,
+    pub unresolved_calls: Vec<UnresolvedCall>,
+    pub unresolved_imports: Vec<UnresolvedImport>,
+    pub unresolved_impls: Vec<UnresolvedImpl>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Graph {
     pub nodes: HashMap<NodeId, Node>,
     pub edges: Vec<Edge>,
@@ -44,12 +49,19 @@ impl Graph {
         self.file_paths.get(&file_id)
     }
 
+    pub fn file_record(&self, path: &Path) -> Option<&FileRecord> {
+        self.file_records.get(path)
+    }
+
     pub fn upsert_file(
         &mut self,
         path: &Path,
         hash: u64,
         nodes: Vec<Node>,
         edges: Vec<Edge>,
+        unresolved_calls: Vec<UnresolvedCall>,
+        unresolved_imports: Vec<UnresolvedImport>,
+        unresolved_impls: Vec<UnresolvedImpl>,
     ) -> FileId {
         let file_id = self.ensure_file(path);
         self.remove_file_nodes(path);
@@ -65,6 +77,9 @@ impl Graph {
                 file_id,
                 hash,
                 nodes: node_ids,
+                unresolved_calls,
+                unresolved_imports,
+                unresolved_impls,
             },
         );
         self.rebuild_adjacency();
@@ -113,6 +128,44 @@ impl Graph {
 
     pub fn all_nodes(&self) -> impl Iterator<Item = &Node> {
         self.nodes.values()
+    }
+
+    pub fn tracked_files(&self) -> Vec<PathBuf> {
+        self.file_records.keys().cloned().collect()
+    }
+
+    pub fn remove_file(&mut self, path: &Path) {
+        self.remove_file_nodes(path);
+        if let Some(file_id) = self.path_to_file.remove(path) {
+            self.file_paths.remove(&file_id);
+        }
+        self.rebuild_adjacency();
+    }
+
+    pub fn clear_edges_by_kind(&mut self, kinds: &[EdgeKind]) {
+        self.edges.retain(|edge| !kinds.contains(&edge.kind));
+        self.rebuild_adjacency();
+    }
+
+    pub fn unresolved_calls(&self) -> Vec<UnresolvedCall> {
+        self.file_records
+            .values()
+            .flat_map(|record| record.unresolved_calls.clone())
+            .collect()
+    }
+
+    pub fn unresolved_imports(&self) -> Vec<UnresolvedImport> {
+        self.file_records
+            .values()
+            .flat_map(|record| record.unresolved_imports.clone())
+            .collect()
+    }
+
+    pub fn unresolved_impls(&self) -> Vec<UnresolvedImpl> {
+        self.file_records
+            .values()
+            .flat_map(|record| record.unresolved_impls.clone())
+            .collect()
     }
 
     fn remove_file_nodes(&mut self, path: &Path) {

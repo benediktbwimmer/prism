@@ -1,10 +1,14 @@
+use std::collections::BTreeSet;
 use std::path::Path;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use prism_ir::{Edge, EdgeKind, EdgeOrigin, Language, Node, NodeId, NodeKind, Span};
-use prism_parser::{relative_file, LanguageAdapter, ParseInput, ParseResult, UnresolvedCall};
-use regex::Regex;
+use prism_parser::{
+    relative_file, LanguageAdapter, ParseInput, ParseResult, UnresolvedCall, UnresolvedImpl,
+    UnresolvedImport,
+};
 use smol_str::SmolStr;
+use tree_sitter::{Node as TsNode, Parser, Point};
 
 pub struct RustAdapter;
 
@@ -18,10 +22,19 @@ impl LanguageAdapter for RustAdapter {
     }
 
     fn parse(&self, input: &ParseInput<'_>) -> Result<ParseResult> {
-        let module_path = module_path(input);
-        let mut result = ParseResult::default();
+        let mut parser = Parser::new();
+        let language = tree_sitter_rust::LANGUAGE;
+        parser
+            .set_language(&language.into())
+            .context("failed to load tree-sitter-rust grammar")?;
 
+        let tree = parser
+            .parse(input.source, None)
+            .context("tree-sitter failed to parse Rust source")?;
+
+        let module_path = module_path(input);
         let module_id = NodeId::new(input.crate_name, module_path.clone(), NodeKind::Module);
+        let mut result = ParseResult::default();
         result.nodes.push(Node {
             id: module_id.clone(),
             name: SmolStr::new(last_segment(&module_path).unwrap_or(input.crate_name)),
@@ -31,372 +44,496 @@ impl LanguageAdapter for RustAdapter {
             language: Language::Rust,
         });
 
-        let mut container_stack: Vec<Container> = Vec::new();
-        let mut function_capture: Option<FunctionCapture> = None;
-
-        for (line_index, raw_line) in input.source.lines().enumerate() {
-            let line_number = line_index + 1;
-            let line = strip_comment(raw_line);
-            let trimmed = line.trim();
-            let net_braces = count_braces(&line);
-
-            if let Some(function) = function_capture.as_mut() {
-                function.body.push_str(raw_line);
-                function.body.push('\n');
-                function.brace_balance += net_braces;
-                if function.brace_balance <= 0 {
-                    finalize_function(&mut result, function.clone());
-                    function_capture = None;
-                }
-                update_containers(&mut container_stack, net_braces);
-                continue;
-            }
-
-            if trimmed.is_empty() {
-                update_containers(&mut container_stack, net_braces);
-                continue;
-            }
-
-            if let Some((id, name)) = parse_struct(input, &module_path, line_number, trimmed) {
-                push_node(&mut result, id, name, NodeKind::Struct, input, line_number);
-                add_contains_edge(&mut result, &module_id, &container_stack, NodeKind::Struct);
-                update_containers(&mut container_stack, net_braces);
-                continue;
-            }
-
-            if let Some((id, name)) = parse_enum(input, &module_path, line_number, trimmed) {
-                push_node(&mut result, id, name, NodeKind::Enum, input, line_number);
-                add_contains_edge(&mut result, &module_id, &container_stack, NodeKind::Enum);
-                update_containers(&mut container_stack, net_braces);
-                continue;
-            }
-
-            if let Some((id, name)) = parse_type_alias(input, &module_path, line_number, trimmed) {
-                push_node(
-                    &mut result,
-                    id,
-                    name,
-                    NodeKind::TypeAlias,
-                    input,
-                    line_number,
-                );
-                add_contains_edge(
-                    &mut result,
-                    &module_id,
-                    &container_stack,
-                    NodeKind::TypeAlias,
-                );
-                update_containers(&mut container_stack, net_braces);
-                continue;
-            }
-
-            if let Some((id, name)) = parse_trait(input, &module_path, line_number, trimmed) {
-                push_node(
-                    &mut result,
-                    id.clone(),
-                    name.clone(),
-                    NodeKind::Trait,
-                    input,
-                    line_number,
-                );
-                result.edges.push(Edge {
-                    kind: EdgeKind::Contains,
-                    source: module_id.clone(),
-                    target: id.clone(),
-                    origin: EdgeOrigin::Static,
-                    confidence: 1.0,
-                });
-                container_stack.push(Container::new(ContainerKind::Trait(name), id, net_braces));
-                pop_closed_containers(&mut container_stack);
-                continue;
-            }
-
-            if let Some((id, label, target_name)) =
-                parse_impl(input, &module_path, line_number, trimmed)
-            {
-                push_node(
-                    &mut result,
-                    id.clone(),
-                    label.clone(),
-                    NodeKind::Impl,
-                    input,
-                    line_number,
-                );
-                result.edges.push(Edge {
-                    kind: EdgeKind::Contains,
-                    source: module_id.clone(),
-                    target: id.clone(),
-                    origin: EdgeOrigin::Static,
-                    confidence: 1.0,
-                });
-                container_stack.push(Container::new(
-                    ContainerKind::Impl(target_name),
-                    id,
-                    net_braces,
-                ));
-                pop_closed_containers(&mut container_stack);
-                continue;
-            }
-
-            if let Some(function) = parse_function(
-                input,
-                &module_path,
-                line_number,
-                trimmed,
-                container_stack.last(),
-            ) {
-                let kind = function.kind;
-                let parent_id = function.parent.clone().unwrap_or_else(|| module_id.clone());
-                result.nodes.push(Node {
-                    id: function.id.clone(),
-                    name: SmolStr::new(function.name.clone()),
-                    kind,
-                    file: input.file_id,
-                    span: Span::line(line_number),
-                    language: Language::Rust,
-                });
-                result.edges.push(Edge {
-                    kind: EdgeKind::Contains,
-                    source: parent_id,
-                    target: function.id.clone(),
-                    origin: EdgeOrigin::Static,
-                    confidence: 1.0,
-                });
-
-                if trimmed.ends_with(';') {
-                    update_containers(&mut container_stack, net_braces);
-                    continue;
-                }
-
-                let mut capture = FunctionCapture {
-                    id: function.id,
-                    module_path: SmolStr::new(module_path.clone()),
-                    body: String::new(),
-                    brace_balance: net_braces,
-                };
-                capture.body.push_str(raw_line);
-                capture.body.push('\n');
-                if capture.brace_balance <= 0 {
-                    finalize_function(&mut result, capture);
-                } else {
-                    function_capture = Some(capture);
-                }
-                update_containers(&mut container_stack, net_braces);
-                continue;
-            }
-
-            update_containers(&mut container_stack, net_braces);
-        }
-
+        let scope = Scope::module(module_id, module_path);
+        walk_declarations(
+            tree.root_node(),
+            &scope,
+            input,
+            input.source.as_bytes(),
+            &mut result,
+        );
         Ok(result)
     }
 }
 
 #[derive(Clone)]
-struct FunctionCapture {
-    id: NodeId,
-    module_path: SmolStr,
-    body: String,
-    brace_balance: i32,
-}
-
-struct ParsedFunction {
-    id: NodeId,
-    name: String,
-    kind: NodeKind,
-    parent: Option<NodeId>,
+struct Scope {
+    parent_id: NodeId,
+    module_path: String,
+    owner: ScopeOwner,
 }
 
 #[derive(Clone)]
-struct Container {
-    kind: ContainerKind,
-    id: NodeId,
-    brace_balance: i32,
+enum ScopeOwner {
+    Module,
+    Struct(String),
+    Trait(String),
+    Impl(String),
 }
 
-impl Container {
-    fn new(kind: ContainerKind, id: NodeId, brace_balance: i32) -> Self {
+impl Scope {
+    fn module(parent_id: NodeId, module_path: String) -> Self {
         Self {
-            kind,
-            id,
-            brace_balance,
+            parent_id,
+            module_path,
+            owner: ScopeOwner::Module,
+        }
+    }
+
+    fn with_owner(&self, parent_id: NodeId, owner: ScopeOwner) -> Self {
+        Self {
+            parent_id,
+            module_path: self.module_path.clone(),
+            owner,
+        }
+    }
+
+    fn nested_module(&self, parent_id: NodeId, module_name: &str) -> Self {
+        Self {
+            parent_id,
+            module_path: format!("{}::{module_name}", self.module_path),
+            owner: ScopeOwner::Module,
+        }
+    }
+
+    fn function_path(&self, name: &str) -> String {
+        match &self.owner {
+            ScopeOwner::Module => format!("{}::{name}", self.module_path),
+            ScopeOwner::Trait(target) | ScopeOwner::Impl(target) | ScopeOwner::Struct(target) => {
+                format!("{}::{target}::{name}", self.module_path)
+            }
+        }
+    }
+
+    fn field_path(&self, name: &str) -> Option<String> {
+        match &self.owner {
+            ScopeOwner::Struct(target) => Some(format!("{}::{target}::{name}", self.module_path)),
+            _ => None,
         }
     }
 }
 
-#[derive(Clone)]
-enum ContainerKind {
-    Impl(String),
-    Trait(String),
+fn walk_declarations(
+    node: TsNode<'_>,
+    scope: &Scope,
+    input: &ParseInput<'_>,
+    source: &[u8],
+    result: &mut ParseResult,
+) {
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        match child.kind() {
+            "source_file" | "declaration_list" => {
+                walk_declarations(child, scope, input, source, result);
+            }
+            "mod_item" => parse_module(child, scope, input, source, result),
+            "struct_item" => parse_struct(child, scope, input, source, result),
+            "enum_item" => parse_named_item(child, scope, input, source, result, NodeKind::Enum),
+            "trait_item" => parse_trait(child, scope, input, source, result),
+            "impl_item" => parse_impl(child, scope, input, source, result),
+            "function_item" => parse_function(child, scope, input, source, result),
+            "use_declaration" => parse_use(child, scope, input, source, result),
+            "type_item" => {
+                parse_named_item(child, scope, input, source, result, NodeKind::TypeAlias)
+            }
+            "field_declaration" => parse_field(child, scope, input, source, result),
+            _ => {}
+        }
+    }
 }
 
-fn parse_function(
+fn parse_module(
+    node: TsNode<'_>,
+    scope: &Scope,
     input: &ParseInput<'_>,
-    module_path: &str,
-    line_number: usize,
-    line: &str,
-    container: Option<&Container>,
-) -> Option<ParsedFunction> {
-    let name = captures(
-        line,
-        r"^(?:pub(?:\([^)]*\))?\s+)?(?:(?:async|const|unsafe)\s+)*fn\s+([A-Za-z_][A-Za-z0-9_]*)",
-    )?;
-    let (kind, path, parent) = match container {
-        Some(Container {
-            kind: ContainerKind::Impl(target),
-            id,
-            ..
-        }) => (
-            NodeKind::Method,
-            format!("{module_path}::{target}::{name}"),
-            Some(id.clone()),
-        ),
-        Some(Container {
-            kind: ContainerKind::Trait(target),
-            id,
-            ..
-        }) => (
-            NodeKind::Method,
-            format!("{module_path}::{target}::{name}"),
-            Some(id.clone()),
-        ),
-        None => (
-            NodeKind::Function,
-            format!("{module_path}::{name}"),
-            Some(NodeId::new(
-                input.crate_name,
-                module_path.to_owned(),
-                NodeKind::Module,
-            )),
-        ),
+    source: &[u8],
+    result: &mut ParseResult,
+) {
+    let Some(name) = node_name(node, source) else {
+        return;
+    };
+    let Some(body) = node.child_by_field_name("body") else {
+        return;
     };
 
-    let _ = line_number;
-    Some(ParsedFunction {
-        id: NodeId::new(input.crate_name, path, kind),
-        name,
-        kind,
-        parent,
-    })
+    let path = format!("{}::{name}", scope.module_path);
+    let id = NodeId::new(input.crate_name, path, NodeKind::Module);
+    result.nodes.push(Node {
+        id: id.clone(),
+        name: SmolStr::new(name.clone()),
+        kind: NodeKind::Module,
+        file: input.file_id,
+        span: node_span(node),
+        language: Language::Rust,
+    });
+    push_contains_edge(result, scope.parent_id.clone(), id.clone());
+
+    let nested_scope = scope.nested_module(id, &name);
+    walk_declarations(body, &nested_scope, input, source, result);
 }
 
 fn parse_struct(
+    node: TsNode<'_>,
+    scope: &Scope,
     input: &ParseInput<'_>,
-    module_path: &str,
-    _line_number: usize,
-    line: &str,
-) -> Option<(NodeId, String)> {
-    let name = captures(
-        line,
-        r"^(?:pub(?:\([^)]*\))?\s+)?struct\s+([A-Za-z_][A-Za-z0-9_]*)",
-    )?;
-    Some((
-        NodeId::new(
-            input.crate_name,
-            format!("{module_path}::{name}"),
-            NodeKind::Struct,
-        ),
-        name,
-    ))
-}
+    source: &[u8],
+    result: &mut ParseResult,
+) {
+    let Some(name) = node_name(node, source) else {
+        return;
+    };
 
-fn parse_enum(
-    input: &ParseInput<'_>,
-    module_path: &str,
-    _line_number: usize,
-    line: &str,
-) -> Option<(NodeId, String)> {
-    let name = captures(
-        line,
-        r"^(?:pub(?:\([^)]*\))?\s+)?enum\s+([A-Za-z_][A-Za-z0-9_]*)",
-    )?;
-    Some((
-        NodeId::new(
-            input.crate_name,
-            format!("{module_path}::{name}"),
-            NodeKind::Enum,
-        ),
-        name,
-    ))
+    let path = format!("{}::{name}", scope.module_path);
+    let id = NodeId::new(input.crate_name, path, NodeKind::Struct);
+    result.nodes.push(Node {
+        id: id.clone(),
+        name: SmolStr::new(name.clone()),
+        kind: NodeKind::Struct,
+        file: input.file_id,
+        span: node_span(node),
+        language: Language::Rust,
+    });
+    push_contains_edge(result, scope.parent_id.clone(), id.clone());
+
+    if let Some(body) = node.child_by_field_name("body") {
+        let field_scope = scope.with_owner(id, ScopeOwner::Struct(name));
+        walk_declarations(body, &field_scope, input, source, result);
+    }
 }
 
 fn parse_trait(
+    node: TsNode<'_>,
+    scope: &Scope,
     input: &ParseInput<'_>,
-    module_path: &str,
-    _line_number: usize,
-    line: &str,
-) -> Option<(NodeId, String)> {
-    let name = captures(
-        line,
-        r"^(?:pub(?:\([^)]*\))?\s+)?trait\s+([A-Za-z_][A-Za-z0-9_]*)",
-    )?;
-    Some((
-        NodeId::new(
-            input.crate_name,
-            format!("{module_path}::{name}"),
-            NodeKind::Trait,
-        ),
-        name,
-    ))
-}
+    source: &[u8],
+    result: &mut ParseResult,
+) {
+    let Some(name) = node_name(node, source) else {
+        return;
+    };
 
-fn parse_type_alias(
-    input: &ParseInput<'_>,
-    module_path: &str,
-    _line_number: usize,
-    line: &str,
-) -> Option<(NodeId, String)> {
-    let name = captures(
-        line,
-        r"^(?:pub(?:\([^)]*\))?\s+)?type\s+([A-Za-z_][A-Za-z0-9_]*)",
-    )?;
-    Some((
-        NodeId::new(
-            input.crate_name,
-            format!("{module_path}::{name}"),
-            NodeKind::TypeAlias,
-        ),
-        name,
-    ))
+    let path = format!("{}::{name}", scope.module_path);
+    let id = NodeId::new(input.crate_name, path, NodeKind::Trait);
+    result.nodes.push(Node {
+        id: id.clone(),
+        name: SmolStr::new(name.clone()),
+        kind: NodeKind::Trait,
+        file: input.file_id,
+        span: node_span(node),
+        language: Language::Rust,
+    });
+    push_contains_edge(result, scope.parent_id.clone(), id.clone());
+
+    if let Some(body) = node.child_by_field_name("body") {
+        let trait_scope = scope.with_owner(id, ScopeOwner::Trait(name));
+        walk_declarations(body, &trait_scope, input, source, result);
+    }
 }
 
 fn parse_impl(
+    node: TsNode<'_>,
+    scope: &Scope,
     input: &ParseInput<'_>,
-    module_path: &str,
-    _line_number: usize,
-    line: &str,
-) -> Option<(NodeId, String, String)> {
-    let rest = captures(line, r"^impl(?:<[^>]+>)?\s+(.+?)\s*\{")?;
-    let (path_suffix, label, target_name) = canonical_impl_parts(&rest);
-    Some((
-        NodeId::new(
+    source: &[u8],
+    result: &mut ParseResult,
+) {
+    let Some(type_node) = node.child_by_field_name("type") else {
+        return;
+    };
+    let type_name = normalize_type_name(&node_text(type_node, source));
+    let trait_name = node
+        .child_by_field_name("trait")
+        .map(|trait_node| normalize_type_name(&node_text(trait_node, source)));
+    let trait_path = node.child_by_field_name("trait").map(|trait_node| {
+        canonical_symbol_path(
+            &node_text(trait_node, source),
+            &scope.module_path,
             input.crate_name,
-            format!("{module_path}::{path_suffix}"),
-            NodeKind::Impl,
-        ),
-        label,
-        target_name,
-    ))
+        )
+    });
+    let (path_suffix, label) = canonical_impl_parts(&type_name, trait_name.as_deref());
+    let id = NodeId::new(
+        input.crate_name,
+        format!("{}::{path_suffix}", scope.module_path),
+        NodeKind::Impl,
+    );
+    result.nodes.push(Node {
+        id: id.clone(),
+        name: SmolStr::new(label),
+        kind: NodeKind::Impl,
+        file: input.file_id,
+        span: node_span(node),
+        language: Language::Rust,
+    });
+    push_contains_edge(result, scope.parent_id.clone(), id.clone());
+
+    if let Some(body) = node.child_by_field_name("body") {
+        let impl_scope = scope.with_owner(id.clone(), ScopeOwner::Impl(type_name));
+        walk_declarations(body, &impl_scope, input, source, result);
+    }
+
+    if let (Some(trait_name), Some(trait_path)) = (trait_name, trait_path) {
+        result.unresolved_impls.push(UnresolvedImpl {
+            source: id,
+            name: SmolStr::new(trait_name.rsplit('_').next().unwrap_or(&trait_name)),
+            module_path: SmolStr::new(scope.module_path.clone()),
+            trait_path: SmolStr::new(trait_path),
+        });
+    }
 }
 
-fn canonical_impl_parts(value: &str) -> (String, String, String) {
-    let compact = value.replace(' ', "");
-    if let Some((trait_name, target_name)) = compact.split_once("for") {
-        let trait_name = normalize_type_name(trait_name);
-        let target_name = normalize_type_name(target_name);
+fn parse_named_item(
+    node: TsNode<'_>,
+    scope: &Scope,
+    input: &ParseInput<'_>,
+    source: &[u8],
+    result: &mut ParseResult,
+    kind: NodeKind,
+) {
+    let Some(name) = node_name(node, source) else {
+        return;
+    };
+
+    let path = format!("{}::{name}", scope.module_path);
+    let id = NodeId::new(input.crate_name, path, kind);
+    result.nodes.push(Node {
+        id: id.clone(),
+        name: SmolStr::new(name),
+        kind,
+        file: input.file_id,
+        span: node_span(node),
+        language: Language::Rust,
+    });
+    push_contains_edge(result, scope.parent_id.clone(), id);
+}
+
+fn parse_field(
+    node: TsNode<'_>,
+    scope: &Scope,
+    input: &ParseInput<'_>,
+    source: &[u8],
+    result: &mut ParseResult,
+) {
+    let Some(name) = node_name(node, source) else {
+        return;
+    };
+    let Some(path) = scope.field_path(&name) else {
+        return;
+    };
+
+    let id = NodeId::new(input.crate_name, path, NodeKind::Field);
+    result.nodes.push(Node {
+        id: id.clone(),
+        name: SmolStr::new(name),
+        kind: NodeKind::Field,
+        file: input.file_id,
+        span: node_span(node),
+        language: Language::Rust,
+    });
+    push_contains_edge(result, scope.parent_id.clone(), id);
+}
+
+fn parse_function(
+    node: TsNode<'_>,
+    scope: &Scope,
+    input: &ParseInput<'_>,
+    source: &[u8],
+    result: &mut ParseResult,
+) {
+    let Some(name) = node_name(node, source) else {
+        return;
+    };
+
+    let kind = match scope.owner {
+        ScopeOwner::Module => NodeKind::Function,
+        _ => NodeKind::Method,
+    };
+    let id = NodeId::new(input.crate_name, scope.function_path(&name), kind);
+    result.nodes.push(Node {
+        id: id.clone(),
+        name: SmolStr::new(name),
+        kind,
+        file: input.file_id,
+        span: node_span(node),
+        language: Language::Rust,
+    });
+    push_contains_edge(result, scope.parent_id.clone(), id.clone());
+
+    let Some(body) = node.child_by_field_name("body") else {
+        return;
+    };
+    for call in extract_calls(body, source) {
+        result.unresolved_calls.push(UnresolvedCall {
+            source: id.clone(),
+            name: SmolStr::new(call),
+            module_path: SmolStr::new(scope.module_path.clone()),
+        });
+    }
+}
+
+fn parse_use(
+    node: TsNode<'_>,
+    scope: &Scope,
+    input: &ParseInput<'_>,
+    source: &[u8],
+    result: &mut ParseResult,
+) {
+    let Some(argument) = node.child_by_field_name("argument") else {
+        return;
+    };
+
+    for raw_path in collect_use_paths(argument, None, source) {
+        let canonical = canonical_symbol_path(&raw_path, &scope.module_path, input.crate_name);
+        let name = canonical
+            .rsplit("::")
+            .next()
+            .unwrap_or(&canonical)
+            .to_owned();
+        result.unresolved_imports.push(UnresolvedImport {
+            source: scope.parent_id.clone(),
+            name: SmolStr::new(name),
+            module_path: SmolStr::new(scope.module_path.clone()),
+            target_path: SmolStr::new(canonical),
+        });
+    }
+}
+
+fn extract_calls(node: TsNode<'_>, source: &[u8]) -> Vec<String> {
+    let mut calls = BTreeSet::new();
+    collect_calls(node, source, &mut calls);
+    calls.into_iter().collect()
+}
+
+fn collect_calls(node: TsNode<'_>, source: &[u8], calls: &mut BTreeSet<String>) {
+    if node.kind() == "call_expression" {
+        if let Some(name) = extract_call_name(node, source) {
+            calls.insert(name);
+        }
+    }
+
+    let mut cursor = node.walk();
+    for child in node.named_children(&mut cursor) {
+        collect_calls(child, source, calls);
+    }
+}
+
+fn extract_call_name(node: TsNode<'_>, source: &[u8]) -> Option<String> {
+    let function = node.child_by_field_name("function")?;
+    extract_called_symbol(function, source)
+}
+
+fn extract_called_symbol(node: TsNode<'_>, source: &[u8]) -> Option<String> {
+    match node.kind() {
+        "identifier" | "field_identifier" | "self" => {
+            Some(simplify_symbol(&node_text(node, source)))
+        }
+        "scoped_identifier" => Some(simplify_symbol(&node_text(node, source))),
+        "field_expression" => node
+            .child_by_field_name("field")
+            .map(|field| simplify_symbol(&node_text(field, source))),
+        "generic_function" => node
+            .child_by_field_name("function")
+            .and_then(|function| extract_called_symbol(function, source)),
+        _ => None,
+    }
+}
+
+fn node_name(node: TsNode<'_>, source: &[u8]) -> Option<String> {
+    Some(node_text(node.child_by_field_name("name")?, source))
+}
+
+fn node_text(node: TsNode<'_>, source: &[u8]) -> String {
+    node.utf8_text(source).unwrap_or_default().to_owned()
+}
+
+fn node_span(node: TsNode<'_>) -> Span {
+    let Point {
+        row: start_row,
+        column: start_col,
+    } = node.start_position();
+    let Point {
+        row: end_row,
+        column: end_col,
+    } = node.end_position();
+    Span::new(start_row + 1, start_col + 1, end_row + 1, end_col + 1)
+}
+
+fn push_contains_edge(result: &mut ParseResult, source: NodeId, target: NodeId) {
+    result.edges.push(Edge {
+        kind: EdgeKind::Contains,
+        source,
+        target,
+        origin: EdgeOrigin::Static,
+        confidence: 1.0,
+    });
+}
+
+fn canonical_impl_parts(type_name: &str, trait_name: Option<&str>) -> (String, String) {
+    if let Some(trait_name) = trait_name {
         (
-            format!("{target_name}::impl::{trait_name}"),
-            format!("{trait_name} for {target_name}"),
-            target_name,
+            format!("{type_name}::impl::{trait_name}"),
+            format!("{trait_name} for {type_name}"),
         )
     } else {
-        let target_name = normalize_type_name(&compact);
-        (
-            format!("{target_name}::impl"),
-            target_name.clone(),
-            target_name,
-        )
+        (format!("{type_name}::impl"), type_name.to_owned())
     }
+}
+
+fn collect_use_paths(node: TsNode<'_>, prefix: Option<String>, source: &[u8]) -> Vec<String> {
+    match node.kind() {
+        "use_declaration" => node
+            .child_by_field_name("argument")
+            .map(|argument| collect_use_paths(argument, prefix, source))
+            .unwrap_or_default(),
+        "scoped_use_list" => {
+            let next_prefix = node
+                .child_by_field_name("path")
+                .map(|path| join_prefix(prefix.as_deref(), &node_text(path, source)));
+            node.child_by_field_name("list")
+                .map(|list| collect_use_paths(list, next_prefix, source))
+                .unwrap_or_default()
+        }
+        "use_list" => {
+            let mut paths = Vec::new();
+            let mut cursor = node.walk();
+            for child in node.named_children(&mut cursor) {
+                paths.extend(collect_use_paths(child, prefix.clone(), source));
+            }
+            paths
+        }
+        "use_as_clause" => node
+            .child_by_field_name("path")
+            .map(|path| collect_use_paths(path, prefix, source))
+            .unwrap_or_default(),
+        "use_wildcard" => Vec::new(),
+        "crate" | "identifier" | "metavariable" | "scoped_identifier" | "self" | "super" => {
+            vec![join_prefix(prefix.as_deref(), &node_text(node, source))]
+        }
+        _ => Vec::new(),
+    }
+}
+
+fn join_prefix(prefix: Option<&str>, suffix: &str) -> String {
+    match prefix {
+        Some(prefix) if !prefix.is_empty() => format!("{prefix}::{suffix}"),
+        _ => suffix.to_owned(),
+    }
+}
+
+fn simplify_symbol(value: &str) -> String {
+    let mut value = value.rsplit("::").next().unwrap_or(value).to_owned();
+    if let Some((_, field)) = value.rsplit_once('.') {
+        value = field.to_owned();
+    }
+    if let Some((head, _)) = value.split_once("::<") {
+        value = head.to_owned();
+    }
+    if let Some(stripped) = value.strip_prefix("r#") {
+        value = stripped.to_owned();
+    }
+    value
+        .trim_matches(|ch: char| !ch.is_ascii_alphanumeric() && ch != '_')
+        .to_owned()
 }
 
 fn normalize_type_name(value: &str) -> String {
@@ -408,138 +545,73 @@ fn normalize_type_name(value: &str) -> String {
         .replace('&', "ref_")
         .replace('[', "_")
         .replace(']', "")
+        .replace(' ', "")
 }
 
-fn finalize_function(result: &mut ParseResult, function: FunctionCapture) {
-    for call in extract_calls(&function.body) {
-        result.unresolved_calls.push(UnresolvedCall {
-            source: function.id.clone(),
-            name: SmolStr::new(call),
-            module_path: function.module_path.clone(),
-        });
+fn canonical_symbol_path(value: &str, module_path: &str, crate_name: &str) -> String {
+    let mut base = module_path.to_owned();
+    let cleaned = value.replace(' ', "");
+    let parts = cleaned
+        .split("::")
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>();
+
+    if parts.is_empty() {
+        return base;
     }
-}
 
-fn extract_calls(body: &str) -> Vec<String> {
-    let body = body.split_once('{').map(|(_, rest)| rest).unwrap_or(body);
-    let mut calls = Vec::new();
-    let call_re = Regex::new(r"\b([A-Za-z_][A-Za-z0-9_]*)\s*\(").unwrap();
-    let method_re = Regex::new(r"\.\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(").unwrap();
-
-    for captures in call_re.captures_iter(body) {
-        let name = captures.get(1).unwrap().as_str();
-        if is_keyword(name) {
-            continue;
+    let mut index = 0usize;
+    while index < parts.len() {
+        match parts[index] {
+            "crate" => {
+                base = crate_name.to_owned();
+                index += 1;
+            }
+            "self" => {
+                index += 1;
+            }
+            "super" => {
+                base = parent_module_path(&base).to_owned();
+                index += 1;
+            }
+            _ => break,
         }
-        calls.push(name.to_owned());
     }
 
-    for captures in method_re.captures_iter(body) {
-        let name = captures.get(1).unwrap().as_str();
-        if is_keyword(name) {
-            continue;
-        }
-        calls.push(name.to_owned());
+    let remaining = parts[index..]
+        .iter()
+        .map(|segment| normalize_path_segment(segment))
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>();
+
+    if remaining.is_empty() {
+        return base;
     }
 
-    calls.sort();
-    calls.dedup();
-    calls
+    if index == 0 {
+        format!("{base}::{}", remaining.join("::"))
+    } else {
+        format!("{base}::{}", remaining.join("::"))
+    }
 }
 
-fn is_keyword(value: &str) -> bool {
-    matches!(
-        value,
-        "if" | "match"
-            | "loop"
-            | "while"
-            | "for"
-            | "Some"
-            | "Ok"
-            | "Err"
-            | "Self"
-            | "self"
-            | "let"
-            | "return"
+fn normalize_path_segment(value: &str) -> String {
+    simplify_symbol(
+        &value
+            .replace('<', "_")
+            .replace('>', "")
+            .replace(',', "_")
+            .replace('&', "ref_")
+            .replace('[', "_")
+            .replace(']', ""),
     )
 }
 
-fn push_node(
-    result: &mut ParseResult,
-    id: NodeId,
-    name: String,
-    kind: NodeKind,
-    input: &ParseInput<'_>,
-    line_number: usize,
-) {
-    result.nodes.push(Node {
-        id,
-        name: SmolStr::new(name),
-        kind,
-        file: input.file_id,
-        span: Span::line(line_number),
-        language: Language::Rust,
-    });
-}
-
-fn add_contains_edge(
-    result: &mut ParseResult,
-    module_id: &NodeId,
-    stack: &[Container],
-    _kind: NodeKind,
-) {
-    let source = stack
-        .last()
-        .map(|container| container.id.clone())
-        .unwrap_or_else(|| module_id.clone());
-    let target = result.nodes.last().unwrap().id.clone();
-    result.edges.push(Edge {
-        kind: EdgeKind::Contains,
-        source,
-        target,
-        origin: EdgeOrigin::Static,
-        confidence: 1.0,
-    });
-}
-
-fn update_containers(stack: &mut Vec<Container>, net_braces: i32) {
-    for container in stack.iter_mut() {
-        container.brace_balance += net_braces;
-    }
-    pop_closed_containers(stack);
-}
-
-fn pop_closed_containers(stack: &mut Vec<Container>) {
-    while stack
-        .last()
-        .map_or(false, |container| container.brace_balance <= 0)
-    {
-        stack.pop();
-    }
-}
-
-fn count_braces(line: &str) -> i32 {
-    let mut balance = 0;
-    for ch in line.chars() {
-        match ch {
-            '{' => balance += 1,
-            '}' => balance -= 1,
-            _ => {}
-        }
-    }
-    balance
-}
-
-fn strip_comment(line: &str) -> String {
-    line.split("//").next().unwrap_or(line).to_owned()
-}
-
-fn captures(line: &str, pattern: &str) -> Option<String> {
-    Regex::new(pattern)
-        .ok()?
-        .captures(line)?
-        .get(1)
-        .map(|value| value.as_str().to_owned())
+fn parent_module_path(value: &str) -> &str {
+    value
+        .rsplit_once("::")
+        .map(|(parent, _)| parent)
+        .unwrap_or(value)
 }
 
 fn module_path(input: &ParseInput<'_>) -> String {
@@ -594,14 +666,112 @@ mod tests {
         assert!(result
             .nodes
             .iter()
-            .any(|node| node.kind == NodeKind::Function && node.name == "alpha"));
+            .any(|node| node.kind == NodeKind::Function && node.id.path == "demo::alpha"));
         assert!(result
             .unresolved_calls
             .iter()
-            .any(|call| call.name == "beta"));
+            .any(|call| call.source.path == "demo::alpha" && call.name == "beta"));
         assert!(!result
             .unresolved_calls
             .iter()
             .any(|call| call.name == "alpha"));
+    }
+
+    #[test]
+    fn parses_impls_nested_modules_and_fields() {
+        let adapter = RustAdapter;
+        let input = ParseInput {
+            crate_name: "demo",
+            workspace_root: Path::new("/workspace"),
+            path: Path::new("/workspace/src/lib.rs"),
+            file_id: FileId(1),
+            source: r#"
+struct Config {
+    value: usize,
+}
+
+trait Service {
+    fn run(&self) -> usize;
+}
+
+impl Service for Config {
+    fn run(&self) -> usize {
+        helper()
+    }
+}
+
+fn helper() -> usize { 1 }
+
+mod nested {
+    fn ping() {}
+}
+"#,
+        };
+
+        let result = adapter.parse(&input).unwrap();
+        assert!(result
+            .nodes
+            .iter()
+            .any(|node| node.kind == NodeKind::Field && node.id.path == "demo::Config::value"));
+        assert!(result.nodes.iter().any(
+            |node| node.kind == NodeKind::Impl && node.id.path == "demo::Config::impl::Service"
+        ));
+        assert!(result
+            .nodes
+            .iter()
+            .any(|node| node.kind == NodeKind::Method && node.id.path == "demo::Config::run"));
+        assert!(result
+            .nodes
+            .iter()
+            .any(|node| node.kind == NodeKind::Module && node.id.path == "demo::nested"));
+        assert!(result
+            .nodes
+            .iter()
+            .any(|node| node.kind == NodeKind::Function && node.id.path == "demo::nested::ping"));
+        assert!(result
+            .unresolved_calls
+            .iter()
+            .any(|call| call.source.path == "demo::Config::run" && call.name == "helper"));
+    }
+
+    #[test]
+    fn collects_imports_and_trait_references() {
+        let adapter = RustAdapter;
+        let input = ParseInput {
+            crate_name: "demo",
+            workspace_root: Path::new("/workspace"),
+            path: Path::new("/workspace/src/lib.rs"),
+            file_id: FileId(1),
+            source: r#"
+use crate::net::Client;
+use self::models::{User as AppUser, Account};
+use super::shared::Thing;
+
+trait Runner {}
+struct Job;
+
+impl Runner for Job {}
+"#,
+        };
+
+        let result = adapter.parse(&input).unwrap();
+        assert!(result
+            .unresolved_imports
+            .iter()
+            .any(|import| import.target_path == "demo::net::Client" && import.name == "Client"));
+        assert!(result
+            .unresolved_imports
+            .iter()
+            .any(|import| import.target_path == "demo::models::User" && import.name == "User"));
+        assert!(result
+            .unresolved_imports
+            .iter()
+            .any(
+                |import| import.target_path == "demo::models::Account" && import.name == "Account"
+            ));
+        assert!(result
+            .unresolved_impls
+            .iter()
+            .any(|implementation| implementation.trait_path == "demo::Runner"));
     }
 }

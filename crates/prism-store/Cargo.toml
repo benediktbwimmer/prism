@@ -5,4 +5,6 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+prism-parser = { path = "../prism-parser" }
 prism-ir = { path = "../prism-ir" }
+serde.workspace = true

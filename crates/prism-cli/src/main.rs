@@ -3,7 +3,8 @@ use std::path::PathBuf;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use prism_core::index_workspace;
-use prism_query::Symbol;
+use prism_ir::NodeId;
+use prism_query::{Relations, Symbol};
 
 #[derive(Parser)]
 #[command(name = "prism")]
@@ -19,6 +20,9 @@ struct Cli {
 enum Command {
     Entrypoints,
     Symbol {
+        name: String,
+    },
+    Relations {
         name: String,
     },
     CallGraph {
@@ -43,6 +47,11 @@ fn main() -> Result<()> {
                 print_symbol(symbol);
             }
         }
+        Command::Relations { name } => {
+            for symbol in prism.symbol(&name) {
+                print_relations(symbol);
+            }
+        }
         Command::CallGraph { name, depth } => {
             for symbol in prism.symbol(&name) {
                 let graph = symbol.call_graph(depth);
@@ -63,11 +72,35 @@ fn print_symbol(symbol: Symbol<'_>) {
     if !full.trim().is_empty() {
         println!("{full}");
     }
-    let skeleton = symbol.skeleton();
-    if !skeleton.calls.is_empty() {
-        println!("calls:");
-        for call in skeleton.calls {
-            println!("  {}", call.path);
-        }
+    print_relation_section("calls", &symbol.skeleton().calls);
+    print_relation_section("imports", &symbol.imports());
+    print_relation_section("implements", &symbol.implements());
+    print_relation_section("called by", &symbol.callers());
+    print_relation_section("imported by", &symbol.imported_by());
+    print_relation_section("implemented by", &symbol.implemented_by());
+}
+
+fn print_relations(symbol: Symbol<'_>) {
+    println!("{}", symbol.signature());
+    let relations = symbol.relations();
+    print_named_relations(relations);
+}
+
+fn print_named_relations(relations: Relations) {
+    print_relation_section("calls", &relations.outgoing_calls);
+    print_relation_section("called by", &relations.incoming_calls);
+    print_relation_section("imports", &relations.outgoing_imports);
+    print_relation_section("imported by", &relations.incoming_imports);
+    print_relation_section("implements", &relations.outgoing_implements);
+    print_relation_section("implemented by", &relations.incoming_implements);
+}
+
+fn print_relation_section(label: &str, values: &[NodeId]) {
+    if values.is_empty() {
+        return;
+    }
+    println!("{label}:");
+    for value in values {
+        println!("  {}", value.path);
     }
 }
