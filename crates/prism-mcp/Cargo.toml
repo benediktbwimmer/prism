@@ -1,0 +1,23 @@
+[package]
+name = "prism-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+prism-core = { path = "../prism-core" }
+prism-ir = { path = "../prism-ir" }
+prism-js = { path = "../prism-js" }
+prism-query = { path = "../prism-query" }
+deno_ast = { version = "0.53.1", features = ["transpiling"] }
+rmcp = { version = "1.2.0", features = ["transport-io"] }
+rquickjs = "0.11.0"
+schemars = "1.2.1"
+serde.workspace = true
+serde_json.workspace = true
+tokio = { version = "1.48.0", features = ["macros", "rt-multi-thread"] }
+
+[dev-dependencies]
+prism-store = { path = "../prism-store" }

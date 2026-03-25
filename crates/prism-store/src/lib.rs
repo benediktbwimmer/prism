@@ -1,9 +1,12 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
 use prism_ir::{
-    Edge, EdgeIndex, EdgeKind, EdgeOrigin, FileId, GraphChange, Language, Node, NodeId, NodeKind,
+    ChangeTrigger, Edge, EdgeIndex, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta, FileId,
+    GraphChange, Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode,
 };
 use prism_parser::{NodeFingerprint, UnresolvedCall, UnresolvedImpl, UnresolvedImport};
 use rusqlite::{params, Connection, OptionalExtension};
@@ -11,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
 
 const SCHEMA_VERSION: i64 = 5;
+static NEXT_OBSERVED_EVENT_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileRecord {
@@ -39,9 +43,10 @@ pub struct FileState {
     pub edges: Vec<Edge>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FileUpdate {
     pub file_id: FileId,
+    pub observed: ObservedChangeSet,
     pub changes: Vec<GraphChange>,
 }
 
@@ -690,7 +695,7 @@ impl Graph {
         unresolved_impls: Vec<UnresolvedImpl>,
         reanchors: &[(NodeId, NodeId)],
     ) -> FileUpdate {
-        self.upsert_file_from(
+        self.upsert_file_from_with_observed(
             None,
             path,
             hash,
@@ -701,6 +706,8 @@ impl Graph {
             unresolved_imports,
             unresolved_impls,
             reanchors,
+            default_event_meta(),
+            ChangeTrigger::ManualReindex,
         )
     }
 
@@ -717,12 +724,53 @@ impl Graph {
         unresolved_impls: Vec<UnresolvedImpl>,
         reanchors: &[(NodeId, NodeId)],
     ) -> FileUpdate {
+        self.upsert_file_from_with_observed(
+            previous_path,
+            path,
+            hash,
+            nodes,
+            edges,
+            fingerprints,
+            unresolved_calls,
+            unresolved_imports,
+            unresolved_impls,
+            reanchors,
+            default_event_meta(),
+            ChangeTrigger::ManualReindex,
+        )
+    }
+
+    pub fn upsert_file_from_with_observed(
+        &mut self,
+        previous_path: Option<&Path>,
+        path: &Path,
+        hash: u64,
+        nodes: Vec<Node>,
+        edges: Vec<Edge>,
+        fingerprints: HashMap<NodeId, NodeFingerprint>,
+        unresolved_calls: Vec<UnresolvedCall>,
+        unresolved_imports: Vec<UnresolvedImport>,
+        unresolved_impls: Vec<UnresolvedImpl>,
+        reanchors: &[(NodeId, NodeId)],
+        meta: EventMeta,
+        trigger: ChangeTrigger,
+    ) -> FileUpdate {
         let baseline_path = previous_path.unwrap_or(path);
         let previous = self.file_records.get(baseline_path).cloned();
+        let previous_state = self.file_state(baseline_path);
         let file_id = previous
             .as_ref()
             .map(|record| record.file_id)
             .unwrap_or_else(|| self.ensure_file(path));
+        let observed = self.compute_observed_changes(
+            previous_state.as_ref(),
+            file_id,
+            &nodes,
+            &edges,
+            &fingerprints,
+            meta,
+            trigger,
+        );
         let changes = self.compute_file_changes(previous.as_ref(), &nodes, reanchors);
         self.remove_file_nodes(baseline_path);
 
@@ -752,7 +800,11 @@ impl Graph {
             },
         );
         self.rebuild_adjacency();
-        FileUpdate { file_id, changes }
+        FileUpdate {
+            file_id,
+            observed,
+            changes,
+        }
     }
 
     pub fn add_node(&mut self, node: Node) {
@@ -883,6 +935,20 @@ impl Graph {
     }
 
     pub fn remove_file_with_changes(&mut self, path: &Path) -> Vec<GraphChange> {
+        self.remove_file_with_update(path).changes
+    }
+
+    pub fn remove_file_with_update(&mut self, path: &Path) -> FileUpdate {
+        self.remove_file_with_observed(path, default_event_meta(), ChangeTrigger::ManualReindex)
+    }
+
+    pub fn remove_file_with_observed(
+        &mut self,
+        path: &Path,
+        meta: EventMeta,
+        trigger: ChangeTrigger,
+    ) -> FileUpdate {
+        let previous_state = self.file_state(path);
         let changes = self
             .file_records
             .get(path)
@@ -895,12 +961,29 @@ impl Graph {
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
+        let file_id = previous_state
+            .as_ref()
+            .map(|state| state.record.file_id)
+            .unwrap_or(FileId(0));
+        let observed = self.compute_observed_changes(
+            previous_state.as_ref(),
+            file_id,
+            &[],
+            &[],
+            &HashMap::new(),
+            meta,
+            trigger,
+        );
         self.remove_file_nodes(path);
         if let Some(file_id) = self.path_to_file.remove(path) {
             self.file_paths.remove(&file_id);
         }
         self.rebuild_adjacency();
-        changes
+        FileUpdate {
+            file_id,
+            observed,
+            changes,
+        }
     }
 
     pub fn clear_edges_by_kind(&mut self, kinds: &[EdgeKind]) {
@@ -1012,6 +1095,98 @@ impl Graph {
 
         changes
     }
+
+    fn compute_observed_changes(
+        &self,
+        previous: Option<&FileState>,
+        file_id: FileId,
+        nodes: &[Node],
+        edges: &[Edge],
+        fingerprints: &HashMap<NodeId, NodeFingerprint>,
+        meta: EventMeta,
+        trigger: ChangeTrigger,
+    ) -> ObservedChangeSet {
+        let empty_record = FileRecord {
+            file_id,
+            hash: 0,
+            nodes: Vec::new(),
+            fingerprints: HashMap::new(),
+            unresolved_calls: Vec::new(),
+            unresolved_imports: Vec::new(),
+            unresolved_impls: Vec::new(),
+        };
+        let previous_record = previous.map(|state| &state.record).unwrap_or(&empty_record);
+        let previous_nodes = previous
+            .map(|state| {
+                state
+                    .nodes
+                    .iter()
+                    .map(|node| (node.id.clone(), node.clone()))
+                    .collect::<HashMap<_, _>>()
+            })
+            .unwrap_or_default();
+        let next_nodes = nodes
+            .iter()
+            .map(|node| (node.id.clone(), node.clone()))
+            .collect::<HashMap<_, _>>();
+
+        let old_ids = previous_nodes.keys().cloned().collect::<HashSet<_>>();
+        let new_ids = next_nodes.keys().cloned().collect::<HashSet<_>>();
+
+        let removed = old_ids
+            .difference(&new_ids)
+            .filter_map(|id| {
+                previous_nodes
+                    .get(id)
+                    .map(|node| observed_node(node.clone(), previous_record.fingerprints.get(id)))
+            })
+            .collect::<Vec<_>>();
+        let added = new_ids
+            .difference(&old_ids)
+            .filter_map(|id| {
+                next_nodes
+                    .get(id)
+                    .map(|node| observed_node(node.clone(), fingerprints.get(id)))
+            })
+            .collect::<Vec<_>>();
+        let updated = old_ids
+            .intersection(&new_ids)
+            .filter_map(|id| {
+                let before = previous_nodes.get(id)?.clone();
+                let after = next_nodes.get(id)?.clone();
+                Some((
+                    observed_node(before, previous_record.fingerprints.get(id)),
+                    observed_node(after, fingerprints.get(id)),
+                ))
+            })
+            .collect::<Vec<_>>();
+
+        let previous_edges = previous
+            .map(|state| state.edges.clone())
+            .unwrap_or_default();
+        let previous_edge_keys = previous_edges.iter().map(edge_key).collect::<HashSet<_>>();
+        let next_edge_keys = edges.iter().map(edge_key).collect::<HashSet<_>>();
+        let edge_removed = previous_edges
+            .into_iter()
+            .filter(|edge| !next_edge_keys.contains(&edge_key(edge)))
+            .collect::<Vec<_>>();
+        let edge_added = edges
+            .iter()
+            .filter(|edge| !previous_edge_keys.contains(&edge_key(edge)))
+            .cloned()
+            .collect::<Vec<_>>();
+
+        ObservedChangeSet {
+            meta,
+            trigger,
+            files: vec![file_id],
+            added,
+            removed,
+            updated,
+            edge_added,
+            edge_removed,
+        }
+    }
 }
 
 fn is_derived_kind(kind: EdgeKind) -> bool {
@@ -1019,6 +1194,46 @@ fn is_derived_kind(kind: EdgeKind) -> bool {
         kind,
         EdgeKind::Calls | EdgeKind::Imports | EdgeKind::Implements
     )
+}
+
+fn observed_node(node: Node, fingerprint: Option<&NodeFingerprint>) -> ObservedNode {
+    ObservedNode {
+        node,
+        fingerprint: fingerprint
+            .cloned()
+            .unwrap_or_else(|| prism_ir::SymbolFingerprint::new(0)),
+    }
+}
+
+fn edge_key(edge: &Edge) -> (EdgeKind, NodeId, NodeId, u8, u32) {
+    (
+        edge.kind,
+        edge.source.clone(),
+        edge.target.clone(),
+        match edge.origin {
+            EdgeOrigin::Static => 0,
+            EdgeOrigin::Inferred => 1,
+        },
+        edge.confidence.to_bits(),
+    )
+}
+
+fn default_event_meta() -> EventMeta {
+    let sequence = NEXT_OBSERVED_EVENT_ID.fetch_add(1, Ordering::Relaxed);
+    EventMeta {
+        id: EventId::new(format!("observed:{sequence}")),
+        ts: current_timestamp(),
+        actor: EventActor::System,
+        correlation: None,
+        causation: None,
+    }
+}
+
+fn current_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock should be after unix epoch")
+        .as_secs()
 }
 
 fn delete_file_state(tx: &rusqlite::Transaction<'_>, path: &Path) -> Result<()> {
@@ -1369,6 +1584,9 @@ mod tests {
         );
 
         assert_eq!(update.changes, vec![GraphChange::Reanchored { old, new }]);
+        assert_eq!(update.observed.removed.len(), 1);
+        assert_eq!(update.observed.added.len(), 1);
+        assert!(update.observed.updated.is_empty());
     }
 
     #[test]
@@ -1400,5 +1618,28 @@ mod tests {
             "demo::beta",
             NodeKind::Function,
         ))));
+    }
+
+    #[test]
+    fn remove_file_update_emits_observed_removed_nodes() {
+        let path = Path::new("src/lib.rs");
+        let mut graph = Graph::new();
+
+        graph.upsert_file(
+            path,
+            1,
+            vec![node("alpha"), node("beta")],
+            Vec::new(),
+            HashMap::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+
+        let update = graph.remove_file_with_update(path);
+
+        assert_eq!(update.observed.removed.len(), 2);
+        assert!(update.observed.added.is_empty());
+        assert!(update.observed.updated.is_empty());
     }
 }

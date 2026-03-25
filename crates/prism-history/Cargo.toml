@@ -1,0 +1,9 @@
+[package]
+name = "prism-history"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+prism-ir = { path = "../prism-ir" }
+smol_str.workspace = true

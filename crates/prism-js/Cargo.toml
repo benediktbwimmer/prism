@@ -1,12 +1,10 @@
 [package]
-name = "prism-query"
+name = "prism-js"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
-prism-history = { path = "../prism-history" }
 prism-ir = { path = "../prism-ir" }
-prism-memory = { path = "../prism-memory" }
-prism-store = { path = "../prism-store" }
+serde.workspace = true
 serde_json.workspace = true

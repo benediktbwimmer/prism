@@ -45,6 +45,8 @@ prism/
     prism-query/
     prism-memory/
     prism-agent/
+    prism-js/
+    prism-mcp/
     prism-cli/
 ```
 
@@ -54,6 +56,24 @@ Dependency direction:
 
 ```text
 prism-cli
+  → prism-core
+      → prism-query
+          → prism-store → prism-ir
+          → prism-history → prism-ir
+          → prism-memory → prism-ir
+      → prism-parser → prism-ir
+          → prism-lang-rust
+          → prism-lang-markdown
+          → prism-lang-json
+          → prism-lang-yaml
+prism-js
+  → prism-query
+      → prism-store → prism-ir
+      → prism-history → prism-ir
+      → prism-memory → prism-ir
+prism-mcp
+  → prism-core
+  → prism-js
   → prism-query
       → prism-store → prism-ir
       → prism-history → prism-ir
@@ -72,6 +92,8 @@ Critical boundaries:
 * `prism-history` owns lineage assignment and time-aware projection
 * `prism-memory` owns structured memory and outcomes, but not graph construction
 * `prism-query` is the join layer over graph, lineage, and memory
+* `prism-js` owns the JavaScript/TypeScript-facing API contract and runtime shim
+* `prism-mcp` owns agent transport, session lifecycle, and embedded query execution
 
 ---
 
@@ -912,7 +934,143 @@ That is how memories survive renames, moves, and restructures.
 
 ---
 
-# 10. CLI (prism-cli)
+# 10. MCP Server (prism-mcp)
+
+## 10.1 Purpose
+
+`prism-mcp` is the primary agent-facing integration surface.
+
+The design goal is not a large catalog of narrowly typed tools. The design goal is one programmable query surface over a live in-memory `Prism` instance.
+
+That means:
+
+* the MCP server loads and retains the graph for the session
+* queries compose in one round-trip instead of chaining many tool calls
+* API discovery happens through an MCP resource, not repeated system prompt text
+
+## 10.2 Primary Tool
+
+```text
+prism_query { code: string, language?: "ts" } -> QueryResult
+```
+
+Rules:
+
+* v1 is TypeScript-first
+* `language` may default to `"ts"` in v1
+* the query executes with a pre-bound `prism` object
+* the final value returned by the snippet must be JSON-serializable
+* execution happens against the already-loaded in-memory graph for the active MCP session
+
+Expected query shape:
+
+```ts
+const sym = prism.symbol("handle_request");
+const cg = sym?.callGraph(3);
+const lineage = sym?.lineage();
+
+return { sym, cg, lineage };
+```
+
+## 10.3 Discovery Resource
+
+The MCP server must expose at least one resource:
+
+```text
+prism://api-reference
+```
+
+This resource should document:
+
+* the `prism` global
+* available methods and return types
+* supported query-language conventions
+* runnable examples
+* current limitations
+
+The resource is the canonical discovery path for agents. The tool description should stay short and point to the resource instead of embedding the full API in prompt text.
+
+## 10.4 Runtime Model
+
+The runtime has three layers:
+
+```text
+TypeScript snippet
+  ↓
+prism-js runtime shim
+  ↓
+embedded JS engine host calls
+  ↓
+live Prism API
+```
+
+Execution requirements:
+
+* the server owns the live `Prism` session state
+* the embedded runtime must not shell out for each query
+* TypeScript should transpile to JavaScript before evaluation
+* runtime bindings must expose structured data, not formatted CLI text
+* query results must serialize back to JSON for MCP tool output
+
+Security and determinism constraints:
+
+* the runtime should expose only PRISM query capabilities, not arbitrary filesystem or process access
+* host-call boundaries should be explicit and auditable
+* query errors must return structured diagnostics
+
+## 10.5 Binding Layer (prism-js)
+
+`prism-js` is the language-facing facade over `prism-query`.
+
+Responsibilities:
+
+* define the `prism` object surface for JS/TS queries
+* provide the runtime shim loaded into the embedded engine
+* publish the API reference resource text
+* keep the JS-visible contract stable even as Rust internals evolve
+
+Representative surface:
+
+```ts
+interface PrismApi {
+  symbol(query: string): SymbolView | null;
+  symbols(query: string): SymbolView[];
+  search(query: string, options?: SearchOptions): SymbolView[];
+  entrypoints(): SymbolView[];
+}
+
+interface SymbolView {
+  id: NodeId;
+  name: string;
+  kind: NodeKind;
+  signature(): string;
+  full(): string;
+  relations(): Relations;
+  callGraph(depth: number): Subgraph;
+  lineage(): LineageView | null;
+}
+```
+
+Rules:
+
+* the JS API should prefer plain data plus a small set of ergonomic methods
+* methods should compose naturally inside one snippet
+* the JS contract should reflect `prism-query`, not the CLI
+
+## 10.6 Convenience Tools
+
+Optional convenience tools may exist later for high-frequency lookups:
+
+```text
+prism_symbol { query: string }
+prism_search { query: string, limit?: int }
+```
+
+But they are secondary. The programmable `prism_query` tool is the primary interface.
+
+---
+
+# 11. CLI (prism-cli)
 
 Commands:
 
@@ -930,7 +1088,7 @@ prism memory store <symbol> --content "note"
 
 ---
 
-# 11. Git Integration
+# 12. Git Integration
 
 Shelling out is acceptable in v1 for:
 
@@ -942,17 +1100,18 @@ Shelling out is acceptable in v1 for:
 
 ---
 
-# 12. Performance Strategy
+# 13. Performance Strategy
 
 * arena-style allocation for graph-heavy structures where needed
 * string interning with `smol_str`
 * lazy file loading
 * append-only event storage for history and outcomes
 * derived projections built incrementally rather than recomputed from scratch when possible
+* MCP sessions should reuse one loaded graph and one initialized runtime shim across many queries
 
 ---
 
-# 13. Future Hooks
+# 14. Future Hooks
 
 These are explicitly not v1 requirements, but the architecture should leave room for them:
 
@@ -961,10 +1120,11 @@ These are explicitly not v1 requirements, but the architecture should leave room
 * first-class uncertainty tracking
 * policy and invariant layers
 * drift detection between implementation and intent
+* additional language runtimes once the TypeScript surface is stable
 
 ---
 
-# 14. Build Order
+# 15. Build Order
 
 Recommended sequence:
 
@@ -973,7 +1133,9 @@ Recommended sequence:
 3. implement deterministic lineage resolution in `prism-history`
 4. add structured `OutcomeEvent` logging in `prism-memory`
 5. expose `lineage_of`, `related_failures`, `blast_radius`, and `resume_task` in `prism-query`
-6. add derived projections such as co-change, hotspot, validation recipes, and drift detection
+6. land `prism-js` as the stable JS/TS binding contract over `prism-query`
+7. add `prism-mcp` with `prism_query` and `prism://api-reference`
+8. add derived projections such as co-change, hotspot, validation recipes, and drift detection
 
 ---
 

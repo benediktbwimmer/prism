@@ -5,7 +5,11 @@ use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use prism_ir::{Edge, EdgeKind, EdgeOrigin, GraphChange, Language, Node, NodeId, NodeKind, Span};
+use prism_history::HistoryStore;
+use prism_ir::{
+    Edge, EdgeKind, EdgeOrigin, GraphChange, Language, Node, NodeId, NodeKind, ObservedChangeSet,
+    Span,
+};
 use prism_lang_json::JsonAdapter;
 use prism_lang_markdown::MarkdownAdapter;
 use prism_lang_rust::RustAdapter;
@@ -30,6 +34,7 @@ pub struct WorkspaceIndexer<S: Store> {
     root: PathBuf,
     layout: WorkspaceLayout,
     graph: Graph,
+    history: HistoryStore,
     adapters: Vec<Box<dyn LanguageAdapter>>,
     store: S,
 }
@@ -74,24 +79,38 @@ impl<S: Store> WorkspaceIndexer<S> {
         let layout = discover_layout(&root)?;
         let mut graph = store.load_graph()?.unwrap_or_default();
         sync_root_nodes(&mut graph, &layout);
+        let mut history = HistoryStore::new();
+        history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
 
         Ok(Self {
             root,
             layout,
             graph,
+            history,
             adapters: default_adapters(),
             store,
         })
     }
 
     pub fn index(&mut self) -> Result<()> {
-        let _ = self.index_with_changes()?;
+        let _ = self.index_with_observed_changes()?;
         Ok(())
     }
 
     pub fn index_with_changes(&mut self) -> Result<Vec<GraphChange>> {
+        let (_, changes) = self.index_impl()?;
+        Ok(changes)
+    }
+
+    pub fn index_with_observed_changes(&mut self) -> Result<Vec<ObservedChangeSet>> {
+        let (observed, _) = self.index_impl()?;
+        Ok(observed)
+    }
+
+    fn index_impl(&mut self) -> Result<(Vec<ObservedChangeSet>, Vec<GraphChange>)> {
         let mut pending = Vec::<PendingFileParse>::new();
         let mut seen_files = HashSet::<PathBuf>::new();
+        let mut observed_changes = Vec::<ObservedChangeSet>::new();
         let mut changes = Vec::<GraphChange>::new();
         let walk_root = self.root.clone();
 
@@ -160,20 +179,26 @@ impl<S: Store> WorkspaceIndexer<S> {
                 source: &pending_file.source,
             };
             let parsed = adapter.parse(&input)?;
-            changes.extend(self.upsert_parsed_file(
+            let update = self.upsert_parsed_file(
                 previous_path,
                 &pending_file.path,
                 pending_file.hash,
                 &package,
                 parsed,
-            ));
+            );
+            self.history.apply(&update.observed);
+            observed_changes.push(update.observed.clone());
+            changes.extend(update.changes);
             self.store
                 .save_file_state(&pending_file.path, &self.graph)?;
         }
 
         for tracked in self.graph.tracked_files() {
             if !seen_files.contains(&tracked) && !moved_paths.contains(&tracked) {
-                changes.extend(self.graph.remove_file_with_changes(&tracked));
+                let update = self.graph.remove_file_with_update(&tracked);
+                self.history.apply(&update.observed);
+                observed_changes.push(update.observed.clone());
+                changes.extend(update.changes);
                 self.store.remove_file_state(&tracked)?;
             }
         }
@@ -181,7 +206,9 @@ impl<S: Store> WorkspaceIndexer<S> {
         self.resolve_all_edges();
         self.store.replace_derived_edges(&self.graph)?;
         self.store.finalize(&self.graph)?;
-        Ok(changes)
+        self.history
+            .seed_nodes(self.graph.all_nodes().map(|node| node.id.clone()));
+        Ok((observed_changes, changes))
     }
 
     pub fn graph(&self) -> &Graph {
@@ -189,7 +216,7 @@ impl<S: Store> WorkspaceIndexer<S> {
     }
 
     pub fn into_prism(self) -> Prism {
-        Prism::new(self.graph)
+        Prism::with_history(self.graph, self.history)
     }
 
     fn upsert_parsed_file(
@@ -199,7 +226,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         hash: u64,
         package: &PackageInfo,
         parsed: ParseResult,
-    ) -> Vec<GraphChange> {
+    ) -> prism_store::FileUpdate {
         let previous_state = previous_path
             .or(Some(path))
             .and_then(|candidate| self.graph.file_state(candidate));
@@ -229,20 +256,18 @@ impl<S: Store> WorkspaceIndexer<S> {
 
         let mut edges = parsed.edges;
         edges.extend(package_edges);
-        self.graph
-            .upsert_file_from(
-                previous_path,
-                path,
-                hash,
-                parsed.nodes,
-                edges,
-                parsed.fingerprints,
-                parsed.unresolved_calls,
-                parsed.unresolved_imports,
-                parsed.unresolved_impls,
-                &reanchors,
-            )
-            .changes
+        self.graph.upsert_file_from(
+            previous_path,
+            path,
+            hash,
+            parsed.nodes,
+            edges,
+            parsed.fingerprints,
+            parsed.unresolved_calls,
+            parsed.unresolved_imports,
+            parsed.unresolved_impls,
+            &reanchors,
+        )
     }
 
     fn resolve_all_edges(&mut self) {
