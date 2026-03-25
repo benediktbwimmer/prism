@@ -15,7 +15,7 @@ use prism_parser::{
     UnresolvedImport,
 };
 use prism_query::Prism;
-use prism_store::Graph;
+use prism_store::{Graph, SqliteStore, Store};
 use smol_str::SmolStr;
 use walkdir::WalkDir;
 
@@ -25,19 +25,29 @@ pub fn index_workspace(root: impl AsRef<Path>) -> Result<Prism> {
     Ok(indexer.into_prism())
 }
 
-pub struct WorkspaceIndexer {
+pub struct WorkspaceIndexer<S: Store> {
     root: PathBuf,
     crate_name: String,
     graph: Graph,
     adapters: Vec<Box<dyn LanguageAdapter>>,
     package_id: NodeId,
+    store: S,
 }
 
-impl WorkspaceIndexer {
+impl WorkspaceIndexer<SqliteStore> {
     pub fn new(root: impl AsRef<Path>) -> Result<Self> {
         let root = root.as_ref().canonicalize()?;
+        cleanup_legacy_cache(&root)?;
+        let store = SqliteStore::open(cache_path(&root))?;
+        Self::with_store(root, store)
+    }
+}
+
+impl<S: Store> WorkspaceIndexer<S> {
+    pub fn with_store(root: impl AsRef<Path>, mut store: S) -> Result<Self> {
+        let root = root.as_ref().canonicalize()?;
         let crate_name = workspace_name(&root);
-        let mut graph = load_cache(&root).unwrap_or_default();
+        let mut graph = store.load_graph()?.unwrap_or_default();
         let package_id = ensure_root_nodes(&mut graph, &root, &crate_name);
 
         Ok(Self {
@@ -46,6 +56,7 @@ impl WorkspaceIndexer {
             graph,
             adapters: default_adapters(),
             package_id,
+            store,
         })
     }
 
@@ -99,7 +110,7 @@ impl WorkspaceIndexer {
         }
 
         self.resolve_all_edges();
-        save_cache(&self.root, &self.graph)?;
+        self.store.save_graph(&self.graph)?;
         Ok(())
     }
 
@@ -337,22 +348,14 @@ fn workspace_name(root: &Path) -> String {
 }
 
 fn cache_path(root: &Path) -> PathBuf {
-    root.join(".prism").join("cache.bin")
+    root.join(".prism").join("cache.db")
 }
 
-fn load_cache(root: &Path) -> Option<Graph> {
-    let cache_path = cache_path(root);
-    let bytes = fs::read(cache_path).ok()?;
-    bincode::deserialize(&bytes).ok()
-}
-
-fn save_cache(root: &Path, graph: &Graph) -> Result<()> {
-    let cache_path = cache_path(root);
-    if let Some(parent) = cache_path.parent() {
-        fs::create_dir_all(parent)?;
+fn cleanup_legacy_cache(root: &Path) -> Result<()> {
+    let legacy = root.join(".prism").join("cache.bin");
+    if legacy.exists() {
+        fs::remove_file(legacy)?;
     }
-    let bytes = bincode::serialize(graph)?;
-    fs::write(cache_path, bytes)?;
     Ok(())
 }
 
@@ -363,6 +366,7 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use prism_ir::EdgeKind;
+    use prism_store::MemoryStore;
 
     use super::WorkspaceIndexer;
 
@@ -381,7 +385,7 @@ mod tests {
         )
         .unwrap();
 
-        let mut indexer = WorkspaceIndexer::new(&root).unwrap();
+        let mut indexer = WorkspaceIndexer::with_store(&root, MemoryStore::default()).unwrap();
         indexer.index().unwrap();
 
         let initial_calls = indexer
@@ -442,7 +446,7 @@ mod tests {
         first.index().unwrap();
         drop(first);
 
-        assert!(root.join(".prism/cache.bin").exists());
+        assert!(root.join(".prism/cache.db").exists());
 
         let second = WorkspaceIndexer::new(&root).unwrap();
         assert!(second

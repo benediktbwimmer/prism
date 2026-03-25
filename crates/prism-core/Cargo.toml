@@ -6,7 +6,6 @@ license.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-bincode.workspace = true
 prism-ir = { path = "../prism-ir" }
 prism-lang-json = { path = "../prism-lang-json" }
 prism-lang-markdown = { path = "../prism-lang-markdown" }
@@ -15,6 +14,5 @@ prism-lang-yaml = { path = "../prism-lang-yaml" }
 prism-parser = { path = "../prism-parser" }
 prism-query = { path = "../prism-query" }
 prism-store = { path = "../prism-store" }
-serde.workspace = true
 smol_str.workspace = true
 walkdir.workspace = true
