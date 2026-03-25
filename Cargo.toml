@@ -3,6 +3,7 @@ members = [
     "crates/prism-agent",
     "crates/prism-cli",
     "crates/prism-core",
+    "crates/prism-curator",
     "crates/prism-history",
     "crates/prism-ir",
     "crates/prism-js",

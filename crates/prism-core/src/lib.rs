@@ -29,7 +29,9 @@ use prism_parser::{
     LanguageAdapter, ParseInput, ParseResult, SymbolTarget, UnresolvedCall, UnresolvedImpl,
     UnresolvedImport,
 };
-use prism_projections::ProjectionIndex;
+use prism_projections::{
+    co_change_deltas_for_events, validation_deltas_for_event, ProjectionIndex,
+};
 use prism_query::Prism;
 use prism_store::{FileState, Graph, SqliteStore, Store};
 use smol_str::SmolStr;
@@ -129,11 +131,12 @@ impl WorkspaceSession {
             .lock()
             .expect("workspace refresh lock poisoned");
         let prism = self.prism_arc();
+        let deltas = validation_deltas_for_event(&event, |node| prism.lineage_of(node));
         prism.apply_outcome_event_to_projections(&event);
         let id = prism.outcome_memory().store_event(event)?;
         let mut store = self.store.lock().expect("workspace store lock poisoned");
         store.save_outcome_snapshot(&prism.outcome_snapshot())?;
-        store.save_projection_snapshot(&prism.projection_snapshot())?;
+        store.apply_projection_validation_deltas(&deltas)?;
         Ok(id)
     }
 
@@ -445,7 +448,10 @@ impl<S: Store> WorkspaceIndexer<S> {
                 trigger.clone(),
             );
             let lineage_events = self.history.apply(&update.observed);
+            let co_change_deltas = co_change_deltas_for_events(&lineage_events);
             self.projections.apply_lineage_events(&lineage_events);
+            self.store
+                .apply_projection_co_change_deltas(&co_change_deltas)?;
             self.outcomes.apply_lineage(&lineage_events)?;
             self.record_patch_outcome(&update.observed);
             observed_changes.push(update.observed.clone());
@@ -462,7 +468,10 @@ impl<S: Store> WorkspaceIndexer<S> {
                     trigger.clone(),
                 );
                 let lineage_events = self.history.apply(&update.observed);
+                let co_change_deltas = co_change_deltas_for_events(&lineage_events);
                 self.projections.apply_lineage_events(&lineage_events);
+                self.store
+                    .apply_projection_co_change_deltas(&co_change_deltas)?;
                 self.outcomes.apply_lineage(&lineage_events)?;
                 self.record_patch_outcome(&update.observed);
                 observed_changes.push(update.observed.clone());
@@ -479,8 +488,6 @@ impl<S: Store> WorkspaceIndexer<S> {
         self.store.save_history_snapshot(&self.history.snapshot())?;
         self.store
             .save_outcome_snapshot(&self.outcomes.snapshot())?;
-        self.store
-            .save_projection_snapshot(&self.projections.snapshot())?;
         self.had_prior_snapshot = true;
         Ok((observed_changes, changes))
     }
@@ -612,8 +619,10 @@ impl<S: Store> WorkspaceIndexer<S> {
                 "files": observed.files.iter().map(|file_id| file_id.0).collect::<Vec<_>>(),
             }),
         };
+        let deltas = validation_deltas_for_event(&event, |node| self.history.lineage_of(node));
         self.projections
             .apply_outcome_event(&event, |node| self.history.lineage_of(node));
+        let _ = self.store.apply_projection_validation_deltas(&deltas);
         let _ = self.outcomes.store_event(event);
     }
 }

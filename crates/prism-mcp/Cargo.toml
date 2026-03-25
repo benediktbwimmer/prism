@@ -15,7 +15,7 @@ prism-memory = { path = "../prism-memory" }
 prism-query = { path = "../prism-query" }
 prism-store = { path = "../prism-store" }
 deno_ast = { version = "0.53.1", features = ["transpiling"] }
-rmcp = { version = "1.2.0", features = ["transport-io"] }
+rmcp = { version = "1.2.0", features = ["client", "transport-io"] }
 rquickjs = "0.11.0"
 schemars = "1.2.1"
 serde.workspace = true

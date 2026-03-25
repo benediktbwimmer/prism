@@ -12,7 +12,7 @@ use prism_ir::{
 };
 use prism_memory::{EpisodicMemorySnapshot, OutcomeMemorySnapshot};
 use prism_parser::{NodeFingerprint, UnresolvedCall, UnresolvedImpl, UnresolvedImport};
-use prism_projections::ProjectionSnapshot;
+use prism_projections::{CoChangeDelta, ProjectionSnapshot, ValidationDelta};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
@@ -78,6 +78,8 @@ pub trait Store {
     fn save_inference_snapshot(&mut self, snapshot: &InferenceSnapshot) -> Result<()>;
     fn load_projection_snapshot(&mut self) -> Result<Option<ProjectionSnapshot>>;
     fn save_projection_snapshot(&mut self, snapshot: &ProjectionSnapshot) -> Result<()>;
+    fn apply_projection_co_change_deltas(&mut self, deltas: &[CoChangeDelta]) -> Result<()>;
+    fn apply_projection_validation_deltas(&mut self, deltas: &[ValidationDelta]) -> Result<()>;
     fn save_file_state(&mut self, path: &Path, graph: &Graph) -> Result<()>;
     fn remove_file_state(&mut self, path: &Path) -> Result<()>;
     fn replace_derived_edges(&mut self, graph: &Graph) -> Result<()>;
@@ -144,6 +146,30 @@ impl Store for MemoryStore {
         Ok(())
     }
 
+    fn apply_projection_co_change_deltas(&mut self, deltas: &[CoChangeDelta]) -> Result<()> {
+        if deltas.is_empty() {
+            return Ok(());
+        }
+        let mut snapshot = self.projection_snapshot.clone().unwrap_or_default();
+        let mut index = prism_projections::ProjectionIndex::from_snapshot(snapshot);
+        index.apply_co_change_deltas(deltas);
+        snapshot = index.snapshot();
+        self.projection_snapshot = Some(snapshot);
+        Ok(())
+    }
+
+    fn apply_projection_validation_deltas(&mut self, deltas: &[ValidationDelta]) -> Result<()> {
+        if deltas.is_empty() {
+            return Ok(());
+        }
+        let mut snapshot = self.projection_snapshot.clone().unwrap_or_default();
+        let mut index = prism_projections::ProjectionIndex::from_snapshot(snapshot);
+        index.apply_validation_deltas(deltas);
+        snapshot = index.snapshot();
+        self.projection_snapshot = Some(snapshot);
+        Ok(())
+    }
+
     fn save_file_state(&mut self, _path: &Path, _graph: &Graph) -> Result<()> {
         Ok(())
     }
@@ -196,6 +222,8 @@ impl SqliteStore {
                 DROP TABLE IF EXISTS unresolved_imports;
                 DROP TABLE IF EXISTS unresolved_impls;
                 DROP TABLE IF EXISTS snapshots;
+                DROP TABLE IF EXISTS projection_co_change;
+                DROP TABLE IF EXISTS projection_validation;
                 "#,
             )?;
         }
@@ -290,6 +318,21 @@ impl SqliteStore {
             CREATE TABLE IF NOT EXISTS snapshots (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS projection_co_change (
+                source_lineage TEXT NOT NULL,
+                target_lineage TEXT NOT NULL,
+                count INTEGER NOT NULL,
+                PRIMARY KEY (source_lineage, target_lineage)
+            );
+
+            CREATE TABLE IF NOT EXISTS projection_validation (
+                lineage TEXT NOT NULL,
+                label TEXT NOT NULL,
+                score REAL NOT NULL,
+                last_seen INTEGER NOT NULL,
+                PRIMARY KEY (lineage, label)
             );
             "#,
         )?;
@@ -463,11 +506,19 @@ impl Store for SqliteStore {
     }
 
     fn load_projection_snapshot(&mut self) -> Result<Option<ProjectionSnapshot>> {
-        load_snapshot_row(&self.conn, "projections")
+        load_projection_snapshot_rows(&self.conn)
     }
 
     fn save_projection_snapshot(&mut self, snapshot: &ProjectionSnapshot) -> Result<()> {
-        save_snapshot_row(&self.conn, "projections", snapshot)
+        save_projection_snapshot_rows(&mut self.conn, snapshot)
+    }
+
+    fn apply_projection_co_change_deltas(&mut self, deltas: &[CoChangeDelta]) -> Result<()> {
+        apply_projection_co_change_deltas_rows(&mut self.conn, deltas)
+    }
+
+    fn apply_projection_validation_deltas(&mut self, deltas: &[ValidationDelta]) -> Result<()> {
+        apply_projection_validation_deltas_rows(&mut self.conn, deltas)
     }
 
     fn save_file_state(&mut self, path: &Path, graph: &Graph) -> Result<()> {
@@ -1454,6 +1505,162 @@ where
     Ok(())
 }
 
+fn load_projection_snapshot_rows(conn: &Connection) -> Result<Option<ProjectionSnapshot>> {
+    let mut co_change_by_lineage =
+        HashMap::<prism_ir::LineageId, Vec<prism_projections::CoChangeRecord>>::new();
+    {
+        let mut stmt = conn.prepare(
+            "SELECT source_lineage, target_lineage, count
+             FROM projection_co_change
+             ORDER BY source_lineage, count DESC, target_lineage",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                prism_ir::LineageId::new(row.get::<_, String>(0)?),
+                prism_projections::CoChangeRecord {
+                    lineage: prism_ir::LineageId::new(row.get::<_, String>(1)?),
+                    count: row.get::<_, u32>(2)?,
+                },
+            ))
+        })?;
+        for row in rows {
+            let (source, record) = row?;
+            co_change_by_lineage.entry(source).or_default().push(record);
+        }
+    }
+
+    let mut validation_by_lineage =
+        HashMap::<prism_ir::LineageId, Vec<prism_projections::ValidationCheck>>::new();
+    {
+        let mut stmt = conn.prepare(
+            "SELECT lineage, label, score, last_seen
+             FROM projection_validation
+             ORDER BY lineage, score DESC, last_seen DESC, label",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                prism_ir::LineageId::new(row.get::<_, String>(0)?),
+                prism_projections::ValidationCheck {
+                    label: row.get(1)?,
+                    score: row.get(2)?,
+                    last_seen: row.get::<_, i64>(3)? as u64,
+                },
+            ))
+        })?;
+        for row in rows {
+            let (lineage, check) = row?;
+            validation_by_lineage
+                .entry(lineage)
+                .or_default()
+                .push(check);
+        }
+    }
+
+    if co_change_by_lineage.is_empty() && validation_by_lineage.is_empty() {
+        return Ok(None);
+    }
+
+    let mut co_change_by_lineage = co_change_by_lineage.into_iter().collect::<Vec<_>>();
+    co_change_by_lineage.sort_by(|left, right| left.0 .0.cmp(&right.0 .0));
+    let mut validation_by_lineage = validation_by_lineage.into_iter().collect::<Vec<_>>();
+    validation_by_lineage.sort_by(|left, right| left.0 .0.cmp(&right.0 .0));
+
+    Ok(Some(ProjectionSnapshot {
+        co_change_by_lineage,
+        validation_by_lineage,
+    }))
+}
+
+fn save_projection_snapshot_rows(
+    conn: &mut Connection,
+    snapshot: &ProjectionSnapshot,
+) -> Result<()> {
+    let tx = conn.transaction()?;
+    tx.execute("DELETE FROM projection_co_change", [])?;
+    tx.execute("DELETE FROM projection_validation", [])?;
+
+    for (source, neighbors) in &snapshot.co_change_by_lineage {
+        for record in neighbors {
+            tx.execute(
+                "INSERT INTO projection_co_change(source_lineage, target_lineage, count)
+                 VALUES (?1, ?2, ?3)",
+                params![source.0.as_str(), record.lineage.0.as_str(), record.count],
+            )?;
+        }
+    }
+
+    for (lineage, checks) in &snapshot.validation_by_lineage {
+        for check in checks {
+            tx.execute(
+                "INSERT INTO projection_validation(lineage, label, score, last_seen)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![
+                    lineage.0.as_str(),
+                    check.label.as_str(),
+                    check.score,
+                    check.last_seen as i64
+                ],
+            )?;
+        }
+    }
+
+    tx.commit()?;
+    Ok(())
+}
+
+fn apply_projection_co_change_deltas_rows(
+    conn: &mut Connection,
+    deltas: &[CoChangeDelta],
+) -> Result<()> {
+    if deltas.is_empty() {
+        return Ok(());
+    }
+    let tx = conn.transaction()?;
+    for delta in deltas {
+        tx.execute(
+            "INSERT INTO projection_co_change(source_lineage, target_lineage, count)
+             VALUES (?1, ?2, ?3)
+             ON CONFLICT(source_lineage, target_lineage)
+             DO UPDATE SET count = projection_co_change.count + excluded.count",
+            params![
+                delta.source_lineage.0.as_str(),
+                delta.target_lineage.0.as_str(),
+                delta.count_delta
+            ],
+        )?;
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+fn apply_projection_validation_deltas_rows(
+    conn: &mut Connection,
+    deltas: &[ValidationDelta],
+) -> Result<()> {
+    if deltas.is_empty() {
+        return Ok(());
+    }
+    let tx = conn.transaction()?;
+    for delta in deltas {
+        tx.execute(
+            "INSERT INTO projection_validation(lineage, label, score, last_seen)
+             VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(lineage, label)
+             DO UPDATE SET
+               score = projection_validation.score + excluded.score,
+               last_seen = MAX(projection_validation.last_seen, excluded.last_seen)",
+            params![
+                delta.lineage.0.as_str(),
+                delta.label.as_str(),
+                delta.score_delta,
+                delta.last_seen as i64
+            ],
+        )?;
+    }
+    tx.commit()?;
+    Ok(())
+}
+
 fn load_unresolved_calls(
     conn: &Connection,
     file_records: &mut HashMap<PathBuf, FileRecord>,
@@ -1685,6 +1892,7 @@ fn from_sql_conversion_error(message: String) -> rusqlite::Error {
 #[cfg(test)]
 mod tests {
     use std::path::Path;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     use prism_agent::{EdgeId, InferenceSnapshot, InferredEdgeRecord, InferredEdgeScope};
     use prism_history::HistorySnapshot;
@@ -1863,5 +2071,53 @@ mod tests {
         assert_eq!(store.load_episodic_snapshot().unwrap(), Some(episodic));
         assert_eq!(store.load_inference_snapshot().unwrap(), Some(inference));
         assert_eq!(store.load_projection_snapshot().unwrap(), Some(projections));
+    }
+
+    #[test]
+    fn sqlite_store_persists_projections_in_dedicated_tables() {
+        let path = std::env::temp_dir().join(format!(
+            "prism-store-test-{}.db",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let projections = ProjectionSnapshot {
+            co_change_by_lineage: vec![(
+                prism_ir::LineageId::new("lineage:10"),
+                vec![CoChangeRecord {
+                    lineage: prism_ir::LineageId::new("lineage:20"),
+                    count: 2,
+                }],
+            )],
+            validation_by_lineage: vec![(
+                prism_ir::LineageId::new("lineage:10"),
+                vec![ValidationCheck {
+                    label: "test:smoke".to_string(),
+                    score: 3.5,
+                    last_seen: 99,
+                }],
+            )],
+        };
+
+        let mut store = SqliteStore::open(&path).unwrap();
+        store.save_projection_snapshot(&projections).unwrap();
+        assert_eq!(
+            store.load_projection_snapshot().unwrap(),
+            Some(projections.clone())
+        );
+
+        let snapshot_rows: i64 = store
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM snapshots WHERE key = 'projections'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(snapshot_rows, 0);
+
+        drop(store);
+        let _ = std::fs::remove_file(path);
     }
 }

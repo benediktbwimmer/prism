@@ -20,6 +20,21 @@ pub struct CoChangeRecord {
     pub count: u32,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CoChangeDelta {
+    pub source_lineage: LineageId,
+    pub target_lineage: LineageId,
+    pub count_delta: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ValidationDelta {
+    pub lineage: LineageId,
+    pub label: String,
+    pub score_delta: f32,
+    pub last_seen: u64,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ProjectionSnapshot {
     pub co_change_by_lineage: Vec<(LineageId, Vec<CoChangeRecord>)>,
@@ -134,50 +149,36 @@ impl ProjectionIndex {
     }
 
     pub fn apply_lineage_events(&mut self, events: &[LineageEvent]) {
-        let mut lineages = events
-            .iter()
-            .map(|event| event.lineage.clone())
-            .collect::<Vec<_>>();
-        lineages.sort_by(|left, right| left.0.cmp(&right.0));
-        lineages.dedup();
-
-        for (index, left) in lineages.iter().enumerate() {
-            for right in lineages.iter().skip(index + 1) {
-                increment_co_change_neighbor(&mut self.co_change_by_lineage, left, right);
-                increment_co_change_neighbor(&mut self.co_change_by_lineage, right, left);
-            }
-        }
+        self.apply_co_change_deltas(&co_change_deltas_for_events(events));
     }
 
     pub fn apply_outcome_event<F>(&mut self, event: &OutcomeEvent, mut lineage_of: F)
     where
         F: FnMut(&NodeId) -> Option<LineageId>,
     {
-        let lineages = outcome_lineages(event, &mut lineage_of);
-        if lineages.is_empty() {
-            return;
-        }
+        self.apply_validation_deltas(&validation_deltas_for_event(event, &mut lineage_of));
+    }
 
-        let weight = event_weight(event);
-        if weight <= 0.0 {
-            return;
+    pub fn apply_co_change_deltas(&mut self, deltas: &[CoChangeDelta]) {
+        for delta in deltas {
+            increment_co_change_neighbor(
+                &mut self.co_change_by_lineage,
+                &delta.source_lineage,
+                &delta.target_lineage,
+                delta.count_delta,
+            );
         }
+    }
 
-        let labels = validation_labels(&event.evidence);
-        if labels.is_empty() {
-            return;
-        }
-
-        for lineage in lineages {
-            for label in &labels {
-                increment_validation_check(
-                    &mut self.validation_by_lineage,
-                    &lineage,
-                    label,
-                    weight,
-                    event.meta.ts,
-                );
-            }
+    pub fn apply_validation_deltas(&mut self, deltas: &[ValidationDelta]) {
+        for delta in deltas {
+            increment_validation_check(
+                &mut self.validation_by_lineage,
+                &delta.lineage,
+                &delta.label,
+                delta.score_delta,
+                delta.last_seen,
+            );
         }
     }
 
@@ -272,6 +273,68 @@ impl ProjectionIndex {
     }
 }
 
+pub fn co_change_deltas_for_events(events: &[LineageEvent]) -> Vec<CoChangeDelta> {
+    let mut lineages = events
+        .iter()
+        .map(|event| event.lineage.clone())
+        .collect::<Vec<_>>();
+    lineages.sort_by(|left, right| left.0.cmp(&right.0));
+    lineages.dedup();
+
+    let mut deltas = Vec::new();
+    for (index, left) in lineages.iter().enumerate() {
+        for right in lineages.iter().skip(index + 1) {
+            deltas.push(CoChangeDelta {
+                source_lineage: left.clone(),
+                target_lineage: right.clone(),
+                count_delta: 1,
+            });
+            deltas.push(CoChangeDelta {
+                source_lineage: right.clone(),
+                target_lineage: left.clone(),
+                count_delta: 1,
+            });
+        }
+    }
+    deltas
+}
+
+pub fn validation_deltas_for_event<F>(
+    event: &OutcomeEvent,
+    mut lineage_of: F,
+) -> Vec<ValidationDelta>
+where
+    F: FnMut(&NodeId) -> Option<LineageId>,
+{
+    let lineages = outcome_lineages(event, &mut lineage_of);
+    if lineages.is_empty() {
+        return Vec::new();
+    }
+
+    let weight = event_weight(event);
+    if weight <= 0.0 {
+        return Vec::new();
+    }
+
+    let labels = validation_labels(&event.evidence);
+    if labels.is_empty() {
+        return Vec::new();
+    }
+
+    let mut deltas = Vec::new();
+    for lineage in lineages {
+        for label in &labels {
+            deltas.push(ValidationDelta {
+                lineage: lineage.clone(),
+                label: label.clone(),
+                score_delta: weight,
+                last_seen: event.meta.ts,
+            });
+        }
+    }
+    deltas
+}
+
 fn event_lineages(
     event: &OutcomeEvent,
     node_to_lineage: &HashMap<NodeId, LineageId>,
@@ -312,17 +375,18 @@ fn increment_co_change_neighbor(
     by_lineage: &mut HashMap<LineageId, Vec<CoChangeRecord>>,
     source: &LineageId,
     target: &LineageId,
+    count_delta: u32,
 ) {
     let neighbors = by_lineage.entry(source.clone()).or_default();
     if let Some(existing) = neighbors
         .iter_mut()
         .find(|record| record.lineage == *target)
     {
-        existing.count += 1;
+        existing.count += count_delta;
     } else {
         neighbors.push(CoChangeRecord {
             lineage: target.clone(),
-            count: 1,
+            count: count_delta,
         });
     }
     neighbors.sort_by(|left, right| {

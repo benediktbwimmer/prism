@@ -43,6 +43,9 @@ use serde_json::{json, Value};
 
 const DEFAULT_SEARCH_LIMIT: usize = 20;
 const DEFAULT_CALL_GRAPH_DEPTH: usize = 3;
+const ENTRYPOINTS_URI: &str = "prism://entrypoints";
+const SYMBOL_RESOURCE_TEMPLATE_URI: &str = "prism://symbol/{crateName}/{kind}/{path}";
+const TASK_RESOURCE_TEMPLATE_URI: &str = "prism://task/{taskId}";
 
 struct SessionState {
     notes: EpisodicMemory,
@@ -217,7 +220,9 @@ struct PrismSearchArgs {
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 struct NodeIdInput {
+    #[serde(alias = "crate_name")]
     #[serde(alias = "crateName")]
     crate_name: String,
     path: String,
@@ -228,15 +233,18 @@ struct NodeIdInput {
 #[serde(tag = "type", rename_all = "snake_case")]
 enum AnchorRefInput {
     Node {
+        #[serde(alias = "crate_name")]
         #[serde(alias = "crateName")]
         crate_name: String,
         path: String,
         kind: String,
     },
     Lineage {
+        #[serde(rename = "lineageId", alias = "lineage_id")]
         lineage_id: String,
     },
     File {
+        #[serde(rename = "fileId", alias = "file_id")]
         file_id: u32,
     },
     Kind {
@@ -293,20 +301,24 @@ enum InferredEdgeScopeInput {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 struct PrismOutcomeArgs {
     kind: OutcomeKindInput,
     anchors: Vec<AnchorRefInput>,
     summary: String,
     result: Option<OutcomeResultInput>,
     evidence: Option<Vec<OutcomeEvidenceInput>>,
+    #[serde(alias = "task_id")]
     task_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 struct PrismNoteArgs {
     anchors: Vec<AnchorRefInput>,
     content: String,
     trust: Option<f32>,
+    #[serde(alias = "task_id")]
     task_id: Option<String>,
 }
 
@@ -322,6 +334,7 @@ struct PrismStartTaskResult {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 struct PrismInferEdgeArgs {
     source: NodeIdInput,
     target: NodeIdInput,
@@ -329,36 +342,49 @@ struct PrismInferEdgeArgs {
     confidence: f32,
     scope: Option<InferredEdgeScopeInput>,
     evidence: Option<Vec<String>>,
+    #[serde(alias = "task_id")]
     task_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 struct PrismTestRanArgs {
     anchors: Vec<AnchorRefInput>,
     test: String,
     passed: bool,
+    #[serde(alias = "task_id")]
     task_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 struct PrismFailureObservedArgs {
     anchors: Vec<AnchorRefInput>,
     summary: String,
     trace: Option<String>,
+    #[serde(alias = "task_id")]
     task_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 struct PrismFixValidatedArgs {
     anchors: Vec<AnchorRefInput>,
     summary: String,
+    #[serde(alias = "task_id")]
     task_id: Option<String>,
 }
 
 #[tool_router]
 impl PrismMcpServer {
     #[tool(
-        description = "Create and activate a task context for subsequent mutations in this session."
+        description = "Create and activate a task context for subsequent mutations in this session.",
+        annotations(
+            title = "Start PRISM Task",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false
+        )
     )]
     fn prism_start_task(
         &self,
@@ -375,22 +401,15 @@ impl PrismMcpServer {
             .host
             .start_task(args.description, args.tags.unwrap_or_default())
             .map_err(map_query_error)?;
-        Ok(CallToolResult::success(vec![Content::json(
-            PrismStartTaskResult {
-                task_id: task.0.to_string(),
-            },
-        )
-        .map_err(|err| {
-            McpError::internal_error(
-                "failed to serialize task id",
-                Some(json!({ "error": err.to_string() })),
-            )
-        })?]))
+        structured_tool_result(PrismStartTaskResult {
+            task_id: task.0.to_string(),
+        })
     }
 
     #[tool(
         name = "prism_query",
-        description = "Execute a read-only TypeScript query against the live PRISM graph. Read prism://api-reference for the available prism API."
+        description = "Execute a read-only TypeScript query against the live PRISM graph. Read prism://api-reference for the available prism API.",
+        annotations(title = "Programmable PRISM Query", read_only_hint = true)
     )]
     fn prism_query(
         &self,
@@ -408,17 +427,12 @@ impl PrismMcpServer {
             .host
             .execute(&args.code, language)
             .map_err(map_query_error)?;
-        let content = Content::json(envelope).map_err(|err| {
-            McpError::internal_error(
-                "failed to serialize query result",
-                Some(json!({ "error": err.to_string() })),
-            )
-        })?;
-        Ok(CallToolResult::success(vec![content]))
+        structured_tool_result(envelope)
     }
 
     #[tool(
-        description = "Convenience lookup for the best matching symbol. Returns the same structured query envelope as prism_query."
+        description = "Convenience lookup for the best matching symbol. Returns the same structured query envelope as prism_query.",
+        annotations(title = "Lookup PRISM Symbol", read_only_hint = true)
     )]
     fn prism_symbol(
         &self,
@@ -435,17 +449,12 @@ impl PrismMcpServer {
             .host
             .symbol_query(&args.query)
             .map_err(map_query_error)?;
-        let content = Content::json(envelope).map_err(|err| {
-            McpError::internal_error(
-                "failed to serialize symbol result",
-                Some(json!({ "error": err.to_string() })),
-            )
-        })?;
-        Ok(CallToolResult::success(vec![content]))
+        structured_tool_result(envelope)
     }
 
     #[tool(
-        description = "Convenience search lookup. Returns the same structured query envelope as prism_query."
+        description = "Convenience search lookup. Returns the same structured query envelope as prism_query.",
+        annotations(title = "Search PRISM Graph", read_only_hint = true)
     )]
     fn prism_search(
         &self,
@@ -468,48 +477,52 @@ impl PrismMcpServer {
                 include_inferred: None,
             })
             .map_err(map_query_error)?;
-        let content = Content::json(envelope).map_err(|err| {
-            McpError::internal_error(
-                "failed to serialize search result",
-                Some(json!({ "error": err.to_string() })),
-            )
-        })?;
-        Ok(CallToolResult::success(vec![content]))
+        structured_tool_result(envelope)
     }
 
     #[tool(
-        description = "Write a structured outcome event for the current task or symbol anchors."
+        description = "Write a structured outcome event for the current task or symbol anchors.",
+        annotations(
+            title = "Record Outcome Event",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false
+        )
     )]
     fn prism_outcome(
         &self,
         Parameters(args): Parameters<PrismOutcomeArgs>,
     ) -> Result<CallToolResult, McpError> {
         let event_id = self.host.store_outcome(args).map_err(map_query_error)?;
-        Ok(CallToolResult::success(vec![Content::json(event_id)
-            .map_err(|err| {
-                McpError::internal_error(
-                    "failed to serialize outcome id",
-                    Some(json!({ "error": err.to_string() })),
-                )
-            })?]))
+        structured_tool_result(json!({ "eventId": event_id.0 }))
     }
 
-    #[tool(description = "Store an agent note anchored to nodes or lineages.")]
+    #[tool(
+        description = "Store an agent note anchored to nodes or lineages.",
+        annotations(
+            title = "Store Agent Note",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false
+        )
+    )]
     fn prism_note(
         &self,
         Parameters(args): Parameters<PrismNoteArgs>,
     ) -> Result<CallToolResult, McpError> {
         let memory_id = self.host.store_note(args).map_err(map_query_error)?;
-        Ok(CallToolResult::success(vec![Content::json(memory_id)
-            .map_err(|err| {
-                McpError::internal_error(
-                    "failed to serialize memory id",
-                    Some(json!({ "error": err.to_string() })),
-                )
-            })?]))
+        structured_tool_result(json!({ "memoryId": memory_id.0 }))
     }
 
-    #[tool(description = "Persist an inferred edge into the session overlay or a promoted scope.")]
+    #[tool(
+        description = "Persist an inferred edge into the session overlay or a promoted scope.",
+        annotations(
+            title = "Store Inferred Edge",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false
+        )
+    )]
     fn prism_infer_edge(
         &self,
         Parameters(args): Parameters<PrismInferEdgeArgs>,
@@ -518,16 +531,18 @@ impl PrismMcpServer {
             .host
             .store_inferred_edge(args)
             .map_err(map_query_error)?;
-        Ok(CallToolResult::success(vec![Content::json(edge_id)
-            .map_err(|err| {
-                McpError::internal_error(
-                    "failed to serialize edge id",
-                    Some(json!({ "error": err.to_string() })),
-                )
-            })?]))
+        structured_tool_result(json!({ "edgeId": edge_id.0 }))
     }
 
-    #[tool(description = "Convenience outcome for a test run.")]
+    #[tool(
+        description = "Convenience outcome for a test run.",
+        annotations(
+            title = "Record Test Run",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false
+        )
+    )]
     fn prism_test_ran(
         &self,
         Parameters(args): Parameters<PrismTestRanArgs>,
@@ -555,16 +570,18 @@ impl PrismMcpServer {
                 task_id: args.task_id,
             })
             .map_err(map_query_error)?;
-        Ok(CallToolResult::success(vec![Content::json(event_id)
-            .map_err(|err| {
-                McpError::internal_error(
-                    "failed to serialize outcome id",
-                    Some(json!({ "error": err.to_string() })),
-                )
-            })?]))
+        structured_tool_result(json!({ "eventId": event_id.0 }))
     }
 
-    #[tool(description = "Convenience outcome for an observed failure.")]
+    #[tool(
+        description = "Convenience outcome for an observed failure.",
+        annotations(
+            title = "Record Observed Failure",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false
+        )
+    )]
     fn prism_failure_observed(
         &self,
         Parameters(args): Parameters<PrismFailureObservedArgs>,
@@ -583,16 +600,18 @@ impl PrismMcpServer {
                 task_id: args.task_id,
             })
             .map_err(map_query_error)?;
-        Ok(CallToolResult::success(vec![Content::json(event_id)
-            .map_err(|err| {
-                McpError::internal_error(
-                    "failed to serialize outcome id",
-                    Some(json!({ "error": err.to_string() })),
-                )
-            })?]))
+        structured_tool_result(json!({ "eventId": event_id.0 }))
     }
 
-    #[tool(description = "Convenience outcome for a validated fix.")]
+    #[tool(
+        description = "Convenience outcome for a validated fix.",
+        annotations(
+            title = "Record Validated Fix",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false
+        )
+    )]
     fn prism_fix_validated(
         &self,
         Parameters(args): Parameters<PrismFixValidatedArgs>,
@@ -608,13 +627,7 @@ impl PrismMcpServer {
                 task_id: args.task_id,
             })
             .map_err(map_query_error)?;
-        Ok(CallToolResult::success(vec![Content::json(event_id)
-            .map_err(|err| {
-                McpError::internal_error(
-                    "failed to serialize outcome id",
-                    Some(json!({ "error": err.to_string() })),
-                )
-            })?]))
+        structured_tool_result(json!({ "eventId": event_id.0 }))
     }
 }
 
@@ -629,7 +642,7 @@ impl ServerHandler for PrismMcpServer {
         )
         .with_server_info(Implementation::from_build_env())
         .with_instructions(
-            "Use the prism_query tool for read-only programmable graph queries and read prism://api-reference for the typed PRISM query surface.",
+            "Start with prism://api-reference for the typed query contract. Use prism_query for programmable read-only graph queries, prism_symbol or prism_search for direct lookups, prism://entrypoints for a quick workspace overview, prism://symbol/{crateName}/{kind}/{path} for an exact symbol snapshot, and the prism_* mutation tools to record outcomes, notes, inferred edges, and task context.",
         )
         .with_protocol_version(ProtocolVersion::LATEST)
     }
@@ -640,9 +653,20 @@ impl ServerHandler for PrismMcpServer {
         _: RequestContext<RoleServer>,
     ) -> Result<ListResourcesResult, McpError> {
         Ok(ListResourcesResult {
-            resources: vec![RawResource::new(API_REFERENCE_URI, "PRISM API Reference")
-                .with_description("TypeScript query surface, d.ts-style contract, and recipes")
-                .no_annotation()],
+            resources: vec![
+                RawResource::new(API_REFERENCE_URI, "PRISM API Reference")
+                    .with_description(
+                        "TypeScript query surface, d.ts-style contract, and usage recipes",
+                    )
+                    .with_mime_type("text/markdown")
+                    .no_annotation(),
+                RawResource::new(ENTRYPOINTS_URI, "PRISM Entrypoints")
+                    .with_description(
+                        "Workspace entrypoints and top-level starting symbols in structured JSON",
+                    )
+                    .with_mime_type("application/json")
+                    .no_annotation(),
+            ],
             next_cursor: None,
             meta: None,
         })
@@ -653,17 +677,39 @@ impl ServerHandler for PrismMcpServer {
         request: ReadResourceRequestParams,
         _: RequestContext<RoleServer>,
     ) -> Result<ReadResourceResult, McpError> {
-        if request.uri.as_str() != API_REFERENCE_URI {
+        let uri = request.uri.as_str();
+        let contents = if uri == API_REFERENCE_URI {
+            ResourceContents::text(api_reference_markdown(), request.uri.clone())
+                .with_mime_type("text/markdown")
+        } else if uri == ENTRYPOINTS_URI {
+            json_resource_contents(
+                self.host
+                    .entrypoints_resource_value()
+                    .map_err(map_query_error)?,
+                request.uri.clone(),
+            )?
+        } else if let Some(id) = parse_symbol_resource_uri(uri)? {
+            json_resource_contents(
+                self.host
+                    .symbol_resource_value(&id)
+                    .map_err(map_query_error)?,
+                request.uri.clone(),
+            )?
+        } else if let Some(task_id) = parse_task_resource_uri(uri) {
+            json_resource_contents(
+                self.host
+                    .task_resource_value(&task_id)
+                    .map_err(map_query_error)?,
+                request.uri.clone(),
+            )?
+        } else {
             return Err(McpError::resource_not_found(
                 "resource_not_found",
                 Some(json!({ "uri": request.uri })),
             ));
-        }
+        };
 
-        Ok(ReadResourceResult::new(vec![ResourceContents::text(
-            api_reference_markdown(),
-            request.uri,
-        )]))
+        Ok(ReadResourceResult::new(vec![contents]))
     }
 
     async fn list_resource_templates(
@@ -673,7 +719,23 @@ impl ServerHandler for PrismMcpServer {
     ) -> Result<ListResourceTemplatesResult, McpError> {
         Ok(ListResourceTemplatesResult {
             next_cursor: None,
-            resource_templates: Vec::new(),
+            resource_templates: vec![
+                RawResourceTemplate::new(
+                    SYMBOL_RESOURCE_TEMPLATE_URI,
+                    "PRISM Symbol Snapshot",
+                )
+                .with_description(
+                    "Read a structured snapshot for an exact symbol, including relations, lineage, validation recipe, blast radius, and related failures",
+                )
+                .with_mime_type("application/json")
+                .no_annotation(),
+                RawResourceTemplate::new(TASK_RESOURCE_TEMPLATE_URI, "PRISM Task Replay")
+                    .with_description(
+                        "Read the outcome-event timeline recorded for a specific task context",
+                    )
+                    .with_mime_type("application/json")
+                    .no_annotation(),
+            ],
             meta: None,
         })
     }
@@ -687,6 +749,59 @@ fn map_query_error(error: anyhow::Error) -> McpError {
             "error": error.to_string(),
         })),
     )
+}
+
+fn structured_tool_result<T: serde::Serialize>(value: T) -> Result<CallToolResult, McpError> {
+    let value = serde_json::to_value(value).map_err(|err| {
+        McpError::internal_error(
+            "failed to serialize structured tool result",
+            Some(json!({ "error": err.to_string() })),
+        )
+    })?;
+    Ok(CallToolResult::structured(value))
+}
+
+fn json_resource_contents<T: serde::Serialize>(
+    value: T,
+    uri: impl Into<String>,
+) -> Result<ResourceContents, McpError> {
+    let text = serde_json::to_string_pretty(&value).map_err(|err| {
+        McpError::internal_error(
+            "failed to serialize resource payload",
+            Some(json!({ "error": err.to_string() })),
+        )
+    })?;
+    Ok(ResourceContents::text(text, uri).with_mime_type("application/json"))
+}
+
+fn parse_symbol_resource_uri(uri: &str) -> Result<Option<NodeId>, McpError> {
+    let Some(rest) = uri.strip_prefix("prism://symbol/") else {
+        return Ok(None);
+    };
+    let mut segments = rest.splitn(3, '/');
+    let Some(crate_name) = segments.next() else {
+        return Ok(None);
+    };
+    let Some(kind) = segments.next() else {
+        return Ok(None);
+    };
+    let Some(path) = segments.next() else {
+        return Ok(None);
+    };
+    let kind = parse_node_kind(kind).map_err(|err| {
+        McpError::invalid_params(
+            "invalid symbol resource uri",
+            Some(json!({
+                "uri": uri,
+                "error": err.to_string(),
+            })),
+        )
+    })?;
+    Ok(Some(NodeId::new(crate_name, path, kind)))
+}
+
+fn parse_task_resource_uri(uri: &str) -> Option<TaskId> {
+    uri.strip_prefix("prism://task/").map(TaskId::new)
 }
 
 #[derive(Clone)]
@@ -777,6 +892,49 @@ impl QueryHost {
             result,
             diagnostics: execution.diagnostics(),
         })
+    }
+
+    fn entrypoints_resource_value(&self) -> Result<Value> {
+        self.refresh_workspace()?;
+        let prism = self.current_prism();
+        let execution = QueryExecution::new(self.clone(), prism);
+        Ok(json!({
+            "entrypoints": execution.entrypoints()?,
+            "diagnostics": execution.diagnostics(),
+        }))
+    }
+
+    fn symbol_resource_value(&self, id: &NodeId) -> Result<Value> {
+        self.refresh_workspace()?;
+        let prism = self.current_prism();
+        let execution = QueryExecution::new(self.clone(), prism.clone());
+        let symbol = symbol_for(prism.as_ref(), id)?;
+        Ok(json!({
+            "symbol": symbol_view(prism.as_ref(), &symbol)?,
+            "relations": relations_view(prism.as_ref(), self.session.as_ref(), id)?,
+            "lineage": lineage_view(prism.as_ref(), id)?,
+            "coChangeNeighbors": prism
+                .co_change_neighbors(id, 8)
+                .into_iter()
+                .map(co_change_view)
+                .collect::<Vec<_>>(),
+            "relatedFailures": prism.related_failures(id),
+            "blastRadius": blast_radius_view(prism.as_ref(), self.session.as_ref(), id),
+            "validationRecipe": validation_recipe_view_with(
+                prism.as_ref(),
+                self.session.as_ref(),
+                id,
+            ),
+            "diagnostics": execution.diagnostics(),
+        }))
+    }
+
+    fn task_resource_value(&self, task_id: &TaskId) -> Result<Value> {
+        self.refresh_workspace()?;
+        let prism = self.current_prism();
+        Ok(json!({
+            "task": prism.resume_task(task_id),
+        }))
     }
 
     fn execute_typescript(&self, code: &str) -> Result<QueryEnvelope> {
@@ -2016,6 +2174,12 @@ mod tests {
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    use rmcp::{
+        model::{ClientJsonRpcMessage, ServerJsonRpcMessage},
+        transport::{IntoTransport, Transport},
+        ServiceExt,
+    };
+
     use super::*;
     use prism_core::index_workspace_session;
     use prism_history::HistoryStore;
@@ -2070,6 +2234,94 @@ mod tests {
         }
     }
 
+    fn server_with_node(node: Node) -> PrismMcpServer {
+        let mut graph = Graph::default();
+        graph.nodes.insert(node.id.clone(), node);
+        graph.adjacency = HashMap::new();
+        graph.reverse_adjacency = HashMap::new();
+        PrismMcpServer::new(Prism::new(graph))
+    }
+
+    fn client_message(raw: &str) -> ClientJsonRpcMessage {
+        serde_json::from_str(raw).expect("invalid client json-rpc message")
+    }
+
+    fn initialize_request() -> ClientJsonRpcMessage {
+        client_message(
+            r#"{
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-11-25",
+                    "capabilities": {},
+                    "clientInfo": { "name": "prism-mcp-test", "version": "0.0.1" }
+                }
+            }"#,
+        )
+    }
+
+    fn initialized_notification() -> ClientJsonRpcMessage {
+        client_message(r#"{ "jsonrpc": "2.0", "method": "notifications/initialized" }"#)
+    }
+
+    fn list_tools_request(id: u64) -> ClientJsonRpcMessage {
+        client_message(&format!(
+            r#"{{ "jsonrpc": "2.0", "id": {id}, "method": "tools/list" }}"#
+        ))
+    }
+
+    fn list_resources_request(id: u64) -> ClientJsonRpcMessage {
+        client_message(&format!(
+            r#"{{ "jsonrpc": "2.0", "id": {id}, "method": "resources/list" }}"#
+        ))
+    }
+
+    fn read_resource_request(id: u64, uri: &str) -> ClientJsonRpcMessage {
+        serde_json::from_value(json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "method": "resources/read",
+            "params": { "uri": uri },
+        }))
+        .expect("resources/read request should deserialize")
+    }
+
+    fn call_tool_request(
+        id: u64,
+        name: &str,
+        arguments: serde_json::Map<String, Value>,
+    ) -> ClientJsonRpcMessage {
+        serde_json::from_value(json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "method": "tools/call",
+            "params": {
+                "name": name,
+                "arguments": arguments,
+            },
+        }))
+        .expect("tools/call request should deserialize")
+    }
+
+    async fn initialize_client(client: &mut impl Transport<rmcp::RoleClient>) -> serde_json::Value {
+        client.send(initialize_request()).await.unwrap();
+        let response = client.receive().await.unwrap();
+        serde_json::to_value(response).expect("initialize response should serialize")
+    }
+
+    fn response_json(response: ServerJsonRpcMessage) -> serde_json::Value {
+        serde_json::to_value(response).expect("response should serialize")
+    }
+
+    fn first_tool_content_json(response: ServerJsonRpcMessage) -> serde_json::Value {
+        let response = response_json(response);
+        let text = response["result"]["content"][0]["text"]
+            .as_str()
+            .expect("tool result should contain json text");
+        serde_json::from_str(text).expect("tool content should decode as json")
+    }
+
     #[test]
     fn executes_symbol_query() {
         let host = host_with_node(demo_node());
@@ -2085,6 +2337,111 @@ return { path: sym?.id.path, kind: sym?.kind };
         assert_eq!(result.result["path"], "demo::main");
         assert_eq!(result.result["kind"], "Function");
         assert!(result.diagnostics.is_empty());
+    }
+
+    #[tokio::test]
+    async fn mcp_server_advertises_tools_and_api_reference_resource() {
+        let server = server_with_node(demo_node());
+        let (server_transport, client_transport) = tokio::io::duplex(4096);
+        let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+        let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+        let initialize = initialize_client(&mut client).await;
+        assert_eq!(
+            initialize["result"]["protocolVersion"],
+            ProtocolVersion::LATEST.as_str()
+        );
+        assert!(initialize["result"]["capabilities"]["tools"].is_object());
+        assert!(initialize["result"]["capabilities"]["resources"].is_object());
+
+        client.send(initialized_notification()).await.unwrap();
+        let running = server_task
+            .await
+            .expect("server join should succeed")
+            .expect("server should initialize");
+
+        client.send(list_tools_request(2)).await.unwrap();
+        let tools = response_json(client.receive().await.unwrap());
+        let tool_names = tools["result"]["tools"]
+            .as_array()
+            .expect("tools/list should return an array")
+            .iter()
+            .filter_map(|tool| tool["name"].as_str())
+            .collect::<Vec<_>>();
+        assert!(tool_names.contains(&"prism_query"));
+        assert!(tool_names.contains(&"prism_symbol"));
+        assert!(tool_names.contains(&"prism_search"));
+        assert!(tool_names.contains(&"prism_outcome"));
+        assert!(tool_names.contains(&"prism_start_task"));
+
+        client.send(list_resources_request(3)).await.unwrap();
+        let resources = response_json(client.receive().await.unwrap());
+        assert_eq!(
+            resources["result"]["resources"][0]["uri"],
+            API_REFERENCE_URI
+        );
+        assert_eq!(
+            resources["result"]["resources"][0]["name"],
+            "PRISM API Reference"
+        );
+
+        client
+            .send(read_resource_request(4, API_REFERENCE_URI))
+            .await
+            .unwrap();
+        let resource = response_json(client.receive().await.unwrap());
+        let api_reference = resource["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("api reference should be text");
+        assert!(api_reference.contains("PRISM Query API"));
+        assert!(api_reference.contains("prism_query"));
+
+        running.cancel().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn mcp_server_executes_prism_query_tool_round_trip() {
+        let server = server_with_node(demo_node());
+        let (server_transport, client_transport) = tokio::io::duplex(4096);
+        let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+        let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+        let _ = initialize_client(&mut client).await;
+        client.send(initialized_notification()).await.unwrap();
+        let running = server_task
+            .await
+            .expect("server join should succeed")
+            .expect("server should initialize");
+
+        client
+            .send(call_tool_request(
+                2,
+                "prism_query",
+                json!({
+                    "code": r#"
+const sym = prism.symbol("main");
+return { path: sym?.id.path, kind: sym?.kind };
+"#,
+                    "language": "ts",
+                })
+                .as_object()
+                .expect("tool args should be an object")
+                .clone(),
+            ))
+            .await
+            .unwrap();
+
+        let envelope = first_tool_content_json(client.receive().await.unwrap());
+        assert_eq!(envelope["result"]["path"], "demo::main");
+        assert_eq!(envelope["result"]["kind"], "Function");
+        assert_eq!(
+            envelope["diagnostics"]
+                .as_array()
+                .map(|diagnostics| diagnostics.len()),
+            Some(0)
+        );
+
+        running.cancel().await.unwrap();
     }
 
     #[test]
