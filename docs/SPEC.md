@@ -679,36 +679,193 @@ High-value query behaviors:
 
 ---
 
-# 8. Agent Layer (prism-agent)
+# 8. Agent Augmentation Model
 
-## 8.1 Purpose
+## 8.1 Four Kinds of State
 
-* augment the graph
-* resolve ambiguity where allowed
-* produce evidence-backed actions and notes
+PRISM maintains four distinct kinds of state, each with different creation rules:
 
-## 8.2 Interface
+1. **Deterministic structure** — parser, store, and history build this automatically. Never agent-written.
+2. **Raw outcome memory** — what happened during a task: patch, test, failure, validation, note. Written by the foreground task agent.
+3. **Ephemeral inference** — temporary agent guesses useful for the current task or session. Session-scoped by default.
+4. **Durable inferred knowledge** — persistent inferred edges or structural memories that survived enough evidence. Requires promotion.
+
+## 8.2 Automated Pipeline (Non-Agent)
+
+These run automatically on every reindex or file change, with no agent involvement:
+
+* parse files
+* rebuild current graph
+* emit `ObservedChangeSet`
+* resolve lineage in `prism-history`
+* re-anchor memory via `apply_lineage`
+
+## 8.3 Foreground Task Agent Augmentation
+
+The agent currently using PRISM over MCP is the primary augmentation actor because it has the missing ingredient the background system does not: **intent**.
+
+It knows what the user is trying to do, what uncertainty matters right now, what evidence it just consulted, what patch it attempted, and what failed or succeeded.
+
+### Query-Time Inference
+
+When the static graph is not enough, the agent can infer extra edges or associations for the current task:
+
+* likely callee for unresolved call
+* likely related module
+* probable doc or spec section tied to a symbol
+* likely risk neighbors for a change plan
+
+These should begin as session-scoped or low-trust persisted inference.
+
+### Outcome Logging
+
+The highest-value direct write. After or during work, the task agent should write structured outcomes:
+
+* `PlanCreated`
+* `PatchApplied`
+* `TestRan`
+* `FailureObserved`
+* `FixValidated`
+* `ReviewFeedback`
+
+This is ideal for the foreground agent because it is closest to the action.
+
+### Episodic Notes
+
+Small repo-specific notes anchored to nodes or lineages:
+
+* "null handling here caused a regression"
+* "changing this struct required updating serializer tests"
+* "this module is migration-sensitive"
+
+Trust must be explicit. Notes must not masquerade as facts.
+
+## 8.4 What the Foreground Agent Should Not Do
+
+The foreground agent should not directly create durable structural knowledge such as:
+
+* stable inferred edges used globally
+* policy memories
+* hard "this always implies that" rules
+
+Those require more evidence or later promotion. Otherwise every task agent leaves behind a trail of overfit guesses.
+
+## 8.5 Trigger Model
+
+### Trigger 1: Query-Time, On Demand (Primary)
+
+Use augmentation when:
+
+* the deterministic graph cannot answer a query well
+* the result set is ambiguous
+* there are unresolved calls, imports, or impls
+* the agent is planning a change and wants a richer risk picture
+
+Flow:
+
+1. agent queries PRISM normally
+2. PRISM returns structure plus ambiguity or unresolvedness
+3. agent decides augmentation is worth it
+4. agent synthesizes a task-local interpretation
+5. agent optionally stores: session-scoped inferred edges, low-trust notes, outcome context
+
+### Trigger 2: Task Lifecycle Events
+
+At major task boundaries, the task agent should write structured memory:
+
+* when it forms a plan
+* when it applies a patch
+* when tests or builds run
+* when a failure appears
+* when the fix is validated
+* when the task ends or is abandoned
+
+### Trigger 3: Post-Change Enrichment
+
+After a meaningful `ObservedChangeSet`, PRISM can enqueue a bounded augmentation job. Good enqueue conditions:
+
+* large change set in a hotspot
+* many unresolved imports or calls
+* ambiguous lineage mapping
+* repeated failures on the same lineage
+* task completed with rich evidence worth distilling
+
+## 8.6 Background Curator
+
+The background curator is event-driven, not loop-driven. It is never an always-on autonomous agent roaming the repo.
+
+It reads:
+
+* accumulated outcome events
+* repeated ambiguities
+* lineage histories
+* co-change patterns
+
+It produces:
+
+* candidate structural memories
+* candidate durable inferred edges
+* candidate risk summaries
+* candidate validation recipes
+
+Crucially: **the curator proposes, it does not silently rewrite the world.**
+
+Its outputs land as:
+
+* `Inferred` edges with evidence and confidence
+* structural memories with explicit trust
+* promotion candidates, not authoritative structure
+
+The foreground agent is the historian of the current task. The background curator is the librarian over many tasks.
+
+## 8.7 Inferred Edge Overlay
+
+Graph augmentation is an overlay, not a mutation of the base graph.
+
+Queries can operate over:
+
+* static graph only
+* static plus inferred edges
+* static plus inferred plus memory and risk views
+
+Inferred edges are visible, useful, and composable, but they never contaminate the authoritative parse-derived structure.
+
+```rust
+pub enum InferredEdgeScope {
+    SessionOnly,
+    Persisted,
+    Rejected,
+    Expired,
+}
+```
+
+This lets agents be aggressive in-session without poisoning long-term state.
+
+## 8.8 Agent Trait Interface
 
 ```rust
 pub trait Agent {
     fn infer_edges(&self, context: AgentContext) -> Vec<Edge>;
 }
-```
 
-```rust
 pub struct AgentContext {
     pub symbol: NodeId,
     pub known_edges: Vec<Edge>,
     pub unresolved_calls: Vec<String>,
+    pub task: Option<TaskId>,
 }
 ```
 
-## 8.3 Output Contract
+## 8.9 Output Contract
 
-* inferred edges must include confidence
+* inferred edges must include confidence and `EdgeOrigin::Inferred`
 * static edges are never overwritten
-* agent-authored memory and outcome events should carry `TaskId` correlation when possible
+* agent-authored outcome events should carry `TaskId` correlation when possible
 * recommendations and patches should be traceable back to graph, lineage, memory, or runtime evidence
+
+## 8.10 Core Principle
+
+Let the active agent write raw experience. Let a background curator distill repeated patterns. Let neither rewrite authoritative structure.
 
 ---
 
@@ -961,8 +1118,8 @@ Rules:
 * the query executes with a pre-bound `prism` object
 * the final value returned by the snippet must be JSON-serializable
 * execution happens against the already-loaded in-memory graph for the active MCP session
-* `prism_query` is read-only in v1
-* mutations such as memory writes, task mutation, or patch application should remain separate explicit operations
+* `prism_query` is read-only
+* mutations such as memory writes, outcome logging, and inference persistence are handled through explicit MCP mutation tools, not through the query runtime
 
 Expected query shape:
 
@@ -1111,7 +1268,35 @@ The API reference should ship with concrete copy-pastable recipes such as:
 
 Agents learn these surfaces best from examples. Recipes are not auxiliary documentation; they are part of the product surface.
 
-## 10.7 Convenience Tools
+## 10.7 Mutation Tools
+
+The MCP server exposes explicit mutation tools alongside the read-only `prism_query`:
+
+```text
+prism_outcome { kind: OutcomeKind, anchors: AnchorRef[], summary: string, result?: OutcomeResult, evidence?: OutcomeEvidence[], task_id?: string } -> EventId
+prism_note { anchors: AnchorRef[], content: string, trust?: float } -> MemoryId
+prism_infer_edge { source: NodeId, target: NodeId, kind: EdgeKind, confidence: float, scope?: InferredEdgeScope } -> EdgeId
+```
+
+Convenience shortcuts for outcome logging:
+
+```text
+prism_patch_applied { anchors: AnchorRef[], summary: string } -> EventId
+prism_test_ran { anchors: AnchorRef[], test: string, passed: bool } -> EventId
+prism_failure_observed { anchors: AnchorRef[], summary: string, trace?: string } -> EventId
+prism_fix_validated { anchors: AnchorRef[], summary: string } -> EventId
+```
+
+These fill in `EventMeta` automatically from the session context. The lower the friction, the more reliably agents will record outcomes.
+
+Rules:
+
+* mutation tools are separate from `prism_query` to keep the query surface pure and predictable
+* all mutations produce structured confirmation (event ID or memory ID)
+* outcome events inherit the session's `TaskId` automatically when available
+* inferred edges default to `SessionOnly` scope unless explicitly promoted
+
+## 10.8 Convenience Query Tools
 
 Optional convenience tools may exist later for high-frequency lookups:
 

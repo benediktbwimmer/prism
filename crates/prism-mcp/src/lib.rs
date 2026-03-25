@@ -9,12 +9,12 @@ use deno_ast::{
     TranspileOptions,
 };
 use prism_core::index_workspace;
-use prism_ir::{NodeId, NodeKind};
+use prism_ir::{NodeId, NodeKind, TaskId};
 use prism_js::{
-    api_reference_markdown, runtime_prelude, LineageView, QueryDiagnostic, QueryEnvelope,
-    RelationsView, SymbolView, API_REFERENCE_URI,
+    api_reference_markdown, runtime_prelude, ChangeImpactView, LineageView, QueryDiagnostic,
+    QueryEnvelope, RelationsView, SymbolView, API_REFERENCE_URI,
 };
-use prism_query::{Prism, Symbol};
+use prism_query::{ChangeImpact, Prism, Symbol};
 use rmcp::{
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::*,
@@ -261,6 +261,18 @@ impl QueryHost {
         }))
     }
 
+    fn related_failures_value(&self, id: &NodeId) -> Result<Value> {
+        serde_json::to_value(self.prism.related_failures(id)).map_err(Into::into)
+    }
+
+    fn blast_radius(&self, id: &NodeId) -> ChangeImpactView {
+        change_impact_view(self.prism.blast_radius(id))
+    }
+
+    fn resume_task_value(&self, task_id: &TaskId) -> Result<Value> {
+        serde_json::to_value(self.prism.resume_task(task_id)).map_err(Into::into)
+    }
+
     fn symbol_view(&self, symbol: &Symbol<'_>) -> Result<SymbolView> {
         let node = symbol.node();
         Ok(SymbolView {
@@ -295,6 +307,15 @@ impl QueryHost {
             .into_iter()
             .find(|symbol| symbol.id() == id)
             .ok_or_else(|| anyhow!("symbol `{}` is no longer queryable", id.path))
+    }
+}
+
+fn change_impact_view(impact: ChangeImpact) -> ChangeImpactView {
+    ChangeImpactView {
+        direct_nodes: impact.direct_nodes,
+        lineages: impact.lineages,
+        likely_validations: impact.likely_validations,
+        risk_events: impact.risk_events,
     }
 }
 
@@ -383,6 +404,11 @@ fn run_js_worker(rx: mpsc::Receiver<JsWorkerMessage>) -> Result<()> {
                         .map_err(|err| anyhow!(err.to_string()))
                 });
 
+                let cleanup_result = context.with(|ctx| -> Result<()> {
+                    ctx.eval::<(), _>("__prismCleanupGlobals()")
+                        .map_err(|err| anyhow!(err.to_string()))
+                });
+
                 {
                     let mut guard = active_execution
                         .lock()
@@ -390,7 +416,13 @@ fn run_js_worker(rx: mpsc::Receiver<JsWorkerMessage>) -> Result<()> {
                     *guard = None;
                 }
 
-                let _ = request.reply.send(result);
+                let final_result = match (result, cleanup_result) {
+                    (Ok(value), Ok(())) => Ok(value),
+                    (Err(error), _) => Err(error),
+                    (Ok(_), Err(error)) => Err(error),
+                };
+
+                let _ = request.reply.send(final_result);
             }
         }
     }
@@ -475,6 +507,18 @@ impl QueryExecution {
             "lineage" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.host.lineage(&args.id)?)?)
+            }
+            "relatedFailures" => {
+                let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                self.host.related_failures_value(&args.id)
+            }
+            "blastRadius" => {
+                let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.host.blast_radius(&args.id))?)
+            }
+            "resumeTask" => {
+                let args: TaskTargetArgs = serde_json::from_value(args)?;
+                self.host.resume_task_value(&args.task_id)
             }
             "diagnostics" => Ok(serde_json::to_value(self.diagnostics())?),
             other => {
@@ -622,6 +666,11 @@ struct CallGraphArgs {
     depth: Option<usize>,
 }
 
+#[derive(Debug, Deserialize)]
+struct TaskTargetArgs {
+    task_id: TaskId,
+}
+
 fn parse_node_kind(value: &str) -> Result<NodeKind> {
     let normalized = value.trim().to_ascii_lowercase();
     let kind = match normalized.as_str() {
@@ -670,7 +719,12 @@ fn transpile_typescript(source: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use prism_ir::{Language, Node, NodeId, NodeKind, Span};
+    use prism_history::HistoryStore;
+    use prism_ir::{
+        AnchorRef, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId, Language, Node, NodeId,
+        NodeKind, Span, TaskId,
+    };
+    use prism_memory::{OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeResult};
     use prism_store::Graph;
     use std::collections::HashMap;
 
@@ -680,6 +734,10 @@ mod tests {
         graph.adjacency = HashMap::new();
         graph.reverse_adjacency = HashMap::new();
         QueryHost::new(Prism::new(graph))
+    }
+
+    fn host_with_prism(prism: Prism) -> QueryHost {
+        QueryHost::new(prism)
     }
 
     fn demo_node() -> Node {
@@ -765,5 +823,109 @@ return prism.entrypoints().map((sym) => sym.id.path);
 
         assert_eq!(first.result, Value::String("demo::main".to_owned()));
         assert_eq!(second.result.as_array().map(|items| items.len()), Some(1));
+    }
+
+    #[test]
+    fn cleans_up_user_globals_between_queries() {
+        let host = host_with_node(demo_node());
+
+        host.execute(
+            r#"
+globalThis.__prismLeaked = 1;
+return true;
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("first query should succeed");
+
+        let second = host
+            .execute(
+                r#"
+return typeof globalThis.__prismLeaked;
+"#,
+                QueryLanguage::Ts,
+            )
+            .expect("second query should succeed");
+
+        assert_eq!(second.result, Value::String("undefined".to_owned()));
+    }
+
+    #[test]
+    fn exposes_blast_radius_and_related_failures() {
+        let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+        let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
+
+        let mut graph = Graph::new();
+        graph.add_node(Node {
+            id: alpha.clone(),
+            name: "alpha".into(),
+            kind: NodeKind::Function,
+            file: FileId(1),
+            span: Span::line(1),
+            language: Language::Rust,
+        });
+        graph.add_node(Node {
+            id: beta.clone(),
+            name: "beta".into(),
+            kind: NodeKind::Function,
+            file: FileId(1),
+            span: Span::line(2),
+            language: Language::Rust,
+        });
+        graph.add_edge(Edge {
+            kind: EdgeKind::Calls,
+            source: alpha.clone(),
+            target: beta.clone(),
+            origin: prism_ir::EdgeOrigin::Static,
+            confidence: 1.0,
+        });
+
+        let mut history = HistoryStore::new();
+        history.seed_nodes([alpha.clone(), beta.clone()]);
+
+        let outcomes = OutcomeMemory::new();
+        outcomes
+            .store_event(OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new("outcome:test"),
+                    ts: 10,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:alpha")),
+                    causation: None,
+                },
+                anchors: vec![AnchorRef::Node(alpha.clone())],
+                kind: OutcomeKind::FailureObserved,
+                result: OutcomeResult::Failure,
+                summary: "alpha previously failed".into(),
+                evidence: vec![OutcomeEvidence::Test {
+                    name: "alpha_unit".into(),
+                    passed: false,
+                }],
+                metadata: Value::Null,
+            })
+            .expect("outcome event should store");
+
+        let host = host_with_prism(Prism::with_history_and_outcomes(graph, history, outcomes));
+        let result = host
+            .execute(
+                r#"
+const sym = prism.symbol("alpha");
+return {
+  blast: sym ? prism.blastRadius(sym) : null,
+  failures: sym ? prism.relatedFailures(sym) : [],
+};
+"#,
+                QueryLanguage::Ts,
+            )
+            .expect("query should succeed");
+
+        assert_eq!(
+            result.result["blast"]["direct_nodes"][0]["path"],
+            "demo::beta"
+        );
+        assert_eq!(
+            result.result["failures"][0]["summary"],
+            "alpha previously failed"
+        );
     }
 }

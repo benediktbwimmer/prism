@@ -1,4 +1,5 @@
 use prism_ir::{Language, LineageEvent, LineageId, NodeId, NodeKind, Span};
+use prism_memory::OutcomeEvent;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -30,6 +31,14 @@ pub struct RelationsView {
 pub struct LineageView {
     pub lineage: LineageId,
     pub events: Vec<LineageEvent>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ChangeImpactView {
+    pub direct_nodes: Vec<NodeId>,
+    pub lineages: Vec<LineageId>,
+    pub likely_validations: Vec<String>,
+    pub risk_events: Vec<OutcomeEvent>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -99,6 +108,9 @@ type PrismApi = {
   search(query: string, options?: SearchOptions): SymbolView[];
   entrypoints(): SymbolView[];
   lineage(target: SymbolView | NodeId): LineageView | null;
+  relatedFailures(target: SymbolView | NodeId): OutcomeEvent[];
+  blastRadius(target: SymbolView | NodeId): ChangeImpactView | null;
+  resumeTask(taskId: string): TaskReplay;
   diagnostics(): QueryDiagnostic[];
 };
 
@@ -129,6 +141,24 @@ type RelationsView = {
 type LineageView = {
   lineage: string;
   events: unknown[];
+};
+
+type ChangeImpactView = {
+  direct_nodes: NodeId[];
+  lineages: string[];
+  likely_validations: string[];
+  risk_events: OutcomeEvent[];
+};
+
+type OutcomeEvent = {
+  summary: string;
+  result: string;
+  kind: string;
+};
+
+type TaskReplay = {
+  task: string;
+  events: OutcomeEvent[];
 };
 ```
 
@@ -245,10 +275,24 @@ return {
 };
 ```
 
+### 11. Ask Prism for semantic blast radius directly
+
+```ts
+const sym = prism.symbol("handle_request");
+return sym ? prism.blastRadius(sym) : null;
+```
+
+### 12. Pull prior failures without reconstructing anchors manually
+
+```ts
+const sym = prism.symbol("handle_request");
+return sym ? prism.relatedFailures(sym) : [];
+```
+
 ## Current implementation surface
 
-- Available now: symbol lookup, search, entrypoints, relations, call graphs, source extraction, and lineage history.
-- Not exposed yet: memory recall, related failures, blast radius, validation recipes, and task replay.
+- Available now: symbol lookup, search, entrypoints, relations, call graphs, source extraction, lineage history, related failures, blast radius, and task replay by id.
+- Not exposed yet: memory recall and validation recipes.
 - Keep query logic small. If you find yourself reconstructing semantics from raw low-level fields every time, that method probably belongs in Prism itself.
 "#
 }
@@ -305,6 +349,18 @@ function __prismEnrichSymbols(values) {
   return Array.isArray(values) ? values.map(__prismEnrichSymbol) : [];
 }
 
+function __prismCleanupGlobals() {
+  for (const name of Object.getOwnPropertyNames(globalThis)) {
+    if (__prismBaselineGlobals.includes(name)) {
+      continue;
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, name);
+    if (!descriptor || descriptor.configurable) {
+      delete globalThis[name];
+    }
+  }
+}
+
 globalThis.prism = Object.freeze({
   symbol(query) {
     return __prismEnrichSymbol(__prismHost("symbol", { query }));
@@ -327,10 +383,29 @@ globalThis.prism = Object.freeze({
     }
     return __prismHost("lineage", { id });
   },
+  relatedFailures(target) {
+    const id = __prismNormalizeTarget(target);
+    if (id == null) {
+      return [];
+    }
+    return __prismHost("relatedFailures", { id });
+  },
+  blastRadius(target) {
+    const id = __prismNormalizeTarget(target);
+    if (id == null) {
+      return null;
+    }
+    return __prismHost("blastRadius", { id });
+  },
+  resumeTask(taskId) {
+    return __prismHost("resumeTask", { task_id: taskId });
+  },
   diagnostics() {
     return __prismHost("diagnostics", {});
   },
 });
+
+const __prismBaselineGlobals = Object.getOwnPropertyNames(globalThis);
 "#
 }
 
@@ -343,7 +418,9 @@ mod tests {
         let docs = api_reference_markdown();
         assert!(docs.contains("prism_query"));
         assert!(docs.contains("type PrismApi"));
-        assert!(docs.contains("### 10. Return both data and repair hints"));
+        assert!(
+            docs.contains("### 12. Pull prior failures without reconstructing anchors manually")
+        );
     }
 
     #[test]
@@ -351,5 +428,6 @@ mod tests {
         let prelude = runtime_prelude();
         assert!(prelude.contains("globalThis.prism"));
         assert!(prelude.contains("__prismHostCall"));
+        assert!(prelude.contains("__prismCleanupGlobals"));
     }
 }

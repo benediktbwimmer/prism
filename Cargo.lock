@@ -1149,7 +1149,9 @@ dependencies = [
  "clap",
  "prism-core",
  "prism-ir",
+ "prism-memory",
  "prism-query",
+ "serde_json",
 ]
 
 [[package]]
@@ -1196,6 +1198,7 @@ name = "prism-js"
 version = "0.1.0"
 dependencies = [
  "prism-ir",
+ "prism-memory",
  "serde",
  "serde_json",
 ]
@@ -1252,8 +1255,10 @@ dependencies = [
  "clap",
  "deno_ast",
  "prism-core",
+ "prism-history",
  "prism-ir",
  "prism-js",
+ "prism-memory",
  "prism-query",
  "prism-store",
  "rmcp",

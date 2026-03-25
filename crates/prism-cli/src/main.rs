@@ -1,9 +1,12 @@
+use std::fs;
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
 use prism_core::index_workspace;
-use prism_ir::{NodeId, NodeKind, TaskId};
+use prism_ir::{AnchorRef, EventActor, EventId, EventMeta, NodeId, NodeKind, TaskId};
+use prism_memory::{OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult};
 use prism_query::{Relations, Symbol};
 
 #[derive(Parser)]
@@ -47,6 +50,37 @@ enum Command {
     },
     TaskResume {
         id: String,
+    },
+    Outcome {
+        #[command(subcommand)]
+        command: OutcomeCommand,
+    },
+}
+
+#[derive(Subcommand)]
+enum OutcomeCommand {
+    Record {
+        name: String,
+        #[arg(long)]
+        kind: String,
+        #[arg(long)]
+        result: String,
+        #[arg(long)]
+        summary: String,
+        #[arg(long)]
+        task: Option<String>,
+        #[arg(long = "test")]
+        tests: Vec<String>,
+        #[arg(long = "failing-test")]
+        failing_tests: Vec<String>,
+        #[arg(long = "build")]
+        builds: Vec<String>,
+        #[arg(long = "failing-build")]
+        failing_builds: Vec<String>,
+        #[arg(long = "issue")]
+        issues: Vec<String>,
+        #[arg(long = "commit")]
+        commits: Vec<String>,
     },
 }
 
@@ -155,6 +189,49 @@ fn main() -> Result<()> {
                 }
             }
         }
+        Command::Outcome { command } => match command {
+            OutcomeCommand::Record {
+                name,
+                kind,
+                result,
+                summary,
+                task,
+                tests,
+                failing_tests,
+                builds,
+                failing_builds,
+                issues,
+                commits,
+            } => {
+                let symbol = resolve_single_symbol(&prism, &name)?;
+                let anchors = prism.anchors_for(&[AnchorRef::Node(symbol.id().clone())]);
+                let event = OutcomeEvent {
+                    meta: EventMeta {
+                        id: EventId::new(format!("outcome:{}", current_timestamp())),
+                        ts: current_timestamp(),
+                        actor: EventActor::User,
+                        correlation: task.map(TaskId::new),
+                        causation: None,
+                    },
+                    anchors,
+                    kind: parse_outcome_kind(&kind)?,
+                    result: parse_outcome_result(&result)?,
+                    summary,
+                    evidence: build_evidence(
+                        tests,
+                        failing_tests,
+                        builds,
+                        failing_builds,
+                        issues,
+                        commits,
+                    ),
+                    metadata: serde_json::Value::Null,
+                };
+                let id = prism.outcome_memory().store_event(event)?;
+                save_outcomes(&cli.root, &prism)?;
+                println!("recorded outcome {}", id.0);
+            }
+        },
     }
 
     Ok(())
@@ -204,6 +281,22 @@ fn print_lineage(prism: &prism_query::Prism, symbol: Symbol<'_>) {
     }
 }
 
+fn resolve_single_symbol<'a>(prism: &'a prism_query::Prism, name: &str) -> Result<Symbol<'a>> {
+    let mut symbols = prism.symbol(name);
+    match symbols.len() {
+        0 => bail!("no symbol matched `{name}`"),
+        1 => Ok(symbols.remove(0)),
+        _ => {
+            let matches = symbols
+                .into_iter()
+                .map(|symbol| symbol.signature())
+                .collect::<Vec<_>>()
+                .join(", ");
+            bail!("symbol `{name}` is ambiguous: {matches}");
+        }
+    }
+}
+
 fn print_named_relations(relations: Relations) {
     print_relation_section("calls", &relations.outgoing_calls);
     print_relation_section("called by", &relations.incoming_calls);
@@ -250,4 +343,89 @@ fn parse_node_kind_filter(value: Option<&str>) -> Result<Option<NodeKind>> {
     };
 
     Ok(Some(kind))
+}
+
+fn parse_outcome_kind(value: &str) -> Result<OutcomeKind> {
+    match value.to_ascii_lowercase().as_str() {
+        "note-added" | "note" => Ok(OutcomeKind::NoteAdded),
+        "hypothesis-proposed" | "hypothesis" => Ok(OutcomeKind::HypothesisProposed),
+        "plan-created" | "plan" => Ok(OutcomeKind::PlanCreated),
+        "patch-applied" | "patch" => Ok(OutcomeKind::PatchApplied),
+        "build-ran" | "build" => Ok(OutcomeKind::BuildRan),
+        "test-ran" | "test" => Ok(OutcomeKind::TestRan),
+        "review-feedback" | "review" => Ok(OutcomeKind::ReviewFeedback),
+        "failure-observed" | "failure" => Ok(OutcomeKind::FailureObserved),
+        "regression-observed" | "regression" => Ok(OutcomeKind::RegressionObserved),
+        "fix-validated" | "validated" => Ok(OutcomeKind::FixValidated),
+        "rollback-performed" | "rollback" => Ok(OutcomeKind::RollbackPerformed),
+        "migration-required" | "migration" => Ok(OutcomeKind::MigrationRequired),
+        "incident-linked" | "incident" => Ok(OutcomeKind::IncidentLinked),
+        "perf-signal-observed" | "perf" => Ok(OutcomeKind::PerfSignalObserved),
+        other => bail!("unknown outcome kind `{other}`"),
+    }
+}
+
+fn parse_outcome_result(value: &str) -> Result<OutcomeResult> {
+    match value.to_ascii_lowercase().as_str() {
+        "success" => Ok(OutcomeResult::Success),
+        "failure" => Ok(OutcomeResult::Failure),
+        "partial" => Ok(OutcomeResult::Partial),
+        "unknown" => Ok(OutcomeResult::Unknown),
+        other => bail!("unknown outcome result `{other}`"),
+    }
+}
+
+fn build_evidence(
+    tests: Vec<String>,
+    failing_tests: Vec<String>,
+    builds: Vec<String>,
+    failing_builds: Vec<String>,
+    issues: Vec<String>,
+    commits: Vec<String>,
+) -> Vec<OutcomeEvidence> {
+    let mut evidence = Vec::new();
+    for name in tests {
+        evidence.push(OutcomeEvidence::Test { name, passed: true });
+    }
+    for name in failing_tests {
+        evidence.push(OutcomeEvidence::Test {
+            name,
+            passed: false,
+        });
+    }
+    for target in builds {
+        evidence.push(OutcomeEvidence::Build {
+            target,
+            passed: true,
+        });
+    }
+    for target in failing_builds {
+        evidence.push(OutcomeEvidence::Build {
+            target,
+            passed: false,
+        });
+    }
+    for id in issues {
+        evidence.push(OutcomeEvidence::Issue { id });
+    }
+    for sha in commits {
+        evidence.push(OutcomeEvidence::Commit { sha });
+    }
+    evidence
+}
+
+fn save_outcomes(root: &std::path::Path, prism: &prism_query::Prism) -> Result<()> {
+    let path = root.join(".prism").join("outcomes.json");
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, serde_json::to_vec_pretty(&prism.outcome_snapshot())?)?;
+    Ok(())
+}
+
+fn current_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock should be after unix epoch")
+        .as_secs()
 }

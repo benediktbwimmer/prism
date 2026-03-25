@@ -20,4 +20,6 @@ serde_json.workspace = true
 tokio = { version = "1.48.0", features = ["macros", "rt-multi-thread"] }
 
 [dev-dependencies]
+prism-history = { path = "../prism-history" }
+prism-memory = { path = "../prism-memory" }
 prism-store = { path = "../prism-store" }

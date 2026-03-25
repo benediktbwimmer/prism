@@ -66,6 +66,10 @@ impl Prism {
         Arc::clone(&self.outcomes)
     }
 
+    pub fn anchors_for(&self, anchors: &[AnchorRef]) -> Vec<AnchorRef> {
+        self.expand_anchors(anchors)
+    }
+
     pub fn history_snapshot(&self) -> HistorySnapshot {
         self.history.snapshot()
     }

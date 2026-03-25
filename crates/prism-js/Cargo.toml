@@ -6,5 +6,6 @@ license.workspace = true
 
 [dependencies]
 prism-ir = { path = "../prism-ir" }
+prism-memory = { path = "../prism-memory" }
 serde.workspace = true
 serde_json.workspace = true
