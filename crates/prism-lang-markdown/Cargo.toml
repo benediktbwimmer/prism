@@ -1,0 +1,11 @@
+[package]
+name = "prism-lang-markdown"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+prism-ir = { path = "../prism-ir" }
+prism-parser = { path = "../prism-parser" }
+smol_str.workspace = true

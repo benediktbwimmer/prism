@@ -1,0 +1,10 @@
+[package]
+name = "prism-parser"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+prism-ir = { path = "../prism-ir" }
+smol_str.workspace = true
