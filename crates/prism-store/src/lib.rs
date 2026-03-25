@@ -8,15 +8,16 @@ use prism_agent::InferenceSnapshot;
 use prism_history::HistorySnapshot;
 use prism_ir::{
     ChangeTrigger, Edge, EdgeIndex, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta, FileId,
-    GraphChange, Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode,
+    GraphChange, Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, Span,
 };
 use prism_memory::{EpisodicMemorySnapshot, OutcomeMemorySnapshot};
 use prism_parser::{NodeFingerprint, UnresolvedCall, UnresolvedImpl, UnresolvedImport};
+use prism_projections::ProjectionSnapshot;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
 
-const SCHEMA_VERSION: i64 = 6;
+const SCHEMA_VERSION: i64 = 7;
 static NEXT_OBSERVED_EVENT_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,6 +76,8 @@ pub trait Store {
     fn save_episodic_snapshot(&mut self, snapshot: &EpisodicMemorySnapshot) -> Result<()>;
     fn load_inference_snapshot(&mut self) -> Result<Option<InferenceSnapshot>>;
     fn save_inference_snapshot(&mut self, snapshot: &InferenceSnapshot) -> Result<()>;
+    fn load_projection_snapshot(&mut self) -> Result<Option<ProjectionSnapshot>>;
+    fn save_projection_snapshot(&mut self, snapshot: &ProjectionSnapshot) -> Result<()>;
     fn save_file_state(&mut self, path: &Path, graph: &Graph) -> Result<()>;
     fn remove_file_state(&mut self, path: &Path) -> Result<()>;
     fn replace_derived_edges(&mut self, graph: &Graph) -> Result<()>;
@@ -88,6 +91,7 @@ pub struct MemoryStore {
     outcome_snapshot: Option<OutcomeMemorySnapshot>,
     episodic_snapshot: Option<EpisodicMemorySnapshot>,
     inference_snapshot: Option<InferenceSnapshot>,
+    projection_snapshot: Option<ProjectionSnapshot>,
 }
 
 impl Store for MemoryStore {
@@ -128,6 +132,15 @@ impl Store for MemoryStore {
 
     fn save_inference_snapshot(&mut self, snapshot: &InferenceSnapshot) -> Result<()> {
         self.inference_snapshot = Some(snapshot.clone());
+        Ok(())
+    }
+
+    fn load_projection_snapshot(&mut self) -> Result<Option<ProjectionSnapshot>> {
+        Ok(self.projection_snapshot.clone())
+    }
+
+    fn save_projection_snapshot(&mut self, snapshot: &ProjectionSnapshot) -> Result<()> {
+        self.projection_snapshot = Some(snapshot.clone());
         Ok(())
     }
 
@@ -200,10 +213,8 @@ impl SqliteStore {
                 kind INTEGER NOT NULL,
                 name TEXT NOT NULL,
                 file_id INTEGER NOT NULL,
-                start_line INTEGER NOT NULL,
-                start_col INTEGER NOT NULL,
-                end_line INTEGER NOT NULL,
-                end_col INTEGER NOT NULL,
+                span_start INTEGER NOT NULL,
+                span_end INTEGER NOT NULL,
                 language INTEGER NOT NULL,
                 PRIMARY KEY (crate_name, path, kind)
             );
@@ -244,31 +255,36 @@ impl SqliteStore {
 
             CREATE TABLE IF NOT EXISTS unresolved_calls (
                 file_path TEXT NOT NULL,
-                source_crate_name TEXT NOT NULL,
-                source_path TEXT NOT NULL,
-                source_kind INTEGER NOT NULL,
+                caller_crate_name TEXT NOT NULL,
+                caller_path TEXT NOT NULL,
+                caller_kind INTEGER NOT NULL,
                 name TEXT NOT NULL,
+                span_start INTEGER NOT NULL,
+                span_end INTEGER NOT NULL,
                 module_path TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS unresolved_imports (
                 file_path TEXT NOT NULL,
-                source_crate_name TEXT NOT NULL,
-                source_path TEXT NOT NULL,
-                source_kind INTEGER NOT NULL,
-                name TEXT NOT NULL,
+                importer_crate_name TEXT NOT NULL,
+                importer_path TEXT NOT NULL,
+                importer_kind INTEGER NOT NULL,
+                path TEXT NOT NULL,
+                span_start INTEGER NOT NULL,
+                span_end INTEGER NOT NULL,
                 module_path TEXT NOT NULL,
                 target_path TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS unresolved_impls (
                 file_path TEXT NOT NULL,
-                source_crate_name TEXT NOT NULL,
-                source_path TEXT NOT NULL,
-                source_kind INTEGER NOT NULL,
-                name TEXT NOT NULL,
-                module_path TEXT NOT NULL,
-                trait_path TEXT NOT NULL
+                impl_crate_name TEXT NOT NULL,
+                impl_path TEXT NOT NULL,
+                impl_kind INTEGER NOT NULL,
+                target TEXT NOT NULL,
+                span_start INTEGER NOT NULL,
+                span_end INTEGER NOT NULL,
+                module_path TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS snapshots (
@@ -300,7 +316,7 @@ impl Store for SqliteStore {
         let mut nodes = HashMap::<NodeId, Node>::new();
         {
             let mut stmt = self.conn.prepare(
-                "SELECT crate_name, path, kind, name, file_id, start_line, start_col, end_line, end_col, language FROM nodes",
+                "SELECT crate_name, path, kind, name, file_id, span_start, span_end, language FROM nodes",
             )?;
             let rows = stmt.query_map([], |row| {
                 let kind = decode_node_kind(row.get(2)?)?;
@@ -311,12 +327,10 @@ impl Store for SqliteStore {
                     kind,
                     file: FileId(row.get::<_, u32>(4)?),
                     span: prism_ir::Span {
-                        start_line: row.get(5)?,
-                        start_col: row.get(6)?,
-                        end_line: row.get(7)?,
-                        end_col: row.get(8)?,
+                        start: row.get(5)?,
+                        end: row.get(6)?,
                     },
-                    language: decode_language(row.get(9)?)?,
+                    language: decode_language(row.get(7)?)?,
                 })
             })?;
             for node in rows {
@@ -448,6 +462,14 @@ impl Store for SqliteStore {
         save_snapshot_row(&self.conn, "inference", snapshot)
     }
 
+    fn load_projection_snapshot(&mut self) -> Result<Option<ProjectionSnapshot>> {
+        load_snapshot_row(&self.conn, "projections")
+    }
+
+    fn save_projection_snapshot(&mut self, snapshot: &ProjectionSnapshot) -> Result<()> {
+        save_snapshot_row(&self.conn, "projections", snapshot)
+    }
+
     fn save_file_state(&mut self, path: &Path, graph: &Graph) -> Result<()> {
         let Some(state) = graph.file_state(path) else {
             return Ok(());
@@ -467,18 +489,16 @@ impl Store for SqliteStore {
 
         for node in &state.nodes {
             tx.execute(
-                "INSERT INTO nodes(crate_name, path, kind, name, file_id, start_line, start_col, end_line, end_col, language)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                "INSERT INTO nodes(crate_name, path, kind, name, file_id, span_start, span_end, language)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                 params![
                     node.id.crate_name.as_str(),
                     node.id.path.as_str(),
                     encode_node_kind(node.kind),
                     node.name.as_str(),
                     node.file.0,
-                    node.span.start_line,
-                    node.span.start_col,
-                    node.span.end_line,
-                    node.span.end_col,
+                    node.span.start,
+                    node.span.end,
                     encode_language(node.language),
                 ],
             )?;
@@ -531,14 +551,16 @@ impl Store for SqliteStore {
 
         for call in &state.record.unresolved_calls {
             tx.execute(
-                "INSERT INTO unresolved_calls(file_path, source_crate_name, source_path, source_kind, name, module_path)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                "INSERT INTO unresolved_calls(file_path, caller_crate_name, caller_path, caller_kind, name, span_start, span_end, module_path)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                 params![
                     file_path.as_ref(),
-                    call.source.crate_name.as_str(),
-                    call.source.path.as_str(),
-                    encode_node_kind(call.source.kind),
+                    call.caller.crate_name.as_str(),
+                    call.caller.path.as_str(),
+                    encode_node_kind(call.caller.kind),
                     call.name.as_str(),
+                    call.span.start,
+                    call.span.end,
                     call.module_path.as_str(),
                 ],
             )?;
@@ -546,32 +568,35 @@ impl Store for SqliteStore {
 
         for import in &state.record.unresolved_imports {
             tx.execute(
-                "INSERT INTO unresolved_imports(file_path, source_crate_name, source_path, source_kind, name, module_path, target_path)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                "INSERT INTO unresolved_imports(file_path, importer_crate_name, importer_path, importer_kind, path, span_start, span_end, module_path, target_path)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                 params![
                     file_path.as_ref(),
-                    import.source.crate_name.as_str(),
-                    import.source.path.as_str(),
-                    encode_node_kind(import.source.kind),
-                    import.name.as_str(),
+                    import.importer.crate_name.as_str(),
+                    import.importer.path.as_str(),
+                    encode_node_kind(import.importer.kind),
+                    import.path.as_str(),
+                    import.span.start,
+                    import.span.end,
                     import.module_path.as_str(),
-                    import.target_path.as_str(),
+                    import.path.as_str(),
                 ],
             )?;
         }
 
         for implementation in &state.record.unresolved_impls {
             tx.execute(
-                "INSERT INTO unresolved_impls(file_path, source_crate_name, source_path, source_kind, name, module_path, trait_path)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                "INSERT INTO unresolved_impls(file_path, impl_crate_name, impl_path, impl_kind, target, span_start, span_end, module_path)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                 params![
                     file_path.as_ref(),
-                    implementation.source.crate_name.as_str(),
-                    implementation.source.path.as_str(),
-                    encode_node_kind(implementation.source.kind),
-                    implementation.name.as_str(),
+                    implementation.impl_node.crate_name.as_str(),
+                    implementation.impl_node.path.as_str(),
+                    encode_node_kind(implementation.impl_node.kind),
+                    implementation.target.as_str(),
+                    implementation.span.start,
+                    implementation.span.end,
                     implementation.module_path.as_str(),
-                    implementation.trait_path.as_str(),
                 ],
             )?;
         }
@@ -630,15 +655,13 @@ impl Store for SqliteStore {
 
         for node in graph.root_nodes() {
             tx.execute(
-                "INSERT INTO nodes(crate_name, path, kind, name, file_id, start_line, start_col, end_line, end_col, language)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+                "INSERT INTO nodes(crate_name, path, kind, name, file_id, span_start, span_end, language)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
                  ON CONFLICT(crate_name, path, kind) DO UPDATE SET
                     name = excluded.name,
                     file_id = excluded.file_id,
-                    start_line = excluded.start_line,
-                    start_col = excluded.start_col,
-                    end_line = excluded.end_line,
-                    end_col = excluded.end_col,
+                    span_start = excluded.span_start,
+                    span_end = excluded.span_end,
                     language = excluded.language",
                 params![
                     node.id.crate_name.as_str(),
@@ -646,10 +669,8 @@ impl Store for SqliteStore {
                     encode_node_kind(node.kind),
                     node.name.as_str(),
                     node.file.0,
-                    node.span.start_line,
-                    node.span.start_col,
-                    node.span.end_line,
-                    node.span.end_col,
+                    node.span.start,
+                    node.span.end,
                     encode_language(node.language),
                 ],
             )?;
@@ -1438,19 +1459,23 @@ fn load_unresolved_calls(
     file_records: &mut HashMap<PathBuf, FileRecord>,
 ) -> Result<()> {
     let mut stmt = conn.prepare(
-        "SELECT file_path, source_crate_name, source_path, source_kind, name, module_path FROM unresolved_calls",
+        "SELECT file_path, caller_crate_name, caller_path, caller_kind, name, span_start, span_end, module_path FROM unresolved_calls",
     )?;
     let rows = stmt.query_map([], |row| {
         Ok((
             PathBuf::from(row.get::<_, String>(0)?),
             UnresolvedCall {
-                source: NodeId::new(
+                caller: NodeId::new(
                     row.get::<_, String>(1)?,
                     row.get::<_, String>(2)?,
                     decode_node_kind(row.get(3)?)?,
                 ),
                 name: row.get::<_, String>(4)?.into(),
-                module_path: row.get::<_, String>(5)?.into(),
+                span: Span {
+                    start: row.get(5)?,
+                    end: row.get(6)?,
+                },
+                module_path: row.get::<_, String>(7)?.into(),
             },
         ))
     })?;
@@ -1468,20 +1493,23 @@ fn load_unresolved_imports(
     file_records: &mut HashMap<PathBuf, FileRecord>,
 ) -> Result<()> {
     let mut stmt = conn.prepare(
-        "SELECT file_path, source_crate_name, source_path, source_kind, name, module_path, target_path FROM unresolved_imports",
+        "SELECT file_path, importer_crate_name, importer_path, importer_kind, path, span_start, span_end, module_path FROM unresolved_imports",
     )?;
     let rows = stmt.query_map([], |row| {
         Ok((
             PathBuf::from(row.get::<_, String>(0)?),
             UnresolvedImport {
-                source: NodeId::new(
+                importer: NodeId::new(
                     row.get::<_, String>(1)?,
                     row.get::<_, String>(2)?,
                     decode_node_kind(row.get(3)?)?,
                 ),
-                name: row.get::<_, String>(4)?.into(),
-                module_path: row.get::<_, String>(5)?.into(),
-                target_path: row.get::<_, String>(6)?.into(),
+                path: row.get::<_, String>(4)?.into(),
+                span: Span {
+                    start: row.get(5)?,
+                    end: row.get(6)?,
+                },
+                module_path: row.get::<_, String>(7)?.into(),
             },
         ))
     })?;
@@ -1499,20 +1527,23 @@ fn load_unresolved_impls(
     file_records: &mut HashMap<PathBuf, FileRecord>,
 ) -> Result<()> {
     let mut stmt = conn.prepare(
-        "SELECT file_path, source_crate_name, source_path, source_kind, name, module_path, trait_path FROM unresolved_impls",
+        "SELECT file_path, impl_crate_name, impl_path, impl_kind, target, span_start, span_end, module_path FROM unresolved_impls",
     )?;
     let rows = stmt.query_map([], |row| {
         Ok((
             PathBuf::from(row.get::<_, String>(0)?),
             UnresolvedImpl {
-                source: NodeId::new(
+                impl_node: NodeId::new(
                     row.get::<_, String>(1)?,
                     row.get::<_, String>(2)?,
                     decode_node_kind(row.get(3)?)?,
                 ),
-                name: row.get::<_, String>(4)?.into(),
-                module_path: row.get::<_, String>(5)?.into(),
-                trait_path: row.get::<_, String>(6)?.into(),
+                target: row.get::<_, String>(4)?.into(),
+                span: Span {
+                    start: row.get(5)?,
+                    end: row.get(6)?,
+                },
+                module_path: row.get::<_, String>(7)?.into(),
             },
         ))
     })?;
@@ -1659,6 +1690,7 @@ mod tests {
     use prism_history::HistorySnapshot;
     use prism_ir::{GraphChange, Span};
     use prism_memory::{EpisodicMemorySnapshot, MemoryEntry, MemoryId, MemoryKind, MemorySource};
+    use prism_projections::{CoChangeRecord, ProjectionSnapshot, ValidationCheck};
 
     use super::*;
 
@@ -1800,10 +1832,28 @@ mod tests {
                 evidence: vec!["stored for reuse".to_string()],
             }],
         };
+        let projections = ProjectionSnapshot {
+            co_change_by_lineage: vec![(
+                prism_ir::LineageId::new("lineage:1"),
+                vec![CoChangeRecord {
+                    lineage: prism_ir::LineageId::new("lineage:2"),
+                    count: 3,
+                }],
+            )],
+            validation_by_lineage: vec![(
+                prism_ir::LineageId::new("lineage:1"),
+                vec![ValidationCheck {
+                    label: "test:alpha_integration".to_string(),
+                    score: 5.0,
+                    last_seen: 42,
+                }],
+            )],
+        };
 
         store.save_history_snapshot(&history).unwrap();
         store.save_episodic_snapshot(&episodic).unwrap();
         store.save_inference_snapshot(&inference).unwrap();
+        store.save_projection_snapshot(&projections).unwrap();
 
         let loaded_history = store.load_history_snapshot().unwrap().unwrap();
         assert!(loaded_history.node_to_lineage.is_empty());
@@ -1812,5 +1862,6 @@ mod tests {
         assert_eq!(loaded_history.next_event, history.next_event);
         assert_eq!(store.load_episodic_snapshot().unwrap(), Some(episodic));
         assert_eq!(store.load_inference_snapshot().unwrap(), Some(inference));
+        assert_eq!(store.load_projection_snapshot().unwrap(), Some(projections));
     }
 }

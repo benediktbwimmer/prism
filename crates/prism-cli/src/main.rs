@@ -254,7 +254,10 @@ fn main() -> Result<()> {
                 if !impact.validation_checks.is_empty() {
                     println!("scored validations:");
                     for check in impact.validation_checks {
-                        println!("  {} score={:.2} last_seen={}", check.label, check.score, check.last_seen);
+                        println!(
+                            "  {} score={:.2} last_seen={}",
+                            check.label, check.score, check.last_seen
+                        );
                     }
                 }
                 if !impact.co_change_neighbors.is_empty() {
@@ -291,7 +294,10 @@ fn main() -> Result<()> {
                 if !recipe.scored_checks.is_empty() {
                     println!("scored checks:");
                     for check in recipe.scored_checks {
-                        println!("  {} score={:.2} last_seen={}", check.label, check.score, check.last_seen);
+                        println!(
+                            "  {} score={:.2} last_seen={}",
+                            check.label, check.score, check.last_seen
+                        );
                     }
                 }
                 if !recipe.co_change_neighbors.is_empty() {

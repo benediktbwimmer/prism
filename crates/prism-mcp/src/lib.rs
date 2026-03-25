@@ -39,16 +39,35 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 const DEFAULT_SEARCH_LIMIT: usize = 20;
-const MAX_SEARCH_LIMIT: usize = 50;
+const MAX_RESULT_NODES: usize = 500;
 const DEFAULT_CALL_GRAPH_DEPTH: usize = 3;
-const MAX_CALL_GRAPH_DEPTH: usize = 5;
-const MAX_ENTRYPOINTS: usize = 100;
+const MAX_CALL_GRAPH_DEPTH: usize = 10;
+const MAX_OUTPUT_JSON_BYTES: usize = 256 * 1024;
+
+#[derive(Debug, Clone, Copy)]
+struct SessionLimits {
+    max_result_nodes: usize,
+    max_call_graph_depth: usize,
+    max_output_json_bytes: usize,
+}
+
+impl Default for SessionLimits {
+    fn default() -> Self {
+        Self {
+            max_result_nodes: MAX_RESULT_NODES,
+            max_call_graph_depth: MAX_CALL_GRAPH_DEPTH,
+            max_output_json_bytes: MAX_OUTPUT_JSON_BYTES,
+        }
+    }
+}
 
 struct SessionState {
     notes: EpisodicMemory,
     inferred_edges: InferenceStore,
     current_task: Mutex<Option<TaskId>>,
     next_event: AtomicU64,
+    next_task: AtomicU64,
+    limits: SessionLimits,
 }
 
 impl SessionState {
@@ -56,12 +75,18 @@ impl SessionState {
         Self::with_snapshots(prism, EpisodicMemory::new(), InferenceStore::new())
     }
 
-    fn with_snapshots(prism: &Prism, notes: EpisodicMemory, inferred_edges: InferenceStore) -> Self {
+    fn with_snapshots(
+        prism: &Prism,
+        notes: EpisodicMemory,
+        inferred_edges: InferenceStore,
+    ) -> Self {
         Self {
             notes,
             inferred_edges,
             current_task: Mutex::new(None),
             next_event: AtomicU64::new(max_event_sequence(prism)),
+            next_task: AtomicU64::new(max_task_sequence(prism)),
+            limits: SessionLimits::default(),
         }
     }
 
@@ -77,13 +102,47 @@ impl SessionState {
             .clone()
     }
 
-    fn remember_task(&self, task: Option<TaskId>) {
-        if let Some(task) = task {
-            *self
-                .current_task
-                .lock()
-                .expect("session task lock poisoned") = Some(task);
+    fn set_current_task(&self, task: TaskId) {
+        *self
+            .current_task
+            .lock()
+            .expect("session task lock poisoned") = Some(task);
+    }
+
+    fn start_task(&self, description: &str, _tags: &[String]) -> TaskId {
+        let sequence = self.next_task.fetch_add(1, Ordering::Relaxed) + 1;
+        let mut slug = description
+            .chars()
+            .map(|ch| {
+                if ch.is_ascii_alphanumeric() {
+                    ch.to_ascii_lowercase()
+                } else {
+                    '-'
+                }
+            })
+            .collect::<String>();
+        while slug.contains("--") {
+            slug = slug.replace("--", "-");
         }
+        slug = slug.trim_matches('-').to_owned();
+        let prefix = if slug.is_empty() { "task" } else { &slug };
+        let task = TaskId::new(format!("task:{prefix}:{sequence}"));
+        self.set_current_task(task.clone());
+        task
+    }
+
+    fn task_for_mutation(&self, explicit: Option<TaskId>) -> TaskId {
+        if let Some(task) = explicit {
+            return task;
+        }
+        if let Some(task) = self.current_task() {
+            return task;
+        }
+        self.start_task("session", &[])
+    }
+
+    fn limits(&self) -> SessionLimits {
+        self.limits
     }
 }
 
@@ -231,6 +290,18 @@ struct PrismNoteArgs {
     anchors: Vec<AnchorRefInput>,
     content: String,
     trust: Option<f32>,
+    task_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct PrismStartTaskArgs {
+    description: String,
+    tags: Option<Vec<String>>,
+}
+
+#[derive(Debug, serde::Serialize, JsonSchema)]
+struct PrismStartTaskResult {
+    task_id: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -269,6 +340,37 @@ struct PrismFixValidatedArgs {
 
 #[tool_router]
 impl PrismMcpServer {
+    #[tool(
+        description = "Create and activate a task context for subsequent mutations in this session."
+    )]
+    fn prism_start_task(
+        &self,
+        Parameters(args): Parameters<PrismStartTaskArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        if args.description.trim().is_empty() {
+            return Err(McpError::invalid_params(
+                "task description cannot be empty",
+                Some(json!({ "field": "description" })),
+            ));
+        }
+
+        let task = self
+            .host
+            .start_task(args.description, args.tags.unwrap_or_default())
+            .map_err(map_query_error)?;
+        Ok(CallToolResult::success(vec![Content::json(
+            PrismStartTaskResult {
+                task_id: task.0.to_string(),
+            },
+        )
+        .map_err(|err| {
+            McpError::internal_error(
+                "failed to serialize task id",
+                Some(json!({ "error": err.to_string() })),
+            )
+        })?]))
+    }
+
     #[tool(
         name = "prism_query",
         description = "Execute a read-only TypeScript query against the live PRISM graph. Read prism://api-reference for the available prism API."
@@ -573,8 +675,23 @@ impl QueryHost {
         let transpiled = transpile_typescript(&source)?;
         let execution = QueryExecution::new(self.clone(), self.current_prism());
         let raw_result = self.worker.execute(transpiled, execution.clone())?;
-        let result =
+        let mut result =
             serde_json::from_str(&raw_result).context("failed to decode query result JSON")?;
+        let limits = self.session.limits();
+        if raw_result.len() > limits.max_output_json_bytes {
+            execution.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Query output exceeded the {} byte session cap.",
+                    limits.max_output_json_bytes
+                ),
+                Some(json!({
+                    "applied": limits.max_output_json_bytes,
+                    "observed": raw_result.len(),
+                })),
+            );
+            result = Value::Null;
+        }
         Ok(QueryEnvelope {
             result,
             diagnostics: execution.diagnostics(),
@@ -586,21 +703,46 @@ impl QueryHost {
         serde_json::to_value(prism.co_change_neighbors(id, 8)).map_err(Into::into)
     }
 
-    fn store_outcome(&self, args: PrismOutcomeArgs) -> Result<EventId> {
+    fn start_task(&self, description: String, tags: Vec<String>) -> Result<TaskId> {
         self.refresh_workspace()?;
-        let prism = self.current_prism();
-        let anchors = prism.anchors_for(&convert_anchors(args.anchors)?);
-        let task_id = args
-            .task_id
-            .map(TaskId::new)
-            .or_else(|| self.session.current_task());
-        self.session.remember_task(task_id.clone());
+        let task = self.session.start_task(&description, &tags);
         let event = OutcomeEvent {
             meta: EventMeta {
                 id: self.session.next_event_id("outcome"),
                 ts: current_timestamp(),
                 actor: EventActor::Agent,
-                correlation: task_id,
+                correlation: Some(task.clone()),
+                causation: None,
+            },
+            anchors: Vec::new(),
+            kind: OutcomeKind::PlanCreated,
+            result: OutcomeResult::Success,
+            summary: description,
+            evidence: Vec::new(),
+            metadata: json!({ "tags": tags }),
+        };
+        if let Some(workspace) = &self.workspace {
+            let _ = workspace.append_outcome(event)?;
+        } else {
+            let _ = self.current_prism().outcome_memory().store_event(event)?;
+            self.persist_outcomes()?;
+        }
+        Ok(task)
+    }
+
+    fn store_outcome(&self, args: PrismOutcomeArgs) -> Result<EventId> {
+        self.refresh_workspace()?;
+        let prism = self.current_prism();
+        let anchors = prism.anchors_for(&convert_anchors(args.anchors)?);
+        let task_id = self
+            .session
+            .task_for_mutation(args.task_id.map(TaskId::new));
+        let event = OutcomeEvent {
+            meta: EventMeta {
+                id: self.session.next_event_id("outcome"),
+                ts: current_timestamp(),
+                actor: EventActor::Agent,
+                correlation: Some(task_id),
                 causation: None,
             },
             anchors,
@@ -618,28 +760,36 @@ impl QueryHost {
                 .collect(),
             metadata: Value::Null,
         };
-        let id = prism.outcome_memory().store_event(event)?;
-        self.persist_outcomes()?;
-        Ok(id)
+        if let Some(workspace) = &self.workspace {
+            workspace.append_outcome(event)
+        } else {
+            let id = prism.outcome_memory().store_event(event)?;
+            self.persist_outcomes()?;
+            Ok(id)
+        }
     }
 
     fn store_note(&self, args: PrismNoteArgs) -> Result<MemoryId> {
         self.refresh_workspace()?;
         let prism = self.current_prism();
         let anchors = prism.anchors_for(&convert_anchors(args.anchors)?);
+        let task_id = self
+            .session
+            .task_for_mutation(args.task_id.map(TaskId::new));
         let mut entry = MemoryEntry::new(MemoryKind::Episodic, args.content);
         entry.anchors = anchors;
         entry.source = MemorySource::Agent;
         entry.trust = args.trust.unwrap_or(0.5).clamp(0.0, 1.0);
+        entry.metadata = json!({ "task_id": task_id.0.clone() });
         let note_anchors = entry.anchors.clone();
         let note_content = entry.content.clone();
         let memory_id = self.session.notes.store(entry)?;
-        let _ = prism.outcome_memory().store_event(OutcomeEvent {
+        let note_event = OutcomeEvent {
             meta: EventMeta {
                 id: self.session.next_event_id("outcome"),
                 ts: current_timestamp(),
                 actor: EventActor::Agent,
-                correlation: self.session.current_task(),
+                correlation: Some(task_id),
                 causation: None,
             },
             anchors: note_anchors,
@@ -648,18 +798,21 @@ impl QueryHost {
             summary: note_content,
             evidence: Vec::new(),
             metadata: Value::Null,
-        });
-        self.persist_outcomes()?;
+        };
+        if let Some(workspace) = &self.workspace {
+            let _ = workspace.append_outcome(note_event)?;
+        } else {
+            let _ = prism.outcome_memory().store_event(note_event)?;
+            self.persist_outcomes()?;
+        }
         self.persist_notes()?;
         Ok(memory_id)
     }
 
     fn store_inferred_edge(&self, args: PrismInferEdgeArgs) -> Result<EdgeId> {
-        let task = args
-            .task_id
-            .map(TaskId::new)
-            .or_else(|| self.session.current_task());
-        self.session.remember_task(task.clone());
+        let task = self
+            .session
+            .task_for_mutation(args.task_id.map(TaskId::new));
         let edge = Edge {
             kind: parse_edge_kind(&args.kind)?,
             source: convert_node_id(args.source)?,
@@ -674,7 +827,7 @@ impl QueryHost {
         let id = self.session.inferred_edges.store_edge(
             edge,
             scope,
-            task,
+            Some(task),
             args.evidence.unwrap_or_default(),
         );
         if scope != InferredEdgeScope::SessionOnly {
@@ -906,7 +1059,12 @@ fn symbol_for<'a>(prism: &'a Prism, id: &NodeId) -> Result<Symbol<'a>> {
         .graph()
         .node(id)
         .ok_or_else(|| anyhow!("unknown symbol `{}`", id.path))?;
-    let matching = prism.search(&node.id.path, prism.graph().nodes.len().max(1), Some(node.kind), None);
+    let matching = prism.search(
+        &node.id.path,
+        prism.graph().nodes.len().max(1),
+        Some(node.kind),
+        None,
+    );
     matching
         .into_iter()
         .find(|symbol| symbol.id() == id)
@@ -1077,7 +1235,9 @@ impl QueryExecution {
             "entrypoints" => Ok(serde_json::to_value(self.entrypoints()?)?),
             "full" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(symbol_for(self.prism.as_ref(), &args.id)?.full())?)
+                Ok(serde_json::to_value(
+                    symbol_for(self.prism.as_ref(), &args.id)?.full(),
+                )?)
             }
             "relations" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
@@ -1094,14 +1254,11 @@ impl QueryExecution {
             "lineage" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
                 let lineage = lineage_view(self.prism.as_ref(), &args.id)?;
-                if lineage
-                    .as_ref()
-                    .is_some_and(|view| {
-                        view.events.iter().any(|event| {
-                            matches!(event.kind, prism_ir::LineageEventKind::Ambiguous)
-                        })
-                    })
-                {
+                if lineage.as_ref().is_some_and(|view| {
+                    view.events
+                        .iter()
+                        .any(|event| matches!(event.kind, prism_ir::LineageEventKind::Ambiguous))
+                }) {
                     self.push_diagnostic(
                         "lineage_uncertain",
                         format!("Lineage for `{}` contains ambiguous history.", args.id.path),
@@ -1182,12 +1339,16 @@ impl QueryExecution {
     fn search(&self, args: SearchArgs) -> Result<Vec<SymbolView>> {
         let kind = args.kind.as_deref().map(parse_node_kind).transpose()?;
         let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
-        let applied = requested.min(MAX_SEARCH_LIMIT);
+        let limits = self.host.session.limits();
+        let applied = requested.min(limits.max_result_nodes);
 
-        if requested > MAX_SEARCH_LIMIT {
+        if requested > limits.max_result_nodes {
             self.push_diagnostic(
                 "result_truncated",
-                format!("Search limit was capped at {MAX_SEARCH_LIMIT} instead of {requested}."),
+                format!(
+                    "Search limit was capped at {} instead of {requested}.",
+                    limits.max_result_nodes
+                ),
                 Some(json!({
                     "requested": requested,
                     "applied": applied,
@@ -1226,14 +1387,18 @@ impl QueryExecution {
     }
 
     fn entrypoints(&self) -> Result<Vec<SymbolView>> {
+        let limits = self.host.session.limits();
         let mut results = self.symbols_from(self.prism.entrypoints())?;
-        if results.len() > MAX_ENTRYPOINTS {
-            results.truncate(MAX_ENTRYPOINTS);
+        if results.len() > limits.max_result_nodes {
+            results.truncate(limits.max_result_nodes);
             self.push_diagnostic(
                 "result_truncated",
-                format!("Entrypoints were truncated at {} entries.", MAX_ENTRYPOINTS),
+                format!(
+                    "Entrypoints were truncated at {} entries.",
+                    limits.max_result_nodes
+                ),
                 Some(json!({
-                    "applied": MAX_ENTRYPOINTS,
+                    "applied": limits.max_result_nodes,
                 })),
             );
         }
@@ -1241,13 +1406,15 @@ impl QueryExecution {
     }
 
     fn call_graph(&self, args: CallGraphArgs) -> Result<prism_ir::Subgraph> {
+        let limits = self.host.session.limits();
         let requested = args.depth.unwrap_or(DEFAULT_CALL_GRAPH_DEPTH);
-        let applied = requested.min(MAX_CALL_GRAPH_DEPTH);
-        if requested > MAX_CALL_GRAPH_DEPTH {
+        let applied = requested.min(limits.max_call_graph_depth);
+        if requested > limits.max_call_graph_depth {
             self.push_diagnostic(
                 "depth_limited",
                 format!(
-                    "Call-graph depth was capped at {MAX_CALL_GRAPH_DEPTH} instead of {requested}."
+                    "Call-graph depth was capped at {} instead of {requested}.",
+                    limits.max_call_graph_depth
                 ),
                 Some(json!({
                     "requested": requested,
@@ -1288,6 +1455,31 @@ impl QueryExecution {
         graph.edges.dedup_by(|left, right| {
             left.kind == right.kind && left.source == right.source && left.target == right.target
         });
+        if graph.nodes.len() > limits.max_result_nodes {
+            let keep = graph
+                .nodes
+                .iter()
+                .take(limits.max_result_nodes)
+                .cloned()
+                .collect::<std::collections::HashSet<_>>();
+            graph.nodes.truncate(limits.max_result_nodes);
+            graph
+                .edges
+                .retain(|edge| keep.contains(&edge.source) && keep.contains(&edge.target));
+            graph.truncated = true;
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Call graph for `{}` was truncated at {} nodes.",
+                    args.id.path, limits.max_result_nodes
+                ),
+                Some(json!({
+                    "query": args.id.path,
+                    "applied": limits.max_result_nodes,
+                })),
+            );
+        }
+        graph.max_depth_reached = Some(applied);
         Ok(graph)
     }
 
@@ -1463,12 +1655,24 @@ fn current_timestamp() -> u64 {
 }
 
 fn max_event_sequence(prism: &Prism) -> u64 {
-    prism.outcome_snapshot()
+    prism
+        .outcome_snapshot()
         .events
         .into_iter()
         .filter_map(|event| event.meta.id.0.rsplit(':').next()?.parse::<u64>().ok())
         .max()
         .unwrap_or(0)
+}
+
+fn max_task_sequence(prism: &Prism) -> u64 {
+    prism
+        .outcome_snapshot()
+        .events
+        .into_iter()
+        .filter_map(|event| event.meta.correlation)
+        .map(|task| task.0.to_string())
+        .collect::<std::collections::BTreeSet<_>>()
+        .len() as u64
 }
 
 fn parse_node_kind(value: &str) -> Result<NodeKind> {
@@ -1521,8 +1725,8 @@ mod tests {
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use prism_core::index_workspace_session;
     use super::*;
+    use prism_core::index_workspace_session;
     use prism_history::HistoryStore;
     use prism_ir::{
         AnchorRef, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId, Language, Node, NodeId,
@@ -1556,7 +1760,11 @@ mod tests {
             "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
         )
         .unwrap();
-        fs::write(root.join("src/lib.rs"), "pub fn alpha() { beta(); }\npub fn beta() {}\n").unwrap();
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn alpha() { beta(); }\npub fn beta() {}\n",
+        )
+        .unwrap();
         root
     }
 
@@ -1566,7 +1774,7 @@ mod tests {
             name: "main".into(),
             kind: NodeKind::Function,
             file: prism_ir::FileId(1),
-            span: Span::new(1, 1, 3, 1),
+            span: Span::new(1, 3),
             language: Language::Rust,
         }
     }
@@ -1856,7 +2064,12 @@ return sym ? prism.validationRecipe(sym) : null;
                             span: Span::line(1),
                             language: Language::Rust,
                         },
-                        fingerprint: prism_ir::SymbolFingerprint::with_parts(1, Some(10), None, None),
+                        fingerprint: prism_ir::SymbolFingerprint::with_parts(
+                            1,
+                            Some(10),
+                            None,
+                            None,
+                        ),
                     },
                     prism_ir::ObservedNode {
                         node: Node {
@@ -1867,7 +2080,12 @@ return sym ? prism.validationRecipe(sym) : null;
                             span: Span::line(1),
                             language: Language::Rust,
                         },
-                        fingerprint: prism_ir::SymbolFingerprint::with_parts(1, Some(11), None, None),
+                        fingerprint: prism_ir::SymbolFingerprint::with_parts(
+                            1,
+                            Some(11),
+                            None,
+                            None,
+                        ),
                     },
                 ),
                 (
@@ -1880,7 +2098,12 @@ return sym ? prism.validationRecipe(sym) : null;
                             span: Span::line(2),
                             language: Language::Rust,
                         },
-                        fingerprint: prism_ir::SymbolFingerprint::with_parts(2, Some(20), None, None),
+                        fingerprint: prism_ir::SymbolFingerprint::with_parts(
+                            2,
+                            Some(20),
+                            None,
+                            None,
+                        ),
                     },
                     prism_ir::ObservedNode {
                         node: Node {
@@ -1891,7 +2114,12 @@ return sym ? prism.validationRecipe(sym) : null;
                             span: Span::line(2),
                             language: Language::Rust,
                         },
-                        fingerprint: prism_ir::SymbolFingerprint::with_parts(2, Some(21), None, None),
+                        fingerprint: prism_ir::SymbolFingerprint::with_parts(
+                            2,
+                            Some(21),
+                            None,
+                            None,
+                        ),
                     },
                 ),
             ],
@@ -2056,5 +2284,75 @@ return { path: sym?.id.path, callers: prism.symbol("alpha")?.relations().outgoin
             .filter(|event| event.kind == OutcomeKind::PatchApplied)
             .collect::<Vec<_>>();
         assert_eq!(patch_events.len(), 1);
+    }
+
+    #[test]
+    fn first_mutation_auto_creates_session_task() {
+        let host = host_with_node(demo_node());
+
+        let memory_id = host
+            .store_note(PrismNoteArgs {
+                anchors: vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::main".to_string(),
+                    kind: "function".to_string(),
+                }],
+                content: "remember this".to_string(),
+                trust: Some(0.8),
+                task_id: None,
+            })
+            .expect("note should store");
+
+        assert!(memory_id.0.starts_with("episodic:"));
+        let task = host.session.current_task().expect("task should be created");
+        let replay = host.current_prism().resume_task(&task);
+        assert_eq!(replay.task, task);
+        assert_eq!(replay.events.len(), 1);
+        assert_eq!(replay.events[0].kind, OutcomeKind::NoteAdded);
+    }
+
+    #[test]
+    fn explicit_start_task_sets_session_default_and_logs_plan() {
+        let host = host_with_node(demo_node());
+
+        let task = host
+            .start_task("Investigate main".to_string(), vec!["bug".to_string()])
+            .expect("task should start");
+
+        assert_eq!(host.session.current_task(), Some(task.clone()));
+        let replay = host.current_prism().resume_task(&task);
+        assert_eq!(replay.events.len(), 1);
+        assert_eq!(replay.events[0].kind, OutcomeKind::PlanCreated);
+        assert_eq!(replay.events[0].summary, "Investigate main");
+        assert_eq!(replay.events[0].metadata["tags"][0], "bug");
+    }
+
+    #[test]
+    fn explicit_task_override_does_not_replace_session_default() {
+        let host = host_with_node(demo_node());
+        let active = host
+            .start_task("Primary task".to_string(), Vec::new())
+            .expect("task should start");
+
+        let explicit = TaskId::new("task:secondary:99");
+        let event_id = host
+            .store_outcome(PrismOutcomeArgs {
+                kind: OutcomeKindInput::FailureObserved,
+                anchors: vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::main".to_string(),
+                    kind: "function".to_string(),
+                }],
+                summary: "secondary failure".to_string(),
+                result: Some(OutcomeResultInput::Failure),
+                evidence: None,
+                task_id: Some(explicit.0.to_string()),
+            })
+            .expect("outcome should store");
+
+        assert_eq!(host.session.current_task(), Some(active));
+        let replay = host.current_prism().resume_task(&explicit);
+        assert_eq!(replay.events.len(), 1);
+        assert_eq!(replay.events[0].meta.id, event_id);
     }
 }

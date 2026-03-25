@@ -352,7 +352,7 @@ fn parse_impl(
         walk_declarations(body, &impl_scope, input, source, result);
     }
 
-    if let (Some(trait_name), Some(trait_path)) = (trait_name, trait_path) {
+    if let (Some(_trait_name), Some(trait_path)) = (trait_name, trait_path) {
         result.unresolved_impls.push(UnresolvedImpl {
             impl_node: id,
             target: SmolStr::new(trait_path),
@@ -512,11 +512,6 @@ fn parse_use(
 
     for raw_path in collect_use_paths(argument, None, source) {
         let canonical = canonical_symbol_path(&raw_path, &scope.module_path, input.crate_name);
-        let name = canonical
-            .rsplit("::")
-            .next()
-            .unwrap_or(&canonical)
-            .to_owned();
         result.unresolved_imports.push(UnresolvedImport {
             importer: scope.parent_id.clone(),
             path: SmolStr::new(canonical),
@@ -811,7 +806,7 @@ mod tests {
         assert!(result
             .unresolved_calls
             .iter()
-            .any(|call| call.source.path == "demo::alpha" && call.name == "beta"));
+            .any(|call| call.caller.path == "demo::alpha" && call.name == "beta"));
         assert!(!result
             .unresolved_calls
             .iter()
@@ -873,7 +868,7 @@ mod nested {
         assert!(result
             .unresolved_calls
             .iter()
-            .any(|call| call.source.path == "demo::Config::run" && call.name == "helper"));
+            .any(|call| call.caller.path == "demo::Config::run" && call.name == "helper"));
     }
 
     #[test]
@@ -901,20 +896,18 @@ impl Runner for Job {}
         assert!(result
             .unresolved_imports
             .iter()
-            .any(|import| import.target_path == "demo::net::Client" && import.name == "Client"));
+            .any(|import| import.path == "demo::net::Client"));
         assert!(result
             .unresolved_imports
             .iter()
-            .any(|import| import.target_path == "demo::models::User" && import.name == "User"));
+            .any(|import| import.path == "demo::models::User"));
         assert!(result
             .unresolved_imports
             .iter()
-            .any(
-                |import| import.target_path == "demo::models::Account" && import.name == "Account"
-            ));
+            .any(|import| import.path == "demo::models::Account"));
         assert!(result
             .unresolved_impls
             .iter()
-            .any(|implementation| implementation.trait_path == "demo::Runner"));
+            .any(|implementation| implementation.target == "demo::Runner"));
     }
 }

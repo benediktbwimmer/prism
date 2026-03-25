@@ -1,16 +1,15 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashSet, VecDeque};
 use std::fs;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
     AnchorRef, Edge, EdgeKind, LineageEvent, LineageId, Node, NodeId, NodeKind, Skeleton, Subgraph,
     TaskId,
 };
-use prism_memory::{
-    OutcomeEvent, OutcomeEvidence, OutcomeMemory, OutcomeMemorySnapshot, TaskReplay,
-};
+use prism_memory::{OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot, TaskReplay};
+use prism_projections::{CoChangeRecord, ProjectionIndex, ProjectionSnapshot};
 use prism_store::Graph;
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +17,7 @@ pub struct Prism {
     graph: Arc<Graph>,
     history: Arc<HistoryStore>,
     outcomes: Arc<OutcomeMemory>,
+    projections: RwLock<ProjectionIndex>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -30,12 +30,7 @@ pub struct ChangeImpact {
     pub risk_events: Vec<OutcomeEvent>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct ValidationCheck {
-    pub label: String,
-    pub score: f32,
-    pub last_seen: u64,
-}
+pub use prism_projections::ValidationCheck;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CoChange {
@@ -70,10 +65,21 @@ impl Prism {
         history: HistoryStore,
         outcomes: OutcomeMemory,
     ) -> Self {
+        let projections = ProjectionIndex::derive(&history.snapshot(), &outcomes.snapshot());
+        Self::with_history_outcomes_and_projections(graph, history, outcomes, projections)
+    }
+
+    pub fn with_history_outcomes_and_projections(
+        graph: Graph,
+        history: HistoryStore,
+        outcomes: OutcomeMemory,
+        projections: ProjectionIndex,
+    ) -> Self {
         Self {
             graph: Arc::new(graph),
             history: Arc::new(history),
             outcomes: Arc::new(outcomes),
+            projections: RwLock::new(projections),
         }
     }
 
@@ -103,6 +109,18 @@ impl Prism {
 
     pub fn outcome_snapshot(&self) -> OutcomeMemorySnapshot {
         self.outcomes.snapshot()
+    }
+
+    pub fn projection_snapshot(&self) -> ProjectionSnapshot {
+        self.projections
+            .read()
+            .expect("projection lock poisoned")
+            .snapshot()
+    }
+
+    pub fn refresh_projections(&self) {
+        let next = ProjectionIndex::derive(&self.history.snapshot(), &self.outcomes.snapshot());
+        *self.projections.write().expect("projection lock poisoned") = next;
     }
 
     pub fn outcomes_for(&self, anchors: &[AnchorRef], limit: usize) -> Vec<OutcomeEvent> {
@@ -147,11 +165,11 @@ impl Prism {
         let impact_anchors = self.expand_anchors(&impact_anchors);
 
         let risk_events = self.outcomes.related_failures(&impact_anchors, 20);
-        let validation_checks = infer_validation_checks(
-            self.outcomes.outcomes_for(&impact_anchors, 100),
-            &impact_anchors,
-            8,
-        );
+        let validation_checks = self
+            .projections
+            .read()
+            .expect("projection lock poisoned")
+            .validation_checks_for_lineages(&lineages, 8);
         let likely_validations = validation_checks
             .iter()
             .map(|check| check.label.clone())
@@ -176,10 +194,12 @@ impl Prism {
             return Vec::new();
         };
 
-        self.history
+        self.projections
+            .read()
+            .expect("projection lock poisoned")
             .co_change_neighbors(&lineage, limit)
             .into_iter()
-            .map(|neighbor| {
+            .map(|neighbor: CoChangeRecord| {
                 let mut nodes = self.history.current_nodes_for_lineage(&neighbor.lineage);
                 sort_node_ids(&mut nodes);
                 CoChange {
@@ -457,14 +477,15 @@ impl<'a> Symbol<'a> {
         let mut nodes = Vec::new();
         let mut edges = Vec::<Edge>::new();
         let mut queue = VecDeque::from([(self.id.clone(), 0usize)]);
-        let mut max_depth_reached = None;
+        let mut max_depth_reached: Option<usize> = None;
 
         while let Some((current, current_depth)) = queue.pop_front() {
             if !visited.insert(current.clone()) {
                 continue;
             }
             nodes.push(current.clone());
-            max_depth_reached = Some(max_depth_reached.map_or(current_depth, |max| max.max(current_depth)));
+            max_depth_reached =
+                Some(max_depth_reached.map_or(current_depth, |max| max.max(current_depth)));
 
             if current_depth >= depth {
                 continue;
@@ -584,76 +605,6 @@ fn sort_node_ids(nodes: &mut Vec<NodeId>) {
     nodes.dedup();
 }
 
-fn infer_validation_checks(
-    events: Vec<OutcomeEvent>,
-    focus: &[AnchorRef],
-    limit: usize,
-) -> Vec<ValidationCheck> {
-    let focus = focus.iter().collect::<HashSet<_>>();
-    let mut scores = HashMap::<String, (f32, u64)>::new();
-
-    for event in events {
-        let overlap = event
-            .anchors
-            .iter()
-            .filter(|anchor| focus.contains(anchor))
-            .count()
-            .max(1) as f32;
-        let event_weight = match event.kind {
-            prism_memory::OutcomeKind::FailureObserved
-            | prism_memory::OutcomeKind::RegressionObserved => 2.5,
-            prism_memory::OutcomeKind::FixValidated => 2.0,
-            prism_memory::OutcomeKind::BuildRan | prism_memory::OutcomeKind::TestRan => 1.25,
-            _ => 1.0,
-        };
-        let result_weight = match event.result {
-            prism_memory::OutcomeResult::Failure => 2.0,
-            prism_memory::OutcomeResult::Success => 1.0,
-            prism_memory::OutcomeResult::Partial => 0.75,
-            prism_memory::OutcomeResult::Unknown => 0.5,
-        };
-        let score = overlap * event_weight * result_weight;
-
-        for label in validation_labels(&event.evidence) {
-            let entry = scores.entry(label).or_insert((0.0, 0));
-            entry.0 += score;
-            entry.1 = entry.1.max(event.meta.ts);
-        }
-    }
-
-    let mut checks = scores.into_iter().collect::<Vec<_>>();
-    checks.sort_by(|left, right| {
-        right
-            .1
-            .0
-            .total_cmp(&left.1 .0)
-            .then_with(|| right.1 .1.cmp(&left.1 .1))
-            .then_with(|| left.0.cmp(&right.0))
-    });
-    if limit > 0 {
-        checks.truncate(limit);
-    }
-    checks
-        .into_iter()
-        .map(|(label, (score, last_seen))| ValidationCheck {
-            label,
-            score,
-            last_seen,
-        })
-        .collect()
-}
-
-fn validation_labels(evidence: &[OutcomeEvidence]) -> Vec<String> {
-    evidence
-        .iter()
-        .filter_map(|evidence| match evidence {
-            OutcomeEvidence::Test { name, .. } => Some(format!("test:{name}")),
-            OutcomeEvidence::Build { target, .. } => Some(format!("build:{target}")),
-            _ => None,
-        })
-        .collect()
-}
-
 fn anchor_sort_key(left: &AnchorRef, right: &AnchorRef) -> std::cmp::Ordering {
     anchor_label(left).cmp(&anchor_label(right))
 }
@@ -671,8 +622,8 @@ fn anchor_label(anchor: &AnchorRef) -> String {
 mod tests {
     use prism_history::HistoryStore;
     use prism_ir::{
-        AnchorRef, ChangeTrigger, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId,
-        Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, Span, TaskId,
+        AnchorRef, ChangeTrigger, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId, Language,
+        Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, Span, TaskId,
     };
     use prism_memory::{OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeResult};
     use prism_store::Graph;
@@ -1051,7 +1002,12 @@ mod tests {
                             span: Span::line(1),
                             language: Language::Rust,
                         },
-                        fingerprint: prism_ir::SymbolFingerprint::with_parts(10, Some(20), None, None),
+                        fingerprint: prism_ir::SymbolFingerprint::with_parts(
+                            10,
+                            Some(20),
+                            None,
+                            None,
+                        ),
                     },
                     ObservedNode {
                         node: Node {
@@ -1062,7 +1018,12 @@ mod tests {
                             span: Span::line(1),
                             language: Language::Rust,
                         },
-                        fingerprint: prism_ir::SymbolFingerprint::with_parts(10, Some(21), None, None),
+                        fingerprint: prism_ir::SymbolFingerprint::with_parts(
+                            10,
+                            Some(21),
+                            None,
+                            None,
+                        ),
                     },
                 ),
                 (
@@ -1075,7 +1036,12 @@ mod tests {
                             span: Span::line(2),
                             language: Language::Rust,
                         },
-                        fingerprint: prism_ir::SymbolFingerprint::with_parts(11, Some(30), None, None),
+                        fingerprint: prism_ir::SymbolFingerprint::with_parts(
+                            11,
+                            Some(30),
+                            None,
+                            None,
+                        ),
                     },
                     ObservedNode {
                         node: Node {
@@ -1086,7 +1052,12 @@ mod tests {
                             span: Span::line(2),
                             language: Language::Rust,
                         },
-                        fingerprint: prism_ir::SymbolFingerprint::with_parts(11, Some(31), None, None),
+                        fingerprint: prism_ir::SymbolFingerprint::with_parts(
+                            11,
+                            Some(31),
+                            None,
+                            None,
+                        ),
                     },
                 ),
             ],
@@ -1184,7 +1155,10 @@ mod tests {
         assert_eq!(recipe.scored_checks.len(), 1);
         assert_eq!(recipe.scored_checks[0].label, "test:alpha_integration");
         assert_eq!(recipe.recent_failures.len(), 1);
-        assert_eq!(recipe.recent_failures[0].summary, "alpha broke an integration test");
+        assert_eq!(
+            recipe.recent_failures[0].summary,
+            "alpha broke an integration test"
+        );
     }
 
     #[test]

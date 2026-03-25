@@ -1,5 +1,5 @@
 [package]
-name = "prism-query"
+name = "prism-projections"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,7 +8,5 @@ license.workspace = true
 prism-history = { path = "../prism-history" }
 prism-ir = { path = "../prism-ir" }
 prism-memory = { path = "../prism-memory" }
-prism-projections = { path = "../prism-projections" }
-prism-store = { path = "../prism-store" }
 serde.workspace = true
 serde_json.workspace = true

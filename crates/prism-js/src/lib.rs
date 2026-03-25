@@ -126,6 +126,7 @@ type SearchOptions = {
   limit?: number;
   kind?: string;
   path?: string;
+  includeInferred?: boolean;
 };
 
 type PrismApi = {
@@ -148,7 +149,7 @@ type SymbolView = {
   kind: string;
   signature: string;
   file_path?: string;
-  span: { start_line: number; start_col: number; end_line: number; end_col: number };
+  span: { start: number; end: number };
   language: string;
   lineage_id?: string;
   full(): string;
@@ -215,8 +216,9 @@ type TaskReplay = {
 
 ## Limits and determinism
 
-- Search results are capped.
-- Call graph depth is capped.
+- Search results are capped at 500 nodes by default.
+- Call graph depth is capped at 10 by default.
+- Serialized query output is capped at 256 KiB per session.
 - Results are deterministically ordered by Prism before they reach the JS layer.
 - The graph and JS runtime both stay warm for the MCP session.
 
@@ -364,6 +366,7 @@ return sym ? prism.validationRecipe(sym) : null;
 
 The query runtime is read-only. State changes happen through separate MCP tools:
 
+- `prism_start_task`
 - `prism_outcome`
 - `prism_note`
 - `prism_infer_edge`

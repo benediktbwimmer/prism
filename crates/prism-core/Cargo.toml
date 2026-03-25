@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+notify.workspace = true
 prism-agent = { path = "../prism-agent" }
 prism-ir = { path = "../prism-ir" }
 prism-history = { path = "../prism-history" }
@@ -15,6 +16,7 @@ prism-lang-rust = { path = "../prism-lang-rust" }
 prism-lang-yaml = { path = "../prism-lang-yaml" }
 prism-memory = { path = "../prism-memory" }
 prism-parser = { path = "../prism-parser" }
+prism-projections = { path = "../prism-projections" }
 prism-query = { path = "../prism-query" }
 prism-store = { path = "../prism-store" }
 serde.workspace = true

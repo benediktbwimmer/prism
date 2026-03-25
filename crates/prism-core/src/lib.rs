@@ -4,10 +4,15 @@ use std::fs;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::mpsc;
 use std::sync::{Arc, Mutex, RwLock};
+use std::thread;
+use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
+use notify::{recommended_watcher, Event, RecursiveMode, Watcher};
+use prism_agent::InferenceSnapshot;
 use prism_history::HistoryStore;
 use prism_ir::{
     AnchorRef, ChangeTrigger, Edge, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta,
@@ -17,14 +22,16 @@ use prism_lang_json::JsonAdapter;
 use prism_lang_markdown::MarkdownAdapter;
 use prism_lang_rust::RustAdapter;
 use prism_lang_yaml::YamlAdapter;
-use prism_memory::{EpisodicMemorySnapshot, OutcomeEvent, OutcomeKind, OutcomeMemory, OutcomeResult};
+use prism_memory::{
+    EpisodicMemorySnapshot, OutcomeEvent, OutcomeKind, OutcomeMemory, OutcomeResult,
+};
 use prism_parser::{
     LanguageAdapter, ParseInput, ParseResult, SymbolTarget, UnresolvedCall, UnresolvedImpl,
     UnresolvedImport,
 };
+use prism_projections::ProjectionIndex;
 use prism_query::Prism;
 use prism_store::{FileState, Graph, SqliteStore, Store};
-use prism_agent::InferenceSnapshot;
 use smol_str::SmolStr;
 use toml::Value;
 use walkdir::WalkDir;
@@ -39,13 +46,15 @@ pub fn index_workspace_session(root: impl AsRef<Path>) -> Result<WorkspaceSessio
     let root = root.as_ref().canonicalize()?;
     let mut indexer = WorkspaceIndexer::new(&root)?;
     indexer.index()?;
-    Ok(indexer.into_session(root))
+    indexer.into_session(root)
 }
 
 pub struct WorkspaceSession {
     root: PathBuf,
-    prism: RwLock<Arc<Prism>>,
+    prism: Arc<RwLock<Arc<Prism>>>,
     store: Mutex<SqliteStore>,
+    refresh_lock: Arc<Mutex<()>>,
+    watch: Option<WatchHandle>,
 }
 
 impl WorkspaceSession {
@@ -61,30 +70,41 @@ impl WorkspaceSession {
     }
 
     pub fn refresh_fs(&self) -> Result<Vec<ObservedChangeSet>> {
-        let mut indexer = WorkspaceIndexer::new(&self.root)?;
-        let observed = indexer.index_with_trigger(ChangeTrigger::FsWatch)?;
-        let next = Arc::new(indexer.into_prism());
-        *self
-            .prism
-            .write()
-            .expect("workspace prism lock poisoned") = next;
-        Ok(observed)
+        self.refresh_with_trigger(ChangeTrigger::FsWatch)
     }
 
     pub fn persist_outcomes(&self) -> Result<()> {
+        let _guard = self
+            .refresh_lock
+            .lock()
+            .expect("workspace refresh lock poisoned");
         let prism = self.prism_arc();
+        prism.refresh_projections();
         self.store
             .lock()
             .expect("workspace store lock poisoned")
-            .save_outcome_snapshot(&prism.outcome_snapshot())
+            .save_outcome_snapshot(&prism.outcome_snapshot())?;
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .save_projection_snapshot(&prism.projection_snapshot())
     }
 
     pub fn persist_history(&self) -> Result<()> {
+        let _guard = self
+            .refresh_lock
+            .lock()
+            .expect("workspace refresh lock poisoned");
         let prism = self.prism_arc();
+        prism.refresh_projections();
         self.store
             .lock()
             .expect("workspace store lock poisoned")
-            .save_history_snapshot(&prism.history_snapshot())
+            .save_history_snapshot(&prism.history_snapshot())?;
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .save_projection_snapshot(&prism.projection_snapshot())
     }
 
     pub fn load_episodic_snapshot(&self) -> Result<Option<EpisodicMemorySnapshot>> {
@@ -114,6 +134,46 @@ impl WorkspaceSession {
             .expect("workspace store lock poisoned")
             .save_inference_snapshot(snapshot)
     }
+
+    pub fn append_outcome(&self, event: OutcomeEvent) -> Result<EventId> {
+        let _guard = self
+            .refresh_lock
+            .lock()
+            .expect("workspace refresh lock poisoned");
+        let prism = self.prism_arc();
+        let id = prism.outcome_memory().store_event(event)?;
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .save_outcome_snapshot(&prism.outcome_snapshot())?;
+        Ok(id)
+    }
+
+    fn refresh_with_trigger(&self, trigger: ChangeTrigger) -> Result<Vec<ObservedChangeSet>> {
+        let _guard = self
+            .refresh_lock
+            .lock()
+            .expect("workspace refresh lock poisoned");
+        let mut indexer = WorkspaceIndexer::new(&self.root)?;
+        let observed = indexer.index_with_trigger(trigger)?;
+        let next = Arc::new(indexer.into_prism());
+        *self.prism.write().expect("workspace prism lock poisoned") = next;
+        Ok(observed)
+    }
+}
+
+impl Drop for WorkspaceSession {
+    fn drop(&mut self) {
+        if let Some(watch) = self.watch.take() {
+            let _ = watch.stop.send(());
+            let _ = watch.handle.join();
+        }
+    }
+}
+
+struct WatchHandle {
+    stop: mpsc::Sender<()>,
+    handle: thread::JoinHandle<()>,
 }
 
 pub struct WorkspaceIndexer<S: Store> {
@@ -122,6 +182,7 @@ pub struct WorkspaceIndexer<S: Store> {
     graph: Graph,
     history: HistoryStore,
     outcomes: OutcomeMemory,
+    projections: ProjectionIndex,
     had_prior_snapshot: bool,
     adapters: Vec<Box<dyn LanguageAdapter>>,
     store: S,
@@ -152,6 +213,80 @@ struct PendingFileParse {
     previous_path: Option<PathBuf>,
 }
 
+fn spawn_fs_watch(
+    root: PathBuf,
+    prism: Arc<RwLock<Arc<Prism>>>,
+    refresh_lock: Arc<Mutex<()>>,
+) -> Result<WatchHandle> {
+    let (stop_tx, stop_rx) = mpsc::channel::<()>();
+    let (init_tx, init_rx) = mpsc::sync_channel::<Result<()>>(1);
+
+    let handle = thread::spawn(move || {
+        let (event_tx, event_rx) = mpsc::channel::<notify::Result<Event>>();
+        let mut watcher = match recommended_watcher(move |event| {
+            let _ = event_tx.send(event);
+        }) {
+            Ok(watcher) => watcher,
+            Err(error) => {
+                let _ = init_tx.send(Err(error.into()));
+                return;
+            }
+        };
+
+        if let Err(error) = watcher.watch(&root, RecursiveMode::Recursive) {
+            let _ = init_tx.send(Err(error.into()));
+            return;
+        }
+
+        let _ = init_tx.send(Ok(()));
+
+        loop {
+            if stop_rx.try_recv().is_ok() {
+                break;
+            }
+
+            let event = match event_rx.recv_timeout(Duration::from_millis(250)) {
+                Ok(event) => event,
+                Err(mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            };
+
+            let Ok(event) = event else {
+                continue;
+            };
+            if !is_relevant_watch_event(&root, &event) {
+                continue;
+            }
+
+            while let Ok(next) = event_rx.recv_timeout(Duration::from_millis(75)) {
+                if stop_rx.try_recv().is_ok() {
+                    return;
+                }
+                if let Ok(next) = next {
+                    if !is_relevant_watch_event(&root, &next) {
+                        continue;
+                    }
+                }
+            }
+
+            if let Err(error) =
+                refresh_prism_snapshot(&root, &prism, &refresh_lock, ChangeTrigger::FsWatch)
+            {
+                eprintln!("prism fs watch refresh failed: {error}");
+            }
+        }
+    });
+
+    init_rx
+        .recv()
+        .map_err(|_| anyhow::anyhow!("watcher init channel closed"))??;
+
+    Ok(WatchHandle {
+        stop: stop_tx,
+        handle,
+    })
+}
+
 impl WorkspaceIndexer<SqliteStore> {
     pub fn new(root: impl AsRef<Path>) -> Result<Self> {
         let root = root.as_ref().canonicalize()?;
@@ -160,16 +295,27 @@ impl WorkspaceIndexer<SqliteStore> {
         Self::with_store(root, store)
     }
 
-    pub fn into_session(self, root: PathBuf) -> WorkspaceSession {
-        WorkspaceSession {
+    pub fn into_session(self, root: PathBuf) -> Result<WorkspaceSession> {
+        let prism = Arc::new(Prism::with_history_outcomes_and_projections(
+            self.graph,
+            self.history,
+            self.outcomes,
+            self.projections,
+        ));
+        let prism = Arc::new(RwLock::new(prism));
+        let refresh_lock = Arc::new(Mutex::new(()));
+        let watch = Some(spawn_fs_watch(
+            root.clone(),
+            Arc::clone(&prism),
+            Arc::clone(&refresh_lock),
+        )?);
+        Ok(WorkspaceSession {
             root,
-            prism: RwLock::new(Arc::new(Prism::with_history_and_outcomes(
-                self.graph,
-                self.history,
-                self.outcomes,
-            ))),
+            prism,
             store: Mutex::new(self.store),
-        }
+            refresh_lock,
+            watch,
+        })
     }
 }
 
@@ -190,6 +336,10 @@ impl<S: Store> WorkspaceIndexer<S> {
             .load_outcome_snapshot()?
             .map(OutcomeMemory::from_snapshot)
             .unwrap_or_else(OutcomeMemory::new);
+        let projections = store
+            .load_projection_snapshot()?
+            .map(ProjectionIndex::from_snapshot)
+            .unwrap_or_else(|| ProjectionIndex::derive(&history.snapshot(), &outcomes.snapshot()));
 
         Ok(Self {
             root,
@@ -197,6 +347,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             graph,
             history,
             outcomes,
+            projections,
             had_prior_snapshot,
             adapters: default_adapters(),
             store,
@@ -222,7 +373,10 @@ impl<S: Store> WorkspaceIndexer<S> {
         Ok(observed)
     }
 
-    fn index_impl(&mut self, trigger: ChangeTrigger) -> Result<(Vec<ObservedChangeSet>, Vec<GraphChange>)> {
+    fn index_impl(
+        &mut self,
+        trigger: ChangeTrigger,
+    ) -> Result<(Vec<ObservedChangeSet>, Vec<GraphChange>)> {
         let mut pending = Vec::<PendingFileParse>::new();
         let mut seen_files = HashSet::<PathBuf>::new();
         let mut observed_changes = Vec::<ObservedChangeSet>::new();
@@ -313,9 +467,11 @@ impl<S: Store> WorkspaceIndexer<S> {
 
         for tracked in self.graph.tracked_files() {
             if !seen_files.contains(&tracked) && !moved_paths.contains(&tracked) {
-                let update = self
-                    .graph
-                    .remove_file_with_observed(&tracked, default_outcome_meta("observed"), trigger.clone());
+                let update = self.graph.remove_file_with_observed(
+                    &tracked,
+                    default_outcome_meta("observed"),
+                    trigger.clone(),
+                );
                 self.record_patch_outcome(&update.observed);
                 let lineage_events = self.history.apply(&update.observed);
                 self.outcomes.apply_lineage(&lineage_events)?;
@@ -330,8 +486,13 @@ impl<S: Store> WorkspaceIndexer<S> {
         self.store.finalize(&self.graph)?;
         self.history
             .seed_nodes(self.graph.all_nodes().map(|node| node.id.clone()));
+        self.projections =
+            ProjectionIndex::derive(&self.history.snapshot(), &self.outcomes.snapshot());
         self.store.save_history_snapshot(&self.history.snapshot())?;
-        self.store.save_outcome_snapshot(&self.outcomes.snapshot())?;
+        self.store
+            .save_outcome_snapshot(&self.outcomes.snapshot())?;
+        self.store
+            .save_projection_snapshot(&self.projections.snapshot())?;
         self.had_prior_snapshot = true;
         Ok((observed_changes, changes))
     }
@@ -341,7 +502,12 @@ impl<S: Store> WorkspaceIndexer<S> {
     }
 
     pub fn into_prism(self) -> Prism {
-        Prism::with_history_and_outcomes(self.graph, self.history, self.outcomes)
+        Prism::with_history_outcomes_and_projections(
+            self.graph,
+            self.history,
+            self.outcomes,
+            self.projections,
+        )
     }
 
     fn upsert_parsed_file(
@@ -462,6 +628,39 @@ impl<S: Store> WorkspaceIndexer<S> {
 }
 
 static NEXT_AUTO_OUTCOME_ID: AtomicU64 = AtomicU64::new(1);
+
+fn refresh_prism_snapshot(
+    root: &Path,
+    prism: &Arc<RwLock<Arc<Prism>>>,
+    refresh_lock: &Arc<Mutex<()>>,
+    trigger: ChangeTrigger,
+) -> Result<Vec<ObservedChangeSet>> {
+    let _guard = refresh_lock
+        .lock()
+        .expect("workspace refresh lock poisoned");
+    let mut indexer = WorkspaceIndexer::new(root)?;
+    let observed = indexer.index_with_trigger(trigger)?;
+    let next = Arc::new(indexer.into_prism());
+    *prism.write().expect("workspace prism lock poisoned") = next;
+    Ok(observed)
+}
+
+fn is_relevant_watch_event(root: &Path, event: &Event) -> bool {
+    if event.paths.is_empty() {
+        return false;
+    }
+
+    event.paths.iter().any(|path| {
+        let Ok(relative) = path.strip_prefix(root) else {
+            return true;
+        };
+        let Some(first) = relative.components().next() else {
+            return true;
+        };
+        let first = first.as_os_str().to_string_lossy();
+        !matches!(first.as_ref(), ".git" | ".prism" | "target")
+    })
+}
 
 fn default_outcome_meta(prefix: &str) -> EventMeta {
     let sequence = NEXT_AUTO_OUTCOME_ID.fetch_add(1, Ordering::Relaxed);
@@ -674,10 +873,10 @@ fn score_reanchor_candidate(old: &Node, new: &Node) -> i32 {
         score += 10;
     }
 
-    let start_delta = old.span.start_line.abs_diff(new.span.start_line);
+    let start_delta = old.span.start.abs_diff(new.span.start);
     score += (20 - start_delta.min(20)) as i32;
 
-    let end_delta = old.span.end_line.abs_diff(new.span.end_line);
+    let end_delta = old.span.end.abs_diff(new.span.end);
     score += (20 - end_delta.min(20)) as i32;
 
     score
@@ -780,7 +979,7 @@ fn resolve_calls(graph: &mut Graph, unresolved: Vec<UnresolvedCall>) {
             graph,
             SymbolTarget {
                 kind: EdgeKind::Calls,
-                source: &call.source,
+                source: &call.caller,
                 module_path: &call.module_path,
                 name: &call.name,
                 target_path: "",
@@ -790,7 +989,7 @@ fn resolve_calls(graph: &mut Graph, unresolved: Vec<UnresolvedCall>) {
         };
         graph.add_edge(Edge {
             kind: EdgeKind::Calls,
-            source: call.source.clone(),
+            source: call.caller.clone(),
             target,
             origin: EdgeOrigin::Static,
             confidence: 0.6,
@@ -800,21 +999,27 @@ fn resolve_calls(graph: &mut Graph, unresolved: Vec<UnresolvedCall>) {
 
 fn resolve_imports(graph: &mut Graph, unresolved: Vec<UnresolvedImport>) {
     for import in unresolved {
+        let name = import
+            .path
+            .rsplit("::")
+            .next()
+            .unwrap_or(import.path.as_str())
+            .to_owned();
         let Some(target) = resolve_target(
             graph,
             SymbolTarget {
                 kind: EdgeKind::Imports,
-                source: &import.source,
+                source: &import.importer,
                 module_path: &import.module_path,
-                name: &import.name,
-                target_path: &import.target_path,
+                name: &name,
+                target_path: &import.path,
             },
         ) else {
             continue;
         };
         graph.add_edge(Edge {
             kind: EdgeKind::Imports,
-            source: import.source.clone(),
+            source: import.importer.clone(),
             target,
             origin: EdgeOrigin::Static,
             confidence: 0.8,
@@ -824,21 +1029,27 @@ fn resolve_imports(graph: &mut Graph, unresolved: Vec<UnresolvedImport>) {
 
 fn resolve_impls(graph: &mut Graph, unresolved: Vec<UnresolvedImpl>) {
     for implementation in unresolved {
+        let name = implementation
+            .target
+            .rsplit("::")
+            .next()
+            .unwrap_or(implementation.target.as_str())
+            .to_owned();
         let Some(target) = resolve_target(
             graph,
             SymbolTarget {
                 kind: EdgeKind::Implements,
-                source: &implementation.source,
+                source: &implementation.impl_node,
                 module_path: &implementation.module_path,
-                name: &implementation.name,
-                target_path: &implementation.trait_path,
+                name: &name,
+                target_path: &implementation.target,
             },
         ) else {
             continue;
         };
         graph.add_edge(Edge {
             kind: EdgeKind::Implements,
-            source: implementation.source.clone(),
+            source: implementation.impl_node.clone(),
             target,
             origin: EdgeOrigin::Static,
             confidence: 0.8,
@@ -1009,13 +1220,15 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
+    use std::thread;
+    use std::time::Duration;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use prism_ir::{AnchorRef, EdgeKind, GraphChange, NodeId, NodeKind};
     use prism_memory::OutcomeKind;
     use prism_store::MemoryStore;
 
-    use super::WorkspaceIndexer;
+    use super::{index_workspace_session, WorkspaceIndexer};
 
     static NEXT_TEMP_WORKSPACE: AtomicU64 = AtomicU64::new(0);
 
@@ -1279,6 +1492,62 @@ mod tests {
             old: NodeId::new("demo", "demo::feature::alpha", NodeKind::Function),
             new: NodeId::new("demo", "demo::renamed::alpha", NodeKind::Function),
         }));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn watcher_refreshes_session_after_external_edit() {
+        let root = temp_workspace();
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn alpha() { beta(); }\npub fn beta() {}\n",
+        )
+        .unwrap();
+
+        let session = index_workspace_session(&root).unwrap();
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn alpha() { gamma(); }\npub fn gamma() {}\n",
+        )
+        .unwrap();
+
+        let mut saw_gamma = false;
+        for _ in 0..40 {
+            if session
+                .prism()
+                .symbol("gamma")
+                .iter()
+                .any(|symbol| symbol.id().path == "demo::gamma")
+            {
+                saw_gamma = true;
+                break;
+            }
+            thread::sleep(Duration::from_millis(50));
+        }
+
+        assert!(saw_gamma);
+        let patch_events = session
+            .prism()
+            .outcome_memory()
+            .outcomes_for(
+                &[AnchorRef::Node(NodeId::new(
+                    "demo",
+                    "demo::gamma",
+                    NodeKind::Function,
+                ))],
+                10,
+            )
+            .into_iter()
+            .filter(|event| event.kind == OutcomeKind::PatchApplied)
+            .count();
+        assert_eq!(patch_events, 1);
 
         let _ = fs::remove_dir_all(root);
     }

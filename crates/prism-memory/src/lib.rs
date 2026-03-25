@@ -407,10 +407,7 @@ impl EpisodicMemory {
 
     pub fn from_snapshot(snapshot: EpisodicMemorySnapshot) -> Self {
         let memory = Self::new();
-        let mut state = memory
-            .state
-            .write()
-            .expect("episodic memory lock poisoned");
+        let mut state = memory.state.write().expect("episodic memory lock poisoned");
         for entry in snapshot.entries {
             restore_entry(&mut state, entry);
         }

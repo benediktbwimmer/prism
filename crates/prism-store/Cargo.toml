@@ -10,6 +10,7 @@ prism-agent = { path = "../prism-agent" }
 prism-history = { path = "../prism-history" }
 prism-memory = { path = "../prism-memory" }
 prism-parser = { path = "../prism-parser" }
+prism-projections = { path = "../prism-projections" }
 prism-ir = { path = "../prism-ir" }
 rusqlite.workspace = true
 serde.workspace = true
