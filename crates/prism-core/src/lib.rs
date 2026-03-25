@@ -3,9 +3,10 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
-use prism_history::{HistorySnapshot, HistoryStore};
+use prism_history::HistoryStore;
 use prism_ir::{
     Edge, EdgeKind, EdgeOrigin, GraphChange, Language, Node, NodeId, NodeKind, ObservedChangeSet,
     Span,
@@ -14,13 +15,14 @@ use prism_lang_json::JsonAdapter;
 use prism_lang_markdown::MarkdownAdapter;
 use prism_lang_rust::RustAdapter;
 use prism_lang_yaml::YamlAdapter;
-use prism_memory::{OutcomeMemory, OutcomeMemorySnapshot};
+use prism_memory::{EpisodicMemorySnapshot, OutcomeMemory};
 use prism_parser::{
     LanguageAdapter, ParseInput, ParseResult, SymbolTarget, UnresolvedCall, UnresolvedImpl,
     UnresolvedImport,
 };
 use prism_query::Prism;
 use prism_store::{FileState, Graph, SqliteStore, Store};
+use prism_agent::InferenceSnapshot;
 use smol_str::SmolStr;
 use toml::Value;
 use walkdir::WalkDir;
@@ -29,6 +31,69 @@ pub fn index_workspace(root: impl AsRef<Path>) -> Result<Prism> {
     let mut indexer = WorkspaceIndexer::new(root)?;
     indexer.index()?;
     Ok(indexer.into_prism())
+}
+
+pub fn index_workspace_session(root: impl AsRef<Path>) -> Result<WorkspaceSession> {
+    let mut indexer = WorkspaceIndexer::new(root)?;
+    indexer.index()?;
+    Ok(indexer.into_session())
+}
+
+pub struct WorkspaceSession {
+    prism: Arc<Prism>,
+    store: Mutex<SqliteStore>,
+}
+
+impl WorkspaceSession {
+    pub fn prism(&self) -> &Prism {
+        self.prism.as_ref()
+    }
+
+    pub fn prism_arc(&self) -> Arc<Prism> {
+        Arc::clone(&self.prism)
+    }
+
+    pub fn persist_outcomes(&self) -> Result<()> {
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .save_outcome_snapshot(&self.prism.outcome_snapshot())
+    }
+
+    pub fn persist_history(&self) -> Result<()> {
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .save_history_snapshot(&self.prism.history_snapshot())
+    }
+
+    pub fn load_episodic_snapshot(&self) -> Result<Option<EpisodicMemorySnapshot>> {
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .load_episodic_snapshot()
+    }
+
+    pub fn persist_episodic(&self, snapshot: &EpisodicMemorySnapshot) -> Result<()> {
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .save_episodic_snapshot(snapshot)
+    }
+
+    pub fn load_inference_snapshot(&self) -> Result<Option<InferenceSnapshot>> {
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .load_inference_snapshot()
+    }
+
+    pub fn persist_inference(&self, snapshot: &InferenceSnapshot) -> Result<()> {
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .save_inference_snapshot(snapshot)
+    }
 }
 
 pub struct WorkspaceIndexer<S: Store> {
@@ -73,6 +138,17 @@ impl WorkspaceIndexer<SqliteStore> {
         let store = SqliteStore::open(cache_path(&root))?;
         Self::with_store(root, store)
     }
+
+    pub fn into_session(self) -> WorkspaceSession {
+        WorkspaceSession {
+            prism: Arc::new(Prism::with_history_and_outcomes(
+                self.graph,
+                self.history,
+                self.outcomes,
+            )),
+            store: Mutex::new(self.store),
+        }
+    }
 }
 
 impl<S: Store> WorkspaceIndexer<S> {
@@ -81,11 +157,13 @@ impl<S: Store> WorkspaceIndexer<S> {
         let layout = discover_layout(&root)?;
         let mut graph = store.load_graph()?.unwrap_or_default();
         sync_root_nodes(&mut graph, &layout);
-        let mut history = load_history_snapshot(&root)
+        let mut history = store
+            .load_history_snapshot()?
             .map(HistoryStore::from_snapshot)
             .unwrap_or_else(HistoryStore::new);
         history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
-        let outcomes = load_outcome_snapshot(&root)
+        let outcomes = store
+            .load_outcome_snapshot()?
             .map(OutcomeMemory::from_snapshot)
             .unwrap_or_else(OutcomeMemory::new);
 
@@ -218,8 +296,8 @@ impl<S: Store> WorkspaceIndexer<S> {
         self.store.finalize(&self.graph)?;
         self.history
             .seed_nodes(self.graph.all_nodes().map(|node| node.id.clone()));
-        save_history_snapshot(&self.root, &self.history.snapshot())?;
-        save_outcome_snapshot(&self.root, &self.outcomes.snapshot())?;
+        self.store.save_history_snapshot(&self.history.snapshot())?;
+        self.store.save_outcome_snapshot(&self.outcomes.snapshot())?;
         Ok((observed_changes, changes))
     }
 
@@ -763,49 +841,6 @@ fn normalize_identifier(value: &str) -> String {
 
 fn cache_path(root: &Path) -> PathBuf {
     root.join(".prism").join("cache.db")
-}
-
-fn history_snapshot_path(root: &Path) -> PathBuf {
-    root.join(".prism").join("history.json")
-}
-
-fn outcome_snapshot_path(root: &Path) -> PathBuf {
-    root.join(".prism").join("outcomes.json")
-}
-
-fn load_history_snapshot(root: &Path) -> Option<HistorySnapshot> {
-    load_json_snapshot(history_snapshot_path(root))
-}
-
-fn load_outcome_snapshot(root: &Path) -> Option<OutcomeMemorySnapshot> {
-    load_json_snapshot(outcome_snapshot_path(root))
-}
-
-fn save_history_snapshot(root: &Path, snapshot: &HistorySnapshot) -> Result<()> {
-    save_json_snapshot(history_snapshot_path(root), snapshot)
-}
-
-fn save_outcome_snapshot(root: &Path, snapshot: &OutcomeMemorySnapshot) -> Result<()> {
-    save_json_snapshot(outcome_snapshot_path(root), snapshot)
-}
-
-fn load_json_snapshot<T>(path: PathBuf) -> Option<T>
-where
-    T: serde::de::DeserializeOwned,
-{
-    let data = fs::read_to_string(path).ok()?;
-    serde_json::from_str(&data).ok()
-}
-
-fn save_json_snapshot<T>(path: PathBuf, snapshot: &T) -> Result<()>
-where
-    T: serde::Serialize,
-{
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(path, serde_json::to_vec_pretty(snapshot)?)?;
-    Ok(())
 }
 
 fn cleanup_legacy_cache(root: &Path) -> Result<()> {

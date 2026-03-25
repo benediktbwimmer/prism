@@ -6,3 +6,4 @@ license.workspace = true
 
 [dependencies]
 prism-ir = { path = "../prism-ir" }
+serde.workspace = true

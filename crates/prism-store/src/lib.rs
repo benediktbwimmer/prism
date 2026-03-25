@@ -4,16 +4,19 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
+use prism_agent::InferenceSnapshot;
+use prism_history::HistorySnapshot;
 use prism_ir::{
     ChangeTrigger, Edge, EdgeIndex, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta, FileId,
     GraphChange, Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode,
 };
+use prism_memory::{EpisodicMemorySnapshot, OutcomeMemorySnapshot};
 use prism_parser::{NodeFingerprint, UnresolvedCall, UnresolvedImpl, UnresolvedImport};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
 
-const SCHEMA_VERSION: i64 = 5;
+const SCHEMA_VERSION: i64 = 6;
 static NEXT_OBSERVED_EVENT_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -64,6 +67,14 @@ pub struct Graph {
 
 pub trait Store {
     fn load_graph(&mut self) -> Result<Option<Graph>>;
+    fn load_history_snapshot(&mut self) -> Result<Option<HistorySnapshot>>;
+    fn save_history_snapshot(&mut self, snapshot: &HistorySnapshot) -> Result<()>;
+    fn load_outcome_snapshot(&mut self) -> Result<Option<OutcomeMemorySnapshot>>;
+    fn save_outcome_snapshot(&mut self, snapshot: &OutcomeMemorySnapshot) -> Result<()>;
+    fn load_episodic_snapshot(&mut self) -> Result<Option<EpisodicMemorySnapshot>>;
+    fn save_episodic_snapshot(&mut self, snapshot: &EpisodicMemorySnapshot) -> Result<()>;
+    fn load_inference_snapshot(&mut self) -> Result<Option<InferenceSnapshot>>;
+    fn save_inference_snapshot(&mut self, snapshot: &InferenceSnapshot) -> Result<()>;
     fn save_file_state(&mut self, path: &Path, graph: &Graph) -> Result<()>;
     fn remove_file_state(&mut self, path: &Path) -> Result<()>;
     fn replace_derived_edges(&mut self, graph: &Graph) -> Result<()>;
@@ -73,11 +84,51 @@ pub trait Store {
 #[derive(Debug, Default)]
 pub struct MemoryStore {
     snapshot: Option<GraphSnapshot>,
+    history_snapshot: Option<HistorySnapshot>,
+    outcome_snapshot: Option<OutcomeMemorySnapshot>,
+    episodic_snapshot: Option<EpisodicMemorySnapshot>,
+    inference_snapshot: Option<InferenceSnapshot>,
 }
 
 impl Store for MemoryStore {
     fn load_graph(&mut self) -> Result<Option<Graph>> {
         Ok(self.snapshot.clone().map(Graph::from_snapshot))
+    }
+
+    fn load_history_snapshot(&mut self) -> Result<Option<HistorySnapshot>> {
+        Ok(self.history_snapshot.clone())
+    }
+
+    fn save_history_snapshot(&mut self, snapshot: &HistorySnapshot) -> Result<()> {
+        self.history_snapshot = Some(snapshot.clone());
+        Ok(())
+    }
+
+    fn load_outcome_snapshot(&mut self) -> Result<Option<OutcomeMemorySnapshot>> {
+        Ok(self.outcome_snapshot.clone())
+    }
+
+    fn save_outcome_snapshot(&mut self, snapshot: &OutcomeMemorySnapshot) -> Result<()> {
+        self.outcome_snapshot = Some(snapshot.clone());
+        Ok(())
+    }
+
+    fn load_episodic_snapshot(&mut self) -> Result<Option<EpisodicMemorySnapshot>> {
+        Ok(self.episodic_snapshot.clone())
+    }
+
+    fn save_episodic_snapshot(&mut self, snapshot: &EpisodicMemorySnapshot) -> Result<()> {
+        self.episodic_snapshot = Some(snapshot.clone());
+        Ok(())
+    }
+
+    fn load_inference_snapshot(&mut self) -> Result<Option<InferenceSnapshot>> {
+        Ok(self.inference_snapshot.clone())
+    }
+
+    fn save_inference_snapshot(&mut self, snapshot: &InferenceSnapshot) -> Result<()> {
+        self.inference_snapshot = Some(snapshot.clone());
+        Ok(())
     }
 
     fn save_file_state(&mut self, _path: &Path, _graph: &Graph) -> Result<()> {
@@ -131,6 +182,7 @@ impl SqliteStore {
                 DROP TABLE IF EXISTS unresolved_calls;
                 DROP TABLE IF EXISTS unresolved_imports;
                 DROP TABLE IF EXISTS unresolved_impls;
+                DROP TABLE IF EXISTS snapshots;
                 "#,
             )?;
         }
@@ -217,6 +269,11 @@ impl SqliteStore {
                 name TEXT NOT NULL,
                 module_path TEXT NOT NULL,
                 trait_path TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS snapshots (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
             );
             "#,
         )?;
@@ -357,6 +414,38 @@ impl Store for SqliteStore {
             file_records,
             next_file_id: next_file_id as u32,
         })))
+    }
+
+    fn load_history_snapshot(&mut self) -> Result<Option<HistorySnapshot>> {
+        load_snapshot_row(&self.conn, "history")
+    }
+
+    fn save_history_snapshot(&mut self, snapshot: &HistorySnapshot) -> Result<()> {
+        save_snapshot_row(&self.conn, "history", snapshot)
+    }
+
+    fn load_outcome_snapshot(&mut self) -> Result<Option<OutcomeMemorySnapshot>> {
+        load_snapshot_row(&self.conn, "outcomes")
+    }
+
+    fn save_outcome_snapshot(&mut self, snapshot: &OutcomeMemorySnapshot) -> Result<()> {
+        save_snapshot_row(&self.conn, "outcomes", snapshot)
+    }
+
+    fn load_episodic_snapshot(&mut self) -> Result<Option<EpisodicMemorySnapshot>> {
+        load_snapshot_row(&self.conn, "episodic")
+    }
+
+    fn save_episodic_snapshot(&mut self, snapshot: &EpisodicMemorySnapshot) -> Result<()> {
+        save_snapshot_row(&self.conn, "episodic", snapshot)
+    }
+
+    fn load_inference_snapshot(&mut self) -> Result<Option<InferenceSnapshot>> {
+        load_snapshot_row(&self.conn, "inference")
+    }
+
+    fn save_inference_snapshot(&mut self, snapshot: &InferenceSnapshot) -> Result<()> {
+        save_snapshot_row(&self.conn, "inference", snapshot)
     }
 
     fn save_file_state(&mut self, path: &Path, graph: &Graph) -> Result<()> {
@@ -1314,6 +1403,34 @@ fn deserialize_fingerprint(raw: &str) -> NodeFingerprint {
         raw.hash(&mut hasher);
         NodeFingerprint::new(hasher.finish())
     })
+}
+
+fn load_snapshot_row<T>(conn: &Connection, key: &str) -> Result<Option<T>>
+where
+    T: for<'de> Deserialize<'de>,
+{
+    let raw = conn
+        .query_row(
+            "SELECT value FROM snapshots WHERE key = ?1",
+            params![key],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()?;
+    raw.map(|value| serde_json::from_str(&value))
+        .transpose()
+        .map_err(Into::into)
+}
+
+fn save_snapshot_row<T>(conn: &Connection, key: &str, snapshot: &T) -> Result<()>
+where
+    T: Serialize,
+{
+    conn.execute(
+        "INSERT INTO snapshots(key, value) VALUES (?1, ?2)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        params![key, serde_json::to_string(snapshot)?],
+    )?;
+    Ok(())
 }
 
 fn load_unresolved_calls(

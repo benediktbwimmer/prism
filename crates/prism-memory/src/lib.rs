@@ -141,6 +141,11 @@ pub struct OutcomeMemorySnapshot {
     pub events: Vec<OutcomeEvent>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EpisodicMemorySnapshot {
+    pub entries: Vec<MemoryEntry>,
+}
+
 pub trait MemoryModule: Send + Sync {
     fn name(&self) -> &'static str;
 
@@ -388,6 +393,30 @@ impl EpisodicMemory {
     pub fn new() -> Self {
         Self::default()
     }
+
+    pub fn snapshot(&self) -> EpisodicMemorySnapshot {
+        let state = self.state.read().expect("episodic memory lock poisoned");
+        let mut entries = state.entries.values().cloned().collect::<Vec<_>>();
+        entries.sort_by(|left, right| {
+            left.created_at
+                .cmp(&right.created_at)
+                .then_with(|| left.id.0.cmp(&right.id.0))
+        });
+        EpisodicMemorySnapshot { entries }
+    }
+
+    pub fn from_snapshot(snapshot: EpisodicMemorySnapshot) -> Self {
+        let memory = Self::new();
+        let mut state = memory
+            .state
+            .write()
+            .expect("episodic memory lock poisoned");
+        for entry in snapshot.entries {
+            restore_entry(&mut state, entry);
+        }
+        drop(state);
+        memory
+    }
 }
 
 impl MemoryModule for EpisodicMemory {
@@ -486,6 +515,26 @@ impl MemoryModule for EpisodicMemory {
 
         Ok(())
     }
+}
+
+fn restore_entry(state: &mut EpisodicState, mut entry: MemoryEntry) {
+    entry.anchors = dedupe_anchors(entry.anchors);
+    entry.trust = clamp_unit(entry.trust);
+    state.next_sequence = state
+        .next_sequence
+        .max(memory_sequence(&entry.id).unwrap_or(state.next_sequence));
+    for anchor in &entry.anchors {
+        state
+            .anchor_index
+            .entry(anchor.clone())
+            .or_default()
+            .insert(entry.id.clone());
+    }
+    state.entries.insert(entry.id.clone(), entry);
+}
+
+fn memory_sequence(id: &MemoryId) -> Option<u64> {
+    id.0.strip_prefix("episodic:")?.parse().ok()
 }
 
 fn recall_candidates(state: &EpisodicState, query: &RecallQuery) -> HashSet<MemoryId> {

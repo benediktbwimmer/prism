@@ -1,10 +1,10 @@
-use std::fs;
 use std::path::PathBuf;
+use std::process::Command as ProcessCommand;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
-use prism_core::index_workspace;
+use prism_core::{index_workspace_session, WorkspaceSession};
 use prism_ir::{AnchorRef, EventActor, EventId, EventMeta, NodeId, NodeKind, TaskId};
 use prism_memory::{OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult};
 use prism_query::{Relations, Symbol};
@@ -51,9 +51,39 @@ enum Command {
     TaskResume {
         id: String,
     },
+    Task {
+        #[command(subcommand)]
+        command: TaskCommand,
+    },
     Outcome {
         #[command(subcommand)]
         command: OutcomeCommand,
+    },
+}
+
+#[derive(Subcommand)]
+enum TaskCommand {
+    Start {
+        id: String,
+        #[arg(long)]
+        symbol: Option<String>,
+        #[arg(long)]
+        summary: String,
+    },
+    Note {
+        id: String,
+        #[arg(long)]
+        symbol: Option<String>,
+        #[arg(long)]
+        summary: String,
+    },
+    Patch {
+        id: String,
+        name: String,
+        #[arg(long)]
+        summary: Option<String>,
+        #[arg(long)]
+        staged: bool,
     },
 }
 
@@ -82,11 +112,34 @@ enum OutcomeCommand {
         #[arg(long = "commit")]
         commits: Vec<String>,
     },
+    Test {
+        name: String,
+        #[arg(long)]
+        task: Option<String>,
+        #[arg(long)]
+        label: Option<String>,
+        #[arg(long)]
+        summary: Option<String>,
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true, required = true)]
+        command: Vec<String>,
+    },
+    Build {
+        name: String,
+        #[arg(long)]
+        task: Option<String>,
+        #[arg(long)]
+        label: Option<String>,
+        #[arg(long)]
+        summary: Option<String>,
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true, required = true)]
+        command: Vec<String>,
+    },
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
-    let prism = index_workspace(&cli.root)?;
+    let session = index_workspace_session(&cli.root)?;
+    let prism = session.prism();
 
     match cli.command {
         Command::Entrypoints => {
@@ -189,6 +242,89 @@ fn main() -> Result<()> {
                 }
             }
         }
+        Command::Task { command } => match command {
+            TaskCommand::Start {
+                id,
+                symbol,
+                summary,
+            } => {
+                let anchors = resolve_optional_anchors(&prism, symbol.as_deref())?;
+                let event = OutcomeEvent {
+                    meta: EventMeta {
+                        id: current_event_id("outcome"),
+                        ts: current_timestamp(),
+                        actor: EventActor::User,
+                        correlation: Some(TaskId::new(id.clone())),
+                        causation: None,
+                    },
+                    anchors,
+                    kind: OutcomeKind::PlanCreated,
+                    result: OutcomeResult::Success,
+                    summary,
+                    evidence: Vec::new(),
+                    metadata: serde_json::Value::Null,
+                };
+                let outcome_id = record_outcome_event(&session, prism, event)?;
+                println!("recorded task start {}", outcome_id.0);
+            }
+            TaskCommand::Note {
+                id,
+                symbol,
+                summary,
+            } => {
+                let anchors = resolve_optional_anchors(&prism, symbol.as_deref())?;
+                let event = OutcomeEvent {
+                    meta: EventMeta {
+                        id: current_event_id("outcome"),
+                        ts: current_timestamp(),
+                        actor: EventActor::User,
+                        correlation: Some(TaskId::new(id.clone())),
+                        causation: None,
+                    },
+                    anchors,
+                    kind: OutcomeKind::NoteAdded,
+                    result: OutcomeResult::Success,
+                    summary,
+                    evidence: Vec::new(),
+                    metadata: serde_json::Value::Null,
+                };
+                let outcome_id = record_outcome_event(&session, prism, event)?;
+                println!("recorded task note {}", outcome_id.0);
+            }
+            TaskCommand::Patch {
+                id,
+                name,
+                summary,
+                staged,
+            } => {
+                let symbol = resolve_single_symbol(&prism, &name)?;
+                let diff_summary = git_diff_summary(&cli.root, staged)?;
+                let summary = summary.unwrap_or_else(|| {
+                    if staged {
+                        format!("recorded staged patch for {}", symbol.id().path)
+                    } else {
+                        format!("recorded patch for {}", symbol.id().path)
+                    }
+                });
+                let event = OutcomeEvent {
+                    meta: EventMeta {
+                        id: current_event_id("outcome"),
+                        ts: current_timestamp(),
+                        actor: EventActor::User,
+                        correlation: Some(TaskId::new(id.clone())),
+                        causation: None,
+                    },
+                    anchors: prism.anchors_for(&[AnchorRef::Node(symbol.id().clone())]),
+                    kind: OutcomeKind::PatchApplied,
+                    result: OutcomeResult::Success,
+                    summary,
+                    evidence: vec![OutcomeEvidence::DiffSummary { text: diff_summary }],
+                    metadata: serde_json::Value::Null,
+                };
+                let outcome_id = record_outcome_event(&session, prism, event)?;
+                println!("recorded task patch {}", outcome_id.0);
+            }
+        },
         Command::Outcome { command } => match command {
             OutcomeCommand::Record {
                 name,
@@ -205,10 +341,11 @@ fn main() -> Result<()> {
             } => {
                 let symbol = resolve_single_symbol(&prism, &name)?;
                 let anchors = prism.anchors_for(&[AnchorRef::Node(symbol.id().clone())]);
+                let ts = current_timestamp();
                 let event = OutcomeEvent {
                     meta: EventMeta {
-                        id: EventId::new(format!("outcome:{}", current_timestamp())),
-                        ts: current_timestamp(),
+                        id: current_event_id("outcome"),
+                        ts,
                         actor: EventActor::User,
                         correlation: task.map(TaskId::new),
                         causation: None,
@@ -227,9 +364,46 @@ fn main() -> Result<()> {
                     ),
                     metadata: serde_json::Value::Null,
                 };
-                let id = prism.outcome_memory().store_event(event)?;
-                save_outcomes(&cli.root, &prism)?;
+                let id = record_outcome_event(&session, prism, event)?;
                 println!("recorded outcome {}", id.0);
+            }
+            OutcomeCommand::Test {
+                name,
+                task,
+                label,
+                summary,
+                command,
+            } => {
+                let symbol = resolve_single_symbol(&prism, &name)?;
+                let validation =
+                    run_validation_command(command, label, summary, OutcomeKind::TestRan)?;
+                record_validation_outcome(
+                    &session,
+                    prism,
+                    symbol,
+                    task,
+                    validation,
+                    EventActor::User,
+                )?;
+            }
+            OutcomeCommand::Build {
+                name,
+                task,
+                label,
+                summary,
+                command,
+            } => {
+                let symbol = resolve_single_symbol(&prism, &name)?;
+                let validation =
+                    run_validation_command(command, label, summary, OutcomeKind::BuildRan)?;
+                record_validation_outcome(
+                    &session,
+                    prism,
+                    symbol,
+                    task,
+                    validation,
+                    EventActor::User,
+                )?;
             }
         },
     }
@@ -294,6 +468,19 @@ fn resolve_single_symbol<'a>(prism: &'a prism_query::Prism, name: &str) -> Resul
                 .join(", ");
             bail!("symbol `{name}` is ambiguous: {matches}");
         }
+    }
+}
+
+fn resolve_optional_anchors(
+    prism: &prism_query::Prism,
+    symbol: Option<&str>,
+) -> Result<Vec<AnchorRef>> {
+    match symbol {
+        Some(name) => {
+            let symbol = resolve_single_symbol(prism, name)?;
+            Ok(prism.anchors_for(&[AnchorRef::Node(symbol.id().clone())]))
+        }
+        None => Ok(Vec::new()),
     }
 }
 
@@ -414,13 +601,135 @@ fn build_evidence(
     evidence
 }
 
-fn save_outcomes(root: &std::path::Path, prism: &prism_query::Prism) -> Result<()> {
-    let path = root.join(".prism").join("outcomes.json");
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
+fn git_diff_summary(root: &std::path::Path, staged: bool) -> Result<String> {
+    let mut command = ProcessCommand::new("git");
+    command.current_dir(root);
+    command.arg("diff").arg("--stat");
+    if staged {
+        command.arg("--cached");
     }
-    fs::write(path, serde_json::to_vec_pretty(&prism.outcome_snapshot())?)?;
+
+    let output = command.output()?;
+    if !output.status.success() {
+        bail!(
+            "git diff failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+
+    let summary = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if summary.is_empty() {
+        Ok("no diff".to_string())
+    } else {
+        Ok(summary)
+    }
+}
+
+struct ValidationRun {
+    kind: OutcomeKind,
+    result: OutcomeResult,
+    summary: String,
+    evidence: Vec<OutcomeEvidence>,
+}
+
+fn run_validation_command(
+    command: Vec<String>,
+    label: Option<String>,
+    summary: Option<String>,
+    kind: OutcomeKind,
+) -> Result<ValidationRun> {
+    let executable = command
+        .first()
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("validation command cannot be empty"))?;
+    let args = command.iter().skip(1).cloned().collect::<Vec<_>>();
+    let display = command.join(" ");
+
+    let output = ProcessCommand::new(&executable).args(&args).output()?;
+    if !output.stdout.is_empty() {
+        print!("{}", String::from_utf8_lossy(&output.stdout));
+    }
+    if !output.stderr.is_empty() {
+        eprint!("{}", String::from_utf8_lossy(&output.stderr));
+    }
+
+    let passed = output.status.success();
+    let result = if passed {
+        OutcomeResult::Success
+    } else {
+        OutcomeResult::Failure
+    };
+    let label = label.unwrap_or_else(|| display.clone());
+    let summary = summary.unwrap_or_else(|| {
+        let verdict = if passed { "passed" } else { "failed" };
+        match kind {
+            OutcomeKind::TestRan => format!("test `{label}` {verdict}"),
+            OutcomeKind::BuildRan => format!("build `{label}` {verdict}"),
+            _ => format!("validation `{label}` {verdict}"),
+        }
+    });
+    let evidence = match kind {
+        OutcomeKind::TestRan => vec![OutcomeEvidence::Test {
+            name: label,
+            passed,
+        }],
+        OutcomeKind::BuildRan => vec![OutcomeEvidence::Build {
+            target: label,
+            passed,
+        }],
+        _ => Vec::new(),
+    };
+
+    Ok(ValidationRun {
+        kind,
+        result,
+        summary,
+        evidence,
+    })
+}
+
+fn record_validation_outcome(
+    session: &WorkspaceSession,
+    prism: &prism_query::Prism,
+    symbol: Symbol<'_>,
+    task: Option<String>,
+    validation: ValidationRun,
+    actor: EventActor,
+) -> Result<()> {
+    let ts = current_timestamp();
+    let event = OutcomeEvent {
+        meta: EventMeta {
+            id: current_event_id("outcome"),
+            ts,
+            actor,
+            correlation: task.map(TaskId::new),
+            causation: None,
+        },
+        anchors: prism.anchors_for(&[AnchorRef::Node(symbol.id().clone())]),
+        kind: validation.kind,
+        result: validation.result,
+        summary: validation.summary,
+        evidence: validation.evidence,
+        metadata: serde_json::Value::Null,
+    };
+    let id = record_outcome_event(session, prism, event)?;
+    println!("recorded outcome {}", id.0);
+
+    if matches!(validation.result, OutcomeResult::Failure) {
+        bail!("validation failed");
+    }
+
     Ok(())
+}
+
+fn record_outcome_event(
+    session: &WorkspaceSession,
+    prism: &prism_query::Prism,
+    event: OutcomeEvent,
+) -> Result<EventId> {
+    let id = prism.outcome_memory().store_event(event)?;
+    session.persist_outcomes()?;
+    Ok(id)
 }
 
 fn current_timestamp() -> u64 {
@@ -428,4 +737,12 @@ fn current_timestamp() -> u64 {
         .duration_since(UNIX_EPOCH)
         .expect("system clock should be after unix epoch")
         .as_secs()
+}
+
+fn current_event_id(prefix: &str) -> EventId {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock should be after unix epoch")
+        .as_nanos();
+    EventId::new(format!("{prefix}:{nanos}"))
 }

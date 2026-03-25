@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+prism-agent = { path = "../prism-agent" }
 prism-ir = { path = "../prism-ir" }
 prism-history = { path = "../prism-history" }
 prism-lang-json = { path = "../prism-lang-json" }

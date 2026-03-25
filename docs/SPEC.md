@@ -721,14 +721,12 @@ These should begin as session-scoped or low-trust persisted inference.
 
 The highest-value direct write. After or during work, the task agent should write structured outcomes:
 
-* `PlanCreated`
-* `PatchApplied`
 * `TestRan`
 * `FailureObserved`
 * `FixValidated`
 * `ReviewFeedback`
 
-This is ideal for the foreground agent because it is closest to the action.
+Patch observation is automatic — PRISM detects file changes via `ObservedChangeSet` and records them without agent involvement. The agent should only record outcomes that require semantic interpretation: what a test result means, what failed, why a fix worked.
 
 ### Episodic Notes
 
@@ -1281,13 +1279,14 @@ prism_infer_edge { source: NodeId, target: NodeId, kind: EdgeKind, confidence: f
 Convenience shortcuts for outcome logging:
 
 ```text
-prism_patch_applied { anchors: AnchorRef[], summary: string } -> EventId
 prism_test_ran { anchors: AnchorRef[], test: string, passed: bool } -> EventId
 prism_failure_observed { anchors: AnchorRef[], summary: string, trace?: string } -> EventId
 prism_fix_validated { anchors: AnchorRef[], summary: string } -> EventId
 ```
 
 These fill in `EventMeta` automatically from the session context. The lower the friction, the more reliably agents will record outcomes.
+
+Patch observation is not exposed as a mutation tool. PRISM detects file changes automatically via `ObservedChangeSet` and records them without agent involvement. Only outcomes that require semantic interpretation belong in the MCP mutation surface.
 
 Rules:
 

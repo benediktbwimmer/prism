@@ -294,6 +294,18 @@ return sym ? prism.relatedFailures(sym) : [];
 - Available now: symbol lookup, search, entrypoints, relations, call graphs, source extraction, lineage history, related failures, blast radius, and task replay by id.
 - Not exposed yet: memory recall and validation recipes.
 - Keep query logic small. If you find yourself reconstructing semantics from raw low-level fields every time, that method probably belongs in Prism itself.
+
+## Separate mutation tools
+
+The query runtime is read-only. State changes happen through separate MCP tools:
+
+- `prism_outcome`
+- `prism_note`
+- `prism_infer_edge`
+- `prism_patch_applied`
+- `prism_test_ran`
+- `prism_failure_observed`
+- `prism_fix_validated`
 "#
 }
 
