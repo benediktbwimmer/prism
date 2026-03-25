@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use prism_ir::{Edge, EdgeKind, EdgeOrigin, Language, Node, NodeId, NodeKind, Span};
-use prism_parser::{relative_file, LanguageAdapter, ParseInput, ParseResult};
+use prism_parser::{
+    document_name, document_path, fingerprint_from_parts, normalized_shape_hash, LanguageAdapter,
+    NodeFingerprint, ParseInput, ParseResult,
+};
 use smol_str::SmolStr;
 
 pub struct MarkdownAdapter;
@@ -17,11 +20,24 @@ impl LanguageAdapter for MarkdownAdapter {
     }
 
     fn parse(&self, input: &ParseInput<'_>) -> Result<ParseResult> {
-        let mut nodes = Vec::new();
-        let mut edges = Vec::new();
+        let mut result = ParseResult::default();
         let mut slug_counts = HashMap::<String, usize>::new();
         let mut stack: Vec<(usize, NodeId)> = Vec::new();
-        let prefix = file_prefix(input);
+        let prefix = document_path(input);
+        let document_id = NodeId::new(input.crate_name, prefix.clone(), NodeKind::Document);
+        let document_shape = normalized_shape_hash(input.source);
+        push_fingerprinted_node(
+            &mut result,
+            Node {
+                id: document_id.clone(),
+                name: SmolStr::new(document_name(input)),
+                kind: NodeKind::Document,
+                file: input.file_id,
+                span: Span::whole_file(input.source.lines().count()),
+                language: Language::Markdown,
+            },
+            fingerprint_from_parts(["markdown", "document", document_shape.as_str()]),
+        );
 
         for (index, line) in input.source.lines().enumerate() {
             let trimmed = line.trim();
@@ -53,7 +69,12 @@ impl LanguageAdapter for MarkdownAdapter {
                 span: Span::line(index + 1),
                 language: Language::Markdown,
             };
-            nodes.push(node);
+            let title_shape = normalized_shape_hash(title);
+            result.record_fingerprint(
+                &id,
+                fingerprint_from_parts(["markdown", "heading", &level.to_string(), title_shape.as_str()]),
+            );
+            result.nodes.push(node);
 
             while stack
                 .last()
@@ -63,9 +84,17 @@ impl LanguageAdapter for MarkdownAdapter {
             }
 
             if let Some((_, parent)) = stack.last() {
-                edges.push(Edge {
+                result.edges.push(Edge {
                     kind: EdgeKind::Contains,
                     source: parent.clone(),
+                    target: id.clone(),
+                    origin: EdgeOrigin::Static,
+                    confidence: 1.0,
+                });
+            } else {
+                result.edges.push(Edge {
+                    kind: EdgeKind::Contains,
+                    source: document_id.clone(),
                     target: id.clone(),
                     origin: EdgeOrigin::Static,
                     confidence: 1.0,
@@ -75,24 +104,13 @@ impl LanguageAdapter for MarkdownAdapter {
             stack.push((level, id));
         }
 
-        Ok(ParseResult {
-            nodes,
-            edges,
-            unresolved_calls: Vec::new(),
-            unresolved_imports: Vec::new(),
-            unresolved_impls: Vec::new(),
-        })
+        Ok(result)
     }
 }
 
-fn file_prefix(input: &ParseInput<'_>) -> String {
-    let relative = relative_file(input);
-    let mut parts = vec![input.crate_name.to_owned()];
-    for component in relative.components() {
-        let value = component.as_os_str().to_string_lossy();
-        parts.push(value.replace(['.', '-', ' '], "_"));
-    }
-    parts.join("::")
+fn push_fingerprinted_node(result: &mut ParseResult, node: Node, fingerprint: NodeFingerprint) {
+    result.record_fingerprint(&node.id, fingerprint);
+    result.nodes.push(node);
 }
 
 fn slugify(value: &str) -> String {
@@ -123,16 +141,18 @@ mod tests {
     fn parses_heading_hierarchy() {
         let adapter = MarkdownAdapter;
         let input = ParseInput {
+            package_name: "prism",
             crate_name: "prism",
-            workspace_root: Path::new("/workspace"),
+            package_root: Path::new("/workspace"),
             path: Path::new("/workspace/docs/spec.md"),
             file_id: FileId(1),
             source: "# Top\n## Child\n",
         };
 
         let result = adapter.parse(&input).unwrap();
-        assert_eq!(result.nodes.len(), 2);
-        assert_eq!(result.nodes[0].kind, NodeKind::MarkdownHeading);
-        assert_eq!(result.edges.len(), 1);
+        assert_eq!(result.nodes.len(), 3);
+        assert_eq!(result.nodes[0].kind, NodeKind::Document);
+        assert_eq!(result.nodes[1].kind, NodeKind::MarkdownHeading);
+        assert_eq!(result.edges.len(), 2);
     }
 }

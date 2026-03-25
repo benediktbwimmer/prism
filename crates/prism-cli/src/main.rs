@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
 use prism_core::index_workspace;
-use prism_ir::NodeId;
+use prism_ir::{NodeId, NodeKind};
 use prism_query::{Relations, Symbol};
 
 #[derive(Parser)]
@@ -21,6 +21,15 @@ enum Command {
     Entrypoints,
     Symbol {
         name: String,
+    },
+    Search {
+        query: String,
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+        #[arg(long)]
+        kind: Option<String>,
+        #[arg(long)]
+        path: Option<String>,
     },
     Relations {
         name: String,
@@ -43,17 +52,44 @@ fn main() -> Result<()> {
             }
         }
         Command::Symbol { name } => {
-            for symbol in prism.symbol(&name) {
+            let symbols = prism.symbol(&name);
+            if symbols.is_empty() {
+                eprintln!("no symbol matched `{name}`");
+            }
+            for symbol in symbols {
                 print_symbol(symbol);
             }
         }
+        Command::Search {
+            query,
+            limit,
+            kind,
+            path,
+        } => {
+            let kind = parse_node_kind_filter(kind.as_deref())?;
+            let symbols = prism.search(&query, limit, kind, path.as_deref());
+            if symbols.is_empty() {
+                eprintln!("no symbol matched `{query}`");
+            }
+            for symbol in symbols {
+                println!("{}", symbol.signature());
+            }
+        }
         Command::Relations { name } => {
-            for symbol in prism.symbol(&name) {
+            let symbols = prism.symbol(&name);
+            if symbols.is_empty() {
+                eprintln!("no symbol matched `{name}`");
+            }
+            for symbol in symbols {
                 print_relations(symbol);
             }
         }
         Command::CallGraph { name, depth } => {
-            for symbol in prism.symbol(&name) {
+            let symbols = prism.symbol(&name);
+            if symbols.is_empty() {
+                eprintln!("no symbol matched `{name}`");
+            }
+            for symbol in symbols {
                 let graph = symbol.call_graph(depth);
                 println!("root: {}", graph.root.path);
                 for edge in graph.edges {
@@ -103,4 +139,33 @@ fn print_relation_section(label: &str, values: &[NodeId]) {
     for value in values {
         println!("  {}", value.path);
     }
+}
+
+fn parse_node_kind_filter(value: Option<&str>) -> Result<Option<NodeKind>> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+
+    let kind = match value.to_ascii_lowercase().as_str() {
+        "workspace" => NodeKind::Workspace,
+        "package" => NodeKind::Package,
+        "document" => NodeKind::Document,
+        "module" => NodeKind::Module,
+        "function" => NodeKind::Function,
+        "struct" => NodeKind::Struct,
+        "enum" => NodeKind::Enum,
+        "trait" => NodeKind::Trait,
+        "impl" => NodeKind::Impl,
+        "method" => NodeKind::Method,
+        "field" => NodeKind::Field,
+        "typealias" | "type-alias" => NodeKind::TypeAlias,
+        "markdownheading" | "markdown-heading" => NodeKind::MarkdownHeading,
+        "jsonkey" | "json-key" => NodeKind::JsonKey,
+        "yamlkey" | "yaml-key" => NodeKind::YamlKey,
+        other => {
+            bail!("unknown node kind `{other}`");
+        }
+    };
+
+    Ok(Some(kind))
 }

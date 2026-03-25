@@ -1,0 +1,11 @@
+[package]
+name = "prism-memory"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+prism-ir = { path = "../prism-ir" }
+serde.workspace = true
+serde_json.workspace = true

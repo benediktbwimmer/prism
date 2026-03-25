@@ -15,4 +15,5 @@ prism-parser = { path = "../prism-parser" }
 prism-query = { path = "../prism-query" }
 prism-store = { path = "../prism-store" }
 smol_str.workspace = true
+toml.workspace = true
 walkdir.workspace = true

@@ -1,11 +1,11 @@
 use std::collections::hash_map::DefaultHasher;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use prism_ir::{Edge, EdgeKind, EdgeOrigin, Language, Node, NodeId, NodeKind, Span};
+use prism_ir::{Edge, EdgeKind, EdgeOrigin, GraphChange, Language, Node, NodeId, NodeKind, Span};
 use prism_lang_json::JsonAdapter;
 use prism_lang_markdown::MarkdownAdapter;
 use prism_lang_rust::RustAdapter;
@@ -15,8 +15,9 @@ use prism_parser::{
     UnresolvedImport,
 };
 use prism_query::Prism;
-use prism_store::{Graph, SqliteStore, Store};
+use prism_store::{FileState, Graph, SqliteStore, Store};
 use smol_str::SmolStr;
+use toml::Value;
 use walkdir::WalkDir;
 
 pub fn index_workspace(root: impl AsRef<Path>) -> Result<Prism> {
@@ -27,11 +28,35 @@ pub fn index_workspace(root: impl AsRef<Path>) -> Result<Prism> {
 
 pub struct WorkspaceIndexer<S: Store> {
     root: PathBuf,
-    crate_name: String,
+    layout: WorkspaceLayout,
     graph: Graph,
     adapters: Vec<Box<dyn LanguageAdapter>>,
-    package_id: NodeId,
     store: S,
+}
+
+#[derive(Debug, Clone)]
+struct WorkspaceLayout {
+    workspace_name: String,
+    workspace_display_name: String,
+    workspace_manifest: PathBuf,
+    packages: Vec<PackageInfo>,
+}
+
+#[derive(Debug, Clone)]
+struct PackageInfo {
+    package_name: String,
+    crate_name: String,
+    root: PathBuf,
+    manifest_path: PathBuf,
+    node_id: NodeId,
+}
+
+#[derive(Debug, Clone)]
+struct PendingFileParse {
+    path: PathBuf,
+    source: String,
+    hash: u64,
+    previous_path: Option<PathBuf>,
 }
 
 impl WorkspaceIndexer<SqliteStore> {
@@ -46,24 +71,35 @@ impl WorkspaceIndexer<SqliteStore> {
 impl<S: Store> WorkspaceIndexer<S> {
     pub fn with_store(root: impl AsRef<Path>, mut store: S) -> Result<Self> {
         let root = root.as_ref().canonicalize()?;
-        let crate_name = workspace_name(&root);
+        let layout = discover_layout(&root)?;
         let mut graph = store.load_graph()?.unwrap_or_default();
-        let package_id = ensure_root_nodes(&mut graph, &root, &crate_name);
+        sync_root_nodes(&mut graph, &layout);
 
         Ok(Self {
             root,
-            crate_name,
+            layout,
             graph,
             adapters: default_adapters(),
-            package_id,
             store,
         })
     }
 
     pub fn index(&mut self) -> Result<()> {
-        let mut seen_files = HashSet::<PathBuf>::new();
+        let _ = self.index_with_changes()?;
+        Ok(())
+    }
 
-        for entry in WalkDir::new(&self.root).into_iter().filter_map(Result::ok) {
+    pub fn index_with_changes(&mut self) -> Result<Vec<GraphChange>> {
+        let mut pending = Vec::<PendingFileParse>::new();
+        let mut seen_files = HashSet::<PathBuf>::new();
+        let mut changes = Vec::<GraphChange>::new();
+        let walk_root = self.root.clone();
+
+        for entry in WalkDir::new(&walk_root)
+            .into_iter()
+            .filter_entry(|entry| should_walk(entry.path(), &walk_root))
+            .filter_map(Result::ok)
+        {
             if !entry.file_type().is_file() {
                 continue;
             }
@@ -81,37 +117,72 @@ impl<S: Store> WorkspaceIndexer<S> {
             seen_files.insert(canonical_path.clone());
             let source = fs::read_to_string(path)?;
             let hash = stable_hash(&source);
+            pending.push(PendingFileParse {
+                path: canonical_path,
+                source,
+                hash,
+                previous_path: None,
+            });
+        }
 
-            if self
-                .graph
-                .file_record(path)
-                .map(|record| record.hash == hash)
-                .unwrap_or(false)
+        let moved_paths = detect_moved_files(&self.graph, &seen_files, &mut pending);
+
+        for pending_file in pending {
+            if pending_file
+                .previous_path
+                .is_none()
+                && self
+                    .graph
+                    .file_record(&pending_file.path)
+                    .map(|record| record.hash == pending_file.hash)
+                    .unwrap_or(false)
             {
                 continue;
             }
 
-            let file_id = self.graph.ensure_file(path);
+            let Some(adapter) = self
+                .adapters
+                .iter()
+                .find(|adapter| adapter.supports_path(&pending_file.path))
+            else {
+                continue;
+            };
+
+            let previous_path = pending_file.previous_path.as_deref();
+            let file_id = previous_path
+                .and_then(|path| self.graph.file_record(path).map(|record| record.file_id))
+                .unwrap_or_else(|| self.graph.ensure_file(&pending_file.path));
+            let package = self.layout.package_for(&pending_file.path).clone();
             let input = ParseInput {
-                crate_name: &self.crate_name,
-                workspace_root: &self.root,
-                path,
+                package_name: &package.package_name,
+                crate_name: &package.crate_name,
+                package_root: &package.root,
+                path: &pending_file.path,
                 file_id,
-                source: &source,
+                source: &pending_file.source,
             };
             let parsed = adapter.parse(&input)?;
-            self.upsert_parsed_file(path, hash, parsed);
+            changes.extend(self.upsert_parsed_file(
+                previous_path,
+                &pending_file.path,
+                pending_file.hash,
+                &package,
+                parsed,
+            ));
+            self.store.save_file_state(&pending_file.path, &self.graph)?;
         }
 
         for tracked in self.graph.tracked_files() {
-            if !seen_files.contains(&tracked) {
-                self.graph.remove_file(&tracked);
+            if !seen_files.contains(&tracked) && !moved_paths.contains(&tracked) {
+                changes.extend(self.graph.remove_file_with_changes(&tracked));
+                self.store.remove_file_state(&tracked)?;
             }
         }
 
         self.resolve_all_edges();
-        self.store.save_graph(&self.graph)?;
-        Ok(())
+        self.store.replace_derived_edges(&self.graph)?;
+        self.store.finalize(&self.graph)?;
+        Ok(changes)
     }
 
     pub fn graph(&self) -> &Graph {
@@ -122,12 +193,32 @@ impl<S: Store> WorkspaceIndexer<S> {
         Prism::new(self.graph)
     }
 
-    fn upsert_parsed_file(&mut self, path: &Path, hash: u64, parsed: ParseResult) {
-        let package_id = self.package_id.clone();
-        let module_edges = parsed
+    fn upsert_parsed_file(
+        &mut self,
+        previous_path: Option<&Path>,
+        path: &Path,
+        hash: u64,
+        package: &PackageInfo,
+        parsed: ParseResult,
+    ) -> Vec<GraphChange> {
+        let previous_state = previous_path
+            .or(Some(path))
+            .and_then(|candidate| self.graph.file_state(candidate));
+        let reanchors = previous_state
+            .as_ref()
+            .map(|state| infer_reanchors(state, &parsed))
+            .unwrap_or_default();
+        let package_id = package.node_id.clone();
+        let contained_nodes = parsed
+            .edges
+            .iter()
+            .filter(|edge| edge.kind == EdgeKind::Contains)
+            .map(|edge| edge.target.clone())
+            .collect::<HashSet<_>>();
+        let package_edges = parsed
             .nodes
             .iter()
-            .filter(|node| node.kind == NodeKind::Module)
+            .filter(|node| !contained_nodes.contains(&node.id))
             .map(|node| Edge {
                 kind: EdgeKind::Contains,
                 source: package_id.clone(),
@@ -138,16 +229,21 @@ impl<S: Store> WorkspaceIndexer<S> {
             .collect::<Vec<_>>();
 
         let mut edges = parsed.edges;
-        edges.extend(module_edges);
-        self.graph.upsert_file(
-            path,
-            hash,
-            parsed.nodes,
-            edges,
-            parsed.unresolved_calls,
-            parsed.unresolved_imports,
-            parsed.unresolved_impls,
-        );
+        edges.extend(package_edges);
+        self.graph
+            .upsert_file_from(
+                previous_path,
+                path,
+                hash,
+                parsed.nodes,
+                edges,
+                parsed.fingerprints,
+                parsed.unresolved_calls,
+                parsed.unresolved_imports,
+                parsed.unresolved_impls,
+                &reanchors,
+            )
+            .changes
     }
 
     fn resolve_all_edges(&mut self) {
@@ -162,6 +258,177 @@ impl<S: Store> WorkspaceIndexer<S> {
     }
 }
 
+fn detect_moved_files(
+    graph: &Graph,
+    seen_files: &HashSet<PathBuf>,
+    pending: &mut [PendingFileParse],
+) -> HashSet<PathBuf> {
+    let mut old_by_hash = HashMap::<u64, Vec<PathBuf>>::new();
+    for tracked in graph.tracked_files() {
+        if seen_files.contains(&tracked) {
+            continue;
+        }
+        if let Some(record) = graph.file_record(&tracked) {
+            old_by_hash.entry(record.hash).or_default().push(tracked);
+        }
+    }
+
+    let mut moved_paths = HashSet::new();
+    for pending_file in pending
+        .iter_mut()
+        .filter(|pending_file| graph.file_record(&pending_file.path).is_none())
+    {
+        let Some(candidates) = old_by_hash.get(&pending_file.hash) else {
+            continue;
+        };
+        let available = candidates
+            .iter()
+            .filter(|candidate| !moved_paths.contains(*candidate))
+            .collect::<Vec<_>>();
+        if available.len() == 1 {
+            let previous = (*available[0]).clone();
+            pending_file.previous_path = Some(previous.clone());
+            moved_paths.insert(previous);
+        }
+    }
+
+    moved_paths
+}
+
+fn infer_reanchors(previous: &FileState, parsed: &ParseResult) -> Vec<(NodeId, NodeId)> {
+    let previous_nodes = previous
+        .nodes
+        .iter()
+        .map(|node| (node.id.clone(), node))
+        .collect::<HashMap<_, _>>();
+    let parsed_nodes = parsed
+        .nodes
+        .iter()
+        .map(|node| (node.id.clone(), node))
+        .collect::<HashMap<_, _>>();
+
+    let mut matched_old = HashSet::<NodeId>::new();
+    let mut matched_new = HashSet::<NodeId>::new();
+    let mut reanchors = Vec::<(NodeId, NodeId)>::new();
+    let mut old_by_fingerprint = HashMap::<String, Vec<NodeId>>::new();
+    let mut new_by_fingerprint = HashMap::<String, Vec<NodeId>>::new();
+
+    for node in previous.nodes.iter().filter(|node| parsed_nodes.contains_key(&node.id)) {
+        matched_old.insert(node.id.clone());
+        matched_new.insert(node.id.clone());
+    }
+
+    for (id, fingerprint) in &previous.record.fingerprints {
+        if previous_nodes.contains_key(id) {
+            old_by_fingerprint
+                .entry(fingerprint.0.to_string())
+                .or_default()
+                .push(id.clone());
+        }
+    }
+
+    for (id, fingerprint) in &parsed.fingerprints {
+        if parsed_nodes.contains_key(id) {
+            new_by_fingerprint
+                .entry(fingerprint.0.to_string())
+                .or_default()
+                .push(id.clone());
+        }
+    }
+
+    for (fingerprint, old_ids) in &old_by_fingerprint {
+        let Some(new_ids) = new_by_fingerprint.get(fingerprint) else {
+            continue;
+        };
+        let available_old = old_ids
+            .iter()
+            .filter(|id| !matched_old.contains(*id))
+            .cloned()
+            .collect::<Vec<_>>();
+        let available_new = new_ids
+            .iter()
+            .filter(|id| !matched_new.contains(*id))
+            .cloned()
+            .collect::<Vec<_>>();
+
+        if available_old.len() == 1 && available_new.len() == 1 {
+            let old = available_old[0].clone();
+            let new = available_new[0].clone();
+            matched_old.insert(old.clone());
+            matched_new.insert(new.clone());
+            if old != new {
+                reanchors.push((old, new));
+            }
+        }
+    }
+
+    for (fingerprint, old_ids) in old_by_fingerprint {
+        let Some(new_ids) = new_by_fingerprint.get(&fingerprint) else {
+            continue;
+        };
+
+        for old_id in old_ids {
+            if matched_old.contains(&old_id) {
+                continue;
+            }
+
+            let Some(old_node) = previous_nodes.get(&old_id) else {
+                continue;
+            };
+            let best = new_ids
+                .iter()
+                .filter(|new_id| !matched_new.contains(*new_id))
+                .filter_map(|new_id| {
+                    let new_node = parsed_nodes.get(new_id)?;
+                    Some((score_reanchor_candidate(old_node, new_node), new_id.clone()))
+                })
+                .filter(|(score, _)| *score >= 40)
+                .max_by_key(|(score, _)| *score);
+
+            if let Some((_, new_id)) = best {
+                matched_old.insert(old_id.clone());
+                matched_new.insert(new_id.clone());
+                if old_id != new_id {
+                    reanchors.push((old_id, new_id));
+                }
+            }
+        }
+    }
+
+    reanchors
+}
+
+fn score_reanchor_candidate(old: &Node, new: &Node) -> i32 {
+    if old.kind != new.kind || old.language != new.language {
+        return 0;
+    }
+
+    let mut score = 0;
+    if old.name == new.name {
+        score += 20;
+    }
+    if old.id.crate_name == new.id.crate_name {
+        score += 10;
+    }
+    if parent_path(old.id.path.as_str()) == parent_path(new.id.path.as_str()) {
+        score += 10;
+    }
+
+    let start_delta = old.span.start_line.abs_diff(new.span.start_line);
+    score += (20 - start_delta.min(20)) as i32;
+
+    let end_delta = old.span.end_line.abs_diff(new.span.end_line);
+    score += (20 - end_delta.min(20)) as i32;
+
+    score
+}
+
+fn parent_path(path: &str) -> &str {
+    path.rsplit_once("::")
+        .map(|(parent, _)| parent)
+        .unwrap_or(path)
+}
+
 fn default_adapters() -> Vec<Box<dyn LanguageAdapter>> {
     vec![
         Box::new(RustAdapter),
@@ -171,33 +438,61 @@ fn default_adapters() -> Vec<Box<dyn LanguageAdapter>> {
     ]
 }
 
-fn ensure_root_nodes(graph: &mut Graph, root: &Path, crate_name: &str) -> NodeId {
-    let manifest_file = graph.ensure_file(&root.join("Cargo.toml"));
+impl WorkspaceLayout {
+    fn package_for(&self, path: &Path) -> &PackageInfo {
+        self.packages
+            .iter()
+            .filter(|package| path.starts_with(&package.root))
+            .max_by_key(|package| package.root.components().count())
+            .unwrap_or(&self.packages[0])
+    }
+}
+
+impl PackageInfo {
+    fn new(package_name: String, root: PathBuf, manifest_path: PathBuf) -> Self {
+        let crate_name = normalize_identifier(&package_name);
+        let node_id = NodeId::new(crate_name.clone(), crate_name.clone(), NodeKind::Package);
+        Self {
+            package_name,
+            crate_name,
+            root,
+            manifest_path,
+            node_id,
+        }
+    }
+}
+
+fn sync_root_nodes(graph: &mut Graph, layout: &WorkspaceLayout) -> NodeId {
+    let manifest_file = graph.ensure_file(&layout.workspace_manifest);
     let workspace_id = NodeId::new(
-        crate_name.to_owned(),
-        format!("{crate_name}::workspace"),
+        layout.workspace_name.clone(),
+        format!("{}::workspace", layout.workspace_name),
         NodeKind::Workspace,
     );
-    if graph.node(&workspace_id).is_none() {
-        graph.add_node(Node {
-            id: workspace_id.clone(),
-            name: SmolStr::new(crate_name),
-            kind: NodeKind::Workspace,
-            file: manifest_file,
-            span: Span::line(1),
-            language: Language::Unknown,
-        });
-    }
+    let allowed_root_ids = std::iter::once(workspace_id.clone())
+        .chain(
+            layout
+                .packages
+                .iter()
+                .map(|package| package.node_id.clone()),
+        )
+        .collect::<HashSet<_>>();
+    graph.retain_root_nodes(&allowed_root_ids);
 
-    let package_id = NodeId::new(
-        crate_name.to_owned(),
-        crate_name.to_owned(),
-        NodeKind::Package,
-    );
-    if graph.node(&package_id).is_none() {
+    graph.add_node(Node {
+        id: workspace_id.clone(),
+        name: SmolStr::new(layout.workspace_display_name.clone()),
+        kind: NodeKind::Workspace,
+        file: manifest_file,
+        span: Span::line(1),
+        language: Language::Unknown,
+    });
+
+    for package in &layout.packages {
+        let manifest_file = graph.ensure_file(&package.manifest_path);
         graph.add_node(Node {
-            id: package_id.clone(),
-            name: SmolStr::new(crate_name),
+            id: package.node_id.clone(),
+            name: SmolStr::new(package.package_name.clone()),
             kind: NodeKind::Package,
             file: manifest_file,
             span: Span::line(1),
@@ -205,22 +500,18 @@ fn ensure_root_nodes(graph: &mut Graph, root: &Path, crate_name: &str) -> NodeId
         });
     }
 
-    if !graph.edges.iter().any(|edge| {
-        edge.kind == EdgeKind::Contains
-            && edge.source == workspace_id
-            && edge.target == package_id
-            && edge.origin == EdgeOrigin::Static
-    }) {
+    graph.clear_root_contains_edges();
+    for package in &layout.packages {
         graph.add_edge(Edge {
             kind: EdgeKind::Contains,
-            source: workspace_id,
-            target: package_id.clone(),
+            source: workspace_id.clone(),
+            target: package.node_id.clone(),
             origin: EdgeOrigin::Static,
             confidence: 1.0,
         });
     }
 
-    package_id
+    workspace_id
 }
 
 fn resolve_calls(graph: &mut Graph, unresolved: Vec<UnresolvedCall>) {
@@ -340,11 +631,94 @@ fn stable_hash(source: &str) -> u64 {
     hasher.finish()
 }
 
-fn workspace_name(root: &Path) -> String {
-    root.file_name()
+fn discover_layout(root: &Path) -> Result<WorkspaceLayout> {
+    let workspace_display_name = root
+        .file_name()
         .and_then(|value| value.to_str())
         .unwrap_or("workspace")
-        .to_owned()
+        .to_owned();
+    let workspace_name = normalize_identifier(&workspace_display_name);
+    let workspace_manifest = root.join("Cargo.toml");
+    let root_package_name = manifest_package_name(&workspace_manifest)?
+        .unwrap_or_else(|| workspace_display_name.clone());
+    let mut packages = vec![PackageInfo::new(
+        root_package_name,
+        root.to_path_buf(),
+        workspace_manifest.clone(),
+    )];
+
+    for entry in WalkDir::new(root)
+        .into_iter()
+        .filter_entry(|entry| should_walk(entry.path(), root))
+        .filter_map(Result::ok)
+    {
+        if !entry.file_type().is_file() || entry.file_name() != "Cargo.toml" {
+            continue;
+        }
+
+        let manifest_path = entry.path();
+        if manifest_path == workspace_manifest {
+            continue;
+        }
+
+        let Some(package_name) = manifest_package_name(manifest_path)? else {
+            continue;
+        };
+        let package_root = manifest_path
+            .parent()
+            .unwrap_or(root)
+            .canonicalize()
+            .unwrap_or_else(|_| manifest_path.parent().unwrap_or(root).to_path_buf());
+        packages.push(PackageInfo::new(
+            package_name,
+            package_root,
+            manifest_path.to_path_buf(),
+        ));
+    }
+
+    Ok(WorkspaceLayout {
+        workspace_name,
+        workspace_display_name,
+        workspace_manifest,
+        packages,
+    })
+}
+
+fn manifest_package_name(path: &Path) -> Result<Option<String>> {
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let manifest = fs::read_to_string(path)?;
+    let value: Value = toml::from_str(&manifest)?;
+    Ok(value
+        .get("package")
+        .and_then(|package| package.get("name"))
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned))
+}
+
+fn normalize_identifier(value: &str) -> String {
+    let mut normalized = String::new();
+    let mut previous_underscore = false;
+
+    for ch in value.chars() {
+        let ch = ch.to_ascii_lowercase();
+        if ch.is_ascii_alphanumeric() {
+            normalized.push(ch);
+            previous_underscore = false;
+        } else if !previous_underscore {
+            normalized.push('_');
+            previous_underscore = true;
+        }
+    }
+
+    let normalized = normalized.trim_matches('_').to_owned();
+    if normalized.is_empty() {
+        "workspace".to_owned()
+    } else {
+        normalized
+    }
 }
 
 fn cache_path(root: &Path) -> PathBuf {
@@ -359,13 +733,24 @@ fn cleanup_legacy_cache(root: &Path) -> Result<()> {
     Ok(())
 }
 
+fn should_walk(path: &Path, root: &Path) -> bool {
+    let Ok(relative) = path.strip_prefix(root) else {
+        return true;
+    };
+    let Some(first) = relative.components().next() else {
+        return true;
+    };
+    let first = first.as_os_str().to_string_lossy();
+    !matches!(first.as_ref(), ".git" | ".prism" | "target")
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use prism_ir::EdgeKind;
+    use prism_ir::{EdgeKind, GraphChange, NodeKind};
     use prism_store::MemoryStore;
 
     use super::WorkspaceIndexer;
@@ -454,6 +839,153 @@ mod tests {
             .nodes_by_name("alpha")
             .into_iter()
             .any(|node| node.id.path.ends_with("::alpha")));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn uses_member_package_identity_and_attaches_workspace_docs() {
+        let root = temp_workspace();
+        fs::create_dir_all(root.join("crates/alpha/src")).unwrap();
+        fs::create_dir_all(root.join("crates/beta/src")).unwrap();
+        fs::create_dir_all(root.join("docs")).unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[workspace]\nmembers = [\"crates/alpha\", \"crates/beta\"]\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("crates/alpha/Cargo.toml"),
+            "[package]\nname = \"alpha-pkg\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("crates/beta/Cargo.toml"),
+            "[package]\nname = \"beta-pkg\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        fs::write(root.join("crates/alpha/src/lib.rs"), "fn alpha() {}\n").unwrap();
+        fs::write(
+            root.join("crates/beta/src/lib.rs"),
+            "mod outer { mod inner {} }\n",
+        )
+        .unwrap();
+        fs::write(root.join("docs/SPEC.md"), "# Spec\n").unwrap();
+
+        let mut indexer = WorkspaceIndexer::with_store(&root, MemoryStore::default()).unwrap();
+        indexer.index().unwrap();
+
+        assert!(indexer
+            .graph()
+            .nodes_by_name("alpha")
+            .into_iter()
+            .any(|node| node.id.crate_name == "alpha_pkg" && node.id.path == "alpha_pkg::alpha"));
+        assert!(indexer
+            .graph()
+            .nodes_by_name("inner")
+            .into_iter()
+            .any(
+                |node| node.id.crate_name == "beta_pkg" && node.id.path == "beta_pkg::outer::inner"
+            ));
+
+        let inner_module = indexer
+            .graph()
+            .nodes_by_name("inner")
+            .into_iter()
+            .find(|node| node.kind == NodeKind::Module)
+            .unwrap();
+        assert!(!indexer
+            .graph()
+            .edges_to(&inner_module.id, Some(EdgeKind::Contains))
+            .iter()
+            .any(|edge| edge.source.kind == NodeKind::Package));
+
+        let spec = indexer
+            .graph()
+            .nodes_by_name("Spec")
+            .into_iter()
+            .find(|node| node.kind == NodeKind::MarkdownHeading)
+            .unwrap();
+        let spec_document = indexer
+            .graph()
+            .nodes_by_name("docs/SPEC.md")
+            .into_iter()
+            .find(|node| node.kind == NodeKind::Document)
+            .unwrap();
+        assert!(indexer
+            .graph()
+            .edges_to(&spec_document.id, Some(EdgeKind::Contains))
+            .iter()
+            .any(|edge| edge.source.kind == NodeKind::Package));
+        assert!(indexer
+            .graph()
+            .edges_to(&spec.id, Some(EdgeKind::Contains))
+            .iter()
+            .any(|edge| edge.source == spec_document.id));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn emits_reanchored_change_for_symbol_rename() {
+        let root = temp_workspace();
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        fs::write(root.join("src/lib.rs"), "fn alpha() { helper(); }\nfn helper() {}\n").unwrap();
+
+        let mut indexer = WorkspaceIndexer::with_store(&root, MemoryStore::default()).unwrap();
+        indexer.index().unwrap();
+
+        fs::write(
+            root.join("src/lib.rs"),
+            "fn renamed_alpha() { helper(); }\nfn helper() {}\n",
+        )
+        .unwrap();
+
+        let changes = indexer.index_with_changes().unwrap();
+
+        assert!(changes.contains(&GraphChange::Reanchored {
+            old: NodeId::new("demo", "demo::alpha", NodeKind::Function),
+            new: NodeId::new("demo", "demo::renamed_alpha", NodeKind::Function),
+        }));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn emits_reanchored_changes_for_file_move_with_same_content() {
+        let root = temp_workspace();
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("src/feature.rs"),
+            "pub fn alpha() { helper(); }\nfn helper() {}\n",
+        )
+        .unwrap();
+
+        let mut indexer = WorkspaceIndexer::with_store(&root, MemoryStore::default()).unwrap();
+        indexer.index().unwrap();
+
+        fs::rename(root.join("src/feature.rs"), root.join("src/renamed.rs")).unwrap();
+
+        let changes = indexer.index_with_changes().unwrap();
+
+        assert!(changes.contains(&GraphChange::Reanchored {
+            old: NodeId::new("demo", "demo::feature", NodeKind::Module),
+            new: NodeId::new("demo", "demo::renamed", NodeKind::Module),
+        }));
+        assert!(changes.contains(&GraphChange::Reanchored {
+            old: NodeId::new("demo", "demo::feature::alpha", NodeKind::Function),
+            new: NodeId::new("demo", "demo::renamed::alpha", NodeKind::Function),
+        }));
 
         let _ = fs::remove_dir_all(root);
     }

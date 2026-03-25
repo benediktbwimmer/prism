@@ -4,8 +4,8 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use prism_ir::{Edge, EdgeKind, EdgeOrigin, Language, Node, NodeId, NodeKind, Span};
 use prism_parser::{
-    relative_file, LanguageAdapter, ParseInput, ParseResult, UnresolvedCall, UnresolvedImpl,
-    UnresolvedImport,
+    fingerprint_from_parts, normalized_shape_hash, relative_package_file, LanguageAdapter,
+    NodeFingerprint, ParseInput, ParseResult, UnresolvedCall, UnresolvedImpl, UnresolvedImport,
 };
 use smol_str::SmolStr;
 use tree_sitter::{Node as TsNode, Parser, Point};
@@ -35,14 +35,23 @@ impl LanguageAdapter for RustAdapter {
         let module_path = module_path(input);
         let module_id = NodeId::new(input.crate_name, module_path.clone(), NodeKind::Module);
         let mut result = ParseResult::default();
-        result.nodes.push(Node {
+        let module_node = Node {
             id: module_id.clone(),
             name: SmolStr::new(last_segment(&module_path).unwrap_or(input.crate_name)),
             kind: NodeKind::Module,
             file: input.file_id,
             span: Span::whole_file(input.source.lines().count()),
             language: Language::Rust,
-        });
+        };
+        push_fingerprinted_node(
+            &mut result,
+            module_node,
+            fingerprint_from_parts([
+                "rust",
+                "module",
+                normalized_shape_hash(input.source).as_str(),
+            ]),
+        );
 
         let scope = Scope::module(module_id, module_path);
         walk_declarations(
@@ -158,14 +167,23 @@ fn parse_module(
 
     let path = format!("{}::{name}", scope.module_path);
     let id = NodeId::new(input.crate_name, path, NodeKind::Module);
-    result.nodes.push(Node {
+    let node = Node {
         id: id.clone(),
         name: SmolStr::new(name.clone()),
         kind: NodeKind::Module,
         file: input.file_id,
         span: node_span(node),
         language: Language::Rust,
-    });
+    };
+    push_fingerprinted_node(
+        result,
+        node,
+        fingerprint_from_parts([
+            "rust",
+            "module",
+            normalized_shape_hash(&node_text(body, source)).as_str(),
+        ]),
+    );
     push_contains_edge(result, scope.parent_id.clone(), id.clone());
 
     let nested_scope = scope.nested_module(id, &name);
@@ -185,14 +203,33 @@ fn parse_struct(
 
     let path = format!("{}::{name}", scope.module_path);
     let id = NodeId::new(input.crate_name, path, NodeKind::Struct);
-    result.nodes.push(Node {
+    let field_count = node
+        .child_by_field_name("body")
+        .map(|body| {
+            let mut cursor = body.walk();
+            body.named_children(&mut cursor)
+                .filter(|child| child.kind() == "field_declaration")
+                .count()
+        })
+        .unwrap_or(0);
+    let struct_node = Node {
         id: id.clone(),
         name: SmolStr::new(name.clone()),
         kind: NodeKind::Struct,
         file: input.file_id,
         span: node_span(node),
         language: Language::Rust,
-    });
+    };
+    push_fingerprinted_node(
+        result,
+        struct_node,
+        fingerprint_from_parts([
+            "rust",
+            "struct",
+            field_count.to_string().as_str(),
+            normalized_shape_hash(&node_text(node, source)).as_str(),
+        ]),
+    );
     push_contains_edge(result, scope.parent_id.clone(), id.clone());
 
     if let Some(body) = node.child_by_field_name("body") {
@@ -214,14 +251,33 @@ fn parse_trait(
 
     let path = format!("{}::{name}", scope.module_path);
     let id = NodeId::new(input.crate_name, path, NodeKind::Trait);
-    result.nodes.push(Node {
+    let method_count = node
+        .child_by_field_name("body")
+        .map(|body| {
+            let mut cursor = body.walk();
+            body.named_children(&mut cursor)
+                .filter(|child| child.kind() == "function_item")
+                .count()
+        })
+        .unwrap_or(0);
+    let trait_node = Node {
         id: id.clone(),
         name: SmolStr::new(name.clone()),
         kind: NodeKind::Trait,
         file: input.file_id,
         span: node_span(node),
         language: Language::Rust,
-    });
+    };
+    push_fingerprinted_node(
+        result,
+        trait_node,
+        fingerprint_from_parts([
+            "rust",
+            "trait",
+            method_count.to_string().as_str(),
+            normalized_shape_hash(&node_text(node, source)).as_str(),
+        ]),
+    );
     push_contains_edge(result, scope.parent_id.clone(), id.clone());
 
     if let Some(body) = node.child_by_field_name("body") {
@@ -257,14 +313,34 @@ fn parse_impl(
         format!("{}::{path_suffix}", scope.module_path),
         NodeKind::Impl,
     );
-    result.nodes.push(Node {
+    let method_count = node
+        .child_by_field_name("body")
+        .map(|body| {
+            let mut cursor = body.walk();
+            body.named_children(&mut cursor)
+                .filter(|child| child.kind() == "function_item")
+                .count()
+        })
+        .unwrap_or(0);
+    let impl_node = Node {
         id: id.clone(),
         name: SmolStr::new(label),
         kind: NodeKind::Impl,
         file: input.file_id,
         span: node_span(node),
         language: Language::Rust,
-    });
+    };
+    push_fingerprinted_node(
+        result,
+        impl_node,
+        fingerprint_from_parts([
+            "rust",
+            "impl",
+            if trait_path.is_some() { "trait" } else { "inherent" },
+            method_count.to_string().as_str(),
+            normalized_shape_hash(&node_text(node, source)).as_str(),
+        ]),
+    );
     push_contains_edge(result, scope.parent_id.clone(), id.clone());
 
     if let Some(body) = node.child_by_field_name("body") {
@@ -296,14 +372,23 @@ fn parse_named_item(
 
     let path = format!("{}::{name}", scope.module_path);
     let id = NodeId::new(input.crate_name, path, kind);
-    result.nodes.push(Node {
+    let item_node = Node {
         id: id.clone(),
         name: SmolStr::new(name),
         kind,
         file: input.file_id,
         span: node_span(node),
         language: Language::Rust,
-    });
+    };
+    push_fingerprinted_node(
+        result,
+        item_node,
+        fingerprint_from_parts([
+            "rust",
+            kind_label(kind),
+            normalized_shape_hash(&node_text(node, source)).as_str(),
+        ]),
+    );
     push_contains_edge(result, scope.parent_id.clone(), id);
 }
 
@@ -322,14 +407,23 @@ fn parse_field(
     };
 
     let id = NodeId::new(input.crate_name, path, NodeKind::Field);
-    result.nodes.push(Node {
+    let field_node = Node {
         id: id.clone(),
         name: SmolStr::new(name),
         kind: NodeKind::Field,
         file: input.file_id,
         span: node_span(node),
         language: Language::Rust,
-    });
+    };
+    push_fingerprinted_node(
+        result,
+        field_node,
+        fingerprint_from_parts([
+            "rust",
+            "field",
+            normalized_shape_hash(&node_text(node, source)).as_str(),
+        ]),
+    );
     push_contains_edge(result, scope.parent_id.clone(), id);
 }
 
@@ -349,14 +443,43 @@ fn parse_function(
         _ => NodeKind::Method,
     };
     let id = NodeId::new(input.crate_name, scope.function_path(&name), kind);
-    result.nodes.push(Node {
+    let param_count = node
+        .child_by_field_name("parameters")
+        .map(|parameters| {
+            let mut cursor = parameters.walk();
+            parameters
+                .named_children(&mut cursor)
+                .filter(|child| matches!(child.kind(), "parameter" | "self_parameter"))
+                .count()
+        })
+        .unwrap_or(0);
+    let body_shape = node
+        .child_by_field_name("body")
+        .map(|body| normalized_shape_hash(&node_text(body, source)))
+        .unwrap_or_else(|| normalized_shape_hash(""));
+    let function_node = Node {
         id: id.clone(),
         name: SmolStr::new(name),
         kind,
         file: input.file_id,
         span: node_span(node),
         language: Language::Rust,
-    });
+    };
+    push_fingerprinted_node(
+        result,
+        function_node,
+        fingerprint_from_parts([
+            "rust",
+            kind_label(kind),
+            param_count.to_string().as_str(),
+            if node.child_by_field_name("return_type").is_some() {
+                "ret"
+            } else {
+                "unit"
+            },
+            body_shape.as_str(),
+        ]),
+    );
     push_contains_edge(result, scope.parent_id.clone(), id.clone());
 
     let Some(body) = node.child_by_field_name("body") else {
@@ -466,6 +589,26 @@ fn push_contains_edge(result: &mut ParseResult, source: NodeId, target: NodeId) 
         origin: EdgeOrigin::Static,
         confidence: 1.0,
     });
+}
+
+fn push_fingerprinted_node(result: &mut ParseResult, node: Node, fingerprint: NodeFingerprint) {
+    result.record_fingerprint(&node.id, fingerprint);
+    result.nodes.push(node);
+}
+
+fn kind_label(kind: NodeKind) -> &'static str {
+    match kind {
+        NodeKind::Module => "module",
+        NodeKind::Function => "function",
+        NodeKind::Struct => "struct",
+        NodeKind::Enum => "enum",
+        NodeKind::Trait => "trait",
+        NodeKind::Impl => "impl",
+        NodeKind::Method => "method",
+        NodeKind::Field => "field",
+        NodeKind::TypeAlias => "type_alias",
+        _ => "node",
+    }
 }
 
 fn canonical_impl_parts(type_name: &str, trait_name: Option<&str>) -> (String, String) {
@@ -615,7 +758,7 @@ fn parent_module_path(value: &str) -> &str {
 }
 
 fn module_path(input: &ParseInput<'_>) -> String {
-    let relative = relative_file(input);
+    let relative = relative_package_file(input);
     let mut parts = vec![input.crate_name.to_owned()];
     let relative = relative.strip_prefix("src").unwrap_or(relative.as_path());
     let file_stem = relative
@@ -655,8 +798,9 @@ mod tests {
     fn parses_top_level_function_and_call() {
         let adapter = RustAdapter;
         let input = ParseInput {
+            package_name: "demo",
             crate_name: "demo",
-            workspace_root: Path::new("/workspace"),
+            package_root: Path::new("/workspace"),
             path: Path::new("/workspace/src/lib.rs"),
             file_id: FileId(1),
             source: "fn alpha() { beta(); }\nfn beta() {}\n",
@@ -681,8 +825,9 @@ mod tests {
     fn parses_impls_nested_modules_and_fields() {
         let adapter = RustAdapter;
         let input = ParseInput {
+            package_name: "demo",
             crate_name: "demo",
-            workspace_root: Path::new("/workspace"),
+            package_root: Path::new("/workspace"),
             path: Path::new("/workspace/src/lib.rs"),
             file_id: FileId(1),
             source: r#"
@@ -738,8 +883,9 @@ mod nested {
     fn collects_imports_and_trait_references() {
         let adapter = RustAdapter;
         let input = ParseInput {
+            package_name: "demo",
             crate_name: "demo",
-            workspace_root: Path::new("/workspace"),
+            package_root: Path::new("/workspace"),
             path: Path::new("/workspace/src/lib.rs"),
             file_id: FileId(1),
             source: r#"

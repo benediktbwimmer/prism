@@ -48,6 +48,7 @@ impl Span {
 pub enum NodeKind {
     Workspace,
     Package,
+    Document,
     Module,
     Function,
     Struct,
@@ -67,6 +68,7 @@ impl fmt::Display for NodeKind {
         let label = match self {
             NodeKind::Workspace => "workspace",
             NodeKind::Package => "package",
+            NodeKind::Document => "document",
             NodeKind::Module => "module",
             NodeKind::Function => "function",
             NodeKind::Struct => "struct",
@@ -105,6 +107,14 @@ impl fmt::Display for NodeId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} ({})", self.path, self.kind)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GraphChange {
+    Added(NodeId),
+    Removed(NodeId),
+    Modified(NodeId),
+    Reanchored { old: NodeId, new: NodeId },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

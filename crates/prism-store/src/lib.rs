@@ -2,17 +2,22 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use prism_ir::{Edge, EdgeIndex, EdgeKind, EdgeOrigin, FileId, Language, Node, NodeId, NodeKind};
-use prism_parser::{UnresolvedCall, UnresolvedImpl, UnresolvedImport};
+use prism_ir::{
+    Edge, EdgeIndex, EdgeKind, EdgeOrigin, FileId, GraphChange, Language, Node, NodeId, NodeKind,
+};
+use prism_parser::{NodeFingerprint, UnresolvedCall, UnresolvedImpl, UnresolvedImport};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
+
+const SCHEMA_VERSION: i64 = 5;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileRecord {
     pub file_id: FileId,
     pub hash: u64,
     pub nodes: Vec<NodeId>,
+    pub fingerprints: HashMap<NodeId, NodeFingerprint>,
     pub unresolved_calls: Vec<UnresolvedCall>,
     pub unresolved_imports: Vec<UnresolvedImport>,
     pub unresolved_impls: Vec<UnresolvedImpl>,
@@ -24,6 +29,20 @@ pub struct GraphSnapshot {
     pub edges: Vec<Edge>,
     pub file_records: HashMap<PathBuf, FileRecord>,
     pub next_file_id: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct FileState {
+    pub path: PathBuf,
+    pub record: FileRecord,
+    pub nodes: Vec<Node>,
+    pub edges: Vec<Edge>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileUpdate {
+    pub file_id: FileId,
+    pub changes: Vec<GraphChange>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -40,7 +59,10 @@ pub struct Graph {
 
 pub trait Store {
     fn load_graph(&mut self) -> Result<Option<Graph>>;
-    fn save_graph(&mut self, graph: &Graph) -> Result<()>;
+    fn save_file_state(&mut self, path: &Path, graph: &Graph) -> Result<()>;
+    fn remove_file_state(&mut self, path: &Path) -> Result<()>;
+    fn replace_derived_edges(&mut self, graph: &Graph) -> Result<()>;
+    fn finalize(&mut self, graph: &Graph) -> Result<()>;
 }
 
 #[derive(Debug, Default)]
@@ -53,7 +75,19 @@ impl Store for MemoryStore {
         Ok(self.snapshot.clone().map(Graph::from_snapshot))
     }
 
-    fn save_graph(&mut self, graph: &Graph) -> Result<()> {
+    fn save_file_state(&mut self, _path: &Path, _graph: &Graph) -> Result<()> {
+        Ok(())
+    }
+
+    fn remove_file_state(&mut self, _path: &Path) -> Result<()> {
+        Ok(())
+    }
+
+    fn replace_derived_edges(&mut self, _graph: &Graph) -> Result<()> {
+        Ok(())
+    }
+
+    fn finalize(&mut self, graph: &Graph) -> Result<()> {
         self.snapshot = Some(graph.snapshot());
         Ok(())
     }
@@ -77,6 +111,25 @@ impl SqliteStore {
     }
 
     fn init_schema(&self) -> Result<()> {
+        let version: i64 = self
+            .conn
+            .pragma_query_value(None, "user_version", |row| row.get(0))?;
+        if version != SCHEMA_VERSION {
+            self.conn.execute_batch(
+                r#"
+                DROP TABLE IF EXISTS metadata;
+                DROP TABLE IF EXISTS nodes;
+                DROP TABLE IF EXISTS edges;
+                DROP TABLE IF EXISTS file_records;
+                DROP TABLE IF EXISTS file_nodes;
+                DROP TABLE IF EXISTS node_fingerprints;
+                DROP TABLE IF EXISTS unresolved_calls;
+                DROP TABLE IF EXISTS unresolved_imports;
+                DROP TABLE IF EXISTS unresolved_impls;
+                "#,
+            )?;
+        }
+
         self.conn.execute_batch(
             r#"
             CREATE TABLE IF NOT EXISTS metadata (
@@ -99,6 +152,7 @@ impl SqliteStore {
             );
 
             CREATE TABLE IF NOT EXISTS edges (
+                file_path TEXT,
                 kind INTEGER NOT NULL,
                 source_crate_name TEXT NOT NULL,
                 source_path TEXT NOT NULL,
@@ -121,6 +175,14 @@ impl SqliteStore {
                 node_crate_name TEXT NOT NULL,
                 node_path TEXT NOT NULL,
                 node_kind INTEGER NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS node_fingerprints (
+                file_path TEXT NOT NULL,
+                node_crate_name TEXT NOT NULL,
+                node_path TEXT NOT NULL,
+                node_kind INTEGER NOT NULL,
+                fingerprint TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS unresolved_calls (
@@ -153,6 +215,8 @@ impl SqliteStore {
             );
             "#,
         )?;
+        self.conn
+            .pragma_update(None, "user_version", SCHEMA_VERSION)?;
         Ok(())
     }
 }
@@ -246,6 +310,7 @@ impl Store for SqliteStore {
                         file_id,
                         hash,
                         nodes: Vec::new(),
+                        fingerprints: HashMap::new(),
                         unresolved_calls: Vec::new(),
                         unresolved_imports: Vec::new(),
                         unresolved_impls: Vec::new(),
@@ -276,6 +341,7 @@ impl Store for SqliteStore {
             }
         }
 
+        load_node_fingerprints(&self.conn, &mut file_records)?;
         load_unresolved_calls(&self.conn, &mut file_records)?;
         load_unresolved_imports(&self.conn, &mut file_records)?;
         load_unresolved_impls(&self.conn, &mut file_records)?;
@@ -288,24 +354,24 @@ impl Store for SqliteStore {
         })))
     }
 
-    fn save_graph(&mut self, graph: &Graph) -> Result<()> {
-        let snapshot = graph.snapshot();
+    fn save_file_state(&mut self, path: &Path, graph: &Graph) -> Result<()> {
+        let Some(state) = graph.file_state(path) else {
+            return Ok(());
+        };
         let tx = self.conn.transaction()?;
-        tx.execute("DELETE FROM metadata", [])?;
-        tx.execute("DELETE FROM nodes", [])?;
-        tx.execute("DELETE FROM edges", [])?;
-        tx.execute("DELETE FROM file_records", [])?;
-        tx.execute("DELETE FROM file_nodes", [])?;
-        tx.execute("DELETE FROM unresolved_calls", [])?;
-        tx.execute("DELETE FROM unresolved_imports", [])?;
-        tx.execute("DELETE FROM unresolved_impls", [])?;
+        delete_file_state(&tx, path)?;
 
+        let file_path = state.path.to_string_lossy();
         tx.execute(
-            "INSERT INTO metadata(key, value) VALUES ('next_file_id', ?1)",
-            params![snapshot.next_file_id],
+            "INSERT INTO file_records(path, file_id, hash) VALUES (?1, ?2, ?3)",
+            params![
+                file_path.as_ref(),
+                state.record.file_id.0,
+                state.record.hash as i64
+            ],
         )?;
 
-        for node in snapshot.nodes.values() {
+        for node in &state.nodes {
             tx.execute(
                 "INSERT INTO nodes(crate_name, path, kind, name, file_id, start_line, start_col, end_line, end_col, language)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
@@ -324,10 +390,124 @@ impl Store for SqliteStore {
             )?;
         }
 
-        for edge in &snapshot.edges {
+        for node_id in &state.record.nodes {
             tx.execute(
-                "INSERT INTO edges(kind, source_crate_name, source_path, source_kind, target_crate_name, target_path, target_kind, origin, confidence)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                "INSERT INTO file_nodes(file_path, node_crate_name, node_path, node_kind) VALUES (?1, ?2, ?3, ?4)",
+                params![
+                    file_path.as_ref(),
+                    node_id.crate_name.as_str(),
+                    node_id.path.as_str(),
+                    encode_node_kind(node_id.kind),
+                ],
+            )?;
+        }
+
+        for (node_id, fingerprint) in &state.record.fingerprints {
+            tx.execute(
+                "INSERT INTO node_fingerprints(file_path, node_crate_name, node_path, node_kind, fingerprint)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![
+                    file_path.as_ref(),
+                    node_id.crate_name.as_str(),
+                    node_id.path.as_str(),
+                    encode_node_kind(node_id.kind),
+                    fingerprint.0.as_str(),
+                ],
+            )?;
+        }
+
+        for edge in &state.edges {
+            tx.execute(
+                "INSERT INTO edges(file_path, kind, source_crate_name, source_path, source_kind, target_crate_name, target_path, target_kind, origin, confidence)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                params![
+                    file_path.as_ref(),
+                    encode_edge_kind(edge.kind),
+                    edge.source.crate_name.as_str(),
+                    edge.source.path.as_str(),
+                    encode_node_kind(edge.source.kind),
+                    edge.target.crate_name.as_str(),
+                    edge.target.path.as_str(),
+                    encode_node_kind(edge.target.kind),
+                    encode_edge_origin(edge.origin),
+                    edge.confidence,
+                ],
+            )?;
+        }
+
+        for call in &state.record.unresolved_calls {
+            tx.execute(
+                "INSERT INTO unresolved_calls(file_path, source_crate_name, source_path, source_kind, name, module_path)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![
+                    file_path.as_ref(),
+                    call.source.crate_name.as_str(),
+                    call.source.path.as_str(),
+                    encode_node_kind(call.source.kind),
+                    call.name.as_str(),
+                    call.module_path.as_str(),
+                ],
+            )?;
+        }
+
+        for import in &state.record.unresolved_imports {
+            tx.execute(
+                "INSERT INTO unresolved_imports(file_path, source_crate_name, source_path, source_kind, name, module_path, target_path)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    file_path.as_ref(),
+                    import.source.crate_name.as_str(),
+                    import.source.path.as_str(),
+                    encode_node_kind(import.source.kind),
+                    import.name.as_str(),
+                    import.module_path.as_str(),
+                    import.target_path.as_str(),
+                ],
+            )?;
+        }
+
+        for implementation in &state.record.unresolved_impls {
+            tx.execute(
+                "INSERT INTO unresolved_impls(file_path, source_crate_name, source_path, source_kind, name, module_path, trait_path)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    file_path.as_ref(),
+                    implementation.source.crate_name.as_str(),
+                    implementation.source.path.as_str(),
+                    encode_node_kind(implementation.source.kind),
+                    implementation.name.as_str(),
+                    implementation.module_path.as_str(),
+                    implementation.trait_path.as_str(),
+                ],
+            )?;
+        }
+
+        tx.commit()?;
+        Ok(())
+    }
+
+    fn remove_file_state(&mut self, path: &Path) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        delete_file_state(&tx, path)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    fn replace_derived_edges(&mut self, graph: &Graph) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        tx.execute(
+            "DELETE FROM edges WHERE file_path IS NULL AND kind IN (?1, ?2, ?3)",
+            params![
+                encode_edge_kind(EdgeKind::Calls),
+                encode_edge_kind(EdgeKind::Imports),
+                encode_edge_kind(EdgeKind::Implements)
+            ],
+        )?;
+
+        for edge in graph.derived_edges() {
+            tx.execute(
+                "INSERT INTO edges(file_path, kind, source_crate_name, source_path, source_kind, target_crate_name, target_path, target_kind, origin, confidence)
+                 VALUES (NULL, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                 params![
                     encode_edge_kind(edge.kind),
                     edge.source.crate_name.as_str(),
@@ -342,71 +522,74 @@ impl Store for SqliteStore {
             )?;
         }
 
-        for (path, record) in &snapshot.file_records {
-            let file_path = path.to_string_lossy();
+        tx.commit()?;
+        Ok(())
+    }
+
+    fn finalize(&mut self, graph: &Graph) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        tx.execute(
+            "INSERT INTO metadata(key, value) VALUES ('next_file_id', ?1)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params![graph.next_file_id()],
+        )?;
+
+        for node in graph.root_nodes() {
             tx.execute(
-                "INSERT INTO file_records(path, file_id, hash) VALUES (?1, ?2, ?3)",
-                params![file_path.as_ref(), record.file_id.0, record.hash as i64],
+                "INSERT INTO nodes(crate_name, path, kind, name, file_id, start_line, start_col, end_line, end_col, language)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+                 ON CONFLICT(crate_name, path, kind) DO UPDATE SET
+                    name = excluded.name,
+                    file_id = excluded.file_id,
+                    start_line = excluded.start_line,
+                    start_col = excluded.start_col,
+                    end_line = excluded.end_line,
+                    end_col = excluded.end_col,
+                    language = excluded.language",
+                params![
+                    node.id.crate_name.as_str(),
+                    node.id.path.as_str(),
+                    encode_node_kind(node.kind),
+                    node.name.as_str(),
+                    node.file.0,
+                    node.span.start_line,
+                    node.span.start_col,
+                    node.span.end_line,
+                    node.span.end_col,
+                    encode_language(node.language),
+                ],
             )?;
+        }
 
-            for node_id in &record.nodes {
-                tx.execute(
-                    "INSERT INTO file_nodes(file_path, node_crate_name, node_path, node_kind) VALUES (?1, ?2, ?3, ?4)",
-                    params![
-                        file_path.as_ref(),
-                        node_id.crate_name.as_str(),
-                        node_id.path.as_str(),
-                        encode_node_kind(node_id.kind),
-                    ],
-                )?;
-            }
+        tx.execute(
+            "DELETE FROM edges
+             WHERE file_path IS NULL
+               AND kind = ?1
+               AND source_kind = ?2
+               AND target_kind = ?3",
+            params![
+                encode_edge_kind(EdgeKind::Contains),
+                encode_node_kind(NodeKind::Workspace),
+                encode_node_kind(NodeKind::Package)
+            ],
+        )?;
 
-            for call in &record.unresolved_calls {
-                tx.execute(
-                    "INSERT INTO unresolved_calls(file_path, source_crate_name, source_path, source_kind, name, module_path)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                    params![
-                        file_path.as_ref(),
-                        call.source.crate_name.as_str(),
-                        call.source.path.as_str(),
-                        encode_node_kind(call.source.kind),
-                        call.name.as_str(),
-                        call.module_path.as_str(),
-                    ],
-                )?;
-            }
-
-            for import in &record.unresolved_imports {
-                tx.execute(
-                    "INSERT INTO unresolved_imports(file_path, source_crate_name, source_path, source_kind, name, module_path, target_path)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                    params![
-                        file_path.as_ref(),
-                        import.source.crate_name.as_str(),
-                        import.source.path.as_str(),
-                        encode_node_kind(import.source.kind),
-                        import.name.as_str(),
-                        import.module_path.as_str(),
-                        import.target_path.as_str(),
-                    ],
-                )?;
-            }
-
-            for implementation in &record.unresolved_impls {
-                tx.execute(
-                    "INSERT INTO unresolved_impls(file_path, source_crate_name, source_path, source_kind, name, module_path, trait_path)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                    params![
-                        file_path.as_ref(),
-                        implementation.source.crate_name.as_str(),
-                        implementation.source.path.as_str(),
-                        encode_node_kind(implementation.source.kind),
-                        implementation.name.as_str(),
-                        implementation.module_path.as_str(),
-                        implementation.trait_path.as_str(),
-                    ],
-                )?;
-            }
+        for edge in graph.root_edges() {
+            tx.execute(
+                "INSERT INTO edges(file_path, kind, source_crate_name, source_path, source_kind, target_crate_name, target_path, target_kind, origin, confidence)
+                 VALUES (NULL, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                params![
+                    encode_edge_kind(edge.kind),
+                    edge.source.crate_name.as_str(),
+                    edge.source.path.as_str(),
+                    encode_node_kind(edge.source.kind),
+                    edge.target.crate_name.as_str(),
+                    edge.target.path.as_str(),
+                    encode_node_kind(edge.target.kind),
+                    encode_edge_origin(edge.origin),
+                    edge.confidence,
+                ],
+            )?;
         }
 
         tx.commit()?;
@@ -475,12 +658,81 @@ impl Graph {
         hash: u64,
         nodes: Vec<Node>,
         edges: Vec<Edge>,
+        fingerprints: HashMap<NodeId, NodeFingerprint>,
         unresolved_calls: Vec<UnresolvedCall>,
         unresolved_imports: Vec<UnresolvedImport>,
         unresolved_impls: Vec<UnresolvedImpl>,
     ) -> FileId {
-        let file_id = self.ensure_file(path);
-        self.remove_file_nodes(path);
+        self.upsert_file_from(
+            None,
+            path,
+            hash,
+            nodes,
+            edges,
+            fingerprints,
+            unresolved_calls,
+            unresolved_imports,
+            unresolved_impls,
+            &[],
+        )
+        .file_id
+    }
+
+    pub fn upsert_file_with_reanchors(
+        &mut self,
+        path: &Path,
+        hash: u64,
+        nodes: Vec<Node>,
+        edges: Vec<Edge>,
+        fingerprints: HashMap<NodeId, NodeFingerprint>,
+        unresolved_calls: Vec<UnresolvedCall>,
+        unresolved_imports: Vec<UnresolvedImport>,
+        unresolved_impls: Vec<UnresolvedImpl>,
+        reanchors: &[(NodeId, NodeId)],
+    ) -> FileUpdate {
+        self.upsert_file_from(
+            None,
+            path,
+            hash,
+            nodes,
+            edges,
+            fingerprints,
+            unresolved_calls,
+            unresolved_imports,
+            unresolved_impls,
+            reanchors,
+        )
+    }
+
+    pub fn upsert_file_from(
+        &mut self,
+        previous_path: Option<&Path>,
+        path: &Path,
+        hash: u64,
+        nodes: Vec<Node>,
+        edges: Vec<Edge>,
+        fingerprints: HashMap<NodeId, NodeFingerprint>,
+        unresolved_calls: Vec<UnresolvedCall>,
+        unresolved_imports: Vec<UnresolvedImport>,
+        unresolved_impls: Vec<UnresolvedImpl>,
+        reanchors: &[(NodeId, NodeId)],
+    ) -> FileUpdate {
+        let baseline_path = previous_path.unwrap_or(path);
+        let previous = self.file_records.get(baseline_path).cloned();
+        let file_id = previous
+            .as_ref()
+            .map(|record| record.file_id)
+            .unwrap_or_else(|| self.ensure_file(path));
+        let changes = self.compute_file_changes(previous.as_ref(), &nodes, reanchors);
+        self.remove_file_nodes(baseline_path);
+
+        if baseline_path != path {
+            if let Some(previous_file_id) = self.path_to_file.remove(baseline_path) {
+                self.file_paths.remove(&previous_file_id);
+            }
+            self.file_paths.insert(file_id, path.to_path_buf());
+            self.path_to_file.insert(path.to_path_buf(), file_id);
+        }
 
         let node_ids: Vec<NodeId> = nodes.iter().map(|node| node.id.clone()).collect();
         for node in nodes {
@@ -493,13 +745,14 @@ impl Graph {
                 file_id,
                 hash,
                 nodes: node_ids,
+                fingerprints,
                 unresolved_calls,
                 unresolved_imports,
                 unresolved_impls,
             },
         );
         self.rebuild_adjacency();
-        file_id
+        FileUpdate { file_id, changes }
     }
 
     pub fn add_node(&mut self, node: Node) {
@@ -550,12 +803,104 @@ impl Graph {
         self.file_records.keys().cloned().collect()
     }
 
+    pub fn next_file_id(&self) -> u32 {
+        self.next_file_id
+    }
+
+    pub fn file_state(&self, path: &Path) -> Option<FileState> {
+        let record = self.file_records.get(path)?.clone();
+        let node_ids: HashSet<NodeId> = record.nodes.iter().cloned().collect();
+        let nodes = record
+            .nodes
+            .iter()
+            .filter_map(|id| self.nodes.get(id).cloned())
+            .collect::<Vec<_>>();
+        let edges = self
+            .edges
+            .iter()
+            .filter(|edge| !is_derived_kind(edge.kind))
+            .filter(|edge| node_ids.contains(&edge.source) || node_ids.contains(&edge.target))
+            .cloned()
+            .collect::<Vec<_>>();
+
+        Some(FileState {
+            path: path.to_path_buf(),
+            record,
+            nodes,
+            edges,
+        })
+    }
+
+    pub fn root_nodes(&self) -> Vec<Node> {
+        self.nodes
+            .values()
+            .filter(|node| matches!(node.kind, NodeKind::Workspace | NodeKind::Package))
+            .cloned()
+            .collect()
+    }
+
+    pub fn root_edges(&self) -> Vec<Edge> {
+        self.edges
+            .iter()
+            .filter(|edge| {
+                edge.kind == EdgeKind::Contains
+                    && edge.source.kind == NodeKind::Workspace
+                    && edge.target.kind == NodeKind::Package
+            })
+            .cloned()
+            .collect()
+    }
+
+    pub fn retain_root_nodes(&mut self, allowed: &HashSet<NodeId>) {
+        self.nodes.retain(|id, node| {
+            !matches!(node.kind, NodeKind::Workspace | NodeKind::Package) || allowed.contains(id)
+        });
+        self.edges.retain(|edge| {
+            self.nodes.contains_key(&edge.source) && self.nodes.contains_key(&edge.target)
+        });
+        self.rebuild_adjacency();
+    }
+
+    pub fn clear_root_contains_edges(&mut self) {
+        self.edges.retain(|edge| {
+            !(edge.kind == EdgeKind::Contains
+                && edge.source.kind == NodeKind::Workspace
+                && edge.target.kind == NodeKind::Package)
+        });
+        self.rebuild_adjacency();
+    }
+
+    pub fn derived_edges(&self) -> Vec<Edge> {
+        self.edges
+            .iter()
+            .filter(|edge| is_derived_kind(edge.kind))
+            .cloned()
+            .collect()
+    }
+
     pub fn remove_file(&mut self, path: &Path) {
+        self.remove_file_with_changes(path);
+    }
+
+    pub fn remove_file_with_changes(&mut self, path: &Path) -> Vec<GraphChange> {
+        let changes = self
+            .file_records
+            .get(path)
+            .map(|record| {
+                record
+                    .nodes
+                    .iter()
+                    .cloned()
+                    .map(GraphChange::Removed)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
         self.remove_file_nodes(path);
         if let Some(file_id) = self.path_to_file.remove(path) {
             self.file_paths.remove(&file_id);
         }
         self.rebuild_adjacency();
+        changes
     }
 
     pub fn clear_edges_by_kind(&mut self, kinds: &[EdgeKind]) {
@@ -610,6 +955,141 @@ impl Graph {
                 .push(index);
         }
     }
+
+    fn compute_file_changes(
+        &self,
+        previous: Option<&FileRecord>,
+        nodes: &[Node],
+        reanchors: &[(NodeId, NodeId)],
+    ) -> Vec<GraphChange> {
+        let old_nodes = previous
+            .map(|record| record.nodes.iter().cloned().collect::<HashSet<_>>())
+            .unwrap_or_default();
+        let new_nodes = nodes
+            .iter()
+            .map(|node| node.id.clone())
+            .collect::<HashSet<_>>();
+        let valid_reanchors = reanchors
+            .iter()
+            .filter(|(old, new)| old_nodes.contains(old) && new_nodes.contains(new))
+            .cloned()
+            .collect::<Vec<_>>();
+        let reanchored_old = valid_reanchors
+            .iter()
+            .map(|(old, _)| old.clone())
+            .collect::<HashSet<_>>();
+        let reanchored_new = valid_reanchors
+            .iter()
+            .map(|(_, new)| new.clone())
+            .collect::<HashSet<_>>();
+
+        let mut changes = Vec::new();
+
+        for id in old_nodes
+            .intersection(&new_nodes)
+            .filter(|id| !reanchored_old.contains(*id) && !reanchored_new.contains(*id))
+        {
+            changes.push(GraphChange::Modified((*id).clone()));
+        }
+
+        for (old, new) in valid_reanchors {
+            changes.push(GraphChange::Reanchored { old, new });
+        }
+
+        for id in old_nodes
+            .difference(&new_nodes)
+            .filter(|id| !reanchored_old.contains(*id))
+        {
+            changes.push(GraphChange::Removed((*id).clone()));
+        }
+
+        for id in new_nodes
+            .difference(&old_nodes)
+            .filter(|id| !reanchored_new.contains(*id))
+        {
+            changes.push(GraphChange::Added((*id).clone()));
+        }
+
+        changes
+    }
+}
+
+fn is_derived_kind(kind: EdgeKind) -> bool {
+    matches!(
+        kind,
+        EdgeKind::Calls | EdgeKind::Imports | EdgeKind::Implements
+    )
+}
+
+fn delete_file_state(tx: &rusqlite::Transaction<'_>, path: &Path) -> Result<()> {
+    let file_path = path.to_string_lossy();
+    tx.execute(
+        "DELETE FROM edges WHERE file_path = ?1",
+        params![file_path.as_ref()],
+    )?;
+    tx.execute(
+        "DELETE FROM nodes
+         WHERE EXISTS (
+            SELECT 1 FROM file_nodes
+            WHERE file_nodes.file_path = ?1
+              AND file_nodes.node_crate_name = nodes.crate_name
+              AND file_nodes.node_path = nodes.path
+              AND file_nodes.node_kind = nodes.kind
+         )",
+        params![file_path.as_ref()],
+    )?;
+    tx.execute(
+        "DELETE FROM file_nodes WHERE file_path = ?1",
+        params![file_path.as_ref()],
+    )?;
+    tx.execute(
+        "DELETE FROM node_fingerprints WHERE file_path = ?1",
+        params![file_path.as_ref()],
+    )?;
+    tx.execute(
+        "DELETE FROM file_records WHERE path = ?1",
+        params![file_path.as_ref()],
+    )?;
+    tx.execute(
+        "DELETE FROM unresolved_calls WHERE file_path = ?1",
+        params![file_path.as_ref()],
+    )?;
+    tx.execute(
+        "DELETE FROM unresolved_imports WHERE file_path = ?1",
+        params![file_path.as_ref()],
+    )?;
+    tx.execute(
+        "DELETE FROM unresolved_impls WHERE file_path = ?1",
+        params![file_path.as_ref()],
+    )?;
+    Ok(())
+}
+
+fn load_node_fingerprints(
+    conn: &Connection,
+    file_records: &mut HashMap<PathBuf, FileRecord>,
+) -> Result<()> {
+    let mut stmt = conn.prepare(
+        "SELECT file_path, node_crate_name, node_path, node_kind, fingerprint FROM node_fingerprints",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            PathBuf::from(row.get::<_, String>(0)?),
+            NodeId::new(
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                decode_node_kind(row.get(3)?)?,
+            ),
+            NodeFingerprint::new(row.get::<_, String>(4)?),
+        ))
+    })?;
+    for row in rows {
+        let (path, node_id, fingerprint) = row?;
+        if let Some(record) = file_records.get_mut(&path) {
+            record.fingerprints.insert(node_id, fingerprint);
+        }
+    }
+    Ok(())
 }
 
 fn load_unresolved_calls(
@@ -708,18 +1188,19 @@ fn encode_node_kind(kind: NodeKind) -> i64 {
     match kind {
         NodeKind::Workspace => 0,
         NodeKind::Package => 1,
-        NodeKind::Module => 2,
-        NodeKind::Function => 3,
-        NodeKind::Struct => 4,
-        NodeKind::Enum => 5,
-        NodeKind::Trait => 6,
-        NodeKind::Impl => 7,
-        NodeKind::Method => 8,
-        NodeKind::Field => 9,
-        NodeKind::TypeAlias => 10,
-        NodeKind::MarkdownHeading => 11,
-        NodeKind::JsonKey => 12,
-        NodeKind::YamlKey => 13,
+        NodeKind::Document => 2,
+        NodeKind::Module => 3,
+        NodeKind::Function => 4,
+        NodeKind::Struct => 5,
+        NodeKind::Enum => 6,
+        NodeKind::Trait => 7,
+        NodeKind::Impl => 8,
+        NodeKind::Method => 9,
+        NodeKind::Field => 10,
+        NodeKind::TypeAlias => 11,
+        NodeKind::MarkdownHeading => 12,
+        NodeKind::JsonKey => 13,
+        NodeKind::YamlKey => 14,
     }
 }
 
@@ -727,18 +1208,19 @@ fn decode_node_kind(value: i64) -> rusqlite::Result<NodeKind> {
     Ok(match value {
         0 => NodeKind::Workspace,
         1 => NodeKind::Package,
-        2 => NodeKind::Module,
-        3 => NodeKind::Function,
-        4 => NodeKind::Struct,
-        5 => NodeKind::Enum,
-        6 => NodeKind::Trait,
-        7 => NodeKind::Impl,
-        8 => NodeKind::Method,
-        9 => NodeKind::Field,
-        10 => NodeKind::TypeAlias,
-        11 => NodeKind::MarkdownHeading,
-        12 => NodeKind::JsonKey,
-        13 => NodeKind::YamlKey,
+        2 => NodeKind::Document,
+        3 => NodeKind::Module,
+        4 => NodeKind::Function,
+        5 => NodeKind::Struct,
+        6 => NodeKind::Enum,
+        7 => NodeKind::Trait,
+        8 => NodeKind::Impl,
+        9 => NodeKind::Method,
+        10 => NodeKind::Field,
+        11 => NodeKind::TypeAlias,
+        12 => NodeKind::MarkdownHeading,
+        13 => NodeKind::JsonKey,
+        14 => NodeKind::YamlKey,
         other => {
             return Err(from_sql_conversion_error(format!(
                 "invalid node kind: {other}"
@@ -826,4 +1308,87 @@ fn from_sql_conversion_error(message: String) -> rusqlite::Error {
         rusqlite::types::Type::Integer,
         Box::new(IoError::new(IoErrorKind::InvalidData, message)),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use prism_ir::{GraphChange, Span};
+
+    use super::*;
+
+    fn node(name: &str) -> Node {
+        Node {
+            id: NodeId::new("demo", format!("demo::{name}"), NodeKind::Function),
+            name: name.into(),
+            kind: NodeKind::Function,
+            file: FileId(0),
+            span: Span::line(1),
+            language: Language::Rust,
+        }
+    }
+
+    #[test]
+    fn upsert_file_with_reanchors_emits_reanchored_change() {
+        let path = Path::new("src/lib.rs");
+        let mut graph = Graph::new();
+
+        graph.upsert_file(
+            path,
+            1,
+            vec![node("alpha")],
+            Vec::new(),
+            HashMap::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+
+        let old = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+        let new = NodeId::new("demo", "demo::renamed_alpha", NodeKind::Function);
+        let update = graph.upsert_file_with_reanchors(
+            path,
+            2,
+            vec![node("renamed_alpha")],
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            &[(old.clone(), new.clone())],
+        );
+
+        assert_eq!(update.changes, vec![GraphChange::Reanchored { old, new }]);
+    }
+
+    #[test]
+    fn remove_file_with_changes_emits_removed_nodes() {
+        let path = Path::new("src/lib.rs");
+        let mut graph = Graph::new();
+
+        graph.upsert_file(
+            path,
+            1,
+            vec![node("alpha"), node("beta")],
+            Vec::new(),
+            HashMap::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+
+        let removed = graph.remove_file_with_changes(path);
+
+        assert_eq!(removed.len(), 2);
+        assert!(removed.contains(&GraphChange::Removed(NodeId::new(
+            "demo",
+            "demo::alpha",
+            NodeKind::Function,
+        ))));
+        assert!(removed.contains(&GraphChange::Removed(NodeId::new(
+            "demo",
+            "demo::beta",
+            NodeKind::Function,
+        ))));
+    }
 }
