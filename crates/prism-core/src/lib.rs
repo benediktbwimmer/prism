@@ -309,8 +309,8 @@ fn infer_reanchors(previous: &FileState, parsed: &ParseResult) -> Vec<(NodeId, N
     let mut matched_old = HashSet::<NodeId>::new();
     let mut matched_new = HashSet::<NodeId>::new();
     let mut reanchors = Vec::<(NodeId, NodeId)>::new();
-    let mut old_by_fingerprint = HashMap::<String, Vec<NodeId>>::new();
-    let mut new_by_fingerprint = HashMap::<String, Vec<NodeId>>::new();
+    let mut old_by_fingerprint = HashMap::<prism_parser::NodeFingerprint, Vec<NodeId>>::new();
+    let mut new_by_fingerprint = HashMap::<prism_parser::NodeFingerprint, Vec<NodeId>>::new();
 
     for node in previous
         .nodes
@@ -324,7 +324,7 @@ fn infer_reanchors(previous: &FileState, parsed: &ParseResult) -> Vec<(NodeId, N
     for (id, fingerprint) in &previous.record.fingerprints {
         if previous_nodes.contains_key(id) {
             old_by_fingerprint
-                .entry(fingerprint.0.to_string())
+                .entry(fingerprint.clone())
                 .or_default()
                 .push(id.clone());
         }
@@ -333,7 +333,7 @@ fn infer_reanchors(previous: &FileState, parsed: &ParseResult) -> Vec<(NodeId, N
     for (id, fingerprint) in &parsed.fingerprints {
         if parsed_nodes.contains_key(id) {
             new_by_fingerprint
-                .entry(fingerprint.0.to_string())
+                .entry(fingerprint.clone())
                 .or_default()
                 .push(id.clone());
         }

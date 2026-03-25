@@ -4,7 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use prism_ir::{Edge, EdgeKind, FileId, Language, Node, NodeId};
+use prism_ir::{Edge, EdgeKind, FileId, Language, Node, NodeId, SymbolFingerprint};
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 
@@ -45,7 +45,7 @@ pub struct UnresolvedImpl {
 pub struct ParseResult {
     pub nodes: Vec<Node>,
     pub edges: Vec<Edge>,
-    pub fingerprints: HashMap<NodeId, NodeFingerprint>,
+    pub fingerprints: HashMap<NodeId, SymbolFingerprint>,
     pub unresolved_calls: Vec<UnresolvedCall>,
     pub unresolved_imports: Vec<UnresolvedImport>,
     pub unresolved_impls: Vec<UnresolvedImpl>,
@@ -61,19 +61,12 @@ impl ParseResult {
         self.unresolved_impls.extend(other.unresolved_impls);
     }
 
-    pub fn record_fingerprint(&mut self, id: &NodeId, fingerprint: NodeFingerprint) {
+    pub fn record_fingerprint(&mut self, id: &NodeId, fingerprint: SymbolFingerprint) {
         self.fingerprints.insert(id.clone(), fingerprint);
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct NodeFingerprint(pub SmolStr);
-
-impl NodeFingerprint {
-    pub fn new(value: impl Into<SmolStr>) -> Self {
-        Self(value.into())
-    }
-}
+pub type NodeFingerprint = SymbolFingerprint;
 
 #[derive(Debug, Clone)]
 pub struct SymbolTarget<'a> {
@@ -122,13 +115,11 @@ where
         .map(|part| part.as_ref().to_owned())
         .collect::<Vec<_>>()
         .join("|");
-    NodeFingerprint::new(joined)
+    NodeFingerprint::new(stable_hash(&joined))
 }
 
 pub fn normalized_shape_hash(value: &str) -> String {
-    let mut hasher = DefaultHasher::new();
-    normalize_shape(value).hash(&mut hasher);
-    format!("{:016x}", hasher.finish())
+    format!("{:016x}", stable_hash(&normalize_shape(value)))
 }
 
 fn sanitize_path_segment(value: &str) -> String {
@@ -195,4 +186,10 @@ fn normalize_shape(value: &str) -> String {
     }
 
     normalized.trim().to_owned()
+}
+
+fn stable_hash(value: &str) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    value.hash(&mut hasher);
+    hasher.finish()
 }

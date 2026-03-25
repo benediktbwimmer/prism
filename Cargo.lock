@@ -387,6 +387,7 @@ dependencies = [
  "prism-parser",
  "rusqlite",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

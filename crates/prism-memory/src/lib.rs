@@ -4,11 +4,9 @@ use std::sync::RwLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Result};
-use prism_ir::{GraphChange, NodeId};
+use prism_ir::{AnchorRef, LineageEvent, LineageEventKind, NodeId, Timestamp};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-
-pub type Timestamp = u64;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct MemoryId(pub String);
@@ -16,6 +14,10 @@ pub struct MemoryId(pub String);
 impl MemoryId {
     fn episodic(sequence: u64) -> Self {
         Self(format!("episodic:{sequence}"))
+    }
+
+    fn pending() -> Self {
+        Self("pending".to_string())
     }
 }
 
@@ -35,7 +37,8 @@ pub enum MemorySource {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MemoryEntry {
-    pub anchors: Vec<NodeId>,
+    pub id: MemoryId,
+    pub anchors: Vec<AnchorRef>,
     pub kind: MemoryKind,
     pub content: String,
     pub metadata: Value,
@@ -47,6 +50,7 @@ pub struct MemoryEntry {
 impl MemoryEntry {
     pub fn new(kind: MemoryKind, content: impl Into<String>) -> Self {
         Self {
+            id: MemoryId::pending(),
             anchors: Vec::new(),
             kind,
             content: content.into(),
@@ -60,7 +64,7 @@ impl MemoryEntry {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RecallQuery {
-    pub focus: Vec<NodeId>,
+    pub focus: Vec<AnchorRef>,
     pub text: Option<String>,
     pub limit: usize,
     pub kinds: Option<Vec<MemoryKind>>,
@@ -85,7 +89,7 @@ pub trait MemoryModule: Send + Sync {
 
     fn recall(&self, query: &RecallQuery) -> Result<Vec<ScoredMemory>>;
 
-    fn apply_changes(&self, changes: &[GraphChange]) -> Result<()>;
+    fn apply_lineage(&self, events: &[LineageEvent]) -> Result<()>;
 }
 
 #[derive(Default)]
@@ -163,9 +167,9 @@ impl MemoryModule for MemoryComposite {
         Ok(results)
     }
 
-    fn apply_changes(&self, changes: &[GraphChange]) -> Result<()> {
+    fn apply_lineage(&self, events: &[LineageEvent]) -> Result<()> {
         for (module, _) in &self.modules {
-            module.apply_changes(changes)?;
+            module.apply_lineage(events)?;
         }
         Ok(())
     }
@@ -180,7 +184,7 @@ pub struct EpisodicMemory {
 struct EpisodicState {
     next_sequence: u64,
     entries: HashMap<MemoryId, MemoryEntry>,
-    anchor_index: HashMap<NodeId, HashSet<MemoryId>>,
+    anchor_index: HashMap<AnchorRef, HashSet<MemoryId>>,
 }
 
 impl EpisodicMemory {
@@ -208,9 +212,11 @@ impl MemoryModule for EpisodicMemory {
 
         entry.anchors = dedupe_anchors(entry.anchors);
         entry.trust = clamp_unit(entry.trust);
+
         let mut state = self.state.write().expect("episodic memory lock poisoned");
         state.next_sequence += 1;
         let id = MemoryId::episodic(state.next_sequence);
+        entry.id = id.clone();
 
         for anchor in &entry.anchors {
             state
@@ -249,15 +255,36 @@ impl MemoryModule for EpisodicMemory {
         Ok(results)
     }
 
-    fn apply_changes(&self, changes: &[GraphChange]) -> Result<()> {
+    fn apply_lineage(&self, events: &[LineageEvent]) -> Result<()> {
         let mut state = self.state.write().expect("episodic memory lock poisoned");
-        for change in changes {
-            match change {
-                GraphChange::Added(_) | GraphChange::Modified(_) => {}
-                GraphChange::Removed(id) => remove_anchor(&mut state, id),
-                GraphChange::Reanchored { old, new } => reanchor(&mut state, old, new),
+
+        for event in events {
+            let lineage_anchor = AnchorRef::Lineage(event.lineage.clone());
+
+            match event.kind {
+                LineageEventKind::Born | LineageEventKind::Updated | LineageEventKind::Ambiguous => {
+                    for after in &event.after {
+                        add_anchor_to_matching_lineage(&mut state, &lineage_anchor, after);
+                    }
+                }
+                LineageEventKind::Renamed
+                | LineageEventKind::Moved
+                | LineageEventKind::Reparented
+                | LineageEventKind::Revived => {
+                    apply_reanchor_event(&mut state, &event.before, &event.after, &lineage_anchor);
+                }
+                LineageEventKind::Split | LineageEventKind::Merged | LineageEventKind::Died => {
+                    for before in &event.before {
+                        replace_anchor(
+                            &mut state,
+                            &AnchorRef::Node(before.clone()),
+                            &[lineage_anchor.clone()],
+                        );
+                    }
+                }
             }
         }
+
         Ok(())
     }
 }
@@ -270,7 +297,7 @@ fn recall_candidates(state: &EpisodicState, query: &RecallQuery) -> HashSet<Memo
     query
         .focus
         .iter()
-        .filter_map(|node| state.anchor_index.get(node))
+        .filter_map(|anchor| state.anchor_index.get(anchor))
         .flat_map(|ids| ids.iter().cloned())
         .collect()
 }
@@ -326,7 +353,7 @@ fn score_episodic_memory(
     })
 }
 
-fn anchor_overlap(anchors: &[NodeId], focus: &[NodeId]) -> f32 {
+fn anchor_overlap(anchors: &[AnchorRef], focus: &[AnchorRef]) -> f32 {
     if anchors.is_empty() {
         return if focus.is_empty() { 1.0 } else { 0.0 };
     }
@@ -386,49 +413,105 @@ fn is_better_candidate(candidate: &ScoredMemory, existing: &ScoredMemory) -> boo
     compare_scored_memory(candidate, existing) == Ordering::Less
 }
 
-fn remove_anchor(state: &mut EpisodicState, anchor: &NodeId) {
-    let Some(memory_ids) = state.anchor_index.remove(anchor) else {
+fn apply_reanchor_event(
+    state: &mut EpisodicState,
+    before: &[NodeId],
+    after: &[NodeId],
+    lineage_anchor: &AnchorRef,
+) {
+    if before.len() == 1 && after.len() == 1 {
+        replace_anchor(
+            state,
+            &AnchorRef::Node(before[0].clone()),
+            &[AnchorRef::Node(after[0].clone()), lineage_anchor.clone()],
+        );
         return;
-    };
-
-    let mut emptied = Vec::new();
-    for memory_id in memory_ids {
-        if let Some(entry) = state.entries.get_mut(&memory_id) {
-            entry.anchors.retain(|existing| existing != anchor);
-            if entry.anchors.is_empty() {
-                emptied.push(memory_id.clone());
-            }
-        }
     }
 
-    for memory_id in emptied {
-        remove_memory(state, &memory_id);
+    for previous in before {
+        replace_anchor(
+            state,
+            &AnchorRef::Node(previous.clone()),
+            &[lineage_anchor.clone()],
+        );
+    }
+
+    for next in after {
+        add_anchor_to_matching_lineage(state, lineage_anchor, next);
     }
 }
 
-fn reanchor(state: &mut EpisodicState, old: &NodeId, new: &NodeId) {
-    if old == new {
+fn add_anchor_to_matching_lineage(
+    state: &mut EpisodicState,
+    lineage_anchor: &AnchorRef,
+    node: &NodeId,
+) {
+    let Some(memory_ids) = state.anchor_index.get(lineage_anchor).cloned() else {
         return;
-    }
+    };
 
-    let Some(memory_ids) = state.anchor_index.remove(old) else {
+    let new_anchor = AnchorRef::Node(node.clone());
+    for memory_id in memory_ids {
+        let Some(entry) = state.entries.get_mut(&memory_id) else {
+            continue;
+        };
+        let old_anchors = entry.anchors.clone();
+        entry.anchors.push(new_anchor.clone());
+        entry.anchors = dedupe_anchors(entry.anchors.clone());
+        let new_anchors = entry.anchors.clone();
+        let _ = entry;
+        reindex_memory(state, &memory_id, &old_anchors, &new_anchors);
+    }
+}
+
+fn replace_anchor(state: &mut EpisodicState, old_anchor: &AnchorRef, replacements: &[AnchorRef]) {
+    let Some(memory_ids) = state.anchor_index.get(old_anchor).cloned() else {
         return;
     };
 
     for memory_id in memory_ids {
-        if let Some(entry) = state.entries.get_mut(&memory_id) {
-            for anchor in &mut entry.anchors {
-                if anchor == old {
-                    *anchor = new.clone();
-                }
-            }
-            entry.anchors = dedupe_anchors(entry.anchors.clone());
-            state
-                .anchor_index
-                .entry(new.clone())
-                .or_default()
-                .insert(memory_id.clone());
+        let Some(entry) = state.entries.get_mut(&memory_id) else {
+            continue;
+        };
+        let old_anchors = entry.anchors.clone();
+        entry.anchors.retain(|anchor| anchor != old_anchor);
+        entry.anchors.extend(replacements.iter().cloned());
+        entry.anchors = dedupe_anchors(entry.anchors.clone());
+        let new_anchors = entry.anchors.clone();
+        let empty = new_anchors.is_empty();
+        let _ = entry;
+        if empty {
+            remove_memory(state, &memory_id);
+        } else {
+            reindex_memory(state, &memory_id, &old_anchors, &new_anchors);
         }
+    }
+}
+
+fn reindex_memory(
+    state: &mut EpisodicState,
+    memory_id: &MemoryId,
+    old_anchors: &[AnchorRef],
+    new_anchors: &[AnchorRef],
+) {
+    let old_set = old_anchors.iter().cloned().collect::<HashSet<_>>();
+    let new_set = new_anchors.iter().cloned().collect::<HashSet<_>>();
+
+    for removed in old_set.difference(&new_set) {
+        if let Some(ids) = state.anchor_index.get_mut(removed) {
+            ids.remove(memory_id);
+            if ids.is_empty() {
+                state.anchor_index.remove(removed);
+            }
+        }
+    }
+
+    for added in new_set.difference(&old_set) {
+        state
+            .anchor_index
+            .entry(added.clone())
+            .or_default()
+            .insert(memory_id.clone());
     }
 }
 
@@ -447,7 +530,7 @@ fn remove_memory(state: &mut EpisodicState, memory_id: &MemoryId) {
     }
 }
 
-fn dedupe_anchors(anchors: Vec<NodeId>) -> Vec<NodeId> {
+fn dedupe_anchors(anchors: Vec<AnchorRef>) -> Vec<AnchorRef> {
     let mut seen = HashSet::new();
     let mut deduped = Vec::new();
     for anchor in anchors {
@@ -471,12 +554,47 @@ fn current_timestamp() -> Timestamp {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use prism_ir::NodeKind;
+    use prism_ir::{
+        EventActor, EventId, EventMeta, LineageEvidence, LineageEvent, LineageEventKind,
+        LineageId, NodeKind,
+    };
     use serde_json::json;
+
+    use super::*;
 
     fn node(name: &str) -> NodeId {
         NodeId::new("demo", format!("demo::{name}"), NodeKind::Function)
+    }
+
+    fn anchor_node(name: &str) -> AnchorRef {
+        AnchorRef::Node(node(name))
+    }
+
+    fn lineage(name: &str) -> LineageId {
+        LineageId::new(format!("lineage::{name}"))
+    }
+
+    fn lineage_event(
+        lineage: LineageId,
+        kind: LineageEventKind,
+        before: Vec<NodeId>,
+        after: Vec<NodeId>,
+    ) -> LineageEvent {
+        LineageEvent {
+            meta: EventMeta {
+                id: EventId::new("event:1"),
+                ts: 1,
+                actor: EventActor::System,
+                correlation: None,
+                causation: None,
+            },
+            lineage,
+            kind,
+            before,
+            after,
+            confidence: 1.0,
+            evidence: vec![LineageEvidence::FingerprintMatch],
+        }
     }
 
     #[test]
@@ -486,7 +604,7 @@ mod tests {
             MemoryKind::Episodic,
             "Function alpha changed in commit abc123",
         );
-        entry.anchors = vec![node("alpha")];
+        entry.anchors = vec![anchor_node("alpha")];
         entry.source = MemorySource::User;
         entry.trust = 1.0;
 
@@ -503,7 +621,7 @@ mod tests {
             MemoryKind::Episodic,
             "Bug report mentioned alpha null handling",
         );
-        alpha.anchors = vec![node("alpha"), node("beta")];
+        alpha.anchors = vec![anchor_node("alpha"), anchor_node("beta")];
         alpha.created_at = 1_000;
         alpha.source = MemorySource::User;
         alpha.trust = 1.0;
@@ -514,7 +632,7 @@ mod tests {
             MemoryKind::Episodic,
             "User noted beta is performance sensitive",
         );
-        beta.anchors = vec![node("beta")];
+        beta.anchors = vec![anchor_node("beta")];
         beta.created_at = 2_000;
         beta.source = MemorySource::System;
         beta.trust = 0.8;
@@ -522,7 +640,7 @@ mod tests {
 
         let results = memory
             .recall(&RecallQuery {
-                focus: vec![node("beta")],
+                focus: vec![anchor_node("beta")],
                 text: Some("performance".into()),
                 limit: 10,
                 kinds: Some(vec![MemoryKind::Episodic]),
@@ -535,28 +653,31 @@ mod tests {
     }
 
     #[test]
-    fn graph_reanchoring_moves_memory_to_new_node_id() {
+    fn lineage_reanchoring_moves_memory_to_new_node_id_and_adds_lineage_anchor() {
         let memory = EpisodicMemory::new();
         let old = node("alpha");
         let new = node("renamed_alpha");
+        let symbol_lineage = lineage("alpha");
 
         let mut entry = MemoryEntry::new(
             MemoryKind::Episodic,
             "Function alpha changed in commit abc123",
         );
-        entry.anchors = vec![old.clone()];
+        entry.anchors = vec![AnchorRef::Node(old.clone())];
         memory.store(entry).unwrap();
 
         memory
-            .apply_changes(&[GraphChange::Reanchored {
-                old: old.clone(),
-                new: new.clone(),
-            }])
+            .apply_lineage(&[lineage_event(
+                symbol_lineage.clone(),
+                LineageEventKind::Renamed,
+                vec![old.clone()],
+                vec![new.clone()],
+            )])
             .unwrap();
 
         let old_results = memory
             .recall(&RecallQuery {
-                focus: vec![old],
+                focus: vec![AnchorRef::Node(old)],
                 text: None,
                 limit: 10,
                 kinds: None,
@@ -565,7 +686,16 @@ mod tests {
             .unwrap();
         let new_results = memory
             .recall(&RecallQuery {
-                focus: vec![new],
+                focus: vec![AnchorRef::Node(new.clone())],
+                text: None,
+                limit: 10,
+                kinds: None,
+                since: None,
+            })
+            .unwrap();
+        let lineage_results = memory
+            .recall(&RecallQuery {
+                focus: vec![AnchorRef::Lineage(symbol_lineage)],
                 text: None,
                 limit: 10,
                 kinds: None,
@@ -575,24 +705,44 @@ mod tests {
 
         assert!(old_results.is_empty());
         assert_eq!(new_results.len(), 1);
+        assert_eq!(lineage_results.len(), 1);
+        assert!(lineage_results[0]
+            .entry
+            .anchors
+            .contains(&AnchorRef::Node(new)));
     }
 
     #[test]
-    fn removing_last_anchor_drops_anchored_memory() {
+    fn died_lineage_preserves_memory_via_lineage_anchor() {
         let memory = EpisodicMemory::new();
         let alpha = node("alpha");
+        let symbol_lineage = lineage("alpha");
 
         let mut entry = MemoryEntry::new(MemoryKind::Episodic, "User noted alpha is sensitive");
-        entry.anchors = vec![alpha.clone()];
+        entry.anchors = vec![AnchorRef::Node(alpha.clone())];
         memory.store(entry).unwrap();
 
         memory
-            .apply_changes(&[GraphChange::Removed(alpha.clone())])
+            .apply_lineage(&[lineage_event(
+                symbol_lineage.clone(),
+                LineageEventKind::Died,
+                vec![alpha.clone()],
+                Vec::new(),
+            )])
             .unwrap();
 
-        let results = memory
+        let removed_results = memory
             .recall(&RecallQuery {
-                focus: vec![alpha],
+                focus: vec![AnchorRef::Node(alpha)],
+                text: None,
+                limit: 10,
+                kinds: None,
+                since: None,
+            })
+            .unwrap();
+        let lineage_results = memory
+            .recall(&RecallQuery {
+                focus: vec![AnchorRef::Lineage(symbol_lineage)],
                 text: None,
                 limit: 10,
                 kinds: None,
@@ -600,7 +750,8 @@ mod tests {
             })
             .unwrap();
 
-        assert!(results.is_empty());
+        assert!(removed_results.is_empty());
+        assert_eq!(lineage_results.len(), 1);
     }
 
     struct StaticModule {
@@ -632,7 +783,7 @@ mod tests {
             }])
         }
 
-        fn apply_changes(&self, _changes: &[GraphChange]) -> Result<()> {
+        fn apply_lineage(&self, _events: &[LineageEvent]) -> Result<()> {
             Ok(())
         }
     }

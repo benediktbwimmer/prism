@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 
 pub type EdgeIndex = usize;
+pub type Timestamp = u64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FileId(pub u32);
@@ -109,6 +110,74 @@ impl fmt::Display for NodeId {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct LineageId(pub SmolStr);
+
+impl LineageId {
+    pub fn new(value: impl Into<SmolStr>) -> Self {
+        Self(value.into())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct EventId(pub SmolStr);
+
+impl EventId {
+    pub fn new(value: impl Into<SmolStr>) -> Self {
+        Self(value.into())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TaskId(pub SmolStr);
+
+impl TaskId {
+    pub fn new(value: impl Into<SmolStr>) -> Self {
+        Self(value.into())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum AnchorRef {
+    Node(NodeId),
+    Lineage(LineageId),
+    File(FileId),
+    Kind(NodeKind),
+}
+
+impl From<NodeId> for AnchorRef {
+    fn from(value: NodeId) -> Self {
+        Self::Node(value)
+    }
+}
+
+impl From<&NodeId> for AnchorRef {
+    fn from(value: &NodeId) -> Self {
+        Self::Node(value.clone())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EventMeta {
+    pub id: EventId,
+    pub ts: Timestamp,
+    pub actor: EventActor,
+    pub correlation: Option<TaskId>,
+    pub causation: Option<EventId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EventActor {
+    User,
+    Agent,
+    System,
+    GitAuthor {
+        name: SmolStr,
+        email: Option<SmolStr>,
+    },
+    CI,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GraphChange {
     Added(NodeId),
@@ -156,6 +225,76 @@ pub struct Edge {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Skeleton {
     pub calls: Vec<NodeId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct SymbolFingerprint {
+    pub signature_hash: u64,
+    pub body_hash: Option<u64>,
+    pub skeleton_hash: Option<u64>,
+    pub child_shape_hash: Option<u64>,
+}
+
+impl SymbolFingerprint {
+    pub fn new(signature_hash: u64) -> Self {
+        Self {
+            signature_hash,
+            body_hash: None,
+            skeleton_hash: None,
+            child_shape_hash: None,
+        }
+    }
+
+    pub fn with_parts(
+        signature_hash: u64,
+        body_hash: Option<u64>,
+        skeleton_hash: Option<u64>,
+        child_shape_hash: Option<u64>,
+    ) -> Self {
+        Self {
+            signature_hash,
+            body_hash,
+            skeleton_hash,
+            child_shape_hash,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LineageEventKind {
+    Born,
+    Updated,
+    Renamed,
+    Moved,
+    Reparented,
+    Split,
+    Merged,
+    Died,
+    Revived,
+    Ambiguous,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum LineageEvidence {
+    ExactNodeId,
+    FingerprintMatch,
+    SignatureMatch,
+    BodyHashMatch,
+    SkeletonMatch,
+    SameContainerLineage,
+    GitRenameHint,
+    FileMoveHint,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LineageEvent {
+    pub meta: EventMeta,
+    pub lineage: LineageId,
+    pub kind: LineageEventKind,
+    pub before: Vec<NodeId>,
+    pub after: Vec<NodeId>,
+    pub confidence: f32,
+    pub evidence: Vec<LineageEvidence>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

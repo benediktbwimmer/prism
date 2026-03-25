@@ -411,7 +411,7 @@ impl Store for SqliteStore {
                     node_id.crate_name.as_str(),
                     node_id.path.as_str(),
                     encode_node_kind(node_id.kind),
-                    fingerprint.0.as_str(),
+                    serde_json::to_string(fingerprint)?,
                 ],
             )?;
         }
@@ -1080,7 +1080,7 @@ fn load_node_fingerprints(
                 row.get::<_, String>(2)?,
                 decode_node_kind(row.get(3)?)?,
             ),
-            NodeFingerprint::new(row.get::<_, String>(4)?),
+            deserialize_fingerprint(&row.get::<_, String>(4)?),
         ))
     })?;
     for row in rows {
@@ -1090,6 +1090,15 @@ fn load_node_fingerprints(
         }
     }
     Ok(())
+}
+
+fn deserialize_fingerprint(raw: &str) -> NodeFingerprint {
+    serde_json::from_str(raw).unwrap_or_else(|_| {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        use std::hash::{Hash, Hasher};
+        raw.hash(&mut hasher);
+        NodeFingerprint::new(hasher.finish())
+    })
 }
 
 fn load_unresolved_calls(
