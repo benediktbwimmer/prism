@@ -197,6 +197,7 @@ Use the job budget and evidence density to stay conservative.\n\
 Allowed proposal kinds:\n\
 - inferred_edge\n\
 - structural_memory\n\
+- semantic_memory\n\
 - risk_summary\n\
 - validation_recipe\n\
 \n\

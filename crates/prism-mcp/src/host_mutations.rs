@@ -19,12 +19,12 @@ use crate::{
     convert_completion_context, convert_inferred_scope, convert_memory_kind, convert_memory_source,
     convert_node_id, convert_outcome_evidence, convert_outcome_kind, convert_outcome_result,
     convert_policy, coordination_task_view, curator_disposition_label, curator_job_status_label,
-    curator_proposal, curator_proposal_state, curator_trigger_label, current_timestamp,
-    parse_capability, parse_claim_mode, parse_coordination_task_status, parse_edge_kind,
-    parse_plan_status, parse_review_verdict, plan_view, ArtifactActionInput,
-    ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
-    ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput, ClaimMutationResult,
-    ClaimReleasePayload, ClaimRenewPayload, CoordinationMutationKindInput,
+    curator_memory_metadata, curator_proposal, curator_proposal_state, curator_trigger_label,
+    current_timestamp, manual_memory_metadata, parse_capability, parse_claim_mode,
+    parse_coordination_task_status, parse_edge_kind, parse_plan_status, parse_review_verdict,
+    plan_view, ArtifactActionInput, ArtifactMutationResult, ArtifactProposePayload,
+    ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput,
+    ClaimMutationResult, ClaimReleasePayload, ClaimRenewPayload, CoordinationMutationKindInput,
     CoordinationMutationResult, CuratorJobView, CuratorProposalDecisionResult, EdgeMutationResult,
     EventMutationResult, HandoffAcceptPayload, MemoryMutationActionInput, MemoryMutationResult,
     MemoryStorePayload, MutationViolationView, PlanUpdatePayload, PrismArtifactArgs,
@@ -176,13 +176,7 @@ impl QueryHost {
             .map(convert_memory_source)
             .unwrap_or(MemorySource::Agent);
         entry.trust = payload.trust.unwrap_or(0.5).clamp(0.0, 1.0);
-        entry.metadata = payload.metadata.unwrap_or(Value::Null);
-        if !entry.metadata.is_object() {
-            entry.metadata = json!({ "value": entry.metadata });
-        }
-        if let Some(object) = entry.metadata.as_object_mut() {
-            object.insert("task_id".to_string(), Value::String(task_id.0.to_string()));
-        }
+        entry.metadata = manual_memory_metadata(payload.metadata.unwrap_or(Value::Null), &task_id);
         let note_anchors = entry.anchors.clone();
         let note_content = entry.content.clone();
         let memory_id = self.session.notes.store(entry)?;
@@ -935,70 +929,107 @@ impl QueryHost {
                 entry.anchors = prism.anchors_for(&candidate.anchors);
                 entry.source = MemorySource::System;
                 entry.trust = args.trust.unwrap_or(candidate.trust).clamp(0.0, 1.0);
-                entry.metadata = json!({
-                    "task_id": task.0.clone(),
-                    "curator": {
-                        "jobId": args.job_id,
-                        "proposalIndex": args.proposal_index,
-                        "kind": "structural_memory",
-                    },
-                    "rationale": candidate.rationale,
-                });
+                entry.metadata = curator_memory_metadata(
+                    proposal,
+                    candidate,
+                    &task,
+                    &args.job_id,
+                    args.proposal_index,
+                    Value::Null,
+                );
+                entry
+            }
+            CuratorProposal::SemanticMemory(candidate) => {
+                let mut entry = MemoryEntry::new(candidate.kind, candidate.content.clone());
+                entry.anchors = prism.anchors_for(&candidate.anchors);
+                entry.source = MemorySource::System;
+                entry.trust = args.trust.unwrap_or(candidate.trust).clamp(0.0, 1.0);
+                entry.metadata = curator_memory_metadata(
+                    proposal,
+                    candidate,
+                    &task,
+                    &args.job_id,
+                    args.proposal_index,
+                    Value::Null,
+                );
                 entry
             }
             CuratorProposal::RiskSummary(candidate) => {
-                let mut entry = MemoryEntry::new(MemoryKind::Semantic, candidate.summary.clone());
-                entry.anchors = prism.anchors_for(&candidate.anchors);
-                entry.source = MemorySource::System;
-                entry.trust = args
-                    .trust
-                    .unwrap_or(match candidate.severity.as_str() {
+                let candidate_memory = prism_curator::CandidateMemory {
+                    anchors: candidate.anchors.clone(),
+                    kind: MemoryKind::Semantic,
+                    content: candidate.summary.clone(),
+                    trust: match candidate.severity.as_str() {
                         "low" => 0.55,
                         "medium" => 0.7,
                         "high" => 0.85,
                         _ => 0.6,
-                    })
-                    .clamp(0.0, 1.0);
-                entry.metadata = json!({
-                    "task_id": task.0.clone(),
-                    "curator": {
-                        "jobId": args.job_id,
-                        "proposalIndex": args.proposal_index,
-                        "kind": "risk_summary",
                     },
-                    "severity": candidate.severity,
-                    "evidenceEvents": candidate
-                        .evidence_events
-                        .iter()
-                        .map(|event| event.0.clone())
-                        .collect::<Vec<_>>(),
-                });
+                    rationale: "Curator promoted a semantic risk summary.".to_string(),
+                    category: Some("risk_summary".to_string()),
+                    evidence: prism_curator::CandidateMemoryEvidence {
+                        event_ids: candidate.evidence_events.clone(),
+                        validation_checks: Vec::new(),
+                        co_change_lineages: Vec::new(),
+                    },
+                };
+                let mut entry =
+                    MemoryEntry::new(MemoryKind::Semantic, candidate_memory.content.clone());
+                entry.anchors = prism.anchors_for(&candidate.anchors);
+                entry.source = MemorySource::System;
+                entry.trust = args.trust.unwrap_or(candidate_memory.trust).clamp(0.0, 1.0);
+                entry.metadata = curator_memory_metadata(
+                    proposal,
+                    &candidate_memory,
+                    &task,
+                    &args.job_id,
+                    args.proposal_index,
+                    json!({
+                        "severity": candidate.severity,
+                        "evidenceEvents": candidate
+                            .evidence_events
+                            .iter()
+                            .map(|event| event.0.clone())
+                            .collect::<Vec<_>>(),
+                    }),
+                );
                 entry
             }
             CuratorProposal::ValidationRecipe(candidate) => {
-                let mut entry = MemoryEntry::new(
-                    MemoryKind::Structural,
-                    format!(
+                let candidate_memory = prism_curator::CandidateMemory {
+                    anchors: vec![AnchorRef::Node(candidate.target.clone())],
+                    kind: MemoryKind::Structural,
+                    content: format!(
                         "Validation recipe for {}: {}",
                         candidate.target.path,
                         candidate.checks.join(", ")
                     ),
-                );
+                    trust: 0.8,
+                    rationale: candidate.rationale.clone(),
+                    category: Some("validation_recipe".to_string()),
+                    evidence: prism_curator::CandidateMemoryEvidence {
+                        event_ids: Vec::new(),
+                        validation_checks: candidate.checks.clone(),
+                        co_change_lineages: Vec::new(),
+                    },
+                };
+                let mut entry =
+                    MemoryEntry::new(MemoryKind::Structural, candidate_memory.content.clone());
                 entry.anchors = prism.anchors_for(&[AnchorRef::Node(candidate.target.clone())]);
                 entry.source = MemorySource::System;
                 entry.trust = args.trust.unwrap_or(0.8).clamp(0.0, 1.0);
-                entry.metadata = json!({
-                    "task_id": task.0.clone(),
-                    "curator": {
-                        "jobId": args.job_id,
-                        "proposalIndex": args.proposal_index,
-                        "kind": "validation_recipe",
-                    },
-                    "target": candidate.target,
-                    "checks": candidate.checks,
-                    "rationale": candidate.rationale,
-                    "evidence": candidate.evidence,
-                });
+                entry.metadata = curator_memory_metadata(
+                    proposal,
+                    &candidate_memory,
+                    &task,
+                    &args.job_id,
+                    args.proposal_index,
+                    json!({
+                        "target": candidate.target,
+                        "checks": candidate.checks,
+                        "evidence": candidate.evidence,
+                    }),
+                );
                 entry
             }
             CuratorProposal::InferredEdge(_) => {

@@ -14,8 +14,9 @@ use super::*;
 use prism_agent::InferredEdgeScope;
 use prism_core::{index_workspace_session, index_workspace_session_with_curator};
 use prism_curator::{
-    CandidateEdge, CandidateMemory, CandidateRiskSummary, CandidateValidationRecipe,
-    CuratorBackend, CuratorContext, CuratorJob, CuratorProposal, CuratorRun,
+    CandidateEdge, CandidateMemory, CandidateMemoryEvidence, CandidateRiskSummary,
+    CandidateValidationRecipe, CuratorBackend, CuratorContext, CuratorJob, CuratorProposal,
+    CuratorRun,
 };
 use prism_history::HistoryStore;
 use prism_ir::{
@@ -1665,6 +1666,8 @@ fn curator_memory_promotion_persists_and_recall_sees_promoted_entry() {
                     content: "alpha owns request routing".to_string(),
                     trust: 0.82,
                     rationale: "Repeated successful fixes anchored on alpha".to_string(),
+                    category: Some("ownership_rule".to_string()),
+                    evidence: CandidateMemoryEvidence::default(),
                 })],
                 diagnostics: Vec::new(),
             })
@@ -1749,6 +1752,131 @@ return {{
     assert_eq!(
         proposal.result["structuralOnly"][0]["entry"]["kind"],
         "Structural"
+    );
+    assert_eq!(
+        proposal.result["memory"][0]["entry"]["metadata"]["provenance"]["origin"],
+        "curator"
+    );
+    assert_eq!(
+        proposal.result["memory"][0]["entry"]["metadata"]["rationale"],
+        "Repeated successful fixes anchored on alpha"
+    );
+}
+
+#[test]
+fn semantic_curator_memory_promotion_persists_and_is_recallable() {
+    let root = temp_workspace();
+
+    #[derive(Default)]
+    struct FakeCurator;
+
+    impl CuratorBackend for FakeCurator {
+        fn run(&self, _job: &CuratorJob, _ctx: &CuratorContext) -> anyhow::Result<CuratorRun> {
+            Ok(CuratorRun {
+                proposals: vec![CuratorProposal::SemanticMemory(CandidateMemory {
+                    anchors: vec![AnchorRef::Node(NodeId::new(
+                        "demo",
+                        "demo::alpha",
+                        NodeKind::Function,
+                    ))],
+                    kind: MemoryKind::Semantic,
+                    content: "Recent outcome context: alpha failed under routing load; validated alpha routing follow-up".to_string(),
+                    trust: 0.74,
+                    rationale: "Repeated outcomes around alpha form reusable fuzzy context.".to_string(),
+                    category: Some("risk_summary".to_string()),
+                    evidence: CandidateMemoryEvidence {
+                        event_ids: vec![EventId::new("outcome:alpha-risk")],
+                        validation_checks: vec!["test:alpha_regression".to_string()],
+                        co_change_lineages: Vec::new(),
+                    },
+                })],
+                diagnostics: Vec::new(),
+            })
+        }
+    }
+
+    let session = index_workspace_session_with_curator(&root, Arc::new(FakeCurator)).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .unwrap()
+        .id()
+        .clone();
+    session
+        .append_outcome(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:alpha-risk"),
+                ts: 50,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:semantic-memory")),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(alpha)],
+            kind: OutcomeKind::FailureObserved,
+            result: OutcomeResult::Failure,
+            summary: "alpha failed under routing load".into(),
+            evidence: Vec::new(),
+            metadata: Value::Null,
+        })
+        .unwrap();
+    session
+        .append_outcome(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:alpha-fix"),
+                ts: 51,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:semantic-memory")),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(NodeId::new(
+                "demo",
+                "demo::alpha",
+                NodeKind::Function,
+            ))],
+            kind: OutcomeKind::FixValidated,
+            result: OutcomeResult::Success,
+            summary: "validated alpha routing follow-up".into(),
+            evidence: Vec::new(),
+            metadata: Value::Null,
+        })
+        .unwrap();
+    let job_id = wait_for_completed_curator_job(&session);
+    let host = QueryHost::with_session(session);
+
+    host.promote_curator_memory(PrismCuratorPromoteMemoryArgs {
+        job_id,
+        proposal_index: 0,
+        trust: None,
+        note: Some("promote semantic context".into()),
+        task_id: Some("task:semantic-memory".into()),
+    })
+    .expect("semantic memory promotion should succeed");
+
+    let result = host
+        .execute(
+            r#"
+const sym = prism.symbol("alpha");
+return prism.memory.recall({
+  focus: sym ? [sym] : [],
+  kinds: ["semantic"],
+  text: "routing load",
+  limit: 5,
+});
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("semantic memory recall should succeed");
+
+    assert_eq!(result.result[0]["entry"]["kind"], "Semantic");
+    assert_eq!(
+        result.result[0]["entry"]["metadata"]["category"],
+        "risk_summary"
+    );
+    assert_eq!(
+        result.result[0]["entry"]["metadata"]["evidence"]["validationChecks"][0],
+        "test:alpha_regression"
     );
 }
 

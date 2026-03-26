@@ -595,6 +595,85 @@ fn curator_backend_processes_and_persists_task_boundary_jobs() {
     let _ = fs::remove_dir_all(root);
 }
 
+#[test]
+fn default_curator_synthesizes_memory_proposals_without_backend() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .unwrap()
+        .id()
+        .clone();
+    for (id, ts, summary) in [
+        ("outcome:repeat:1", 40, "alpha failed under routing load"),
+        (
+            "outcome:repeat:2",
+            41,
+            "alpha failed again after routing edits",
+        ),
+    ] {
+        session
+            .append_outcome(OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new(id),
+                    ts,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:alpha")),
+                    causation: None,
+                },
+                anchors: vec![AnchorRef::Node(alpha.clone())],
+                kind: OutcomeKind::FailureObserved,
+                result: OutcomeResult::Failure,
+                summary: summary.into(),
+                evidence: vec![OutcomeEvidence::Test {
+                    name: "alpha_regression".into(),
+                    passed: false,
+                }],
+                metadata: serde_json::Value::Null,
+            })
+            .unwrap();
+    }
+
+    let mut proposals = Vec::new();
+    for _ in 0..40 {
+        let snapshot = session.curator_snapshot();
+        if let Some(run) = snapshot
+            .records
+            .iter()
+            .find(|record| record.status == prism_curator::CuratorJobStatus::Completed)
+            .and_then(|record| record.run.clone())
+        {
+            proposals = run.proposals;
+            break;
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+
+    assert!(proposals.iter().any(|proposal| matches!(
+        proposal,
+        CuratorProposal::StructuralMemory(candidate)
+            if candidate.content.contains("should run validation")
+    )));
+    assert!(proposals.iter().any(|proposal| matches!(
+        proposal,
+        CuratorProposal::SemanticMemory(candidate)
+            if candidate.content.contains("Recent outcome context")
+    )));
+
+    let _ = fs::remove_dir_all(root);
+}
+
 fn temp_workspace() -> PathBuf {
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)

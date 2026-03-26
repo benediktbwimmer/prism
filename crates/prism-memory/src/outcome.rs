@@ -3,9 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::RwLock;
 
 use anyhow::Result;
-use prism_ir::{
-    AnchorRef, EventActor, EventId, LineageEvent, LineageEventKind, NodeId, TaskId,
-};
+use prism_ir::{AnchorRef, EventActor, EventId, LineageEvent, LineageEventKind, NodeId, TaskId};
 
 use crate::common::dedupe_anchors;
 use crate::outcome_query::OutcomeRecallQuery;

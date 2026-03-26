@@ -69,6 +69,9 @@ pub(crate) fn curator_proposal_view(
         CuratorProposal::StructuralMemory(candidate) => {
             ("structural_memory", serde_json::to_value(candidate)?)
         }
+        CuratorProposal::SemanticMemory(candidate) => {
+            ("semantic_memory", serde_json::to_value(candidate)?)
+        }
         CuratorProposal::RiskSummary(candidate) => {
             ("risk_summary", serde_json::to_value(candidate)?)
         }
@@ -310,6 +313,15 @@ fn entry_curator_kind(entry: &MemoryEntry) -> Option<&str> {
         .and_then(Value::as_str)
 }
 
+fn entry_curator_category(entry: &MemoryEntry) -> Option<&str> {
+    entry
+        .metadata
+        .get("curator")
+        .and_then(|value| value.get("category"))
+        .and_then(Value::as_str)
+        .or_else(|| entry.metadata.get("category").and_then(Value::as_str))
+}
+
 fn entry_overlaps_anchors(entry: &MemoryEntry, anchors: &[AnchorRef]) -> bool {
     entry.anchors.iter().any(|anchor| anchors.contains(anchor))
 }
@@ -327,7 +339,10 @@ pub(crate) fn promoted_memory_entries(
         .entries
         .into_iter()
         .filter(|entry| entry.source == MemorySource::System)
-        .filter(|entry| entry_curator_kind(entry) == Some(curator_kind))
+        .filter(|entry| {
+            entry_curator_kind(entry) == Some(curator_kind)
+                || entry_curator_category(entry) == Some(curator_kind)
+        })
         .filter(|entry| entry_overlaps_anchors(entry, &expanded))
         .collect::<Vec<_>>();
     entries.sort_by(|left, right| {

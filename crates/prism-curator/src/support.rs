@@ -25,6 +25,7 @@ pub(crate) fn curator_run_schema() -> serde_json::Value {
                             "enum": [
                                 "inferred_edge",
                                 "structural_memory",
+                                "semantic_memory",
                                 "risk_summary",
                                 "validation_recipe"
                             ]

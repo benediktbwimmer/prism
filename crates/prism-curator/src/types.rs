@@ -1,6 +1,6 @@
 use anyhow::Result;
 use prism_agent::InferredEdgeScope;
-use prism_ir::{AnchorRef, Edge, EventId, LineageEvent, Node, NodeId, TaskId};
+use prism_ir::{AnchorRef, Edge, EventId, LineageEvent, LineageId, Node, NodeId, TaskId};
 use prism_memory::{MemoryEntry, MemoryKind, OutcomeEvent};
 use prism_projections::{CoChangeRecord, ValidationCheck};
 use serde::{Deserialize, Serialize};
@@ -84,12 +84,36 @@ pub struct CandidateEdge {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CandidateMemoryEvidence {
+    #[serde(default)]
+    pub event_ids: Vec<EventId>,
+    #[serde(default)]
+    pub validation_checks: Vec<String>,
+    #[serde(default)]
+    pub co_change_lineages: Vec<LineageId>,
+}
+
+impl Default for CandidateMemoryEvidence {
+    fn default() -> Self {
+        Self {
+            event_ids: Vec::new(),
+            validation_checks: Vec::new(),
+            co_change_lineages: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CandidateMemory {
     pub anchors: Vec<AnchorRef>,
     pub kind: MemoryKind,
     pub content: String,
     pub trust: f32,
     pub rationale: String,
+    #[serde(default)]
+    pub category: Option<String>,
+    #[serde(default)]
+    pub evidence: CandidateMemoryEvidence,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -113,6 +137,7 @@ pub struct CandidateValidationRecipe {
 pub enum CuratorProposal {
     InferredEdge(CandidateEdge),
     StructuralMemory(CandidateMemory),
+    SemanticMemory(CandidateMemory),
     RiskSummary(CandidateRiskSummary),
     ValidationRecipe(CandidateValidationRecipe),
 }

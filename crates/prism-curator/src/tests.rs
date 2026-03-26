@@ -170,3 +170,68 @@ printf '%s' '{"proposals":[{"kind":"risk_summary","anchors":[],"summary":"watch 
     let _ = fs::remove_file(&script_path);
     let _ = fs::remove_dir_all(&script_dir);
 }
+
+#[test]
+fn built_in_synthesis_emits_structural_and_semantic_memory() {
+    let job = CuratorJob {
+        trigger: CuratorTrigger::RepeatedFailure,
+        ..sample_job()
+    };
+    let mut ctx = sample_context();
+    ctx.outcomes = vec![
+        prism_memory::OutcomeEvent {
+            meta: prism_ir::EventMeta {
+                id: prism_ir::EventId::new("outcome:1"),
+                ts: 10,
+                actor: prism_ir::EventActor::Agent,
+                correlation: Some(TaskId::new("task:1")),
+                causation: None,
+            },
+            anchors: job.focus.clone(),
+            kind: prism_memory::OutcomeKind::FailureObserved,
+            result: prism_memory::OutcomeResult::Failure,
+            summary: "alpha failed under routing load".into(),
+            evidence: vec![prism_memory::OutcomeEvidence::Test {
+                name: "alpha_regression".into(),
+                passed: false,
+            }],
+            metadata: serde_json::Value::Null,
+        },
+        prism_memory::OutcomeEvent {
+            meta: prism_ir::EventMeta {
+                id: prism_ir::EventId::new("outcome:2"),
+                ts: 11,
+                actor: prism_ir::EventActor::Agent,
+                correlation: Some(TaskId::new("task:1")),
+                causation: None,
+            },
+            anchors: job.focus.clone(),
+            kind: prism_memory::OutcomeKind::FailureObserved,
+            result: prism_memory::OutcomeResult::Failure,
+            summary: "alpha failed again after routing edits".into(),
+            evidence: vec![prism_memory::OutcomeEvidence::Test {
+                name: "alpha_regression".into(),
+                passed: false,
+            }],
+            metadata: serde_json::Value::Null,
+        },
+    ];
+    ctx.projections.validation_checks = vec![prism_projections::ValidationCheck {
+        label: "test:alpha_regression".into(),
+        score: 0.9,
+        last_seen: 11,
+    }];
+
+    let run = synthesize_curator_run(&job, &ctx);
+
+    assert!(run.proposals.iter().any(|proposal| matches!(
+        proposal,
+        CuratorProposal::StructuralMemory(candidate)
+            if candidate.content.contains("should run validation")
+    )));
+    assert!(run.proposals.iter().any(|proposal| matches!(
+        proposal,
+        CuratorProposal::SemanticMemory(candidate)
+            if candidate.content.contains("Recent outcome context")
+    )));
+}

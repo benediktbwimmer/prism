@@ -5,8 +5,9 @@ use std::time::Duration;
 
 use anyhow::Result;
 use prism_curator::{
-    CuratorBackend, CuratorBudget, CuratorContext, CuratorJob, CuratorJobId, CuratorJobRecord,
-    CuratorJobStatus, CuratorProposalState, CuratorRun, CuratorSnapshot,
+    merge_curator_runs, synthesize_curator_run, CuratorBackend, CuratorBudget, CuratorContext,
+    CuratorJob, CuratorJobId, CuratorJobRecord, CuratorJobStatus, CuratorProposalState, CuratorRun,
+    CuratorSnapshot,
 };
 use prism_ir::EventId;
 use prism_query::Prism;
@@ -56,20 +57,12 @@ impl CuratorHandle {
             snapshot,
         }));
 
-        let Some(backend) = backend else {
-            return Self {
-                state,
-                tx: None,
-                stop: None,
-                handle: None,
-            };
-        };
-
         let (tx, rx) = mpsc::channel::<CuratorWorkItem>();
         let (stop_tx, stop_rx) = mpsc::channel::<()>();
         let worker_state = Arc::clone(&state);
         let worker_store = Arc::clone(&store);
         let worker_refresh_lock = Arc::clone(&refresh_lock);
+        let worker_backend = backend.clone();
         let handle = thread::spawn(move || loop {
             if stop_rx.try_recv().is_ok() {
                 break;
@@ -91,32 +84,48 @@ impl CuratorHandle {
                 None,
             );
 
-            match backend.run(&item.job, &item.context) {
-                Ok(run) => update_curator_record(
-                    &worker_state,
-                    &worker_store,
-                    &worker_refresh_lock,
-                    &item.id,
-                    CuratorJobStatus::Completed,
-                    Some(run),
-                    None,
-                ),
-                Err(error) => update_curator_record(
-                    &worker_state,
-                    &worker_store,
-                    &worker_refresh_lock,
-                    &item.id,
-                    CuratorJobStatus::Failed,
-                    Some(CuratorRun {
-                        proposals: Vec::new(),
-                        diagnostics: vec![prism_curator::CuratorDiagnostic {
-                            code: "backend_error".to_string(),
-                            message: error.to_string(),
-                            data: None,
-                        }],
-                    }),
-                    Some(error.to_string()),
-                ),
+            let synthesized = synthesize_curator_run(&item.job, &item.context);
+            let backend_result = worker_backend
+                .as_ref()
+                .map(|backend| backend.run(&item.job, &item.context))
+                .transpose();
+
+            match backend_result {
+                Ok(run) => {
+                    let merged =
+                        merge_curator_runs(synthesized, run, item.job.budget.max_proposals, None);
+                    update_curator_record(
+                        &worker_state,
+                        &worker_store,
+                        &worker_refresh_lock,
+                        &item.id,
+                        CuratorJobStatus::Completed,
+                        Some(merged),
+                        None,
+                    )
+                }
+                Err(error) => {
+                    let merged = merge_curator_runs(
+                        synthesized,
+                        None,
+                        item.job.budget.max_proposals,
+                        Some(error.to_string()),
+                    );
+                    let status = if merged.proposals.is_empty() {
+                        CuratorJobStatus::Failed
+                    } else {
+                        CuratorJobStatus::Completed
+                    };
+                    update_curator_record(
+                        &worker_state,
+                        &worker_store,
+                        &worker_refresh_lock,
+                        &item.id,
+                        status,
+                        Some(merged),
+                        Some(error.to_string()),
+                    )
+                }
             }
         });
 
