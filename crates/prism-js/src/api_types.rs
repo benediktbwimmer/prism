@@ -56,6 +56,95 @@ pub struct TextSearchMatchView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct ChangedSymbolView {
+    pub status: String,
+    pub id: Option<NodeIdView>,
+    pub name: String,
+    pub kind: NodeKind,
+    pub file_path: String,
+    pub location: Option<SourceLocationView>,
+    pub excerpt: Option<SourceExcerptView>,
+    pub lineage_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangedFileView {
+    pub path: String,
+    pub event_id: String,
+    pub ts: u64,
+    pub task_id: Option<String>,
+    pub trigger: Option<String>,
+    pub summary: String,
+    pub changed_symbol_count: usize,
+    pub added_count: usize,
+    pub removed_count: usize,
+    pub updated_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PatchEventView {
+    pub event_id: String,
+    pub ts: u64,
+    pub task_id: Option<String>,
+    pub trigger: Option<String>,
+    pub summary: String,
+    pub files: Vec<String>,
+    pub changed_symbols: Vec<ChangedSymbolView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeHealthView {
+    pub ok: bool,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeProcessView {
+    pub pid: u32,
+    pub rss_kb: u64,
+    pub rss_mb: f64,
+    pub elapsed: String,
+    pub kind: String,
+    pub command: String,
+    pub health_path: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeStatusView {
+    pub root: String,
+    pub uri: Option<String>,
+    pub uri_file: String,
+    pub log_path: String,
+    pub log_bytes: Option<u64>,
+    pub cache_path: String,
+    pub cache_bytes: Option<u64>,
+    pub health_path: String,
+    pub health: RuntimeHealthView,
+    pub daemon_count: usize,
+    pub bridge_count: usize,
+    pub processes: Vec<RuntimeProcessView>,
+    pub process_error: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeLogEventView {
+    pub timestamp: Option<String>,
+    pub level: Option<String>,
+    pub message: String,
+    pub target: Option<String>,
+    pub file: Option<String>,
+    pub line_number: Option<u64>,
+    pub fields: Option<Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct SymbolView {
     pub id: NodeIdView,
     pub name: String,

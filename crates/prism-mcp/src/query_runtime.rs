@@ -1,38 +1,42 @@
 use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Context, Result};
-use prism_ir::{AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, NodeId, PlanId};
+use prism_ir::{AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, LineageId, NodeId, PlanId};
 use prism_js::{
-    EditContextView, QueryDiagnostic, QueryEnvelope, ReadContextView, RecentChangeContextView,
-    ScoredMemoryView, SourceExcerptView, SourceSliceView, SubgraphView, SymbolView,
-    TextSearchMatchView, ValidationContextView,
+    ChangedFileView, ChangedSymbolView, EditContextView, PatchEventView, QueryDiagnostic,
+    QueryEnvelope, ReadContextView, RecentChangeContextView, RuntimeLogEventView,
+    RuntimeStatusView, ScoredMemoryView, SourceExcerptView, SourceSliceView, SubgraphView,
+    SymbolView, TextSearchMatchView, ValidationContextView,
 };
 use prism_memory::{MemoryModule, OutcomeRecallQuery, RecallQuery};
 use prism_query::{EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
 use serde_json::{json, Value};
 
 use crate::file_queries::{file_around, file_read};
+use crate::runtime_views::{runtime_logs, runtime_status, runtime_timeline};
 use crate::text_search::search_text;
 use crate::{
     artifact_risk_view, artifact_view, blast_radius_view, blocker_view, change_impact_view,
-    claim_view, co_change_view, conflict_view, convert_anchors, convert_node_id,
-    coordination_task_view, current_timestamp, drift_candidate_view, edge_kind_label, edge_view,
-    edit_context_view, edit_slice_for_symbol, entrypoints_for, js_runtime, lineage_view,
-    merge_node_ids, merge_promoted_checks, next_reads, owner_symbol_views_for_query,
-    owner_symbol_views_for_target, owner_views_for_target, parse_capability, parse_claim_mode,
-    parse_event_actor, parse_memory_kind, parse_node_kind, parse_outcome_kind,
-    parse_outcome_result, plan_view, policy_violation_record_view, promoted_memory_entries,
-    promoted_summary_texts, promoted_validation_checks, query_diagnostic, read_context_view,
-    recent_change_context_view, relations_view, scored_memory_view, search_queries,
-    source_excerpt_for_symbol, spec_cluster_view, spec_drift_explanation_view, symbol_for,
-    symbol_view, symbol_views_for_ids, task_intent_view, task_journal_view, task_risk_view,
-    task_validation_recipe_view, validation_context_view, validation_recipe_view_with, where_used,
-    AnchorListArgs, CallGraphArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs,
+    changed_files, changed_symbols, claim_view, co_change_view, conflict_view, convert_anchors,
+    convert_node_id, coordination_task_view, current_timestamp, drift_candidate_view,
+    edge_kind_label, edge_view, edit_context_view, edit_slice_for_symbol, entrypoints_for,
+    js_runtime, lineage_view, merge_node_ids, merge_promoted_checks, next_reads,
+    owner_symbol_views_for_query, owner_symbol_views_for_target, owner_views_for_target,
+    parse_capability, parse_claim_mode, parse_event_actor, parse_memory_kind, parse_node_kind,
+    parse_outcome_kind, parse_outcome_result, plan_view, policy_violation_record_view,
+    promoted_memory_entries, promoted_summary_texts, promoted_validation_checks, query_diagnostic,
+    read_context_view, recent_change_context_view, recent_patches, relations_view,
+    scored_memory_view, search_queries, source_excerpt_for_symbol, spec_cluster_view,
+    spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids, task_intent_view,
+    task_journal_view, task_risk_view, task_validation_recipe_view, validation_context_view,
+    validation_recipe_view_with, where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs,
+    ChangedSymbolsArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs,
     DiscoveryTargetArgs, EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs,
-    LimitArgs, MemoryOutcomeArgs, MemoryRecallArgs, OwnerLookupArgs, PendingReviewsArgs,
-    PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun,
-    QueryTraceArgs, SearchArgs, SearchTextArgs, SimulateClaimArgs, SourceExcerptArgs,
-    SymbolQueryArgs, SymbolTargetArgs, TaskJournalArgs, TaskTargetArgs, WhereUsedArgs,
+    LimitArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
+    PendingReviewsArgs, PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage,
+    QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs,
+    SearchArgs, SearchTextArgs, SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs,
+    SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskTargetArgs, WhereUsedArgs,
     DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
     DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
 };
@@ -273,6 +277,31 @@ impl QueryExecution {
             "searchText" => {
                 let args: SearchTextArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.search_text(args)?)?)
+            }
+            "changedFiles" => {
+                let args: ChangedFilesArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.changed_files(args)?)?)
+            }
+            "changedSymbols" => {
+                let args: ChangedSymbolsArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.changed_symbols(args)?)?)
+            }
+            "recentPatches" => {
+                let args: RecentPatchesArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.recent_patches(args)?)?)
+            }
+            "taskChanges" => {
+                let args: TaskChangesArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.task_changes(args)?)?)
+            }
+            "runtimeStatus" => Ok(serde_json::to_value(self.runtime_status()?)?),
+            "runtimeLogs" => {
+                let args: RuntimeLogArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.runtime_logs(args)?)?)
+            }
+            "runtimeTimeline" => {
+                let args: RuntimeTimelineArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.runtime_timeline(args)?)?)
             }
             "queryLog" => {
                 let args: QueryLogArgs = serde_json::from_value(args)?;
@@ -621,7 +650,7 @@ impl QueryExecution {
             }
             "full" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = convert_node_id(args.id)?;
+                let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 Ok(serde_json::to_value(
                     symbol_for(self.prism.as_ref(), &id)?.full(),
                 )?)
@@ -644,7 +673,7 @@ impl QueryExecution {
             }
             "relations" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = convert_node_id(args.id)?;
+                let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 Ok(serde_json::to_value(relations_view(
                     self.prism.as_ref(),
                     self.host.session.as_ref(),
@@ -657,7 +686,7 @@ impl QueryExecution {
             }
             "lineage" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = convert_node_id(args.id)?;
+                let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 let lineage = lineage_view(self.prism.as_ref(), &id)?;
                 if lineage
                     .as_ref()
@@ -673,17 +702,17 @@ impl QueryExecution {
             }
             "relatedFailures" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = convert_node_id(args.id)?;
+                let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 serde_json::to_value(self.prism.related_failures(&id)).map_err(Into::into)
             }
             "coChangeNeighbors" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = convert_node_id(args.id)?;
+                let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 self.host.co_change_neighbors_value(&id)
             }
             "blastRadius" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = convert_node_id(args.id)?;
+                let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 Ok(serde_json::to_value(blast_radius_view(
                     self.prism.as_ref(),
                     self.host.session.as_ref(),
@@ -692,7 +721,7 @@ impl QueryExecution {
             }
             "validationRecipe" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = convert_node_id(args.id)?;
+                let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 Ok(serde_json::to_value(validation_recipe_view_with(
                     self.prism.as_ref(),
                     self.host.session.as_ref(),
@@ -701,27 +730,27 @@ impl QueryExecution {
             }
             "readContext" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = convert_node_id(args.id)?;
+                let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 Ok(serde_json::to_value(self.read_context(&id)?)?)
             }
             "editContext" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = convert_node_id(args.id)?;
+                let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 Ok(serde_json::to_value(self.edit_context(&id)?)?)
             }
             "validationContext" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = convert_node_id(args.id)?;
+                let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 Ok(serde_json::to_value(self.validation_context(&id)?)?)
             }
             "recentChangeContext" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = convert_node_id(args.id)?;
+                let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 Ok(serde_json::to_value(self.recent_change_context(&id)?)?)
             }
             "nextReads" => {
                 let args: DiscoveryTargetArgs = serde_json::from_value(args)?;
-                let id = convert_node_id(args.id)?;
+                let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 let applied = args
                     .limit
                     .unwrap_or(INSIGHT_LIMIT)
@@ -734,7 +763,7 @@ impl QueryExecution {
             }
             "whereUsed" => {
                 let args: WhereUsedArgs = serde_json::from_value(args)?;
-                let id = convert_node_id(args.id)?;
+                let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 let applied = args
                     .limit
                     .unwrap_or(INSIGHT_LIMIT)
@@ -749,7 +778,7 @@ impl QueryExecution {
             }
             "entrypointsFor" => {
                 let args: DiscoveryTargetArgs = serde_json::from_value(args)?;
-                let id = convert_node_id(args.id)?;
+                let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 let applied = args
                     .limit
                     .unwrap_or(INSIGHT_LIMIT)
@@ -763,7 +792,7 @@ impl QueryExecution {
             }
             "specFor" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = convert_node_id(args.id)?;
+                let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 Ok(serde_json::to_value(symbol_views_for_ids(
                     self.prism.as_ref(),
                     self.prism.spec_for(&id),
@@ -771,7 +800,7 @@ impl QueryExecution {
             }
             "implementationFor" => {
                 let args: ImplementationTargetArgs = serde_json::from_value(args)?;
-                let id = convert_node_id(args.id)?;
+                let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 if args.mode.as_deref() == Some("owners") {
                     let limit = self
                         .host
@@ -804,17 +833,17 @@ impl QueryExecution {
             }
             "specCluster" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = convert_node_id(args.id)?;
+                let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 Ok(serde_json::to_value(self.spec_cluster(&id)?)?)
             }
             "explainDrift" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = convert_node_id(args.id)?;
+                let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 Ok(serde_json::to_value(self.explain_drift(&id)?)?)
             }
             "owners" => {
                 let args: OwnerLookupArgs = serde_json::from_value(args)?;
-                let id = convert_node_id(args.id)?;
+                let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 let applied = args
                     .limit
                     .unwrap_or(INSIGHT_LIMIT)
@@ -1027,6 +1056,257 @@ impl QueryExecution {
         Ok(outcome.results)
     }
 
+    pub(crate) fn changed_files(&self, args: ChangedFilesArgs) -> Result<Vec<ChangedFileView>> {
+        let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
+        let applied = requested.min(self.host.session.limits().max_result_nodes);
+        let mut results = changed_files(
+            self.prism.as_ref(),
+            args.task_id.as_ref(),
+            args.since,
+            args.path.as_deref(),
+            applied.saturating_add(1),
+        )?;
+        if requested > applied {
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Changed-file limit was capped at {} instead of {requested}. Next action: narrow with `path` or `taskId` before raising the limit.",
+                    applied
+                ),
+                Some(json!({
+                    "requested": requested,
+                    "applied": applied,
+                    "nextAction": "Use prism.changedFiles({ path: ..., taskId: ..., limit: ... }) to narrow the result set.",
+                })),
+            );
+        }
+        if results.len() > applied {
+            results.truncate(applied);
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Changed files were truncated at {} entries. Next action: narrow with `path` or inspect one result with `prism.changedSymbols(...)`.",
+                    applied
+                ),
+                Some(json!({
+                    "applied": applied,
+                    "nextAction": "Use prism.changedFiles({ path: ..., taskId: ..., limit: ... }) or prism.changedSymbols(path, ...) to inspect one file.",
+                })),
+            );
+        }
+        Ok(results)
+    }
+
+    pub(crate) fn changed_symbols(
+        &self,
+        args: ChangedSymbolsArgs,
+    ) -> Result<Vec<ChangedSymbolView>> {
+        let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
+        let applied = requested.min(self.host.session.limits().max_result_nodes);
+        let mut results = changed_symbols(
+            self.prism.as_ref(),
+            &args.path,
+            args.task_id.as_ref(),
+            args.since,
+            applied.saturating_add(1),
+        )?;
+        if requested > applied {
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Changed-symbol limit was capped at {} instead of {requested}. Next action: narrow with `taskId` or a more specific path before raising the limit.",
+                    applied
+                ),
+                Some(json!({
+                    "requested": requested,
+                    "applied": applied,
+                    "nextAction": "Use prism.changedSymbols(path, { taskId: ..., limit: ... }) with a specific file path to narrow the result set.",
+                })),
+            );
+        }
+        if results.len() > applied {
+            results.truncate(applied);
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Changed symbols for `{}` were truncated at {} entries. Next action: narrow with `taskId` or inspect one patch event with `prism.recentPatches(...)`.",
+                    args.path, applied
+                ),
+                Some(json!({
+                    "path": args.path,
+                    "applied": applied,
+                    "nextAction": "Use prism.changedSymbols(path, { taskId: ..., limit: ... }) or prism.recentPatches({ path: ..., limit: ... }) to narrow the result set.",
+                })),
+            );
+        }
+        Ok(results)
+    }
+
+    pub(crate) fn recent_patches(&self, args: RecentPatchesArgs) -> Result<Vec<PatchEventView>> {
+        let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
+        let applied = requested.min(self.host.session.limits().max_result_nodes);
+        let target = args.target.map(convert_node_id).transpose()?;
+        let mut results = recent_patches(
+            self.prism.as_ref(),
+            target.as_ref(),
+            args.task_id.as_ref(),
+            args.since,
+            args.path.as_deref(),
+            applied.saturating_add(1),
+        )?;
+        if requested > applied {
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Recent-patch limit was capped at {} instead of {requested}. Next action: narrow with `target`, `path`, or `taskId` before raising the limit.",
+                    applied
+                ),
+                Some(json!({
+                    "requested": requested,
+                    "applied": applied,
+                    "nextAction": "Use prism.recentPatches({ target: ..., path: ..., taskId: ..., limit: ... }) to narrow the result set.",
+                })),
+            );
+        }
+        if results.len() > applied {
+            results.truncate(applied);
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Recent patches were truncated at {} entries. Next action: narrow with `target`, `path`, or `taskId`.",
+                    applied
+                ),
+                Some(json!({
+                    "applied": applied,
+                    "nextAction": "Use prism.recentPatches({ target: ..., path: ..., taskId: ..., limit: ... }) to narrow the result set.",
+                })),
+            );
+        }
+        Ok(results)
+    }
+
+    pub(crate) fn runtime_status(&self) -> Result<RuntimeStatusView> {
+        runtime_status(&self.host)
+    }
+
+    pub(crate) fn runtime_logs(&self, args: RuntimeLogArgs) -> Result<Vec<RuntimeLogEventView>> {
+        let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
+        let applied = requested.min(self.host.session.limits().max_result_nodes);
+        let mut results = runtime_logs(
+            &self.host,
+            RuntimeLogArgs {
+                limit: Some(applied),
+                ..args
+            },
+        )?;
+        if requested > applied {
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Runtime-log limit was capped at {} instead of {requested}. Next action: narrow with `level`, `target`, or `contains` before raising the limit.",
+                    applied
+                ),
+                Some(json!({
+                    "requested": requested,
+                    "applied": applied,
+                    "nextAction": "Use prism.runtimeLogs({ level: ..., target: ..., contains: ..., limit: ... }) to narrow the result set.",
+                })),
+            );
+        }
+        if results.len() > applied {
+            results.truncate(applied);
+        }
+        Ok(results)
+    }
+
+    pub(crate) fn runtime_timeline(
+        &self,
+        args: RuntimeTimelineArgs,
+    ) -> Result<Vec<RuntimeLogEventView>> {
+        let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
+        let applied = requested.min(self.host.session.limits().max_result_nodes);
+        let mut results = runtime_timeline(
+            &self.host,
+            RuntimeTimelineArgs {
+                limit: Some(applied.saturating_add(1)),
+                ..args
+            },
+        )?;
+        if requested > applied {
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Runtime-timeline limit was capped at {} instead of {requested}. Next action: narrow with `contains` before raising the limit.",
+                    applied
+                ),
+                Some(json!({
+                    "requested": requested,
+                    "applied": applied,
+                    "nextAction": "Use prism.runtimeTimeline({ contains: ..., limit: ... }) to narrow the result set.",
+                })),
+            );
+        }
+        if results.len() > applied {
+            results.truncate(applied);
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Runtime timeline was truncated at {} entries. Next action: narrow with `contains` or inspect broader logs with `prism.runtimeLogs(...)`.",
+                    applied
+                ),
+                Some(json!({
+                    "applied": applied,
+                    "nextAction": "Use prism.runtimeTimeline({ contains: ..., limit: ... }) or prism.runtimeLogs({ target: ..., contains: ..., limit: ... }) to narrow the result set.",
+                })),
+            );
+        }
+        Ok(results)
+    }
+
+    pub(crate) fn task_changes(&self, args: TaskChangesArgs) -> Result<Vec<PatchEventView>> {
+        let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
+        let applied = requested.min(self.host.session.limits().max_result_nodes);
+        let mut results = recent_patches(
+            self.prism.as_ref(),
+            None,
+            Some(&args.task_id),
+            args.since,
+            args.path.as_deref(),
+            applied.saturating_add(1),
+        )?;
+        if requested > applied {
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Task-change limit was capped at {} instead of {requested}. Next action: narrow with `path` before raising the limit.",
+                    applied
+                ),
+                Some(json!({
+                    "requested": requested,
+                    "applied": applied,
+                    "taskId": args.task_id.0,
+                    "nextAction": "Use prism.taskChanges(taskId, { path: ..., limit: ... }) to narrow the result set.",
+                })),
+            );
+        }
+        if results.len() > applied {
+            results.truncate(applied);
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Task changes for `{}` were truncated at {} entries. Next action: narrow with `path`.",
+                    args.task_id.0, applied
+                ),
+                Some(json!({
+                    "taskId": args.task_id.0,
+                    "applied": applied,
+                    "nextAction": "Use prism.taskChanges(taskId, { path: ..., limit: ... }) to narrow the result set.",
+                })),
+            );
+        }
+        Ok(results)
+    }
+
     fn host(&self) -> &QueryHost {
         &self.host
     }
@@ -1052,7 +1332,7 @@ impl QueryExecution {
 
     fn call_graph(&self, args: CallGraphArgs) -> Result<SubgraphView> {
         let limits = self.host.session.limits();
-        let id = convert_node_id(args.id)?;
+        let id = self.resolve_target_id(args.id, args.lineage_id)?;
         let requested = args.depth.unwrap_or(DEFAULT_CALL_GRAPH_DEPTH);
         let applied = requested.min(limits.max_call_graph_depth);
         if requested > limits.max_call_graph_depth {
@@ -1318,7 +1598,7 @@ impl QueryExecution {
     }
 
     fn source_excerpt(&self, args: SourceExcerptArgs) -> Result<Option<SourceExcerptView>> {
-        let id = convert_node_id(args.id)?;
+        let id = self.resolve_target_id(args.id, args.lineage_id)?;
         let symbol = symbol_for(self.prism.as_ref(), &id)?;
         let defaults = SourceExcerptOptions::default();
         Ok(source_excerpt_for_symbol(
@@ -1332,7 +1612,7 @@ impl QueryExecution {
     }
 
     fn edit_slice(&self, args: EditSliceArgs) -> Result<Option<SourceSliceView>> {
-        let id = convert_node_id(args.id)?;
+        let id = self.resolve_target_id(args.id, args.lineage_id)?;
         let symbol = symbol_for(self.prism.as_ref(), &id)?;
         let defaults = EditSliceOptions::default();
         Ok(edit_slice_for_symbol(
@@ -1348,6 +1628,110 @@ impl QueryExecution {
 
     fn symbols(&self, query: &str) -> Result<Vec<SymbolView>> {
         self.symbols_from(self.prism.symbol(query))
+    }
+
+    fn resolve_target_id(
+        &self,
+        id: Option<NodeIdInput>,
+        lineage_id: Option<String>,
+    ) -> Result<NodeId> {
+        let requested_id = id.map(convert_node_id).transpose()?;
+        let requested_lineage = lineage_id.map(LineageId::new);
+
+        if let Some(id) = requested_id.as_ref() {
+            if symbol_for(self.prism.as_ref(), id).is_ok() {
+                if let Some(lineage) = requested_lineage.as_ref() {
+                    if self.prism.lineage_of(id).as_ref() != Some(lineage) {
+                        self.push_diagnostic(
+                            "target_lineage_mismatch",
+                            format!(
+                                "Target `{}` resolved directly, but its current lineage does not match `{}`.",
+                                id.path, lineage.0
+                            ),
+                            Some(json!({
+                                "id": id,
+                                "lineageId": lineage.0,
+                            })),
+                        );
+                    }
+                }
+                return Ok(id.clone());
+            }
+        }
+
+        let Some(lineage) = requested_lineage else {
+            if let Some(id) = requested_id {
+                return Err(anyhow!("unknown symbol `{}`", id.path));
+            }
+            return Err(anyhow!("target must include `id` or `lineageId`"));
+        };
+
+        let resolved = self.resolve_lineage_target(&lineage, requested_id.as_ref())?;
+        if requested_id.as_ref() != Some(&resolved) {
+            self.push_diagnostic(
+                "target_remapped_via_lineage",
+                format!(
+                    "Resolved current target `{}` from stable lineage `{}`.",
+                    resolved.path, lineage.0
+                ),
+                Some(json!({
+                    "requestedId": requested_id,
+                    "resolvedId": resolved,
+                    "lineageId": lineage.0,
+                })),
+            );
+        }
+        Ok(resolved)
+    }
+
+    fn resolve_lineage_target(
+        &self,
+        lineage: &LineageId,
+        requested_id: Option<&NodeId>,
+    ) -> Result<NodeId> {
+        let candidates = self.prism.current_nodes_for_lineage(lineage);
+        if candidates.is_empty() {
+            return Err(anyhow!(
+                "lineage `{}` does not currently resolve to any nodes",
+                lineage.0
+            ));
+        }
+
+        if let Some(requested) = requested_id {
+            if let Some(exact) = candidates.iter().find(|candidate| *candidate == requested) {
+                return Ok(exact.clone());
+            }
+
+            let same_crate_and_kind = candidates
+                .iter()
+                .filter(|candidate| {
+                    candidate.crate_name == requested.crate_name && candidate.kind == requested.kind
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            if same_crate_and_kind.len() == 1 {
+                return Ok(same_crate_and_kind[0].clone());
+            }
+
+            let same_kind = candidates
+                .iter()
+                .filter(|candidate| candidate.kind == requested.kind)
+                .cloned()
+                .collect::<Vec<_>>();
+            if same_kind.len() == 1 {
+                return Ok(same_kind[0].clone());
+            }
+        }
+
+        if candidates.len() == 1 {
+            return Ok(candidates[0].clone());
+        }
+
+        Err(anyhow!(
+            "lineage `{}` is ambiguous and currently resolves to {} nodes",
+            lineage.0,
+            candidates.len()
+        ))
     }
 
     fn symbols_from<'a, I>(&self, symbols: I) -> Result<Vec<SymbolView>>

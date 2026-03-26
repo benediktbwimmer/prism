@@ -114,6 +114,33 @@ type QueryLogOptions = {
   minDurationMs?: number;
 };
 
+type RuntimeLogOptions = {
+  limit?: number;
+  level?: string;
+  target?: string;
+  contains?: string;
+};
+
+type RuntimeTimelineOptions = {
+  limit?: number;
+  contains?: string;
+};
+
+type ChangedFilesOptions = {
+  since?: number;
+  limit?: number;
+  taskId?: string;
+  path?: string;
+};
+
+type RecentPatchesOptions = {
+  target?: SymbolView | NodeId;
+  since?: number;
+  limit?: number;
+  taskId?: string;
+  path?: string;
+};
+
 type PrismApi = {
   symbol(query: string): SymbolView | null;
   symbols(query: string): SymbolView[];
@@ -149,26 +176,36 @@ type PrismApi = {
     mode?: string;
     taskId?: string;
   }): ConflictView[];
-  lineage(target: SymbolView | NodeId): LineageView | null;
-  coChangeNeighbors(target: SymbolView | NodeId): CoChangeView[];
-  relatedFailures(target: SymbolView | NodeId): OutcomeEvent[];
-  blastRadius(target: SymbolView | NodeId): ChangeImpactView | null;
-  validationRecipe(target: SymbolView | NodeId): ValidationRecipeView | null;
-  readContext(target: SymbolView | NodeId): ReadContextView | null;
-  editContext(target: SymbolView | NodeId): EditContextView | null;
-  validationContext(target: SymbolView | NodeId): ValidationContextView | null;
-  recentChangeContext(target: SymbolView | NodeId): RecentChangeContextView | null;
-  nextReads(target: SymbolView | NodeId, options?: NextReadsOptions): OwnerCandidateView[];
-  whereUsed(target: SymbolView | NodeId, options?: WhereUsedOptions): SymbolView[];
-  entrypointsFor(target: SymbolView | NodeId, options?: NextReadsOptions): SymbolView[];
-  specFor(target: SymbolView | NodeId): SymbolView[];
-  implementationFor(target: SymbolView | NodeId, options?: ImplementationOptions): SymbolView[];
-  owners(target: SymbolView | NodeId, options?: OwnerLookupOptions): OwnerCandidateView[];
+  full(target: QueryTarget): string | null;
+  excerpt(target: QueryTarget, options?: SourceExcerptOptions): SourceExcerptView | null;
+  editSlice(target: QueryTarget, options?: EditSliceOptions): SourceSliceView | null;
+  lineage(target: QueryTarget): LineageView | null;
+  coChangeNeighbors(target: QueryTarget): CoChangeView[];
+  relatedFailures(target: QueryTarget): OutcomeEvent[];
+  blastRadius(target: QueryTarget): ChangeImpactView | null;
+  validationRecipe(target: QueryTarget): ValidationRecipeView | null;
+  readContext(target: QueryTarget): ReadContextView | null;
+  editContext(target: QueryTarget): EditContextView | null;
+  validationContext(target: QueryTarget): ValidationContextView | null;
+  recentChangeContext(target: QueryTarget): RecentChangeContextView | null;
+  nextReads(target: QueryTarget, options?: NextReadsOptions): OwnerCandidateView[];
+  whereUsed(target: QueryTarget, options?: WhereUsedOptions): SymbolView[];
+  entrypointsFor(target: QueryTarget, options?: NextReadsOptions): SymbolView[];
+  specFor(target: QueryTarget): SymbolView[];
+  implementationFor(target: QueryTarget, options?: ImplementationOptions): SymbolView[];
+  owners(target: QueryTarget, options?: OwnerLookupOptions): OwnerCandidateView[];
   driftCandidates(limit?: number): DriftCandidateView[];
-  specCluster(target: SymbolView | NodeId): SpecImplementationClusterView | null;
-  explainDrift(target: SymbolView | NodeId): SpecDriftExplanationView | null;
+  specCluster(target: QueryTarget): SpecImplementationClusterView | null;
+  explainDrift(target: QueryTarget): SpecDriftExplanationView | null;
   resumeTask(taskId: string): TaskReplay;
   taskJournal(taskId: string, options?: TaskJournalOptions): TaskJournalView;
+  changedFiles(options?: ChangedFilesOptions): ChangedFileView[];
+  changedSymbols(path: string, options?: ChangedFilesOptions): ChangedSymbolView[];
+  recentPatches(options?: RecentPatchesOptions): PatchEventView[];
+  taskChanges(taskId: string, options?: ChangedFilesOptions): PatchEventView[];
+  runtimeStatus(): RuntimeStatusView;
+  runtimeLogs(options?: RuntimeLogOptions): RuntimeLogEventView[];
+  runtimeTimeline(options?: RuntimeTimelineOptions): RuntimeLogEventView[];
   memory: {
     recall(options?: MemoryRecallOptions): ScoredMemoryView[];
     outcomes(options?: MemoryOutcomeOptions): OutcomeEvent[];
@@ -182,6 +219,8 @@ type PrismApi = {
   queryTrace(id: string): QueryTraceView | null;
   diagnostics(): QueryDiagnostic[];
 };
+
+type QueryTarget = SymbolView | NodeId | { lineageId: string };
 
 type SymbolView = {
   id: NodeId;
@@ -283,6 +322,81 @@ type TextSearchMatchView = {
   path: string;
   location: SourceLocationView;
   excerpt: SourceExcerptView;
+};
+
+type ChangedSymbolView = {
+  status: string;
+  id?: NodeId;
+  name: string;
+  kind: string;
+  filePath: string;
+  location?: SourceLocationView;
+  excerpt?: SourceExcerptView;
+  lineageId?: string;
+};
+
+type ChangedFileView = {
+  path: string;
+  eventId: string;
+  ts: number;
+  taskId?: string;
+  trigger?: string;
+  summary: string;
+  changedSymbolCount: number;
+  addedCount: number;
+  removedCount: number;
+  updatedCount: number;
+};
+
+type PatchEventView = {
+  eventId: string;
+  ts: number;
+  taskId?: string;
+  trigger?: string;
+  summary: string;
+  files: string[];
+  changedSymbols: ChangedSymbolView[];
+};
+
+type RuntimeHealthView = {
+  ok: boolean;
+  detail: string;
+};
+
+type RuntimeProcessView = {
+  pid: number;
+  rssKb: number;
+  rssMb: number;
+  elapsed: string;
+  kind: string;
+  command: string;
+  healthPath?: string;
+};
+
+type RuntimeStatusView = {
+  root: string;
+  uri?: string;
+  uriFile: string;
+  logPath: string;
+  logBytes?: number;
+  cachePath: string;
+  cacheBytes?: number;
+  healthPath: string;
+  health: RuntimeHealthView;
+  daemonCount: number;
+  bridgeCount: number;
+  processes: RuntimeProcessView[];
+  processError?: string;
+};
+
+type RuntimeLogEventView = {
+  timestamp?: string;
+  level?: string;
+  message: string;
+  target?: string;
+  file?: string;
+  lineNumber?: number;
+  fields?: Record<string, unknown>;
 };
 
 type FileView = {
@@ -936,6 +1050,34 @@ return {
 };
 ```
 
+### 7b. Inspect semantic recent changes without defaulting to git diff
+
+```ts
+return {
+  files: prism.changedFiles({ limit: 5 }),
+  patches: prism.recentPatches({ path: "crates/prism-mcp/src", limit: 3 }),
+};
+```
+
+### 7c. Inspect semantic recent changes for one task or file
+
+```ts
+return {
+  task: prism.taskChanges("task:123", { limit: 3 }),
+  file: prism.changedSymbols("crates/prism-mcp/src/query_runtime.rs", { limit: 10 }),
+};
+```
+
+### 7d. Inspect daemon status and recent runtime activity through PRISM
+
+```ts
+return {
+  status: prism.runtimeStatus(),
+  timeline: prism.runtimeTimeline({ limit: 5 }),
+  warnings: prism.runtimeLogs({ level: "WARN", limit: 5 }),
+};
+```
+
 ### 8. Narrow by path fragment
 
 ```ts
@@ -1217,6 +1359,8 @@ return prism.claimPreview({
 - Available now: owner-biased discovery helpers through `prism.owners(...)`, `prism.nextReads(...)`, `prism.whereUsed(...)`, `prism.entrypointsFor(...)`, behavioral `prism.search(...)`, `prism.readContext(...)`, `prism.editContext(...)`, `prism.validationContext(...)`, `prism.recentChangeContext(...)`, and `implementationFor(..., { mode: "owners" })` without changing the direct primitive semantics.
 - Available now: bounded workspace file reads through `prism.file(path).read(...)` and `prism.file(path).around(...)` for exact line-range and around-line inspection without leaving the PRISM query surface.
 - Available now: bounded workspace text search through `prism.searchText(...)` with regex support, path/glob filters, exact match locations, and capped snippets.
+- Available now: semantic recent-change inspection through `prism.changedFiles(...)`, `prism.changedSymbols(path, ...)`, `prism.recentPatches(...)`, and `prism.taskChanges(taskId, ...)` backed by recorded patch outcomes instead of raw diff dumps.
+- Available now: workspace-backed runtime introspection through `prism.runtimeStatus()`, `prism.runtimeLogs(...)`, and `prism.runtimeTimeline(...)` for daemon health, recent structured log events, and startup/refresh diagnosis without defaulting to shell status checks.
 - Available now: non-symbol repo coverage for markdown headings plus structured JSON, YAML, and TOML config keys through the normal PRISM search and relation surface.
 - Available now: a first-class query log through `prism.queryLog(...)`, `prism.slowQueries(...)`, and `prism.queryTrace(id)` with duration, diagnostics, truncation metadata, and phase breakdowns.
 - Available now: spec-to-code clustering and drift explanations that group direct links with read/write/persistence/test owners for spec-like symbols.

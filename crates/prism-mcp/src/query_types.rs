@@ -34,7 +34,9 @@ pub(crate) struct SearchArgs {
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct SymbolTargetArgs {
-    pub(crate) id: NodeIdInput,
+    pub(crate) id: Option<NodeIdInput>,
+    #[serde(rename = "lineageId")]
+    pub(crate) lineage_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -61,6 +63,59 @@ pub(crate) struct QueryLogArgs {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RuntimeLogArgs {
+    pub(crate) limit: Option<usize>,
+    pub(crate) level: Option<String>,
+    pub(crate) target: Option<String>,
+    pub(crate) contains: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RuntimeTimelineArgs {
+    pub(crate) limit: Option<usize>,
+    pub(crate) contains: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ChangedFilesArgs {
+    pub(crate) since: Option<u64>,
+    pub(crate) limit: Option<usize>,
+    pub(crate) task_id: Option<prism_ir::TaskId>,
+    pub(crate) path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ChangedSymbolsArgs {
+    pub(crate) path: String,
+    pub(crate) since: Option<u64>,
+    pub(crate) limit: Option<usize>,
+    pub(crate) task_id: Option<prism_ir::TaskId>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RecentPatchesArgs {
+    pub(crate) target: Option<NodeIdInput>,
+    pub(crate) since: Option<u64>,
+    pub(crate) limit: Option<usize>,
+    pub(crate) task_id: Option<prism_ir::TaskId>,
+    pub(crate) path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TaskChangesArgs {
+    pub(crate) task_id: prism_ir::TaskId,
+    pub(crate) since: Option<u64>,
+    pub(crate) limit: Option<usize>,
+    pub(crate) path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 pub(crate) struct QueryTraceArgs {
     pub(crate) id: String,
 }
@@ -68,14 +123,16 @@ pub(crate) struct QueryTraceArgs {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct DiscoveryTargetArgs {
-    pub(crate) id: NodeIdInput,
+    pub(crate) id: Option<NodeIdInput>,
+    pub(crate) lineage_id: Option<String>,
     pub(crate) limit: Option<usize>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct WhereUsedArgs {
-    pub(crate) id: NodeIdInput,
+    pub(crate) id: Option<NodeIdInput>,
+    pub(crate) lineage_id: Option<String>,
     pub(crate) mode: Option<String>,
     pub(crate) limit: Option<usize>,
 }
@@ -83,7 +140,8 @@ pub(crate) struct WhereUsedArgs {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ImplementationTargetArgs {
-    pub(crate) id: NodeIdInput,
+    pub(crate) id: Option<NodeIdInput>,
+    pub(crate) lineage_id: Option<String>,
     pub(crate) mode: Option<String>,
     pub(crate) owner_kind: Option<String>,
 }
@@ -91,7 +149,8 @@ pub(crate) struct ImplementationTargetArgs {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct OwnerLookupArgs {
-    pub(crate) id: NodeIdInput,
+    pub(crate) id: Option<NodeIdInput>,
+    pub(crate) lineage_id: Option<String>,
     pub(crate) kind: Option<String>,
     pub(crate) limit: Option<usize>,
 }
@@ -99,7 +158,8 @@ pub(crate) struct OwnerLookupArgs {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct SourceExcerptArgs {
-    pub(crate) id: NodeIdInput,
+    pub(crate) id: Option<NodeIdInput>,
+    pub(crate) lineage_id: Option<String>,
     pub(crate) context_lines: Option<usize>,
     pub(crate) max_lines: Option<usize>,
     pub(crate) max_chars: Option<usize>,
@@ -108,7 +168,8 @@ pub(crate) struct SourceExcerptArgs {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct EditSliceArgs {
-    pub(crate) id: NodeIdInput,
+    pub(crate) id: Option<NodeIdInput>,
+    pub(crate) lineage_id: Option<String>,
     pub(crate) before_lines: Option<usize>,
     pub(crate) after_lines: Option<usize>,
     pub(crate) max_lines: Option<usize>,
@@ -136,7 +197,9 @@ pub(crate) struct FileAroundArgs {
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct CallGraphArgs {
-    pub(crate) id: NodeIdInput,
+    pub(crate) id: Option<NodeIdInput>,
+    #[serde(rename = "lineageId")]
+    pub(crate) lineage_id: Option<String>,
     pub(crate) depth: Option<usize>,
 }
 

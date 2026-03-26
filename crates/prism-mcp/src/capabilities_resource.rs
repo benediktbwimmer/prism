@@ -363,6 +363,48 @@ fn query_method_specs() -> Vec<(
             "Read artifact risk and missing validations.",
         ),
         (
+            "changedFiles",
+            "core",
+            None,
+            "List recently changed files with semantic patch summaries and symbol counts.",
+        ),
+        (
+            "changedSymbols",
+            "core",
+            None,
+            "List recently changed symbols for one file with exact locations and local excerpts where available.",
+        ),
+        (
+            "recentPatches",
+            "core",
+            None,
+            "Inspect recent semantic patch events, optionally narrowed by target, task, or path.",
+        ),
+        (
+            "taskChanges",
+            "core",
+            None,
+            "Inspect recent semantic patch events for one task.",
+        ),
+        (
+            "runtimeStatus",
+            "core",
+            None,
+            "Inspect the MCP daemon status, health, process counts, and runtime file paths for this workspace.",
+        ),
+        (
+            "runtimeLogs",
+            "core",
+            None,
+            "Read recent structured daemon log events with level, target, and text filtering.",
+        ),
+        (
+            "runtimeTimeline",
+            "core",
+            None,
+            "Read a startup and refresh-focused runtime timeline from recent daemon log events.",
+        ),
+        (
             "queryLog",
             "core",
             None,

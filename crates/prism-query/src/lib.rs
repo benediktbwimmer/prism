@@ -131,6 +131,10 @@ impl Prism {
         self.history.lineage_history(lineage)
     }
 
+    pub fn current_nodes_for_lineage(&self, lineage: &LineageId) -> Vec<NodeId> {
+        self.history.current_nodes_for_lineage(lineage)
+    }
+
     pub fn outcome_memory(&self) -> Arc<OutcomeMemory> {
         Arc::clone(&self.outcomes)
     }

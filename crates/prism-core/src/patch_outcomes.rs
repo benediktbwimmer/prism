@@ -43,6 +43,51 @@ fn patch_summary(observed: &ObservedChangeSet) -> String {
     )
 }
 
+fn patch_file_paths<S: prism_store::Store>(
+    indexer: &WorkspaceIndexer<S>,
+    observed: &ObservedChangeSet,
+) -> Vec<String> {
+    observed
+        .files
+        .iter()
+        .filter_map(|file_id| {
+            indexer
+                .graph
+                .file_path(*file_id)
+                .map(|path| path.to_string_lossy().into_owned())
+        })
+        .collect()
+}
+
+fn changed_symbol_metadata<S: prism_store::Store>(
+    indexer: &WorkspaceIndexer<S>,
+    status: &str,
+    node: &prism_ir::ObservedNode,
+) -> serde_json::Value {
+    serde_json::json!({
+        "status": status,
+        "id": node.node.id,
+        "name": node.node.name,
+        "kind": node.node.kind,
+        "filePath": indexer
+            .graph
+            .file_path(node.node.file)
+            .map(|path| path.to_string_lossy().into_owned()),
+        "span": node.node.span,
+    })
+}
+
+fn updated_symbol_metadata<S: prism_store::Store>(
+    indexer: &WorkspaceIndexer<S>,
+    before: &prism_ir::ObservedNode,
+    after: &prism_ir::ObservedNode,
+) -> [serde_json::Value; 2] {
+    [
+        changed_symbol_metadata(indexer, "updated_before", before),
+        changed_symbol_metadata(indexer, "updated_after", after),
+    ]
+}
+
 pub(crate) fn dedupe_anchors(anchors: Vec<AnchorRef>) -> Vec<AnchorRef> {
     let mut seen = HashSet::new();
     let mut deduped = Vec::new();
@@ -105,6 +150,24 @@ impl<S: prism_store::Store> WorkspaceIndexer<S> {
             metadata: serde_json::json!({
                 "trigger": format!("{:?}", observed.trigger),
                 "files": observed.files.iter().map(|file_id| file_id.0).collect::<Vec<_>>(),
+                "filePaths": patch_file_paths(self, observed),
+                "changedSymbols": observed
+                    .added
+                    .iter()
+                    .map(|node| changed_symbol_metadata(self, "added", node))
+                    .chain(
+                        observed
+                            .removed
+                            .iter()
+                            .map(|node| changed_symbol_metadata(self, "removed", node))
+                    )
+                    .chain(
+                        observed
+                            .updated
+                            .iter()
+                            .flat_map(|(before, after)| updated_symbol_metadata(self, before, after))
+                    )
+                    .collect::<Vec<_>>(),
             }),
         };
         let deltas = prism_projections::validation_deltas_for_event(&event, |node| {

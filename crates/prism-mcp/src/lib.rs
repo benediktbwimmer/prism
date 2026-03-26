@@ -16,6 +16,7 @@ use rmcp::{handler::server::router::tool::ToolRouter, transport::stdio, ServiceE
 use tracing::{debug, info};
 
 mod capabilities_resource;
+mod change_views;
 mod common;
 mod daemon_mode;
 mod diagnostics;
@@ -36,6 +37,7 @@ mod query_runtime;
 mod query_types;
 mod resource_schemas;
 mod resources;
+mod runtime_views;
 mod schema_examples;
 mod semantic_contexts;
 mod server_surface;
@@ -49,6 +51,7 @@ mod tool_schemas;
 mod views;
 
 use capabilities_resource::*;
+use change_views::*;
 use common::*;
 pub use daemon_mode::serve_with_mode;
 use diagnostics::*;

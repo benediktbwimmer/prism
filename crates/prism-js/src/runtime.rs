@@ -24,6 +24,21 @@ function __prismNormalizeTarget(target) {
   return target;
 }
 
+function __prismNormalizeTargetPayload(target) {
+  if (target == null) {
+    return null;
+  }
+  const lineageId =
+    typeof target === "object" && typeof target.lineageId === "string" && target.lineageId.trim() !== ""
+      ? target.lineageId
+      : undefined;
+  const id = __prismNormalizeTarget(target);
+  if (id == null && lineageId == null) {
+    return null;
+  }
+  return lineageId == null ? { id } : id == null ? { lineageId } : { id, lineageId };
+}
+
 function __prismNormalizePath(path) {
   if (typeof path !== "string" || path.trim() === "") {
     throw new Error("path must be a non-empty string");
@@ -39,11 +54,11 @@ function __prismEnrichSymbol(raw) {
   return {
     ...raw,
     full() {
-      return __prismHost("full", { id: this.id });
+      return __prismHost("full", __prismNormalizeTargetPayload(this));
     },
     excerpt(options = {}) {
       return __prismHost("excerpt", {
-        id: this.id,
+        ...__prismNormalizeTargetPayload(this),
         contextLines: options?.contextLines,
         maxLines: options?.maxLines,
         maxChars: options?.maxChars,
@@ -51,7 +66,7 @@ function __prismEnrichSymbol(raw) {
     },
     editSlice(options = {}) {
       return __prismHost("editSlice", {
-        id: this.id,
+        ...__prismNormalizeTargetPayload(this),
         beforeLines: options?.beforeLines,
         afterLines: options?.afterLines,
         maxLines: options?.maxLines,
@@ -59,13 +74,15 @@ function __prismEnrichSymbol(raw) {
       });
     },
     relations() {
-      return __prismEnrichRelations(__prismHost("relations", { id: this.id }));
+      return __prismEnrichRelations(__prismHost("relations", __prismNormalizeTargetPayload(this)));
     },
     callGraph(depth = 3) {
-      return __prismEnrichSubgraph(__prismHost("callGraph", { id: this.id, depth }));
+      return __prismEnrichSubgraph(
+        __prismHost("callGraph", { ...__prismNormalizeTargetPayload(this), depth })
+      );
     },
     lineage() {
-      return __prismEnrichLineage(__prismHost("lineage", { id: this.id }));
+      return __prismEnrichLineage(__prismHost("lineage", __prismNormalizeTargetPayload(this)));
     },
   };
 }
@@ -426,134 +443,166 @@ globalThis.prism = Object.freeze({
       taskId: input?.taskId ?? input?.task_id,
     });
   },
-  lineage(target) {
-    const id = __prismNormalizeTarget(target);
-    if (id == null) {
+  full(target) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
       return null;
     }
-    return __prismEnrichLineage(__prismHost("lineage", { id }));
+    return __prismHost("full", targetPayload);
+  },
+  excerpt(target, options = {}) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
+      return null;
+    }
+    return __prismHost("excerpt", {
+      ...targetPayload,
+      contextLines: options?.contextLines,
+      maxLines: options?.maxLines,
+      maxChars: options?.maxChars,
+    });
+  },
+  editSlice(target, options = {}) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
+      return null;
+    }
+    return __prismHost("editSlice", {
+      ...targetPayload,
+      beforeLines: options?.beforeLines,
+      afterLines: options?.afterLines,
+      maxLines: options?.maxLines,
+      maxChars: options?.maxChars,
+    });
+  },
+  lineage(target) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
+      return null;
+    }
+    return __prismEnrichLineage(__prismHost("lineage", targetPayload));
   },
   coChangeNeighbors(target) {
-    const id = __prismNormalizeTarget(target);
-    if (id == null) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
       return [];
     }
-    return __prismHost("coChangeNeighbors", { id });
+    return __prismHost("coChangeNeighbors", targetPayload);
   },
   relatedFailures(target) {
-    const id = __prismNormalizeTarget(target);
-    if (id == null) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
       return [];
     }
-    return __prismHost("relatedFailures", { id });
+    return __prismHost("relatedFailures", targetPayload);
   },
   blastRadius(target) {
-    const id = __prismNormalizeTarget(target);
-    if (id == null) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
       return null;
     }
-    return __prismHost("blastRadius", { id });
+    return __prismHost("blastRadius", targetPayload);
   },
   validationRecipe(target) {
-    const id = __prismNormalizeTarget(target);
-    if (id == null) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
       return null;
     }
-    return __prismHost("validationRecipe", { id });
+    return __prismHost("validationRecipe", targetPayload);
   },
   readContext(target) {
-    const id = __prismNormalizeTarget(target);
-    if (id == null) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
       return null;
     }
-    return __prismEnrichReadContext(__prismHost("readContext", { id }));
+    return __prismEnrichReadContext(__prismHost("readContext", targetPayload));
   },
   editContext(target) {
-    const id = __prismNormalizeTarget(target);
-    if (id == null) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
       return null;
     }
-    return __prismEnrichEditContext(__prismHost("editContext", { id }));
+    return __prismEnrichEditContext(__prismHost("editContext", targetPayload));
   },
   validationContext(target) {
-    const id = __prismNormalizeTarget(target);
-    if (id == null) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
       return null;
     }
-    return __prismEnrichValidationContext(__prismHost("validationContext", { id }));
+    return __prismEnrichValidationContext(__prismHost("validationContext", targetPayload));
   },
   recentChangeContext(target) {
-    const id = __prismNormalizeTarget(target);
-    if (id == null) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
       return null;
     }
-    return __prismEnrichRecentChangeContext(__prismHost("recentChangeContext", { id }));
+    return __prismEnrichRecentChangeContext(__prismHost("recentChangeContext", targetPayload));
   },
   nextReads(target, options = {}) {
-    const id = __prismNormalizeTarget(target);
-    if (id == null) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
       return [];
     }
     return __prismEnrichInsightCandidates(
       __prismHost("nextReads", {
-        id,
+        ...targetPayload,
         limit: options?.limit,
       })
     );
   },
   whereUsed(target, options = {}) {
-    const id = __prismNormalizeTarget(target);
-    if (id == null) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
       return [];
     }
     return __prismEnrichSymbols(
       __prismHost("whereUsed", {
-        id,
+        ...targetPayload,
         mode: options?.mode,
         limit: options?.limit,
       })
     );
   },
   entrypointsFor(target, options = {}) {
-    const id = __prismNormalizeTarget(target);
-    if (id == null) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
       return [];
     }
     return __prismEnrichSymbols(
       __prismHost("entrypointsFor", {
-        id,
+        ...targetPayload,
         limit: options?.limit,
       })
     );
   },
   specFor(target) {
-    const id = __prismNormalizeTarget(target);
-    if (id == null) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
       return [];
     }
-    return __prismEnrichSymbols(__prismHost("specFor", { id }));
+    return __prismEnrichSymbols(__prismHost("specFor", targetPayload));
   },
   implementationFor(target, options = {}) {
-    const id = __prismNormalizeTarget(target);
-    if (id == null) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
       return [];
     }
     return __prismEnrichSymbols(
       __prismHost("implementationFor", {
-        id,
+        ...targetPayload,
         mode: options?.mode,
         ownerKind: options?.ownerKind ?? options?.owner_kind,
       })
     );
   },
   owners(target, options = {}) {
-    const id = __prismNormalizeTarget(target);
-    if (id == null) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
       return [];
     }
     return __prismEnrichInsightCandidates(
       __prismHost("owners", {
-        id,
+        ...targetPayload,
         kind: options?.kind,
         limit: options?.limit,
       })
@@ -563,18 +612,18 @@ globalThis.prism = Object.freeze({
     return __prismHost("driftCandidates", limit == null ? {} : { limit });
   },
   specCluster(target) {
-    const id = __prismNormalizeTarget(target);
-    if (id == null) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
       return null;
     }
-    return __prismEnrichSpecCluster(__prismHost("specCluster", { id }));
+    return __prismEnrichSpecCluster(__prismHost("specCluster", targetPayload));
   },
   explainDrift(target) {
-    const id = __prismNormalizeTarget(target);
-    if (id == null) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
       return null;
     }
-    return __prismEnrichSpecDrift(__prismHost("explainDrift", { id }));
+    return __prismEnrichSpecDrift(__prismHost("explainDrift", targetPayload));
   },
   resumeTask(taskId) {
     return __prismHost("resumeTask", { taskId });
@@ -584,6 +633,56 @@ globalThis.prism = Object.freeze({
       taskId,
       eventLimit: options.eventLimit ?? options.event_limit,
       memoryLimit: options.memoryLimit ?? options.memory_limit,
+    });
+  },
+  changedFiles(options = {}) {
+    return __prismHost("changedFiles", {
+      since: options?.since,
+      limit: options?.limit,
+      taskId: options?.taskId ?? options?.task_id,
+      path: options?.path,
+    });
+  },
+  changedSymbols(path, options = {}) {
+    return __prismHost("changedSymbols", {
+      path: __prismNormalizePath(path),
+      since: options?.since,
+      limit: options?.limit,
+      taskId: options?.taskId ?? options?.task_id,
+    });
+  },
+  recentPatches(options = {}) {
+    return __prismHost("recentPatches", {
+      target: __prismNormalizeTarget(options?.target),
+      since: options?.since,
+      limit: options?.limit,
+      taskId: options?.taskId ?? options?.task_id,
+      path: options?.path,
+    });
+  },
+  taskChanges(taskId, options = {}) {
+    return __prismHost("taskChanges", {
+      taskId,
+      since: options?.since,
+      limit: options?.limit,
+      path: options?.path,
+    });
+  },
+  runtimeStatus() {
+    return __prismHost("runtimeStatus", {});
+  },
+  runtimeLogs(options = {}) {
+    return __prismHost("runtimeLogs", {
+      limit: options?.limit,
+      level: options?.level,
+      target: options?.target,
+      contains: options?.contains,
+    });
+  },
+  runtimeTimeline(options = {}) {
+    return __prismHost("runtimeTimeline", {
+      limit: options?.limit,
+      contains: options?.contains,
     });
   },
   memory: Object.freeze({

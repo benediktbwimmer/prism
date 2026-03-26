@@ -2904,6 +2904,198 @@ return {
 }
 
 #[test]
+fn lineage_targets_remap_stale_symbol_ids_to_current_edit_slices() {
+    let root = temp_workspace();
+    let source = "pub fn alpha_v2() { beta(); }\npub fn beta() {}\n";
+    fs::write(root.join("src/lib.rs"), source).unwrap();
+
+    let alpha_old = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    let alpha_new = NodeId::new("demo", "demo::alpha_v2", NodeKind::Function);
+    let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
+
+    let alpha_start = source.find("pub fn alpha_v2").expect("alpha_v2 source");
+    let alpha_end = source.find('\n').expect("alpha_v2 line end");
+    let beta_start = source.find("pub fn beta").expect("beta source");
+    let beta_end = source[source.len() - 1..]
+        .find('\n')
+        .map(|index| source.len() - 1 + index)
+        .unwrap_or(source.len());
+
+    let mut graph = Graph::new();
+    let file_id = graph.ensure_file(&root.join("src/lib.rs"));
+    graph.add_node(Node {
+        id: alpha_new.clone(),
+        name: "alpha_v2".into(),
+        kind: NodeKind::Function,
+        file: file_id,
+        span: Span::new(alpha_start, alpha_end),
+        language: Language::Rust,
+    });
+    graph.add_node(Node {
+        id: beta.clone(),
+        name: "beta".into(),
+        kind: NodeKind::Function,
+        file: file_id,
+        span: Span::new(beta_start, beta_end),
+        language: Language::Rust,
+    });
+
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha_old.clone(), beta.clone()]);
+    history.apply(&prism_ir::ObservedChangeSet {
+        meta: EventMeta {
+            id: EventId::new("observed:rename-alpha"),
+            ts: 1,
+            actor: EventActor::System,
+            correlation: None,
+            causation: None,
+        },
+        trigger: prism_ir::ChangeTrigger::ManualReindex,
+        files: vec![file_id],
+        previous_path: Some(
+            root.join("src/lib.rs")
+                .to_string_lossy()
+                .into_owned()
+                .into(),
+        ),
+        current_path: Some(
+            root.join("src/lib.rs")
+                .to_string_lossy()
+                .into_owned()
+                .into(),
+        ),
+        added: vec![prism_ir::ObservedNode {
+            node: Node {
+                id: alpha_new.clone(),
+                name: "alpha_v2".into(),
+                kind: NodeKind::Function,
+                file: file_id,
+                span: Span::new(alpha_start, alpha_end),
+                language: Language::Rust,
+            },
+            fingerprint: prism_ir::SymbolFingerprint::with_parts(1, Some(10), None, None),
+        }],
+        removed: vec![prism_ir::ObservedNode {
+            node: Node {
+                id: alpha_old.clone(),
+                name: "alpha".into(),
+                kind: NodeKind::Function,
+                file: file_id,
+                span: Span::line(1),
+                language: Language::Rust,
+            },
+            fingerprint: prism_ir::SymbolFingerprint::with_parts(1, Some(10), None, None),
+        }],
+        updated: vec![(
+            prism_ir::ObservedNode {
+                node: Node {
+                    id: beta.clone(),
+                    name: "beta".into(),
+                    kind: NodeKind::Function,
+                    file: file_id,
+                    span: Span::line(2),
+                    language: Language::Rust,
+                },
+                fingerprint: prism_ir::SymbolFingerprint::with_parts(2, Some(20), None, None),
+            },
+            prism_ir::ObservedNode {
+                node: Node {
+                    id: beta.clone(),
+                    name: "beta".into(),
+                    kind: NodeKind::Function,
+                    file: file_id,
+                    span: Span::new(beta_start, beta_end),
+                    language: Language::Rust,
+                },
+                fingerprint: prism_ir::SymbolFingerprint::with_parts(2, Some(21), None, None),
+            },
+        )],
+        edge_added: Vec::new(),
+        edge_removed: Vec::new(),
+    });
+
+    let lineage_id = history
+        .lineage_of(&alpha_new)
+        .expect("renamed node should keep lineage")
+        .0
+        .to_string();
+    let host = host_with_prism(Prism::with_history(graph, history));
+
+    let lineage = match host.execute(
+        &format!(
+            r#"
+const stale = {{ id: {}, lineageId: "{}" }};
+return prism.lineage(stale);
+"#,
+            serde_json::to_string(&serde_json::json!({
+                "crateName": "demo",
+                "path": "demo::alpha",
+                "kind": "Function"
+            }))
+            .expect("old id should serialize"),
+            lineage_id
+        ),
+        QueryLanguage::Ts,
+    ) {
+        Ok(result) => result,
+        Err(error) => panic!("reloaded lineage query should succeed: {error:#}"),
+    };
+    let slice = match host.execute(
+        &format!(
+            r#"
+const stale = {{ id: {}, lineageId: "{}" }};
+return prism.editSlice(stale, {{ maxLines: 2, maxChars: 120 }});
+"#,
+            serde_json::to_string(&serde_json::json!({
+                "crateName": "demo",
+                "path": "demo::alpha",
+                "kind": "Function"
+            }))
+            .expect("old id should serialize"),
+            lineage_id
+        ),
+        QueryLanguage::Ts,
+    ) {
+        Ok(result) => result,
+        Err(error) => panic!("reloaded edit slice query should succeed: {error:#}"),
+    };
+    let full = match host.execute(
+        &format!(
+            r#"
+const stale = {{ id: {}, lineageId: "{}" }};
+return prism.full(stale);
+"#,
+            serde_json::to_string(&serde_json::json!({
+                "crateName": "demo",
+                "path": "demo::alpha",
+                "kind": "Function"
+            }))
+            .expect("old id should serialize"),
+            lineage_id
+        ),
+        QueryLanguage::Ts,
+    ) {
+        Ok(result) => result,
+        Err(error) => panic!("reloaded full query should succeed: {error:#}"),
+    };
+
+    assert!(lineage
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "target_remapped_via_lineage"));
+    assert!(slice.result["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("pub fn alpha_v2()"));
+    assert!(full
+        .result
+        .as_str()
+        .unwrap_or_default()
+        .contains("pub fn alpha_v2()"));
+    assert_eq!(lineage.result["current"]["id"]["path"], "demo::alpha_v2");
+}
+
+#[test]
 fn prism_file_queries_read_exact_ranges_and_around_line_slices() {
     let root = temp_workspace();
     write_long_excerpt_workspace(&root);
@@ -3109,6 +3301,261 @@ return {
     assert_eq!(phases.len(), 1);
     assert_eq!(phases[0]["operation"], "fileAround");
     assert_eq!(phases[0]["success"], true);
+}
+
+#[test]
+fn prism_runtime_views_surface_status_logs_and_timeline() {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+
+    let root = temp_workspace();
+    let prism_dir = root.join(".prism");
+    fs::create_dir_all(&prism_dir).unwrap();
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("health listener");
+    let addr = listener.local_addr().expect("listener addr");
+    let server = thread::spawn(move || {
+        if let Ok((mut stream, _)) = listener.accept() {
+            let mut request = [0_u8; 1024];
+            let _ = stream.read(&mut request);
+            let _ = stream
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok");
+        }
+    });
+
+    fs::write(
+        prism_dir.join("prism-mcp-http-uri"),
+        format!("http://{addr}/mcp\n"),
+    )
+    .unwrap();
+    fs::write(
+        prism_dir.join("prism-mcp-daemon.log"),
+        [
+            json!({
+                "timestamp": "2026-03-26T15:12:35Z",
+                "level": "INFO",
+                "message": "starting prism-mcp",
+                "target": "prism_mcp::logging",
+                "filename": "crates/prism-mcp/src/logging.rs",
+                "line_number": 53,
+            })
+            .to_string(),
+            json!({
+                "timestamp": "2026-03-26T15:12:36Z",
+                "level": "INFO",
+                "message": "completed prism workspace indexing",
+                "target": "prism_core::indexer",
+                "filename": "crates/prism-core/src/indexer.rs",
+                "line_number": 435,
+                "total_ms": "6227",
+            })
+            .to_string(),
+            json!({
+                "timestamp": "2026-03-26T15:12:42Z",
+                "level": "INFO",
+                "message": "prism-mcp daemon ready",
+                "target": "prism_mcp::daemon_mode",
+                "filename": "crates/prism-mcp/src/daemon_mode.rs",
+                "line_number": 57,
+                "startup_ms": "6534",
+            })
+            .to_string(),
+            json!({
+                "timestamp": "2026-03-26T15:16:23Z",
+                "level": "WARN",
+                "message": "response error",
+                "target": "rmcp::service",
+                "filename": "service.rs",
+                "line_number": 873,
+                "error": "query_execution_failed",
+            })
+            .to_string(),
+        ]
+        .join("\n"),
+    )
+    .unwrap();
+
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let result = host
+        .execute(
+            r#"
+return {
+  status: prism.runtimeStatus(),
+  warnings: prism.runtimeLogs({ level: "WARN", limit: 5 }),
+  timeline: prism.runtimeTimeline({ limit: 10 }),
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("runtime views query should succeed");
+
+    let status = &result.result["status"];
+    assert_eq!(status["health"]["ok"], true);
+    assert_eq!(status["daemonCount"], 0);
+    assert_eq!(status["bridgeCount"], 0);
+    assert_eq!(status["healthPath"], "/healthz");
+    assert_eq!(
+        status["uri"].as_str().unwrap_or_default(),
+        format!("http://{addr}/mcp")
+    );
+    assert!(status["logPath"]
+        .as_str()
+        .unwrap_or_default()
+        .ends_with(".prism/prism-mcp-daemon.log"));
+    assert!(status["cachePath"]
+        .as_str()
+        .unwrap_or_default()
+        .ends_with(".prism/cache.db"));
+
+    let warnings = result.result["warnings"]
+        .as_array()
+        .expect("runtime warnings");
+    assert_eq!(warnings.len(), 1);
+    assert_eq!(warnings[0]["message"], "response error");
+    assert_eq!(warnings[0]["target"], "rmcp::service");
+    assert_eq!(warnings[0]["fields"]["error"], "query_execution_failed");
+
+    let timeline = result.result["timeline"]
+        .as_array()
+        .expect("runtime timeline");
+    assert_eq!(timeline.len(), 3);
+    assert_eq!(timeline[0]["message"], "starting prism-mcp");
+    assert_eq!(timeline[1]["message"], "completed prism workspace indexing");
+    assert_eq!(timeline[2]["message"], "prism-mcp daemon ready");
+
+    server.join().expect("health server should exit cleanly");
+}
+
+#[test]
+fn prism_change_views_surface_recent_files_symbols_and_task_changes() {
+    let root = temp_workspace();
+    let source_path = root.join("src/lib.rs");
+    let source = "pub fn alpha() {}\npub fn beta() {}\n";
+    fs::write(&source_path, source).unwrap();
+
+    let alpha_span = {
+        let start = source.find("alpha").expect("alpha span");
+        Span::new(start, start + "alpha".len())
+    };
+    let beta_span = {
+        let start = source.find("beta").expect("beta span");
+        Span::new(start, start + "beta".len())
+    };
+
+    let mut graph = Graph::new();
+    let file_id = graph.ensure_file(&source_path);
+    let alpha_id = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha_id.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: file_id,
+        span: alpha_span,
+        language: Language::Rust,
+    });
+
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha_id.clone()]);
+
+    let task_id = TaskId::new("task:change-view");
+    let outcomes = OutcomeMemory::new();
+    outcomes
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:change-view"),
+                ts: 10,
+                actor: EventActor::System,
+                correlation: Some(task_id.clone()),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::File(file_id), AnchorRef::Node(alpha_id.clone())],
+            kind: OutcomeKind::PatchApplied,
+            result: OutcomeResult::Success,
+            summary: "patched src/lib.rs".into(),
+            evidence: Vec::new(),
+            metadata: json!({
+                "trigger": "ManualReindex",
+                "filePaths": [source_path.to_string_lossy().into_owned()],
+                "changedSymbols": [
+                    {
+                        "status": "updated_after",
+                        "id": alpha_id,
+                        "name": "alpha",
+                        "kind": NodeKind::Function,
+                        "filePath": source_path.to_string_lossy().into_owned(),
+                        "span": alpha_span,
+                    },
+                    {
+                        "status": "removed",
+                        "id": NodeId::new("demo", "demo::beta", NodeKind::Function),
+                        "name": "beta",
+                        "kind": NodeKind::Function,
+                        "filePath": source_path.to_string_lossy().into_owned(),
+                        "span": beta_span,
+                    }
+                ],
+            }),
+        })
+        .unwrap();
+
+    let host = host_with_prism(Prism::with_history_and_outcomes(graph, history, outcomes));
+    let result = host
+        .execute(
+            r#"
+return {
+  files: prism.changedFiles({ limit: 5, path: "src/lib.rs" }),
+  symbols: prism.changedSymbols("src/lib.rs", { limit: 5 }),
+  patches: prism.recentPatches({ path: "src/lib.rs", limit: 5 }),
+  task: prism.taskChanges("task:change-view", { limit: 5 }),
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("change-view query should succeed");
+
+    let changed_file = &result.result["files"][0];
+    assert!(changed_file["path"]
+        .as_str()
+        .unwrap_or_default()
+        .ends_with("src/lib.rs"));
+    assert_eq!(changed_file["changedSymbolCount"], 2);
+    assert_eq!(changed_file["removedCount"], 1);
+    assert_eq!(changed_file["updatedCount"], 1);
+
+    let symbols = result.result["symbols"]
+        .as_array()
+        .expect("changed symbols");
+    assert_eq!(symbols.len(), 2);
+    assert!(symbols.iter().any(|symbol| {
+        symbol["status"] == "updated_after"
+            && symbol["location"]["startLine"] == 1
+            && symbol["excerpt"]["text"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("alpha")
+    }));
+    assert!(symbols.iter().any(|symbol| {
+        symbol["status"] == "removed"
+            && symbol["location"]["startLine"] == 2
+            && symbol["excerpt"]["text"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("beta")
+    }));
+
+    let patch = &result.result["patches"][0];
+    assert_eq!(patch["trigger"], "ManualReindex");
+    assert_eq!(patch["taskId"], "task:change-view");
+    assert_eq!(patch["changedSymbols"].as_array().unwrap().len(), 2);
+    assert!(patch["files"][0]
+        .as_str()
+        .unwrap_or_default()
+        .ends_with("src/lib.rs"));
+
+    let task_patch = &result.result["task"][0];
+    assert_eq!(task_patch["eventId"], "outcome:change-view");
+
+    let _ = fs::remove_dir_all(root);
 }
 
 #[test]
