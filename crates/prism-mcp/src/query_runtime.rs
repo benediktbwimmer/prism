@@ -14,20 +14,21 @@ use crate::{
     artifact_risk_view, artifact_view, blast_radius_view, blocker_view, change_impact_view,
     claim_view, co_change_view, conflict_view, convert_anchors, convert_node_id,
     coordination_task_view, current_timestamp, drift_candidate_view, edge_kind_label, edge_view,
-    edit_context_view, js_runtime, lineage_view, merge_node_ids, merge_promoted_checks,
-    owner_symbol_views_for_query, owner_symbol_views_for_target, owner_views_for_target,
-    parse_capability, parse_claim_mode, parse_event_actor, parse_memory_kind, parse_node_kind,
-    parse_outcome_kind, parse_outcome_result, plan_view, policy_violation_record_view,
-    promoted_memory_entries, promoted_summary_texts, promoted_validation_checks, query_diagnostic,
-    read_context_view, relations_view, scored_memory_view, search_queries,
-    source_excerpt_for_symbol, spec_cluster_view, spec_drift_explanation_view, symbol_for,
-    symbol_view, symbol_views_for_ids, task_intent_view, task_journal_view, task_risk_view,
-    task_validation_recipe_view, validation_recipe_view_with, AnchorListArgs, CallGraphArgs,
-    CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, ImplementationTargetArgs,
-    LimitArgs, MemoryOutcomeArgs, MemoryRecallArgs, OwnerLookupArgs, PendingReviewsArgs,
-    PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage, SearchArgs,
-    SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskJournalArgs,
-    TaskTargetArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
+    edit_context_view, entrypoints_for, js_runtime, lineage_view, merge_node_ids,
+    merge_promoted_checks, next_reads, owner_symbol_views_for_query, owner_symbol_views_for_target,
+    owner_views_for_target, parse_capability, parse_claim_mode, parse_event_actor,
+    parse_memory_kind, parse_node_kind, parse_outcome_kind, parse_outcome_result, plan_view,
+    policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
+    promoted_validation_checks, query_diagnostic, read_context_view, relations_view,
+    scored_memory_view, search_queries, source_excerpt_for_symbol, spec_cluster_view,
+    spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids, task_intent_view,
+    task_journal_view, task_risk_view, task_validation_recipe_view, validation_recipe_view_with,
+    where_used, AnchorListArgs, CallGraphArgs, CoordinationTaskTargetArgs, CuratorJobArgs,
+    CuratorJobsArgs, DiscoveryTargetArgs, ImplementationTargetArgs, LimitArgs, MemoryOutcomeArgs,
+    MemoryRecallArgs, OwnerLookupArgs, PendingReviewsArgs, PlanTargetArgs,
+    PolicyViolationQueryArgs, QueryHost, QueryLanguage, SearchArgs, SimulateClaimArgs,
+    SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskJournalArgs, TaskTargetArgs,
+    WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
     DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
 };
 
@@ -571,6 +572,48 @@ impl QueryExecution {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
                 let id = convert_node_id(args.id)?;
                 Ok(serde_json::to_value(self.edit_context(&id)?)?)
+            }
+            "nextReads" => {
+                let args: DiscoveryTargetArgs = serde_json::from_value(args)?;
+                let id = convert_node_id(args.id)?;
+                let applied = args
+                    .limit
+                    .unwrap_or(INSIGHT_LIMIT)
+                    .min(self.host.session.limits().max_result_nodes);
+                Ok(serde_json::to_value(next_reads(
+                    self.prism.as_ref(),
+                    &id,
+                    applied,
+                )?)?)
+            }
+            "whereUsed" => {
+                let args: WhereUsedArgs = serde_json::from_value(args)?;
+                let id = convert_node_id(args.id)?;
+                let applied = args
+                    .limit
+                    .unwrap_or(INSIGHT_LIMIT)
+                    .min(self.host.session.limits().max_result_nodes);
+                Ok(serde_json::to_value(where_used(
+                    self.prism.as_ref(),
+                    self.host.session.as_ref(),
+                    &id,
+                    args.mode.as_deref(),
+                    applied,
+                )?)?)
+            }
+            "entrypointsFor" => {
+                let args: DiscoveryTargetArgs = serde_json::from_value(args)?;
+                let id = convert_node_id(args.id)?;
+                let applied = args
+                    .limit
+                    .unwrap_or(INSIGHT_LIMIT)
+                    .min(self.host.session.limits().max_result_nodes);
+                Ok(serde_json::to_value(entrypoints_for(
+                    self.prism.as_ref(),
+                    self.host.session.as_ref(),
+                    &id,
+                    applied,
+                )?)?)
             }
             "specFor" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;

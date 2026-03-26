@@ -10,6 +10,9 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("validationRecipe"));
     assert!(docs.contains("readContext"));
     assert!(docs.contains("editContext"));
+    assert!(docs.contains("nextReads(target"));
+    assert!(docs.contains("whereUsed(target"));
+    assert!(docs.contains("entrypointsFor(target"));
     assert!(docs.contains("prism.memory.recall"));
     assert!(docs.contains("owners(target"));
     assert!(docs.contains("strategy?: \"direct\" | \"behavioral\""));
@@ -34,6 +37,9 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("implementationFor(target, options = {})"));
     assert!(prelude.contains("readContext(target)"));
     assert!(prelude.contains("editContext(target)"));
+    assert!(prelude.contains("nextReads(target, options = {})"));
+    assert!(prelude.contains("whereUsed(target, options = {})"));
+    assert!(prelude.contains("entrypointsFor(target, options = {})"));
     assert!(prelude.contains("specCluster(target)"));
     assert!(prelude.contains("explainDrift(target)"));
     assert!(prelude.contains("curator: Object.freeze"));

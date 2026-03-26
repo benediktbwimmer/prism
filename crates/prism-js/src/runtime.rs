@@ -399,6 +399,43 @@ globalThis.prism = Object.freeze({
     }
     return __prismEnrichEditContext(__prismHost("editContext", { id }));
   },
+  nextReads(target, options = {}) {
+    const id = __prismNormalizeTarget(target);
+    if (id == null) {
+      return [];
+    }
+    return __prismEnrichInsightCandidates(
+      __prismHost("nextReads", {
+        id,
+        limit: options?.limit,
+      })
+    );
+  },
+  whereUsed(target, options = {}) {
+    const id = __prismNormalizeTarget(target);
+    if (id == null) {
+      return [];
+    }
+    return __prismEnrichSymbols(
+      __prismHost("whereUsed", {
+        id,
+        mode: options?.mode,
+        limit: options?.limit,
+      })
+    );
+  },
+  entrypointsFor(target, options = {}) {
+    const id = __prismNormalizeTarget(target);
+    if (id == null) {
+      return [];
+    }
+    return __prismEnrichSymbols(
+      __prismHost("entrypointsFor", {
+        id,
+        limit: options?.limit,
+      })
+    );
+  },
   specFor(target) {
     const id = __prismNormalizeTarget(target);
     if (id == null) {

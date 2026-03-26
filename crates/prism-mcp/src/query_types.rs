@@ -39,6 +39,21 @@ pub(crate) struct SymbolTargetArgs {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct DiscoveryTargetArgs {
+    pub(crate) id: NodeIdInput,
+    pub(crate) limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct WhereUsedArgs {
+    pub(crate) id: NodeIdInput,
+    pub(crate) mode: Option<String>,
+    pub(crate) limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ImplementationTargetArgs {
     pub(crate) id: NodeIdInput,
     pub(crate) mode: Option<String>,

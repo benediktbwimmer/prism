@@ -115,9 +115,16 @@ pub(crate) fn read_context_queries(target: &NodeId) -> Vec<SuggestedQueryView> {
             why: "Fetch the semantic read bundle for this exact target.".to_string(),
         },
         SuggestedQueryView {
-            label: "Read Owners".to_string(),
-            query: format!("return prism.owners({target_json}, {{ kind: \"read\", limit: 5 }});"),
-            why: "List the strongest read-oriented owner candidates only.".to_string(),
+            label: "Next Reads".to_string(),
+            query: format!("return prism.nextReads({target_json}, {{ limit: 5 }});"),
+            why: "Ask PRISM for the next read-oriented candidates directly.".to_string(),
+        },
+        SuggestedQueryView {
+            label: "Where Used".to_string(),
+            query: format!(
+                "return prism.whereUsed({target_json}, {{ mode: \"direct\", limit: 5 }});"
+            ),
+            why: "Inspect direct usages before jumping into a wider search.".to_string(),
         },
         SuggestedQueryView {
             label: "Validation Recipe".to_string(),
@@ -140,6 +147,12 @@ pub(crate) fn edit_context_queries(target: &NodeId) -> Vec<SuggestedQueryView> {
             label: "Write Owners".to_string(),
             query: format!("return prism.owners({target_json}, {{ kind: \"write\", limit: 5 }});"),
             why: "Inspect write-oriented owners before making a mutation.".to_string(),
+        },
+        SuggestedQueryView {
+            label: "Entry Points".to_string(),
+            query: format!("return prism.entrypointsFor({target_json}, {{ limit: 5 }});"),
+            why: "Find the reachable entrypoints before tracing an edit through the code path."
+                .to_string(),
         },
         SuggestedQueryView {
             label: "Blast Radius".to_string(),

@@ -168,6 +168,24 @@ fn query_method_specs() -> Vec<(
             None,
             "Build an edit-focused bundle with write paths and risk.",
         ),
+        (
+            "nextReads",
+            "core",
+            None,
+            "Return the strongest read-oriented next candidates for a target.",
+        ),
+        (
+            "whereUsed",
+            "core",
+            None,
+            "Return direct or behavioral usage paths for a target.",
+        ),
+        (
+            "entrypointsFor",
+            "core",
+            None,
+            "Find entrypoints that can reach a target through call paths.",
+        ),
         ("specFor", "core", None, "Resolve spec links for a target."),
         (
             "implementationFor",

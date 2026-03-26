@@ -2868,12 +2868,13 @@ return {
     assert!(!symbol_resource.read_context.suggested_reads.is_empty());
     assert!(!symbol_resource.edit_context.suggested_queries.is_empty());
     assert_eq!(symbol_resource.suggested_queries[0].label, "Read Context");
-    assert_eq!(symbol_resource.suggested_queries[1].label, "Read Owners");
+    assert_eq!(symbol_resource.suggested_queries[1].label, "Next Reads");
+    assert_eq!(symbol_resource.suggested_queries[2].label, "Where Used");
     assert_eq!(
-        symbol_resource.suggested_queries[2].label,
+        symbol_resource.suggested_queries[3].label,
         "Validation Recipe"
     );
-    assert_eq!(symbol_resource.suggested_queries[3].label, "Edit Context");
+    assert_eq!(symbol_resource.suggested_queries[4].label, "Edit Context");
     assert_eq!(
         symbol_resource.related_resources[0].uri,
         symbol_resource.uri
@@ -3082,6 +3083,63 @@ return spec
     assert!(result.result["edit"]["checklist"]
         .as_array()
         .is_some_and(|items| !items.is_empty()));
+}
+
+#[test]
+fn discovery_helpers_surface_next_reads_and_behavioral_where_used() {
+    let root = temp_workspace();
+    write_memory_insight_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .execute(
+            r#"
+const spec = prism.search("Integration Points", {
+  path: "docs/SPEC.md",
+  kind: "markdown-heading",
+  limit: 1,
+})[0];
+return spec
+  ? {
+      nextReads: prism.nextReads(spec, { limit: 5 }),
+      whereUsed: prism.whereUsed(spec, { mode: "behavioral", limit: 5 }),
+    }
+  : null;
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed");
+
+    assert!(result.result["nextReads"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(result.result["whereUsed"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+}
+
+#[test]
+fn discovery_helpers_surface_direct_where_used_and_entrypoints() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .execute(
+            r#"
+const beta = prism.symbol("beta");
+return beta
+  ? {
+      whereUsed: prism.whereUsed(beta, { mode: "direct", limit: 5 }).map((sym) => sym.id.path),
+      entrypoints: prism.entrypointsFor(beta, { limit: 5 }).map((sym) => sym.id.path),
+    }
+  : null;
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed");
+
+    assert_eq!(result.result["whereUsed"], json!(["demo::alpha"]));
+    assert_eq!(result.result["entrypoints"], json!(["demo::alpha"]));
 }
 
 #[test]
