@@ -1,6 +1,7 @@
 use prism_js::{
     ChangeImpactView, CoChangeView, EdgeView, LineageEventView, LineageStatus, LineageView,
-    MemoryEntryView, QueryDiagnostic, RelationsView, SymbolView, ValidationRecipeView,
+    MemoryEntryView, QueryDiagnostic, RelationsView, SymbolView, TaskJournalView,
+    ValidationRecipeView,
 };
 use rmcp::schemars::JsonSchema;
 
@@ -154,6 +155,7 @@ pub(crate) struct TaskResourcePayload {
     pub(crate) uri: String,
     pub(crate) schema_uri: String,
     pub(crate) task_id: String,
+    pub(crate) journal: TaskJournalView,
     pub(crate) events: Vec<OutcomeEvent>,
     pub(crate) page: ResourcePageView,
     pub(crate) truncated: bool,

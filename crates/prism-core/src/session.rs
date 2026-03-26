@@ -15,6 +15,10 @@ use prism_store::{AuxiliaryPersistBatch, SqliteStore, Store};
 
 use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorHandleRef};
 use crate::util::current_timestamp;
+use crate::validation_feedback::{
+    append_validation_feedback, load_validation_feedback, ValidationFeedbackEntry,
+    ValidationFeedbackRecord,
+};
 use crate::watch::{refresh_prism_snapshot, WatchHandle};
 
 pub struct WorkspaceSession {
@@ -230,6 +234,33 @@ impl WorkspaceSession {
 
     pub fn append_outcome(&self, event: OutcomeEvent) -> Result<EventId> {
         self.append_outcome_with_auxiliary(event, None, None)
+    }
+
+    pub fn append_validation_feedback(
+        &self,
+        record: ValidationFeedbackRecord,
+    ) -> Result<ValidationFeedbackEntry> {
+        let _guard = self
+            .refresh_lock
+            .lock()
+            .expect("workspace refresh lock poisoned");
+        append_validation_feedback(&self.root, record)
+    }
+
+    pub fn validation_feedback(
+        &self,
+        limit: Option<usize>,
+    ) -> Result<Vec<ValidationFeedbackEntry>> {
+        let _guard = self
+            .refresh_lock
+            .lock()
+            .expect("workspace refresh lock poisoned");
+        let mut entries = load_validation_feedback(&self.root)?;
+        entries.reverse();
+        if let Some(limit) = limit {
+            entries.truncate(limit);
+        }
+        Ok(entries)
     }
 
     pub fn append_outcome_with_auxiliary(

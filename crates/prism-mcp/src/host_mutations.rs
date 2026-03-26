@@ -3,6 +3,7 @@ use prism_coordination::{
     HandoffAcceptInput, HandoffInput, PlanCreateInput, PlanUpdateInput, PolicyViolation,
     TaskCreateInput, TaskUpdateInput,
 };
+use prism_core::{ValidationFeedbackCategory, ValidationFeedbackRecord, ValidationFeedbackVerdict};
 use prism_curator::{CuratorJobId, CuratorProposal, CuratorProposalDisposition};
 use prism_ir::{
     AgentId, AnchorRef, ArtifactId, ClaimId, CoordinationTaskId, Edge, EdgeOrigin, EventActor,
@@ -10,8 +11,10 @@ use prism_ir::{
 };
 use prism_memory::{
     MemoryEntry, MemoryKind, MemoryModule, MemorySource, OutcomeEvent, OutcomeEvidence,
+    OutcomeKind, OutcomeResult,
 };
 use prism_query::Prism;
+use prism_js::TaskJournalView;
 use serde_json::{json, Value};
 
 use crate::{
@@ -22,15 +25,18 @@ use crate::{
     curator_memory_metadata, curator_proposal, curator_proposal_state, curator_trigger_label,
     current_timestamp, manual_memory_metadata, parse_capability, parse_claim_mode,
     parse_coordination_task_status, parse_edge_kind, parse_plan_status, parse_review_verdict,
-    plan_view, ArtifactActionInput, ArtifactMutationResult, ArtifactProposePayload,
+    plan_view, task_journal_memory_metadata, task_journal_view, ArtifactActionInput,
+    ArtifactMutationResult, ArtifactProposePayload,
     ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput,
     ClaimMutationResult, ClaimReleasePayload, ClaimRenewPayload, CoordinationMutationKindInput,
     CoordinationMutationResult, CuratorJobView, CuratorProposalDecisionResult, EdgeMutationResult,
     EventMutationResult, HandoffAcceptPayload, MemoryMutationActionInput, MemoryMutationResult,
     MemoryStorePayload, MutationViolationView, PlanUpdatePayload, PrismArtifactArgs,
     PrismClaimArgs, PrismCoordinationArgs, PrismCuratorPromoteEdgeArgs,
-    PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs, PrismInferEdgeArgs,
-    PrismMemoryArgs, PrismOutcomeArgs, QueryHost, TaskCreatePayload, TaskUpdatePayload,
+    PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs, PrismFinishTaskArgs,
+    PrismInferEdgeArgs, PrismMemoryArgs, PrismOutcomeArgs, PrismValidationFeedbackArgs, QueryHost,
+    TaskCreatePayload, TaskUpdatePayload, ValidationFeedbackMutationResult,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
 
 #[derive(Default)]
@@ -38,6 +44,41 @@ struct CoordinationAudit {
     event_ids: Vec<String>,
     violations: Vec<MutationViolationView>,
     rejected: bool,
+}
+
+pub(crate) struct TaskClosureMutationResult {
+    pub(crate) task_id: String,
+    pub(crate) event_id: String,
+    pub(crate) memory_id: String,
+    pub(crate) journal: TaskJournalView,
+}
+
+enum TaskClosureDisposition {
+    Completed,
+    Abandoned,
+}
+
+impl TaskClosureDisposition {
+    fn label(&self) -> &'static str {
+        match self {
+            Self::Completed => "completed",
+            Self::Abandoned => "abandoned",
+        }
+    }
+
+    fn outcome_result(&self) -> OutcomeResult {
+        match self {
+            Self::Completed => OutcomeResult::Success,
+            Self::Abandoned => OutcomeResult::Partial,
+        }
+    }
+
+    fn trust(&self) -> f32 {
+        match self {
+            Self::Completed => 0.85,
+            Self::Abandoned => 0.7,
+        }
+    }
 }
 
 fn mutation_violation_view(value: PolicyViolation) -> MutationViolationView {
@@ -110,6 +151,119 @@ impl QueryHost {
             self.persist_outcomes()?;
         }
         Ok(task)
+    }
+
+    pub(crate) fn finish_task(
+        &self,
+        args: PrismFinishTaskArgs,
+    ) -> Result<TaskClosureMutationResult> {
+        self.close_task(args, TaskClosureDisposition::Completed)
+    }
+
+    pub(crate) fn abandon_task(
+        &self,
+        args: PrismFinishTaskArgs,
+    ) -> Result<TaskClosureMutationResult> {
+        self.close_task(args, TaskClosureDisposition::Abandoned)
+    }
+
+    fn close_task(
+        &self,
+        args: PrismFinishTaskArgs,
+        disposition: TaskClosureDisposition,
+    ) -> Result<TaskClosureMutationResult> {
+        self.refresh_workspace()?;
+        if args.summary.trim().is_empty() {
+            return Err(anyhow!("task summary cannot be empty"));
+        }
+
+        let current_task = self.session.current_task_state();
+        let task = args
+            .task_id
+            .map(TaskId::new)
+            .or_else(|| current_task.as_ref().map(|task| task.id.clone()))
+            .ok_or_else(|| anyhow!("no active task is set; provide taskId or start a task"))?;
+        let metadata_override = current_task
+            .as_ref()
+            .filter(|state| state.id == task)
+            .map(|state| (state.description.clone(), state.tags.clone()));
+        let prism = self.current_prism();
+        let replay = prism.resume_task(&task);
+        if replay.events.is_empty() && metadata_override.is_none() {
+            return Err(anyhow!("unknown task `{}`", task.0));
+        }
+
+        let mut anchors = replay
+            .events
+            .iter()
+            .flat_map(|event| event.anchors.iter().cloned())
+            .collect::<Vec<_>>();
+        if let Some(explicit) = args.anchors {
+            anchors.extend(convert_anchors(explicit)?);
+        }
+        let anchors = prism.anchors_for(&anchors);
+
+        let mut entry = MemoryEntry::new(MemoryKind::Episodic, args.summary.clone());
+        entry.anchors = anchors.clone();
+        entry.source = MemorySource::Agent;
+        entry.trust = disposition.trust();
+        entry.metadata = task_journal_memory_metadata(Value::Null, &task, disposition.label());
+        let memory_id = self.session.notes.store(entry)?;
+
+        let event = OutcomeEvent {
+            meta: EventMeta {
+                id: self.session.next_event_id("outcome"),
+                ts: current_timestamp(),
+                actor: EventActor::Agent,
+                correlation: Some(task.clone()),
+                causation: None,
+            },
+            anchors,
+            kind: OutcomeKind::NoteAdded,
+            result: disposition.outcome_result(),
+            summary: args.summary,
+            evidence: Vec::new(),
+            metadata: json!({
+                "taskLifecycle": {
+                    "disposition": disposition.label(),
+                    "closed": true,
+                    "memoryId": memory_id.0.clone(),
+                }
+            }),
+        };
+        let event_id = if let Some(workspace) = &self.workspace {
+            workspace.append_outcome_with_auxiliary(
+                event,
+                Some(self.session.notes.snapshot()),
+                None,
+            )?
+        } else {
+            prism.apply_outcome_event_to_projections(&event);
+            let id = prism.outcome_memory().store_event(event)?;
+            self.persist_outcomes()?;
+            self.persist_notes()?;
+            id
+        };
+
+        if current_task.as_ref().is_some_and(|state| state.id == task) {
+            self.session.clear_current_task();
+        }
+
+        let journal = task_journal_view(
+            self.session.as_ref(),
+            self.current_prism().as_ref(),
+            &task,
+            metadata_override,
+            DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+            DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
+        )?;
+
+        Ok(TaskClosureMutationResult {
+            task_id: task.0.to_string(),
+            event_id: event_id.0.to_string(),
+            memory_id: memory_id.0,
+            journal,
+        })
     }
 
     pub(crate) fn store_outcome(&self, args: PrismOutcomeArgs) -> Result<EventMutationResult> {
@@ -213,6 +367,43 @@ impl QueryHost {
         }
         Ok(MemoryMutationResult {
             memory_id: memory_id.0,
+            task_id: task_id.0.to_string(),
+        })
+    }
+
+    pub(crate) fn store_validation_feedback(
+        &self,
+        args: PrismValidationFeedbackArgs,
+    ) -> Result<ValidationFeedbackMutationResult> {
+        self.refresh_workspace()?;
+        let prism = self.current_prism();
+        let task_id = self
+            .session
+            .task_for_mutation(args.task_id.map(TaskId::new));
+        let anchors = prism.anchors_for(&convert_anchors(args.anchors)?);
+        let workspace = self.workspace.as_ref().ok_or_else(|| {
+            anyhow!("validation feedback logging requires a workspace-backed PRISM session")
+        })?;
+        let entry = workspace.append_validation_feedback(ValidationFeedbackRecord {
+            task_id: Some(task_id.0.to_string()),
+            context: args.context,
+            anchors,
+            prism_said: args.prism_said,
+            actually_true: args.actually_true,
+            category: args
+                .category
+                .parse::<ValidationFeedbackCategory>()
+                .map_err(anyhow::Error::msg)?,
+            verdict: args
+                .verdict
+                .parse::<ValidationFeedbackVerdict>()
+                .map_err(anyhow::Error::msg)?,
+            corrected_manually: args.corrected_manually.unwrap_or(false),
+            correction: args.correction,
+            metadata: args.metadata.unwrap_or(Value::Null),
+        })?;
+        Ok(ValidationFeedbackMutationResult {
+            entry_id: entry.id,
             task_id: task_id.0.to_string(),
         })
     }

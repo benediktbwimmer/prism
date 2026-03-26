@@ -52,6 +52,10 @@ pub enum Command {
     TaskResume {
         id: String,
     },
+    Feedback {
+        #[command(subcommand)]
+        command: FeedbackCommand,
+    },
     Memory {
         #[command(subcommand)]
         command: MemoryCommand,
@@ -109,6 +113,34 @@ pub enum MemoryCommand {
         content: String,
         #[arg(long, default_value = "episodic")]
         kind: String,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum FeedbackCommand {
+    Record {
+        #[arg(long)]
+        context: String,
+        #[arg(long = "prism-said")]
+        prism_said: String,
+        #[arg(long = "actually-true")]
+        actually_true: String,
+        #[arg(long)]
+        category: String,
+        #[arg(long)]
+        verdict: String,
+        #[arg(long = "task-id")]
+        task_id: Option<String>,
+        #[arg(long = "symbol")]
+        symbols: Vec<String>,
+        #[arg(long)]
+        corrected_manually: bool,
+        #[arg(long)]
+        correction: Option<String>,
+    },
+    List {
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
     },
 }
 

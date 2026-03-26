@@ -6,10 +6,10 @@ use prism_ir::{
 use serde_json::json;
 
 use crate::{
-    common::compare_scored_memory,
-    EpisodicMemory, MemoryComposite, MemoryEntry, MemoryId, MemoryKind, MemoryModule, MemorySource,
-    OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeRecallQuery, OutcomeResult,
-    RecallQuery, ScoredMemory, SemanticMemory, SessionMemory, StructuralMemory,
+    common::compare_scored_memory, EpisodicMemory, MemoryComposite, MemoryEntry, MemoryId,
+    MemoryKind, MemoryModule, MemorySource, OutcomeEvent, OutcomeEvidence, OutcomeKind,
+    OutcomeMemory, OutcomeRecallQuery, OutcomeResult, RecallQuery, ScoredMemory, SemanticMemory,
+    SessionMemory, StructuralMemory,
 };
 
 fn node(name: &str) -> NodeId {
@@ -622,21 +622,21 @@ fn source_bias_does_not_override_more_relevant_recall() {
 
     let mut relevant_agent = MemoryEntry::new(
         MemoryKind::Episodic,
-        "routing regression only appears under load shedding",
+        "load shedding regression in routing requires careful follow-up",
     );
     relevant_agent.anchors = vec![anchor_node("alpha")];
     relevant_agent.source = MemorySource::Agent;
-    relevant_agent.trust = 0.6;
+    relevant_agent.trust = 0.8;
     relevant_agent.created_at = 100;
     memory.store(relevant_agent).unwrap();
 
     let mut less_relevant_user = MemoryEntry::new(
         MemoryKind::Episodic,
-        "routing regression note without load shedding detail",
+        "routing regression note with weaker overlap",
     );
     less_relevant_user.anchors = vec![anchor_node("alpha")];
     less_relevant_user.source = MemorySource::User;
-    less_relevant_user.trust = 1.0;
+    less_relevant_user.trust = 0.9;
     less_relevant_user.created_at = 100;
     memory.store(less_relevant_user).unwrap();
 
@@ -654,5 +654,5 @@ fn source_bias_does_not_override_more_relevant_recall() {
     assert!(results[0]
         .entry
         .content
-        .contains("only appears under load shedding"));
+        .contains("load shedding regression in routing"));
 }

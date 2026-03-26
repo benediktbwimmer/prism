@@ -76,10 +76,9 @@ impl SessionMemory {
             }
         }
 
-        self.episodic
-            .replace_from_snapshot(EpisodicMemorySnapshot {
-                entries: episodic_entries,
-            });
+        self.episodic.replace_from_snapshot(EpisodicMemorySnapshot {
+            entries: episodic_entries,
+        });
         self.structural
             .replace_from_snapshot(EpisodicMemorySnapshot {
                 entries: structural_entries,

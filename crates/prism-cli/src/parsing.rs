@@ -1,4 +1,5 @@
 use anyhow::{bail, Result};
+use prism_core::{ValidationFeedbackCategory, ValidationFeedbackVerdict};
 use prism_ir::NodeKind;
 use prism_memory::{MemoryKind, OutcomeEvidence, OutcomeKind, OutcomeResult};
 
@@ -68,6 +69,14 @@ pub fn parse_outcome_result(value: &str) -> Result<OutcomeResult> {
         "unknown" => Ok(OutcomeResult::Unknown),
         other => bail!("unknown outcome result `{other}`"),
     }
+}
+
+pub fn parse_validation_feedback_category(value: &str) -> Result<ValidationFeedbackCategory> {
+    value.parse().map_err(anyhow::Error::msg)
+}
+
+pub fn parse_validation_feedback_verdict(value: &str) -> Result<ValidationFeedbackVerdict> {
+    value.parse().map_err(anyhow::Error::msg)
 }
 
 pub fn build_evidence(

@@ -1,4 +1,5 @@
 use rmcp::schemars::JsonSchema;
+use prism_js::TaskJournalView;
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -154,9 +155,34 @@ pub(crate) struct PrismMemoryArgs {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismValidationFeedbackArgs {
+    pub(crate) anchors: Vec<AnchorRefInput>,
+    pub(crate) context: String,
+    pub(crate) prism_said: String,
+    pub(crate) actually_true: String,
+    pub(crate) category: String,
+    pub(crate) verdict: String,
+    pub(crate) corrected_manually: Option<bool>,
+    pub(crate) correction: Option<String>,
+    pub(crate) metadata: Option<Value>,
+    #[serde(alias = "task_id")]
+    pub(crate) task_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct PrismStartTaskArgs {
     pub(crate) description: String,
     pub(crate) tags: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismFinishTaskArgs {
+    pub(crate) summary: String,
+    pub(crate) anchors: Option<Vec<AnchorRefInput>>,
+    #[serde(alias = "task_id")]
+    pub(crate) task_id: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
@@ -170,6 +196,13 @@ pub(crate) struct EventMutationResult {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MemoryMutationResult {
     pub(crate) memory_id: String,
+    pub(crate) task_id: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ValidationFeedbackMutationResult {
+    pub(crate) entry_id: String,
     pub(crate) task_id: String,
 }
 
@@ -231,6 +264,8 @@ pub(crate) struct PrismConfigureSessionArgs {
 pub(crate) enum PrismSessionArgs {
     StartTask(PrismStartTaskArgs),
     Configure(PrismConfigureSessionArgs),
+    FinishTask(PrismFinishTaskArgs),
+    AbandonTask(PrismFinishTaskArgs),
 }
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
@@ -238,6 +273,8 @@ pub(crate) enum PrismSessionArgs {
 pub(crate) enum SessionMutationActionSchema {
     StartTask,
     Configure,
+    FinishTask,
+    AbandonTask,
 }
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
@@ -245,6 +282,9 @@ pub(crate) enum SessionMutationActionSchema {
 pub(crate) struct PrismSessionMutationResult {
     pub(crate) action: SessionMutationActionSchema,
     pub(crate) task_id: Option<String>,
+    pub(crate) event_id: Option<String>,
+    pub(crate) memory_id: Option<String>,
+    pub(crate) journal: Option<TaskJournalView>,
     pub(crate) session: SessionView,
 }
 
@@ -266,6 +306,7 @@ pub(crate) struct PrismInferEdgeArgs {
 pub(crate) enum PrismMutationArgs {
     Outcome(PrismOutcomeArgs),
     Memory(PrismMemoryArgs),
+    ValidationFeedback(PrismValidationFeedbackArgs),
     InferEdge(PrismInferEdgeArgs),
     Coordination(PrismCoordinationArgs),
     Claim(PrismClaimArgs),
@@ -283,6 +324,7 @@ pub(crate) enum PrismMutationArgs {
 pub(crate) enum PrismMutationActionSchema {
     Outcome,
     Memory,
+    ValidationFeedback,
     InferEdge,
     Coordination,
     Claim,

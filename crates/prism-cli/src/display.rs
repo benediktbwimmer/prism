@@ -1,3 +1,4 @@
+use prism_core::ValidationFeedbackEntry;
 use prism_ir::NodeId;
 use prism_memory::ScoredMemory;
 use prism_query::{Relations, Symbol};
@@ -77,5 +78,28 @@ pub fn print_scored_memory(memory: ScoredMemory) {
     println!("    {}", memory.entry.content);
     if let Some(explanation) = memory.explanation {
         println!("    explanation: {explanation}");
+    }
+}
+
+pub fn print_validation_feedback(entry: ValidationFeedbackEntry) {
+    println!(
+        "[{}] verdict={} category={} recorded_at={}",
+        entry.id, entry.verdict, entry.category, entry.recorded_at
+    );
+    if let Some(task_id) = entry.task_id {
+        println!("  task: {task_id}");
+    }
+    println!("  context: {}", entry.context);
+    if !entry.anchors.is_empty() {
+        println!("  anchors:");
+        for anchor in entry.anchors {
+            println!("    {:?}", anchor);
+        }
+    }
+    println!("  prism: {}", entry.prism_said);
+    println!("  truth: {}", entry.actually_true);
+    println!("  corrected manually: {}", entry.corrected_manually);
+    if let Some(correction) = entry.correction {
+        println!("  correction: {correction}");
     }
 }

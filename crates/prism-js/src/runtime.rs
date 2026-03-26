@@ -319,6 +319,13 @@ globalThis.prism = Object.freeze({
   resumeTask(taskId) {
     return __prismHost("resumeTask", { taskId });
   },
+  taskJournal(taskId, options = {}) {
+    return __prismHost("taskJournal", {
+      taskId,
+      eventLimit: options.eventLimit ?? options.event_limit,
+      memoryLimit: options.memoryLimit ?? options.memory_limit,
+    });
+  },
   memory: Object.freeze({
     recall(options = {}) {
       return __prismHost("memoryRecall", {

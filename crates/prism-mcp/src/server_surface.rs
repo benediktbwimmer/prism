@@ -51,6 +51,9 @@ impl PrismMcpServer {
                     PrismSessionMutationResult {
                         action: SessionMutationActionSchema::StartTask,
                         task_id: Some(task_id.clone()),
+                        event_id: None,
+                        memory_id: None,
+                        journal: None,
                         session,
                     },
                     vec![session_resource_link(), task_resource_link(&task_id)],
@@ -65,10 +68,70 @@ impl PrismMcpServer {
                 structured_tool_result_with_links(
                     PrismSessionMutationResult {
                         action: SessionMutationActionSchema::Configure,
-                        task_id: session.current_task.as_ref().map(|task| task.task_id.clone()),
+                        task_id: session
+                            .current_task
+                            .as_ref()
+                            .map(|task| task.task_id.clone()),
+                        event_id: None,
+                        memory_id: None,
+                        journal: None,
                         session,
                     },
                     links,
+                )
+            }
+            PrismSessionArgs::FinishTask(args) => {
+                if args.summary.trim().is_empty() {
+                    return Err(McpError::invalid_params(
+                        "task summary cannot be empty",
+                        Some(json!({ "field": "input.summary" })),
+                    ));
+                }
+
+                let result = self.host.finish_task(args).map_err(map_query_error)?;
+                let session = self.host.session_view().map_err(map_query_error)?;
+                structured_tool_result_with_links(
+                    PrismSessionMutationResult {
+                        action: SessionMutationActionSchema::FinishTask,
+                        task_id: Some(result.task_id.clone()),
+                        event_id: Some(result.event_id.clone()),
+                        memory_id: Some(result.memory_id.clone()),
+                        journal: Some(result.journal),
+                        session,
+                    },
+                    vec![
+                        session_resource_link(),
+                        task_resource_link(&result.task_id),
+                        event_resource_link(&result.event_id),
+                        memory_resource_link(&result.memory_id),
+                    ],
+                )
+            }
+            PrismSessionArgs::AbandonTask(args) => {
+                if args.summary.trim().is_empty() {
+                    return Err(McpError::invalid_params(
+                        "task summary cannot be empty",
+                        Some(json!({ "field": "input.summary" })),
+                    ));
+                }
+
+                let result = self.host.abandon_task(args).map_err(map_query_error)?;
+                let session = self.host.session_view().map_err(map_query_error)?;
+                structured_tool_result_with_links(
+                    PrismSessionMutationResult {
+                        action: SessionMutationActionSchema::AbandonTask,
+                        task_id: Some(result.task_id.clone()),
+                        event_id: Some(result.event_id.clone()),
+                        memory_id: Some(result.memory_id.clone()),
+                        journal: Some(result.journal),
+                        session,
+                    },
+                    vec![
+                        session_resource_link(),
+                        task_resource_link(&result.task_id),
+                        event_resource_link(&result.event_id),
+                        memory_resource_link(&result.memory_id),
+                    ],
                 )
             }
         }
@@ -101,7 +164,7 @@ impl PrismMcpServer {
     }
 
     #[tool(
-        description = "Execute a coarse PRISM mutation. Use the tagged action union for outcomes, memory, inferred edges, coordination, claims, artifacts, and curator decisions.",
+        description = "Execute a coarse PRISM mutation. Use the tagged action union for outcomes, memory, validation feedback, inferred edges, coordination, claims, artifacts, and curator decisions.",
         annotations(
             title = "Mutate PRISM State",
             read_only_hint = false,
@@ -142,6 +205,20 @@ impl PrismMcpServer {
                         memory_resource_link(&result.memory_id),
                         task_resource_link(&result.task_id),
                     ],
+                )
+            }
+            PrismMutationArgs::ValidationFeedback(args) => {
+                let result = self
+                    .host
+                    .store_validation_feedback(args)
+                    .map_err(map_query_error)?;
+                structured_tool_result_with_links(
+                    PrismMutationResult {
+                        action: PrismMutationActionSchema::ValidationFeedback,
+                        result: serde_json::to_value(result.clone())
+                            .map_err(|err| map_query_error(err.into()))?,
+                    },
+                    vec![task_resource_link(&result.task_id)],
                 )
             }
             PrismMutationArgs::InferEdge(args) => {
@@ -722,7 +799,7 @@ impl ServerHandler for PrismMcpServer {
 impl PrismMcpServer {
     fn server_instructions(&self) -> String {
         let mut instructions = String::from(
-            "Start with prism://api-reference for the typed query contract and prism://schemas for the JSON Schema catalog. Use prism://session to inspect the active workspace, task, runtime limits, and active feature flags, prism_session to change task context or limits, prism_query for programmable read-only graph queries, prism://entrypoints for a quick workspace overview, prism://search/{query} for browseable search results, prism://symbol/{crateName}/{kind}/{path} for exact symbol snapshots, prism://lineage/{lineageId} for symbol history, prism://task/{taskId} for recorded task outcomes, and prism://event/{eventId}, prism://memory/{memoryId}, and prism://edge/{edgeId} for mutation outputs. Follow each resource payload's schemaUri and relatedResources fields instead of reconstructing URIs by convention. Use prism_mutate for outcomes, anchored memory, inferred edges, coordination state, claims, artifacts, and curator proposal decisions.",
+            "Start with prism://api-reference for the typed query contract and prism://schemas for the JSON Schema catalog. Use prism://session to inspect the active workspace, task, runtime limits, and active feature flags, prism_session to change task context or limits, prism_query for programmable read-only graph queries, prism://entrypoints for a quick workspace overview, prism://search/{query} for browseable search results, prism://symbol/{crateName}/{kind}/{path} for exact symbol snapshots, prism://lineage/{lineageId} for symbol history, prism://task/{taskId} for recorded task outcomes, and prism://event/{eventId}, prism://memory/{memoryId}, and prism://edge/{edgeId} for mutation outputs. Follow each resource payload's schemaUri and relatedResources fields instead of reconstructing URIs by convention. Use prism_mutate for outcomes, anchored memory, validation feedback, inferred edges, coordination state, claims, artifacts, and curator proposal decisions.",
         );
 
         if self.host.features.mode_label() != "full" {

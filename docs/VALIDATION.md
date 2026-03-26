@@ -121,6 +121,29 @@ Those reports must feed back into:
 - heuristics
 - calibration
 
+### 3.7 Dogfooding Feedback First
+
+Before a formal replay harness exists, PRISM should still collect replay-worthy cases during normal use.
+
+For every notable PRISM-assisted task, capture:
+
+- the query or task context
+- the anchors involved
+- what PRISM said
+- what was actually true
+- whether the case was `wrong`, `stale`, `noisy`, `helpful`, or `mixed`
+- whether the issue belonged to `structural`, `lineage`, `memory`, `projection`, `coordination`, `freshness`, or `other`
+- whether the user or agent corrected it manually
+
+This repository now keeps that material in an append-only JSONL log at `.prism/validation_feedback.jsonl`.
+
+Current write paths:
+
+- CLI: `prism feedback record --context ... --prism-said ... --actually-true ... --category projection --verdict wrong --symbol alpha`
+- MCP: `prism_mutate { action: "validation_feedback", input: { ... } }`
+
+The first replay and evaluation harness should ingest these real dogfooding entries instead of relying on imagined fixtures alone.
+
 ---
 
 ## 4. Truth Classes

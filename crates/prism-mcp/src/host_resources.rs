@@ -2,10 +2,11 @@ use anyhow::{anyhow, Result};
 use prism_agent::EdgeId;
 use prism_ir::{AnchorRef, EventId, LineageId, NodeId, TaskId};
 use prism_js::LineageEventView;
-use prism_memory::{MemoryId, OutcomeKind};
+use prism_memory::MemoryId;
 
 use crate::{
     anchor_resource_view_links, blast_radius_view, co_change_view, convert_node_id,
+    derive_task_metadata, DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
     dedupe_resource_link_views, edge_resource_uri, edge_resource_view_link,
     event_resource_view_link, inferred_edge_record_view, lineage_resource_view_link,
     lineage_status, memory_entry_view, memory_resource_uri, memory_resource_view_link,
@@ -14,13 +15,13 @@ use crate::{
     schemas_resource_uri, schemas_resource_view_link, search_resource_view_link,
     session_resource_uri, session_resource_view_link, symbol_for, symbol_resource_uri,
     symbol_resource_view_link, symbol_resource_view_link_for_id, symbol_view, symbol_views_for_ids,
-    task_resource_view_link, task_resource_view_links_from_events, validation_recipe_view_with,
-    CoordinationFeaturesView, EdgeResourcePayload, EntrypointsResourcePayload,
-    EventResourcePayload, FeatureFlagsView, InferredEdgeRecordView, LineageResourcePayload,
-    MemoryResourcePayload, NodeIdInput, QueryExecution, QueryHost, ResourceSchemaCatalogPayload,
-    SearchArgs, SearchResourcePayload, SessionLimitsView, SessionResourcePayload, SessionTaskView,
-    SessionView, SymbolResourcePayload, TaskResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT,
-    ENTRYPOINTS_URI,
+    task_journal_view, task_resource_view_link, task_resource_view_links_from_events,
+    validation_recipe_view_with, CoordinationFeaturesView, EdgeResourcePayload,
+    EntrypointsResourcePayload, EventResourcePayload, FeatureFlagsView, InferredEdgeRecordView,
+    LineageResourcePayload, MemoryResourcePayload, NodeIdInput, QueryExecution, QueryHost,
+    ResourceSchemaCatalogPayload, SearchArgs, SearchResourcePayload, SessionLimitsView,
+    SessionResourcePayload, SessionTaskView, SessionView, SymbolResourcePayload,
+    TaskResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, ENTRYPOINTS_URI,
 };
 
 impl QueryHost {
@@ -113,32 +114,13 @@ impl QueryHost {
     }
 
     pub(crate) fn task_metadata(&self, task_id: &TaskId) -> (Option<String>, Vec<String>) {
-        if let Some(task) = self.session.current_task_state() {
-            if task.id == *task_id {
-                return (task.description, task.tags);
-            }
-        }
-
         let replay = self.current_prism().resume_task(task_id);
-        let description = replay
-            .events
-            .iter()
-            .find(|event| event.kind == OutcomeKind::PlanCreated)
-            .map(|event| event.summary.clone());
-        let tags = replay
-            .events
-            .iter()
-            .find(|event| event.kind == OutcomeKind::PlanCreated)
-            .and_then(|event| event.metadata.get("tags"))
-            .and_then(|value| value.as_array())
-            .map(|values| {
-                values
-                    .iter()
-                    .filter_map(|value| value.as_str().map(ToOwned::to_owned))
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        (description, tags)
+        derive_task_metadata(
+            self.session.current_task_state().as_ref(),
+            task_id,
+            &replay.events,
+            None,
+        )
     }
 
     pub(crate) fn entrypoints_resource_value(
@@ -362,6 +344,14 @@ impl QueryHost {
         let schema_uri = schema_resource_uri("task");
         let prism = self.current_prism();
         let replay = prism.resume_task(task_id);
+        let journal = task_journal_view(
+            self.session.as_ref(),
+            prism.as_ref(),
+            task_id,
+            None,
+            DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+            DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
+        )?;
         let paged = paginate_items(
             replay.events,
             parse_resource_page(
@@ -392,6 +382,7 @@ impl QueryHost {
             uri: uri.to_string(),
             schema_uri,
             task_id: replay.task.0.to_string(),
+            journal,
             events: paged.items,
             page: paged.page,
             truncated: paged.truncated,

@@ -46,6 +46,14 @@ pub(crate) struct TaskTargetArgs {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TaskJournalArgs {
+    pub(crate) task_id: prism_ir::TaskId,
+    pub(crate) event_limit: Option<usize>,
+    pub(crate) memory_limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
 pub(crate) struct MemoryRecallArgs {
     pub(crate) focus: Option<Vec<NodeIdInput>>,
     pub(crate) text: Option<String>,

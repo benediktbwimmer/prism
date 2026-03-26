@@ -73,6 +73,11 @@ type MemoryOutcomeOptions = {
   limit?: number;
 };
 
+type TaskJournalOptions = {
+  eventLimit?: number;
+  memoryLimit?: number;
+};
+
 type CuratorJobQueryOptions = {
   status?: string;
   trigger?: string;
@@ -121,6 +126,7 @@ type PrismApi = {
   implementationFor(target: SymbolView | NodeId): SymbolView[];
   driftCandidates(limit?: number): DriftCandidateView[];
   resumeTask(taskId: string): TaskReplay;
+  taskJournal(taskId: string, options?: TaskJournalOptions): TaskJournalView;
   memory: {
     recall(options?: MemoryRecallOptions): ScoredMemoryView[];
     outcomes(options?: MemoryOutcomeOptions): OutcomeEvent[];
@@ -250,6 +256,32 @@ type TaskRiskView = {
   promotedSummaries: string[];
   approvedArtifactIds: string[];
   staleArtifactIds: string[];
+};
+
+type TaskLifecycleSummaryView = {
+  planCount: number;
+  patchCount: number;
+  buildCount: number;
+  testCount: number;
+  failureCount: number;
+  validationCount: number;
+  noteCount: number;
+  startedAt?: number;
+  lastUpdatedAt?: number;
+  finalSummary?: string;
+};
+
+type TaskJournalView = {
+  taskId: string;
+  description?: string;
+  tags: string[];
+  disposition: string;
+  active: boolean;
+  anchors: AnchorRef[];
+  summary: TaskLifecycleSummaryView;
+  diagnostics: QueryDiagnostic[];
+  relatedMemory: ScoredMemoryView[];
+  recentEvents: OutcomeEvent[];
 };
 
 type ArtifactRiskView = {

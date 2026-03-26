@@ -9,6 +9,7 @@ mod reanchor;
 mod resolution;
 mod session;
 mod util;
+mod validation_feedback;
 mod watch;
 
 use std::sync::Arc;
@@ -20,6 +21,10 @@ use prism_query::Prism;
 pub(crate) use indexer::PendingFileParse;
 pub use indexer::WorkspaceIndexer;
 pub use session::WorkspaceSession;
+pub use validation_feedback::{
+    ValidationFeedbackCategory, ValidationFeedbackEntry, ValidationFeedbackRecord,
+    ValidationFeedbackVerdict,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct WorkspaceSessionOptions {

@@ -1,15 +1,16 @@
 use anyhow::Result;
-use prism_core::{index_workspace_session, WorkspaceSession};
+use prism_core::{index_workspace_session, ValidationFeedbackRecord, WorkspaceSession};
 use prism_ir::{AnchorRef, EventActor, EventMeta, TaskId};
 use prism_memory::{MemoryModule, OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult};
 
-use crate::cli::{Cli, Command, MemoryCommand, OutcomeCommand, TaskCommand};
+use crate::cli::{Cli, Command, FeedbackCommand, MemoryCommand, OutcomeCommand, TaskCommand};
 use crate::display::{
     print_lineage, print_relation_section, print_relations, print_scored_memory, print_symbol,
+    print_validation_feedback,
 };
 use crate::parsing::{
     build_evidence, parse_memory_kind, parse_node_kind_filter, parse_outcome_kind,
-    parse_outcome_result,
+    parse_outcome_result, parse_validation_feedback_category, parse_validation_feedback_verdict,
 };
 use crate::runtime::{
     build_memory_entry, build_recall_query, build_task_event, current_event_id, current_timestamp,
@@ -204,6 +205,9 @@ pub fn run(cli: Cli) -> Result<()> {
                 }
             }
         }
+        Command::Feedback { command } => {
+            handle_feedback_command(&session, prism.as_ref(), command)?
+        }
         Command::Memory { command } => handle_memory_command(&session, prism.as_ref(), command)?,
         Command::Task { command } => handle_task_command(&root, &session, prism.as_ref(), command)?,
         Command::Outcome { command } => handle_outcome_command(&session, prism.as_ref(), command)?,
@@ -261,6 +265,61 @@ fn handle_memory_command(
             ))?;
             session.persist_episodic(&memory.snapshot())?;
             println!("stored memory {}", id.0);
+        }
+    }
+
+    Ok(())
+}
+
+fn handle_feedback_command(
+    session: &WorkspaceSession,
+    prism: &prism_query::Prism,
+    command: FeedbackCommand,
+) -> Result<()> {
+    match command {
+        FeedbackCommand::Record {
+            context,
+            prism_said,
+            actually_true,
+            category,
+            verdict,
+            task_id,
+            symbols,
+            corrected_manually,
+            correction,
+        } => {
+            let mut anchors = Vec::new();
+            for name in symbols {
+                let symbol = resolve_single_symbol(prism, &name)?;
+                for anchor in prism.anchors_for(&[AnchorRef::Node(symbol.id().clone())]) {
+                    if !anchors.contains(&anchor) {
+                        anchors.push(anchor);
+                    }
+                }
+            }
+            let entry = session.append_validation_feedback(ValidationFeedbackRecord {
+                task_id,
+                context,
+                anchors,
+                prism_said,
+                actually_true,
+                category: parse_validation_feedback_category(&category)?,
+                verdict: parse_validation_feedback_verdict(&verdict)?,
+                corrected_manually,
+                correction,
+                metadata: serde_json::Value::Null,
+            })?;
+            println!("recorded feedback {}", entry.id);
+        }
+        FeedbackCommand::List { limit } => {
+            let entries = session.validation_feedback(Some(limit))?;
+            if entries.is_empty() {
+                eprintln!("no validation feedback recorded");
+            } else {
+                for entry in entries {
+                    print_validation_feedback(entry);
+                }
+            }
         }
     }
 

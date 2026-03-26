@@ -68,7 +68,9 @@ pub(crate) fn compare_scored_memory(left: &ScoredMemory, right: &ScoredMemory) -
         .score
         .total_cmp(&left.score)
         .then_with(|| trust_score(right.entry.trust).total_cmp(&trust_score(left.entry.trust)))
-        .then_with(|| source_preference(right.entry.source).cmp(&source_preference(left.entry.source)))
+        .then_with(|| {
+            source_preference(right.entry.source).cmp(&source_preference(left.entry.source))
+        })
         .then_with(|| right.entry.created_at.cmp(&left.entry.created_at))
         .then_with(|| left.id.0.cmp(&right.id.0))
 }

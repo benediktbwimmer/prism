@@ -25,6 +25,7 @@ mod resource_schemas;
 mod resources;
 mod server_surface;
 mod session_state;
+mod task_journal;
 mod tool_args;
 mod views;
 
@@ -38,6 +39,7 @@ use query_types::*;
 use resource_schemas::*;
 use resources::*;
 use session_state::SessionState;
+use task_journal::*;
 use tool_args::*;
 use views::*;
 
@@ -350,7 +352,9 @@ impl QueryHost {
             let _ = workspace.refresh_fs()?;
             let snapshot = workspace
                 .load_episodic_snapshot()?
-                .unwrap_or(EpisodicMemorySnapshot { entries: Vec::new() });
+                .unwrap_or(EpisodicMemorySnapshot {
+                    entries: Vec::new(),
+                });
             self.session.notes.replace_from_snapshot(snapshot);
         }
         Ok(())

@@ -908,7 +908,10 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
         .unwrap();
     let artifact = first_tool_content_json(client.receive().await.unwrap());
     assert!(artifact["result"]["artifactId"].as_str().is_some());
-    let artifact_id = artifact["result"]["artifactId"].as_str().unwrap().to_string();
+    let artifact_id = artifact["result"]["artifactId"]
+        .as_str()
+        .unwrap()
+        .to_string();
 
     client
         .send(call_tool_request(
@@ -2833,6 +2836,42 @@ fn persisted_notes_reload_with_workspace_session() {
 }
 
 #[test]
+fn validation_feedback_mutation_persists_to_workspace_log() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .store_validation_feedback(PrismValidationFeedbackArgs {
+            anchors: vec![AnchorRefInput::Node {
+                crate_name: "demo".to_string(),
+                path: "demo::alpha".to_string(),
+                kind: "function".to_string(),
+            }],
+            context: "blast-radius check for alpha".to_string(),
+            prism_said: "Prism only reported alpha".to_string(),
+            actually_true: "beta was also affected through the call graph".to_string(),
+            category: "projection".to_string(),
+            verdict: "wrong".to_string(),
+            corrected_manually: Some(true),
+            correction: Some("checked callers directly and updated the plan".to_string()),
+            metadata: Some(json!({
+                "query": "prism.blastRadius(alpha)",
+            })),
+            task_id: Some("task:feedback".to_string()),
+        })
+        .expect("validation feedback should persist");
+
+    assert!(result.entry_id.starts_with("feedback:"));
+    assert_eq!(result.task_id, "task:feedback");
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let entries = reloaded.validation_feedback(Some(5)).unwrap();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].context, "blast-radius check for alpha");
+    assert_eq!(entries[0].metadata["query"], "prism.blastRadius(alpha)");
+}
+
+#[test]
 fn auto_refreshes_workspace_and_records_patch_events() {
     let root = temp_workspace();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
@@ -3177,6 +3216,209 @@ return prism.memory.outcomes({
 
     assert_eq!(result.result.as_array().unwrap().len(), 1);
     assert_eq!(result.result[0]["summary"], "agent saw alpha fail");
+}
+
+#[test]
+fn finish_task_writes_summary_memory_clears_session_task_and_updates_task_resource() {
+    let host = host_with_node(demo_node());
+    let task = host
+        .start_task("Investigate main".to_string(), vec!["bug".to_string()])
+        .expect("task should start");
+
+    host.store_outcome(PrismOutcomeArgs {
+        kind: OutcomeKindInput::FixValidated,
+        anchors: vec![AnchorRefInput::Node {
+            crate_name: "demo".to_string(),
+            path: "demo::main".to_string(),
+            kind: "function".to_string(),
+        }],
+        summary: "validated main behavior".to_string(),
+        result: Some(OutcomeResultInput::Success),
+        evidence: None,
+        task_id: None,
+    })
+    .expect("validation outcome should store");
+
+    let result = host
+        .finish_task(PrismFinishTaskArgs {
+            summary: "Closed out main investigation with validation coverage".to_string(),
+            anchors: Some(vec![AnchorRefInput::Node {
+                crate_name: "demo".to_string(),
+                path: "demo::main".to_string(),
+                kind: "function".to_string(),
+            }]),
+            task_id: None,
+        })
+        .expect("finish task should succeed");
+
+    assert_eq!(result.task_id, task.0);
+    assert_eq!(host.session.current_task(), None);
+    assert_eq!(result.journal.disposition, "completed");
+    assert_eq!(
+        result.journal.summary.final_summary.as_deref(),
+        Some("Closed out main investigation with validation coverage")
+    );
+
+    let replay = host.current_prism().resume_task(&task);
+    let closing = replay
+        .events
+        .iter()
+        .find(|event| event.meta.id.0 == result.event_id)
+        .expect("closing outcome should be present");
+    assert_eq!(closing.kind, OutcomeKind::NoteAdded);
+    assert_eq!(closing.metadata["taskLifecycle"]["disposition"], "completed");
+    assert_eq!(closing.metadata["taskLifecycle"]["memoryId"], result.memory_id);
+
+    let memory = host
+        .session
+        .notes
+        .entry(&MemoryId(result.memory_id.clone()))
+        .expect("summary memory should exist");
+    assert_eq!(
+        memory.content,
+        "Closed out main investigation with validation coverage"
+    );
+    assert_eq!(memory.metadata["taskLifecycle"]["disposition"], "completed");
+
+    let resource = host
+        .task_resource_value(&task_resource_uri(&result.task_id), &task)
+        .expect("task resource should load");
+    assert_eq!(resource.journal.disposition, "completed");
+    assert_eq!(
+        resource.journal.summary.final_summary.as_deref(),
+        Some("Closed out main investigation with validation coverage")
+    );
+}
+
+#[test]
+fn task_journal_query_reports_missing_validation_and_related_memory() {
+    let main = demo_node();
+    let main_id = main.id.clone();
+    let task_id = TaskId::new("task:journal");
+
+    let mut graph = Graph::default();
+    graph.nodes.insert(main_id.clone(), main);
+    graph.adjacency = HashMap::new();
+    graph.reverse_adjacency = HashMap::new();
+
+    let outcomes = OutcomeMemory::new();
+    outcomes
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:journal:plan"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: Some(task_id.clone()),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(main_id.clone())],
+            kind: OutcomeKind::PlanCreated,
+            result: OutcomeResult::Success,
+            summary: "Investigate main".into(),
+            evidence: Vec::new(),
+            metadata: json!({ "tags": ["bug"] }),
+        })
+        .unwrap();
+    outcomes
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:journal:patch"),
+                ts: 5,
+                actor: EventActor::Agent,
+                correlation: Some(task_id.clone()),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(main_id.clone())],
+            kind: OutcomeKind::PatchApplied,
+            result: OutcomeResult::Partial,
+            summary: "patched main".into(),
+            evidence: Vec::new(),
+            metadata: Value::Null,
+        })
+        .unwrap();
+
+    let mut history = HistoryStore::new();
+    history.seed_nodes([NodeId::new("demo", "demo::main", NodeKind::Function)]);
+    let host = host_with_prism(Prism::with_history_and_outcomes(graph, history, outcomes));
+    let mut memory = MemoryEntry::new(
+        MemoryKind::Structural,
+        "main changes should always get a regression check",
+    );
+    memory.anchors = vec![AnchorRef::Node(main_id)];
+    memory.trust = 0.9;
+    host.session.notes.store(memory).unwrap();
+
+    let result = host
+        .execute(
+            r#"
+return prism.taskJournal("task:journal", { eventLimit: 10, memoryLimit: 5 });
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("task journal query should succeed");
+
+    assert_eq!(result.result["taskId"], "task:journal");
+    assert_eq!(result.result["disposition"], "open");
+    assert!(result.result["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|diagnostic| diagnostic["code"] == "missing_validation"));
+    assert!(result.result["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|diagnostic| diagnostic["code"] == "missing_close_summary"));
+    assert_eq!(
+        result.result["relatedMemory"][0]["entry"]["content"],
+        "main changes should always get a regression check"
+    );
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "missing_validation"));
+}
+
+#[test]
+fn abandon_task_suppresses_unresolved_failure_diagnostic() {
+    let host = host_with_node(demo_node());
+    let task = host
+        .start_task("Investigate main".to_string(), Vec::new())
+        .expect("task should start");
+
+    host.store_outcome(PrismOutcomeArgs {
+        kind: OutcomeKindInput::FailureObserved,
+        anchors: vec![AnchorRefInput::Node {
+            crate_name: "demo".to_string(),
+            path: "demo::main".to_string(),
+            kind: "function".to_string(),
+        }],
+        summary: "main is blocked by upstream".to_string(),
+        result: Some(OutcomeResultInput::Failure),
+        evidence: None,
+        task_id: None,
+    })
+    .expect("failure outcome should store");
+
+    let result = host
+        .abandon_task(PrismFinishTaskArgs {
+            summary: "Stopped after upstream dependency failure".to_string(),
+            anchors: None,
+            task_id: None,
+        })
+        .expect("abandon task should succeed");
+
+    assert_eq!(result.task_id, task.0);
+    assert_eq!(result.journal.disposition, "abandoned");
+    assert!(result
+        .journal
+        .diagnostics
+        .iter()
+        .all(|diagnostic| diagnostic.code != "unresolved_failure"));
+    assert_eq!(
+        result.journal.summary.final_summary.as_deref(),
+        Some("Stopped after upstream dependency failure")
+    );
 }
 
 #[test]

@@ -22,7 +22,8 @@ use prism_store::{MemoryStore, Store};
 
 use super::{
     index_workspace, index_workspace_session, index_workspace_session_with_curator,
-    index_workspace_session_with_options, WorkspaceIndexer, WorkspaceSessionOptions,
+    index_workspace_session_with_options, ValidationFeedbackCategory, ValidationFeedbackRecord,
+    ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
 };
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 
@@ -185,6 +186,61 @@ fn reloads_graph_from_disk_cache() {
         .nodes_by_name("alpha")
         .into_iter()
         .any(|node| node.id.path.ends_with("::alpha")));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn validation_feedback_persists_across_workspace_reloads() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .unwrap()
+        .id()
+        .clone();
+
+    let entry = session
+        .append_validation_feedback(ValidationFeedbackRecord {
+            task_id: Some("task:feedback".to_string()),
+            context: "blast-radius check for alpha".to_string(),
+            anchors: vec![AnchorRef::Node(alpha.clone())],
+            prism_said: "Prism only surfaced alpha".to_string(),
+            actually_true: "beta and gamma were also impacted through callers".to_string(),
+            category: ValidationFeedbackCategory::Projection,
+            verdict: ValidationFeedbackVerdict::Wrong,
+            corrected_manually: true,
+            correction: Some("verified callers directly and expanded the edit set".to_string()),
+            metadata: serde_json::json!({
+                "query": "prism.blastRadius(alpha)",
+            }),
+        })
+        .unwrap();
+    assert!(entry.id.starts_with("feedback:"));
+    drop(session);
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let entries = reloaded.validation_feedback(Some(10)).unwrap();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].task_id.as_deref(), Some("task:feedback"));
+    assert_eq!(entries[0].category, ValidationFeedbackCategory::Projection);
+    assert_eq!(entries[0].verdict, ValidationFeedbackVerdict::Wrong);
+    assert_eq!(entries[0].anchors, vec![AnchorRef::Node(alpha)]);
+    assert_eq!(
+        entries[0].metadata["query"].as_str(),
+        Some("prism.blastRadius(alpha)")
+    );
 
     let _ = fs::remove_dir_all(root);
 }

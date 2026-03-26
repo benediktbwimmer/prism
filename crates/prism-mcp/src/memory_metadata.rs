@@ -98,3 +98,35 @@ pub(crate) fn curator_memory_metadata(
     }
     Value::Object(metadata)
 }
+
+pub(crate) fn task_journal_memory_metadata(
+    existing: Value,
+    task_id: &TaskId,
+    disposition: &str,
+) -> Value {
+    let mut metadata = ensure_object(existing);
+    metadata.insert("task_id".to_string(), Value::String(task_id.0.to_string()));
+    metadata.insert(
+        "provenance".to_string(),
+        json!({
+            "origin": "task_journal",
+            "kind": "task_summary",
+            "disposition": disposition,
+        }),
+    );
+    metadata.insert(
+        "taskLifecycle".to_string(),
+        json!({
+            "disposition": disposition,
+            "closed": true,
+        }),
+    );
+    metadata.entry("evidence".to_string()).or_insert_with(|| {
+        json!({
+            "eventIds": [],
+            "validationChecks": [],
+            "coChangeLineages": [],
+        })
+    });
+    Value::Object(metadata)
+}

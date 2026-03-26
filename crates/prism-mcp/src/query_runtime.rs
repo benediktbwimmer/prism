@@ -15,12 +15,14 @@ use crate::{
     parse_claim_mode, parse_event_actor, parse_memory_kind, parse_node_kind, parse_outcome_kind,
     parse_outcome_result, plan_view, policy_violation_record_view, promoted_memory_entries,
     promoted_summary_texts, promoted_validation_checks, relations_view, scored_memory_view,
-    symbol_for, symbol_view, symbol_views_for_ids, task_intent_view, task_risk_view,
-    task_validation_recipe_view, validation_recipe_view_with, AnchorListArgs, CallGraphArgs,
-    CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, LimitArgs, MemoryOutcomeArgs,
-    MemoryRecallArgs, PendingReviewsArgs, PlanTargetArgs, PolicyViolationQueryArgs, QueryHost,
-    QueryLanguage, SearchArgs, SimulateClaimArgs, SymbolQueryArgs, SymbolTargetArgs,
-    TaskTargetArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
+    symbol_for, symbol_view, symbol_views_for_ids, task_intent_view, task_journal_view,
+    task_risk_view, task_validation_recipe_view, validation_recipe_view_with, AnchorListArgs,
+    CallGraphArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs,
+    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, LimitArgs, MemoryOutcomeArgs, MemoryRecallArgs,
+    PendingReviewsArgs, PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage,
+    SearchArgs, SimulateClaimArgs, SymbolQueryArgs, SymbolTargetArgs, TaskJournalArgs,
+    TaskTargetArgs,
 };
 
 impl QueryHost {
@@ -584,6 +586,10 @@ impl QueryExecution {
                 let args: TaskTargetArgs = serde_json::from_value(args)?;
                 serde_json::to_value(self.prism.resume_task(&args.task_id)).map_err(Into::into)
             }
+            "taskJournal" => {
+                let args: TaskJournalArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.task_journal(args)?)?)
+            }
             "memoryRecall" => {
                 let args: MemoryRecallArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.memory_recall(args)?)?)
@@ -861,6 +867,64 @@ impl QueryExecution {
             .map(scored_memory_view)
             .collect();
         Ok(results)
+    }
+
+    fn task_journal(&self, args: TaskJournalArgs) -> Result<prism_js::TaskJournalView> {
+        let event_requested = args
+            .event_limit
+            .unwrap_or(DEFAULT_TASK_JOURNAL_EVENT_LIMIT);
+        let memory_requested = args
+            .memory_limit
+            .unwrap_or(DEFAULT_TASK_JOURNAL_MEMORY_LIMIT);
+        let limits = self.host.session.limits();
+        let event_limit = event_requested.min(limits.max_result_nodes);
+        let memory_limit = memory_requested.min(limits.max_result_nodes);
+
+        if event_requested > limits.max_result_nodes {
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Task journal event limit was capped at {} instead of {event_requested}.",
+                    limits.max_result_nodes
+                ),
+                Some(json!({
+                    "requested": event_requested,
+                    "applied": event_limit,
+                    "field": "eventLimit",
+                })),
+            );
+        }
+        if memory_requested > limits.max_result_nodes {
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Task journal memory limit was capped at {} instead of {memory_requested}.",
+                    limits.max_result_nodes
+                ),
+                Some(json!({
+                    "requested": memory_requested,
+                    "applied": memory_limit,
+                    "field": "memoryLimit",
+                })),
+            );
+        }
+
+        let journal = task_journal_view(
+            self.host.session.as_ref(),
+            self.prism.as_ref(),
+            &args.task_id,
+            None,
+            event_limit,
+            memory_limit,
+        )?;
+        for diagnostic in &journal.diagnostics {
+            self.push_diagnostic(
+                &diagnostic.code,
+                diagnostic.message.clone(),
+                diagnostic.data.clone(),
+            );
+        }
+        Ok(journal)
     }
 
     fn memory_outcomes(&self, args: MemoryOutcomeArgs) -> Result<Vec<prism_memory::OutcomeEvent>> {

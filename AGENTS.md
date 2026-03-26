@@ -47,3 +47,13 @@ Mutation guidance:
 - Record memory only when the information is likely to help later tasks and is specific enough to anchor to code, lineage, files, or kinds.
 - Record outcomes for meaningful tests, failures, validations, and task milestones, not for trivial intermediate noise.
 - Prefer explicit anchored PRISM state over ad hoc scratch notes when the information should survive the current session.
+
+## Dogfooding Feedback Loop
+
+When you use PRISM while working on PRISM, record notable validation cases immediately instead of waiting for a later replay-harness pass.
+
+- Record a feedback entry whenever PRISM is materially wrong, stale, noisy, or unusually helpful during real repo work.
+- Include the task or query context, the involved anchors, what PRISM said, what was actually true, the subsystem category (`structural`, `lineage`, `memory`, `projection`, `coordination`, `freshness`, or `other`), and whether you corrected it manually.
+- Prefer `prism_mutate` with action `validation_feedback` when the PRISM MCP server is available.
+- Otherwise use `prism feedback record ...` from the CLI.
+- The log is append-only and lives at `.prism/validation_feedback.jsonl`; treat it as seed material for the future replay validation harness, not as scratch prose.

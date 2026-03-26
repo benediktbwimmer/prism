@@ -330,6 +330,36 @@ pub struct ScoredMemoryView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct TaskLifecycleSummaryView {
+    pub plan_count: usize,
+    pub patch_count: usize,
+    pub build_count: usize,
+    pub test_count: usize,
+    pub failure_count: usize,
+    pub validation_count: usize,
+    pub note_count: usize,
+    pub started_at: Option<u64>,
+    pub last_updated_at: Option<u64>,
+    pub final_summary: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskJournalView {
+    pub task_id: String,
+    pub description: Option<String>,
+    pub tags: Vec<String>,
+    pub disposition: String,
+    pub active: bool,
+    pub anchors: Vec<AnchorRef>,
+    pub summary: TaskLifecycleSummaryView,
+    pub diagnostics: Vec<QueryDiagnostic>,
+    pub related_memory: Vec<ScoredMemoryView>,
+    pub recent_events: Vec<OutcomeEvent>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct CuratorProposalView {
     pub index: usize,
     pub kind: String,
