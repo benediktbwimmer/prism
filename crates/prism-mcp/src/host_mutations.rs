@@ -352,7 +352,9 @@ impl QueryHost {
                         task_id: CoordinationTaskId::new(payload.task_id),
                         to_agent: payload.to_agent.map(AgentId::new),
                         summary: payload.summary,
+                        base_revision: prism.workspace_revision(),
                     },
+                    prism.workspace_revision(),
                 )?;
                 Ok(serde_json::to_value(coordination_task_view(task))?)
             }
@@ -379,6 +381,7 @@ impl QueryHost {
                         mode: payload.mode.as_deref().map(parse_claim_mode).transpose()?,
                         ttl_seconds: payload.ttl_seconds,
                         base_revision: prism.workspace_revision(),
+                        current_revision: prism.workspace_revision(),
                         agent: payload.agent.map(AgentId::new),
                     },
                 )?;
@@ -476,6 +479,7 @@ impl QueryHost {
                         diff_ref: payload.diff_ref,
                         evidence: evidence.clone(),
                         base_revision: prism.workspace_revision(),
+                        current_revision: prism.workspace_revision(),
                         required_validations: payload.required_validations.unwrap_or_else(|| {
                             recipe.map(|recipe| recipe.checks).unwrap_or_default()
                         }),

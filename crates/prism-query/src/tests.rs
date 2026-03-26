@@ -565,6 +565,10 @@ fn coordination_queries_expand_into_neighboring_symbols() {
                     graph_version: 1,
                     git_commit: None,
                 },
+                current_revision: WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
                 agent: None,
             },
         )
@@ -790,6 +794,10 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
                 diff_ref: Some("patch:1".into()),
                 evidence: Vec::new(),
                 base_revision: WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                current_revision: WorkspaceRevision {
                     graph_version: 1,
                     git_commit: None,
                 },

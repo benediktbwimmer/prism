@@ -1,0 +1,172 @@
+use std::fs;
+
+use prism_ir::{
+    AnchorRef, Edge, EdgeKind, EdgeOrigin, Language, Node, NodeId, NodeKind, Span, TaskId,
+};
+
+use crate::*;
+
+fn sample_job() -> CuratorJob {
+    CuratorJob {
+        id: CuratorJobId("job:1".to_string()),
+        trigger: CuratorTrigger::PostChange,
+        task: Some(TaskId::new("task:1")),
+        focus: vec![AnchorRef::Node(NodeId::new(
+            "demo",
+            "demo::alpha",
+            NodeKind::Function,
+        ))],
+        budget: CuratorBudget::default(),
+    }
+}
+
+fn sample_context() -> CuratorContext {
+    CuratorContext {
+        graph: CuratorGraphSlice {
+            nodes: vec![Node {
+                id: NodeId::new("demo", "demo::alpha", NodeKind::Function),
+                name: "alpha".into(),
+                kind: NodeKind::Function,
+                file: prism_ir::FileId(1),
+                span: Span::line(1),
+                language: Language::Rust,
+            }],
+            edges: vec![Edge {
+                kind: EdgeKind::Calls,
+                source: NodeId::new("demo", "demo::alpha", NodeKind::Function),
+                target: NodeId::new("demo", "demo::beta", NodeKind::Function),
+                origin: EdgeOrigin::Static,
+                confidence: 1.0,
+            }],
+        },
+        ..CuratorContext::default()
+    }
+}
+
+#[test]
+fn invocation_includes_typed_codex_options() {
+    let mut config = CodexCliCuratorConfig::codex("codex", "/tmp/demo");
+    config.model = Some("gpt-5.4".to_string());
+    config.profile = Some("curator".to_string());
+    config.sandbox = Some(CodexSandboxMode::WorkspaceWrite);
+    config.approval_policy = Some(CodexApprovalPolicy::Never);
+    config.reasoning_effort = Some(CodexReasoningEffort::High);
+    config.execution_mode = CodexExecutionMode::FullAuto;
+    config.add_dirs.push("/tmp/extra".into());
+    config.skip_git_repo_check = true;
+    config.ephemeral = true;
+    config.enable_features.push("foo".to_string());
+    config.disable_features.push("bar".to_string());
+
+    let curator = CodexCliCurator::new(config);
+    let invocation = curator
+        .prepare_invocation(&sample_job(), &sample_context())
+        .expect("invocation should prepare");
+
+    assert_eq!(invocation.args[0], "exec");
+    assert!(invocation
+        .args
+        .windows(2)
+        .any(|pair| pair == ["-m", "gpt-5.4"]));
+    assert!(invocation
+        .args
+        .windows(2)
+        .any(|pair| pair == ["-p", "curator"]));
+    assert!(invocation
+        .args
+        .windows(2)
+        .any(|pair| pair == ["-s", "workspace-write"]));
+    assert!(invocation.args.iter().any(|arg| arg == "--full-auto"));
+    assert!(invocation
+        .args
+        .iter()
+        .any(|arg| arg == "approval_policy=\"never\""));
+    assert!(invocation
+        .args
+        .iter()
+        .any(|arg| arg == "reasoning_effort=\"high\""));
+    assert!(invocation
+        .args
+        .iter()
+        .any(|arg| arg == "--skip-git-repo-check"));
+    assert!(invocation.args.iter().any(|arg| arg == "--ephemeral"));
+}
+
+#[test]
+fn bounded_context_respects_budget() {
+    let mut context = sample_context();
+    context.graph.nodes = (0..200)
+        .map(|index| Node {
+            id: NodeId::new("demo", format!("demo::node{index}"), NodeKind::Function),
+            name: format!("node{index}").into(),
+            kind: NodeKind::Function,
+            file: prism_ir::FileId(1),
+            span: Span::line(1),
+            language: Language::Rust,
+        })
+        .collect();
+
+    let bounded = crate::support::bounded_context(
+        &context,
+        &CuratorBudget {
+            max_context_nodes: 8,
+            ..CuratorBudget::default()
+        },
+    );
+    assert_eq!(bounded.graph.nodes.len(), 8);
+    assert!(bounded.graph.edges.len() <= 32);
+}
+
+#[cfg(unix)]
+#[test]
+fn codex_backend_can_parse_structured_output() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let script_dir = crate::support::unique_temp_dir("prism-curator-test").expect("temp dir");
+    let script_path = script_dir.join("fake-codex.sh");
+    fs::write(
+        &script_path,
+        r#"#!/bin/sh
+out=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -o|--output-last-message)
+      out="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+cat >/dev/null
+printf '%s' '{"proposals":[{"kind":"risk_summary","anchors":[],"summary":"watch beta","severity":"medium","evidence_events":[]}],"diagnostics":[]}' > "$out"
+"#,
+    )
+    .expect("script should write");
+    let mut permissions = fs::metadata(&script_path)
+        .expect("script metadata")
+        .permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&script_path, permissions).expect("permissions should set");
+
+    let curator = CodexCliCurator::new(CodexCliCuratorConfig::codex(
+        script_path.clone(),
+        "/tmp/demo",
+    ));
+    let run = curator
+        .run(&sample_job(), &sample_context())
+        .expect("fake codex should run");
+
+    assert_eq!(run.proposals.len(), 1);
+    match &run.proposals[0] {
+        CuratorProposal::RiskSummary(summary) => {
+            assert_eq!(summary.summary, "watch beta");
+            assert_eq!(summary.severity, "medium");
+        }
+        other => panic!("unexpected proposal: {other:?}"),
+    }
+
+    let _ = fs::remove_file(&script_path);
+    let _ = fs::remove_dir_all(&script_dir);
+}

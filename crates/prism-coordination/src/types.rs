@@ -205,6 +205,7 @@ pub struct HandoffInput {
     pub task_id: CoordinationTaskId,
     pub to_agent: Option<AgentId>,
     pub summary: String,
+    pub base_revision: WorkspaceRevision,
 }
 
 #[derive(Debug, Clone)]
@@ -215,6 +216,7 @@ pub struct ClaimAcquireInput {
     pub mode: Option<ClaimMode>,
     pub ttl_seconds: Option<u64>,
     pub base_revision: WorkspaceRevision,
+    pub current_revision: WorkspaceRevision,
     pub agent: Option<AgentId>,
 }
 
@@ -225,6 +227,7 @@ pub struct ArtifactProposeInput {
     pub diff_ref: Option<String>,
     pub evidence: Vec<EventId>,
     pub base_revision: WorkspaceRevision,
+    pub current_revision: WorkspaceRevision,
     pub required_validations: Vec<String>,
     pub validated_checks: Vec<String>,
     pub risk_score: Option<f32>,

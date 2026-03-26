@@ -9,7 +9,7 @@ use serde_json::Value;
 use crate::helpers::{
     dedupe_anchors, dedupe_conflicts, dedupe_event_ids, dedupe_ids, dedupe_strings,
     editor_capacity_conflicts, expire_claims_locked, missing_validations_for_artifact,
-    normalize_acceptance, plan_policy_for_task, simulate_conflicts,
+    normalize_acceptance, plan_policy_for_task, simulate_conflicts, validate_task_transition,
 };
 use crate::state::CoordinationStore;
 use crate::types::{
@@ -59,6 +59,17 @@ impl CoordinationStore {
             .expect("coordination store lock poisoned");
         if !state.plans.contains_key(&input.plan_id) {
             return Err(anyhow!("unknown plan `{}`", input.plan_id.0));
+        }
+        for dependency in &input.depends_on {
+            let Some(task) = state.tasks.get(dependency) else {
+                return Err(anyhow!("unknown dependency task `{}`", dependency.0));
+            };
+            if task.plan != input.plan_id {
+                return Err(anyhow!(
+                    "dependency task `{}` belongs to a different plan",
+                    dependency.0
+                ));
+            }
         }
         state.next_task += 1;
         let id = CoordinationTaskId::new(format!("coord-task:{}", state.next_task));
@@ -110,14 +121,65 @@ impl CoordinationStore {
             .state
             .write()
             .expect("coordination store lock poisoned");
-        let previous;
+        let previous = state
+            .tasks
+            .get(&input.task_id)
+            .cloned()
+            .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
+        let stale_writes_enforced = state
+            .plans
+            .get(&previous.plan)
+            .map(|plan| plan.policy.stale_after_graph_change)
+            .unwrap_or(false);
         let task_snapshot;
+        let status_changed;
         {
             let task = state
                 .tasks
                 .get_mut(&input.task_id)
-                .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
-            previous = task.clone();
+                .expect("task validated above");
+            if stale_writes_enforced
+                && previous.base_revision.graph_version < current_revision.graph_version
+                && input.base_revision.is_none()
+            {
+                return Err(anyhow!(
+                    "coordination task `{}` is stale against graph version {}; provide an updated base revision before mutating it",
+                    previous.id.0,
+                    current_revision.graph_version
+                ));
+            }
+            if let Some(base_revision) = &input.base_revision {
+                if stale_writes_enforced
+                    && base_revision.graph_version < current_revision.graph_version
+                {
+                    return Err(anyhow!(
+                        "coordination task `{}` cannot use stale base revision {} when current revision is {}",
+                        previous.id.0,
+                        base_revision.graph_version,
+                        current_revision.graph_version
+                    ));
+                }
+            }
+            status_changed = input
+                .status
+                .map(|status| status != previous.status)
+                .unwrap_or(false);
+            if let Some(status) = input.status {
+                validate_task_transition(previous.status, status)?;
+            }
+            if matches!(
+                previous.status,
+                CoordinationTaskStatus::Completed | CoordinationTaskStatus::Abandoned
+            ) && (input.title.is_some()
+                || input.anchors.is_some()
+                || input.assignee.is_some()
+                || input.session.is_some())
+            {
+                return Err(anyhow!(
+                    "terminal coordination task `{}` cannot be edited",
+                    previous.id.0
+                ));
+            }
             if let Some(title) = input.title {
                 task.title = title;
             }
@@ -168,11 +230,9 @@ impl CoordinationStore {
         let task = task_snapshot;
         let kind = if previous.assignee != task.assignee {
             CoordinationEventKind::TaskAssigned
-        } else if previous.status != task.status && task.status == CoordinationTaskStatus::Blocked {
+        } else if status_changed && task.status == CoordinationTaskStatus::Blocked {
             CoordinationEventKind::TaskBlocked
-        } else if previous.status == CoordinationTaskStatus::Blocked
-            && previous.status != task.status
-        {
+        } else if previous.status == CoordinationTaskStatus::Blocked && status_changed {
             CoordinationEventKind::TaskUnblocked
         } else {
             CoordinationEventKind::TaskStatusChanged
@@ -191,11 +251,48 @@ impl CoordinationStore {
         Ok(task)
     }
 
-    pub fn handoff(&self, meta: EventMeta, input: HandoffInput) -> Result<CoordinationTask> {
+    pub fn handoff(
+        &self,
+        meta: EventMeta,
+        input: HandoffInput,
+        current_revision: WorkspaceRevision,
+    ) -> Result<CoordinationTask> {
         let mut state = self
             .state
             .write()
             .expect("coordination store lock poisoned");
+        let plan = {
+            let task = state
+                .tasks
+                .get(&input.task_id)
+                .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
+            state.plans.get(&task.plan).cloned()
+        };
+        if input.base_revision.graph_version < current_revision.graph_version {
+            return Err(anyhow!(
+                "coordination task `{}` cannot hand off from stale base revision {} when current revision is {}",
+                input.task_id.0,
+                input.base_revision.graph_version,
+                current_revision.graph_version
+            ));
+        }
+        if plan
+            .as_ref()
+            .map(|plan| plan.policy.stale_after_graph_change)
+            .unwrap_or(false)
+        {
+            let task = state
+                .tasks
+                .get(&input.task_id)
+                .expect("task validated above");
+            if task.base_revision.graph_version < current_revision.graph_version {
+                return Err(anyhow!(
+                    "coordination task `{}` is stale against graph version {} and cannot be handed off until refreshed",
+                    input.task_id.0,
+                    current_revision.graph_version
+                ));
+            }
+        }
         let task = state
             .tasks
             .get_mut(&input.task_id)
@@ -204,6 +301,7 @@ impl CoordinationStore {
         task.assignee = target_agent.clone();
         task.session = None;
         task.status = CoordinationTaskStatus::Ready;
+        task.base_revision = input.base_revision.clone();
         let task = task.clone();
         state.events.push(CoordinationEvent {
             meta: meta.clone(),
@@ -249,6 +347,17 @@ impl CoordinationStore {
         expire_claims_locked(&mut state, meta.ts);
         let anchors = dedupe_anchors(input.anchors);
         let policy = plan_policy_for_task(&state, input.task_id.as_ref())?;
+        if policy
+            .map(|policy| policy.stale_after_graph_change)
+            .unwrap_or(false)
+            && input.base_revision.graph_version < input.current_revision.graph_version
+        {
+            return Err(anyhow!(
+                "claim acquisition cannot use stale base revision {} when current revision is {}",
+                input.base_revision.graph_version,
+                input.current_revision.graph_version
+            ));
+        }
         let mode = input
             .mode
             .or_else(|| policy.map(|policy| policy.default_claim_mode))
@@ -415,8 +524,22 @@ impl CoordinationStore {
             .state
             .write()
             .expect("coordination store lock poisoned");
-        if !state.tasks.contains_key(&input.task_id) {
+        let Some(task) = state.tasks.get(&input.task_id).cloned() else {
             return Err(anyhow!("unknown coordination task `{}`", input.task_id.0));
+        };
+        let plan = state.plans.get(&task.plan).cloned();
+        if plan
+            .as_ref()
+            .map(|plan| plan.policy.stale_after_graph_change)
+            .unwrap_or(false)
+            && (input.base_revision.graph_version < input.current_revision.graph_version
+                || task.base_revision.graph_version < input.current_revision.graph_version)
+        {
+            return Err(anyhow!(
+                "artifact proposal for task `{}` is stale against graph version {}",
+                input.task_id.0,
+                input.current_revision.graph_version
+            ));
         }
         state.next_artifact += 1;
         let id = prism_ir::ArtifactId::new(format!("artifact:{}", state.next_artifact));

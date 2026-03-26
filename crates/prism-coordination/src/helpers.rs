@@ -2,8 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::{anyhow, Result};
 use prism_ir::{
-    AnchorRef, Capability, ClaimMode, ClaimStatus, ConflictSeverity, CoordinationTaskId, EventId,
-    SessionId, Timestamp, WorkspaceRevision,
+    AnchorRef, Capability, ClaimMode, ClaimStatus, ConflictSeverity, CoordinationTaskId,
+    CoordinationTaskStatus, EventId, SessionId, Timestamp, WorkspaceRevision,
 };
 
 use crate::state::CoordinationState;
@@ -23,6 +23,46 @@ pub(crate) fn plan_policy_for_task<'a>(
         .get(task_id)
         .ok_or_else(|| anyhow!("unknown coordination task `{}`", task_id.0))?;
     Ok(state.plans.get(&task.plan).map(|plan| &plan.policy))
+}
+
+pub(crate) fn validate_task_transition(
+    previous: CoordinationTaskStatus,
+    next: CoordinationTaskStatus,
+) -> Result<()> {
+    use CoordinationTaskStatus::*;
+
+    let allowed = match previous {
+        Proposed => matches!(next, Proposed | Ready | Blocked | Abandoned),
+        Ready => matches!(
+            next,
+            Ready | InProgress | Blocked | InReview | Validating | Completed | Abandoned
+        ),
+        InProgress => matches!(
+            next,
+            InProgress | Ready | Blocked | InReview | Validating | Completed | Abandoned
+        ),
+        Blocked => matches!(next, Blocked | Ready | InProgress | Abandoned),
+        InReview => matches!(
+            next,
+            InReview | Ready | InProgress | Blocked | Validating | Completed | Abandoned
+        ),
+        Validating => matches!(
+            next,
+            Validating | Ready | InProgress | Blocked | InReview | Completed | Abandoned
+        ),
+        Completed => matches!(next, Completed),
+        Abandoned => matches!(next, Abandoned),
+    };
+
+    if allowed {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "invalid coordination task transition from {:?} to {:?}",
+            previous,
+            next
+        ))
+    }
 }
 
 pub(crate) fn expire_claims_locked(state: &mut CoordinationState, now: Timestamp) {

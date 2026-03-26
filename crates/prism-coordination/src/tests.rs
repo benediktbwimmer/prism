@@ -58,6 +58,10 @@ fn claim_conflicts_block_hard_exclusive_overlap() {
                     graph_version: 1,
                     git_commit: None,
                 },
+                current_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
                 agent: None,
             },
         )
@@ -75,6 +79,10 @@ fn claim_conflicts_block_hard_exclusive_overlap() {
                 mode: Some(prism_ir::ClaimMode::HardExclusive),
                 ttl_seconds: Some(60),
                 base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                current_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
                     git_commit: None,
                 },
@@ -167,6 +175,10 @@ fn review_policy_gates_completion_but_not_ready_work() {
                     graph_version: 1,
                     git_commit: None,
                 },
+                current_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
                 required_validations: Vec::new(),
                 validated_checks: Vec::new(),
                 risk_score: None,
@@ -237,7 +249,7 @@ fn edit_capacity_limit_blocks_extra_claims() {
             TaskCreateInput {
                 plan_id,
                 title: "Edit main".to_string(),
-                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                status: Some(prism_ir::CoordinationTaskStatus::Proposed),
                 assignee: None,
                 session: Some(prism_ir::SessionId::new("session:a")),
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
@@ -264,6 +276,10 @@ fn edit_capacity_limit_blocks_extra_claims() {
                     graph_version: 1,
                     git_commit: None,
                 },
+                current_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
                 agent: None,
             },
         )
@@ -282,6 +298,10 @@ fn edit_capacity_limit_blocks_extra_claims() {
                 mode: Some(prism_ir::ClaimMode::SoftExclusive),
                 ttl_seconds: Some(60),
                 base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                current_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
                     git_commit: None,
                 },
@@ -317,7 +337,7 @@ fn approving_stale_artifact_is_rejected() {
             TaskCreateInput {
                 plan_id,
                 title: "Edit main".to_string(),
-                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                status: Some(prism_ir::CoordinationTaskStatus::Proposed),
                 assignee: None,
                 session: Some(prism_ir::SessionId::new("session:a")),
                 anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
@@ -339,6 +359,10 @@ fn approving_stale_artifact_is_rejected() {
                 diff_ref: Some("patch:1".to_string()),
                 evidence: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                current_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
                     git_commit: None,
                 },
@@ -411,6 +435,10 @@ fn validation_policy_requires_approved_artifact_checks() {
                 diff_ref: Some("patch:1".to_string()),
                 evidence: Vec::new(),
                 base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                current_revision: prism_ir::WorkspaceRevision {
                     graph_version: 1,
                     git_commit: None,
                 },
@@ -544,4 +572,152 @@ fn risk_threshold_requires_review_before_completion() {
             3,
         )
         .is_err());
+}
+
+#[test]
+fn invalid_task_transition_is_rejected() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                goal: "Enforce task lifecycle".to_string(),
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            meta("event:2", 2),
+            TaskCreateInput {
+                plan_id,
+                title: "Edit main".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Proposed),
+                assignee: None,
+                session: Some(prism_ir::SessionId::new("session:a")),
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+
+    let error = store
+        .update_task(
+            meta("event:3", 3),
+            TaskUpdateInput {
+                task_id,
+                status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                assignee: None,
+                session: None,
+                title: None,
+                anchors: None,
+                base_revision: Some(prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                }),
+                completion_context: Some(TaskCompletionContext::default()),
+            },
+            prism_ir::WorkspaceRevision {
+                graph_version: 1,
+                git_commit: None,
+            },
+            3,
+        )
+        .unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("invalid coordination task transition"));
+}
+
+#[test]
+fn stale_claim_and_artifact_mutations_are_rejected() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                goal: "Reject stale writes".to_string(),
+                policy: Some(CoordinationPolicy {
+                    stale_after_graph_change: true,
+                    ..CoordinationPolicy::default()
+                }),
+            },
+        )
+        .unwrap();
+    let (task_id, task) = store
+        .create_task(
+            meta("event:2", 2),
+            TaskCreateInput {
+                plan_id,
+                title: "Edit main".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(prism_ir::SessionId::new("session:a")),
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+
+    let claim_error = store
+        .acquire_claim(
+            meta("event:3", 3),
+            prism_ir::SessionId::new("session:a"),
+            ClaimAcquireInput {
+                task_id: Some(task_id.clone()),
+                anchors: task.anchors.clone(),
+                capability: prism_ir::Capability::Edit,
+                mode: Some(prism_ir::ClaimMode::SoftExclusive),
+                ttl_seconds: Some(60),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                current_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 2,
+                    git_commit: None,
+                },
+                agent: None,
+            },
+        )
+        .unwrap_err();
+    assert!(claim_error
+        .to_string()
+        .contains("claim acquisition cannot use stale base revision"));
+
+    let artifact_error = store
+        .propose_artifact(
+            meta("event:4", 4),
+            ArtifactProposeInput {
+                task_id,
+                anchors: task.anchors,
+                diff_ref: Some("patch:1".to_string()),
+                evidence: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                current_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 2,
+                    git_commit: None,
+                },
+                required_validations: Vec::new(),
+                validated_checks: Vec::new(),
+                risk_score: None,
+            },
+        )
+        .unwrap_err();
+    assert!(artifact_error
+        .to_string()
+        .contains("artifact proposal for task"));
 }
