@@ -35,6 +35,9 @@ fn api_reference_mentions_primary_tool() {
         "changedSymbols(path: string, options?: ChangedFilesOptions): ChangedSymbolView[];"
     ));
     assert!(docs.contains("recentPatches(options?: RecentPatchesOptions): PatchEventView[];"));
+    assert!(
+        docs.contains("diffFor(target: QueryTarget, options?: DiffForOptions): DiffHunkView[];")
+    );
     assert!(docs
         .contains("taskChanges(taskId: string, options?: ChangedFilesOptions): PatchEventView[];"));
     assert!(docs.contains("runtimeStatus(): RuntimeStatusView;"));
@@ -54,9 +57,11 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("type RuntimeTimelineOptions = {"));
     assert!(docs.contains("type ChangedFilesOptions = {"));
     assert!(docs.contains("type RecentPatchesOptions = {"));
+    assert!(docs.contains("type DiffForOptions = {"));
     assert!(docs.contains("type ChangedFileView = {"));
     assert!(docs.contains("type ChangedSymbolView = {"));
     assert!(docs.contains("type PatchEventView = {"));
+    assert!(docs.contains("type DiffHunkView = {"));
     assert!(docs.contains("type RuntimeStatusView = {"));
     assert!(docs.contains("type RuntimeLogEventView = {"));
     assert!(docs.contains("type QueryLogEntryView = {"));
@@ -108,6 +113,7 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("changedFiles(options = {})"));
     assert!(prelude.contains("changedSymbols(path, options = {})"));
     assert!(prelude.contains("recentPatches(options = {})"));
+    assert!(prelude.contains("diffFor(target, options = {})"));
     assert!(prelude.contains("taskChanges(taskId, options = {})"));
     assert!(prelude.contains("runtimeStatus()"));
     assert!(prelude.contains("runtimeLogs(options = {})"));

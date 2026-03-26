@@ -52,6 +52,14 @@ fn host_with_prism(prism: Prism) -> QueryHost {
     QueryHost::new(prism)
 }
 
+fn host_with_session_internal(workspace: WorkspaceSession) -> QueryHost {
+    QueryHost::with_session_and_limits_and_features(
+        workspace,
+        QueryLimits::default(),
+        PrismMcpFeatures::full().with_internal_developer(true),
+    )
+}
+
 fn temp_workspace() -> PathBuf {
     let suffix = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -462,7 +470,7 @@ fn coordination_mutations_flow_through_query_runtime() {
 #[test]
 fn mcp_returns_structured_coordination_rejections_and_persists_them() {
     let root = temp_workspace();
-    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
 
     let plan = host
         .store_coordination(PrismCoordinationArgs {
@@ -522,7 +530,7 @@ fn mcp_returns_structured_coordination_rejections_and_persists_them() {
 #[test]
 fn mcp_exposes_policy_violations_through_prism_query() {
     let root = temp_workspace();
-    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
 
     let plan = host
         .store_coordination(PrismCoordinationArgs {
@@ -773,6 +781,8 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .expect("api reference should be text");
     assert!(api_reference.contains("PRISM Query API"));
     assert!(api_reference.contains("prism_query"));
+    assert!(!api_reference.contains("runtimeStatus(): RuntimeStatusView;"));
+    assert!(!api_reference.contains("queryLog(options?: QueryLogOptions): QueryLogEntryView[];"));
 
     client
         .send(read_resource_request(5, CAPABILITIES_URI))
@@ -791,6 +801,12 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .unwrap()
         .iter()
         .any(|method| method["name"] == "readContext" && method["enabled"] == true));
+    assert!(!capabilities_payload["queryMethods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|method| method["name"] == "runtimeStatus"));
+    assert_eq!(capabilities_payload["features"]["internalDeveloper"], false);
     assert!(capabilities_payload["resources"]
         .as_array()
         .unwrap()
@@ -891,6 +907,60 @@ async fn mcp_server_lists_and_reads_tool_schema_resources() {
         session_schema_payload["examples"][0]["action"],
         "start_task"
     );
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_internal_developer_mode_surfaces_runtime_and_query_history_queries() {
+    let server = server_with_node_and_features(
+        demo_node(),
+        PrismMcpFeatures::full().with_internal_developer(true),
+    );
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(read_resource_request(2, API_REFERENCE_URI))
+        .await
+        .unwrap();
+    let resource = response_json(client.receive().await.unwrap());
+    let api_reference = resource["result"]["contents"][0]["text"]
+        .as_str()
+        .expect("api reference should be text");
+    assert!(api_reference.contains("runtimeStatus(): RuntimeStatusView;"));
+    assert!(api_reference.contains("queryLog(options?: QueryLogOptions): QueryLogEntryView[];"));
+
+    client
+        .send(read_resource_request(3, CAPABILITIES_URI))
+        .await
+        .unwrap();
+    let capabilities = response_json(client.receive().await.unwrap());
+    let capabilities_payload = serde_json::from_str::<Value>(
+        capabilities["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("capabilities resource should be text"),
+    )
+    .unwrap();
+    assert_eq!(capabilities_payload["features"]["internalDeveloper"], true);
+    assert!(capabilities_payload["queryMethods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|method| method["name"] == "runtimeStatus"));
+    assert!(capabilities_payload["queryMethods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|method| method["name"] == "queryLog"));
 
     running.cancel().await.unwrap();
 }
@@ -1145,6 +1215,7 @@ async fn mcp_server_simple_mode_keeps_minimal_surface_and_reports_features() {
         session_payload["features"]["coordination"]["artifacts"],
         false
     );
+    assert_eq!(session_payload["features"]["internalDeveloper"], false);
 
     client
         .send(read_resource_request(4, CAPABILITIES_URI))
@@ -3218,7 +3289,7 @@ return {
 fn prism_query_log_exposes_recent_slow_and_trace_views() {
     let root = temp_workspace();
     write_long_excerpt_workspace(&root);
-    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
 
     host.execute(
         r#"
@@ -3306,7 +3377,7 @@ return {
 #[test]
 fn prism_query_log_touched_prefers_semantic_targets() {
     let root = temp_workspace();
-    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
 
     host.execute(
         r#"
@@ -3332,7 +3403,7 @@ return prism.queryLog({ limit: 1, operation: "runtimeLogs" })[0];
 #[test]
 fn prism_query_errors_include_js_message_and_stack() {
     let root = temp_workspace();
-    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
 
     let error = host
         .execute(
@@ -3426,7 +3497,7 @@ fn prism_runtime_views_surface_status_logs_and_timeline() {
     )
     .unwrap();
 
-    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
     let result = host
         .execute(
             r#"
@@ -3553,7 +3624,7 @@ fn prism_runtime_views_prefer_structured_runtime_state() {
     )
     .unwrap();
 
-    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
     let result = host
         .execute(
             r#"
@@ -3666,6 +3737,14 @@ return {
   files: prism.changedFiles({ limit: 5, path: "src/lib.rs" }),
   symbols: prism.changedSymbols("src/lib.rs", { limit: 5 }),
   patches: prism.recentPatches({ path: "src/lib.rs", limit: 5 }),
+  diff: (() => {
+    const sym = prism.symbol("alpha");
+    return sym ? prism.diffFor(sym, { limit: 5 }) : [];
+  })(),
+  lineageDiff: (() => {
+    const sym = prism.symbol("alpha");
+    return sym?.lineageId ? prism.diffFor({ lineageId: sym.lineageId }, { limit: 5 }) : [];
+  })(),
   task: prism.taskChanges("task:change-view", { limit: 5 }),
 };
 "#,
@@ -3711,6 +3790,27 @@ return {
         .as_str()
         .unwrap_or_default()
         .ends_with("src/lib.rs"));
+
+    let diff = result.result["diff"].as_array().expect("target diff");
+    assert_eq!(diff.len(), 1);
+    assert_eq!(diff[0]["eventId"], "outcome:change-view");
+    assert_eq!(diff[0]["symbol"]["name"], "alpha");
+    assert_eq!(diff[0]["symbol"]["location"]["startLine"], 1);
+    assert!(diff[0]["symbol"]["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("alpha"));
+    assert!(diff[0]["symbol"]["lineageId"].as_str().is_some());
+
+    let lineage_diff = result.result["lineageDiff"]
+        .as_array()
+        .expect("lineage diff");
+    assert_eq!(lineage_diff.len(), 1);
+    assert_eq!(lineage_diff[0]["symbol"]["name"], "alpha");
+    assert_eq!(
+        lineage_diff[0]["symbol"]["lineageId"],
+        diff[0]["symbol"]["lineageId"]
+    );
 
     let task_patch = &result.result["task"][0];
     assert_eq!(task_patch["eventId"], "outcome:change-view");

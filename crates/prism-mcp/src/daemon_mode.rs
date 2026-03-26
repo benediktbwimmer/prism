@@ -340,6 +340,7 @@ mod tests {
             root,
             mode: PrismMcpMode::Daemon,
             no_coordination: false,
+            internal_developer: false,
             enable_coordination: Vec::new(),
             disable_coordination: Vec::new(),
             daemon_log: None,

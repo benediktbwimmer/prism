@@ -66,6 +66,7 @@ pub(crate) fn capabilities_resource_value(
                 claims: host.features.coordination.claims,
                 artifacts: host.features.coordination.artifacts,
             },
+            internal_developer: host.features.internal_developer,
         },
         query_methods: query_method_capabilities(&host.features),
         resources: resource_capabilities(),
@@ -86,6 +87,7 @@ pub(crate) fn capabilities_resource_value(
 fn query_method_capabilities(features: &PrismMcpFeatures) -> Vec<QueryMethodCapabilityView> {
     query_method_specs()
         .into_iter()
+        .filter(|(name, _, _, _)| features.query_method_visible(name))
         .map(
             |(name, group, feature_gate, description)| QueryMethodCapabilityView {
                 name: name.to_string(),
@@ -384,6 +386,12 @@ fn query_method_specs() -> Vec<(
             "Inspect recent semantic patch events, optionally narrowed by target, task, or path.",
         ),
         (
+            "diffFor",
+            "core",
+            None,
+            "Inspect exact semantic changed hunks for one target, with lineage-aware narrowing and local excerpts.",
+        ),
+        (
             "taskChanges",
             "core",
             None,
@@ -391,38 +399,38 @@ fn query_method_specs() -> Vec<(
         ),
         (
             "runtimeStatus",
-            "core",
-            None,
+            "internal",
+            Some("internal_developer"),
             "Inspect the MCP daemon status, health, process counts, and runtime file paths for this workspace.",
         ),
         (
             "runtimeLogs",
-            "core",
-            None,
+            "internal",
+            Some("internal_developer"),
             "Read recent structured daemon log events with level, target, and text filtering.",
         ),
         (
             "runtimeTimeline",
-            "core",
-            None,
+            "internal",
+            Some("internal_developer"),
             "Read a startup and refresh-focused runtime timeline from recent daemon log events.",
         ),
         (
             "queryLog",
-            "core",
-            None,
+            "internal",
+            Some("internal_developer"),
             "List recent PRISM queries with timing, diagnostics, and truncation metadata.",
         ),
         (
             "slowQueries",
-            "core",
-            None,
+            "internal",
+            Some("internal_developer"),
             "List slow PRISM queries with duration-based filtering and sorting.",
         ),
         (
             "queryTrace",
-            "core",
-            None,
+            "internal",
+            Some("internal_developer"),
             "Inspect the phase-by-phase trace for one recorded PRISM query.",
         ),
         (

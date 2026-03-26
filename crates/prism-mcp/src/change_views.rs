@@ -2,9 +2,10 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 
 use anyhow::Result;
-use prism_ir::{AnchorRef, FileId, NodeId, NodeKind, Span, TaskId};
+use prism_ir::{AnchorRef, FileId, LineageId, NodeId, NodeKind, Span, TaskId};
 use prism_js::{
-    ChangedFileView, ChangedSymbolView, PatchEventView, SourceExcerptView, SourceLocationView,
+    ChangedFileView, ChangedSymbolView, DiffHunkView, PatchEventView, SourceExcerptView,
+    SourceLocationView,
 };
 use prism_memory::{OutcomeEvent, OutcomeKind, OutcomeRecallQuery};
 use prism_query::{source_excerpt_for_span, source_location_for_span, Prism, SourceExcerptOptions};
@@ -132,6 +133,34 @@ pub(crate) fn recent_patches(
         views.push(patch_event_view(prism, &parsed, &mut source_cache)?);
         if limit > 0 && views.len() >= limit {
             return Ok(views);
+        }
+    }
+    Ok(views)
+}
+
+pub(crate) fn diff_for(
+    prism: &Prism,
+    target: Option<&NodeId>,
+    lineage_id: Option<&LineageId>,
+    task_id: Option<&TaskId>,
+    since: Option<u64>,
+    limit: usize,
+) -> Result<Vec<DiffHunkView>> {
+    let target_lineage = lineage_id
+        .cloned()
+        .or_else(|| target.and_then(|id| prism.lineage_of(id)));
+    let mut source_cache = HashMap::<String, Option<String>>::new();
+    let mut views = Vec::new();
+    for event in patch_events(prism, None, task_id, since) {
+        let parsed = parse_patch_event(prism, &event);
+        for symbol in &parsed.changed_symbols {
+            if !matches_diff_target(prism, symbol, target, target_lineage.as_ref()) {
+                continue;
+            }
+            views.push(diff_hunk_view(prism, &parsed, symbol, &mut source_cache)?);
+            if limit > 0 && views.len() >= limit {
+                return Ok(views);
+            }
         }
     }
     Ok(views)
@@ -267,6 +296,22 @@ fn patch_event_view(
     })
 }
 
+fn diff_hunk_view(
+    prism: &Prism,
+    event: &ParsedPatchEvent,
+    symbol: &PatchChangedSymbol,
+    source_cache: &mut HashMap<String, Option<String>>,
+) -> Result<DiffHunkView> {
+    Ok(DiffHunkView {
+        event_id: event.event_id.clone(),
+        ts: event.ts,
+        task_id: event.task_id.clone(),
+        trigger: event.trigger.clone(),
+        summary: event.summary.clone(),
+        symbol: changed_symbol_view(prism, symbol, source_cache)?,
+    })
+}
+
 #[derive(Default)]
 struct ChangedFileCounts {
     changed_symbol_count: usize,
@@ -316,6 +361,28 @@ fn event_matches_path(prism: &Prism, event: &ParsedPatchEvent, filter: &str) -> 
         .changed_symbols
         .iter()
         .any(|symbol| symbol.file_path.is_none() && symbol_file_path_matches(prism, symbol, filter))
+}
+
+fn matches_diff_target(
+    prism: &Prism,
+    symbol: &PatchChangedSymbol,
+    target: Option<&NodeId>,
+    target_lineage: Option<&LineageId>,
+) -> bool {
+    if let Some(lineage) = target_lineage {
+        if symbol
+            .id
+            .as_ref()
+            .and_then(|id| prism.lineage_of(id))
+            .as_ref()
+            .is_some_and(|candidate| candidate == lineage)
+        {
+            return true;
+        }
+    }
+    target
+        .zip(symbol.id.as_ref())
+        .is_some_and(|(expected, candidate)| expected == candidate)
 }
 
 fn changed_symbol_view(

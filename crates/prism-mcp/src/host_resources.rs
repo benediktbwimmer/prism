@@ -60,6 +60,7 @@ impl QueryHost {
                     claims: self.features.coordination.claims,
                     artifacts: self.features.coordination.artifacts,
                 },
+                internal_developer: self.features.internal_developer,
             },
         })
     }

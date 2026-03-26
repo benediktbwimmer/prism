@@ -683,6 +683,7 @@ fn sample_page() -> Value {
 fn sample_features() -> Value {
     json!({
         "mode": "simple",
+        "internalDeveloper": false,
         "coordination": {
             "workflow": false,
             "claims": false,

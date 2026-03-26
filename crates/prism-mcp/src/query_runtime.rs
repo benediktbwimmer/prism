@@ -4,8 +4,8 @@ use std::sync::{Arc, Mutex};
 use anyhow::{anyhow, Context, Result};
 use prism_ir::{AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, LineageId, NodeId, PlanId};
 use prism_js::{
-    ChangedFileView, ChangedSymbolView, EditContextView, PatchEventView, QueryDiagnostic,
-    QueryEnvelope, ReadContextView, RecentChangeContextView, RuntimeLogEventView,
+    ChangedFileView, ChangedSymbolView, DiffHunkView, EditContextView, PatchEventView,
+    QueryDiagnostic, QueryEnvelope, ReadContextView, RecentChangeContextView, RuntimeLogEventView,
     RuntimeStatusView, ScoredMemoryView, SourceExcerptView, SourceSliceView, SubgraphView,
     SymbolView, TextSearchMatchView, ValidationContextView,
 };
@@ -19,7 +19,7 @@ use crate::text_search::search_text;
 use crate::{
     artifact_risk_view, artifact_view, blast_radius_view, blocker_view, change_impact_view,
     changed_files, changed_symbols, claim_view, co_change_view, conflict_view, convert_anchors,
-    convert_node_id, coordination_task_view, current_timestamp, drift_candidate_view,
+    convert_node_id, coordination_task_view, current_timestamp, diff_for, drift_candidate_view,
     edge_kind_label, edge_view, edit_context_view, edit_slice_for_symbol, entrypoints_for,
     js_runtime, lineage_view, merge_node_ids, merge_promoted_checks, next_reads,
     owner_symbol_views_for_query, owner_symbol_views_for_target, owner_views_for_target,
@@ -31,7 +31,7 @@ use crate::{
     spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids, task_intent_view,
     task_journal_view, task_risk_view, task_validation_recipe_view, validation_context_view,
     validation_recipe_view_with, where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs,
-    ChangedSymbolsArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs,
+    ChangedSymbolsArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, DiffForArgs,
     DiscoveryTargetArgs, EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs,
     LimitArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
     PendingReviewsArgs, PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage,
@@ -137,7 +137,7 @@ impl QueryHost {
         match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize, bool)> {
             self.refresh_workspace()?;
             let source = format!(
-                "(function() {{\n  try {{\n    const __prismUserQuery = () => {{\n{}\n    }};\n    const __prismResult = __prismUserQuery();\n    return __prismResult === undefined ? \"null\" : JSON.stringify(__prismResult);\n  }} catch (error) {{\n    const __prismMessage = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : error && typeof error === \"object\" && \"message\" in error && error.message\n        ? String(error.message)\n        : String(error);\n    throw new Error(__prismMessage);\n  }}\n}})();\n",
+                "(function() {{\n  try {{\n    const __prismUserQuery = () => {{\n{}\n    }};\n    const __prismResult = __prismUserQuery();\n    return __prismResult === undefined ? \"null\" : JSON.stringify(__prismResult);\n  }} catch (error) {{\n    const __prismMessage = error && typeof error === \"object\" && \"message\" in error && error.message\n      ? String(error.message)\n      : String(error);\n    const __prismStack = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : null;\n    const __prismCombined = __prismStack && __prismStack.includes(__prismMessage)\n      ? __prismStack\n      : __prismStack\n        ? `${{__prismMessage}}\\n${{__prismStack}}`\n        : __prismMessage;\n    throw new Error(__prismCombined);\n  }}\n}})();\n",
                 code
             );
             let transpiled = js_runtime::transpile_typescript(&source)?;
@@ -290,6 +290,10 @@ impl QueryExecution {
             "recentPatches" => {
                 let args: RecentPatchesArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.recent_patches(args)?)?)
+            }
+            "diffFor" => {
+                let args: DiffForArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.diff_for(args)?)?)
             }
             "taskChanges" => {
                 let args: TaskChangesArgs = serde_json::from_value(args)?;
@@ -910,9 +914,17 @@ impl QueryExecution {
 
     fn ensure_operation_enabled(&self, operation: &str) -> Result<()> {
         if let Some(group) = self.host.features.disabled_query_group(operation) {
-            return Err(anyhow!(
-                "coordination {group} queries are disabled by the PRISM MCP server feature flags"
-            ));
+            let message = match group {
+                "internal_developer" => {
+                    "internal developer queries are disabled unless the PRISM MCP server is started with `--internal-developer`"
+                }
+                _ => {
+                    return Err(anyhow!(
+                        "coordination {group} queries are disabled by the PRISM MCP server feature flags"
+                    ));
+                }
+            };
+            return Err(anyhow!(message));
         }
         Ok(())
     }
@@ -1195,6 +1207,104 @@ impl QueryExecution {
                 Some(json!({
                     "applied": applied,
                     "nextAction": "Use prism.recentPatches({ target: ..., path: ..., taskId: ..., limit: ... }) to narrow the result set.",
+                })),
+            );
+        }
+        Ok(results)
+    }
+
+    pub(crate) fn diff_for(&self, args: DiffForArgs) -> Result<Vec<DiffHunkView>> {
+        let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
+        let applied = requested.min(self.host.session.limits().max_result_nodes);
+        let requested_id = args.id.map(convert_node_id).transpose()?;
+        let requested_lineage = args.lineage_id.map(LineageId::new);
+
+        let target = match (requested_id.as_ref(), requested_lineage.as_ref()) {
+            (Some(id), None) => {
+                if symbol_for(self.prism.as_ref(), id).is_ok() {
+                    Some(id.clone())
+                } else {
+                    return Err(anyhow!("unknown symbol `{}`", id.path));
+                }
+            }
+            (Some(id), Some(lineage)) => {
+                if symbol_for(self.prism.as_ref(), id).is_ok() {
+                    if self.prism.lineage_of(id).as_ref() != Some(lineage) {
+                        self.push_diagnostic(
+                            "target_lineage_mismatch",
+                            format!(
+                                "Target `{}` resolved directly, but its current lineage does not match `{}`.",
+                                id.path, lineage.0
+                            ),
+                            Some(json!({
+                                "id": id,
+                                "lineageId": lineage.0,
+                            })),
+                        );
+                    }
+                    Some(id.clone())
+                } else {
+                    let resolved = self.resolve_lineage_target(lineage, Some(id))?;
+                    if &resolved != id {
+                        self.push_diagnostic(
+                            "target_remapped_via_lineage",
+                            format!(
+                                "Resolved current target `{}` from stable lineage `{}`.",
+                                resolved.path, lineage.0
+                            ),
+                            Some(json!({
+                                "requestedId": id,
+                                "resolvedId": resolved.clone(),
+                                "lineageId": lineage.0,
+                            })),
+                        );
+                    }
+                    Some(resolved)
+                }
+            }
+            (None, Some(lineage)) => self
+                .prism
+                .current_nodes_for_lineage(lineage)
+                .into_iter()
+                .next(),
+            (None, None) => {
+                return Err(anyhow!("target must include `id` or `lineageId`"));
+            }
+        };
+
+        let mut results = diff_for(
+            self.prism.as_ref(),
+            target.as_ref(),
+            requested_lineage.as_ref(),
+            args.task_id.as_ref(),
+            args.since,
+            applied.saturating_add(1),
+        )?;
+        if requested > applied {
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Target diff hunks were truncated at {} entries. Next action: narrow with `since` or `taskId`.",
+                    applied
+                ),
+                Some(json!({
+                    "requested": requested,
+                    "applied": applied,
+                    "nextAction": "Use prism.diffFor(target, { since: ..., taskId: ..., limit: ... }) to narrow the result set.",
+                })),
+            );
+        }
+        if results.len() > applied {
+            results.truncate(applied);
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Target diff hunks were truncated at {} entries. Next action: narrow with `since` or `taskId`.",
+                    applied
+                ),
+                Some(json!({
+                    "applied": applied,
+                    "nextAction": "Use prism.diffFor(target, { since: ..., taskId: ..., limit: ... }) to narrow the result set.",
                 })),
             );
         }

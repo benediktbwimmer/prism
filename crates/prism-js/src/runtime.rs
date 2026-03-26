@@ -18,8 +18,18 @@ function __prismNormalizeTarget(target) {
   if (target == null) {
     return null;
   }
-  if (typeof target === "object" && target.id != null) {
-    return target.id;
+  if (typeof target === "object") {
+    if (target.id != null) {
+      return target.id;
+    }
+    if (
+      typeof target.crateName === "string" &&
+      typeof target.path === "string" &&
+      typeof target.kind === "string"
+    ) {
+      return target;
+    }
+    return null;
   }
   return target;
 }
@@ -661,6 +671,18 @@ globalThis.prism = Object.freeze({
       limit: options?.limit,
       taskId: options?.taskId ?? options?.task_id,
       path: options?.path,
+    });
+  },
+  diffFor(target, options = {}) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
+      return [];
+    }
+    return __prismHost("diffFor", {
+      ...targetPayload,
+      since: options?.since,
+      limit: options?.limit,
+      taskId: options?.taskId ?? options?.task_id,
     });
   },
   taskChanges(taskId, options = {}) {

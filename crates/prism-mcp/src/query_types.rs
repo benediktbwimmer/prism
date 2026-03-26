@@ -114,6 +114,16 @@ pub(crate) struct RecentPatchesArgs {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct DiffForArgs {
+    pub(crate) id: Option<NodeIdInput>,
+    pub(crate) lineage_id: Option<String>,
+    pub(crate) since: Option<u64>,
+    pub(crate) limit: Option<usize>,
+    pub(crate) task_id: Option<prism_ir::TaskId>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct TaskChangesArgs {
     pub(crate) task_id: prism_ir::TaskId,
     pub(crate) since: Option<u64>,

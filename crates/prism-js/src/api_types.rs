@@ -96,6 +96,17 @@ pub struct PatchEventView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct DiffHunkView {
+    pub event_id: String,
+    pub ts: u64,
+    pub task_id: Option<String>,
+    pub trigger: Option<String>,
+    pub summary: String,
+    pub symbol: ChangedSymbolView,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct RuntimeHealthView {
     pub ok: bool,
     pub detail: String,

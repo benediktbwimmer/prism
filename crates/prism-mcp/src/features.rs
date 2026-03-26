@@ -50,6 +50,7 @@ impl CoordinationFeatureSet {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrismMcpFeatures {
     pub(crate) coordination: CoordinationFeatureSet,
+    pub(crate) internal_developer: bool,
 }
 
 impl Default for PrismMcpFeatures {
@@ -62,13 +63,20 @@ impl PrismMcpFeatures {
     pub fn full() -> Self {
         Self {
             coordination: CoordinationFeatureSet::full(),
+            internal_developer: false,
         }
     }
 
     pub fn simple() -> Self {
         Self {
             coordination: CoordinationFeatureSet::simple(),
+            internal_developer: false,
         }
+    }
+
+    pub fn with_internal_developer(mut self, enabled: bool) -> Self {
+        self.internal_developer = enabled;
+        self
     }
 
     pub(crate) fn mode_label(&self) -> &'static str {
@@ -98,6 +106,12 @@ impl PrismMcpFeatures {
 
     pub(crate) fn disabled_query_group(&self, operation: &str) -> Option<&'static str> {
         match operation {
+            "runtimeStatus" | "runtimeLogs" | "runtimeTimeline" | "queryLog" | "slowQueries"
+            | "queryTrace"
+                if !self.internal_developer =>
+            {
+                Some("internal_developer")
+            }
             "plan"
             | "coordinationTask"
             | "readyTasks"
@@ -133,11 +147,26 @@ impl PrismMcpFeatures {
                 "- coordination artifacts: {}",
                 enabled_label(self.coordination.artifacts)
             ),
+            format!(
+                "- internal developer queries: {}",
+                enabled_label(self.internal_developer)
+            ),
         ]
     }
 
     pub(crate) fn coordination_layer_enabled(&self) -> bool {
         self.coordination.workflow || self.coordination.claims || self.coordination.artifacts
+    }
+
+    pub(crate) fn api_reference_includes_internal_developer(&self) -> bool {
+        self.internal_developer
+    }
+
+    pub(crate) fn query_method_visible(&self, operation: &str) -> bool {
+        !matches!(
+            self.disabled_query_group(operation),
+            Some("internal_developer")
+        )
     }
 }
 

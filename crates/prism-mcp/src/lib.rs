@@ -112,6 +112,8 @@ pub struct PrismMcpCli {
     pub mode: PrismMcpMode,
     #[arg(long = "no-coordination", alias = "simple", default_value_t = false)]
     pub no_coordination: bool,
+    #[arg(long = "internal-developer", default_value_t = false)]
+    pub internal_developer: bool,
     #[arg(long, value_enum, value_delimiter = ',', action = ArgAction::Append)]
     pub enable_coordination: Vec<CoordinationFeatureFlag>,
     #[arg(long, value_enum, value_delimiter = ',', action = ArgAction::Append)]
@@ -141,6 +143,7 @@ impl PrismMcpCli {
         } else {
             PrismMcpFeatures::full()
         };
+        features.internal_developer = self.internal_developer;
         for flag in &self.enable_coordination {
             features.coordination.apply(*flag, true);
         }
@@ -172,6 +175,9 @@ impl PrismMcpCli {
         ];
         if self.no_coordination {
             args.push("--no-coordination".to_string());
+        }
+        if self.internal_developer {
+            args.push("--internal-developer".to_string());
         }
         for flag in &self.enable_coordination {
             args.push("--enable-coordination".to_string());
@@ -626,7 +632,9 @@ impl QueryHost {
     }
 
     fn api_reference_markdown(&self) -> String {
-        if self.features.mode_label() == "full" {
+        if self.features.mode_label() == "full"
+            && self.features.api_reference_includes_internal_developer()
+        {
             return api_reference_markdown().to_string();
         }
 
@@ -639,11 +647,85 @@ impl QueryHost {
             markdown.push('\n');
         }
         markdown.push_str(
-            "\nThe API reference below describes the full PRISM query surface. Disabled coordination groups stay hidden from `tools/list`, and their query helpers fail when called.\n\n---\n\n",
+            "\nThe API reference below describes the full PRISM query surface. Disabled coordination and internal-developer groups stay hidden from the visible query surface, and their query helpers fail when called.\n\n---\n\n",
         );
-        markdown.push_str(api_reference_markdown());
+        let mut reference = api_reference_markdown().to_string();
+        if !self.features.internal_developer {
+            reference = strip_internal_developer_api_reference(&reference);
+        }
+        markdown.push_str(&reference);
         markdown
     }
+}
+
+fn strip_internal_developer_api_reference(markdown: &str) -> String {
+    const METHOD_LINES: &[&str] = &[
+        "  runtimeStatus(): RuntimeStatusView;",
+        "  runtimeLogs(options?: RuntimeLogOptions): RuntimeLogEventView[];",
+        "  runtimeTimeline(options?: RuntimeTimelineOptions): RuntimeLogEventView[];",
+        "  queryLog(options?: QueryLogOptions): QueryLogEntryView[];",
+        "  slowQueries(options?: QueryLogOptions): QueryLogEntryView[];",
+        "  queryTrace(id: string): QueryTraceView | null;",
+    ];
+    const TYPE_BLOCKS: &[&str] = &[
+        "type QueryLogOptions = {",
+        "type RuntimeLogOptions = {",
+        "type RuntimeTimelineOptions = {",
+        "type RuntimeHealthView = {",
+        "type RuntimeProcessView = {",
+        "type RuntimeStatusView = {",
+        "type RuntimeLogEventView = {",
+        "type QueryResultSummaryView = {",
+        "type QueryPhaseView = {",
+        "type QueryLogEntryView = {",
+        "type QueryTraceView = {",
+    ];
+    const HEADING_SECTIONS: &[&str] = &[
+        "### 7a. Inspect recent query behavior through PRISM itself",
+        "### 7e. Inspect daemon status and recent runtime activity through PRISM",
+    ];
+    const BULLET_PATTERNS: &[&str] = &[
+        "workspace-backed runtime introspection through `prism.runtimeStatus()`",
+        "a first-class query log through `prism.queryLog(...)`",
+    ];
+
+    let mut output = Vec::new();
+    let mut lines = markdown.lines().peekable();
+    let mut skipping_type = false;
+    let mut skipping_section = false;
+
+    while let Some(line) = lines.next() {
+        let trimmed = line.trim();
+        if skipping_type {
+            if trimmed == "};" {
+                skipping_type = false;
+            }
+            continue;
+        }
+        if skipping_section {
+            if trimmed.starts_with("### ") {
+                skipping_section = false;
+            } else {
+                continue;
+            }
+        }
+        if TYPE_BLOCKS.contains(&trimmed) {
+            skipping_type = true;
+            continue;
+        }
+        if HEADING_SECTIONS.contains(&trimmed) {
+            skipping_section = true;
+            continue;
+        }
+        if METHOD_LINES.contains(&line)
+            || BULLET_PATTERNS.iter().any(|pattern| line.contains(pattern))
+        {
+            continue;
+        }
+        output.push(line);
+    }
+
+    output.join("\n")
 }
 
 fn log_refresh_workspace(

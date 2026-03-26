@@ -38,6 +38,7 @@ pub(crate) struct CoordinationFeaturesView {
 pub(crate) struct FeatureFlagsView {
     pub(crate) mode: String,
     pub(crate) coordination: CoordinationFeaturesView,
+    pub(crate) internal_developer: bool,
 }
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
