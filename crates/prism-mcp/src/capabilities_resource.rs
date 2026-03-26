@@ -31,7 +31,14 @@ pub(crate) fn capabilities_resource_value(
             "PRISM API Reference",
             "TypeScript query surface, d.ts-style contract, and usage recipes",
         ),
-        search_resource_view_link_with_options("read context", Some("behavioral"), Some("read")),
+        search_resource_view_link_with_options(
+            "read context",
+            Some("behavioral"),
+            Some("read"),
+            None,
+            None,
+            None,
+        ),
     ];
     related_resources.extend(
         resource_schema_catalog_entries()

@@ -314,6 +314,9 @@ pub(crate) fn search_resource_uri_with_options(
     query: &str,
     strategy: Option<&str>,
     owner_kind: Option<&str>,
+    kind: Option<&str>,
+    path: Option<&str>,
+    include_inferred: Option<bool>,
 ) -> String {
     let mut uri = search_resource_uri(query);
     let mut params = Vec::new();
@@ -325,6 +328,15 @@ pub(crate) fn search_resource_uri_with_options(
             "ownerKind={}",
             percent_encode_component(owner_kind)
         ));
+    }
+    if let Some(kind) = kind.filter(|value| !value.is_empty()) {
+        params.push(format!("kind={}", percent_encode_component(kind)));
+    }
+    if let Some(path) = path.filter(|value| !value.is_empty()) {
+        params.push(format!("path={}", percent_encode_component(path)));
+    }
+    if let Some(include_inferred) = include_inferred {
+        params.push(format!("includeInferred={include_inferred}"));
     }
     if !params.is_empty() {
         uri.push('?');
@@ -510,9 +522,12 @@ pub(crate) fn search_resource_view_link_with_options(
     query: &str,
     strategy: Option<&str>,
     owner_kind: Option<&str>,
+    kind: Option<&str>,
+    path: Option<&str>,
+    include_inferred: Option<bool>,
 ) -> ResourceLinkView {
     resource_link_view(
-        search_resource_uri_with_options(query, strategy, owner_kind),
+        search_resource_uri_with_options(query, strategy, owner_kind, kind, path, include_inferred),
         format!("PRISM Search: {query}"),
         "Structured search results and diagnostics for this query",
     )

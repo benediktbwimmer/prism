@@ -615,7 +615,7 @@ Beyond `prism_query`, the MCP server exposes navigable `prism://...` resources.
 - Parameterized resources:
   - `prism://schema/{resourceKind}`
   - `prism://schema/tool/{toolName}`
-  - `prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}`
+  - `prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&includeInferred={includeInferred}`
   - `prism://symbol/{crateName}/{kind}/{path}`
   - `prism://lineage/{lineageId}?limit={limit}&cursor={cursor}`
   - `prism://task/{taskId}?limit={limit}&cursor={cursor}`

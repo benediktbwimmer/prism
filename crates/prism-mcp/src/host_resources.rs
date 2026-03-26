@@ -271,23 +271,35 @@ impl QueryHost {
             .unwrap_or_else(|| "direct".to_string());
         let owner_kind = parse_resource_query_param(uri, "ownerKind")
             .or_else(|| parse_resource_query_param(uri, "owner_kind"));
+        let kind = parse_resource_query_param(uri, "kind").filter(|value| !value.is_empty());
+        let path = parse_resource_query_param(uri, "path").filter(|value| !value.is_empty());
+        let include_inferred = parse_resource_query_param(uri, "includeInferred")
+            .or_else(|| parse_resource_query_param(uri, "include_inferred"))
+            .map(|value| match value.trim().to_ascii_lowercase().as_str() {
+                "true" | "1" | "yes" => Ok(true),
+                "false" | "0" | "no" => Ok(false),
+                other => Err(anyhow!("invalid includeInferred value `{other}`")),
+            })
+            .transpose()?
+            .unwrap_or(true);
+        let kind_filter = kind.as_deref().map(crate::parse_node_kind).transpose()?;
         let suggested_reads = owner_views_for_query(
             prism.as_ref(),
             query,
             owner_kind.as_deref(),
-            None,
-            None,
+            kind_filter,
+            path.as_deref(),
             crate::INSIGHT_LIMIT,
         )?;
         let paged = paginate_items(
             execution.search(SearchArgs {
                 query: query.to_string(),
                 limit: Some(self.session.limits().max_result_nodes),
-                kind: None,
-                path: None,
+                kind: kind.clone(),
+                path: path.clone(),
                 strategy: Some(strategy.clone()),
                 owner_kind: owner_kind.clone(),
-                include_inferred: None,
+                include_inferred: Some(include_inferred),
             })?,
             parse_resource_page(
                 uri,
@@ -325,6 +337,9 @@ impl QueryHost {
                 query,
                 Some(strategy.as_str()),
                 owner_kind.as_deref(),
+                kind.as_deref(),
+                path.as_deref(),
+                Some(include_inferred),
             ),
             schema_resource_view_link("search"),
             schemas_resource_view_link(),
@@ -341,6 +356,9 @@ impl QueryHost {
             query: query.to_string(),
             strategy,
             owner_kind,
+            kind,
+            path,
+            include_inferred,
             suggested_reads,
             results: paged.items,
             top_read_context,

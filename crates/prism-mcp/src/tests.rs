@@ -2794,6 +2794,26 @@ fn search_resource_payload_surfaces_suggested_reads() {
 }
 
 #[test]
+fn search_resource_payload_echoes_applied_uri_options() {
+    let root = temp_workspace();
+    write_memory_insight_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let payload = host
+        .search_resource_value(
+            "prism://search/memory%20recall?strategy=behavioral&ownerKind=read&kind=function&path=src%2Fmemory&includeInferred=false",
+            "memory recall",
+        )
+        .unwrap();
+
+    assert_eq!(payload.strategy, "behavioral");
+    assert_eq!(payload.owner_kind.as_deref(), Some("read"));
+    assert_eq!(payload.kind.as_deref(), Some("function"));
+    assert_eq!(payload.path.as_deref(), Some("src/memory"));
+    assert!(!payload.include_inferred);
+}
+
+#[test]
 fn read_and_edit_context_queries_return_semantic_bundles() {
     let root = temp_workspace();
     write_memory_insight_workspace(&root);

@@ -810,7 +810,7 @@ impl ServerHandler for PrismMcpServer {
                     .no_annotation(),
                 RawResourceTemplate::new(SEARCH_RESOURCE_TEMPLATE_URI, "PRISM Search")
                     .with_description(
-                        "Read structured PRISM search results and diagnostics for a query string with optional `limit` and opaque `cursor` pagination",
+                        "Read structured PRISM search results and diagnostics for a query string with optional `limit`, `cursor`, `strategy`, `ownerKind`, `kind`, `path`, and `includeInferred` options",
                     )
                     .with_mime_type("application/json")
                     .no_annotation(),
