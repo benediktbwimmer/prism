@@ -19,6 +19,19 @@ const EPISODIC_REVISION_KEY: &str = "revision:episodic";
 const INFERENCE_REVISION_KEY: &str = "revision:inference";
 const COORDINATION_REVISION_KEY: &str = "revision:coordination";
 
+#[derive(Debug, Default, Clone, Copy)]
+struct FileStatePersistTotals {
+    persisted_file_state_count: usize,
+    skipped_missing_upsert_count: usize,
+    node_count: usize,
+    edge_count: usize,
+    fingerprint_count: usize,
+    unresolved_call_count: usize,
+    unresolved_import_count: usize,
+    unresolved_impl_count: usize,
+    unresolved_intent_count: usize,
+}
+
 pub struct SqliteStore {
     pub(crate) conn: Connection,
 }
@@ -240,33 +253,151 @@ impl Store for SqliteStore {
         graph: &Graph,
         batch: &IndexPersistBatch,
     ) -> Result<()> {
+        let started = Instant::now();
         let tx = self.conn.transaction()?;
 
+        let remove_started = Instant::now();
         for path in &batch.removed_paths {
             graph_io::delete_file_state(&tx, path)?;
         }
+        let delete_file_state_ms = remove_started.elapsed().as_millis();
 
+        let upsert_started = Instant::now();
+        let mut file_state_totals = FileStatePersistTotals::default();
         for path in &batch.upserted_paths {
             let Some(state) = graph.file_state(path) else {
+                file_state_totals.skipped_missing_upsert_count += 1;
                 continue;
             };
+            file_state_totals.persisted_file_state_count += 1;
+            file_state_totals.node_count += state.nodes.len();
+            file_state_totals.edge_count += state.edges.len();
+            file_state_totals.fingerprint_count += state.record.fingerprints.len();
+            file_state_totals.unresolved_call_count += state.record.unresolved_calls.len();
+            file_state_totals.unresolved_import_count += state.record.unresolved_imports.len();
+            file_state_totals.unresolved_impl_count += state.record.unresolved_impls.len();
+            file_state_totals.unresolved_intent_count += state.record.unresolved_intents.len();
             graph_io::save_file_state_tx(&tx, &state)?;
         }
+        let save_file_state_ms = upsert_started.elapsed().as_millis();
 
+        let rewritten_derived_edge_count = graph
+            .edges
+            .iter()
+            .filter(|edge| {
+                matches!(
+                    edge.kind,
+                    prism_ir::EdgeKind::Calls
+                        | prism_ir::EdgeKind::Imports
+                        | prism_ir::EdgeKind::Implements
+                        | prism_ir::EdgeKind::Specifies
+                        | prism_ir::EdgeKind::Validates
+                        | prism_ir::EdgeKind::RelatedTo
+                )
+            })
+            .count();
+        let replace_derived_started = Instant::now();
         graph_io::replace_derived_edges_tx(&tx, graph)?;
-        graph_io::finalize_tx(&tx, graph)?;
-        snapshots::save_snapshot_row_tx(&tx, "history", &batch.history_snapshot)?;
-        snapshots::save_snapshot_row_tx(&tx, "outcomes", &batch.outcome_snapshot)?;
+        let replace_derived_edges_ms = replace_derived_started.elapsed().as_millis();
 
+        let rewritten_root_node_count = graph
+            .nodes
+            .values()
+            .filter(|node| {
+                matches!(
+                    node.kind,
+                    prism_ir::NodeKind::Workspace | prism_ir::NodeKind::Package
+                )
+            })
+            .count();
+        let rewritten_root_edge_count = graph
+            .edges
+            .iter()
+            .filter(|edge| {
+                edge.kind == prism_ir::EdgeKind::Contains
+                    && edge.source.kind == prism_ir::NodeKind::Workspace
+                    && edge.target.kind == prism_ir::NodeKind::Package
+            })
+            .count();
+        let finalize_started = Instant::now();
+        graph_io::finalize_tx(&tx, graph)?;
+        let finalize_ms = finalize_started.elapsed().as_millis();
+
+        let save_history_started = Instant::now();
+        snapshots::save_snapshot_row_tx(&tx, "history", &batch.history_snapshot)?;
+        let save_history_ms = save_history_started.elapsed().as_millis();
+
+        let save_outcomes_started = Instant::now();
+        snapshots::save_snapshot_row_tx(&tx, "outcomes", &batch.outcome_snapshot)?;
+        let save_outcomes_ms = save_outcomes_started.elapsed().as_millis();
+
+        let projection_started = Instant::now();
+        let projection_mode = if batch.projection_snapshot.is_some() {
+            "snapshot"
+        } else {
+            "delta"
+        };
+        let projection_snapshot_lineage_count = batch
+            .projection_snapshot
+            .as_ref()
+            .map(|snapshot| snapshot.co_change_by_lineage.len())
+            .unwrap_or(0);
+        let projection_snapshot_validation_count = batch
+            .projection_snapshot
+            .as_ref()
+            .map(|snapshot| snapshot.validation_by_lineage.len())
+            .unwrap_or(0);
         if let Some(snapshot) = &batch.projection_snapshot {
             projections::save_projection_snapshot_tx(&tx, snapshot)?;
         } else {
             projections::apply_projection_co_change_deltas_tx(&tx, &batch.co_change_deltas)?;
             projections::apply_projection_validation_deltas_tx(&tx, &batch.validation_deltas)?;
         }
+        let persist_projection_ms = projection_started.elapsed().as_millis();
 
-        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        let revision_started = Instant::now();
+        let workspace_revision = bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        let bump_workspace_revision_ms = revision_started.elapsed().as_millis();
+        let commit_started = Instant::now();
         tx.commit()?;
+        let commit_tx_ms = commit_started.elapsed().as_millis();
+        info!(
+            removed_file_count = batch.removed_paths.len(),
+            upserted_file_count = batch.upserted_paths.len(),
+            persisted_file_state_count = file_state_totals.persisted_file_state_count,
+            skipped_missing_upsert_count = file_state_totals.skipped_missing_upsert_count,
+            persisted_node_count = file_state_totals.node_count,
+            persisted_non_derived_edge_count = file_state_totals.edge_count,
+            persisted_fingerprint_count = file_state_totals.fingerprint_count,
+            unresolved_call_count = file_state_totals.unresolved_call_count,
+            unresolved_import_count = file_state_totals.unresolved_import_count,
+            unresolved_impl_count = file_state_totals.unresolved_impl_count,
+            unresolved_intent_count = file_state_totals.unresolved_intent_count,
+            rewritten_derived_edge_count,
+            rewritten_root_node_count,
+            rewritten_root_edge_count,
+            history_lineage_count = batch.history_snapshot.node_to_lineage.len(),
+            history_event_count = batch.history_snapshot.events.len(),
+            history_tombstone_count = batch.history_snapshot.tombstones.len(),
+            outcome_event_count = batch.outcome_snapshot.events.len(),
+            projection_mode,
+            projection_snapshot_lineage_count,
+            projection_snapshot_validation_count,
+            co_change_delta_count = batch.co_change_deltas.len(),
+            validation_delta_count = batch.validation_deltas.len(),
+            workspace_revision,
+            delete_file_state_ms,
+            save_file_state_ms,
+            replace_derived_edges_ms,
+            finalize_ms,
+            save_history_ms,
+            save_outcomes_ms,
+            persist_projection_ms,
+            bump_workspace_revision_ms,
+            commit_tx_ms,
+            total_ms = started.elapsed().as_millis(),
+            "persisted prism sqlite index batch"
+        );
         Ok(())
     }
 

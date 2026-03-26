@@ -1,8 +1,8 @@
 use anyhow::Result;
 use clap::Parser;
 use prism_mcp::{
-    init_logging, log_process_start, log_top_level_error, maybe_daemonize_process,
-    serve_with_mode, PrismMcpCli,
+    init_logging, log_process_start, log_top_level_error, maybe_daemonize_process, serve_with_mode,
+    PrismMcpCli,
 };
 
 fn main() -> Result<()> {

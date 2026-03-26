@@ -393,18 +393,34 @@ impl<S: Store> WorkspaceIndexer<S> {
             validation_deltas,
             projection_snapshot,
         };
-        let persist_started = Instant::now();
-        self.store.commit_index_persist_batch(&self.graph, &batch)?;
-        let persist_ms = persist_started.elapsed().as_millis();
-        info!(
-            root = %self.root.display(),
-            upserted_file_count,
-            removed_file_count,
-            co_change_delta_count,
-            validation_delta_count,
-            persist_ms,
-            "persisted prism index batch"
-        );
+        let skip_persist = self.had_prior_snapshot
+            && self.had_projection_snapshot
+            && batch.upserted_paths.is_empty()
+            && batch.removed_paths.is_empty()
+            && batch.co_change_deltas.is_empty()
+            && batch.validation_deltas.is_empty()
+            && batch.projection_snapshot.is_none();
+        let persist_ms = if skip_persist {
+            info!(
+                root = %self.root.display(),
+                "skipped prism index persistence batch because workspace state is unchanged"
+            );
+            0
+        } else {
+            let persist_started = Instant::now();
+            self.store.commit_index_persist_batch(&self.graph, &batch)?;
+            let persist_ms = persist_started.elapsed().as_millis();
+            info!(
+                root = %self.root.display(),
+                upserted_file_count,
+                removed_file_count,
+                co_change_delta_count,
+                validation_delta_count,
+                persist_ms,
+                "persisted prism index batch"
+            );
+            persist_ms
+        };
         let reanchor_started = Instant::now();
         reanchor_persisted_memory_snapshot(&mut self.store, &all_lineage_events)?;
         let reanchor_memory_ms = reanchor_started.elapsed().as_millis();
@@ -431,6 +447,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             lineage_event_count = all_lineage_events.len(),
             co_change_delta_count,
             validation_delta_count,
+            persist_skipped = skip_persist,
             node_count = self.graph.node_count(),
             edge_count = self.graph.edge_count(),
             file_count = self.graph.file_count(),

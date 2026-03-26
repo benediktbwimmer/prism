@@ -622,6 +622,29 @@ fn appended_outcome_persists_projection_snapshot() {
 }
 
 #[test]
+fn clean_reindex_skips_sqlite_persist_and_keeps_workspace_revision() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let mut indexer = WorkspaceIndexer::new(&root).unwrap();
+    indexer.index().unwrap();
+    let revision_after_first_index = indexer.store.workspace_revision().unwrap();
+
+    indexer.index().unwrap();
+    let revision_after_second_index = indexer.store.workspace_revision().unwrap();
+
+    assert_eq!(revision_after_second_index, revision_after_first_index);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn workspace_session_can_disable_coordination_entirely() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
