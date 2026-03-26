@@ -259,10 +259,10 @@ The vision is not one monolith but a family of domain-specific perception layers
 ### Naming and Delivery
 
 * **PRISM** — code perception and memory
-* **LEDGER** — database perception and memory
+* **VAULT** — database perception and memory
 * **HARBOR** — infrastructure perception and memory
 
-PRISM ships first as the standalone product. Once LEDGER is ready (likely first sibling, since schema graphs are closer to code graphs than infrastructure is), the three products move to an umbrella monorepo with shared substrate code (event envelope, memory traits, anchoring model, code-as-query runtime, MCP primitives) but independent domain models, independent adapters, and independent MCP server surfaces.
+PRISM ships first as the standalone product. Once VAULT is ready (likely first sibling, since schema graphs are closer to code graphs than infrastructure is), the three products move to an umbrella monorepo with shared substrate code (event envelope, memory traits, anchoring model, code-as-query runtime, MCP primitives) but independent domain models, independent adapters, and independent MCP server surfaces.
 
 ## Near-Term Design Priority
 

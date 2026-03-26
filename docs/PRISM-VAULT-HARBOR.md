@@ -1,4 +1,4 @@
-# PRISM · LEDGER · HARBOR
+# PRISM · VAULT · HARBOR
 
 Canonical reference for the future product family, shared substrate, and eventual transition into an umbrella monorepo.
 
@@ -9,13 +9,13 @@ Canonical reference for the future product family, shared substrate, and eventua
 This document defines the high-level shape of the product family currently envisioned as:
 
 - **PRISM** — code cognition
-- **LEDGER** — database cognition
+- **VAULT** — database cognition
 - **HARBOR** — infrastructure cognition
 
 It exists to guide:
 
 - the continued evolution of **PRISM**
-- the inception of **LEDGER** and **HARBOR**
+- the inception of **VAULT** and **HARBOR**
 - the eventual transition from a PRISM-only repository into a family-level umbrella monorepo
 
 This is intentionally a **high-level architecture and product reference**, not a low-level implementation spec.
@@ -57,7 +57,7 @@ The family strategy should be:
 - let the architecture settle
 - use PRISM to help build the second product
 - extract shared substrate only when a second domain creates real pressure
-- create an umbrella monorepo only when **LEDGER** starts for real
+- create an umbrella monorepo only when **VAULT** starts for real
 
 ---
 
@@ -77,9 +77,9 @@ Core value:
 - "What happened last time we touched this?"
 - "Who is already working in this area?"
 
-### 3.2 LEDGER
+### 3.2 VAULT
 
-**LEDGER** is the database cognition system.
+**VAULT** is the database cognition system.
 
 It models schema, migrations, query dependencies, workload-sensitive risk, and operational outcomes associated with schema evolution.
 
@@ -111,7 +111,7 @@ Core value:
 
 They belong together because they share the same deep problem shape.
 
-| Dimension | PRISM | LEDGER | HARBOR |
+| Dimension | PRISM | VAULT | HARBOR |
 |---|---|---|---|
 | Current structure | code graph | schema graph + query graph | resource graph + topology graph |
 | Identity through change | symbol lineage | schema/table/column lineage | resource/service/config lineage |
@@ -141,7 +141,7 @@ All three products are expected to share the same **conceptual stack**.
 Each product has an authoritative, deterministic model of the domain as it exists now.
 
 - PRISM: modules, functions, structs, traits, documents, imports, calls
-- LEDGER: schemas, tables, columns, indexes, constraints, views, procedures, queries
+- VAULT: schemas, tables, columns, indexes, constraints, views, procedures, queries
 - HARBOR: services, deployments, clusters, namespaces, routes, policies, networks, stateful resources
 
 ### 5.2 History
@@ -149,7 +149,7 @@ Each product has an authoritative, deterministic model of the domain as it exist
 Each product tracks identity through change without pretending the current snapshot ID is eternal.
 
 - PRISM: `NodeId` vs `LineageId`
-- LEDGER: current schema identity vs entity lineage through renames, type changes, table splits, index recreation
+- VAULT: current schema identity vs entity lineage through renames, type changes, table splits, index recreation
 - HARBOR: current resource identity vs lineage through redeploys, rollout replacements, rename-like state transitions, infra apply cycles
 
 ### 5.3 Memory
@@ -193,7 +193,7 @@ Writes stay explicit and auditable.
 - mutations happen through explicit tools or API calls
 - outcomes, notes, inferred edges, claims, and artifacts are recorded with event metadata and attribution
 
-For **LEDGER** and **HARBOR**, the long-term operating model should be:
+For **VAULT** and **HARBOR**, the long-term operating model should be:
 
 > **propose -> plan -> approve -> execute -> verify -> record outcomes**
 
@@ -253,7 +253,7 @@ These concepts should stay family-wide conceptually, but each sibling will likel
 
 These should not be prematurely generalized.
 
-| PRISM-specific | LEDGER-specific | HARBOR-specific |
+| PRISM-specific | VAULT-specific | HARBOR-specific |
 |---|---|---|
 | `NodeKind` for code | schema entity taxonomy | infra resource taxonomy |
 | code `EdgeKind` | schema/query/dependency edge taxonomy | topology/dependency/policy edge taxonomy |
@@ -308,9 +308,9 @@ Typical blast radius questions:
 - what failed here before?
 - who is already editing nearby?
 
-## 7.2 LEDGER: Database Cognition
+## 7.2 VAULT: Database Cognition
 
-LEDGER's core loop is likely to be:
+VAULT's core loop is likely to be:
 
 1. ingest schema definition, migration state, and possibly live schema introspection
 2. build an authoritative schema/resource graph
@@ -354,13 +354,13 @@ Typical blast radius questions:
 - what migrations touched this lineage before?
 - what happened the last time this table changed in production?
 
-The domain-specific pillar LEDGER needs beyond PRISM is:
+The domain-specific pillar VAULT needs beyond PRISM is:
 
 > **workload-aware migration risk**
 
-Structure alone is not enough. LEDGER ultimately needs to understand query patterns, cardinality, lock implications, backfill behavior, and environment-specific operational risk.
+Structure alone is not enough. VAULT ultimately needs to understand query patterns, cardinality, lock implications, backfill behavior, and environment-specific operational risk.
 
-Over time, LEDGER should grow from cognition into controlled schema-change orchestration. That means:
+Over time, VAULT should grow from cognition into controlled schema-change orchestration. That means:
 
 - analyze a proposed migration
 - estimate blast radius and operational risk
@@ -646,7 +646,7 @@ Every system needs:
 - current: code node identity
 - stable: symbol lineage
 
-**LEDGER**
+**VAULT**
 - current: schema/table/column/etc. identity
 - stable: lineage through rename, type evolution, move, split, migration chain
 
@@ -665,7 +665,7 @@ Each system should capture raw change facts before trying to interpret them hist
 - file changes
 - parsed graph deltas
 
-**LEDGER**
+**VAULT**
 - migration deltas
 - schema diffs
 - introspection changes
@@ -686,7 +686,7 @@ Every domain needs deterministic fingerprints for continuity matching.
 **PRISM**
 - signature/body/skeleton/child-shape
 
-**LEDGER**
+**VAULT**
 - type/constraints/index participation/default/nullability/query usage profile
 
 **HARBOR**
@@ -702,7 +702,7 @@ Predict likely downstream effect of changing an anchor.
 **PRISM**
 - callers, references, imports, co-change history, test relevance
 
-**LEDGER**
+**VAULT**
 - dependent queries/views/procedures, migrations, lock risk, FK/index effects, backfill burden
 
 **HARBOR**
@@ -718,7 +718,7 @@ Suggest what validations historically matter when a thing changes.
 **PRISM**
 - tests, builds, lint, integration boundaries
 
-**LEDGER**
+**VAULT**
 - dry-run migration, lock estimation, query plan checks, canary migration, replication checks
 
 **HARBOR**
@@ -741,7 +741,7 @@ This is likely the single strongest family-level product decision.
 
 ### Why keep this consistent?
 
-Because agents learn patterns. An agent that has used `prism.symbol()` → `prism.blastRadius()` → `prism.relatedOutcomes()` can immediately use `ledger.column()` → `ledger.blastRadius()` → `ledger.relatedOutcomes()` with the same mental model. It does not need to relearn the interaction pattern for each sibling.
+Because agents learn patterns. An agent that has used `prism.symbol()` → `prism.blastRadius()` → `prism.relatedOutcomes()` can immediately use `vault.column()` → `vault.blastRadius()` → `vault.relatedOutcomes()` with the same mental model. It does not need to relearn the interaction pattern for each sibling.
 
 This creates a cross-product network effect: the more an agent uses any one sibling, the better it gets at using all of them. That compounds over time and across tasks. It also means that system prompt instructions, recipes, and agent habits transfer across domains without retraining.
 
@@ -762,13 +762,13 @@ return {
 };
 ```
 
-#### LEDGER
+#### VAULT
 ```ts
-const col = ledger.column("public.users.email");
+const col = vault.column("public.users.email");
 return {
   lineage: col?.lineage(),
-  impact: ledger.blastRadius(col!.id),
-  migrations: ledger.relatedOutcomes(col!.id),
+  impact: vault.blastRadius(col!.id),
+  migrations: vault.relatedOutcomes(col!.id),
 };
 ```
 
@@ -815,7 +815,7 @@ Each product will support:
 **PRISM**
 - claims are about code anchors and edit surfaces
 
-**LEDGER**
+**VAULT**
 - claims are about migration paths, schema anchors, operational sequencing
 
 **HARBOR**
@@ -836,7 +836,7 @@ Coordination is the layer most at risk of over-engineering before real demand ex
 
 Do **not** create this yet.
 
-Create it only when **LEDGER** starts for real.
+Create it only when **VAULT** starts for real.
 
 A likely shape:
 
@@ -873,19 +873,19 @@ family/
       prism-coordination/
       prism-curator/
 
-    ledger/
-      ledger-core/
-      ledger-ir/
-      ledger-adapters/
-      ledger-store/
-      ledger-history/
-      ledger-memory/
-      ledger-query/
-      ledger-js/
-      ledger-mcp/
-      ledger-cli/
-      ledger-projections/
-      ledger-coordination/
+    vault/
+      vault-core/
+      vault-ir/
+      vault-adapters/
+      vault-store/
+      vault-history/
+      vault-memory/
+      vault-query/
+      vault-js/
+      vault-mcp/
+      vault-cli/
+      vault-projections/
+      vault-coordination/
 
     harbor/
       harbor-core/
@@ -926,7 +926,7 @@ Goal:
 
 ## 13.2 Phase 1 — Prep For Future Extraction
 
-Before LEDGER starts, shape PRISM so extraction is easier.
+Before VAULT starts, shape PRISM so extraction is easier.
 
 Do now:
 
@@ -944,9 +944,9 @@ Do not do now:
 - rename specific concepts into vague platform terms
 - create shared crates without second-domain pressure
 
-## 13.3 Phase 2 — LEDGER Spike
+## 13.3 Phase 2 — VAULT Spike
 
-When PRISM is usable, begin a real LEDGER spike.
+When PRISM is usable, begin a real VAULT spike.
 
 Purpose:
 
@@ -954,7 +954,7 @@ Purpose:
 - discover where schema/workload/migration semantics differ materially from code
 - validate the query/runtime/memory/coordination pattern in a second domain
 
-At this point, maintain LEDGER as either:
+At this point, maintain VAULT as either:
 - a spike branch
 - or a temporary sibling experimental repo
 
@@ -964,7 +964,7 @@ The goal is learning, not immediate repo consolidation.
 
 Create the family monorepo only when:
 
-- LEDGER has become real, not hypothetical
+- VAULT has become real, not hypothetical
 - at least some shared substrate candidates have proven themselves
 - moving PRISM into the new repo simplifies future work more than it disrupts it
 
@@ -987,15 +987,15 @@ Do **not** start by extracting domain model or ontology crates.
 
 ## 13.6 Phase 5 — HARBOR Follows
 
-Only after PRISM and LEDGER have created enough shared pressure should HARBOR enter the umbrella repo.
+Only after PRISM and VAULT have created enough shared pressure should HARBOR enter the umbrella repo.
 
-HARBOR will likely reuse more family substrate than LEDGER did, because the extraction work will already have happened.
+HARBOR will likely reuse more family substrate than VAULT did, because the extraction work will already have happened.
 
 ---
 
 ## 14. Family-Level Product Principles
 
-These principles should remain true across PRISM, LEDGER, and HARBOR.
+These principles should remain true across PRISM, VAULT, and HARBOR.
 
 ### 14.1 Structure Is Authoritative
 
@@ -1022,7 +1022,7 @@ Claims, reviews, blockers, and handoffs should be first-class and auditable.
 Read queries compose.
 Writes remain explicit and attributable.
 
-For LEDGER and HARBOR specifically, this extends to execution:
+For VAULT and HARBOR specifically, this extends to execution:
 
 - they may eventually drive real migrations, applies, and deploys
 - they should do so as orchestrators over explicit executors, not as direct autonomous operators
@@ -1063,7 +1063,7 @@ The family wins by sharing substrate while preserving domain truth.
 ### 15.1 Premature Platformization
 
 Bad move:
-- turning PRISM into a generic "entity graph platform" before LEDGER exists
+- turning PRISM into a generic "entity graph platform" before VAULT exists
 
 Why it is bad:
 - destroys clarity
@@ -1073,7 +1073,7 @@ Why it is bad:
 ### 15.2 Three Completely Separate Repos Too Early
 
 Bad move:
-- creating isolated repos for PRISM, LEDGER, and HARBOR from day one
+- creating isolated repos for PRISM, VAULT, and HARBOR from day one
 
 Why it is bad:
 - duplicates substrate
@@ -1109,7 +1109,7 @@ Why it is bad:
 - lowers trust
 - contaminates the world model
 
-### 15.6 Treating Ledger Or Harbor As Blind Auto-Operators
+### 15.6 Treating Vault Or Harbor As Blind Auto-Operators
 
 Bad move:
 - giving an agent direct production mutation power without explicit approval, execution, and verification boundaries
@@ -1129,12 +1129,12 @@ Right now:
 - finish making PRISM genuinely usable
 - shape the repo so future extraction is easy
 - do not create the family monorepo yet
-- do not add LEDGER or HARBOR code yet
+- do not add VAULT or HARBOR code yet
 - document likely shared substrate and likely product-specific areas clearly
 
 The immediate strategic goal is:
 
-> make PRISM strong enough that it can help build LEDGER.
+> make PRISM strong enough that it can help build VAULT.
 
 That is the first real proof that the architecture generalizes.
 
@@ -1145,11 +1145,11 @@ That is the first real proof that the architecture generalizes.
 These are the working decisions this document recommends.
 
 1. **PRISM ships first**
-2. **LEDGER is the likely second sibling**
+2. **VAULT is the likely second sibling**
 3. **HARBOR follows later**
 4. **Do not move to three separate repos**
 5. **Do not permanently keep all siblings inside the PRISM repo**
-6. **Create an umbrella monorepo only when LEDGER becomes real**
+6. **Create an umbrella monorepo only when VAULT becomes real**
 7. **Extract shared substrate only after second-domain pressure**
 8. **Keep product ontologies domain-specific**
 9. **Keep the query-runtime pattern consistent across the family**
@@ -1164,7 +1164,7 @@ These are concise product descriptions that can be reused internally.
 ### PRISM
 Persistent code cognition: structure, history, memory, and coordination for codebases.
 
-### LEDGER
+### VAULT
 Persistent database cognition: schema, migrations, workload-aware risk, memory, and coordination for databases.
 
 ### HARBOR
@@ -1174,7 +1174,7 @@ Persistent infrastructure cognition: topology, drift, rollout history, operation
 
 ## 19. Final Note
 
-PRISM, LEDGER, and HARBOR should not become three skins over one generic engine.
+PRISM, VAULT, and HARBOR should not become three skins over one generic engine.
 
 They should become three domain-native cognition systems built on a shared family substrate.
 

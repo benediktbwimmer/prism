@@ -2697,6 +2697,17 @@ return {
     assert!(!symbol_resource.suggested_reads.is_empty());
     assert!(!symbol_resource.read_context.suggested_reads.is_empty());
     assert!(!symbol_resource.edit_context.suggested_queries.is_empty());
+    assert_eq!(symbol_resource.suggested_queries[0].label, "Read Context");
+    assert_eq!(symbol_resource.suggested_queries[1].label, "Read Owners");
+    assert_eq!(
+        symbol_resource.suggested_queries[2].label,
+        "Validation Recipe"
+    );
+    assert_eq!(symbol_resource.suggested_queries[3].label, "Edit Context");
+    assert_eq!(
+        symbol_resource.related_resources[0].uri,
+        symbol_resource.uri
+    );
 }
 
 #[test]
@@ -2791,6 +2802,15 @@ fn search_resource_payload_surfaces_suggested_reads() {
     }));
     assert!(payload.top_read_context.is_some());
     assert!(!payload.suggested_queries.is_empty());
+    assert_eq!(payload.suggested_queries[0].label, "Direct Search");
+    assert_eq!(payload.suggested_queries[1].label, "Behavioral Search");
+    assert_eq!(payload.suggested_queries[2].label, "Read Context");
+    assert!(payload.related_resources[0]
+        .uri
+        .starts_with("prism://search/memory%20recall"));
+    assert!(payload.related_resources[1]
+        .uri
+        .starts_with("prism://symbol/"));
 }
 
 #[test]

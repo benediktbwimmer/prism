@@ -1,6 +1,6 @@
 # VALIDATION.md
 
-Canonical reference for validating **PRISM** now, while planning ahead for **LEDGER** and **HARBOR**.
+Canonical reference for validating **PRISM** now, while planning ahead for **VAULT** and **HARBOR**.
 
 This document defines how the family of products should earn trust as **measured world models**, not just useful retrieval systems.
 
@@ -8,10 +8,10 @@ This document defines how the family of products should earn trust as **measured
 
 ## 1. Purpose
 
-PRISM, and later LEDGER and HARBOR, aim to become **authoritative or near-authoritative world models** over important technical domains:
+PRISM, and later VAULT and HARBOR, aim to become **authoritative or near-authoritative world models** over important technical domains:
 
 - **PRISM** — code and adjacent docs/config
-- **LEDGER** — databases, schema, migrations, and operational migration history
+- **VAULT** — databases, schema, migrations, and operational migration history
 - **HARBOR** — infrastructure, desired/live topology, rollout history, and operational state
 
 These systems become transformative only if users and agents can trust that the world model is **correct enough**, **honest about uncertainty**, and **validated continuously**.
@@ -23,7 +23,7 @@ This document exists to define:
 - how each validation layer is tested
 - how trust is communicated in product behavior
 - what PRISM should implement now
-- what LEDGER and HARBOR will need later
+- what VAULT and HARBOR will need later
 
 ---
 
@@ -867,9 +867,9 @@ Goal:
 
 ---
 
-## 14. Planning Ahead for LEDGER
+## 14. Planning Ahead for VAULT
 
-LEDGER does not exist yet, but its validation needs should already shape family design.
+VAULT does not exist yet, but its validation needs should already shape family design.
 
 ### 14.1 What Will Transfer From PRISM
 
@@ -883,9 +883,9 @@ The following validation patterns should transfer directly:
 - release gates
 - human correction loops
 
-### 14.2 LEDGER-Specific Validation Needs
+### 14.2 VAULT-Specific Validation Needs
 
-LEDGER must validate:
+VAULT must validate:
 
 #### Structural Truth
 - schema entity extraction
@@ -915,7 +915,7 @@ Authoritative sources:
 - downstream breakage
 
 #### Crucial domain-specific pillar
-LEDGER must validate not only schema structure, but **workload-aware migration risk**.
+VAULT must validate not only schema structure, but **workload-aware migration risk**.
 
 That means future evaluation will need to account for:
 - lock duration
@@ -925,7 +925,7 @@ That means future evaluation will need to account for:
 - replication lag
 - operational timing and environment
 
-Without this, LEDGER may be structurally correct but operationally unsafe.
+Without this, VAULT may be structurally correct but operationally unsafe.
 
 ---
 
@@ -1047,7 +1047,7 @@ Validation is not “done” permanently, but a capability can be considered val
 
 ## 19. Final Principle
 
-PRISM, and later LEDGER and HARBOR, should be treated as **measured world models with auditable error bars**, not clever black boxes.
+PRISM, and later VAULT and HARBOR, should be treated as **measured world models with auditable error bars**, not clever black boxes.
 
 The family only earns trust if it can answer:
 

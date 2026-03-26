@@ -267,12 +267,15 @@ pub(crate) fn resource_link_view(
     }
 }
 
-pub(crate) fn dedupe_resource_link_views(
-    mut links: Vec<ResourceLinkView>,
-) -> Vec<ResourceLinkView> {
-    links.sort_by(|left, right| left.uri.cmp(&right.uri));
-    links.dedup_by(|left, right| left.uri == right.uri);
-    links
+pub(crate) fn dedupe_resource_link_views(links: Vec<ResourceLinkView>) -> Vec<ResourceLinkView> {
+    let mut seen = std::collections::HashSet::new();
+    let mut deduped = Vec::with_capacity(links.len());
+    for link in links {
+        if seen.insert(link.uri.clone()) {
+            deduped.push(link);
+        }
+    }
+    deduped
 }
 
 pub(crate) fn session_resource_uri() -> String {
