@@ -132,6 +132,18 @@ fn query_method_specs() -> Vec<(
             "Search workspace file text with exact match spans, snippets, and path filters.",
         ),
         (
+            "tools",
+            "core",
+            None,
+            "List PRISM MCP tools with schema URIs, descriptions, and example inputs.",
+        ),
+        (
+            "tool",
+            "core",
+            None,
+            "Inspect one PRISM MCP tool schema, its action variants, required fields, and example input.",
+        ),
+        (
             "entrypoints",
             "core",
             None,

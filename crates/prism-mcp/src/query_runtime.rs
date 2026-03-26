@@ -7,7 +7,8 @@ use prism_js::{
     ChangedFileView, ChangedSymbolView, DiffHunkView, EditContextView, FocusedBlockView,
     PatchEventView, QueryDiagnostic, QueryEnvelope, ReadContextView, RecentChangeContextView,
     RuntimeLogEventView, RuntimeStatusView, ScoredMemoryView, SourceExcerptView, SourceSliceView,
-    SubgraphView, SymbolView, TextSearchMatchView, ValidationContextView,
+    SubgraphView, SymbolView, TextSearchMatchView, ToolCatalogEntryView, ToolSchemaView,
+    ValidationContextView,
 };
 use prism_memory::{MemoryModule, OutcomeRecallQuery, RecallQuery};
 use prism_query::{EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
@@ -30,16 +31,17 @@ use crate::{
     recent_patches, relations_view, scored_memory_view, search_queries, source_excerpt_for_symbol,
     spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
     task_intent_view, task_journal_view, task_risk_view, task_validation_recipe_view,
-    validation_context_view, validation_recipe_view_with, where_used, AnchorListArgs,
-    CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs, CoordinationTaskTargetArgs,
-    CuratorJobArgs, CuratorJobsArgs, DiffForArgs, DiscoveryTargetArgs, EditSliceArgs,
-    FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs, MemoryOutcomeArgs,
-    MemoryRecallArgs, NodeIdInput, OwnerLookupArgs, PendingReviewsArgs, PlanTargetArgs,
-    PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs,
-    RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchArgs, SearchTextArgs,
-    SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs,
-    TaskJournalArgs, TaskTargetArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
+    tool_catalog_views, tool_schema_view, validation_context_view, validation_recipe_view_with,
+    where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs,
+    CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, DiffForArgs, DiscoveryTargetArgs,
+    EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs,
+    MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs, PendingReviewsArgs,
+    PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun,
+    QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchArgs,
+    SearchTextArgs, SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs,
+    TaskChangesArgs, TaskJournalArgs, TaskTargetArgs, ToolNameArgs, WhereUsedArgs,
+    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
 };
 
 impl QueryHost {
@@ -668,6 +670,11 @@ impl QueryExecution {
                 let args: FileAroundArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(file_around(&self.host, args)?)?)
             }
+            "tools" => Ok(serde_json::to_value(self.tools())?),
+            "tool" => {
+                let args: ToolNameArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.tool(&args.name)?)?)
+            }
             "excerpt" => {
                 let args: SourceExcerptArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.source_excerpt(args)?)?)
@@ -968,6 +975,14 @@ impl QueryExecution {
             );
         }
         Ok(matches.into_iter().next())
+    }
+
+    fn tools(&self) -> Vec<ToolCatalogEntryView> {
+        tool_catalog_views()
+    }
+
+    fn tool(&self, name: &str) -> Result<Option<ToolSchemaView>> {
+        Ok(tool_schema_view(name))
     }
 
     pub(crate) fn search(&self, args: SearchArgs) -> Result<Vec<SymbolView>> {

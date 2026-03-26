@@ -20,6 +20,11 @@ pub(crate) struct SymbolQueryArgs {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub(crate) struct ToolNameArgs {
+    pub(crate) name: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub(crate) struct SearchArgs {
     pub(crate) query: String,
     pub(crate) limit: Option<usize>,

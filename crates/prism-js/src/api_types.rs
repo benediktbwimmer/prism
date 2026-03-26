@@ -55,6 +55,47 @@ pub struct FocusedBlockView {
     pub strategy: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolCatalogEntryView {
+    pub tool_name: String,
+    pub schema_uri: String,
+    pub description: String,
+    pub example_input: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolFieldSchemaView {
+    pub name: String,
+    pub required: bool,
+    pub description: Option<String>,
+    pub types: Vec<String>,
+    pub enum_values: Vec<String>,
+    pub schema: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolActionSchemaView {
+    pub action: String,
+    pub required_fields: Vec<String>,
+    pub fields: Vec<ToolFieldSchemaView>,
+    pub input_schema: Value,
+    pub example_input: Option<Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolSchemaView {
+    pub tool_name: String,
+    pub schema_uri: String,
+    pub description: String,
+    pub example_input: Value,
+    pub input_schema: Value,
+    pub actions: Vec<ToolActionSchemaView>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TextSearchMatchView {
@@ -594,9 +635,12 @@ pub struct SuggestedQueryView {
 #[serde(rename_all = "camelCase")]
 pub struct ReadContextView {
     pub target: SymbolView,
+    pub target_block: FocusedBlockView,
     pub direct_links: Vec<SymbolView>,
+    pub direct_link_blocks: Vec<FocusedBlockView>,
     pub suggested_reads: Vec<OwnerCandidateView>,
     pub tests: Vec<OwnerCandidateView>,
+    pub test_blocks: Vec<FocusedBlockView>,
     pub related_memory: Vec<ScoredMemoryView>,
     pub recent_failures: Vec<OutcomeEvent>,
     pub validation_recipe: ValidationRecipeView,
@@ -608,10 +652,14 @@ pub struct ReadContextView {
 #[serde(rename_all = "camelCase")]
 pub struct EditContextView {
     pub target: SymbolView,
+    pub target_block: FocusedBlockView,
     pub direct_links: Vec<SymbolView>,
+    pub direct_link_blocks: Vec<FocusedBlockView>,
     pub suggested_reads: Vec<OwnerCandidateView>,
     pub write_paths: Vec<OwnerCandidateView>,
+    pub write_path_blocks: Vec<FocusedBlockView>,
     pub tests: Vec<OwnerCandidateView>,
+    pub test_blocks: Vec<FocusedBlockView>,
     pub related_memory: Vec<ScoredMemoryView>,
     pub recent_failures: Vec<OutcomeEvent>,
     pub blast_radius: ChangeImpactView,
@@ -624,7 +672,9 @@ pub struct EditContextView {
 #[serde(rename_all = "camelCase")]
 pub struct ValidationContextView {
     pub target: SymbolView,
+    pub target_block: FocusedBlockView,
     pub tests: Vec<OwnerCandidateView>,
+    pub test_blocks: Vec<FocusedBlockView>,
     pub related_memory: Vec<ScoredMemoryView>,
     pub recent_failures: Vec<OutcomeEvent>,
     pub blast_radius: ChangeImpactView,

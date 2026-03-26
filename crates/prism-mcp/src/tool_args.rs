@@ -1,14 +1,75 @@
 use prism_js::TaskJournalView;
 use rmcp::schemars::{JsonSchema, Schema};
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 
-use crate::SessionView;
+use crate::{tool_schema_view, SessionView};
 
 fn ensure_root_object_input_schema(schema: &mut Schema) {
     if schema.get("type").is_none() {
         schema.insert("type".to_string(), Value::String("object".to_string()));
     }
+}
+
+fn parse_tagged_tool_input<T>(tool_name: &str, value: Value) -> Result<T, String>
+where
+    T: serde::de::DeserializeOwned,
+{
+    let tool = tool_schema_view(tool_name);
+    let action = value
+        .get("action")
+        .and_then(Value::as_str)
+        .map(ToString::to_string);
+
+    if let Some(tool) = &tool {
+        if !tool.actions.is_empty() {
+            let valid_actions = tool
+                .actions
+                .iter()
+                .map(|action| action.action.as_str())
+                .collect::<Vec<_>>();
+            match action.as_deref() {
+                None => {
+                    return Err(format!(
+                        "{tool_name} requires `action`; valid actions: {}. Inspect via prism.tool(\"{tool_name}\").",
+                        valid_actions.join(", ")
+                    ));
+                }
+                Some(action_name) if !valid_actions.contains(&action_name) => {
+                    return Err(format!(
+                        "unknown {tool_name} action `{action_name}`; valid actions: {}. Inspect via prism.tool(\"{tool_name}\").",
+                        valid_actions.join(", ")
+                    ));
+                }
+                _ => {}
+            }
+        }
+    }
+
+    serde_json::from_value(value).map_err(|error| {
+        if let (Some(tool), Some(action_name), Some(field)) =
+            (tool.as_ref(), action.as_deref(), missing_field_name(&error.to_string()))
+        {
+            if let Some(action_schema) = tool.actions.iter().find(|candidate| candidate.action == action_name)
+            {
+                return format!(
+                    "{tool_name} action `{action_name}` is missing required field `input.{field}`; required fields: {}. Inspect via prism.tool(\"{tool_name}\")?.actions.find((action) => action.action === \"{action_name}\").",
+                    action_schema.required_fields.join(", ")
+                );
+            }
+        }
+
+        format!(
+            "invalid {tool_name} input: {}. Inspect via prism.tool(\"{tool_name}\").",
+            error
+        )
+    })
+}
+
+fn missing_field_name(parse_error: &str) -> Option<&str> {
+    let (_, tail) = parse_error.split_once("missing field `")?;
+    let (field, _) = tail.split_once('`')?;
+    Some(field)
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -151,6 +212,28 @@ pub(crate) enum MemoryMutationActionInput {
     Store,
 }
 
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ValidationFeedbackCategoryInput {
+    Structural,
+    Lineage,
+    Memory,
+    Projection,
+    Coordination,
+    Freshness,
+    Other,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ValidationFeedbackVerdictInput {
+    Wrong,
+    Stale,
+    Noisy,
+    Helpful,
+    Mixed,
+}
+
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismMemoryArgs {
@@ -167,8 +250,8 @@ pub(crate) struct PrismValidationFeedbackArgs {
     pub(crate) context: String,
     pub(crate) prism_said: String,
     pub(crate) actually_true: String,
-    pub(crate) category: String,
-    pub(crate) verdict: String,
+    pub(crate) category: ValidationFeedbackCategoryInput,
+    pub(crate) verdict: ValidationFeedbackVerdictInput,
     pub(crate) corrected_manually: Option<bool>,
     pub(crate) correction: Option<String>,
     pub(crate) metadata: Option<Value>,
@@ -265,7 +348,7 @@ pub(crate) struct PrismConfigureSessionArgs {
     pub(crate) clear_current_agent: Option<bool>,
 }
 
-#[derive(Debug, Deserialize, JsonSchema)]
+#[derive(Debug, JsonSchema)]
 #[schemars(transform = ensure_root_object_input_schema)]
 #[serde(rename_all = "snake_case", tag = "action", content = "input")]
 pub(crate) enum PrismSessionArgs {
@@ -273,6 +356,38 @@ pub(crate) enum PrismSessionArgs {
     Configure(PrismConfigureSessionArgs),
     FinishTask(PrismFinishTaskArgs),
     AbandonTask(PrismFinishTaskArgs),
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "action", content = "input")]
+enum PrismSessionArgsWire {
+    StartTask(PrismStartTaskArgs),
+    Configure(PrismConfigureSessionArgs),
+    FinishTask(PrismFinishTaskArgs),
+    AbandonTask(PrismFinishTaskArgs),
+}
+
+impl From<PrismSessionArgsWire> for PrismSessionArgs {
+    fn from(value: PrismSessionArgsWire) -> Self {
+        match value {
+            PrismSessionArgsWire::StartTask(args) => Self::StartTask(args),
+            PrismSessionArgsWire::Configure(args) => Self::Configure(args),
+            PrismSessionArgsWire::FinishTask(args) => Self::FinishTask(args),
+            PrismSessionArgsWire::AbandonTask(args) => Self::AbandonTask(args),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for PrismSessionArgs {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        parse_tagged_tool_input::<PrismSessionArgsWire>("prism_session", value)
+            .map(Into::into)
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
@@ -308,7 +423,7 @@ pub(crate) struct PrismInferEdgeArgs {
     pub(crate) task_id: Option<String>,
 }
 
-#[derive(Debug, Deserialize, JsonSchema)]
+#[derive(Debug, JsonSchema)]
 #[schemars(transform = ensure_root_object_input_schema)]
 #[serde(rename_all = "snake_case", tag = "action", content = "input")]
 pub(crate) enum PrismMutationArgs {
@@ -325,6 +440,56 @@ pub(crate) enum PrismMutationArgs {
     CuratorPromoteEdge(PrismCuratorPromoteEdgeArgs),
     CuratorPromoteMemory(PrismCuratorPromoteMemoryArgs),
     CuratorRejectProposal(PrismCuratorRejectProposalArgs),
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "action", content = "input")]
+enum PrismMutationArgsWire {
+    Outcome(PrismOutcomeArgs),
+    Memory(PrismMemoryArgs),
+    ValidationFeedback(PrismValidationFeedbackArgs),
+    InferEdge(PrismInferEdgeArgs),
+    Coordination(PrismCoordinationArgs),
+    Claim(PrismClaimArgs),
+    Artifact(PrismArtifactArgs),
+    TestRan(PrismTestRanArgs),
+    FailureObserved(PrismFailureObservedArgs),
+    FixValidated(PrismFixValidatedArgs),
+    CuratorPromoteEdge(PrismCuratorPromoteEdgeArgs),
+    CuratorPromoteMemory(PrismCuratorPromoteMemoryArgs),
+    CuratorRejectProposal(PrismCuratorRejectProposalArgs),
+}
+
+impl From<PrismMutationArgsWire> for PrismMutationArgs {
+    fn from(value: PrismMutationArgsWire) -> Self {
+        match value {
+            PrismMutationArgsWire::Outcome(args) => Self::Outcome(args),
+            PrismMutationArgsWire::Memory(args) => Self::Memory(args),
+            PrismMutationArgsWire::ValidationFeedback(args) => Self::ValidationFeedback(args),
+            PrismMutationArgsWire::InferEdge(args) => Self::InferEdge(args),
+            PrismMutationArgsWire::Coordination(args) => Self::Coordination(args),
+            PrismMutationArgsWire::Claim(args) => Self::Claim(args),
+            PrismMutationArgsWire::Artifact(args) => Self::Artifact(args),
+            PrismMutationArgsWire::TestRan(args) => Self::TestRan(args),
+            PrismMutationArgsWire::FailureObserved(args) => Self::FailureObserved(args),
+            PrismMutationArgsWire::FixValidated(args) => Self::FixValidated(args),
+            PrismMutationArgsWire::CuratorPromoteEdge(args) => Self::CuratorPromoteEdge(args),
+            PrismMutationArgsWire::CuratorPromoteMemory(args) => Self::CuratorPromoteMemory(args),
+            PrismMutationArgsWire::CuratorRejectProposal(args) => Self::CuratorRejectProposal(args),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for PrismMutationArgs {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        parse_tagged_tool_input::<PrismMutationArgsWire>("prism_mutate", value)
+            .map(Into::into)
+            .map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]

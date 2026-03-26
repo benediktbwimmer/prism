@@ -185,6 +185,20 @@ function __prismEnrichSpecDrift(raw) {
   };
 }
 
+function __prismEnrichFocusedBlock(raw) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    symbol: __prismEnrichSymbol(raw.symbol),
+  };
+}
+
+function __prismEnrichFocusedBlocks(values) {
+  return Array.isArray(values) ? values.map(__prismEnrichFocusedBlock) : [];
+}
+
 function __prismEnrichReadContext(raw) {
   if (raw == null) {
     return raw;
@@ -192,9 +206,12 @@ function __prismEnrichReadContext(raw) {
   return {
     ...raw,
     target: __prismEnrichSymbol(raw.target),
+    targetBlock: __prismEnrichFocusedBlock(raw.targetBlock),
     directLinks: __prismEnrichSymbols(raw.directLinks),
+    directLinkBlocks: __prismEnrichFocusedBlocks(raw.directLinkBlocks),
     suggestedReads: __prismEnrichInsightCandidates(raw.suggestedReads),
     tests: __prismEnrichInsightCandidates(raw.tests),
+    testBlocks: __prismEnrichFocusedBlocks(raw.testBlocks),
   };
 }
 
@@ -205,10 +222,14 @@ function __prismEnrichEditContext(raw) {
   return {
     ...raw,
     target: __prismEnrichSymbol(raw.target),
+    targetBlock: __prismEnrichFocusedBlock(raw.targetBlock),
     directLinks: __prismEnrichSymbols(raw.directLinks),
+    directLinkBlocks: __prismEnrichFocusedBlocks(raw.directLinkBlocks),
     suggestedReads: __prismEnrichInsightCandidates(raw.suggestedReads),
     writePaths: __prismEnrichInsightCandidates(raw.writePaths),
+    writePathBlocks: __prismEnrichFocusedBlocks(raw.writePathBlocks),
     tests: __prismEnrichInsightCandidates(raw.tests),
+    testBlocks: __prismEnrichFocusedBlocks(raw.testBlocks),
   };
 }
 
@@ -220,6 +241,8 @@ function __prismEnrichValidationContext(raw) {
     ...raw,
     target: __prismEnrichSymbol(raw.target),
     tests: __prismEnrichInsightCandidates(raw.tests),
+    targetBlock: __prismEnrichFocusedBlock(raw.targetBlock),
+    testBlocks: __prismEnrichFocusedBlocks(raw.testBlocks),
   };
 }
 
@@ -368,6 +391,12 @@ globalThis.prism = Object.freeze({
       contextLines: options?.contextLines ?? options?.context_lines,
     });
   },
+  tools() {
+    return __prismHost("tools", {});
+  },
+  tool(name) {
+    return __prismHost("tool", { name });
+  },
   entrypoints() {
     return __prismEnrichSymbols(__prismHost("entrypoints", {}));
   },
@@ -493,13 +522,15 @@ globalThis.prism = Object.freeze({
     if (targetPayload == null) {
       return null;
     }
-    return __prismHost("focusedBlock", {
-      ...targetPayload,
-      beforeLines: options?.beforeLines,
-      afterLines: options?.afterLines,
-      maxLines: options?.maxLines,
-      maxChars: options?.maxChars,
-    });
+    return __prismEnrichFocusedBlock(
+      __prismHost("focusedBlock", {
+        ...targetPayload,
+        beforeLines: options?.beforeLines,
+        afterLines: options?.afterLines,
+        maxLines: options?.maxLines,
+        maxChars: options?.maxChars,
+      })
+    );
   },
   lineage(target) {
     const targetPayload = __prismNormalizeTargetPayload(target);

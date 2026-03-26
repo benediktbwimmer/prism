@@ -9,9 +9,10 @@ use prism_query::Prism;
 use serde_json::json;
 
 use crate::{
-    blast_radius_view, co_change_view, lineage_view, owner_views_for_target,
-    promoted_summary_texts, relations_view, scored_memory_view, symbol_for, symbol_view,
-    validation_recipe_view_with, SessionState, INSIGHT_LIMIT,
+    blast_radius_view, co_change_view, context_target_block, focused_blocks_for_symbol_views,
+    lineage_view, owner_views_for_target, promoted_summary_texts, relations_view,
+    scored_memory_view, symbol_for, symbol_view, validation_recipe_view_with, SessionState,
+    CONTEXT_BLOCK_LIMIT, INSIGHT_LIMIT,
 };
 
 const MEMORY_CONTEXT_LIMIT: usize = 5;
@@ -24,9 +25,17 @@ pub(crate) fn read_context_view(
     target: &NodeId,
 ) -> Result<ReadContextView> {
     let target_symbol = symbol_view(prism, &symbol_for(prism, target)?)?;
+    let target_block = context_target_block(prism, target)?;
     let direct_links = direct_links(prism, session, target)?;
+    let direct_link_blocks =
+        focused_blocks_for_symbol_views(prism, &direct_links, CONTEXT_BLOCK_LIMIT)?;
     let suggested_reads = owner_views_for_target(prism, target, Some("read"), INSIGHT_LIMIT)?;
     let tests = owner_views_for_target(prism, target, Some("test"), INSIGHT_LIMIT)?;
+    let test_symbols = tests
+        .iter()
+        .map(|candidate| candidate.symbol.clone())
+        .collect::<Vec<_>>();
+    let test_blocks = focused_blocks_for_symbol_views(prism, &test_symbols, CONTEXT_BLOCK_LIMIT)?;
     let related_memory = related_memory(prism, session, target)?;
     let recent_failures = recent_failures(prism, target);
     let validation_recipe = validation_recipe_view_with(prism, session, target);
@@ -49,9 +58,12 @@ pub(crate) fn read_context_view(
 
     Ok(ReadContextView {
         target: target_symbol,
+        target_block,
         direct_links,
+        direct_link_blocks,
         suggested_reads,
         tests,
+        test_blocks,
         related_memory,
         recent_failures,
         validation_recipe,
@@ -66,7 +78,10 @@ pub(crate) fn edit_context_view(
     target: &NodeId,
 ) -> Result<EditContextView> {
     let target_symbol = symbol_view(prism, &symbol_for(prism, target)?)?;
+    let target_block = context_target_block(prism, target)?;
     let direct_links = direct_links(prism, session, target)?;
+    let direct_link_blocks =
+        focused_blocks_for_symbol_views(prism, &direct_links, CONTEXT_BLOCK_LIMIT)?;
     let suggested_reads = owner_views_for_target(prism, target, Some("read"), INSIGHT_LIMIT)?;
     let mut write_paths = owner_views_for_target(prism, target, Some("write"), INSIGHT_LIMIT)?;
     if write_paths.is_empty() {
@@ -76,6 +91,17 @@ pub(crate) fn edit_context_view(
         write_paths = owner_views_for_target(prism, target, None, INSIGHT_LIMIT)?;
     }
     let tests = owner_views_for_target(prism, target, Some("test"), INSIGHT_LIMIT)?;
+    let write_path_symbols = write_paths
+        .iter()
+        .map(|candidate| candidate.symbol.clone())
+        .collect::<Vec<_>>();
+    let write_path_blocks =
+        focused_blocks_for_symbol_views(prism, &write_path_symbols, CONTEXT_BLOCK_LIMIT)?;
+    let test_symbols = tests
+        .iter()
+        .map(|candidate| candidate.symbol.clone())
+        .collect::<Vec<_>>();
+    let test_blocks = focused_blocks_for_symbol_views(prism, &test_symbols, CONTEXT_BLOCK_LIMIT)?;
     let related_memory = related_memory(prism, session, target)?;
     let recent_failures = recent_failures(prism, target);
     let blast_radius = blast_radius_view(prism, session, target);
@@ -96,10 +122,14 @@ pub(crate) fn edit_context_view(
 
     Ok(EditContextView {
         target: target_symbol,
+        target_block,
         direct_links,
+        direct_link_blocks,
         suggested_reads,
         write_paths,
+        write_path_blocks,
         tests,
+        test_blocks,
         related_memory,
         recent_failures,
         blast_radius,
@@ -115,7 +145,13 @@ pub(crate) fn validation_context_view(
     target: &NodeId,
 ) -> Result<ValidationContextView> {
     let target_symbol = symbol_view(prism, &symbol_for(prism, target)?)?;
+    let target_block = context_target_block(prism, target)?;
     let tests = owner_views_for_target(prism, target, Some("test"), INSIGHT_LIMIT)?;
+    let test_symbols = tests
+        .iter()
+        .map(|candidate| candidate.symbol.clone())
+        .collect::<Vec<_>>();
+    let test_blocks = focused_blocks_for_symbol_views(prism, &test_symbols, CONTEXT_BLOCK_LIMIT)?;
     let related_memory = related_memory(prism, session, target)?;
     let recent_failures = recent_failures(prism, target);
     let blast_radius = blast_radius_view(prism, session, target);
@@ -136,7 +172,9 @@ pub(crate) fn validation_context_view(
 
     Ok(ValidationContextView {
         target: target_symbol,
+        target_block,
         tests,
+        test_blocks,
         related_memory,
         recent_failures,
         blast_radius,

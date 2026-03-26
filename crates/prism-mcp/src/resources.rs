@@ -55,6 +55,21 @@ pub(crate) fn schema_resource_contents<T: JsonSchema + std::any::Any>(
     description: &str,
     target_resource_kind: &str,
 ) -> Result<ResourceContents, McpError> {
+    let schema = schema_resource_value::<T>(schema_uri, title, description, target_resource_kind);
+    json_resource_contents_with_meta(
+        schema,
+        schema_uri.to_string(),
+        Some(resource_meta("schema", None, Some(target_resource_kind))),
+    )
+    .map(|contents| contents.with_mime_type("application/schema+json"))
+}
+
+pub(crate) fn schema_resource_value<T: JsonSchema + std::any::Any>(
+    schema_uri: &str,
+    title: &str,
+    description: &str,
+    target_resource_kind: &str,
+) -> Value {
     let mut schema = Value::Object(
         rmcp::handler::server::tool::schema_for_type::<T>()
             .as_ref()
@@ -75,12 +90,7 @@ pub(crate) fn schema_resource_contents<T: JsonSchema + std::any::Any>(
             object.insert("examples".to_string(), Value::Array(examples));
         }
     }
-    json_resource_contents_with_meta(
-        schema,
-        schema_uri.to_string(),
-        Some(resource_meta("schema", None, Some(target_resource_kind))),
-    )
-    .map(|contents| contents.with_mime_type("application/schema+json"))
+    schema
 }
 
 pub(crate) fn split_resource_uri(uri: &str) -> (&str, Option<&str>) {

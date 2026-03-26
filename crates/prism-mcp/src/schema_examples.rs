@@ -50,7 +50,6 @@ pub(crate) fn tool_input_example(tool_name: &str) -> Option<Value> {
         "prism_mutate" => Some(json!({
             "action": "validation_feedback",
             "input": {
-                "subsystem": "projection",
                 "context": "Search resource example slice",
                 "anchors": [{
                     "type": "node",
@@ -58,9 +57,10 @@ pub(crate) fn tool_input_example(tool_name: &str) -> Option<Value> {
                     "path": "demo::main",
                     "kind": "function"
                 }],
-                "whatPrismSaid": "Search result ordering was helpful.",
-                "whatWasTrue": "The top candidate matched the intended read path.",
-                "helpful": true,
+                "prismSaid": "Search result ordering was helpful.",
+                "actuallyTrue": "The top candidate matched the intended read path.",
+                "category": "projection",
+                "verdict": "helpful",
                 "correctedManually": false
             }
         })),

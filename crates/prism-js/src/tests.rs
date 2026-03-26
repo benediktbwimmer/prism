@@ -29,6 +29,8 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains(
         "searchText(query: string, options?: SearchTextOptions): TextSearchMatchView[];"
     ));
+    assert!(docs.contains("tools(): ToolCatalogEntryView[];"));
+    assert!(docs.contains("tool(name: string): ToolSchemaView | null;"));
     assert!(docs.contains("file(path: string): FileView;"));
     assert!(docs.contains("queryLog(options?: QueryLogOptions): QueryLogEntryView[];"));
     assert!(docs.contains("slowQueries(options?: QueryLogOptions): QueryLogEntryView[];"));
@@ -66,6 +68,14 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("type PatchEventView = {"));
     assert!(docs.contains("type DiffHunkView = {"));
     assert!(docs.contains("type FocusedBlockView = {"));
+    assert!(docs.contains("targetBlock: FocusedBlockView;"));
+    assert!(docs.contains("directLinkBlocks: FocusedBlockView[];"));
+    assert!(docs.contains("writePathBlocks: FocusedBlockView[];"));
+    assert!(docs.contains("testBlocks: FocusedBlockView[];"));
+    assert!(docs.contains("type ToolCatalogEntryView = {"));
+    assert!(docs.contains("type ToolFieldSchemaView = {"));
+    assert!(docs.contains("type ToolActionSchemaView = {"));
+    assert!(docs.contains("type ToolSchemaView = {"));
     assert!(docs.contains("type RuntimeStatusView = {"));
     assert!(docs.contains("type RuntimeLogEventView = {"));
     assert!(docs.contains("type QueryLogEntryView = {"));
@@ -81,6 +91,7 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("prism://tool-schemas"));
     assert!(docs.contains("prism://schema/tool/{toolName}"));
     assert!(docs.contains("prism://capabilities"));
+    assert!(docs.contains("Inspect tool payload requirements without leaving `prism_query`"));
     assert!(docs.contains(
         "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&includeInferred={includeInferred}"
     ));
@@ -108,6 +119,8 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("validationContext(target)"));
     assert!(prelude.contains("recentChangeContext(target)"));
     assert!(prelude.contains("searchText(query, options = {})"));
+    assert!(prelude.contains("tools()"));
+    assert!(prelude.contains("tool(name)"));
     assert!(prelude.contains("pathMode: options?.pathMode ?? options?.path_mode"));
     assert!(prelude.contains("structuredPath: options?.structuredPath ?? options?.structured_path"));
     assert!(prelude.contains("topLevelOnly: options?.topLevelOnly ?? options?.top_level_only"));

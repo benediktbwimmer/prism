@@ -26,6 +26,15 @@ const FOCUSED_BLOCK_EXCERPT_OPTIONS: SourceExcerptOptions = SourceExcerptOptions
     max_chars: 640,
 };
 
+const CONTEXT_BLOCK_OPTIONS: EditSliceOptions = EditSliceOptions {
+    before_lines: 1,
+    after_lines: 1,
+    max_lines: 8,
+    max_chars: 320,
+};
+
+pub(crate) const CONTEXT_BLOCK_LIMIT: usize = 3;
+
 pub(crate) fn symbol_view(prism: &Prism, symbol: &Symbol<'_>) -> Result<SymbolView> {
     symbol_view_with_owner_hint(prism, symbol, None)
 }
@@ -133,6 +142,31 @@ pub(crate) fn focused_block_for_symbol(
         excerpt,
         strategy: strategy.to_string(),
     })
+}
+
+pub(crate) fn focused_blocks_for_symbol_views(
+    prism: &Prism,
+    symbols: &[SymbolView],
+    limit: usize,
+) -> Result<Vec<FocusedBlockView>> {
+    symbols
+        .iter()
+        .take(limit)
+        .map(|symbol| {
+            let id = NodeId::new(
+                symbol.id.crate_name.clone(),
+                symbol.id.path.clone(),
+                symbol.kind,
+            );
+            let symbol = symbol_for(prism, &id)?;
+            focused_block_for_symbol(prism, &symbol, CONTEXT_BLOCK_OPTIONS)
+        })
+        .collect()
+}
+
+pub(crate) fn context_target_block(prism: &Prism, target: &NodeId) -> Result<FocusedBlockView> {
+    let symbol = symbol_for(prism, target)?;
+    focused_block_for_symbol(prism, &symbol, CONTEXT_BLOCK_OPTIONS)
 }
 
 pub(crate) fn compact_owner_candidate_excerpts(

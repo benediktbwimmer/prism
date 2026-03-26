@@ -155,6 +155,8 @@ type PrismApi = {
   symbols(query: string): SymbolView[];
   search(query: string, options?: SearchOptions): SymbolView[];
   searchText(query: string, options?: SearchTextOptions): TextSearchMatchView[];
+  tools(): ToolCatalogEntryView[];
+  tool(name: string): ToolSchemaView | null;
   entrypoints(): SymbolView[];
   file(path: string): FileView;
   plan(planId: string): PlanView | null;
@@ -336,6 +338,39 @@ type FocusedBlockView = {
   strategy: string;
 };
 
+type ToolCatalogEntryView = {
+  toolName: string;
+  schemaUri: string;
+  description: string;
+  exampleInput: unknown;
+};
+
+type ToolFieldSchemaView = {
+  name: string;
+  required: boolean;
+  description?: string;
+  types: string[];
+  enumValues: string[];
+  schema: unknown;
+};
+
+type ToolActionSchemaView = {
+  action: string;
+  requiredFields: string[];
+  fields: ToolFieldSchemaView[];
+  inputSchema: unknown;
+  exampleInput?: unknown;
+};
+
+type ToolSchemaView = {
+  toolName: string;
+  schemaUri: string;
+  description: string;
+  exampleInput: unknown;
+  inputSchema: unknown;
+  actions: ToolActionSchemaView[];
+};
+
 type TextSearchMatchView = {
   path: string;
   location: SourceLocationView;
@@ -502,9 +537,12 @@ type SuggestedQueryView = {
 
 type ReadContextView = {
   target: SymbolView;
+  targetBlock: FocusedBlockView;
   directLinks: SymbolView[];
+  directLinkBlocks: FocusedBlockView[];
   suggestedReads: OwnerCandidateView[];
   tests: OwnerCandidateView[];
+  testBlocks: FocusedBlockView[];
   relatedMemory: ScoredMemoryView[];
   recentFailures: OutcomeEvent[];
   validationRecipe: ValidationRecipeView;
@@ -514,10 +552,14 @@ type ReadContextView = {
 
 type EditContextView = {
   target: SymbolView;
+  targetBlock: FocusedBlockView;
   directLinks: SymbolView[];
+  directLinkBlocks: FocusedBlockView[];
   suggestedReads: OwnerCandidateView[];
   writePaths: OwnerCandidateView[];
+  writePathBlocks: FocusedBlockView[];
   tests: OwnerCandidateView[];
+  testBlocks: FocusedBlockView[];
   relatedMemory: ScoredMemoryView[];
   recentFailures: OutcomeEvent[];
   blastRadius: ChangeImpactView;
@@ -528,7 +570,9 @@ type EditContextView = {
 
 type ValidationContextView = {
   target: SymbolView;
+  targetBlock: FocusedBlockView;
   tests: OwnerCandidateView[];
+  testBlocks: FocusedBlockView[];
   relatedMemory: ScoredMemoryView[];
   recentFailures: OutcomeEvent[];
   blastRadius: ChangeImpactView;
@@ -1012,6 +1056,13 @@ return prism.searchText("read context", {
   path: "src/recall.rs",
   limit: 3,
 });
+```
+
+### 5b. Inspect tool payload requirements without leaving `prism_query`
+
+```ts
+const mutate = prism.tool("prism_mutate");
+return mutate?.actions.find((action) => action.action === "validation_feedback");
 ```
 
 ### 6. Pull source plus relations in one round-trip

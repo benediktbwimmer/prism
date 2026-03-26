@@ -1312,6 +1312,57 @@ return { path: sym?.id.path, kind: sym?.kind };
 }
 
 #[tokio::test]
+async fn mcp_server_reports_actionable_tool_input_errors() {
+    let server = server_with_node(demo_node());
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_mutate",
+            json!({
+                "action": "validation_feedback",
+                "input": {
+                    "context": "Missing anchors",
+                    "prismSaid": "bad",
+                    "actuallyTrue": "worse",
+                    "category": "projection",
+                    "verdict": "helpful"
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let response = response_json(client.receive().await.unwrap());
+    assert_eq!(response["error"]["code"], -32602);
+    let message = response["error"]["message"].as_str().unwrap_or_default();
+    assert!(message.contains("failed to deserialize parameters:"));
+    assert!(message.contains(
+        "prism_mutate action `validation_feedback` is missing required field `input.anchors`"
+    ));
+    assert!(message
+        .contains("required fields: anchors, context, prismSaid, actuallyTrue, category, verdict"));
+    assert!(message.contains(
+        "Inspect via prism.tool(\"prism_mutate\")?.actions.find((action) => action.action === \"validation_feedback\")"
+    ));
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() {
     let server = server_with_node(demo_node());
     let (server_transport, client_transport) = tokio::io::duplex(4096);
@@ -3030,6 +3081,82 @@ return {
 }
 
 #[test]
+fn prism_tool_queries_surface_schema_actions_and_examples() {
+    let host = host_with_node(demo_node());
+    let result = host
+        .execute(
+            r#"
+const tools = prism.tools();
+const mutate = prism.tool("prism_mutate");
+const validationFeedback = mutate?.actions.find((action) => action.action === "validation_feedback");
+const missing = prism.tool("bogus_tool");
+return {
+  tools,
+  mutate,
+  validationFeedback,
+  missing,
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("tool schema query should succeed");
+
+    let tools = result.result["tools"].as_array().expect("tool catalog");
+    assert_eq!(tools.len(), 3);
+    assert!(tools.iter().any(|tool| tool["toolName"] == "prism_mutate"));
+    assert!(tools
+        .iter()
+        .any(|tool| tool["exampleInput"]["action"] == "validation_feedback"));
+
+    let mutate = &result.result["mutate"];
+    assert_eq!(mutate["toolName"], "prism_mutate");
+    assert_eq!(
+        mutate["actions"].as_array().map(|items| items.len()),
+        Some(13)
+    );
+    assert_eq!(
+        mutate["exampleInput"]["input"]["prismSaid"],
+        "Search result ordering was helpful."
+    );
+
+    let validation_feedback = &result.result["validationFeedback"];
+    assert_eq!(validation_feedback["action"], "validation_feedback");
+    assert_eq!(
+        validation_feedback["requiredFields"]
+            .as_array()
+            .expect("required fields")
+            .iter()
+            .filter_map(|value| value.as_str())
+            .collect::<Vec<_>>(),
+        vec![
+            "anchors",
+            "context",
+            "prismSaid",
+            "actuallyTrue",
+            "category",
+            "verdict",
+        ]
+    );
+    let verdict_field = validation_feedback["fields"]
+        .as_array()
+        .expect("field summaries")
+        .iter()
+        .find(|field| field["name"] == "verdict")
+        .expect("verdict field");
+    assert_eq!(
+        verdict_field["enumValues"]
+            .as_array()
+            .expect("verdict enum values")
+            .iter()
+            .filter_map(|value| value.as_str())
+            .collect::<Vec<_>>(),
+        vec!["wrong", "stale", "noisy", "helpful", "mixed"]
+    );
+
+    assert!(result.result["missing"].is_null());
+}
+
+#[test]
 fn lineage_targets_remap_stale_symbol_ids_to_current_edit_slices() {
     let root = temp_workspace();
     let source = "pub fn alpha_v2() { beta(); }\npub fn beta() {}\n";
@@ -4491,16 +4618,32 @@ return spec
         .expect("query should succeed");
 
     assert!(result.result["read"]["directLinks"].is_array());
+    assert_eq!(
+        result.result["read"]["targetBlock"]["symbol"]["name"],
+        "Integration Points"
+    );
+    assert!(result.result["read"]["directLinkBlocks"].is_array());
     assert!(result.result["read"]["suggestedReads"]
         .as_array()
         .is_some_and(|items| !items.is_empty()));
+    assert!(result.result["read"]["testBlocks"].is_array());
     assert!(result.result["edit"]["writePaths"]
         .as_array()
         .is_some_and(|items| !items.is_empty()));
+    assert_eq!(
+        result.result["edit"]["targetBlock"]["symbol"]["name"],
+        "Integration Points"
+    );
+    assert!(result.result["edit"]["writePathBlocks"].is_array());
     assert!(result.result["edit"]["checklist"]
         .as_array()
         .is_some_and(|items| !items.is_empty()));
     assert!(result.result["validation"]["tests"].is_array());
+    assert_eq!(
+        result.result["validation"]["targetBlock"]["symbol"]["name"],
+        "Integration Points"
+    );
+    assert!(result.result["validation"]["testBlocks"].is_array());
     assert!(result.result["validation"]["recentFailures"]
         .as_array()
         .is_some_and(|items| !items.is_empty()));
@@ -5168,8 +5311,8 @@ fn validation_feedback_mutation_persists_to_workspace_log() {
             context: "blast-radius check for alpha".to_string(),
             prism_said: "Prism only reported alpha".to_string(),
             actually_true: "beta was also affected through the call graph".to_string(),
-            category: "projection".to_string(),
-            verdict: "wrong".to_string(),
+            category: ValidationFeedbackCategoryInput::Projection,
+            verdict: ValidationFeedbackVerdictInput::Wrong,
             corrected_manually: Some(true),
             correction: Some("checked callers directly and updated the plan".to_string()),
             metadata: Some(json!({

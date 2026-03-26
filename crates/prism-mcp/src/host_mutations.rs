@@ -35,7 +35,8 @@ use crate::{
     PrismClaimArgs, PrismCoordinationArgs, PrismCuratorPromoteEdgeArgs,
     PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs, PrismFinishTaskArgs,
     PrismInferEdgeArgs, PrismMemoryArgs, PrismOutcomeArgs, PrismValidationFeedbackArgs, QueryHost,
-    TaskCreatePayload, TaskUpdatePayload, ValidationFeedbackMutationResult,
+    TaskCreatePayload, TaskUpdatePayload, ValidationFeedbackCategoryInput,
+    ValidationFeedbackMutationResult, ValidationFeedbackVerdictInput,
     DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
 
@@ -390,14 +391,8 @@ impl QueryHost {
             anchors,
             prism_said: args.prism_said,
             actually_true: args.actually_true,
-            category: args
-                .category
-                .parse::<ValidationFeedbackCategory>()
-                .map_err(anyhow::Error::msg)?,
-            verdict: args
-                .verdict
-                .parse::<ValidationFeedbackVerdict>()
-                .map_err(anyhow::Error::msg)?,
+            category: convert_validation_feedback_category(args.category),
+            verdict: convert_validation_feedback_verdict(args.verdict),
             corrected_manually: args.corrected_manually.unwrap_or(false),
             correction: args.correction,
             metadata: args.metadata.unwrap_or(Value::Null),
@@ -1383,5 +1378,31 @@ impl QueryHost {
             .find(|record| record.id.0 == job_id)
             .map(crate::curator_job_view)
             .transpose()
+    }
+}
+
+fn convert_validation_feedback_category(
+    category: ValidationFeedbackCategoryInput,
+) -> ValidationFeedbackCategory {
+    match category {
+        ValidationFeedbackCategoryInput::Structural => ValidationFeedbackCategory::Structural,
+        ValidationFeedbackCategoryInput::Lineage => ValidationFeedbackCategory::Lineage,
+        ValidationFeedbackCategoryInput::Memory => ValidationFeedbackCategory::Memory,
+        ValidationFeedbackCategoryInput::Projection => ValidationFeedbackCategory::Projection,
+        ValidationFeedbackCategoryInput::Coordination => ValidationFeedbackCategory::Coordination,
+        ValidationFeedbackCategoryInput::Freshness => ValidationFeedbackCategory::Freshness,
+        ValidationFeedbackCategoryInput::Other => ValidationFeedbackCategory::Other,
+    }
+}
+
+fn convert_validation_feedback_verdict(
+    verdict: ValidationFeedbackVerdictInput,
+) -> ValidationFeedbackVerdict {
+    match verdict {
+        ValidationFeedbackVerdictInput::Wrong => ValidationFeedbackVerdict::Wrong,
+        ValidationFeedbackVerdictInput::Stale => ValidationFeedbackVerdict::Stale,
+        ValidationFeedbackVerdictInput::Noisy => ValidationFeedbackVerdict::Noisy,
+        ValidationFeedbackVerdictInput::Helpful => ValidationFeedbackVerdict::Helpful,
+        ValidationFeedbackVerdictInput::Mixed => ValidationFeedbackVerdict::Mixed,
     }
 }
