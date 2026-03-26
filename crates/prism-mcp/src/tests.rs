@@ -856,6 +856,10 @@ async fn mcp_server_lists_and_reads_tool_schema_resources() {
     assert_eq!(schema_payload["$id"], "prism://schema/tool/prism_mutate");
     assert_eq!(schema_payload["type"], "object");
     assert!(schema_payload.get("oneOf").is_some());
+    assert_eq!(
+        schema_payload["examples"][0]["action"],
+        "validation_feedback"
+    );
     assert!(schema_payload.to_string().contains("\"action\""));
     assert!(schema_payload.to_string().contains("validation_feedback"));
 
@@ -875,6 +879,89 @@ async fn mcp_server_lists_and_reads_tool_schema_resources() {
     .unwrap();
     assert_eq!(session_schema_payload["type"], "object");
     assert!(session_schema_payload.get("oneOf").is_some());
+    assert_eq!(
+        session_schema_payload["examples"][0]["action"],
+        "start_task"
+    );
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn schema_catalog_and_capabilities_surface_stable_examples() {
+    let server = server_with_node(demo_node());
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(read_resource_request(20, "prism://schemas"))
+        .await
+        .unwrap();
+    let catalog = response_json(client.receive().await.unwrap());
+    let catalog_payload = serde_json::from_str::<Value>(
+        catalog["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("schema catalog should be text"),
+    )
+    .unwrap();
+    let search_entry = catalog_payload["schemas"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["resourceKind"] == "search")
+        .expect("search schema entry should exist");
+    assert_eq!(
+        search_entry["exampleUri"],
+        "prism://search/read%20context?strategy=behavioral&ownerKind=read&kind=function&path=src&includeInferred=true"
+    );
+
+    client
+        .send(read_resource_request(21, "prism://schema/search"))
+        .await
+        .unwrap();
+    let search_schema = response_json(client.receive().await.unwrap());
+    let search_schema_payload = serde_json::from_str::<Value>(
+        search_schema["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("search schema should be text"),
+    )
+    .unwrap();
+    assert_eq!(
+        search_schema_payload["examples"][0]["query"],
+        "read context"
+    );
+    assert!(search_schema_payload["examples"][0]["topReadContext"].is_object());
+
+    client
+        .send(read_resource_request(22, CAPABILITIES_URI))
+        .await
+        .unwrap();
+    let capabilities = response_json(client.receive().await.unwrap());
+    let capabilities_payload = serde_json::from_str::<Value>(
+        capabilities["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("capabilities should be text"),
+    )
+    .unwrap();
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["name"] == "PRISM Session"
+            && resource["exampleUri"] == "prism://session"));
+    assert!(capabilities_payload["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|tool| tool["name"] == "prism_query" && tool["exampleInput"]["language"] == "ts"));
 
     running.cancel().await.unwrap();
 }

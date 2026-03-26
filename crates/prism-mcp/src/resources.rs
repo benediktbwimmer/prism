@@ -10,11 +10,11 @@ use rmcp::{
 use serde_json::{json, Value};
 
 use crate::{
-    parse_node_kind, ResourceLinkView, ResourcePageView, ResourceSchemaCatalogEntry,
-    CAPABILITIES_URI, EDGE_RESOURCE_TEMPLATE_URI, ENTRYPOINTS_RESOURCE_TEMPLATE_URI,
-    EVENT_RESOURCE_TEMPLATE_URI, LINEAGE_RESOURCE_TEMPLATE_URI, MEMORY_RESOURCE_TEMPLATE_URI,
-    SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI, SYMBOL_RESOURCE_TEMPLATE_URI,
-    TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI,
+    parse_node_kind, resource_example_uri, schema_examples, ResourceLinkView, ResourcePageView,
+    ResourceSchemaCatalogEntry, CAPABILITIES_URI, EDGE_RESOURCE_TEMPLATE_URI,
+    ENTRYPOINTS_RESOURCE_TEMPLATE_URI, EVENT_RESOURCE_TEMPLATE_URI, LINEAGE_RESOURCE_TEMPLATE_URI,
+    MEMORY_RESOURCE_TEMPLATE_URI, SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI,
+    SYMBOL_RESOURCE_TEMPLATE_URI, TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -71,6 +71,9 @@ pub(crate) fn schema_resource_contents<T: JsonSchema + std::any::Any>(
             "description".to_string(),
             Value::String(description.to_string()),
         );
+        if let Some(examples) = schema_examples(target_resource_kind) {
+            object.insert("examples".to_string(), Value::Array(examples));
+        }
     }
     json_resource_contents_with_meta(
         schema,
@@ -608,6 +611,7 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             resource_kind: "capabilities".to_string(),
             schema_uri: schema_resource_uri("capabilities"),
             resource_uri: Some(CAPABILITIES_URI.to_string()),
+            example_uri: resource_example_uri("capabilities"),
             description:
                 "Schema for the canonical PRISM capability map, including methods, resources, and build info."
                     .to_string(),
@@ -616,12 +620,14 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             resource_kind: "schemas".to_string(),
             schema_uri: schema_resource_uri("schemas"),
             resource_uri: Some(SCHEMAS_URI.to_string()),
+            example_uri: resource_example_uri("schemas"),
             description: "Schema for the JSON Schema catalog resource itself.".to_string(),
         },
         ResourceSchemaCatalogEntry {
             resource_kind: "session".to_string(),
             schema_uri: schema_resource_uri("session"),
             resource_uri: Some(SESSION_URI.to_string()),
+            example_uri: resource_example_uri("session"),
             description: "Schema for the active workspace, task context, and runtime limits."
                 .to_string(),
         },
@@ -629,12 +635,14 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             resource_kind: "tool-schemas".to_string(),
             schema_uri: schema_resource_uri("tool-schemas"),
             resource_uri: Some(TOOL_SCHEMAS_URI.to_string()),
+            example_uri: resource_example_uri("tool-schemas"),
             description: "Schema for the tool-schema catalog resource.".to_string(),
         },
         ResourceSchemaCatalogEntry {
             resource_kind: "entrypoints".to_string(),
             schema_uri: schema_resource_uri("entrypoints"),
             resource_uri: Some(ENTRYPOINTS_RESOURCE_TEMPLATE_URI.to_string()),
+            example_uri: resource_example_uri("entrypoints"),
             description:
                 "Schema for the workspace entrypoint overview and its pagination metadata."
                     .to_string(),
@@ -643,12 +651,14 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             resource_kind: "search".to_string(),
             schema_uri: schema_resource_uri("search"),
             resource_uri: Some(SEARCH_RESOURCE_TEMPLATE_URI.to_string()),
+            example_uri: resource_example_uri("search"),
             description: "Schema for browseable search results and diagnostics.".to_string(),
         },
         ResourceSchemaCatalogEntry {
             resource_kind: "symbol".to_string(),
             schema_uri: schema_resource_uri("symbol"),
             resource_uri: Some(SYMBOL_RESOURCE_TEMPLATE_URI.to_string()),
+            example_uri: resource_example_uri("symbol"),
             description:
                 "Schema for exact symbol snapshots, including relations, lineage, and risk context."
                     .to_string(),
@@ -657,30 +667,35 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             resource_kind: "lineage".to_string(),
             schema_uri: schema_resource_uri("lineage"),
             resource_uri: Some(LINEAGE_RESOURCE_TEMPLATE_URI.to_string()),
+            example_uri: resource_example_uri("lineage"),
             description: "Schema for lineage history and current-node views.".to_string(),
         },
         ResourceSchemaCatalogEntry {
             resource_kind: "task".to_string(),
             schema_uri: schema_resource_uri("task"),
             resource_uri: Some(TASK_RESOURCE_TEMPLATE_URI.to_string()),
+            example_uri: resource_example_uri("task"),
             description: "Schema for task replay pages and correlated outcome events.".to_string(),
         },
         ResourceSchemaCatalogEntry {
             resource_kind: "event".to_string(),
             schema_uri: schema_resource_uri("event"),
             resource_uri: Some(EVENT_RESOURCE_TEMPLATE_URI.to_string()),
+            example_uri: resource_example_uri("event"),
             description: "Schema for a single recorded outcome event.".to_string(),
         },
         ResourceSchemaCatalogEntry {
             resource_kind: "memory".to_string(),
             schema_uri: schema_resource_uri("memory"),
             resource_uri: Some(MEMORY_RESOURCE_TEMPLATE_URI.to_string()),
+            example_uri: resource_example_uri("memory"),
             description: "Schema for a single episodic memory entry.".to_string(),
         },
         ResourceSchemaCatalogEntry {
             resource_kind: "edge".to_string(),
             schema_uri: schema_resource_uri("edge"),
             resource_uri: Some(EDGE_RESOURCE_TEMPLATE_URI.to_string()),
+            example_uri: resource_example_uri("edge"),
             description: "Schema for a single inferred-edge record.".to_string(),
         },
     ]

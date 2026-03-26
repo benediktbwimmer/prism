@@ -1,11 +1,12 @@
 use rmcp::schemars::JsonSchema;
+use serde_json::Value;
 
 use crate::{
     capabilities_resource_view_link, dedupe_resource_link_views, resource_meta,
     schema_resource_contents, schema_resource_uri, schema_resource_view_link,
-    session_resource_view_link, tool_schema_resource_uri, tool_schema_resource_view_link,
-    tool_schemas_resource_view_link, PrismMutationArgs, PrismQueryArgs, PrismSessionArgs,
-    ResourceLinkView, TOOL_SCHEMAS_URI,
+    session_resource_view_link, tool_input_example, tool_schema_resource_uri,
+    tool_schema_resource_view_link, tool_schemas_resource_view_link, PrismMutationArgs,
+    PrismQueryArgs, PrismSessionArgs, ResourceLinkView, TOOL_SCHEMAS_URI,
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
@@ -15,6 +16,7 @@ pub(crate) struct ToolSchemaCatalogEntry {
     pub(crate) tool_name: String,
     pub(crate) schema_uri: String,
     pub(crate) description: String,
+    pub(crate) example_input: Value,
 }
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
@@ -33,17 +35,20 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
             schema_uri: tool_schema_resource_uri("prism_query"),
             description: "Input schema for programmable read-only TypeScript PRISM queries."
                 .to_string(),
+            example_input: tool_input_example("prism_query").expect("tool example"),
         },
         ToolSchemaCatalogEntry {
             tool_name: "prism_session".to_string(),
             schema_uri: tool_schema_resource_uri("prism_session"),
             description: "Input schema for PRISM session and task-context mutations.".to_string(),
+            example_input: tool_input_example("prism_session").expect("tool example"),
         },
         ToolSchemaCatalogEntry {
             tool_name: "prism_mutate".to_string(),
             schema_uri: tool_schema_resource_uri("prism_mutate"),
             description: "Input schema for coarse PRISM state mutations and tagged action unions."
                 .to_string(),
+            example_input: tool_input_example("prism_mutate").expect("tool example"),
         },
     ]
 }

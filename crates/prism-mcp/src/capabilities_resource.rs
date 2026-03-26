@@ -1,17 +1,17 @@
 use rmcp::model::ProtocolVersion;
 
 use crate::{
-    capabilities_resource_uri, capabilities_resource_view_link, resource_link_view,
-    resource_schema_catalog_entries, schema_resource_uri, schema_resource_view_link,
-    search_resource_view_link_with_options, session_resource_view_link,
-    tool_schema_catalog_entries, tool_schemas_resource_view_link, workspace_revision_view,
-    CapabilitiesBuildInfoView, CapabilitiesResourcePayload, FeatureFlagsView, PrismMcpFeatures,
-    QueryHost, QueryMethodCapabilityView, ResourceCapabilityView, ResourceTemplateCapabilityView,
-    ToolCapabilityView, API_REFERENCE_URI, CAPABILITIES_URI, EDGE_RESOURCE_TEMPLATE_URI,
-    ENTRYPOINTS_RESOURCE_TEMPLATE_URI, EVENT_RESOURCE_TEMPLATE_URI, LINEAGE_RESOURCE_TEMPLATE_URI,
-    MEMORY_RESOURCE_TEMPLATE_URI, SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI,
-    SYMBOL_RESOURCE_TEMPLATE_URI, TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI,
-    TOOL_SCHEMA_RESOURCE_TEMPLATE_URI,
+    capabilities_resource_uri, capabilities_resource_view_link, resource_example_uri,
+    resource_link_view, resource_schema_catalog_entries, schema_resource_uri,
+    schema_resource_view_link, search_resource_view_link_with_options, session_resource_view_link,
+    tool_schema_catalog_entries, tool_schema_resource_uri, tool_schemas_resource_view_link,
+    workspace_revision_view, CapabilitiesBuildInfoView, CapabilitiesResourcePayload,
+    FeatureFlagsView, PrismMcpFeatures, QueryHost, QueryMethodCapabilityView,
+    ResourceCapabilityView, ResourceTemplateCapabilityView, ToolCapabilityView, API_REFERENCE_URI,
+    CAPABILITIES_URI, EDGE_RESOURCE_TEMPLATE_URI, ENTRYPOINTS_RESOURCE_TEMPLATE_URI,
+    EVENT_RESOURCE_TEMPLATE_URI, LINEAGE_RESOURCE_TEMPLATE_URI, MEMORY_RESOURCE_TEMPLATE_URI,
+    SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI, SYMBOL_RESOURCE_TEMPLATE_URI,
+    TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI, TOOL_SCHEMA_RESOURCE_TEMPLATE_URI,
 };
 
 pub(crate) fn capabilities_resource_value(
@@ -73,6 +73,7 @@ pub(crate) fn capabilities_resource_value(
                 name: entry.tool_name,
                 description: entry.description,
                 schema_uri: entry.schema_uri,
+                example_input: entry.example_input,
             })
             .collect(),
         related_resources: crate::dedupe_resource_link_views(related_resources),
@@ -331,6 +332,7 @@ fn resource_capabilities() -> Vec<ResourceCapabilityView> {
             description: "TypeScript query surface, d.ts-style contract, and usage recipes."
                 .to_string(),
             schema_uri: None,
+            example_uri: Some(API_REFERENCE_URI.to_string()),
         },
         ResourceCapabilityView {
             name: "PRISM Capabilities".to_string(),
@@ -340,6 +342,7 @@ fn resource_capabilities() -> Vec<ResourceCapabilityView> {
                 "Canonical capability map for query methods, resources, features, and build info."
                     .to_string(),
             schema_uri: Some(schema_resource_uri("capabilities")),
+            example_uri: resource_example_uri("capabilities"),
         },
         ResourceCapabilityView {
             name: "PRISM Session".to_string(),
@@ -348,6 +351,7 @@ fn resource_capabilities() -> Vec<ResourceCapabilityView> {
             description: "Active workspace root, task context, limits, and feature flags."
                 .to_string(),
             schema_uri: Some(schema_resource_uri("session")),
+            example_uri: resource_example_uri("session"),
         },
         ResourceCapabilityView {
             name: "PRISM Resource Schemas".to_string(),
@@ -356,6 +360,7 @@ fn resource_capabilities() -> Vec<ResourceCapabilityView> {
             description: "Catalog of JSON Schemas for structured PRISM resource payloads."
                 .to_string(),
             schema_uri: Some(schema_resource_uri("schemas")),
+            example_uri: resource_example_uri("schemas"),
         },
         ResourceCapabilityView {
             name: "PRISM Tool Schemas".to_string(),
@@ -363,6 +368,7 @@ fn resource_capabilities() -> Vec<ResourceCapabilityView> {
             mime_type: "application/json".to_string(),
             description: "Catalog of JSON Schemas for PRISM MCP tool inputs.".to_string(),
             schema_uri: Some(schema_resource_uri("tool-schemas")),
+            example_uri: resource_example_uri("tool-schemas"),
         },
     ]
 }
@@ -374,60 +380,70 @@ fn resource_template_capabilities() -> Vec<ResourceTemplateCapabilityView> {
             uri_template: ENTRYPOINTS_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "application/json".to_string(),
             description: "Read workspace entrypoints with optional pagination.".to_string(),
+            example_uri: resource_example_uri("entrypoints"),
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Resource Schema".to_string(),
             uri_template: crate::SCHEMA_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "application/schema+json".to_string(),
             description: "Read a JSON Schema for a structured PRISM resource kind.".to_string(),
+            example_uri: Some(schema_resource_uri("search")),
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Tool Schema".to_string(),
             uri_template: TOOL_SCHEMA_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "application/schema+json".to_string(),
             description: "Read a JSON Schema for a PRISM MCP tool input payload.".to_string(),
+            example_uri: Some(tool_schema_resource_uri("prism_query")),
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Search".to_string(),
             uri_template: SEARCH_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "application/json".to_string(),
             description: "Read structured search results and diagnostics for a query.".to_string(),
+            example_uri: resource_example_uri("search"),
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Symbol Snapshot".to_string(),
             uri_template: SYMBOL_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "application/json".to_string(),
             description: "Read an exact structured symbol snapshot.".to_string(),
+            example_uri: resource_example_uri("symbol"),
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Lineage".to_string(),
             uri_template: LINEAGE_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "application/json".to_string(),
             description: "Read lineage history and current nodes for a lineage id.".to_string(),
+            example_uri: resource_example_uri("lineage"),
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Task Replay".to_string(),
             uri_template: TASK_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "application/json".to_string(),
             description: "Read the outcome-event timeline for a task context.".to_string(),
+            example_uri: resource_example_uri("task"),
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Event".to_string(),
             uri_template: EVENT_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "application/json".to_string(),
             description: "Read a single recorded outcome event by id.".to_string(),
+            example_uri: resource_example_uri("event"),
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Memory".to_string(),
             uri_template: MEMORY_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "application/json".to_string(),
             description: "Read a single episodic memory entry by id.".to_string(),
+            example_uri: resource_example_uri("memory"),
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Inferred Edge".to_string(),
             uri_template: EDGE_RESOURCE_TEMPLATE_URI.to_string(),
             mime_type: "application/json".to_string(),
             description: "Read a single inferred-edge record by id.".to_string(),
+            example_uri: resource_example_uri("edge"),
         },
     ]
 }

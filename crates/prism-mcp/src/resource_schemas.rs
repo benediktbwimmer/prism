@@ -5,6 +5,7 @@ use prism_js::{
     WorkspaceRevisionView,
 };
 use rmcp::schemars::JsonSchema;
+use serde_json::Value;
 
 use crate::OutcomeEvent;
 
@@ -120,6 +121,7 @@ pub(crate) struct ResourceCapabilityView {
     pub(crate) mime_type: String,
     pub(crate) description: String,
     pub(crate) schema_uri: Option<String>,
+    pub(crate) example_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
@@ -129,6 +131,7 @@ pub(crate) struct ResourceTemplateCapabilityView {
     pub(crate) uri_template: String,
     pub(crate) mime_type: String,
     pub(crate) description: String,
+    pub(crate) example_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
@@ -137,6 +140,7 @@ pub(crate) struct ToolCapabilityView {
     pub(crate) name: String,
     pub(crate) description: String,
     pub(crate) schema_uri: String,
+    pub(crate) example_input: Value,
 }
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
@@ -272,6 +276,7 @@ pub(crate) struct ResourceSchemaCatalogEntry {
     pub(crate) resource_kind: String,
     pub(crate) schema_uri: String,
     pub(crate) resource_uri: Option<String>,
+    pub(crate) example_uri: Option<String>,
     pub(crate) description: String,
 }
 
