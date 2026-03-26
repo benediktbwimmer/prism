@@ -15,11 +15,12 @@ use crate::{
     session_resource_uri, session_resource_view_link, symbol_for, symbol_resource_uri,
     symbol_resource_view_link, symbol_resource_view_link_for_id, symbol_view, symbol_views_for_ids,
     task_resource_view_link, task_resource_view_links_from_events, validation_recipe_view_with,
-    EdgeResourcePayload, EntrypointsResourcePayload, EventResourcePayload, InferredEdgeRecordView,
-    LineageResourcePayload, MemoryResourcePayload, NodeIdInput, QueryExecution, QueryHost,
-    ResourceSchemaCatalogPayload, SearchArgs, SearchResourcePayload, SessionLimitsView,
-    SessionResourcePayload, SessionTaskView, SessionView, SymbolResourcePayload,
-    TaskResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, ENTRYPOINTS_URI,
+    CoordinationFeaturesView, EdgeResourcePayload, EntrypointsResourcePayload,
+    EventResourcePayload, FeatureFlagsView, InferredEdgeRecordView, LineageResourcePayload,
+    MemoryResourcePayload, NodeIdInput, QueryExecution, QueryHost, ResourceSchemaCatalogPayload,
+    SearchArgs, SearchResourcePayload, SessionLimitsView, SessionResourcePayload, SessionTaskView,
+    SessionView, SymbolResourcePayload, TaskResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT,
+    ENTRYPOINTS_URI,
 };
 
 impl QueryHost {
@@ -43,6 +44,14 @@ impl QueryHost {
                 max_result_nodes: limits.max_result_nodes,
                 max_call_graph_depth: limits.max_call_graph_depth,
                 max_output_json_bytes: limits.max_output_json_bytes,
+            },
+            features: FeatureFlagsView {
+                mode: self.features.mode_label().to_string(),
+                coordination: CoordinationFeaturesView {
+                    workflow: self.features.coordination.workflow,
+                    claims: self.features.coordination.claims,
+                    artifacts: self.features.coordination.artifacts,
+                },
             },
         })
     }
@@ -69,6 +78,7 @@ impl QueryHost {
             workspace_root: session.workspace_root,
             current_task: session.current_task,
             limits: session.limits,
+            features: session.features,
             related_resources: dedupe_resource_link_views(related_resources),
         })
     }

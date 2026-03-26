@@ -24,10 +24,26 @@ pub(crate) struct SessionTaskView {
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct CoordinationFeaturesView {
+    pub(crate) workflow: bool,
+    pub(crate) claims: bool,
+    pub(crate) artifacts: bool,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct FeatureFlagsView {
+    pub(crate) mode: String,
+    pub(crate) coordination: CoordinationFeaturesView,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct SessionView {
     pub(crate) workspace_root: Option<String>,
     pub(crate) current_task: Option<SessionTaskView>,
     pub(crate) limits: SessionLimitsView,
+    pub(crate) features: FeatureFlagsView,
 }
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
@@ -68,6 +84,7 @@ pub(crate) struct SessionResourcePayload {
     pub(crate) workspace_root: Option<String>,
     pub(crate) current_task: Option<SessionTaskView>,
     pub(crate) limits: SessionLimitsView,
+    pub(crate) features: FeatureFlagsView,
     pub(crate) related_resources: Vec<ResourceLinkView>,
 }
 

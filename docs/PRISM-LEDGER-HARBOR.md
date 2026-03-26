@@ -172,6 +172,12 @@ Each product supports multi-agent / multi-session coordination through:
 - handoffs
 - revision-aware policy
 
+This layer should ship behind explicit feature flags.
+
+- a simple mode should disable the coordination layer end to end
+- workflow, claim, and artifact capabilities should be independently enableable as pressure proves they are worth the complexity
+- the exposed MCP surface should reflect those flags rather than advertising coordination universally
+
 ### 5.5 Programmable Query
 
 Each product exposes a programmable, read-only query surface over a live in-memory world model.

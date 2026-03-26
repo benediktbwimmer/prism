@@ -29,6 +29,15 @@ use crate::{
 };
 
 impl QueryHost {
+    fn ensure_tool_enabled(&self, tool_name: &str, label: &str) -> Result<()> {
+        if !self.features.is_tool_enabled(tool_name) {
+            return Err(anyhow!(
+                "{label} are disabled by the PRISM MCP server feature flags"
+            ));
+        }
+        Ok(())
+    }
+
     pub(crate) fn start_task(&self, description: String, tags: Vec<String>) -> Result<TaskId> {
         self.refresh_workspace()?;
         let task = self.session.start_task(&description, &tags);
@@ -187,6 +196,7 @@ impl QueryHost {
         &self,
         args: PrismCoordinationArgs,
     ) -> Result<CoordinationMutationResult> {
+        self.ensure_tool_enabled("prism_coordination", "coordination workflow mutations")?;
         self.refresh_workspace()?;
         let task = self
             .session
@@ -213,6 +223,7 @@ impl QueryHost {
     }
 
     pub(crate) fn store_claim(&self, args: PrismClaimArgs) -> Result<ClaimMutationResult> {
+        self.ensure_tool_enabled("prism_claim", "coordination claim mutations")?;
         self.refresh_workspace()?;
         let task = self
             .session
@@ -233,6 +244,7 @@ impl QueryHost {
     }
 
     pub(crate) fn store_artifact(&self, args: PrismArtifactArgs) -> Result<ArtifactMutationResult> {
+        self.ensure_tool_enabled("prism_artifact", "coordination artifact mutations")?;
         self.refresh_workspace()?;
         let task = self
             .session

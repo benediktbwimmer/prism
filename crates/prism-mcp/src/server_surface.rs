@@ -3,7 +3,7 @@ use rmcp::{
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::*,
     service::RequestContext,
-    tool, tool_handler, tool_router, ErrorData as McpError, RoleServer, ServerHandler,
+    tool, tool_router, ErrorData as McpError, RoleServer, ServerHandler,
 };
 use serde_json::json;
 
@@ -522,7 +522,6 @@ impl PrismMcpServer {
     }
 }
 
-#[tool_handler]
 impl ServerHandler for PrismMcpServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo::new(
@@ -532,10 +531,48 @@ impl ServerHandler for PrismMcpServer {
                 .build(),
         )
         .with_server_info(Implementation::from_build_env())
-        .with_instructions(
-            "Start with prism://api-reference for the typed query contract and prism://schemas for the JSON Schema catalog. Use prism_get_session or prism://session to inspect the active workspace, task, and runtime limits, prism_configure_session to change them, prism_query for programmable read-only graph queries, prism_symbol or prism_search for direct lookups, prism://entrypoints for a quick workspace overview, prism://search/{query} for browseable search results, prism://symbol/{crateName}/{kind}/{path} for exact symbol snapshots, prism://lineage/{lineageId} for symbol history, prism://task/{taskId} for recorded task outcomes, prism://event/{eventId}, prism://memory/{memoryId}, and prism://edge/{edgeId} for mutation outputs. Follow each resource payload's schemaUri and relatedResources fields instead of reconstructing URIs by convention. Use the prism_* mutation tools to record outcomes, notes, inferred edges, task context, and curator proposal decisions.",
-        )
+        .with_instructions(self.server_instructions())
         .with_protocol_version(ProtocolVersion::LATEST)
+    }
+
+    async fn call_tool(
+        &self,
+        request: CallToolRequestParams,
+        context: RequestContext<RoleServer>,
+    ) -> Result<CallToolResult, McpError> {
+        if !self.host.features.is_tool_enabled(request.name.as_ref()) {
+            return Err(McpError::invalid_params(
+                "tool not found",
+                Some(json!({ "name": request.name })),
+            ));
+        }
+        let context = rmcp::handler::server::tool::ToolCallContext::new(self, request, context);
+        self.tool_router.call(context).await
+    }
+
+    async fn list_tools(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ListToolsResult, McpError> {
+        Ok(ListToolsResult {
+            tools: self
+                .tool_router
+                .list_all()
+                .into_iter()
+                .filter(|tool| self.host.features.is_tool_enabled(&tool.name))
+                .collect(),
+            next_cursor: None,
+            meta: None,
+        })
+    }
+
+    fn get_tool(&self, name: &str) -> Option<Tool> {
+        self.host
+            .features
+            .is_tool_enabled(name)
+            .then(|| self.tool_router.get(name).cloned())
+            .flatten()
     }
 
     async fn list_resources(
@@ -602,7 +639,7 @@ impl ServerHandler for PrismMcpServer {
         let uri = request.uri.as_str();
         let (base_uri, _) = split_resource_uri(uri);
         let contents = if base_uri == API_REFERENCE_URI {
-            ResourceContents::text(api_reference_markdown(), request.uri.clone())
+            ResourceContents::text(self.host.api_reference_markdown(), request.uri.clone())
                 .with_mime_type("text/markdown")
         } else if base_uri == SCHEMAS_URI {
             json_resource_contents_with_meta(
@@ -866,5 +903,19 @@ impl ServerHandler for PrismMcpServer {
             ],
             meta: None,
         })
+    }
+}
+
+impl PrismMcpServer {
+    fn server_instructions(&self) -> String {
+        let mut instructions = String::from(
+            "Start with prism://api-reference for the typed query contract and prism://schemas for the JSON Schema catalog. Use prism_get_session or prism://session to inspect the active workspace, task, runtime limits, and active feature flags, prism_configure_session to change task context or limits, prism_query for programmable read-only graph queries, prism_symbol or prism_search for direct lookups, prism://entrypoints for a quick workspace overview, prism://search/{query} for browseable search results, prism://symbol/{crateName}/{kind}/{path} for exact symbol snapshots, prism://lineage/{lineageId} for symbol history, prism://task/{taskId} for recorded task outcomes, prism://event/{eventId}, prism://memory/{memoryId}, and prism://edge/{edgeId} for mutation outputs. Follow each resource payload's schemaUri and relatedResources fields instead of reconstructing URIs by convention. Use the available prism_* mutation tools to record outcomes, notes, inferred edges, task context, and curator proposal decisions.",
+        );
+
+        if self.host.features.mode_label() != "full" {
+            instructions.push_str(" Coordination features are gated on this server; check prism://session before using plan, claim, or artifact workflows.");
+        }
+
+        instructions
     }
 }

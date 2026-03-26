@@ -3,6 +3,7 @@ use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
+use clap::ArgAction;
 use prism_agent::InferenceStore;
 use prism_core::{index_workspace_session, WorkspaceSession};
 use prism_ir::TaskId;
@@ -12,6 +13,7 @@ use prism_query::{Prism, QueryLimits};
 use rmcp::{handler::server::router::tool::ToolRouter, transport::stdio, ServiceExt};
 
 mod common;
+mod features;
 mod host_mutations;
 mod host_resources;
 mod js_runtime;
@@ -26,6 +28,7 @@ mod tool_args;
 mod views;
 
 use common::*;
+pub use features::{CoordinationFeatureFlag, PrismMcpFeatures};
 use js_runtime::JsWorker;
 use query_helpers::*;
 use query_runtime::*;
@@ -60,6 +63,29 @@ static NEXT_SESSION_ID: AtomicU64 = AtomicU64::new(1);
 pub struct PrismMcpCli {
     #[arg(long, default_value = ".")]
     pub root: PathBuf,
+    #[arg(long, default_value_t = false)]
+    pub simple: bool,
+    #[arg(long, value_enum, value_delimiter = ',', action = ArgAction::Append)]
+    pub enable_coordination: Vec<CoordinationFeatureFlag>,
+    #[arg(long, value_enum, value_delimiter = ',', action = ArgAction::Append)]
+    pub disable_coordination: Vec<CoordinationFeatureFlag>,
+}
+
+impl PrismMcpCli {
+    pub fn features(&self) -> PrismMcpFeatures {
+        let mut features = if self.simple {
+            PrismMcpFeatures::simple()
+        } else {
+            PrismMcpFeatures::full()
+        };
+        for flag in &self.enable_coordination {
+            features.coordination.apply(*flag, true);
+        }
+        for flag in &self.disable_coordination {
+            features.coordination.apply(*flag, false);
+        }
+        features
+    }
 }
 
 #[derive(Clone)]
@@ -70,29 +96,75 @@ pub struct PrismMcpServer {
 
 impl PrismMcpServer {
     pub fn from_workspace(root: impl AsRef<Path>) -> Result<Self> {
+        Self::from_workspace_with_features(root, PrismMcpFeatures::default())
+    }
+
+    pub fn from_workspace_with_features(
+        root: impl AsRef<Path>,
+        features: PrismMcpFeatures,
+    ) -> Result<Self> {
         let session = index_workspace_session(root)?;
-        Ok(Self::with_session(session))
+        Ok(Self::with_session_and_features(session, features))
     }
 
     pub fn new(prism: Prism) -> Self {
-        Self::new_with_limits(prism, QueryLimits::default())
+        Self::new_with_limits_and_features(
+            prism,
+            QueryLimits::default(),
+            PrismMcpFeatures::default(),
+        )
     }
 
     pub fn new_with_limits(prism: Prism, limits: QueryLimits) -> Self {
+        Self::new_with_limits_and_features(prism, limits, PrismMcpFeatures::default())
+    }
+
+    pub fn new_with_features(prism: Prism, features: PrismMcpFeatures) -> Self {
+        Self::new_with_limits_and_features(prism, QueryLimits::default(), features)
+    }
+
+    pub fn new_with_limits_and_features(
+        prism: Prism,
+        limits: QueryLimits,
+        features: PrismMcpFeatures,
+    ) -> Self {
         Self {
             tool_router: Self::build_tool_router(),
-            host: Arc::new(QueryHost::new_with_limits(prism, limits)),
+            host: Arc::new(QueryHost::new_with_limits_and_features(
+                prism, limits, features,
+            )),
         }
     }
 
     pub fn with_session(session: WorkspaceSession) -> Self {
-        Self::with_session_limits(session, QueryLimits::default())
+        Self::with_session_limits_and_features(
+            session,
+            QueryLimits::default(),
+            PrismMcpFeatures::default(),
+        )
     }
 
     pub fn with_session_limits(session: WorkspaceSession, limits: QueryLimits) -> Self {
+        Self::with_session_limits_and_features(session, limits, PrismMcpFeatures::default())
+    }
+
+    pub fn with_session_and_features(
+        session: WorkspaceSession,
+        features: PrismMcpFeatures,
+    ) -> Self {
+        Self::with_session_limits_and_features(session, QueryLimits::default(), features)
+    }
+
+    pub fn with_session_limits_and_features(
+        session: WorkspaceSession,
+        limits: QueryLimits,
+        features: PrismMcpFeatures,
+    ) -> Self {
         Self {
             tool_router: Self::build_tool_router(),
-            host: Arc::new(QueryHost::with_session_and_limits(session, limits)),
+            host: Arc::new(QueryHost::with_session_and_limits_and_features(
+                session, limits, features,
+            )),
         }
     }
 
@@ -109,15 +181,29 @@ struct QueryHost {
     session: Arc<SessionState>,
     worker: Arc<JsWorker>,
     workspace: Option<Arc<WorkspaceSession>>,
+    features: PrismMcpFeatures,
 }
 
 impl QueryHost {
     #[cfg(test)]
     fn new(prism: Prism) -> Self {
-        Self::new_with_limits(prism, QueryLimits::default())
+        Self::new_with_limits_and_features(
+            prism,
+            QueryLimits::default(),
+            PrismMcpFeatures::default(),
+        )
     }
 
+    #[cfg(test)]
     fn new_with_limits(prism: Prism, limits: QueryLimits) -> Self {
+        Self::new_with_limits_and_features(prism, limits, PrismMcpFeatures::default())
+    }
+
+    fn new_with_limits_and_features(
+        prism: Prism,
+        limits: QueryLimits,
+        features: PrismMcpFeatures,
+    ) -> Self {
         let prism = Arc::new(prism);
         let session = Arc::new(SessionState::with_limits(
             prism.as_ref(),
@@ -130,15 +216,24 @@ impl QueryHost {
             session,
             worker: Arc::new(JsWorker::spawn()),
             workspace: None,
+            features,
         }
     }
 
     #[cfg(test)]
     fn with_session(workspace: WorkspaceSession) -> Self {
-        Self::with_session_and_limits(workspace, QueryLimits::default())
+        Self::with_session_and_limits_and_features(
+            workspace,
+            QueryLimits::default(),
+            PrismMcpFeatures::default(),
+        )
     }
 
-    fn with_session_and_limits(workspace: WorkspaceSession, limits: QueryLimits) -> Self {
+    fn with_session_and_limits_and_features(
+        workspace: WorkspaceSession,
+        limits: QueryLimits,
+        features: PrismMcpFeatures,
+    ) -> Self {
         let workspace = Arc::new(workspace);
         let prism = workspace.prism_arc();
         let notes = workspace
@@ -164,6 +259,7 @@ impl QueryHost {
             session,
             worker: Arc::new(JsWorker::spawn()),
             workspace: Some(workspace),
+            features,
         }
     }
 
@@ -256,6 +352,26 @@ impl QueryHost {
             return Ok(());
         };
         workspace.persist_inference(&self.session.inferred_edges.snapshot_persisted())
+    }
+
+    fn api_reference_markdown(&self) -> String {
+        if self.features.mode_label() == "full" {
+            return api_reference_markdown().to_string();
+        }
+
+        let mut markdown = format!(
+            "# PRISM MCP Feature Flags\n\n- mode: `{}`\n",
+            self.features.mode_label()
+        );
+        for line in self.features.coordination_summary_lines() {
+            markdown.push_str(&line);
+            markdown.push('\n');
+        }
+        markdown.push_str(
+            "\nThe API reference below describes the full PRISM query surface. Disabled coordination groups stay hidden from `tools/list`, and their query helpers fail when called.\n\n---\n\n",
+        );
+        markdown.push_str(api_reference_markdown());
+        markdown
     }
 }
 

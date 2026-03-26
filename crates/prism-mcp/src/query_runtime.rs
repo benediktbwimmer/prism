@@ -146,6 +146,8 @@ impl QueryExecution {
             serde_json::from_str(args_json).context("failed to parse host-call arguments")?
         };
 
+        self.ensure_operation_enabled(operation)?;
+
         match operation {
             "symbol" => {
                 let args: SymbolQueryArgs = serde_json::from_value(args)?;
@@ -588,6 +590,15 @@ impl QueryExecution {
                 Err(anyhow!("unsupported host operation `{other}`"))
             }
         }
+    }
+
+    fn ensure_operation_enabled(&self, operation: &str) -> Result<()> {
+        if let Some(group) = self.host.features.disabled_query_group(operation) {
+            return Err(anyhow!(
+                "coordination {group} queries are disabled by the PRISM MCP server feature flags"
+            ));
+        }
+        Ok(())
     }
 
     pub(crate) fn best_symbol(&self, query: &str) -> Result<Option<SymbolView>> {

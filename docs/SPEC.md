@@ -1847,6 +1847,9 @@ Rules:
 * all three coordination tools must attribute mutations to the current `SessionId` and current or explicit `TaskId`
 * coordination mutations must validate policy, dependency state, and base revision before they commit
 * `prism_query` remains the primary read surface for plans, claims, blockers, conflicts, artifacts, and review queues
+* the MCP server must support a simple mode where coordination is disabled end to end
+* coordination feature flags should gate both mutation tools and coordination read helpers so the advertised MCP surface matches what the server actually allows
+* workflow, claim, and artifact capabilities should be independently enableable for gradual rollout
 
 ## 11.8 Convenience Query Tools
 

@@ -1,4 +1,3 @@
-
 use std::fs;
 use std::sync::Arc;
 use std::thread;
@@ -103,6 +102,14 @@ fn server_with_node(node: Node) -> PrismMcpServer {
     graph.adjacency = HashMap::new();
     graph.reverse_adjacency = HashMap::new();
     PrismMcpServer::new(Prism::new(graph))
+}
+
+fn server_with_node_and_features(node: Node, features: PrismMcpFeatures) -> PrismMcpServer {
+    let mut graph = Graph::default();
+    graph.nodes.insert(node.id.clone(), node);
+    graph.adjacency = HashMap::new();
+    graph.reverse_adjacency = HashMap::new();
+    PrismMcpServer::new_with_features(Prism::new(graph), features)
 }
 
 fn client_message(raw: &str) -> ClientJsonRpcMessage {
@@ -377,6 +384,106 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .expect("api reference should be text");
     assert!(api_reference.contains("PRISM Query API"));
     assert!(api_reference.contains("prism_query"));
+
+    running.cancel().await.unwrap();
+}
+
+#[test]
+fn simple_mode_disables_coordination_host_paths() {
+    let host = QueryHost::new_with_limits_and_features(
+        Prism::new(Graph::default()),
+        QueryLimits::default(),
+        PrismMcpFeatures::simple(),
+    );
+
+    let error = host
+        .store_coordination(PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanCreate,
+            payload: json!({ "goal": "Ship coordination" }),
+            task_id: None,
+        })
+        .unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("coordination workflow mutations are disabled"));
+
+    let execution = QueryExecution::new(host.clone(), host.current_prism());
+    let error = execution
+        .dispatch("plan", r#"{ "planId": "plan:1" }"#)
+        .unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("coordination workflow queries are disabled"));
+}
+
+#[tokio::test]
+async fn mcp_server_simple_mode_hides_coordination_tools_and_reports_features() {
+    let server = server_with_node_and_features(demo_node(), PrismMcpFeatures::simple());
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client.send(list_tools_request(2)).await.unwrap();
+    let tools = response_json(client.receive().await.unwrap());
+    let tool_names = tools["result"]["tools"]
+        .as_array()
+        .expect("tools/list should return an array")
+        .iter()
+        .filter_map(|tool| tool["name"].as_str())
+        .collect::<Vec<_>>();
+    assert!(!tool_names.contains(&"prism_coordination"));
+    assert!(!tool_names.contains(&"prism_claim"));
+    assert!(!tool_names.contains(&"prism_artifact"));
+
+    client
+        .send(read_resource_request(3, SESSION_URI))
+        .await
+        .unwrap();
+    let session = response_json(client.receive().await.unwrap());
+    assert_eq!(
+        session["result"]["contents"][0]["mimeType"],
+        "application/json"
+    );
+    let session_payload = serde_json::from_str::<Value>(
+        session["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("session resource should be text"),
+    )
+    .unwrap();
+    assert_eq!(session_payload["features"]["mode"], "simple");
+    assert_eq!(
+        session_payload["features"]["coordination"]["workflow"],
+        false
+    );
+    assert_eq!(session_payload["features"]["coordination"]["claims"], false);
+    assert_eq!(
+        session_payload["features"]["coordination"]["artifacts"],
+        false
+    );
+
+    client
+        .send(call_tool_request(
+            4,
+            "prism_coordination",
+            json!({
+                "kind": "plan_create",
+                "payload": { "goal": "Coordinate the main edit" }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let response = response_json(client.receive().await.unwrap());
+    assert_eq!(response["error"]["message"], "tool not found");
 
     running.cancel().await.unwrap();
 }
@@ -1705,7 +1812,7 @@ return prism.search("a", { limit: 10 }).map((sym) => sym.id.path);
             QueryLanguage::Ts,
         )
         .expect("search should succeed");
-    assert_eq!(search.result.as_array().map(|items| items.len()), Some(1));
+    assert_eq!(search.result.as_array().map(Vec::len), Some(1));
     assert_eq!(search.diagnostics[0].code, "result_truncated");
 
     let depth = host
