@@ -8,7 +8,7 @@ use deno_ast::{
     TranspileOptions,
 };
 use prism_js::runtime_prelude;
-use rquickjs::{prelude::Func, Context, Runtime};
+use rquickjs::{prelude::Func, CatchResultExt, CaughtError, Context, Runtime};
 use serde_json::json;
 use tracing::error;
 
@@ -85,7 +85,10 @@ fn run_js_worker(rx: mpsc::Receiver<JsWorkerMessage>) -> Result<()> {
             }),
         )?;
         ctx.eval::<(), _>(runtime_prelude())
-            .map_err(|err| anyhow!(err.to_string()))?;
+            .catch(&ctx)
+            .map_err(|error| {
+                format_caught_js_error("failed to load prism runtime prelude", error)
+            })?;
         Ok(())
     })?;
 
@@ -101,12 +104,16 @@ fn run_js_worker(rx: mpsc::Receiver<JsWorkerMessage>) -> Result<()> {
 
                 let result = context.with(|ctx| -> Result<String> {
                     ctx.eval::<String, _>(request.script.as_str())
-                        .map_err(|err| anyhow!(err.to_string()))
+                        .catch(&ctx)
+                        .map_err(|error| {
+                            format_caught_js_error("javascript query evaluation failed", error)
+                        })
                 });
 
                 let cleanup_result = context.with(|ctx| -> Result<()> {
                     ctx.eval::<(), _>("__prismCleanupGlobals()")
-                        .map_err(|err| anyhow!(err.to_string()))
+                        .catch(&ctx)
+                        .map_err(|error| format_caught_js_error("javascript cleanup failed", error))
                 });
 
                 {
@@ -150,4 +157,30 @@ pub(crate) fn transpile_typescript(source: &str) -> Result<String> {
         .map_err(|err| anyhow!(err.to_string()))?
         .into_source();
     Ok(transpiled.text)
+}
+
+fn format_caught_js_error(prefix: &str, error: CaughtError<'_>) -> anyhow::Error {
+    match error {
+        CaughtError::Exception(exception) => {
+            let message = exception
+                .message()
+                .filter(|message| !message.is_empty())
+                .unwrap_or_else(|| exception.to_string());
+            let mut detail = format!("{prefix}: {message}");
+            if let Some(stack) = exception.stack().filter(|stack| !stack.is_empty()) {
+                if stack.contains(&message) {
+                    detail.push('\n');
+                    detail.push_str(&stack);
+                } else {
+                    detail.push_str("\nstack: ");
+                    detail.push_str(&stack);
+                }
+            }
+            anyhow!(detail)
+        }
+        CaughtError::Value(value) => anyhow!(format!(
+            "{prefix}: javascript threw a non-Error value: {value:?}"
+        )),
+        CaughtError::Error(error) => anyhow!(format!("{prefix}: {error}")),
+    }
 }

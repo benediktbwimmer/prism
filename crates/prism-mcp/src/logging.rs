@@ -6,6 +6,7 @@ use anyhow::{Context, Error, Result};
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
+use crate::runtime_state;
 use crate::{PrismMcpCli, PrismMcpMode};
 
 pub fn init_logging(cli: &PrismMcpCli) -> Result<()> {
@@ -50,6 +51,13 @@ pub fn init_logging(cli: &PrismMcpCli) -> Result<()> {
 }
 
 pub fn log_process_start(cli: &PrismMcpCli, root: &Path) {
+    if let Err(error) = runtime_state::record_process_start(cli, root) {
+        error!(
+            error = %error,
+            root = %root.display(),
+            "failed to update prism runtime state on process start"
+        );
+    }
     info!(
         mode = %mode_name(cli.mode),
         root = %root.display(),

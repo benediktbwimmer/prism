@@ -38,6 +38,9 @@ pub(crate) fn capabilities_resource_value(
             None,
             None,
             None,
+            None,
+            None,
+            None,
         ),
     ];
     related_resources.extend(

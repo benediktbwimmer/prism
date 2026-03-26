@@ -25,7 +25,13 @@ pub(crate) struct SearchArgs {
     pub(crate) limit: Option<usize>,
     pub(crate) kind: Option<String>,
     pub(crate) path: Option<String>,
+    #[serde(alias = "pathMode")]
+    pub(crate) path_mode: Option<String>,
     pub(crate) strategy: Option<String>,
+    #[serde(alias = "structuredPath")]
+    pub(crate) structured_path: Option<String>,
+    #[serde(alias = "topLevelOnly")]
+    pub(crate) top_level_only: Option<bool>,
     #[serde(alias = "ownerKind")]
     pub(crate) owner_kind: Option<String>,
     #[serde(alias = "includeInferred")]

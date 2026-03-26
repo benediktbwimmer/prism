@@ -16,6 +16,7 @@ use tokio::time::sleep;
 use tracing::{debug, info, warn};
 
 use crate::proxy_server::ProxyMcpServer;
+use crate::runtime_state;
 use crate::{PrismMcpCli, PrismMcpServer};
 
 const DEFAULT_DAEMON_START_TIMEOUT_MS: u64 = 60_000;
@@ -62,6 +63,18 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         startup_ms = started.elapsed().as_millis(),
         "prism-mcp daemon ready"
     );
+    if let Err(error) = runtime_state::record_daemon_ready(
+        root,
+        &http_uri,
+        &health_path,
+        started.elapsed().as_millis(),
+    ) {
+        warn!(
+            error = %error,
+            root = %root.display(),
+            "failed to update prism runtime state for daemon readiness"
+        );
+    }
 
     let service_server = server.clone();
     let service: StreamableHttpService<PrismMcpServer, LocalSessionManager> =
@@ -115,6 +128,13 @@ async fn run_bridge(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         upstream_uri = %upstream_uri,
         "prism-mcp bridge connected"
     );
+    if let Err(error) = runtime_state::record_bridge_connected(root, &upstream_uri) {
+        warn!(
+            error = %error,
+            root = %root.display(),
+            "failed to update prism runtime state for bridge connection"
+        );
+    }
     let proxy = ProxyMcpServer::connect(upstream_uri).await?;
     proxy.serve_stdio().await
 }

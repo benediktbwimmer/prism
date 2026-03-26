@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
@@ -11,6 +11,7 @@ use prism_js::{RuntimeHealthView, RuntimeLogEventView, RuntimeProcessView, Runti
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
+use crate::runtime_state::{read_runtime_state, RuntimeEventRecord, RuntimeProcessRecord};
 use crate::{QueryHost, RuntimeLogArgs, RuntimeTimelineArgs};
 
 const DEFAULT_HEALTH_PATH: &str = "/healthz";
@@ -40,6 +41,7 @@ struct McpProcess {
     command: String,
     kind: McpProcessKind,
     health_path: Option<String>,
+    http_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -57,13 +59,19 @@ struct DaemonLogRecord {
 pub(crate) fn runtime_status(host: &QueryHost) -> Result<RuntimeStatusView> {
     let root = workspace_root(host)?;
     let paths = RuntimePaths::for_root(root);
-    let (processes, process_error) = match list_processes(root) {
+    let runtime_state = read_runtime_state(root)?;
+    let state_processes = runtime_state
+        .as_ref()
+        .map(|state| state.processes.as_slice())
+        .unwrap_or(&[]);
+    let (processes, process_error) = match list_runtime_processes(root, state_processes) {
         Ok(processes) => (processes, None),
         Err(error) => (Vec::new(), Some(error.to_string())),
     };
     let daemons = select_kind(&processes, McpProcessKind::Daemon);
     let bridges = select_kind(&processes, McpProcessKind::Bridge);
-    let uri = read_uri_file(&paths.uri_file)?;
+    let uri = read_uri_file(&paths.uri_file)?
+        .or_else(|| daemons.iter().find_map(|process| process.http_uri.clone()));
     let health_path = daemon_health_path(&daemons).to_string();
     let health = health_status(&uri, &health_path)?;
 
@@ -134,6 +142,25 @@ pub(crate) fn runtime_timeline(
         .contains
         .as_deref()
         .map(|value| value.to_ascii_lowercase());
+    if let Some(state) = read_runtime_state(root)? {
+        let mut events = state
+            .events
+            .into_iter()
+            .map(runtime_state_event_view)
+            .filter(|event| {
+                contains
+                    .as_deref()
+                    .is_none_or(|needle| log_contains(event, &event.message, needle))
+            })
+            .collect::<Vec<_>>();
+        if !events.is_empty() {
+            if events.len() > limit {
+                events = events.split_off(events.len() - limit);
+            }
+            return Ok(events);
+        }
+    }
+
     let mut events = tail_lines(&paths.log_path, scan_limit(limit))?
         .into_iter()
         .map(|line| (line.clone(), parse_log_event(&line)))
@@ -175,6 +202,18 @@ fn runtime_process_view(process: McpProcess) -> RuntimeProcessView {
         .to_string(),
         command: process.command,
         health_path: process.health_path,
+    }
+}
+
+fn runtime_state_event_view(event: RuntimeEventRecord) -> RuntimeLogEventView {
+    RuntimeLogEventView {
+        timestamp: Some(event.timestamp),
+        level: Some(event.level),
+        message: event.message,
+        target: Some(event.target),
+        file: event.file,
+        line_number: event.line_number,
+        fields: value_object_fields(event.fields),
     }
 }
 
@@ -232,6 +271,19 @@ fn uri_authority(uri: &str) -> Option<&str> {
         .filter(|value| !value.is_empty())
 }
 
+fn list_runtime_processes(
+    root: &Path,
+    state_processes: &[RuntimeProcessRecord],
+) -> Result<Vec<McpProcess>> {
+    if !state_processes.is_empty() {
+        let processes = probe_runtime_state_processes(state_processes)?;
+        if !processes.is_empty() {
+            return Ok(processes);
+        }
+    }
+    list_processes(root)
+}
+
 fn list_processes(root: &Path) -> Result<Vec<McpProcess>> {
     let output = Command::new("ps")
         .args(["-axo", "pid=,ppid=,rss=,etime=,command="])
@@ -259,6 +311,52 @@ fn list_processes(root: &Path) -> Result<Vec<McpProcess>> {
     Ok(processes)
 }
 
+fn probe_runtime_state_processes(
+    state_processes: &[RuntimeProcessRecord],
+) -> Result<Vec<McpProcess>> {
+    let pids = state_processes
+        .iter()
+        .map(|process| process.pid.to_string())
+        .collect::<Vec<_>>();
+    let output = Command::new("ps")
+        .args(["-o", "pid=,rss=,etime=,command=", "-p", &pids.join(",")])
+        .output()
+        .context("failed to inspect runtime state processes with ps")?;
+    if !output.status.success() {
+        bail!(
+            "ps failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+
+    let records = state_processes
+        .iter()
+        .map(|record| (record.pid, record))
+        .collect::<BTreeMap<_, _>>();
+    let mut processes = Vec::new();
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
+        let Some((pid, rss_kb, elapsed, command)) = parse_process_snapshot_line(line) else {
+            continue;
+        };
+        let Some(record) = records.get(&pid) else {
+            continue;
+        };
+        let Some(kind) = process_kind(record.kind.as_str()) else {
+            continue;
+        };
+        processes.push(McpProcess {
+            pid,
+            rss_kb,
+            elapsed,
+            command,
+            kind,
+            health_path: record.health_path.clone(),
+            http_uri: record.http_uri.clone(),
+        });
+    }
+    Ok(processes)
+}
+
 fn parse_ps_line(line: &str) -> Option<McpProcess> {
     let mut parts = line.split_whitespace();
     let pid = parts.next()?.parse().ok()?;
@@ -279,7 +377,17 @@ fn parse_ps_line(line: &str) -> Option<McpProcess> {
         command,
         kind,
         health_path,
+        http_uri: None,
     })
+}
+
+fn parse_process_snapshot_line(line: &str) -> Option<(u32, u64, String, String)> {
+    let mut parts = line.split_whitespace();
+    let pid = parts.next()?.parse().ok()?;
+    let rss_kb = parts.next()?.parse().ok()?;
+    let elapsed = parts.next()?.to_string();
+    let command = parts.collect::<Vec<_>>().join(" ");
+    Some((pid, rss_kb, elapsed, command))
 }
 
 fn select_kind(processes: &[McpProcess], kind: McpProcessKind) -> Vec<McpProcess> {
@@ -295,6 +403,14 @@ fn daemon_health_path(daemons: &[McpProcess]) -> &str {
         .first()
         .and_then(|daemon| daemon.health_path.as_deref())
         .unwrap_or(DEFAULT_HEALTH_PATH)
+}
+
+fn process_kind(kind: &str) -> Option<McpProcessKind> {
+    match kind {
+        "daemon" => Some(McpProcessKind::Daemon),
+        "bridge" => Some(McpProcessKind::Bridge),
+        _ => None,
+    }
 }
 
 fn command_option_value(command: &str, option: &str) -> Option<String> {
@@ -368,6 +484,14 @@ fn runtime_log_event_view(record: DaemonLogRecord) -> RuntimeLogEventView {
         file: record.filename,
         line_number: record.line_number,
         fields: (!record.extra.is_empty()).then_some(Value::Object(record.extra)),
+    }
+}
+
+fn value_object_fields(value: Value) -> Option<Value> {
+    match value {
+        Value::Null => None,
+        Value::Object(map) if map.is_empty() => None,
+        other => Some(other),
     }
 }
 
@@ -462,6 +586,23 @@ mod tests {
         assert_eq!(process.elapsed, "02:12:24");
         assert_eq!(process.kind, McpProcessKind::Daemon);
         assert_eq!(process.health_path.as_deref(), Some("/healthz"));
+        assert_eq!(process.http_uri, None);
+    }
+
+    #[test]
+    fn parses_scoped_ps_lines_for_runtime_state_processes() {
+        let (pid, rss_kb, elapsed, command) = parse_process_snapshot_line(
+            "29267 4454352 02:12:24 /Users/bene/code/prism/target/release/prism-mcp --mode daemon",
+        )
+        .expect("expected process snapshot");
+
+        assert_eq!(pid, 29267);
+        assert_eq!(rss_kb, 4454352);
+        assert_eq!(elapsed, "02:12:24");
+        assert_eq!(
+            command,
+            "/Users/bene/code/prism/target/release/prism-mcp --mode daemon"
+        );
     }
 
     #[test]

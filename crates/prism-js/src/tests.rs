@@ -45,6 +45,9 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("editSlice(options?: EditSliceOptions)"));
     assert!(docs.contains("relativeFocus"));
     assert!(docs.contains("type SearchTextOptions = {"));
+    assert!(docs.contains("pathMode?: \"contains\" | \"exact\";"));
+    assert!(docs.contains("structuredPath?: string;"));
+    assert!(docs.contains("topLevelOnly?: boolean;"));
     assert!(docs.contains("type TextSearchMatchView = {"));
     assert!(docs.contains("type QueryLogOptions = {"));
     assert!(docs.contains("type RuntimeLogOptions = {"));
@@ -69,6 +72,9 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("prism://tool-schemas"));
     assert!(docs.contains("prism://schema/tool/{toolName}"));
     assert!(docs.contains("prism://capabilities"));
+    assert!(docs.contains(
+        "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&includeInferred={includeInferred}"
+    ));
     assert!(docs.contains("prism.curator.jobs"));
     assert!(docs.contains("prism_session"));
     assert!(docs.contains("prism_mutate"));
@@ -92,6 +98,9 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("validationContext(target)"));
     assert!(prelude.contains("recentChangeContext(target)"));
     assert!(prelude.contains("searchText(query, options = {})"));
+    assert!(prelude.contains("pathMode: options?.pathMode ?? options?.path_mode"));
+    assert!(prelude.contains("structuredPath: options?.structuredPath ?? options?.structured_path"));
+    assert!(prelude.contains("topLevelOnly: options?.topLevelOnly ?? options?.top_level_only"));
     assert!(prelude.contains("file(path)"));
     assert!(prelude.contains("queryLog(options = {})"));
     assert!(prelude.contains("slowQueries(options = {})"));

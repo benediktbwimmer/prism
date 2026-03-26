@@ -52,7 +52,10 @@ type SearchOptions = {
   limit?: number;
   kind?: string;
   path?: string;
+  pathMode?: "contains" | "exact";
   strategy?: "direct" | "behavioral";
+  structuredPath?: string;
+  topLevelOnly?: boolean;
   ownerKind?: "read" | "write" | "persist" | "test" | "all";
   includeInferred?: boolean;
 };
@@ -885,7 +888,7 @@ Beyond `prism_query`, the MCP server exposes navigable `prism://...` resources.
 - Parameterized resources:
   - `prism://schema/{resourceKind}`
   - `prism://schema/tool/{toolName}`
-  - `prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&includeInferred={includeInferred}`
+  - `prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&includeInferred={includeInferred}`
   - `prism://symbol/{crateName}/{kind}/{path}`
   - `prism://lineage/{lineageId}?limit={limit}&cursor={cursor}`
   - `prism://task/{taskId}?limit={limit}&cursor={cursor}`

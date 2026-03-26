@@ -56,7 +56,6 @@ pub(crate) fn changed_files(
     path: Option<&str>,
     limit: usize,
 ) -> Result<Vec<ChangedFileView>> {
-    let mut source_cache = HashMap::<String, Option<String>>::new();
     let mut seen = HashSet::<String>::new();
     let mut views = Vec::new();
     for event in patch_events(prism, None, task_id, since) {
@@ -68,26 +67,7 @@ pub(crate) fn changed_files(
             if !seen.insert(file_path.clone()) {
                 continue;
             }
-            let symbols = parsed
-                .changed_symbols
-                .iter()
-                .filter(|symbol| {
-                    symbol_file_path(prism, symbol).is_some_and(|value| value == *file_path)
-                })
-                .map(|symbol| changed_symbol_view(prism, symbol, &mut source_cache))
-                .collect::<Result<Vec<_>>>()?;
-            let added_count = symbols
-                .iter()
-                .filter(|symbol| symbol.status == "added")
-                .count();
-            let removed_count = symbols
-                .iter()
-                .filter(|symbol| symbol.status == "removed")
-                .count();
-            let updated_count = symbols
-                .iter()
-                .filter(|symbol| symbol.status == "changed" || symbol.status.starts_with("updated"))
-                .count();
+            let counts = changed_file_counts(prism, &parsed.changed_symbols, file_path);
             views.push(ChangedFileView {
                 path: file_path.clone(),
                 event_id: parsed.event_id.clone(),
@@ -95,10 +75,10 @@ pub(crate) fn changed_files(
                 task_id: parsed.task_id.clone(),
                 trigger: parsed.trigger.clone(),
                 summary: parsed.summary.clone(),
-                changed_symbol_count: symbols.len(),
-                added_count,
-                removed_count,
-                updated_count,
+                changed_symbol_count: counts.changed_symbol_count,
+                added_count: counts.added_count,
+                removed_count: counts.removed_count,
+                updated_count: counts.updated_count,
             });
             if limit > 0 && views.len() >= limit {
                 return Ok(views);
@@ -146,17 +126,7 @@ pub(crate) fn recent_patches(
     let mut views = Vec::new();
     for event in patch_events(prism, target, task_id, since) {
         let parsed = parse_patch_event(prism, &event);
-        if path.is_some_and(|filter| {
-            !parsed
-                .files
-                .iter()
-                .any(|file_path| matches_path(file_path, filter))
-                && !parsed
-                    .changed_symbols
-                    .iter()
-                    .filter_map(|symbol| symbol_file_path(prism, symbol))
-                    .any(|file_path| matches_path(&file_path, filter))
-        }) {
+        if path.is_some_and(|filter| !event_matches_path(prism, &parsed, filter)) {
             continue;
         }
         views.push(patch_event_view(prism, &parsed, &mut source_cache)?);
@@ -297,6 +267,57 @@ fn patch_event_view(
     })
 }
 
+#[derive(Default)]
+struct ChangedFileCounts {
+    changed_symbol_count: usize,
+    added_count: usize,
+    removed_count: usize,
+    updated_count: usize,
+}
+
+fn changed_file_counts(
+    prism: &Prism,
+    changed_symbols: &[PatchChangedSymbol],
+    file_path: &str,
+) -> ChangedFileCounts {
+    let mut counts = ChangedFileCounts::default();
+    for symbol in changed_symbols {
+        if !symbol_file_path_equals(prism, symbol, file_path) {
+            continue;
+        }
+        counts.changed_symbol_count += 1;
+        match changed_symbol_status_bucket(&symbol.status) {
+            ChangedSymbolStatusBucket::Added => counts.added_count += 1,
+            ChangedSymbolStatusBucket::Removed => counts.removed_count += 1,
+            ChangedSymbolStatusBucket::Updated => counts.updated_count += 1,
+            ChangedSymbolStatusBucket::Other => {}
+        }
+    }
+    counts
+}
+
+fn event_matches_path(prism: &Prism, event: &ParsedPatchEvent, filter: &str) -> bool {
+    if event
+        .files
+        .iter()
+        .any(|file_path| matches_path(file_path, filter))
+    {
+        return true;
+    }
+    if event
+        .changed_symbols
+        .iter()
+        .filter_map(|symbol| symbol.file_path.as_deref())
+        .any(|file_path| matches_path(file_path, filter))
+    {
+        return true;
+    }
+    event
+        .changed_symbols
+        .iter()
+        .any(|symbol| symbol.file_path.is_none() && symbol_file_path_matches(prism, symbol, filter))
+}
+
 fn changed_symbol_view(
     prism: &Prism,
     symbol: &PatchChangedSymbol,
@@ -340,6 +361,56 @@ fn changed_symbol_view(
             .and_then(|id| prism.lineage_of(id))
             .map(|lineage| lineage.0.to_string()),
     })
+}
+
+#[derive(Copy, Clone)]
+enum ChangedSymbolStatusBucket {
+    Added,
+    Removed,
+    Updated,
+    Other,
+}
+
+fn changed_symbol_status_bucket(status: &str) -> ChangedSymbolStatusBucket {
+    if status == "added" {
+        ChangedSymbolStatusBucket::Added
+    } else if status == "removed" {
+        ChangedSymbolStatusBucket::Removed
+    } else if status == "changed" || status.starts_with("updated") {
+        ChangedSymbolStatusBucket::Updated
+    } else {
+        ChangedSymbolStatusBucket::Other
+    }
+}
+
+fn symbol_file_path_equals(prism: &Prism, symbol: &PatchChangedSymbol, expected: &str) -> bool {
+    symbol
+        .file_path
+        .as_deref()
+        .map(|path| path == expected)
+        .unwrap_or_else(|| {
+            symbol
+                .id
+                .as_ref()
+                .and_then(|id| prism.graph().node(id))
+                .and_then(|node| prism.graph().file_path(node.file))
+                .is_some_and(|path| path.to_string_lossy().as_ref() == expected)
+        })
+}
+
+fn symbol_file_path_matches(prism: &Prism, symbol: &PatchChangedSymbol, filter: &str) -> bool {
+    symbol
+        .file_path
+        .as_deref()
+        .map(|path| matches_path(path, filter))
+        .unwrap_or_else(|| {
+            symbol
+                .id
+                .as_ref()
+                .and_then(|id| prism.graph().node(id))
+                .and_then(|node| prism.graph().file_path(node.file))
+                .is_some_and(|path| matches_path(path.to_string_lossy().as_ref(), filter))
+        })
 }
 
 fn symbol_file_path(prism: &Prism, symbol: &PatchChangedSymbol) -> Option<String> {

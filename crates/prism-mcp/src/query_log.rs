@@ -357,29 +357,77 @@ fn summarize_value(value: &Value) -> Value {
 
 fn touches_for_value(value: &Value) -> Vec<String> {
     let mut touched = BTreeSet::new();
-    collect_touch_values(value, &mut touched);
+    collect_touch_values(value, &mut Vec::new(), &mut touched);
     touched.into_iter().collect()
 }
 
-fn collect_touch_values(value: &Value, touched: &mut BTreeSet<String>) {
+fn collect_touch_values(value: &Value, key_path: &mut Vec<String>, touched: &mut BTreeSet<String>) {
     match value {
         Value::String(string) => {
-            if !string.is_empty() {
+            let key = key_path.last().map(String::as_str);
+            if should_record_touch(key, string) {
                 touched.insert(clamp_string(string, MAX_SUMMARY_CHARS));
             }
         }
         Value::Array(items) => {
             for item in items.iter().take(MAX_SUMMARY_ITEMS) {
-                collect_touch_values(item, touched);
+                collect_touch_values(item, key_path, touched);
             }
         }
         Value::Object(map) => {
-            for (_, value) in map.iter().take(MAX_SUMMARY_ITEMS) {
-                collect_touch_values(value, touched);
+            for (key, value) in map.iter().take(MAX_SUMMARY_ITEMS) {
+                key_path.push(key.clone());
+                collect_touch_values(value, key_path, touched);
+                key_path.pop();
             }
         }
         Value::Null | Value::Bool(_) | Value::Number(_) => {}
     }
+}
+
+fn should_record_touch(key: Option<&str>, value: &str) -> bool {
+    !value.is_empty() && (key.is_some_and(is_semantic_touch_key) || looks_like_touch_value(value))
+}
+
+fn is_semantic_touch_key(key: &str) -> bool {
+    let key = key.to_ascii_lowercase();
+    key.contains("path")
+        || key.contains("file")
+        || key.contains("target")
+        || key.contains("task")
+        || key.contains("lineage")
+        || key.contains("artifact")
+        || key.contains("claim")
+        || key.contains("plan")
+        || key.contains("job")
+        || key.contains("anchor")
+        || key.contains("operation")
+        || key.contains("uri")
+}
+
+fn looks_like_touch_value(value: &str) -> bool {
+    value.contains('/')
+        || value.contains("::")
+        || value.starts_with("task:")
+        || value.starts_with("coord-task:")
+        || value.starts_with("plan:")
+        || value.starts_with("claim:")
+        || value.starts_with("artifact:")
+        || value.starts_with("lineage:")
+        || value.starts_with("http://")
+        || value.starts_with("https://")
+        || matches_file_name(value)
+}
+
+fn matches_file_name(value: &str) -> bool {
+    value.ends_with(".rs")
+        || value.ends_with(".toml")
+        || value.ends_with(".json")
+        || value.ends_with(".yaml")
+        || value.ends_with(".yml")
+        || value.ends_with(".md")
+        || value.ends_with(".ts")
+        || value.ends_with(".js")
 }
 
 fn unique_operations(phases: &[QueryPhaseView]) -> Vec<String> {

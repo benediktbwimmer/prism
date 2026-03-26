@@ -338,7 +338,10 @@ globalThis.prism = Object.freeze({
         limit: options?.limit,
         kind: options?.kind,
         path: options?.path,
+        pathMode: options?.pathMode ?? options?.path_mode,
         strategy: options?.strategy,
+        structuredPath: options?.structuredPath ?? options?.structured_path,
+        topLevelOnly: options?.topLevelOnly ?? options?.top_level_only,
         ownerKind: options?.ownerKind ?? options?.owner_kind,
         includeInferred: options?.includeInferred ?? options?.include_inferred,
       })

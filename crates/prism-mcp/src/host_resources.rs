@@ -269,6 +269,20 @@ impl QueryHost {
             .or_else(|| parse_resource_query_param(uri, "owner_kind"));
         let kind = parse_resource_query_param(uri, "kind").filter(|value| !value.is_empty());
         let path = parse_resource_query_param(uri, "path").filter(|value| !value.is_empty());
+        let path_mode = parse_resource_query_param(uri, "pathMode")
+            .or_else(|| parse_resource_query_param(uri, "path_mode"))
+            .filter(|value| !value.is_empty());
+        let structured_path = parse_resource_query_param(uri, "structuredPath")
+            .or_else(|| parse_resource_query_param(uri, "structured_path"))
+            .filter(|value| !value.is_empty());
+        let top_level_only = parse_resource_query_param(uri, "topLevelOnly")
+            .or_else(|| parse_resource_query_param(uri, "top_level_only"))
+            .map(|value| match value.trim().to_ascii_lowercase().as_str() {
+                "true" | "1" | "yes" => Ok(true),
+                "false" | "0" | "no" => Ok(false),
+                other => Err(anyhow!("invalid topLevelOnly value `{other}`")),
+            })
+            .transpose()?;
         let include_inferred = parse_resource_query_param(uri, "includeInferred")
             .or_else(|| parse_resource_query_param(uri, "include_inferred"))
             .map(|value| match value.trim().to_ascii_lowercase().as_str() {
@@ -295,7 +309,10 @@ impl QueryHost {
                 limit: Some(self.session.limits().max_result_nodes),
                 kind: kind.clone(),
                 path: path.clone(),
+                path_mode: path_mode.clone(),
                 strategy: Some(strategy.clone()),
+                structured_path: structured_path.clone(),
+                top_level_only,
                 owner_kind: owner_kind.clone(),
                 include_inferred: Some(include_inferred),
             })?,
@@ -334,6 +351,9 @@ impl QueryHost {
             owner_kind.as_deref(),
             kind.as_deref(),
             path.as_deref(),
+            path_mode.as_deref(),
+            structured_path.as_deref(),
+            top_level_only,
             Some(include_inferred),
         )];
         related_resources.extend(paged.items.iter().take(8).map(symbol_resource_view_link));
@@ -354,6 +374,9 @@ impl QueryHost {
             owner_kind,
             kind,
             path,
+            path_mode,
+            structured_path,
+            top_level_only,
             include_inferred,
             suggested_reads,
             results: paged.items,

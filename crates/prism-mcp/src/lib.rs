@@ -37,6 +37,7 @@ mod query_runtime;
 mod query_types;
 mod resource_schemas;
 mod resources;
+mod runtime_state;
 mod runtime_views;
 mod schema_examples;
 mod semantic_contexts;
@@ -68,6 +69,7 @@ use query_runtime::*;
 use query_types::*;
 use resource_schemas::*;
 use resources::*;
+use runtime_state::*;
 use schema_examples::*;
 use semantic_contexts::*;
 use session_state::SessionState;
@@ -89,7 +91,7 @@ const TOOL_SCHEMAS_URI: &str = "prism://tool-schemas";
 const ENTRYPOINTS_RESOURCE_TEMPLATE_URI: &str = "prism://entrypoints?limit={limit}&cursor={cursor}";
 const SYMBOL_RESOURCE_TEMPLATE_URI: &str = "prism://symbol/{crateName}/{kind}/{path}";
 const SEARCH_RESOURCE_TEMPLATE_URI: &str =
-    "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&includeInferred={includeInferred}";
+    "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&includeInferred={includeInferred}";
 const LINEAGE_RESOURCE_TEMPLATE_URI: &str =
     "prism://lineage/{lineageId}?limit={limit}&cursor={cursor}";
 const TASK_RESOURCE_TEMPLATE_URI: &str = "prism://task/{taskId}?limit={limit}&cursor={cursor}";
@@ -243,6 +245,19 @@ impl PrismMcpServer {
             file_count = prism.graph().file_count(),
             "built prism-mcp workspace server"
         );
+        if let Err(error) = record_workspace_server_built(
+            root,
+            &features,
+            prism.graph().node_count(),
+            prism.graph().edge_count(),
+            prism.graph().file_count(),
+        ) {
+            debug!(
+                error = %error,
+                root = %root.display(),
+                "failed to update prism runtime state after building the workspace server"
+            );
+        }
         Ok(Self::with_session_and_features(session, features))
     }
 
@@ -365,7 +380,7 @@ impl QueryHost {
             loaded_episodic_revision: Arc::new(AtomicU64::new(0)),
             loaded_inference_revision: Arc::new(AtomicU64::new(0)),
             loaded_coordination_revision: Arc::new(AtomicU64::new(0)),
-            features,
+            features: features.clone(),
         }
     }
 
@@ -639,6 +654,25 @@ fn log_refresh_workspace(
     coordination_reloaded: bool,
     duration_ms: u128,
 ) {
+    let meaningful_refresh =
+        refresh_path == "full" || episodic_reloaded || inference_reloaded || coordination_reloaded;
+    if meaningful_refresh {
+        if let Err(error) = record_workspace_refresh(
+            workspace.root(),
+            refresh_path,
+            workspace,
+            episodic_reloaded,
+            inference_reloaded,
+            coordination_reloaded,
+            duration_ms,
+        ) {
+            debug!(
+                error = %error,
+                root = %workspace.root().display(),
+                "failed to update prism runtime state after workspace refresh"
+            );
+        }
+    }
     if env::var_os("PRISM_MCP_REFRESH_LOG").is_none() {
         return;
     }

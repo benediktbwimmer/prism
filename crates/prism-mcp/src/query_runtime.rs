@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Context, Result};
@@ -959,6 +960,15 @@ impl QueryExecution {
         let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
         let limits = self.host.session.limits();
         let applied = requested.min(limits.max_result_nodes);
+        let path_mode = parse_path_mode(args.path_mode.as_deref())?;
+        let exact_structured =
+            args.structured_path.is_some() || args.top_level_only.unwrap_or(false);
+        let needs_post_filter = path_mode == SearchPathMode::Exact || exact_structured;
+        let backend_limit = if needs_post_filter {
+            limits.max_result_nodes.saturating_add(1)
+        } else {
+            applied.saturating_add(1)
+        };
 
         if requested > limits.max_result_nodes {
             self.push_diagnostic(
@@ -984,20 +994,26 @@ impl QueryExecution {
                 args.owner_kind.as_deref(),
                 kind,
                 args.path.as_deref(),
-                applied.saturating_add(1),
+                backend_limit,
             )?
         } else {
             self.prism
-                .search(
-                    &args.query,
-                    applied.saturating_add(1),
-                    kind,
-                    args.path.as_deref(),
-                )
+                .search(&args.query, backend_limit, kind, args.path.as_deref())
                 .iter()
                 .map(|symbol| symbol_view(self.prism.as_ref(), symbol))
                 .collect::<Result<Vec<_>>>()?
         };
+        apply_search_post_filters(
+            &mut results,
+            self.host
+                .workspace
+                .as_ref()
+                .map(|workspace| workspace.root()),
+            args.path.as_deref(),
+            path_mode,
+            args.structured_path.as_deref(),
+            args.top_level_only.unwrap_or(false),
+        );
 
         if results.len() > applied {
             results.truncate(applied);
@@ -1743,4 +1759,114 @@ impl QueryExecution {
             .map(|symbol| symbol_view(self.prism.as_ref(), &symbol))
             .collect()
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SearchPathMode {
+    Contains,
+    Exact,
+}
+
+fn parse_path_mode(value: Option<&str>) -> Result<SearchPathMode> {
+    match value.unwrap_or("contains") {
+        "contains" => Ok(SearchPathMode::Contains),
+        "exact" => Ok(SearchPathMode::Exact),
+        other => Err(anyhow!(
+            "unsupported search pathMode `{other}`; expected `contains` or `exact`"
+        )),
+    }
+}
+
+fn apply_search_post_filters(
+    results: &mut Vec<SymbolView>,
+    workspace_root: Option<&Path>,
+    path_filter: Option<&str>,
+    path_mode: SearchPathMode,
+    structured_path: Option<&str>,
+    top_level_only: bool,
+) {
+    results.retain(|result| {
+        matches_search_path(result, workspace_root, path_filter, path_mode)
+            && matches_structured_path(result, structured_path)
+            && matches_top_level_only(result, top_level_only)
+    });
+}
+
+fn matches_search_path(
+    result: &SymbolView,
+    workspace_root: Option<&Path>,
+    path_filter: Option<&str>,
+    path_mode: SearchPathMode,
+) -> bool {
+    let Some(path_filter) = path_filter else {
+        return true;
+    };
+    let Some(file_path) = result.file_path.as_deref() else {
+        return false;
+    };
+    let requested = normalize_query_path(path_filter);
+    let absolute = normalize_query_path(file_path);
+    let relative = workspace_root
+        .and_then(|root| Path::new(file_path).strip_prefix(root).ok())
+        .map(|path| normalize_query_path(&path.to_string_lossy()));
+    match path_mode {
+        SearchPathMode::Contains => {
+            absolute.contains(&requested)
+                || relative
+                    .as_deref()
+                    .map(|path| path.contains(&requested))
+                    .unwrap_or(false)
+        }
+        SearchPathMode::Exact => {
+            absolute == requested
+                || relative
+                    .as_deref()
+                    .map(|path| path == requested.as_str())
+                    .unwrap_or(false)
+        }
+    }
+}
+
+fn matches_structured_path(result: &SymbolView, structured_path: Option<&str>) -> bool {
+    let Some(structured_path) = structured_path else {
+        return true;
+    };
+    let Some(segments) = structured_segments(&result.id.path) else {
+        return false;
+    };
+    segments == normalize_structured_path(structured_path)
+}
+
+fn matches_top_level_only(result: &SymbolView, top_level_only: bool) -> bool {
+    if !top_level_only {
+        return true;
+    }
+    structured_segments(&result.id.path)
+        .map(|segments| segments.len() == 1)
+        .unwrap_or(false)
+}
+
+fn structured_segments(path: &str) -> Option<Vec<String>> {
+    let (_, after_document) = path.split_once("::document::")?;
+    let (_, structured) = after_document.split_once("::")?;
+    Some(
+        structured
+            .split("::")
+            .filter(|segment| !segment.is_empty())
+            .map(ToString::to_string)
+            .collect(),
+    )
+}
+
+fn normalize_structured_path(path: &str) -> Vec<String> {
+    path.replace("::", ".")
+        .replace('/', ".")
+        .split('.')
+        .filter(|segment| !segment.is_empty())
+        .map(ToString::to_string)
+        .collect()
+}
+
+fn normalize_query_path(path: &str) -> String {
+    path.trim_start_matches("./").replace('\\', "/")
 }

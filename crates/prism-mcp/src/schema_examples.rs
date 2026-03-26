@@ -2,9 +2,8 @@ use serde_json::{json, Value};
 
 use crate::{
     capabilities_resource_uri, edge_resource_uri, event_resource_uri, memory_resource_uri,
-    schema_resource_uri, search_resource_uri_with_options, session_resource_uri,
-    symbol_resource_uri_from_node_id, task_resource_uri, tool_schema_resource_uri,
-    API_REFERENCE_URI,
+    schema_resource_uri, session_resource_uri, symbol_resource_uri_from_node_id, task_resource_uri,
+    tool_schema_resource_uri, API_REFERENCE_URI,
 };
 use prism_ir::{EdgeKind, NodeId};
 
@@ -22,14 +21,9 @@ pub(crate) fn resource_example_uri(resource_kind: &str) -> Option<String> {
         "session" => Some(session_resource_uri()),
         "tool-schemas" => Some("prism://tool-schemas".to_string()),
         "entrypoints" => Some("prism://entrypoints?limit=5".to_string()),
-        "search" => Some(search_resource_uri_with_options(
-            "read context",
-            Some("behavioral"),
-            Some("read"),
-            Some("function"),
-            Some("src"),
-            Some(true),
-        )),
+        "search" => Some(
+            "prism://search/read%20context?strategy=behavioral&ownerKind=read&kind=function&path=src&pathMode=exact&structuredPath=workspace&topLevelOnly=true&includeInferred=true".to_string(),
+        ),
         "symbol" => Some(symbol_resource_uri_from_node_id(&sample_node_id())),
         "lineage" => Some("prism://lineage/lineage%3Ademo%3A%3Amain?limit=5".to_string()),
         "task" => Some(task_resource_uri("task:demo-main")),
@@ -147,7 +141,7 @@ fn capabilities_payload_example() -> Value {
         }],
         "resourceTemplates": [{
             "name": "PRISM Search",
-            "uriTemplate": "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&includeInferred={includeInferred}",
+            "uriTemplate": "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&includeInferred={includeInferred}",
             "mimeType": "application/json",
             "description": "Read structured search results and diagnostics for a query.",
             "exampleUri": resource_example_uri("search"),
@@ -187,6 +181,9 @@ fn search_payload_example() -> Value {
         "ownerKind": "read",
         "kind": "function",
         "path": "src",
+        "pathMode": "exact",
+        "structuredPath": "workspace",
+        "topLevelOnly": true,
         "includeInferred": true,
         "suggestedReads": [sample_owner_candidate()],
         "results": [sample_symbol()],
@@ -348,7 +345,7 @@ fn resource_schema_catalog_payload_example() -> Value {
         "schemas": [{
             "resourceKind": "search",
             "schemaUri": schema_resource_uri("search"),
-            "resourceUri": "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&includeInferred={includeInferred}",
+            "resourceUri": "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&includeInferred={includeInferred}",
             "exampleUri": resource_example_uri("search"),
             "description": "Schema for browseable search results and diagnostics."
         }],

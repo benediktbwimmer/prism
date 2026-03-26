@@ -322,6 +322,9 @@ pub(crate) fn search_resource_uri_with_options(
     owner_kind: Option<&str>,
     kind: Option<&str>,
     path: Option<&str>,
+    path_mode: Option<&str>,
+    structured_path: Option<&str>,
+    top_level_only: Option<bool>,
     include_inferred: Option<bool>,
 ) -> String {
     let mut uri = search_resource_uri(query);
@@ -340,6 +343,18 @@ pub(crate) fn search_resource_uri_with_options(
     }
     if let Some(path) = path.filter(|value| !value.is_empty()) {
         params.push(format!("path={}", percent_encode_component(path)));
+    }
+    if let Some(path_mode) = path_mode.filter(|value| !value.is_empty()) {
+        params.push(format!("pathMode={}", percent_encode_component(path_mode)));
+    }
+    if let Some(structured_path) = structured_path.filter(|value| !value.is_empty()) {
+        params.push(format!(
+            "structuredPath={}",
+            percent_encode_component(structured_path)
+        ));
+    }
+    if let Some(top_level_only) = top_level_only {
+        params.push(format!("topLevelOnly={top_level_only}"));
     }
     if let Some(include_inferred) = include_inferred {
         params.push(format!("includeInferred={include_inferred}"));
@@ -530,10 +545,23 @@ pub(crate) fn search_resource_view_link_with_options(
     owner_kind: Option<&str>,
     kind: Option<&str>,
     path: Option<&str>,
+    path_mode: Option<&str>,
+    structured_path: Option<&str>,
+    top_level_only: Option<bool>,
     include_inferred: Option<bool>,
 ) -> ResourceLinkView {
     resource_link_view(
-        search_resource_uri_with_options(query, strategy, owner_kind, kind, path, include_inferred),
+        search_resource_uri_with_options(
+            query,
+            strategy,
+            owner_kind,
+            kind,
+            path,
+            path_mode,
+            structured_path,
+            top_level_only,
+            include_inferred,
+        ),
         format!("PRISM Search: {query}"),
         "Structured search results and diagnostics for this query",
     )
