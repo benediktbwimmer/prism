@@ -31,6 +31,7 @@ mod memory_metadata;
 mod process_lifecycle;
 mod proxy_server;
 mod query_helpers;
+mod query_log;
 mod query_runtime;
 mod query_types;
 mod resource_schemas;
@@ -59,6 +60,7 @@ pub use logging::{init_logging, log_process_start, log_top_level_error};
 use memory_metadata::*;
 pub use process_lifecycle::maybe_daemonize_process;
 use query_helpers::*;
+use query_log::*;
 use query_runtime::*;
 use query_types::*;
 use resource_schemas::*;
@@ -314,6 +316,7 @@ struct QueryHost {
     prism: Arc<Prism>,
     session: Arc<SessionState>,
     worker: Arc<JsWorker>,
+    query_log_store: Arc<QueryLogStore>,
     workspace: Option<Arc<WorkspaceSession>>,
     loaded_workspace_revision: Arc<AtomicU64>,
     loaded_episodic_revision: Arc<AtomicU64>,
@@ -353,6 +356,7 @@ impl QueryHost {
             prism: prism.clone(),
             session,
             worker: Arc::new(JsWorker::spawn()),
+            query_log_store: Arc::new(QueryLogStore::default()),
             workspace: None,
             loaded_workspace_revision: Arc::new(AtomicU64::new(0)),
             loaded_episodic_revision: Arc::new(AtomicU64::new(0)),
@@ -404,6 +408,7 @@ impl QueryHost {
             prism,
             session,
             worker: Arc::new(JsWorker::spawn()),
+            query_log_store: Arc::new(QueryLogStore::default()),
             workspace: Some(workspace),
             loaded_workspace_revision: Arc::new(AtomicU64::new(workspace_revision)),
             loaded_episodic_revision: Arc::new(AtomicU64::new(episodic_revision)),

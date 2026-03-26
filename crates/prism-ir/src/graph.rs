@@ -22,6 +22,7 @@ pub enum NodeKind {
     TypeAlias,
     MarkdownHeading,
     JsonKey,
+    TomlKey,
     YamlKey,
 }
 
@@ -42,6 +43,7 @@ impl fmt::Display for NodeKind {
             NodeKind::TypeAlias => "type-alias",
             NodeKind::MarkdownHeading => "markdown-heading",
             NodeKind::JsonKey => "json-key",
+            NodeKind::TomlKey => "toml-key",
             NodeKind::YamlKey => "yaml-key",
         };
         f.write_str(label)

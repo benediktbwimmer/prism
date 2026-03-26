@@ -51,6 +51,22 @@ pub(crate) struct SearchTextArgs {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct QueryLogArgs {
+    pub(crate) limit: Option<usize>,
+    pub(crate) since: Option<u64>,
+    pub(crate) target: Option<String>,
+    pub(crate) operation: Option<String>,
+    pub(crate) task_id: Option<String>,
+    pub(crate) min_duration_ms: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct QueryTraceArgs {
+    pub(crate) id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct DiscoveryTargetArgs {
     pub(crate) id: NodeIdInput,
     pub(crate) limit: Option<usize>,
@@ -499,6 +515,7 @@ pub(crate) fn parse_node_kind(value: &str) -> Result<NodeKind> {
         "typealias" | "type-alias" => NodeKind::TypeAlias,
         "markdownheading" | "markdown-heading" => NodeKind::MarkdownHeading,
         "jsonkey" | "json-key" => NodeKind::JsonKey,
+        "tomlkey" | "toml-key" => NodeKind::TomlKey,
         "yamlkey" | "yaml-key" => NodeKind::YamlKey,
         other => return Err(anyhow!("unknown node kind `{other}`")),
     };

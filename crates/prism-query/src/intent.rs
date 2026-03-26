@@ -88,6 +88,10 @@ impl Prism {
 fn is_intent_source(node: &NodeId) -> bool {
     matches!(
         node.kind,
-        NodeKind::Document | NodeKind::MarkdownHeading | NodeKind::JsonKey | NodeKind::YamlKey
+        NodeKind::Document
+            | NodeKind::MarkdownHeading
+            | NodeKind::JsonKey
+            | NodeKind::TomlKey
+            | NodeKind::YamlKey
     )
 }

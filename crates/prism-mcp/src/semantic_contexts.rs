@@ -394,6 +394,7 @@ fn node_kind_label(kind: NodeKind) -> &'static str {
         NodeKind::TypeAlias => "type-alias",
         NodeKind::MarkdownHeading => "markdown-heading",
         NodeKind::JsonKey => "json-key",
+        NodeKind::TomlKey => "toml-key",
         NodeKind::YamlKey => "yaml-key",
     }
 }

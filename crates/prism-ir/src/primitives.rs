@@ -14,6 +14,7 @@ pub enum Language {
     Rust,
     Markdown,
     Json,
+    Toml,
     Yaml,
     Unknown,
 }

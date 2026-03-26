@@ -144,7 +144,11 @@ impl QueryHost {
         self.refresh_workspace()?;
         let schema_uri = schema_resource_uri("entrypoints");
         let prism = self.current_prism();
-        let execution = QueryExecution::new(self.clone(), prism);
+        let execution = QueryExecution::new(
+            self.clone(),
+            prism,
+            self.begin_query_run("resource", "prism://entrypoints"),
+        );
         let paged = paginate_items(
             execution.entrypoints()?,
             parse_resource_page(
@@ -179,7 +183,11 @@ impl QueryHost {
         self.refresh_workspace()?;
         let schema_uri = schema_resource_uri("symbol");
         let prism = self.current_prism();
-        let execution = QueryExecution::new(self.clone(), prism.clone());
+        let execution = QueryExecution::new(
+            self.clone(),
+            prism.clone(),
+            self.begin_query_run("resource", format!("prism://symbol/{}", id.path)),
+        );
         let symbol = symbol_for(prism.as_ref(), id)?;
         let symbol = symbol_view(prism.as_ref(), &symbol)?;
         let mut discovery = discovery_bundle_view(prism.as_ref(), self.session.as_ref(), id)?;
@@ -249,7 +257,11 @@ impl QueryHost {
         self.refresh_workspace()?;
         let schema_uri = schema_resource_uri("search");
         let prism = self.current_prism();
-        let execution = QueryExecution::new(self.clone(), prism.clone());
+        let execution = QueryExecution::new(
+            self.clone(),
+            prism.clone(),
+            self.begin_query_run("resource", format!("prism://search/{query}")),
+        );
         let strategy = parse_resource_query_param(uri, "strategy")
             .filter(|value| !value.is_empty())
             .unwrap_or_else(|| "direct".to_string());

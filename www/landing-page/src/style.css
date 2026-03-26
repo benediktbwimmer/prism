@@ -457,8 +457,10 @@ a {
 }
 
 .testimonial-grid {
-  display: flex;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
+  align-items: stretch;
 }
 
 .testimonial-card {
@@ -467,7 +469,8 @@ a {
   align-items: flex-start;
   background: rgba(0, 240, 255, 0.03);
   border-left: 4px solid var(--accent-cyan);
-  max-width: 800px;
+  max-width: none;
+  height: 100%;
 }
 
 .agent-avatar {
@@ -563,4 +566,5 @@ footer {
   .hero-title { font-size: 3rem; }
   .comparison-grid { grid-template-columns: 1fr; }
   .navbar { padding: 1.2rem 2rem; }
+  .testimonial-card { flex-direction: column; }
 }

@@ -30,10 +30,11 @@ use crate::{
     AnchorListArgs, CallGraphArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs,
     DiscoveryTargetArgs, EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs,
     LimitArgs, MemoryOutcomeArgs, MemoryRecallArgs, OwnerLookupArgs, PendingReviewsArgs,
-    PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage, SearchArgs, SearchTextArgs,
-    SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskJournalArgs,
-    TaskTargetArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
+    PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun,
+    QueryTraceArgs, SearchArgs, SearchTextArgs, SimulateClaimArgs, SourceExcerptArgs,
+    SymbolQueryArgs, SymbolTargetArgs, TaskJournalArgs, TaskTargetArgs, WhereUsedArgs,
+    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
 };
 
 impl QueryHost {
@@ -45,56 +46,147 @@ impl QueryHost {
 
     #[cfg(test)]
     pub(crate) fn symbol_query(&self, query: &str) -> Result<QueryEnvelope> {
-        self.refresh_workspace()?;
-        let execution = QueryExecution::new(self.clone(), self.current_prism());
-        let result = serde_json::to_value(execution.best_symbol(query)?)?;
-        Ok(QueryEnvelope {
-            result,
-            diagnostics: execution.diagnostics(),
-        })
+        let query_run = self.begin_query_run("symbolQuery", format!("symbol({query})"));
+        let mut execution = None;
+        match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize)> {
+            self.refresh_workspace()?;
+            let created =
+                QueryExecution::new(self.clone(), self.current_prism(), query_run.clone());
+            execution = Some(created.clone());
+            let result = serde_json::to_value(created.best_symbol(query)?)?;
+            let diagnostics = created.diagnostics();
+            let json_bytes = serde_json::to_vec(&result)?.len();
+            Ok((result, diagnostics, json_bytes))
+        })() {
+            Ok((result, diagnostics, json_bytes)) => {
+                query_run.finish_success(
+                    self.query_log_store.as_ref(),
+                    &result,
+                    diagnostics.clone(),
+                    json_bytes,
+                    false,
+                );
+                Ok(QueryEnvelope {
+                    result,
+                    diagnostics,
+                })
+            }
+            Err(error) => {
+                query_run.finish_error(
+                    self.query_log_store.as_ref(),
+                    execution
+                        .as_ref()
+                        .map(QueryExecution::diagnostics)
+                        .unwrap_or_default(),
+                    error.to_string(),
+                );
+                Err(error)
+            }
+        }
     }
 
     #[cfg(test)]
     pub(crate) fn search_query(&self, args: SearchArgs) -> Result<QueryEnvelope> {
-        self.refresh_workspace()?;
-        let execution = QueryExecution::new(self.clone(), self.current_prism());
-        let result = serde_json::to_value(execution.search(args)?)?;
-        Ok(QueryEnvelope {
-            result,
-            diagnostics: execution.diagnostics(),
-        })
+        let query_run = self.begin_query_run("searchQuery", format!("search({})", args.query));
+        let mut execution = None;
+        match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize)> {
+            self.refresh_workspace()?;
+            let created =
+                QueryExecution::new(self.clone(), self.current_prism(), query_run.clone());
+            execution = Some(created.clone());
+            let result = serde_json::to_value(created.search(args)?)?;
+            let diagnostics = created.diagnostics();
+            let json_bytes = serde_json::to_vec(&result)?.len();
+            Ok((result, diagnostics, json_bytes))
+        })() {
+            Ok((result, diagnostics, json_bytes)) => {
+                query_run.finish_success(
+                    self.query_log_store.as_ref(),
+                    &result,
+                    diagnostics.clone(),
+                    json_bytes,
+                    false,
+                );
+                Ok(QueryEnvelope {
+                    result,
+                    diagnostics,
+                })
+            }
+            Err(error) => {
+                query_run.finish_error(
+                    self.query_log_store.as_ref(),
+                    execution
+                        .as_ref()
+                        .map(QueryExecution::diagnostics)
+                        .unwrap_or_default(),
+                    error.to_string(),
+                );
+                Err(error)
+            }
+        }
     }
 
     fn execute_typescript(&self, code: &str) -> Result<QueryEnvelope> {
-        self.refresh_workspace()?;
-        let source = format!(
-            "(function() {{\n  try {{\n    const __prismUserQuery = () => {{\n{}\n    }};\n    const __prismResult = __prismUserQuery();\n    return __prismResult === undefined ? \"null\" : JSON.stringify(__prismResult);\n  }} catch (error) {{\n    const __prismMessage = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : error && typeof error === \"object\" && \"message\" in error && error.message\n        ? String(error.message)\n        : String(error);\n    throw new Error(__prismMessage);\n  }}\n}})();\n",
-            code
-        );
-        let transpiled = js_runtime::transpile_typescript(&source)?;
-        let execution = QueryExecution::new(self.clone(), self.current_prism());
-        let raw_result = self.worker.execute(transpiled, execution.clone())?;
-        let mut result =
-            serde_json::from_str(&raw_result).context("failed to decode query result JSON")?;
-        let limits = self.session.limits();
-        if raw_result.len() > limits.max_output_json_bytes {
-            execution.push_diagnostic(
-                "result_truncated",
-                format!(
-                    "Query output exceeded the {} byte session cap.",
-                    limits.max_output_json_bytes
-                ),
-                Some(json!({
-                    "applied": limits.max_output_json_bytes,
-                    "observed": raw_result.len(),
-                })),
+        let query_run = self.begin_query_run("typescript", code);
+        let mut execution = None;
+        match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize, bool)> {
+            self.refresh_workspace()?;
+            let source = format!(
+                "(function() {{\n  try {{\n    const __prismUserQuery = () => {{\n{}\n    }};\n    const __prismResult = __prismUserQuery();\n    return __prismResult === undefined ? \"null\" : JSON.stringify(__prismResult);\n  }} catch (error) {{\n    const __prismMessage = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : error && typeof error === \"object\" && \"message\" in error && error.message\n        ? String(error.message)\n        : String(error);\n    throw new Error(__prismMessage);\n  }}\n}})();\n",
+                code
             );
-            result = Value::Null;
+            let transpiled = js_runtime::transpile_typescript(&source)?;
+            let created =
+                QueryExecution::new(self.clone(), self.current_prism(), query_run.clone());
+            execution = Some(created.clone());
+            let raw_result = self.worker.execute(transpiled, created.clone())?;
+            let mut result =
+                serde_json::from_str(&raw_result).context("failed to decode query result JSON")?;
+            let mut output_cap_hit = false;
+            let limits = self.session.limits();
+            if raw_result.len() > limits.max_output_json_bytes {
+                created.push_diagnostic(
+                    "result_truncated",
+                    format!(
+                        "Query output exceeded the {} byte session cap.",
+                        limits.max_output_json_bytes
+                    ),
+                    Some(json!({
+                        "applied": limits.max_output_json_bytes,
+                        "observed": raw_result.len(),
+                    })),
+                );
+                result = Value::Null;
+                output_cap_hit = true;
+            }
+            let diagnostics = created.diagnostics();
+            Ok((result, diagnostics, raw_result.len(), output_cap_hit))
+        })() {
+            Ok((result, diagnostics, json_bytes, output_cap_hit)) => {
+                query_run.finish_success(
+                    self.query_log_store.as_ref(),
+                    &result,
+                    diagnostics.clone(),
+                    json_bytes,
+                    output_cap_hit,
+                );
+                Ok(QueryEnvelope {
+                    result,
+                    diagnostics,
+                })
+            }
+            Err(error) => {
+                query_run.finish_error(
+                    self.query_log_store.as_ref(),
+                    execution
+                        .as_ref()
+                        .map(QueryExecution::diagnostics)
+                        .unwrap_or_default(),
+                    error.to_string(),
+                );
+                Err(error)
+            }
         }
-        Ok(QueryEnvelope {
-            result,
-            diagnostics: execution.diagnostics(),
-        })
     }
 
     pub(crate) fn co_change_neighbors_value(&self, id: &NodeId) -> Result<Value> {
@@ -114,14 +206,16 @@ impl QueryHost {
 pub(crate) struct QueryExecution {
     host: QueryHost,
     prism: Arc<Prism>,
+    query_run: QueryRun,
     diagnostics: Arc<Mutex<Vec<QueryDiagnostic>>>,
 }
 
 impl QueryExecution {
-    pub(crate) fn new(host: QueryHost, prism: Arc<Prism>) -> Self {
+    pub(crate) fn new(host: QueryHost, prism: Arc<Prism>, query_run: QueryRun) -> Self {
         Self {
             host,
             prism,
+            query_run,
             diagnostics: Arc::new(Mutex::new(Vec::new())),
         }
     }
@@ -153,15 +247,17 @@ impl QueryExecution {
     }
 
     pub(crate) fn dispatch(&self, operation: &str, args_json: &str) -> Result<Value> {
+        let phase_started = std::time::Instant::now();
         let args = if args_json.trim().is_empty() {
             Value::Object(Default::default())
         } else {
             serde_json::from_str(args_json).context("failed to parse host-call arguments")?
         };
+        let phase_args = args.clone();
 
         self.ensure_operation_enabled(operation)?;
 
-        match operation {
+        let result = match operation {
             "symbol" => {
                 let args: SymbolQueryArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.best_symbol(&args.query)?)?)
@@ -177,6 +273,26 @@ impl QueryExecution {
             "searchText" => {
                 let args: SearchTextArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.search_text(args)?)?)
+            }
+            "queryLog" => {
+                let args: QueryLogArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.host.query_log_entries(args))?)
+            }
+            "slowQueries" => {
+                let args: QueryLogArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.host.slow_query_entries(args))?)
+            }
+            "queryTrace" => {
+                let args: QueryTraceArgs = serde_json::from_value(args)?;
+                let trace = self.host.query_trace_view(&args.id);
+                if trace.is_none() {
+                    self.push_diagnostic(
+                        "anchor_unresolved",
+                        format!("No query trace matched `{}`.", args.id),
+                        Some(json!({ "queryId": args.id })),
+                    );
+                }
+                Ok(serde_json::to_value(trace)?)
             }
             "entrypoints" => Ok(serde_json::to_value(self.entrypoints()?)?),
             "plan" => {
@@ -751,7 +867,15 @@ impl QueryExecution {
                 );
                 Err(anyhow!("unsupported host operation `{other}`"))
             }
-        }
+        };
+        self.query_run.record_phase(
+            operation,
+            &phase_args,
+            phase_started.elapsed(),
+            result.is_ok(),
+            result.as_ref().err().map(ToString::to_string),
+        );
+        result
     }
 
     fn ensure_operation_enabled(&self, operation: &str) -> Result<()> {

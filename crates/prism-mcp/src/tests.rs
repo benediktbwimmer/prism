@@ -426,7 +426,11 @@ fn coordination_mutations_flow_through_query_runtime() {
         .unwrap();
     assert!(artifact.artifact_id.is_some());
 
-    let execution = QueryExecution::new(host.clone(), host.current_prism());
+    let execution = QueryExecution::new(
+        host.clone(),
+        host.current_prism(),
+        host.begin_query_run("test", "dispatch plan"),
+    );
     let plan_value = execution
         .dispatch("plan", r#"{ "planId": "plan:1" }"#)
         .unwrap();
@@ -562,7 +566,11 @@ fn mcp_exposes_policy_violations_through_prism_query() {
         .unwrap();
     assert!(rejected.rejected);
 
-    let execution = QueryExecution::new(host.clone(), host.current_prism());
+    let execution = QueryExecution::new(
+        host.clone(),
+        host.current_prism(),
+        host.begin_query_run("test", "dispatch policy violations"),
+    );
     let violations = execution
         .dispatch(
             "policyViolations",
@@ -1072,7 +1080,11 @@ fn simple_mode_disables_coordination_host_paths() {
         .to_string()
         .contains("coordination workflow mutations are disabled"));
 
-    let execution = QueryExecution::new(host.clone(), host.current_prism());
+    let execution = QueryExecution::new(
+        host.clone(),
+        host.current_prism(),
+        host.begin_query_run("test", "dispatch simple-mode plan"),
+    );
     let error = execution
         .dispatch("plan", r#"{ "planId": "plan:1" }"#)
         .unwrap_err();
@@ -1474,7 +1486,11 @@ fn drift_candidates_and_task_intent_flow_through_prism_query_reads() {
         .unwrap();
     let task_id = task.state["id"].as_str().unwrap().to_string();
 
-    let execution = QueryExecution::new(host.clone(), host.current_prism());
+    let execution = QueryExecution::new(
+        host.clone(),
+        host.current_prism(),
+        host.begin_query_run("test", "dispatch drift candidates"),
+    );
     let drift_value = execution.dispatch("driftCandidates", r#"{}"#).unwrap();
     let intent_value = execution
         .dispatch("taskIntent", &format!(r#"{{ "taskId": "{task_id}" }}"#))
@@ -2925,6 +2941,160 @@ return {
 }
 
 #[test]
+fn prism_query_log_exposes_recent_slow_and_trace_views() {
+    let root = temp_workspace();
+    write_long_excerpt_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    host.execute(
+        r#"
+return prism.searchText("read context", {
+  path: "src/recall.rs",
+  limit: 1,
+  contextLines: 0,
+});
+"#,
+        QueryLanguage::Ts,
+    )
+    .expect("text search query should succeed");
+
+    host.execute(
+        r#"
+return prism.file("src/recall.rs").around({
+  line: 8,
+  before: 1,
+  after: 1,
+});
+"#,
+        QueryLanguage::Ts,
+    )
+    .expect("file slice query should succeed");
+
+    let result = host
+        .execute(
+            r#"
+const recent = prism.queryLog({ limit: 5, target: "src/recall.rs" });
+const slow = prism.slowQueries({
+  limit: 5,
+  minDurationMs: 0,
+  target: "src/recall.rs",
+});
+return {
+  recent,
+  slow,
+  trace: recent[0] ? prism.queryTrace(recent[0].id) : null,
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query log query should succeed");
+
+    let recent = result.result["recent"]
+        .as_array()
+        .expect("recent query log");
+    assert_eq!(recent.len(), 2);
+    assert_eq!(recent[0]["kind"], "typescript");
+    assert_eq!(recent[0]["success"], true);
+    assert!(recent[0]["sessionId"]
+        .as_str()
+        .unwrap_or_default()
+        .starts_with("session:"));
+    assert_eq!(recent[0]["operations"][0], "fileAround");
+    let touched = recent[0]["touched"].as_array().expect("touched values");
+    assert!(touched.iter().any(|value| value == "src/recall.rs"));
+    assert!(
+        recent[0]["result"]["jsonBytes"]
+            .as_u64()
+            .expect("json bytes should be present")
+            > 0
+    );
+
+    let slow = result.result["slow"].as_array().expect("slow query log");
+    assert_eq!(slow.len(), 2);
+    assert!(
+        slow[0]["durationMs"].as_u64().unwrap_or_default()
+            >= slow[1]["durationMs"].as_u64().unwrap_or_default()
+    );
+
+    assert_eq!(result.result["trace"]["entry"]["id"], recent[0]["id"]);
+    assert_eq!(
+        result.result["trace"]["entry"]["operations"][0],
+        "fileAround"
+    );
+    let phases = result.result["trace"]["phases"]
+        .as_array()
+        .expect("trace phases");
+    assert_eq!(phases.len(), 1);
+    assert_eq!(phases[0]["operation"], "fileAround");
+    assert_eq!(phases[0]["success"], true);
+}
+
+#[test]
+fn prism_search_surfaces_toml_config_keys_through_normal_queries() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(root.join("src/main.rs"), "fn main() {}\n").unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        r#"[package]
+name = "demo"
+version = "0.1.0"
+
+[workspace]
+members = ["crates/alpha"]
+
+[dependencies]
+serde = "1.0"
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .execute(
+            r#"
+const workspaceKey = prism.search("workspace", {
+  path: "Cargo.toml",
+  kind: "toml-key",
+  limit: 1,
+})[0];
+const membersKey = prism.search("members", {
+  path: "Cargo.toml",
+  kind: "toml-key",
+  limit: 1,
+})[0];
+const serdeKey = prism.search("serde", {
+  path: "Cargo.toml",
+  kind: "toml-key",
+  limit: 1,
+})[0];
+return {
+  workspaceKey,
+  membersKey,
+  serdeKey,
+  workspaceContains: workspaceKey?.relations().contains ?? [],
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("toml query should succeed");
+
+    assert_eq!(result.result["workspaceKey"]["name"], "workspace");
+    assert!(result.result["workspaceKey"]["filePath"]
+        .as_str()
+        .unwrap_or_default()
+        .ends_with("/Cargo.toml"));
+    assert_eq!(result.result["membersKey"]["name"], "members");
+    assert_eq!(result.result["serdeKey"]["name"], "serde");
+    let workspace_contains = result.result["workspaceContains"]
+        .as_array()
+        .expect("workspace contains");
+    assert!(workspace_contains
+        .iter()
+        .any(|value| value["name"] == "members"));
+}
+
+#[test]
 fn markdown_heading_symbols_cover_their_section_body() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("docs")).unwrap();
@@ -3549,7 +3719,11 @@ return prism.diagnostics();
 #[test]
 fn unknown_host_operations_return_actionable_diagnostics() {
     let host = host_with_node(demo_node());
-    let execution = QueryExecution::new(host.clone(), host.current_prism());
+    let execution = QueryExecution::new(
+        host.clone(),
+        host.current_prism(),
+        host.begin_query_run("test", "dispatch unknown operation"),
+    );
 
     let error = execution
         .dispatch("bogusOperation", r#"{}"#)

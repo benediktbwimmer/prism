@@ -28,7 +28,8 @@ pub(super) fn encode_node_kind(kind: NodeKind) -> i64 {
         NodeKind::TypeAlias => 11,
         NodeKind::MarkdownHeading => 12,
         NodeKind::JsonKey => 13,
-        NodeKind::YamlKey => 14,
+        NodeKind::TomlKey => 14,
+        NodeKind::YamlKey => 15,
     }
 }
 
@@ -48,7 +49,8 @@ pub(super) fn decode_node_kind(value: i64) -> rusqlite::Result<NodeKind> {
         11 => NodeKind::TypeAlias,
         12 => NodeKind::MarkdownHeading,
         13 => NodeKind::JsonKey,
-        14 => NodeKind::YamlKey,
+        14 => NodeKind::TomlKey,
+        15 => NodeKind::YamlKey,
         other => {
             return Err(from_sql_conversion_error(format!(
                 "invalid node kind: {other}"
@@ -97,8 +99,9 @@ pub(super) fn encode_language(language: Language) -> i64 {
         Language::Rust => 0,
         Language::Markdown => 1,
         Language::Json => 2,
-        Language::Yaml => 3,
-        Language::Unknown => 4,
+        Language::Toml => 3,
+        Language::Yaml => 4,
+        Language::Unknown => 5,
     }
 }
 
@@ -107,8 +110,9 @@ pub(super) fn decode_language(value: i64) -> rusqlite::Result<Language> {
         0 => Language::Rust,
         1 => Language::Markdown,
         2 => Language::Json,
-        3 => Language::Yaml,
-        4 => Language::Unknown,
+        3 => Language::Toml,
+        4 => Language::Yaml,
+        5 => Language::Unknown,
         other => {
             return Err(from_sql_conversion_error(format!(
                 "invalid language: {other}"

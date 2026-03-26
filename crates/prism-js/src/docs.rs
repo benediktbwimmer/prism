@@ -105,6 +105,15 @@ type CuratorJobQueryOptions = {
   limit?: number;
 };
 
+type QueryLogOptions = {
+  limit?: number;
+  since?: number;
+  target?: string;
+  operation?: string;
+  taskId?: string;
+  minDurationMs?: number;
+};
+
 type PrismApi = {
   symbol(query: string): SymbolView | null;
   symbols(query: string): SymbolView[];
@@ -168,6 +177,9 @@ type PrismApi = {
     jobs(options?: CuratorJobQueryOptions): CuratorJobView[];
     job(id: string): CuratorJobView | null;
   };
+  queryLog(options?: QueryLogOptions): QueryLogEntryView[];
+  slowQueries(options?: QueryLogOptions): QueryLogEntryView[];
+  queryTrace(id: string): QueryTraceView | null;
   diagnostics(): QueryDiagnostic[];
 };
 
@@ -496,6 +508,47 @@ type TaskJournalView = {
   diagnostics: QueryDiagnostic[];
   relatedMemory: ScoredMemoryView[];
   recentEvents: OutcomeEvent[];
+};
+
+type QueryResultSummaryView = {
+  kind: string;
+  jsonBytes: number;
+  itemCount?: number;
+  truncated: boolean;
+  outputCapHit: boolean;
+  resultCapHit: boolean;
+};
+
+type QueryPhaseView = {
+  operation: string;
+  startedAt: number;
+  durationMs: number;
+  argsSummary?: unknown;
+  touched: string[];
+  success: boolean;
+  error?: string;
+};
+
+type QueryLogEntryView = {
+  id: string;
+  kind: string;
+  querySummary: string;
+  queryText: string;
+  startedAt: number;
+  durationMs: number;
+  sessionId: string;
+  taskId?: string;
+  success: boolean;
+  error?: string;
+  operations: string[];
+  touched: string[];
+  diagnostics: QueryDiagnostic[];
+  result: QueryResultSummaryView;
+};
+
+type QueryTraceView = {
+  entry: QueryLogEntryView;
+  phases: QueryPhaseView[];
 };
 
 type ArtifactRiskView = {
@@ -872,6 +925,17 @@ return {
 };
 ```
 
+### 7a. Inspect recent query behavior through PRISM itself
+
+```ts
+const recent = prism.queryLog({ limit: 5 });
+const trace = recent[0] ? prism.queryTrace(recent[0].id) : null;
+return {
+  recent,
+  trace,
+};
+```
+
 ### 8. Narrow by path fragment
 
 ```ts
@@ -879,6 +943,16 @@ return prism.search("config", {
   kind: "struct",
   path: "src/settings",
   limit: 10,
+});
+```
+
+### 8a. Search structured Cargo.toml keys without leaving PRISM
+
+```ts
+return prism.search("members", {
+  path: "Cargo.toml",
+  kind: "toml-key",
+  limit: 5,
 });
 ```
 
@@ -1143,6 +1217,8 @@ return prism.claimPreview({
 - Available now: owner-biased discovery helpers through `prism.owners(...)`, `prism.nextReads(...)`, `prism.whereUsed(...)`, `prism.entrypointsFor(...)`, behavioral `prism.search(...)`, `prism.readContext(...)`, `prism.editContext(...)`, `prism.validationContext(...)`, `prism.recentChangeContext(...)`, and `implementationFor(..., { mode: "owners" })` without changing the direct primitive semantics.
 - Available now: bounded workspace file reads through `prism.file(path).read(...)` and `prism.file(path).around(...)` for exact line-range and around-line inspection without leaving the PRISM query surface.
 - Available now: bounded workspace text search through `prism.searchText(...)` with regex support, path/glob filters, exact match locations, and capped snippets.
+- Available now: non-symbol repo coverage for markdown headings plus structured JSON, YAML, and TOML config keys through the normal PRISM search and relation surface.
+- Available now: a first-class query log through `prism.queryLog(...)`, `prism.slowQueries(...)`, and `prism.queryTrace(id)` with duration, diagnostics, truncation metadata, and phase breakdowns.
 - Available now: spec-to-code clustering and drift explanations that group direct links with read/write/persistence/test owners for spec-like symbols.
 - Available now: session/workspace memory recall for anchored memory entries, filtered outcome history, and promoted curator memories.
 - Available now: workspace-backed curator job inspection through `prism.curator.jobs()` and `prism.curator.job()`.

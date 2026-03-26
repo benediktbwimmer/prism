@@ -539,6 +539,55 @@ pub struct RecentChangeContextView {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct QueryResultSummaryView {
+    pub kind: String,
+    pub json_bytes: usize,
+    pub item_count: Option<usize>,
+    pub truncated: bool,
+    pub output_cap_hit: bool,
+    pub result_cap_hit: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct QueryPhaseView {
+    pub operation: String,
+    pub started_at: u64,
+    pub duration_ms: u64,
+    pub args_summary: Option<Value>,
+    pub touched: Vec<String>,
+    pub success: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct QueryLogEntryView {
+    pub id: String,
+    pub kind: String,
+    pub query_summary: String,
+    pub query_text: String,
+    pub started_at: u64,
+    pub duration_ms: u64,
+    pub session_id: String,
+    pub task_id: Option<String>,
+    pub success: bool,
+    pub error: Option<String>,
+    pub operations: Vec<String>,
+    pub touched: Vec<String>,
+    pub diagnostics: Vec<QueryDiagnostic>,
+    pub result: QueryResultSummaryView,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct QueryTraceView {
+    pub entry: QueryLogEntryView,
+    pub phases: Vec<QueryPhaseView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct QueryEnvelope {
     pub result: Value,
     pub diagnostics: Vec<QueryDiagnostic>,

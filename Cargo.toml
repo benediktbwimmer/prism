@@ -12,6 +12,7 @@ members = [
     "crates/prism-lang-json",
     "crates/prism-lang-markdown",
     "crates/prism-lang-rust",
+    "crates/prism-lang-toml",
     "crates/prism-lang-yaml",
     "crates/prism-mcp",
     "crates/prism-parser",

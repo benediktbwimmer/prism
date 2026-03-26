@@ -32,6 +32,7 @@ pub fn parse_node_kind_filter(value: Option<&str>) -> Result<Option<NodeKind>> {
         "typealias" | "type-alias" => NodeKind::TypeAlias,
         "markdownheading" | "markdown-heading" => NodeKind::MarkdownHeading,
         "jsonkey" | "json-key" => NodeKind::JsonKey,
+        "tomlkey" | "toml-key" => NodeKind::TomlKey,
         "yamlkey" | "yaml-key" => NodeKind::YamlKey,
         other => {
             bail!("unknown node kind `{other}`");

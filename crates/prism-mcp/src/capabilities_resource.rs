@@ -363,6 +363,24 @@ fn query_method_specs() -> Vec<(
             "Read artifact risk and missing validations.",
         ),
         (
+            "queryLog",
+            "core",
+            None,
+            "List recent PRISM queries with timing, diagnostics, and truncation metadata.",
+        ),
+        (
+            "slowQueries",
+            "core",
+            None,
+            "List slow PRISM queries with duration-based filtering and sorting.",
+        ),
+        (
+            "queryTrace",
+            "core",
+            None,
+            "Inspect the phase-by-phase trace for one recorded PRISM query.",
+        ),
+        (
             "diagnostics",
             "core",
             None,

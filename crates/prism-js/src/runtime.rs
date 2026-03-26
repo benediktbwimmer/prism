@@ -619,6 +619,32 @@ globalThis.prism = Object.freeze({
       return __prismHost("curatorJob", { job_id: id });
     },
   }),
+  queryLog(options = {}) {
+    return __prismHost("queryLog", {
+      limit: options?.limit,
+      since: options?.since,
+      target: options?.target,
+      operation: options?.operation,
+      taskId: options?.taskId ?? options?.task_id,
+      minDurationMs: options?.minDurationMs ?? options?.min_duration_ms,
+    });
+  },
+  slowQueries(options = {}) {
+    return __prismHost("slowQueries", {
+      limit: options?.limit,
+      since: options?.since,
+      target: options?.target,
+      operation: options?.operation,
+      taskId: options?.taskId ?? options?.task_id,
+      minDurationMs: options?.minDurationMs ?? options?.min_duration_ms,
+    });
+  },
+  queryTrace(id) {
+    if (typeof id !== "string" || id.length === 0) {
+      return null;
+    }
+    return __prismHost("queryTrace", { id });
+  },
   diagnostics() {
     return __prismHost("diagnostics", {});
   },

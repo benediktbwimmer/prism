@@ -19,10 +19,17 @@ fn api_reference_mentions_primary_tool() {
         "searchText(query: string, options?: SearchTextOptions): TextSearchMatchView[];"
     ));
     assert!(docs.contains("file(path: string): FileView;"));
+    assert!(docs.contains("queryLog(options?: QueryLogOptions): QueryLogEntryView[];"));
+    assert!(docs.contains("slowQueries(options?: QueryLogOptions): QueryLogEntryView[];"));
+    assert!(docs.contains("queryTrace(id: string): QueryTraceView | null;"));
     assert!(docs.contains("editSlice(options?: EditSliceOptions)"));
     assert!(docs.contains("relativeFocus"));
     assert!(docs.contains("type SearchTextOptions = {"));
     assert!(docs.contains("type TextSearchMatchView = {"));
+    assert!(docs.contains("type QueryLogOptions = {"));
+    assert!(docs.contains("type QueryLogEntryView = {"));
+    assert!(docs.contains("type QueryTraceView = {"));
+    assert!(docs.contains("kind: \"toml-key\""));
     assert!(docs.contains("read(options?: FileReadOptions): SourceExcerptView;"));
     assert!(docs.contains("around(options: FileAroundOptions): SourceSliceView;"));
     assert!(docs.contains("prism.memory.recall"));
@@ -53,6 +60,9 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("recentChangeContext(target)"));
     assert!(prelude.contains("searchText(query, options = {})"));
     assert!(prelude.contains("file(path)"));
+    assert!(prelude.contains("queryLog(options = {})"));
+    assert!(prelude.contains("slowQueries(options = {})"));
+    assert!(prelude.contains("queryTrace(id)"));
     assert!(prelude.contains("editSlice(options = {})"));
     assert!(prelude.contains("nextReads(target, options = {})"));
     assert!(prelude.contains("whereUsed(target, options = {})"));

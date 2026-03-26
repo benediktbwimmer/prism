@@ -933,7 +933,11 @@ fn matches_path_filter(prism: &Prism, node: &prism_ir::Node, path_filter: &str) 
 fn is_spec_like(id: &NodeId) -> bool {
     matches!(
         id.kind,
-        NodeKind::Document | NodeKind::MarkdownHeading | NodeKind::JsonKey | NodeKind::YamlKey
+        NodeKind::Document
+            | NodeKind::MarkdownHeading
+            | NodeKind::JsonKey
+            | NodeKind::TomlKey
+            | NodeKind::YamlKey
     )
 }
 

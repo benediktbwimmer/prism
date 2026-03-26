@@ -10,6 +10,7 @@ use ignore::{Walk, WalkBuilder};
 use prism_lang_json::JsonAdapter;
 use prism_lang_markdown::MarkdownAdapter;
 use prism_lang_rust::RustAdapter;
+use prism_lang_toml::TomlAdapter;
 use prism_lang_yaml::YamlAdapter;
 use prism_parser::LanguageAdapter;
 
@@ -121,6 +122,7 @@ pub(crate) fn default_adapters() -> Vec<Box<dyn LanguageAdapter>> {
         Box::new(RustAdapter),
         Box::new(MarkdownAdapter),
         Box::new(JsonAdapter),
+        Box::new(TomlAdapter),
         Box::new(YamlAdapter),
     ]
 }
@@ -155,12 +157,9 @@ pub(crate) fn workspace_walk(root: &Path) -> Walk {
 }
 
 fn is_relevant_workspace_file(path: &Path) -> bool {
-    if path.file_name().is_some_and(|name| name == "Cargo.toml") {
-        return true;
-    }
     matches!(
         path.extension().and_then(|ext| ext.to_str()),
-        Some("rs" | "md" | "json" | "yaml" | "yml")
+        Some("rs" | "md" | "json" | "toml" | "yaml" | "yml")
     )
 }
 

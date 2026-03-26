@@ -1619,6 +1619,7 @@ dependencies = [
  "prism-lang-json",
  "prism-lang-markdown",
  "prism-lang-rust",
+ "prism-lang-toml",
  "prism-lang-yaml",
  "prism-memory",
  "prism-parser",
@@ -1708,6 +1709,17 @@ dependencies = [
  "smol_str",
  "tree-sitter",
  "tree-sitter-rust",
+]
+
+[[package]]
+name = "prism-lang-toml"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "prism-ir",
+ "prism-parser",
+ "smol_str",
+ "toml",
 ]
 
 [[package]]
