@@ -27,6 +27,7 @@ mod host_resources;
 mod js_runtime;
 mod logging;
 mod memory_metadata;
+mod process_lifecycle;
 mod proxy_server;
 mod query_helpers;
 mod query_runtime;
@@ -53,6 +54,7 @@ use discovery_helpers::*;
 pub use features::{CoordinationFeatureFlag, PrismMcpFeatures};
 use js_runtime::JsWorker;
 pub use logging::{init_logging, log_process_start, log_top_level_error};
+pub use process_lifecycle::maybe_daemonize_process;
 use memory_metadata::*;
 use query_helpers::*;
 use query_runtime::*;
@@ -119,6 +121,8 @@ pub struct PrismMcpCli {
     pub http_uri_file: Option<PathBuf>,
     #[arg(long = "upstream-uri")]
     pub upstream_uri: Option<String>,
+    #[arg(long, hide = true, default_value_t = false)]
+    pub daemonize: bool,
 }
 
 impl PrismMcpCli {
@@ -153,6 +157,7 @@ impl PrismMcpCli {
         let mut args = vec![
             "--mode".to_string(),
             "daemon".to_string(),
+            "--daemonize".to_string(),
             "--root".to_string(),
             root.display().to_string(),
         ];

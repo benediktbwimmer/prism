@@ -6,9 +6,20 @@ This milestone packages the current PRISM performance audit into a prioritized e
 The goal is not to land one isolated fix, but to reduce steady-state CPU, memory, and process
 overhead across the `prism-mcp` serving path.
 
-## Audit Baseline
+## Operating Rule
 
-Observed on March 26, 2026 in `/Users/bene/code/prism`:
+Every performance slice in this milestone must improve observability along with performance.
+
+That means each meaningful optimization should leave behind at least one of:
+
+- structured phase timing
+- clearer error context
+- counters or dimensions that explain cost
+- lifecycle state that can be inspected from the CLI or daemon log
+
+## Original Audit Baseline
+
+Observed on March 26, 2026 in `/Users/bene/code/prism` before the milestone work landed:
 
 - `prism-mcp` bridge/daemon topology was active through Codex launcher configuration.
 - 21 `--mode bridge` processes were connected to a single `--mode daemon` process.
@@ -21,74 +32,112 @@ Observed on March 26, 2026 in `/Users/bene/code/prism`:
   - `projection_validation`: 11
 - The main daemon had sustained historical CPU time and periodic high instantaneous CPU.
 
+## Completed Work
+
+As of later on March 26, 2026, several high-value slices are already landed.
+
+Landed:
+
+- Request handling now separates cheap freshness checks from broader persisted-state reloads.
+- Workspace, episodic, inference, and coordination reloads are revision-aware.
+- Co-change projections are capped to a bounded top-k in memory and in SQLite.
+- SQLite is tuned for local daemon use and prunes legacy oversized co-change tables on open.
+- `prism-cli mcp` now has `status`, `start`, `stop`, `restart`, `health`, and `logs`.
+- MCP daemon/bootstrap paths now emit structured logs with phase timings and error chains.
+- Startup and indexing paths now expose enough timing data to identify dominant phases from logs
+  without external profiling.
+- The JSON parser accepts JSONC-style config files such as `tsconfig.json`.
+- Workspace traversal now honors Git ignore rules, so ignored trees such as `node_modules` are no
+  longer fingerprinted or indexed.
+- The daemon lifecycle is now self-managed in-process instead of depending on fragile shell
+  detachment.
+
+## Current Status
+
+These changes materially shifted the live profile:
+
+- The previous `node_modules/typescript/lib/*diagnosticMessages.generated.json` startup hotspot is
+  gone.
+- `pending_file_count` on this repo dropped from `204` to `150`.
+- Startup parse/update loop time dropped from about `34s` to about `0.5s`.
+- A healthy daemon now starts and stays alive under `prism-cli mcp start`.
+- Healthy daemon RSS is now on the order of a few hundred MB rather than multi-GB.
+
+## Latest Measured Baseline
+
+Observed after the landed fixes on this repo:
+
+- Healthy daemon startup completed in about `5s` to `7s` on recent runs when only a few files
+  changed.
+- A broader startup that still had to materialize and persist larger state took about `35s`.
+- After Git ignore-aware traversal:
+  - `pending_file_count`: `150`
+  - `pending_bytes`: about `1.67 MB`
+  - parse/update loop: about `0.5s`
+- Healthy daemon RSS in steady state is now roughly `200 MB` to `300 MB` on this repo.
+
+The current startup log shows the dominant remaining costs as:
+
+- derived edge resolution: about `4.5s`
+- SQLite persist/write amplification: between about `2.3s` and `29.7s`, depending on how much
+  state has to be rewritten
+
 ## Main Findings
 
-### 1. Request handling forces full workspace refresh
+### 1. Request handling used to force full workspace refresh
 
 `QueryHost::refresh_workspace()` in
-[crates/prism-mcp/src/lib.rs](/Users/bene/code/prism/crates/prism-mcp/src/lib.rs#L449)
-unconditionally calls `workspace.refresh_fs()`.
+[crates/prism-mcp/src/lib.rs](/Users/bene/code/prism/crates/prism-mcp/src/lib.rs)
+used to unconditionally reach `workspace.refresh_fs()`, and that refresh path reached
+[crates/prism-core/src/watch.rs](/Users/bene/code/prism/crates/prism-core/src/watch.rs), which
+constructed a fresh `WorkspaceIndexer` and ran `index_with_trigger()`.
 
-That refresh path reaches
-[crates/prism-core/src/watch.rs](/Users/bene/code/prism/crates/prism-core/src/watch.rs#L104),
-which constructs a fresh `WorkspaceIndexer` and runs `index_with_trigger()`. In practice this
-means normal reads and mutations can trigger full repo refresh work.
+Status:
 
-This affects:
+- Partially addressed.
+- Cheap-path and revision-aware reload work is landed.
+- Real refreshes are still more reconstructive than they should be.
 
-- session reads in [crates/prism-mcp/src/host_resources.rs](/Users/bene/code/prism/crates/prism-mcp/src/host_resources.rs#L30)
-- TypeScript query execution in [crates/prism-mcp/src/query_runtime.rs](/Users/bene/code/prism/crates/prism-mcp/src/query_runtime.rs#L65)
-- task and mutation flows in [crates/prism-mcp/src/host_mutations.rs](/Users/bene/code/prism/crates/prism-mcp/src/host_mutations.rs#L127)
+### 2. Process topology multiplies cost and confusion
 
-### 2. Process topology multiplies the cost
+The Codex launcher and bridge model still amplify memory and connection pressure, and they make
+daemon inefficiency more visible when the daemon is slow or stale.
 
-The Codex launcher in
-[scripts/prism-mcp-codex-launcher.sh](/Users/bene/code/prism/scripts/prism-mcp-codex-launcher.sh#L41)
-starts a daemon and then `exec`s a bridge process in
-[scripts/prism-mcp-codex-launcher.sh](/Users/bene/code/prism/scripts/prism-mcp-codex-launcher.sh#L67).
+Status:
 
-Bridge mode in
-[crates/prism-mcp/src/daemon_mode.rs](/Users/bene/code/prism/crates/prism-mcp/src/daemon_mode.rs#L72)
-connects to the daemon and then serves stdio indefinitely via
-[crates/prism-mcp/src/proxy_server.rs](/Users/bene/code/prism/crates/prism-mcp/src/proxy_server.rs#L52).
+- Lifecycle control is materially better.
+- Daemon startup is stable and inspectable.
+- Bridge topology and stale-client policy are still open design work, but they are no longer the
+  primary blocker.
 
-This is not itself the core CPU bug, but it amplifies memory and connection pressure and makes
-daemon inefficiency much more visible.
+### 3. Projection storage and maintenance were oversized
 
-### 3. Projection storage and memory look oversized
+`ProjectionIndex` previously stored the full long-tail co-change graph in memory and on disk, even
+though typical query sites usually ask for only a small top-k neighborhood.
 
-`ProjectionIndex` stores all co-change neighbors in memory as
-`HashMap<LineageId, Vec<CoChangeRecord>>` in
-[crates/prism-projections/src/projections.rs](/Users/bene/code/prism/crates/prism-projections/src/projections.rs#L13).
+Status:
 
-The derive path materializes the full co-change graph in
-[crates/prism-projections/src/projections.rs](/Users/bene/code/prism/crates/prism-projections/src/projections.rs#L31),
-while common query sites usually request only the top 8 neighbors, for example:
+- The largest unbounded long-tail problem is addressed by top-k capping.
+- Projection delta volume is still large enough to make persistence expensive.
 
-- [crates/prism-query/src/impact.rs](/Users/bene/code/prism/crates/prism-query/src/impact.rs#L215)
-- [crates/prism-mcp/src/semantic_contexts.rs](/Users/bene/code/prism/crates/prism-mcp/src/semantic_contexts.rs#L157)
+### 4. Persistence is still a major bottleneck
 
-The incremental update path also does linear search plus full resort on each co-change delta in
-[crates/prism-projections/src/projections.rs](/Users/bene/code/prism/crates/prism-projections/src/projections.rs#L343).
+Connection tuning is now landed, but the persistence path still performs broad rewrites and large
+delta application work.
 
-### 4. Persistence is functional but not tuned
+Status:
 
-`SqliteStore::open()` in
-[crates/prism-store/src/sqlite/mod.rs](/Users/bene/code/prism/crates/prism-store/src/sqlite/mod.rs#L20)
-opens the database and initializes schema, but there is no obvious WAL or connection tuning.
+- Connection pragmas and basic tuning are landed.
+- Persistence cost is now one of the clearest remaining startup hotspots.
 
-Refresh persistence also rewrites derived edges wholesale in
-[crates/prism-store/src/sqlite/graph_io.rs](/Users/bene/code/prism/crates/prism-store/src/sqlite/graph_io.rs#L347),
-which magnifies the cost of full refreshes.
+### 5. Workspace sessions still always bring background machinery
 
-### 5. Workspace sessions always bring background machinery
+`build_workspace_session()` still creates watcher and curator machinery for sessions by default.
 
-`build_workspace_session()` in
-[crates/prism-core/src/indexer_support.rs](/Users/bene/code/prism/crates/prism-core/src/indexer_support.rs#L44)
-always creates a watcher and curator handle for a session.
+Status:
 
-That may be correct for some modes, but it should be treated as a cost center and made explicit
-when optimizing long-lived MCP serving.
+- Still open.
+- This should be revisited after the current persistence and edge-resolution hotspots are reduced.
 
 ## Milestone Scope
 
@@ -102,38 +151,41 @@ In scope:
 - memory footprint of the long-lived daemon
 - bridge and connection overhead
 - persistence overhead in the refresh path
+- observability and instrumentation needed to make performance work explainable
 
 Out of scope for this milestone:
 
-- unrelated parser correctness changes
+- unrelated parser correctness changes beyond what is needed to keep the daemon alive
 - large feature work on new MCP APIs
 - UI-level Codex client lifecycle policy outside what PRISM can control locally
 
 ## Prioritized Work
 
-### P0. Split freshness checks from full refresh
+### P0. Reduce edge-resolution and persist cost on startup and refresh
 
 Problem:
 
-- Request handling currently treats "serve a query" and "rebuild workspace state" as nearly the
-  same operation.
+- After ignored files were removed from the hot path, the dominant startup costs on this repo moved
+  to derived edge resolution and SQLite persistence.
 
 Required outcome:
 
-- Repeated reads on an unchanged repo do not reindex the workspace.
-- Session reads, `prism_query`, and common mutations hit a cheap fast path when nothing changed.
+- Startup and refresh spend substantially less time in `resolve_graph_edges()` and
+  `commit_index_persist_batch()`.
+- Near-no-op index passes avoid broad write work.
 
 Candidate work:
 
-- Add explicit workspace revision or dirtiness tracking.
-- Make `refresh_workspace()` skip `refresh_fs()` when no change has been observed.
-- Reload episodic and inference state only when persisted revisions changed.
+- Stop re-resolving broad derived state when the input file set did not materially change.
+- Measure and then reduce the largest contributors inside edge resolution.
+- Reduce co-change delta write amplification and broad derived-edge rewrite behavior.
+- Add more detailed persistence-batch instrumentation so large write bursts are explainable.
 
 ### P1. Make refresh incremental instead of reconstructive
 
 Problem:
 
-- `refresh_prism_snapshot()` constructs a fresh `WorkspaceIndexer` and re-runs indexing work.
+- `refresh_prism_snapshot()` still constructs a fresh `WorkspaceIndexer` and re-runs indexing work.
 
 Required outcome:
 
@@ -146,29 +198,29 @@ Candidate work:
 - Update changed file records in place.
 - Re-resolve only affected derived edges where possible.
 
-### P1. Reduce projection footprint and update cost
+### P1. Reduce projection update cost further
 
 Problem:
 
-- Co-change data is far larger than typical query demand.
+- Co-change storage is now bounded, but update volume is still high enough to dominate persistence
+  on some runs.
 
 Required outcome:
 
-- Long-lived daemon memory drops substantially.
-- Co-change maintenance cost is bounded.
+- Co-change maintenance cost drops substantially during indexing and refresh.
+- Persistence cost becomes proportional to meaningful changes rather than broad lineage churn.
 
 Candidate work:
 
-- Cap stored neighbors per lineage by score.
-- Consider sparse or demand-driven co-change lookup for long-tail neighbors.
-- Replace linear scan plus full sort in `increment_co_change_neighbor()` with a structure that
-  supports bounded top-k maintenance efficiently.
+- Replace linear scan plus full sort in co-change maintenance with a structure that supports
+  bounded top-k maintenance efficiently.
+- Re-examine whether every currently emitted co-change delta is worth persisting.
 
 ### P2. Rationalize bridge and daemon lifecycle
 
 Problem:
 
-- Bridge count grows with connected clients, and long-lived stdio bridges hold persistent daemon
+- Bridge count still grows with connected clients, and long-lived bridges hold persistent daemon
   connections.
 
 Required outcome:
@@ -182,27 +234,27 @@ Candidate work:
 - Add optional idle shutdown or reaping behavior where compatible with clients.
 - Document expected topology per client type so process count is explainable.
 
-### P2. Tune SQLite and write amplification
+### P2. Revisit session background machinery
 
 Problem:
 
-- The persistence layer does broad rewrites and lacks obvious runtime tuning.
+- Workspace sessions always bring watcher and curator machinery even when serving mode does not
+  need both.
 
 Required outcome:
 
-- Lower write latency and lower lock contention during refresh and mutation bursts.
+- Long-lived serving sessions only pay for the background subsystems they actually need.
 
 Candidate work:
 
-- Enable WAL and connection pragmas appropriate for local single-user serving.
-- Avoid delete-and-reinsert passes for unchanged derived edge sets.
-- Measure snapshot and projection write size before and after refresh work lands.
+- Make watcher and curator setup mode-aware.
+- Measure the steady-state memory and CPU effect of each background subsystem separately.
 
 ### P3. Cache TypeScript query preparation
 
 Problem:
 
-- `prism_query` transpiles TypeScript on each execution.
+- `prism_query` still transpiles TypeScript on each execution.
 
 Required outcome:
 
@@ -221,27 +273,25 @@ similar size:
 - Idle `prism-mcp` daemon CPU remains below 2% for at least 5 minutes with no active queries.
 - Repeated identical `prism_query` calls on an unchanged workspace do not trigger indexing work.
 - A single-file change refresh is at least 5x cheaper than a cold full index.
-- Long-lived daemon RSS is reduced by at least 60% from the current baseline.
+- Long-lived daemon RSS is reduced by at least 60% from the original baseline.
 - Bridge count and daemon connection count remain stable under normal Codex usage instead of
   monotonically increasing.
+- Daemon startup logs make the top 3 startup cost centers obvious without external profiling.
 
 ## Recommended Execution Order
 
-1. Land `P0` first.
-2. Measure again.
-3. Land `P1` refresh changes.
-4. Measure again.
-5. Land projection footprint work.
-6. Tune topology and persistence once the core refresh path is no longer pathological.
-7. Add TypeScript query caching after the larger structural issues are fixed.
+1. Finish the current persistence and edge-resolution hotspot work.
+2. Measure again using the structured startup timeline now in the daemon log.
+3. Land incremental refresh changes so changed-file cost scales with actual scope.
+4. Reduce co-change update amplification further if it still dominates persistence.
+5. Revisit bridge topology and background-session machinery after the core path is efficient.
+6. Add TypeScript query caching after the larger structural issues are fixed.
 
-## First Implementation Slice
+## Next Slice
 
-The first concrete implementation slice for this milestone should be:
+The next concrete implementation slice for this milestone should be:
 
-1. Add cheap workspace dirtiness tracking.
-2. Gate `refresh_workspace()` behind that tracking.
-3. Add instrumentation around refresh entry, refresh duration, and whether the fast path or full
-   path ran.
-4. Re-measure daemon CPU, RSS, and query latency before taking on the larger incremental refresh
-   refactor.
+1. Instrument the persistence batch in more detail so the largest write contributors are explicit.
+2. Reduce `commit_index_persist_batch()` write amplification for unchanged derived state.
+3. Reduce or localize derived edge resolution work when only a small file subset changed.
+4. Re-measure startup and small-change refresh cost after those two hotspots move.

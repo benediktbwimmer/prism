@@ -1,9 +1,10 @@
 use std::collections::VecDeque;
 use std::fs;
+use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -296,6 +297,7 @@ fn spawn_daemon(root: &Path, binary: &Path, paths: &McpPaths, no_coordination: b
     let mut args = vec![
         "--mode".to_string(),
         "daemon".to_string(),
+        "--daemonize".to_string(),
         "--root".to_string(),
         root.display().to_string(),
         "--http-uri-file".to_string(),
@@ -311,26 +313,46 @@ fn spawn_daemon(root: &Path, binary: &Path, paths: &McpPaths, no_coordination: b
         args.push("--no-coordination".to_string());
     }
 
-    let status = Command::new("/bin/sh")
-        .arg("-c")
-        .arg(
-            r#"log_path="$1"
-shift
-exe="$1"
-shift
-nohup "$exe" "$@" >>"$log_path" 2>&1 </dev/null &
-"#,
-        )
-        .arg("prism-cli-mcp-start")
-        .arg(&paths.log_path)
-        .arg(binary)
+    let log_file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&paths.log_path)
+        .with_context(|| format!("failed to open daemon log {}", paths.log_path.display()))?;
+    let stderr_file = log_file
+        .try_clone()
+        .with_context(|| format!("failed to clone daemon log {}", paths.log_path.display()))?;
+
+    let child = Command::new(binary)
         .args(args)
-        .status()
+        .stdin(Stdio::null())
+        .stdout(Stdio::from(log_file))
+        .stderr(Stdio::from(stderr_file))
+        .spawn()
         .with_context(|| format!("failed to spawn daemon via {}", binary.display()))?;
-    if !status.success() {
-        bail!("daemon launcher exited with {status}");
-    }
+
+    let pid = child.id();
+    writeln!(
+        &mut OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&paths.log_path)
+            .with_context(|| format!("failed to reopen daemon log {}", paths.log_path.display()))?,
+        "{} prism-cli mcp start spawned pid={pid} binary={}",
+        chrono_like_timestamp(),
+        binary.display()
+    )
+    .ok();
     Ok(())
+}
+
+fn chrono_like_timestamp() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    now.to_string()
 }
 
 fn wait_for_healthy_uri(paths: &McpPaths, health_path: &str) -> Result<String> {

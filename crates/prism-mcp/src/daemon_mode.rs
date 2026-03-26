@@ -156,7 +156,16 @@ fn spawn_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
 shift
 exe="$1"
 shift
-nohup "$exe" "$@" >>"$log_path" 2>&1 </dev/null &
+nohup /bin/sh -c '
+log_path="$1"
+shift
+exe="$1"
+shift
+printf "%s prism-mcp-launch child_start exe=%s\n" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" "$exe" >>"$log_path"
+"$exe" "$@" >>"$log_path" 2>&1 </dev/null
+status=$?
+printf "%s prism-mcp-launch child_exit status=%s\n" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" "$status" >>"$log_path"
+' prism-mcp-daemon-child "$log_path" "$exe" "$@" </dev/null &
 "#,
         )
         .arg("prism-mcp-daemon-launcher")
