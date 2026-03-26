@@ -3,8 +3,8 @@ use std::sync::{Arc, Mutex};
 use anyhow::{anyhow, Context, Result};
 use prism_ir::{AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, NodeId, PlanId};
 use prism_js::{
-    EditContextView, QueryDiagnostic, QueryEnvelope, ReadContextView, ScoredMemoryView,
-    SourceExcerptView, SubgraphView, SymbolView,
+    EditContextView, QueryDiagnostic, QueryEnvelope, ReadContextView, RecentChangeContextView,
+    ScoredMemoryView, SourceExcerptView, SubgraphView, SymbolView, ValidationContextView,
 };
 use prism_memory::{MemoryModule, OutcomeRecallQuery, RecallQuery};
 use prism_query::{Prism, SourceExcerptOptions, Symbol};
@@ -19,17 +19,18 @@ use crate::{
     owner_views_for_target, parse_capability, parse_claim_mode, parse_event_actor,
     parse_memory_kind, parse_node_kind, parse_outcome_kind, parse_outcome_result, plan_view,
     policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
-    promoted_validation_checks, query_diagnostic, read_context_view, relations_view,
-    scored_memory_view, search_queries, source_excerpt_for_symbol, spec_cluster_view,
-    spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids, task_intent_view,
-    task_journal_view, task_risk_view, task_validation_recipe_view, validation_recipe_view_with,
-    where_used, AnchorListArgs, CallGraphArgs, CoordinationTaskTargetArgs, CuratorJobArgs,
-    CuratorJobsArgs, DiscoveryTargetArgs, ImplementationTargetArgs, LimitArgs, MemoryOutcomeArgs,
-    MemoryRecallArgs, OwnerLookupArgs, PendingReviewsArgs, PlanTargetArgs,
-    PolicyViolationQueryArgs, QueryHost, QueryLanguage, SearchArgs, SimulateClaimArgs,
-    SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskJournalArgs, TaskTargetArgs,
-    WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
+    promoted_validation_checks, query_diagnostic, read_context_view, recent_change_context_view,
+    relations_view, scored_memory_view, search_queries, source_excerpt_for_symbol,
+    spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
+    task_intent_view, task_journal_view, task_risk_view, task_validation_recipe_view,
+    validation_context_view, validation_recipe_view_with, where_used, AnchorListArgs,
+    CallGraphArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs,
+    DiscoveryTargetArgs, ImplementationTargetArgs, LimitArgs, MemoryOutcomeArgs, MemoryRecallArgs,
+    OwnerLookupArgs, PendingReviewsArgs, PlanTargetArgs, PolicyViolationQueryArgs, QueryHost,
+    QueryLanguage, SearchArgs, SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs,
+    SymbolTargetArgs, TaskJournalArgs, TaskTargetArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH,
+    DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
+    INSIGHT_LIMIT,
 };
 
 impl QueryHost {
@@ -573,6 +574,16 @@ impl QueryExecution {
                 let id = convert_node_id(args.id)?;
                 Ok(serde_json::to_value(self.edit_context(&id)?)?)
             }
+            "validationContext" => {
+                let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                let id = convert_node_id(args.id)?;
+                Ok(serde_json::to_value(self.validation_context(&id)?)?)
+            }
+            "recentChangeContext" => {
+                let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                let id = convert_node_id(args.id)?;
+                Ok(serde_json::to_value(self.recent_change_context(&id)?)?)
+            }
             "nextReads" => {
                 let args: DiscoveryTargetArgs = serde_json::from_value(args)?;
                 let id = convert_node_id(args.id)?;
@@ -1061,6 +1072,14 @@ impl QueryExecution {
 
     fn edit_context(&self, id: &NodeId) -> Result<EditContextView> {
         edit_context_view(self.prism.as_ref(), self.host.session.as_ref(), id)
+    }
+
+    fn validation_context(&self, id: &NodeId) -> Result<ValidationContextView> {
+        validation_context_view(self.prism.as_ref(), self.host.session.as_ref(), id)
+    }
+
+    fn recent_change_context(&self, id: &NodeId) -> Result<RecentChangeContextView> {
+        recent_change_context_view(self.prism.as_ref(), self.host.session.as_ref(), id)
     }
 
     fn memory_outcomes(&self, args: MemoryOutcomeArgs) -> Result<Vec<prism_memory::OutcomeEvent>> {

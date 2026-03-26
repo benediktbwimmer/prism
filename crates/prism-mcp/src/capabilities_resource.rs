@@ -169,6 +169,18 @@ fn query_method_specs() -> Vec<(
             "Build an edit-focused bundle with write paths and risk.",
         ),
         (
+            "validationContext",
+            "core",
+            None,
+            "Build a validation-focused bundle with test owners, failures, and checks.",
+        ),
+        (
+            "recentChangeContext",
+            "core",
+            None,
+            "Build a recent-change bundle with outcomes, co-change signals, and lineage.",
+        ),
+        (
             "nextReads",
             "core",
             None,

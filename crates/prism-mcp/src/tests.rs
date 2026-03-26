@@ -2867,6 +2867,22 @@ return {
     assert!(!symbol_resource.suggested_reads.is_empty());
     assert!(!symbol_resource.read_context.suggested_reads.is_empty());
     assert!(!symbol_resource.edit_context.suggested_queries.is_empty());
+    assert!(!symbol_resource.discovery.suggested_reads.is_empty());
+    assert!(!symbol_resource
+        .discovery
+        .validation_context
+        .suggested_queries
+        .is_empty());
+    assert!(
+        symbol_resource
+            .discovery
+            .recent_change_context
+            .suggested_queries
+            .len()
+            >= 3
+    );
+    assert!(!symbol_resource.discovery.where_used_behavioral.is_empty());
+    assert!(!symbol_resource.discovery.why.is_empty());
     assert_eq!(symbol_resource.suggested_queries[0].label, "Read Context");
     assert_eq!(symbol_resource.suggested_queries[1].label, "Next Reads");
     assert_eq!(symbol_resource.suggested_queries[2].label, "Where Used");
@@ -2962,6 +2978,25 @@ fn search_resource_payload_surfaces_suggested_reads() {
     assert_eq!(payload.strategy, "behavioral");
     assert_eq!(payload.owner_kind.as_deref(), Some("read"));
     assert!(!payload.suggested_reads.is_empty());
+    assert!(payload.discovery.is_some());
+    assert!(payload
+        .discovery
+        .as_ref()
+        .is_some_and(|bundle| !bundle.suggested_reads.is_empty()));
+    assert!(payload.discovery.as_ref().is_some_and(|bundle| bundle
+        .validation_context
+        .suggested_queries
+        .iter()
+        .any(|query| query.label == "Validation Context")));
+    assert!(payload
+        .discovery
+        .as_ref()
+        .is_some_and(|bundle| !bundle.why.is_empty()));
+    assert!(payload.discovery.as_ref().is_some_and(|bundle| bundle
+        .recent_change_context
+        .suggested_queries
+        .iter()
+        .any(|query| query.label == "Recent Change Context")));
     assert!(payload.suggested_reads.iter().any(|candidate| {
         candidate.kind == "read" && candidate.symbol.id.path.contains("memory_recall")
     }));
@@ -3052,7 +3087,37 @@ fn resource_suggested_candidates_use_compact_default_excerpts() {
 fn read_and_edit_context_queries_return_semantic_bundles() {
     let root = temp_workspace();
     write_memory_insight_workspace(&root);
-    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = index_workspace_session(&root).unwrap();
+    let spec_id = session
+        .prism()
+        .search(
+            "Integration Points",
+            1,
+            Some(NodeKind::MarkdownHeading),
+            Some("docs/SPEC.md"),
+        )
+        .first()
+        .expect("spec heading should be indexed")
+        .id()
+        .clone();
+    session
+        .append_outcome(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:validation-context"),
+                ts: 50,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:validation-context")),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(spec_id)],
+            kind: OutcomeKind::FailureObserved,
+            result: OutcomeResult::Failure,
+            summary: "integration-point regression surfaced during validation".into(),
+            evidence: Vec::new(),
+            metadata: Value::Null,
+        })
+        .unwrap();
+    let host = QueryHost::with_session(session);
 
     let result = host
         .execute(
@@ -3066,6 +3131,8 @@ return spec
   ? {
       read: prism.readContext(spec),
       edit: prism.editContext(spec),
+      validation: prism.validationContext(spec),
+      recentChange: prism.recentChangeContext(spec),
     }
   : null;
 "#,
@@ -3083,6 +3150,14 @@ return spec
     assert!(result.result["edit"]["checklist"]
         .as_array()
         .is_some_and(|items| !items.is_empty()));
+    assert!(result.result["validation"]["tests"].is_array());
+    assert!(result.result["validation"]["recentFailures"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(result.result["recentChange"]["recentEvents"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(result.result["recentChange"]["suggestedQueries"].is_array());
 }
 
 #[test]

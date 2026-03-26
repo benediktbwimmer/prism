@@ -69,6 +69,26 @@
         </div>
       </section>
 
+      <section class="ts-query-section observe-fade">
+        <div class="glass-card standout-card">
+          <div class="ts-query-layout">
+            <div class="ts-query-text">
+              <h2>TypeScript as the Query Language</h2>
+              <p>Forcing agents to string together <code>grep</code>, <code>cat</code>, and <code>sed</code> leads to loop failures. By embedding a JS/TS engine over the graph, PRISM provides an <strong>agent-native interface</strong>. Agents write compositional TS snippets to pull definitions, blast radii, and historical failures in a single round-trip—drastically cutting down token usage and tool calls.</p>
+            </div>
+            <div class="ts-code-block">
+<pre><code><span class="token-comment">// Replace 10 shell steps with 1 query</span>
+<span class="token-keyword">const</span> sym = <span class="token-function">prism.symbol</span>(<span class="token-string">"handle_auth"</span>);
+<span class="token-keyword">return</span> {
+  target: sym,
+  dependencies: sym?.<span class="token-function">relations</span>().callees,
+  blastRadius: <span class="token-function">prism.blastRadius</span>(sym)
+};</code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section id="features" class="features observe-fade">
         <h2 class="section-title">Built for the Era of AI Engineering</h2>
         <div class="feature-grid">

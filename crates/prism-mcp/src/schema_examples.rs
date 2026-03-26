@@ -130,6 +130,12 @@ fn capabilities_payload_example() -> Value {
             "group": "core",
             "featureGate": null,
             "description": "Build a semantic read bundle for a target."
+        }, {
+            "name": "validationContext",
+            "enabled": true,
+            "group": "core",
+            "featureGate": null,
+            "description": "Build a validation-focused bundle for a target."
         }],
         "resources": [{
             "name": "PRISM Session",
@@ -180,6 +186,7 @@ fn search_payload_example() -> Value {
         "includeInferred": true,
         "suggestedReads": [sample_owner_candidate()],
         "results": [sample_symbol()],
+        "discovery": sample_discovery_bundle(),
         "topReadContext": sample_read_context(),
         "suggestedQueries": [sample_suggested_query()],
         "page": sample_page(),
@@ -194,6 +201,7 @@ fn symbol_payload_example() -> Value {
         "uri": symbol_resource_uri_from_node_id(&sample_node_id()),
         "schemaUri": schema_resource_uri("symbol"),
         "symbol": sample_symbol(),
+        "discovery": sample_discovery_bundle(),
         "suggestedReads": [sample_owner_candidate()],
         "readContext": sample_read_context(),
         "editContext": sample_edit_context(),
@@ -208,6 +216,33 @@ fn symbol_payload_example() -> Value {
         "validationRecipe": sample_validation_recipe(),
         "diagnostics": [],
         "relatedResources": sample_related_resources(),
+    })
+}
+
+fn sample_discovery_bundle() -> Value {
+    json!({
+        "target": sample_symbol(),
+        "suggestedReads": [sample_owner_candidate()],
+        "readContext": sample_read_context(),
+        "editContext": sample_edit_context(),
+        "validationContext": sample_validation_context(),
+        "recentChangeContext": sample_recent_change_context(),
+        "entrypoints": [sample_symbol()],
+        "whereUsedDirect": [sample_symbol()],
+        "whereUsedBehavioral": [sample_symbol()],
+        "suggestedQueries": [sample_suggested_query()],
+        "relations": sample_relations(),
+        "specCluster": null,
+        "specDrift": null,
+        "lineage": sample_lineage(),
+        "coChangeNeighbors": [sample_co_change()],
+        "relatedFailures": [sample_outcome_event()],
+        "blastRadius": sample_change_impact(),
+        "validationRecipe": sample_validation_recipe(),
+        "why": [
+            "Suggested reads prioritize read-oriented owner paths for the target.",
+            "Entrypoints and where-used views show how the target is reached from the outside."
+        ]
     })
 }
 
@@ -393,6 +428,33 @@ fn sample_edit_context() -> Value {
         "blastRadius": sample_change_impact(),
         "validationRecipe": sample_validation_recipe(),
         "checklist": ["Inspect the read path.", "Run the regression check."],
+        "suggestedQueries": [sample_suggested_query()],
+    })
+}
+
+fn sample_validation_context() -> Value {
+    json!({
+        "target": sample_symbol(),
+        "tests": [sample_owner_candidate()],
+        "relatedMemory": [sample_scored_memory()],
+        "recentFailures": [sample_outcome_event()],
+        "blastRadius": sample_change_impact(),
+        "validationRecipe": sample_validation_recipe(),
+        "why": ["Validation context keeps tests, failures, and blast radius in one bundle."],
+        "suggestedQueries": [sample_suggested_query()],
+    })
+}
+
+fn sample_recent_change_context() -> Value {
+    json!({
+        "target": sample_symbol(),
+        "recentEvents": [sample_outcome_event()],
+        "recentFailures": [sample_outcome_event()],
+        "coChangeNeighbors": [sample_co_change()],
+        "relatedMemory": [sample_scored_memory()],
+        "promotedSummaries": ["Recent changes clustered around read-context indexing."],
+        "lineage": sample_lineage(),
+        "why": ["Recent change context keeps outcomes, co-change signals, and lineage together."],
         "suggestedQueries": [sample_suggested_query()],
     })
 }

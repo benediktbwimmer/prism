@@ -169,6 +169,28 @@ function __prismEnrichEditContext(raw) {
   };
 }
 
+function __prismEnrichValidationContext(raw) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    target: __prismEnrichSymbol(raw.target),
+    tests: __prismEnrichInsightCandidates(raw.tests),
+  };
+}
+
+function __prismEnrichRecentChangeContext(raw) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    target: __prismEnrichSymbol(raw.target),
+    lineage: __prismEnrichLineage(raw.lineage),
+  };
+}
+
 function __prismNormalizeFocus(values) {
   if (!Array.isArray(values)) {
     return [];
@@ -398,6 +420,20 @@ globalThis.prism = Object.freeze({
       return null;
     }
     return __prismEnrichEditContext(__prismHost("editContext", { id }));
+  },
+  validationContext(target) {
+    const id = __prismNormalizeTarget(target);
+    if (id == null) {
+      return null;
+    }
+    return __prismEnrichValidationContext(__prismHost("validationContext", { id }));
+  },
+  recentChangeContext(target) {
+    const id = __prismNormalizeTarget(target);
+    if (id == null) {
+      return null;
+    }
+    return __prismEnrichRecentChangeContext(__prismHost("recentChangeContext", { id }));
   },
   nextReads(target, options = {}) {
     const id = __prismNormalizeTarget(target);

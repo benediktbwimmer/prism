@@ -145,6 +145,8 @@ type PrismApi = {
   validationRecipe(target: SymbolView | NodeId): ValidationRecipeView | null;
   readContext(target: SymbolView | NodeId): ReadContextView | null;
   editContext(target: SymbolView | NodeId): EditContextView | null;
+  validationContext(target: SymbolView | NodeId): ValidationContextView | null;
+  recentChangeContext(target: SymbolView | NodeId): RecentChangeContextView | null;
   nextReads(target: SymbolView | NodeId, options?: NextReadsOptions): OwnerCandidateView[];
   whereUsed(target: SymbolView | NodeId, options?: WhereUsedOptions): SymbolView[];
   entrypointsFor(target: SymbolView | NodeId, options?: NextReadsOptions): SymbolView[];
@@ -304,6 +306,29 @@ type EditContextView = {
   blastRadius: ChangeImpactView;
   validationRecipe: ValidationRecipeView;
   checklist: string[];
+  suggestedQueries: SuggestedQueryView[];
+};
+
+type ValidationContextView = {
+  target: SymbolView;
+  tests: OwnerCandidateView[];
+  relatedMemory: ScoredMemoryView[];
+  recentFailures: OutcomeEvent[];
+  blastRadius: ChangeImpactView;
+  validationRecipe: ValidationRecipeView;
+  why: string[];
+  suggestedQueries: SuggestedQueryView[];
+};
+
+type RecentChangeContextView = {
+  target: SymbolView;
+  recentEvents: OutcomeEvent[];
+  recentFailures: OutcomeEvent[];
+  coChangeNeighbors: CoChangeView[];
+  relatedMemory: ScoredMemoryView[];
+  promotedSummaries: string[];
+  lineage: LineageView | null;
+  why: string[];
   suggestedQueries: SuggestedQueryView[];
 };
 
@@ -824,7 +849,21 @@ const sym = prism.symbol("handle_request");
 return sym ? prism.editContext(sym) : null;
 ```
 
-### 17. Pull an implementation cluster for a spec heading
+### 17. Pull a validation-focused semantic bundle
+
+```ts
+const sym = prism.symbol("handle_request");
+return sym ? prism.validationContext(sym) : null;
+```
+
+### 18. Pull recent changes, failures, and lineage context together
+
+```ts
+const sym = prism.symbol("handle_request");
+return sym ? prism.recentChangeContext(sym) : null;
+```
+
+### 19. Pull an implementation cluster for a spec heading
 
 ```ts
 const spec = prism.search("Outcome Memory", {
@@ -835,7 +874,7 @@ const spec = prism.search("Outcome Memory", {
 return spec ? prism.specCluster(spec) : null;
 ```
 
-### 18. Ask Prism to explain spec drift for one target
+### 20. Ask Prism to explain spec drift for one target
 
 ```ts
 const spec = prism.search("Integration Points", {
@@ -846,14 +885,14 @@ const spec = prism.search("Integration Points", {
 return spec ? prism.explainDrift(spec) : null;
 ```
 
-### 19. Ask for owner-biased reads for one target
+### 21. Ask for owner-biased reads for one target
 
 ```ts
 const sym = prism.symbol("memory_recall");
 return sym ? prism.owners(sym, { kind: "read", limit: 5 }) : [];
 ```
 
-### 20. Search with behavioral owner ranking instead of direct noun matches
+### 22. Search with behavioral owner ranking instead of direct noun matches
 
 ```ts
 return prism.search("memory recall", {
@@ -863,7 +902,7 @@ return prism.search("memory recall", {
 });
 ```
 
-### 21. Ask for implementation owners without changing direct implementationFor semantics
+### 23. Ask for implementation owners without changing direct implementationFor semantics
 
 ```ts
 const spec = prism.search("Integration Points", {
@@ -874,14 +913,14 @@ const spec = prism.search("Integration Points", {
 return spec ? prism.implementationFor(spec, { mode: "owners", ownerKind: "read" }) : [];
 ```
 
-### 22. Ask for next reads directly instead of reconstructing owner lookups
+### 24. Ask for next reads directly instead of reconstructing owner lookups
 
 ```ts
 const sym = prism.symbol("memory_recall");
 return sym ? prism.nextReads(sym, { limit: 5 }) : [];
 ```
 
-### 23. Ask where a target is used with either direct or behavioral semantics
+### 25. Ask where a target is used with either direct or behavioral semantics
 
 ```ts
 const sym = prism.symbol("beta");
@@ -893,14 +932,14 @@ return sym
   : null;
 ```
 
-### 24. Find entrypoints that reach a target
+### 26. Find entrypoints that reach a target
 
 ```ts
 const sym = prism.symbol("beta");
 return sym ? prism.entrypointsFor(sym, { limit: 5 }) : [];
 ```
 
-### 25. Recall session memory for a symbol
+### 27. Recall session memory for a symbol
 
 ```ts
 const sym = prism.symbol("handle_request");
@@ -911,7 +950,7 @@ return prism.memory.recall({
 });
 ```
 
-### 26. Query outcome history with filters
+### 28. Query outcome history with filters
 
 ```ts
 const sym = prism.symbol("handle_request");
@@ -924,7 +963,7 @@ return prism.memory.outcomes({
 });
 ```
 
-### 27. Inspect recent curator proposals through `prism_query`
+### 29. Inspect recent curator proposals through `prism_query`
 
 ```ts
 return prism.curator.jobs({ status: "completed", limit: 5 }).map((job) => ({
@@ -937,7 +976,7 @@ return prism.curator.jobs({ status: "completed", limit: 5 }).map((job) => ({
 }));
 ```
 
-### 28. Fetch one curator job and keep only pending inferred-edge proposals
+### 30. Fetch one curator job and keep only pending inferred-edge proposals
 
 ```ts
 const job = prism.curator.job("curator:1");
@@ -946,20 +985,20 @@ return job?.proposals.filter(
 );
 ```
 
-### 29. See who is already working in an area
+### 31. See who is already working in an area
 
 ```ts
 const sym = prism.symbol("handle_request");
 return sym ? prism.claims(sym) : [];
 ```
 
-### 30. Ask PRISM for blockers on a coordination task
+### 32. Ask PRISM for blockers on a coordination task
 
 ```ts
 return prism.blockers("coord-task:12");
 ```
 
-### 31. Simulate an edit claim before taking it
+### 33. Simulate an edit claim before taking it
 
 ```ts
 const sym = prism.symbol("handle_request");
@@ -970,19 +1009,19 @@ return prism.simulateClaim({
 });
 ```
 
-### 32. Pull a coordination inbox for one plan
+### 34. Pull a coordination inbox for one plan
 
 ```ts
 return prism.coordinationInbox("plan:12");
 ```
 
-### 33. Pull the full working context for one coordination task
+### 35. Pull the full working context for one coordination task
 
 ```ts
 return prism.taskContext("coord-task:12");
 ```
 
-### 34. Preview a claim and tell whether it is blocked
+### 36. Preview a claim and tell whether it is blocked
 
 ```ts
 const sym = prism.symbol("handle_request");
@@ -996,7 +1035,7 @@ return prism.claimPreview({
 ## Current implementation surface
 
 - Available now: symbol lookup, search, entrypoints, line-aware symbol locations, bounded source excerpts, source extraction, relations, call graphs, lineage history, related failures, blast radius, and task replay by id.
-- Available now: owner-biased discovery helpers through `prism.owners(...)`, `prism.nextReads(...)`, `prism.whereUsed(...)`, `prism.entrypointsFor(...)`, behavioral `prism.search(...)`, `prism.readContext(...)`, `prism.editContext(...)`, and `implementationFor(..., { mode: "owners" })` without changing the direct primitive semantics.
+- Available now: owner-biased discovery helpers through `prism.owners(...)`, `prism.nextReads(...)`, `prism.whereUsed(...)`, `prism.entrypointsFor(...)`, behavioral `prism.search(...)`, `prism.readContext(...)`, `prism.editContext(...)`, `prism.validationContext(...)`, `prism.recentChangeContext(...)`, and `implementationFor(..., { mode: "owners" })` without changing the direct primitive semantics.
 - Available now: spec-to-code clustering and drift explanations that group direct links with read/write/persistence/test owners for spec-like symbols.
 - Available now: session/workspace memory recall for anchored memory entries, filtered outcome history, and promoted curator memories.
 - Available now: workspace-backed curator job inspection through `prism.curator.jobs()` and `prism.curator.job()`.

@@ -2,14 +2,15 @@ use anyhow::{anyhow, Result};
 use prism_ir::{AnchorRef, EdgeKind, NodeId};
 use prism_js::{
     ChangeImpactView, EditContextView, LineageEventView, LineageStatus, LineageView,
-    OwnerCandidateView, OwnerHintView, ReadContextView, RelationsView, SourceExcerptView,
-    SourceLocationView, SymbolView, ValidationRecipeView,
+    OwnerCandidateView, OwnerHintView, ReadContextView, RecentChangeContextView, RelationsView,
+    SourceExcerptView, SourceLocationView, SymbolView, ValidationContextView, ValidationRecipeView,
 };
 use prism_query::{Prism, SourceExcerptOptions, Symbol};
 
 use crate::{
     change_impact_view, merge_node_ids, merge_promoted_checks, node_id_view,
-    promoted_summary_texts, promoted_validation_checks, validation_recipe_view, SessionState,
+    promoted_summary_texts, promoted_validation_checks, validation_recipe_view,
+    DiscoveryBundleView, SessionState,
 };
 
 const CANDIDATE_EXCERPT_OPTIONS: SourceExcerptOptions = SourceExcerptOptions {
@@ -106,6 +107,33 @@ pub(crate) fn compact_edit_context_candidate_excerpts(
     compact_owner_candidate_excerpts(prism, &mut context.suggested_reads)?;
     compact_owner_candidate_excerpts(prism, &mut context.write_paths)?;
     compact_owner_candidate_excerpts(prism, &mut context.tests)?;
+    Ok(())
+}
+
+pub(crate) fn compact_validation_context_candidate_excerpts(
+    prism: &Prism,
+    context: &mut ValidationContextView,
+) -> Result<()> {
+    compact_owner_candidate_excerpts(prism, &mut context.tests)?;
+    Ok(())
+}
+
+pub(crate) fn compact_recent_change_context_candidate_excerpts(
+    _prism: &Prism,
+    _context: &mut RecentChangeContextView,
+) -> Result<()> {
+    Ok(())
+}
+
+pub(crate) fn compact_discovery_bundle_candidate_excerpts(
+    prism: &Prism,
+    bundle: &mut DiscoveryBundleView,
+) -> Result<()> {
+    compact_owner_candidate_excerpts(prism, &mut bundle.suggested_reads)?;
+    compact_read_context_candidate_excerpts(prism, &mut bundle.read_context)?;
+    compact_edit_context_candidate_excerpts(prism, &mut bundle.edit_context)?;
+    compact_validation_context_candidate_excerpts(prism, &mut bundle.validation_context)?;
+    compact_recent_change_context_candidate_excerpts(prism, &mut bundle.recent_change_context)?;
     Ok(())
 }
 

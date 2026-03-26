@@ -5,21 +5,19 @@ use prism_js::LineageEventView;
 use prism_memory::MemoryId;
 
 use crate::{
-    anchor_resource_view_links, blast_radius_view, capabilities_resource_value,
-    capabilities_resource_view_link, co_change_view, compact_edit_context_candidate_excerpts,
-    compact_owner_candidate_excerpts, compact_read_context_candidate_excerpts,
-    dedupe_resource_link_views, derive_task_metadata, edge_resource_uri, edge_resource_view_link,
-    edit_context_view, event_resource_view_link, inferred_edge_record_view,
+    anchor_resource_view_links, capabilities_resource_value, capabilities_resource_view_link,
+    co_change_view, compact_discovery_bundle_candidate_excerpts, compact_owner_candidate_excerpts,
+    dedupe_resource_link_views, derive_task_metadata, discovery_bundle_view, edge_resource_uri,
+    edge_resource_view_link, event_resource_view_link, inferred_edge_record_view,
     lineage_resource_view_link, lineage_status, memory_entry_view, memory_resource_uri,
-    memory_resource_view_link, node_id_view, owner_views_for_query, owner_views_for_target,
-    paginate_items, parse_resource_page, parse_resource_query_param, read_context_view,
-    relations_view, resource_link_view, resource_schema_catalog_entries, schema_resource_uri,
-    schema_resource_view_link, schemas_resource_uri, schemas_resource_view_link,
-    search_resource_view_link_with_options, session_resource_uri, session_resource_view_link,
-    symbol_for, symbol_resource_uri, symbol_resource_view_link, symbol_resource_view_link_for_id,
-    symbol_suggested_queries, symbol_view, symbol_views_for_ids, task_journal_view,
-    task_resource_view_link, task_resource_view_links_from_events, tool_schemas_resource_value,
-    tool_schemas_resource_view_link, validation_recipe_view_with, CapabilitiesResourcePayload,
+    memory_resource_view_link, node_id_view, owner_views_for_query, paginate_items,
+    parse_resource_page, parse_resource_query_param, resource_link_view,
+    resource_schema_catalog_entries, schema_resource_uri, schema_resource_view_link,
+    schemas_resource_uri, schemas_resource_view_link, search_resource_view_link_with_options,
+    session_resource_uri, session_resource_view_link, symbol_for, symbol_resource_uri,
+    symbol_resource_view_link, symbol_resource_view_link_for_id, symbol_view, symbol_views_for_ids,
+    task_journal_view, task_resource_view_link, task_resource_view_links_from_events,
+    tool_schemas_resource_value, tool_schemas_resource_view_link, CapabilitiesResourcePayload,
     CoordinationFeaturesView, EdgeResourcePayload, EntrypointsResourcePayload,
     EventResourcePayload, FeatureFlagsView, InferredEdgeRecordView, LineageResourcePayload,
     MemoryResourcePayload, QueryExecution, QueryHost, ResourceSchemaCatalogPayload, SearchArgs,
@@ -183,36 +181,20 @@ impl QueryHost {
         let execution = QueryExecution::new(self.clone(), prism.clone());
         let symbol = symbol_for(prism.as_ref(), id)?;
         let symbol = symbol_view(prism.as_ref(), &symbol)?;
-        let spec_drift = crate::spec_drift_explanation_view(prism.as_ref(), id).ok();
-        let suggested_reads = spec_drift
-            .as_ref()
-            .map(|drift| drift.next_reads.clone())
-            .filter(|reads| !reads.is_empty())
-            .unwrap_or(owner_views_for_target(
-                prism.as_ref(),
-                id,
-                None,
-                crate::INSIGHT_LIMIT,
-            )?);
-        let mut suggested_reads = suggested_reads;
-        compact_owner_candidate_excerpts(prism.as_ref(), &mut suggested_reads)?;
-        let mut read_context = read_context_view(prism.as_ref(), self.session.as_ref(), id)?;
-        compact_read_context_candidate_excerpts(prism.as_ref(), &mut read_context)?;
-        let mut edit_context = edit_context_view(prism.as_ref(), self.session.as_ref(), id)?;
-        compact_edit_context_candidate_excerpts(prism.as_ref(), &mut edit_context)?;
-        let relations = relations_view(prism.as_ref(), self.session.as_ref(), id)?;
-        let spec_cluster = crate::spec_cluster_view(prism.as_ref(), id).ok();
-        let lineage = crate::lineage_view(prism.as_ref(), id)?;
-        let co_change_neighbors = prism
-            .co_change_neighbors(id, 8)
-            .into_iter()
-            .map(co_change_view)
-            .collect::<Vec<_>>();
-        let related_failures = prism.related_failures(id);
-        let blast_radius = blast_radius_view(prism.as_ref(), self.session.as_ref(), id);
-        let validation_recipe =
-            validation_recipe_view_with(prism.as_ref(), self.session.as_ref(), id);
-        let suggested_queries = symbol_suggested_queries(id);
+        let mut discovery = discovery_bundle_view(prism.as_ref(), self.session.as_ref(), id)?;
+        compact_discovery_bundle_candidate_excerpts(prism.as_ref(), &mut discovery)?;
+        let suggested_reads = discovery.suggested_reads.clone();
+        let read_context = discovery.read_context.clone();
+        let edit_context = discovery.edit_context.clone();
+        let suggested_queries = discovery.suggested_queries.clone();
+        let relations = discovery.relations.clone();
+        let spec_cluster = discovery.spec_cluster.clone();
+        let spec_drift = discovery.spec_drift.clone();
+        let lineage = discovery.lineage.clone();
+        let co_change_neighbors = discovery.co_change_neighbors.clone();
+        let related_failures = discovery.related_failures.clone();
+        let blast_radius = discovery.blast_radius.clone();
+        let validation_recipe = discovery.validation_recipe.clone();
         let mut related_resources = vec![symbol_resource_view_link(&symbol)];
         related_resources.extend(
             suggested_reads
@@ -239,6 +221,7 @@ impl QueryHost {
             uri: symbol_resource_uri(&symbol.id),
             schema_uri,
             symbol,
+            discovery,
             suggested_reads,
             read_context,
             edit_context,
@@ -308,7 +291,7 @@ impl QueryHost {
                 self.session.limits().max_result_nodes,
             )?,
         );
-        let top_read_context = paged
+        let discovery = paged
             .items
             .first()
             .map(|symbol| {
@@ -317,11 +300,12 @@ impl QueryHost {
                     symbol.id.path.clone(),
                     symbol.kind.clone(),
                 );
-                let mut context = read_context_view(prism.as_ref(), self.session.as_ref(), &id)?;
-                compact_read_context_candidate_excerpts(prism.as_ref(), &mut context)?;
-                Ok::<_, anyhow::Error>(context)
+                let mut bundle = discovery_bundle_view(prism.as_ref(), self.session.as_ref(), &id)?;
+                compact_discovery_bundle_candidate_excerpts(prism.as_ref(), &mut bundle)?;
+                Ok::<_, anyhow::Error>(bundle)
             })
             .transpose()?;
+        let top_read_context = discovery.as_ref().map(|bundle| bundle.read_context.clone());
         let top_target = paged.items.first().map(|symbol| {
             NodeId::new(
                 symbol.id.crate_name.clone(),
@@ -358,6 +342,7 @@ impl QueryHost {
             include_inferred,
             suggested_reads,
             results: paged.items,
+            discovery,
             top_read_context,
             suggested_queries,
             page: paged.page,

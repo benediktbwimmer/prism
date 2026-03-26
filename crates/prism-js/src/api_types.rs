@@ -466,6 +466,33 @@ pub struct EditContextView {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidationContextView {
+    pub target: SymbolView,
+    pub tests: Vec<OwnerCandidateView>,
+    pub related_memory: Vec<ScoredMemoryView>,
+    pub recent_failures: Vec<OutcomeEvent>,
+    pub blast_radius: ChangeImpactView,
+    pub validation_recipe: ValidationRecipeView,
+    pub why: Vec<String>,
+    pub suggested_queries: Vec<SuggestedQueryView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RecentChangeContextView {
+    pub target: SymbolView,
+    pub recent_events: Vec<OutcomeEvent>,
+    pub recent_failures: Vec<OutcomeEvent>,
+    pub co_change_neighbors: Vec<CoChangeView>,
+    pub related_memory: Vec<ScoredMemoryView>,
+    pub promoted_summaries: Vec<String>,
+    pub lineage: Option<LineageView>,
+    pub why: Vec<String>,
+    pub suggested_queries: Vec<SuggestedQueryView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct QueryEnvelope {
     pub result: Value,
     pub diagnostics: Vec<QueryDiagnostic>,

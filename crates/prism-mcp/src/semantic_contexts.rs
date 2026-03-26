@@ -1,19 +1,22 @@
 use anyhow::Result;
 use prism_ir::{AnchorRef, NodeId, NodeKind};
 use prism_js::{
-    EditContextView, ReadContextView, ScoredMemoryView, SuggestedQueryView, SymbolView,
+    CoChangeView, EditContextView, ReadContextView, RecentChangeContextView, ScoredMemoryView,
+    SuggestedQueryView, SymbolView, ValidationContextView,
 };
 use prism_memory::{MemoryModule, RecallQuery};
 use prism_query::Prism;
 use serde_json::json;
 
 use crate::{
-    blast_radius_view, owner_views_for_target, relations_view, scored_memory_view, symbol_for,
-    symbol_view, validation_recipe_view_with, SessionState, INSIGHT_LIMIT,
+    blast_radius_view, co_change_view, lineage_view, owner_views_for_target,
+    promoted_summary_texts, relations_view, scored_memory_view, symbol_for, symbol_view,
+    validation_recipe_view_with, SessionState, INSIGHT_LIMIT,
 };
 
 const MEMORY_CONTEXT_LIMIT: usize = 5;
 const FAILURE_CONTEXT_LIMIT: usize = 8;
+const RECENT_EVENT_LIMIT: usize = 12;
 
 pub(crate) fn read_context_view(
     prism: &Prism,
@@ -106,6 +109,91 @@ pub(crate) fn edit_context_view(
     })
 }
 
+pub(crate) fn validation_context_view(
+    prism: &Prism,
+    session: &SessionState,
+    target: &NodeId,
+) -> Result<ValidationContextView> {
+    let target_symbol = symbol_view(prism, &symbol_for(prism, target)?)?;
+    let tests = owner_views_for_target(prism, target, Some("test"), INSIGHT_LIMIT)?;
+    let related_memory = related_memory(prism, session, target)?;
+    let recent_failures = recent_failures(prism, target);
+    let blast_radius = blast_radius_view(prism, session, target);
+    let validation_recipe = validation_recipe_view_with(prism, session, target);
+
+    let mut why = vec![
+        "Validation context combines the strongest test owners with PRISM's validation recipe."
+            .to_string(),
+        "Recent failures stay attached so the recommended checks reflect known regressions."
+            .to_string(),
+    ];
+    if !blast_radius.direct_nodes.is_empty() {
+        why.push(
+            "Blast radius highlights the directly impacted nodes that should shape validation."
+                .to_string(),
+        );
+    }
+
+    Ok(ValidationContextView {
+        target: target_symbol,
+        tests,
+        related_memory,
+        recent_failures,
+        blast_radius,
+        validation_recipe,
+        why,
+        suggested_queries: validation_context_queries(target),
+    })
+}
+
+pub(crate) fn recent_change_context_view(
+    prism: &Prism,
+    session: &SessionState,
+    target: &NodeId,
+) -> Result<RecentChangeContextView> {
+    let target_symbol = symbol_view(prism, &symbol_for(prism, target)?)?;
+    let recent_events = prism.outcomes_for(&[AnchorRef::Node(target.clone())], RECENT_EVENT_LIMIT);
+    let recent_failures = recent_failures(prism, target);
+    let co_change_neighbors = prism
+        .co_change_neighbors(target, 8)
+        .into_iter()
+        .map(co_change_view)
+        .collect::<Vec<CoChangeView>>();
+    let related_memory = related_memory(prism, session, target)?;
+    let promoted_summaries =
+        promoted_summary_texts(session, prism, &[AnchorRef::Node(target.clone())]);
+    let lineage = lineage_view(prism, target)?;
+
+    let mut why = vec![
+        "Recent change context groups the latest recorded outcomes for this target.".to_string(),
+        "Co-change neighbors show which nearby lineages tend to move with it.".to_string(),
+    ];
+    if lineage.is_some() {
+        why.push(
+            "Lineage is included so recent activity stays attached even when the symbol moved."
+                .to_string(),
+        );
+    }
+    if !related_memory.is_empty() {
+        why.push(
+            "Related memory carries earlier notes and preserved context into the recent-change view."
+                .to_string(),
+        );
+    }
+
+    Ok(RecentChangeContextView {
+        target: target_symbol,
+        recent_events,
+        recent_failures,
+        co_change_neighbors,
+        related_memory,
+        promoted_summaries,
+        lineage,
+        why,
+        suggested_queries: recent_change_context_queries(target),
+    })
+}
+
 pub(crate) fn read_context_queries(target: &NodeId) -> Vec<SuggestedQueryView> {
     let target_json = target_input_json(target);
     vec![
@@ -158,6 +246,52 @@ pub(crate) fn edit_context_queries(target: &NodeId) -> Vec<SuggestedQueryView> {
             label: "Blast Radius".to_string(),
             query: format!("return prism.blastRadius({target_json});"),
             why: "Estimate connected impact before editing.".to_string(),
+        },
+    ]
+}
+
+pub(crate) fn validation_context_queries(target: &NodeId) -> Vec<SuggestedQueryView> {
+    let target_json = target_input_json(target);
+    vec![
+        SuggestedQueryView {
+            label: "Validation Context".to_string(),
+            query: format!("return prism.validationContext({target_json});"),
+            why: "Fetch the validation-focused bundle for this exact target.".to_string(),
+        },
+        SuggestedQueryView {
+            label: "Validation Recipe".to_string(),
+            query: format!("return prism.validationRecipe({target_json});"),
+            why: "Inspect the checks PRISM thinks are most likely to validate a change."
+                .to_string(),
+        },
+        SuggestedQueryView {
+            label: "Test Owners".to_string(),
+            query: format!("return prism.owners({target_json}, {{ kind: \"test\", limit: 5 }});"),
+            why: "List the strongest test-oriented owner candidates only.".to_string(),
+        },
+    ]
+}
+
+pub(crate) fn recent_change_context_queries(target: &NodeId) -> Vec<SuggestedQueryView> {
+    let target_json = target_input_json(target);
+    vec![
+        SuggestedQueryView {
+            label: "Recent Change Context".to_string(),
+            query: format!("return prism.recentChangeContext({target_json});"),
+            why: "Fetch the recent outcome, co-change, and lineage bundle for this target."
+                .to_string(),
+        },
+        SuggestedQueryView {
+            label: "Recent Outcomes".to_string(),
+            query: format!(
+                "return prism.memory.outcomes({{ focus: [{target_json}], limit: 10 }});"
+            ),
+            why: "Inspect the latest recorded outcomes without reconstructing anchors.".to_string(),
+        },
+        SuggestedQueryView {
+            label: "Co-Change Neighbors".to_string(),
+            query: format!("return prism.coChangeNeighbors({target_json});"),
+            why: "See which lineages tend to move with this target.".to_string(),
         },
     ]
 }
