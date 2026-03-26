@@ -17,6 +17,24 @@ pub struct NodeIdView {
     pub kind: NodeKind,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceLocationView {
+    pub start_line: usize,
+    pub start_column: usize,
+    pub end_line: usize,
+    pub end_column: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceExcerptView {
+    pub text: String,
+    pub start_line: usize,
+    pub end_line: usize,
+    pub truncated: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SymbolView {
@@ -26,8 +44,10 @@ pub struct SymbolView {
     pub signature: String,
     pub file_path: Option<String>,
     pub span: Span,
+    pub location: Option<SourceLocationView>,
     pub language: Language,
     pub lineage_id: Option<String>,
+    pub source_excerpt: Option<SourceExcerptView>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]

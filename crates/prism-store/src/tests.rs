@@ -129,6 +129,7 @@ fn memory_store_round_trips_auxiliary_snapshots() {
         node_to_lineage: Vec::new(),
         events: Vec::new(),
         co_change_counts: Vec::new(),
+        tombstones: Vec::new(),
         next_lineage: 0,
         next_event: 0,
     };
@@ -253,6 +254,7 @@ fn sqlite_store_commits_auxiliary_snapshots_with_projection_deltas() {
         node_to_lineage: Vec::new(),
         events: Vec::new(),
         co_change_counts: Vec::new(),
+        tombstones: Vec::new(),
         next_lineage: 4,
         next_event: 9,
     };
@@ -442,6 +444,7 @@ fn sqlite_store_commits_index_batches_atomically() {
             node_to_lineage: Vec::new(),
             events: Vec::new(),
             co_change_counts: Vec::new(),
+            tombstones: Vec::new(),
             next_lineage: 1,
             next_event: 2,
         },
@@ -485,6 +488,59 @@ fn sqlite_store_commits_index_batches_atomically() {
             )],
         })
     );
+
+    drop(store);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn sqlite_store_tolerates_duplicate_node_ids_in_single_file_state() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-duplicate-node-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let source_path = PathBuf::from("src/lib.rs");
+    let mut graph = Graph::new();
+    graph.upsert_file(
+        &source_path,
+        1,
+        vec![node("alpha"), node("alpha")],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+
+    let batch = IndexPersistBatch {
+        upserted_paths: vec![source_path],
+        removed_paths: Vec::new(),
+        history_snapshot: HistorySnapshot {
+            node_to_lineage: Vec::new(),
+            events: Vec::new(),
+            co_change_counts: Vec::new(),
+            tombstones: Vec::new(),
+            next_lineage: 1,
+            next_event: 2,
+        },
+        outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+        co_change_deltas: Vec::new(),
+        validation_deltas: Vec::new(),
+        projection_snapshot: None,
+    };
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    store.commit_index_persist_batch(&graph, &batch).unwrap();
+
+    let node_rows: i64 = store
+        .conn
+        .query_row("SELECT COUNT(*) FROM nodes", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(node_rows, 1);
 
     drop(store);
     let _ = std::fs::remove_file(path);

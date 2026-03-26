@@ -34,6 +34,14 @@ function __prismEnrichSymbol(raw) {
     full() {
       return __prismHost("full", { id: this.id });
     },
+    excerpt(options = {}) {
+      return __prismHost("excerpt", {
+        id: this.id,
+        contextLines: options?.contextLines,
+        maxLines: options?.maxLines,
+        maxChars: options?.maxChars,
+      });
+    },
     relations() {
       return __prismEnrichRelations(__prismHost("relations", { id: this.id }));
     },

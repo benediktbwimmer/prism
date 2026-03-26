@@ -22,7 +22,9 @@ pub(crate) fn task_journal_view(
     let replay = prism.resume_task(task_id);
     let events = replay.events;
     let current_task = session.current_task_state();
-    let active = current_task.as_ref().is_some_and(|task| task.id == *task_id);
+    let active = current_task
+        .as_ref()
+        .is_some_and(|task| task.id == *task_id);
     let (description, tags) =
         derive_task_metadata(current_task.as_ref(), task_id, &events, metadata_override);
     let anchors = task_focus(prism, &events);
@@ -140,7 +142,9 @@ fn summarize_lifecycle(events: &[OutcomeEvent]) -> TaskLifecycleSummaryView {
             OutcomeKind::PatchApplied => summary.patch_count += 1,
             OutcomeKind::BuildRan => summary.build_count += 1,
             OutcomeKind::TestRan => summary.test_count += 1,
-            OutcomeKind::FailureObserved | OutcomeKind::RegressionObserved => summary.failure_count += 1,
+            OutcomeKind::FailureObserved | OutcomeKind::RegressionObserved => {
+                summary.failure_count += 1
+            }
             OutcomeKind::FixValidated => summary.validation_count += 1,
             OutcomeKind::NoteAdded => {
                 summary.note_count += 1;
@@ -159,7 +163,10 @@ fn summarize_lifecycle(events: &[OutcomeEvent]) -> TaskLifecycleSummaryView {
 }
 
 fn task_disposition(events: &[OutcomeEvent], active: bool) -> String {
-    if let Some(event) = events.iter().find(|event| task_lifecycle_disposition(event).is_some()) {
+    if let Some(event) = events
+        .iter()
+        .find(|event| task_lifecycle_disposition(event).is_some())
+    {
         return task_lifecycle_disposition(event)
             .unwrap_or("open")
             .to_string();
@@ -245,7 +252,8 @@ where
 }
 
 fn task_lifecycle_disposition(event: &OutcomeEvent) -> Option<&str> {
-    event.metadata
+    event
+        .metadata
         .get("taskLifecycle")
         .and_then(|value| value.get("disposition"))
         .and_then(|value| value.as_str())

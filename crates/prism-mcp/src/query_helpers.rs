@@ -1,10 +1,10 @@
 use anyhow::{anyhow, Result};
 use prism_ir::{AnchorRef, EdgeKind, NodeId};
 use prism_js::{
-    ChangeImpactView, LineageEventView, LineageStatus, LineageView, RelationsView, SymbolView,
-    ValidationRecipeView,
+    ChangeImpactView, LineageEventView, LineageStatus, LineageView, RelationsView,
+    SourceExcerptView, SourceLocationView, SymbolView, ValidationRecipeView,
 };
-use prism_query::{Prism, Symbol};
+use prism_query::{Prism, SourceExcerptOptions, Symbol};
 
 use crate::{
     change_impact_view, merge_node_ids, merge_promoted_checks, node_id_view,
@@ -23,10 +23,14 @@ pub(crate) fn symbol_view(prism: &Prism, symbol: &Symbol<'_>) -> Result<SymbolVi
             .file_path(node.file)
             .map(|path| path.to_string_lossy().into_owned()),
         span: node.span,
+        location: symbol.location().map(source_location_view),
         language: node.language,
         lineage_id: prism
             .lineage_of(symbol.id())
             .map(|lineage| lineage.0.to_string()),
+        source_excerpt: symbol
+            .excerpt(SourceExcerptOptions::default())
+            .map(source_excerpt_view),
     })
 }
 
@@ -51,6 +55,31 @@ pub(crate) fn symbol_for<'a>(prism: &'a Prism, id: &NodeId) -> Result<Symbol<'a>
         .into_iter()
         .find(|symbol| symbol.id() == id)
         .ok_or_else(|| anyhow!("symbol `{}` is no longer queryable", id.path))
+}
+
+pub(crate) fn source_excerpt_for_symbol(
+    symbol: &Symbol<'_>,
+    options: SourceExcerptOptions,
+) -> Option<SourceExcerptView> {
+    symbol.excerpt(options).map(source_excerpt_view)
+}
+
+fn source_location_view(location: prism_query::SourceLocation) -> SourceLocationView {
+    SourceLocationView {
+        start_line: location.start_line,
+        start_column: location.start_column,
+        end_line: location.end_line,
+        end_column: location.end_column,
+    }
+}
+
+fn source_excerpt_view(excerpt: prism_query::SourceExcerpt) -> SourceExcerptView {
+    SourceExcerptView {
+        text: excerpt.text,
+        start_line: excerpt.start_line,
+        end_line: excerpt.end_line,
+        truncated: excerpt.truncated,
+    }
 }
 
 pub(crate) fn relations_view(

@@ -22,7 +22,7 @@ rquickjs = "0.11.0"
 schemars = "1.2.1"
 serde.workspace = true
 serde_json.workspace = true
-tokio = { version = "1.48.0", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.48.0", features = ["macros", "rt-multi-thread", "net", "io-util", "time"] }
 
 [dev-dependencies]
 prism-history = { path = "../prism-history" }

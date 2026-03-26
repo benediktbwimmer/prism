@@ -145,12 +145,35 @@ type SymbolView = {
   signature: string;
   filePath?: string;
   span: { start: number; end: number };
+  location?: SourceLocationView;
   language: string;
   lineageId?: string;
+  sourceExcerpt?: SourceExcerptView;
   full(): string;
+  excerpt(options?: SourceExcerptOptions): SourceExcerptView | null;
   relations(): RelationsView;
   callGraph(depth?: number): Subgraph;
   lineage(): LineageView | null;
+};
+
+type SourceLocationView = {
+  startLine: number;
+  startColumn: number;
+  endLine: number;
+  endColumn: number;
+};
+
+type SourceExcerptOptions = {
+  contextLines?: number;
+  maxLines?: number;
+  maxChars?: number;
+};
+
+type SourceExcerptView = {
+  text: string;
+  startLine: number;
+  endLine: number;
+  truncated: boolean;
 };
 
 type RelationsView = {
@@ -601,6 +624,7 @@ const sym = prism.symbol("main");
 return {
   symbol: sym,
   source: sym?.full(),
+  excerpt: sym?.excerpt(),
   relations: sym?.relations(),
 };
 ```
@@ -778,7 +802,7 @@ return prism.claimPreview({
 
 ## Current implementation surface
 
-- Available now: symbol lookup, search, entrypoints, relations, call graphs, source extraction, lineage history, related failures, blast radius, and task replay by id.
+- Available now: symbol lookup, search, entrypoints, line-aware symbol locations, bounded source excerpts, source extraction, relations, call graphs, lineage history, related failures, blast radius, and task replay by id.
 - Available now: session/workspace memory recall for anchored memory entries, filtered outcome history, and promoted curator memories.
 - Available now: workspace-backed curator job inspection through `prism.curator.jobs()` and `prism.curator.job()`.
 - Available now: coordination plans, tasks, claims, conflicts, blockers, review queues, claim simulation, and workflow helpers for inbox/task/claim preview.

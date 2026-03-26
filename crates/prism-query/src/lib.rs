@@ -3,6 +3,7 @@ mod coordination;
 mod impact;
 mod intent;
 mod outcomes;
+mod source;
 mod symbol;
 mod types;
 
@@ -20,6 +21,7 @@ use prism_store::Graph;
 
 use crate::common::{anchor_sort_key, dedupe_node_ids, sort_node_ids};
 
+pub use crate::source::{SourceExcerpt, SourceExcerptOptions, SourceLocation};
 pub use crate::symbol::{Relations, Symbol};
 pub use crate::types::{
     ArtifactRisk, ChangeImpact, CoChange, DriftCandidate, QueryLimits, TaskIntent, TaskRisk,

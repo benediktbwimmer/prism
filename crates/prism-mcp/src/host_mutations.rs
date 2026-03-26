@@ -9,12 +9,12 @@ use prism_ir::{
     AgentId, AnchorRef, ArtifactId, ClaimId, CoordinationTaskId, Edge, EdgeOrigin, EventActor,
     EventId, EventMeta, PlanId, TaskId,
 };
+use prism_js::TaskJournalView;
 use prism_memory::{
     MemoryEntry, MemoryKind, MemoryModule, MemorySource, OutcomeEvent, OutcomeEvidence,
     OutcomeKind, OutcomeResult,
 };
 use prism_query::Prism;
-use prism_js::TaskJournalView;
 use serde_json::{json, Value};
 
 use crate::{
@@ -26,9 +26,9 @@ use crate::{
     current_timestamp, manual_memory_metadata, parse_capability, parse_claim_mode,
     parse_coordination_task_status, parse_edge_kind, parse_plan_status, parse_review_verdict,
     plan_view, task_journal_memory_metadata, task_journal_view, ArtifactActionInput,
-    ArtifactMutationResult, ArtifactProposePayload,
-    ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput,
-    ClaimMutationResult, ClaimReleasePayload, ClaimRenewPayload, CoordinationMutationKindInput,
+    ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
+    ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput, ClaimMutationResult,
+    ClaimReleasePayload, ClaimRenewPayload, CoordinationMutationKindInput,
     CoordinationMutationResult, CuratorJobView, CuratorProposalDecisionResult, EdgeMutationResult,
     EventMutationResult, HandoffAcceptPayload, MemoryMutationActionInput, MemoryMutationResult,
     MemoryStorePayload, MutationViolationView, PlanUpdatePayload, PrismArtifactArgs,

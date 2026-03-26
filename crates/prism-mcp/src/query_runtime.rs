@@ -2,9 +2,11 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Context, Result};
 use prism_ir::{AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, NodeId, PlanId};
-use prism_js::{QueryDiagnostic, QueryEnvelope, ScoredMemoryView, SubgraphView, SymbolView};
+use prism_js::{
+    QueryDiagnostic, QueryEnvelope, ScoredMemoryView, SourceExcerptView, SubgraphView, SymbolView,
+};
 use prism_memory::{MemoryModule, OutcomeRecallQuery, RecallQuery};
-use prism_query::{Prism, Symbol};
+use prism_query::{Prism, SourceExcerptOptions, Symbol};
 use serde_json::{json, Value};
 
 use crate::{
@@ -15,14 +17,14 @@ use crate::{
     parse_claim_mode, parse_event_actor, parse_memory_kind, parse_node_kind, parse_outcome_kind,
     parse_outcome_result, plan_view, policy_violation_record_view, promoted_memory_entries,
     promoted_summary_texts, promoted_validation_checks, relations_view, scored_memory_view,
-    symbol_for, symbol_view, symbol_views_for_ids, task_intent_view, task_journal_view,
-    task_risk_view, task_validation_recipe_view, validation_recipe_view_with, AnchorListArgs,
-    CallGraphArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs,
+    source_excerpt_for_symbol, symbol_for, symbol_view, symbol_views_for_ids, task_intent_view,
+    task_journal_view, task_risk_view, task_validation_recipe_view, validation_recipe_view_with,
+    AnchorListArgs, CallGraphArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs,
+    LimitArgs, MemoryOutcomeArgs, MemoryRecallArgs, PendingReviewsArgs, PlanTargetArgs,
+    PolicyViolationQueryArgs, QueryHost, QueryLanguage, SearchArgs, SimulateClaimArgs,
+    SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskJournalArgs, TaskTargetArgs,
     DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, LimitArgs, MemoryOutcomeArgs, MemoryRecallArgs,
-    PendingReviewsArgs, PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage,
-    SearchArgs, SimulateClaimArgs, SymbolQueryArgs, SymbolTargetArgs, TaskJournalArgs,
-    TaskTargetArgs,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
 
 impl QueryHost {
@@ -499,6 +501,10 @@ impl QueryExecution {
                     symbol_for(self.prism.as_ref(), &id)?.full(),
                 )?)
             }
+            "excerpt" => {
+                let args: SourceExcerptArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.source_excerpt(args)?)?)
+            }
             "relations" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
                 let id = convert_node_id(args.id)?;
@@ -870,9 +876,7 @@ impl QueryExecution {
     }
 
     fn task_journal(&self, args: TaskJournalArgs) -> Result<prism_js::TaskJournalView> {
-        let event_requested = args
-            .event_limit
-            .unwrap_or(DEFAULT_TASK_JOURNAL_EVENT_LIMIT);
+        let event_requested = args.event_limit.unwrap_or(DEFAULT_TASK_JOURNAL_EVENT_LIMIT);
         let memory_requested = args
             .memory_limit
             .unwrap_or(DEFAULT_TASK_JOURNAL_MEMORY_LIMIT);
@@ -977,6 +981,20 @@ impl QueryExecution {
             since: args.since,
             limit: applied,
         }))
+    }
+
+    fn source_excerpt(&self, args: SourceExcerptArgs) -> Result<Option<SourceExcerptView>> {
+        let id = convert_node_id(args.id)?;
+        let symbol = symbol_for(self.prism.as_ref(), &id)?;
+        let defaults = SourceExcerptOptions::default();
+        Ok(source_excerpt_for_symbol(
+            &symbol,
+            SourceExcerptOptions {
+                context_lines: args.context_lines.unwrap_or(defaults.context_lines),
+                max_lines: args.max_lines.unwrap_or(defaults.max_lines),
+                max_chars: args.max_chars.unwrap_or(defaults.max_chars),
+            },
+        ))
     }
 
     fn symbols(&self, query: &str) -> Result<Vec<SymbolView>> {

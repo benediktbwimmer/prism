@@ -4,6 +4,7 @@ use std::path::Path;
 
 use prism_ir::{Edge, EdgeKind, Node, NodeId, NodeKind, Skeleton, Subgraph};
 
+use crate::source::{SourceDocument, SourceExcerpt, SourceExcerptOptions, SourceLocation};
 use crate::Prism;
 
 struct Match<'a> {
@@ -224,17 +225,28 @@ impl<'a> Symbol<'a> {
     }
 
     pub fn full(&self) -> String {
-        let node = self.node();
-        let Some(path) = self.prism.graph.file_path(node.file) else {
+        let Some(source) = self.read_source() else {
             return String::new();
         };
-        let Ok(source) = fs::read_to_string(path) else {
-            return String::new();
-        };
+        SourceDocument::new(&source)
+            .span_text(self.node().span)
+            .to_owned()
+    }
 
-        let start = usize::min(node.span.start as usize, source.len());
-        let end = usize::min(node.span.end as usize, source.len());
-        source.get(start..end).unwrap_or_default().to_owned()
+    pub fn excerpt(&self, options: SourceExcerptOptions) -> Option<SourceExcerpt> {
+        let source = self.read_source()?;
+        Some(SourceDocument::new(&source).excerpt(self.node().span, options))
+    }
+
+    pub fn location(&self) -> Option<SourceLocation> {
+        let source = self.read_source()?;
+        Some(SourceDocument::new(&source).location(self.node().span))
+    }
+
+    fn read_source(&self) -> Option<String> {
+        let node = self.node();
+        let path = self.prism.graph.file_path(node.file)?;
+        fs::read_to_string(path).ok()
     }
 
     pub fn call_graph(&self, depth: usize) -> Subgraph {

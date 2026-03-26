@@ -207,7 +207,13 @@ pub(super) fn save_file_state_tx(tx: &Transaction<'_>, state: &FileState) -> Res
     for node in &state.nodes {
         tx.execute(
             "INSERT INTO nodes(crate_name, path, kind, name, file_id, span_start, span_end, language)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+             ON CONFLICT(crate_name, path, kind) DO UPDATE SET
+                name = excluded.name,
+                file_id = excluded.file_id,
+                span_start = excluded.span_start,
+                span_end = excluded.span_end,
+                language = excluded.language",
             params![
                 node.id.crate_name.as_str(),
                 node.id.path.as_str(),

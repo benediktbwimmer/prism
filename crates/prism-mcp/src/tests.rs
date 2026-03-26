@@ -2277,6 +2277,78 @@ return {
 }
 
 #[test]
+fn symbol_views_expose_source_locations_and_excerpts() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .execute(
+            r#"
+const sym = prism.symbol("alpha");
+return {
+  location: sym?.location ?? null,
+  sourceExcerpt: sym?.sourceExcerpt ?? null,
+  excerpt: sym?.excerpt() ?? null,
+  tunedExcerpt: sym?.excerpt({ maxChars: 10 }) ?? null,
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed");
+
+    assert_eq!(result.result["location"]["startLine"], 1);
+    assert_eq!(result.result["location"]["endLine"], 1);
+    assert!(
+        result.result["location"]["startColumn"]
+            .as_u64()
+            .expect("startColumn should be numeric")
+            >= 1
+    );
+    assert_eq!(
+        result.result["sourceExcerpt"]["text"],
+        result.result["excerpt"]["text"]
+    );
+    assert!(result.result["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("pub fn alpha()"));
+    assert_eq!(result.result["tunedExcerpt"]["truncated"], true);
+}
+
+#[test]
+fn markdown_heading_symbols_cover_their_section_body() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::write(
+        root.join("docs/SPEC.md"),
+        "# Top\nalpha\n## Child\nbeta\n# Next\ngamma\n",
+    )
+    .unwrap();
+
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let result = host
+        .execute(
+            r#"
+const heading = prism.search("Top", { path: "docs/SPEC.md", kind: "markdown-heading", limit: 1 })[0];
+return {
+  full: heading?.full() ?? null,
+  excerpt: heading?.excerpt() ?? null,
+  location: heading?.location ?? null,
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed");
+
+    let full = result.result["full"].as_str().unwrap_or_default();
+    assert!(full.contains("## Child"));
+    assert!(!full.contains("# Next"));
+    assert_eq!(result.result["location"]["startLine"], 1);
+    assert_eq!(result.result["location"]["endLine"], 4);
+    assert_eq!(result.result["excerpt"]["startLine"], 1);
+}
+
+#[test]
 fn custom_query_limits_apply_per_host() {
     let mut graph = Graph::new();
     graph.add_node(Node {
@@ -3266,8 +3338,14 @@ fn finish_task_writes_summary_memory_clears_session_task_and_updates_task_resour
         .find(|event| event.meta.id.0 == result.event_id)
         .expect("closing outcome should be present");
     assert_eq!(closing.kind, OutcomeKind::NoteAdded);
-    assert_eq!(closing.metadata["taskLifecycle"]["disposition"], "completed");
-    assert_eq!(closing.metadata["taskLifecycle"]["memoryId"], result.memory_id);
+    assert_eq!(
+        closing.metadata["taskLifecycle"]["disposition"],
+        "completed"
+    );
+    assert_eq!(
+        closing.metadata["taskLifecycle"]["memoryId"],
+        result.memory_id
+    );
 
     let memory = host
         .session

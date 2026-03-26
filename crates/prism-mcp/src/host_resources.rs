@@ -6,8 +6,7 @@ use prism_memory::MemoryId;
 
 use crate::{
     anchor_resource_view_links, blast_radius_view, co_change_view, convert_node_id,
-    derive_task_metadata, DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
-    dedupe_resource_link_views, edge_resource_uri, edge_resource_view_link,
+    dedupe_resource_link_views, derive_task_metadata, edge_resource_uri, edge_resource_view_link,
     event_resource_view_link, inferred_edge_record_view, lineage_resource_view_link,
     lineage_status, memory_entry_view, memory_resource_uri, memory_resource_view_link,
     node_id_view, paginate_items, parse_resource_page, relations_view, resource_link_view,
@@ -21,7 +20,8 @@ use crate::{
     LineageResourcePayload, MemoryResourcePayload, NodeIdInput, QueryExecution, QueryHost,
     ResourceSchemaCatalogPayload, SearchArgs, SearchResourcePayload, SessionLimitsView,
     SessionResourcePayload, SessionTaskView, SessionView, SymbolResourcePayload,
-    TaskResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, ENTRYPOINTS_URI,
+    TaskResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
 };
 
 impl QueryHost {

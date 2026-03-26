@@ -35,6 +35,15 @@ pub(crate) struct SymbolTargetArgs {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SourceExcerptArgs {
+    pub(crate) id: NodeIdInput,
+    pub(crate) context_lines: Option<usize>,
+    pub(crate) max_lines: Option<usize>,
+    pub(crate) max_chars: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
 pub(crate) struct CallGraphArgs {
     pub(crate) id: NodeIdInput,
     pub(crate) depth: Option<usize>,

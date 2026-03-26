@@ -3,7 +3,7 @@ use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
-use clap::ArgAction;
+use clap::{ArgAction, ValueEnum};
 use prism_agent::InferenceStore;
 use prism_core::{index_workspace_session_with_options, WorkspaceSession, WorkspaceSessionOptions};
 use prism_ir::TaskId;
@@ -13,6 +13,7 @@ use prism_query::{Prism, QueryLimits};
 use rmcp::{handler::server::router::tool::ToolRouter, transport::stdio, ServiceExt};
 
 mod common;
+mod daemon_mode;
 mod features;
 mod host_mutations;
 mod host_resources;
@@ -30,6 +31,7 @@ mod tool_args;
 mod views;
 
 use common::*;
+pub use daemon_mode::serve_with_mode;
 pub use features::{CoordinationFeatureFlag, PrismMcpFeatures};
 use js_runtime::JsWorker;
 use memory_metadata::*;
@@ -67,12 +69,20 @@ static NEXT_SESSION_ID: AtomicU64 = AtomicU64::new(1);
 pub struct PrismMcpCli {
     #[arg(long, default_value = ".")]
     pub root: PathBuf,
+    #[arg(long, value_enum, default_value_t = PrismMcpMode::Stdio)]
+    pub mode: PrismMcpMode,
     #[arg(long = "no-coordination", alias = "simple", default_value_t = false)]
     pub no_coordination: bool,
     #[arg(long, value_enum, value_delimiter = ',', action = ArgAction::Append)]
     pub enable_coordination: Vec<CoordinationFeatureFlag>,
     #[arg(long, value_enum, value_delimiter = ',', action = ArgAction::Append)]
     pub disable_coordination: Vec<CoordinationFeatureFlag>,
+    #[arg(long)]
+    pub socket: Option<PathBuf>,
+    #[arg(long = "daemon-log")]
+    pub daemon_log: Option<PathBuf>,
+    #[arg(long = "daemon-start-timeout-ms")]
+    pub daemon_start_timeout_ms: Option<u64>,
 }
 
 impl PrismMcpCli {
@@ -90,6 +100,60 @@ impl PrismMcpCli {
         }
         features
     }
+
+    fn socket_path(&self, root: &Path) -> PathBuf {
+        self.socket
+            .clone()
+            .unwrap_or_else(|| daemon_mode::default_socket_path(root))
+    }
+
+    fn log_path(&self, root: &Path) -> PathBuf {
+        self.daemon_log
+            .clone()
+            .unwrap_or_else(|| daemon_mode::default_log_path(root))
+    }
+
+    fn daemon_spawn_args(&self, root: &Path) -> Vec<String> {
+        let mut args = vec![
+            "--mode".to_string(),
+            "daemon".to_string(),
+            "--root".to_string(),
+            root.display().to_string(),
+        ];
+        if self.no_coordination {
+            args.push("--no-coordination".to_string());
+        }
+        for flag in &self.enable_coordination {
+            args.push("--enable-coordination".to_string());
+            args.push(
+                flag.to_possible_value()
+                    .expect("value enum")
+                    .get_name()
+                    .to_string(),
+            );
+        }
+        for flag in &self.disable_coordination {
+            args.push("--disable-coordination".to_string());
+            args.push(
+                flag.to_possible_value()
+                    .expect("value enum")
+                    .get_name()
+                    .to_string(),
+            );
+        }
+        if let Some(socket) = &self.socket {
+            args.push("--socket".to_string());
+            args.push(socket.display().to_string());
+        }
+        args
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum PrismMcpMode {
+    Stdio,
+    Daemon,
+    Bridge,
 }
 
 #[derive(Clone)]
