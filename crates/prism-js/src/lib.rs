@@ -40,6 +40,12 @@ pub struct RelationsView {
     pub references: Vec<SymbolView>,
     pub imports: Vec<SymbolView>,
     pub implements: Vec<SymbolView>,
+    pub specifies: Vec<SymbolView>,
+    pub specified_by: Vec<SymbolView>,
+    pub validates: Vec<SymbolView>,
+    pub validated_by: Vec<SymbolView>,
+    pub related: Vec<SymbolView>,
+    pub related_by: Vec<SymbolView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -96,6 +102,7 @@ pub struct ChangeImpactView {
     pub validation_checks: Vec<ValidationCheckView>,
     pub co_change_neighbors: Vec<CoChangeView>,
     pub risk_events: Vec<OutcomeEvent>,
+    pub promoted_summaries: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -149,6 +156,7 @@ pub struct TaskRiskView {
     pub validation_checks: Vec<ValidationCheckView>,
     pub co_change_neighbors: Vec<CoChangeView>,
     pub risk_events: Vec<OutcomeEvent>,
+    pub promoted_summaries: Vec<String>,
     pub approved_artifact_ids: Vec<String>,
     pub stale_artifact_ids: Vec<String>,
 }
@@ -166,6 +174,29 @@ pub struct ArtifactRiskView {
     pub missing_validations: Vec<String>,
     pub co_change_neighbors: Vec<CoChangeView>,
     pub risk_events: Vec<OutcomeEvent>,
+    pub promoted_summaries: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DriftCandidateView {
+    pub spec: NodeIdView,
+    pub implementations: Vec<NodeIdView>,
+    pub validations: Vec<NodeIdView>,
+    pub related: Vec<NodeIdView>,
+    pub reasons: Vec<String>,
+    pub recent_failures: Vec<OutcomeEvent>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskIntentView {
+    pub task_id: String,
+    pub specs: Vec<NodeIdView>,
+    pub implementations: Vec<NodeIdView>,
+    pub validations: Vec<NodeIdView>,
+    pub related: Vec<NodeIdView>,
+    pub drift_candidates: Vec<DriftCandidateView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -393,6 +424,15 @@ type PrismApi = {
   taskValidationRecipe(taskId: string): TaskValidationRecipeView | null;
   taskRisk(taskId: string): TaskRiskView | null;
   artifactRisk(artifactId: string): ArtifactRiskView | null;
+  taskIntent(taskId: string): TaskIntentView | null;
+  coordinationInbox(planId: string): CoordinationInboxView;
+  taskContext(taskId: string): TaskContextView;
+  claimPreview(input: {
+    anchors: Array<SymbolView | NodeId | AnchorRef>;
+    capability: string;
+    mode?: string;
+    taskId?: string;
+  }): ClaimPreviewView;
   simulateClaim(input: {
     anchors: Array<SymbolView | NodeId | AnchorRef>;
     capability: string;
@@ -404,6 +444,9 @@ type PrismApi = {
   relatedFailures(target: SymbolView | NodeId): OutcomeEvent[];
   blastRadius(target: SymbolView | NodeId): ChangeImpactView | null;
   validationRecipe(target: SymbolView | NodeId): ValidationRecipeView | null;
+  specFor(target: SymbolView | NodeId): SymbolView[];
+  implementationFor(target: SymbolView | NodeId): SymbolView[];
+  driftCandidates(limit?: number): DriftCandidateView[];
   resumeTask(taskId: string): TaskReplay;
   memory: {
     recall(options?: MemoryRecallOptions): ScoredMemoryView[];
@@ -437,6 +480,12 @@ type RelationsView = {
   references: SymbolView[];
   imports: SymbolView[];
   implements: SymbolView[];
+  specifies: SymbolView[];
+  specifiedBy: SymbolView[];
+  validates: SymbolView[];
+  validatedBy: SymbolView[];
+  related: SymbolView[];
+  relatedBy: SymbolView[];
 };
 
 type LineageView = {
@@ -471,6 +520,7 @@ type ChangeImpactView = {
   validationChecks: ValidationCheckView[];
   coChangeNeighbors: CoChangeView[];
   riskEvents: OutcomeEvent[];
+  promotedSummaries: string[];
 };
 
 type ValidationRecipeView = {
@@ -480,6 +530,24 @@ type ValidationRecipeView = {
   relatedNodes: NodeId[];
   coChangeNeighbors: CoChangeView[];
   recentFailures: OutcomeEvent[];
+};
+
+type DriftCandidateView = {
+  spec: NodeId;
+  implementations: NodeId[];
+  validations: NodeId[];
+  related: NodeId[];
+  reasons: string[];
+  recentFailures: OutcomeEvent[];
+};
+
+type TaskIntentView = {
+  taskId: string;
+  specs: NodeId[];
+  implementations: NodeId[];
+  validations: NodeId[];
+  related: NodeId[];
+  driftCandidates: DriftCandidateView[];
 };
 
 type TaskValidationRecipeView = {
@@ -502,6 +570,7 @@ type TaskRiskView = {
   validationChecks: ValidationCheckView[];
   coChangeNeighbors: CoChangeView[];
   riskEvents: OutcomeEvent[];
+  promotedSummaries: string[];
   approvedArtifactIds: string[];
   staleArtifactIds: string[];
 };
@@ -517,6 +586,29 @@ type ArtifactRiskView = {
   missingValidations: string[];
   coChangeNeighbors: CoChangeView[];
   riskEvents: OutcomeEvent[];
+  promotedSummaries: string[];
+};
+
+type CoordinationInboxView = {
+  readyTasks: CoordinationTaskView[];
+  pendingReviews: ArtifactView[];
+};
+
+type TaskContextView = {
+  task: CoordinationTaskView | null;
+  blockers: BlockerView[];
+  artifacts: ArtifactView[];
+  claims: ClaimView[];
+  conflicts: ConflictView[];
+  blastRadius: ChangeImpactView | null;
+  validationRecipe: TaskValidationRecipeView | null;
+  risk: TaskRiskView | null;
+};
+
+type ClaimPreviewView = {
+  conflicts: ConflictView[];
+  blocked: boolean;
+  warnings: ConflictView[];
 };
 
 type ValidationCheckView = {
@@ -906,12 +998,35 @@ return prism.simulateClaim({
 });
 ```
 
+### 21. Pull a coordination inbox for one plan
+
+```ts
+return prism.coordinationInbox("plan:12");
+```
+
+### 22. Pull the full working context for one coordination task
+
+```ts
+return prism.taskContext("coord-task:12");
+```
+
+### 23. Preview a claim and tell whether it is blocked
+
+```ts
+const sym = prism.symbol("handle_request");
+return prism.claimPreview({
+  anchors: sym ? [sym] : [],
+  capability: "Edit",
+  mode: "SoftExclusive",
+});
+```
+
 ## Current implementation surface
 
 - Available now: symbol lookup, search, entrypoints, relations, call graphs, source extraction, lineage history, related failures, blast radius, and task replay by id.
 - Available now: session/workspace memory recall for notes and promoted curator memories.
 - Available now: workspace-backed curator job inspection through `prism.curator.jobs()` and `prism.curator.job()`.
-- Available now: coordination plans, tasks, claims, conflicts, blockers, review queues, and claim simulation.
+- Available now: coordination plans, tasks, claims, conflicts, blockers, review queues, claim simulation, and workflow helpers for inbox/task/claim preview.
 - Keep query logic small. If you find yourself reconstructing semantics from raw low-level fields every time, that method probably belongs in Prism itself.
 
 ## Separate mutation tools
@@ -1005,6 +1120,12 @@ function __prismEnrichRelations(raw) {
     references: __prismEnrichSymbols(raw.references),
     imports: __prismEnrichSymbols(raw.imports),
     implements: __prismEnrichSymbols(raw.implements),
+    specifies: __prismEnrichSymbols(raw.specifies),
+    specifiedBy: __prismEnrichSymbols(raw.specifiedBy),
+    validates: __prismEnrichSymbols(raw.validates),
+    validatedBy: __prismEnrichSymbols(raw.validatedBy),
+    related: __prismEnrichSymbols(raw.related),
+    relatedBy: __prismEnrichSymbols(raw.relatedBy),
   };
 }
 
@@ -1058,21 +1179,28 @@ function __prismNormalizeAnchor(value) {
     };
   }
   if (typeof value === "object" && value.Node != null) {
+    const node = value.Node;
     return {
       type: "node",
-      crateName: value.Node.crateName,
-      path: value.Node.path,
-      kind: value.Node.kind,
+      crateName: node.crateName ?? node.crate_name,
+      path: node.path,
+      kind: node.kind,
     };
   }
   if (typeof value === "object" && value.Lineage != null) {
-    return { type: "lineage", lineageId: value.Lineage };
+    return {
+      type: "lineage",
+      lineageId: value.Lineage.lineageId ?? value.Lineage.lineage_id ?? value.Lineage,
+    };
   }
   if (typeof value === "object" && value.File != null) {
-    return { type: "file", fileId: value.File };
+    return {
+      type: "file",
+      fileId: value.File.fileId ?? value.File.file_id ?? value.File,
+    };
   }
   if (typeof value === "object" && value.Kind != null) {
-    return { type: "kind", kind: value.Kind };
+    return { type: "kind", kind: value.Kind.kind ?? value.Kind };
   }
   if (typeof value === "object" && typeof value.type === "string") {
     return value;
@@ -1148,6 +1276,37 @@ globalThis.prism = Object.freeze({
   artifactRisk(artifactId) {
     return __prismHost("artifactRisk", { artifactId });
   },
+  taskIntent(taskId) {
+    return __prismHost("taskIntent", { taskId });
+  },
+  coordinationInbox(planId) {
+    return {
+      readyTasks: prism.readyTasks(planId),
+      pendingReviews: prism.pendingReviews(planId),
+    };
+  },
+  taskContext(taskId) {
+    const task = prism.task(taskId);
+    const target = task?.anchors ?? [];
+    return {
+      task,
+      blockers: prism.blockers(taskId),
+      artifacts: prism.artifacts(taskId),
+      claims: target.length > 0 ? prism.claims(target) : [],
+      conflicts: target.length > 0 ? prism.conflicts(target) : [],
+      blastRadius: prism.taskBlastRadius(taskId),
+      validationRecipe: prism.taskValidationRecipe(taskId),
+      risk: prism.taskRisk(taskId),
+    };
+  },
+  claimPreview(input) {
+    const conflicts = prism.simulateClaim(input);
+    return {
+      conflicts,
+      blocked: conflicts.some((conflict) => conflict.severity === "Block"),
+      warnings: conflicts.filter((conflict) => conflict.severity !== "Info"),
+    };
+  },
   simulateClaim(input) {
     return __prismHost("simulateClaim", {
       anchors: __prismNormalizeAnchors(input?.anchors ?? input?.anchor ?? []),
@@ -1190,6 +1349,23 @@ globalThis.prism = Object.freeze({
       return null;
     }
     return __prismHost("validationRecipe", { id });
+  },
+  specFor(target) {
+    const id = __prismNormalizeTarget(target);
+    if (id == null) {
+      return [];
+    }
+    return __prismEnrichSymbols(__prismHost("specFor", { id }));
+  },
+  implementationFor(target) {
+    const id = __prismNormalizeTarget(target);
+    if (id == null) {
+      return [];
+    }
+    return __prismEnrichSymbols(__prismHost("implementationFor", { id }));
+  },
+  driftCandidates(limit) {
+    return __prismHost("driftCandidates", limit == null ? {} : { limit });
   },
   resumeTask(taskId) {
     return __prismHost("resumeTask", { taskId });

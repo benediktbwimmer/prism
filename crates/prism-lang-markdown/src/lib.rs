@@ -1,10 +1,13 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use prism_ir::{Edge, EdgeKind, EdgeOrigin, Language, Node, NodeId, NodeKind, Span};
+use prism_ir::{
+    Edge, EdgeKind, EdgeOrigin, Language, Node, NodeId, NodeKind, Span, UnresolvedIntent,
+};
 use prism_parser::{
-    document_name, document_path, fingerprint_from_parts, normalized_shape_hash, LanguageAdapter,
-    NodeFingerprint, ParseInput, ParseResult,
+    document_name, document_path, extract_intent_targets, fingerprint_from_parts,
+    intent_kind_for_context, normalized_shape_hash, LanguageAdapter, NodeFingerprint, ParseInput,
+    ParseResult,
 };
 use smol_str::SmolStr;
 
@@ -26,6 +29,7 @@ impl LanguageAdapter for MarkdownAdapter {
         let prefix = document_path(input);
         let document_id = NodeId::new(input.crate_name, prefix.clone(), NodeKind::Document);
         let document_shape = normalized_shape_hash(input.source);
+        let default_intent_kind = intent_kind_for_context(&prefix, EdgeKind::RelatedTo);
         push_fingerprinted_node(
             &mut result,
             Node {
@@ -41,72 +45,92 @@ impl LanguageAdapter for MarkdownAdapter {
 
         for (index, line) in input.source.lines().enumerate() {
             let trimmed = line.trim();
-            if !trimmed.starts_with('#') {
-                continue;
-            }
-
-            let level = trimmed.chars().take_while(|ch| *ch == '#').count();
-            let title = trimmed[level..].trim();
-            if title.is_empty() {
-                continue;
-            }
-
-            let slug = slugify(title);
-            let count = slug_counts.entry(slug.clone()).or_insert(0);
-            *count += 1;
-            let path = if *count == 1 {
-                format!("{prefix}::{slug}")
-            } else {
-                format!("{prefix}::{slug}:{}", count)
-            };
-            let id = NodeId::new(input.crate_name, path, NodeKind::MarkdownHeading);
-
-            let node = Node {
-                id: id.clone(),
-                name: SmolStr::new(title),
-                kind: NodeKind::MarkdownHeading,
-                file: input.file_id,
-                span: line_span(input.source, index),
-                language: Language::Markdown,
-            };
-            let title_shape = normalized_shape_hash(title);
-            result.record_fingerprint(
-                &id,
-                fingerprint_from_parts([
-                    "markdown",
-                    "heading",
-                    &level.to_string(),
-                    title_shape.as_str(),
-                ]),
-            );
-            result.nodes.push(node);
-
-            while stack
+            let mut anchor = stack
                 .last()
-                .map_or(false, |(stack_level, _)| *stack_level >= level)
-            {
-                stack.pop();
+                .map(|(_, id)| id.clone())
+                .unwrap_or_else(|| document_id.clone());
+            let mut context = prefix.clone();
+
+            if trimmed.starts_with('#') {
+                let level = trimmed.chars().take_while(|ch| *ch == '#').count();
+                let title = trimmed[level..].trim();
+                if !title.is_empty() {
+                    let slug = slugify(title);
+                    let count = slug_counts.entry(slug.clone()).or_insert(0);
+                    *count += 1;
+                    let path = if *count == 1 {
+                        format!("{prefix}::{slug}")
+                    } else {
+                        format!("{prefix}::{slug}:{}", count)
+                    };
+                    let id = NodeId::new(input.crate_name, path, NodeKind::MarkdownHeading);
+
+                    let node = Node {
+                        id: id.clone(),
+                        name: SmolStr::new(title),
+                        kind: NodeKind::MarkdownHeading,
+                        file: input.file_id,
+                        span: line_span(input.source, index),
+                        language: Language::Markdown,
+                    };
+                    let title_shape = normalized_shape_hash(title);
+                    result.record_fingerprint(
+                        &id,
+                        fingerprint_from_parts([
+                            "markdown",
+                            "heading",
+                            &level.to_string(),
+                            title_shape.as_str(),
+                        ]),
+                    );
+                    result.nodes.push(node);
+
+                    while stack
+                        .last()
+                        .is_some_and(|(stack_level, _)| *stack_level >= level)
+                    {
+                        stack.pop();
+                    }
+
+                    if let Some((_, parent)) = stack.last() {
+                        result.edges.push(Edge {
+                            kind: EdgeKind::Contains,
+                            source: parent.clone(),
+                            target: id.clone(),
+                            origin: EdgeOrigin::Static,
+                            confidence: 1.0,
+                        });
+                    } else {
+                        result.edges.push(Edge {
+                            kind: EdgeKind::Contains,
+                            source: document_id.clone(),
+                            target: id.clone(),
+                            origin: EdgeOrigin::Static,
+                            confidence: 1.0,
+                        });
+                    }
+
+                    stack.push((level, id.clone()));
+                    anchor = id;
+                    context = title.to_owned();
+                }
+            } else if let Some((_, heading)) = stack.last() {
+                anchor = heading.clone();
+                if let Some(node) = result.nodes.iter().find(|node| node.id == anchor) {
+                    context = node.name.to_string();
+                }
             }
 
-            if let Some((_, parent)) = stack.last() {
-                result.edges.push(Edge {
-                    kind: EdgeKind::Contains,
-                    source: parent.clone(),
-                    target: id.clone(),
-                    origin: EdgeOrigin::Static,
-                    confidence: 1.0,
-                });
-            } else {
-                result.edges.push(Edge {
-                    kind: EdgeKind::Contains,
-                    source: document_id.clone(),
-                    target: id.clone(),
-                    origin: EdgeOrigin::Static,
-                    confidence: 1.0,
+            let intent_kind =
+                intent_kind_for_context(&format!("{context} {trimmed}"), default_intent_kind);
+            for target in extract_intent_targets(trimmed) {
+                result.unresolved_intents.push(UnresolvedIntent {
+                    source: anchor.clone(),
+                    kind: intent_kind,
+                    target: target.into(),
+                    span: line_span(input.source, index),
                 });
             }
-
-            stack.push((level, id));
         }
 
         Ok(result)

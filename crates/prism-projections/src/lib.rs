@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use prism_history::HistorySnapshot;
-use prism_ir::{AnchorRef, LineageEvent, LineageId, NodeId};
+use prism_ir::{AnchorRef, Edge, EdgeKind, LineageEvent, LineageId, Node, NodeId, NodeKind};
 use prism_memory::{
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemorySnapshot, OutcomeResult,
 };
@@ -45,6 +45,29 @@ pub struct ProjectionSnapshot {
 pub struct ProjectionIndex {
     co_change_by_lineage: HashMap<LineageId, Vec<CoChangeRecord>>,
     validation_by_lineage: HashMap<LineageId, Vec<ValidationCheck>>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct IntentSpecProjection {
+    pub spec: NodeId,
+    pub implementations: Vec<NodeId>,
+    pub validations: Vec<NodeId>,
+    pub related: Vec<NodeId>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct IntentDriftRecord {
+    pub spec: NodeId,
+    pub implementations: Vec<NodeId>,
+    pub validations: Vec<NodeId>,
+    pub related: Vec<NodeId>,
+    pub reasons: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct IntentIndex {
+    by_spec: HashMap<NodeId, IntentSpecProjection>,
+    specs_by_target: HashMap<NodeId, Vec<NodeId>>,
 }
 
 impl ProjectionIndex {
@@ -273,6 +296,122 @@ impl ProjectionIndex {
     }
 }
 
+impl IntentIndex {
+    pub fn derive<'a, N, E>(nodes: N, edges: E) -> Self
+    where
+        N: IntoIterator<Item = &'a Node>,
+        E: IntoIterator<Item = &'a Edge>,
+    {
+        let mut doc_like = nodes
+            .into_iter()
+            .filter(|node| is_intent_source_kind(node.kind))
+            .map(|node| node.id.clone())
+            .collect::<HashSet<_>>();
+        let mut by_spec = HashMap::<NodeId, IntentSpecProjection>::new();
+        let mut specs_by_target = HashMap::<NodeId, Vec<NodeId>>::new();
+
+        for edge in edges {
+            if !doc_like.contains(&edge.source) {
+                continue;
+            }
+            let entry =
+                by_spec
+                    .entry(edge.source.clone())
+                    .or_insert_with(|| IntentSpecProjection {
+                        spec: edge.source.clone(),
+                        ..IntentSpecProjection::default()
+                    });
+            match edge.kind {
+                EdgeKind::Specifies => {
+                    push_unique(&mut entry.implementations, edge.target.clone());
+                    push_unique(
+                        specs_by_target.entry(edge.target.clone()).or_default(),
+                        edge.source.clone(),
+                    );
+                }
+                EdgeKind::Validates => push_unique(&mut entry.validations, edge.target.clone()),
+                EdgeKind::RelatedTo => push_unique(&mut entry.related, edge.target.clone()),
+                _ => {}
+            }
+        }
+
+        doc_like.retain(|node| by_spec.contains_key(node));
+        let _ = doc_like;
+        Self {
+            by_spec,
+            specs_by_target,
+        }
+    }
+
+    pub fn specs_for(&self, node: &NodeId) -> Vec<NodeId> {
+        self.specs_by_target.get(node).cloned().unwrap_or_default()
+    }
+
+    pub fn implementations_for(&self, spec: &NodeId) -> Vec<NodeId> {
+        self.by_spec
+            .get(spec)
+            .map(|projection| projection.implementations.clone())
+            .unwrap_or_default()
+    }
+
+    pub fn validations_for(&self, spec: &NodeId) -> Vec<NodeId> {
+        self.by_spec
+            .get(spec)
+            .map(|projection| projection.validations.clone())
+            .unwrap_or_default()
+    }
+
+    pub fn related_for(&self, spec: &NodeId) -> Vec<NodeId> {
+        self.by_spec
+            .get(spec)
+            .map(|projection| projection.related.clone())
+            .unwrap_or_default()
+    }
+
+    pub fn drift_candidates(&self, specs: &[NodeId], limit: usize) -> Vec<IntentDriftRecord> {
+        let mut candidates = specs
+            .iter()
+            .filter_map(|spec| {
+                let projection = self.by_spec.get(spec)?;
+                let mut reasons = Vec::new();
+                if projection.implementations.is_empty() {
+                    reasons.push("no implementation links".to_string());
+                }
+                if !projection.implementations.is_empty() && projection.validations.is_empty() {
+                    reasons.push("no validation links".to_string());
+                }
+                if projection.implementations.is_empty() && !projection.related.is_empty() {
+                    reasons.push("only related references were resolved".to_string());
+                }
+                (!reasons.is_empty()).then(|| IntentDriftRecord {
+                    spec: projection.spec.clone(),
+                    implementations: projection.implementations.clone(),
+                    validations: projection.validations.clone(),
+                    related: projection.related.clone(),
+                    reasons,
+                })
+            })
+            .collect::<Vec<_>>();
+        candidates.sort_by(|left, right| {
+            right
+                .reasons
+                .len()
+                .cmp(&left.reasons.len())
+                .then_with(|| left.spec.path.cmp(&right.spec.path))
+        });
+        if limit > 0 {
+            candidates.truncate(limit);
+        }
+        candidates
+    }
+
+    pub fn known_specs(&self) -> Vec<NodeId> {
+        let mut specs = self.by_spec.keys().cloned().collect::<Vec<_>>();
+        specs.sort_by(|left, right| left.path.cmp(&right.path));
+        specs
+    }
+}
+
 pub fn co_change_deltas_for_events(events: &[LineageEvent]) -> Vec<CoChangeDelta> {
     let mut lineages = events
         .iter()
@@ -452,6 +591,19 @@ fn validation_labels(evidence: &[OutcomeEvidence]) -> Vec<String> {
     let mut deduped = HashSet::new();
     labels.retain(|label| deduped.insert(label.clone()));
     labels
+}
+
+fn is_intent_source_kind(kind: NodeKind) -> bool {
+    matches!(
+        kind,
+        NodeKind::Document | NodeKind::MarkdownHeading | NodeKind::JsonKey | NodeKind::YamlKey
+    )
+}
+
+fn push_unique(values: &mut Vec<NodeId>, value: NodeId) {
+    if !values.contains(&value) {
+        values.push(value);
+    }
 }
 
 #[cfg(test)]

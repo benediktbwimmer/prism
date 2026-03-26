@@ -7,7 +7,9 @@ use prism_ir::{
     ChangeTrigger, Edge, EdgeIndex, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta, FileId,
     GraphChange, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode,
 };
-use prism_parser::{NodeFingerprint, UnresolvedCall, UnresolvedImpl, UnresolvedImport};
+use prism_parser::{
+    NodeFingerprint, UnresolvedCall, UnresolvedImpl, UnresolvedImport, UnresolvedIntent,
+};
 use serde::{Deserialize, Serialize};
 
 static NEXT_OBSERVED_EVENT_ID: AtomicU64 = AtomicU64::new(1);
@@ -21,6 +23,7 @@ pub struct FileRecord {
     pub unresolved_calls: Vec<UnresolvedCall>,
     pub unresolved_imports: Vec<UnresolvedImport>,
     pub unresolved_impls: Vec<UnresolvedImpl>,
+    pub unresolved_intents: Vec<UnresolvedIntent>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -123,6 +126,7 @@ impl Graph {
         unresolved_calls: Vec<UnresolvedCall>,
         unresolved_imports: Vec<UnresolvedImport>,
         unresolved_impls: Vec<UnresolvedImpl>,
+        unresolved_intents: Vec<UnresolvedIntent>,
     ) -> FileId {
         self.upsert_file_from(
             None,
@@ -134,6 +138,7 @@ impl Graph {
             unresolved_calls,
             unresolved_imports,
             unresolved_impls,
+            unresolved_intents,
             &[],
         )
         .file_id
@@ -149,6 +154,7 @@ impl Graph {
         unresolved_calls: Vec<UnresolvedCall>,
         unresolved_imports: Vec<UnresolvedImport>,
         unresolved_impls: Vec<UnresolvedImpl>,
+        unresolved_intents: Vec<UnresolvedIntent>,
         reanchors: &[(NodeId, NodeId)],
     ) -> FileUpdate {
         self.upsert_file_from_with_observed(
@@ -161,6 +167,7 @@ impl Graph {
             unresolved_calls,
             unresolved_imports,
             unresolved_impls,
+            unresolved_intents,
             reanchors,
             default_event_meta(),
             ChangeTrigger::ManualReindex,
@@ -178,6 +185,7 @@ impl Graph {
         unresolved_calls: Vec<UnresolvedCall>,
         unresolved_imports: Vec<UnresolvedImport>,
         unresolved_impls: Vec<UnresolvedImpl>,
+        unresolved_intents: Vec<UnresolvedIntent>,
         reanchors: &[(NodeId, NodeId)],
     ) -> FileUpdate {
         self.upsert_file_from_with_observed(
@@ -190,6 +198,7 @@ impl Graph {
             unresolved_calls,
             unresolved_imports,
             unresolved_impls,
+            unresolved_intents,
             reanchors,
             default_event_meta(),
             ChangeTrigger::ManualReindex,
@@ -207,6 +216,7 @@ impl Graph {
         unresolved_calls: Vec<UnresolvedCall>,
         unresolved_imports: Vec<UnresolvedImport>,
         unresolved_impls: Vec<UnresolvedImpl>,
+        unresolved_intents: Vec<UnresolvedIntent>,
         reanchors: &[(NodeId, NodeId)],
         meta: EventMeta,
         trigger: ChangeTrigger,
@@ -253,6 +263,7 @@ impl Graph {
                 unresolved_calls,
                 unresolved_imports,
                 unresolved_impls,
+                unresolved_intents,
             },
         );
         self.rebuild_adjacency();
@@ -468,6 +479,13 @@ impl Graph {
             .collect()
     }
 
+    pub fn unresolved_intents(&self) -> Vec<UnresolvedIntent> {
+        self.file_records
+            .values()
+            .flat_map(|record| record.unresolved_intents.clone())
+            .collect()
+    }
+
     fn remove_file_nodes(&mut self, path: &Path) {
         let Some(record) = self.file_records.remove(path) else {
             return;
@@ -570,6 +588,7 @@ impl Graph {
             unresolved_calls: Vec::new(),
             unresolved_imports: Vec::new(),
             unresolved_impls: Vec::new(),
+            unresolved_intents: Vec::new(),
         };
         let previous_record = previous.map(|state| &state.record).unwrap_or(&empty_record);
         let previous_nodes = previous
@@ -648,7 +667,12 @@ impl Graph {
 fn is_derived_kind(kind: EdgeKind) -> bool {
     matches!(
         kind,
-        EdgeKind::Calls | EdgeKind::Imports | EdgeKind::Implements
+        EdgeKind::Calls
+            | EdgeKind::Imports
+            | EdgeKind::Implements
+            | EdgeKind::Specifies
+            | EdgeKind::Validates
+            | EdgeKind::RelatedTo
     )
 }
 

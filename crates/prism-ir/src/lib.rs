@@ -392,6 +392,9 @@ pub enum EdgeKind {
     Calls,
     References,
     Implements,
+    Specifies,
+    Validates,
+    RelatedTo,
     Defines,
     Imports,
     DependsOn,
@@ -472,6 +475,14 @@ pub struct UnresolvedImpl {
     pub target: SmolStr,
     pub span: Span,
     pub module_path: SmolStr,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UnresolvedIntent {
+    pub source: NodeId,
+    pub kind: EdgeKind,
+    pub target: SmolStr,
+    pub span: Span,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

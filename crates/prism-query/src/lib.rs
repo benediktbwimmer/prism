@@ -14,7 +14,7 @@ use prism_ir::{
     Subgraph, TaskId, Timestamp, WorkspaceRevision,
 };
 use prism_memory::{OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot, TaskReplay};
-use prism_projections::{CoChangeRecord, ProjectionIndex, ProjectionSnapshot};
+use prism_projections::{CoChangeRecord, IntentIndex, ProjectionIndex, ProjectionSnapshot};
 use prism_store::Graph;
 use serde::{Deserialize, Serialize};
 
@@ -24,6 +24,7 @@ pub struct Prism {
     outcomes: Arc<OutcomeMemory>,
     coordination: Arc<CoordinationStore>,
     projections: RwLock<ProjectionIndex>,
+    intent: RwLock<IntentIndex>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -112,6 +113,26 @@ pub struct ArtifactRisk {
     pub risk_events: Vec<OutcomeEvent>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DriftCandidate {
+    pub spec: NodeId,
+    pub implementations: Vec<NodeId>,
+    pub validations: Vec<NodeId>,
+    pub related: Vec<NodeId>,
+    pub reasons: Vec<String>,
+    pub recent_failures: Vec<OutcomeEvent>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TaskIntent {
+    pub task_id: CoordinationTaskId,
+    pub specs: Vec<NodeId>,
+    pub implementations: Vec<NodeId>,
+    pub validations: Vec<NodeId>,
+    pub related: Vec<NodeId>,
+    pub drift_candidates: Vec<DriftCandidate>,
+}
+
 impl Prism {
     pub fn new(graph: Graph) -> Self {
         let mut history = HistoryStore::new();
@@ -160,12 +181,17 @@ impl Prism {
         coordination: CoordinationStore,
         projections: ProjectionIndex,
     ) -> Self {
+        let intent = IntentIndex::derive(
+            graph.all_nodes().collect::<Vec<_>>(),
+            graph.edges.iter().collect::<Vec<_>>(),
+        );
         Self {
             graph: Arc::new(graph),
             history: Arc::new(history),
             outcomes: Arc::new(outcomes),
             coordination: Arc::new(coordination),
             projections: RwLock::new(projections),
+            intent: RwLock::new(intent),
         }
     }
 
@@ -217,6 +243,29 @@ impl Prism {
         *self.projections.write().expect("projection lock poisoned") = next;
     }
 
+    pub fn spec_for(&self, node: &NodeId) -> Vec<NodeId> {
+        self.intent
+            .read()
+            .expect("intent lock poisoned")
+            .specs_for(node)
+    }
+
+    pub fn implementation_for(&self, spec: &NodeId) -> Vec<NodeId> {
+        self.intent
+            .read()
+            .expect("intent lock poisoned")
+            .implementations_for(spec)
+    }
+
+    pub fn drift_candidates(&self, limit: usize) -> Vec<DriftCandidate> {
+        let specs = self
+            .intent
+            .read()
+            .expect("intent lock poisoned")
+            .known_specs();
+        self.drift_candidates_for_specs(&specs, limit)
+    }
+
     pub fn apply_outcome_event_to_projections(&self, event: &OutcomeEvent) {
         self.projections
             .write()
@@ -248,6 +297,40 @@ impl Prism {
     pub fn task_blast_radius(&self, task_id: &CoordinationTaskId) -> Option<ChangeImpact> {
         let task = self.coordination.task(task_id)?;
         Some(self.impact_for_anchors(&task.anchors))
+    }
+
+    pub fn task_intent(&self, task_id: &CoordinationTaskId) -> Option<TaskIntent> {
+        let task = self.coordination.task(task_id)?;
+        let intent = self.intent.read().expect("intent lock poisoned");
+        let task_nodes = self.resolve_anchor_nodes(&task.anchors);
+        let mut specs = task_nodes
+            .iter()
+            .flat_map(|node| intent.specs_for(node))
+            .collect::<Vec<_>>();
+        specs.extend(
+            task_nodes
+                .iter()
+                .filter(|node| is_intent_source(node))
+                .cloned(),
+        );
+        let specs = dedupe_node_ids(specs);
+
+        let mut implementations = Vec::new();
+        let mut validations = Vec::new();
+        let mut related = Vec::new();
+        for spec in &specs {
+            implementations.extend(intent.implementations_for(spec));
+            validations.extend(intent.validations_for(spec));
+            related.extend(intent.related_for(spec));
+        }
+        Some(TaskIntent {
+            task_id: task_id.clone(),
+            specs: specs.clone(),
+            implementations: dedupe_node_ids(implementations),
+            validations: dedupe_node_ids(validations),
+            related: dedupe_node_ids(related),
+            drift_candidates: self.drift_candidates_for_specs(&specs, 10),
+        })
     }
 
     pub fn task_validation_recipe(
@@ -378,18 +461,15 @@ impl Prism {
     pub fn ready_tasks(&self, plan_id: &PlanId, now: Timestamp) -> Vec<CoordinationTask> {
         self.coordination
             .ready_tasks(plan_id, self.workspace_revision(), now)
-            .into_iter()
-            .filter(|task| self.blockers(&task.id, now).is_empty())
-            .collect()
     }
 
     pub fn claims(&self, anchors: &[AnchorRef], now: Timestamp) -> Vec<WorkClaim> {
-        let anchors = self.expand_anchors(anchors);
+        let anchors = self.coordination_scope_anchors(anchors);
         self.coordination.claims_for_anchor(&anchors, now)
     }
 
     pub fn conflicts(&self, anchors: &[AnchorRef], now: Timestamp) -> Vec<CoordinationConflict> {
-        let anchors = self.expand_anchors(anchors);
+        let anchors = self.coordination_scope_anchors(anchors);
         self.coordination.conflicts_for_anchor(&anchors, now)
     }
 
@@ -458,7 +538,7 @@ impl Prism {
         task_id: Option<&CoordinationTaskId>,
         now: Timestamp,
     ) -> Vec<CoordinationConflict> {
-        let anchors = self.expand_anchors(anchors);
+        let anchors = self.coordination_scope_anchors(anchors);
         self.coordination.simulate_claim(
             session_id,
             &anchors,
@@ -468,6 +548,39 @@ impl Prism {
             self.workspace_revision(),
             now,
         )
+    }
+
+    pub fn coordination_scope_anchors(&self, anchors: &[AnchorRef]) -> Vec<AnchorRef> {
+        let mut scoped = self.expand_anchors(anchors);
+        let seed_nodes = self.resolve_anchor_nodes(&scoped);
+        let mut processed_nodes = seed_nodes.into_iter().take(24).collect::<Vec<_>>();
+        sort_node_ids(&mut processed_nodes);
+        processed_nodes.dedup();
+
+        for node in processed_nodes {
+            scoped.push(AnchorRef::Node(node.clone()));
+            if let Some(lineage) = self.lineage_of(&node) {
+                scoped.push(AnchorRef::Lineage(lineage));
+            }
+
+            for neighbor in self.graph_neighbors(&node).into_iter().take(8) {
+                scoped.push(AnchorRef::Node(neighbor.clone()));
+                if let Some(lineage) = self.lineage_of(&neighbor) {
+                    scoped.push(AnchorRef::Lineage(lineage));
+                }
+            }
+
+            for neighbor in self.co_change_neighbors(&node, 4) {
+                scoped.push(AnchorRef::Lineage(neighbor.lineage.clone()));
+                for current in neighbor.nodes.into_iter().take(4) {
+                    scoped.push(AnchorRef::Node(current));
+                }
+            }
+        }
+
+        scoped.sort_by(anchor_sort_key);
+        scoped.dedup();
+        scoped
     }
 
     pub fn co_change_neighbors(&self, node: &NodeId, limit: usize) -> Vec<CoChange> {
@@ -502,6 +615,28 @@ impl Prism {
             co_change_neighbors: impact.co_change_neighbors,
             recent_failures: impact.risk_events,
         }
+    }
+
+    fn drift_candidates_for_specs(&self, specs: &[NodeId], limit: usize) -> Vec<DriftCandidate> {
+        self.intent
+            .read()
+            .expect("intent lock poisoned")
+            .drift_candidates(specs, limit)
+            .into_iter()
+            .map(|candidate| DriftCandidate {
+                recent_failures: candidate
+                    .implementations
+                    .iter()
+                    .flat_map(|node| self.related_failures(node))
+                    .take(10)
+                    .collect(),
+                spec: candidate.spec,
+                implementations: candidate.implementations,
+                validations: candidate.validations,
+                related: candidate.related,
+                reasons: candidate.reasons,
+            })
+            .collect()
     }
 
     pub fn symbol(&self, query: &str) -> Vec<Symbol<'_>> {
@@ -896,6 +1031,13 @@ fn dedupe_blockers(mut blockers: Vec<TaskBlocker>) -> Vec<TaskBlocker> {
     blockers
 }
 
+fn is_intent_source(node: &NodeId) -> bool {
+    matches!(
+        node.kind,
+        NodeKind::Document | NodeKind::MarkdownHeading | NodeKind::JsonKey | NodeKind::YamlKey
+    )
+}
+
 fn score_change_impact(impact: &ChangeImpact, stale: bool) -> f32 {
     let failure_score = (impact.risk_events.len() as f32 * 0.25).min(0.5);
     let validation_score = (impact.validation_checks.len() as f32 * 0.08).min(0.2);
@@ -933,6 +1075,12 @@ pub struct Relations {
     pub incoming_imports: Vec<NodeId>,
     pub outgoing_implements: Vec<NodeId>,
     pub incoming_implements: Vec<NodeId>,
+    pub outgoing_specifies: Vec<NodeId>,
+    pub incoming_specifies: Vec<NodeId>,
+    pub outgoing_validates: Vec<NodeId>,
+    pub incoming_validates: Vec<NodeId>,
+    pub outgoing_related: Vec<NodeId>,
+    pub incoming_related: Vec<NodeId>,
 }
 
 impl<'a> Symbol<'a> {
@@ -988,6 +1136,12 @@ impl<'a> Symbol<'a> {
             incoming_imports: self.sources(EdgeKind::Imports),
             outgoing_implements: self.targets(EdgeKind::Implements),
             incoming_implements: self.sources(EdgeKind::Implements),
+            outgoing_specifies: self.targets(EdgeKind::Specifies),
+            incoming_specifies: self.sources(EdgeKind::Specifies),
+            outgoing_validates: self.targets(EdgeKind::Validates),
+            incoming_validates: self.sources(EdgeKind::Validates),
+            outgoing_related: self.targets(EdgeKind::RelatedTo),
+            incoming_related: self.sources(EdgeKind::RelatedTo),
         }
     }
 
@@ -1159,9 +1313,9 @@ mod tests {
     };
     use prism_history::HistoryStore;
     use prism_ir::{
-        AnchorRef, ChangeTrigger, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId,
-        Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, SessionId, Span,
-        TaskId, WorkspaceRevision,
+        AnchorRef, ChangeTrigger, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId, Language,
+        Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, SessionId, Span, TaskId,
+        WorkspaceRevision,
     };
     use prism_memory::{OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeResult};
     use prism_projections::ProjectionIndex;
@@ -1650,6 +1804,127 @@ mod tests {
     }
 
     #[test]
+    fn coordination_queries_expand_into_neighboring_symbols() {
+        let mut graph = Graph::new();
+        let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+        let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
+        graph.add_node(Node {
+            id: alpha.clone(),
+            name: "alpha".into(),
+            kind: NodeKind::Function,
+            file: FileId(1),
+            span: Span::line(1),
+            language: Language::Rust,
+        });
+        graph.add_node(Node {
+            id: beta.clone(),
+            name: "beta".into(),
+            kind: NodeKind::Function,
+            file: FileId(1),
+            span: Span::line(2),
+            language: Language::Rust,
+        });
+        graph.add_edge(Edge {
+            kind: EdgeKind::Calls,
+            source: alpha.clone(),
+            target: beta.clone(),
+            origin: prism_ir::EdgeOrigin::Static,
+            confidence: 1.0,
+        });
+
+        let mut history = HistoryStore::new();
+        history.seed_nodes([alpha.clone(), beta.clone()]);
+        let coordination = CoordinationStore::new();
+        let (plan_id, _) = coordination
+            .create_plan(
+                EventMeta {
+                    id: EventId::new("coord:plan"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: None,
+                    causation: None,
+                },
+                PlanCreateInput {
+                    goal: "Coordinate alpha".into(),
+                    policy: None,
+                },
+            )
+            .unwrap();
+        let (task_id, _) = coordination
+            .create_task(
+                EventMeta {
+                    id: EventId::new("coord:task"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: None,
+                    causation: None,
+                },
+                TaskCreateInput {
+                    plan_id,
+                    title: "Edit alpha".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: Some(SessionId::new("session:a")),
+                    anchors: vec![AnchorRef::Node(alpha.clone())],
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: WorkspaceRevision {
+                        graph_version: 1,
+                        git_commit: None,
+                    },
+                },
+            )
+            .unwrap();
+        coordination
+            .acquire_claim(
+                EventMeta {
+                    id: EventId::new("coord:claim"),
+                    ts: 3,
+                    actor: EventActor::Agent,
+                    correlation: None,
+                    causation: None,
+                },
+                SessionId::new("session:a"),
+                prism_coordination::ClaimAcquireInput {
+                    task_id: Some(task_id),
+                    anchors: vec![AnchorRef::Node(alpha.clone())],
+                    capability: prism_ir::Capability::Edit,
+                    mode: Some(prism_ir::ClaimMode::HardExclusive),
+                    ttl_seconds: Some(120),
+                    base_revision: WorkspaceRevision {
+                        graph_version: 1,
+                        git_commit: None,
+                    },
+                    agent: None,
+                },
+            )
+            .unwrap();
+
+        let prism = Prism::with_history_outcomes_coordination_and_projections(
+            graph,
+            history,
+            OutcomeMemory::new(),
+            coordination,
+            ProjectionIndex::default(),
+        );
+
+        let claims = prism.claims(&[AnchorRef::Node(beta.clone())], 4);
+        assert_eq!(claims.len(), 1);
+
+        let simulated = prism.simulate_claim(
+            &SessionId::new("session:b"),
+            &[AnchorRef::Node(beta)],
+            prism_ir::Capability::Edit,
+            Some(prism_ir::ClaimMode::HardExclusive),
+            None,
+            4,
+        );
+        assert!(simulated
+            .iter()
+            .any(|conflict| conflict.severity == prism_ir::ConflictSeverity::Block));
+    }
+
+    #[test]
     fn validation_recipe_reuses_blast_radius_signal() {
         let mut graph = Graph::new();
         let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
@@ -1867,7 +2142,10 @@ mod tests {
         let task_risk = prism.task_risk(&task_id, 5).unwrap();
         assert!(task_risk.review_required);
         assert_eq!(task_risk.likely_validations, vec!["test:alpha_integration"]);
-        assert_eq!(task_risk.missing_validations, vec!["test:alpha_integration"]);
+        assert_eq!(
+            task_risk.missing_validations,
+            vec!["test:alpha_integration"]
+        );
 
         let artifact_risk = prism.artifact_risk(&artifact_id, 5).unwrap();
         assert!(artifact_risk.review_required);
@@ -1883,5 +2161,154 @@ mod tests {
         assert!(blockers.iter().any(|blocker| {
             blocker.kind == prism_coordination::BlockerKind::ValidationRequired
         }));
+    }
+
+    #[test]
+    fn exposes_intent_links_and_task_intent() {
+        let mut graph = Graph::new();
+        let spec = NodeId::new(
+            "demo",
+            "demo::document::docs::spec_md::behavior",
+            NodeKind::MarkdownHeading,
+        );
+        let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+        let alpha_test = NodeId::new("demo", "demo::alpha_test", NodeKind::Function);
+        graph.add_node(Node {
+            id: spec.clone(),
+            name: "Behavior".into(),
+            kind: NodeKind::MarkdownHeading,
+            file: FileId(1),
+            span: Span::line(1),
+            language: Language::Markdown,
+        });
+        graph.add_node(Node {
+            id: alpha.clone(),
+            name: "alpha".into(),
+            kind: NodeKind::Function,
+            file: FileId(2),
+            span: Span::line(1),
+            language: Language::Rust,
+        });
+        graph.add_node(Node {
+            id: alpha_test.clone(),
+            name: "alpha_test".into(),
+            kind: NodeKind::Function,
+            file: FileId(2),
+            span: Span::line(2),
+            language: Language::Rust,
+        });
+        graph.add_edge(Edge {
+            kind: EdgeKind::Specifies,
+            source: spec.clone(),
+            target: alpha.clone(),
+            origin: prism_ir::EdgeOrigin::Static,
+            confidence: 0.8,
+        });
+        graph.add_edge(Edge {
+            kind: EdgeKind::Validates,
+            source: spec.clone(),
+            target: alpha_test.clone(),
+            origin: prism_ir::EdgeOrigin::Static,
+            confidence: 0.8,
+        });
+
+        let coordination = CoordinationStore::new();
+        let (plan_id, _) = coordination
+            .create_plan(
+                EventMeta {
+                    id: EventId::new("coord:plan:intent"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: None,
+                    causation: None,
+                },
+                PlanCreateInput {
+                    goal: "Ship alpha".into(),
+                    policy: None,
+                },
+            )
+            .unwrap();
+        let (task_id, _) = coordination
+            .create_task(
+                EventMeta {
+                    id: EventId::new("coord:task:intent"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: None,
+                    causation: None,
+                },
+                TaskCreateInput {
+                    plan_id,
+                    title: "Update alpha".into(),
+                    status: None,
+                    assignee: None,
+                    session: Some(SessionId::new("session:intent")),
+                    anchors: vec![AnchorRef::Node(alpha.clone())],
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: WorkspaceRevision::default(),
+                },
+            )
+            .unwrap();
+
+        let prism = Prism::with_history_outcomes_coordination_and_projections(
+            graph,
+            HistoryStore::new(),
+            OutcomeMemory::new(),
+            coordination,
+            ProjectionIndex::default(),
+        );
+
+        assert_eq!(prism.spec_for(&alpha), vec![spec.clone()]);
+        assert_eq!(prism.implementation_for(&spec), vec![alpha.clone()]);
+
+        let task_intent = prism.task_intent(&task_id).unwrap();
+        assert_eq!(task_intent.specs, vec![spec.clone()]);
+        assert_eq!(task_intent.implementations, vec![alpha.clone()]);
+        assert_eq!(task_intent.validations, vec![alpha_test.clone()]);
+        assert!(task_intent.drift_candidates.is_empty());
+    }
+
+    #[test]
+    fn drift_candidates_flag_specs_without_validations() {
+        let mut graph = Graph::new();
+        let spec = NodeId::new(
+            "demo",
+            "demo::document::docs::spec_md::contract",
+            NodeKind::MarkdownHeading,
+        );
+        let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+        graph.add_node(Node {
+            id: spec.clone(),
+            name: "Contract".into(),
+            kind: NodeKind::MarkdownHeading,
+            file: FileId(1),
+            span: Span::line(1),
+            language: Language::Markdown,
+        });
+        graph.add_node(Node {
+            id: alpha.clone(),
+            name: "alpha".into(),
+            kind: NodeKind::Function,
+            file: FileId(2),
+            span: Span::line(1),
+            language: Language::Rust,
+        });
+        graph.add_edge(Edge {
+            kind: EdgeKind::Specifies,
+            source: spec.clone(),
+            target: alpha,
+            origin: prism_ir::EdgeOrigin::Static,
+            confidence: 0.8,
+        });
+
+        let prism = Prism::new(graph);
+        let drift = prism.drift_candidates(10);
+        assert_eq!(drift.len(), 1);
+        assert_eq!(drift[0].spec, spec);
+        assert!(drift[0]
+            .reasons
+            .iter()
+            .any(|reason| reason == "no validation links"));
     }
 }

@@ -9,16 +9,13 @@ use prism_ir::{
     Node, NodeId, NodeKind, Span,
 };
 use prism_memory::{
-    EpisodicMemorySnapshot, MemoryEntry, MemoryId, MemoryKind, MemorySource,
-    OutcomeMemorySnapshot,
+    EpisodicMemorySnapshot, MemoryEntry, MemoryId, MemoryKind, MemorySource, OutcomeMemorySnapshot,
 };
 use prism_projections::{
     CoChangeDelta, CoChangeRecord, ProjectionSnapshot, ValidationCheck, ValidationDelta,
 };
 
-use crate::{
-    AuxiliaryPersistBatch, Graph, IndexPersistBatch, MemoryStore, SqliteStore, Store,
-};
+use crate::{AuxiliaryPersistBatch, Graph, IndexPersistBatch, MemoryStore, SqliteStore, Store};
 
 fn node(name: &str) -> Node {
     Node {
@@ -45,6 +42,7 @@ fn upsert_file_with_reanchors_emits_reanchored_change() {
         Vec::new(),
         Vec::new(),
         Vec::new(),
+        Vec::new(),
     );
 
     let old = NodeId::new("demo", "demo::alpha", NodeKind::Function);
@@ -55,6 +53,7 @@ fn upsert_file_with_reanchors_emits_reanchored_change() {
         vec![node("renamed_alpha")],
         Vec::new(),
         HashMap::new(),
+        Vec::new(),
         Vec::new(),
         Vec::new(),
         Vec::new(),
@@ -78,6 +77,7 @@ fn remove_file_with_changes_emits_removed_nodes() {
         vec![node("alpha"), node("beta")],
         Vec::new(),
         HashMap::new(),
+        Vec::new(),
         Vec::new(),
         Vec::new(),
         Vec::new(),
@@ -109,6 +109,7 @@ fn remove_file_update_emits_observed_removed_nodes() {
         vec![node("alpha"), node("beta")],
         Vec::new(),
         HashMap::new(),
+        Vec::new(),
         Vec::new(),
         Vec::new(),
         Vec::new(),
@@ -270,7 +271,10 @@ fn sqlite_store_commits_auxiliary_snapshots_with_projection_deltas() {
 
     let mut store = SqliteStore::open(&path).unwrap();
     store
-        .save_history_snapshot_with_co_change_deltas(&history, std::slice::from_ref(&co_change_delta))
+        .save_history_snapshot_with_co_change_deltas(
+            &history,
+            std::slice::from_ref(&co_change_delta),
+        )
         .unwrap();
     store
         .save_outcome_snapshot_with_validation_deltas(
@@ -425,6 +429,7 @@ fn sqlite_store_commits_index_batches_atomically() {
         vec![node("alpha")],
         Vec::new(),
         HashMap::new(),
+        Vec::new(),
         Vec::new(),
         Vec::new(),
         Vec::new(),

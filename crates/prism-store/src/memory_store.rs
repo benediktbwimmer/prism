@@ -122,9 +122,7 @@ impl Store for MemoryStore {
         Ok(())
     }
 
-    fn load_curator_snapshot(
-        &mut self,
-    ) -> anyhow::Result<Option<prism_curator::CuratorSnapshot>> {
+    fn load_curator_snapshot(&mut self) -> anyhow::Result<Option<prism_curator::CuratorSnapshot>> {
         Ok(self.curator_snapshot.clone())
     }
 
@@ -150,7 +148,10 @@ impl Store for MemoryStore {
         Ok(())
     }
 
-    fn commit_auxiliary_persist_batch(&mut self, batch: &AuxiliaryPersistBatch) -> anyhow::Result<()> {
+    fn commit_auxiliary_persist_batch(
+        &mut self,
+        batch: &AuxiliaryPersistBatch,
+    ) -> anyhow::Result<()> {
         if let Some(snapshot) = &batch.outcome_snapshot {
             self.outcome_snapshot = Some(snapshot.clone());
         }

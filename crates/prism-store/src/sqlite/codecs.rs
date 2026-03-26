@@ -63,9 +63,12 @@ pub(super) fn encode_edge_kind(kind: EdgeKind) -> i64 {
         EdgeKind::Calls => 1,
         EdgeKind::References => 2,
         EdgeKind::Implements => 3,
-        EdgeKind::Defines => 4,
-        EdgeKind::Imports => 5,
-        EdgeKind::DependsOn => 6,
+        EdgeKind::Specifies => 4,
+        EdgeKind::Validates => 5,
+        EdgeKind::RelatedTo => 6,
+        EdgeKind::Defines => 7,
+        EdgeKind::Imports => 8,
+        EdgeKind::DependsOn => 9,
     }
 }
 
@@ -75,9 +78,12 @@ pub(super) fn decode_edge_kind(value: i64) -> rusqlite::Result<EdgeKind> {
         1 => EdgeKind::Calls,
         2 => EdgeKind::References,
         3 => EdgeKind::Implements,
-        4 => EdgeKind::Defines,
-        5 => EdgeKind::Imports,
-        6 => EdgeKind::DependsOn,
+        4 => EdgeKind::Specifies,
+        5 => EdgeKind::Validates,
+        6 => EdgeKind::RelatedTo,
+        7 => EdgeKind::Defines,
+        8 => EdgeKind::Imports,
+        9 => EdgeKind::DependsOn,
         other => {
             return Err(from_sql_conversion_error(format!(
                 "invalid edge kind: {other}"

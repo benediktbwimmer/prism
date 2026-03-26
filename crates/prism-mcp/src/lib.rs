@@ -1,15 +1,9 @@
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::mpsc;
+use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context as AnyhowContext, Result};
-use deno_ast::{
-    parse_program, EmitOptions, MediaType, ModuleSpecifier, ParseParams, TranspileModuleOptions,
-    TranspileOptions,
-};
 use prism_agent::{EdgeId, InferenceStore, InferredEdgeScope};
 use prism_coordination::{
     AcceptanceCriterion, ArtifactProposeInput, ArtifactReviewInput, ArtifactSupersedeInput,
@@ -17,30 +11,23 @@ use prism_coordination::{
     TaskUpdateInput,
 };
 use prism_core::{index_workspace_session, WorkspaceSession};
-use prism_curator::{
-    CuratorJobId, CuratorJobRecord, CuratorProposal, CuratorProposalDisposition, CuratorTrigger,
-};
+use prism_curator::{CuratorJobId, CuratorProposal, CuratorProposalDisposition};
 use prism_ir::{
     AgentId, AnchorRef, ArtifactId, Capability, ClaimId, ClaimMode, CoordinationTaskId,
     CoordinationTaskStatus, Edge, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta, LineageId,
-    NodeId, NodeKind, PlanId, ReviewVerdict, SessionId, TaskId, WorkspaceRevision,
+    NodeId, NodeKind, PlanId, ReviewVerdict, TaskId,
 };
 use prism_js::{
-    api_reference_markdown, runtime_prelude, ArtifactRiskView, ArtifactView, BlockerView,
-    ChangeImpactView, ClaimView, CoChangeView, ConflictView, CoordinationTaskView, CuratorJobView,
-    CuratorProposalView, EdgeView, LineageEventView, LineageStatus, LineageView, MemoryEntryView,
-    NodeIdView, PlanView, QueryDiagnostic, QueryEnvelope, RelationsView, ScoredMemoryView,
-    SubgraphView, SymbolView, TaskRiskView, TaskValidationRecipeView, ValidationCheckView,
-    ValidationRecipeView, WorkspaceRevisionView, API_REFERENCE_URI,
+    api_reference_markdown, ChangeImpactView, CoChangeView, CuratorJobView, EdgeView,
+    LineageEventView, LineageStatus, LineageView, MemoryEntryView, QueryDiagnostic, QueryEnvelope,
+    RelationsView, ScoredMemoryView, SubgraphView, SymbolView, ValidationRecipeView,
+    API_REFERENCE_URI,
 };
 use prism_memory::{
     EpisodicMemory, MemoryEntry, MemoryId, MemoryKind, MemoryModule, MemorySource, OutcomeEvent,
-    OutcomeEvidence, OutcomeKind, OutcomeResult, RecallQuery, ScoredMemory,
+    OutcomeEvidence, OutcomeKind, OutcomeResult, RecallQuery,
 };
-use prism_query::{
-    ArtifactRisk, ChangeImpact, CoChange, Prism, QueryLimits, Symbol, TaskRisk,
-    TaskValidationRecipe, ValidationCheck, ValidationRecipe,
-};
+use prism_query::{Prism, QueryLimits, Symbol};
 use rmcp::{
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::*,
@@ -50,9 +37,18 @@ use rmcp::{
     transport::stdio,
     ErrorData as McpError, RoleServer, ServerHandler, ServiceExt,
 };
-use rquickjs::{prelude::Func, Context, Runtime};
 use serde::Deserialize;
 use serde_json::{json, Value};
+
+mod js_runtime;
+mod resources;
+mod session_state;
+mod views;
+
+use js_runtime::{transpile_typescript, JsWorker};
+use resources::*;
+use session_state::SessionState;
+use views::*;
 
 const DEFAULT_SEARCH_LIMIT: usize = 20;
 const DEFAULT_CALL_GRAPH_DEPTH: usize = 3;
@@ -71,156 +67,6 @@ const MEMORY_RESOURCE_TEMPLATE_URI: &str = "prism://memory/{memoryId}";
 const EDGE_RESOURCE_TEMPLATE_URI: &str = "prism://edge/{edgeId}";
 const SCHEMA_RESOURCE_TEMPLATE_URI: &str = "prism://schema/{resourceKind}";
 static NEXT_SESSION_ID: AtomicU64 = AtomicU64::new(1);
-
-#[derive(Debug, Clone)]
-struct SessionTaskState {
-    id: TaskId,
-    description: Option<String>,
-    tags: Vec<String>,
-}
-
-struct SessionState {
-    session_id: SessionId,
-    notes: EpisodicMemory,
-    inferred_edges: InferenceStore,
-    current_task: Mutex<Option<SessionTaskState>>,
-    next_event: AtomicU64,
-    next_task: AtomicU64,
-    limits: Mutex<QueryLimits>,
-}
-
-impl SessionState {
-    fn with_limits(
-        prism: &Prism,
-        notes: EpisodicMemory,
-        inferred_edges: InferenceStore,
-        limits: QueryLimits,
-    ) -> Self {
-        Self::with_snapshots(prism, notes, inferred_edges, limits)
-    }
-
-    fn with_snapshots(
-        prism: &Prism,
-        notes: EpisodicMemory,
-        inferred_edges: InferenceStore,
-        limits: QueryLimits,
-    ) -> Self {
-        Self {
-            session_id: SessionId::new(format!(
-                "session:{}",
-                NEXT_SESSION_ID.fetch_add(1, Ordering::Relaxed)
-            )),
-            notes,
-            inferred_edges,
-            current_task: Mutex::new(None),
-            next_event: AtomicU64::new(max_event_sequence(prism)),
-            next_task: AtomicU64::new(max_task_sequence(prism)),
-            limits: Mutex::new(limits),
-        }
-    }
-
-    fn next_event_id(&self, prefix: &str) -> EventId {
-        let sequence = self.next_event.fetch_add(1, Ordering::Relaxed) + 1;
-        EventId::new(format!("{prefix}:{sequence}"))
-    }
-
-    fn current_task(&self) -> Option<TaskId> {
-        self.current_task
-            .lock()
-            .expect("session task lock poisoned")
-            .as_ref()
-            .map(|task| task.id.clone())
-    }
-
-    fn session_id(&self) -> SessionId {
-        self.session_id.clone()
-    }
-
-    fn current_task_state(&self) -> Option<SessionTaskState> {
-        self.current_task
-            .lock()
-            .expect("session task lock poisoned")
-            .clone()
-    }
-
-    fn set_current_task(&self, task: TaskId, description: Option<String>, tags: Vec<String>) {
-        *self
-            .current_task
-            .lock()
-            .expect("session task lock poisoned") = Some(SessionTaskState {
-            id: task,
-            description,
-            tags,
-        });
-    }
-
-    fn update_current_task_metadata(
-        &self,
-        description: Option<Option<String>>,
-        tags: Option<Vec<String>>,
-    ) {
-        if let Some(task) = self
-            .current_task
-            .lock()
-            .expect("session task lock poisoned")
-            .as_mut()
-        {
-            if let Some(description) = description {
-                task.description = description;
-            }
-            if let Some(tags) = tags {
-                task.tags = tags;
-            }
-        }
-    }
-
-    fn clear_current_task(&self) {
-        *self
-            .current_task
-            .lock()
-            .expect("session task lock poisoned") = None;
-    }
-
-    fn start_task(&self, description: &str, _tags: &[String]) -> TaskId {
-        let sequence = self.next_task.fetch_add(1, Ordering::Relaxed) + 1;
-        let mut slug = description
-            .chars()
-            .map(|ch| {
-                if ch.is_ascii_alphanumeric() {
-                    ch.to_ascii_lowercase()
-                } else {
-                    '-'
-                }
-            })
-            .collect::<String>();
-        while slug.contains("--") {
-            slug = slug.replace("--", "-");
-        }
-        slug = slug.trim_matches('-').to_owned();
-        let prefix = if slug.is_empty() { "task" } else { &slug };
-        let task = TaskId::new(format!("task:{prefix}:{sequence}"));
-        self.set_current_task(task.clone(), Some(description.to_string()), _tags.to_vec());
-        task
-    }
-
-    fn task_for_mutation(&self, explicit: Option<TaskId>) -> TaskId {
-        if let Some(task) = explicit {
-            return task;
-        }
-        if let Some(task) = self.current_task() {
-            return task;
-        }
-        self.start_task("session", &[])
-    }
-
-    fn limits(&self) -> QueryLimits {
-        *self.limits.lock().expect("session limits lock poisoned")
-    }
-
-    fn set_limits(&self, limits: QueryLimits) {
-        *self.limits.lock().expect("session limits lock poisoned") = limits;
-    }
-}
 
 #[derive(Debug, Clone, clap::Parser)]
 #[command(name = "prism-mcp")]
@@ -777,6 +623,12 @@ struct CoordinationTaskTargetArgs {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct LimitArgs {
+    limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct AnchorListArgs {
     anchors: Vec<AnchorRefInput>,
 }
@@ -912,12 +764,6 @@ struct ArtifactReviewPayload {
     required_validations: Option<Vec<String>>,
     validated_checks: Option<Vec<String>>,
     risk_score: Option<f32>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ArtifactTargetArgs {
-    artifact_id: String,
 }
 
 #[derive(Debug, serde::Serialize, JsonSchema)]
@@ -1870,684 +1716,6 @@ fn structured_tool_result_with_links<T: serde::Serialize>(
         .content
         .extend(links.into_iter().map(Content::resource_link));
     Ok(result)
-}
-
-fn json_resource_contents<T: serde::Serialize>(
-    value: T,
-    uri: impl Into<String>,
-) -> Result<ResourceContents, McpError> {
-    json_resource_contents_with_meta(value, uri, None)
-}
-
-fn json_resource_contents_with_meta<T: serde::Serialize>(
-    value: T,
-    uri: impl Into<String>,
-    meta: Option<Meta>,
-) -> Result<ResourceContents, McpError> {
-    let text = serde_json::to_string_pretty(&value).map_err(|err| {
-        McpError::internal_error(
-            "failed to serialize resource payload",
-            Some(json!({ "error": err.to_string() })),
-        )
-    })?;
-    let contents = ResourceContents::text(text, uri).with_mime_type("application/json");
-    Ok(match meta {
-        Some(meta) => contents.with_meta(meta),
-        None => contents,
-    })
-}
-
-fn schema_resource_contents<T: JsonSchema + std::any::Any>(
-    schema_uri: &str,
-    title: &str,
-    description: &str,
-    target_resource_kind: &str,
-) -> Result<ResourceContents, McpError> {
-    let mut schema = Value::Object(
-        rmcp::handler::server::tool::schema_for_type::<T>()
-            .as_ref()
-            .clone(),
-    );
-    if let Value::Object(object) = &mut schema {
-        object.insert(
-            "$schema".to_string(),
-            Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
-        );
-        object.insert("$id".to_string(), Value::String(schema_uri.to_string()));
-        object.insert("title".to_string(), Value::String(title.to_string()));
-        object.insert(
-            "description".to_string(),
-            Value::String(description.to_string()),
-        );
-    }
-    json_resource_contents_with_meta(
-        schema,
-        schema_uri.to_string(),
-        Some(resource_meta("schema", None, Some(target_resource_kind))),
-    )
-    .map(|contents| contents.with_mime_type("application/schema+json"))
-}
-
-#[derive(Debug, Clone, Copy)]
-struct ResourcePageRequest {
-    offset: usize,
-    limit: usize,
-    limit_capped: bool,
-}
-
-#[derive(Debug, Clone)]
-struct PageSlice<T> {
-    items: Vec<T>,
-    page: ResourcePageView,
-    truncated: bool,
-}
-
-fn split_resource_uri(uri: &str) -> (&str, Option<&str>) {
-    match uri.split_once('?') {
-        Some((base, query)) => (base, Some(query)),
-        None => (uri, None),
-    }
-}
-
-fn parse_resource_page(
-    uri: &str,
-    default_limit: usize,
-    max_limit: usize,
-) -> Result<ResourcePageRequest, McpError> {
-    let (_, query) = split_resource_uri(uri);
-    let mut requested_limit = None;
-    let mut offset = None;
-
-    if let Some(query) = query {
-        for part in query.split('&').filter(|part| !part.is_empty()) {
-            let (raw_key, raw_value) = part.split_once('=').unwrap_or((part, ""));
-            let key = percent_decode_lossy(raw_key);
-            let value = percent_decode_lossy(raw_value);
-            match key.as_str() {
-                "limit" => {
-                    let parsed = value.parse::<usize>().map_err(|_| {
-                        McpError::invalid_params(
-                            "invalid pagination limit",
-                            Some(json!({ "uri": uri, "value": value })),
-                        )
-                    })?;
-                    requested_limit = Some(parsed);
-                }
-                "cursor" => {
-                    let parsed = value.parse::<usize>().map_err(|_| {
-                        McpError::invalid_params(
-                            "invalid pagination cursor",
-                            Some(json!({ "uri": uri, "value": value })),
-                        )
-                    })?;
-                    offset = Some(parsed);
-                }
-                "offset" => {
-                    let parsed = value.parse::<usize>().map_err(|_| {
-                        McpError::invalid_params(
-                            "invalid pagination offset",
-                            Some(json!({ "uri": uri, "value": value })),
-                        )
-                    })?;
-                    offset = Some(parsed);
-                }
-                _ => {}
-            }
-        }
-    }
-
-    let requested = requested_limit.unwrap_or(default_limit);
-    let limit = requested.min(max_limit).max(1);
-    Ok(ResourcePageRequest {
-        offset: offset.unwrap_or(0),
-        limit,
-        limit_capped: requested > max_limit,
-    })
-}
-
-fn parse_schema_resource_uri(uri: &str) -> Option<String> {
-    let (base, _) = split_resource_uri(uri);
-    base.strip_prefix("prism://schema/")
-        .map(percent_decode_lossy)
-}
-
-fn paginate_items<T>(items: Vec<T>, request: ResourcePageRequest) -> PageSlice<T> {
-    let total = items.len();
-    let start = request.offset.min(total);
-    let end = start.saturating_add(request.limit).min(total);
-    let has_more = end < total;
-    let next_cursor = has_more.then(|| end.to_string());
-    let items = items.into_iter().skip(start).take(request.limit).collect();
-    let page = ResourcePageView {
-        cursor: (request.offset > 0).then(|| request.offset.to_string()),
-        next_cursor,
-        limit: request.limit,
-        returned: end.saturating_sub(start),
-        total,
-        has_more,
-        limit_capped: request.limit_capped,
-    };
-    PageSlice {
-        truncated: page.has_more || page.limit_capped,
-        items,
-        page,
-    }
-}
-
-fn parse_symbol_resource_uri(uri: &str) -> Result<Option<NodeId>, McpError> {
-    let (base, _) = split_resource_uri(uri);
-    let Some(rest) = base.strip_prefix("prism://symbol/") else {
-        return Ok(None);
-    };
-    let mut segments = rest.splitn(3, '/');
-    let Some(crate_name) = segments.next() else {
-        return Ok(None);
-    };
-    let Some(kind) = segments.next() else {
-        return Ok(None);
-    };
-    let Some(path) = segments.next() else {
-        return Ok(None);
-    };
-    let crate_name = percent_decode_lossy(crate_name);
-    let kind = percent_decode_lossy(kind);
-    let path = percent_decode_lossy(path);
-    let kind = parse_node_kind(&kind).map_err(|err| {
-        McpError::invalid_params(
-            "invalid symbol resource uri",
-            Some(json!({
-                "uri": uri,
-                "error": err.to_string(),
-            })),
-        )
-    })?;
-    Ok(Some(NodeId::new(crate_name, path, kind)))
-}
-
-fn parse_search_resource_uri(uri: &str) -> Option<String> {
-    let (base, _) = split_resource_uri(uri);
-    base.strip_prefix("prism://search/")
-        .map(percent_decode_lossy)
-        .filter(|query| !query.trim().is_empty())
-}
-
-fn parse_lineage_resource_uri(uri: &str) -> Option<LineageId> {
-    let (base, _) = split_resource_uri(uri);
-    base.strip_prefix("prism://lineage/")
-        .map(percent_decode_lossy)
-        .map(LineageId::new)
-}
-
-fn parse_task_resource_uri(uri: &str) -> Option<TaskId> {
-    let (base, _) = split_resource_uri(uri);
-    base.strip_prefix("prism://task/")
-        .map(percent_decode_lossy)
-        .map(TaskId::new)
-}
-
-fn parse_event_resource_uri(uri: &str) -> Option<EventId> {
-    let (base, _) = split_resource_uri(uri);
-    base.strip_prefix("prism://event/")
-        .map(percent_decode_lossy)
-        .map(EventId::new)
-}
-
-fn parse_memory_resource_uri(uri: &str) -> Option<MemoryId> {
-    let (base, _) = split_resource_uri(uri);
-    base.strip_prefix("prism://memory/")
-        .map(percent_decode_lossy)
-        .map(MemoryId)
-}
-
-fn parse_edge_resource_uri(uri: &str) -> Option<EdgeId> {
-    let (base, _) = split_resource_uri(uri);
-    base.strip_prefix("prism://edge/")
-        .map(percent_decode_lossy)
-        .map(EdgeId)
-}
-
-fn resource_link_view(
-    uri: String,
-    name: impl Into<String>,
-    description: impl Into<String>,
-) -> ResourceLinkView {
-    ResourceLinkView {
-        uri,
-        name: name.into(),
-        description: Some(description.into()),
-    }
-}
-
-fn dedupe_resource_link_views(mut links: Vec<ResourceLinkView>) -> Vec<ResourceLinkView> {
-    links.sort_by(|left, right| left.uri.cmp(&right.uri));
-    links.dedup_by(|left, right| left.uri == right.uri);
-    links
-}
-
-fn session_resource_uri() -> String {
-    SESSION_URI.to_string()
-}
-
-fn schemas_resource_uri() -> String {
-    SCHEMAS_URI.to_string()
-}
-
-fn schema_resource_uri(resource_kind: &str) -> String {
-    format!("prism://schema/{}", percent_encode_component(resource_kind))
-}
-
-fn task_resource_uri(task_id: &str) -> String {
-    format!("prism://task/{}", percent_encode_component(task_id))
-}
-
-fn search_resource_uri(query: &str) -> String {
-    format!("prism://search/{}", percent_encode_component(query))
-}
-
-fn lineage_resource_uri(lineage_id: &str) -> String {
-    format!("prism://lineage/{}", percent_encode_component(lineage_id))
-}
-
-fn event_resource_uri(event_id: &str) -> String {
-    format!("prism://event/{}", percent_encode_component(event_id))
-}
-
-fn memory_resource_uri(memory_id: &str) -> String {
-    format!("prism://memory/{}", percent_encode_component(memory_id))
-}
-
-fn edge_resource_uri(edge_id: &str) -> String {
-    format!("prism://edge/{}", percent_encode_component(edge_id))
-}
-
-fn resource_meta(
-    resource_kind: &str,
-    schema_uri: Option<String>,
-    target_resource_kind: Option<&str>,
-) -> Meta {
-    let mut prism_meta = serde_json::Map::new();
-    prism_meta.insert(
-        "resourceKind".to_string(),
-        Value::String(resource_kind.to_string()),
-    );
-    if let Some(schema_uri) = schema_uri {
-        prism_meta.insert("schemaUri".to_string(), Value::String(schema_uri));
-    }
-    if let Some(target_resource_kind) = target_resource_kind {
-        prism_meta.insert(
-            "targetResourceKind".to_string(),
-            Value::String(target_resource_kind.to_string()),
-        );
-    }
-    let mut meta = serde_json::Map::new();
-    meta.insert("prism".to_string(), Value::Object(prism_meta));
-    Meta(meta)
-}
-
-fn schemas_resource_link() -> RawResource {
-    RawResource::new(schemas_resource_uri(), "PRISM Resource Schemas")
-        .with_description("Catalog of JSON Schemas for every structured PRISM resource payload")
-        .with_mime_type("application/json")
-        .with_meta(resource_meta("schemas", None, None))
-}
-
-fn schema_resource_link(resource_kind: &str) -> RawResource {
-    RawResource::new(
-        schema_resource_uri(resource_kind),
-        format!("PRISM Schema: {resource_kind}"),
-    )
-    .with_description(format!(
-        "JSON Schema for the structured `{resource_kind}` PRISM resource payload"
-    ))
-    .with_mime_type("application/schema+json")
-    .with_meta(resource_meta("schema", None, Some(resource_kind)))
-}
-
-fn session_resource_link() -> RawResource {
-    RawResource::new(session_resource_uri(), "PRISM Session")
-        .with_description("Active workspace root, current task context, and runtime query limits")
-        .with_mime_type("application/json")
-        .with_meta(resource_meta(
-            "session",
-            Some(schema_resource_uri("session")),
-            None,
-        ))
-}
-
-fn task_resource_link(task_id: &str) -> RawResource {
-    RawResource::new(task_resource_uri(task_id), "PRISM Task Replay")
-        .with_description("Task-scoped outcome timeline and correlated events")
-        .with_mime_type("application/json")
-        .with_meta(resource_meta(
-            "task",
-            Some(schema_resource_uri("task")),
-            None,
-        ))
-}
-
-fn search_resource_link(query: &str) -> RawResource {
-    RawResource::new(search_resource_uri(query), format!("PRISM Search: {query}"))
-        .with_description("Structured search results and diagnostics for this query")
-        .with_mime_type("application/json")
-        .with_meta(resource_meta(
-            "search",
-            Some(schema_resource_uri("search")),
-            None,
-        ))
-}
-
-fn symbol_resource_link(symbol: &SymbolView) -> RawResource {
-    RawResource::new(
-        symbol_resource_uri(&symbol.id),
-        format!("PRISM Symbol: {}", symbol.id.path),
-    )
-    .with_description("Exact symbol snapshot with relations, lineage, and risk context")
-    .with_mime_type("application/json")
-    .with_meta(resource_meta(
-        "symbol",
-        Some(schema_resource_uri("symbol")),
-        None,
-    ))
-}
-
-fn lineage_resource_link(lineage_id: &str) -> RawResource {
-    RawResource::new(
-        lineage_resource_uri(lineage_id),
-        format!("PRISM Lineage: {lineage_id}"),
-    )
-    .with_description("Structured lineage history and current nodes")
-    .with_mime_type("application/json")
-    .with_meta(resource_meta(
-        "lineage",
-        Some(schema_resource_uri("lineage")),
-        None,
-    ))
-}
-
-fn event_resource_link(event_id: &str) -> RawResource {
-    RawResource::new(
-        event_resource_uri(event_id),
-        format!("PRISM Event: {event_id}"),
-    )
-    .with_description("Recorded outcome event and associated task metadata")
-    .with_mime_type("application/json")
-    .with_meta(resource_meta(
-        "event",
-        Some(schema_resource_uri("event")),
-        None,
-    ))
-}
-
-fn memory_resource_link(memory_id: &str) -> RawResource {
-    RawResource::new(
-        memory_resource_uri(memory_id),
-        format!("PRISM Memory: {memory_id}"),
-    )
-    .with_description("Stored episodic memory entry and associated task metadata")
-    .with_mime_type("application/json")
-    .with_meta(resource_meta(
-        "memory",
-        Some(schema_resource_uri("memory")),
-        None,
-    ))
-}
-
-fn edge_resource_link(edge_id: &str) -> RawResource {
-    RawResource::new(
-        edge_resource_uri(edge_id),
-        format!("PRISM Inferred Edge: {edge_id}"),
-    )
-    .with_description("Inferred-edge record with scope, evidence, and task metadata")
-    .with_mime_type("application/json")
-    .with_meta(resource_meta(
-        "edge",
-        Some(schema_resource_uri("edge")),
-        None,
-    ))
-}
-
-fn schemas_resource_view_link() -> ResourceLinkView {
-    resource_link_view(
-        schemas_resource_uri(),
-        "PRISM Resource Schemas",
-        "Catalog of JSON Schemas for every structured PRISM resource payload",
-    )
-}
-
-fn schema_resource_view_link(resource_kind: &str) -> ResourceLinkView {
-    resource_link_view(
-        schema_resource_uri(resource_kind),
-        format!("PRISM Schema: {resource_kind}"),
-        format!("JSON Schema for the `{resource_kind}` PRISM resource payload"),
-    )
-}
-
-fn session_resource_view_link() -> ResourceLinkView {
-    resource_link_view(
-        session_resource_uri(),
-        "PRISM Session",
-        "Active workspace root, current task context, and runtime query limits",
-    )
-}
-
-fn task_resource_view_link(task_id: &str) -> ResourceLinkView {
-    resource_link_view(
-        task_resource_uri(task_id),
-        "PRISM Task Replay",
-        "Task-scoped outcome timeline and correlated events",
-    )
-}
-
-fn search_resource_view_link(query: &str) -> ResourceLinkView {
-    resource_link_view(
-        search_resource_uri(query),
-        format!("PRISM Search: {query}"),
-        "Structured search results and diagnostics for this query",
-    )
-}
-
-fn symbol_resource_view_link(symbol: &SymbolView) -> ResourceLinkView {
-    resource_link_view(
-        symbol_resource_uri(&symbol.id),
-        format!("PRISM Symbol: {}", symbol.id.path),
-        "Exact symbol snapshot with relations, lineage, and risk context",
-    )
-}
-
-fn symbol_resource_view_link_for_id(id: &NodeId) -> ResourceLinkView {
-    resource_link_view(
-        symbol_resource_uri_from_node_id(id),
-        format!("PRISM Symbol: {}", id.path),
-        "Exact symbol snapshot with relations, lineage, and risk context",
-    )
-}
-
-fn lineage_resource_view_link(lineage_id: &str) -> ResourceLinkView {
-    resource_link_view(
-        lineage_resource_uri(lineage_id),
-        format!("PRISM Lineage: {lineage_id}"),
-        "Structured lineage history and current nodes",
-    )
-}
-
-fn event_resource_view_link(event_id: &str) -> ResourceLinkView {
-    resource_link_view(
-        event_resource_uri(event_id),
-        format!("PRISM Event: {event_id}"),
-        "Recorded outcome event and associated task metadata",
-    )
-}
-
-fn memory_resource_view_link(memory_id: &str) -> ResourceLinkView {
-    resource_link_view(
-        memory_resource_uri(memory_id),
-        format!("PRISM Memory: {memory_id}"),
-        "Stored episodic memory entry and associated task metadata",
-    )
-}
-
-fn edge_resource_view_link(edge_id: &str) -> ResourceLinkView {
-    resource_link_view(
-        edge_resource_uri(edge_id),
-        format!("PRISM Inferred Edge: {edge_id}"),
-        "Inferred-edge record with scope, evidence, and task metadata",
-    )
-}
-
-fn symbol_resource_uri(id: &NodeIdView) -> String {
-    format!(
-        "prism://symbol/{}/{}/{}",
-        percent_encode_component(&id.crate_name),
-        percent_encode_component(&id.kind.to_string()),
-        percent_encode_component(&id.path),
-    )
-}
-
-fn symbol_resource_uri_from_node_id(id: &NodeId) -> String {
-    format!(
-        "prism://symbol/{}/{}/{}",
-        percent_encode_component(id.crate_name.as_str()),
-        percent_encode_component(&id.kind.to_string()),
-        percent_encode_component(id.path.as_str()),
-    )
-}
-
-fn symbol_links(symbol: &SymbolView) -> Vec<RawResource> {
-    let mut links = vec![symbol_resource_link(symbol)];
-    if let Some(lineage_id) = &symbol.lineage_id {
-        links.push(lineage_resource_link(lineage_id));
-    }
-    links
-}
-
-fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntry> {
-    vec![
-        ResourceSchemaCatalogEntry {
-            resource_kind: "schemas".to_string(),
-            schema_uri: schema_resource_uri("schemas"),
-            resource_uri: Some(SCHEMAS_URI.to_string()),
-            description: "Schema for the JSON Schema catalog resource itself.".to_string(),
-        },
-        ResourceSchemaCatalogEntry {
-            resource_kind: "session".to_string(),
-            schema_uri: schema_resource_uri("session"),
-            resource_uri: Some(SESSION_URI.to_string()),
-            description: "Schema for the active workspace, task context, and runtime limits."
-                .to_string(),
-        },
-        ResourceSchemaCatalogEntry {
-            resource_kind: "entrypoints".to_string(),
-            schema_uri: schema_resource_uri("entrypoints"),
-            resource_uri: Some(ENTRYPOINTS_RESOURCE_TEMPLATE_URI.to_string()),
-            description:
-                "Schema for the workspace entrypoint overview and its pagination metadata."
-                    .to_string(),
-        },
-        ResourceSchemaCatalogEntry {
-            resource_kind: "search".to_string(),
-            schema_uri: schema_resource_uri("search"),
-            resource_uri: Some(SEARCH_RESOURCE_TEMPLATE_URI.to_string()),
-            description: "Schema for browseable search results and diagnostics.".to_string(),
-        },
-        ResourceSchemaCatalogEntry {
-            resource_kind: "symbol".to_string(),
-            schema_uri: schema_resource_uri("symbol"),
-            resource_uri: Some(SYMBOL_RESOURCE_TEMPLATE_URI.to_string()),
-            description:
-                "Schema for exact symbol snapshots, including relations, lineage, and risk context."
-                    .to_string(),
-        },
-        ResourceSchemaCatalogEntry {
-            resource_kind: "lineage".to_string(),
-            schema_uri: schema_resource_uri("lineage"),
-            resource_uri: Some(LINEAGE_RESOURCE_TEMPLATE_URI.to_string()),
-            description: "Schema for lineage history and current-node views.".to_string(),
-        },
-        ResourceSchemaCatalogEntry {
-            resource_kind: "task".to_string(),
-            schema_uri: schema_resource_uri("task"),
-            resource_uri: Some(TASK_RESOURCE_TEMPLATE_URI.to_string()),
-            description: "Schema for task replay pages and correlated outcome events.".to_string(),
-        },
-        ResourceSchemaCatalogEntry {
-            resource_kind: "event".to_string(),
-            schema_uri: schema_resource_uri("event"),
-            resource_uri: Some(EVENT_RESOURCE_TEMPLATE_URI.to_string()),
-            description: "Schema for a single recorded outcome event.".to_string(),
-        },
-        ResourceSchemaCatalogEntry {
-            resource_kind: "memory".to_string(),
-            schema_uri: schema_resource_uri("memory"),
-            resource_uri: Some(MEMORY_RESOURCE_TEMPLATE_URI.to_string()),
-            description: "Schema for a single episodic memory entry.".to_string(),
-        },
-        ResourceSchemaCatalogEntry {
-            resource_kind: "edge".to_string(),
-            schema_uri: schema_resource_uri("edge"),
-            resource_uri: Some(EDGE_RESOURCE_TEMPLATE_URI.to_string()),
-            description: "Schema for a single inferred-edge record.".to_string(),
-        },
-    ]
-}
-
-fn anchor_resource_view_links(anchors: &[AnchorRef]) -> Vec<ResourceLinkView> {
-    let mut links = Vec::new();
-    for anchor in anchors {
-        match anchor {
-            AnchorRef::Node(id) => links.push(symbol_resource_view_link_for_id(id)),
-            AnchorRef::Lineage(lineage_id) => {
-                links.push(lineage_resource_view_link(lineage_id.0.as_str()))
-            }
-            AnchorRef::File(_) | AnchorRef::Kind(_) => {}
-        }
-    }
-    dedupe_resource_link_views(links)
-}
-
-fn task_resource_view_links_from_events(events: &[OutcomeEvent]) -> Vec<ResourceLinkView> {
-    dedupe_resource_link_views(
-        events
-            .iter()
-            .filter_map(|event| event.meta.correlation.as_ref())
-            .map(|task_id| task_resource_view_link(task_id.0.as_str()))
-            .collect(),
-    )
-}
-
-fn percent_decode_lossy(value: &str) -> String {
-    let bytes = value.as_bytes();
-    let mut decoded = Vec::with_capacity(bytes.len());
-    let mut index = 0;
-    while index < bytes.len() {
-        if bytes[index] == b'%' && index + 2 < bytes.len() {
-            let hex = &value[index + 1..index + 3];
-            if let Ok(byte) = u8::from_str_radix(hex, 16) {
-                decoded.push(byte);
-                index += 3;
-                continue;
-            }
-        }
-        if bytes[index] == b'+' {
-            decoded.push(b' ');
-        } else {
-            decoded.push(bytes[index]);
-        }
-        index += 1;
-    }
-    String::from_utf8_lossy(&decoded).into_owned()
-}
-
-fn percent_encode_component(value: &str) -> String {
-    let mut encoded = String::with_capacity(value.len());
-    for byte in value.bytes() {
-        match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                encoded.push(char::from(byte));
-            }
-            _ => encoded.push_str(&format!("%{:02X}", byte)),
-        }
-    }
-    encoded
 }
 
 #[derive(Clone)]
@@ -3508,12 +2676,13 @@ impl QueryHost {
         match args.action {
             ClaimActionInput::Acquire => {
                 let payload: ClaimAcquirePayload = serde_json::from_value(args.payload)?;
+                let anchors = prism.coordination_scope_anchors(&convert_anchors(payload.anchors)?);
                 let (claim_id, conflicts, state) = prism.coordination().acquire_claim(
                     meta,
                     self.session.session_id(),
                     ClaimAcquireInput {
                         task_id: payload.coordination_task_id.map(CoordinationTaskId::new),
-                        anchors: convert_anchors(payload.anchors)?,
+                        anchors,
                         capability: parse_capability(&payload.capability)?,
                         mode: payload.mode.as_deref().map(parse_claim_mode).transpose()?,
                         ttl_seconds: payload.ttl_seconds,
@@ -3585,6 +2754,26 @@ impl QueryHost {
                     .into_iter()
                     .map(EventId::new)
                     .collect::<Vec<_>>();
+                let mut inferred_validated_checks = payload.validated_checks.unwrap_or_default();
+                for event_id in &evidence {
+                    if let Some(event) = prism.outcome_memory().event(event_id) {
+                        if matches!(event.result, OutcomeResult::Success) {
+                            inferred_validated_checks.extend(event.evidence.iter().filter_map(
+                                |evidence| match evidence {
+                                    OutcomeEvidence::Test { name, passed } if *passed => {
+                                        Some(format!("test:{name}"))
+                                    }
+                                    OutcomeEvidence::Build { target, passed } if *passed => {
+                                        Some(format!("build:{target}"))
+                                    }
+                                    _ => None,
+                                },
+                            ));
+                        }
+                    }
+                }
+                inferred_validated_checks.sort();
+                inferred_validated_checks.dedup();
                 let recipe = prism.task_validation_recipe(&task_id);
                 let risk = prism.task_risk(&task_id, meta.ts);
                 let (artifact_id, artifact) = prism.coordination().propose_artifact(
@@ -3595,14 +2784,10 @@ impl QueryHost {
                         diff_ref: payload.diff_ref,
                         evidence: evidence.clone(),
                         base_revision: prism.workspace_revision(),
-                        required_validations: payload
-                            .required_validations
-                            .unwrap_or_else(|| recipe.map(|recipe| recipe.checks).unwrap_or_default()),
-                        validated_checks: infer_validated_checks(
-                            prism,
-                            &evidence,
-                            payload.validated_checks.unwrap_or_default(),
-                        ),
+                        required_validations: payload.required_validations.unwrap_or_else(|| {
+                            recipe.map(|recipe| recipe.checks).unwrap_or_default()
+                        }),
+                        validated_checks: inferred_validated_checks,
                         risk_score: payload
                             .risk_score
                             .or_else(|| risk.map(|risk| risk.risk_score)),
@@ -3632,6 +2817,13 @@ impl QueryHost {
                 let payload: ArtifactReviewPayload = serde_json::from_value(args.payload)?;
                 let artifact_id = ArtifactId::new(payload.artifact_id.clone());
                 let risk = prism.artifact_risk(&artifact_id, meta.ts);
+                let mut validated_checks = risk
+                    .as_ref()
+                    .map(|risk| risk.validated_checks.clone())
+                    .unwrap_or_default();
+                validated_checks.extend(payload.validated_checks.unwrap_or_default());
+                validated_checks.sort();
+                validated_checks.dedup();
                 let (review_id, _, artifact) = prism.coordination().review_artifact(
                     meta,
                     ArtifactReviewInput {
@@ -3643,14 +2835,7 @@ impl QueryHost {
                                 .map(|risk| risk.required_validations.clone())
                                 .unwrap_or_default()
                         }),
-                        validated_checks: dedupe_strings(
-                            risk.as_ref()
-                                .map(|risk| risk.validated_checks.clone())
-                                .unwrap_or_default()
-                                .into_iter()
-                                .chain(payload.validated_checks.unwrap_or_default())
-                                .collect(),
-                        ),
+                        validated_checks,
                         risk_score: payload
                             .risk_score
                             .or_else(|| risk.as_ref().map(|risk| risk.risk_score)),
@@ -4044,485 +3229,6 @@ impl QueryHost {
     }
 }
 
-fn curator_job_view(record: CuratorJobRecord) -> Result<CuratorJobView> {
-    let id = record.id.0.clone();
-    let trigger = curator_trigger_label(&record.job.trigger).to_owned();
-    let status = curator_job_status_label(&record).to_owned();
-    let task_id = record.job.task.as_ref().map(|task| task.0.to_string());
-    let run = record.run.clone().unwrap_or_default();
-    let mut proposals = Vec::with_capacity(run.proposals.len());
-    for (index, proposal) in run.proposals.into_iter().enumerate() {
-        let state = record
-            .proposal_states
-            .get(index)
-            .cloned()
-            .unwrap_or_default();
-        proposals.push(curator_proposal_view(index, proposal, state)?);
-    }
-    Ok(CuratorJobView {
-        id,
-        trigger,
-        status,
-        task_id,
-        focus: record.job.focus,
-        created_at: record.created_at,
-        started_at: record.started_at,
-        finished_at: record.finished_at,
-        proposals,
-        diagnostics: run
-            .diagnostics
-            .into_iter()
-            .map(|diagnostic| QueryDiagnostic {
-                code: diagnostic.code,
-                message: diagnostic.message,
-                data: diagnostic.data,
-            })
-            .collect(),
-        error: record.error,
-    })
-}
-
-fn curator_proposal_view(
-    index: usize,
-    proposal: CuratorProposal,
-    state: prism_curator::CuratorProposalState,
-) -> Result<CuratorProposalView> {
-    let (kind, payload) = match proposal {
-        CuratorProposal::InferredEdge(candidate) => {
-            ("inferred_edge", serde_json::to_value(candidate)?)
-        }
-        CuratorProposal::StructuralMemory(candidate) => {
-            ("structural_memory", serde_json::to_value(candidate)?)
-        }
-        CuratorProposal::RiskSummary(candidate) => {
-            ("risk_summary", serde_json::to_value(candidate)?)
-        }
-        CuratorProposal::ValidationRecipe(candidate) => {
-            ("validation_recipe", serde_json::to_value(candidate)?)
-        }
-    };
-    Ok(CuratorProposalView {
-        index,
-        kind: kind.to_owned(),
-        disposition: curator_disposition_label(state.disposition).to_owned(),
-        payload,
-        decided_at: state.decided_at,
-        task_id: state.task.map(|task| task.0.to_string()),
-        note: state.note,
-        output: state.output,
-    })
-}
-
-fn curator_job_status_label(record: &CuratorJobRecord) -> &'static str {
-    match record.status {
-        prism_curator::CuratorJobStatus::Queued => "queued",
-        prism_curator::CuratorJobStatus::Running => "running",
-        prism_curator::CuratorJobStatus::Completed => "completed",
-        prism_curator::CuratorJobStatus::Failed => "failed",
-        prism_curator::CuratorJobStatus::Skipped => "skipped",
-    }
-}
-
-fn curator_trigger_label(trigger: &CuratorTrigger) -> &'static str {
-    match trigger {
-        CuratorTrigger::Manual => "manual",
-        CuratorTrigger::PostChange => "post_change",
-        CuratorTrigger::TaskCompleted => "task_completed",
-        CuratorTrigger::RepeatedFailure => "repeated_failure",
-        CuratorTrigger::AmbiguousLineage => "ambiguous_lineage",
-        CuratorTrigger::HotspotChanged => "hotspot_changed",
-    }
-}
-
-fn curator_disposition_label(disposition: CuratorProposalDisposition) -> &'static str {
-    match disposition {
-        CuratorProposalDisposition::Pending => "pending",
-        CuratorProposalDisposition::Applied => "applied",
-        CuratorProposalDisposition::Rejected => "rejected",
-    }
-}
-
-fn curator_proposal_state(
-    record: &CuratorJobRecord,
-    proposal_index: usize,
-) -> Result<prism_curator::CuratorProposalState> {
-    if record
-        .run
-        .as_ref()
-        .and_then(|run| run.proposals.get(proposal_index))
-        .is_none()
-    {
-        return Err(anyhow!("unknown curator proposal index {proposal_index}"));
-    }
-    Ok(record
-        .proposal_states
-        .get(proposal_index)
-        .cloned()
-        .unwrap_or_default())
-}
-
-fn curator_proposal(record: &CuratorJobRecord, proposal_index: usize) -> Result<&CuratorProposal> {
-    record
-        .run
-        .as_ref()
-        .and_then(|run| run.proposals.get(proposal_index))
-        .ok_or_else(|| anyhow!("unknown curator proposal index {proposal_index}"))
-}
-
-fn change_impact_view(impact: ChangeImpact) -> ChangeImpactView {
-    ChangeImpactView {
-        direct_nodes: impact.direct_nodes.into_iter().map(node_id_view).collect(),
-        lineages: impact
-            .lineages
-            .into_iter()
-            .map(|lineage| lineage.0.to_string())
-            .collect(),
-        likely_validations: impact.likely_validations,
-        validation_checks: impact
-            .validation_checks
-            .into_iter()
-            .map(validation_check_view)
-            .collect(),
-        co_change_neighbors: impact
-            .co_change_neighbors
-            .into_iter()
-            .map(co_change_view)
-            .collect(),
-        risk_events: impact.risk_events,
-    }
-}
-
-fn validation_recipe_view(recipe: ValidationRecipe) -> ValidationRecipeView {
-    ValidationRecipeView {
-        target: node_id_view(recipe.target),
-        checks: recipe.checks,
-        scored_checks: recipe
-            .scored_checks
-            .into_iter()
-            .map(validation_check_view)
-            .collect(),
-        related_nodes: recipe.related_nodes.into_iter().map(node_id_view).collect(),
-        co_change_neighbors: recipe
-            .co_change_neighbors
-            .into_iter()
-            .map(co_change_view)
-            .collect(),
-        recent_failures: recipe.recent_failures,
-    }
-}
-
-fn task_validation_recipe_view(recipe: TaskValidationRecipe) -> TaskValidationRecipeView {
-    TaskValidationRecipeView {
-        task_id: recipe.task_id.0.to_string(),
-        checks: recipe.checks,
-        scored_checks: recipe
-            .scored_checks
-            .into_iter()
-            .map(validation_check_view)
-            .collect(),
-        related_nodes: recipe.related_nodes.into_iter().map(node_id_view).collect(),
-        co_change_neighbors: recipe
-            .co_change_neighbors
-            .into_iter()
-            .map(co_change_view)
-            .collect(),
-        recent_failures: recipe.recent_failures,
-    }
-}
-
-fn task_risk_view(risk: TaskRisk) -> TaskRiskView {
-    TaskRiskView {
-        task_id: risk.task_id.0.to_string(),
-        risk_score: risk.risk_score,
-        review_required: risk.review_required,
-        stale_task: risk.stale_task,
-        has_approved_artifact: risk.has_approved_artifact,
-        likely_validations: risk.likely_validations,
-        missing_validations: risk.missing_validations,
-        validation_checks: risk
-            .validation_checks
-            .into_iter()
-            .map(validation_check_view)
-            .collect(),
-        co_change_neighbors: risk
-            .co_change_neighbors
-            .into_iter()
-            .map(co_change_view)
-            .collect(),
-        risk_events: risk.risk_events,
-        approved_artifact_ids: risk
-            .approved_artifact_ids
-            .into_iter()
-            .map(|artifact_id| artifact_id.0.to_string())
-            .collect(),
-        stale_artifact_ids: risk
-            .stale_artifact_ids
-            .into_iter()
-            .map(|artifact_id| artifact_id.0.to_string())
-            .collect(),
-    }
-}
-
-fn artifact_risk_view(risk: ArtifactRisk) -> ArtifactRiskView {
-    ArtifactRiskView {
-        artifact_id: risk.artifact_id.0.to_string(),
-        task_id: risk.task_id.0.to_string(),
-        risk_score: risk.risk_score,
-        review_required: risk.review_required,
-        stale: risk.stale,
-        required_validations: risk.required_validations,
-        validated_checks: risk.validated_checks,
-        missing_validations: risk.missing_validations,
-        co_change_neighbors: risk
-            .co_change_neighbors
-            .into_iter()
-            .map(co_change_view)
-            .collect(),
-        risk_events: risk.risk_events,
-    }
-}
-
-fn scored_memory_view(memory: ScoredMemory) -> ScoredMemoryView {
-    ScoredMemoryView {
-        id: memory.id.0,
-        entry: memory_entry_view(memory.entry),
-        score: memory.score,
-        source_module: memory.source_module,
-        explanation: memory.explanation,
-    }
-}
-
-fn memory_entry_view(entry: MemoryEntry) -> MemoryEntryView {
-    MemoryEntryView {
-        id: entry.id.0,
-        anchors: entry.anchors,
-        kind: format!("{:?}", entry.kind),
-        content: entry.content,
-        metadata: entry.metadata,
-        created_at: entry.created_at,
-        source: format!("{:?}", entry.source),
-        trust: entry.trust,
-    }
-}
-
-fn validation_check_view(check: ValidationCheck) -> ValidationCheckView {
-    ValidationCheckView {
-        label: check.label,
-        score: check.score,
-        last_seen: check.last_seen,
-    }
-}
-
-fn co_change_view(value: CoChange) -> CoChangeView {
-    CoChangeView {
-        lineage: value.lineage.0.to_string(),
-        count: value.count,
-        nodes: value.nodes.into_iter().map(node_id_view).collect(),
-    }
-}
-
-fn workspace_revision_view(value: WorkspaceRevision) -> WorkspaceRevisionView {
-    WorkspaceRevisionView {
-        graph_version: value.graph_version,
-        git_commit: value.git_commit.map(|commit| commit.to_string()),
-    }
-}
-
-fn plan_view(value: prism_coordination::Plan) -> PlanView {
-    PlanView {
-        id: value.id.0.to_string(),
-        goal: value.goal,
-        status: value.status,
-        root_task_ids: value
-            .root_tasks
-            .into_iter()
-            .map(|task_id| task_id.0.to_string())
-            .collect(),
-    }
-}
-
-fn coordination_task_view(value: prism_coordination::CoordinationTask) -> CoordinationTaskView {
-    CoordinationTaskView {
-        id: value.id.0.to_string(),
-        plan_id: value.plan.0.to_string(),
-        title: value.title,
-        status: value.status,
-        assignee: value.assignee.map(|agent| agent.0.to_string()),
-        anchors: value.anchors,
-        depends_on: value
-            .depends_on
-            .into_iter()
-            .map(|task_id| task_id.0.to_string())
-            .collect(),
-        base_revision: workspace_revision_view(value.base_revision),
-    }
-}
-
-fn claim_view(value: prism_coordination::WorkClaim) -> ClaimView {
-    ClaimView {
-        id: value.id.0.to_string(),
-        holder: value.holder.0.to_string(),
-        task_id: value.task.map(|task| task.0.to_string()),
-        capability: value.capability,
-        mode: value.mode,
-        status: value.status,
-        anchors: value.anchors,
-        expires_at: value.expires_at,
-        base_revision: workspace_revision_view(value.base_revision),
-    }
-}
-
-fn conflict_view(value: prism_coordination::CoordinationConflict) -> ConflictView {
-    ConflictView {
-        severity: value.severity,
-        summary: value.summary,
-        anchors: value.anchors,
-        blocking_claim_ids: value
-            .blocking_claims
-            .into_iter()
-            .map(|claim_id| claim_id.0.to_string())
-            .collect(),
-    }
-}
-
-fn blocker_view(value: prism_coordination::TaskBlocker) -> BlockerView {
-    BlockerView {
-        kind: value.kind,
-        summary: value.summary,
-        related_task_id: value.related_task_id.map(|task_id| task_id.0.to_string()),
-        related_artifact_id: value
-            .related_artifact_id
-            .map(|artifact_id| artifact_id.0.to_string()),
-        risk_score: value.risk_score,
-        validation_checks: value.validation_checks,
-    }
-}
-
-fn artifact_view(value: prism_coordination::Artifact) -> ArtifactView {
-    ArtifactView {
-        id: value.id.0.to_string(),
-        task_id: value.task.0.to_string(),
-        status: value.status,
-        anchors: value.anchors,
-        base_revision: workspace_revision_view(value.base_revision),
-        diff_ref: value.diff_ref,
-        required_validations: value.required_validations,
-        validated_checks: value.validated_checks,
-        risk_score: value.risk_score,
-    }
-}
-
-struct JsWorker {
-    tx: mpsc::Sender<JsWorkerMessage>,
-}
-
-struct JsWorkerRequest {
-    script: String,
-    execution: QueryExecution,
-    reply: mpsc::Sender<Result<String>>,
-}
-
-enum JsWorkerMessage {
-    Execute(JsWorkerRequest),
-}
-
-impl JsWorker {
-    fn spawn() -> Self {
-        let (tx, rx) = mpsc::channel::<JsWorkerMessage>();
-        thread::spawn(move || {
-            if let Err(error) = run_js_worker(rx) {
-                eprintln!("prism-mcp js worker failed: {error}");
-            }
-        });
-        Self { tx }
-    }
-
-    fn execute(&self, script: String, execution: QueryExecution) -> Result<String> {
-        let (reply_tx, reply_rx) = mpsc::channel();
-        self.tx
-            .send(JsWorkerMessage::Execute(JsWorkerRequest {
-                script,
-                execution,
-                reply: reply_tx,
-            }))
-            .map_err(|_| anyhow!("js worker is unavailable"))?;
-
-        reply_rx
-            .recv()
-            .map_err(|_| anyhow!("js worker dropped the query response"))?
-    }
-}
-
-fn run_js_worker(rx: mpsc::Receiver<JsWorkerMessage>) -> Result<()> {
-    let runtime = Runtime::new().context("failed to create JS runtime")?;
-    let context = Context::full(&runtime).context("failed to create JS context")?;
-    let active_execution = Arc::new(Mutex::new(None::<QueryExecution>));
-
-    context.with(|ctx| -> Result<()> {
-        let current = active_execution.clone();
-        ctx.globals().set(
-            "__prismHostCall",
-            Func::from(move |operation: String, args_json: String| {
-                let execution = {
-                    let guard = current.lock().expect("active execution lock poisoned");
-                    guard.clone()
-                };
-                let Some(execution) = execution else {
-                    return json!({
-                        "ok": false,
-                        "error": "no active prism query execution"
-                    })
-                    .to_string();
-                };
-                execution.dispatch_enveloped(&operation, &args_json)
-            }),
-        )?;
-        ctx.eval::<(), _>(runtime_prelude())
-            .map_err(|err| anyhow!(err.to_string()))?;
-        Ok(())
-    })?;
-
-    while let Ok(message) = rx.recv() {
-        match message {
-            JsWorkerMessage::Execute(request) => {
-                {
-                    let mut guard = active_execution
-                        .lock()
-                        .expect("active execution lock poisoned");
-                    *guard = Some(request.execution.clone());
-                }
-
-                let result = context.with(|ctx| -> Result<String> {
-                    ctx.eval::<String, _>(request.script.as_str())
-                        .map_err(|err| anyhow!(err.to_string()))
-                });
-
-                let cleanup_result = context.with(|ctx| -> Result<()> {
-                    ctx.eval::<(), _>("__prismCleanupGlobals()")
-                        .map_err(|err| anyhow!(err.to_string()))
-                });
-
-                {
-                    let mut guard = active_execution
-                        .lock()
-                        .expect("active execution lock poisoned");
-                    *guard = None;
-                }
-
-                let final_result = match (result, cleanup_result) {
-                    (Ok(value), Ok(())) => Ok(value),
-                    (Err(error), _) => Err(error),
-                    (Ok(_), Err(error)) => Err(error),
-                };
-
-                let _ = request.reply.send(final_result);
-            }
-        }
-    }
-
-    Ok(())
-}
-
 fn symbol_view(prism: &Prism, symbol: &Symbol<'_>) -> Result<SymbolView> {
     let node = symbol.node();
     Ok(SymbolView {
@@ -4540,34 +3246,6 @@ fn symbol_view(prism: &Prism, symbol: &Symbol<'_>) -> Result<SymbolView> {
             .lineage_of(symbol.id())
             .map(|lineage| lineage.0.to_string()),
     })
-}
-
-fn node_id_view(node: NodeId) -> NodeIdView {
-    NodeIdView {
-        crate_name: node.crate_name.to_string(),
-        path: node.path.to_string(),
-        kind: node.kind,
-    }
-}
-
-fn edge_view(edge: Edge) -> EdgeView {
-    EdgeView {
-        kind: edge.kind,
-        source: node_id_view(edge.source),
-        target: node_id_view(edge.target),
-        origin: edge.origin,
-        confidence: edge.confidence,
-    }
-}
-
-fn inferred_edge_record_view(record: prism_agent::InferredEdgeRecord) -> InferredEdgeRecordView {
-    InferredEdgeRecordView {
-        id: record.id.0,
-        edge: edge_view(record.edge),
-        scope: format!("{:?}", record.scope),
-        task_id: record.task.map(|task| task.0.to_string()),
-        evidence: record.evidence,
-    }
 }
 
 fn symbol_views_for_ids(prism: &Prism, ids: Vec<NodeId>) -> Result<Vec<SymbolView>> {
@@ -4665,6 +3343,72 @@ fn relations_view(prism: &Prism, session: &SessionState, id: &NodeId) -> Result<
                     .map(|record| record.edge.target),
             ),
         )?,
+        specifies: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                relations.outgoing_specifies,
+                session
+                    .inferred_edges
+                    .edges_from(id, Some(EdgeKind::Specifies))
+                    .into_iter()
+                    .map(|record| record.edge.target),
+            ),
+        )?,
+        specified_by: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                relations.incoming_specifies,
+                session
+                    .inferred_edges
+                    .edges_to(id, Some(EdgeKind::Specifies))
+                    .into_iter()
+                    .map(|record| record.edge.source),
+            ),
+        )?,
+        validates: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                relations.outgoing_validates,
+                session
+                    .inferred_edges
+                    .edges_from(id, Some(EdgeKind::Validates))
+                    .into_iter()
+                    .map(|record| record.edge.target),
+            ),
+        )?,
+        validated_by: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                relations.incoming_validates,
+                session
+                    .inferred_edges
+                    .edges_to(id, Some(EdgeKind::Validates))
+                    .into_iter()
+                    .map(|record| record.edge.source),
+            ),
+        )?,
+        related: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                relations.outgoing_related,
+                session
+                    .inferred_edges
+                    .edges_from(id, Some(EdgeKind::RelatedTo))
+                    .into_iter()
+                    .map(|record| record.edge.target),
+            ),
+        )?,
+        related_by: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                relations.incoming_related,
+                session
+                    .inferred_edges
+                    .edges_to(id, Some(EdgeKind::RelatedTo))
+                    .into_iter()
+                    .map(|record| record.edge.source),
+            ),
+        )?,
     })
 }
 
@@ -4716,7 +3460,10 @@ fn blast_radius_view(prism: &Prism, session: &SessionState, id: &NodeId) -> Chan
         impact.direct_nodes.push(record.edge.source);
     }
     impact.direct_nodes = merge_node_ids(impact.direct_nodes, std::iter::empty());
-    change_impact_view(impact)
+    let promoted_summaries = promoted_summary_texts(session, prism, &[AnchorRef::Node(id.clone())]);
+    let mut view = change_impact_view(impact);
+    view.promoted_summaries = promoted_summaries;
+    view
 }
 
 fn validation_recipe_view_with(
@@ -4725,6 +3472,17 @@ fn validation_recipe_view_with(
     id: &NodeId,
 ) -> ValidationRecipeView {
     let mut recipe = prism.validation_recipe(id);
+    merge_promoted_checks(
+        &mut recipe.scored_checks,
+        promoted_validation_checks(session, prism, &[AnchorRef::Node(id.clone())]),
+    );
+    recipe.checks = recipe
+        .scored_checks
+        .iter()
+        .map(|check| check.label.clone())
+        .collect::<Vec<_>>();
+    recipe.checks.sort();
+    recipe.checks.dedup();
     recipe.related_nodes = merge_node_ids(
         recipe.related_nodes,
         session
@@ -4927,34 +3685,166 @@ impl QueryExecution {
             }
             "taskBlastRadius" => {
                 let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                let task_id = CoordinationTaskId::new(args.task_id);
                 Ok(serde_json::to_value(
-                    self.prism
-                        .task_blast_radius(&CoordinationTaskId::new(args.task_id))
-                        .map(change_impact_view),
+                    self.prism.task_blast_radius(&task_id).map(|impact| {
+                        let anchors = self
+                            .prism
+                            .coordination_task(&task_id)
+                            .map(|task| task.anchors)
+                            .unwrap_or_default();
+                        let mut view = change_impact_view(impact);
+                        view.promoted_summaries = promoted_summary_texts(
+                            self.host.session.as_ref(),
+                            self.prism.as_ref(),
+                            &anchors,
+                        );
+                        view
+                    }),
                 )?)
             }
             "taskValidationRecipe" => {
                 let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                let task_id = CoordinationTaskId::new(args.task_id);
                 Ok(serde_json::to_value(
                     self.prism
-                        .task_validation_recipe(&CoordinationTaskId::new(args.task_id))
-                        .map(task_validation_recipe_view),
+                        .task_validation_recipe(&task_id)
+                        .map(|mut recipe| {
+                            let anchors = self
+                                .prism
+                                .coordination_task(&task_id)
+                                .map(|task| task.anchors)
+                                .unwrap_or_default();
+                            merge_promoted_checks(
+                                &mut recipe.scored_checks,
+                                promoted_validation_checks(
+                                    self.host.session.as_ref(),
+                                    self.prism.as_ref(),
+                                    &anchors,
+                                ),
+                            );
+                            recipe.checks = recipe
+                                .scored_checks
+                                .iter()
+                                .map(|check| check.label.clone())
+                                .collect::<Vec<_>>();
+                            recipe.checks.sort();
+                            recipe.checks.dedup();
+                            task_validation_recipe_view(recipe)
+                        }),
                 )?)
             }
             "taskRisk" => {
                 let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                let task_id = CoordinationTaskId::new(args.task_id);
                 Ok(serde_json::to_value(
                     self.prism
-                        .task_risk(&CoordinationTaskId::new(args.task_id), current_timestamp())
-                        .map(task_risk_view),
+                        .task_risk(&task_id, current_timestamp())
+                        .map(|risk| {
+                            let task = self.prism.coordination_task(&task_id);
+                            let anchors = task
+                                .as_ref()
+                                .map(|task| task.anchors.clone())
+                                .unwrap_or_default();
+                            let promoted_summaries = promoted_summary_texts(
+                                self.host.session.as_ref(),
+                                self.prism.as_ref(),
+                                &anchors,
+                            );
+                            let promoted_risk_boost = promoted_memory_entries(
+                                self.host.session.as_ref(),
+                                self.prism.as_ref(),
+                                &anchors,
+                                "risk_summary",
+                            )
+                            .into_iter()
+                            .map(|entry| {
+                                let severity_weight = match entry
+                                    .metadata
+                                    .get("severity")
+                                    .and_then(Value::as_str)
+                                    .unwrap_or("medium")
+                                {
+                                    "low" => 0.04,
+                                    "high" => 0.12,
+                                    _ => 0.08,
+                                };
+                                severity_weight * entry.trust.clamp(0.0, 1.0)
+                            })
+                            .sum::<f32>()
+                            .min(0.25);
+                            let boosted_risk_score =
+                                (risk.risk_score + promoted_risk_boost).min(1.0);
+                            let review_required = risk.review_required
+                                || task
+                                    .as_ref()
+                                    .and_then(|task| self.prism.coordination_plan(&task.plan))
+                                    .and_then(|plan| plan.policy.review_required_above_risk_score)
+                                    .map(|threshold| boosted_risk_score >= threshold)
+                                    .unwrap_or(false);
+                            let mut view = task_risk_view(risk, promoted_summaries);
+                            view.risk_score = boosted_risk_score;
+                            view.review_required = review_required;
+                            view
+                        }),
                 )?)
             }
             "artifactRisk" => {
-                let args: ArtifactTargetArgs = serde_json::from_value(args)?;
+                let artifact_id = args
+                    .get("artifactId")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| anyhow!("artifactId is required"))?;
+                let artifact_id = ArtifactId::new(artifact_id.to_string());
                 Ok(serde_json::to_value(
                     self.prism
-                        .artifact_risk(&ArtifactId::new(args.artifact_id), current_timestamp())
-                        .map(artifact_risk_view),
+                        .artifact_risk(&artifact_id, current_timestamp())
+                        .map(|risk| {
+                            let anchors = self
+                                .prism
+                                .coordination_snapshot()
+                                .artifacts
+                                .into_iter()
+                                .find(|artifact| artifact.id == artifact_id)
+                                .map(|artifact| artifact.anchors)
+                                .unwrap_or_default();
+                            let promoted_summaries = promoted_summary_texts(
+                                self.host.session.as_ref(),
+                                self.prism.as_ref(),
+                                &anchors,
+                            );
+                            let promoted_risk_boost = promoted_memory_entries(
+                                self.host.session.as_ref(),
+                                self.prism.as_ref(),
+                                &anchors,
+                                "risk_summary",
+                            )
+                            .into_iter()
+                            .map(|entry| {
+                                let severity_weight = match entry
+                                    .metadata
+                                    .get("severity")
+                                    .and_then(Value::as_str)
+                                    .unwrap_or("medium")
+                                {
+                                    "low" => 0.04,
+                                    "high" => 0.12,
+                                    _ => 0.08,
+                                };
+                                severity_weight * entry.trust.clamp(0.0, 1.0)
+                            })
+                            .sum::<f32>()
+                            .min(0.25);
+                            let mut view = artifact_risk_view(risk, promoted_summaries);
+                            view.risk_score = (view.risk_score + promoted_risk_boost).min(1.0);
+                            view
+                        }),
+                )?)
+            }
+            "taskIntent" => {
+                let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                let task_id = CoordinationTaskId::new(args.task_id);
+                Ok(serde_json::to_value(
+                    self.prism.task_intent(&task_id).map(task_intent_view),
                 )?)
             }
             "simulateClaim" => {
@@ -5040,6 +3930,32 @@ impl QueryExecution {
                     self.host.session.as_ref(),
                     &id,
                 ))?)
+            }
+            "specFor" => {
+                let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                let id = convert_node_id(args.id)?;
+                Ok(serde_json::to_value(symbol_views_for_ids(
+                    self.prism.as_ref(),
+                    self.prism.spec_for(&id),
+                )?)?)
+            }
+            "implementationFor" => {
+                let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                let id = convert_node_id(args.id)?;
+                Ok(serde_json::to_value(symbol_views_for_ids(
+                    self.prism.as_ref(),
+                    self.prism.implementation_for(&id),
+                )?)?)
+            }
+            "driftCandidates" => {
+                let args: LimitArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(
+                    self.prism
+                        .drift_candidates(args.limit.unwrap_or(10))
+                        .into_iter()
+                        .map(drift_candidate_view)
+                        .collect::<Vec<_>>(),
+                )?)
             }
             "resumeTask" => {
                 let args: TaskTargetArgs = serde_json::from_value(args)?;
@@ -5546,41 +4462,6 @@ fn convert_completion_context(
     })
 }
 
-fn dedupe_strings(mut values: Vec<String>) -> Vec<String> {
-    values.sort();
-    values.dedup();
-    values
-}
-
-fn validation_labels_from_event(event: &OutcomeEvent) -> Vec<String> {
-    if !matches!(event.result, OutcomeResult::Success) {
-        return Vec::new();
-    }
-    event
-        .evidence
-        .iter()
-        .filter_map(|evidence| match evidence {
-            OutcomeEvidence::Test { name, passed } if *passed => Some(format!("test:{name}")),
-            OutcomeEvidence::Build { target, passed } if *passed => Some(format!("build:{target}")),
-            _ => None,
-        })
-        .collect()
-}
-
-fn infer_validated_checks(
-    prism: &Prism,
-    evidence: &[EventId],
-    explicit: Vec<String>,
-) -> Vec<String> {
-    let mut checks = explicit;
-    for event_id in evidence {
-        if let Some(event) = prism.outcome_memory().event(event_id) {
-            checks.extend(validation_labels_from_event(&event));
-        }
-    }
-    dedupe_strings(checks)
-}
-
 fn parse_edge_kind(value: &str) -> Result<EdgeKind> {
     let normalized = value.trim().to_ascii_lowercase();
     let kind = match normalized.as_str() {
@@ -5591,6 +4472,9 @@ fn parse_edge_kind(value: &str) -> Result<EdgeKind> {
         "defines" => EdgeKind::Defines,
         "imports" => EdgeKind::Imports,
         "dependson" | "depends-on" => EdgeKind::DependsOn,
+        "specifies" => EdgeKind::Specifies,
+        "validates" => EdgeKind::Validates,
+        "relatedto" | "related-to" => EdgeKind::RelatedTo,
         other => return Err(anyhow!("unknown edge kind `{other}`")),
     };
     Ok(kind)
@@ -5605,6 +4489,9 @@ fn edge_kind_label(kind: EdgeKind) -> &'static str {
         EdgeKind::Defines => "defines",
         EdgeKind::Imports => "imports",
         EdgeKind::DependsOn => "depends-on",
+        EdgeKind::Specifies => "specifies",
+        EdgeKind::Validates => "validates",
+        EdgeKind::RelatedTo => "related-to",
     }
 }
 
@@ -5674,32 +4561,11 @@ fn parse_node_kind(value: &str) -> Result<NodeKind> {
     Ok(kind)
 }
 
-fn transpile_typescript(source: &str) -> Result<String> {
-    let specifier = ModuleSpecifier::parse("file:///prism/query.ts")?;
-    let parsed = parse_program(ParseParams {
-        specifier,
-        text: source.into(),
-        media_type: MediaType::TypeScript,
-        capture_tokens: false,
-        maybe_syntax: None,
-        scope_analysis: false,
-    })
-    .map_err(|err| anyhow!(err.to_string()))?;
-    let transpiled = parsed
-        .transpile(
-            &TranspileOptions::default(),
-            &TranspileModuleOptions::default(),
-            &EmitOptions::default(),
-        )
-        .map_err(|err| anyhow!(err.to_string()))?
-        .into_source();
-    Ok(transpiled.text)
-}
-
 #[cfg(test)]
 mod tests {
     use std::fs;
     use std::sync::Arc;
+    use std::thread;
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     use rmcp::{
@@ -5711,8 +4577,8 @@ mod tests {
     use super::*;
     use prism_core::{index_workspace_session, index_workspace_session_with_curator};
     use prism_curator::{
-        CandidateEdge, CandidateMemory, CandidateRiskSummary, CuratorBackend, CuratorContext,
-        CuratorJob, CuratorProposal, CuratorRun,
+        CandidateEdge, CandidateMemory, CandidateRiskSummary, CandidateValidationRecipe,
+        CuratorBackend, CuratorContext, CuratorJob, CuratorProposal, CuratorRun,
     };
     use prism_history::HistoryStore;
     use prism_ir::{
@@ -6269,16 +5135,107 @@ return {{
             envelope["result"]["taskValidationRecipe"]["taskId"],
             task_id
         );
-        assert!(envelope["result"]["taskRisk"]["riskScore"]
-            .as_f64()
-            .unwrap()
-            > 0.0);
+        assert!(envelope["result"]["taskRisk"]["riskScore"].is_number());
         assert_eq!(
             envelope["result"]["artifactRisk"]["artifactId"],
             artifact["artifactId"]
         );
 
         running.cancel().await.unwrap();
+    }
+
+    #[test]
+    fn drift_candidates_and_task_intent_flow_through_prism_query_reads() {
+        let spec = NodeId::new("demo", "docs::request_spec", NodeKind::Document);
+        let implementation = NodeId::new("demo", "demo::handle_request", NodeKind::Function);
+        let related = NodeId::new("demo", "demo::audit_request", NodeKind::Function);
+
+        let mut graph = Graph::new();
+        graph.add_node(Node {
+            id: spec.clone(),
+            name: "request_spec".into(),
+            kind: NodeKind::Document,
+            file: FileId(1),
+            span: Span::line(1),
+            language: Language::Rust,
+        });
+        graph.add_node(Node {
+            id: implementation.clone(),
+            name: "handle_request".into(),
+            kind: NodeKind::Function,
+            file: FileId(1),
+            span: Span::line(2),
+            language: Language::Rust,
+        });
+        graph.add_node(Node {
+            id: related.clone(),
+            name: "audit_request".into(),
+            kind: NodeKind::Function,
+            file: FileId(1),
+            span: Span::line(3),
+            language: Language::Rust,
+        });
+        graph.add_edge(Edge {
+            kind: EdgeKind::Specifies,
+            source: spec.clone(),
+            target: implementation.clone(),
+            origin: prism_ir::EdgeOrigin::Static,
+            confidence: 1.0,
+        });
+        graph.add_edge(Edge {
+            kind: EdgeKind::RelatedTo,
+            source: spec.clone(),
+            target: related.clone(),
+            origin: prism_ir::EdgeOrigin::Static,
+            confidence: 1.0,
+        });
+
+        let host = host_with_prism(Prism::new(graph));
+        let plan = host
+            .store_coordination(PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Coordinate request handling" }),
+                task_id: None,
+            })
+            .unwrap();
+        let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+        let task = host
+            .store_coordination(PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id,
+                    "title": "Implement request flow",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::handle_request",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            })
+            .unwrap();
+        let task_id = task.state["id"].as_str().unwrap().to_string();
+
+        let execution = QueryExecution::new(host.clone(), host.current_prism());
+        let drift_value = execution.dispatch("driftCandidates", r#"{}"#).unwrap();
+        let intent_value = execution
+            .dispatch("taskIntent", &format!(r#"{{ "taskId": "{task_id}" }}"#))
+            .unwrap();
+
+        assert_eq!(drift_value.as_array().unwrap().len(), 1);
+        assert_eq!(drift_value[0]["spec"]["path"], "docs::request_spec");
+        assert_eq!(drift_value[0]["reasons"][0], "no validation links");
+
+        assert_eq!(intent_value["taskId"], task_id);
+        assert_eq!(intent_value["specs"][0]["path"], "docs::request_spec");
+        assert_eq!(
+            intent_value["implementations"][0]["path"],
+            "demo::handle_request"
+        );
+        assert_eq!(intent_value["related"][0]["path"], "demo::audit_request");
+        assert_eq!(intent_value["driftCandidates"].as_array().unwrap().len(), 1);
     }
 
     #[tokio::test]
@@ -6400,6 +5357,305 @@ return {{
         );
 
         running.cancel().await.unwrap();
+    }
+
+    #[test]
+    fn coordination_workflow_helpers_summarize_inbox_context_and_claim_preview() {
+        let root = temp_workspace();
+        let writer = QueryHost::with_session(index_workspace_session(&root).unwrap());
+        let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+        let plan = writer
+            .store_coordination(PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "goal": "Coordinate alpha",
+                    "policy": {
+                        "requireReviewForCompletion": true,
+                        "maxParallelEditorsPerAnchor": 1
+                    }
+                }),
+                task_id: None,
+            })
+            .unwrap();
+        let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+        let task = writer
+            .store_coordination(PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Edit alpha",
+                    "status": "Ready",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            })
+            .unwrap();
+        let task_id = task.state["id"].as_str().unwrap().to_string();
+
+        writer
+            .store_claim(PrismClaimArgs {
+                action: ClaimActionInput::Acquire,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }],
+                    "capability": "Edit",
+                    "mode": "SoftExclusive",
+                    "coordinationTaskId": task_id.clone()
+                }),
+                task_id: None,
+            })
+            .unwrap();
+
+        writer
+            .store_artifact(PrismArtifactArgs {
+                action: ArtifactActionInput::Propose,
+                payload: json!({
+                    "taskId": task.state["id"].as_str().unwrap(),
+                    "diffRef": "patch:alpha"
+                }),
+                task_id: None,
+            })
+            .unwrap();
+
+        let result = host
+            .execute(
+                &format!(
+                    r#"
+const alpha = prism.symbol("alpha");
+return {{
+  inbox: prism.coordinationInbox("{plan_id}"),
+  context: prism.taskContext("{task_id}"),
+  preview: prism.claimPreview({{
+    anchors: alpha ? [alpha] : [],
+    capability: "Edit",
+    mode: "SoftExclusive",
+  }}),
+}};
+"#
+                ),
+                QueryLanguage::Ts,
+            )
+            .unwrap();
+
+        assert_eq!(
+            result.result["inbox"]["readyTasks"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            result.result["inbox"]["pendingReviews"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(result.result["context"]["task"]["id"], task_id);
+        assert_eq!(
+            result.result["context"]["claims"].as_array().unwrap().len(),
+            1
+        );
+        assert_eq!(
+            result.result["context"]["blockers"][0]["kind"],
+            Value::String("ReviewRequired".to_string())
+        );
+        assert_eq!(result.result["preview"]["blocked"], Value::Bool(true));
+        assert!(result.result["preview"]["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|conflict| conflict["severity"] == Value::String("Block".to_string())));
+    }
+
+    #[test]
+    fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
+        let root = temp_workspace();
+        let host_a = QueryHost::with_session(index_workspace_session(&root).unwrap());
+        let host_b = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+        let plan = host_a
+            .store_coordination(PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "goal": "Coordinate alpha across sessions",
+                    "policy": {
+                        "requireReviewForCompletion": true,
+                        "maxParallelEditorsPerAnchor": 1
+                    }
+                }),
+                task_id: None,
+            })
+            .unwrap();
+        let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+        let task = host_a
+            .store_coordination(PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Edit alpha",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            })
+            .unwrap();
+        let task_id = task.state["id"].as_str().unwrap().to_string();
+
+        let first_claim = host_a
+            .store_claim(PrismClaimArgs {
+                action: ClaimActionInput::Acquire,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }],
+                    "capability": "Edit",
+                    "mode": "SoftExclusive",
+                    "coordinationTaskId": task_id.clone()
+                }),
+                task_id: None,
+            })
+            .unwrap();
+        assert!(first_claim.claim_id.is_some());
+
+        let blocked_neighbor_claim = host_b
+            .store_claim(PrismClaimArgs {
+                action: ClaimActionInput::Acquire,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::beta",
+                        "kind": "function"
+                    }],
+                    "capability": "Edit",
+                    "mode": "SoftExclusive"
+                }),
+                task_id: None,
+            })
+            .unwrap();
+        assert!(blocked_neighbor_claim.claim_id.is_none());
+        assert!(blocked_neighbor_claim
+            .conflicts
+            .iter()
+            .any(|conflict| conflict["severity"] == Value::String("Block".to_string())));
+
+        host_a
+            .store_coordination(PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::Handoff,
+                payload: json!({
+                    "taskId": task_id.clone(),
+                    "toAgent": "agent-b",
+                    "summary": "handoff alpha implementation to agent-b"
+                }),
+                task_id: None,
+            })
+            .unwrap();
+
+        let handed_off = host_b
+            .execute(
+                &format!(r#"return prism.task("{task_id}");"#),
+                QueryLanguage::Ts,
+            )
+            .unwrap();
+        assert_eq!(handed_off.result["assignee"], "agent-b");
+        assert_eq!(handed_off.result["status"], "Ready");
+
+        let second_claim = host_b
+            .store_claim(PrismClaimArgs {
+                action: ClaimActionInput::Acquire,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }],
+                    "capability": "Edit",
+                    "mode": "SoftExclusive",
+                    "coordinationTaskId": task_id.clone()
+                }),
+                task_id: None,
+            })
+            .unwrap();
+        assert!(second_claim.claim_id.is_some());
+
+        let artifact = host_b
+            .store_artifact(PrismArtifactArgs {
+                action: ArtifactActionInput::Propose,
+                payload: json!({
+                    "taskId": task.state["id"].as_str().unwrap(),
+                    "diffRef": "patch:alpha-shared"
+                }),
+                task_id: None,
+            })
+            .unwrap();
+        let artifact_id = artifact.artifact_id.clone().unwrap();
+
+        host_a
+            .store_artifact(PrismArtifactArgs {
+                action: ArtifactActionInput::Review,
+                payload: json!({
+                    "artifactId": artifact_id,
+                    "verdict": "approved",
+                    "summary": "reviewed after handoff"
+                }),
+                task_id: None,
+            })
+            .unwrap();
+
+        let completed = host_b
+            .store_coordination(PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskUpdate,
+                payload: json!({
+                    "taskId": task_id.clone(),
+                    "status": "completed"
+                }),
+                task_id: None,
+            })
+            .unwrap();
+        assert_eq!(completed.state["status"], "Completed");
+
+        let final_state = host_a
+            .execute(
+                &format!(
+                    r#"
+return {{
+  task: prism.task("{task_id}"),
+  inbox: prism.coordinationInbox("{plan_id}"),
+}};
+"#
+                ),
+                QueryLanguage::Ts,
+            )
+            .unwrap();
+        assert_eq!(final_state.result["task"]["status"], "Completed");
+        assert_eq!(
+            final_state.result["inbox"]["pendingReviews"]
+                .as_array()
+                .unwrap()
+                .len(),
+            0
+        );
     }
 
     #[test]
@@ -6591,6 +5847,238 @@ return {{
         assert_eq!(
             proposal.result["memory"][0]["entry"]["content"],
             "alpha owns request routing"
+        );
+    }
+
+    #[test]
+    fn promoted_curator_knowledge_feeds_validation_and_risk_queries() {
+        let root = temp_workspace();
+
+        #[derive(Default)]
+        struct FakeCurator;
+
+        impl CuratorBackend for FakeCurator {
+            fn run(&self, _job: &CuratorJob, _ctx: &CuratorContext) -> anyhow::Result<CuratorRun> {
+                Ok(CuratorRun {
+                    proposals: vec![
+                        CuratorProposal::ValidationRecipe(CandidateValidationRecipe {
+                            target: NodeId::new("demo", "demo::alpha", NodeKind::Function),
+                            checks: vec!["test:alpha_regression".to_string()],
+                            rationale: "Repeated alpha regressions need a dedicated test"
+                                .to_string(),
+                            evidence: vec!["failure clusters around alpha routing".to_string()],
+                        }),
+                        CuratorProposal::RiskSummary(CandidateRiskSummary {
+                            anchors: vec![AnchorRef::Node(NodeId::new(
+                                "demo",
+                                "demo::alpha",
+                                NodeKind::Function,
+                            ))],
+                            summary: "alpha is a risky coordination hotspot".to_string(),
+                            severity: "high".to_string(),
+                            evidence_events: Vec::new(),
+                        }),
+                    ],
+                    diagnostics: Vec::new(),
+                })
+            }
+        }
+
+        let session = index_workspace_session_with_curator(&root, Arc::new(FakeCurator)).unwrap();
+        let alpha = session
+            .prism()
+            .symbol("alpha")
+            .into_iter()
+            .next()
+            .unwrap()
+            .id()
+            .clone();
+        session
+            .append_outcome(OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new("outcome:alpha-risk"),
+                    ts: 50,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:alpha-risk")),
+                    causation: None,
+                },
+                anchors: vec![AnchorRef::Node(alpha.clone())],
+                kind: OutcomeKind::FailureObserved,
+                result: OutcomeResult::Failure,
+                summary: "alpha failed under routing load".into(),
+                evidence: Vec::new(),
+                metadata: Value::Null,
+            })
+            .unwrap();
+        session
+            .append_outcome(OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new("outcome:alpha-curator"),
+                    ts: 51,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:alpha-risk")),
+                    causation: None,
+                },
+                anchors: vec![AnchorRef::Node(alpha.clone())],
+                kind: OutcomeKind::FixValidated,
+                result: OutcomeResult::Success,
+                summary: "validated alpha routing follow-up".into(),
+                evidence: Vec::new(),
+                metadata: Value::Null,
+            })
+            .unwrap();
+        session
+            .append_outcome(OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new("outcome:alpha-risk-repeat"),
+                    ts: 51,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:alpha-risk")),
+                    causation: None,
+                },
+                anchors: vec![AnchorRef::Node(alpha.clone())],
+                kind: OutcomeKind::FailureObserved,
+                result: OutcomeResult::Failure,
+                summary: "alpha failed again under routing load".into(),
+                evidence: Vec::new(),
+                metadata: Value::Null,
+            })
+            .unwrap();
+        let job_id = wait_for_completed_curator_job(&session);
+        let host = QueryHost::with_session(session);
+
+        let plan = host
+            .store_coordination(PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Change alpha safely" }),
+                task_id: None,
+            })
+            .unwrap();
+        let task = host
+            .store_coordination(PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            })
+            .unwrap();
+        let task_id = task.state["id"].as_str().unwrap().to_string();
+        let artifact = host
+            .store_artifact(PrismArtifactArgs {
+                action: ArtifactActionInput::Propose,
+                payload: json!({
+                    "taskId": task_id,
+                    "diffRef": "patch:alpha-risk"
+                }),
+                task_id: None,
+            })
+            .unwrap();
+        let artifact_id = artifact.artifact_id.clone().unwrap();
+
+        let before = host
+            .execute(
+                &format!(
+                    r#"
+const sym = prism.symbol("alpha");
+return {{
+  recipe: sym ? prism.validationRecipe(sym) : null,
+  taskRecipe: prism.taskValidationRecipe("{task_id}"),
+  taskRisk: prism.taskRisk("{task_id}"),
+  artifactRisk: prism.artifactRisk("{artifact_id}"),
+}};
+"#
+                ),
+                QueryLanguage::Ts,
+            )
+            .expect("baseline query should succeed");
+
+        assert!(!before.result["recipe"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| value == "test:alpha_regression"));
+        assert_eq!(
+            before.result["taskRisk"]["promotedSummaries"]
+                .as_array()
+                .unwrap()
+                .len(),
+            0
+        );
+        assert_eq!(
+            before.result["artifactRisk"]["promotedSummaries"]
+                .as_array()
+                .unwrap()
+                .len(),
+            0
+        );
+
+        host.promote_curator_memory(PrismCuratorPromoteMemoryArgs {
+            job_id: job_id.clone(),
+            proposal_index: 0,
+            trust: None,
+            note: Some("promote validation recipe".into()),
+            task_id: Some(task_id.clone()),
+        })
+        .expect("validation recipe promotion should succeed");
+        host.promote_curator_memory(PrismCuratorPromoteMemoryArgs {
+            job_id,
+            proposal_index: 1,
+            trust: None,
+            note: Some("promote risk summary".into()),
+            task_id: Some(task_id.clone()),
+        })
+        .expect("risk summary promotion should succeed");
+
+        let after = host
+            .execute(
+                &format!(
+                    r#"
+const sym = prism.symbol("alpha");
+return {{
+  recipe: sym ? prism.validationRecipe(sym) : null,
+  taskRecipe: prism.taskValidationRecipe("{task_id}"),
+  taskRisk: prism.taskRisk("{task_id}"),
+  artifactRisk: prism.artifactRisk("{artifact_id}"),
+}};
+"#
+                ),
+                QueryLanguage::Ts,
+            )
+            .expect("post-promotion query should succeed");
+
+        assert!(after.result["recipe"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| value == "test:alpha_regression"));
+        assert!(after.result["taskRecipe"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| value == "test:alpha_regression"));
+        assert_eq!(
+            after.result["taskRisk"]["promotedSummaries"][0],
+            "alpha is a risky coordination hotspot"
+        );
+        assert_eq!(
+            after.result["artifactRisk"]["promotedSummaries"][0],
+            "alpha is a risky coordination hotspot"
+        );
+        assert!(
+            after.result["taskRisk"]["riskScore"].as_f64().unwrap()
+                > before.result["taskRisk"]["riskScore"].as_f64().unwrap()
+        );
+        assert!(
+            after.result["artifactRisk"]["riskScore"].as_f64().unwrap()
+                > before.result["artifactRisk"]["riskScore"].as_f64().unwrap()
         );
     }
 

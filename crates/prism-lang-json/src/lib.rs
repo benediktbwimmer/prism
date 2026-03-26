@@ -1,8 +1,10 @@
 use anyhow::Result;
-use prism_ir::{Edge, EdgeKind, EdgeOrigin, Language, Node, NodeId, NodeKind, Span};
+use prism_ir::{
+    Edge, EdgeKind, EdgeOrigin, Language, Node, NodeId, NodeKind, Span, UnresolvedIntent,
+};
 use prism_parser::{
-    document_name, document_path, fingerprint_from_parts, normalized_shape_hash, LanguageAdapter,
-    ParseInput, ParseResult,
+    document_name, document_path, extract_intent_targets, fingerprint_from_parts,
+    intent_kind_for_context, normalized_shape_hash, LanguageAdapter, ParseInput, ParseResult,
 };
 use serde_json::Value;
 use smol_str::SmolStr;
@@ -85,6 +87,15 @@ fn walk_value(
                         confidence: 1.0,
                     });
                 }
+                let intent_kind = intent_kind_for_context(&path, EdgeKind::RelatedTo);
+                for target in intent_targets_for_value(key, child) {
+                    result.unresolved_intents.push(UnresolvedIntent {
+                        source: id.clone(),
+                        kind: intent_kind,
+                        target: target.into(),
+                        span: Span::whole_file(input.source.len()),
+                    });
+                }
                 walk_value(input, result, child, Some(id), &path, crate_name);
             }
         }
@@ -106,6 +117,32 @@ fn value_shape(value: &Value) -> String {
         Value::String(_) => "string".to_owned(),
         Value::Array(values) => format!("array:{}", values.len()),
         Value::Object(map) => format!("object:{}", map.len()),
+    }
+}
+
+fn intent_targets_for_value(key: &str, value: &Value) -> Vec<String> {
+    let mut targets = extract_intent_targets(key);
+    collect_value_targets(value, &mut targets);
+    targets.sort();
+    targets.dedup();
+    targets
+}
+
+fn collect_value_targets(value: &Value, targets: &mut Vec<String>) {
+    match value {
+        Value::String(text) => targets.extend(extract_intent_targets(text)),
+        Value::Array(values) => {
+            for value in values {
+                collect_value_targets(value, targets);
+            }
+        }
+        Value::Object(map) => {
+            for (key, value) in map {
+                targets.extend(extract_intent_targets(key));
+                collect_value_targets(value, targets);
+            }
+        }
+        _ => {}
     }
 }
 

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use rusqlite::Connection;
 
-const SCHEMA_VERSION: i64 = 7;
+const SCHEMA_VERSION: i64 = 8;
 
 pub(super) fn init_schema(conn: &Connection) -> Result<()> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
@@ -17,6 +17,7 @@ pub(super) fn init_schema(conn: &Connection) -> Result<()> {
             DROP TABLE IF EXISTS unresolved_calls;
             DROP TABLE IF EXISTS unresolved_imports;
             DROP TABLE IF EXISTS unresolved_impls;
+            DROP TABLE IF EXISTS unresolved_intents;
             DROP TABLE IF EXISTS snapshots;
             DROP TABLE IF EXISTS projection_co_change;
             DROP TABLE IF EXISTS projection_validation;
@@ -109,6 +110,17 @@ pub(super) fn init_schema(conn: &Connection) -> Result<()> {
             span_start INTEGER NOT NULL,
             span_end INTEGER NOT NULL,
             module_path TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS unresolved_intents (
+            file_path TEXT NOT NULL,
+            source_crate_name TEXT NOT NULL,
+            source_path TEXT NOT NULL,
+            source_kind INTEGER NOT NULL,
+            kind INTEGER NOT NULL,
+            target TEXT NOT NULL,
+            span_start INTEGER NOT NULL,
+            span_end INTEGER NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS snapshots (

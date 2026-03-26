@@ -7,8 +7,9 @@ use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use crate::graph::{FileRecord, FileState, Graph, GraphSnapshot};
 
 use super::codecs::{
-    decode_edge_kind, decode_edge_origin, decode_language, decode_node_kind, deserialize_fingerprint,
-    encode_edge_kind, encode_edge_origin, encode_language, encode_node_kind,
+    decode_edge_kind, decode_edge_origin, decode_language, decode_node_kind,
+    deserialize_fingerprint, encode_edge_kind, encode_edge_origin, encode_language,
+    encode_node_kind,
 };
 
 pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
@@ -30,7 +31,8 @@ pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
         )?;
         let rows = stmt.query_map([], |row| {
             let kind = decode_node_kind(row.get(2)?)?;
-            let id = prism_ir::NodeId::new(row.get::<_, String>(0)?, row.get::<_, String>(1)?, kind);
+            let id =
+                prism_ir::NodeId::new(row.get::<_, String>(0)?, row.get::<_, String>(1)?, kind);
             Ok(prism_ir::Node {
                 id: id.clone(),
                 name: row.get::<_, String>(3)?.into(),
@@ -78,7 +80,8 @@ pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
 
     let mut file_records = HashMap::<PathBuf, FileRecord>::new();
     {
-        let mut stmt = conn.prepare("SELECT path, file_id, hash FROM file_records ORDER BY path")?;
+        let mut stmt =
+            conn.prepare("SELECT path, file_id, hash FROM file_records ORDER BY path")?;
         let rows = stmt.query_map([], |row| {
             Ok((
                 PathBuf::from(row.get::<_, String>(0)?),
@@ -98,6 +101,7 @@ pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
                     unresolved_calls: Vec::new(),
                     unresolved_imports: Vec::new(),
                     unresolved_impls: Vec::new(),
+                    unresolved_intents: Vec::new(),
                 },
             );
         }
@@ -129,6 +133,7 @@ pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
     load_unresolved_calls(conn, &mut file_records)?;
     load_unresolved_imports(conn, &mut file_records)?;
     load_unresolved_impls(conn, &mut file_records)?;
+    load_unresolved_intents(conn, &mut file_records)?;
 
     Ok(Some(Graph::from_snapshot(GraphSnapshot {
         nodes,
@@ -177,6 +182,10 @@ pub(super) fn delete_file_state(tx: &Transaction<'_>, path: &Path) -> Result<()>
     )?;
     tx.execute(
         "DELETE FROM unresolved_impls WHERE file_path = ?1",
+        params![file_path.as_ref()],
+    )?;
+    tx.execute(
+        "DELETE FROM unresolved_intents WHERE file_path = ?1",
         params![file_path.as_ref()],
     )?;
     Ok(())
@@ -309,16 +318,36 @@ pub(super) fn save_file_state_tx(tx: &Transaction<'_>, state: &FileState) -> Res
         )?;
     }
 
+    for intent in &state.record.unresolved_intents {
+        tx.execute(
+            "INSERT INTO unresolved_intents(file_path, source_crate_name, source_path, source_kind, kind, target, span_start, span_end)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                file_path.as_ref(),
+                intent.source.crate_name.as_str(),
+                intent.source.path.as_str(),
+                encode_node_kind(intent.source.kind),
+                encode_edge_kind(intent.kind),
+                intent.target.as_str(),
+                intent.span.start,
+                intent.span.end,
+            ],
+        )?;
+    }
+
     Ok(())
 }
 
 pub(super) fn replace_derived_edges_tx(tx: &Transaction<'_>, graph: &Graph) -> Result<()> {
     tx.execute(
-        "DELETE FROM edges WHERE file_path IS NULL AND kind IN (?1, ?2, ?3)",
+        "DELETE FROM edges WHERE file_path IS NULL AND kind IN (?1, ?2, ?3, ?4, ?5, ?6)",
         params![
             encode_edge_kind(prism_ir::EdgeKind::Calls),
             encode_edge_kind(prism_ir::EdgeKind::Imports),
-            encode_edge_kind(prism_ir::EdgeKind::Implements)
+            encode_edge_kind(prism_ir::EdgeKind::Implements),
+            encode_edge_kind(prism_ir::EdgeKind::Specifies),
+            encode_edge_kind(prism_ir::EdgeKind::Validates),
+            encode_edge_kind(prism_ir::EdgeKind::RelatedTo),
         ],
     )?;
 
@@ -531,6 +560,40 @@ fn load_unresolved_impls(
         let (path, unresolved) = row?;
         if let Some(record) = file_records.get_mut(&path) {
             record.unresolved_impls.push(unresolved);
+        }
+    }
+    Ok(())
+}
+
+fn load_unresolved_intents(
+    conn: &Connection,
+    file_records: &mut HashMap<PathBuf, FileRecord>,
+) -> Result<()> {
+    let mut stmt = conn.prepare(
+        "SELECT file_path, source_crate_name, source_path, source_kind, kind, target, span_start, span_end FROM unresolved_intents",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            PathBuf::from(row.get::<_, String>(0)?),
+            prism_parser::UnresolvedIntent {
+                source: prism_ir::NodeId::new(
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    decode_node_kind(row.get(3)?)?,
+                ),
+                kind: decode_edge_kind(row.get(4)?)?,
+                target: row.get::<_, String>(5)?.into(),
+                span: prism_ir::Span {
+                    start: row.get(6)?,
+                    end: row.get(7)?,
+                },
+            },
+        ))
+    })?;
+    for row in rows {
+        let (path, unresolved) = row?;
+        if let Some(record) = file_records.get_mut(&path) {
+            record.unresolved_intents.push(unresolved);
         }
     }
     Ok(())

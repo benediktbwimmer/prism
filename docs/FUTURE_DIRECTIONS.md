@@ -256,11 +256,13 @@ const changes = schema.lineageHistory(schema.lineageOf("public.users.email"));
 
 The vision is not one monolith but a family of domain-specific perception layers that agents compose over. PRISM is the proving ground for the pattern. The siblings will be faster to build because the architecture is already validated.
 
-### Naming Convention
+### Naming and Delivery
 
 * **PRISM** — code perception and memory
-* **SCHEMA** (working name) — database perception and memory
-* **ATLAS** (working name) — infrastructure perception and memory
+* **LEDGER** — database perception and memory
+* **HARBOR** — infrastructure perception and memory
+
+PRISM ships first as the standalone product. Once LEDGER is ready (likely first sibling, since schema graphs are closer to code graphs than infrastructure is), the three products move to an umbrella monorepo with shared substrate code (event envelope, memory traits, anchoring model, code-as-query runtime, MCP primitives) but independent domain models, independent adapters, and independent MCP server surfaces.
 
 ## Near-Term Design Priority
 

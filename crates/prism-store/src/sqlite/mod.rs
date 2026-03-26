@@ -58,7 +58,10 @@ impl Store for SqliteStore {
         snapshots::load_snapshot_row(&self.conn, "outcomes")
     }
 
-    fn save_outcome_snapshot(&mut self, snapshot: &prism_memory::OutcomeMemorySnapshot) -> Result<()> {
+    fn save_outcome_snapshot(
+        &mut self,
+        snapshot: &prism_memory::OutcomeMemorySnapshot,
+    ) -> Result<()> {
         snapshots::save_snapshot_row(&self.conn, "outcomes", snapshot)
     }
 
@@ -78,7 +81,10 @@ impl Store for SqliteStore {
         snapshots::load_snapshot_row(&self.conn, "episodic")
     }
 
-    fn save_episodic_snapshot(&mut self, snapshot: &prism_memory::EpisodicMemorySnapshot) -> Result<()> {
+    fn save_episodic_snapshot(
+        &mut self,
+        snapshot: &prism_memory::EpisodicMemorySnapshot,
+    ) -> Result<()> {
         snapshots::save_snapshot_row(&self.conn, "episodic", snapshot)
     }
 
@@ -146,7 +152,11 @@ impl Store for SqliteStore {
         Ok(())
     }
 
-    fn commit_index_persist_batch(&mut self, graph: &Graph, batch: &IndexPersistBatch) -> Result<()> {
+    fn commit_index_persist_batch(
+        &mut self,
+        graph: &Graph,
+        batch: &IndexPersistBatch,
+    ) -> Result<()> {
         let tx = self.conn.transaction()?;
 
         for path in &batch.removed_paths {
