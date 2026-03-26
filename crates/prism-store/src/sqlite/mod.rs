@@ -7,10 +7,14 @@ mod snapshots;
 use std::path::Path;
 
 use anyhow::Result;
-use rusqlite::Connection;
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
 use crate::graph::Graph;
 use crate::store::{AuxiliaryPersistBatch, IndexPersistBatch, Store};
+
+const WORKSPACE_REVISION_KEY: &str = "revision:workspace";
+const EPISODIC_REVISION_KEY: &str = "revision:episodic";
+const INFERENCE_REVISION_KEY: &str = "revision:inference";
 
 pub struct SqliteStore {
     pub(crate) conn: Connection,
@@ -27,6 +31,18 @@ impl SqliteStore {
         schema::init_schema(&conn)?;
         Ok(Self { conn })
     }
+
+    pub fn episodic_revision(&self) -> Result<u64> {
+        metadata_value(&self.conn, EPISODIC_REVISION_KEY)
+    }
+
+    pub fn inference_revision(&self) -> Result<u64> {
+        metadata_value(&self.conn, INFERENCE_REVISION_KEY)
+    }
+
+    pub fn workspace_revision(&self) -> Result<u64> {
+        metadata_value(&self.conn, WORKSPACE_REVISION_KEY)
+    }
 }
 
 impl Store for SqliteStore {
@@ -39,7 +55,11 @@ impl Store for SqliteStore {
     }
 
     fn save_history_snapshot(&mut self, snapshot: &prism_history::HistorySnapshot) -> Result<()> {
-        snapshots::save_snapshot_row(&self.conn, "history", snapshot)
+        let tx = self.conn.transaction()?;
+        snapshots::save_snapshot_row_tx(&tx, "history", snapshot)?;
+        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        tx.commit()?;
+        Ok(())
     }
 
     fn save_history_snapshot_with_co_change_deltas(
@@ -50,6 +70,7 @@ impl Store for SqliteStore {
         let tx = self.conn.transaction()?;
         snapshots::save_snapshot_row_tx(&tx, "history", snapshot)?;
         projections::apply_projection_co_change_deltas_tx(&tx, deltas)?;
+        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
         tx.commit()?;
         Ok(())
     }
@@ -62,7 +83,11 @@ impl Store for SqliteStore {
         &mut self,
         snapshot: &prism_memory::OutcomeMemorySnapshot,
     ) -> Result<()> {
-        snapshots::save_snapshot_row(&self.conn, "outcomes", snapshot)
+        let tx = self.conn.transaction()?;
+        snapshots::save_snapshot_row_tx(&tx, "outcomes", snapshot)?;
+        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        tx.commit()?;
+        Ok(())
     }
 
     fn save_outcome_snapshot_with_validation_deltas(
@@ -73,6 +98,7 @@ impl Store for SqliteStore {
         let tx = self.conn.transaction()?;
         snapshots::save_snapshot_row_tx(&tx, "outcomes", snapshot)?;
         projections::apply_projection_validation_deltas_tx(&tx, deltas)?;
+        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
         tx.commit()?;
         Ok(())
     }
@@ -85,7 +111,11 @@ impl Store for SqliteStore {
         &mut self,
         snapshot: &prism_memory::EpisodicMemorySnapshot,
     ) -> Result<()> {
-        snapshots::save_snapshot_row(&self.conn, "episodic", snapshot)
+        let tx = self.conn.transaction()?;
+        snapshots::save_snapshot_row_tx(&tx, "episodic", snapshot)?;
+        bump_metadata_value_tx(&tx, EPISODIC_REVISION_KEY)?;
+        tx.commit()?;
+        Ok(())
     }
 
     fn load_inference_snapshot(&mut self) -> Result<Option<prism_agent::InferenceSnapshot>> {
@@ -93,7 +123,11 @@ impl Store for SqliteStore {
     }
 
     fn save_inference_snapshot(&mut self, snapshot: &prism_agent::InferenceSnapshot) -> Result<()> {
-        snapshots::save_snapshot_row(&self.conn, "inference", snapshot)
+        let tx = self.conn.transaction()?;
+        snapshots::save_snapshot_row_tx(&tx, "inference", snapshot)?;
+        bump_metadata_value_tx(&tx, INFERENCE_REVISION_KEY)?;
+        tx.commit()?;
+        Ok(())
     }
 
     fn load_projection_snapshot(
@@ -106,7 +140,11 @@ impl Store for SqliteStore {
         &mut self,
         snapshot: &prism_projections::ProjectionSnapshot,
     ) -> Result<()> {
-        projections::save_projection_snapshot_rows(&mut self.conn, snapshot)
+        let tx = self.conn.transaction()?;
+        projections::save_projection_snapshot_tx(&tx, snapshot)?;
+        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        tx.commit()?;
+        Ok(())
     }
 
     fn load_curator_snapshot(&mut self) -> Result<Option<prism_curator::CuratorSnapshot>> {
@@ -127,27 +165,42 @@ impl Store for SqliteStore {
         &mut self,
         snapshot: &prism_coordination::CoordinationSnapshot,
     ) -> Result<()> {
-        snapshots::save_snapshot_row(&self.conn, "coordination", snapshot)
+        let tx = self.conn.transaction()?;
+        snapshots::save_snapshot_row_tx(&tx, "coordination", snapshot)?;
+        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        tx.commit()?;
+        Ok(())
     }
 
     fn commit_auxiliary_persist_batch(&mut self, batch: &AuxiliaryPersistBatch) -> Result<()> {
         let tx = self.conn.transaction()?;
+        let mut workspace_changed = false;
         if let Some(snapshot) = &batch.outcome_snapshot {
             snapshots::save_snapshot_row_tx(&tx, "outcomes", snapshot)?;
+            workspace_changed = true;
         }
         if let Some(snapshot) = &batch.episodic_snapshot {
             snapshots::save_snapshot_row_tx(&tx, "episodic", snapshot)?;
+            bump_metadata_value_tx(&tx, EPISODIC_REVISION_KEY)?;
         }
         if let Some(snapshot) = &batch.inference_snapshot {
             snapshots::save_snapshot_row_tx(&tx, "inference", snapshot)?;
+            bump_metadata_value_tx(&tx, INFERENCE_REVISION_KEY)?;
         }
         if let Some(snapshot) = &batch.curator_snapshot {
             snapshots::save_snapshot_row_tx(&tx, "curator", snapshot)?;
         }
         if let Some(snapshot) = &batch.coordination_snapshot {
             snapshots::save_snapshot_row_tx(&tx, "coordination", snapshot)?;
+            workspace_changed = true;
         }
         projections::apply_projection_validation_deltas_tx(&tx, &batch.validation_deltas)?;
+        if !batch.validation_deltas.is_empty() {
+            workspace_changed = true;
+        }
+        if workspace_changed {
+            bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        }
         tx.commit()?;
         Ok(())
     }
@@ -182,6 +235,7 @@ impl Store for SqliteStore {
             projections::apply_projection_validation_deltas_tx(&tx, &batch.validation_deltas)?;
         }
 
+        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
         tx.commit()?;
         Ok(())
     }
@@ -192,6 +246,7 @@ impl Store for SqliteStore {
         };
         let tx = self.conn.transaction()?;
         graph_io::save_file_state_tx(&tx, &state)?;
+        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
         tx.commit()?;
         Ok(())
     }
@@ -199,6 +254,7 @@ impl Store for SqliteStore {
     fn remove_file_state(&mut self, path: &Path) -> Result<()> {
         let tx = self.conn.transaction()?;
         graph_io::delete_file_state(&tx, path)?;
+        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
         tx.commit()?;
         Ok(())
     }
@@ -206,6 +262,7 @@ impl Store for SqliteStore {
     fn replace_derived_edges(&mut self, graph: &Graph) -> Result<()> {
         let tx = self.conn.transaction()?;
         graph_io::replace_derived_edges_tx(&tx, graph)?;
+        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
         tx.commit()?;
         Ok(())
     }
@@ -213,7 +270,38 @@ impl Store for SqliteStore {
     fn finalize(&mut self, graph: &Graph) -> Result<()> {
         let tx = self.conn.transaction()?;
         graph_io::finalize_tx(&tx, graph)?;
+        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
         tx.commit()?;
         Ok(())
     }
+}
+
+fn metadata_value(conn: &Connection, key: &str) -> Result<u64> {
+    let value = conn
+        .query_row(
+            "SELECT value FROM metadata WHERE key = ?1",
+            params![key],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()?
+        .unwrap_or(0);
+    Ok(value as u64)
+}
+
+fn bump_metadata_value_tx(tx: &Transaction<'_>, key: &str) -> Result<u64> {
+    let next = tx
+        .query_row(
+            "SELECT value FROM metadata WHERE key = ?1",
+            params![key],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()?
+        .unwrap_or(0)
+        + 1;
+    tx.execute(
+        "INSERT INTO metadata(key, value) VALUES (?1, ?2)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        params![key, next],
+    )?;
+    Ok(next as u64)
 }

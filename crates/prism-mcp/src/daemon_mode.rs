@@ -15,7 +15,7 @@ use tokio::time::sleep;
 use crate::proxy_server::ProxyMcpServer;
 use crate::{PrismMcpCli, PrismMcpServer};
 
-const DEFAULT_DAEMON_START_TIMEOUT_MS: u64 = 5_000;
+const DEFAULT_DAEMON_START_TIMEOUT_MS: u64 = 60_000;
 
 pub(crate) fn default_http_uri_file_path(root: &Path) -> PathBuf {
     root.join(".prism").join("prism-mcp-http-uri")
@@ -106,8 +106,9 @@ async fn ensure_daemon_running(cli: &PrismMcpCli, root: &Path) -> Result<String>
     }
 
     Err(anyhow!(
-        "timed out waiting for PRISM MCP HTTP daemon URI file at {}",
-        cli.http_uri_file_path(root).display()
+        "timed out waiting for PRISM MCP HTTP daemon URI file at {}. Check {} for daemon startup logs.",
+        cli.http_uri_file_path(root).display(),
+        cli.log_path(root).display()
     ))
 }
 

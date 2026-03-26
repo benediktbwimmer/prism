@@ -18,8 +18,8 @@ use walkdir::WalkDir;
 use crate::curator::{CuratorHandle, CuratorHandleRef};
 use crate::indexer::PendingFileParse;
 use crate::resolution::{resolve_calls, resolve_impls, resolve_imports, resolve_intents};
-use crate::session::WorkspaceSession;
-use crate::util::{should_walk, stable_hash};
+use crate::session::{WorkspaceRefreshState, WorkspaceSession};
+use crate::util::{should_walk, stable_hash, workspace_fingerprint};
 use crate::watch::spawn_fs_watch;
 
 pub(crate) fn build_workspace_session(
@@ -43,6 +43,8 @@ pub(crate) fn build_workspace_session(
     let prism = Arc::new(RwLock::new(prism));
     let store = Arc::new(Mutex::new(store));
     let refresh_lock = Arc::new(Mutex::new(()));
+    let refresh_state = Arc::new(WorkspaceRefreshState::new());
+    let fs_fingerprint = Arc::new(Mutex::new(workspace_fingerprint(&root)?));
     let curator_snapshot = {
         let mut store = store.lock().expect("workspace store lock poisoned");
         store.load_curator_snapshot()?.unwrap_or_default()
@@ -58,6 +60,8 @@ pub(crate) fn build_workspace_session(
         Arc::clone(&prism),
         Arc::clone(&store),
         Arc::clone(&refresh_lock),
+        Arc::clone(&refresh_state),
+        Arc::clone(&fs_fingerprint),
         coordination_enabled,
         Some(CuratorHandleRef::from(&curator)),
     )?);
@@ -66,6 +70,8 @@ pub(crate) fn build_workspace_session(
         prism,
         store,
         refresh_lock,
+        refresh_state,
+        fs_fingerprint,
         watch,
         curator: Some(curator),
         coordination_enabled,

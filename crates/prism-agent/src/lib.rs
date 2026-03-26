@@ -70,12 +70,16 @@ impl InferenceStore {
 
     pub fn from_snapshot(snapshot: InferenceSnapshot) -> Self {
         let store = Self::new();
-        let mut state = store.state.write().expect("inference store lock poisoned");
+        store.replace_from_snapshot(snapshot);
+        store
+    }
+
+    pub fn replace_from_snapshot(&self, snapshot: InferenceSnapshot) {
+        let mut state = self.state.write().expect("inference store lock poisoned");
+        *state = InferenceState::default();
         for record in snapshot.records {
             insert_record(&mut state, record);
         }
-        drop(state);
-        store
     }
 
     pub fn store_edge(

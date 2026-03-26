@@ -12,6 +12,8 @@ use prism_store::SqliteStore;
 
 use crate::curator::{enqueue_curator_for_observed_locked, CuratorHandleRef};
 use crate::indexer::WorkspaceIndexer;
+use crate::session::WorkspaceRefreshState;
+use crate::util::workspace_fingerprint;
 
 pub(crate) struct WatchHandle {
     pub(crate) stop: mpsc::Sender<()>,
@@ -23,6 +25,8 @@ pub(crate) fn spawn_fs_watch(
     prism: Arc<RwLock<Arc<Prism>>>,
     store: Arc<Mutex<SqliteStore>>,
     refresh_lock: Arc<Mutex<()>>,
+    refresh_state: Arc<WorkspaceRefreshState>,
+    fs_fingerprint: Arc<Mutex<u64>>,
     coordination_enabled: bool,
     curator: Option<CuratorHandleRef>,
 ) -> Result<WatchHandle> {
@@ -65,6 +69,7 @@ pub(crate) fn spawn_fs_watch(
             if !is_relevant_watch_event(&root, &event) {
                 continue;
             }
+            refresh_state.mark_fs_dirty();
 
             while let Ok(next) = event_rx.recv_timeout(Duration::from_millis(75)) {
                 if stop_rx.try_recv().is_ok() {
@@ -82,11 +87,15 @@ pub(crate) fn spawn_fs_watch(
                 &prism,
                 &store,
                 &refresh_lock,
+                &fs_fingerprint,
                 coordination_enabled,
                 curator.as_ref(),
                 ChangeTrigger::FsWatch,
+                None,
             ) {
                 eprintln!("prism fs watch refresh failed: {error}");
+            } else {
+                refresh_state.mark_refreshed();
             }
         }
     });
@@ -106,13 +115,24 @@ pub(crate) fn refresh_prism_snapshot(
     prism: &Arc<RwLock<Arc<Prism>>>,
     store: &Arc<Mutex<SqliteStore>>,
     refresh_lock: &Arc<Mutex<()>>,
+    fs_fingerprint: &Arc<Mutex<u64>>,
     coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
     trigger: ChangeTrigger,
+    known_fingerprint: Option<u64>,
 ) -> Result<Vec<prism_ir::ObservedChangeSet>> {
     let _guard = refresh_lock
         .lock()
         .expect("workspace refresh lock poisoned");
+    let next_fingerprint = known_fingerprint.unwrap_or(workspace_fingerprint(root)?);
+    {
+        let current = *fs_fingerprint
+            .lock()
+            .expect("workspace fingerprint lock poisoned");
+        if current == next_fingerprint {
+            return Ok(Vec::new());
+        }
+    }
     let mut indexer = WorkspaceIndexer::new_with_options(
         root,
         crate::WorkspaceSessionOptions {
@@ -122,6 +142,9 @@ pub(crate) fn refresh_prism_snapshot(
     let observed = indexer.index_with_trigger(trigger)?;
     let next = Arc::new(indexer.into_prism());
     *prism.write().expect("workspace prism lock poisoned") = Arc::clone(&next);
+    *fs_fingerprint
+        .lock()
+        .expect("workspace fingerprint lock poisoned") = next_fingerprint;
     if let Some(curator) = curator {
         let mut store = store.lock().expect("workspace store lock poisoned");
         enqueue_curator_for_observed_locked(curator, next.as_ref(), &mut store, &observed)?;

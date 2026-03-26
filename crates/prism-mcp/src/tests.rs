@@ -19,7 +19,7 @@ use rmcp::{
 };
 
 use super::*;
-use prism_agent::InferredEdgeScope;
+use prism_agent::{InferenceSnapshot, InferredEdgeScope};
 use prism_core::{index_workspace_session, index_workspace_session_with_curator};
 use prism_curator::{
     CandidateEdge, CandidateMemory, CandidateMemoryEvidence, CandidateRiskSummary,
@@ -3921,6 +3921,32 @@ return {
 }
 
 #[test]
+fn unchanged_query_skips_workspace_refresh() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let workspace = host
+        .workspace
+        .as_ref()
+        .expect("workspace-backed host expected");
+
+    assert_eq!(workspace.observed_fs_revision(), 0);
+    assert_eq!(workspace.applied_fs_revision(), 0);
+
+    let result = host
+        .execute(
+            r#"
+return prism.symbol("alpha")?.id.path ?? null;
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed without a refresh");
+
+    assert_eq!(result.result, Value::String("demo::alpha".to_string()));
+    assert_eq!(workspace.observed_fs_revision(), 0);
+    assert_eq!(workspace.applied_fs_revision(), 0);
+}
+
+#[test]
 fn refresh_workspace_reloads_updated_persisted_notes() {
     let root = temp_workspace();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
@@ -3948,6 +3974,8 @@ fn refresh_workspace_reloads_updated_persisted_notes() {
         .workspace
         .as_ref()
         .expect("workspace-backed host expected");
+    let initial_applied_fs_revision = workspace.applied_fs_revision();
+    let initial_observed_fs_revision = workspace.observed_fs_revision();
     let mut snapshot = workspace
         .load_episodic_snapshot()
         .unwrap()
@@ -3985,6 +4013,74 @@ return prism.memory.recall({
     assert_eq!(
         result.result[0]["entry"]["content"],
         "alpha needs care during routing changes"
+    );
+    assert_eq!(workspace.applied_fs_revision(), initial_applied_fs_revision);
+    assert_eq!(
+        workspace.observed_fs_revision(),
+        initial_observed_fs_revision
+    );
+}
+
+#[test]
+fn refresh_workspace_reloads_updated_persisted_inference_without_fs_refresh() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    host.store_inferred_edge(PrismInferEdgeArgs {
+        source: NodeIdInput {
+            crate_name: "demo".to_string(),
+            path: "demo::alpha".to_string(),
+            kind: "function".to_string(),
+        },
+        target: NodeIdInput {
+            crate_name: "demo".to_string(),
+            path: "demo::beta".to_string(),
+            kind: "function".to_string(),
+        },
+        kind: "calls".to_string(),
+        confidence: 0.95,
+        scope: Some(InferredEdgeScopeInput::Persisted),
+        evidence: Some(vec!["persisted inference".to_string()]),
+        task_id: Some("task:persist".to_string()),
+    })
+    .expect("inferred edge should persist");
+
+    let workspace = host
+        .workspace
+        .as_ref()
+        .expect("workspace-backed host expected");
+    let initial_applied_fs_revision = workspace.applied_fs_revision();
+    let initial_observed_fs_revision = workspace.observed_fs_revision();
+    let mut snapshot = workspace
+        .load_inference_snapshot()
+        .unwrap()
+        .unwrap_or(InferenceSnapshot {
+            records: Vec::new(),
+        });
+    assert_eq!(snapshot.records.len(), 1);
+    snapshot.records[0].edge.target = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    workspace.persist_inference(&snapshot).unwrap();
+
+    let result = host
+        .execute(
+            r#"
+const sym = prism.symbol("alpha");
+return sym ? sym.relations().callees.map((node) => node.id.path) : [];
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed after inference reload");
+
+    assert!(result
+        .result
+        .as_array()
+        .unwrap_or(&Vec::new())
+        .iter()
+        .any(|value| value == "demo::alpha"));
+    assert_eq!(workspace.applied_fs_revision(), initial_applied_fs_revision);
+    assert_eq!(
+        workspace.observed_fs_revision(),
+        initial_observed_fs_revision
     );
 }
 

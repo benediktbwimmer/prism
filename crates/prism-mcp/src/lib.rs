@@ -1,6 +1,8 @@
+use std::env;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::AtomicU64;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::Instant;
 
 use anyhow::{anyhow, Result};
 use clap::{ArgAction, ValueEnum};
@@ -289,6 +291,9 @@ struct QueryHost {
     session: Arc<SessionState>,
     worker: Arc<JsWorker>,
     workspace: Option<Arc<WorkspaceSession>>,
+    loaded_workspace_revision: Arc<AtomicU64>,
+    loaded_episodic_revision: Arc<AtomicU64>,
+    loaded_inference_revision: Arc<AtomicU64>,
     features: PrismMcpFeatures,
 }
 
@@ -324,6 +329,9 @@ impl QueryHost {
             session,
             worker: Arc::new(JsWorker::spawn()),
             workspace: None,
+            loaded_workspace_revision: Arc::new(AtomicU64::new(0)),
+            loaded_episodic_revision: Arc::new(AtomicU64::new(0)),
+            loaded_inference_revision: Arc::new(AtomicU64::new(0)),
             features,
         }
     }
@@ -344,18 +352,21 @@ impl QueryHost {
     ) -> Self {
         let workspace = Arc::new(workspace);
         let prism = workspace.prism_arc();
+        let workspace_revision = workspace.workspace_revision().unwrap_or_default();
         let notes = workspace
             .load_episodic_snapshot()
             .ok()
             .flatten()
             .map(SessionMemory::from_snapshot)
             .unwrap_or_else(SessionMemory::new);
+        let episodic_revision = workspace.episodic_revision().unwrap_or_default();
         let inferred_edges = workspace
             .load_inference_snapshot()
             .ok()
             .flatten()
             .map(InferenceStore::from_snapshot)
             .unwrap_or_else(InferenceStore::new);
+        let inference_revision = workspace.inference_revision().unwrap_or_default();
         let session = Arc::new(SessionState::with_snapshots(
             prism.as_ref(),
             notes,
@@ -367,6 +378,9 @@ impl QueryHost {
             session,
             worker: Arc::new(JsWorker::spawn()),
             workspace: Some(workspace),
+            loaded_workspace_revision: Arc::new(AtomicU64::new(workspace_revision)),
+            loaded_episodic_revision: Arc::new(AtomicU64::new(episodic_revision)),
+            loaded_inference_revision: Arc::new(AtomicU64::new(inference_revision)),
             features,
         }
     }
@@ -447,16 +461,78 @@ impl QueryHost {
     }
 
     fn refresh_workspace(&self) -> Result<()> {
-        if let Some(workspace) = &self.workspace {
-            let _ = workspace.refresh_fs()?;
-            let snapshot = workspace
-                .load_episodic_snapshot()?
-                .unwrap_or(EpisodicMemorySnapshot {
-                    entries: Vec::new(),
-                });
-            self.session.notes.replace_from_snapshot(snapshot);
+        let Some(workspace) = &self.workspace else {
+            return Ok(());
+        };
+
+        let started = Instant::now();
+        let mut refresh_path = "fast";
+        if self.reload_workspace_snapshot_if_needed(workspace)? {
+            refresh_path = "full";
         }
+        let _ = workspace.refresh_fs()?;
+        self.sync_workspace_revision(workspace)?;
+
+        let episodic_reloaded = self.reload_episodic_snapshot_if_needed(workspace)?;
+        let inference_reloaded = self.reload_inference_snapshot_if_needed(workspace)?;
+        log_refresh_workspace(
+            refresh_path,
+            workspace,
+            episodic_reloaded,
+            inference_reloaded,
+            started.elapsed().as_millis(),
+        );
         Ok(())
+    }
+
+    fn reload_workspace_snapshot_if_needed(&self, workspace: &WorkspaceSession) -> Result<bool> {
+        let revision = workspace.workspace_revision()?;
+        let loaded = self.loaded_workspace_revision.load(Ordering::Relaxed);
+        if revision == loaded {
+            return Ok(false);
+        }
+
+        workspace.reload_persisted_prism()?;
+        Ok(true)
+    }
+
+    fn sync_workspace_revision(&self, workspace: &WorkspaceSession) -> Result<()> {
+        let revision = workspace.workspace_revision()?;
+        self.loaded_workspace_revision
+            .store(revision, Ordering::Relaxed);
+        Ok(())
+    }
+
+    fn reload_episodic_snapshot_if_needed(&self, workspace: &WorkspaceSession) -> Result<bool> {
+        let revision = workspace.episodic_revision()?;
+        let loaded = self.loaded_episodic_revision.load(Ordering::Relaxed);
+        if revision == loaded {
+            return Ok(false);
+        }
+
+        let snapshot = workspace
+            .load_episodic_snapshot()?
+            .unwrap_or(EpisodicMemorySnapshot {
+                entries: Vec::new(),
+            });
+        self.session.notes.replace_from_snapshot(snapshot);
+        self.loaded_episodic_revision
+            .store(revision, Ordering::Relaxed);
+        Ok(true)
+    }
+
+    fn reload_inference_snapshot_if_needed(&self, workspace: &WorkspaceSession) -> Result<bool> {
+        let revision = workspace.inference_revision()?;
+        let loaded = self.loaded_inference_revision.load(Ordering::Relaxed);
+        if revision == loaded {
+            return Ok(false);
+        }
+
+        let snapshot = workspace.load_inference_snapshot()?.unwrap_or_default();
+        self.session.inferred_edges.replace_from_snapshot(snapshot);
+        self.loaded_inference_revision
+            .store(revision, Ordering::Relaxed);
+        Ok(true)
     }
 
     fn persist_outcomes(&self) -> Result<()> {
@@ -499,6 +575,26 @@ impl QueryHost {
         markdown.push_str(api_reference_markdown());
         markdown
     }
+}
+
+fn log_refresh_workspace(
+    refresh_path: &str,
+    workspace: &WorkspaceSession,
+    episodic_reloaded: bool,
+    inference_reloaded: bool,
+    duration_ms: u128,
+) {
+    if env::var_os("PRISM_MCP_REFRESH_LOG").is_none() {
+        return;
+    }
+
+    eprintln!(
+        "prism-mcp refresh path={refresh_path} fs_observed={} fs_applied={} episodic_reloaded={} inference_reloaded={} duration_ms={duration_ms}",
+        workspace.observed_fs_revision(),
+        workspace.applied_fs_revision(),
+        episodic_reloaded,
+        inference_reloaded,
+    );
 }
 
 #[cfg(test)]

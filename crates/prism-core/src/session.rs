@@ -1,31 +1,76 @@
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
 use anyhow::{anyhow, Result};
 use prism_agent::InferenceSnapshot;
+use prism_coordination::CoordinationStore;
 use prism_coordination::CoordinationSnapshot;
 use prism_curator::{
     CuratorJobId, CuratorProposalDisposition, CuratorProposalState, CuratorSnapshot,
 };
+use prism_history::HistoryStore;
 use prism_ir::{ChangeTrigger, EventId, ObservedChangeSet, TaskId};
 use prism_memory::{EpisodicMemorySnapshot, OutcomeEvent};
+use prism_memory::OutcomeMemory;
+use prism_projections::ProjectionIndex;
 use prism_projections::validation_deltas_for_event;
 use prism_query::Prism;
 use prism_store::{AuxiliaryPersistBatch, SqliteStore, Store};
 
 use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorHandleRef};
-use crate::util::current_timestamp;
+use crate::util::{current_timestamp, workspace_fingerprint};
 use crate::validation_feedback::{
     append_validation_feedback, load_validation_feedback, ValidationFeedbackEntry,
     ValidationFeedbackRecord,
 };
 use crate::watch::{refresh_prism_snapshot, WatchHandle};
 
+pub(crate) struct WorkspaceRefreshState {
+    observed_fs_revision: AtomicU64,
+    applied_fs_revision: AtomicU64,
+}
+
+impl WorkspaceRefreshState {
+    pub(crate) fn new() -> Self {
+        Self {
+            observed_fs_revision: AtomicU64::new(0),
+            applied_fs_revision: AtomicU64::new(0),
+        }
+    }
+
+    pub(crate) fn mark_fs_dirty(&self) {
+        self.observed_fs_revision.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn mark_refreshed(&self) {
+        self.applied_fs_revision.store(
+            self.observed_fs_revision.load(Ordering::Relaxed),
+            Ordering::Relaxed,
+        );
+    }
+
+    pub(crate) fn needs_refresh(&self) -> bool {
+        self.observed_fs_revision.load(Ordering::Relaxed)
+            != self.applied_fs_revision.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn observed_fs_revision(&self) -> u64 {
+        self.observed_fs_revision.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn applied_fs_revision(&self) -> u64 {
+        self.applied_fs_revision.load(Ordering::Relaxed)
+    }
+}
+
 pub struct WorkspaceSession {
     pub(crate) root: PathBuf,
     pub(crate) prism: Arc<RwLock<Arc<Prism>>>,
     pub(crate) store: Arc<Mutex<SqliteStore>>,
     pub(crate) refresh_lock: Arc<Mutex<()>>,
+    pub(crate) refresh_state: Arc<WorkspaceRefreshState>,
+    pub(crate) fs_fingerprint: Arc<Mutex<u64>>,
     pub(crate) watch: Option<WatchHandle>,
     pub(crate) curator: Option<CuratorHandle>,
     pub(crate) coordination_enabled: bool,
@@ -48,7 +93,27 @@ impl WorkspaceSession {
     }
 
     pub fn refresh_fs(&self) -> Result<Vec<ObservedChangeSet>> {
+        let current_fingerprint = workspace_fingerprint(&self.root)?;
+        let known_fingerprint = *self
+            .fs_fingerprint
+            .lock()
+            .expect("workspace fingerprint lock poisoned");
+        if !self.refresh_state.needs_refresh() && current_fingerprint == known_fingerprint {
+            return Ok(Vec::new());
+        }
         self.refresh_with_trigger(ChangeTrigger::FsWatch)
+    }
+
+    pub fn needs_refresh(&self) -> bool {
+        self.refresh_state.needs_refresh()
+    }
+
+    pub fn observed_fs_revision(&self) -> u64 {
+        self.refresh_state.observed_fs_revision()
+    }
+
+    pub fn applied_fs_revision(&self) -> u64 {
+        self.refresh_state.applied_fs_revision()
     }
 
     pub fn persist_outcomes(&self) -> Result<()> {
@@ -81,6 +146,61 @@ impl WorkspaceSession {
             .load_episodic_snapshot()
     }
 
+    pub fn reload_persisted_prism(&self) -> Result<()> {
+        let _guard = self
+            .refresh_lock
+            .lock()
+            .expect("workspace refresh lock poisoned");
+        let mut store = self.store.lock().expect("workspace store lock poisoned");
+        let graph = store.load_graph()?.unwrap_or_default();
+        let mut history = store
+            .load_history_snapshot()?
+            .map(HistoryStore::from_snapshot)
+            .unwrap_or_else(HistoryStore::new);
+        history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
+        let outcomes = store
+            .load_outcome_snapshot()?
+            .map(OutcomeMemory::from_snapshot)
+            .unwrap_or_else(OutcomeMemory::new);
+        let coordination = if self.coordination_enabled {
+            store
+                .load_coordination_snapshot()?
+                .map(CoordinationStore::from_snapshot)
+                .unwrap_or_else(CoordinationStore::new)
+        } else {
+            CoordinationStore::new()
+        };
+        let projections = store
+            .load_projection_snapshot()?
+            .map(ProjectionIndex::from_snapshot)
+            .unwrap_or_else(|| ProjectionIndex::derive(&history.snapshot(), &outcomes.snapshot()));
+        drop(store);
+
+        let prism = Arc::new(Prism::with_history_outcomes_coordination_and_projections(
+            graph,
+            history,
+            outcomes,
+            coordination,
+            projections,
+        ));
+        *self.prism.write().expect("workspace prism lock poisoned") = prism;
+        Ok(())
+    }
+
+    pub fn workspace_revision(&self) -> Result<u64> {
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .workspace_revision()
+    }
+
+    pub fn episodic_revision(&self) -> Result<u64> {
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .episodic_revision()
+    }
+
     pub fn persist_episodic(&self, snapshot: &EpisodicMemorySnapshot) -> Result<()> {
         self.store
             .lock()
@@ -96,6 +216,13 @@ impl WorkspaceSession {
             .lock()
             .expect("workspace store lock poisoned")
             .load_inference_snapshot()
+    }
+
+    pub fn inference_revision(&self) -> Result<u64> {
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .inference_revision()
     }
 
     pub fn persist_inference(&self, snapshot: &InferenceSnapshot) -> Result<()> {
@@ -294,15 +421,19 @@ impl WorkspaceSession {
 
     fn refresh_with_trigger(&self, trigger: ChangeTrigger) -> Result<Vec<ObservedChangeSet>> {
         let curator = self.curator.as_ref().map(CuratorHandleRef::from);
-        refresh_prism_snapshot(
+        let observed = refresh_prism_snapshot(
             &self.root,
             &self.prism,
             &self.store,
             &self.refresh_lock,
+            &self.fs_fingerprint,
             self.coordination_enabled,
             curator.as_ref(),
             trigger,
-        )
+            None,
+        )?;
+        self.refresh_state.mark_refreshed();
+        Ok(observed)
     }
 }
 

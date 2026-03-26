@@ -508,6 +508,28 @@ fn watcher_refreshes_session_after_external_edit() {
 }
 
 #[test]
+fn refresh_fs_skips_reindex_when_workspace_is_clean() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let before = session.prism();
+    let observed = session.refresh_fs().unwrap();
+    let after = session.prism();
+
+    assert!(observed.is_empty());
+    assert!(Arc::ptr_eq(&before, &after));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn appended_outcome_persists_projection_snapshot() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

@@ -71,16 +71,6 @@ pub(super) fn load_projection_snapshot_rows(
     }))
 }
 
-pub(super) fn save_projection_snapshot_rows(
-    conn: &mut Connection,
-    snapshot: &prism_projections::ProjectionSnapshot,
-) -> Result<()> {
-    let tx = conn.transaction()?;
-    save_projection_snapshot_tx(&tx, snapshot)?;
-    tx.commit()?;
-    Ok(())
-}
-
 pub(super) fn save_projection_snapshot_tx(
     tx: &Transaction<'_>,
     snapshot: &prism_projections::ProjectionSnapshot,

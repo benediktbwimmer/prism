@@ -10,6 +10,7 @@ use prism_lang_markdown::MarkdownAdapter;
 use prism_lang_rust::RustAdapter;
 use prism_lang_yaml::YamlAdapter;
 use prism_parser::LanguageAdapter;
+use walkdir::WalkDir;
 
 pub(crate) fn current_timestamp() -> u64 {
     SystemTime::now()
@@ -22,6 +23,32 @@ pub(crate) fn stable_hash(source: &str) -> u64 {
     let mut hasher = DefaultHasher::new();
     source.hash(&mut hasher);
     hasher.finish()
+}
+
+pub(crate) fn workspace_fingerprint(root: &Path) -> Result<u64> {
+    let mut hasher = DefaultHasher::new();
+    for entry in WalkDir::new(root)
+        .sort_by_file_name()
+        .into_iter()
+        .filter_entry(|entry| should_walk(entry.path(), root))
+        .filter_map(Result::ok)
+    {
+        let path = entry.path();
+        let Ok(relative) = path.strip_prefix(root) else {
+            continue;
+        };
+        relative.hash(&mut hasher);
+        entry.file_type().is_dir().hash(&mut hasher);
+        let metadata = fs::metadata(path)?;
+        metadata.len().hash(&mut hasher);
+        metadata
+            .modified()
+            .ok()
+            .and_then(|value| value.duration_since(UNIX_EPOCH).ok())
+            .map(|value| value.as_nanos())
+            .hash(&mut hasher);
+    }
+    Ok(hasher.finish())
 }
 
 pub(crate) fn default_adapters() -> Vec<Box<dyn LanguageAdapter>> {
