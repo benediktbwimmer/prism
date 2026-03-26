@@ -6,12 +6,12 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
+use ignore::{Walk, WalkBuilder};
 use prism_lang_json::JsonAdapter;
 use prism_lang_markdown::MarkdownAdapter;
 use prism_lang_rust::RustAdapter;
 use prism_lang_yaml::YamlAdapter;
 use prism_parser::LanguageAdapter;
-use walkdir::WalkDir;
 
 pub(crate) fn current_timestamp() -> u64 {
     SystemTime::now()
@@ -59,14 +59,14 @@ pub(crate) fn workspace_fingerprint(
 ) -> Result<WorkspaceFingerprint> {
     let mut hasher = DefaultHasher::new();
     let mut files = HashMap::new();
-    for entry in WalkDir::new(root)
-        .sort_by_file_name()
-        .into_iter()
-        .filter_entry(|entry| should_walk(entry.path(), root))
-        .filter_map(Result::ok)
-    {
+    for entry in workspace_walk(root).filter_map(Result::ok) {
         let path = entry.path();
-        if !entry.file_type().is_file() || !is_relevant_workspace_file(path) {
+        if !entry
+            .file_type()
+            .map(|file_type| file_type.is_file())
+            .unwrap_or(false)
+            || !is_relevant_workspace_file(path)
+        {
             continue;
         }
         let Ok(relative) = path.strip_prefix(root) else {
@@ -141,15 +141,17 @@ pub(crate) fn cleanup_legacy_cache(root: &Path) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn should_walk(path: &Path, root: &Path) -> bool {
-    let Ok(relative) = path.strip_prefix(root) else {
-        return true;
-    };
-    let Some(first) = relative.components().next() else {
-        return true;
-    };
-    let first = first.as_os_str().to_string_lossy();
-    !matches!(first.as_ref(), ".git" | ".prism" | "target")
+pub(crate) fn workspace_walk(root: &Path) -> Walk {
+    let mut builder = WalkBuilder::new(root);
+    builder.hidden(false);
+    builder.ignore(false);
+    builder.git_ignore(true);
+    builder.git_global(true);
+    builder.git_exclude(true);
+    builder.parents(true);
+    builder.require_git(false);
+    builder.sort_by_file_path(|left, right| left.cmp(right));
+    builder.build()
 }
 
 fn is_relevant_workspace_file(path: &Path) -> bool {

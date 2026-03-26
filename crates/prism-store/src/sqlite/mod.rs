@@ -5,10 +5,11 @@ mod schema;
 mod snapshots;
 
 use std::path::Path;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
+use tracing::info;
 
 use crate::graph::Graph;
 use crate::store::{AuxiliaryPersistBatch, IndexPersistBatch, Store};
@@ -24,15 +25,36 @@ pub struct SqliteStore {
 
 impl SqliteStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
+        let started = Instant::now();
         let path = path.as_ref();
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
 
+        let open_started = Instant::now();
         let mut conn = Connection::open(path)?;
+        let open_connection_ms = open_started.elapsed().as_millis();
+        let configure_started = Instant::now();
         configure_connection(&conn)?;
+        let configure_ms = configure_started.elapsed().as_millis();
+        let schema_started = Instant::now();
         schema::init_schema(&conn)?;
-        projections::prune_projection_co_change(&mut conn)?;
+        let schema_ms = schema_started.elapsed().as_millis();
+        let prune_started = Instant::now();
+        let pruned_co_change_rows = projections::prune_projection_co_change(&mut conn)?;
+        let prune_ms = prune_started.elapsed().as_millis();
+        let db_bytes = std::fs::metadata(path).map(|metadata| metadata.len()).ok();
+        info!(
+            cache_path = %path.display(),
+            db_bytes,
+            open_connection_ms,
+            configure_ms,
+            schema_ms,
+            prune_ms,
+            pruned_co_change_rows,
+            total_ms = started.elapsed().as_millis(),
+            "opened prism sqlite store"
+        );
         Ok(Self { conn })
     }
 

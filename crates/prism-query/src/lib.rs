@@ -11,6 +11,7 @@ mod types;
 mod tests;
 
 use std::sync::{Arc, RwLock};
+use std::time::Instant;
 
 use prism_coordination::{CoordinationSnapshot, CoordinationStore};
 use prism_history::{HistorySnapshot, HistoryStore};
@@ -18,6 +19,7 @@ use prism_ir::{AnchorRef, LineageEvent, LineageId, NodeId};
 use prism_memory::{OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot};
 use prism_projections::{IntentIndex, ProjectionIndex, ProjectionSnapshot};
 use prism_store::Graph;
+use tracing::info;
 
 use crate::common::{anchor_sort_key, dedupe_node_ids, sort_node_ids};
 
@@ -85,9 +87,23 @@ impl Prism {
         coordination: CoordinationStore,
         projections: ProjectionIndex,
     ) -> Self {
+        let started = Instant::now();
+        let node_count = graph.node_count();
+        let edge_count = graph.edge_count();
+        let file_count = graph.file_count();
+        let intent_started = Instant::now();
         let intent = IntentIndex::derive(
             graph.all_nodes().collect::<Vec<_>>(),
             graph.edges.iter().collect::<Vec<_>>(),
+        );
+        let derive_intent_ms = intent_started.elapsed().as_millis();
+        info!(
+            node_count,
+            edge_count,
+            file_count,
+            derive_intent_ms,
+            total_ms = started.elapsed().as_millis(),
+            "built prism query state"
         );
         Self {
             graph: Arc::new(graph),

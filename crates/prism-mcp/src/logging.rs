@@ -86,17 +86,30 @@ fn env_filter(default_directive: &str) -> Result<EnvFilter> {
         return EnvFilter::try_new(value)
             .context("failed to parse PRISM_LOG as a tracing filter directive");
     }
+
+    let mut filter = EnvFilter::try_new(default_directive)
+        .context("failed to parse default PRISM log directives")?;
     if let Ok(value) = env::var("RUST_LOG") {
-        return EnvFilter::try_new(value)
-            .context("failed to parse RUST_LOG as a tracing filter directive");
+        for directive in value
+            .split(',')
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            filter =
+                filter.add_directive(directive.parse().with_context(|| {
+                    format!("failed to parse RUST_LOG directive `{directive}`")
+                })?);
+        }
     }
-    Ok(EnvFilter::new(default_directive))
+    Ok(filter)
 }
 
 fn default_filter(mode: PrismMcpMode) -> &'static str {
     match mode {
-        PrismMcpMode::Stdio => "warn",
-        PrismMcpMode::Daemon | PrismMcpMode::Bridge => "info",
+        PrismMcpMode::Stdio => "warn,prism_mcp=warn,prism_core=warn,prism_store=warn,prism_query=warn",
+        PrismMcpMode::Daemon | PrismMcpMode::Bridge => {
+            "warn,prism_mcp=info,prism_core=info,prism_store=info,prism_query=info,prism_lang_json=info,prism_lang_yaml=info"
+        }
     }
 }
 

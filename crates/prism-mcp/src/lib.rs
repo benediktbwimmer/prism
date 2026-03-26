@@ -13,7 +13,7 @@ use prism_js::{api_reference_markdown, CuratorJobView, API_REFERENCE_URI};
 use prism_memory::{EpisodicMemorySnapshot, OutcomeEvent, SessionMemory};
 use prism_query::{Prism, QueryLimits};
 use rmcp::{handler::server::router::tool::ToolRouter, transport::stdio, ServiceExt};
-use tracing::debug;
+use tracing::{debug, info};
 
 mod capabilities_resource;
 mod common;
@@ -211,12 +211,26 @@ impl PrismMcpServer {
         root: impl AsRef<Path>,
         features: PrismMcpFeatures,
     ) -> Result<Self> {
+        let root = root.as_ref();
+        info!(
+            root = %root.display(),
+            coordination = %features.mode_label(),
+            "building prism-mcp workspace server"
+        );
         let session = index_workspace_session_with_options(
             root,
             WorkspaceSessionOptions {
                 coordination: features.coordination_layer_enabled(),
             },
         )?;
+        let prism = session.prism_arc();
+        info!(
+            root = %root.display(),
+            node_count = prism.graph().node_count(),
+            edge_count = prism.graph().edge_count(),
+            file_count = prism.graph().file_count(),
+            "built prism-mcp workspace server"
+        );
         Ok(Self::with_session_and_features(session, features))
     }
 

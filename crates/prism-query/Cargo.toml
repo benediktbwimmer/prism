@@ -13,3 +13,4 @@ prism-projections = { path = "../prism-projections" }
 prism-store = { path = "../prism-store" }
 serde.workspace = true
 serde_json.workspace = true
+tracing.workspace = true

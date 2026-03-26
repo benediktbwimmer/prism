@@ -6,9 +6,8 @@ use prism_ir::{Edge, EdgeKind, EdgeOrigin, Language, Node, NodeId, NodeKind, Spa
 use prism_store::Graph;
 use smol_str::SmolStr;
 use toml::Value;
-use walkdir::WalkDir;
 
-use crate::util::should_walk;
+use crate::util::workspace_walk;
 
 #[derive(Debug, Clone)]
 pub(crate) struct WorkspaceLayout {
@@ -119,12 +118,13 @@ pub(crate) fn discover_layout(root: &Path) -> Result<WorkspaceLayout> {
         workspace_manifest.clone(),
     )];
 
-    for entry in WalkDir::new(root)
-        .into_iter()
-        .filter_entry(|entry| should_walk(entry.path(), root))
-        .filter_map(Result::ok)
-    {
-        if !entry.file_type().is_file() || entry.file_name() != "Cargo.toml" {
+    for entry in workspace_walk(root).filter_map(Result::ok) {
+        if !entry
+            .file_type()
+            .map(|file_type| file_type.is_file())
+            .unwrap_or(false)
+            || entry.file_name() != "Cargo.toml"
+        {
             continue;
         }
 

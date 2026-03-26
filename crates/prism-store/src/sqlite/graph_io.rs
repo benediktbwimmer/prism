@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use anyhow::Result;
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
+use tracing::info;
 
 use crate::graph::{FileRecord, FileState, Graph, GraphSnapshot};
 
@@ -13,6 +15,7 @@ use super::codecs::{
 };
 
 pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
+    let started = Instant::now();
     let next_file_id = conn
         .query_row(
             "SELECT value FROM metadata WHERE key = 'next_file_id'",
@@ -21,9 +24,14 @@ pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
         )
         .optional()?;
     let Some(next_file_id) = next_file_id else {
+        info!(
+            total_ms = started.elapsed().as_millis(),
+            "loaded prism graph snapshot: none"
+        );
         return Ok(None);
     };
 
+    let nodes_started = Instant::now();
     let mut nodes = HashMap::<prism_ir::NodeId, prism_ir::Node>::new();
     {
         let mut stmt = conn.prepare(
@@ -50,7 +58,9 @@ pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
             nodes.insert(node.id.clone(), node);
         }
     }
+    let load_nodes_ms = nodes_started.elapsed().as_millis();
 
+    let edges_started = Instant::now();
     let mut edges = Vec::<prism_ir::Edge>::new();
     {
         let mut stmt = conn.prepare(
@@ -77,7 +87,9 @@ pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
             edges.push(edge?);
         }
     }
+    let load_edges_ms = edges_started.elapsed().as_millis();
 
+    let file_records_started = Instant::now();
     let mut file_records = HashMap::<PathBuf, FileRecord>::new();
     {
         let mut stmt =
@@ -106,7 +118,9 @@ pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
             );
         }
     }
+    let load_file_records_ms = file_records_started.elapsed().as_millis();
 
+    let file_nodes_started = Instant::now();
     {
         let mut stmt = conn.prepare(
             "SELECT file_path, node_crate_name, node_path, node_kind FROM file_nodes ORDER BY file_path",
@@ -128,12 +142,57 @@ pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
             }
         }
     }
+    let load_file_nodes_ms = file_nodes_started.elapsed().as_millis();
 
+    let fingerprints_started = Instant::now();
     load_node_fingerprints(conn, &mut file_records)?;
+    let load_fingerprints_ms = fingerprints_started.elapsed().as_millis();
+    let unresolved_started = Instant::now();
     load_unresolved_calls(conn, &mut file_records)?;
     load_unresolved_imports(conn, &mut file_records)?;
     load_unresolved_impls(conn, &mut file_records)?;
     load_unresolved_intents(conn, &mut file_records)?;
+    let load_unresolved_ms = unresolved_started.elapsed().as_millis();
+
+    let fingerprint_count = file_records
+        .values()
+        .map(|record| record.fingerprints.len())
+        .sum::<usize>();
+    let unresolved_call_count = file_records
+        .values()
+        .map(|record| record.unresolved_calls.len())
+        .sum::<usize>();
+    let unresolved_import_count = file_records
+        .values()
+        .map(|record| record.unresolved_imports.len())
+        .sum::<usize>();
+    let unresolved_impl_count = file_records
+        .values()
+        .map(|record| record.unresolved_impls.len())
+        .sum::<usize>();
+    let unresolved_intent_count = file_records
+        .values()
+        .map(|record| record.unresolved_intents.len())
+        .sum::<usize>();
+
+    info!(
+        node_count = nodes.len(),
+        edge_count = edges.len(),
+        file_count = file_records.len(),
+        fingerprint_count,
+        unresolved_call_count,
+        unresolved_import_count,
+        unresolved_impl_count,
+        unresolved_intent_count,
+        load_nodes_ms,
+        load_edges_ms,
+        load_file_records_ms,
+        load_file_nodes_ms,
+        load_fingerprints_ms,
+        load_unresolved_ms,
+        total_ms = started.elapsed().as_millis(),
+        "loaded prism graph snapshot"
+    );
 
     Ok(Some(Graph::from_snapshot(GraphSnapshot {
         nodes,

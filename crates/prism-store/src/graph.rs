@@ -320,6 +320,18 @@ impl Graph {
         self.nodes.values()
     }
 
+    pub fn node_count(&self) -> usize {
+        self.nodes.len()
+    }
+
+    pub fn edge_count(&self) -> usize {
+        self.edges.len()
+    }
+
+    pub fn file_count(&self) -> usize {
+        self.file_records.len()
+    }
+
     pub fn tracked_files(&self) -> Vec<PathBuf> {
         self.file_records.keys().cloned().collect()
     }

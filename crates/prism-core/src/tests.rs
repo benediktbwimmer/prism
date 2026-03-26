@@ -191,6 +191,37 @@ fn reloads_graph_from_disk_cache() {
 }
 
 #[test]
+fn ignores_gitignored_paths_during_indexing() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::create_dir_all(root.join("node_modules/pkg")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join(".gitignore"), "node_modules/\n").unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    fs::write(
+        root.join("node_modules/pkg/ignored.json"),
+        "{\"ignoredConfig\":{\"enabled\":true}}\n",
+    )
+    .unwrap();
+
+    let mut indexer = WorkspaceIndexer::with_store(&root, MemoryStore::default()).unwrap();
+    indexer.index().unwrap();
+
+    assert!(indexer
+        .graph()
+        .tracked_files()
+        .into_iter()
+        .all(|path| !path.starts_with(root.join("node_modules"))));
+    assert!(indexer.graph().nodes_by_name("ignoredConfig").is_empty());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn validation_feedback_persists_across_workspace_reloads() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

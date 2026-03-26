@@ -1,12 +1,15 @@
 use std::collections::HashMap;
+use std::time::Instant;
 
 use anyhow::Result;
 use prism_projections::MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE;
 use rusqlite::{params, Connection, Transaction};
+use tracing::info;
 
 pub(super) fn load_projection_snapshot_rows(
     conn: &Connection,
 ) -> Result<Option<prism_projections::ProjectionSnapshot>> {
+    let started = Instant::now();
     let mut co_change_by_lineage =
         HashMap::<prism_ir::LineageId, Vec<prism_projections::CoChangeRecord>>::new();
     {
@@ -66,13 +69,31 @@ pub(super) fn load_projection_snapshot_rows(
     }
 
     if co_change_by_lineage.is_empty() && validation_by_lineage.is_empty() {
+        info!(
+            total_ms = started.elapsed().as_millis(),
+            "loaded prism projection snapshot: none"
+        );
         return Ok(None);
     }
+
+    let co_change_lineages = co_change_by_lineage.len();
+    let co_change_records = co_change_by_lineage.values().map(Vec::len).sum::<usize>();
+    let validation_lineages = validation_by_lineage.len();
+    let validation_records = validation_by_lineage.values().map(Vec::len).sum::<usize>();
 
     let mut co_change_by_lineage = co_change_by_lineage.into_iter().collect::<Vec<_>>();
     co_change_by_lineage.sort_by(|left, right| left.0 .0.cmp(&right.0 .0));
     let mut validation_by_lineage = validation_by_lineage.into_iter().collect::<Vec<_>>();
     validation_by_lineage.sort_by(|left, right| left.0 .0.cmp(&right.0 .0));
+
+    info!(
+        co_change_lineages,
+        co_change_records,
+        validation_lineages,
+        validation_records,
+        total_ms = started.elapsed().as_millis(),
+        "loaded prism projection snapshot"
+    );
 
     Ok(Some(prism_projections::ProjectionSnapshot {
         co_change_by_lineage,
@@ -116,11 +137,11 @@ pub(super) fn save_projection_snapshot_tx(
     Ok(())
 }
 
-pub(super) fn prune_projection_co_change(conn: &mut Connection) -> Result<()> {
+pub(super) fn prune_projection_co_change(conn: &mut Connection) -> Result<usize> {
     let tx = conn.transaction()?;
-    prune_projection_co_change_tx(&tx)?;
+    let deleted_rows = prune_projection_co_change_tx(&tx)?;
     tx.commit()?;
-    Ok(())
+    Ok(deleted_rows)
 }
 
 pub(super) fn apply_projection_co_change_deltas_tx(
@@ -146,8 +167,8 @@ pub(super) fn apply_projection_co_change_deltas_tx(
     Ok(())
 }
 
-fn prune_projection_co_change_tx(tx: &Transaction<'_>) -> Result<()> {
-    tx.execute(
+fn prune_projection_co_change_tx(tx: &Transaction<'_>) -> Result<usize> {
+    let deleted_rows = tx.execute(
         "DELETE FROM projection_co_change
          WHERE (source_lineage, target_lineage) IN (
              SELECT source_lineage, target_lineage
@@ -163,7 +184,7 @@ fn prune_projection_co_change_tx(tx: &Transaction<'_>) -> Result<()> {
          )",
         params![MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE as i64],
     )?;
-    Ok(())
+    Ok(deleted_rows)
 }
 
 pub(super) fn apply_projection_validation_deltas_tx(
