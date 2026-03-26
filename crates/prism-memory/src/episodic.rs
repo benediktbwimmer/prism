@@ -3,27 +3,25 @@ use prism_ir::LineageEvent;
 
 use crate::entry_store::EntryStore;
 use crate::recall::{base_signals, score_entry, sort_and_limit};
-use crate::text::{
-    cosine_similarity, embedding_text, hashed_embedding, substring_score, token_overlap, token_set,
-};
+use crate::text::{substring_score, token_overlap, token_set};
 use crate::types::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryId, MemoryKind, MemoryModule, RecallQuery,
     ScoredMemory,
 };
 
-pub struct SemanticMemory {
+pub struct EpisodicMemory {
     inner: EntryStore,
 }
 
-impl Default for SemanticMemory {
+impl Default for EpisodicMemory {
     fn default() -> Self {
         Self {
-            inner: EntryStore::new("semantic", "semantic", &[MemoryKind::Semantic]),
+            inner: EntryStore::new("episodic", "memory", &[MemoryKind::Episodic]),
         }
     }
 }
 
-impl SemanticMemory {
+impl EpisodicMemory {
     pub fn new() -> Self {
         Self::default()
     }
@@ -39,16 +37,16 @@ impl SemanticMemory {
     pub fn from_snapshot(snapshot: EpisodicMemorySnapshot) -> Self {
         Self {
             inner: EntryStore::from_snapshot(
-                "semantic",
-                "semantic",
-                &[MemoryKind::Semantic],
+                "episodic",
+                "memory",
+                &[MemoryKind::Episodic],
                 snapshot,
             ),
         }
     }
 }
 
-impl MemoryModule for SemanticMemory {
+impl MemoryModule for EpisodicMemory {
     fn name(&self) -> &'static str {
         self.inner.name()
     }
@@ -62,52 +60,38 @@ impl MemoryModule for SemanticMemory {
     }
 
     fn recall(&self, query: &RecallQuery) -> Result<Vec<ScoredMemory>> {
-        let query_text = query.text.as_deref().unwrap_or_default();
-        let query_terms = token_set(query_text);
-        let query_embedding = hashed_embedding(query_text);
         let results = self
             .inner
             .candidates(query)
             .into_iter()
             .filter_map(|entry| {
                 let signals = base_signals(&entry, query)?;
-                let text = embedding_text(&entry.content, &entry.metadata);
-                let substring = if query.text.is_some() {
-                    substring_score(&text, query_text)
-                } else {
-                    0.0
-                };
-                let lexical = if query.text.is_some() {
-                    token_overlap(&token_set(&text), &query_terms)
-                } else {
-                    0.0
-                };
-                let semantic = if query.text.is_some() {
-                    cosine_similarity(&hashed_embedding(&text), &query_embedding)
-                } else {
-                    0.0
-                };
-                let text_score = substring.max((0.45 * lexical + 0.55 * semantic).clamp(0.0, 1.0));
+                let text_score = query.text.as_ref().map_or(0.0, |text| {
+                    let substring = substring_score(&entry.content, text);
+                    if substring == 1.0 {
+                        return 1.0;
+                    }
+                    token_overlap(&token_set(&entry.content), &token_set(text))
+                });
                 if query.text.is_some() && text_score == 0.0 {
                     return None;
                 }
 
                 let score = if query.text.is_some() {
-                    0.30 * signals.overlap.max(0.20)
-                        + 0.40 * text_score
-                        + 0.15 * lexical
-                        + 0.05 * signals.recency
+                    0.45 * signals.overlap.max(0.25)
+                        + 0.30 * text_score
+                        + 0.15 * signals.recency
                         + 0.10 * signals.provenance
                 } else if query.focus.is_empty() {
-                    0.65 * signals.recency + 0.35 * signals.provenance
+                    0.70 * signals.recency + 0.30 * signals.provenance
                 } else {
-                    0.55 * signals.overlap + 0.20 * signals.recency + 0.25 * signals.provenance
+                    0.65 * signals.overlap + 0.20 * signals.recency + 0.15 * signals.provenance
                 };
 
                 let explanation = if query.text.is_some() {
                     Some(format!(
-                        "anchor overlap {:.2}, semantic {:.2}, lexical {:.2}, recency {:.2}, provenance {:.2}",
-                        signals.overlap, semantic, lexical, signals.recency, signals.provenance
+                        "anchor overlap {:.2}, text match {:.2}, recency {:.2}, provenance {:.2}",
+                        signals.overlap, text_score, signals.recency, signals.provenance
                     ))
                 } else {
                     Some(format!(

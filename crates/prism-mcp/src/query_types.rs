@@ -2,8 +2,8 @@ use anyhow::{anyhow, Result};
 use prism_agent::InferredEdgeScope;
 use prism_coordination::{AcceptanceCriterion, CoordinationPolicy};
 use prism_ir::{
-    AnchorRef, Capability, ClaimMode, CoordinationTaskStatus, EdgeKind, NodeId, NodeKind,
-    PlanStatus, ReviewVerdict,
+    AnchorRef, Capability, ClaimMode, CoordinationTaskStatus, EdgeKind, EventActor, NodeId,
+    NodeKind, PlanStatus, ReviewVerdict,
 };
 use prism_memory::{MemoryKind, OutcomeEvidence, OutcomeKind, OutcomeResult};
 use serde::Deserialize;
@@ -51,6 +51,18 @@ pub(crate) struct MemoryRecallArgs {
     pub(crate) text: Option<String>,
     pub(crate) limit: Option<usize>,
     pub(crate) kinds: Option<Vec<String>>,
+    pub(crate) since: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct MemoryOutcomeArgs {
+    pub(crate) focus: Option<Vec<NodeIdInput>>,
+    pub(crate) task_id: Option<prism_ir::TaskId>,
+    pub(crate) kinds: Option<Vec<String>>,
+    pub(crate) result: Option<String>,
+    pub(crate) actor: Option<String>,
+    pub(crate) since: Option<u64>,
+    pub(crate) limit: Option<usize>,
 }
 
 pub(crate) fn parse_memory_kind(value: &str) -> Result<MemoryKind> {
@@ -60,6 +72,70 @@ pub(crate) fn parse_memory_kind(value: &str) -> Result<MemoryKind> {
         "semantic" | "summary" => Ok(MemoryKind::Semantic),
         other => Err(anyhow!("unknown memory kind `{other}`")),
     }
+}
+
+pub(crate) fn parse_outcome_kind(value: &str) -> Result<OutcomeKind> {
+    match normalize_enum_label(value).as_str() {
+        "noteadded" | "note" | "notes" => Ok(OutcomeKind::NoteAdded),
+        "hypothesisproposed" | "hypothesis" => Ok(OutcomeKind::HypothesisProposed),
+        "plancreated" | "plan" => Ok(OutcomeKind::PlanCreated),
+        "patchapplied" | "patch" => Ok(OutcomeKind::PatchApplied),
+        "buildran" | "build" => Ok(OutcomeKind::BuildRan),
+        "testran" | "test" => Ok(OutcomeKind::TestRan),
+        "reviewfeedback" | "review" => Ok(OutcomeKind::ReviewFeedback),
+        "failureobserved" | "failure" => Ok(OutcomeKind::FailureObserved),
+        "regressionobserved" | "regression" => Ok(OutcomeKind::RegressionObserved),
+        "fixvalidated" | "validated" | "fix" => Ok(OutcomeKind::FixValidated),
+        "rollbackperformed" | "rollback" => Ok(OutcomeKind::RollbackPerformed),
+        "migrationrequired" | "migration" => Ok(OutcomeKind::MigrationRequired),
+        "incidentlinked" | "incident" => Ok(OutcomeKind::IncidentLinked),
+        "perfsignalobserved" | "perf" | "performance" => Ok(OutcomeKind::PerfSignalObserved),
+        other => Err(anyhow!("unknown outcome kind `{other}`")),
+    }
+}
+
+pub(crate) fn parse_outcome_result(value: &str) -> Result<OutcomeResult> {
+    match normalize_enum_label(value).as_str() {
+        "success" => Ok(OutcomeResult::Success),
+        "failure" | "failed" => Ok(OutcomeResult::Failure),
+        "partial" => Ok(OutcomeResult::Partial),
+        "unknown" => Ok(OutcomeResult::Unknown),
+        other => Err(anyhow!("unknown outcome result `{other}`")),
+    }
+}
+
+pub(crate) fn parse_event_actor(value: &str) -> Result<EventActor> {
+    let trimmed = value.trim();
+    match normalize_enum_label(trimmed).as_str() {
+        "user" => Ok(EventActor::User),
+        "agent" => Ok(EventActor::Agent),
+        "system" => Ok(EventActor::System),
+        "ci" => Ok(EventActor::CI),
+        _ => {
+            let Some(rest) = trimmed.strip_prefix("git:") else {
+                return Err(anyhow!("unknown event actor `{trimmed}`"));
+            };
+            let (name, email) = match rest.split_once(':') {
+                Some((name, email)) => (name.trim(), Some(email.trim())),
+                None => (rest.trim(), None),
+            };
+            if name.is_empty() {
+                return Err(anyhow!("git actor must include a name"));
+            }
+            Ok(EventActor::GitAuthor {
+                name: name.into(),
+                email: email.filter(|value| !value.is_empty()).map(Into::into),
+            })
+        }
+    }
+}
+
+fn normalize_enum_label(value: &str) -> String {
+    value
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
 }
 
 #[derive(Debug, Clone, Deserialize)]

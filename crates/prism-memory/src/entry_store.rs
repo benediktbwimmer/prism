@@ -95,7 +95,10 @@ impl EntryStore {
         entry.anchors = dedupe_anchors(entry.anchors);
         entry.trust = clamp_unit(entry.trust);
 
-        let mut state = self.state.write().expect("memory entry store lock poisoned");
+        let mut state = self
+            .state
+            .write()
+            .expect("memory entry store lock poisoned");
         state.next_sequence += 1;
         let id = MemoryId(format!("{}:{}", self.id_prefix, state.next_sequence));
         entry.id = id.clone();
@@ -113,7 +116,10 @@ impl EntryStore {
     }
 
     pub(crate) fn apply_lineage(&self, events: &[LineageEvent]) -> Result<()> {
-        let mut state = self.state.write().expect("memory entry store lock poisoned");
+        let mut state = self
+            .state
+            .write()
+            .expect("memory entry store lock poisoned");
 
         for event in events {
             let lineage_anchor = AnchorRef::Lineage(event.lineage.clone());

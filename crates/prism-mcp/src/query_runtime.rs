@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use anyhow::{anyhow, Context, Result};
 use prism_ir::{AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, NodeId, PlanId};
 use prism_js::{QueryDiagnostic, QueryEnvelope, ScoredMemoryView, SubgraphView, SymbolView};
-use prism_memory::{MemoryModule, RecallQuery};
+use prism_memory::{MemoryModule, OutcomeRecallQuery, RecallQuery};
 use prism_query::{Prism, Symbol};
 use serde_json::{json, Value};
 
@@ -12,11 +12,12 @@ use crate::{
     claim_view, co_change_view, conflict_view, convert_anchors, convert_node_id,
     coordination_task_view, current_timestamp, drift_candidate_view, edge_kind_label, edge_view,
     js_runtime, lineage_view, merge_node_ids, merge_promoted_checks, parse_capability,
-    parse_claim_mode, parse_memory_kind, parse_node_kind, plan_view, policy_violation_record_view,
-    promoted_memory_entries, promoted_summary_texts, promoted_validation_checks, relations_view,
-    scored_memory_view, symbol_for, symbol_view, symbol_views_for_ids, task_intent_view,
-    task_risk_view, task_validation_recipe_view, validation_recipe_view_with, AnchorListArgs,
-    CallGraphArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, LimitArgs,
+    parse_claim_mode, parse_event_actor, parse_memory_kind, parse_node_kind, parse_outcome_kind,
+    parse_outcome_result, plan_view, policy_violation_record_view, promoted_memory_entries,
+    promoted_summary_texts, promoted_validation_checks, relations_view, scored_memory_view,
+    symbol_for, symbol_view, symbol_views_for_ids, task_intent_view, task_risk_view,
+    task_validation_recipe_view, validation_recipe_view_with, AnchorListArgs, CallGraphArgs,
+    CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, LimitArgs, MemoryOutcomeArgs,
     MemoryRecallArgs, PendingReviewsArgs, PlanTargetArgs, PolicyViolationQueryArgs, QueryHost,
     QueryLanguage, SearchArgs, SimulateClaimArgs, SymbolQueryArgs, SymbolTargetArgs,
     TaskTargetArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
@@ -585,6 +586,10 @@ impl QueryExecution {
                 let args: MemoryRecallArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.memory_recall(args)?)?)
             }
+            "memoryOutcomes" => {
+                let args: MemoryOutcomeArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.memory_outcomes(args)?)?)
+            }
             "curatorJobs" => {
                 let args: CuratorJobsArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.host.curator_jobs(args)?)?)
@@ -848,12 +853,64 @@ impl QueryExecution {
                 text: args.text,
                 limit: applied,
                 kinds,
-                since: None,
+                since: args.since,
             })?
             .into_iter()
             .map(scored_memory_view)
             .collect();
         Ok(results)
+    }
+
+    fn memory_outcomes(&self, args: MemoryOutcomeArgs) -> Result<Vec<prism_memory::OutcomeEvent>> {
+        let requested = args.limit.unwrap_or(10);
+        let limits = self.host.session.limits();
+        let applied = requested.min(limits.max_result_nodes);
+        if requested > limits.max_result_nodes {
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Memory outcome query limit was capped at {} instead of {requested}.",
+                    limits.max_result_nodes
+                ),
+                Some(json!({
+                    "requested": requested,
+                    "applied": applied,
+                })),
+            );
+        }
+
+        let mut focus = Vec::new();
+        if let Some(ids) = args.focus {
+            for id in ids {
+                focus.push(AnchorRef::Node(convert_node_id(id)?));
+            }
+        }
+
+        let kinds = args
+            .kinds
+            .map(|kinds| {
+                kinds
+                    .into_iter()
+                    .map(|kind| parse_outcome_kind(&kind))
+                    .collect::<Result<Vec<_>>>()
+            })
+            .transpose()?;
+        let result = args
+            .result
+            .as_deref()
+            .map(parse_outcome_result)
+            .transpose()?;
+        let actor = args.actor.as_deref().map(parse_event_actor).transpose()?;
+
+        Ok(self.prism.query_outcomes(&OutcomeRecallQuery {
+            anchors: focus,
+            task: args.task_id,
+            kinds,
+            result,
+            actor,
+            since: args.since,
+            limit: applied,
+        }))
     }
 
     fn symbols(&self, query: &str) -> Result<Vec<SymbolView>> {

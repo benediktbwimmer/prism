@@ -1,7 +1,7 @@
-use prism_ir::AnchorRef;
-
-use crate::common::{clamp_unit, compare_scored_memory, provenance_score, recency_score, anchor_overlap};
-use crate::types::{MemoryEntry, MemoryId, RecallQuery, ScoredMemory};
+use crate::common::{
+    anchor_overlap, clamp_unit, compare_scored_memory, provenance_score, recency_score,
+};
+use crate::types::{MemoryEntry, RecallQuery, ScoredMemory};
 
 pub(crate) fn score_entry(
     module_name: &str,

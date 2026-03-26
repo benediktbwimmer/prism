@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
 use prism_agent::InferenceStore;
-use prism_ir::{EventId, SessionId, TaskId};
+use prism_ir::{AgentId, EventId, SessionId, TaskId};
 use prism_memory::SessionMemory;
 use prism_query::{Prism, QueryLimits};
 
@@ -20,6 +20,7 @@ pub(crate) struct SessionState {
     pub(crate) notes: SessionMemory,
     pub(crate) inferred_edges: InferenceStore,
     current_task: Mutex<Option<SessionTaskState>>,
+    current_agent: Mutex<Option<AgentId>>,
     next_event: AtomicU64,
     next_task: AtomicU64,
     limits: Mutex<QueryLimits>,
@@ -49,6 +50,7 @@ impl SessionState {
             notes,
             inferred_edges,
             current_task: Mutex::new(None),
+            current_agent: Mutex::new(None),
             next_event: AtomicU64::new(max_event_sequence(prism)),
             next_task: AtomicU64::new(max_task_sequence(prism)),
             limits: Mutex::new(limits),
@@ -70,6 +72,13 @@ impl SessionState {
 
     pub(crate) fn session_id(&self) -> SessionId {
         self.session_id.clone()
+    }
+
+    pub(crate) fn current_agent(&self) -> Option<AgentId> {
+        self.current_agent
+            .lock()
+            .expect("session agent lock poisoned")
+            .clone()
     }
 
     pub(crate) fn current_task_state(&self) -> Option<SessionTaskState> {
@@ -120,6 +129,20 @@ impl SessionState {
             .current_task
             .lock()
             .expect("session task lock poisoned") = None;
+    }
+
+    pub(crate) fn set_current_agent(&self, agent: AgentId) {
+        *self
+            .current_agent
+            .lock()
+            .expect("session agent lock poisoned") = Some(agent);
+    }
+
+    pub(crate) fn clear_current_agent(&self) {
+        *self
+            .current_agent
+            .lock()
+            .expect("session agent lock poisoned") = None;
     }
 
     pub(crate) fn start_task(&self, description: &str, tags: &[String]) -> TaskId {

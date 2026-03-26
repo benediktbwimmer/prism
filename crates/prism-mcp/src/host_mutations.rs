@@ -517,7 +517,10 @@ impl QueryHost {
                             .as_deref()
                             .map(parse_coordination_task_status)
                             .transpose()?,
-                        assignee: payload.assignee.map(AgentId::new),
+                        assignee: payload
+                            .assignee
+                            .map(AgentId::new)
+                            .or_else(|| self.session.current_agent()),
                         session: Some(self.session.session_id()),
                         anchors: convert_anchors(payload.anchors.unwrap_or_default())?,
                         depends_on: payload
@@ -583,11 +586,22 @@ impl QueryHost {
             }
             CoordinationMutationKindInput::HandoffAccept => {
                 let payload: HandoffAcceptPayload = serde_json::from_value(args.payload)?;
+                let session_agent = self.session.current_agent();
+                if let (Some(expected), Some(current)) =
+                    (payload.agent.as_ref(), session_agent.as_ref())
+                {
+                    if expected != &current.0 {
+                        return Err(anyhow!(
+                            "handoff acceptance agent `{expected}` does not match current session agent `{}`",
+                            current.0
+                        ));
+                    }
+                }
                 let task = prism.coordination().accept_handoff(
                     meta,
                     HandoffAcceptInput {
                         task_id: CoordinationTaskId::new(payload.task_id),
-                        agent: payload.agent.map(AgentId::new),
+                        agent: session_agent,
                     },
                 )?;
                 Ok(serde_json::to_value(coordination_task_view(task))?)
@@ -616,7 +630,10 @@ impl QueryHost {
                         ttl_seconds: payload.ttl_seconds,
                         base_revision: prism.workspace_revision(),
                         current_revision: prism.workspace_revision(),
-                        agent: payload.agent.map(AgentId::new),
+                        agent: payload
+                            .agent
+                            .map(AgentId::new)
+                            .or_else(|| self.session.current_agent()),
                     },
                 )?;
                 Ok(ClaimMutationResult {

@@ -278,6 +278,11 @@ impl QueryHost {
                 "clearCurrentTask cannot be combined with currentTaskId, currentTaskDescription, or currentTaskTags"
             ));
         }
+        if args.clear_current_agent.unwrap_or(false) && args.current_agent.is_some() {
+            return Err(anyhow!(
+                "clearCurrentAgent cannot be combined with currentAgent"
+            ));
+        }
 
         if let Some(input) = args.limits {
             let mut limits = self.session.limits();
@@ -319,6 +324,13 @@ impl QueryHost {
                 args.current_task_description.map(Some),
                 args.current_task_tags,
             );
+        }
+
+        if args.clear_current_agent.unwrap_or(false) {
+            self.session.clear_current_agent();
+        } else if let Some(agent) = args.current_agent {
+            self.session
+                .set_current_agent(prism_ir::AgentId::new(agent));
         }
 
         self.session_view()

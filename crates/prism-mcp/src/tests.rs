@@ -23,8 +23,8 @@ use prism_ir::{
     NodeKind, Span, TaskId,
 };
 use prism_memory::{
-    MemoryKind, MemoryModule, OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory,
-    OutcomeResult, RecallQuery,
+    MemoryEntry, MemoryKind, MemoryModule, MemorySource, OutcomeEvent, OutcomeEvidence,
+    OutcomeKind, OutcomeMemory, OutcomeResult, RecallQuery,
 };
 use prism_store::Graph;
 use serde_json::json;
@@ -458,6 +458,47 @@ fn mcp_exposes_policy_violations_through_prism_query() {
         .unwrap()
         .iter()
         .any(|violation| violation["code"] == "review_required"));
+}
+
+#[test]
+fn configure_session_binds_current_agent_and_task_create_inherits_it() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let session = host
+        .configure_session(PrismConfigureSessionArgs {
+            limits: None,
+            current_task_id: None,
+            current_task_description: None,
+            current_task_tags: None,
+            clear_current_task: None,
+            current_agent: Some("agent-a".to_string()),
+            clear_current_agent: None,
+        })
+        .unwrap();
+    assert_eq!(session.current_agent.as_deref(), Some("agent-a"));
+
+    let plan = host
+        .store_coordination(PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanCreate,
+            payload: json!({ "goal": "Bind agent identity" }),
+            task_id: None,
+        })
+        .unwrap();
+    let task = host
+        .store_coordination(PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::TaskCreate,
+            payload: json!({
+                "planId": plan.state["id"].as_str().unwrap(),
+                "title": "Edit alpha"
+            }),
+            task_id: None,
+        })
+        .unwrap();
+    assert_eq!(task.state["assignee"], "agent-a");
+
+    let claims = host.current_prism().coordination_snapshot().claims;
+    assert!(claims.is_empty());
 }
 
 #[test]
@@ -1249,6 +1290,18 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
     let host_a = QueryHost::with_session(index_workspace_session(&root).unwrap());
     let host_b = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
+    host_b
+        .configure_session(PrismConfigureSessionArgs {
+            limits: None,
+            current_task_id: None,
+            current_task_description: None,
+            current_task_tags: None,
+            clear_current_task: None,
+            current_agent: Some("agent-b".to_string()),
+            clear_current_agent: None,
+        })
+        .unwrap();
+
     let plan = host_a
         .store_coordination(PrismCoordinationArgs {
             kind: CoordinationMutationKindInput::PlanCreate,
@@ -1366,6 +1419,45 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
         .violations
         .iter()
         .any(|violation| violation.code == "handoff_pending"));
+
+    host_b
+        .configure_session(PrismConfigureSessionArgs {
+            limits: None,
+            current_task_id: None,
+            current_task_description: None,
+            current_task_tags: None,
+            clear_current_task: None,
+            current_agent: None,
+            clear_current_agent: Some(true),
+        })
+        .unwrap();
+    let missing_agent = host_b
+        .store_coordination(PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::HandoffAccept,
+            payload: json!({
+                "taskId": task_id.clone(),
+                "agent": "agent-b"
+            }),
+            task_id: None,
+        })
+        .unwrap();
+    assert!(missing_agent.rejected);
+    assert!(missing_agent
+        .violations
+        .iter()
+        .any(|violation| violation.code == "agent_identity_required"));
+
+    host_b
+        .configure_session(PrismConfigureSessionArgs {
+            limits: None,
+            current_task_id: None,
+            current_task_description: None,
+            current_task_tags: None,
+            clear_current_task: None,
+            current_agent: Some("agent-b".to_string()),
+            clear_current_agent: None,
+        })
+        .unwrap();
 
     let accepted = host_b
         .store_coordination(PrismCoordinationArgs {
@@ -2741,6 +2833,133 @@ return prism.memory.recall({
         "main previously regressed on null handling"
     );
     assert_eq!(result.result[0]["entry"]["kind"], "Episodic");
+}
+
+#[test]
+fn memory_recall_respects_kinds_and_since_filters() {
+    let host = host_with_node(demo_node());
+
+    let mut old_structural =
+        MemoryEntry::new(MemoryKind::Structural, "main changes require a migration");
+    old_structural.anchors = vec![AnchorRef::Node(NodeId::new(
+        "demo",
+        "demo::main",
+        NodeKind::Function,
+    ))];
+    old_structural.created_at = 10;
+    old_structural.source = MemorySource::User;
+    old_structural.trust = 1.0;
+    host.session.notes.store(old_structural).unwrap();
+
+    let mut fresh_semantic =
+        MemoryEntry::new(MemoryKind::Semantic, "main often flakes during retries");
+    fresh_semantic.anchors = vec![AnchorRef::Node(NodeId::new(
+        "demo",
+        "demo::main",
+        NodeKind::Function,
+    ))];
+    fresh_semantic.created_at = 50;
+    fresh_semantic.source = MemorySource::System;
+    fresh_semantic.trust = 0.8;
+    host.session.notes.store(fresh_semantic).unwrap();
+
+    let result = host
+        .execute(
+            r#"
+const sym = prism.symbol("main");
+return prism.memory.recall({
+  focus: sym ? [sym] : [],
+  kinds: ["semantic"],
+  since: 20,
+  limit: 5,
+});
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("memory recall should succeed");
+
+    assert_eq!(result.result.as_array().unwrap().len(), 1);
+    assert_eq!(result.result[0]["entry"]["kind"], "Semantic");
+    assert_eq!(
+        result.result[0]["entry"]["content"],
+        "main often flakes during retries"
+    );
+}
+
+#[test]
+fn memory_outcomes_support_filtered_history_queries() {
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+
+    let mut graph = Graph::new();
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha.clone()]);
+
+    let outcomes = OutcomeMemory::new();
+    outcomes
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:alpha:1"),
+                ts: 5,
+                actor: EventActor::System,
+                correlation: Some(TaskId::new("task:alpha")),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(alpha.clone())],
+            kind: OutcomeKind::FailureObserved,
+            result: OutcomeResult::Failure,
+            summary: "system saw alpha fail".into(),
+            evidence: vec![],
+            metadata: Value::Null,
+        })
+        .unwrap();
+    outcomes
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:alpha:2"),
+                ts: 15,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:alpha")),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(alpha.clone())],
+            kind: OutcomeKind::FailureObserved,
+            result: OutcomeResult::Failure,
+            summary: "agent saw alpha fail".into(),
+            evidence: vec![],
+            metadata: Value::Null,
+        })
+        .unwrap();
+
+    let host = host_with_prism(Prism::with_history_and_outcomes(graph, history, outcomes));
+    let result = host
+        .execute(
+            r#"
+const sym = prism.symbol("alpha");
+return prism.memory.outcomes({
+  focus: sym ? [sym] : [],
+  taskId: "task:alpha",
+  kinds: ["failure"],
+  result: "failure",
+  actor: "agent",
+  since: 10,
+  limit: 5,
+});
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("memory outcome query should succeed");
+
+    assert_eq!(result.result.as_array().unwrap().len(), 1);
+    assert_eq!(result.result[0]["summary"], "agent saw alpha fail");
 }
 
 #[test]

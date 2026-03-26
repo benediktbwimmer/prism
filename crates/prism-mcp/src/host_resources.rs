@@ -40,6 +40,10 @@ impl QueryHost {
                     description: task.description,
                     tags: task.tags,
                 }),
+            current_agent: self
+                .session
+                .current_agent()
+                .map(|agent| agent.0.to_string()),
             limits: SessionLimitsView {
                 max_result_nodes: limits.max_result_nodes,
                 max_call_graph_depth: limits.max_call_graph_depth,
@@ -77,6 +81,7 @@ impl QueryHost {
             schema_uri,
             workspace_root: session.workspace_root,
             current_task: session.current_task,
+            current_agent: session.current_agent,
             limits: session.limits,
             features: session.features,
             related_resources: dedupe_resource_link_views(related_resources),

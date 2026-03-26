@@ -2,6 +2,7 @@ mod common;
 mod coordination;
 mod impact;
 mod intent;
+mod outcomes;
 mod symbol;
 mod types;
 
@@ -13,7 +14,7 @@ use std::sync::{Arc, RwLock};
 use prism_coordination::{CoordinationSnapshot, CoordinationStore};
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{AnchorRef, LineageEvent, LineageId, NodeId};
-use prism_memory::{OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot, TaskReplay};
+use prism_memory::{OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot};
 use prism_projections::{IntentIndex, ProjectionIndex, ProjectionSnapshot};
 use prism_store::Graph;
 
@@ -156,10 +157,6 @@ impl Prism {
             .write()
             .expect("projection lock poisoned")
             .apply_lineage_events(events);
-    }
-
-    pub fn resume_task(&self, task: &prism_ir::TaskId) -> TaskReplay {
-        self.outcomes.resume_task(task)
     }
 
     pub(crate) fn expand_anchors(&self, anchors: &[AnchorRef]) -> Vec<AnchorRef> {

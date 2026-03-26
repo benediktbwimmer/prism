@@ -59,6 +59,17 @@ type MemoryRecallOptions = {
   text?: string;
   limit?: number;
   kinds?: string[];
+  since?: number;
+};
+
+type MemoryOutcomeOptions = {
+  focus?: Array<SymbolView | NodeId>;
+  taskId?: string;
+  kinds?: string[];
+  result?: string;
+  actor?: string;
+  since?: number;
+  limit?: number;
 };
 
 type CuratorJobQueryOptions = {
@@ -111,6 +122,7 @@ type PrismApi = {
   resumeTask(taskId: string): TaskReplay;
   memory: {
     recall(options?: MemoryRecallOptions): ScoredMemoryView[];
+    outcomes(options?: MemoryOutcomeOptions): OutcomeEvent[];
   };
   curator: {
     jobs(options?: CuratorJobQueryOptions): CuratorJobView[];
@@ -288,9 +300,19 @@ type CoChangeView = {
 };
 
 type OutcomeEvent = {
+  meta?: {
+    id: string;
+    ts: number;
+    actor: unknown;
+    correlation?: string;
+    causation?: string;
+  };
+  anchors?: AnchorRef[];
   summary: string;
   result: string;
   kind: string;
+  evidence?: unknown[];
+  metadata?: unknown;
 };
 
 type ScoredMemoryView = {
@@ -639,7 +661,20 @@ return prism.memory.recall({
 });
 ```
 
-### 16. Inspect recent curator proposals through `prism_query`
+### 16. Query outcome history with filters
+
+```ts
+const sym = prism.symbol("handle_request");
+return prism.memory.outcomes({
+  focus: sym ? [sym] : [],
+  kinds: ["failure"],
+  result: "failure",
+  since: 1700000000,
+  limit: 10,
+});
+```
+
+### 17. Inspect recent curator proposals through `prism_query`
 
 ```ts
 return prism.curator.jobs({ status: "completed", limit: 5 }).map((job) => ({
@@ -652,7 +687,7 @@ return prism.curator.jobs({ status: "completed", limit: 5 }).map((job) => ({
 }));
 ```
 
-### 17. Fetch one curator job and keep only pending inferred-edge proposals
+### 18. Fetch one curator job and keep only pending inferred-edge proposals
 
 ```ts
 const job = prism.curator.job("curator:1");
@@ -661,20 +696,20 @@ return job?.proposals.filter(
 );
 ```
 
-### 18. See who is already working in an area
+### 19. See who is already working in an area
 
 ```ts
 const sym = prism.symbol("handle_request");
 return sym ? prism.claims(sym) : [];
 ```
 
-### 19. Ask PRISM for blockers on a coordination task
+### 20. Ask PRISM for blockers on a coordination task
 
 ```ts
 return prism.blockers("coord-task:12");
 ```
 
-### 20. Simulate an edit claim before taking it
+### 21. Simulate an edit claim before taking it
 
 ```ts
 const sym = prism.symbol("handle_request");
@@ -685,19 +720,19 @@ return prism.simulateClaim({
 });
 ```
 
-### 21. Pull a coordination inbox for one plan
+### 22. Pull a coordination inbox for one plan
 
 ```ts
 return prism.coordinationInbox("plan:12");
 ```
 
-### 22. Pull the full working context for one coordination task
+### 23. Pull the full working context for one coordination task
 
 ```ts
 return prism.taskContext("coord-task:12");
 ```
 
-### 23. Preview a claim and tell whether it is blocked
+### 24. Preview a claim and tell whether it is blocked
 
 ```ts
 const sym = prism.symbol("handle_request");
@@ -711,7 +746,7 @@ return prism.claimPreview({
 ## Current implementation surface
 
 - Available now: symbol lookup, search, entrypoints, relations, call graphs, source extraction, lineage history, related failures, blast radius, and task replay by id.
-- Available now: session/workspace memory recall for anchored memory entries and promoted curator memories.
+- Available now: session/workspace memory recall for anchored memory entries, filtered outcome history, and promoted curator memories.
 - Available now: workspace-backed curator job inspection through `prism.curator.jobs()` and `prism.curator.job()`.
 - Available now: coordination plans, tasks, claims, conflicts, blockers, review queues, claim simulation, and workflow helpers for inbox/task/claim preview.
 - Keep query logic small. If you find yourself reconstructing semantics from raw low-level fields every time, that method probably belongs in Prism itself.

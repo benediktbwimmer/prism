@@ -8,7 +8,9 @@ use prism_ir::{
     Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, SessionId, Span, TaskId,
     WorkspaceRevision,
 };
-use prism_memory::{OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeResult};
+use prism_memory::{
+    OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeRecallQuery, OutcomeResult,
+};
 use prism_projections::ProjectionIndex;
 use prism_store::Graph;
 
@@ -272,6 +274,74 @@ fn outcome_queries_expand_node_to_lineage() {
     let failures = prism.related_failures(&new_id);
     assert_eq!(failures.len(), 1);
     assert!(failures[0].summary.contains("failure"));
+}
+
+#[test]
+fn outcome_query_filters_expand_node_focus_with_additional_filters() {
+    let mut graph = Graph::new();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha.clone()]);
+
+    let outcomes = OutcomeMemory::new();
+    let task = TaskId::new("task:alpha");
+    outcomes
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:filter:1"),
+                ts: 5,
+                actor: EventActor::System,
+                correlation: Some(task.clone()),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(alpha.clone())],
+            kind: OutcomeKind::FailureObserved,
+            result: OutcomeResult::Failure,
+            summary: "system failure".into(),
+            evidence: Vec::new(),
+            metadata: serde_json::Value::Null,
+        })
+        .unwrap();
+    outcomes
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:filter:2"),
+                ts: 12,
+                actor: EventActor::Agent,
+                correlation: Some(task.clone()),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(alpha.clone())],
+            kind: OutcomeKind::FailureObserved,
+            result: OutcomeResult::Failure,
+            summary: "agent failure".into(),
+            evidence: Vec::new(),
+            metadata: serde_json::Value::Null,
+        })
+        .unwrap();
+
+    let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
+    let events = prism.query_outcomes(&OutcomeRecallQuery {
+        anchors: vec![AnchorRef::Node(alpha)],
+        task: Some(task),
+        kinds: Some(vec![OutcomeKind::FailureObserved]),
+        result: Some(OutcomeResult::Failure),
+        actor: Some(EventActor::Agent),
+        since: Some(10),
+        limit: 10,
+    });
+
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].summary, "agent failure");
 }
 
 #[test]

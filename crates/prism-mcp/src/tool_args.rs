@@ -247,6 +247,9 @@ pub(crate) struct PrismConfigureSessionArgs {
     #[serde(alias = "current_task_tags")]
     pub(crate) current_task_tags: Option<Vec<String>>,
     pub(crate) clear_current_task: Option<bool>,
+    #[serde(alias = "current_agent")]
+    pub(crate) current_agent: Option<String>,
+    pub(crate) clear_current_agent: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

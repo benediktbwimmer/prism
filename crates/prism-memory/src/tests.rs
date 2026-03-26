@@ -7,8 +7,8 @@ use serde_json::json;
 
 use crate::{
     EpisodicMemory, MemoryComposite, MemoryEntry, MemoryId, MemoryKind, MemoryModule, MemorySource,
-    OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeResult, RecallQuery,
-    ScoredMemory, SemanticMemory, SessionMemory, StructuralMemory,
+    OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeRecallQuery, OutcomeResult,
+    RecallQuery, ScoredMemory, SemanticMemory, SessionMemory, StructuralMemory,
 };
 
 fn node(name: &str) -> NodeId {
@@ -110,6 +110,85 @@ fn dedicated_modules_only_accept_their_own_kind() {
     let mut wrong_kind = MemoryEntry::new(MemoryKind::Semantic, "wrong");
     wrong_kind.anchors = vec![anchor_node("alpha")];
     assert!(structural.store(wrong_kind).is_err());
+}
+
+#[test]
+fn structural_memory_recalls_rule_like_knowledge_by_tags() {
+    let memory = StructuralMemory::new();
+
+    let mut invariant = MemoryEntry::new(
+        MemoryKind::Structural,
+        "Billing migration must preserve the ledger invariant during backfill",
+    );
+    invariant.anchors = vec![anchor_node("alpha")];
+    memory.store(invariant).unwrap();
+
+    let mut review = MemoryEntry::new(
+        MemoryKind::Structural,
+        "Review auth and session changes together before rollout",
+    );
+    review.anchors = vec![anchor_node("alpha")];
+    memory.store(review).unwrap();
+
+    let results = memory
+        .recall(&RecallQuery {
+            focus: vec![anchor_node("alpha")],
+            text: Some("migration invariant".into()),
+            limit: 5,
+            kinds: Some(vec![MemoryKind::Structural]),
+            since: None,
+        })
+        .unwrap();
+
+    assert_eq!(results.len(), 1);
+    assert!(results[0]
+        .entry
+        .content
+        .contains("preserve the ledger invariant"));
+    assert!(results[0]
+        .explanation
+        .as_deref()
+        .is_some_and(|text| text.contains("structural tags")));
+}
+
+#[test]
+fn semantic_memory_recalls_metadata_backed_context() {
+    let memory = SemanticMemory::new();
+
+    let mut flaky = MemoryEntry::new(
+        MemoryKind::Semantic,
+        "Payments worker stalls when the upstream gateway slows down",
+    );
+    flaky.anchors = vec![anchor_node("alpha")];
+    flaky.metadata = json!({
+        "symptoms": ["timeout", "retry"],
+        "surface": "payments",
+    });
+    memory.store(flaky).unwrap();
+
+    let mut unrelated = MemoryEntry::new(
+        MemoryKind::Semantic,
+        "Search indexing gets noisy when filesystem watchers duplicate events",
+    );
+    unrelated.anchors = vec![anchor_node("alpha")];
+    memory.store(unrelated).unwrap();
+
+    let results = memory
+        .recall(&RecallQuery {
+            focus: vec![anchor_node("alpha")],
+            text: Some("payments timeout retry".into()),
+            limit: 5,
+            kinds: Some(vec![MemoryKind::Semantic]),
+            since: None,
+        })
+        .unwrap();
+
+    assert_eq!(results.len(), 1);
+    assert!(results[0].entry.content.contains("Payments worker stalls"));
+    assert!(results[0]
+        .explanation
+        .as_deref()
+        .is_some_and(|text| text.contains("semantic")));
 }
 
 #[test]
@@ -377,6 +456,59 @@ fn outcome_queries_and_resume_task_work() {
 
     let replay = outcomes.resume_task(&task);
     assert_eq!(replay.events.len(), 1);
+}
+
+#[test]
+fn outcome_query_filters_by_task_actor_result_and_since() {
+    let outcomes = OutcomeMemory::new();
+    let task = prism_ir::TaskId::new("task:alpha");
+    outcomes
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:1"),
+                ts: 5,
+                actor: EventActor::Agent,
+                correlation: Some(task.clone()),
+                causation: None,
+            },
+            anchors: vec![anchor_node("alpha")],
+            kind: OutcomeKind::FailureObserved,
+            result: OutcomeResult::Failure,
+            summary: "agent failure".into(),
+            evidence: vec![],
+            metadata: json!({}),
+        })
+        .unwrap();
+    outcomes
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:2"),
+                ts: 15,
+                actor: EventActor::User,
+                correlation: Some(task.clone()),
+                causation: None,
+            },
+            anchors: vec![anchor_node("alpha")],
+            kind: OutcomeKind::FailureObserved,
+            result: OutcomeResult::Failure,
+            summary: "user failure".into(),
+            evidence: vec![],
+            metadata: json!({}),
+        })
+        .unwrap();
+
+    let events = outcomes.query_events(&OutcomeRecallQuery {
+        anchors: vec![anchor_node("alpha")],
+        task: Some(task),
+        kinds: Some(vec![OutcomeKind::FailureObserved]),
+        result: Some(OutcomeResult::Failure),
+        actor: Some(EventActor::User),
+        since: Some(10),
+        limit: 10,
+    });
+
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].summary, "user failure");
 }
 
 #[test]

@@ -3,9 +3,12 @@ use std::collections::{HashMap, HashSet};
 use std::sync::RwLock;
 
 use anyhow::Result;
-use prism_ir::{AnchorRef, EventId, LineageEvent, LineageEventKind, NodeId, TaskId};
+use prism_ir::{
+    AnchorRef, EventActor, EventId, LineageEvent, LineageEventKind, NodeId, TaskId,
+};
 
 use crate::common::dedupe_anchors;
+use crate::outcome_query::OutcomeRecallQuery;
 use crate::types::{OutcomeEvent, OutcomeKind, OutcomeMemorySnapshot, OutcomeResult, TaskReplay};
 
 #[derive(Default)]
@@ -18,6 +21,9 @@ struct OutcomeState {
     events: HashMap<EventId, OutcomeEvent>,
     anchor_index: HashMap<AnchorRef, HashSet<EventId>>,
     task_index: HashMap<TaskId, HashSet<EventId>>,
+    kind_index: HashMap<OutcomeKind, HashSet<EventId>>,
+    result_index: HashMap<OutcomeResult, HashSet<EventId>>,
+    actor_index: HashMap<String, HashSet<EventId>>,
     order: Vec<EventId>,
 }
 
@@ -40,62 +46,70 @@ impl OutcomeMemory {
         let id = event.meta.id.clone();
 
         let mut state = self.state.write().expect("outcome memory lock poisoned");
-        for anchor in &event.anchors {
-            state
-                .anchor_index
-                .entry(anchor.clone())
-                .or_default()
-                .insert(id.clone());
-        }
-        if let Some(task) = &event.meta.correlation {
-            state
-                .task_index
-                .entry(task.clone())
-                .or_default()
-                .insert(id.clone());
-        }
+        index_outcome(&mut state, &event);
         state.order.push(id.clone());
         state.events.insert(id.clone(), event);
         Ok(id)
     }
 
     pub fn outcomes_for(&self, anchors: &[AnchorRef], limit: usize) -> Vec<OutcomeEvent> {
-        let state = self.state.read().expect("outcome memory lock poisoned");
-        let candidate_ids = outcome_candidates(&state, anchors);
-        let mut events = candidate_ids
-            .into_iter()
-            .filter_map(|id| state.events.get(&id).cloned())
-            .collect::<Vec<_>>();
-        events.sort_by(compare_outcome_event);
-        if limit > 0 {
-            events.truncate(limit);
-        }
-        events
+        self.query_events(&OutcomeRecallQuery {
+            anchors: anchors.to_vec(),
+            limit,
+            ..OutcomeRecallQuery::default()
+        })
     }
 
     pub fn related_failures(&self, anchors: &[AnchorRef], limit: usize) -> Vec<OutcomeEvent> {
-        let mut events = self.outcomes_for(anchors, 0);
-        events.retain(is_failure_event);
-        if limit > 0 {
-            events.truncate(limit);
-        }
-        events
+        self.query_events(&OutcomeRecallQuery {
+            anchors: anchors.to_vec(),
+            kinds: Some(vec![
+                OutcomeKind::FailureObserved,
+                OutcomeKind::RegressionObserved,
+            ]),
+            result: Some(OutcomeResult::Failure),
+            limit,
+            ..OutcomeRecallQuery::default()
+        })
     }
 
     pub fn resume_task(&self, task: &TaskId) -> TaskReplay {
-        let state = self.state.read().expect("outcome memory lock poisoned");
-        let mut events = state
-            .task_index
-            .get(task)
-            .into_iter()
-            .flat_map(|ids| ids.iter())
-            .filter_map(|id| state.events.get(id).cloned())
-            .collect::<Vec<_>>();
-        events.sort_by(compare_outcome_event);
         TaskReplay {
             task: task.clone(),
-            events,
+            events: self.query_events(&OutcomeRecallQuery {
+                task: Some(task.clone()),
+                limit: 0,
+                ..OutcomeRecallQuery::default()
+            }),
         }
+    }
+
+    pub fn query_events(&self, query: &OutcomeRecallQuery) -> Vec<OutcomeEvent> {
+        let state = self.state.read().expect("outcome memory lock poisoned");
+        let candidate_ids = outcome_candidates(&state, query);
+        let mut events = candidate_ids
+            .into_iter()
+            .filter_map(|id| state.events.get(&id).cloned())
+            .filter(|event| query.since.is_none_or(|since| event.meta.ts >= since))
+            .filter(|event| {
+                query
+                    .actor
+                    .as_ref()
+                    .is_none_or(|actor| actor_key(&event.meta.actor) == actor_key(actor))
+            })
+            .filter(|event| {
+                query
+                    .kinds
+                    .as_ref()
+                    .is_none_or(|kinds| kinds.iter().any(|kind| kind == &event.kind))
+            })
+            .filter(|event| query.result.is_none_or(|result| event.result == result))
+            .collect::<Vec<_>>();
+        events.sort_by(compare_outcome_event);
+        if query.limit > 0 {
+            events.truncate(query.limit);
+        }
+        events
     }
 
     pub fn apply_lineage(&self, events: &[LineageEvent]) -> Result<()> {
@@ -153,16 +167,45 @@ impl OutcomeMemory {
     }
 }
 
-fn outcome_candidates(state: &OutcomeState, anchors: &[AnchorRef]) -> HashSet<EventId> {
-    if anchors.is_empty() {
-        return state.events.keys().cloned().collect();
+fn outcome_candidates(state: &OutcomeState, query: &OutcomeRecallQuery) -> HashSet<EventId> {
+    let mut candidates = if query.anchors.is_empty() {
+        state.events.keys().cloned().collect::<HashSet<_>>()
+    } else {
+        query
+            .anchors
+            .iter()
+            .filter_map(|anchor| state.anchor_index.get(anchor))
+            .flat_map(|ids| ids.iter().cloned())
+            .collect::<HashSet<_>>()
+    };
+
+    if let Some(task) = query.task.as_ref() {
+        intersect_with(&mut candidates, state.task_index.get(task));
+    }
+    if let Some(kinds) = query.kinds.as_ref() {
+        let kind_matches = kinds
+            .iter()
+            .filter_map(|kind| state.kind_index.get(kind))
+            .flat_map(|ids| ids.iter().cloned())
+            .collect::<HashSet<_>>();
+        intersect_with(&mut candidates, Some(&kind_matches));
+    }
+    if let Some(result) = query.result {
+        intersect_with(&mut candidates, state.result_index.get(&result));
+    }
+    if let Some(actor) = query.actor.as_ref() {
+        let key = actor_key(actor);
+        intersect_with(&mut candidates, state.actor_index.get(&key));
     }
 
-    anchors
-        .iter()
-        .filter_map(|anchor| state.anchor_index.get(anchor))
-        .flat_map(|ids| ids.iter().cloned())
-        .collect()
+    candidates
+}
+
+fn intersect_with(candidates: &mut HashSet<EventId>, matching: Option<&HashSet<EventId>>) {
+    match matching {
+        Some(matching) => candidates.retain(|id| matching.contains(id)),
+        None => candidates.clear(),
+    }
 }
 
 fn compare_outcome_event(left: &OutcomeEvent, right: &OutcomeEvent) -> Ordering {
@@ -173,12 +216,49 @@ fn compare_outcome_event(left: &OutcomeEvent, right: &OutcomeEvent) -> Ordering 
         .then_with(|| left.meta.id.0.cmp(&right.meta.id.0))
 }
 
-fn is_failure_event(event: &OutcomeEvent) -> bool {
-    event.result == OutcomeResult::Failure
-        || matches!(
-            event.kind,
-            OutcomeKind::FailureObserved | OutcomeKind::RegressionObserved
-        )
+fn index_outcome(state: &mut OutcomeState, event: &OutcomeEvent) {
+    let id = event.meta.id.clone();
+    for anchor in &event.anchors {
+        state
+            .anchor_index
+            .entry(anchor.clone())
+            .or_default()
+            .insert(id.clone());
+    }
+    if let Some(task) = &event.meta.correlation {
+        state
+            .task_index
+            .entry(task.clone())
+            .or_default()
+            .insert(id.clone());
+    }
+    state
+        .kind_index
+        .entry(event.kind.clone())
+        .or_default()
+        .insert(id.clone());
+    state
+        .result_index
+        .entry(event.result)
+        .or_default()
+        .insert(id.clone());
+    state
+        .actor_index
+        .entry(actor_key(&event.meta.actor))
+        .or_default()
+        .insert(id);
+}
+
+fn actor_key(actor: &EventActor) -> String {
+    match actor {
+        EventActor::User => "user".to_string(),
+        EventActor::Agent => "agent".to_string(),
+        EventActor::System => "system".to_string(),
+        EventActor::CI => "ci".to_string(),
+        EventActor::GitAuthor { name, email } => {
+            format!("git:{}:{}", name, email.as_deref().unwrap_or(""))
+        }
+    }
 }
 
 fn apply_outcome_reanchor_event(
@@ -307,6 +387,28 @@ fn remove_outcome_event(state: &mut OutcomeState, event_id: &EventId) {
             if ids.is_empty() {
                 state.task_index.remove(&task);
             }
+        }
+    }
+
+    if let Some(ids) = state.kind_index.get_mut(&event.kind) {
+        ids.remove(event_id);
+        if ids.is_empty() {
+            state.kind_index.remove(&event.kind);
+        }
+    }
+
+    if let Some(ids) = state.result_index.get_mut(&event.result) {
+        ids.remove(event_id);
+        if ids.is_empty() {
+            state.result_index.remove(&event.result);
+        }
+    }
+
+    let actor = actor_key(&event.meta.actor);
+    if let Some(ids) = state.actor_index.get_mut(&actor) {
+        ids.remove(event_id);
+        if ids.is_empty() {
+            state.actor_index.remove(&actor);
         }
     }
 }

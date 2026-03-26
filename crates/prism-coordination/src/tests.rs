@@ -1076,6 +1076,19 @@ fn handoff_acceptance_blocks_updates_until_target_accepts() {
             meta("event:5", 5),
             HandoffAcceptInput {
                 task_id: task_id.clone(),
+                agent: None,
+            },
+        )
+        .unwrap_err();
+    assert!(wrong_agent
+        .to_string()
+        .contains("requires an acting agent identity"));
+
+    let wrong_agent = store
+        .accept_handoff(
+            meta("event:6", 6),
+            HandoffAcceptInput {
+                task_id: task_id.clone(),
                 agent: Some(prism_ir::AgentId::new("agent-c")),
             },
         )
@@ -1084,7 +1097,7 @@ fn handoff_acceptance_blocks_updates_until_target_accepts() {
 
     let accepted = store
         .accept_handoff(
-            meta("event:6", 6),
+            meta("event:7", 7),
             HandoffAcceptInput {
                 task_id: task_id.clone(),
                 agent: Some(prism_ir::AgentId::new("agent-b")),
@@ -1099,6 +1112,114 @@ fn handoff_acceptance_blocks_updates_until_target_accepts() {
         store.events().last().unwrap().kind,
         prism_ir::CoordinationEventKind::HandoffAccepted
     );
+}
+
+#[test]
+fn overlap_kind_changes_conflict_severity() {
+    let store = CoordinationStore::new();
+    let file_warn = store
+        .acquire_claim(
+            meta("event:1", 1),
+            prism_ir::SessionId::new("session:a"),
+            ClaimAcquireInput {
+                task_id: None,
+                anchors: vec![prism_ir::AnchorRef::File(prism_ir::FileId(1))],
+                capability: prism_ir::Capability::Edit,
+                mode: Some(prism_ir::ClaimMode::SoftExclusive),
+                ttl_seconds: Some(60),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                current_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                agent: None,
+            },
+        )
+        .unwrap();
+    assert!(file_warn.0.is_some());
+
+    let file_conflict = store
+        .acquire_claim(
+            meta("event:2", 2),
+            prism_ir::SessionId::new("session:b"),
+            ClaimAcquireInput {
+                task_id: None,
+                anchors: vec![prism_ir::AnchorRef::File(prism_ir::FileId(1))],
+                capability: prism_ir::Capability::Edit,
+                mode: Some(prism_ir::ClaimMode::SoftExclusive),
+                ttl_seconds: Some(60),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                current_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                agent: None,
+            },
+        )
+        .unwrap();
+    assert!(file_conflict.0.is_some());
+    assert!(file_conflict
+        .1
+        .iter()
+        .any(|conflict| conflict.severity == prism_ir::ConflictSeverity::Warn));
+
+    let kind_conflict = store
+        .acquire_claim(
+            meta("event:3", 3),
+            prism_ir::SessionId::new("session:c"),
+            ClaimAcquireInput {
+                task_id: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                capability: prism_ir::Capability::Edit,
+                mode: Some(prism_ir::ClaimMode::Advisory),
+                ttl_seconds: Some(60),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                current_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                agent: None,
+            },
+        )
+        .unwrap();
+    assert!(kind_conflict.0.is_some());
+
+    let second_kind_conflict = store
+        .acquire_claim(
+            meta("event:4", 4),
+            prism_ir::SessionId::new("session:d"),
+            ClaimAcquireInput {
+                task_id: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                capability: prism_ir::Capability::Edit,
+                mode: Some(prism_ir::ClaimMode::Advisory),
+                ttl_seconds: Some(60),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                current_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                agent: None,
+            },
+        )
+        .unwrap();
+    assert!(second_kind_conflict.0.is_some());
+    assert!(second_kind_conflict
+        .1
+        .iter()
+        .any(|conflict| conflict.severity == prism_ir::ConflictSeverity::Info));
 }
 
 #[test]

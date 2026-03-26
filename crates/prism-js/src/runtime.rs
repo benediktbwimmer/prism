@@ -325,6 +325,19 @@ globalThis.prism = Object.freeze({
         focus: __prismNormalizeFocus(options.focus),
         text: options.text,
         limit: options.limit,
+        kinds: options.kinds,
+        since: options.since,
+      });
+    },
+    outcomes(options = {}) {
+      return __prismHost("memoryOutcomes", {
+        focus: __prismNormalizeFocus(options.focus),
+        taskId: options.taskId,
+        kinds: options.kinds,
+        result: options.result,
+        actor: options.actor,
+        since: options.since,
+        limit: options.limit,
       });
     },
   }),

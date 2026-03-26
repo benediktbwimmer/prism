@@ -424,30 +424,57 @@ fn conflict_severity(
 ) -> ConflictSeverity {
     let left_write = matches!(left_capability, Capability::Edit | Capability::Merge);
     let right_write = matches!(right_capability, Capability::Edit | Capability::Merge);
-    let precise_overlap = overlap_kinds.iter().any(|kind| {
-        matches!(
-            kind,
-            ConflictOverlapKind::Node | ConflictOverlapKind::Lineage
-        )
-    });
+    let node_overlap = overlap_kinds.contains(&ConflictOverlapKind::Node);
+    let lineage_overlap = overlap_kinds.contains(&ConflictOverlapKind::Lineage);
+    let file_overlap = overlap_kinds.contains(&ConflictOverlapKind::File);
+    let kind_only = !node_overlap && !lineage_overlap && !file_overlap;
+    let revision_mismatch = left_revision.graph_version != right_revision.graph_version;
+    let serialized_by_policy = policy
+        .map(|policy| policy.max_parallel_editors_per_anchor <= 1)
+        .unwrap_or(false);
+    let soft_exclusive = matches!(left_mode, ClaimMode::SoftExclusive)
+        || matches!(right_mode, ClaimMode::SoftExclusive);
     if matches!(left_mode, ClaimMode::HardExclusive)
         || matches!(right_mode, ClaimMode::HardExclusive)
     {
         return ConflictSeverity::Block;
     }
     if left_write && right_write {
-        if precise_overlap
-            && (matches!(left_mode, ClaimMode::SoftExclusive)
-                || matches!(right_mode, ClaimMode::SoftExclusive)
-                || policy
-                    .map(|policy| policy.max_parallel_editors_per_anchor <= 1)
-                    .unwrap_or(false))
-        {
+        if node_overlap && (soft_exclusive || serialized_by_policy) {
             return ConflictSeverity::Block;
         }
-        return ConflictSeverity::Warn;
+        if lineage_overlap && serialized_by_policy {
+            return ConflictSeverity::Block;
+        }
+        if node_overlap || lineage_overlap {
+            return ConflictSeverity::Warn;
+        }
+        if file_overlap {
+            return if soft_exclusive || revision_mismatch {
+                ConflictSeverity::Warn
+            } else {
+                ConflictSeverity::Info
+            };
+        }
+        return if kind_only && !revision_mismatch {
+            ConflictSeverity::Info
+        } else {
+            ConflictSeverity::Warn
+        };
     }
-    if left_revision.graph_version != right_revision.graph_version {
+    if left_write || right_write {
+        if node_overlap || lineage_overlap {
+            return ConflictSeverity::Warn;
+        }
+        if file_overlap {
+            return if revision_mismatch {
+                ConflictSeverity::Warn
+            } else {
+                ConflictSeverity::Info
+            };
+        }
+    }
+    if revision_mismatch {
         return ConflictSeverity::Warn;
     }
     ConflictSeverity::Info

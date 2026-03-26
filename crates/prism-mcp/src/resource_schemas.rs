@@ -42,6 +42,7 @@ pub(crate) struct FeatureFlagsView {
 pub(crate) struct SessionView {
     pub(crate) workspace_root: Option<String>,
     pub(crate) current_task: Option<SessionTaskView>,
+    pub(crate) current_agent: Option<String>,
     pub(crate) limits: SessionLimitsView,
     pub(crate) features: FeatureFlagsView,
 }
@@ -83,6 +84,7 @@ pub(crate) struct SessionResourcePayload {
     pub(crate) schema_uri: String,
     pub(crate) workspace_root: Option<String>,
     pub(crate) current_task: Option<SessionTaskView>,
+    pub(crate) current_agent: Option<String>,
     pub(crate) limits: SessionLimitsView,
     pub(crate) features: FeatureFlagsView,
     pub(crate) related_resources: Vec<ResourceLinkView>,

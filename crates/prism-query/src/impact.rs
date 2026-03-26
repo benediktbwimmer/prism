@@ -1,7 +1,6 @@
 use prism_ir::{
     AnchorRef, ArtifactId, ArtifactStatus, CoordinationTaskId, LineageId, NodeId, Timestamp,
 };
-use prism_memory::OutcomeEvent;
 use prism_projections::CoChangeRecord;
 
 use crate::common::{dedupe_node_ids, dedupe_strings, sort_node_ids};
@@ -11,16 +10,6 @@ use crate::types::{
 use crate::Prism;
 
 impl Prism {
-    pub fn outcomes_for(&self, anchors: &[AnchorRef], limit: usize) -> Vec<OutcomeEvent> {
-        self.outcomes
-            .outcomes_for(&self.expand_anchors(anchors), limit)
-    }
-
-    pub fn related_failures(&self, node: &NodeId) -> Vec<OutcomeEvent> {
-        self.outcomes
-            .related_failures(&self.expand_anchors(&[AnchorRef::Node(node.clone())]), 20)
-    }
-
     pub fn blast_radius(&self, node: &NodeId) -> ChangeImpact {
         self.impact_for_anchors(&[AnchorRef::Node(node.clone())])
     }

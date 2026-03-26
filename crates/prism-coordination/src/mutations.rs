@@ -865,14 +865,36 @@ impl CoordinationStore {
                 violations,
             ));
         };
-        if input.agent.as_ref().is_some_and(|agent| *agent != target) {
+        let Some(actor) = input.agent.clone() else {
+            let violations = vec![policy_violation(
+                PolicyViolationCode::AgentIdentityRequired,
+                format!(
+                    "coordination task `{}` requires an acting agent identity to accept a handoff",
+                    previous.id.0
+                ),
+                Some(previous.plan.clone()),
+                Some(previous.id.clone()),
+                None,
+                None,
+                Value::Null,
+            )];
+            return Err(rejection_error(
+                &mut state,
+                &meta,
+                "handoff acceptance rejected",
+                Some(previous.plan),
+                Some(previous.id),
+                None,
+                None,
+                violations,
+            ));
+        };
+        if actor != target {
             let violations = vec![policy_violation(
                 PolicyViolationCode::HandoffTargetMismatch,
                 format!(
                     "handoff for task `{}` is assigned to `{}` and cannot be accepted by `{}`",
-                    previous.id.0,
-                    target.0,
-                    input.agent.as_ref().expect("checked above").0
+                    previous.id.0, target.0, actor.0
                 ),
                 Some(previous.plan.clone()),
                 Some(previous.id.clone()),
@@ -880,7 +902,7 @@ impl CoordinationStore {
                 None,
                 json!({
                     "expectedAgent": target.0,
-                    "providedAgent": input.agent.as_ref().map(|agent| agent.0.to_string()),
+                    "providedAgent": actor.0.to_string(),
                 }),
             )];
             return Err(rejection_error(

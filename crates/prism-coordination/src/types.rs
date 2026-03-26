@@ -107,6 +107,7 @@ pub enum PolicyViolationCode {
     IncompletePlanTasks,
     ActivePlanClaims,
     ClaimNotOwned,
+    AgentIdentityRequired,
     HandoffPending,
     HandoffTargetMismatch,
 }
