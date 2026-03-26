@@ -24,7 +24,7 @@ use prism_ir::{
     NodeKind, Span, TaskId,
 };
 use prism_memory::{
-    MemoryEntry, MemoryKind, MemoryModule, MemorySource, OutcomeEvent, OutcomeEvidence,
+    MemoryEntry, MemoryId, MemoryKind, MemoryModule, MemorySource, OutcomeEvent, OutcomeEvidence,
     OutcomeKind, OutcomeMemory, OutcomeResult, RecallQuery,
 };
 use prism_store::Graph;
@@ -610,18 +610,10 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .iter()
         .filter_map(|tool| tool["name"].as_str())
         .collect::<Vec<_>>();
+    assert_eq!(tool_names.len(), 3);
     assert!(tool_names.contains(&"prism_query"));
-    assert!(tool_names.contains(&"prism_symbol"));
-    assert!(tool_names.contains(&"prism_search"));
-    assert!(tool_names.contains(&"prism_outcome"));
-    assert!(tool_names.contains(&"prism_memory"));
-    assert!(tool_names.contains(&"prism_start_task"));
-    assert!(tool_names.contains(&"prism_coordination"));
-    assert!(tool_names.contains(&"prism_claim"));
-    assert!(tool_names.contains(&"prism_artifact"));
-    assert!(tool_names.contains(&"prism_curator_promote_edge"));
-    assert!(tool_names.contains(&"prism_curator_promote_memory"));
-    assert!(tool_names.contains(&"prism_curator_reject_proposal"));
+    assert!(tool_names.contains(&"prism_session"));
+    assert!(tool_names.contains(&"prism_mutate"));
 
     client.send(list_resources_request(3)).await.unwrap();
     let resources = response_json(client.receive().await.unwrap());
@@ -677,7 +669,7 @@ fn simple_mode_disables_coordination_host_paths() {
 }
 
 #[tokio::test]
-async fn mcp_server_simple_mode_hides_coordination_tools_and_reports_features() {
+async fn mcp_server_simple_mode_keeps_minimal_surface_and_reports_features() {
     let server = server_with_node_and_features(demo_node(), PrismMcpFeatures::simple());
     let (server_transport, client_transport) = tokio::io::duplex(4096);
     let server_task = tokio::spawn(async move { server.serve(server_transport).await });
@@ -698,9 +690,10 @@ async fn mcp_server_simple_mode_hides_coordination_tools_and_reports_features() 
         .iter()
         .filter_map(|tool| tool["name"].as_str())
         .collect::<Vec<_>>();
-    assert!(!tool_names.contains(&"prism_coordination"));
-    assert!(!tool_names.contains(&"prism_claim"));
-    assert!(!tool_names.contains(&"prism_artifact"));
+    assert_eq!(tool_names.len(), 3);
+    assert!(tool_names.contains(&"prism_query"));
+    assert!(tool_names.contains(&"prism_session"));
+    assert!(tool_names.contains(&"prism_mutate"));
 
     client
         .send(read_resource_request(3, SESSION_URI))
@@ -731,10 +724,13 @@ async fn mcp_server_simple_mode_hides_coordination_tools_and_reports_features() 
     client
         .send(call_tool_request(
             4,
-            "prism_coordination",
+            "prism_mutate",
             json!({
-                "kind": "plan_create",
-                "payload": { "goal": "Coordinate the main edit" }
+                "action": "coordination",
+                "input": {
+                    "kind": "plan_create",
+                    "payload": { "goal": "Coordinate the main edit" }
+                }
             })
             .as_object()
             .unwrap()
@@ -743,7 +739,11 @@ async fn mcp_server_simple_mode_hides_coordination_tools_and_reports_features() 
         .await
         .unwrap();
     let response = response_json(client.receive().await.unwrap());
-    assert_eq!(response["error"]["message"], "tool not found");
+    assert_eq!(response["error"]["message"], "prism query failed");
+    assert_eq!(
+        response["error"]["data"]["error"],
+        "coordination workflow mutations are disabled by the PRISM MCP server feature flags"
+    );
 
     running.cancel().await.unwrap();
 }
@@ -810,10 +810,13 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
     client
         .send(call_tool_request(
             2,
-            "prism_coordination",
+            "prism_mutate",
             json!({
-                "kind": "plan_create",
-                "payload": { "goal": "Coordinate the main edit" }
+                "action": "coordination",
+                "input": {
+                    "kind": "plan_create",
+                    "payload": { "goal": "Coordinate the main edit" }
+                }
             })
             .as_object()
             .unwrap()
@@ -822,23 +825,26 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
         .await
         .unwrap();
     let plan = first_tool_content_json(client.receive().await.unwrap());
-    let plan_id = plan["state"]["id"].as_str().unwrap().to_string();
+    let plan_id = plan["result"]["state"]["id"].as_str().unwrap().to_string();
 
     client
         .send(call_tool_request(
             3,
-            "prism_coordination",
+            "prism_mutate",
             json!({
-                "kind": "task_create",
-                "payload": {
-                    "planId": plan_id,
-                    "title": "Edit main",
-                    "anchors": [{
-                        "type": "node",
-                        "crateName": "demo",
-                        "path": "demo::main",
-                        "kind": "function"
-                    }]
+                "action": "coordination",
+                "input": {
+                    "kind": "task_create",
+                    "payload": {
+                        "planId": plan_id,
+                        "title": "Edit main",
+                        "anchors": [{
+                            "type": "node",
+                            "crateName": "demo",
+                            "path": "demo::main",
+                            "kind": "function"
+                        }]
+                    }
                 }
             })
             .as_object()
@@ -848,24 +854,27 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
         .await
         .unwrap();
     let task = first_tool_content_json(client.receive().await.unwrap());
-    let task_id = task["state"]["id"].as_str().unwrap().to_string();
+    let task_id = task["result"]["state"]["id"].as_str().unwrap().to_string();
 
     client
         .send(call_tool_request(
             4,
-            "prism_claim",
+            "prism_mutate",
             json!({
-                "action": "acquire",
-                "payload": {
-                    "anchors": [{
-                        "type": "node",
-                        "crateName": "demo",
-                        "path": "demo::main",
-                        "kind": "function"
-                    }],
-                    "capability": "Edit",
-                    "mode": "SoftExclusive",
-                    "coordinationTaskId": task_id
+                "action": "claim",
+                "input": {
+                    "action": "acquire",
+                    "payload": {
+                        "anchors": [{
+                            "type": "node",
+                            "crateName": "demo",
+                            "path": "demo::main",
+                            "kind": "function"
+                        }],
+                        "capability": "Edit",
+                        "mode": "SoftExclusive",
+                        "coordinationTaskId": task_id
+                    }
                 }
             })
             .as_object()
@@ -875,17 +884,20 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
         .await
         .unwrap();
     let claim = first_tool_content_json(client.receive().await.unwrap());
-    assert!(claim["claimId"].as_str().is_some());
+    assert!(claim["result"]["claimId"].as_str().is_some());
 
     client
         .send(call_tool_request(
             5,
-            "prism_artifact",
+            "prism_mutate",
             json!({
-                "action": "propose",
-                "payload": {
-                    "taskId": task["state"]["id"].as_str().unwrap(),
-                    "diffRef": "patch:1"
+                "action": "artifact",
+                "input": {
+                    "action": "propose",
+                    "payload": {
+                        "taskId": task["result"]["state"]["id"].as_str().unwrap(),
+                        "diffRef": "patch:1"
+                    }
                 }
             })
             .as_object()
@@ -895,8 +907,8 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
         .await
         .unwrap();
     let artifact = first_tool_content_json(client.receive().await.unwrap());
-    assert!(artifact["artifactId"].as_str().is_some());
-    let artifact_id = artifact["artifactId"].as_str().unwrap().to_string();
+    assert!(artifact["result"]["artifactId"].as_str().is_some());
+    let artifact_id = artifact["result"]["artifactId"].as_str().unwrap().to_string();
 
     client
         .send(call_tool_request(
@@ -944,7 +956,7 @@ return {{
     assert!(envelope["result"]["taskRisk"]["riskScore"].is_number());
     assert_eq!(
         envelope["result"]["artifactRisk"]["artifactId"],
-        artifact["artifactId"]
+        artifact["result"]["artifactId"]
     );
 
     running.cancel().await.unwrap();
@@ -1061,12 +1073,15 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
     client
         .send(call_tool_request(
             2,
-            "prism_coordination",
+            "prism_mutate",
             json!({
-                "kind": "plan_create",
-                "payload": {
-                    "goal": "Review-gated change",
-                    "policy": { "requireReviewForCompletion": true }
+                "action": "coordination",
+                "input": {
+                    "kind": "plan_create",
+                    "payload": {
+                        "goal": "Review-gated change",
+                        "policy": { "requireReviewForCompletion": true }
+                    }
                 }
             })
             .as_object()
@@ -1076,23 +1091,26 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
         .await
         .unwrap();
     let plan = first_tool_content_json(client.receive().await.unwrap());
-    let plan_id = plan["state"]["id"].as_str().unwrap().to_string();
+    let plan_id = plan["result"]["state"]["id"].as_str().unwrap().to_string();
 
     client
         .send(call_tool_request(
             3,
-            "prism_coordination",
+            "prism_mutate",
             json!({
-                "kind": "task_create",
-                "payload": {
-                    "planId": plan_id,
-                    "title": "Patch main",
-                    "anchors": [{
-                        "type": "node",
-                        "crateName": "demo",
-                        "path": "demo::main",
-                        "kind": "function"
-                    }]
+                "action": "coordination",
+                "input": {
+                    "kind": "task_create",
+                    "payload": {
+                        "planId": plan_id,
+                        "title": "Patch main",
+                        "anchors": [{
+                            "type": "node",
+                            "crateName": "demo",
+                            "path": "demo::main",
+                            "kind": "function"
+                        }]
+                    }
                 }
             })
             .as_object()
@@ -1102,17 +1120,20 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
         .await
         .unwrap();
     let task = first_tool_content_json(client.receive().await.unwrap());
-    let task_id = task["state"]["id"].as_str().unwrap().to_string();
+    let task_id = task["result"]["state"]["id"].as_str().unwrap().to_string();
 
     client
         .send(call_tool_request(
             4,
-            "prism_artifact",
+            "prism_mutate",
             json!({
-                "action": "propose",
-                "payload": {
-                    "taskId": task_id,
-                    "diffRef": "patch:review-gated"
+                "action": "artifact",
+                "input": {
+                    "action": "propose",
+                    "payload": {
+                        "taskId": task_id,
+                        "diffRef": "patch:review-gated"
+                    }
                 }
             })
             .as_object()
@@ -1122,7 +1143,7 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
         .await
         .unwrap();
     let artifact = first_tool_content_json(client.receive().await.unwrap());
-    assert!(artifact["artifactId"].as_str().is_some());
+    assert!(artifact["result"]["artifactId"].as_str().is_some());
 
     client
         .send(call_tool_request(
@@ -2858,6 +2879,74 @@ return {
         .filter(|event| event.kind == OutcomeKind::PatchApplied)
         .collect::<Vec<_>>();
     assert_eq!(patch_events.len(), 1);
+}
+
+#[test]
+fn refresh_workspace_reloads_updated_persisted_notes() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let stored = host
+        .store_memory(PrismMemoryArgs {
+            action: MemoryMutationActionInput::Store,
+            payload: json!({
+                "anchors": [{
+                    "type": "node",
+                    "crateName": "demo",
+                    "path": "demo::feature::alpha",
+                    "kind": "function"
+                }],
+                "kind": "episodic",
+                "content": "alpha needs care during routing changes",
+                "trust": 0.8
+            }),
+            task_id: None,
+        })
+        .expect("note should store");
+
+    let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
+    let workspace = host
+        .workspace
+        .as_ref()
+        .expect("workspace-backed host expected");
+    let mut snapshot = workspace
+        .load_episodic_snapshot()
+        .unwrap()
+        .expect("persisted snapshot should exist");
+    let entry = snapshot
+        .entries
+        .iter_mut()
+        .find(|candidate| candidate.id.0 == stored.memory_id)
+        .expect("stored note should be persisted");
+    entry.anchors = vec![AnchorRef::Node(beta.clone())];
+    workspace.persist_episodic(&snapshot).unwrap();
+
+    let result = host
+        .execute(
+            r#"
+const sym = prism.symbol("beta");
+return prism.memory.recall({
+  focus: sym ? [sym] : [],
+  text: "routing changes",
+  limit: 5,
+});
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("memory recall should succeed after snapshot reload");
+
+    let entry = host
+        .session
+        .notes
+        .entry(&MemoryId(stored.memory_id.clone()))
+        .expect("stored note should remain in session memory");
+    assert!(entry.anchors.contains(&AnchorRef::Node(beta)));
+
+    assert_eq!(result.result.as_array().unwrap().len(), 1);
+    assert_eq!(
+        result.result[0]["entry"]["content"],
+        "alpha needs care during routing changes"
+    );
 }
 
 #[test]

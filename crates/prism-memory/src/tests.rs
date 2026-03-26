@@ -6,6 +6,7 @@ use prism_ir::{
 use serde_json::json;
 
 use crate::{
+    common::compare_scored_memory,
     EpisodicMemory, MemoryComposite, MemoryEntry, MemoryId, MemoryKind, MemoryModule, MemorySource,
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeRecallQuery, OutcomeResult,
     RecallQuery, ScoredMemory, SemanticMemory, SessionMemory, StructuralMemory,
@@ -549,4 +550,109 @@ fn outcome_lineage_reanchor_moves_event_anchor() {
     let by_lineage = outcomes.outcomes_for(&[AnchorRef::Lineage(symbol_lineage)], 10);
     assert_eq!(by_new.len(), 1);
     assert_eq!(by_lineage.len(), 1);
+}
+
+#[test]
+fn equal_score_tie_break_prefers_trust_then_source() {
+    let mut lower_trust = MemoryEntry::new(MemoryKind::Episodic, "lower trust");
+    lower_trust.id = MemoryId("memory:1".to_string());
+    lower_trust.trust = 0.4;
+    lower_trust.source = MemorySource::User;
+    lower_trust.created_at = 100;
+
+    let mut higher_trust = MemoryEntry::new(MemoryKind::Episodic, "higher trust");
+    higher_trust.id = MemoryId("memory:2".to_string());
+    higher_trust.trust = 0.9;
+    higher_trust.source = MemorySource::Agent;
+    higher_trust.created_at = 1;
+
+    let mut system = MemoryEntry::new(MemoryKind::Episodic, "system");
+    system.id = MemoryId("memory:3".to_string());
+    system.trust = 0.8;
+    system.source = MemorySource::System;
+    system.created_at = 100;
+
+    let mut user = MemoryEntry::new(MemoryKind::Episodic, "user");
+    user.id = MemoryId("memory:4".to_string());
+    user.trust = 0.8;
+    user.source = MemorySource::User;
+    user.created_at = 1;
+
+    let mut scored = vec![
+        ScoredMemory {
+            id: lower_trust.id.clone(),
+            entry: lower_trust,
+            score: 0.75,
+            source_module: "test".to_string(),
+            explanation: None,
+        },
+        ScoredMemory {
+            id: higher_trust.id.clone(),
+            entry: higher_trust,
+            score: 0.75,
+            source_module: "test".to_string(),
+            explanation: None,
+        },
+        ScoredMemory {
+            id: system.id.clone(),
+            entry: system,
+            score: 0.70,
+            source_module: "test".to_string(),
+            explanation: None,
+        },
+        ScoredMemory {
+            id: user.id.clone(),
+            entry: user,
+            score: 0.70,
+            source_module: "test".to_string(),
+            explanation: None,
+        },
+    ];
+    scored.sort_by(compare_scored_memory);
+
+    assert_eq!(scored[0].id.0, "memory:2");
+    assert_eq!(scored[1].id.0, "memory:1");
+    assert_eq!(scored[2].id.0, "memory:4");
+    assert_eq!(scored[3].id.0, "memory:3");
+}
+
+#[test]
+fn source_bias_does_not_override_more_relevant_recall() {
+    let memory = EpisodicMemory::new();
+
+    let mut relevant_agent = MemoryEntry::new(
+        MemoryKind::Episodic,
+        "routing regression only appears under load shedding",
+    );
+    relevant_agent.anchors = vec![anchor_node("alpha")];
+    relevant_agent.source = MemorySource::Agent;
+    relevant_agent.trust = 0.6;
+    relevant_agent.created_at = 100;
+    memory.store(relevant_agent).unwrap();
+
+    let mut less_relevant_user = MemoryEntry::new(
+        MemoryKind::Episodic,
+        "routing regression note without load shedding detail",
+    );
+    less_relevant_user.anchors = vec![anchor_node("alpha")];
+    less_relevant_user.source = MemorySource::User;
+    less_relevant_user.trust = 1.0;
+    less_relevant_user.created_at = 100;
+    memory.store(less_relevant_user).unwrap();
+
+    let results = memory
+        .recall(&RecallQuery {
+            focus: vec![anchor_node("alpha")],
+            text: Some("load shedding regression".into()),
+            limit: 5,
+            kinds: Some(vec![MemoryKind::Episodic]),
+            since: None,
+        })
+        .unwrap();
+
+    assert_eq!(results.len(), 2);
+    assert!(results[0]
+        .entry
+        .content
+        .contains("only appears under load shedding"));
 }

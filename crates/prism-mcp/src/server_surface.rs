@@ -1,4 +1,3 @@
-use prism_js::SymbolView;
 use rmcp::{
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::*,
@@ -18,77 +17,61 @@ impl PrismMcpServer {
 #[tool_router]
 impl PrismMcpServer {
     #[tool(
-        description = "Create and activate a task context for subsequent mutations in this session.",
+        description = "Mutate task or session context for subsequent mutations. Read prism://session to inspect current state.",
         annotations(
-            title = "Start PRISM Task",
+            title = "Mutate PRISM Session",
             read_only_hint = false,
             destructive_hint = false,
             idempotent_hint = false
         ),
-        output_schema = rmcp::handler::server::tool::schema_for_output::<PrismStartTaskResult>()
-            .unwrap()
+        output_schema =
+            rmcp::handler::server::tool::schema_for_output::<PrismSessionMutationResult>()
+                .unwrap()
     )]
-    fn prism_start_task(
+    fn prism_session(
         &self,
-        Parameters(args): Parameters<PrismStartTaskArgs>,
+        Parameters(args): Parameters<PrismSessionArgs>,
     ) -> Result<CallToolResult, McpError> {
-        if args.description.trim().is_empty() {
-            return Err(McpError::invalid_params(
-                "task description cannot be empty",
-                Some(json!({ "field": "description" })),
-            ));
-        }
+        match args {
+            PrismSessionArgs::StartTask(args) => {
+                if args.description.trim().is_empty() {
+                    return Err(McpError::invalid_params(
+                        "task description cannot be empty",
+                        Some(json!({ "field": "input.description" })),
+                    ));
+                }
 
-        let task = self
-            .host
-            .start_task(args.description, args.tags.unwrap_or_default())
-            .map_err(map_query_error)?;
-        let task_id = task.0.to_string();
-        structured_tool_result_with_links(
-            PrismStartTaskResult {
-                task_id: task_id.clone(),
-            },
-            vec![session_resource_link(), task_resource_link(&task_id)],
-        )
-    }
-
-    #[tool(
-        description = "Inspect the current MCP session state, including workspace root, active task, and runtime limits.",
-        annotations(title = "Get PRISM Session", read_only_hint = true),
-        output_schema = rmcp::handler::server::tool::schema_for_output::<SessionView>().unwrap()
-    )]
-    fn prism_get_session(
-        &self,
-        Parameters(_args): Parameters<PrismGetSessionArgs>,
-    ) -> Result<CallToolResult, McpError> {
-        let session = self.host.session_view().map_err(map_query_error)?;
-        let mut links = vec![session_resource_link()];
-        if let Some(task) = &session.current_task {
-            links.push(task_resource_link(&task.task_id));
+                let task = self
+                    .host
+                    .start_task(args.description, args.tags.unwrap_or_default())
+                    .map_err(map_query_error)?;
+                let task_id = task.0.to_string();
+                let session = self.host.session_view().map_err(map_query_error)?;
+                structured_tool_result_with_links(
+                    PrismSessionMutationResult {
+                        action: SessionMutationActionSchema::StartTask,
+                        task_id: Some(task_id.clone()),
+                        session,
+                    },
+                    vec![session_resource_link(), task_resource_link(&task_id)],
+                )
+            }
+            PrismSessionArgs::Configure(args) => {
+                let session = self.host.configure_session(args).map_err(map_query_error)?;
+                let mut links = vec![session_resource_link()];
+                if let Some(task) = &session.current_task {
+                    links.push(task_resource_link(&task.task_id));
+                }
+                structured_tool_result_with_links(
+                    PrismSessionMutationResult {
+                        action: SessionMutationActionSchema::Configure,
+                        task_id: session.current_task.as_ref().map(|task| task.task_id.clone()),
+                        session,
+                    },
+                    links,
+                )
+            }
         }
-        structured_tool_result_with_links(session, links)
-    }
-
-    #[tool(
-        description = "Configure session-scoped limits and the active task context for subsequent mutations.",
-        annotations(
-            title = "Configure PRISM Session",
-            read_only_hint = false,
-            destructive_hint = false,
-            idempotent_hint = false
-        ),
-        output_schema = rmcp::handler::server::tool::schema_for_output::<SessionView>().unwrap()
-    )]
-    fn prism_configure_session(
-        &self,
-        Parameters(args): Parameters<PrismConfigureSessionArgs>,
-    ) -> Result<CallToolResult, McpError> {
-        let session = self.host.configure_session(args).map_err(map_query_error)?;
-        let mut links = vec![session_resource_link()];
-        if let Some(task) = &session.current_task {
-            links.push(task_resource_link(&task.task_id));
-        }
-        structured_tool_result_with_links(session, links)
     }
 
     #[tool(
@@ -118,407 +101,237 @@ impl PrismMcpServer {
     }
 
     #[tool(
-        description = "Convenience lookup for the best matching symbol. Returns the same structured query envelope as prism_query.",
-        annotations(title = "Lookup PRISM Symbol", read_only_hint = true),
-        output_schema = rmcp::handler::server::tool::schema_for_output::<QueryEnvelopeSchema>()
+        description = "Execute a coarse PRISM mutation. Use the tagged action union for outcomes, memory, inferred edges, coordination, claims, artifacts, and curator decisions.",
+        annotations(
+            title = "Mutate PRISM State",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false
+        ),
+        output_schema = rmcp::handler::server::tool::schema_for_output::<PrismMutationResult>()
             .unwrap()
     )]
-    fn prism_symbol(
+    fn prism_mutate(
         &self,
-        Parameters(args): Parameters<PrismSymbolArgs>,
+        Parameters(args): Parameters<PrismMutationArgs>,
     ) -> Result<CallToolResult, McpError> {
-        if args.query.trim().is_empty() {
-            return Err(McpError::invalid_params(
-                "query cannot be empty",
-                Some(json!({ "field": "query" })),
-            ));
-        }
-
-        let envelope = self
-            .host
-            .symbol_query(&args.query)
-            .map_err(map_query_error)?;
-        let links = serde_json::from_value::<Option<SymbolView>>(envelope.result.clone())
-            .ok()
-            .flatten()
-            .map(|symbol| symbol_links(&symbol))
-            .unwrap_or_default();
-        structured_tool_result_with_links(envelope, links)
-    }
-
-    #[tool(
-        description = "Convenience search lookup. Returns the same structured query envelope as prism_query.",
-        annotations(title = "Search PRISM Graph", read_only_hint = true),
-        output_schema = rmcp::handler::server::tool::schema_for_output::<QueryEnvelopeSchema>()
-            .unwrap()
-    )]
-    fn prism_search(
-        &self,
-        Parameters(args): Parameters<PrismSearchArgs>,
-    ) -> Result<CallToolResult, McpError> {
-        if args.query.trim().is_empty() {
-            return Err(McpError::invalid_params(
-                "query cannot be empty",
-                Some(json!({ "field": "query" })),
-            ));
-        }
-
-        let query = args.query.clone();
-        let envelope = self
-            .host
-            .search_query(SearchArgs {
-                query: query.clone(),
-                limit: args.limit,
-                kind: args.kind,
-                path: args.path,
-                include_inferred: None,
-            })
-            .map_err(map_query_error)?;
-        let mut links = vec![search_resource_link(&query)];
-        if let Ok(symbols) = serde_json::from_value::<Vec<SymbolView>>(envelope.result.clone()) {
-            for symbol in symbols.iter().take(8) {
-                links.push(symbol_resource_link(symbol));
+        match args {
+            PrismMutationArgs::Outcome(args) => {
+                let result = self.host.store_outcome(args).map_err(map_query_error)?;
+                structured_tool_result_with_links(
+                    PrismMutationResult {
+                        action: PrismMutationActionSchema::Outcome,
+                        result: serde_json::to_value(result.clone())
+                            .map_err(|err| map_query_error(err.into()))?,
+                    },
+                    vec![
+                        event_resource_link(&result.event_id),
+                        task_resource_link(&result.task_id),
+                    ],
+                )
+            }
+            PrismMutationArgs::Memory(args) => {
+                let result = self.host.store_memory(args).map_err(map_query_error)?;
+                structured_tool_result_with_links(
+                    PrismMutationResult {
+                        action: PrismMutationActionSchema::Memory,
+                        result: serde_json::to_value(result.clone())
+                            .map_err(|err| map_query_error(err.into()))?,
+                    },
+                    vec![
+                        memory_resource_link(&result.memory_id),
+                        task_resource_link(&result.task_id),
+                    ],
+                )
+            }
+            PrismMutationArgs::InferEdge(args) => {
+                let result = self
+                    .host
+                    .store_inferred_edge(args)
+                    .map_err(map_query_error)?;
+                structured_tool_result_with_links(
+                    PrismMutationResult {
+                        action: PrismMutationActionSchema::InferEdge,
+                        result: serde_json::to_value(result.clone())
+                            .map_err(|err| map_query_error(err.into()))?,
+                    },
+                    vec![
+                        edge_resource_link(&result.edge_id),
+                        task_resource_link(&result.task_id),
+                    ],
+                )
+            }
+            PrismMutationArgs::Coordination(args) => {
+                let result = self
+                    .host
+                    .store_coordination(args)
+                    .map_err(map_query_error)?;
+                structured_tool_result(PrismMutationResult {
+                    action: PrismMutationActionSchema::Coordination,
+                    result: serde_json::to_value(result)
+                        .map_err(|err| map_query_error(err.into()))?,
+                })
+            }
+            PrismMutationArgs::Claim(args) => {
+                let result = self.host.store_claim(args).map_err(map_query_error)?;
+                structured_tool_result(PrismMutationResult {
+                    action: PrismMutationActionSchema::Claim,
+                    result: serde_json::to_value(result)
+                        .map_err(|err| map_query_error(err.into()))?,
+                })
+            }
+            PrismMutationArgs::Artifact(args) => {
+                let result = self.host.store_artifact(args).map_err(map_query_error)?;
+                structured_tool_result(PrismMutationResult {
+                    action: PrismMutationActionSchema::Artifact,
+                    result: serde_json::to_value(result)
+                        .map_err(|err| map_query_error(err.into()))?,
+                })
+            }
+            PrismMutationArgs::TestRan(args) => {
+                let summary = format!(
+                    "test `{}` {}",
+                    args.test,
+                    if args.passed { "passed" } else { "failed" }
+                );
+                let result = self
+                    .host
+                    .store_outcome(PrismOutcomeArgs {
+                        kind: OutcomeKindInput::TestRan,
+                        anchors: args.anchors,
+                        summary,
+                        result: Some(if args.passed {
+                            OutcomeResultInput::Success
+                        } else {
+                            OutcomeResultInput::Failure
+                        }),
+                        evidence: Some(vec![OutcomeEvidenceInput::Test {
+                            name: args.test,
+                            passed: args.passed,
+                        }]),
+                        task_id: args.task_id,
+                    })
+                    .map_err(map_query_error)?;
+                structured_tool_result_with_links(
+                    PrismMutationResult {
+                        action: PrismMutationActionSchema::TestRan,
+                        result: serde_json::to_value(result.clone())
+                            .map_err(|err| map_query_error(err.into()))?,
+                    },
+                    vec![
+                        event_resource_link(&result.event_id),
+                        task_resource_link(&result.task_id),
+                    ],
+                )
+            }
+            PrismMutationArgs::FailureObserved(args) => {
+                let evidence = args
+                    .trace
+                    .map(|trace| vec![OutcomeEvidenceInput::StackTrace { hash: trace }]);
+                let result = self
+                    .host
+                    .store_outcome(PrismOutcomeArgs {
+                        kind: OutcomeKindInput::FailureObserved,
+                        anchors: args.anchors,
+                        summary: args.summary,
+                        result: Some(OutcomeResultInput::Failure),
+                        evidence,
+                        task_id: args.task_id,
+                    })
+                    .map_err(map_query_error)?;
+                structured_tool_result_with_links(
+                    PrismMutationResult {
+                        action: PrismMutationActionSchema::FailureObserved,
+                        result: serde_json::to_value(result.clone())
+                            .map_err(|err| map_query_error(err.into()))?,
+                    },
+                    vec![
+                        event_resource_link(&result.event_id),
+                        task_resource_link(&result.task_id),
+                    ],
+                )
+            }
+            PrismMutationArgs::FixValidated(args) => {
+                let result = self
+                    .host
+                    .store_outcome(PrismOutcomeArgs {
+                        kind: OutcomeKindInput::FixValidated,
+                        anchors: args.anchors,
+                        summary: args.summary,
+                        result: Some(OutcomeResultInput::Success),
+                        evidence: None,
+                        task_id: args.task_id,
+                    })
+                    .map_err(map_query_error)?;
+                structured_tool_result_with_links(
+                    PrismMutationResult {
+                        action: PrismMutationActionSchema::FixValidated,
+                        result: serde_json::to_value(result.clone())
+                            .map_err(|err| map_query_error(err.into()))?,
+                    },
+                    vec![
+                        event_resource_link(&result.event_id),
+                        task_resource_link(&result.task_id),
+                    ],
+                )
+            }
+            PrismMutationArgs::CuratorPromoteEdge(args) => {
+                let result = self
+                    .host
+                    .promote_curator_edge(args)
+                    .map_err(map_query_error)?;
+                let mut links = vec![session_resource_link()];
+                if let Some(memory_id) = &result.memory_id {
+                    links.push(memory_resource_link(memory_id));
+                }
+                if let Some(edge_id) = &result.edge_id {
+                    links.push(edge_resource_link(edge_id));
+                }
+                structured_tool_result_with_links(
+                    PrismMutationResult {
+                        action: PrismMutationActionSchema::CuratorPromoteEdge,
+                        result: serde_json::to_value(result)
+                            .map_err(|err| map_query_error(err.into()))?,
+                    },
+                    links,
+                )
+            }
+            PrismMutationArgs::CuratorPromoteMemory(args) => {
+                let result = self
+                    .host
+                    .promote_curator_memory(args)
+                    .map_err(map_query_error)?;
+                let mut links = vec![session_resource_link()];
+                if let Some(memory_id) = &result.memory_id {
+                    links.push(memory_resource_link(memory_id));
+                }
+                if let Some(edge_id) = &result.edge_id {
+                    links.push(edge_resource_link(edge_id));
+                }
+                structured_tool_result_with_links(
+                    PrismMutationResult {
+                        action: PrismMutationActionSchema::CuratorPromoteMemory,
+                        result: serde_json::to_value(result)
+                            .map_err(|err| map_query_error(err.into()))?,
+                    },
+                    links,
+                )
+            }
+            PrismMutationArgs::CuratorRejectProposal(args) => {
+                let result = self
+                    .host
+                    .reject_curator_proposal(args)
+                    .map_err(map_query_error)?;
+                structured_tool_result_with_links(
+                    PrismMutationResult {
+                        action: PrismMutationActionSchema::CuratorRejectProposal,
+                        result: serde_json::to_value(result)
+                            .map_err(|err| map_query_error(err.into()))?,
+                    },
+                    vec![session_resource_link()],
+                )
             }
         }
-        structured_tool_result_with_links(envelope, links)
-    }
-
-    #[tool(
-        description = "Write a structured outcome event for the current task or symbol anchors.",
-        annotations(
-            title = "Record Outcome Event",
-            read_only_hint = false,
-            destructive_hint = false,
-            idempotent_hint = false
-        ),
-        output_schema = rmcp::handler::server::tool::schema_for_output::<EventMutationResult>()
-            .unwrap()
-    )]
-    fn prism_outcome(
-        &self,
-        Parameters(args): Parameters<PrismOutcomeArgs>,
-    ) -> Result<CallToolResult, McpError> {
-        let result = self.host.store_outcome(args).map_err(map_query_error)?;
-        structured_tool_result_with_links(
-            result.clone(),
-            vec![
-                event_resource_link(&result.event_id),
-                task_resource_link(&result.task_id),
-            ],
-        )
-    }
-
-    #[tool(
-        description = "Write anchored memory through a coarse action-based mutation tool.",
-        annotations(
-            title = "Mutate PRISM Memory",
-            read_only_hint = false,
-            destructive_hint = false,
-            idempotent_hint = false
-        ),
-        output_schema = rmcp::handler::server::tool::schema_for_output::<MemoryMutationResult>()
-            .unwrap()
-    )]
-    fn prism_memory(
-        &self,
-        Parameters(args): Parameters<PrismMemoryArgs>,
-    ) -> Result<CallToolResult, McpError> {
-        let result = self.host.store_memory(args).map_err(map_query_error)?;
-        structured_tool_result_with_links(
-            result.clone(),
-            vec![
-                memory_resource_link(&result.memory_id),
-                task_resource_link(&result.task_id),
-            ],
-        )
-    }
-
-    #[tool(
-        description = "Persist an inferred edge into the session overlay or a promoted scope.",
-        annotations(
-            title = "Store Inferred Edge",
-            read_only_hint = false,
-            destructive_hint = false,
-            idempotent_hint = false
-        ),
-        output_schema = rmcp::handler::server::tool::schema_for_output::<EdgeMutationResult>()
-            .unwrap()
-    )]
-    fn prism_infer_edge(
-        &self,
-        Parameters(args): Parameters<PrismInferEdgeArgs>,
-    ) -> Result<CallToolResult, McpError> {
-        let result = self
-            .host
-            .store_inferred_edge(args)
-            .map_err(map_query_error)?;
-        structured_tool_result_with_links(
-            result.clone(),
-            vec![
-                edge_resource_link(&result.edge_id),
-                task_resource_link(&result.task_id),
-            ],
-        )
-    }
-
-    #[tool(
-        description = "Mutate shared coordination state for plans, tasks, plan lifecycle, and handoffs.",
-        annotations(
-            title = "Mutate Coordination State",
-            read_only_hint = false,
-            destructive_hint = false,
-            idempotent_hint = false
-        ),
-        output_schema = rmcp::handler::server::tool::schema_for_output::<CoordinationMutationResult>()
-            .unwrap()
-    )]
-    fn prism_coordination(
-        &self,
-        Parameters(args): Parameters<PrismCoordinationArgs>,
-    ) -> Result<CallToolResult, McpError> {
-        let result = self
-            .host
-            .store_coordination(args)
-            .map_err(map_query_error)?;
-        structured_tool_result(result)
-    }
-
-    #[tool(
-        description = "Acquire, renew, or release shared work claims.",
-        annotations(
-            title = "Mutate Claims",
-            read_only_hint = false,
-            destructive_hint = false,
-            idempotent_hint = false
-        ),
-        output_schema = rmcp::handler::server::tool::schema_for_output::<ClaimMutationResult>()
-            .unwrap()
-    )]
-    fn prism_claim(
-        &self,
-        Parameters(args): Parameters<PrismClaimArgs>,
-    ) -> Result<CallToolResult, McpError> {
-        let result = self.host.store_claim(args).map_err(map_query_error)?;
-        structured_tool_result(result)
-    }
-
-    #[tool(
-        description = "Propose, supersede, or review shared artifacts.",
-        annotations(
-            title = "Mutate Artifacts",
-            read_only_hint = false,
-            destructive_hint = false,
-            idempotent_hint = false
-        ),
-        output_schema = rmcp::handler::server::tool::schema_for_output::<ArtifactMutationResult>()
-            .unwrap()
-    )]
-    fn prism_artifact(
-        &self,
-        Parameters(args): Parameters<PrismArtifactArgs>,
-    ) -> Result<CallToolResult, McpError> {
-        let result = self.host.store_artifact(args).map_err(map_query_error)?;
-        structured_tool_result(result)
-    }
-
-    #[tool(
-        description = "Convenience outcome for a test run.",
-        annotations(
-            title = "Record Test Run",
-            read_only_hint = false,
-            destructive_hint = false,
-            idempotent_hint = false
-        ),
-        output_schema = rmcp::handler::server::tool::schema_for_output::<EventMutationResult>()
-            .unwrap()
-    )]
-    fn prism_test_ran(
-        &self,
-        Parameters(args): Parameters<PrismTestRanArgs>,
-    ) -> Result<CallToolResult, McpError> {
-        let summary = format!(
-            "test `{}` {}",
-            args.test,
-            if args.passed { "passed" } else { "failed" }
-        );
-        let result = self
-            .host
-            .store_outcome(PrismOutcomeArgs {
-                kind: OutcomeKindInput::TestRan,
-                anchors: args.anchors,
-                summary,
-                result: Some(if args.passed {
-                    OutcomeResultInput::Success
-                } else {
-                    OutcomeResultInput::Failure
-                }),
-                evidence: Some(vec![OutcomeEvidenceInput::Test {
-                    name: args.test,
-                    passed: args.passed,
-                }]),
-                task_id: args.task_id,
-            })
-            .map_err(map_query_error)?;
-        structured_tool_result_with_links(
-            result.clone(),
-            vec![
-                event_resource_link(&result.event_id),
-                task_resource_link(&result.task_id),
-            ],
-        )
-    }
-
-    #[tool(
-        description = "Convenience outcome for an observed failure.",
-        annotations(
-            title = "Record Observed Failure",
-            read_only_hint = false,
-            destructive_hint = false,
-            idempotent_hint = false
-        ),
-        output_schema = rmcp::handler::server::tool::schema_for_output::<EventMutationResult>()
-            .unwrap()
-    )]
-    fn prism_failure_observed(
-        &self,
-        Parameters(args): Parameters<PrismFailureObservedArgs>,
-    ) -> Result<CallToolResult, McpError> {
-        let evidence = args
-            .trace
-            .map(|trace| vec![OutcomeEvidenceInput::StackTrace { hash: trace }]);
-        let result = self
-            .host
-            .store_outcome(PrismOutcomeArgs {
-                kind: OutcomeKindInput::FailureObserved,
-                anchors: args.anchors,
-                summary: args.summary,
-                result: Some(OutcomeResultInput::Failure),
-                evidence,
-                task_id: args.task_id,
-            })
-            .map_err(map_query_error)?;
-        structured_tool_result_with_links(
-            result.clone(),
-            vec![
-                event_resource_link(&result.event_id),
-                task_resource_link(&result.task_id),
-            ],
-        )
-    }
-
-    #[tool(
-        description = "Convenience outcome for a validated fix.",
-        annotations(
-            title = "Record Validated Fix",
-            read_only_hint = false,
-            destructive_hint = false,
-            idempotent_hint = false
-        ),
-        output_schema = rmcp::handler::server::tool::schema_for_output::<EventMutationResult>()
-            .unwrap()
-    )]
-    fn prism_fix_validated(
-        &self,
-        Parameters(args): Parameters<PrismFixValidatedArgs>,
-    ) -> Result<CallToolResult, McpError> {
-        let result = self
-            .host
-            .store_outcome(PrismOutcomeArgs {
-                kind: OutcomeKindInput::FixValidated,
-                anchors: args.anchors,
-                summary: args.summary,
-                result: Some(OutcomeResultInput::Success),
-                evidence: None,
-                task_id: args.task_id,
-            })
-            .map_err(map_query_error)?;
-        structured_tool_result_with_links(
-            result.clone(),
-            vec![
-                event_resource_link(&result.event_id),
-                task_resource_link(&result.task_id),
-            ],
-        )
-    }
-
-    #[tool(
-        description = "Promote a completed curator inferred-edge proposal into the session overlay or persisted inference store.",
-        annotations(
-            title = "Promote Curator Edge",
-            read_only_hint = false,
-            destructive_hint = false,
-            idempotent_hint = false
-        ),
-        output_schema = rmcp::handler::server::tool::schema_for_output::<CuratorProposalDecisionResult>()
-            .unwrap()
-    )]
-    fn prism_curator_promote_edge(
-        &self,
-        Parameters(args): Parameters<PrismCuratorPromoteEdgeArgs>,
-    ) -> Result<CallToolResult, McpError> {
-        let result = self
-            .host
-            .promote_curator_edge(args)
-            .map_err(map_query_error)?;
-        let mut links = vec![session_resource_link()];
-        if let Some(memory_id) = &result.memory_id {
-            links.push(memory_resource_link(memory_id));
-        }
-        if let Some(edge_id) = &result.edge_id {
-            links.push(edge_resource_link(edge_id));
-        }
-        structured_tool_result_with_links(result, links)
-    }
-
-    #[tool(
-        description = "Promote a completed curator structural-memory, risk-summary, or validation-recipe proposal into durable PRISM memory.",
-        annotations(
-            title = "Promote Curator Memory",
-            read_only_hint = false,
-            destructive_hint = false,
-            idempotent_hint = false
-        ),
-        output_schema = rmcp::handler::server::tool::schema_for_output::<CuratorProposalDecisionResult>()
-            .unwrap()
-    )]
-    fn prism_curator_promote_memory(
-        &self,
-        Parameters(args): Parameters<PrismCuratorPromoteMemoryArgs>,
-    ) -> Result<CallToolResult, McpError> {
-        let result = self
-            .host
-            .promote_curator_memory(args)
-            .map_err(map_query_error)?;
-        let mut links = vec![session_resource_link()];
-        if let Some(memory_id) = &result.memory_id {
-            links.push(memory_resource_link(memory_id));
-        }
-        if let Some(edge_id) = &result.edge_id {
-            links.push(edge_resource_link(edge_id));
-        }
-        structured_tool_result_with_links(result, links)
-    }
-
-    #[tool(
-        description = "Reject a curator proposal without mutating the graph. Use this for risk summaries, validation recipes, or inferred edges you do not want to apply.",
-        annotations(
-            title = "Reject Curator Proposal",
-            read_only_hint = false,
-            destructive_hint = false,
-            idempotent_hint = false
-        ),
-        output_schema = rmcp::handler::server::tool::schema_for_output::<CuratorProposalDecisionResult>()
-            .unwrap()
-    )]
-    fn prism_curator_reject_proposal(
-        &self,
-        Parameters(args): Parameters<PrismCuratorRejectProposalArgs>,
-    ) -> Result<CallToolResult, McpError> {
-        let result = self
-            .host
-            .reject_curator_proposal(args)
-            .map_err(map_query_error)?;
-        structured_tool_result_with_links(result, vec![session_resource_link()])
     }
 }
 
@@ -909,7 +722,7 @@ impl ServerHandler for PrismMcpServer {
 impl PrismMcpServer {
     fn server_instructions(&self) -> String {
         let mut instructions = String::from(
-            "Start with prism://api-reference for the typed query contract and prism://schemas for the JSON Schema catalog. Use prism_get_session or prism://session to inspect the active workspace, task, runtime limits, and active feature flags, prism_configure_session to change task context or limits, prism_query for programmable read-only graph queries, prism_symbol or prism_search for direct lookups, prism://entrypoints for a quick workspace overview, prism://search/{query} for browseable search results, prism://symbol/{crateName}/{kind}/{path} for exact symbol snapshots, prism://lineage/{lineageId} for symbol history, prism://task/{taskId} for recorded task outcomes, prism://event/{eventId}, prism://memory/{memoryId}, and prism://edge/{edgeId} for mutation outputs. Follow each resource payload's schemaUri and relatedResources fields instead of reconstructing URIs by convention. Use the available prism_* mutation tools to record outcomes, anchored memory, inferred edges, task context, and curator proposal decisions.",
+            "Start with prism://api-reference for the typed query contract and prism://schemas for the JSON Schema catalog. Use prism://session to inspect the active workspace, task, runtime limits, and active feature flags, prism_session to change task context or limits, prism_query for programmable read-only graph queries, prism://entrypoints for a quick workspace overview, prism://search/{query} for browseable search results, prism://symbol/{crateName}/{kind}/{path} for exact symbol snapshots, prism://lineage/{lineageId} for symbol history, prism://task/{taskId} for recorded task outcomes, and prism://event/{eventId}, prism://memory/{memoryId}, and prism://edge/{edgeId} for mutation outputs. Follow each resource payload's schemaUri and relatedResources fields instead of reconstructing URIs by convention. Use prism_mutate for outcomes, anchored memory, inferred edges, coordination state, claims, artifacts, and curator proposal decisions.",
         );
 
         if self.host.features.mode_label() != "full" {

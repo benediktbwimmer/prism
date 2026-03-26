@@ -1034,7 +1034,7 @@ impl QueryHost {
             }
             CuratorProposal::InferredEdge(_) => {
                 return Err(anyhow!(
-                    "curator proposal {} for job `{}` is an inferred edge; use prism_curator_promote_edge",
+                    "curator proposal {} for job `{}` is an inferred edge; use prism_mutate with action `curator_promote_edge`",
                     args.proposal_index,
                     args.job_id
                 ));

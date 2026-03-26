@@ -30,6 +30,7 @@ impl QueryHost {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn symbol_query(&self, query: &str) -> Result<QueryEnvelope> {
         self.refresh_workspace()?;
         let execution = QueryExecution::new(self.clone(), self.current_prism());
@@ -40,6 +41,7 @@ impl QueryHost {
         })
     }
 
+    #[cfg(test)]
     pub(crate) fn search_query(&self, args: SearchArgs) -> Result<QueryEnvelope> {
         self.refresh_workspace()?;
         let execution = QueryExecution::new(self.clone(), self.current_prism());

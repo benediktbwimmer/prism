@@ -63,6 +63,32 @@ impl SessionMemory {
         EpisodicMemorySnapshot { entries }
     }
 
+    pub fn replace_from_snapshot(&self, snapshot: EpisodicMemorySnapshot) {
+        let mut episodic_entries = Vec::new();
+        let mut structural_entries = Vec::new();
+        let mut semantic_entries = Vec::new();
+
+        for entry in snapshot.entries {
+            match entry.kind {
+                MemoryKind::Episodic => episodic_entries.push(entry),
+                MemoryKind::Structural => structural_entries.push(entry),
+                MemoryKind::Semantic => semantic_entries.push(entry),
+            }
+        }
+
+        self.episodic
+            .replace_from_snapshot(EpisodicMemorySnapshot {
+                entries: episodic_entries,
+            });
+        self.structural
+            .replace_from_snapshot(EpisodicMemorySnapshot {
+                entries: structural_entries,
+            });
+        self.semantic.replace_from_snapshot(EpisodicMemorySnapshot {
+            entries: semantic_entries,
+        });
+    }
+
     pub fn from_snapshot(snapshot: EpisodicMemorySnapshot) -> Self {
         let mut episodic_entries = Vec::new();
         let mut structural_entries = Vec::new();
@@ -98,6 +124,10 @@ impl SessionMemory {
             composite,
         }
     }
+
+    pub fn apply_lineage_events(&self, events: &[LineageEvent]) -> Result<()> {
+        self.composite.apply_lineage(events)
+    }
 }
 
 impl MemoryModule for SessionMemory {
@@ -122,6 +152,6 @@ impl MemoryModule for SessionMemory {
     }
 
     fn apply_lineage(&self, events: &[LineageEvent]) -> Result<()> {
-        self.composite.apply_lineage(events)
+        self.apply_lineage_events(events)
     }
 }

@@ -28,13 +28,16 @@ pub(crate) fn current_timestamp() -> Timestamp {
         .as_secs()
 }
 
-pub(crate) fn provenance_score(source: MemorySource, trust: f32) -> f32 {
-    let source_bias = match source {
-        MemorySource::User => 1.0,
-        MemorySource::System => 0.9,
-        MemorySource::Agent => 0.75,
-    };
-    (source_bias + clamp_unit(trust)) / 2.0
+pub(crate) fn trust_score(trust: f32) -> f32 {
+    clamp_unit(trust)
+}
+
+pub(crate) fn source_preference(source: MemorySource) -> u8 {
+    match source {
+        MemorySource::User => 3,
+        MemorySource::System => 2,
+        MemorySource::Agent => 1,
+    }
 }
 
 pub(crate) fn anchor_overlap(anchors: &[AnchorRef], focus: &[AnchorRef]) -> f32 {
@@ -64,11 +67,9 @@ pub(crate) fn compare_scored_memory(left: &ScoredMemory, right: &ScoredMemory) -
     right
         .score
         .total_cmp(&left.score)
+        .then_with(|| trust_score(right.entry.trust).total_cmp(&trust_score(left.entry.trust)))
+        .then_with(|| source_preference(right.entry.source).cmp(&source_preference(left.entry.source)))
         .then_with(|| right.entry.created_at.cmp(&left.entry.created_at))
-        .then_with(|| {
-            provenance_score(right.entry.source, right.entry.trust)
-                .total_cmp(&provenance_score(left.entry.source, left.entry.trust))
-        })
         .then_with(|| left.id.0.cmp(&right.id.0))
 }
 

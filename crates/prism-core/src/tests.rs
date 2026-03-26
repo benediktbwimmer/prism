@@ -11,15 +11,20 @@ use prism_curator::{
     CandidateRiskSummary, CuratorBackend, CuratorContext, CuratorJob, CuratorProposal, CuratorRun,
 };
 use prism_ir::{
-    AnchorRef, EdgeKind, EventActor, EventId, EventMeta, GraphChange, NodeId, NodeKind, TaskId,
+    AnchorRef, EdgeKind, EventActor, EventId, EventMeta, GraphChange, LineageEvent,
+    LineageEventKind, LineageEvidence, LineageId, NodeId, NodeKind, TaskId,
 };
-use prism_memory::{OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult};
-use prism_store::MemoryStore;
+use prism_memory::{
+    EpisodicMemorySnapshot, MemoryEntry, MemoryKind, MemoryModule, OutcomeEvent, OutcomeEvidence,
+    OutcomeKind, OutcomeResult, SessionMemory,
+};
+use prism_store::{MemoryStore, Store};
 
 use super::{
     index_workspace, index_workspace_session, index_workspace_session_with_curator,
     index_workspace_session_with_options, WorkspaceIndexer, WorkspaceSessionOptions,
 };
+use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 
 static NEXT_TEMP_WORKSPACE: AtomicU64 = AtomicU64::new(0);
 
@@ -107,6 +112,54 @@ fn reindexes_incrementally_across_file_changes() {
         .all(|edge| edge.kind != EdgeKind::Calls));
 
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn reanchors_persisted_memory_snapshot_from_lineage_events() {
+    let old = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    let new = NodeId::new("demo", "demo::renamed_alpha", NodeKind::Function);
+    let lineage = LineageId::new("lineage:alpha");
+
+    let memory = SessionMemory::new();
+    let mut entry = MemoryEntry::new(MemoryKind::Episodic, "alpha needs care during edits");
+    entry.anchors = vec![AnchorRef::Node(old.clone())];
+    memory.store(entry).unwrap();
+
+    let mut store = MemoryStore::default();
+    store
+        .save_episodic_snapshot(&EpisodicMemorySnapshot {
+            entries: memory.snapshot().entries,
+        })
+        .unwrap();
+
+    reanchor_persisted_memory_snapshot(
+        &mut store,
+        &[LineageEvent {
+            meta: EventMeta {
+                id: EventId::new("lineage:1"),
+                ts: 1,
+                actor: EventActor::System,
+                correlation: None,
+                causation: None,
+            },
+            lineage: lineage.clone(),
+            kind: LineageEventKind::Renamed,
+            before: vec![old],
+            after: vec![new.clone()],
+            confidence: 1.0,
+            evidence: vec![LineageEvidence::BodyHashMatch],
+        }],
+    )
+    .unwrap();
+
+    let snapshot = store.load_episodic_snapshot().unwrap().unwrap();
+    assert_eq!(snapshot.entries.len(), 1);
+    assert!(snapshot.entries[0]
+        .anchors
+        .contains(&AnchorRef::Node(new.clone())));
+    assert!(snapshot.entries[0]
+        .anchors
+        .contains(&AnchorRef::Lineage(lineage)));
 }
 
 #[test]

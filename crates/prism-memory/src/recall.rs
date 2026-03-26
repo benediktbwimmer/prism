@@ -1,5 +1,5 @@
 use crate::common::{
-    anchor_overlap, clamp_unit, compare_scored_memory, provenance_score, recency_score,
+    anchor_overlap, clamp_unit, compare_scored_memory, recency_score, trust_score,
 };
 use crate::types::{MemoryEntry, RecallQuery, ScoredMemory};
 
@@ -43,7 +43,7 @@ pub(crate) fn base_signals(entry: &MemoryEntry, query: &RecallQuery) -> Option<B
     Some(BaseSignals {
         overlap,
         recency: recency_score(entry.created_at),
-        provenance: provenance_score(entry.source, entry.trust),
+        trust: trust_score(entry.trust),
     })
 }
 
@@ -58,5 +58,5 @@ pub(crate) fn sort_and_limit(mut results: Vec<ScoredMemory>, limit: usize) -> Ve
 pub(crate) struct BaseSignals {
     pub overlap: f32,
     pub recency: f32,
-    pub provenance: f32,
+    pub trust: f32,
 }

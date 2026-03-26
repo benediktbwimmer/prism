@@ -83,6 +83,19 @@ impl EntryStore {
         store
     }
 
+    pub(crate) fn replace_from_snapshot(&self, snapshot: EpisodicMemorySnapshot) {
+        let mut state = self
+            .state
+            .write()
+            .expect("memory entry store lock poisoned");
+        *state = EntryState::default();
+        for entry in snapshot.entries {
+            if self.supported_kinds.contains(&entry.kind) {
+                restore_entry(&mut state, entry);
+            }
+        }
+    }
+
     pub(crate) fn store(&self, mut entry: MemoryEntry) -> Result<MemoryId> {
         if !self.supports_kind(entry.kind) {
             return Err(anyhow!(

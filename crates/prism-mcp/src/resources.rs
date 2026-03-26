@@ -337,45 +337,6 @@ pub(crate) fn task_resource_link(task_id: &str) -> RawResource {
         ))
 }
 
-pub(crate) fn search_resource_link(query: &str) -> RawResource {
-    RawResource::new(search_resource_uri(query), format!("PRISM Search: {query}"))
-        .with_description("Structured search results and diagnostics for this query")
-        .with_mime_type("application/json")
-        .with_meta(resource_meta(
-            "search",
-            Some(schema_resource_uri("search")),
-            None,
-        ))
-}
-
-pub(crate) fn symbol_resource_link(symbol: &SymbolView) -> RawResource {
-    RawResource::new(
-        symbol_resource_uri(&symbol.id),
-        format!("PRISM Symbol: {}", symbol.id.path),
-    )
-    .with_description("Exact symbol snapshot with relations, lineage, and risk context")
-    .with_mime_type("application/json")
-    .with_meta(resource_meta(
-        "symbol",
-        Some(schema_resource_uri("symbol")),
-        None,
-    ))
-}
-
-pub(crate) fn lineage_resource_link(lineage_id: &str) -> RawResource {
-    RawResource::new(
-        lineage_resource_uri(lineage_id),
-        format!("PRISM Lineage: {lineage_id}"),
-    )
-    .with_description("Structured lineage history and current nodes")
-    .with_mime_type("application/json")
-    .with_meta(resource_meta(
-        "lineage",
-        Some(schema_resource_uri("lineage")),
-        None,
-    ))
-}
-
 pub(crate) fn event_resource_link(event_id: &str) -> RawResource {
     RawResource::new(
         event_resource_uri(event_id),
@@ -522,14 +483,6 @@ pub(crate) fn symbol_resource_uri_from_node_id(id: &NodeId) -> String {
         percent_encode_component(&id.kind.to_string()),
         percent_encode_component(id.path.as_str()),
     )
-}
-
-pub(crate) fn symbol_links(symbol: &SymbolView) -> Vec<RawResource> {
-    let mut links = vec![symbol_resource_link(symbol)];
-    if let Some(lineage_id) = &symbol.lineage_id {
-        links.push(lineage_resource_link(lineage_id));
-    }
-    links
 }
 
 pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntry> {

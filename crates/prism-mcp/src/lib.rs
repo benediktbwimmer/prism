@@ -8,7 +8,7 @@ use prism_agent::InferenceStore;
 use prism_core::{index_workspace_session_with_options, WorkspaceSession, WorkspaceSessionOptions};
 use prism_ir::TaskId;
 use prism_js::{api_reference_markdown, CuratorJobView, API_REFERENCE_URI};
-use prism_memory::{OutcomeEvent, SessionMemory};
+use prism_memory::{EpisodicMemorySnapshot, OutcomeEvent, SessionMemory};
 use prism_query::{Prism, QueryLimits};
 use rmcp::{handler::server::router::tool::ToolRouter, transport::stdio, ServiceExt};
 
@@ -319,7 +319,7 @@ impl QueryHost {
         } else if args.current_task_description.is_some() || args.current_task_tags.is_some() {
             if self.session.current_task_state().is_none() {
                 return Err(anyhow!(
-                    "no active task is set; use prism_start_task or provide currentTaskId"
+                    "no active task is set; use prism_session with action `start_task` or provide currentTaskId"
                 ));
             }
             self.session.update_current_task_metadata(
@@ -348,6 +348,10 @@ impl QueryHost {
     fn refresh_workspace(&self) -> Result<()> {
         if let Some(workspace) = &self.workspace {
             let _ = workspace.refresh_fs()?;
+            let snapshot = workspace
+                .load_episodic_snapshot()?
+                .unwrap_or(EpisodicMemorySnapshot { entries: Vec::new() });
+            self.session.notes.replace_from_snapshot(snapshot);
         }
         Ok(())
     }

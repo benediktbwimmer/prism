@@ -5,10 +5,11 @@ pub fn api_reference_markdown() -> &'static str {
 
 `prism_query` executes a TypeScript snippet against a live in-memory PRISM graph.
 
-Secondary convenience MCP tools are also available for the most common lookups:
+The MCP transport surface is intentionally narrow:
 
-- `prism_symbol { query }`
-- `prism_search { query, limit?, kind?, path? }`
+- `prism_query` for all reads
+- `prism_session` for task and session-context mutations
+- `prism_mutate` for all other state changes
 
 ## Mental model
 
@@ -753,26 +754,26 @@ return prism.claimPreview({
 
 ## Separate mutation tools
 
-The query runtime is read-only. State changes happen through separate MCP tools:
+The query runtime is read-only. State changes happen through two coarse MCP mutation tools:
 
-- `prism_start_task`
-- `prism_outcome`
-- `prism_memory`
-- `prism_infer_edge`
-- `prism_coordination`
-- `prism_claim`
-- `prism_artifact`
-- `prism_curator_promote_edge`
-- `prism_curator_promote_memory`
-- `prism_curator_reject_proposal`
-- `prism_test_ran`
-- `prism_failure_observed`
-- `prism_fix_validated`
+- `prism_session`
+  - action `start_task`
+  - action `configure`
+- `prism_mutate`
+  - action `outcome`
+  - action `memory`
+  - action `infer_edge`
+  - action `coordination`
+  - action `claim`
+  - action `artifact`
+  - action `test_ran`
+  - action `failure_observed`
+  - action `fix_validated`
+  - action `curator_promote_edge`
+  - action `curator_promote_memory`
+  - action `curator_reject_proposal`
 
-Convenience query tools:
-
-- `prism_symbol`
-- `prism_search`
+Read current session state through `prism://session`.
 
 Patch observation is automatic. PRISM records file changes from `ObservedChangeSet` without requiring an explicit MCP call.
 "#

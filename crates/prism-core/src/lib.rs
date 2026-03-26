@@ -3,6 +3,7 @@ mod curator_support;
 mod indexer;
 mod indexer_support;
 mod layout;
+mod memory_refresh;
 mod patch_outcomes;
 mod reanchor;
 mod resolution;

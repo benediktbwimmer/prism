@@ -6,6 +6,7 @@ use crate::indexer_support::{
     build_workspace_session, collect_pending_file_parses, resolve_graph_edges,
 };
 use crate::layout::{discover_layout, sync_root_nodes, PackageInfo, WorkspaceLayout};
+use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 use crate::patch_outcomes::default_outcome_meta;
 use crate::reanchor::{detect_moved_files, infer_reanchors};
 use crate::session::WorkspaceSession;
@@ -15,7 +16,7 @@ use anyhow::Result;
 use prism_coordination::CoordinationStore;
 use prism_curator::CuratorBackend;
 use prism_history::HistoryStore;
-use prism_ir::{ChangeTrigger, Edge, EdgeKind, EdgeOrigin, ObservedChangeSet};
+use prism_ir::{ChangeTrigger, Edge, EdgeKind, EdgeOrigin, LineageEvent, ObservedChangeSet};
 use prism_memory::OutcomeMemory;
 use prism_parser::{LanguageAdapter, ParseInput, ParseResult};
 use prism_projections::{
@@ -161,6 +162,7 @@ impl<S: Store> WorkspaceIndexer<S> {
     ) -> Result<(Vec<ObservedChangeSet>, Vec<prism_ir::GraphChange>)> {
         let mut observed_changes = Vec::<ObservedChangeSet>::new();
         let mut changes = Vec::<prism_ir::GraphChange>::new();
+        let mut all_lineage_events = Vec::<LineageEvent>::new();
         let mut co_change_deltas = Vec::<CoChangeDelta>::new();
         let mut validation_deltas = Vec::<ValidationDelta>::new();
         let mut upserted_paths = Vec::<PathBuf>::new();
@@ -211,11 +213,12 @@ impl<S: Store> WorkspaceIndexer<S> {
                 parsed,
                 trigger.clone(),
             );
-            let lineage_events = self.history.apply(&update.observed);
-            let change_set_deltas = co_change_deltas_for_events(&lineage_events);
-            self.projections.apply_lineage_events(&lineage_events);
+            let new_lineage_events = self.history.apply(&update.observed);
+            let change_set_deltas = co_change_deltas_for_events(&new_lineage_events);
+            self.projections.apply_lineage_events(&new_lineage_events);
             co_change_deltas.extend(change_set_deltas);
-            self.outcomes.apply_lineage(&lineage_events)?;
+            self.outcomes.apply_lineage(&new_lineage_events)?;
+            all_lineage_events.extend(new_lineage_events.iter().cloned());
             validation_deltas.extend(self.record_patch_outcome(&update.observed));
             observed_changes.push(update.observed.clone());
             changes.extend(update.changes);
@@ -229,11 +232,12 @@ impl<S: Store> WorkspaceIndexer<S> {
                     default_outcome_meta("observed"),
                     trigger.clone(),
                 );
-                let lineage_events = self.history.apply(&update.observed);
-                let change_set_deltas = co_change_deltas_for_events(&lineage_events);
-                self.projections.apply_lineage_events(&lineage_events);
+                let new_lineage_events = self.history.apply(&update.observed);
+                let change_set_deltas = co_change_deltas_for_events(&new_lineage_events);
+                self.projections.apply_lineage_events(&new_lineage_events);
                 co_change_deltas.extend(change_set_deltas);
-                self.outcomes.apply_lineage(&lineage_events)?;
+                self.outcomes.apply_lineage(&new_lineage_events)?;
+                all_lineage_events.extend(new_lineage_events.iter().cloned());
                 validation_deltas.extend(self.record_patch_outcome(&update.observed));
                 observed_changes.push(update.observed.clone());
                 changes.extend(update.changes);
@@ -256,6 +260,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             projection_snapshot,
         };
         self.store.commit_index_persist_batch(&self.graph, &batch)?;
+        reanchor_persisted_memory_snapshot(&mut self.store, &all_lineage_events)?;
         self.had_prior_snapshot = true;
         self.had_projection_snapshot = true;
         Ok((observed_changes, changes))

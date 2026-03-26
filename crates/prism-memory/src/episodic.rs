@@ -44,6 +44,10 @@ impl EpisodicMemory {
             ),
         }
     }
+
+    pub fn replace_from_snapshot(&self, snapshot: EpisodicMemorySnapshot) {
+        self.inner.replace_from_snapshot(snapshot);
+    }
 }
 
 impl MemoryModule for EpisodicMemory {
@@ -81,22 +85,22 @@ impl MemoryModule for EpisodicMemory {
                     0.45 * signals.overlap.max(0.25)
                         + 0.30 * text_score
                         + 0.15 * signals.recency
-                        + 0.10 * signals.provenance
+                        + 0.10 * signals.trust
                 } else if query.focus.is_empty() {
-                    0.70 * signals.recency + 0.30 * signals.provenance
+                    0.70 * signals.recency + 0.30 * signals.trust
                 } else {
-                    0.65 * signals.overlap + 0.20 * signals.recency + 0.15 * signals.provenance
+                    0.65 * signals.overlap + 0.20 * signals.recency + 0.15 * signals.trust
                 };
 
                 let explanation = if query.text.is_some() {
                     Some(format!(
-                        "anchor overlap {:.2}, text match {:.2}, recency {:.2}, provenance {:.2}",
-                        signals.overlap, text_score, signals.recency, signals.provenance
+                        "anchor overlap {:.2}, text match {:.2}, recency {:.2}, trust {:.2}",
+                        signals.overlap, text_score, signals.recency, signals.trust
                     ))
                 } else {
                     Some(format!(
-                        "anchor overlap {:.2}, recency {:.2}, provenance {:.2}",
-                        signals.overlap, signals.recency, signals.provenance
+                        "anchor overlap {:.2}, recency {:.2}, trust {:.2}",
+                        signals.overlap, signals.recency, signals.trust
                     ))
                 };
 

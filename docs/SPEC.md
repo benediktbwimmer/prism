@@ -1456,7 +1456,7 @@ Session and task model:
 * an MCP session may exist with no active `TaskId` while it is only reading
 * every MCP session has a stable `SessionId` for attribution and live claim ownership
 * on the first mutation in a session with no active task, the server auto-creates a `TaskId` and binds it as the active task
-* agents may explicitly create and label task context with `prism_start_task`
+* agents may explicitly create and label task context with `prism_session { action: "start_task", ... }`
 * one session may create many tasks over time; at most one task is the session default at a time
 * mutation tools inherit the active session `TaskId` when `task_id` is omitted
 * mutation tools may override attribution with an explicit `task_id`, so unrelated work can coexist in one session without opening a second MCP connection
@@ -1813,21 +1813,17 @@ Agents learn these surfaces best from examples. Recipes are not auxiliary docume
 The MCP server exposes explicit mutation tools alongside the read-only `prism_query`:
 
 ```text
-prism_start_task { description: string, tags?: string[] } -> { task_id: string }
-prism_outcome { kind: OutcomeKind, anchors: AnchorRef[], summary: string, result?: OutcomeResult, evidence?: OutcomeEvidence[], task_id?: string } -> EventId
-prism_memory { action: "store", payload: { anchors: AnchorRef[], kind: MemoryKind, content: string, trust?: float, source?: MemorySource, metadata?: object }, task_id?: string } -> MemoryId
-prism_infer_edge { source: NodeId, target: NodeId, kind: EdgeKind, confidence: float, scope?: InferredEdgeScope, task_id?: string } -> EdgeId
-prism_coordination { kind: "plan_create" | "plan_update" | "task_create" | "task_update" | "handoff", payload: object, task_id?: string } -> { event_id: string, event_ids: string[], rejected: bool, violations: object[], state: object | null }
-prism_claim { action: "acquire" | "renew" | "release", payload: object, task_id?: string } -> { claim_id?: string, event_ids: string[], rejected: bool, conflicts?: ConflictView[], violations: object[], state: object | null }
-prism_artifact { action: "propose" | "supersede" | "review", payload: object, task_id?: string } -> { artifact_id?: string, review_id?: string, event_ids: string[], rejected: bool, violations: object[], state: object | null }
-```
+prism_session { action: "start_task", input: { description: string, tags?: string[] } } -> { action: "start_task", task_id: string, session: SessionView }
+prism_session { action: "configure", input: { ... } } -> { action: "configure", task_id?: string, session: SessionView }
 
-Convenience shortcuts for outcome logging:
-
-```text
-prism_test_ran { anchors: AnchorRef[], test: string, passed: bool, task_id?: string } -> EventId
-prism_failure_observed { anchors: AnchorRef[], summary: string, trace?: string, task_id?: string } -> EventId
-prism_fix_validated { anchors: AnchorRef[], summary: string, task_id?: string } -> EventId
+prism_mutate { action: "outcome", input: { kind: OutcomeKind, anchors: AnchorRef[], summary: string, result?: OutcomeResult, evidence?: OutcomeEvidence[], task_id?: string } } -> EventMutationResult
+prism_mutate { action: "memory", input: { action: "store", payload: { anchors: AnchorRef[], kind: MemoryKind, content: string, trust?: float, source?: MemorySource, metadata?: object }, task_id?: string } } -> MemoryMutationResult
+prism_mutate { action: "infer_edge", input: { source: NodeId, target: NodeId, kind: EdgeKind, confidence: float, scope?: InferredEdgeScope, task_id?: string } } -> EdgeMutationResult
+prism_mutate { action: "coordination", input: { kind: "plan_create" | "plan_update" | "task_create" | "task_update" | "handoff", payload: object, task_id?: string } } -> CoordinationMutationResult
+prism_mutate { action: "claim", input: { action: "acquire" | "renew" | "release", payload: object, task_id?: string } } -> ClaimMutationResult
+prism_mutate { action: "artifact", input: { action: "propose" | "supersede" | "review", payload: object, task_id?: string } } -> ArtifactMutationResult
+prism_mutate { action: "test_ran" | "failure_observed" | "fix_validated", input: { ... } } -> EventMutationResult
+prism_mutate { action: "curator_promote_edge" | "curator_promote_memory" | "curator_reject_proposal", input: { ... } } -> CuratorProposalDecisionResult
 ```
 
 These fill in `EventMeta` automatically from the session context. The lower the friction, the more reliably agents will record outcomes.
@@ -1838,16 +1834,14 @@ Rules:
 
 * mutation tools are separate from `prism_query` to keep the query surface pure and predictable
 * all mutations produce structured confirmation and the resulting authoritative state for the mutated object
-* `prism_start_task` creates a task record and makes it the active session task
+* `prism_session { action: "start_task" }` creates a task record and makes it the active session task
 * if the session has no active task, the first mutation auto-creates one before the mutation is recorded
 * outcome events inherit the session's `TaskId` automatically when available
 * explicit `task_id` arguments override the active session task without changing the session default
 * inferred edges default to `SessionOnly` scope unless explicitly promoted
-* coordination adds three coarse mutation tools rather than one tool per action
-* `prism_coordination` owns shared plan, task, and handoff lifecycle changes
-* `prism_claim` owns lease acquisition, renewal, release, and conflict reporting
-* `prism_artifact` owns proposed outputs and their review state
-* all three coordination tools must attribute mutations to the current `SessionId` and current or explicit `TaskId`
+* the MCP surface exposes one coarse session mutation tool and one coarse general mutation tool
+* `prism_mutate` owns shared plan, task, handoff, claim, artifact, outcome, memory, inference, and curator decision changes via tagged actions
+* coordination actions inside `prism_mutate` must attribute mutations to the current `SessionId` and current or explicit `TaskId`
 * coordination mutations must validate policy, dependency state, and base revision before they commit
 * `prism_query` remains the primary read surface for plans, claims, blockers, conflicts, artifacts, and review queues
 * the MCP server must support a `--no-coordination` mode where coordination is disabled end to end
@@ -1859,12 +1853,7 @@ Rules:
 
 Optional convenience tools may exist later for high-frequency lookups:
 
-```text
-prism_symbol { query: string }
-prism_search { query: string, limit?: int }
-```
-
-But they are secondary. The programmable `prism_query` tool is the primary interface.
+But they are secondary and are not part of the preferred public surface. The programmable `prism_query` tool is the primary interface.
 
 ---
 
@@ -1936,7 +1925,7 @@ Recommended sequence:
 7. add `prism-mcp` with `prism_query` and `prism://api-reference`
 8. land coordination identities, plan, task, claim, and artifact event types, and `WorkspaceRevision`
 9. expose coordination reads and claim simulation through `prism-query` and `prism-js`
-10. add `prism_coordination`, `prism_claim`, and `prism_artifact`
+10. add coarse mutation actions under `prism_mutate` for coordination, claims, and artifacts
 11. add derived projections such as co-change, hotspot, validation recipes, and drift detection
 
 ---

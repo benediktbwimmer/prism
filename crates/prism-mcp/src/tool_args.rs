@@ -2,6 +2,8 @@ use rmcp::schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::Value;
 
+use crate::SessionView;
+
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum QueryLanguage {
@@ -14,24 +16,6 @@ pub(crate) struct PrismQueryArgs {
     pub(crate) code: String,
     #[schemars(description = "Query language. Only `ts` is currently supported.")]
     pub(crate) language: Option<QueryLanguage>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub(crate) struct PrismSymbolArgs {
-    #[schemars(description = "Best-effort symbol lookup query.")]
-    pub(crate) query: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub(crate) struct PrismSearchArgs {
-    #[schemars(description = "Full-text or symbol search query.")]
-    pub(crate) query: String,
-    #[schemars(description = "Maximum number of results to return.")]
-    pub(crate) limit: Option<usize>,
-    #[schemars(description = "Optional node kind filter.")]
-    pub(crate) kind: Option<String>,
-    #[schemars(description = "Optional path fragment filter.")]
-    pub(crate) path: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -175,12 +159,6 @@ pub(crate) struct PrismStartTaskArgs {
     pub(crate) tags: Option<Vec<String>>,
 }
 
-#[derive(Debug, serde::Serialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct PrismStartTaskResult {
-    pub(crate) task_id: String,
-}
-
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct EventMutationResult {
@@ -232,10 +210,6 @@ pub(crate) struct QueryLimitsInput {
     pub(crate) max_output_json_bytes: Option<usize>,
 }
 
-#[derive(Debug, Clone, Deserialize, JsonSchema, Default)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct PrismGetSessionArgs {}
-
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismConfigureSessionArgs {
@@ -253,6 +227,28 @@ pub(crate) struct PrismConfigureSessionArgs {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case", tag = "action", content = "input")]
+pub(crate) enum PrismSessionArgs {
+    StartTask(PrismStartTaskArgs),
+    Configure(PrismConfigureSessionArgs),
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum SessionMutationActionSchema {
+    StartTask,
+    Configure,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismSessionMutationResult {
+    pub(crate) action: SessionMutationActionSchema,
+    pub(crate) task_id: Option<String>,
+    pub(crate) session: SessionView,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismInferEdgeArgs {
     pub(crate) source: NodeIdInput,
@@ -263,6 +259,47 @@ pub(crate) struct PrismInferEdgeArgs {
     pub(crate) evidence: Option<Vec<String>>,
     #[serde(alias = "task_id")]
     pub(crate) task_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case", tag = "action", content = "input")]
+pub(crate) enum PrismMutationArgs {
+    Outcome(PrismOutcomeArgs),
+    Memory(PrismMemoryArgs),
+    InferEdge(PrismInferEdgeArgs),
+    Coordination(PrismCoordinationArgs),
+    Claim(PrismClaimArgs),
+    Artifact(PrismArtifactArgs),
+    TestRan(PrismTestRanArgs),
+    FailureObserved(PrismFailureObservedArgs),
+    FixValidated(PrismFixValidatedArgs),
+    CuratorPromoteEdge(PrismCuratorPromoteEdgeArgs),
+    CuratorPromoteMemory(PrismCuratorPromoteMemoryArgs),
+    CuratorRejectProposal(PrismCuratorRejectProposalArgs),
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum PrismMutationActionSchema {
+    Outcome,
+    Memory,
+    InferEdge,
+    Coordination,
+    Claim,
+    Artifact,
+    TestRan,
+    FailureObserved,
+    FixValidated,
+    CuratorPromoteEdge,
+    CuratorPromoteMemory,
+    CuratorRejectProposal,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismMutationResult {
+    pub(crate) action: PrismMutationActionSchema,
+    pub(crate) result: Value,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -534,7 +571,7 @@ pub(crate) struct ArtifactReviewPayload {
     pub(crate) risk_score: Option<f32>,
 }
 
-#[derive(Debug, serde::Serialize, JsonSchema)]
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MutationViolationView {
     pub(crate) code: String,
@@ -546,7 +583,7 @@ pub(crate) struct MutationViolationView {
     pub(crate) details: Value,
 }
 
-#[derive(Debug, serde::Serialize, JsonSchema)]
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CoordinationMutationResult {
     pub(crate) event_id: String,
@@ -556,7 +593,7 @@ pub(crate) struct CoordinationMutationResult {
     pub(crate) state: Value,
 }
 
-#[derive(Debug, serde::Serialize, JsonSchema)]
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ClaimMutationResult {
     pub(crate) claim_id: Option<String>,
@@ -567,7 +604,7 @@ pub(crate) struct ClaimMutationResult {
     pub(crate) state: Value,
 }
 
-#[derive(Debug, serde::Serialize, JsonSchema)]
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ArtifactMutationResult {
     pub(crate) artifact_id: Option<String>,

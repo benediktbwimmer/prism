@@ -29,19 +29,18 @@ When touching code that violates this policy, move it toward the target architec
 
 When the PRISM MCP server is available for this repo, use it as the primary repo-awareness surface.
 
-- Start with `prism://api-reference` and `prism_get_session` to confirm the available query surface, active task, and session limits.
+- Start with `prism://api-reference` and `prism://session` to confirm the available query surface, active task, and session limits.
 - Use `prism_query` as the default tool for all read access into PRISM state.
 - Prefer `prism_query` over bespoke lookups for code structure, lineage, memory, coordination state, blockers, claims, artifacts, and review queues.
-- Treat `prism_symbol` and `prism_search` as convenience helpers only; `prism_query` remains the primary read interface.
 - Keep `prism_query` read-only. Do not try to encode writes or side effects inside query snippets.
 
 When mutations make sense, use the explicit PRISM mutation tools instead of leaving the state implicit.
 
-- Use `prism_start_task` when beginning a meaningful unit of work and no suitable active task already exists.
-- Use `prism_outcome`, `prism_test_ran`, `prism_failure_observed`, and `prism_fix_validated` to record task outcomes that matter for future reasoning.
-- Use `prism_memory` to store anchored memory when you learn something worth preserving, especially repo-specific constraints, invariants, migration rules, repeated failure patterns, or other durable lessons.
-- Use `prism_infer_edge` when a new inferred relationship should be captured explicitly rather than only described in prose.
-- Use `prism_coordination`, `prism_claim`, and `prism_artifact` when the work involves shared planning, task state, claims, handoffs, or reviewable artifacts.
+- Use `prism_session` with action `start_task` when beginning a meaningful unit of work and no suitable active task already exists.
+- Use `prism_mutate` with actions `outcome`, `test_ran`, `failure_observed`, and `fix_validated` to record task outcomes that matter for future reasoning.
+- Use `prism_mutate` with action `memory` to store anchored memory when you learn something worth preserving, especially repo-specific constraints, invariants, migration rules, repeated failure patterns, or other durable lessons.
+- Use `prism_mutate` with action `infer_edge` when a new inferred relationship should be captured explicitly rather than only described in prose.
+- Use `prism_mutate` with actions `coordination`, `claim`, and `artifact` when the work involves shared planning, task state, claims, handoffs, or reviewable artifacts.
 
 Mutation guidance:
 

@@ -10,10 +10,10 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("validationRecipe"));
     assert!(docs.contains("prism.memory.recall"));
     assert!(docs.contains("prism.curator.jobs"));
-    assert!(docs.contains("prism_curator_promote_edge"));
-    assert!(docs.contains("prism_curator_promote_memory"));
-    assert!(docs.contains("prism_symbol"));
-    assert!(docs.contains("prism_search"));
+    assert!(docs.contains("prism_session"));
+    assert!(docs.contains("prism_mutate"));
+    assert!(docs.contains("curator_promote_edge"));
+    assert!(docs.contains("curator_promote_memory"));
 }
 
 #[test]
