@@ -82,14 +82,22 @@ pub enum McpCommand {
         no_coordination: bool,
     },
     Stop {
-        #[arg(long, default_value_t = false)]
+        #[arg(
+            long,
+            default_value_t = false,
+            help = "Also stop bridge processes. By default only the daemon is stopped."
+        )]
         kill_bridges: bool,
     },
     Restart {
         #[arg(long, default_value_t = false)]
-        kill_bridges: bool,
-        #[arg(long, default_value_t = false)]
         no_coordination: bool,
+        #[arg(
+            long,
+            default_value_t = false,
+            help = "Also stop bridge processes before restarting. By default bridges are preserved."
+        )]
+        kill_bridges: bool,
     },
     Health,
     Logs {
@@ -142,6 +150,53 @@ pub enum MemoryCommand {
         #[arg(long, default_value = "episodic")]
         kind: String,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use clap::Parser;
+
+    use super::{Cli, Command, McpCommand};
+
+    #[test]
+    fn mcp_restart_preserves_bridges_by_default() {
+        let cli = Cli::parse_from(["prism", "mcp", "restart"]);
+        match cli.command {
+            Command::Mcp {
+                command:
+                    McpCommand::Restart {
+                        kill_bridges,
+                        no_coordination,
+                    },
+            } => {
+                assert!(!kill_bridges);
+                assert!(!no_coordination);
+            }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn mcp_stop_preserves_bridges_by_default() {
+        let cli = Cli::parse_from(["prism", "mcp", "stop"]);
+        match cli.command {
+            Command::Mcp {
+                command: McpCommand::Stop { kill_bridges },
+            } => assert!(!kill_bridges),
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn mcp_restart_kill_bridges_flag_is_opt_in() {
+        let cli = Cli::parse_from(["prism", "mcp", "restart", "--kill-bridges"]);
+        match cli.command {
+            Command::Mcp {
+                command: McpCommand::Restart { kill_bridges, .. },
+            } => assert!(kill_bridges),
+            _ => panic!("unexpected command"),
+        }
+    }
 }
 
 #[derive(Subcommand)]

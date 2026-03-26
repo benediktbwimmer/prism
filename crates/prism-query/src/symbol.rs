@@ -4,7 +4,10 @@ use std::path::Path;
 
 use prism_ir::{Edge, EdgeKind, Node, NodeId, NodeKind, Skeleton, Subgraph};
 
-use crate::source::{SourceDocument, SourceExcerpt, SourceExcerptOptions, SourceLocation};
+use crate::source::{
+    EditSlice, EditSliceOptions, SourceDocument, SourceExcerpt, SourceExcerptOptions,
+    SourceLocation,
+};
 use crate::Prism;
 
 struct Match<'a> {
@@ -236,6 +239,11 @@ impl<'a> Symbol<'a> {
     pub fn excerpt(&self, options: SourceExcerptOptions) -> Option<SourceExcerpt> {
         let source = self.read_source()?;
         Some(SourceDocument::new(&source).excerpt(self.node().span, options))
+    }
+
+    pub fn edit_slice(&self, options: EditSliceOptions) -> Option<EditSlice> {
+        let source = self.read_source()?;
+        Some(SourceDocument::new(&source).edit_slice(self.node().span, options))
     }
 
     pub fn location(&self) -> Option<SourceLocation> {

@@ -4,33 +4,36 @@ use anyhow::{anyhow, Context, Result};
 use prism_ir::{AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, NodeId, PlanId};
 use prism_js::{
     EditContextView, QueryDiagnostic, QueryEnvelope, ReadContextView, RecentChangeContextView,
-    ScoredMemoryView, SourceExcerptView, SubgraphView, SymbolView, ValidationContextView,
+    ScoredMemoryView, SourceExcerptView, SourceSliceView, SubgraphView, SymbolView,
+    TextSearchMatchView, ValidationContextView,
 };
 use prism_memory::{MemoryModule, OutcomeRecallQuery, RecallQuery};
-use prism_query::{Prism, SourceExcerptOptions, Symbol};
+use prism_query::{EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
 use serde_json::{json, Value};
 
+use crate::file_queries::{file_around, file_read};
+use crate::text_search::search_text;
 use crate::{
     artifact_risk_view, artifact_view, blast_radius_view, blocker_view, change_impact_view,
     claim_view, co_change_view, conflict_view, convert_anchors, convert_node_id,
     coordination_task_view, current_timestamp, drift_candidate_view, edge_kind_label, edge_view,
-    edit_context_view, entrypoints_for, js_runtime, lineage_view, merge_node_ids,
-    merge_promoted_checks, next_reads, owner_symbol_views_for_query, owner_symbol_views_for_target,
-    owner_views_for_target, parse_capability, parse_claim_mode, parse_event_actor,
-    parse_memory_kind, parse_node_kind, parse_outcome_kind, parse_outcome_result, plan_view,
-    policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
-    promoted_validation_checks, query_diagnostic, read_context_view, recent_change_context_view,
-    relations_view, scored_memory_view, search_queries, source_excerpt_for_symbol,
-    spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
-    task_intent_view, task_journal_view, task_risk_view, task_validation_recipe_view,
-    validation_context_view, validation_recipe_view_with, where_used, AnchorListArgs,
-    CallGraphArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs,
-    DiscoveryTargetArgs, ImplementationTargetArgs, LimitArgs, MemoryOutcomeArgs, MemoryRecallArgs,
-    OwnerLookupArgs, PendingReviewsArgs, PlanTargetArgs, PolicyViolationQueryArgs, QueryHost,
-    QueryLanguage, SearchArgs, SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs,
-    SymbolTargetArgs, TaskJournalArgs, TaskTargetArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH,
-    DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
-    INSIGHT_LIMIT,
+    edit_context_view, edit_slice_for_symbol, entrypoints_for, js_runtime, lineage_view,
+    merge_node_ids, merge_promoted_checks, next_reads, owner_symbol_views_for_query,
+    owner_symbol_views_for_target, owner_views_for_target, parse_capability, parse_claim_mode,
+    parse_event_actor, parse_memory_kind, parse_node_kind, parse_outcome_kind,
+    parse_outcome_result, plan_view, policy_violation_record_view, promoted_memory_entries,
+    promoted_summary_texts, promoted_validation_checks, query_diagnostic, read_context_view,
+    recent_change_context_view, relations_view, scored_memory_view, search_queries,
+    source_excerpt_for_symbol, spec_cluster_view, spec_drift_explanation_view, symbol_for,
+    symbol_view, symbol_views_for_ids, task_intent_view, task_journal_view, task_risk_view,
+    task_validation_recipe_view, validation_context_view, validation_recipe_view_with, where_used,
+    AnchorListArgs, CallGraphArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs,
+    DiscoveryTargetArgs, EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs,
+    LimitArgs, MemoryOutcomeArgs, MemoryRecallArgs, OwnerLookupArgs, PendingReviewsArgs,
+    PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage, SearchArgs, SearchTextArgs,
+    SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskJournalArgs,
+    TaskTargetArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
 };
 
 impl QueryHost {
@@ -170,6 +173,10 @@ impl QueryExecution {
             "search" => {
                 let args: SearchArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.search(args)?)?)
+            }
+            "searchText" => {
+                let args: SearchTextArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.search_text(args)?)?)
             }
             "entrypoints" => Ok(serde_json::to_value(self.entrypoints()?)?),
             "plan" => {
@@ -503,9 +510,21 @@ impl QueryExecution {
                     symbol_for(self.prism.as_ref(), &id)?.full(),
                 )?)
             }
+            "fileRead" => {
+                let args: FileReadArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(file_read(&self.host, args)?)?)
+            }
+            "fileAround" => {
+                let args: FileAroundArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(file_around(&self.host, args)?)?)
+            }
             "excerpt" => {
                 let args: SourceExcerptArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.source_excerpt(args)?)?)
+            }
+            "editSlice" => {
+                let args: EditSliceArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.edit_slice(args)?)?)
             }
             "relations" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
@@ -848,6 +867,46 @@ impl QueryExecution {
         Ok(results)
     }
 
+    pub(crate) fn search_text(&self, args: SearchTextArgs) -> Result<Vec<TextSearchMatchView>> {
+        let outcome = search_text(
+            self.host(),
+            args,
+            self.host.session.limits().max_result_nodes,
+        )?;
+        if outcome.requested > outcome.applied {
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Text search limit was capped at {} instead of {}. Next action: narrow with `path` or `glob` before raising the limit.",
+                    outcome.applied, outcome.requested
+                ),
+                Some(json!({
+                    "requested": outcome.requested,
+                    "applied": outcome.applied,
+                    "nextAction": "Use prism.searchText(query, { path: ..., glob: ..., limit: ... }) to narrow the result set.",
+                })),
+            );
+        }
+        if outcome.limit_hit {
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Text search results were truncated at {} entries. Next action: narrow with `path` or `glob`, then inspect one match with `prism.file(path).around(...)`.",
+                    outcome.applied
+                ),
+                Some(json!({
+                    "applied": outcome.applied,
+                    "nextAction": "Use prism.searchText(query, { path: ..., glob: ..., limit: ... }) and then inspect one result with prism.file(path).around(...).",
+                })),
+            );
+        }
+        Ok(outcome.results)
+    }
+
+    fn host(&self) -> &QueryHost {
+        &self.host
+    }
+
     pub(crate) fn entrypoints(&self) -> Result<Vec<SymbolView>> {
         let limits = self.host.session.limits();
         let mut results = self.symbols_from(self.prism.entrypoints())?;
@@ -1142,6 +1201,21 @@ impl QueryExecution {
             &symbol,
             SourceExcerptOptions {
                 context_lines: args.context_lines.unwrap_or(defaults.context_lines),
+                max_lines: args.max_lines.unwrap_or(defaults.max_lines),
+                max_chars: args.max_chars.unwrap_or(defaults.max_chars),
+            },
+        ))
+    }
+
+    fn edit_slice(&self, args: EditSliceArgs) -> Result<Option<SourceSliceView>> {
+        let id = convert_node_id(args.id)?;
+        let symbol = symbol_for(self.prism.as_ref(), &id)?;
+        let defaults = EditSliceOptions::default();
+        Ok(edit_slice_for_symbol(
+            &symbol,
+            EditSliceOptions {
+                before_lines: args.before_lines.unwrap_or(defaults.before_lines),
+                after_lines: args.after_lines.unwrap_or(defaults.after_lines),
                 max_lines: args.max_lines.unwrap_or(defaults.max_lines),
                 max_chars: args.max_chars.unwrap_or(defaults.max_chars),
             },

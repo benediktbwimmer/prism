@@ -109,7 +109,9 @@ type PrismApi = {
   symbol(query: string): SymbolView | null;
   symbols(query: string): SymbolView[];
   search(query: string, options?: SearchOptions): SymbolView[];
+  searchText(query: string, options?: SearchTextOptions): TextSearchMatchView[];
   entrypoints(): SymbolView[];
+  file(path: string): FileView;
   plan(planId: string): PlanView | null;
   task(taskId: string): CoordinationTaskView | null;
   readyTasks(planId: string): CoordinationTaskView[];
@@ -183,6 +185,7 @@ type SymbolView = {
   ownerHint?: OwnerHintView;
   full(): string;
   excerpt(options?: SourceExcerptOptions): SourceExcerptView | null;
+  editSlice(options?: EditSliceOptions): SourceSliceView | null;
   relations(): RelationsView;
   callGraph(depth?: number): Subgraph;
   lineage(): LineageView | null;
@@ -213,8 +216,37 @@ type SourceLocationView = {
   endColumn: number;
 };
 
+type SearchTextOptions = {
+  regex?: boolean;
+  caseSensitive?: boolean;
+  path?: string;
+  glob?: string;
+  limit?: number;
+  contextLines?: number;
+};
+
+type FileReadOptions = {
+  startLine?: number;
+  endLine?: number;
+  maxChars?: number;
+};
+
+type FileAroundOptions = {
+  line: number;
+  before?: number;
+  after?: number;
+  maxChars?: number;
+};
+
 type SourceExcerptOptions = {
   contextLines?: number;
+  maxLines?: number;
+  maxChars?: number;
+};
+
+type EditSliceOptions = {
+  beforeLines?: number;
+  afterLines?: number;
   maxLines?: number;
   maxChars?: number;
 };
@@ -224,6 +256,27 @@ type SourceExcerptView = {
   startLine: number;
   endLine: number;
   truncated: boolean;
+};
+
+type SourceSliceView = {
+  text: string;
+  startLine: number;
+  endLine: number;
+  focus: SourceLocationView;
+  relativeFocus: SourceLocationView;
+  truncated: boolean;
+};
+
+type TextSearchMatchView = {
+  path: string;
+  location: SourceLocationView;
+  excerpt: SourceExcerptView;
+};
+
+type FileView = {
+  path: string;
+  read(options?: FileReadOptions): SourceExcerptView;
+  around(options: FileAroundOptions): SourceSliceView;
 };
 
 type RelationsView = {
@@ -758,6 +811,15 @@ return prism.entrypoints().map((sym) => ({
 }));
 ```
 
+### 5a. Search raw workspace text with path filters
+
+```ts
+return prism.searchText("read context", {
+  path: "src/recall.rs",
+  limit: 3,
+});
+```
+
 ### 6. Pull source plus relations in one round-trip
 
 ```ts
@@ -768,6 +830,36 @@ return {
   excerpt: sym?.excerpt(),
   relations: sym?.relations(),
 };
+```
+
+### 6a. Ask for an edit-oriented slice with exact focus mapping
+
+```ts
+const sym = prism.symbol("handle_request");
+return sym?.editSlice({
+  beforeLines: 1,
+  afterLines: 1,
+  maxLines: 8,
+});
+```
+
+### 6b. Read an exact workspace file slice by path
+
+```ts
+return prism.file("src/main.rs").read({
+  startLine: 10,
+  endLine: 18,
+});
+```
+
+### 6c. Read a bounded file slice around one line
+
+```ts
+return prism.file("src/main.rs").around({
+  line: 14,
+  before: 2,
+  after: 2,
+});
 ```
 
 ### 7. Inspect diagnostics after an ambiguous lookup
@@ -1049,6 +1141,8 @@ return prism.claimPreview({
 
 - Available now: symbol lookup, search, entrypoints, line-aware symbol locations, bounded source excerpts, source extraction, relations, call graphs, lineage history, related failures, blast radius, and task replay by id.
 - Available now: owner-biased discovery helpers through `prism.owners(...)`, `prism.nextReads(...)`, `prism.whereUsed(...)`, `prism.entrypointsFor(...)`, behavioral `prism.search(...)`, `prism.readContext(...)`, `prism.editContext(...)`, `prism.validationContext(...)`, `prism.recentChangeContext(...)`, and `implementationFor(..., { mode: "owners" })` without changing the direct primitive semantics.
+- Available now: bounded workspace file reads through `prism.file(path).read(...)` and `prism.file(path).around(...)` for exact line-range and around-line inspection without leaving the PRISM query surface.
+- Available now: bounded workspace text search through `prism.searchText(...)` with regex support, path/glob filters, exact match locations, and capped snippets.
 - Available now: spec-to-code clustering and drift explanations that group direct links with read/write/persistence/test owners for spec-like symbols.
 - Available now: session/workspace memory recall for anchored memory entries, filtered outcome history, and promoted curator memories.
 - Available now: workspace-backed curator job inspection through `prism.curator.jobs()` and `prism.curator.job()`.

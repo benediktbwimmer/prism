@@ -23,7 +23,11 @@ use tracing::info;
 
 use crate::common::{anchor_sort_key, dedupe_node_ids, sort_node_ids};
 
-pub use crate::source::{SourceExcerpt, SourceExcerptOptions, SourceLocation};
+pub use crate::source::{
+    source_excerpt_for_line_range, source_excerpt_for_span, source_location_for_span,
+    source_slice_around_line, EditSlice, EditSliceOptions, SourceExcerpt, SourceExcerptOptions,
+    SourceLocation,
+};
 pub use crate::symbol::{Relations, Symbol};
 pub use crate::types::{
     ArtifactRisk, ChangeImpact, CoChange, DriftCandidate, QueryLimits, TaskIntent, TaskRisk,

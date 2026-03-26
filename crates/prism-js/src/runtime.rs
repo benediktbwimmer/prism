@@ -24,6 +24,13 @@ function __prismNormalizeTarget(target) {
   return target;
 }
 
+function __prismNormalizePath(path) {
+  if (typeof path !== "string" || path.trim() === "") {
+    throw new Error("path must be a non-empty string");
+  }
+  return path;
+}
+
 function __prismEnrichSymbol(raw) {
   if (raw == null) {
     return null;
@@ -38,6 +45,15 @@ function __prismEnrichSymbol(raw) {
       return __prismHost("excerpt", {
         id: this.id,
         contextLines: options?.contextLines,
+        maxLines: options?.maxLines,
+        maxChars: options?.maxChars,
+      });
+    },
+    editSlice(options = {}) {
+      return __prismHost("editSlice", {
+        id: this.id,
+        beforeLines: options?.beforeLines,
+        afterLines: options?.afterLines,
         maxLines: options?.maxLines,
         maxChars: options?.maxChars,
       });
@@ -267,6 +283,30 @@ function __prismCleanupGlobals() {
   }
 }
 
+function __prismFile(path) {
+  const filePath = __prismNormalizePath(path);
+  return Object.freeze({
+    path: filePath,
+    read(options = {}) {
+      return __prismHost("fileRead", {
+        path: filePath,
+        startLine: options?.startLine,
+        endLine: options?.endLine,
+        maxChars: options?.maxChars,
+      });
+    },
+    around(options = {}) {
+      return __prismHost("fileAround", {
+        path: filePath,
+        line: options?.line,
+        before: options?.before ?? options?.beforeLines,
+        after: options?.after ?? options?.afterLines,
+        maxChars: options?.maxChars,
+      });
+    },
+  });
+}
+
 globalThis.prism = Object.freeze({
   symbol(query) {
     return __prismEnrichSymbol(__prismHost("symbol", { query }));
@@ -287,8 +327,22 @@ globalThis.prism = Object.freeze({
       })
     );
   },
+  searchText(query, options = {}) {
+    return __prismHost("searchText", {
+      query,
+      regex: options?.regex,
+      caseSensitive: options?.caseSensitive ?? options?.case_sensitive,
+      path: options?.path,
+      glob: options?.glob,
+      limit: options?.limit,
+      contextLines: options?.contextLines ?? options?.context_lines,
+    });
+  },
   entrypoints() {
     return __prismEnrichSymbols(__prismHost("entrypoints", {}));
+  },
+  file(path) {
+    return __prismFile(path);
   },
   plan(planId) {
     return __prismHost("plan", { planId });

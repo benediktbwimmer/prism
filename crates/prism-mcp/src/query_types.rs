@@ -39,6 +39,18 @@ pub(crate) struct SymbolTargetArgs {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct SearchTextArgs {
+    pub(crate) query: String,
+    pub(crate) regex: Option<bool>,
+    pub(crate) case_sensitive: Option<bool>,
+    pub(crate) path: Option<String>,
+    pub(crate) glob: Option<String>,
+    pub(crate) limit: Option<usize>,
+    pub(crate) context_lines: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct DiscoveryTargetArgs {
     pub(crate) id: NodeIdInput,
     pub(crate) limit: Option<usize>,
@@ -74,6 +86,35 @@ pub(crate) struct SourceExcerptArgs {
     pub(crate) id: NodeIdInput,
     pub(crate) context_lines: Option<usize>,
     pub(crate) max_lines: Option<usize>,
+    pub(crate) max_chars: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct EditSliceArgs {
+    pub(crate) id: NodeIdInput,
+    pub(crate) before_lines: Option<usize>,
+    pub(crate) after_lines: Option<usize>,
+    pub(crate) max_lines: Option<usize>,
+    pub(crate) max_chars: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct FileReadArgs {
+    pub(crate) path: String,
+    pub(crate) start_line: Option<usize>,
+    pub(crate) end_line: Option<usize>,
+    pub(crate) max_chars: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct FileAroundArgs {
+    pub(crate) path: String,
+    pub(crate) line: usize,
+    pub(crate) before: Option<usize>,
+    pub(crate) after: Option<usize>,
     pub(crate) max_chars: Option<usize>,
 }
 

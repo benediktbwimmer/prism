@@ -3,9 +3,10 @@ use prism_ir::{AnchorRef, EdgeKind, NodeId};
 use prism_js::{
     ChangeImpactView, EditContextView, LineageEventView, LineageStatus, LineageView,
     OwnerCandidateView, OwnerHintView, ReadContextView, RecentChangeContextView, RelationsView,
-    SourceExcerptView, SourceLocationView, SymbolView, ValidationContextView, ValidationRecipeView,
+    SourceExcerptView, SourceLocationView, SourceSliceView, SymbolView, ValidationContextView,
+    ValidationRecipeView,
 };
-use prism_query::{Prism, SourceExcerptOptions, Symbol};
+use prism_query::{EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
 
 use crate::{
     change_impact_view, merge_node_ids, merge_promoted_checks, node_id_view,
@@ -79,6 +80,13 @@ pub(crate) fn source_excerpt_for_symbol(
     options: SourceExcerptOptions,
 ) -> Option<SourceExcerptView> {
     symbol.excerpt(options).map(source_excerpt_view)
+}
+
+pub(crate) fn edit_slice_for_symbol(
+    symbol: &Symbol<'_>,
+    options: EditSliceOptions,
+) -> Option<SourceSliceView> {
+    symbol.edit_slice(options).map(source_slice_view)
 }
 
 pub(crate) fn compact_owner_candidate_excerpts(
@@ -164,6 +172,17 @@ fn source_excerpt_view(excerpt: prism_query::SourceExcerpt) -> SourceExcerptView
         start_line: excerpt.start_line,
         end_line: excerpt.end_line,
         truncated: excerpt.truncated,
+    }
+}
+
+fn source_slice_view(slice: prism_query::EditSlice) -> SourceSliceView {
+    SourceSliceView {
+        text: slice.text,
+        start_line: slice.start_line,
+        end_line: slice.end_line,
+        focus: source_location_view(slice.focus),
+        relative_focus: source_location_view(slice.relative_focus),
+        truncated: slice.truncated,
     }
 }
 

@@ -35,6 +35,25 @@ pub struct SourceExcerptView {
     pub truncated: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceSliceView {
+    pub text: String,
+    pub start_line: usize,
+    pub end_line: usize,
+    pub focus: SourceLocationView,
+    pub relative_focus: SourceLocationView,
+    pub truncated: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TextSearchMatchView {
+    pub path: String,
+    pub location: SourceLocationView,
+    pub excerpt: SourceExcerptView,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SymbolView {

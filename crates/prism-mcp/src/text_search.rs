@@ -1,0 +1,200 @@
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use anyhow::{anyhow, Context, Result};
+use globset::{GlobBuilder, GlobMatcher};
+use ignore::WalkBuilder;
+use prism_js::{SourceExcerptView, SourceLocationView, TextSearchMatchView};
+use prism_query::{source_excerpt_for_span, source_location_for_span};
+use regex::{Regex, RegexBuilder};
+
+use crate::{QueryHost, SearchTextArgs, DEFAULT_SEARCH_LIMIT};
+
+const DEFAULT_TEXT_SEARCH_CONTEXT_LINES: usize = 1;
+const DEFAULT_TEXT_SEARCH_MAX_CHARS: usize = 240;
+
+pub(crate) struct TextSearchOutcome {
+    pub(crate) results: Vec<TextSearchMatchView>,
+    pub(crate) requested: usize,
+    pub(crate) applied: usize,
+    pub(crate) limit_hit: bool,
+}
+
+pub(crate) fn search_text(
+    host: &QueryHost,
+    args: SearchTextArgs,
+    max_limit: usize,
+) -> Result<TextSearchOutcome> {
+    let workspace = host
+        .workspace
+        .as_ref()
+        .ok_or_else(|| anyhow!("text search requires a workspace-backed PRISM session"))?;
+    if args.query.trim().is_empty() {
+        return Err(anyhow!("query must be a non-empty string"));
+    }
+
+    let case_sensitive = args.case_sensitive.unwrap_or(false);
+    let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
+    let applied = requested.min(max_limit);
+    let context_lines = args
+        .context_lines
+        .unwrap_or(DEFAULT_TEXT_SEARCH_CONTEXT_LINES);
+    let matcher = compile_search_pattern(&args.query, args.regex.unwrap_or(false), case_sensitive)?;
+    let glob = compile_glob_matcher(args.glob.as_deref(), case_sensitive)?;
+    let path_filter = args
+        .path
+        .filter(|value| !value.trim().is_empty())
+        .map(|value| normalize_path_filter(&value, case_sensitive));
+
+    let root = workspace.root();
+    let mut files = workspace_files(root, path_filter.as_deref(), glob.as_ref(), case_sensitive)?;
+    files.sort_by(|left, right| left.0.cmp(&right.0));
+
+    let mut results = Vec::new();
+    let mut limit_hit = false;
+    for (relative_path, absolute_path) in files {
+        let Some(source) = read_searchable_file(&absolute_path)? else {
+            continue;
+        };
+        for found in matcher.find_iter(&source) {
+            results.push(TextSearchMatchView {
+                path: relative_path.clone(),
+                location: source_location_view(source_location_for_span(
+                    &source,
+                    found.start(),
+                    found.end(),
+                )),
+                excerpt: source_excerpt_view(source_excerpt_for_span(
+                    &source,
+                    found.start(),
+                    found.end(),
+                    context_lines,
+                    DEFAULT_TEXT_SEARCH_MAX_CHARS,
+                )),
+            });
+            if results.len() >= applied {
+                limit_hit = true;
+                return Ok(TextSearchOutcome {
+                    results,
+                    requested,
+                    applied,
+                    limit_hit,
+                });
+            }
+        }
+    }
+
+    Ok(TextSearchOutcome {
+        results,
+        requested,
+        applied,
+        limit_hit,
+    })
+}
+
+fn workspace_files(
+    root: &Path,
+    path_filter: Option<&str>,
+    glob: Option<&GlobMatcher>,
+    case_sensitive: bool,
+) -> Result<Vec<(String, PathBuf)>> {
+    let mut files = Vec::new();
+    for entry in WalkBuilder::new(root).build() {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => continue,
+        };
+        if !entry.file_type().is_some_and(|kind| kind.is_file()) {
+            continue;
+        }
+        let absolute = entry.path();
+        let relative = absolute
+            .strip_prefix(root)
+            .with_context(|| {
+                format!(
+                    "failed to compute workspace-relative path for {}",
+                    absolute.display()
+                )
+            })?
+            .to_string_lossy()
+            .replace('\\', "/");
+        if let Some(filter) = path_filter {
+            let candidate = normalize_path_filter(&relative, case_sensitive);
+            if !candidate.contains(filter) {
+                continue;
+            }
+        }
+        if let Some(glob) = glob {
+            let relative_path = Path::new(&relative);
+            if !glob.is_match(relative_path) {
+                continue;
+            }
+        }
+        files.push((relative, absolute.to_path_buf()));
+    }
+    Ok(files)
+}
+
+fn read_searchable_file(path: &Path) -> Result<Option<String>> {
+    match fs::read_to_string(path) {
+        Ok(source) => Ok(Some(source)),
+        Err(error) if error.kind() == std::io::ErrorKind::InvalidData => Ok(None),
+        Err(error) => {
+            Err(error).with_context(|| format!("failed to read searchable file {}", path.display()))
+        }
+    }
+}
+
+fn compile_search_pattern(query: &str, is_regex: bool, case_sensitive: bool) -> Result<Regex> {
+    let pattern = if is_regex {
+        query.to_string()
+    } else {
+        regex::escape(query)
+    };
+    let mut builder = RegexBuilder::new(&pattern);
+    builder.case_insensitive(!case_sensitive);
+    builder.multi_line(true);
+    builder.dot_matches_new_line(true);
+    builder
+        .build()
+        .with_context(|| format!("invalid search pattern `{query}`"))
+}
+
+fn compile_glob_matcher(glob: Option<&str>, case_sensitive: bool) -> Result<Option<GlobMatcher>> {
+    let Some(glob) = glob.filter(|value| !value.trim().is_empty()) else {
+        return Ok(None);
+    };
+    let matcher = GlobBuilder::new(glob)
+        .case_insensitive(!case_sensitive)
+        .build()
+        .with_context(|| format!("invalid glob pattern `{glob}`"))?
+        .compile_matcher();
+    Ok(Some(matcher))
+}
+
+fn normalize_path_filter(value: &str, case_sensitive: bool) -> String {
+    let normalized = value.replace('\\', "/");
+    if case_sensitive {
+        normalized
+    } else {
+        normalized.to_ascii_lowercase()
+    }
+}
+
+fn source_location_view(location: prism_query::SourceLocation) -> SourceLocationView {
+    SourceLocationView {
+        start_line: location.start_line,
+        start_column: location.start_column,
+        end_line: location.end_line,
+        end_column: location.end_column,
+    }
+}
+
+fn source_excerpt_view(excerpt: prism_query::SourceExcerpt) -> SourceExcerptView {
+    SourceExcerptView {
+        text: excerpt.text,
+        start_line: excerpt.start_line,
+        end_line: excerpt.end_line,
+        truncated: excerpt.truncated,
+    }
+}

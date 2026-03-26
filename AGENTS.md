@@ -32,7 +32,17 @@ When the PRISM MCP server is available for this repo, use it as the primary repo
 - Start with `prism://api-reference` and `prism://session` to confirm the available query surface, active task, and session limits.
 - Use `prism_query` as the default tool for all read access into PRISM state.
 - Prefer `prism_query` over bespoke lookups for code structure, lineage, memory, coordination state, blockers, claims, artifacts, and review queues.
+- Prefer PRISM-native file inspection and search when they can replace multiple shell reads with one bounded query, especially `prism.file(path).read(...)`, `prism.file(path).around(...)`, and `prism.searchText(...)`.
+- Prefer `prism.file(...)` and `prism.searchText(...)` over `sed`, `cat`, and `rg` when the work can be composed into a single PRISM query call that returns the exact slice, match, or surrounding context you need.
+- Keep shell reads as a fallback for raw bytes, command output, or cases where PRISM cannot yet express the needed inspection precisely.
 - Keep `prism_query` read-only. Do not try to encode writes or side effects inside query snippets.
+- After meaningful changes to PRISM MCP behavior or query/runtime behavior, rebuild the release binaries and restart the MCP daemon so the live PRISM server reflects the current code during the same Codex session.
+- From the repo root, use these exact commands:
+  - `cargo build --release -p prism-cli -p prism-mcp`
+  - `./target/release/prism-cli mcp restart`
+  - `./target/release/prism-cli mcp status`
+  - `./target/release/prism-cli mcp health`
+- Prefer the release binaries for restart and verification instead of `cargo run`, so the daemon and CLI are both using the freshly rebuilt release executables.
 
 When mutations make sense, use the explicit PRISM mutation tools instead of leaving the state implicit.
 

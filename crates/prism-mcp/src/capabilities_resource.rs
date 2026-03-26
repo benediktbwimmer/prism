@@ -121,10 +121,28 @@ fn query_method_specs() -> Vec<(
             "Search symbols directly or via owner-biased behavioral ranking.",
         ),
         (
+            "searchText",
+            "core",
+            None,
+            "Search workspace file text with exact match spans, snippets, and path filters.",
+        ),
+        (
             "entrypoints",
             "core",
             None,
             "List indexed workspace entrypoints.",
+        ),
+        (
+            "fileRead",
+            "core",
+            None,
+            "Read an exact workspace file slice by path and line range.",
+        ),
+        (
+            "fileAround",
+            "core",
+            None,
+            "Read a bounded workspace file slice around one line.",
         ),
         (
             "lineage",

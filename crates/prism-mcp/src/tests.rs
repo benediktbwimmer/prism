@@ -2751,6 +2751,180 @@ return {
 }
 
 #[test]
+fn symbol_views_expose_edit_slices_with_exact_focus_mapping() {
+    let root = temp_workspace();
+    write_long_excerpt_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .execute(
+            r#"
+const sym = prism.search("memory_recall", { path: "src/recall.rs", kind: "function", limit: 1 })[0];
+return {
+  location: sym?.location ?? null,
+  editSlice: sym?.editSlice({ beforeLines: 2, afterLines: 2, maxLines: 6, maxChars: 120 }) ?? null,
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed");
+
+    assert_eq!(
+        result.result["editSlice"]["focus"]["startLine"],
+        result.result["location"]["startLine"]
+    );
+    assert_eq!(
+        result.result["editSlice"]["focus"]["endLine"],
+        result.result["location"]["endLine"]
+    );
+    assert_eq!(
+        result.result["editSlice"]["startLine"],
+        result.result["location"]["startLine"]
+    );
+    assert_eq!(
+        result.result["editSlice"]["endLine"],
+        result.result["location"]["endLine"]
+    );
+    assert_eq!(result.result["editSlice"]["relativeFocus"]["startLine"], 1);
+    assert_eq!(
+        result.result["editSlice"]["relativeFocus"]["endLine"]
+            .as_u64()
+            .expect("relative focus end line should be numeric"),
+        result.result["location"]["endLine"]
+            .as_u64()
+            .expect("end line should be numeric")
+            - result.result["location"]["startLine"]
+                .as_u64()
+                .expect("start line should be numeric")
+            + 1
+    );
+    assert!(result.result["editSlice"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("pub fn memory_recall()"));
+    assert_eq!(result.result["editSlice"]["truncated"], true);
+}
+
+#[test]
+fn prism_file_queries_read_exact_ranges_and_around_line_slices() {
+    let root = temp_workspace();
+    write_long_excerpt_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .execute(
+            r#"
+return {
+  read: prism.file("src/recall.rs").read({ startLine: 2, endLine: 4 }),
+  around: prism.file("src/recall.rs").around({ line: 3, before: 1, after: 1 }),
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed");
+
+    assert_eq!(result.result["read"]["startLine"], 2);
+    assert_eq!(result.result["read"]["endLine"], 4);
+    let read_text = result.result["read"]["text"].as_str().unwrap_or_default();
+    assert!(read_text.contains("let alpha = \"lineage context\";"));
+    assert!(read_text.contains("let beta = \"prior outcomes\";"));
+    assert!(read_text.contains("let gamma = \"task journal\";"));
+    assert!(!read_text.contains("pub fn memory_recall()"));
+
+    assert_eq!(result.result["around"]["startLine"], 2);
+    assert_eq!(result.result["around"]["endLine"], 4);
+    assert_eq!(result.result["around"]["focus"]["startLine"], 3);
+    assert_eq!(result.result["around"]["focus"]["endLine"], 3);
+    assert_eq!(result.result["around"]["relativeFocus"]["startLine"], 2);
+    assert_eq!(result.result["around"]["relativeFocus"]["endLine"], 2);
+    let around_text = result.result["around"]["text"].as_str().unwrap_or_default();
+    assert!(around_text.contains("let alpha = \"lineage context\";"));
+    assert!(around_text.contains("let beta = \"prior outcomes\";"));
+    assert!(around_text.contains("let gamma = \"task journal\";"));
+    assert!(!around_text.contains("pub fn memory_recall()"));
+}
+
+#[test]
+fn prism_text_search_returns_exact_locations_and_honors_filters() {
+    let root = temp_workspace();
+    write_long_excerpt_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .execute(
+            r#"
+return {
+  literal: prism.searchText("read context", {
+    path: "src/recall.rs",
+    limit: 2,
+    contextLines: 0,
+  }),
+  regex: prism.searchText("read context|edit context", {
+    regex: true,
+    path: "src/recall.rs",
+    limit: 2,
+    contextLines: 0,
+  }),
+  folded: prism.searchText("READ CONTEXT", {
+    path: "src/recall.rs",
+    limit: 1,
+    contextLines: 0,
+  }),
+  strict: prism.searchText("READ CONTEXT", {
+    path: "src/recall.rs",
+    caseSensitive: true,
+    limit: 1,
+    contextLines: 0,
+  }),
+  globbed: prism.searchText("Integration Points", {
+    glob: "docs/**/*.md",
+    limit: 1,
+    contextLines: 0,
+  }),
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed");
+
+    let literal = result.result["literal"]
+        .as_array()
+        .expect("literal results");
+    assert_eq!(literal.len(), 2);
+    assert_eq!(literal[0]["path"], "src/recall.rs");
+    assert_eq!(literal[0]["location"]["startLine"], 8);
+    assert_eq!(literal[0]["excerpt"]["startLine"], 8);
+    assert!(literal[0]["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("let eta = \"read context\";"));
+
+    let regex = result.result["regex"].as_array().expect("regex results");
+    assert_eq!(regex.len(), 2);
+    assert_eq!(regex[0]["path"], "src/recall.rs");
+    assert_eq!(regex[0]["location"]["startLine"], 8);
+    assert_eq!(regex[1]["location"]["startLine"], 9);
+
+    let folded = result.result["folded"].as_array().expect("folded results");
+    assert_eq!(folded.len(), 1);
+    assert_eq!(folded[0]["location"]["startLine"], 8);
+
+    let strict = result.result["strict"].as_array().expect("strict results");
+    assert!(strict.is_empty());
+
+    let globbed = result.result["globbed"]
+        .as_array()
+        .expect("globbed results");
+    assert_eq!(globbed.len(), 1);
+    assert_eq!(globbed[0]["path"], "docs/SPEC.md");
+    assert_eq!(globbed[0]["location"]["startLine"], 3);
+    assert!(globbed[0]["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("## Integration Points"));
+}
+
+#[test]
 fn markdown_heading_symbols_cover_their_section_body() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("docs")).unwrap();
