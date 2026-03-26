@@ -8,7 +8,7 @@ This plan is intentionally about internal structure, not feature expansion. Publ
 
 ## Current Pressure Points
 
-The current single-file sizes are already large enough to slow review and increase change coupling:
+The initial trigger for this plan was crate-root growth large enough to slow review and increase change coupling:
 
 * `crates/prism-mcp/src/lib.rs`: about 6.4k LOC
 * `crates/prism-store/src/lib.rs`: about 2.6k LOC
@@ -16,13 +16,21 @@ The current single-file sizes are already large enough to slow review and increa
 
 The main issue is not only line count. Each file currently mixes state, IO, serialization, orchestration, helper logic, and tests in one place.
 
+Current status as of 2026-03-26:
+
+* `crates/prism-store/src/lib.rs`: 12 LOC
+* `crates/prism-core/src/lib.rs`: 47 LOC
+* `crates/prism-mcp/src/lib.rs`: 263 LOC
+
+The crate-root monolith problem is now largely addressed. The remaining work is second-pass cleanup: tighten ownership around still-large extracted modules and keep future changes out of crate roots.
+
 ## Sequencing
 
 Recommended order of attack:
 
-1. `prism-store`
-2. `prism-core`
-3. `prism-mcp`
+1. `prism-store` - completed
+2. `prism-core` - first pass completed, second pass partially completed
+3. `prism-mcp` - completed
 
 Why this order:
 
@@ -35,6 +43,8 @@ If multiple people work in parallel, the safe ownership split is:
 * one stream owns `prism-store`
 * one stream owns `prism-core`
 * `prism-mcp` starts after the shared naming and module conventions are settled
+
+That sequencing held up well in practice. `prism-store` established the pattern, `prism-core` followed with low-risk helper and support splits, and `prism-mcp` was then decomposed without destabilizing the lower layers.
 
 ## Global Rules
 
@@ -70,6 +80,7 @@ crates/prism-store/src/
   graph.rs
   store.rs
   memory_store.rs
+  tests.rs
   sqlite/
     mod.rs
     schema.rs
@@ -103,6 +114,12 @@ Recommended extraction order:
 8. `graph.rs`
 9. shrink `lib.rs` to re-exports plus crate-level glue
 
+Status:
+
+* completed
+* `lib.rs` is now a facade
+* tests have moved into `tests.rs`
+
 Rationale:
 
 * the trait and in-memory backend are mostly mechanical moves
@@ -130,20 +147,25 @@ crates/prism-core/src/
   session.rs
   watch.rs
   curator.rs
+  curator_support.rs
   indexer.rs
+  indexer_support.rs
   layout.rs
   patch_outcomes.rs
   reanchor.rs
   resolution.rs
   util.rs
+  tests.rs
 ```
 
 Module ownership:
 
 * `session.rs`: `WorkspaceSession`, persistence helpers, coordination mutation wrapper
 * `watch.rs`: `WatchHandle`, watcher thread bootstrap, watch-event filtering, refresh entry point
-* `curator.rs`: curator handles, queue state, enqueue logic, curator context building, curator trigger selection
-* `indexer.rs`: `WorkspaceIndexer`, indexing entry points, parse loop, persist batch construction
+* `curator.rs`: curator handles, queue state, and enqueue logic
+* `curator_support.rs`: curator context building, trigger selection, focus extraction, sequence derivation
+* `indexer.rs`: `WorkspaceIndexer` and indexing entry points
+* `indexer_support.rs`: session assembly, scan collection, and resolution-pass support helpers
 * `layout.rs`: `WorkspaceLayout`, `PackageInfo`, manifest discovery, identifier normalization, root node sync
 * `patch_outcomes.rs`: auto patch outcome creation, anchor dedupe, patch summaries
 * `reanchor.rs`: move detection, reanchor inference, candidate scoring
@@ -162,6 +184,14 @@ Recommended extraction order:
 8. `session.rs`
 9. `indexer.rs`
 10. shrink `lib.rs` to public entry points and re-exports
+
+Status:
+
+* first pass completed
+* `lib.rs` is now a facade
+* root tests have moved into `tests.rs`
+* `curator` and `indexer` each now have dedicated support modules
+* likely next resume point: split `session.rs` if future growth justifies it
 
 Rationale:
 
@@ -182,57 +212,77 @@ Current clusters:
 * JS worker runtime and TypeScript transpilation
 * query execution methods
 * Prism-to-view conversion helpers
-* input conversion and enum parsing helpers
+* query-side input, dispatch, and conversion helpers
 
 Target structure:
 
 ```text
 crates/prism-mcp/src/
   lib.rs
-  cli.rs
-  server.rs
-  session.rs
-  schemas.rs
+  main.rs
+  common.rs
+  server_surface.rs
+  session_state.rs
+  tool_args.rs
+  resource_schemas.rs
   resources.rs
-  host.rs
-  query_execution.rs
+  host_resources.rs
+  host_mutations.rs
+  query_types.rs
+  query_helpers.rs
+  query_runtime.rs
   js_runtime.rs
   views.rs
-  convert.rs
+  tests.rs
 ```
 
 Module ownership:
 
-* `cli.rs`: `PrismMcpCli`
-* `server.rs`: `PrismMcpServer`, router setup, MCP handler implementation, tool registration
-* `session.rs`: `SessionState`, `SessionTaskState`, session limit and current-task management
-* `schemas.rs`: tool argument structs, input enums, resource payload structs, mutation result structs
+* `main.rs`: binary entry point
+* `common.rs`: shared utility and result helpers
+* `server_surface.rs`: `PrismMcpServer`, router setup, MCP handler implementation, tool registration
+* `session_state.rs`: `SessionState`, `SessionTaskState`, session limit and current-task management
+* `tool_args.rs`: tool argument structs, mutation payloads, and result types
+* `resource_schemas.rs`: resource payload structs and view schema types
 * `resources.rs`: resource URI parsing, URI builders, pagination helpers, resource-link helpers
-* `host.rs`: `QueryHost`, session configuration, workspace refresh interaction, resource payload assembly
-* `query_execution.rs`: `QueryExecution` and all query-style execution methods
+* `host_resources.rs`: read-only `QueryHost` resource payload assembly
+* `host_mutations.rs`: explicit write and mutation handlers
+* `query_types.rs`: query-side input, output, and dispatch support types
+* `query_helpers.rs`: query-side lookup and view assembly helpers
+* `query_runtime.rs`: `QueryExecution` and query-style execution methods
 * `js_runtime.rs`: `JsWorker`, worker messages, runtime bootstrap, TypeScript transpilation
 * `views.rs`: Prism-to-view mapping helpers
-* `convert.rs`: input conversion, enum parsing, normalization helpers, shared small utilities
+* `tests.rs`: crate integration-style tests previously embedded in `lib.rs`
 
-Recommended extraction order:
+Extraction order used in practice:
 
-1. `cli.rs`
-2. `session.rs`
-3. `schemas.rs`
-4. `resources.rs`
-5. `views.rs`
-6. `convert.rs`
-7. `js_runtime.rs`
-8. `query_execution.rs`
-9. `host.rs`
-10. `server.rs`
-11. shrink `lib.rs` to module wiring and public exports
+1. `session_state.rs`
+2. `resources.rs`
+3. `js_runtime.rs`
+4. `views.rs`
+5. `host_resources.rs`
+6. `host_mutations.rs`
+7. `query_helpers.rs`
+8. `query_types.rs`
+9. `query_runtime.rs`
+10. `server_surface.rs`
+11. `tool_args.rs`
+12. `resource_schemas.rs`
+13. `common.rs`
+14. `tests.rs`
+15. shrink `lib.rs` to module wiring and public exports
+
+Status:
+
+* completed
+* `lib.rs` is now a facade instead of the implementation center
+* the largest remaining files are concentrated where they represent real ownership boundaries rather than crate-root sprawl
 
 Rationale:
 
 * the data-only and helper-only sections can move with minimal risk
 * the JS runtime should be isolated before moving query host logic because it is a self-contained execution subsystem
-* `server.rs` should move late because it touches most other MCP modules and is the highest fan-out point
+* the server surface should move late because it touches most other MCP modules and is the highest fan-out point
 
 ## Execution Waves
 
@@ -252,6 +302,10 @@ Exit condition:
 * the crate builds with the same public exports
 * there is no behavior change
 
+Status:
+
+* completed for `prism-store`, `prism-core`, and `prism-mcp`
+
 ### Wave 2: Stateful Subsystems
 
 After the helper modules settle:
@@ -264,6 +318,12 @@ Exit condition:
 
 * each stateful subsystem has one obvious home
 * the remaining `lib.rs` no longer contains business logic
+
+Status:
+
+* completed for `prism-store`
+* substantially completed for `prism-core`
+* completed for `prism-mcp`
 
 ### Wave 3: Tests And Cleanup
 
@@ -279,15 +339,33 @@ Exit condition:
 * tests are no longer anchored to one giant file
 * the crate root reads like an API facade rather than an implementation dump
 
+Status:
+
+* completed for `prism-store`, `prism-core`, and `prism-mcp`
+* remaining cleanup is now selective rather than structural
+
 ## Concrete First Pass
 
 The most efficient first pass is:
 
 1. split `prism-store` into `store.rs`, `memory_store.rs`, and `sqlite/{schema,graph_io,snapshots,projections,codecs}.rs`
 2. split `prism-core` into `layout.rs`, `resolution.rs`, `reanchor.rs`, and `patch_outcomes.rs`
-3. split `prism-mcp` into `session.rs`, `schemas.rs`, `resources.rs`, `views.rs`, and `convert.rs`
+3. split `prism-mcp` into session-state, schema, resource, view, and query-helper modules before moving the server surface and runtime
 
 That first pass delivers most of the maintainability benefit without forcing deep state rewrites.
+
+Status:
+
+* completed, although `prism-mcp` landed with a more granular shape than the original sketch
+
+## Current Resume Points
+
+If modularization work resumes later, the highest-value next steps are:
+
+1. split oversized test modules where locality matters, especially in `prism-mcp`
+2. keep `prism-core::session` under review so it does not become the next implementation sink
+3. tighten imports, visibility, and ownership comments in the newly created modules
+4. only do further splitting when it improves ownership, not merely line counts
 
 ## Success Criteria
 

@@ -1,0 +1,292 @@
+use anyhow::{anyhow, Result};
+use prism_ir::{AnchorRef, EdgeKind, NodeId};
+use prism_js::{
+    ChangeImpactView, LineageEventView, LineageStatus, LineageView, RelationsView, SymbolView,
+    ValidationRecipeView,
+};
+use prism_query::{Prism, Symbol};
+
+use crate::{
+    change_impact_view, merge_node_ids, merge_promoted_checks, node_id_view,
+    promoted_summary_texts, promoted_validation_checks, validation_recipe_view, SessionState,
+};
+
+pub(crate) fn symbol_view(prism: &Prism, symbol: &Symbol<'_>) -> Result<SymbolView> {
+    let node = symbol.node();
+    Ok(SymbolView {
+        id: node_id_view(symbol.id().clone()),
+        name: symbol.name().to_owned(),
+        kind: node.kind,
+        signature: symbol.signature(),
+        file_path: prism
+            .graph()
+            .file_path(node.file)
+            .map(|path| path.to_string_lossy().into_owned()),
+        span: node.span,
+        language: node.language,
+        lineage_id: prism
+            .lineage_of(symbol.id())
+            .map(|lineage| lineage.0.to_string()),
+    })
+}
+
+pub(crate) fn symbol_views_for_ids(prism: &Prism, ids: Vec<NodeId>) -> Result<Vec<SymbolView>> {
+    ids.into_iter()
+        .map(|id| symbol_for(prism, &id).and_then(|symbol| symbol_view(prism, &symbol)))
+        .collect()
+}
+
+pub(crate) fn symbol_for<'a>(prism: &'a Prism, id: &NodeId) -> Result<Symbol<'a>> {
+    let node = prism
+        .graph()
+        .node(id)
+        .ok_or_else(|| anyhow!("unknown symbol `{}`", id.path))?;
+    let matching = prism.search(
+        &node.id.path,
+        prism.graph().nodes.len().max(1),
+        Some(node.kind),
+        None,
+    );
+    matching
+        .into_iter()
+        .find(|symbol| symbol.id() == id)
+        .ok_or_else(|| anyhow!("symbol `{}` is no longer queryable", id.path))
+}
+
+pub(crate) fn relations_view(
+    prism: &Prism,
+    session: &SessionState,
+    id: &NodeId,
+) -> Result<RelationsView> {
+    let relations = symbol_for(prism, id)?.relations();
+    Ok(RelationsView {
+        contains: symbol_views_for_ids(
+            prism,
+            prism
+                .graph()
+                .edges_from(id, Some(EdgeKind::Contains))
+                .into_iter()
+                .map(|edge| edge.target.clone())
+                .collect(),
+        )?,
+        callers: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                relations.incoming_calls,
+                session
+                    .inferred_edges
+                    .edges_to(id, Some(EdgeKind::Calls))
+                    .into_iter()
+                    .map(|record| record.edge.source),
+            ),
+        )?,
+        callees: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                relations.outgoing_calls,
+                session
+                    .inferred_edges
+                    .edges_from(id, Some(EdgeKind::Calls))
+                    .into_iter()
+                    .map(|record| record.edge.target),
+            ),
+        )?,
+        references: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                prism
+                    .graph()
+                    .edges_from(id, Some(EdgeKind::References))
+                    .into_iter()
+                    .map(|edge| edge.target.clone())
+                    .collect(),
+                prism
+                    .graph()
+                    .edges_to(id, Some(EdgeKind::References))
+                    .into_iter()
+                    .map(|edge| edge.source.clone()),
+            ),
+        )?,
+        imports: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                relations.outgoing_imports,
+                session
+                    .inferred_edges
+                    .edges_from(id, Some(EdgeKind::Imports))
+                    .into_iter()
+                    .map(|record| record.edge.target),
+            ),
+        )?,
+        implements: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                relations.outgoing_implements,
+                session
+                    .inferred_edges
+                    .edges_from(id, Some(EdgeKind::Implements))
+                    .into_iter()
+                    .map(|record| record.edge.target),
+            ),
+        )?,
+        specifies: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                relations.outgoing_specifies,
+                session
+                    .inferred_edges
+                    .edges_from(id, Some(EdgeKind::Specifies))
+                    .into_iter()
+                    .map(|record| record.edge.target),
+            ),
+        )?,
+        specified_by: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                relations.incoming_specifies,
+                session
+                    .inferred_edges
+                    .edges_to(id, Some(EdgeKind::Specifies))
+                    .into_iter()
+                    .map(|record| record.edge.source),
+            ),
+        )?,
+        validates: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                relations.outgoing_validates,
+                session
+                    .inferred_edges
+                    .edges_from(id, Some(EdgeKind::Validates))
+                    .into_iter()
+                    .map(|record| record.edge.target),
+            ),
+        )?,
+        validated_by: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                relations.incoming_validates,
+                session
+                    .inferred_edges
+                    .edges_to(id, Some(EdgeKind::Validates))
+                    .into_iter()
+                    .map(|record| record.edge.source),
+            ),
+        )?,
+        related: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                relations.outgoing_related,
+                session
+                    .inferred_edges
+                    .edges_from(id, Some(EdgeKind::RelatedTo))
+                    .into_iter()
+                    .map(|record| record.edge.target),
+            ),
+        )?,
+        related_by: symbol_views_for_ids(
+            prism,
+            merge_node_ids(
+                relations.incoming_related,
+                session
+                    .inferred_edges
+                    .edges_to(id, Some(EdgeKind::RelatedTo))
+                    .into_iter()
+                    .map(|record| record.edge.source),
+            ),
+        )?,
+    })
+}
+
+pub(crate) fn lineage_view(prism: &Prism, id: &NodeId) -> Result<Option<LineageView>> {
+    let Some(lineage) = prism.lineage_of(id) else {
+        return Ok(None);
+    };
+    let current = symbol_for(prism, id)?;
+    let events = prism.lineage_history(&lineage);
+    let status = lineage_status(&events);
+    Ok(Some(LineageView {
+        lineage_id: lineage.0.to_string(),
+        current: symbol_view(prism, &current)?,
+        status,
+        history: events
+            .into_iter()
+            .map(|event| LineageEventView {
+                event_id: event.meta.id.0.to_string(),
+                ts: event.meta.ts,
+                kind: format!("{:?}", event.kind),
+                confidence: event.confidence,
+            })
+            .collect(),
+    }))
+}
+
+pub(crate) fn lineage_status(events: &[prism_ir::LineageEvent]) -> LineageStatus {
+    if events
+        .iter()
+        .any(|event| matches!(event.kind, prism_ir::LineageEventKind::Ambiguous))
+    {
+        LineageStatus::Ambiguous
+    } else if events
+        .last()
+        .is_some_and(|event| matches!(event.kind, prism_ir::LineageEventKind::Died))
+    {
+        LineageStatus::Dead
+    } else {
+        LineageStatus::Active
+    }
+}
+
+pub(crate) fn blast_radius_view(
+    prism: &Prism,
+    session: &SessionState,
+    id: &NodeId,
+) -> ChangeImpactView {
+    let mut impact = prism.blast_radius(id);
+    for record in session.inferred_edges.edges_from(id, None) {
+        impact.direct_nodes.push(record.edge.target);
+    }
+    for record in session.inferred_edges.edges_to(id, None) {
+        impact.direct_nodes.push(record.edge.source);
+    }
+    impact.direct_nodes = merge_node_ids(impact.direct_nodes, std::iter::empty());
+    let promoted_summaries = promoted_summary_texts(session, prism, &[AnchorRef::Node(id.clone())]);
+    let mut view = change_impact_view(impact);
+    view.promoted_summaries = promoted_summaries;
+    view
+}
+
+pub(crate) fn validation_recipe_view_with(
+    prism: &Prism,
+    session: &SessionState,
+    id: &NodeId,
+) -> ValidationRecipeView {
+    let mut recipe = prism.validation_recipe(id);
+    merge_promoted_checks(
+        &mut recipe.scored_checks,
+        promoted_validation_checks(session, prism, &[AnchorRef::Node(id.clone())]),
+    );
+    recipe.checks = recipe
+        .scored_checks
+        .iter()
+        .map(|check| check.label.clone())
+        .collect::<Vec<_>>();
+    recipe.checks.sort();
+    recipe.checks.dedup();
+    recipe.related_nodes = merge_node_ids(
+        recipe.related_nodes,
+        session
+            .inferred_edges
+            .edges_from(id, None)
+            .into_iter()
+            .map(|record| record.edge.target)
+            .chain(
+                session
+                    .inferred_edges
+                    .edges_to(id, None)
+                    .into_iter()
+                    .map(|record| record.edge.source),
+            ),
+    );
+    validation_recipe_view(recipe)
+}

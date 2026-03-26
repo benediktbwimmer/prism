@@ -186,6 +186,23 @@ Writes stay explicit and auditable.
 - mutations happen through explicit tools or API calls
 - outcomes, notes, inferred edges, claims, and artifacts are recorded with event metadata and attribution
 
+For **LEDGER** and **HARBOR**, the long-term operating model should be:
+
+> **propose -> plan -> approve -> execute -> verify -> record outcomes**
+
+They should not become blind mutation engines. They should become change-control systems with durable execution.
+
+The family-level split should be:
+
+- **cognition plane**: understand structure, history, blast radius, and prior outcomes
+- **control plane**: coordinate tasks, claims, approvals, policy, and maintenance windows
+- **execution plane**: trigger the real migration/apply/deploy adapters
+- **observation plane**: watch outcomes and attach them back to anchors and lineage
+
+That separation keeps the products trustworthy. The lowest-level actuation should usually happen through explicit executors such as migration runners, CI jobs, Terraform, ArgoCD, Kubernetes APIs, or cloud/provider APIs rather than an agent directly mutating production systems.
+
+Human-in-the-loop approval is not a bolt-on for these domains. It is a first-class transition in the workflow state machine for risky changes.
+
 ---
 
 ## 6. Concepts Shared Across the Family
@@ -336,6 +353,16 @@ The domain-specific pillar LEDGER needs beyond PRISM is:
 
 Structure alone is not enough. LEDGER ultimately needs to understand query patterns, cardinality, lock implications, backfill behavior, and environment-specific operational risk.
 
+Over time, LEDGER should grow from cognition into controlled schema-change orchestration. That means:
+
+- analyze a proposed migration
+- estimate blast radius and operational risk
+- detect whether staged rollout, backfill handling, or manual confirmation is needed
+- request approval when policy requires it
+- trigger the actual migration runner
+- watch results and require verification
+- record outcomes against schema lineage
+
 ## 7.3 HARBOR: Infrastructure Cognition
 
 HARBOR's core loop is likely to be:
@@ -391,6 +418,15 @@ The domain-specific pillar HARBOR needs beyond PRISM is:
 > **desired state vs live state reconciliation**
 
 Structure alone is not enough. HARBOR needs a principled model for declared topology, live topology, and drift between them.
+
+Over time, HARBOR should grow from cognition into controlled infrastructure/deployment orchestration. That means:
+
+- analyze an IaC or deployment change
+- estimate blast radius and affected environments/services
+- gate on policy, claims, and approval requirements
+- trigger the actual apply/deploy system
+- watch rollout health and pause when intervention is required
+- record incidents, rollbacks, and successful validations against resource lineage
 
 ---
 
@@ -694,11 +730,15 @@ A key family decision is to preserve the same **query model** across siblings:
 - explicit mutation tools
 - long-lived in-memory session state
 
-This is likely one of the strongest family-level product decisions.
+This is likely the single strongest family-level product decision.
 
 ### Why keep this consistent?
 
-Because agents learn patterns. If the query model stays similar, an agent can move from PRISM to LEDGER to HARBOR without relearning the entire interaction model.
+Because agents learn patterns. An agent that has used `prism.symbol()` → `prism.blastRadius()` → `prism.relatedOutcomes()` can immediately use `ledger.column()` → `ledger.blastRadius()` → `ledger.relatedOutcomes()` with the same mental model. It does not need to relearn the interaction pattern for each sibling.
+
+This creates a cross-product network effect: the more an agent uses any one sibling, the better it gets at using all of them. That compounds over time and across tasks. It also means that system prompt instructions, recipes, and agent habits transfer across domains without retraining.
+
+No competing approach offers this. Most agent tooling treats each domain as a bespoke integration. A consistent query surface across code, database, and infrastructure is a genuine moat.
 
 ### What changes?
 
@@ -778,6 +818,10 @@ Each product will support:
 
 > Coordination should remain anchored, revision-aware, and auditable.  
 > It should never degrade into vague chat-only workflow.
+
+### Calibration note
+
+Coordination is the layer most at risk of over-engineering before real demand exists. The core — claims and conflict detection — is essential for multi-agent safety. The surrounding ceremony — reviews, artifacts, handoffs, plan DAGs — may turn out to be unnecessary if agents naturally coordinate through shared memory and outcome visibility alone. Build claims first. Add the rest only when real multi-agent usage creates pressure.
 
 ---
 
@@ -971,12 +1015,35 @@ Claims, reviews, blockers, and handoffs should be first-class and auditable.
 Read queries compose.
 Writes remain explicit and attributable.
 
+For LEDGER and HARBOR specifically, this extends to execution:
+
+- they may eventually drive real migrations, applies, and deploys
+- they should do so as orchestrators over explicit executors, not as direct autonomous operators
+- approval and pause/resume semantics should be first-class for risky changes
+
 ### 14.6 Shared Later Is A Hypothesis, Not A Mandate
 
 A concept being similar is not enough.
 A second real product must create real extraction pressure.
 
-### 14.7 Keep Domain Ontology Sharp
+### 14.7 Durable Workflow Runtime Is Optional Until It Is Not
+
+Do not start with a heavyweight workflow engine by default.
+
+Early versions can persist event history, approvals, waits, and execution state directly in the family event/coordination model while delegating execution to existing runners.
+
+A dedicated durable workflow runtime becomes attractive when the system must reliably handle:
+
+- long-running migrations or staged rollouts
+- approval waits or maintenance windows
+- retries across flaky external systems
+- pause/resume after crashes or outages
+- compensating actions or rollback workflows
+- many adapters in a single change path
+
+At that point, a Temporal-class workflow engine can make sense as part of the execution plane, not as the core product thesis.
+
+### 14.8 Keep Domain Ontology Sharp
 
 Do not erase domain semantics in pursuit of reuse.
 
@@ -1034,6 +1101,16 @@ Why it is bad:
 - undermines determinism
 - lowers trust
 - contaminates the world model
+
+### 15.6 Treating Ledger Or Harbor As Blind Auto-Operators
+
+Bad move:
+- giving an agent direct production mutation power without explicit approval, execution, and verification boundaries
+
+Why it is bad:
+- collapses cognition, control, and execution into one unsafe surface
+- makes failures harder to reason about and audit
+- reduces operator trust precisely where blast radius is highest
 
 ---
 

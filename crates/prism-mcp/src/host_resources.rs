@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use prism_agent::EdgeId;
 use prism_ir::{AnchorRef, EventId, LineageId, NodeId, TaskId};
+use prism_js::LineageEventView;
 use prism_memory::{MemoryId, OutcomeKind};
 
 use crate::{
@@ -15,8 +16,8 @@ use crate::{
     symbol_resource_view_link, symbol_resource_view_link_for_id, symbol_view, symbol_views_for_ids,
     task_resource_view_link, task_resource_view_links_from_events, validation_recipe_view_with,
     EdgeResourcePayload, EntrypointsResourcePayload, EventResourcePayload, InferredEdgeRecordView,
-    LineageEventView, LineageResourcePayload, MemoryResourcePayload, NodeIdInput, QueryExecution,
-    QueryHost, ResourceSchemaCatalogPayload, SearchArgs, SearchResourcePayload, SessionLimitsView,
+    LineageResourcePayload, MemoryResourcePayload, NodeIdInput, QueryExecution, QueryHost,
+    ResourceSchemaCatalogPayload, SearchArgs, SearchResourcePayload, SessionLimitsView,
     SessionResourcePayload, SessionTaskView, SessionView, SymbolResourcePayload,
     TaskResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, ENTRYPOINTS_URI,
 };

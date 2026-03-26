@@ -29,11 +29,19 @@ Several crates have reached the size where file-level decomposition will improve
 
 The detailed execution plan for this work lives in [MODULARIZATION_PLAN.md](MODULARIZATION_PLAN.md).
 
+Status as of 2026-03-26:
+
+* `prism-store` has been decomposed and no longer centers its implementation in `src/lib.rs`
+* `prism-core` has been decomposed into focused modules, with `lib.rs` now acting as a small facade
+* `prism-mcp` has been substantially decomposed; the former crate-root monolith is now split across runtime, resource, mutation, view, schema, and test modules
+* the largest remaining work in this area is second-pass cleanup of internal boundaries and continued splitting of oversized test and handler modules where it improves ownership
+
 Work:
 
-* split `prism-mcp` into clearer modules such as runtime, resources, query host, mutation handlers, session state, and schema or view types
-* split `prism-core` into clearer modules such as workspace loading, indexing, watch refresh, patch outcomes, and curator triggers
-* split `prism-store` along schema, persistence, history snapshots, and projection snapshot boundaries where that reduces coupling
+* finish the second-pass cleanup for the newly split crates, especially where extracted modules are still larger than they should be
+* keep `prism-mcp` split along runtime, resources, query host, mutation handlers, session state, schema, and view boundaries instead of letting behavior drift back into the root
+* keep `prism-core` split along workspace loading, indexing, watch refresh, patch outcomes, curator support, and session boundaries
+* keep `prism-store` split along graph model, store trait, in-memory backend, SQLite schema, graph IO, snapshots, projections, and codecs boundaries
 * preserve public APIs while moving internals so refactoring does not create churn for downstream crates
 * treat this as a maintainability pass, not a feature pass
 
@@ -42,6 +50,7 @@ Done when:
 * large crates no longer concentrate most behavior in one source file
 * subsystem ownership is obvious from module boundaries
 * new changes can land with smaller review surfaces
+* tests and high-fan-out handlers are no longer the main sources of monolithic growth
 
 ## 2. Documentation Alignment And Product-Surface Cleanup
 

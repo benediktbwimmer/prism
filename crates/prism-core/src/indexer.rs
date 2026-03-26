@@ -1,8 +1,15 @@
 use std::collections::HashSet;
-use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::Arc;
 
+use crate::indexer_support::{
+    build_workspace_session, collect_pending_file_parses, resolve_graph_edges,
+};
+use crate::layout::{discover_layout, sync_root_nodes, PackageInfo, WorkspaceLayout};
+use crate::patch_outcomes::default_outcome_meta;
+use crate::reanchor::{detect_moved_files, infer_reanchors};
+use crate::session::WorkspaceSession;
+use crate::util::{cache_path, cleanup_legacy_cache, default_adapters};
 use anyhow::Result;
 use prism_coordination::CoordinationStore;
 use prism_curator::CuratorBackend;
@@ -15,16 +22,6 @@ use prism_projections::{
 };
 use prism_query::Prism;
 use prism_store::{Graph, IndexPersistBatch, SqliteStore, Store};
-use walkdir::WalkDir;
-
-use crate::curator::{CuratorHandle, CuratorHandleRef};
-use crate::layout::{discover_layout, sync_root_nodes, PackageInfo, WorkspaceLayout};
-use crate::patch_outcomes::default_outcome_meta;
-use crate::reanchor::{detect_moved_files, infer_reanchors};
-use crate::resolution::{resolve_calls, resolve_impls, resolve_imports, resolve_intents};
-use crate::session::WorkspaceSession;
-use crate::util::{cache_path, cleanup_legacy_cache, default_adapters, should_walk, stable_hash};
-use crate::watch::spawn_fs_watch;
 
 pub struct WorkspaceIndexer<S: Store> {
     pub(crate) root: PathBuf,
@@ -61,41 +58,16 @@ impl WorkspaceIndexer<SqliteStore> {
         root: PathBuf,
         backend: Option<Arc<dyn CuratorBackend>>,
     ) -> Result<WorkspaceSession> {
-        let prism = Arc::new(Prism::with_history_outcomes_coordination_and_projections(
+        build_workspace_session(
+            root,
+            self.store,
             self.graph,
             self.history,
             self.outcomes,
             self.coordination,
             self.projections,
-        ));
-        let prism = Arc::new(RwLock::new(prism));
-        let store = Arc::new(Mutex::new(self.store));
-        let refresh_lock = Arc::new(Mutex::new(()));
-        let curator_snapshot = {
-            let mut store = store.lock().expect("workspace store lock poisoned");
-            store.load_curator_snapshot()?.unwrap_or_default()
-        };
-        let curator = CuratorHandle::new(
-            curator_snapshot,
             backend,
-            Arc::clone(&store),
-            Arc::clone(&refresh_lock),
-        );
-        let watch = Some(spawn_fs_watch(
-            root.clone(),
-            Arc::clone(&prism),
-            Arc::clone(&store),
-            Arc::clone(&refresh_lock),
-            Some(CuratorHandleRef::from(&curator)),
-        )?);
-        Ok(WorkspaceSession {
-            root,
-            prism,
-            store,
-            refresh_lock,
-            watch,
-            curator: Some(curator),
-        })
+        )
     }
 }
 
@@ -164,8 +136,6 @@ impl<S: Store> WorkspaceIndexer<S> {
         &mut self,
         trigger: ChangeTrigger,
     ) -> Result<(Vec<ObservedChangeSet>, Vec<prism_ir::GraphChange>)> {
-        let mut pending = Vec::<PendingFileParse>::new();
-        let mut seen_files = HashSet::<PathBuf>::new();
         let mut observed_changes = Vec::<ObservedChangeSet>::new();
         let mut changes = Vec::<prism_ir::GraphChange>::new();
         let mut co_change_deltas = Vec::<CoChangeDelta>::new();
@@ -173,36 +143,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         let mut upserted_paths = Vec::<PathBuf>::new();
         let mut removed_paths = Vec::<PathBuf>::new();
         let walk_root = self.root.clone();
-
-        for entry in WalkDir::new(&walk_root)
-            .into_iter()
-            .filter_entry(|entry| should_walk(entry.path(), &walk_root))
-            .filter_map(Result::ok)
-        {
-            if !entry.file_type().is_file() {
-                continue;
-            }
-
-            let path = entry.path();
-            let Some(_adapter) = self
-                .adapters
-                .iter()
-                .find(|adapter| adapter.supports_path(path))
-            else {
-                continue;
-            };
-
-            let canonical_path = path.to_path_buf();
-            seen_files.insert(canonical_path.clone());
-            let source = fs::read_to_string(path)?;
-            let hash = stable_hash(&source);
-            pending.push(PendingFileParse {
-                path: canonical_path,
-                source,
-                hash,
-                previous_path: None,
-            });
-        }
+        let (mut pending, seen_files) = collect_pending_file_parses(&walk_root, &self.adapters)?;
 
         let moved_paths = detect_moved_files(&self.graph, &seen_files, &mut pending);
 
@@ -277,7 +218,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             }
         }
 
-        self.resolve_all_edges();
+        resolve_graph_edges(&mut self.graph);
         self.history
             .seed_nodes(self.graph.all_nodes().map(|node| node.id.clone()));
         let projection_snapshot =
@@ -364,24 +305,5 @@ impl<S: Store> WorkspaceIndexer<S> {
             default_outcome_meta("observed"),
             trigger,
         )
-    }
-
-    fn resolve_all_edges(&mut self) {
-        self.graph.clear_edges_by_kind(&[
-            EdgeKind::Calls,
-            EdgeKind::Imports,
-            EdgeKind::Implements,
-            EdgeKind::Specifies,
-            EdgeKind::Validates,
-            EdgeKind::RelatedTo,
-        ]);
-        let unresolved_calls = self.graph.unresolved_calls();
-        let unresolved_imports = self.graph.unresolved_imports();
-        let unresolved_impls = self.graph.unresolved_impls();
-        let unresolved_intents = self.graph.unresolved_intents();
-        resolve_calls(&mut self.graph, unresolved_calls);
-        resolve_imports(&mut self.graph, unresolved_imports);
-        resolve_impls(&mut self.graph, unresolved_impls);
-        resolve_intents(&mut self.graph, unresolved_intents);
     }
 }
