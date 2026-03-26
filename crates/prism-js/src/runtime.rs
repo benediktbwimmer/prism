@@ -488,6 +488,19 @@ globalThis.prism = Object.freeze({
       maxChars: options?.maxChars,
     });
   },
+  focusedBlock(target, options = {}) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
+      return null;
+    }
+    return __prismHost("focusedBlock", {
+      ...targetPayload,
+      beforeLines: options?.beforeLines,
+      afterLines: options?.afterLines,
+      maxLines: options?.maxLines,
+      maxChars: options?.maxChars,
+    });
+  },
   lineage(target) {
     const targetPayload = __prismNormalizeTargetPayload(target);
     if (targetPayload == null) {

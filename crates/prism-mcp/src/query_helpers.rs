@@ -1,10 +1,10 @@
 use anyhow::{anyhow, Result};
 use prism_ir::{AnchorRef, EdgeKind, NodeId};
 use prism_js::{
-    ChangeImpactView, EditContextView, LineageEventView, LineageStatus, LineageView,
-    OwnerCandidateView, OwnerHintView, ReadContextView, RecentChangeContextView, RelationsView,
-    SourceExcerptView, SourceLocationView, SourceSliceView, SymbolView, ValidationContextView,
-    ValidationRecipeView,
+    ChangeImpactView, EditContextView, FocusedBlockView, LineageEventView, LineageStatus,
+    LineageView, OwnerCandidateView, OwnerHintView, ReadContextView, RecentChangeContextView,
+    RelationsView, SourceExcerptView, SourceLocationView, SourceSliceView, SymbolView,
+    ValidationContextView, ValidationRecipeView,
 };
 use prism_query::{EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
 
@@ -18,6 +18,12 @@ const CANDIDATE_EXCERPT_OPTIONS: SourceExcerptOptions = SourceExcerptOptions {
     context_lines: 0,
     max_lines: 4,
     max_chars: 240,
+};
+
+const FOCUSED_BLOCK_EXCERPT_OPTIONS: SourceExcerptOptions = SourceExcerptOptions {
+    context_lines: 0,
+    max_lines: 12,
+    max_chars: 640,
 };
 
 pub(crate) fn symbol_view(prism: &Prism, symbol: &Symbol<'_>) -> Result<SymbolView> {
@@ -87,6 +93,46 @@ pub(crate) fn edit_slice_for_symbol(
     options: EditSliceOptions,
 ) -> Option<SourceSliceView> {
     symbol.edit_slice(options).map(source_slice_view)
+}
+
+pub(crate) fn focused_block_for_symbol(
+    prism: &Prism,
+    symbol: &Symbol<'_>,
+    options: EditSliceOptions,
+) -> Result<FocusedBlockView> {
+    let symbol_view = symbol_view(prism, symbol)?;
+    let fallback_max_lines = options
+        .max_lines
+        .max(FOCUSED_BLOCK_EXCERPT_OPTIONS.max_lines);
+    let fallback_max_chars = options
+        .max_chars
+        .max(FOCUSED_BLOCK_EXCERPT_OPTIONS.max_chars);
+    let slice = edit_slice_for_symbol(symbol, options);
+    let excerpt = if slice.is_none() {
+        source_excerpt_for_symbol(
+            symbol,
+            SourceExcerptOptions {
+                context_lines: 0,
+                max_lines: fallback_max_lines,
+                max_chars: fallback_max_chars,
+            },
+        )
+    } else {
+        None
+    };
+    let strategy = if slice.is_some() {
+        "edit_slice"
+    } else if excerpt.is_some() {
+        "excerpt_fallback"
+    } else {
+        "symbol_only"
+    };
+    Ok(FocusedBlockView {
+        symbol: symbol_view,
+        slice,
+        excerpt,
+        strategy: strategy.to_string(),
+    })
 }
 
 pub(crate) fn compact_owner_candidate_excerpts(

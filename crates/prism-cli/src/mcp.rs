@@ -50,14 +50,18 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
     let root = root.canonicalize()?;
     match command {
         McpCommand::Status => status(&root),
-        McpCommand::Start { no_coordination } => start(&root, no_coordination),
+        McpCommand::Start {
+            no_coordination,
+            internal_developer,
+        } => start(&root, no_coordination, internal_developer),
         McpCommand::Stop { kill_bridges } => stop(&root, kill_bridges),
         McpCommand::Restart {
             kill_bridges,
             no_coordination,
+            internal_developer,
         } => {
             stop(&root, kill_bridges)?;
-            start(&root, no_coordination)
+            start(&root, no_coordination, internal_developer)
         }
         McpCommand::Health => health(&root),
         McpCommand::Logs { lines } => logs(&root, lines),
@@ -110,7 +114,7 @@ fn status(root: &Path) -> Result<()> {
     Ok(())
 }
 
-fn start(root: &Path, no_coordination: bool) -> Result<()> {
+fn start(root: &Path, no_coordination: bool, internal_developer: bool) -> Result<()> {
     let paths = McpPaths::for_root(root);
     let processes = list_processes(root)?;
     let daemons = select_kind(&processes, McpProcessKind::Daemon);
@@ -130,7 +134,7 @@ fn start(root: &Path, no_coordination: bool) -> Result<()> {
     fs::remove_file(&paths.uri_file).ok();
 
     let binary = prism_mcp_binary()?;
-    spawn_daemon(root, &binary, &paths, no_coordination)?;
+    spawn_daemon(root, &binary, &paths, no_coordination, internal_developer)?;
     let uri = wait_for_healthy_uri(&paths, DEFAULT_HEALTH_PATH)?;
     println!("started daemon");
     println!("uri: {uri}");
@@ -293,7 +297,13 @@ fn prism_mcp_binary() -> Result<PathBuf> {
     );
 }
 
-fn spawn_daemon(root: &Path, binary: &Path, paths: &McpPaths, no_coordination: bool) -> Result<()> {
+fn spawn_daemon(
+    root: &Path,
+    binary: &Path,
+    paths: &McpPaths,
+    no_coordination: bool,
+    internal_developer: bool,
+) -> Result<()> {
     let mut args = vec![
         "--mode".to_string(),
         "daemon".to_string(),
@@ -311,6 +321,9 @@ fn spawn_daemon(root: &Path, binary: &Path, paths: &McpPaths, no_coordination: b
     ];
     if no_coordination {
         args.push("--no-coordination".to_string());
+    }
+    if internal_developer {
+        args.push("--internal-developer".to_string());
     }
 
     let log_file = OpenOptions::new()

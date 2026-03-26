@@ -2975,6 +2975,61 @@ return {
 }
 
 #[test]
+fn focused_blocks_return_exact_local_context_for_code_and_doc_targets() {
+    let root = temp_workspace();
+    write_long_excerpt_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .execute(
+            r#"
+const fnSym = prism.search("memory_recall", { path: "src/recall.rs", kind: "function", limit: 1 })[0];
+const spec = prism.search("Integration Points", { path: "docs/SPEC.md", kind: "markdown-heading", limit: 1 })[0];
+return {
+  functionBlock: fnSym ? prism.focusedBlock(fnSym, { beforeLines: 1, afterLines: 1, maxLines: 6, maxChars: 180 }) : null,
+  specBlock: spec ? prism.focusedBlock(spec, { maxLines: 4, maxChars: 160 }) : null,
+  readQueries: fnSym ? prism.readContext(fnSym).suggestedQueries.map((query) => query.label) : [],
+  editQueries: fnSym ? prism.editContext(fnSym).suggestedQueries.map((query) => query.label) : [],
+  validationQueries: fnSym ? prism.validationContext(fnSym).suggestedQueries.map((query) => query.label) : [],
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("focused-block query should succeed");
+
+    assert_eq!(result.result["functionBlock"]["strategy"], "edit_slice");
+    assert_eq!(
+        result.result["functionBlock"]["symbol"]["name"],
+        "memory_recall"
+    );
+    assert_eq!(
+        result.result["functionBlock"]["slice"]["focus"]["startLine"],
+        1
+    );
+    assert!(result.result["functionBlock"]["slice"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("pub fn memory_recall()"));
+
+    let spec_block = &result.result["specBlock"];
+    assert_eq!(spec_block["symbol"]["kind"], "MarkdownHeading");
+    assert!(spec_block["strategy"] == "edit_slice" || spec_block["strategy"] == "excerpt_fallback");
+    let spec_text = spec_block["slice"]["text"]
+        .as_str()
+        .or_else(|| spec_block["excerpt"]["text"].as_str())
+        .unwrap_or_default();
+    assert!(spec_text.contains("## Integration Points"));
+
+    for key in ["readQueries", "editQueries", "validationQueries"] {
+        assert!(result.result[key]
+            .as_array()
+            .expect("query labels should be an array")
+            .iter()
+            .any(|label| label == "Focused Block"));
+    }
+}
+
+#[test]
 fn lineage_targets_remap_stale_symbol_ids_to_current_edit_slices() {
     let root = temp_workspace();
     let source = "pub fn alpha_v2() { beta(); }\npub fn beta() {}\n";
@@ -3658,6 +3713,33 @@ return {
 }
 
 #[test]
+fn prism_runtime_views_ignore_invalid_runtime_state_sidecar() {
+    let root = temp_workspace();
+    fs::write(root.join(".gitignore"), ".prism/\n").unwrap();
+    fs::create_dir_all(root.join(".prism")).unwrap();
+    fs::write(
+        root.join(".prism").join("prism-mcp-runtime.json"),
+        "{ invalid",
+    )
+    .unwrap();
+    fs::write(root.join(".prism").join("prism-mcp-daemon.log"), "").unwrap();
+    fs::write(
+        root.join(".prism").join("prism-mcp-http-uri"),
+        "http://127.0.0.1:9/mcp",
+    )
+    .unwrap();
+
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+    let result = host
+        .execute("return prism.runtimeStatus();", QueryLanguage::Ts)
+        .expect("invalid runtime state should not break runtime status");
+
+    assert_eq!(result.result["health"]["ok"], false);
+    assert_eq!(result.result["daemonCount"], 0);
+    assert_eq!(result.result["bridgeCount"], 0);
+}
+
+#[test]
 fn prism_change_views_surface_recent_files_symbols_and_task_changes() {
     let root = temp_workspace();
     let source_path = root.join("src/lib.rs");
@@ -4107,14 +4189,19 @@ return {
         )));
     assert!(!symbol_resource.discovery.where_used_behavioral.is_empty());
     assert!(!symbol_resource.discovery.why.is_empty());
-    assert_eq!(symbol_resource.suggested_queries[0].label, "Read Context");
-    assert_eq!(symbol_resource.suggested_queries[1].label, "Next Reads");
-    assert_eq!(symbol_resource.suggested_queries[2].label, "Where Used");
-    assert_eq!(
-        symbol_resource.suggested_queries[3].label,
-        "Validation Recipe"
-    );
-    assert_eq!(symbol_resource.suggested_queries[4].label, "Edit Context");
+    for expected in [
+        "Read Context",
+        "Focused Block",
+        "Next Reads",
+        "Where Used",
+        "Validation Recipe",
+        "Edit Context",
+    ] {
+        assert!(symbol_resource
+            .suggested_queries
+            .iter()
+            .any(|query| query.label == expected));
+    }
     assert_eq!(
         symbol_resource.related_resources[0].uri,
         symbol_resource.uri

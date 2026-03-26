@@ -203,6 +203,11 @@ pub(crate) fn read_context_queries(target: &NodeId) -> Vec<SuggestedQueryView> {
             why: "Fetch the semantic read bundle for this exact target.".to_string(),
         },
         SuggestedQueryView {
+            label: "Focused Block".to_string(),
+            query: format!("return prism.focusedBlock({target_json});"),
+            why: "Jump straight to the exact local block around this target.".to_string(),
+        },
+        SuggestedQueryView {
             label: "Next Reads".to_string(),
             query: format!("return prism.nextReads({target_json}, {{ limit: 5 }});"),
             why: "Ask PRISM for the next read-oriented candidates directly.".to_string(),
@@ -232,6 +237,11 @@ pub(crate) fn edit_context_queries(target: &NodeId) -> Vec<SuggestedQueryView> {
                 .to_string(),
         },
         SuggestedQueryView {
+            label: "Focused Block".to_string(),
+            query: format!("return prism.focusedBlock({target_json});"),
+            why: "Show the exact local block to inspect before editing.".to_string(),
+        },
+        SuggestedQueryView {
             label: "Write Owners".to_string(),
             query: format!("return prism.owners({target_json}, {{ kind: \"write\", limit: 5 }});"),
             why: "Inspect write-oriented owners before making a mutation.".to_string(),
@@ -257,6 +267,12 @@ pub(crate) fn validation_context_queries(target: &NodeId) -> Vec<SuggestedQueryV
             label: "Validation Context".to_string(),
             query: format!("return prism.validationContext({target_json});"),
             why: "Fetch the validation-focused bundle for this exact target.".to_string(),
+        },
+        SuggestedQueryView {
+            label: "Focused Block".to_string(),
+            query: format!("return prism.focusedBlock({target_json});"),
+            why: "Expand this target into its exact local block before choosing validations."
+                .to_string(),
         },
         SuggestedQueryView {
             label: "Validation Recipe".to_string(),

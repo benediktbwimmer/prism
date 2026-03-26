@@ -392,6 +392,12 @@ fn query_method_specs() -> Vec<(
             "Inspect exact semantic changed hunks for one target, with lineage-aware narrowing and local excerpts.",
         ),
         (
+            "focusedBlock",
+            "core",
+            None,
+            "Fetch the exact local block around one target, preferring a focused edit slice and falling back to a bounded excerpt.",
+        ),
+        (
             "taskChanges",
             "core",
             None,

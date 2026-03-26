@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use prism_core::WorkspaceSession;
@@ -50,9 +51,10 @@ pub(crate) fn read_runtime_state(root: &Path) -> Result<Option<RuntimeState>> {
     }
     let bytes = fs::read(&path)
         .with_context(|| format!("failed to read runtime state {}", path.display()))?;
-    let state = serde_json::from_slice::<RuntimeState>(&bytes)
-        .with_context(|| format!("failed to parse runtime state {}", path.display()))?;
-    Ok(Some(state))
+    match serde_json::from_slice::<RuntimeState>(&bytes) {
+        Ok(state) => Ok(Some(state)),
+        Err(_) => Ok(None),
+    }
 }
 
 pub(crate) fn record_process_start(cli: &PrismMcpCli, root: &Path) -> Result<()> {
@@ -208,7 +210,7 @@ fn write_runtime_state(path: &Path, state: &RuntimeState) -> Result<()> {
         fs::create_dir_all(parent)
             .with_context(|| format!("failed to create runtime state dir {}", parent.display()))?;
     }
-    let temp_path = path.with_extension("json.tmp");
+    let temp_path = runtime_state_temp_path(path);
     let bytes = serde_json::to_vec_pretty(state).context("failed to serialize runtime state")?;
     fs::write(&temp_path, bytes)
         .with_context(|| format!("failed to write runtime state {}", temp_path.display()))?;
@@ -220,6 +222,14 @@ fn write_runtime_state(path: &Path, state: &RuntimeState) -> Result<()> {
         )
     })?;
     Ok(())
+}
+
+fn runtime_state_temp_path(path: &Path) -> PathBuf {
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    path.with_extension(format!("json.{}.{}.tmp", std::process::id(), nonce))
 }
 
 fn push_event(
@@ -254,6 +264,54 @@ fn trim_events(events: &mut Vec<RuntimeEventRecord>) {
 fn dedupe_processes(processes: &mut Vec<RuntimeProcessRecord>) {
     let mut seen = BTreeSet::new();
     processes.retain(|process| seen.insert((process.pid, process.kind.clone())));
+}
+
+#[cfg(test)]
+mod tests {
+    use std::env;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::{read_runtime_state, runtime_state_temp_path};
+
+    fn test_dir(name: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or(0);
+        let path = env::temp_dir().join(format!(
+            "prism-mcp-runtime-state-tests-{name}-{}-{nonce}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&path).unwrap();
+        path
+    }
+
+    #[test]
+    fn invalid_runtime_state_is_treated_as_missing_state() {
+        let root = test_dir("invalid-state");
+        let prism_dir = root.join(".prism");
+        fs::create_dir_all(&prism_dir).unwrap();
+        fs::write(prism_dir.join("prism-mcp-runtime.json"), "{ invalid").unwrap();
+
+        let state = read_runtime_state(&root).unwrap();
+        assert!(state.is_none());
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn runtime_state_temp_paths_are_unique_per_call() {
+        let root = test_dir("temp-path");
+        let path = root.join("prism-mcp-runtime.json");
+
+        let first = runtime_state_temp_path(&path);
+        let second = runtime_state_temp_path(&path);
+
+        assert_ne!(first, second);
+        assert_ne!(first.extension(), Some(std::ffi::OsStr::new("json")));
+        fs::remove_dir_all(root).ok();
+    }
 }
 
 fn mode_name(mode: PrismMcpMode) -> &'static str {

@@ -80,6 +80,8 @@ pub enum McpCommand {
     Start {
         #[arg(long, default_value_t = false)]
         no_coordination: bool,
+        #[arg(long, default_value_t = false)]
+        internal_developer: bool,
     },
     Stop {
         #[arg(
@@ -92,6 +94,8 @@ pub enum McpCommand {
     Restart {
         #[arg(long, default_value_t = false)]
         no_coordination: bool,
+        #[arg(long, default_value_t = false)]
+        internal_developer: bool,
         #[arg(
             long,
             default_value_t = false,
@@ -167,10 +171,12 @@ mod tests {
                     McpCommand::Restart {
                         kill_bridges,
                         no_coordination,
+                        internal_developer,
                     },
             } => {
                 assert!(!kill_bridges);
                 assert!(!no_coordination);
+                assert!(!internal_developer);
             }
             _ => panic!("unexpected command"),
         }
@@ -194,6 +200,20 @@ mod tests {
             Command::Mcp {
                 command: McpCommand::Restart { kill_bridges, .. },
             } => assert!(kill_bridges),
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn mcp_restart_internal_developer_flag_is_opt_in() {
+        let cli = Cli::parse_from(["prism", "mcp", "restart", "--internal-developer"]);
+        match cli.command {
+            Command::Mcp {
+                command:
+                    McpCommand::Restart {
+                        internal_developer, ..
+                    },
+            } => assert!(internal_developer),
             _ => panic!("unexpected command"),
         }
     }

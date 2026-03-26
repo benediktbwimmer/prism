@@ -46,6 +46,15 @@ pub struct SourceSliceView {
     pub truncated: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct FocusedBlockView {
+    pub symbol: SymbolView,
+    pub slice: Option<SourceSliceView>,
+    pub excerpt: Option<SourceExcerptView>,
+    pub strategy: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TextSearchMatchView {

@@ -18,6 +18,9 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains(
         "editSlice(target: QueryTarget, options?: EditSliceOptions): SourceSliceView | null;"
     ));
+    assert!(docs.contains(
+        "focusedBlock(target: QueryTarget, options?: EditSliceOptions): FocusedBlockView | null;"
+    ));
     assert!(docs.contains("validationContext(target"));
     assert!(docs.contains("recentChangeContext(target"));
     assert!(docs.contains("nextReads(target"));
@@ -62,6 +65,7 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("type ChangedSymbolView = {"));
     assert!(docs.contains("type PatchEventView = {"));
     assert!(docs.contains("type DiffHunkView = {"));
+    assert!(docs.contains("type FocusedBlockView = {"));
     assert!(docs.contains("type RuntimeStatusView = {"));
     assert!(docs.contains("type RuntimeLogEventView = {"));
     assert!(docs.contains("type QueryLogEntryView = {"));
@@ -96,6 +100,7 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("full(target)"));
     assert!(prelude.contains("excerpt(target, options = {})"));
     assert!(prelude.contains("editSlice(target, options = {})"));
+    assert!(prelude.contains("focusedBlock(target, options = {})"));
     assert!(prelude.contains("owners(target, options = {})"));
     assert!(prelude.contains("implementationFor(target, options = {})"));
     assert!(prelude.contains("readContext(target)"));

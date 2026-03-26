@@ -4,10 +4,10 @@ use std::sync::{Arc, Mutex};
 use anyhow::{anyhow, Context, Result};
 use prism_ir::{AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, LineageId, NodeId, PlanId};
 use prism_js::{
-    ChangedFileView, ChangedSymbolView, DiffHunkView, EditContextView, PatchEventView,
-    QueryDiagnostic, QueryEnvelope, ReadContextView, RecentChangeContextView, RuntimeLogEventView,
-    RuntimeStatusView, ScoredMemoryView, SourceExcerptView, SourceSliceView, SubgraphView,
-    SymbolView, TextSearchMatchView, ValidationContextView,
+    ChangedFileView, ChangedSymbolView, DiffHunkView, EditContextView, FocusedBlockView,
+    PatchEventView, QueryDiagnostic, QueryEnvelope, ReadContextView, RecentChangeContextView,
+    RuntimeLogEventView, RuntimeStatusView, ScoredMemoryView, SourceExcerptView, SourceSliceView,
+    SubgraphView, SymbolView, TextSearchMatchView, ValidationContextView,
 };
 use prism_memory::{MemoryModule, OutcomeRecallQuery, RecallQuery};
 use prism_query::{EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
@@ -21,25 +21,25 @@ use crate::{
     changed_files, changed_symbols, claim_view, co_change_view, conflict_view, convert_anchors,
     convert_node_id, coordination_task_view, current_timestamp, diff_for, drift_candidate_view,
     edge_kind_label, edge_view, edit_context_view, edit_slice_for_symbol, entrypoints_for,
-    js_runtime, lineage_view, merge_node_ids, merge_promoted_checks, next_reads,
-    owner_symbol_views_for_query, owner_symbol_views_for_target, owner_views_for_target,
-    parse_capability, parse_claim_mode, parse_event_actor, parse_memory_kind, parse_node_kind,
-    parse_outcome_kind, parse_outcome_result, plan_view, policy_violation_record_view,
-    promoted_memory_entries, promoted_summary_texts, promoted_validation_checks, query_diagnostic,
-    read_context_view, recent_change_context_view, recent_patches, relations_view,
-    scored_memory_view, search_queries, source_excerpt_for_symbol, spec_cluster_view,
-    spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids, task_intent_view,
-    task_journal_view, task_risk_view, task_validation_recipe_view, validation_context_view,
-    validation_recipe_view_with, where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs,
-    ChangedSymbolsArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, DiffForArgs,
-    DiscoveryTargetArgs, EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs,
-    LimitArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
-    PendingReviewsArgs, PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage,
-    QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs,
-    SearchArgs, SearchTextArgs, SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs,
-    SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskTargetArgs, WhereUsedArgs,
-    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
+    focused_block_for_symbol, js_runtime, lineage_view, merge_node_ids, merge_promoted_checks,
+    next_reads, owner_symbol_views_for_query, owner_symbol_views_for_target,
+    owner_views_for_target, parse_capability, parse_claim_mode, parse_event_actor,
+    parse_memory_kind, parse_node_kind, parse_outcome_kind, parse_outcome_result, plan_view,
+    policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
+    promoted_validation_checks, query_diagnostic, read_context_view, recent_change_context_view,
+    recent_patches, relations_view, scored_memory_view, search_queries, source_excerpt_for_symbol,
+    spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
+    task_intent_view, task_journal_view, task_risk_view, task_validation_recipe_view,
+    validation_context_view, validation_recipe_view_with, where_used, AnchorListArgs,
+    CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs, CoordinationTaskTargetArgs,
+    CuratorJobArgs, CuratorJobsArgs, DiffForArgs, DiscoveryTargetArgs, EditSliceArgs,
+    FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs, MemoryOutcomeArgs,
+    MemoryRecallArgs, NodeIdInput, OwnerLookupArgs, PendingReviewsArgs, PlanTargetArgs,
+    PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs,
+    RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchArgs, SearchTextArgs,
+    SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs,
+    TaskJournalArgs, TaskTargetArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
 };
 
 impl QueryHost {
@@ -675,6 +675,10 @@ impl QueryExecution {
             "editSlice" => {
                 let args: EditSliceArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.edit_slice(args)?)?)
+            }
+            "focusedBlock" => {
+                let args: EditSliceArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.focused_block(args)?)?)
             }
             "relations" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
@@ -1750,6 +1754,22 @@ impl QueryExecution {
                 max_chars: args.max_chars.unwrap_or(defaults.max_chars),
             },
         ))
+    }
+
+    fn focused_block(&self, args: EditSliceArgs) -> Result<Option<FocusedBlockView>> {
+        let id = self.resolve_target_id(args.id, args.lineage_id)?;
+        let symbol = symbol_for(self.prism.as_ref(), &id)?;
+        let defaults = EditSliceOptions::default();
+        Ok(Some(focused_block_for_symbol(
+            self.prism.as_ref(),
+            &symbol,
+            EditSliceOptions {
+                before_lines: args.before_lines.unwrap_or(defaults.before_lines),
+                after_lines: args.after_lines.unwrap_or(defaults.after_lines),
+                max_lines: args.max_lines.unwrap_or(defaults.max_lines),
+                max_chars: args.max_chars.unwrap_or(defaults.max_chars),
+            },
+        )?))
     }
 
     fn symbols(&self, query: &str) -> Result<Vec<SymbolView>> {

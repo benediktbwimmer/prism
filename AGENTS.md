@@ -39,7 +39,7 @@ When the PRISM MCP server is available for this repo, use it as the primary repo
 - After meaningful changes to PRISM MCP behavior or query/runtime behavior, rebuild the release binaries and restart the MCP daemon so the live PRISM server reflects the current code during the same Codex session.
 - From the repo root, use these exact commands:
   - `cargo build --release -p prism-cli -p prism-mcp`
-  - `./target/release/prism-cli mcp restart`
+  - `./target/release/prism-cli mcp restart --internal-developer`
   - `./target/release/prism-cli mcp status`
   - `./target/release/prism-cli mcp health`
 - Prefer the release binaries for restart and verification instead of `cargo run`, so the daemon and CLI are both using the freshly rebuilt release executables.

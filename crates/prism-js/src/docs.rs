@@ -188,6 +188,7 @@ type PrismApi = {
   full(target: QueryTarget): string | null;
   excerpt(target: QueryTarget, options?: SourceExcerptOptions): SourceExcerptView | null;
   editSlice(target: QueryTarget, options?: EditSliceOptions): SourceSliceView | null;
+  focusedBlock(target: QueryTarget, options?: EditSliceOptions): FocusedBlockView | null;
   lineage(target: QueryTarget): LineageView | null;
   coChangeNeighbors(target: QueryTarget): CoChangeView[];
   relatedFailures(target: QueryTarget): OutcomeEvent[];
@@ -326,6 +327,13 @@ type SourceSliceView = {
   focus: SourceLocationView;
   relativeFocus: SourceLocationView;
   truncated: boolean;
+};
+
+type FocusedBlockView = {
+  symbol: SymbolView;
+  slice?: SourceSliceView;
+  excerpt?: SourceExcerptView;
+  strategy: string;
 };
 
 type TextSearchMatchView = {
@@ -1029,7 +1037,14 @@ return sym?.editSlice({
 });
 ```
 
-### 6b. Read an exact workspace file slice by path
+### 6b. Ask for a focused local block with edit-slice fallback
+
+```ts
+const sym = prism.symbol("handle_request");
+return sym ? prism.focusedBlock(sym, { maxLines: 10, maxChars: 400 }) : null;
+```
+
+### 6c. Read an exact workspace file slice by path
 
 ```ts
 return prism.file("src/main.rs").read({
@@ -1038,7 +1053,7 @@ return prism.file("src/main.rs").read({
 });
 ```
 
-### 6c. Read a bounded file slice around one line
+### 6d. Read a bounded file slice around one line
 
 ```ts
 return prism.file("src/main.rs").around({
@@ -1381,7 +1396,7 @@ return prism.claimPreview({
 
 ## Current implementation surface
 
-- Available now: symbol lookup, search, entrypoints, line-aware symbol locations, bounded source excerpts, source extraction, relations, call graphs, lineage history, related failures, blast radius, and task replay by id.
+- Available now: symbol lookup, search, entrypoints, line-aware symbol locations, bounded source excerpts, focused local block retrieval, source extraction, relations, call graphs, lineage history, related failures, blast radius, and task replay by id.
 - Available now: owner-biased discovery helpers through `prism.owners(...)`, `prism.nextReads(...)`, `prism.whereUsed(...)`, `prism.entrypointsFor(...)`, behavioral `prism.search(...)`, `prism.readContext(...)`, `prism.editContext(...)`, `prism.validationContext(...)`, `prism.recentChangeContext(...)`, and `implementationFor(..., { mode: "owners" })` without changing the direct primitive semantics.
 - Available now: bounded workspace file reads through `prism.file(path).read(...)` and `prism.file(path).around(...)` for exact line-range and around-line inspection without leaving the PRISM query surface.
 - Available now: bounded workspace text search through `prism.searchText(...)` with regex support, path/glob filters, exact match locations, and capped snippets.
