@@ -134,6 +134,8 @@ type PrismApi = {
   relatedFailures(target: SymbolView | NodeId): OutcomeEvent[];
   blastRadius(target: SymbolView | NodeId): ChangeImpactView | null;
   validationRecipe(target: SymbolView | NodeId): ValidationRecipeView | null;
+  readContext(target: SymbolView | NodeId): ReadContextView | null;
+  editContext(target: SymbolView | NodeId): EditContextView | null;
   specFor(target: SymbolView | NodeId): SymbolView[];
   implementationFor(target: SymbolView | NodeId, options?: ImplementationOptions): SymbolView[];
   owners(target: SymbolView | NodeId, options?: OwnerLookupOptions): OwnerCandidateView[];
@@ -259,6 +261,38 @@ type ValidationRecipeView = {
   relatedNodes: NodeId[];
   coChangeNeighbors: CoChangeView[];
   recentFailures: OutcomeEvent[];
+};
+
+type SuggestedQueryView = {
+  label: string;
+  query: string;
+  why: string;
+};
+
+type ReadContextView = {
+  target: SymbolView;
+  directLinks: SymbolView[];
+  suggestedReads: OwnerCandidateView[];
+  tests: OwnerCandidateView[];
+  relatedMemory: ScoredMemoryView[];
+  recentFailures: OutcomeEvent[];
+  validationRecipe: ValidationRecipeView;
+  why: string[];
+  suggestedQueries: SuggestedQueryView[];
+};
+
+type EditContextView = {
+  target: SymbolView;
+  directLinks: SymbolView[];
+  suggestedReads: OwnerCandidateView[];
+  writePaths: OwnerCandidateView[];
+  tests: OwnerCandidateView[];
+  relatedMemory: ScoredMemoryView[];
+  recentFailures: OutcomeEvent[];
+  blastRadius: ChangeImpactView;
+  validationRecipe: ValidationRecipeView;
+  checklist: string[];
+  suggestedQueries: SuggestedQueryView[];
 };
 
 type DriftCandidateView = {
@@ -763,7 +797,21 @@ const sym = prism.symbol("handle_request");
 return sym ? prism.validationRecipe(sym) : null;
 ```
 
-### 15. Pull an implementation cluster for a spec heading
+### 15. Pull a semantic read context before editing
+
+```ts
+const sym = prism.symbol("handle_request");
+return sym ? prism.readContext(sym) : null;
+```
+
+### 16. Pull an edit context with write paths and validations
+
+```ts
+const sym = prism.symbol("handle_request");
+return sym ? prism.editContext(sym) : null;
+```
+
+### 17. Pull an implementation cluster for a spec heading
 
 ```ts
 const spec = prism.search("Outcome Memory", {
@@ -774,7 +822,7 @@ const spec = prism.search("Outcome Memory", {
 return spec ? prism.specCluster(spec) : null;
 ```
 
-### 16. Ask Prism to explain spec drift for one target
+### 18. Ask Prism to explain spec drift for one target
 
 ```ts
 const spec = prism.search("Integration Points", {
@@ -785,14 +833,14 @@ const spec = prism.search("Integration Points", {
 return spec ? prism.explainDrift(spec) : null;
 ```
 
-### 17. Ask for owner-biased reads for one target
+### 19. Ask for owner-biased reads for one target
 
 ```ts
 const sym = prism.symbol("memory_recall");
 return sym ? prism.owners(sym, { kind: "read", limit: 5 }) : [];
 ```
 
-### 18. Search with behavioral owner ranking instead of direct noun matches
+### 20. Search with behavioral owner ranking instead of direct noun matches
 
 ```ts
 return prism.search("memory recall", {
@@ -802,7 +850,7 @@ return prism.search("memory recall", {
 });
 ```
 
-### 19. Ask for implementation owners without changing direct implementationFor semantics
+### 21. Ask for implementation owners without changing direct implementationFor semantics
 
 ```ts
 const spec = prism.search("Integration Points", {
@@ -813,7 +861,7 @@ const spec = prism.search("Integration Points", {
 return spec ? prism.implementationFor(spec, { mode: "owners", ownerKind: "read" }) : [];
 ```
 
-### 20. Recall session memory for a symbol
+### 22. Recall session memory for a symbol
 
 ```ts
 const sym = prism.symbol("handle_request");
@@ -824,7 +872,7 @@ return prism.memory.recall({
 });
 ```
 
-### 21. Query outcome history with filters
+### 23. Query outcome history with filters
 
 ```ts
 const sym = prism.symbol("handle_request");
@@ -837,7 +885,7 @@ return prism.memory.outcomes({
 });
 ```
 
-### 22. Inspect recent curator proposals through `prism_query`
+### 24. Inspect recent curator proposals through `prism_query`
 
 ```ts
 return prism.curator.jobs({ status: "completed", limit: 5 }).map((job) => ({
@@ -850,7 +898,7 @@ return prism.curator.jobs({ status: "completed", limit: 5 }).map((job) => ({
 }));
 ```
 
-### 23. Fetch one curator job and keep only pending inferred-edge proposals
+### 25. Fetch one curator job and keep only pending inferred-edge proposals
 
 ```ts
 const job = prism.curator.job("curator:1");
@@ -859,20 +907,20 @@ return job?.proposals.filter(
 );
 ```
 
-### 24. See who is already working in an area
+### 26. See who is already working in an area
 
 ```ts
 const sym = prism.symbol("handle_request");
 return sym ? prism.claims(sym) : [];
 ```
 
-### 25. Ask PRISM for blockers on a coordination task
+### 27. Ask PRISM for blockers on a coordination task
 
 ```ts
 return prism.blockers("coord-task:12");
 ```
 
-### 26. Simulate an edit claim before taking it
+### 28. Simulate an edit claim before taking it
 
 ```ts
 const sym = prism.symbol("handle_request");
@@ -883,19 +931,19 @@ return prism.simulateClaim({
 });
 ```
 
-### 27. Pull a coordination inbox for one plan
+### 29. Pull a coordination inbox for one plan
 
 ```ts
 return prism.coordinationInbox("plan:12");
 ```
 
-### 28. Pull the full working context for one coordination task
+### 30. Pull the full working context for one coordination task
 
 ```ts
 return prism.taskContext("coord-task:12");
 ```
 
-### 29. Preview a claim and tell whether it is blocked
+### 31. Preview a claim and tell whether it is blocked
 
 ```ts
 const sym = prism.symbol("handle_request");
@@ -909,7 +957,7 @@ return prism.claimPreview({
 ## Current implementation surface
 
 - Available now: symbol lookup, search, entrypoints, line-aware symbol locations, bounded source excerpts, source extraction, relations, call graphs, lineage history, related failures, blast radius, and task replay by id.
-- Available now: owner-biased discovery helpers through `prism.owners(...)`, behavioral `prism.search(...)`, and `implementationFor(..., { mode: "owners" })` without changing the direct primitive semantics.
+- Available now: owner-biased discovery helpers through `prism.owners(...)`, behavioral `prism.search(...)`, `prism.readContext(...)`, `prism.editContext(...)`, and `implementationFor(..., { mode: "owners" })` without changing the direct primitive semantics.
 - Available now: spec-to-code clustering and drift explanations that group direct links with read/write/persistence/test owners for spec-like symbols.
 - Available now: session/workspace memory recall for anchored memory entries, filtered outcome history, and promoted curator memories.
 - Available now: workspace-backed curator job inspection through `prism.curator.jobs()` and `prism.curator.job()`.

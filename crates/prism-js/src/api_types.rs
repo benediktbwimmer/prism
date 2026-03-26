@@ -428,6 +428,44 @@ pub struct CuratorJobView {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SuggestedQueryView {
+    pub label: String,
+    pub query: String,
+    pub why: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadContextView {
+    pub target: SymbolView,
+    pub direct_links: Vec<SymbolView>,
+    pub suggested_reads: Vec<OwnerCandidateView>,
+    pub tests: Vec<OwnerCandidateView>,
+    pub related_memory: Vec<ScoredMemoryView>,
+    pub recent_failures: Vec<OutcomeEvent>,
+    pub validation_recipe: ValidationRecipeView,
+    pub why: Vec<String>,
+    pub suggested_queries: Vec<SuggestedQueryView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct EditContextView {
+    pub target: SymbolView,
+    pub direct_links: Vec<SymbolView>,
+    pub suggested_reads: Vec<OwnerCandidateView>,
+    pub write_paths: Vec<OwnerCandidateView>,
+    pub tests: Vec<OwnerCandidateView>,
+    pub related_memory: Vec<ScoredMemoryView>,
+    pub recent_failures: Vec<OutcomeEvent>,
+    pub blast_radius: ChangeImpactView,
+    pub validation_recipe: ValidationRecipeView,
+    pub checklist: Vec<String>,
+    pub suggested_queries: Vec<SuggestedQueryView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct QueryEnvelope {
     pub result: Value,
     pub diagnostics: Vec<QueryDiagnostic>,

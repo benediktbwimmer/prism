@@ -142,6 +142,33 @@ function __prismEnrichSpecDrift(raw) {
   };
 }
 
+function __prismEnrichReadContext(raw) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    target: __prismEnrichSymbol(raw.target),
+    directLinks: __prismEnrichSymbols(raw.directLinks),
+    suggestedReads: __prismEnrichInsightCandidates(raw.suggestedReads),
+    tests: __prismEnrichInsightCandidates(raw.tests),
+  };
+}
+
+function __prismEnrichEditContext(raw) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    target: __prismEnrichSymbol(raw.target),
+    directLinks: __prismEnrichSymbols(raw.directLinks),
+    suggestedReads: __prismEnrichInsightCandidates(raw.suggestedReads),
+    writePaths: __prismEnrichInsightCandidates(raw.writePaths),
+    tests: __prismEnrichInsightCandidates(raw.tests),
+  };
+}
+
 function __prismNormalizeFocus(values) {
   if (!Array.isArray(values)) {
     return [];
@@ -357,6 +384,20 @@ globalThis.prism = Object.freeze({
       return null;
     }
     return __prismHost("validationRecipe", { id });
+  },
+  readContext(target) {
+    const id = __prismNormalizeTarget(target);
+    if (id == null) {
+      return null;
+    }
+    return __prismEnrichReadContext(__prismHost("readContext", { id }));
+  },
+  editContext(target) {
+    const id = __prismNormalizeTarget(target);
+    if (id == null) {
+      return null;
+    }
+    return __prismEnrichEditContext(__prismHost("editContext", { id }));
   },
   specFor(target) {
     const id = __prismNormalizeTarget(target);

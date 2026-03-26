@@ -1,7 +1,7 @@
 use prism_js::{
-    ChangeImpactView, CoChangeView, EdgeView, LineageEventView, LineageStatus, LineageView,
-    MemoryEntryView, OwnerCandidateView, QueryDiagnostic, RelationsView, SymbolView,
-    TaskJournalView, ValidationRecipeView,
+    ChangeImpactView, CoChangeView, EdgeView, EditContextView, LineageEventView, LineageStatus,
+    LineageView, MemoryEntryView, OwnerCandidateView, QueryDiagnostic, ReadContextView,
+    RelationsView, SuggestedQueryView, SymbolView, TaskJournalView, ValidationRecipeView,
 };
 use rmcp::schemars::JsonSchema;
 
@@ -113,6 +113,8 @@ pub(crate) struct SearchResourcePayload {
     pub(crate) owner_kind: Option<String>,
     pub(crate) suggested_reads: Vec<OwnerCandidateView>,
     pub(crate) results: Vec<SymbolView>,
+    pub(crate) top_read_context: Option<ReadContextView>,
+    pub(crate) suggested_queries: Vec<SuggestedQueryView>,
     pub(crate) page: ResourcePageView,
     pub(crate) truncated: bool,
     pub(crate) diagnostics: Vec<QueryDiagnostic>,
@@ -126,6 +128,9 @@ pub(crate) struct SymbolResourcePayload {
     pub(crate) schema_uri: String,
     pub(crate) symbol: SymbolView,
     pub(crate) suggested_reads: Vec<OwnerCandidateView>,
+    pub(crate) read_context: ReadContextView,
+    pub(crate) edit_context: EditContextView,
+    pub(crate) suggested_queries: Vec<SuggestedQueryView>,
     pub(crate) relations: RelationsView,
     pub(crate) spec_cluster: Option<crate::SpecImplementationClusterView>,
     pub(crate) spec_drift: Option<crate::SpecDriftExplanationView>,

@@ -2644,6 +2644,8 @@ return {
     assert!(symbol_resource.spec_cluster.is_some());
     assert!(symbol_resource.spec_drift.is_some());
     assert!(!symbol_resource.suggested_reads.is_empty());
+    assert!(!symbol_resource.read_context.suggested_reads.is_empty());
+    assert!(!symbol_resource.edit_context.suggested_queries.is_empty());
 }
 
 #[test]
@@ -2736,6 +2738,45 @@ fn search_resource_payload_surfaces_suggested_reads() {
             .as_ref()
             .is_some_and(|hint| hint.kind == "read")
     }));
+    assert!(payload.top_read_context.is_some());
+    assert!(!payload.suggested_queries.is_empty());
+}
+
+#[test]
+fn read_and_edit_context_queries_return_semantic_bundles() {
+    let root = temp_workspace();
+    write_memory_insight_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .execute(
+            r#"
+const spec = prism.search("Integration Points", {
+  path: "docs/SPEC.md",
+  kind: "markdown-heading",
+  limit: 1,
+})[0];
+return spec
+  ? {
+      read: prism.readContext(spec),
+      edit: prism.editContext(spec),
+    }
+  : null;
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed");
+
+    assert!(result.result["read"]["directLinks"].is_array());
+    assert!(result.result["read"]["suggestedReads"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(result.result["edit"]["writePaths"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(result.result["edit"]["checklist"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
 }
 
 #[test]
@@ -2851,6 +2892,10 @@ return prism.diagnostics();
     assert_eq!(result.result.as_array().map(|items| items.len()), Some(1));
     assert_eq!(result.diagnostics.len(), 1);
     assert_eq!(result.diagnostics[0].code, "result_truncated");
+    assert_eq!(
+        result.diagnostics[0].data.as_ref().and_then(|data| data["nextAction"].as_str()),
+        Some("Use prism.search(query, { path: ..., kind: ..., limit: ... }) to narrow the result set.")
+    );
 }
 
 #[test]
@@ -3462,6 +3507,13 @@ fn convenience_symbol_query_returns_diagnostics() {
         .diagnostics
         .iter()
         .any(|diagnostic| diagnostic.code == "anchor_unresolved"));
+    assert!(envelope
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.code == "anchor_unresolved")
+        .and_then(|diagnostic| diagnostic.data.as_ref())
+        .and_then(|data| data["suggestedQueries"].as_array())
+        .is_some_and(|queries| !queries.is_empty()));
 }
 
 #[test]

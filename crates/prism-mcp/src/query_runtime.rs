@@ -3,7 +3,8 @@ use std::sync::{Arc, Mutex};
 use anyhow::{anyhow, Context, Result};
 use prism_ir::{AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, NodeId, PlanId};
 use prism_js::{
-    QueryDiagnostic, QueryEnvelope, ScoredMemoryView, SourceExcerptView, SubgraphView, SymbolView,
+    EditContextView, QueryDiagnostic, QueryEnvelope, ReadContextView, ScoredMemoryView,
+    SourceExcerptView, SubgraphView, SymbolView,
 };
 use prism_memory::{MemoryModule, OutcomeRecallQuery, RecallQuery};
 use prism_query::{Prism, SourceExcerptOptions, Symbol};
@@ -13,20 +14,21 @@ use crate::{
     artifact_risk_view, artifact_view, blast_radius_view, blocker_view, change_impact_view,
     claim_view, co_change_view, conflict_view, convert_anchors, convert_node_id,
     coordination_task_view, current_timestamp, drift_candidate_view, edge_kind_label, edge_view,
-    js_runtime, lineage_view, merge_node_ids, merge_promoted_checks, owner_symbol_views_for_query,
-    owner_symbol_views_for_target, owner_views_for_target, parse_capability, parse_claim_mode,
-    parse_event_actor, parse_memory_kind, parse_node_kind, parse_outcome_kind,
-    parse_outcome_result, plan_view, policy_violation_record_view, promoted_memory_entries,
-    promoted_summary_texts, promoted_validation_checks, relations_view, scored_memory_view,
-    source_excerpt_for_symbol, spec_cluster_view, spec_drift_explanation_view, symbol_for,
-    symbol_view, symbol_views_for_ids, task_intent_view, task_journal_view, task_risk_view,
-    task_validation_recipe_view, validation_recipe_view_with, AnchorListArgs, CallGraphArgs,
-    CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, ImplementationTargetArgs,
-    LimitArgs, MemoryOutcomeArgs, MemoryRecallArgs, OwnerLookupArgs, PendingReviewsArgs,
-    PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage, SearchArgs,
-    SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskJournalArgs,
-    TaskTargetArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
+    edit_context_view, js_runtime, lineage_view, merge_node_ids, merge_promoted_checks,
+    owner_symbol_views_for_query, owner_symbol_views_for_target, owner_views_for_target,
+    parse_capability, parse_claim_mode, parse_event_actor, parse_memory_kind, parse_node_kind,
+    parse_outcome_kind, parse_outcome_result, plan_view, policy_violation_record_view,
+    promoted_memory_entries, promoted_summary_texts, promoted_validation_checks, read_context_view,
+    relations_view, scored_memory_view, search_queries, source_excerpt_for_symbol,
+    spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
+    task_intent_view, task_journal_view, task_risk_view, task_validation_recipe_view,
+    validation_recipe_view_with, AnchorListArgs, CallGraphArgs, CoordinationTaskTargetArgs,
+    CuratorJobArgs, CuratorJobsArgs, ImplementationTargetArgs, LimitArgs, MemoryOutcomeArgs,
+    MemoryRecallArgs, OwnerLookupArgs, PendingReviewsArgs, PlanTargetArgs,
+    PolicyViolationQueryArgs, QueryHost, QueryLanguage, SearchArgs, SimulateClaimArgs,
+    SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskJournalArgs, TaskTargetArgs,
+    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
 };
 
 impl QueryHost {
@@ -564,6 +566,16 @@ impl QueryExecution {
                     &id,
                 ))?)
             }
+            "readContext" => {
+                let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                let id = convert_node_id(args.id)?;
+                Ok(serde_json::to_value(self.read_context(&id)?)?)
+            }
+            "editContext" => {
+                let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                let id = convert_node_id(args.id)?;
+                Ok(serde_json::to_value(self.edit_context(&id)?)?)
+            }
             "specFor" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
                 let id = convert_node_id(args.id)?;
@@ -687,8 +699,14 @@ impl QueryExecution {
         if matches.is_empty() {
             self.push_diagnostic(
                 "anchor_unresolved",
-                format!("No symbol matched `{query}`."),
-                Some(json!({ "query": query })),
+                format!(
+                    "No symbol matched `{query}`. Next action: run `prism.search(...)` to inspect candidates or switch to behavioral owner search."
+                ),
+                Some(json!({
+                    "query": query,
+                    "nextAction": "Run prism.search(query, { limit: 5 }) or prism.search(query, { strategy: \"behavioral\", ownerKind: \"read\", limit: 5 }).",
+                    "suggestedQueries": search_queries(query),
+                })),
             );
             return Ok(None);
         }
@@ -696,7 +714,7 @@ impl QueryExecution {
             self.push_diagnostic(
                 "ambiguous_symbol",
                 format!(
-                    "`{query}` matched {} symbols; returning the first best match.",
+                    "`{query}` matched {} symbols; returning the first best match. Next action: narrow the lookup with `path`, `kind`, or inspect `prism.readContext(...)` on the intended target.",
                     matches.len()
                 ),
                 Some(json!({
@@ -705,6 +723,8 @@ impl QueryExecution {
                         .iter()
                         .map(|symbol| symbol.id.path.to_string())
                         .collect::<Vec<_>>(),
+                    "nextAction": "Run prism.search(query, { kind: ..., path: ..., limit: 5 }) and then call prism.readContext(...) on the intended result.",
+                    "suggestedQueries": search_queries(query),
                 })),
             );
         }
@@ -722,12 +742,14 @@ impl QueryExecution {
             self.push_diagnostic(
                 "result_truncated",
                 format!(
-                    "Search limit was capped at {} instead of {requested}.",
+                    "Search limit was capped at {} instead of {requested}. Next action: narrow the query with `path` or `kind` before raising the limit.",
                     limits.max_result_nodes
                 ),
                 Some(json!({
                     "requested": requested,
                     "applied": applied,
+                    "nextAction": "Use prism.search(query, { path: ..., kind: ..., limit: ... }) to narrow the result set.",
+                    "suggestedQueries": search_queries(&args.query),
                 })),
             );
         }
@@ -760,13 +782,15 @@ impl QueryExecution {
             self.push_diagnostic(
                 "result_truncated",
                 format!(
-                    "Search results for `{}` were truncated at {} entries.",
+                    "Search results for `{}` were truncated at {} entries. Next action: narrow with `path` or `kind`, then open `prism.readContext(...)` on the top candidate.",
                     args.query, applied
                 ),
                 Some(json!({
                     "query": args.query,
                     "applied": applied,
                     "strategy": strategy,
+                    "nextAction": "Use a narrower prism.search(...) call and then inspect prism.readContext(...) on one candidate.",
+                    "suggestedQueries": search_queries(&args.query),
                 })),
             );
         }
@@ -990,6 +1014,14 @@ impl QueryExecution {
 
     fn explain_drift(&self, id: &NodeId) -> Result<crate::SpecDriftExplanationView> {
         spec_drift_explanation_view(self.prism.as_ref(), id)
+    }
+
+    fn read_context(&self, id: &NodeId) -> Result<ReadContextView> {
+        read_context_view(self.prism.as_ref(), self.host.session.as_ref(), id)
+    }
+
+    fn edit_context(&self, id: &NodeId) -> Result<EditContextView> {
+        edit_context_view(self.prism.as_ref(), self.host.session.as_ref(), id)
     }
 
     fn memory_outcomes(&self, args: MemoryOutcomeArgs) -> Result<Vec<prism_memory::OutcomeEvent>> {

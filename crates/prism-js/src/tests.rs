@@ -8,6 +8,8 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("### 12. Pull prior failures without reconstructing anchors manually"));
     assert!(docs.contains("coChangeNeighbors"));
     assert!(docs.contains("validationRecipe"));
+    assert!(docs.contains("readContext"));
+    assert!(docs.contains("editContext"));
     assert!(docs.contains("prism.memory.recall"));
     assert!(docs.contains("owners(target"));
     assert!(docs.contains("strategy?: \"direct\" | \"behavioral\""));
@@ -29,6 +31,8 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("__prismHostCall"));
     assert!(prelude.contains("owners(target, options = {})"));
     assert!(prelude.contains("implementationFor(target, options = {})"));
+    assert!(prelude.contains("readContext(target)"));
+    assert!(prelude.contains("editContext(target)"));
     assert!(prelude.contains("specCluster(target)"));
     assert!(prelude.contains("explainDrift(target)"));
     assert!(prelude.contains("curator: Object.freeze"));
