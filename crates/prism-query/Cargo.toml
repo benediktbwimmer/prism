@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+prism-coordination = { path = "../prism-coordination" }
 prism-history = { path = "../prism-history" }
 prism-ir = { path = "../prism-ir" }
 prism-memory = { path = "../prism-memory" }

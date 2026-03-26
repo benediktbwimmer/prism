@@ -259,6 +259,15 @@ impl OutcomeMemory {
         Self::default()
     }
 
+    pub fn event(&self, id: &EventId) -> Option<OutcomeEvent> {
+        self.state
+            .read()
+            .expect("outcome memory lock poisoned")
+            .events
+            .get(id)
+            .cloned()
+    }
+
     pub fn store_event(&self, mut event: OutcomeEvent) -> Result<EventId> {
         event.anchors = dedupe_anchors(event.anchors);
         let id = event.meta.id.clone();
@@ -392,6 +401,15 @@ struct EpisodicState {
 impl EpisodicMemory {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn entry(&self, id: &MemoryId) -> Option<MemoryEntry> {
+        self.state
+            .read()
+            .expect("episodic memory lock poisoned")
+            .entries
+            .get(id)
+            .cloned()
     }
 
     pub fn snapshot(&self) -> EpisodicMemorySnapshot {

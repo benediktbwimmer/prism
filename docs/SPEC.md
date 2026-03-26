@@ -1,4 +1,6 @@
-# PRISM — Rust Implementation Specification
+# PRISM — Perceptual Representation & Intelligence System for Machines
+
+## Rust Implementation Specification
 
 ## 0. Philosophy
 
@@ -1145,9 +1147,278 @@ That is how memories survive renames, moves, and restructures.
 
 ---
 
-# 10. MCP Server (prism-mcp)
+# 10. Coordination Framework
 
 ## 10.1 Purpose
+
+PRISM's multi-agent model is a shared coordination layer over the same graph, lineage, and memory model.
+
+Agents do not need direct chat to collaborate. They coordinate through shared plans, claims, artifacts, reviews, and handoffs anchored to the same code entities.
+
+Core principles:
+
+* reads stay query-centric: most coordination inspection happens through `prism_query`
+* mutations stay explicit: shared coordination state changes must be validated and audited
+* coordination state is shared across sessions connected to the same PRISM server
+* speculative inference remains session-scoped unless explicitly promoted
+* coordination objects anchor through `AnchorRef` and survive code motion through lineage when possible
+* claims are leases with policy, not blind global locks
+
+This is a first-class conceptual layer. It may begin life inside `prism-mcp` or `prism-memory`, but the long-term intended boundary is separate.
+
+## 10.2 Identity and Snapshot Model
+
+```rust
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct AgentId(pub smol_str::SmolStr);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SessionId(pub smol_str::SmolStr);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PlanId(pub smol_str::SmolStr);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct CoordinationTaskId(pub smol_str::SmolStr);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ClaimId(pub smol_str::SmolStr);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ArtifactId(pub smol_str::SmolStr);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ReviewId(pub smol_str::SmolStr);
+
+pub struct WorkspaceRevision {
+    pub graph_version: u64,
+    pub git_commit: Option<String>,
+}
+```
+
+Rules:
+
+* `TaskId` remains the correlation ID for outcome history and task-local memory
+* `CoordinationTaskId` is the shared plan node for multi-agent work; many `TaskId`s may contribute to one coordination task
+* `SessionId` identifies the MCP connection that currently holds live claims or authored coordination mutations
+* `AgentId` identifies a logical actor across many sessions when the client can provide one
+* `WorkspaceRevision` captures the code state a coordination decision assumed
+* coordination records should store both structural anchors and the base revision they were made against
+
+## 10.3 Shared Plan Graph
+
+```rust
+pub enum PlanStatus {
+    Draft,
+    Active,
+    Blocked,
+    Completed,
+    Abandoned,
+}
+
+pub enum CoordinationTaskStatus {
+    Proposed,
+    Ready,
+    InProgress,
+    Blocked,
+    InReview,
+    Validating,
+    Completed,
+    Abandoned,
+}
+
+pub enum ClaimMode {
+    Advisory,
+    SoftExclusive,
+    HardExclusive,
+}
+
+pub struct CoordinationPolicy {
+    pub default_claim_mode: ClaimMode,
+    pub max_parallel_editors_per_anchor: u16,
+    pub require_review_for_completion: bool,
+    pub stale_after_graph_change: bool,
+}
+
+pub struct AcceptanceCriterion {
+    pub label: String,
+    pub anchors: Vec<AnchorRef>,
+}
+
+pub struct Plan {
+    pub id: PlanId,
+    pub goal: String,
+    pub status: PlanStatus,
+    pub policy: CoordinationPolicy,
+    pub root_tasks: Vec<CoordinationTaskId>,
+}
+
+pub struct CoordinationTask {
+    pub id: CoordinationTaskId,
+    pub plan: PlanId,
+    pub title: String,
+    pub status: CoordinationTaskStatus,
+    pub assignee: Option<AgentId>,
+    pub session: Option<SessionId>,
+    pub anchors: Vec<AnchorRef>,
+    pub depends_on: Vec<CoordinationTaskId>,
+    pub acceptance: Vec<AcceptanceCriterion>,
+    pub base_revision: WorkspaceRevision,
+}
+```
+
+Rules:
+
+* plans are shared DAGs of work, not private prompts
+* dependencies are explicit and queryable
+* acceptance criteria must be structured enough for handoff, validation, and review
+* task status is server-authoritative and replayable
+* assignment is advisory unless plan policy says otherwise
+* one coordination task may be executed by several local `TaskId`s over time, but it has one shared lifecycle
+
+## 10.4 Claims, Conflicts, and Contention
+
+```rust
+pub enum Capability {
+    Observe,
+    Edit,
+    Review,
+    Validate,
+    Merge,
+}
+
+pub enum ClaimStatus {
+    Active,
+    Released,
+    Expired,
+    Contended,
+}
+
+pub enum ConflictSeverity {
+    Info,
+    Warn,
+    Block,
+}
+
+pub struct WorkClaim {
+    pub id: ClaimId,
+    pub holder: SessionId,
+    pub agent: Option<AgentId>,
+    pub task: Option<CoordinationTaskId>,
+    pub anchors: Vec<AnchorRef>,
+    pub capability: Capability,
+    pub mode: ClaimMode,
+    pub since: Timestamp,
+    pub expires_at: Timestamp,
+    pub status: ClaimStatus,
+    pub base_revision: WorkspaceRevision,
+}
+
+pub struct CoordinationConflict {
+    pub severity: ConflictSeverity,
+    pub anchors: Vec<AnchorRef>,
+    pub summary: String,
+    pub blocking_claims: Vec<ClaimId>,
+}
+```
+
+Rules:
+
+* claims are anchored, time-bounded leases
+* overlap is detected at file, node, lineage, and nearby graph neighborhood levels
+* conflict severity derives from capability, mode, overlap, and plan policy
+* hard-exclusive conflicts may block coordination mutations, but read queries still succeed
+* claim acquisition never silently steals ownership; it returns conflict detail
+* lease expiry and renewal are explicit so abandoned sessions do not pin the repo forever
+
+## 10.5 Artifacts, Reviews, and Handoffs
+
+```rust
+pub enum ArtifactStatus {
+    Proposed,
+    InReview,
+    Approved,
+    Rejected,
+    Superseded,
+    Merged,
+}
+
+pub enum ReviewVerdict {
+    Approved,
+    ChangesRequested,
+    Rejected,
+}
+
+pub struct Artifact {
+    pub id: ArtifactId,
+    pub task: CoordinationTaskId,
+    pub anchors: Vec<AnchorRef>,
+    pub base_revision: WorkspaceRevision,
+    pub diff_ref: Option<String>,
+    pub status: ArtifactStatus,
+    pub evidence: Vec<EventId>,
+}
+```
+
+Rules:
+
+* file change observation is still automatic, but an artifact records the coordination meaning of a patch or deliverable
+* artifacts bind outputs to coordination tasks, anchors, and base revision
+* review is first-class and may gate task completion by policy
+* handoffs move task responsibility without losing the local `TaskId` history that led up to them
+* if the base revision is stale relative to current graph state, PRISM should surface that before approval or merge-like completion
+
+## 10.6 Coordination Event Log
+
+```rust
+pub enum CoordinationEventKind {
+    PlanCreated,
+    TaskCreated,
+    TaskAssigned,
+    TaskStatusChanged,
+    TaskBlocked,
+    TaskUnblocked,
+    ClaimAcquired,
+    ClaimRenewed,
+    ClaimReleased,
+    ClaimContended,
+    ArtifactProposed,
+    ArtifactReviewed,
+    ArtifactSuperseded,
+    HandoffRequested,
+    HandoffAccepted,
+}
+```
+
+Rules:
+
+* coordination is event-sourced the same way history and outcomes are event-sourced
+* replay must answer why a task is blocked, why a claim was denied, and what review state gated completion
+* coordination events use the same attribution discipline as other PRISM mutations: timestamped, actor-attributed, and task-correlated when possible
+
+## 10.7 Read Model Through `prism_query`
+
+Coordination reads should primarily happen through `prism_query`, not through a growing list of bespoke MCP tools.
+
+The query surface should expose first-class coordination views such as:
+
+* `prism.plan(planId)`
+* `prism.task(taskId)`
+* `prism.readyTasks(planId)`
+* `prism.claims(anchor)`
+* `prism.conflicts(anchor)`
+* `prism.blockers(taskId)`
+* `prism.pendingReviews(planId?)`
+* `prism.artifacts(taskId)`
+* `prism.simulateClaim(input)`
+
+This keeps multi-agent reasoning programmable in one round-trip while preserving an explicit audit boundary for mutations.
+
+---
+
+# 11. MCP Server (prism-mcp)
+
+## 11.1 Purpose
 
 `prism-mcp` is the primary agent-facing integration surface.
 
@@ -1162,13 +1433,14 @@ That means:
 Session and task model:
 
 * an MCP session may exist with no active `TaskId` while it is only reading
+* every MCP session has a stable `SessionId` for attribution and live claim ownership
 * on the first mutation in a session with no active task, the server auto-creates a `TaskId` and binds it as the active task
 * agents may explicitly create and label task context with `prism_start_task`
 * one session may create many tasks over time; at most one task is the session default at a time
 * mutation tools inherit the active session `TaskId` when `task_id` is omitted
 * mutation tools may override attribution with an explicit `task_id`, so unrelated work can coexist in one session without opening a second MCP connection
 
-## 10.2 Primary Tool
+## 11.2 Primary Tool
 
 ```text
 prism_query { code: string, language?: "ts" } -> QueryResult
@@ -1178,11 +1450,11 @@ Rules:
 
 * v1 is TypeScript-first
 * `language` may default to `"ts"` in v1
-* the query executes with a pre-bound `prism` object
+* the query executes with a pre-bound `prism` object over structure, lineage, memory, and coordination state
 * the final value returned by the snippet must be JSON-serializable
 * execution happens against the already-loaded in-memory graph for the active MCP session
 * `prism_query` is read-only
-* mutations such as memory writes, outcome logging, and inference persistence are handled through explicit MCP mutation tools, not through the query runtime
+* mutations such as memory writes, outcome logging, inference persistence, plan updates, and claim acquisition are handled through explicit MCP mutation tools, not through the query runtime
 
 Expected query shape:
 
@@ -1209,7 +1481,9 @@ interface QueryDiagnostic {
     | "depth_limited"
     | "unknown_method"
     | "lineage_uncertain"
-    | "anchor_unresolved";
+    | "anchor_unresolved"
+    | "task_blocked"
+    | "stale_revision";
   message: string;
   data?: Record<string, unknown>;
 }
@@ -1217,7 +1491,7 @@ interface QueryDiagnostic {
 
 The goal is that agents can repair and narrow queries from machine-readable diagnostics instead of guessing from free-form error text.
 
-## 10.3 Discovery Resource
+## 11.3 Discovery Resource
 
 The MCP server must expose at least one resource:
 
@@ -1239,7 +1513,7 @@ The resource is the canonical discovery path for agents. The tool description sh
 
 The resource should feel more like a tiny SDK README plus type definition file than a dry protocol appendix.
 
-## 10.4 Runtime Model
+## 11.4 Runtime Model
 
 The runtime has three layers:
 
@@ -1276,7 +1550,7 @@ Default v1 safety limits:
 * max serialized JSON result size: `256 KiB`
 * limits should be configurable per session, but the defaults must exist even when the client provides no overrides
 
-## 10.5 Binding Layer (prism-js)
+## 11.5 Binding Layer (prism-js)
 
 `prism-js` is the language-facing facade over `prism-query`.
 
@@ -1296,6 +1570,15 @@ interface PrismApi {
   symbols(query: string): SymbolView[];
   search(query: string, options?: SearchOptions): SymbolView[];
   entrypoints(): SymbolView[];
+  plan(planId: string): PlanView | null;
+  task(taskId: string): CoordinationTaskView | null;
+  readyTasks(planId: string): CoordinationTaskView[];
+  claims(anchor: AnchorRefView): ClaimView[];
+  conflicts(anchor: AnchorRefView): ConflictView[];
+  blockers(taskId: string): BlockerView[];
+  pendingReviews(planId?: string): ArtifactView[];
+  artifacts(taskId: string): ArtifactView[];
+  simulateClaim(input: ClaimProposal): ConflictView[];
   diagnostics(): QueryDiagnostic[];
 }
 
@@ -1383,6 +1666,91 @@ interface LineageView {
     confidence: number;
   }[];
 }
+
+type AnchorRefView =
+  | { type: "Node"; node: NodeId }
+  | { type: "Lineage"; lineageId: string }
+  | { type: "File"; fileId: number }
+  | { type: "Kind"; kind: NodeKind };
+
+type PlanStatus = "Draft" | "Active" | "Blocked" | "Completed" | "Abandoned";
+
+type CoordinationTaskStatus =
+  | "Proposed"
+  | "Ready"
+  | "InProgress"
+  | "Blocked"
+  | "InReview"
+  | "Validating"
+  | "Completed"
+  | "Abandoned";
+
+type Capability = "Observe" | "Edit" | "Review" | "Validate" | "Merge";
+type ClaimMode = "Advisory" | "SoftExclusive" | "HardExclusive";
+type ConflictSeverity = "Info" | "Warn" | "Block";
+
+interface WorkspaceRevisionView {
+  graphVersion: number;
+  gitCommit?: string;
+}
+
+interface PlanView {
+  id: string;
+  goal: string;
+  status: PlanStatus;
+  rootTaskIds: string[];
+}
+
+interface CoordinationTaskView {
+  id: string;
+  planId: string;
+  title: string;
+  status: CoordinationTaskStatus;
+  assignee?: string;
+  anchors: AnchorRefView[];
+  dependsOn: string[];
+  baseRevision: WorkspaceRevisionView;
+}
+
+interface ClaimView {
+  id: string;
+  holder: string;
+  taskId?: string;
+  capability: Capability;
+  mode: ClaimMode;
+  status: "Active" | "Released" | "Expired" | "Contended";
+  anchors: AnchorRefView[];
+  expiresAt: string;
+}
+
+interface ConflictView {
+  severity: ConflictSeverity;
+  summary: string;
+  anchors: AnchorRefView[];
+  blockingClaimIds: string[];
+}
+
+interface BlockerView {
+  kind: "Dependency" | "ClaimConflict" | "ReviewRequired" | "StaleRevision";
+  summary: string;
+  relatedTaskId?: string;
+  relatedArtifactId?: string;
+}
+
+interface ArtifactView {
+  id: string;
+  taskId: string;
+  status: "Proposed" | "InReview" | "Approved" | "Rejected" | "Superseded" | "Merged";
+  anchors: AnchorRefView[];
+  baseRevision: WorkspaceRevisionView;
+}
+
+interface ClaimProposal {
+  anchors: AnchorRefView[];
+  capability: Capability;
+  mode?: ClaimMode;
+  taskId?: string;
+}
 ```
 
 Rules:
@@ -1399,8 +1767,11 @@ Examples of good semantic methods to expose over time:
 * `prism.blastRadius(nodeId)`
 * `prism.validationRecipe(nodeId)`
 * `prism.resumeTask(taskId)`
+* `prism.readyTasks(planId)`
+* `prism.conflicts(anchor)`
+* `prism.simulateClaim(input)`
 
-## 10.6 Recipes And Examples
+## 11.6 Recipes And Examples
 
 The API reference should ship with concrete copy-pastable recipes such as:
 
@@ -1409,10 +1780,13 @@ The API reference should ship with concrete copy-pastable recipes such as:
 * compare prior failures for one lineage
 * summarize entrypoints in one package
 * explain why a query was truncated and how to narrow it
+* inspect blockers for a coordination task
+* check who is actively editing a lineage before proposing a patch
+* simulate an edit claim before acquiring it
 
 Agents learn these surfaces best from examples. Recipes are not auxiliary documentation; they are part of the product surface.
 
-## 10.7 Mutation Tools
+## 11.7 Mutation Tools
 
 The MCP server exposes explicit mutation tools alongside the read-only `prism_query`:
 
@@ -1421,6 +1795,9 @@ prism_start_task { description: string, tags?: string[] } -> { task_id: string }
 prism_outcome { kind: OutcomeKind, anchors: AnchorRef[], summary: string, result?: OutcomeResult, evidence?: OutcomeEvidence[], task_id?: string } -> EventId
 prism_note { anchors: AnchorRef[], content: string, trust?: float, task_id?: string } -> MemoryId
 prism_infer_edge { source: NodeId, target: NodeId, kind: EdgeKind, confidence: float, scope?: InferredEdgeScope, task_id?: string } -> EdgeId
+prism_coordination { kind: "plan_create" | "task_create" | "task_update" | "handoff", payload: object, task_id?: string } -> { event_id: string, state: object }
+prism_claim { action: "acquire" | "renew" | "release", payload: object, task_id?: string } -> { claim_id?: string, conflicts?: ConflictView[], state: object }
+prism_artifact { action: "propose" | "supersede" | "review", payload: object, task_id?: string } -> { artifact_id?: string, review_id?: string, state: object }
 ```
 
 Convenience shortcuts for outcome logging:
@@ -1438,14 +1815,21 @@ Patch observation is not exposed as a mutation tool. PRISM detects file changes 
 Rules:
 
 * mutation tools are separate from `prism_query` to keep the query surface pure and predictable
-* all mutations produce structured confirmation (event ID or memory ID)
+* all mutations produce structured confirmation and the resulting authoritative state for the mutated object
 * `prism_start_task` creates a task record and makes it the active session task
 * if the session has no active task, the first mutation auto-creates one before the mutation is recorded
 * outcome events inherit the session's `TaskId` automatically when available
 * explicit `task_id` arguments override the active session task without changing the session default
 * inferred edges default to `SessionOnly` scope unless explicitly promoted
+* coordination adds three coarse mutation tools rather than one tool per action
+* `prism_coordination` owns shared plan, task, and handoff lifecycle changes
+* `prism_claim` owns lease acquisition, renewal, release, and conflict reporting
+* `prism_artifact` owns proposed outputs and their review state
+* all three coordination tools must attribute mutations to the current `SessionId` and current or explicit `TaskId`
+* coordination mutations must validate policy, dependency state, and base revision before they commit
+* `prism_query` remains the primary read surface for plans, claims, blockers, conflicts, artifacts, and review queues
 
-## 10.8 Convenience Query Tools
+## 11.8 Convenience Query Tools
 
 Optional convenience tools may exist later for high-frequency lookups:
 
@@ -1458,7 +1842,7 @@ But they are secondary. The programmable `prism_query` tool is the primary inter
 
 ---
 
-# 11. CLI (prism-cli)
+# 12. CLI (prism-cli)
 
 Commands:
 
@@ -1476,7 +1860,7 @@ prism memory store <symbol> --content "note"
 
 ---
 
-# 12. Git Integration
+# 13. Git Integration
 
 Shelling out is acceptable in v1 for:
 
@@ -1488,7 +1872,7 @@ Shelling out is acceptable in v1 for:
 
 ---
 
-# 13. Performance Strategy
+# 14. Performance Strategy
 
 * arena-style allocation for graph-heavy structures where needed
 * string interning with `smol_str`
@@ -1499,7 +1883,7 @@ Shelling out is acceptable in v1 for:
 
 ---
 
-# 14. Future Hooks
+# 15. Future Hooks
 
 These are explicitly not v1 requirements, but the architecture should leave room for them:
 
@@ -1509,10 +1893,11 @@ These are explicitly not v1 requirements, but the architecture should leave room
 * policy and invariant layers
 * drift detection between implementation and intent
 * additional language runtimes once the TypeScript surface is stable
+* hosted HTTP MCP server for distributed coordination across different clones and machines; the graph stays local per clone, but lineage, memory, outcomes, and coordination state are shared through the server; the architecture should assume single-server multi-session from v1 so the step to networked multi-session is a transport change, not an architecture change
 
 ---
 
-# 15. Build Order
+# 16. Build Order
 
 Recommended sequence:
 
@@ -1523,7 +1908,10 @@ Recommended sequence:
 5. expose `lineage_of`, `related_failures`, `blast_radius`, and `resume_task` in `prism-query`
 6. land `prism-js` as the stable JS/TS binding contract over `prism-query`
 7. add `prism-mcp` with `prism_query` and `prism://api-reference`
-8. add derived projections such as co-change, hotspot, validation recipes, and drift detection
+8. land coordination identities, plan, task, claim, and artifact event types, and `WorkspaceRevision`
+9. expose coordination reads and claim simulation through `prism-query` and `prism-js`
+10. add `prism_coordination`, `prism_claim`, and `prism_artifact`
+11. add derived projections such as co-change, hotspot, validation recipes, and drift detection
 
 ---
 
@@ -1536,4 +1924,5 @@ The system model is:
 * structure tells PRISM what exists now
 * history tells PRISM what persisted through change
 * outcome memory tells PRISM what happened when it changed
+* coordination tells PRISM who is doing what, on which anchors, under which policy
 * queries and agents turn that into evidence-backed action

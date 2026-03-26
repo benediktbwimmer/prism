@@ -1251,12 +1251,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "prism-coordination"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "prism-ir",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "prism-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "notify",
  "prism-agent",
+ "prism-coordination",
+ "prism-curator",
  "prism-history",
  "prism-ir",
  "prism-lang-json",
@@ -1310,6 +1322,7 @@ dependencies = [
 name = "prism-js"
 version = "0.1.0"
 dependencies = [
+ "prism-coordination",
  "prism-ir",
  "prism-memory",
  "serde",
@@ -1368,7 +1381,9 @@ dependencies = [
  "clap",
  "deno_ast",
  "prism-agent",
+ "prism-coordination",
  "prism-core",
+ "prism-curator",
  "prism-history",
  "prism-ir",
  "prism-js",
@@ -1418,6 +1433,7 @@ dependencies = [
 name = "prism-query"
 version = "0.1.0"
 dependencies = [
+ "prism-coordination",
  "prism-history",
  "prism-ir",
  "prism-memory",
@@ -1433,6 +1449,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "prism-agent",
+ "prism-coordination",
+ "prism-curator",
  "prism-history",
  "prism-ir",
  "prism-memory",

@@ -1,4 +1,6 @@
-# PRISM Future Directions
+# PRISM — Perceptual Representation & Intelligence System for Machines
+
+## Future Directions
 
 ## Thesis
 
@@ -193,6 +195,72 @@ The dream version of PRISM is:
 Short version:
 
 **PRISM’s best future is memory-backed, intent-aware, temporally grounded change intelligence.**
+
+## Sibling Product Family
+
+PRISM's architecture is domain-specific, but the pattern it establishes is domain-agnostic. The same layered model of structure, time, memory, coordination, and code-as-query applies to other domains where agents struggle with spatial awareness, change understanding, and outcome learning.
+
+### The Reusable Pattern
+
+The following PRISM concepts transfer directly to sibling products:
+
+* `AnchorRef` and the anchoring model
+* `EventMeta`, `EventId`, `TaskId` and the event envelope
+* `MemoryModule` trait and memory composition
+* `OutcomeEvent` and outcome recording
+* `ObservedChangeSet` and the change stream model
+* `LineageEvent` and the temporal identity pattern
+* code-as-query via embedded TypeScript
+* MCP server model and session lifecycle
+* coordination framework for multi-agent work
+
+What changes per domain is only the node kinds, edge kinds, fingerprint semantics, and adapter implementations.
+
+### Candidate 1: Database Perception
+
+A database sibling would model:
+
+* **Node identity** — `schema.table.column`, `schema.index`, `schema.constraint`, `schema.view`
+* **Lineage** — column identity through renames, type changes, table splits, migrations
+* **Fingerprint** — column type plus constraints plus index participation
+* **Outcome memory** — "migration X took 47 minutes on prod", "this ALTER requires a backfill", "last schema change caused a 3-hour lock"
+* **Blast radius** — queries that reference a column, views that depend on a table, FK cascade chains, downstream application code
+
+The killer capability agents lack today: "what queries will break if I change this column type?" That requires joining schema structure with query analysis and historical migration outcomes — exactly the PRISM pattern.
+
+### Candidate 2: Infrastructure Perception
+
+An infrastructure sibling would model:
+
+* **Node identity** — `cluster.namespace.deployment.container`, `vpc.subnet.security-group`, `dns.zone.record`
+* **Lineage** — resource identity through Terraform applies, Helm upgrades, blue-green switches
+* **Outcome memory** — "last time we scaled this service down, latency spiked", "this config change caused a certificate rotation failure"
+* **Blast radius** — dependent services, routing rules, DNS propagation, certificate chains, cross-boundary dependency chains (Terraform → Kubernetes → application → database)
+
+The pattern agents struggle with most in infrastructure is dependency chains that cross abstraction boundaries. An infra perception layer would surface the full chain.
+
+### Cross-Domain Composition
+
+The products are independent systems, not modules inside PRISM. Each one is expert in its domain, exposes code-as-query, and contributes outcomes to its own memory layer. An agent connects to multiple MCP servers simultaneously and composes queries across them:
+
+```ts
+// PRISM: find code that uses this table
+const refs = prism.search("users_table", { kind: "Function" });
+
+// SCHEMA: find recent column changes on that table
+const changes = schema.lineageHistory(schema.lineageOf("public.users.email"));
+
+// Cross-domain reasoning happens in the agent, grounded
+// by structured evidence from both systems
+```
+
+The vision is not one monolith but a family of domain-specific perception layers that agents compose over. PRISM is the proving ground for the pattern. The siblings will be faster to build because the architecture is already validated.
+
+### Naming Convention
+
+* **PRISM** — code perception and memory
+* **SCHEMA** (working name) — database perception and memory
+* **ATLAS** (working name) — infrastructure perception and memory
 
 ## Near-Term Design Priority
 

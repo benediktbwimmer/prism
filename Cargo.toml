@@ -2,6 +2,7 @@
 members = [
     "crates/prism-agent",
     "crates/prism-cli",
+    "crates/prism-coordination",
     "crates/prism-core",
     "crates/prism-curator",
     "crates/prism-history",

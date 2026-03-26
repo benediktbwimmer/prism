@@ -136,6 +136,64 @@ pub struct CuratorRun {
     pub diagnostics: Vec<CuratorDiagnostic>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CuratorJobStatus {
+    Queued,
+    Running,
+    Completed,
+    Failed,
+    Skipped,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CuratorProposalDisposition {
+    Pending,
+    Applied,
+    Rejected,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CuratorProposalState {
+    pub disposition: CuratorProposalDisposition,
+    pub decided_at: Option<u64>,
+    pub task: Option<TaskId>,
+    pub note: Option<String>,
+    pub output: Option<String>,
+}
+
+impl Default for CuratorProposalState {
+    fn default() -> Self {
+        Self {
+            disposition: CuratorProposalDisposition::Pending,
+            decided_at: None,
+            task: None,
+            note: None,
+            output: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CuratorJobRecord {
+    pub id: CuratorJobId,
+    pub job: CuratorJob,
+    pub status: CuratorJobStatus,
+    pub created_at: u64,
+    pub started_at: Option<u64>,
+    pub finished_at: Option<u64>,
+    pub run: Option<CuratorRun>,
+    #[serde(default)]
+    pub proposal_states: Vec<CuratorProposalState>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct CuratorSnapshot {
+    pub records: Vec<CuratorJobRecord>,
+}
+
 pub trait CuratorBackend: Send + Sync {
     fn run(&self, job: &CuratorJob, ctx: &CuratorContext) -> Result<CuratorRun>;
 }

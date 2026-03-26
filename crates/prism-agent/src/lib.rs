@@ -59,6 +59,15 @@ impl InferenceStore {
         Self::default()
     }
 
+    pub fn record(&self, id: &EdgeId) -> Option<InferredEdgeRecord> {
+        self.state
+            .read()
+            .expect("inference store lock poisoned")
+            .records
+            .get(id)
+            .cloned()
+    }
+
     pub fn from_snapshot(snapshot: InferenceSnapshot) -> Self {
         let store = Self::new();
         let mut state = store.state.write().expect("inference store lock poisoned");

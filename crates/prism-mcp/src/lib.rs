@@ -11,15 +11,27 @@ use deno_ast::{
     TranspileOptions,
 };
 use prism_agent::{EdgeId, InferenceStore, InferredEdgeScope};
+use prism_coordination::{
+    AcceptanceCriterion, ArtifactProposeInput, ArtifactReviewInput, ArtifactSupersedeInput,
+    ClaimAcquireInput, CoordinationPolicy, HandoffInput, PlanCreateInput, TaskCreateInput,
+    TaskUpdateInput,
+};
 use prism_core::{index_workspace_session, WorkspaceSession};
+use prism_curator::{
+    CuratorJobId, CuratorJobRecord, CuratorProposal, CuratorProposalDisposition, CuratorTrigger,
+};
 use prism_ir::{
-    AnchorRef, Edge, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta, NodeId, NodeKind, TaskId,
+    AgentId, AnchorRef, ArtifactId, Capability, ClaimId, ClaimMode, CoordinationTaskId,
+    CoordinationTaskStatus, Edge, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta, LineageId,
+    NodeId, NodeKind, PlanId, ReviewVerdict, SessionId, TaskId, WorkspaceRevision,
 };
 use prism_js::{
-    api_reference_markdown, runtime_prelude, ChangeImpactView, CoChangeView, EdgeView,
-    LineageEventView, LineageStatus, LineageView, MemoryEntryView, NodeIdView, QueryDiagnostic,
-    QueryEnvelope, RelationsView, ScoredMemoryView, SubgraphView, SymbolView, ValidationCheckView,
-    ValidationRecipeView, API_REFERENCE_URI,
+    api_reference_markdown, runtime_prelude, ArtifactView, BlockerView, ChangeImpactView,
+    ClaimView, CoChangeView, ConflictView, CoordinationTaskView, CuratorJobView,
+    CuratorProposalView, EdgeView, LineageEventView, LineageStatus, LineageView, MemoryEntryView,
+    NodeIdView, PlanView, QueryDiagnostic, QueryEnvelope, RelationsView, ScoredMemoryView,
+    SubgraphView, SymbolView, ValidationCheckView, ValidationRecipeView, WorkspaceRevisionView,
+    API_REFERENCE_URI,
 };
 use prism_memory::{
     EpisodicMemory, MemoryEntry, MemoryId, MemoryKind, MemoryModule, MemorySource, OutcomeEvent,
@@ -43,17 +55,35 @@ use serde_json::{json, Value};
 
 const DEFAULT_SEARCH_LIMIT: usize = 20;
 const DEFAULT_CALL_GRAPH_DEPTH: usize = 3;
+const DEFAULT_RESOURCE_PAGE_LIMIT: usize = 50;
 const ENTRYPOINTS_URI: &str = "prism://entrypoints";
+const SESSION_URI: &str = "prism://session";
+const ENTRYPOINTS_RESOURCE_TEMPLATE_URI: &str = "prism://entrypoints?limit={limit}&cursor={cursor}";
 const SYMBOL_RESOURCE_TEMPLATE_URI: &str = "prism://symbol/{crateName}/{kind}/{path}";
-const TASK_RESOURCE_TEMPLATE_URI: &str = "prism://task/{taskId}";
+const SEARCH_RESOURCE_TEMPLATE_URI: &str = "prism://search/{query}?limit={limit}&cursor={cursor}";
+const LINEAGE_RESOURCE_TEMPLATE_URI: &str =
+    "prism://lineage/{lineageId}?limit={limit}&cursor={cursor}";
+const TASK_RESOURCE_TEMPLATE_URI: &str = "prism://task/{taskId}?limit={limit}&cursor={cursor}";
+const EVENT_RESOURCE_TEMPLATE_URI: &str = "prism://event/{eventId}";
+const MEMORY_RESOURCE_TEMPLATE_URI: &str = "prism://memory/{memoryId}";
+const EDGE_RESOURCE_TEMPLATE_URI: &str = "prism://edge/{edgeId}";
+static NEXT_SESSION_ID: AtomicU64 = AtomicU64::new(1);
+
+#[derive(Debug, Clone)]
+struct SessionTaskState {
+    id: TaskId,
+    description: Option<String>,
+    tags: Vec<String>,
+}
 
 struct SessionState {
+    session_id: SessionId,
     notes: EpisodicMemory,
     inferred_edges: InferenceStore,
-    current_task: Mutex<Option<TaskId>>,
+    current_task: Mutex<Option<SessionTaskState>>,
     next_event: AtomicU64,
     next_task: AtomicU64,
-    limits: QueryLimits,
+    limits: Mutex<QueryLimits>,
 }
 
 impl SessionState {
@@ -73,12 +103,16 @@ impl SessionState {
         limits: QueryLimits,
     ) -> Self {
         Self {
+            session_id: SessionId::new(format!(
+                "session:{}",
+                NEXT_SESSION_ID.fetch_add(1, Ordering::Relaxed)
+            )),
             notes,
             inferred_edges,
             current_task: Mutex::new(None),
             next_event: AtomicU64::new(max_event_sequence(prism)),
             next_task: AtomicU64::new(max_task_sequence(prism)),
-            limits,
+            limits: Mutex::new(limits),
         }
     }
 
@@ -91,14 +125,57 @@ impl SessionState {
         self.current_task
             .lock()
             .expect("session task lock poisoned")
+            .as_ref()
+            .map(|task| task.id.clone())
+    }
+
+    fn session_id(&self) -> SessionId {
+        self.session_id.clone()
+    }
+
+    fn current_task_state(&self) -> Option<SessionTaskState> {
+        self.current_task
+            .lock()
+            .expect("session task lock poisoned")
             .clone()
     }
 
-    fn set_current_task(&self, task: TaskId) {
+    fn set_current_task(&self, task: TaskId, description: Option<String>, tags: Vec<String>) {
         *self
             .current_task
             .lock()
-            .expect("session task lock poisoned") = Some(task);
+            .expect("session task lock poisoned") = Some(SessionTaskState {
+            id: task,
+            description,
+            tags,
+        });
+    }
+
+    fn update_current_task_metadata(
+        &self,
+        description: Option<Option<String>>,
+        tags: Option<Vec<String>>,
+    ) {
+        if let Some(task) = self
+            .current_task
+            .lock()
+            .expect("session task lock poisoned")
+            .as_mut()
+        {
+            if let Some(description) = description {
+                task.description = description;
+            }
+            if let Some(tags) = tags {
+                task.tags = tags;
+            }
+        }
+    }
+
+    fn clear_current_task(&self) {
+        *self
+            .current_task
+            .lock()
+            .expect("session task lock poisoned") = None;
     }
 
     fn start_task(&self, description: &str, _tags: &[String]) -> TaskId {
@@ -119,7 +196,7 @@ impl SessionState {
         slug = slug.trim_matches('-').to_owned();
         let prefix = if slug.is_empty() { "task" } else { &slug };
         let task = TaskId::new(format!("task:{prefix}:{sequence}"));
-        self.set_current_task(task.clone());
+        self.set_current_task(task.clone(), Some(description.to_string()), _tags.to_vec());
         task
     }
 
@@ -134,7 +211,11 @@ impl SessionState {
     }
 
     fn limits(&self) -> QueryLimits {
-        self.limits
+        *self.limits.lock().expect("session limits lock poisoned")
+    }
+
+    fn set_limits(&self, limits: QueryLimits) {
+        *self.limits.lock().expect("session limits lock poisoned") = limits;
     }
 }
 
@@ -329,8 +410,122 @@ struct PrismStartTaskArgs {
 }
 
 #[derive(Debug, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 struct PrismStartTaskResult {
     task_id: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct EventMutationResult {
+    event_id: String,
+    task_id: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct MemoryMutationResult {
+    memory_id: String,
+    task_id: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct EdgeMutationResult {
+    edge_id: String,
+    task_id: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct CuratorProposalDecisionResult {
+    job_id: String,
+    proposal: Value,
+    edge_id: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+struct QueryDiagnosticSchema {
+    code: String,
+    message: String,
+    data: Option<Value>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+struct QueryEnvelopeSchema {
+    result: Value,
+    diagnostics: Vec<QueryDiagnosticSchema>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct QueryLimitsInput {
+    max_result_nodes: Option<usize>,
+    max_call_graph_depth: Option<usize>,
+    max_output_json_bytes: Option<usize>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema, Default)]
+#[serde(rename_all = "camelCase")]
+struct PrismGetSessionArgs {}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct PrismConfigureSessionArgs {
+    limits: Option<QueryLimitsInput>,
+    #[serde(alias = "current_task_id")]
+    current_task_id: Option<String>,
+    #[serde(alias = "current_task_description")]
+    current_task_description: Option<String>,
+    #[serde(alias = "current_task_tags")]
+    current_task_tags: Option<Vec<String>>,
+    clear_current_task: Option<bool>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct SessionLimitsView {
+    max_result_nodes: usize,
+    max_call_graph_depth: usize,
+    max_output_json_bytes: usize,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct SessionTaskView {
+    task_id: String,
+    description: Option<String>,
+    tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct SessionView {
+    workspace_root: Option<String>,
+    current_task: Option<SessionTaskView>,
+    limits: SessionLimitsView,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ResourcePageView {
+    cursor: Option<String>,
+    next_cursor: Option<String>,
+    limit: usize,
+    returned: usize,
+    total: usize,
+    has_more: bool,
+    limit_capped: bool,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InferredEdgeRecordView {
+    id: String,
+    edge: EdgeView,
+    scope: InferredEdgeScope,
+    task_id: Option<String>,
+    evidence: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -375,6 +570,240 @@ struct PrismFixValidatedArgs {
     task_id: Option<String>,
 }
 
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+enum CoordinationMutationKindInput {
+    PlanCreate,
+    TaskCreate,
+    TaskUpdate,
+    Handoff,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+enum ClaimActionInput {
+    Acquire,
+    Renew,
+    Release,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+enum ArtifactActionInput {
+    Propose,
+    Supersede,
+    Review,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct PrismCoordinationArgs {
+    kind: CoordinationMutationKindInput,
+    payload: Value,
+    #[serde(alias = "task_id")]
+    task_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct PrismClaimArgs {
+    action: ClaimActionInput,
+    payload: Value,
+    #[serde(alias = "task_id")]
+    task_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct PrismArtifactArgs {
+    action: ArtifactActionInput,
+    payload: Value,
+    #[serde(alias = "task_id")]
+    task_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PlanTargetArgs {
+    plan_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CoordinationTaskTargetArgs {
+    task_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AnchorListArgs {
+    anchors: Vec<AnchorRefInput>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PendingReviewsArgs {
+    plan_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SimulateClaimArgs {
+    anchors: Vec<AnchorRefInput>,
+    capability: String,
+    mode: Option<String>,
+    #[serde(alias = "task_id")]
+    task_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PlanCreatePayload {
+    goal: String,
+    policy: Option<CoordinationPolicyPayload>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CoordinationPolicyPayload {
+    default_claim_mode: Option<String>,
+    max_parallel_editors_per_anchor: Option<u16>,
+    require_review_for_completion: Option<bool>,
+    stale_after_graph_change: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AcceptanceCriterionPayload {
+    label: String,
+    anchors: Option<Vec<AnchorRefInput>>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TaskCreatePayload {
+    plan_id: String,
+    title: String,
+    status: Option<String>,
+    assignee: Option<String>,
+    anchors: Option<Vec<AnchorRefInput>>,
+    depends_on: Option<Vec<String>>,
+    acceptance: Option<Vec<AcceptanceCriterionPayload>>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TaskUpdatePayload {
+    task_id: String,
+    status: Option<String>,
+    assignee: Option<String>,
+    title: Option<String>,
+    anchors: Option<Vec<AnchorRefInput>>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HandoffPayload {
+    task_id: String,
+    to_agent: Option<String>,
+    summary: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ClaimAcquirePayload {
+    anchors: Vec<AnchorRefInput>,
+    capability: String,
+    mode: Option<String>,
+    ttl_seconds: Option<u64>,
+    agent: Option<String>,
+    coordination_task_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ClaimRenewPayload {
+    claim_id: String,
+    ttl_seconds: Option<u64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ClaimReleasePayload {
+    claim_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ArtifactProposePayload {
+    task_id: String,
+    anchors: Option<Vec<AnchorRefInput>>,
+    diff_ref: Option<String>,
+    evidence: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ArtifactSupersedePayload {
+    artifact_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ArtifactReviewPayload {
+    artifact_id: String,
+    verdict: String,
+    summary: String,
+}
+
+#[derive(Debug, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct CoordinationMutationResult {
+    event_id: String,
+    state: Value,
+}
+
+#[derive(Debug, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct ClaimMutationResult {
+    claim_id: Option<String>,
+    conflicts: Vec<Value>,
+    state: Value,
+}
+
+#[derive(Debug, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct ArtifactMutationResult {
+    artifact_id: Option<String>,
+    review_id: Option<String>,
+    state: Value,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct PrismCuratorPromoteEdgeArgs {
+    #[serde(alias = "job_id")]
+    job_id: String,
+    #[serde(alias = "proposal_index")]
+    proposal_index: usize,
+    scope: Option<InferredEdgeScopeInput>,
+    note: Option<String>,
+    #[serde(alias = "task_id")]
+    task_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct PrismCuratorRejectProposalArgs {
+    #[serde(alias = "job_id")]
+    job_id: String,
+    #[serde(alias = "proposal_index")]
+    proposal_index: usize,
+    reason: Option<String>,
+    #[serde(alias = "task_id")]
+    task_id: Option<String>,
+}
+
 #[tool_router]
 impl PrismMcpServer {
     #[tool(
@@ -384,7 +813,9 @@ impl PrismMcpServer {
             read_only_hint = false,
             destructive_hint = false,
             idempotent_hint = false
-        )
+        ),
+        output_schema = rmcp::handler::server::tool::schema_for_output::<PrismStartTaskResult>()
+            .unwrap()
     )]
     fn prism_start_task(
         &self,
@@ -401,15 +832,60 @@ impl PrismMcpServer {
             .host
             .start_task(args.description, args.tags.unwrap_or_default())
             .map_err(map_query_error)?;
-        structured_tool_result(PrismStartTaskResult {
-            task_id: task.0.to_string(),
-        })
+        let task_id = task.0.to_string();
+        structured_tool_result_with_links(
+            PrismStartTaskResult {
+                task_id: task_id.clone(),
+            },
+            vec![session_resource_link(), task_resource_link(&task_id)],
+        )
+    }
+
+    #[tool(
+        description = "Inspect the current MCP session state, including workspace root, active task, and runtime limits.",
+        annotations(title = "Get PRISM Session", read_only_hint = true),
+        output_schema = rmcp::handler::server::tool::schema_for_output::<SessionView>().unwrap()
+    )]
+    fn prism_get_session(
+        &self,
+        Parameters(_args): Parameters<PrismGetSessionArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let session = self.host.session_view().map_err(map_query_error)?;
+        let mut links = vec![session_resource_link()];
+        if let Some(task) = &session.current_task {
+            links.push(task_resource_link(&task.task_id));
+        }
+        structured_tool_result_with_links(session, links)
+    }
+
+    #[tool(
+        description = "Configure session-scoped limits and the active task context for subsequent mutations.",
+        annotations(
+            title = "Configure PRISM Session",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false
+        ),
+        output_schema = rmcp::handler::server::tool::schema_for_output::<SessionView>().unwrap()
+    )]
+    fn prism_configure_session(
+        &self,
+        Parameters(args): Parameters<PrismConfigureSessionArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let session = self.host.configure_session(args).map_err(map_query_error)?;
+        let mut links = vec![session_resource_link()];
+        if let Some(task) = &session.current_task {
+            links.push(task_resource_link(&task.task_id));
+        }
+        structured_tool_result_with_links(session, links)
     }
 
     #[tool(
         name = "prism_query",
         description = "Execute a read-only TypeScript query against the live PRISM graph. Read prism://api-reference for the available prism API.",
-        annotations(title = "Programmable PRISM Query", read_only_hint = true)
+        annotations(title = "Programmable PRISM Query", read_only_hint = true),
+        output_schema = rmcp::handler::server::tool::schema_for_output::<QueryEnvelopeSchema>()
+            .unwrap()
     )]
     fn prism_query(
         &self,
@@ -432,7 +908,9 @@ impl PrismMcpServer {
 
     #[tool(
         description = "Convenience lookup for the best matching symbol. Returns the same structured query envelope as prism_query.",
-        annotations(title = "Lookup PRISM Symbol", read_only_hint = true)
+        annotations(title = "Lookup PRISM Symbol", read_only_hint = true),
+        output_schema = rmcp::handler::server::tool::schema_for_output::<QueryEnvelopeSchema>()
+            .unwrap()
     )]
     fn prism_symbol(
         &self,
@@ -449,12 +927,19 @@ impl PrismMcpServer {
             .host
             .symbol_query(&args.query)
             .map_err(map_query_error)?;
-        structured_tool_result(envelope)
+        let links = serde_json::from_value::<Option<SymbolView>>(envelope.result.clone())
+            .ok()
+            .flatten()
+            .map(|symbol| symbol_links(&symbol))
+            .unwrap_or_default();
+        structured_tool_result_with_links(envelope, links)
     }
 
     #[tool(
         description = "Convenience search lookup. Returns the same structured query envelope as prism_query.",
-        annotations(title = "Search PRISM Graph", read_only_hint = true)
+        annotations(title = "Search PRISM Graph", read_only_hint = true),
+        output_schema = rmcp::handler::server::tool::schema_for_output::<QueryEnvelopeSchema>()
+            .unwrap()
     )]
     fn prism_search(
         &self,
@@ -467,17 +952,24 @@ impl PrismMcpServer {
             ));
         }
 
+        let query = args.query.clone();
         let envelope = self
             .host
             .search_query(SearchArgs {
-                query: args.query,
+                query: query.clone(),
                 limit: args.limit,
                 kind: args.kind,
                 path: args.path,
                 include_inferred: None,
             })
             .map_err(map_query_error)?;
-        structured_tool_result(envelope)
+        let mut links = vec![search_resource_link(&query)];
+        if let Ok(symbols) = serde_json::from_value::<Vec<SymbolView>>(envelope.result.clone()) {
+            for symbol in symbols.iter().take(8) {
+                links.push(symbol_resource_link(symbol));
+            }
+        }
+        structured_tool_result_with_links(envelope, links)
     }
 
     #[tool(
@@ -487,14 +979,22 @@ impl PrismMcpServer {
             read_only_hint = false,
             destructive_hint = false,
             idempotent_hint = false
-        )
+        ),
+        output_schema = rmcp::handler::server::tool::schema_for_output::<EventMutationResult>()
+            .unwrap()
     )]
     fn prism_outcome(
         &self,
         Parameters(args): Parameters<PrismOutcomeArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let event_id = self.host.store_outcome(args).map_err(map_query_error)?;
-        structured_tool_result(json!({ "eventId": event_id.0 }))
+        let result = self.host.store_outcome(args).map_err(map_query_error)?;
+        structured_tool_result_with_links(
+            result.clone(),
+            vec![
+                event_resource_link(&result.event_id),
+                task_resource_link(&result.task_id),
+            ],
+        )
     }
 
     #[tool(
@@ -504,14 +1004,22 @@ impl PrismMcpServer {
             read_only_hint = false,
             destructive_hint = false,
             idempotent_hint = false
-        )
+        ),
+        output_schema = rmcp::handler::server::tool::schema_for_output::<MemoryMutationResult>()
+            .unwrap()
     )]
     fn prism_note(
         &self,
         Parameters(args): Parameters<PrismNoteArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let memory_id = self.host.store_note(args).map_err(map_query_error)?;
-        structured_tool_result(json!({ "memoryId": memory_id.0 }))
+        let result = self.host.store_note(args).map_err(map_query_error)?;
+        structured_tool_result_with_links(
+            result.clone(),
+            vec![
+                memory_resource_link(&result.memory_id),
+                task_resource_link(&result.task_id),
+            ],
+        )
     }
 
     #[tool(
@@ -521,17 +1029,85 @@ impl PrismMcpServer {
             read_only_hint = false,
             destructive_hint = false,
             idempotent_hint = false
-        )
+        ),
+        output_schema = rmcp::handler::server::tool::schema_for_output::<EdgeMutationResult>()
+            .unwrap()
     )]
     fn prism_infer_edge(
         &self,
         Parameters(args): Parameters<PrismInferEdgeArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let edge_id = self
+        let result = self
             .host
             .store_inferred_edge(args)
             .map_err(map_query_error)?;
-        structured_tool_result(json!({ "edgeId": edge_id.0 }))
+        structured_tool_result_with_links(
+            result.clone(),
+            vec![
+                edge_resource_link(&result.edge_id),
+                task_resource_link(&result.task_id),
+            ],
+        )
+    }
+
+    #[tool(
+        description = "Mutate shared coordination state for plans, tasks, and handoffs.",
+        annotations(
+            title = "Mutate Coordination State",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false
+        ),
+        output_schema = rmcp::handler::server::tool::schema_for_output::<CoordinationMutationResult>()
+            .unwrap()
+    )]
+    fn prism_coordination(
+        &self,
+        Parameters(args): Parameters<PrismCoordinationArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let result = self
+            .host
+            .store_coordination(args)
+            .map_err(map_query_error)?;
+        structured_tool_result(result)
+    }
+
+    #[tool(
+        description = "Acquire, renew, or release shared work claims.",
+        annotations(
+            title = "Mutate Claims",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false
+        ),
+        output_schema = rmcp::handler::server::tool::schema_for_output::<ClaimMutationResult>()
+            .unwrap()
+    )]
+    fn prism_claim(
+        &self,
+        Parameters(args): Parameters<PrismClaimArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let result = self.host.store_claim(args).map_err(map_query_error)?;
+        structured_tool_result(result)
+    }
+
+    #[tool(
+        description = "Propose, supersede, or review shared artifacts.",
+        annotations(
+            title = "Mutate Artifacts",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false
+        ),
+        output_schema = rmcp::handler::server::tool::schema_for_output::<ArtifactMutationResult>()
+            .unwrap()
+    )]
+    fn prism_artifact(
+        &self,
+        Parameters(args): Parameters<PrismArtifactArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let result = self.host.store_artifact(args).map_err(map_query_error)?;
+        structured_tool_result(result)
     }
 
     #[tool(
@@ -541,7 +1117,9 @@ impl PrismMcpServer {
             read_only_hint = false,
             destructive_hint = false,
             idempotent_hint = false
-        )
+        ),
+        output_schema = rmcp::handler::server::tool::schema_for_output::<EventMutationResult>()
+            .unwrap()
     )]
     fn prism_test_ran(
         &self,
@@ -552,7 +1130,7 @@ impl PrismMcpServer {
             args.test,
             if args.passed { "passed" } else { "failed" }
         );
-        let event_id = self
+        let result = self
             .host
             .store_outcome(PrismOutcomeArgs {
                 kind: OutcomeKindInput::TestRan,
@@ -570,7 +1148,13 @@ impl PrismMcpServer {
                 task_id: args.task_id,
             })
             .map_err(map_query_error)?;
-        structured_tool_result(json!({ "eventId": event_id.0 }))
+        structured_tool_result_with_links(
+            result.clone(),
+            vec![
+                event_resource_link(&result.event_id),
+                task_resource_link(&result.task_id),
+            ],
+        )
     }
 
     #[tool(
@@ -580,7 +1164,9 @@ impl PrismMcpServer {
             read_only_hint = false,
             destructive_hint = false,
             idempotent_hint = false
-        )
+        ),
+        output_schema = rmcp::handler::server::tool::schema_for_output::<EventMutationResult>()
+            .unwrap()
     )]
     fn prism_failure_observed(
         &self,
@@ -589,7 +1175,7 @@ impl PrismMcpServer {
         let evidence = args
             .trace
             .map(|trace| vec![OutcomeEvidenceInput::StackTrace { hash: trace }]);
-        let event_id = self
+        let result = self
             .host
             .store_outcome(PrismOutcomeArgs {
                 kind: OutcomeKindInput::FailureObserved,
@@ -600,7 +1186,13 @@ impl PrismMcpServer {
                 task_id: args.task_id,
             })
             .map_err(map_query_error)?;
-        structured_tool_result(json!({ "eventId": event_id.0 }))
+        structured_tool_result_with_links(
+            result.clone(),
+            vec![
+                event_resource_link(&result.event_id),
+                task_resource_link(&result.task_id),
+            ],
+        )
     }
 
     #[tool(
@@ -610,13 +1202,15 @@ impl PrismMcpServer {
             read_only_hint = false,
             destructive_hint = false,
             idempotent_hint = false
-        )
+        ),
+        output_schema = rmcp::handler::server::tool::schema_for_output::<EventMutationResult>()
+            .unwrap()
     )]
     fn prism_fix_validated(
         &self,
         Parameters(args): Parameters<PrismFixValidatedArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let event_id = self
+        let result = self
             .host
             .store_outcome(PrismOutcomeArgs {
                 kind: OutcomeKindInput::FixValidated,
@@ -627,7 +1221,61 @@ impl PrismMcpServer {
                 task_id: args.task_id,
             })
             .map_err(map_query_error)?;
-        structured_tool_result(json!({ "eventId": event_id.0 }))
+        structured_tool_result_with_links(
+            result.clone(),
+            vec![
+                event_resource_link(&result.event_id),
+                task_resource_link(&result.task_id),
+            ],
+        )
+    }
+
+    #[tool(
+        description = "Promote a completed curator inferred-edge proposal into the session overlay or persisted inference store.",
+        annotations(
+            title = "Promote Curator Edge",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false
+        ),
+        output_schema = rmcp::handler::server::tool::schema_for_output::<CuratorProposalDecisionResult>()
+            .unwrap()
+    )]
+    fn prism_curator_promote_edge(
+        &self,
+        Parameters(args): Parameters<PrismCuratorPromoteEdgeArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let result = self
+            .host
+            .promote_curator_edge(args)
+            .map_err(map_query_error)?;
+        let mut links = vec![session_resource_link()];
+        if let Some(edge_id) = &result.edge_id {
+            links.push(edge_resource_link(edge_id));
+        }
+        structured_tool_result_with_links(result, links)
+    }
+
+    #[tool(
+        description = "Reject a curator proposal without mutating the graph. Use this for risk summaries, validation recipes, or inferred edges you do not want to apply.",
+        annotations(
+            title = "Reject Curator Proposal",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false
+        ),
+        output_schema = rmcp::handler::server::tool::schema_for_output::<CuratorProposalDecisionResult>()
+            .unwrap()
+    )]
+    fn prism_curator_reject_proposal(
+        &self,
+        Parameters(args): Parameters<PrismCuratorRejectProposalArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let result = self
+            .host
+            .reject_curator_proposal(args)
+            .map_err(map_query_error)?;
+        structured_tool_result_with_links(result, vec![session_resource_link()])
     }
 }
 
@@ -642,7 +1290,7 @@ impl ServerHandler for PrismMcpServer {
         )
         .with_server_info(Implementation::from_build_env())
         .with_instructions(
-            "Start with prism://api-reference for the typed query contract. Use prism_query for programmable read-only graph queries, prism_symbol or prism_search for direct lookups, prism://entrypoints for a quick workspace overview, prism://symbol/{crateName}/{kind}/{path} for an exact symbol snapshot, and the prism_* mutation tools to record outcomes, notes, inferred edges, and task context.",
+            "Start with prism://api-reference for the typed query contract. Use prism_get_session or prism://session to inspect the active workspace, task, and runtime limits, prism_configure_session to change them, prism_query for programmable read-only graph queries, prism_symbol or prism_search for direct lookups, prism://entrypoints for a quick workspace overview, prism://search/{query} for browseable search results, prism://symbol/{crateName}/{kind}/{path} for exact symbol snapshots, prism://lineage/{lineageId} for symbol history, prism://task/{taskId} for recorded task outcomes, prism://event/{eventId}, prism://memory/{memoryId}, and prism://edge/{edgeId} for mutation outputs, and the prism_* mutation tools to record outcomes, notes, inferred edges, task context, and curator proposal decisions.",
         )
         .with_protocol_version(ProtocolVersion::LATEST)
     }
@@ -660,9 +1308,15 @@ impl ServerHandler for PrismMcpServer {
                     )
                     .with_mime_type("text/markdown")
                     .no_annotation(),
+                RawResource::new(SESSION_URI, "PRISM Session")
+                    .with_description(
+                        "Active workspace root, current task context, and runtime query limits",
+                    )
+                    .with_mime_type("application/json")
+                    .no_annotation(),
                 RawResource::new(ENTRYPOINTS_URI, "PRISM Entrypoints")
                     .with_description(
-                        "Workspace entrypoints and top-level starting symbols in structured JSON",
+                        "Workspace entrypoints and top-level starting symbols in structured JSON, with optional cursor-based pagination",
                     )
                     .with_mime_type("application/json")
                     .no_annotation(),
@@ -678,13 +1332,28 @@ impl ServerHandler for PrismMcpServer {
         _: RequestContext<RoleServer>,
     ) -> Result<ReadResourceResult, McpError> {
         let uri = request.uri.as_str();
-        let contents = if uri == API_REFERENCE_URI {
+        let (base_uri, _) = split_resource_uri(uri);
+        let contents = if base_uri == API_REFERENCE_URI {
             ResourceContents::text(api_reference_markdown(), request.uri.clone())
                 .with_mime_type("text/markdown")
-        } else if uri == ENTRYPOINTS_URI {
+        } else if base_uri == SESSION_URI {
             json_resource_contents(
                 self.host
-                    .entrypoints_resource_value()
+                    .session_resource_value()
+                    .map_err(map_query_error)?,
+                request.uri.clone(),
+            )?
+        } else if base_uri == ENTRYPOINTS_URI {
+            json_resource_contents(
+                self.host
+                    .entrypoints_resource_value(uri)
+                    .map_err(map_query_error)?,
+                request.uri.clone(),
+            )?
+        } else if let Some(query) = parse_search_resource_uri(uri) {
+            json_resource_contents(
+                self.host
+                    .search_resource_value(uri, &query)
                     .map_err(map_query_error)?,
                 request.uri.clone(),
             )?
@@ -695,10 +1364,38 @@ impl ServerHandler for PrismMcpServer {
                     .map_err(map_query_error)?,
                 request.uri.clone(),
             )?
+        } else if let Some(lineage) = parse_lineage_resource_uri(uri) {
+            json_resource_contents(
+                self.host
+                    .lineage_resource_value(uri, &lineage)
+                    .map_err(map_query_error)?,
+                request.uri.clone(),
+            )?
         } else if let Some(task_id) = parse_task_resource_uri(uri) {
             json_resource_contents(
                 self.host
-                    .task_resource_value(&task_id)
+                    .task_resource_value(uri, &task_id)
+                    .map_err(map_query_error)?,
+                request.uri.clone(),
+            )?
+        } else if let Some(event_id) = parse_event_resource_uri(uri) {
+            json_resource_contents(
+                self.host
+                    .event_resource_value(&event_id)
+                    .map_err(map_query_error)?,
+                request.uri.clone(),
+            )?
+        } else if let Some(memory_id) = parse_memory_resource_uri(uri) {
+            json_resource_contents(
+                self.host
+                    .memory_resource_value(&memory_id)
+                    .map_err(map_query_error)?,
+                request.uri.clone(),
+            )?
+        } else if let Some(edge_id) = parse_edge_resource_uri(uri) {
+            json_resource_contents(
+                self.host
+                    .edge_resource_value(&edge_id)
                     .map_err(map_query_error)?,
                 request.uri.clone(),
             )?
@@ -721,6 +1418,21 @@ impl ServerHandler for PrismMcpServer {
             next_cursor: None,
             resource_templates: vec![
                 RawResourceTemplate::new(
+                    ENTRYPOINTS_RESOURCE_TEMPLATE_URI,
+                    "PRISM Entrypoints Page",
+                )
+                .with_description(
+                    "Read workspace entrypoints with optional `limit` and opaque `cursor` pagination",
+                )
+                .with_mime_type("application/json")
+                .no_annotation(),
+                RawResourceTemplate::new(SEARCH_RESOURCE_TEMPLATE_URI, "PRISM Search")
+                    .with_description(
+                        "Read structured PRISM search results and diagnostics for a query string with optional `limit` and opaque `cursor` pagination",
+                    )
+                    .with_mime_type("application/json")
+                    .no_annotation(),
+                RawResourceTemplate::new(
                     SYMBOL_RESOURCE_TEMPLATE_URI,
                     "PRISM Symbol Snapshot",
                 )
@@ -729,9 +1441,29 @@ impl ServerHandler for PrismMcpServer {
                 )
                 .with_mime_type("application/json")
                 .no_annotation(),
+                RawResourceTemplate::new(LINEAGE_RESOURCE_TEMPLATE_URI, "PRISM Lineage")
+                    .with_description(
+                        "Read structured lineage history, current nodes, and status for a lineage id with paged history",
+                    )
+                    .with_mime_type("application/json")
+                    .no_annotation(),
                 RawResourceTemplate::new(TASK_RESOURCE_TEMPLATE_URI, "PRISM Task Replay")
                     .with_description(
-                        "Read the outcome-event timeline recorded for a specific task context",
+                        "Read the outcome-event timeline recorded for a specific task context with optional `limit` and opaque `cursor` pagination",
+                    )
+                    .with_mime_type("application/json")
+                    .no_annotation(),
+                RawResourceTemplate::new(EVENT_RESOURCE_TEMPLATE_URI, "PRISM Event")
+                    .with_description("Read a single recorded outcome event by id")
+                    .with_mime_type("application/json")
+                    .no_annotation(),
+                RawResourceTemplate::new(MEMORY_RESOURCE_TEMPLATE_URI, "PRISM Memory")
+                    .with_description("Read a single episodic memory entry by id")
+                    .with_mime_type("application/json")
+                    .no_annotation(),
+                RawResourceTemplate::new(EDGE_RESOURCE_TEMPLATE_URI, "PRISM Inferred Edge")
+                    .with_description(
+                        "Read a single inferred-edge record, including scope, task, and evidence",
                     )
                     .with_mime_type("application/json")
                     .no_annotation(),
@@ -752,13 +1484,24 @@ fn map_query_error(error: anyhow::Error) -> McpError {
 }
 
 fn structured_tool_result<T: serde::Serialize>(value: T) -> Result<CallToolResult, McpError> {
+    structured_tool_result_with_links(value, Vec::new())
+}
+
+fn structured_tool_result_with_links<T: serde::Serialize>(
+    value: T,
+    links: Vec<RawResource>,
+) -> Result<CallToolResult, McpError> {
     let value = serde_json::to_value(value).map_err(|err| {
         McpError::internal_error(
             "failed to serialize structured tool result",
             Some(json!({ "error": err.to_string() })),
         )
     })?;
-    Ok(CallToolResult::structured(value))
+    let mut result = CallToolResult::structured(value);
+    result
+        .content
+        .extend(links.into_iter().map(Content::resource_link));
+    Ok(result)
 }
 
 fn json_resource_contents<T: serde::Serialize>(
@@ -774,8 +1517,109 @@ fn json_resource_contents<T: serde::Serialize>(
     Ok(ResourceContents::text(text, uri).with_mime_type("application/json"))
 }
 
+#[derive(Debug, Clone, Copy)]
+struct ResourcePageRequest {
+    offset: usize,
+    limit: usize,
+    limit_capped: bool,
+}
+
+#[derive(Debug, Clone)]
+struct PageSlice<T> {
+    items: Vec<T>,
+    page: ResourcePageView,
+    truncated: bool,
+}
+
+fn split_resource_uri(uri: &str) -> (&str, Option<&str>) {
+    match uri.split_once('?') {
+        Some((base, query)) => (base, Some(query)),
+        None => (uri, None),
+    }
+}
+
+fn parse_resource_page(
+    uri: &str,
+    default_limit: usize,
+    max_limit: usize,
+) -> Result<ResourcePageRequest, McpError> {
+    let (_, query) = split_resource_uri(uri);
+    let mut requested_limit = None;
+    let mut offset = None;
+
+    if let Some(query) = query {
+        for part in query.split('&').filter(|part| !part.is_empty()) {
+            let (raw_key, raw_value) = part.split_once('=').unwrap_or((part, ""));
+            let key = percent_decode_lossy(raw_key);
+            let value = percent_decode_lossy(raw_value);
+            match key.as_str() {
+                "limit" => {
+                    let parsed = value.parse::<usize>().map_err(|_| {
+                        McpError::invalid_params(
+                            "invalid pagination limit",
+                            Some(json!({ "uri": uri, "value": value })),
+                        )
+                    })?;
+                    requested_limit = Some(parsed);
+                }
+                "cursor" => {
+                    let parsed = value.parse::<usize>().map_err(|_| {
+                        McpError::invalid_params(
+                            "invalid pagination cursor",
+                            Some(json!({ "uri": uri, "value": value })),
+                        )
+                    })?;
+                    offset = Some(parsed);
+                }
+                "offset" => {
+                    let parsed = value.parse::<usize>().map_err(|_| {
+                        McpError::invalid_params(
+                            "invalid pagination offset",
+                            Some(json!({ "uri": uri, "value": value })),
+                        )
+                    })?;
+                    offset = Some(parsed);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    let requested = requested_limit.unwrap_or(default_limit);
+    let limit = requested.min(max_limit).max(1);
+    Ok(ResourcePageRequest {
+        offset: offset.unwrap_or(0),
+        limit,
+        limit_capped: requested > max_limit,
+    })
+}
+
+fn paginate_items<T>(items: Vec<T>, request: ResourcePageRequest) -> PageSlice<T> {
+    let total = items.len();
+    let start = request.offset.min(total);
+    let end = start.saturating_add(request.limit).min(total);
+    let has_more = end < total;
+    let next_cursor = has_more.then(|| end.to_string());
+    let items = items.into_iter().skip(start).take(request.limit).collect();
+    let page = ResourcePageView {
+        cursor: (request.offset > 0).then(|| request.offset.to_string()),
+        next_cursor,
+        limit: request.limit,
+        returned: end.saturating_sub(start),
+        total,
+        has_more,
+        limit_capped: request.limit_capped,
+    };
+    PageSlice {
+        truncated: page.has_more || page.limit_capped,
+        items,
+        page,
+    }
+}
+
 fn parse_symbol_resource_uri(uri: &str) -> Result<Option<NodeId>, McpError> {
-    let Some(rest) = uri.strip_prefix("prism://symbol/") else {
+    let (base, _) = split_resource_uri(uri);
+    let Some(rest) = base.strip_prefix("prism://symbol/") else {
         return Ok(None);
     };
     let mut segments = rest.splitn(3, '/');
@@ -788,7 +1632,10 @@ fn parse_symbol_resource_uri(uri: &str) -> Result<Option<NodeId>, McpError> {
     let Some(path) = segments.next() else {
         return Ok(None);
     };
-    let kind = parse_node_kind(kind).map_err(|err| {
+    let crate_name = percent_decode_lossy(crate_name);
+    let kind = percent_decode_lossy(kind);
+    let path = percent_decode_lossy(path);
+    let kind = parse_node_kind(&kind).map_err(|err| {
         McpError::invalid_params(
             "invalid symbol resource uri",
             Some(json!({
@@ -800,8 +1647,168 @@ fn parse_symbol_resource_uri(uri: &str) -> Result<Option<NodeId>, McpError> {
     Ok(Some(NodeId::new(crate_name, path, kind)))
 }
 
+fn parse_search_resource_uri(uri: &str) -> Option<String> {
+    let (base, _) = split_resource_uri(uri);
+    base.strip_prefix("prism://search/")
+        .map(percent_decode_lossy)
+        .filter(|query| !query.trim().is_empty())
+}
+
+fn parse_lineage_resource_uri(uri: &str) -> Option<LineageId> {
+    let (base, _) = split_resource_uri(uri);
+    base.strip_prefix("prism://lineage/")
+        .map(percent_decode_lossy)
+        .map(LineageId::new)
+}
+
 fn parse_task_resource_uri(uri: &str) -> Option<TaskId> {
-    uri.strip_prefix("prism://task/").map(TaskId::new)
+    let (base, _) = split_resource_uri(uri);
+    base.strip_prefix("prism://task/")
+        .map(percent_decode_lossy)
+        .map(TaskId::new)
+}
+
+fn parse_event_resource_uri(uri: &str) -> Option<EventId> {
+    let (base, _) = split_resource_uri(uri);
+    base.strip_prefix("prism://event/")
+        .map(percent_decode_lossy)
+        .map(EventId::new)
+}
+
+fn parse_memory_resource_uri(uri: &str) -> Option<MemoryId> {
+    let (base, _) = split_resource_uri(uri);
+    base.strip_prefix("prism://memory/")
+        .map(percent_decode_lossy)
+        .map(MemoryId)
+}
+
+fn parse_edge_resource_uri(uri: &str) -> Option<EdgeId> {
+    let (base, _) = split_resource_uri(uri);
+    base.strip_prefix("prism://edge/")
+        .map(percent_decode_lossy)
+        .map(EdgeId)
+}
+
+fn session_resource_link() -> RawResource {
+    RawResource::new(SESSION_URI, "PRISM Session")
+        .with_description("Active workspace root, current task context, and runtime query limits")
+        .with_mime_type("application/json")
+}
+
+fn task_resource_link(task_id: &str) -> RawResource {
+    RawResource::new(
+        format!("prism://task/{}", percent_encode_component(task_id)),
+        "PRISM Task Replay",
+    )
+    .with_description("Task-scoped outcome timeline and correlated events")
+    .with_mime_type("application/json")
+}
+
+fn search_resource_link(query: &str) -> RawResource {
+    RawResource::new(
+        format!("prism://search/{}", percent_encode_component(query)),
+        format!("PRISM Search: {query}"),
+    )
+    .with_description("Structured search results and diagnostics for this query")
+    .with_mime_type("application/json")
+}
+
+fn symbol_resource_link(symbol: &SymbolView) -> RawResource {
+    RawResource::new(
+        symbol_resource_uri(&symbol.id),
+        format!("PRISM Symbol: {}", symbol.id.path),
+    )
+    .with_description("Exact symbol snapshot with relations, lineage, and risk context")
+    .with_mime_type("application/json")
+}
+
+fn lineage_resource_link(lineage_id: &str) -> RawResource {
+    RawResource::new(
+        format!("prism://lineage/{}", percent_encode_component(lineage_id)),
+        format!("PRISM Lineage: {lineage_id}"),
+    )
+    .with_description("Structured lineage history and current nodes")
+    .with_mime_type("application/json")
+}
+
+fn event_resource_link(event_id: &str) -> RawResource {
+    RawResource::new(
+        format!("prism://event/{}", percent_encode_component(event_id)),
+        format!("PRISM Event: {event_id}"),
+    )
+    .with_description("Recorded outcome event and associated task metadata")
+    .with_mime_type("application/json")
+}
+
+fn memory_resource_link(memory_id: &str) -> RawResource {
+    RawResource::new(
+        format!("prism://memory/{}", percent_encode_component(memory_id)),
+        format!("PRISM Memory: {memory_id}"),
+    )
+    .with_description("Stored episodic memory entry and associated task metadata")
+    .with_mime_type("application/json")
+}
+
+fn edge_resource_link(edge_id: &str) -> RawResource {
+    RawResource::new(
+        format!("prism://edge/{}", percent_encode_component(edge_id)),
+        format!("PRISM Inferred Edge: {edge_id}"),
+    )
+    .with_description("Inferred-edge record with scope, evidence, and task metadata")
+    .with_mime_type("application/json")
+}
+
+fn symbol_resource_uri(id: &NodeIdView) -> String {
+    format!(
+        "prism://symbol/{}/{}/{}",
+        percent_encode_component(&id.crate_name),
+        percent_encode_component(&id.kind.to_string()),
+        percent_encode_component(&id.path),
+    )
+}
+
+fn symbol_links(symbol: &SymbolView) -> Vec<RawResource> {
+    let mut links = vec![symbol_resource_link(symbol)];
+    if let Some(lineage_id) = &symbol.lineage_id {
+        links.push(lineage_resource_link(lineage_id));
+    }
+    links
+}
+
+fn percent_decode_lossy(value: &str) -> String {
+    let bytes = value.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' && index + 2 < bytes.len() {
+            let hex = &value[index + 1..index + 3];
+            if let Ok(byte) = u8::from_str_radix(hex, 16) {
+                decoded.push(byte);
+                index += 3;
+                continue;
+            }
+        }
+        if bytes[index] == b'+' {
+            decoded.push(b' ');
+        } else {
+            decoded.push(bytes[index]);
+        }
+        index += 1;
+    }
+    String::from_utf8_lossy(&decoded).into_owned()
+}
+
+fn percent_encode_component(value: &str) -> String {
+    let mut encoded = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                encoded.push(char::from(byte));
+            }
+            _ => encoded.push_str(&format!("%{:02X}", byte)),
+        }
+    }
+    encoded
 }
 
 #[derive(Clone)]
@@ -868,6 +1875,86 @@ impl QueryHost {
         }
     }
 
+    fn session_view(&self) -> Result<SessionView> {
+        self.refresh_workspace()?;
+        let limits = self.session.limits();
+        Ok(SessionView {
+            workspace_root: self
+                .workspace
+                .as_ref()
+                .map(|workspace| workspace.root().display().to_string()),
+            current_task: self
+                .session
+                .current_task_state()
+                .map(|task| SessionTaskView {
+                    task_id: task.id.0.to_string(),
+                    description: task.description,
+                    tags: task.tags,
+                }),
+            limits: SessionLimitsView {
+                max_result_nodes: limits.max_result_nodes,
+                max_call_graph_depth: limits.max_call_graph_depth,
+                max_output_json_bytes: limits.max_output_json_bytes,
+            },
+        })
+    }
+
+    fn configure_session(&self, args: PrismConfigureSessionArgs) -> Result<SessionView> {
+        if args.clear_current_task.unwrap_or(false)
+            && (args.current_task_id.is_some()
+                || args.current_task_description.is_some()
+                || args.current_task_tags.is_some())
+        {
+            return Err(anyhow!(
+                "clearCurrentTask cannot be combined with currentTaskId, currentTaskDescription, or currentTaskTags"
+            ));
+        }
+
+        if let Some(input) = args.limits {
+            let mut limits = self.session.limits();
+            if let Some(value) = input.max_result_nodes {
+                limits.max_result_nodes = value;
+            }
+            if let Some(value) = input.max_call_graph_depth {
+                limits.max_call_graph_depth = value;
+            }
+            if let Some(value) = input.max_output_json_bytes {
+                limits.max_output_json_bytes = value;
+            }
+            if limits.max_result_nodes == 0
+                || limits.max_call_graph_depth == 0
+                || limits.max_output_json_bytes == 0
+            {
+                return Err(anyhow!("session limits must be greater than zero"));
+            }
+            self.session.set_limits(limits);
+        }
+
+        if args.clear_current_task.unwrap_or(false) {
+            self.session.clear_current_task();
+        } else if let Some(task_id) = args.current_task_id {
+            let task_id = TaskId::new(task_id);
+            let (description, tags) = self.task_metadata(&task_id);
+            self.session.set_current_task(
+                task_id,
+                args.current_task_description.or(description),
+                args.current_task_tags.unwrap_or(tags),
+            );
+        } else if args.current_task_description.is_some() || args.current_task_tags.is_some() {
+            if self.session.current_task_state().is_none() {
+                return Err(anyhow!(
+                    "no active task is set; use prism_start_task or provide currentTaskId"
+                ));
+            }
+            self.session.update_current_task_metadata(
+                args.current_task_description.map(Some),
+                args.current_task_tags,
+            );
+        }
+
+        self.session_view()
+    }
+
     fn execute(&self, code: &str, language: QueryLanguage) -> Result<QueryEnvelope> {
         match language {
             QueryLanguage::Ts => self.execute_typescript(code),
@@ -894,12 +1981,55 @@ impl QueryHost {
         })
     }
 
-    fn entrypoints_resource_value(&self) -> Result<Value> {
+    fn session_resource_value(&self) -> Result<Value> {
+        serde_json::to_value(self.session_view()?).map_err(Into::into)
+    }
+
+    fn task_metadata(&self, task_id: &TaskId) -> (Option<String>, Vec<String>) {
+        if let Some(task) = self.session.current_task_state() {
+            if task.id == *task_id {
+                return (task.description, task.tags);
+            }
+        }
+
+        let replay = self.current_prism().resume_task(task_id);
+        let description = replay
+            .events
+            .iter()
+            .find(|event| event.kind == OutcomeKind::PlanCreated)
+            .map(|event| event.summary.clone());
+        let tags = replay
+            .events
+            .iter()
+            .find(|event| event.kind == OutcomeKind::PlanCreated)
+            .and_then(|event| event.metadata.get("tags"))
+            .and_then(|value| value.as_array())
+            .map(|values| {
+                values
+                    .iter()
+                    .filter_map(|value| value.as_str().map(ToOwned::to_owned))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        (description, tags)
+    }
+
+    fn entrypoints_resource_value(&self, uri: &str) -> Result<Value> {
         self.refresh_workspace()?;
         let prism = self.current_prism();
         let execution = QueryExecution::new(self.clone(), prism);
+        let paged = paginate_items(
+            execution.entrypoints()?,
+            parse_resource_page(
+                uri,
+                DEFAULT_RESOURCE_PAGE_LIMIT,
+                self.session.limits().max_result_nodes,
+            )?,
+        );
         Ok(json!({
-            "entrypoints": execution.entrypoints()?,
+            "entrypoints": paged.items,
+            "page": paged.page,
+            "truncated": paged.truncated,
             "diagnostics": execution.diagnostics(),
         }))
     }
@@ -929,11 +2059,147 @@ impl QueryHost {
         }))
     }
 
-    fn task_resource_value(&self, task_id: &TaskId) -> Result<Value> {
+    fn search_resource_value(&self, uri: &str, query: &str) -> Result<Value> {
+        self.refresh_workspace()?;
+        let execution = QueryExecution::new(self.clone(), self.current_prism());
+        let paged = paginate_items(
+            execution.search(SearchArgs {
+                query: query.to_string(),
+                limit: Some(self.session.limits().max_result_nodes),
+                kind: None,
+                path: None,
+                include_inferred: None,
+            })?,
+            parse_resource_page(
+                uri,
+                DEFAULT_RESOURCE_PAGE_LIMIT,
+                self.session.limits().max_result_nodes,
+            )?,
+        );
+        Ok(json!({
+            "query": query,
+            "results": paged.items,
+            "page": paged.page,
+            "truncated": paged.truncated,
+            "diagnostics": execution.diagnostics(),
+        }))
+    }
+
+    fn lineage_resource_value(&self, uri: &str, lineage: &LineageId) -> Result<Value> {
         self.refresh_workspace()?;
         let prism = self.current_prism();
+        let history = prism.history_snapshot();
+        let events = prism.lineage_history(lineage);
+        let mut current_node_ids = history
+            .node_to_lineage
+            .into_iter()
+            .filter_map(|(node, current)| (current == *lineage).then_some(node))
+            .collect::<Vec<_>>();
+        current_node_ids.sort_by(|left, right| {
+            left.crate_name
+                .cmp(&right.crate_name)
+                .then_with(|| left.path.cmp(&right.path))
+                .then_with(|| left.kind.to_string().cmp(&right.kind.to_string()))
+        });
+        let current_nodes_truncated =
+            current_node_ids.len() > self.session.limits().max_result_nodes;
+        current_node_ids.truncate(self.session.limits().max_result_nodes);
+        let current_nodes = symbol_views_for_ids(prism.as_ref(), current_node_ids.clone())?;
+        let co_change_neighbors = current_node_ids
+            .first()
+            .map(|node| {
+                prism
+                    .co_change_neighbors(node, 8)
+                    .into_iter()
+                    .map(co_change_view)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let paged_history = paginate_items(
+            events
+                .iter()
+                .map(|event| LineageEventView {
+                    event_id: event.meta.id.0.to_string(),
+                    ts: event.meta.ts,
+                    kind: format!("{:?}", event.kind),
+                    confidence: event.confidence,
+                })
+                .collect::<Vec<_>>(),
+            parse_resource_page(
+                uri,
+                DEFAULT_RESOURCE_PAGE_LIMIT,
+                self.session.limits().max_result_nodes,
+            )?,
+        );
         Ok(json!({
-            "task": prism.resume_task(task_id),
+            "lineageId": lineage.0,
+            "status": lineage_status(&events),
+            "currentNodes": current_nodes,
+            "currentNodesTruncated": current_nodes_truncated,
+            "history": paged_history.items,
+            "historyPage": paged_history.page,
+            "truncated": paged_history.truncated || current_nodes_truncated,
+            "coChangeNeighbors": co_change_neighbors,
+            "diagnostics": Vec::<QueryDiagnostic>::new(),
+        }))
+    }
+
+    fn task_resource_value(&self, uri: &str, task_id: &TaskId) -> Result<Value> {
+        self.refresh_workspace()?;
+        let prism = self.current_prism();
+        let replay = prism.resume_task(task_id);
+        let paged = paginate_items(
+            replay.events,
+            parse_resource_page(
+                uri,
+                DEFAULT_RESOURCE_PAGE_LIMIT,
+                self.session.limits().max_result_nodes,
+            )?,
+        );
+        Ok(json!({
+            "taskId": replay.task.0,
+            "events": paged.items,
+            "page": paged.page,
+            "truncated": paged.truncated,
+        }))
+    }
+
+    fn event_resource_value(&self, event_id: &EventId) -> Result<Value> {
+        self.refresh_workspace()?;
+        let event = self
+            .current_prism()
+            .outcome_memory()
+            .event(event_id)
+            .ok_or_else(|| anyhow!("unknown event `{}`", event_id.0))?;
+        Ok(json!({ "event": event }))
+    }
+
+    fn memory_resource_value(&self, memory_id: &MemoryId) -> Result<Value> {
+        self.refresh_workspace()?;
+        let entry = self
+            .session
+            .notes
+            .entry(memory_id)
+            .ok_or_else(|| anyhow!("unknown memory `{}`", memory_id.0))?;
+        Ok(json!({
+            "memory": memory_entry_view(entry.clone()),
+            "taskId": entry
+                .metadata
+                .get("task_id")
+                .and_then(|value| value.as_str())
+                .map(ToOwned::to_owned),
+        }))
+    }
+
+    fn edge_resource_value(&self, edge_id: &EdgeId) -> Result<Value> {
+        self.refresh_workspace()?;
+        let record = self
+            .session
+            .inferred_edges
+            .record(edge_id)
+            .ok_or_else(|| anyhow!("unknown inferred edge `{}`", edge_id.0))?;
+        Ok(json!({
+            "edge": inferred_edge_record_view(record),
         }))
     }
 
@@ -1010,7 +2276,7 @@ impl QueryHost {
         Ok(task)
     }
 
-    fn store_outcome(&self, args: PrismOutcomeArgs) -> Result<EventId> {
+    fn store_outcome(&self, args: PrismOutcomeArgs) -> Result<EventMutationResult> {
         self.refresh_workspace()?;
         let prism = self.current_prism();
         let anchors = prism.anchors_for(&convert_anchors(args.anchors)?);
@@ -1022,7 +2288,7 @@ impl QueryHost {
                 id: self.session.next_event_id("outcome"),
                 ts: current_timestamp(),
                 actor: EventActor::Agent,
-                correlation: Some(task_id),
+                correlation: Some(task_id.clone()),
                 causation: None,
             },
             anchors,
@@ -1040,17 +2306,21 @@ impl QueryHost {
                 .collect(),
             metadata: Value::Null,
         };
-        if let Some(workspace) = &self.workspace {
-            workspace.append_outcome(event)
+        let event_id = if let Some(workspace) = &self.workspace {
+            workspace.append_outcome(event)?
         } else {
             prism.apply_outcome_event_to_projections(&event);
             let id = prism.outcome_memory().store_event(event)?;
             self.persist_outcomes()?;
-            Ok(id)
-        }
+            id
+        };
+        Ok(EventMutationResult {
+            event_id: event_id.0.to_string(),
+            task_id: task_id.0.to_string(),
+        })
     }
 
-    fn store_note(&self, args: PrismNoteArgs) -> Result<MemoryId> {
+    fn store_note(&self, args: PrismNoteArgs) -> Result<MemoryMutationResult> {
         self.refresh_workspace()?;
         let prism = self.current_prism();
         let anchors = prism.anchors_for(&convert_anchors(args.anchors)?);
@@ -1070,7 +2340,7 @@ impl QueryHost {
                 id: self.session.next_event_id("outcome"),
                 ts: current_timestamp(),
                 actor: EventActor::Agent,
-                correlation: Some(task_id),
+                correlation: Some(task_id.clone()),
                 causation: None,
             },
             anchors: note_anchors,
@@ -1081,17 +2351,24 @@ impl QueryHost {
             metadata: Value::Null,
         };
         if let Some(workspace) = &self.workspace {
-            let _ = workspace.append_outcome(note_event)?;
+            let _ = workspace.append_outcome_with_auxiliary(
+                note_event,
+                Some(self.session.notes.snapshot()),
+                None,
+            )?;
         } else {
             prism.apply_outcome_event_to_projections(&note_event);
             let _ = prism.outcome_memory().store_event(note_event)?;
             self.persist_outcomes()?;
+            self.persist_notes()?;
         }
-        self.persist_notes()?;
-        Ok(memory_id)
+        Ok(MemoryMutationResult {
+            memory_id: memory_id.0,
+            task_id: task_id.0.to_string(),
+        })
     }
 
-    fn store_inferred_edge(&self, args: PrismInferEdgeArgs) -> Result<EdgeId> {
+    fn store_inferred_edge(&self, args: PrismInferEdgeArgs) -> Result<EdgeMutationResult> {
         let task = self
             .session
             .task_for_mutation(args.task_id.map(TaskId::new));
@@ -1109,13 +2386,264 @@ impl QueryHost {
         let id = self.session.inferred_edges.store_edge(
             edge,
             scope,
-            Some(task),
+            Some(task.clone()),
             args.evidence.unwrap_or_default(),
         );
         if scope != InferredEdgeScope::SessionOnly {
             self.persist_inferred_edges()?;
         }
-        Ok(id)
+        Ok(EdgeMutationResult {
+            edge_id: id.0,
+            task_id: task.0.to_string(),
+        })
+    }
+
+    fn store_coordination(
+        &self,
+        args: PrismCoordinationArgs,
+    ) -> Result<CoordinationMutationResult> {
+        self.refresh_workspace()?;
+        let prism = self.current_prism();
+        let task = self
+            .session
+            .task_for_mutation(args.task_id.map(TaskId::new));
+        let event_id = self.session.next_event_id("coordination");
+        let meta = EventMeta {
+            id: event_id.clone(),
+            ts: current_timestamp(),
+            actor: EventActor::Agent,
+            correlation: Some(task),
+            causation: None,
+        };
+        let state = match args.kind {
+            CoordinationMutationKindInput::PlanCreate => {
+                let payload: PlanCreatePayload = serde_json::from_value(args.payload)?;
+                let (_, plan) = prism.coordination().create_plan(
+                    meta,
+                    PlanCreateInput {
+                        goal: payload.goal,
+                        policy: convert_policy(payload.policy)?,
+                    },
+                )?;
+                serde_json::to_value(plan_view(plan))?
+            }
+            CoordinationMutationKindInput::TaskCreate => {
+                let payload: TaskCreatePayload = serde_json::from_value(args.payload)?;
+                let (_, task) = prism.coordination().create_task(
+                    meta,
+                    TaskCreateInput {
+                        plan_id: PlanId::new(payload.plan_id),
+                        title: payload.title,
+                        status: payload
+                            .status
+                            .as_deref()
+                            .map(parse_coordination_task_status)
+                            .transpose()?,
+                        assignee: payload.assignee.map(AgentId::new),
+                        session: Some(self.session.session_id()),
+                        anchors: convert_anchors(payload.anchors.unwrap_or_default())?,
+                        depends_on: payload
+                            .depends_on
+                            .unwrap_or_default()
+                            .into_iter()
+                            .map(CoordinationTaskId::new)
+                            .collect(),
+                        acceptance: convert_acceptance(payload.acceptance)?,
+                        base_revision: prism.workspace_revision(),
+                    },
+                )?;
+                serde_json::to_value(coordination_task_view(task))?
+            }
+            CoordinationMutationKindInput::TaskUpdate => {
+                let payload: TaskUpdatePayload = serde_json::from_value(args.payload)?;
+                let task = prism.coordination().update_task(
+                    meta,
+                    TaskUpdateInput {
+                        task_id: CoordinationTaskId::new(payload.task_id),
+                        status: payload
+                            .status
+                            .as_deref()
+                            .map(parse_coordination_task_status)
+                            .transpose()?,
+                        assignee: payload.assignee.map(|value| Some(AgentId::new(value))),
+                        session: None,
+                        title: payload.title,
+                        anchors: payload.anchors.map(convert_anchors).transpose()?,
+                        base_revision: Some(prism.workspace_revision()),
+                    },
+                )?;
+                serde_json::to_value(coordination_task_view(task))?
+            }
+            CoordinationMutationKindInput::Handoff => {
+                let payload: HandoffPayload = serde_json::from_value(args.payload)?;
+                let task = prism.coordination().handoff(
+                    meta,
+                    HandoffInput {
+                        task_id: CoordinationTaskId::new(payload.task_id),
+                        to_agent: payload.to_agent.map(AgentId::new),
+                        summary: payload.summary,
+                    },
+                )?;
+                serde_json::to_value(coordination_task_view(task))?
+            }
+        };
+        self.persist_coordination()?;
+        Ok(CoordinationMutationResult {
+            event_id: event_id.0.to_string(),
+            state,
+        })
+    }
+
+    fn store_claim(&self, args: PrismClaimArgs) -> Result<ClaimMutationResult> {
+        self.refresh_workspace()?;
+        let prism = self.current_prism();
+        let task = self
+            .session
+            .task_for_mutation(args.task_id.map(TaskId::new));
+        let meta = EventMeta {
+            id: self.session.next_event_id("coordination"),
+            ts: current_timestamp(),
+            actor: EventActor::Agent,
+            correlation: Some(task),
+            causation: None,
+        };
+        let result = match args.action {
+            ClaimActionInput::Acquire => {
+                let payload: ClaimAcquirePayload = serde_json::from_value(args.payload)?;
+                let (claim_id, conflicts, state) = prism.coordination().acquire_claim(
+                    meta,
+                    self.session.session_id(),
+                    ClaimAcquireInput {
+                        task_id: payload.coordination_task_id.map(CoordinationTaskId::new),
+                        anchors: convert_anchors(payload.anchors)?,
+                        capability: parse_capability(&payload.capability)?,
+                        mode: payload.mode.as_deref().map(parse_claim_mode).transpose()?,
+                        ttl_seconds: payload.ttl_seconds,
+                        base_revision: prism.workspace_revision(),
+                        agent: payload.agent.map(AgentId::new),
+                    },
+                )?;
+                ClaimMutationResult {
+                    claim_id: claim_id.map(|claim_id| claim_id.0.to_string()),
+                    conflicts: conflicts
+                        .into_iter()
+                        .map(conflict_view)
+                        .map(serde_json::to_value)
+                        .collect::<Result<Vec<_>, _>>()?,
+                    state: state
+                        .map(claim_view)
+                        .map(serde_json::to_value)
+                        .transpose()?
+                        .unwrap_or(Value::Null),
+                }
+            }
+            ClaimActionInput::Renew => {
+                let payload: ClaimRenewPayload = serde_json::from_value(args.payload)?;
+                let claim = prism.coordination().renew_claim(
+                    meta,
+                    &ClaimId::new(payload.claim_id.clone()),
+                    payload.ttl_seconds,
+                )?;
+                ClaimMutationResult {
+                    claim_id: Some(payload.claim_id),
+                    conflicts: Vec::new(),
+                    state: serde_json::to_value(claim_view(claim))?,
+                }
+            }
+            ClaimActionInput::Release => {
+                let payload: ClaimReleasePayload = serde_json::from_value(args.payload)?;
+                let claim = prism
+                    .coordination()
+                    .release_claim(meta, &ClaimId::new(payload.claim_id.clone()))?;
+                ClaimMutationResult {
+                    claim_id: Some(payload.claim_id),
+                    conflicts: Vec::new(),
+                    state: serde_json::to_value(claim_view(claim))?,
+                }
+            }
+        };
+        self.persist_coordination()?;
+        Ok(result)
+    }
+
+    fn store_artifact(&self, args: PrismArtifactArgs) -> Result<ArtifactMutationResult> {
+        self.refresh_workspace()?;
+        let prism = self.current_prism();
+        let task = self
+            .session
+            .task_for_mutation(args.task_id.map(TaskId::new));
+        let meta = EventMeta {
+            id: self.session.next_event_id("coordination"),
+            ts: current_timestamp(),
+            actor: EventActor::Agent,
+            correlation: Some(task),
+            causation: None,
+        };
+        let result = match args.action {
+            ArtifactActionInput::Propose => {
+                let payload: ArtifactProposePayload = serde_json::from_value(args.payload)?;
+                let task_id = CoordinationTaskId::new(payload.task_id.clone());
+                let anchors = match payload.anchors {
+                    Some(anchors) => convert_anchors(anchors)?,
+                    None => prism
+                        .coordination_task(&task_id)
+                        .map(|task| task.anchors)
+                        .unwrap_or_default(),
+                };
+                let (artifact_id, artifact) = prism.coordination().propose_artifact(
+                    meta,
+                    ArtifactProposeInput {
+                        task_id,
+                        anchors,
+                        diff_ref: payload.diff_ref,
+                        evidence: payload
+                            .evidence
+                            .unwrap_or_default()
+                            .into_iter()
+                            .map(EventId::new)
+                            .collect(),
+                        base_revision: prism.workspace_revision(),
+                    },
+                )?;
+                ArtifactMutationResult {
+                    artifact_id: Some(artifact_id.0.to_string()),
+                    review_id: None,
+                    state: serde_json::to_value(artifact_view(artifact))?,
+                }
+            }
+            ArtifactActionInput::Supersede => {
+                let payload: ArtifactSupersedePayload = serde_json::from_value(args.payload)?;
+                let artifact = prism.coordination().supersede_artifact(
+                    meta,
+                    ArtifactSupersedeInput {
+                        artifact_id: ArtifactId::new(payload.artifact_id.clone()),
+                    },
+                )?;
+                ArtifactMutationResult {
+                    artifact_id: Some(payload.artifact_id),
+                    review_id: None,
+                    state: serde_json::to_value(artifact_view(artifact))?,
+                }
+            }
+            ArtifactActionInput::Review => {
+                let payload: ArtifactReviewPayload = serde_json::from_value(args.payload)?;
+                let (review_id, _, artifact) = prism.coordination().review_artifact(
+                    meta,
+                    ArtifactReviewInput {
+                        artifact_id: ArtifactId::new(payload.artifact_id.clone()),
+                        verdict: parse_review_verdict(&payload.verdict)?,
+                        summary: payload.summary,
+                    },
+                )?;
+                ArtifactMutationResult {
+                    artifact_id: Some(payload.artifact_id),
+                    review_id: Some(review_id.0.to_string()),
+                    state: serde_json::to_value(artifact_view(artifact))?,
+                }
+            }
+        };
+        self.persist_coordination()?;
+        Ok(result)
     }
 
     fn current_prism(&self) -> Arc<Prism> {
@@ -1152,6 +2680,308 @@ impl QueryHost {
         };
         workspace.persist_inference(&self.session.inferred_edges.snapshot_persisted())
     }
+
+    fn persist_coordination(&self) -> Result<()> {
+        let Some(workspace) = &self.workspace else {
+            return Ok(());
+        };
+        workspace.persist_coordination(&self.current_prism().coordination().snapshot())
+    }
+
+    fn curator_jobs(&self, args: CuratorJobsArgs) -> Result<Vec<CuratorJobView>> {
+        self.refresh_workspace()?;
+        let Some(workspace) = &self.workspace else {
+            return Ok(Vec::new());
+        };
+        let mut jobs = workspace
+            .curator_snapshot()
+            .records
+            .into_iter()
+            .filter(|record| {
+                args.status
+                    .as_deref()
+                    .is_none_or(|status| curator_job_status_label(record) == status)
+                    && args
+                        .trigger
+                        .as_deref()
+                        .is_none_or(|trigger| curator_trigger_label(&record.job.trigger) == trigger)
+            })
+            .map(curator_job_view)
+            .collect::<Result<Vec<_>>>()?;
+
+        jobs.sort_by(|left, right| right.created_at.cmp(&left.created_at));
+        if let Some(limit) = args.limit {
+            jobs.truncate(limit);
+        }
+        Ok(jobs)
+    }
+
+    fn curator_job(&self, job_id: &str) -> Result<Option<CuratorJobView>> {
+        self.refresh_workspace()?;
+        let Some(workspace) = &self.workspace else {
+            return Ok(None);
+        };
+        workspace
+            .curator_snapshot()
+            .records
+            .into_iter()
+            .find(|record| record.id.0 == job_id)
+            .map(curator_job_view)
+            .transpose()
+    }
+
+    fn promote_curator_edge(
+        &self,
+        args: PrismCuratorPromoteEdgeArgs,
+    ) -> Result<CuratorProposalDecisionResult> {
+        self.refresh_workspace()?;
+        let workspace = self
+            .workspace
+            .as_ref()
+            .ok_or_else(|| anyhow!("curator mutations require a workspace-backed session"))?;
+        let job_id = CuratorJobId(args.job_id.clone());
+        let snapshot = workspace.curator_snapshot();
+        let record = snapshot
+            .records
+            .iter()
+            .find(|record| record.id == job_id)
+            .ok_or_else(|| anyhow!("unknown curator job `{}`", args.job_id))?;
+        let proposal_state = curator_proposal_state(record, args.proposal_index)?;
+        if proposal_state.disposition != CuratorProposalDisposition::Pending {
+            return Err(anyhow!(
+                "curator proposal {} for job `{}` is already {}",
+                args.proposal_index,
+                args.job_id,
+                curator_disposition_label(proposal_state.disposition)
+            ));
+        }
+        let proposal = curator_proposal(record, args.proposal_index)?;
+        let CuratorProposal::InferredEdge(candidate) = proposal else {
+            return Err(anyhow!(
+                "curator proposal {} for job `{}` is not an inferred edge",
+                args.proposal_index,
+                args.job_id
+            ));
+        };
+
+        let task = self
+            .session
+            .task_for_mutation(args.task_id.map(TaskId::new));
+        let scope =
+            args.scope
+                .map(convert_inferred_scope)
+                .unwrap_or_else(|| match candidate.scope {
+                    InferredEdgeScope::SessionOnly => InferredEdgeScope::Persisted,
+                    scope => scope,
+                });
+        let edge_id = self.session.inferred_edges.store_edge(
+            candidate.edge.clone(),
+            scope,
+            Some(task.clone()),
+            candidate.evidence.clone(),
+        );
+        if scope != InferredEdgeScope::SessionOnly {
+            self.persist_inferred_edges()?;
+        }
+        workspace.set_curator_proposal_state(
+            &job_id,
+            args.proposal_index,
+            CuratorProposalDisposition::Applied,
+            Some(task),
+            args.note,
+            Some(edge_id.0.clone()),
+        )?;
+        let proposal = self
+            .curator_job(&args.job_id)?
+            .and_then(|job| {
+                job.proposals
+                    .into_iter()
+                    .find(|proposal| proposal.index == args.proposal_index)
+            })
+            .ok_or_else(|| anyhow!("applied curator proposal could not be reloaded"))?;
+        Ok(CuratorProposalDecisionResult {
+            job_id: args.job_id,
+            proposal: serde_json::to_value(proposal)?,
+            edge_id: Some(edge_id.0),
+        })
+    }
+
+    fn reject_curator_proposal(
+        &self,
+        args: PrismCuratorRejectProposalArgs,
+    ) -> Result<CuratorProposalDecisionResult> {
+        self.refresh_workspace()?;
+        let workspace = self
+            .workspace
+            .as_ref()
+            .ok_or_else(|| anyhow!("curator mutations require a workspace-backed session"))?;
+        let job_id = CuratorJobId(args.job_id.clone());
+        let snapshot = workspace.curator_snapshot();
+        let record = snapshot
+            .records
+            .iter()
+            .find(|record| record.id == job_id)
+            .ok_or_else(|| anyhow!("unknown curator job `{}`", args.job_id))?;
+        let proposal_state = curator_proposal_state(record, args.proposal_index)?;
+        if proposal_state.disposition != CuratorProposalDisposition::Pending {
+            return Err(anyhow!(
+                "curator proposal {} for job `{}` is already {}",
+                args.proposal_index,
+                args.job_id,
+                curator_disposition_label(proposal_state.disposition)
+            ));
+        }
+
+        let task = self
+            .session
+            .task_for_mutation(args.task_id.map(TaskId::new));
+        workspace.set_curator_proposal_state(
+            &job_id,
+            args.proposal_index,
+            CuratorProposalDisposition::Rejected,
+            Some(task),
+            args.reason,
+            None,
+        )?;
+        let proposal = self
+            .curator_job(&args.job_id)?
+            .and_then(|job| {
+                job.proposals
+                    .into_iter()
+                    .find(|proposal| proposal.index == args.proposal_index)
+            })
+            .ok_or_else(|| anyhow!("rejected curator proposal could not be reloaded"))?;
+        Ok(CuratorProposalDecisionResult {
+            job_id: args.job_id,
+            proposal: serde_json::to_value(proposal)?,
+            edge_id: None,
+        })
+    }
+}
+
+fn curator_job_view(record: CuratorJobRecord) -> Result<CuratorJobView> {
+    let id = record.id.0.clone();
+    let trigger = curator_trigger_label(&record.job.trigger).to_owned();
+    let status = curator_job_status_label(&record).to_owned();
+    let task_id = record.job.task.as_ref().map(|task| task.0.to_string());
+    let run = record.run.clone().unwrap_or_default();
+    let mut proposals = Vec::with_capacity(run.proposals.len());
+    for (index, proposal) in run.proposals.into_iter().enumerate() {
+        let state = record
+            .proposal_states
+            .get(index)
+            .cloned()
+            .unwrap_or_default();
+        proposals.push(curator_proposal_view(index, proposal, state)?);
+    }
+    Ok(CuratorJobView {
+        id,
+        trigger,
+        status,
+        task_id,
+        focus: record.job.focus,
+        created_at: record.created_at,
+        started_at: record.started_at,
+        finished_at: record.finished_at,
+        proposals,
+        diagnostics: run
+            .diagnostics
+            .into_iter()
+            .map(|diagnostic| QueryDiagnostic {
+                code: diagnostic.code,
+                message: diagnostic.message,
+                data: diagnostic.data,
+            })
+            .collect(),
+        error: record.error,
+    })
+}
+
+fn curator_proposal_view(
+    index: usize,
+    proposal: CuratorProposal,
+    state: prism_curator::CuratorProposalState,
+) -> Result<CuratorProposalView> {
+    let (kind, payload) = match proposal {
+        CuratorProposal::InferredEdge(candidate) => {
+            ("inferred_edge", serde_json::to_value(candidate)?)
+        }
+        CuratorProposal::StructuralMemory(candidate) => {
+            ("structural_memory", serde_json::to_value(candidate)?)
+        }
+        CuratorProposal::RiskSummary(candidate) => {
+            ("risk_summary", serde_json::to_value(candidate)?)
+        }
+        CuratorProposal::ValidationRecipe(candidate) => {
+            ("validation_recipe", serde_json::to_value(candidate)?)
+        }
+    };
+    Ok(CuratorProposalView {
+        index,
+        kind: kind.to_owned(),
+        disposition: curator_disposition_label(state.disposition).to_owned(),
+        payload,
+        decided_at: state.decided_at,
+        task_id: state.task.map(|task| task.0.to_string()),
+        note: state.note,
+        output: state.output,
+    })
+}
+
+fn curator_job_status_label(record: &CuratorJobRecord) -> &'static str {
+    match record.status {
+        prism_curator::CuratorJobStatus::Queued => "queued",
+        prism_curator::CuratorJobStatus::Running => "running",
+        prism_curator::CuratorJobStatus::Completed => "completed",
+        prism_curator::CuratorJobStatus::Failed => "failed",
+        prism_curator::CuratorJobStatus::Skipped => "skipped",
+    }
+}
+
+fn curator_trigger_label(trigger: &CuratorTrigger) -> &'static str {
+    match trigger {
+        CuratorTrigger::Manual => "manual",
+        CuratorTrigger::PostChange => "post_change",
+        CuratorTrigger::TaskCompleted => "task_completed",
+        CuratorTrigger::RepeatedFailure => "repeated_failure",
+        CuratorTrigger::AmbiguousLineage => "ambiguous_lineage",
+        CuratorTrigger::HotspotChanged => "hotspot_changed",
+    }
+}
+
+fn curator_disposition_label(disposition: CuratorProposalDisposition) -> &'static str {
+    match disposition {
+        CuratorProposalDisposition::Pending => "pending",
+        CuratorProposalDisposition::Applied => "applied",
+        CuratorProposalDisposition::Rejected => "rejected",
+    }
+}
+
+fn curator_proposal_state(
+    record: &CuratorJobRecord,
+    proposal_index: usize,
+) -> Result<prism_curator::CuratorProposalState> {
+    if record
+        .run
+        .as_ref()
+        .and_then(|run| run.proposals.get(proposal_index))
+        .is_none()
+    {
+        return Err(anyhow!("unknown curator proposal index {proposal_index}"));
+    }
+    Ok(record
+        .proposal_states
+        .get(proposal_index)
+        .cloned()
+        .unwrap_or_default())
+}
+
+fn curator_proposal(record: &CuratorJobRecord, proposal_index: usize) -> Result<&CuratorProposal> {
+    record
+        .run
+        .as_ref()
+        .and_then(|run| run.proposals.get(proposal_index))
+        .ok_or_else(|| anyhow!("unknown curator proposal index {proposal_index}"))
 }
 
 fn change_impact_view(impact: ChangeImpact) -> ChangeImpactView {
@@ -1232,6 +3062,92 @@ fn co_change_view(value: CoChange) -> CoChangeView {
         lineage: value.lineage.0.to_string(),
         count: value.count,
         nodes: value.nodes.into_iter().map(node_id_view).collect(),
+    }
+}
+
+fn workspace_revision_view(value: WorkspaceRevision) -> WorkspaceRevisionView {
+    WorkspaceRevisionView {
+        graph_version: value.graph_version,
+        git_commit: value.git_commit.map(|commit| commit.to_string()),
+    }
+}
+
+fn plan_view(value: prism_coordination::Plan) -> PlanView {
+    PlanView {
+        id: value.id.0.to_string(),
+        goal: value.goal,
+        status: value.status,
+        root_task_ids: value
+            .root_tasks
+            .into_iter()
+            .map(|task_id| task_id.0.to_string())
+            .collect(),
+    }
+}
+
+fn coordination_task_view(value: prism_coordination::CoordinationTask) -> CoordinationTaskView {
+    CoordinationTaskView {
+        id: value.id.0.to_string(),
+        plan_id: value.plan.0.to_string(),
+        title: value.title,
+        status: value.status,
+        assignee: value.assignee.map(|agent| agent.0.to_string()),
+        anchors: value.anchors,
+        depends_on: value
+            .depends_on
+            .into_iter()
+            .map(|task_id| task_id.0.to_string())
+            .collect(),
+        base_revision: workspace_revision_view(value.base_revision),
+    }
+}
+
+fn claim_view(value: prism_coordination::WorkClaim) -> ClaimView {
+    ClaimView {
+        id: value.id.0.to_string(),
+        holder: value.holder.0.to_string(),
+        task_id: value.task.map(|task| task.0.to_string()),
+        capability: value.capability,
+        mode: value.mode,
+        status: value.status,
+        anchors: value.anchors,
+        expires_at: value.expires_at,
+        base_revision: workspace_revision_view(value.base_revision),
+    }
+}
+
+fn conflict_view(value: prism_coordination::CoordinationConflict) -> ConflictView {
+    ConflictView {
+        severity: value.severity,
+        summary: value.summary,
+        anchors: value.anchors,
+        blocking_claim_ids: value
+            .blocking_claims
+            .into_iter()
+            .map(|claim_id| claim_id.0.to_string())
+            .collect(),
+    }
+}
+
+fn blocker_view(value: prism_coordination::TaskBlocker) -> BlockerView {
+    BlockerView {
+        kind: value.kind,
+        summary: value.summary,
+        related_task_id: value.related_task_id.map(|task_id| task_id.0.to_string()),
+        related_artifact_id: value
+            .related_artifact_id
+            .map(|artifact_id| artifact_id.0.to_string()),
+    }
+}
+
+fn artifact_view(value: prism_coordination::Artifact) -> ArtifactView {
+    ArtifactView {
+        id: value.id.0.to_string(),
+        task_id: value.task.0.to_string(),
+        status: value.status,
+        anchors: value.anchors,
+        base_revision: workspace_revision_view(value.base_revision),
+        diff_ref: value.diff_ref,
     }
 }
 
@@ -1383,6 +3299,16 @@ fn edge_view(edge: Edge) -> EdgeView {
     }
 }
 
+fn inferred_edge_record_view(record: prism_agent::InferredEdgeRecord) -> InferredEdgeRecordView {
+    InferredEdgeRecordView {
+        id: record.id.0,
+        edge: edge_view(record.edge),
+        scope: record.scope,
+        task_id: record.task.map(|task| task.0.to_string()),
+        evidence: record.evidence,
+    }
+}
+
 fn symbol_views_for_ids(prism: &Prism, ids: Vec<NodeId>) -> Result<Vec<SymbolView>> {
     ids.into_iter()
         .map(|id| symbol_for(prism, &id).and_then(|symbol| symbol_view(prism, &symbol)))
@@ -1487,19 +3413,7 @@ fn lineage_view(prism: &Prism, id: &NodeId) -> Result<Option<LineageView>> {
     };
     let current = symbol_for(prism, id)?;
     let events = prism.lineage_history(&lineage);
-    let status = if events
-        .iter()
-        .any(|event| matches!(event.kind, prism_ir::LineageEventKind::Ambiguous))
-    {
-        LineageStatus::Ambiguous
-    } else if events
-        .last()
-        .is_some_and(|event| matches!(event.kind, prism_ir::LineageEventKind::Died))
-    {
-        LineageStatus::Dead
-    } else {
-        LineageStatus::Active
-    };
+    let status = lineage_status(&events);
     Ok(Some(LineageView {
         lineage_id: lineage.0.to_string(),
         current: symbol_view(prism, &current)?,
@@ -1514,6 +3428,22 @@ fn lineage_view(prism: &Prism, id: &NodeId) -> Result<Option<LineageView>> {
             })
             .collect(),
     }))
+}
+
+fn lineage_status(events: &[prism_ir::LineageEvent]) -> LineageStatus {
+    if events
+        .iter()
+        .any(|event| matches!(event.kind, prism_ir::LineageEventKind::Ambiguous))
+    {
+        LineageStatus::Ambiguous
+    } else if events
+        .last()
+        .is_some_and(|event| matches!(event.kind, prism_ir::LineageEventKind::Died))
+    {
+        LineageStatus::Dead
+    } else {
+        LineageStatus::Active
+    }
 }
 
 fn blast_radius_view(prism: &Prism, session: &SessionState, id: &NodeId) -> ChangeImpactView {
@@ -1614,6 +3544,131 @@ impl QueryExecution {
                 Ok(serde_json::to_value(self.search(args)?)?)
             }
             "entrypoints" => Ok(serde_json::to_value(self.entrypoints()?)?),
+            "plan" => {
+                let args: PlanTargetArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(
+                    self.prism
+                        .coordination_plan(&PlanId::new(args.plan_id))
+                        .map(plan_view),
+                )?)
+            }
+            "coordinationTask" => {
+                let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(
+                    self.prism
+                        .coordination_task(&CoordinationTaskId::new(args.task_id))
+                        .map(coordination_task_view),
+                )?)
+            }
+            "readyTasks" => {
+                let args: PlanTargetArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(
+                    self.prism
+                        .ready_tasks(&PlanId::new(args.plan_id))
+                        .into_iter()
+                        .map(coordination_task_view)
+                        .collect::<Vec<_>>(),
+                )?)
+            }
+            "claims" => {
+                let args: AnchorListArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(
+                    self.prism
+                        .claims(&convert_anchors(args.anchors)?, current_timestamp())
+                        .into_iter()
+                        .map(claim_view)
+                        .collect::<Vec<_>>(),
+                )?)
+            }
+            "conflicts" => {
+                let args: AnchorListArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(
+                    self.prism
+                        .conflicts(&convert_anchors(args.anchors)?, current_timestamp())
+                        .into_iter()
+                        .map(conflict_view)
+                        .collect::<Vec<_>>(),
+                )?)
+            }
+            "blockers" => {
+                let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                let blockers = self.prism.blockers(
+                    &CoordinationTaskId::new(args.task_id.clone()),
+                    current_timestamp(),
+                );
+                if !blockers.is_empty() {
+                    self.push_diagnostic(
+                        "task_blocked",
+                        format!(
+                            "Coordination task `{}` currently has blockers.",
+                            args.task_id
+                        ),
+                        Some(json!({ "taskId": args.task_id, "count": blockers.len() })),
+                    );
+                }
+                if blockers
+                    .iter()
+                    .any(|blocker| blocker.kind == prism_coordination::BlockerKind::StaleRevision)
+                {
+                    self.push_diagnostic(
+                        "stale_revision",
+                        "The coordination task is based on a stale workspace revision.",
+                        None,
+                    );
+                }
+                Ok(serde_json::to_value(
+                    blockers.into_iter().map(blocker_view).collect::<Vec<_>>(),
+                )?)
+            }
+            "pendingReviews" => {
+                let args: PendingReviewsArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(
+                    self.prism
+                        .pending_reviews(
+                            args.plan_id
+                                .as_ref()
+                                .map(|plan_id| PlanId::new(plan_id.clone()))
+                                .as_ref(),
+                        )
+                        .into_iter()
+                        .map(artifact_view)
+                        .collect::<Vec<_>>(),
+                )?)
+            }
+            "artifacts" => {
+                let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(
+                    self.prism
+                        .artifacts(&CoordinationTaskId::new(args.task_id))
+                        .into_iter()
+                        .map(artifact_view)
+                        .collect::<Vec<_>>(),
+                )?)
+            }
+            "simulateClaim" => {
+                let args: SimulateClaimArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(
+                    self.prism
+                        .simulate_claim(
+                            &self.host.session.session_id(),
+                            &convert_anchors(args.anchors)?,
+                            parse_capability(&args.capability)?,
+                            args.mode
+                                .as_deref()
+                                .map(parse_claim_mode)
+                                .transpose()?
+                                .unwrap_or(ClaimMode::Advisory),
+                            args.task_id
+                                .as_ref()
+                                .map(|task_id| CoordinationTaskId::new(task_id.clone()))
+                                .as_ref(),
+                            current_timestamp(),
+                        )
+                        .into_iter()
+                        .map(conflict_view)
+                        .collect::<Vec<_>>(),
+                )?)
+            }
             "full" => {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
                 let id = convert_node_id(args.id)?;
@@ -1685,6 +3740,22 @@ impl QueryExecution {
             "memoryRecall" => {
                 let args: MemoryRecallArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.memory_recall(args)?)?)
+            }
+            "curatorJobs" => {
+                let args: CuratorJobsArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.host.curator_jobs(args)?)?)
+            }
+            "curatorJob" => {
+                let args: CuratorJobArgs = serde_json::from_value(args)?;
+                let job = self.host.curator_job(&args.job_id)?;
+                if job.is_none() {
+                    self.push_diagnostic(
+                        "anchor_unresolved",
+                        format!("No curator job matched `{}`.", args.job_id),
+                        Some(json!({ "jobId": args.job_id })),
+                    );
+                }
+                Ok(serde_json::to_value(job)?)
             }
             "diagnostics" => Ok(serde_json::to_value(self.diagnostics())?),
             other => {
@@ -1976,6 +4047,18 @@ struct MemoryRecallArgs {
     limit: Option<usize>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+struct CuratorJobsArgs {
+    status: Option<String>,
+    trigger: Option<String>,
+    limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct CuratorJobArgs {
+    job_id: String,
+}
+
 fn convert_node_id(input: NodeIdInput) -> Result<NodeId> {
     Ok(NodeId::new(
         input.crate_name,
@@ -2052,6 +4135,92 @@ fn convert_inferred_scope(scope: InferredEdgeScopeInput) -> InferredEdgeScope {
         InferredEdgeScopeInput::Rejected => InferredEdgeScope::Rejected,
         InferredEdgeScopeInput::Expired => InferredEdgeScope::Expired,
     }
+}
+
+fn parse_capability(value: &str) -> Result<Capability> {
+    let normalized = value.trim().to_ascii_lowercase();
+    match normalized.as_str() {
+        "observe" => Ok(Capability::Observe),
+        "edit" => Ok(Capability::Edit),
+        "review" => Ok(Capability::Review),
+        "validate" => Ok(Capability::Validate),
+        "merge" => Ok(Capability::Merge),
+        other => Err(anyhow!("unknown capability `{other}`")),
+    }
+}
+
+fn parse_claim_mode(value: &str) -> Result<ClaimMode> {
+    let normalized = value.trim().to_ascii_lowercase();
+    match normalized.as_str() {
+        "advisory" => Ok(ClaimMode::Advisory),
+        "softexclusive" | "soft-exclusive" | "soft_exclusive" => Ok(ClaimMode::SoftExclusive),
+        "hardexclusive" | "hard-exclusive" | "hard_exclusive" => Ok(ClaimMode::HardExclusive),
+        other => Err(anyhow!("unknown claim mode `{other}`")),
+    }
+}
+
+fn parse_coordination_task_status(value: &str) -> Result<CoordinationTaskStatus> {
+    let normalized = value.trim().to_ascii_lowercase();
+    match normalized.as_str() {
+        "proposed" => Ok(CoordinationTaskStatus::Proposed),
+        "ready" => Ok(CoordinationTaskStatus::Ready),
+        "inprogress" | "in-progress" => Ok(CoordinationTaskStatus::InProgress),
+        "blocked" => Ok(CoordinationTaskStatus::Blocked),
+        "inreview" | "in-review" => Ok(CoordinationTaskStatus::InReview),
+        "validating" => Ok(CoordinationTaskStatus::Validating),
+        "completed" => Ok(CoordinationTaskStatus::Completed),
+        "abandoned" => Ok(CoordinationTaskStatus::Abandoned),
+        other => Err(anyhow!("unknown coordination task status `{other}`")),
+    }
+}
+
+fn parse_review_verdict(value: &str) -> Result<ReviewVerdict> {
+    let normalized = value.trim().to_ascii_lowercase();
+    match normalized.as_str() {
+        "approved" => Ok(ReviewVerdict::Approved),
+        "changesrequested" | "changes-requested" | "changes_requested" => {
+            Ok(ReviewVerdict::ChangesRequested)
+        }
+        "rejected" => Ok(ReviewVerdict::Rejected),
+        other => Err(anyhow!("unknown review verdict `{other}`")),
+    }
+}
+
+fn convert_policy(
+    payload: Option<CoordinationPolicyPayload>,
+) -> Result<Option<CoordinationPolicy>> {
+    let Some(payload) = payload else {
+        return Ok(None);
+    };
+    let mut policy = CoordinationPolicy::default();
+    if let Some(mode) = payload.default_claim_mode {
+        policy.default_claim_mode = parse_claim_mode(&mode)?;
+    }
+    if let Some(value) = payload.max_parallel_editors_per_anchor {
+        policy.max_parallel_editors_per_anchor = value;
+    }
+    if let Some(value) = payload.require_review_for_completion {
+        policy.require_review_for_completion = value;
+    }
+    if let Some(value) = payload.stale_after_graph_change {
+        policy.stale_after_graph_change = value;
+    }
+    Ok(Some(policy))
+}
+
+fn convert_acceptance(
+    payload: Option<Vec<AcceptanceCriterionPayload>>,
+) -> Result<Vec<AcceptanceCriterion>> {
+    payload
+        .unwrap_or_default()
+        .into_iter()
+        .map(|criterion| {
+            Ok(AcceptanceCriterion {
+                label: criterion.label,
+                anchors: convert_anchors(criterion.anchors.unwrap_or_default())?,
+            })
+        })
+        .collect()
 }
 
 fn parse_edge_kind(value: &str) -> Result<EdgeKind> {
@@ -2172,7 +4341,8 @@ fn transpile_typescript(source: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use std::fs;
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::sync::Arc;
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     use rmcp::{
         model::{ClientJsonRpcMessage, ServerJsonRpcMessage},
@@ -2181,13 +4351,20 @@ mod tests {
     };
 
     use super::*;
-    use prism_core::index_workspace_session;
+    use prism_core::{index_workspace_session, index_workspace_session_with_curator};
+    use prism_curator::{
+        CandidateEdge, CandidateRiskSummary, CuratorBackend, CuratorContext, CuratorJob,
+        CuratorProposal, CuratorRun,
+    };
     use prism_history::HistoryStore;
     use prism_ir::{
         AnchorRef, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId, Language, Node, NodeId,
         NodeKind, Span, TaskId,
     };
-    use prism_memory::{OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeResult};
+    use prism_memory::{
+        MemoryKind, OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeResult,
+        RecallQuery,
+    };
     use prism_store::Graph;
     use std::collections::HashMap;
 
@@ -2221,6 +4398,29 @@ mod tests {
         )
         .unwrap();
         root
+    }
+
+    fn wait_for_completed_curator_job(session: &WorkspaceSession) -> String {
+        for _ in 0..200 {
+            let snapshot = session.curator_snapshot();
+            if let Some(record) = snapshot
+                .records
+                .iter()
+                .find(|record| curator_job_status_label(record) == "completed")
+            {
+                return record.id.0.clone();
+            }
+            thread::sleep(Duration::from_millis(50));
+        }
+        let snapshot = session.curator_snapshot();
+        panic!(
+            "timed out waiting for completed curator job; statuses: {:?}",
+            snapshot
+                .records
+                .iter()
+                .map(|record| (record.id.0.clone(), curator_job_status_label(record)))
+                .collect::<Vec<_>>()
+        );
     }
 
     fn demo_node() -> Node {
@@ -2339,6 +4539,96 @@ return { path: sym?.id.path, kind: sym?.kind };
         assert!(result.diagnostics.is_empty());
     }
 
+    #[test]
+    fn coordination_mutations_flow_through_query_runtime() {
+        let host = host_with_node(demo_node());
+        let plan = host
+            .store_coordination(PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Ship coordination" }),
+                task_id: None,
+            })
+            .unwrap();
+        assert_eq!(plan.state["goal"], "Ship coordination");
+
+        let task = host
+            .store_coordination(PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit main",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::main",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            })
+            .unwrap();
+        let task_id = task.state["id"].as_str().unwrap().to_string();
+
+        let claim = host
+            .store_claim(PrismClaimArgs {
+                action: ClaimActionInput::Acquire,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::main",
+                        "kind": "function"
+                    }],
+                    "capability": "Edit",
+                    "mode": "SoftExclusive",
+                    "coordinationTaskId": task_id
+                }),
+                task_id: None,
+            })
+            .unwrap();
+        assert!(claim.claim_id.is_some());
+
+        let artifact = host
+            .store_artifact(PrismArtifactArgs {
+                action: ArtifactActionInput::Propose,
+                payload: json!({
+                    "taskId": task.state["id"].as_str().unwrap(),
+                    "diffRef": "patch:1"
+                }),
+                task_id: None,
+            })
+            .unwrap();
+        assert!(artifact.artifact_id.is_some());
+
+        let execution = QueryExecution::new(host.clone(), host.current_prism());
+        let plan_value = execution
+            .dispatch("plan", r#"{ "planId": "plan:1" }"#)
+            .unwrap();
+        let ready_value = execution
+            .dispatch("readyTasks", r#"{ "planId": "plan:1" }"#)
+            .unwrap();
+        let claims_value = execution
+            .dispatch(
+                "claims",
+                r#"{ "anchors": [{ "type": "node", "crateName": "demo", "path": "demo::main", "kind": "function" }] }"#,
+            )
+            .unwrap();
+        let simulated_value = execution
+            .dispatch(
+                "simulateClaim",
+                r#"{ "anchors": [{ "type": "node", "crateName": "demo", "path": "demo::main", "kind": "function" }], "capability": "Edit", "mode": "HardExclusive" }"#,
+            )
+            .unwrap_or_else(|error| panic!("simulateClaim dispatch failed: {error:#}"));
+        let artifacts_value = execution
+            .dispatch("artifacts", r#"{ "taskId": "coord-task:1" }"#)
+            .unwrap();
+        assert_eq!(plan_value["goal"], "Ship coordination");
+        assert_eq!(ready_value.as_array().unwrap().len(), 1);
+        assert_eq!(claims_value.as_array().unwrap().len(), 1);
+        assert_eq!(artifacts_value.as_array().unwrap().len(), 1);
+        assert!(simulated_value.as_array().unwrap().is_empty());
+    }
+
     #[tokio::test]
     async fn mcp_server_advertises_tools_and_api_reference_resource() {
         let server = server_with_node(demo_node());
@@ -2373,6 +4663,11 @@ return { path: sym?.id.path, kind: sym?.kind };
         assert!(tool_names.contains(&"prism_search"));
         assert!(tool_names.contains(&"prism_outcome"));
         assert!(tool_names.contains(&"prism_start_task"));
+        assert!(tool_names.contains(&"prism_coordination"));
+        assert!(tool_names.contains(&"prism_claim"));
+        assert!(tool_names.contains(&"prism_artifact"));
+        assert!(tool_names.contains(&"prism_curator_promote_edge"));
+        assert!(tool_names.contains(&"prism_curator_reject_proposal"));
 
         client.send(list_resources_request(3)).await.unwrap();
         let resources = response_json(client.receive().await.unwrap());
@@ -2442,6 +4737,174 @@ return { path: sym?.id.path, kind: sym?.kind };
         );
 
         running.cancel().await.unwrap();
+    }
+
+    #[test]
+    fn curator_reads_flow_through_prism_query_and_edge_promotion_is_explicit() {
+        let root = temp_workspace();
+
+        #[derive(Default)]
+        struct FakeCurator;
+
+        impl CuratorBackend for FakeCurator {
+            fn run(&self, _job: &CuratorJob, _ctx: &CuratorContext) -> anyhow::Result<CuratorRun> {
+                Ok(CuratorRun {
+                    proposals: vec![CuratorProposal::InferredEdge(CandidateEdge {
+                        edge: Edge {
+                            kind: EdgeKind::Calls,
+                            source: NodeId::new("demo", "demo::alpha", NodeKind::Function),
+                            target: NodeId::new("demo", "demo::beta", NodeKind::Function),
+                            origin: prism_ir::EdgeOrigin::Inferred,
+                            confidence: 0.82,
+                        },
+                        scope: InferredEdgeScope::SessionOnly,
+                        evidence: vec!["observed repeated edits".into()],
+                        rationale: "alpha usually routes to beta after validation".into(),
+                    })],
+                    diagnostics: Vec::new(),
+                })
+            }
+        }
+
+        let session = index_workspace_session_with_curator(&root, Arc::new(FakeCurator)).unwrap();
+        let alpha = session
+            .prism()
+            .symbol("alpha")
+            .into_iter()
+            .next()
+            .unwrap()
+            .id()
+            .clone();
+        session
+            .append_outcome(OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new("outcome:validated"),
+                    ts: 50,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:alpha")),
+                    causation: None,
+                },
+                anchors: vec![AnchorRef::Node(alpha)],
+                kind: OutcomeKind::FixValidated,
+                result: OutcomeResult::Success,
+                summary: "validated alpha change".into(),
+                evidence: Vec::new(),
+                metadata: Value::Null,
+            })
+            .unwrap();
+        let job_id = wait_for_completed_curator_job(&session);
+        let host = QueryHost::with_session(session);
+
+        let jobs = host
+            .execute(
+                r#"
+return prism.curator.jobs({ status: "completed", limit: 5 });
+"#,
+                QueryLanguage::Ts,
+            )
+            .unwrap();
+        assert_eq!(jobs.result.as_array().map(|items| items.len()), Some(1));
+        assert_eq!(jobs.result[0]["id"], job_id);
+        assert_eq!(jobs.result[0]["proposals"][0]["kind"], "inferred_edge");
+        assert_eq!(jobs.result[0]["proposals"][0]["disposition"], "pending");
+
+        let promoted = host
+            .promote_curator_edge(PrismCuratorPromoteEdgeArgs {
+                job_id: job_id.clone(),
+                proposal_index: 0,
+                scope: Some(InferredEdgeScopeInput::Persisted),
+                note: Some("accepted after review".into()),
+                task_id: Some("task:promotion".into()),
+            })
+            .unwrap();
+        assert!(promoted.edge_id.is_some());
+
+        let proposal = host
+            .execute(
+                &format!(
+                    r#"
+return prism.curator.job("{job_id}")?.proposals[0];
+"#
+                ),
+                QueryLanguage::Ts,
+            )
+            .unwrap();
+        assert_eq!(proposal.result["disposition"], "applied");
+        assert_eq!(proposal.result["output"], promoted.edge_id.unwrap());
+    }
+
+    #[test]
+    fn curator_rejection_is_a_distinct_mutation() {
+        let root = temp_workspace();
+
+        #[derive(Default)]
+        struct FakeCurator;
+
+        impl CuratorBackend for FakeCurator {
+            fn run(&self, _job: &CuratorJob, _ctx: &CuratorContext) -> anyhow::Result<CuratorRun> {
+                Ok(CuratorRun {
+                    proposals: vec![CuratorProposal::RiskSummary(CandidateRiskSummary {
+                        anchors: Vec::new(),
+                        summary: "alpha looks risky".into(),
+                        severity: "medium".into(),
+                        evidence_events: Vec::new(),
+                    })],
+                    diagnostics: Vec::new(),
+                })
+            }
+        }
+
+        let session = index_workspace_session_with_curator(&root, Arc::new(FakeCurator)).unwrap();
+        let alpha = session
+            .prism()
+            .symbol("alpha")
+            .into_iter()
+            .next()
+            .unwrap()
+            .id()
+            .clone();
+        session
+            .append_outcome(OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new("outcome:failure"),
+                    ts: 51,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:alpha")),
+                    causation: None,
+                },
+                anchors: vec![AnchorRef::Node(alpha)],
+                kind: OutcomeKind::FixValidated,
+                result: OutcomeResult::Success,
+                summary: "alpha follow-up validated".into(),
+                evidence: Vec::new(),
+                metadata: Value::Null,
+            })
+            .unwrap();
+        let job_id = wait_for_completed_curator_job(&session);
+        let host = QueryHost::with_session(session);
+
+        let rejected = host
+            .reject_curator_proposal(PrismCuratorRejectProposalArgs {
+                job_id: job_id.clone(),
+                proposal_index: 0,
+                reason: Some("not enough evidence".into()),
+                task_id: Some("task:review".into()),
+            })
+            .unwrap();
+        assert!(rejected.edge_id.is_none());
+
+        let proposal = host
+            .execute(
+                &format!(
+                    r#"
+return prism.curator.job("{job_id}")?.proposals[0];
+"#
+                ),
+                QueryLanguage::Ts,
+            )
+            .unwrap();
+        assert_eq!(proposal.result["disposition"], "rejected");
+        assert_eq!(proposal.result["note"], "not enough evidence");
     }
 
     #[test]
@@ -3041,6 +5504,49 @@ return sym ? sym.relations().callees.map((node) => node.id.path) : [];
     }
 
     #[test]
+    fn persisted_notes_reload_with_workspace_session() {
+        let root = temp_workspace();
+        let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+        host.store_note(PrismNoteArgs {
+            anchors: vec![AnchorRefInput::Node {
+                crate_name: "demo".to_string(),
+                path: "demo::alpha".to_string(),
+                kind: "function".to_string(),
+            }],
+            content: "alpha previously regressed".to_string(),
+            trust: Some(0.9),
+            task_id: Some("task:note".to_string()),
+        })
+        .expect("note should persist");
+
+        let reloaded = QueryHost::with_session(index_workspace_session(&root).unwrap());
+        let replay = reloaded
+            .current_prism()
+            .resume_task(&TaskId::new("task:note"));
+        assert_eq!(replay.events.len(), 1);
+        assert_eq!(replay.events[0].kind, OutcomeKind::NoteAdded);
+
+        let recalled = reloaded
+            .session
+            .notes
+            .recall(&RecallQuery {
+                focus: vec![AnchorRef::Node(NodeId::new(
+                    "demo",
+                    "demo::alpha",
+                    NodeKind::Function,
+                ))],
+                text: Some("regressed".to_string()),
+                limit: 5,
+                kinds: Some(vec![MemoryKind::Episodic]),
+                since: None,
+            })
+            .expect("recall should succeed");
+        assert_eq!(recalled.len(), 1);
+        assert_eq!(recalled[0].entry.content, "alpha previously regressed");
+    }
+
+    #[test]
     fn auto_refreshes_workspace_and_records_patch_events() {
         let root = temp_workspace();
         let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
@@ -3124,7 +5630,7 @@ return {
     fn first_mutation_auto_creates_session_task() {
         let host = host_with_node(demo_node());
 
-        let memory_id = host
+        let memory = host
             .store_note(PrismNoteArgs {
                 anchors: vec![AnchorRefInput::Node {
                     crate_name: "demo".to_string(),
@@ -3137,7 +5643,7 @@ return {
             })
             .expect("note should store");
 
-        assert!(memory_id.0.starts_with("episodic:"));
+        assert!(memory.memory_id.starts_with("episodic:"));
         let task = host.session.current_task().expect("task should be created");
         let replay = host.current_prism().resume_task(&task);
         assert_eq!(replay.task, task);
@@ -3206,7 +5712,7 @@ return prism.memory.recall({
             .expect("task should start");
 
         let explicit = TaskId::new("task:secondary:99");
-        let event_id = host
+        let event = host
             .store_outcome(PrismOutcomeArgs {
                 kind: OutcomeKindInput::FailureObserved,
                 anchors: vec![AnchorRefInput::Node {
@@ -3224,6 +5730,6 @@ return prism.memory.recall({
         assert_eq!(host.session.current_task(), Some(active));
         let replay = host.current_prism().resume_task(&explicit);
         assert_eq!(replay.events.len(), 1);
-        assert_eq!(replay.events[0].meta.id, event_id);
+        assert_eq!(replay.events[0].meta.id.0, event.event_id);
     }
 }

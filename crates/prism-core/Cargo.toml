@@ -8,6 +8,8 @@ license.workspace = true
 anyhow.workspace = true
 notify.workspace = true
 prism-agent = { path = "../prism-agent" }
+prism-coordination = { path = "../prism-coordination" }
+prism-curator = { path = "../prism-curator" }
 prism-ir = { path = "../prism-ir" }
 prism-history = { path = "../prism-history" }
 prism-lang-json = { path = "../prism-lang-json" }

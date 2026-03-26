@@ -5,6 +5,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
 use prism_agent::InferenceSnapshot;
+use prism_coordination::CoordinationSnapshot;
+use prism_curator::CuratorSnapshot;
 use prism_history::HistorySnapshot;
 use prism_ir::{
     ChangeTrigger, Edge, EdgeIndex, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta, FileId,
@@ -13,7 +15,7 @@ use prism_ir::{
 use prism_memory::{EpisodicMemorySnapshot, OutcomeMemorySnapshot};
 use prism_parser::{NodeFingerprint, UnresolvedCall, UnresolvedImpl, UnresolvedImport};
 use prism_projections::{CoChangeDelta, ProjectionSnapshot, ValidationDelta};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
 
@@ -54,6 +56,27 @@ pub struct FileUpdate {
     pub changes: Vec<GraphChange>,
 }
 
+#[derive(Debug, Clone)]
+pub struct IndexPersistBatch {
+    pub upserted_paths: Vec<PathBuf>,
+    pub removed_paths: Vec<PathBuf>,
+    pub history_snapshot: HistorySnapshot,
+    pub outcome_snapshot: OutcomeMemorySnapshot,
+    pub co_change_deltas: Vec<CoChangeDelta>,
+    pub validation_deltas: Vec<ValidationDelta>,
+    pub projection_snapshot: Option<ProjectionSnapshot>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct AuxiliaryPersistBatch {
+    pub outcome_snapshot: Option<OutcomeMemorySnapshot>,
+    pub validation_deltas: Vec<ValidationDelta>,
+    pub episodic_snapshot: Option<EpisodicMemorySnapshot>,
+    pub inference_snapshot: Option<InferenceSnapshot>,
+    pub curator_snapshot: Option<CuratorSnapshot>,
+    pub coordination_snapshot: Option<CoordinationSnapshot>,
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Graph {
     pub nodes: HashMap<NodeId, Node>,
@@ -70,16 +93,34 @@ pub trait Store {
     fn load_graph(&mut self) -> Result<Option<Graph>>;
     fn load_history_snapshot(&mut self) -> Result<Option<HistorySnapshot>>;
     fn save_history_snapshot(&mut self, snapshot: &HistorySnapshot) -> Result<()>;
+    fn save_history_snapshot_with_co_change_deltas(
+        &mut self,
+        snapshot: &HistorySnapshot,
+        deltas: &[CoChangeDelta],
+    ) -> Result<()>;
     fn load_outcome_snapshot(&mut self) -> Result<Option<OutcomeMemorySnapshot>>;
     fn save_outcome_snapshot(&mut self, snapshot: &OutcomeMemorySnapshot) -> Result<()>;
+    fn save_outcome_snapshot_with_validation_deltas(
+        &mut self,
+        snapshot: &OutcomeMemorySnapshot,
+        deltas: &[ValidationDelta],
+    ) -> Result<()>;
     fn load_episodic_snapshot(&mut self) -> Result<Option<EpisodicMemorySnapshot>>;
     fn save_episodic_snapshot(&mut self, snapshot: &EpisodicMemorySnapshot) -> Result<()>;
     fn load_inference_snapshot(&mut self) -> Result<Option<InferenceSnapshot>>;
     fn save_inference_snapshot(&mut self, snapshot: &InferenceSnapshot) -> Result<()>;
     fn load_projection_snapshot(&mut self) -> Result<Option<ProjectionSnapshot>>;
     fn save_projection_snapshot(&mut self, snapshot: &ProjectionSnapshot) -> Result<()>;
-    fn apply_projection_co_change_deltas(&mut self, deltas: &[CoChangeDelta]) -> Result<()>;
-    fn apply_projection_validation_deltas(&mut self, deltas: &[ValidationDelta]) -> Result<()>;
+    fn load_curator_snapshot(&mut self) -> Result<Option<CuratorSnapshot>>;
+    fn save_curator_snapshot(&mut self, snapshot: &CuratorSnapshot) -> Result<()>;
+    fn load_coordination_snapshot(&mut self) -> Result<Option<CoordinationSnapshot>>;
+    fn save_coordination_snapshot(&mut self, snapshot: &CoordinationSnapshot) -> Result<()>;
+    fn commit_auxiliary_persist_batch(&mut self, batch: &AuxiliaryPersistBatch) -> Result<()>;
+    fn commit_index_persist_batch(
+        &mut self,
+        graph: &Graph,
+        batch: &IndexPersistBatch,
+    ) -> Result<()>;
     fn save_file_state(&mut self, path: &Path, graph: &Graph) -> Result<()>;
     fn remove_file_state(&mut self, path: &Path) -> Result<()>;
     fn replace_derived_edges(&mut self, graph: &Graph) -> Result<()>;
@@ -94,6 +135,8 @@ pub struct MemoryStore {
     episodic_snapshot: Option<EpisodicMemorySnapshot>,
     inference_snapshot: Option<InferenceSnapshot>,
     projection_snapshot: Option<ProjectionSnapshot>,
+    curator_snapshot: Option<CuratorSnapshot>,
+    coordination_snapshot: Option<CoordinationSnapshot>,
 }
 
 impl Store for MemoryStore {
@@ -110,12 +153,46 @@ impl Store for MemoryStore {
         Ok(())
     }
 
+    fn save_history_snapshot_with_co_change_deltas(
+        &mut self,
+        snapshot: &HistorySnapshot,
+        deltas: &[CoChangeDelta],
+    ) -> Result<()> {
+        self.history_snapshot = Some(snapshot.clone());
+        if deltas.is_empty() {
+            return Ok(());
+        }
+        let mut snapshot = self.projection_snapshot.clone().unwrap_or_default();
+        let mut index = prism_projections::ProjectionIndex::from_snapshot(snapshot);
+        index.apply_co_change_deltas(deltas);
+        snapshot = index.snapshot();
+        self.projection_snapshot = Some(snapshot);
+        Ok(())
+    }
+
     fn load_outcome_snapshot(&mut self) -> Result<Option<OutcomeMemorySnapshot>> {
         Ok(self.outcome_snapshot.clone())
     }
 
     fn save_outcome_snapshot(&mut self, snapshot: &OutcomeMemorySnapshot) -> Result<()> {
         self.outcome_snapshot = Some(snapshot.clone());
+        Ok(())
+    }
+
+    fn save_outcome_snapshot_with_validation_deltas(
+        &mut self,
+        snapshot: &OutcomeMemorySnapshot,
+        deltas: &[ValidationDelta],
+    ) -> Result<()> {
+        self.outcome_snapshot = Some(snapshot.clone());
+        if deltas.is_empty() {
+            return Ok(());
+        }
+        let mut snapshot = self.projection_snapshot.clone().unwrap_or_default();
+        let mut index = prism_projections::ProjectionIndex::from_snapshot(snapshot);
+        index.apply_validation_deltas(deltas);
+        snapshot = index.snapshot();
+        self.projection_snapshot = Some(snapshot);
         Ok(())
     }
 
@@ -146,27 +223,68 @@ impl Store for MemoryStore {
         Ok(())
     }
 
-    fn apply_projection_co_change_deltas(&mut self, deltas: &[CoChangeDelta]) -> Result<()> {
-        if deltas.is_empty() {
-            return Ok(());
-        }
-        let mut snapshot = self.projection_snapshot.clone().unwrap_or_default();
-        let mut index = prism_projections::ProjectionIndex::from_snapshot(snapshot);
-        index.apply_co_change_deltas(deltas);
-        snapshot = index.snapshot();
-        self.projection_snapshot = Some(snapshot);
+    fn load_curator_snapshot(&mut self) -> Result<Option<CuratorSnapshot>> {
+        Ok(self.curator_snapshot.clone())
+    }
+
+    fn save_curator_snapshot(&mut self, snapshot: &CuratorSnapshot) -> Result<()> {
+        self.curator_snapshot = Some(snapshot.clone());
         Ok(())
     }
 
-    fn apply_projection_validation_deltas(&mut self, deltas: &[ValidationDelta]) -> Result<()> {
-        if deltas.is_empty() {
-            return Ok(());
+    fn load_coordination_snapshot(&mut self) -> Result<Option<CoordinationSnapshot>> {
+        Ok(self.coordination_snapshot.clone())
+    }
+
+    fn save_coordination_snapshot(&mut self, snapshot: &CoordinationSnapshot) -> Result<()> {
+        self.coordination_snapshot = Some(snapshot.clone());
+        Ok(())
+    }
+
+    fn commit_auxiliary_persist_batch(&mut self, batch: &AuxiliaryPersistBatch) -> Result<()> {
+        if let Some(snapshot) = &batch.outcome_snapshot {
+            self.outcome_snapshot = Some(snapshot.clone());
         }
-        let mut snapshot = self.projection_snapshot.clone().unwrap_or_default();
-        let mut index = prism_projections::ProjectionIndex::from_snapshot(snapshot);
-        index.apply_validation_deltas(deltas);
-        snapshot = index.snapshot();
-        self.projection_snapshot = Some(snapshot);
+        if let Some(snapshot) = &batch.episodic_snapshot {
+            self.episodic_snapshot = Some(snapshot.clone());
+        }
+        if let Some(snapshot) = &batch.inference_snapshot {
+            self.inference_snapshot = Some(snapshot.clone());
+        }
+        if let Some(snapshot) = &batch.curator_snapshot {
+            self.curator_snapshot = Some(snapshot.clone());
+        }
+        if let Some(snapshot) = &batch.coordination_snapshot {
+            self.coordination_snapshot = Some(snapshot.clone());
+        }
+        if !batch.validation_deltas.is_empty() {
+            let mut snapshot = self.projection_snapshot.clone().unwrap_or_default();
+            let mut index = prism_projections::ProjectionIndex::from_snapshot(snapshot);
+            index.apply_validation_deltas(&batch.validation_deltas);
+            snapshot = index.snapshot();
+            self.projection_snapshot = Some(snapshot);
+        }
+        Ok(())
+    }
+
+    fn commit_index_persist_batch(
+        &mut self,
+        graph: &Graph,
+        batch: &IndexPersistBatch,
+    ) -> Result<()> {
+        self.snapshot = Some(graph.snapshot());
+        self.history_snapshot = Some(batch.history_snapshot.clone());
+        self.outcome_snapshot = Some(batch.outcome_snapshot.clone());
+        if let Some(snapshot) = &batch.projection_snapshot {
+            self.projection_snapshot = Some(snapshot.clone());
+        } else {
+            let mut snapshot = self.projection_snapshot.clone().unwrap_or_default();
+            let mut index = prism_projections::ProjectionIndex::from_snapshot(snapshot);
+            index.apply_co_change_deltas(&batch.co_change_deltas);
+            index.apply_validation_deltas(&batch.validation_deltas);
+            snapshot = index.snapshot();
+            self.projection_snapshot = Some(snapshot);
+        }
         Ok(())
     }
 
@@ -481,12 +599,36 @@ impl Store for SqliteStore {
         save_snapshot_row(&self.conn, "history", snapshot)
     }
 
+    fn save_history_snapshot_with_co_change_deltas(
+        &mut self,
+        snapshot: &HistorySnapshot,
+        deltas: &[CoChangeDelta],
+    ) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        save_snapshot_row_tx(&tx, "history", snapshot)?;
+        apply_projection_co_change_deltas_tx(&tx, deltas)?;
+        tx.commit()?;
+        Ok(())
+    }
+
     fn load_outcome_snapshot(&mut self) -> Result<Option<OutcomeMemorySnapshot>> {
         load_snapshot_row(&self.conn, "outcomes")
     }
 
     fn save_outcome_snapshot(&mut self, snapshot: &OutcomeMemorySnapshot) -> Result<()> {
         save_snapshot_row(&self.conn, "outcomes", snapshot)
+    }
+
+    fn save_outcome_snapshot_with_validation_deltas(
+        &mut self,
+        snapshot: &OutcomeMemorySnapshot,
+        deltas: &[ValidationDelta],
+    ) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        save_snapshot_row_tx(&tx, "outcomes", snapshot)?;
+        apply_projection_validation_deltas_tx(&tx, deltas)?;
+        tx.commit()?;
+        Ok(())
     }
 
     fn load_episodic_snapshot(&mut self) -> Result<Option<EpisodicMemorySnapshot>> {
@@ -513,12 +655,76 @@ impl Store for SqliteStore {
         save_projection_snapshot_rows(&mut self.conn, snapshot)
     }
 
-    fn apply_projection_co_change_deltas(&mut self, deltas: &[CoChangeDelta]) -> Result<()> {
-        apply_projection_co_change_deltas_rows(&mut self.conn, deltas)
+    fn load_curator_snapshot(&mut self) -> Result<Option<CuratorSnapshot>> {
+        load_snapshot_row(&self.conn, "curator")
     }
 
-    fn apply_projection_validation_deltas(&mut self, deltas: &[ValidationDelta]) -> Result<()> {
-        apply_projection_validation_deltas_rows(&mut self.conn, deltas)
+    fn save_curator_snapshot(&mut self, snapshot: &CuratorSnapshot) -> Result<()> {
+        save_snapshot_row(&self.conn, "curator", snapshot)
+    }
+
+    fn load_coordination_snapshot(&mut self) -> Result<Option<CoordinationSnapshot>> {
+        load_snapshot_row(&self.conn, "coordination")
+    }
+
+    fn save_coordination_snapshot(&mut self, snapshot: &CoordinationSnapshot) -> Result<()> {
+        save_snapshot_row(&self.conn, "coordination", snapshot)
+    }
+
+    fn commit_auxiliary_persist_batch(&mut self, batch: &AuxiliaryPersistBatch) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        if let Some(snapshot) = &batch.outcome_snapshot {
+            save_snapshot_row_tx(&tx, "outcomes", snapshot)?;
+        }
+        if let Some(snapshot) = &batch.episodic_snapshot {
+            save_snapshot_row_tx(&tx, "episodic", snapshot)?;
+        }
+        if let Some(snapshot) = &batch.inference_snapshot {
+            save_snapshot_row_tx(&tx, "inference", snapshot)?;
+        }
+        if let Some(snapshot) = &batch.curator_snapshot {
+            save_snapshot_row_tx(&tx, "curator", snapshot)?;
+        }
+        if let Some(snapshot) = &batch.coordination_snapshot {
+            save_snapshot_row_tx(&tx, "coordination", snapshot)?;
+        }
+        apply_projection_validation_deltas_tx(&tx, &batch.validation_deltas)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    fn commit_index_persist_batch(
+        &mut self,
+        graph: &Graph,
+        batch: &IndexPersistBatch,
+    ) -> Result<()> {
+        let tx = self.conn.transaction()?;
+
+        for path in &batch.removed_paths {
+            delete_file_state(&tx, path)?;
+        }
+
+        for path in &batch.upserted_paths {
+            let Some(state) = graph.file_state(path) else {
+                continue;
+            };
+            save_file_state_tx(&tx, &state)?;
+        }
+
+        replace_derived_edges_tx(&tx, graph)?;
+        finalize_tx(&tx, graph)?;
+        save_snapshot_row_tx(&tx, "history", &batch.history_snapshot)?;
+        save_snapshot_row_tx(&tx, "outcomes", &batch.outcome_snapshot)?;
+
+        if let Some(snapshot) = &batch.projection_snapshot {
+            save_projection_snapshot_tx(&tx, snapshot)?;
+        } else {
+            apply_projection_co_change_deltas_tx(&tx, &batch.co_change_deltas)?;
+            apply_projection_validation_deltas_tx(&tx, &batch.validation_deltas)?;
+        }
+
+        tx.commit()?;
+        Ok(())
     }
 
     fn save_file_state(&mut self, path: &Path, graph: &Graph) -> Result<()> {
@@ -526,132 +732,7 @@ impl Store for SqliteStore {
             return Ok(());
         };
         let tx = self.conn.transaction()?;
-        delete_file_state(&tx, path)?;
-
-        let file_path = state.path.to_string_lossy();
-        tx.execute(
-            "INSERT INTO file_records(path, file_id, hash) VALUES (?1, ?2, ?3)",
-            params![
-                file_path.as_ref(),
-                state.record.file_id.0,
-                state.record.hash as i64
-            ],
-        )?;
-
-        for node in &state.nodes {
-            tx.execute(
-                "INSERT INTO nodes(crate_name, path, kind, name, file_id, span_start, span_end, language)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                params![
-                    node.id.crate_name.as_str(),
-                    node.id.path.as_str(),
-                    encode_node_kind(node.kind),
-                    node.name.as_str(),
-                    node.file.0,
-                    node.span.start,
-                    node.span.end,
-                    encode_language(node.language),
-                ],
-            )?;
-        }
-
-        for node_id in &state.record.nodes {
-            tx.execute(
-                "INSERT INTO file_nodes(file_path, node_crate_name, node_path, node_kind) VALUES (?1, ?2, ?3, ?4)",
-                params![
-                    file_path.as_ref(),
-                    node_id.crate_name.as_str(),
-                    node_id.path.as_str(),
-                    encode_node_kind(node_id.kind),
-                ],
-            )?;
-        }
-
-        for (node_id, fingerprint) in &state.record.fingerprints {
-            tx.execute(
-                "INSERT INTO node_fingerprints(file_path, node_crate_name, node_path, node_kind, fingerprint)
-                 VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![
-                    file_path.as_ref(),
-                    node_id.crate_name.as_str(),
-                    node_id.path.as_str(),
-                    encode_node_kind(node_id.kind),
-                    serde_json::to_string(fingerprint)?,
-                ],
-            )?;
-        }
-
-        for edge in &state.edges {
-            tx.execute(
-                "INSERT INTO edges(file_path, kind, source_crate_name, source_path, source_kind, target_crate_name, target_path, target_kind, origin, confidence)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-                params![
-                    file_path.as_ref(),
-                    encode_edge_kind(edge.kind),
-                    edge.source.crate_name.as_str(),
-                    edge.source.path.as_str(),
-                    encode_node_kind(edge.source.kind),
-                    edge.target.crate_name.as_str(),
-                    edge.target.path.as_str(),
-                    encode_node_kind(edge.target.kind),
-                    encode_edge_origin(edge.origin),
-                    edge.confidence,
-                ],
-            )?;
-        }
-
-        for call in &state.record.unresolved_calls {
-            tx.execute(
-                "INSERT INTO unresolved_calls(file_path, caller_crate_name, caller_path, caller_kind, name, span_start, span_end, module_path)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                params![
-                    file_path.as_ref(),
-                    call.caller.crate_name.as_str(),
-                    call.caller.path.as_str(),
-                    encode_node_kind(call.caller.kind),
-                    call.name.as_str(),
-                    call.span.start,
-                    call.span.end,
-                    call.module_path.as_str(),
-                ],
-            )?;
-        }
-
-        for import in &state.record.unresolved_imports {
-            tx.execute(
-                "INSERT INTO unresolved_imports(file_path, importer_crate_name, importer_path, importer_kind, path, span_start, span_end, module_path, target_path)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                params![
-                    file_path.as_ref(),
-                    import.importer.crate_name.as_str(),
-                    import.importer.path.as_str(),
-                    encode_node_kind(import.importer.kind),
-                    import.path.as_str(),
-                    import.span.start,
-                    import.span.end,
-                    import.module_path.as_str(),
-                    import.path.as_str(),
-                ],
-            )?;
-        }
-
-        for implementation in &state.record.unresolved_impls {
-            tx.execute(
-                "INSERT INTO unresolved_impls(file_path, impl_crate_name, impl_path, impl_kind, target, span_start, span_end, module_path)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                params![
-                    file_path.as_ref(),
-                    implementation.impl_node.crate_name.as_str(),
-                    implementation.impl_node.path.as_str(),
-                    encode_node_kind(implementation.impl_node.kind),
-                    implementation.target.as_str(),
-                    implementation.span.start,
-                    implementation.span.end,
-                    implementation.module_path.as_str(),
-                ],
-            )?;
-        }
-
+        save_file_state_tx(&tx, &state)?;
         tx.commit()?;
         Ok(())
     }
@@ -665,99 +746,14 @@ impl Store for SqliteStore {
 
     fn replace_derived_edges(&mut self, graph: &Graph) -> Result<()> {
         let tx = self.conn.transaction()?;
-        tx.execute(
-            "DELETE FROM edges WHERE file_path IS NULL AND kind IN (?1, ?2, ?3)",
-            params![
-                encode_edge_kind(EdgeKind::Calls),
-                encode_edge_kind(EdgeKind::Imports),
-                encode_edge_kind(EdgeKind::Implements)
-            ],
-        )?;
-
-        for edge in graph.derived_edges() {
-            tx.execute(
-                "INSERT INTO edges(file_path, kind, source_crate_name, source_path, source_kind, target_crate_name, target_path, target_kind, origin, confidence)
-                 VALUES (NULL, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                params![
-                    encode_edge_kind(edge.kind),
-                    edge.source.crate_name.as_str(),
-                    edge.source.path.as_str(),
-                    encode_node_kind(edge.source.kind),
-                    edge.target.crate_name.as_str(),
-                    edge.target.path.as_str(),
-                    encode_node_kind(edge.target.kind),
-                    encode_edge_origin(edge.origin),
-                    edge.confidence,
-                ],
-            )?;
-        }
-
+        replace_derived_edges_tx(&tx, graph)?;
         tx.commit()?;
         Ok(())
     }
 
     fn finalize(&mut self, graph: &Graph) -> Result<()> {
         let tx = self.conn.transaction()?;
-        tx.execute(
-            "INSERT INTO metadata(key, value) VALUES ('next_file_id', ?1)
-             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            params![graph.next_file_id()],
-        )?;
-
-        for node in graph.root_nodes() {
-            tx.execute(
-                "INSERT INTO nodes(crate_name, path, kind, name, file_id, span_start, span_end, language)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-                 ON CONFLICT(crate_name, path, kind) DO UPDATE SET
-                    name = excluded.name,
-                    file_id = excluded.file_id,
-                    span_start = excluded.span_start,
-                    span_end = excluded.span_end,
-                    language = excluded.language",
-                params![
-                    node.id.crate_name.as_str(),
-                    node.id.path.as_str(),
-                    encode_node_kind(node.kind),
-                    node.name.as_str(),
-                    node.file.0,
-                    node.span.start,
-                    node.span.end,
-                    encode_language(node.language),
-                ],
-            )?;
-        }
-
-        tx.execute(
-            "DELETE FROM edges
-             WHERE file_path IS NULL
-               AND kind = ?1
-               AND source_kind = ?2
-               AND target_kind = ?3",
-            params![
-                encode_edge_kind(EdgeKind::Contains),
-                encode_node_kind(NodeKind::Workspace),
-                encode_node_kind(NodeKind::Package)
-            ],
-        )?;
-
-        for edge in graph.root_edges() {
-            tx.execute(
-                "INSERT INTO edges(file_path, kind, source_crate_name, source_path, source_kind, target_crate_name, target_path, target_kind, origin, confidence)
-                 VALUES (NULL, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-                params![
-                    encode_edge_kind(edge.kind),
-                    edge.source.crate_name.as_str(),
-                    edge.source.path.as_str(),
-                    encode_node_kind(edge.source.kind),
-                    edge.target.crate_name.as_str(),
-                    edge.target.path.as_str(),
-                    encode_node_kind(edge.target.kind),
-                    encode_edge_origin(edge.origin),
-                    edge.confidence,
-                ],
-            )?;
-        }
-
+        finalize_tx(&tx, graph)?;
         tx.commit()?;
         Ok(())
     }
@@ -1441,6 +1437,231 @@ fn delete_file_state(tx: &rusqlite::Transaction<'_>, path: &Path) -> Result<()> 
     Ok(())
 }
 
+fn save_file_state_tx(tx: &Transaction<'_>, state: &FileState) -> Result<()> {
+    delete_file_state(tx, &state.path)?;
+
+    let file_path = state.path.to_string_lossy();
+    tx.execute(
+        "INSERT INTO file_records(path, file_id, hash) VALUES (?1, ?2, ?3)",
+        params![
+            file_path.as_ref(),
+            state.record.file_id.0,
+            state.record.hash as i64
+        ],
+    )?;
+
+    for node in &state.nodes {
+        tx.execute(
+            "INSERT INTO nodes(crate_name, path, kind, name, file_id, span_start, span_end, language)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                node.id.crate_name.as_str(),
+                node.id.path.as_str(),
+                encode_node_kind(node.kind),
+                node.name.as_str(),
+                node.file.0,
+                node.span.start,
+                node.span.end,
+                encode_language(node.language),
+            ],
+        )?;
+    }
+
+    for node_id in &state.record.nodes {
+        tx.execute(
+            "INSERT INTO file_nodes(file_path, node_crate_name, node_path, node_kind) VALUES (?1, ?2, ?3, ?4)",
+            params![
+                file_path.as_ref(),
+                node_id.crate_name.as_str(),
+                node_id.path.as_str(),
+                encode_node_kind(node_id.kind),
+            ],
+        )?;
+    }
+
+    for (node_id, fingerprint) in &state.record.fingerprints {
+        tx.execute(
+            "INSERT INTO node_fingerprints(file_path, node_crate_name, node_path, node_kind, fingerprint)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                file_path.as_ref(),
+                node_id.crate_name.as_str(),
+                node_id.path.as_str(),
+                encode_node_kind(node_id.kind),
+                serde_json::to_string(fingerprint)?,
+            ],
+        )?;
+    }
+
+    for edge in &state.edges {
+        tx.execute(
+            "INSERT INTO edges(file_path, kind, source_crate_name, source_path, source_kind, target_crate_name, target_path, target_kind, origin, confidence)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![
+                file_path.as_ref(),
+                encode_edge_kind(edge.kind),
+                edge.source.crate_name.as_str(),
+                edge.source.path.as_str(),
+                encode_node_kind(edge.source.kind),
+                edge.target.crate_name.as_str(),
+                edge.target.path.as_str(),
+                encode_node_kind(edge.target.kind),
+                encode_edge_origin(edge.origin),
+                edge.confidence,
+            ],
+        )?;
+    }
+
+    for call in &state.record.unresolved_calls {
+        tx.execute(
+            "INSERT INTO unresolved_calls(file_path, caller_crate_name, caller_path, caller_kind, name, span_start, span_end, module_path)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                file_path.as_ref(),
+                call.caller.crate_name.as_str(),
+                call.caller.path.as_str(),
+                encode_node_kind(call.caller.kind),
+                call.name.as_str(),
+                call.span.start,
+                call.span.end,
+                call.module_path.as_str(),
+            ],
+        )?;
+    }
+
+    for import in &state.record.unresolved_imports {
+        tx.execute(
+            "INSERT INTO unresolved_imports(file_path, importer_crate_name, importer_path, importer_kind, path, span_start, span_end, module_path, target_path)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                file_path.as_ref(),
+                import.importer.crate_name.as_str(),
+                import.importer.path.as_str(),
+                encode_node_kind(import.importer.kind),
+                import.path.as_str(),
+                import.span.start,
+                import.span.end,
+                import.module_path.as_str(),
+                import.path.as_str(),
+            ],
+        )?;
+    }
+
+    for implementation in &state.record.unresolved_impls {
+        tx.execute(
+            "INSERT INTO unresolved_impls(file_path, impl_crate_name, impl_path, impl_kind, target, span_start, span_end, module_path)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                file_path.as_ref(),
+                implementation.impl_node.crate_name.as_str(),
+                implementation.impl_node.path.as_str(),
+                encode_node_kind(implementation.impl_node.kind),
+                implementation.target.as_str(),
+                implementation.span.start,
+                implementation.span.end,
+                implementation.module_path.as_str(),
+            ],
+        )?;
+    }
+
+    Ok(())
+}
+
+fn replace_derived_edges_tx(tx: &Transaction<'_>, graph: &Graph) -> Result<()> {
+    tx.execute(
+        "DELETE FROM edges WHERE file_path IS NULL AND kind IN (?1, ?2, ?3)",
+        params![
+            encode_edge_kind(EdgeKind::Calls),
+            encode_edge_kind(EdgeKind::Imports),
+            encode_edge_kind(EdgeKind::Implements)
+        ],
+    )?;
+
+    for edge in graph.derived_edges() {
+        tx.execute(
+            "INSERT INTO edges(file_path, kind, source_crate_name, source_path, source_kind, target_crate_name, target_path, target_kind, origin, confidence)
+             VALUES (NULL, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                encode_edge_kind(edge.kind),
+                edge.source.crate_name.as_str(),
+                edge.source.path.as_str(),
+                encode_node_kind(edge.source.kind),
+                edge.target.crate_name.as_str(),
+                edge.target.path.as_str(),
+                encode_node_kind(edge.target.kind),
+                encode_edge_origin(edge.origin),
+                edge.confidence,
+            ],
+        )?;
+    }
+
+    Ok(())
+}
+
+fn finalize_tx(tx: &Transaction<'_>, graph: &Graph) -> Result<()> {
+    tx.execute(
+        "INSERT INTO metadata(key, value) VALUES ('next_file_id', ?1)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        params![graph.next_file_id()],
+    )?;
+
+    for node in graph.root_nodes() {
+        tx.execute(
+            "INSERT INTO nodes(crate_name, path, kind, name, file_id, span_start, span_end, language)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+             ON CONFLICT(crate_name, path, kind) DO UPDATE SET
+                name = excluded.name,
+                file_id = excluded.file_id,
+                span_start = excluded.span_start,
+                span_end = excluded.span_end,
+                language = excluded.language",
+            params![
+                node.id.crate_name.as_str(),
+                node.id.path.as_str(),
+                encode_node_kind(node.kind),
+                node.name.as_str(),
+                node.file.0,
+                node.span.start,
+                node.span.end,
+                encode_language(node.language),
+            ],
+        )?;
+    }
+
+    tx.execute(
+        "DELETE FROM edges
+         WHERE file_path IS NULL
+           AND kind = ?1
+           AND source_kind = ?2
+           AND target_kind = ?3",
+        params![
+            encode_edge_kind(EdgeKind::Contains),
+            encode_node_kind(NodeKind::Workspace),
+            encode_node_kind(NodeKind::Package)
+        ],
+    )?;
+
+    for edge in graph.root_edges() {
+        tx.execute(
+            "INSERT INTO edges(file_path, kind, source_crate_name, source_path, source_kind, target_crate_name, target_path, target_kind, origin, confidence)
+             VALUES (NULL, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                encode_edge_kind(edge.kind),
+                edge.source.crate_name.as_str(),
+                edge.source.path.as_str(),
+                encode_node_kind(edge.source.kind),
+                edge.target.crate_name.as_str(),
+                edge.target.path.as_str(),
+                encode_node_kind(edge.target.kind),
+                encode_edge_origin(edge.origin),
+                edge.confidence,
+            ],
+        )?;
+    }
+
+    Ok(())
+}
+
 fn load_node_fingerprints(
     conn: &Connection,
     file_records: &mut HashMap<PathBuf, FileRecord>,
@@ -1498,6 +1719,18 @@ where
     T: Serialize,
 {
     conn.execute(
+        "INSERT INTO snapshots(key, value) VALUES (?1, ?2)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        params![key, serde_json::to_string(snapshot)?],
+    )?;
+    Ok(())
+}
+
+fn save_snapshot_row_tx<T>(tx: &Transaction<'_>, key: &str, snapshot: &T) -> Result<()>
+where
+    T: Serialize,
+{
+    tx.execute(
         "INSERT INTO snapshots(key, value) VALUES (?1, ?2)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         params![key, serde_json::to_string(snapshot)?],
@@ -1576,6 +1809,12 @@ fn save_projection_snapshot_rows(
     snapshot: &ProjectionSnapshot,
 ) -> Result<()> {
     let tx = conn.transaction()?;
+    save_projection_snapshot_tx(&tx, snapshot)?;
+    tx.commit()?;
+    Ok(())
+}
+
+fn save_projection_snapshot_tx(tx: &Transaction<'_>, snapshot: &ProjectionSnapshot) -> Result<()> {
     tx.execute("DELETE FROM projection_co_change", [])?;
     tx.execute("DELETE FROM projection_validation", [])?;
 
@@ -1604,18 +1843,13 @@ fn save_projection_snapshot_rows(
         }
     }
 
-    tx.commit()?;
     Ok(())
 }
 
-fn apply_projection_co_change_deltas_rows(
-    conn: &mut Connection,
+fn apply_projection_co_change_deltas_tx(
+    tx: &Transaction<'_>,
     deltas: &[CoChangeDelta],
 ) -> Result<()> {
-    if deltas.is_empty() {
-        return Ok(());
-    }
-    let tx = conn.transaction()?;
     for delta in deltas {
         tx.execute(
             "INSERT INTO projection_co_change(source_lineage, target_lineage, count)
@@ -1629,18 +1863,13 @@ fn apply_projection_co_change_deltas_rows(
             ],
         )?;
     }
-    tx.commit()?;
     Ok(())
 }
 
-fn apply_projection_validation_deltas_rows(
-    conn: &mut Connection,
+fn apply_projection_validation_deltas_tx(
+    tx: &Transaction<'_>,
     deltas: &[ValidationDelta],
 ) -> Result<()> {
-    if deltas.is_empty() {
-        return Ok(());
-    }
-    let tx = conn.transaction()?;
     for delta in deltas {
         tx.execute(
             "INSERT INTO projection_validation(lineage, label, score, last_seen)
@@ -1657,7 +1886,6 @@ fn apply_projection_validation_deltas_rows(
             ],
         )?;
     }
-    tx.commit()?;
     Ok(())
 }
 
@@ -1897,8 +2125,13 @@ mod tests {
     use prism_agent::{EdgeId, InferenceSnapshot, InferredEdgeRecord, InferredEdgeScope};
     use prism_history::HistorySnapshot;
     use prism_ir::{GraphChange, Span};
-    use prism_memory::{EpisodicMemorySnapshot, MemoryEntry, MemoryId, MemoryKind, MemorySource};
-    use prism_projections::{CoChangeRecord, ProjectionSnapshot, ValidationCheck};
+    use prism_memory::{
+        EpisodicMemorySnapshot, MemoryEntry, MemoryId, MemoryKind, MemorySource,
+        OutcomeMemorySnapshot,
+    };
+    use prism_projections::{
+        CoChangeDelta, CoChangeRecord, ProjectionSnapshot, ValidationCheck, ValidationDelta,
+    };
 
     use super::*;
 
@@ -2116,6 +2349,255 @@ mod tests {
             )
             .unwrap();
         assert_eq!(snapshot_rows, 0);
+
+        drop(store);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn sqlite_store_commits_auxiliary_snapshots_with_projection_deltas() {
+        let path = std::env::temp_dir().join(format!(
+            "prism-store-aux-test-{}.db",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let history = HistorySnapshot {
+            node_to_lineage: Vec::new(),
+            events: Vec::new(),
+            co_change_counts: Vec::new(),
+            next_lineage: 4,
+            next_event: 9,
+        };
+        let outcomes = OutcomeMemorySnapshot { events: Vec::new() };
+        let co_change_delta = CoChangeDelta {
+            source_lineage: prism_ir::LineageId::new("lineage:10"),
+            target_lineage: prism_ir::LineageId::new("lineage:20"),
+            count_delta: 2,
+        };
+        let validation_delta = ValidationDelta {
+            lineage: prism_ir::LineageId::new("lineage:10"),
+            label: "test:smoke".to_string(),
+            score_delta: 3.5,
+            last_seen: 99,
+        };
+
+        let mut store = SqliteStore::open(&path).unwrap();
+        store
+            .save_history_snapshot_with_co_change_deltas(
+                &history,
+                std::slice::from_ref(&co_change_delta),
+            )
+            .unwrap();
+        store
+            .save_outcome_snapshot_with_validation_deltas(
+                &outcomes,
+                std::slice::from_ref(&validation_delta),
+            )
+            .unwrap();
+
+        let loaded_history = store.load_history_snapshot().unwrap().unwrap();
+        assert!(loaded_history.node_to_lineage.is_empty());
+        assert!(loaded_history.events.is_empty());
+        assert_eq!(loaded_history.co_change_counts, history.co_change_counts);
+        assert_eq!(loaded_history.next_lineage, history.next_lineage);
+        assert_eq!(loaded_history.next_event, history.next_event);
+
+        let loaded_outcomes = store.load_outcome_snapshot().unwrap().unwrap();
+        assert!(loaded_outcomes.events.is_empty());
+        assert_eq!(
+            store.load_projection_snapshot().unwrap(),
+            Some(ProjectionSnapshot {
+                co_change_by_lineage: vec![(
+                    prism_ir::LineageId::new("lineage:10"),
+                    vec![CoChangeRecord {
+                        lineage: prism_ir::LineageId::new("lineage:20"),
+                        count: 2,
+                    }],
+                )],
+                validation_by_lineage: vec![(
+                    prism_ir::LineageId::new("lineage:10"),
+                    vec![ValidationCheck {
+                        label: "test:smoke".to_string(),
+                        score: 3.5,
+                        last_seen: 99,
+                    }],
+                )],
+            })
+        );
+
+        drop(store);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn sqlite_store_commits_auxiliary_batches_atomically() {
+        let path = std::env::temp_dir().join(format!(
+            "prism-store-aux-batch-test-{}.db",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let episodic = EpisodicMemorySnapshot {
+            entries: vec![MemoryEntry {
+                id: MemoryId("episodic:9".to_string()),
+                anchors: Vec::new(),
+                kind: MemoryKind::Episodic,
+                content: "remember this".to_string(),
+                metadata: serde_json::Value::Null,
+                created_at: 9,
+                source: MemorySource::Agent,
+                trust: 0.6,
+            }],
+        };
+        let inference = InferenceSnapshot {
+            records: vec![InferredEdgeRecord {
+                id: EdgeId("edge:9".to_string()),
+                edge: Edge {
+                    kind: EdgeKind::Calls,
+                    source: NodeId::new("demo", "demo::alpha", NodeKind::Function),
+                    target: NodeId::new("demo", "demo::beta", NodeKind::Function),
+                    origin: EdgeOrigin::Inferred,
+                    confidence: 0.7,
+                },
+                scope: InferredEdgeScope::Persisted,
+                task: None,
+                evidence: vec!["batched".to_string()],
+            }],
+        };
+        let outcome = OutcomeMemorySnapshot {
+            events: vec![prism_memory::OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new("outcome:batch"),
+                    ts: 11,
+                    actor: EventActor::Agent,
+                    correlation: None,
+                    causation: None,
+                },
+                anchors: Vec::new(),
+                kind: prism_memory::OutcomeKind::NoteAdded,
+                result: prism_memory::OutcomeResult::Success,
+                summary: "stored with note".to_string(),
+                evidence: Vec::new(),
+                metadata: serde_json::Value::Null,
+            }],
+        };
+
+        let mut store = SqliteStore::open(&path).unwrap();
+        store
+            .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+                outcome_snapshot: Some(outcome),
+                validation_deltas: vec![ValidationDelta {
+                    lineage: prism_ir::LineageId::new("lineage:10"),
+                    label: "test:smoke".to_string(),
+                    score_delta: 2.0,
+                    last_seen: 11,
+                }],
+                episodic_snapshot: Some(episodic.clone()),
+                inference_snapshot: Some(inference.clone()),
+                curator_snapshot: None,
+                coordination_snapshot: None,
+            })
+            .unwrap();
+
+        let loaded_outcomes = store.load_outcome_snapshot().unwrap().unwrap();
+        assert_eq!(loaded_outcomes.events.len(), 1);
+        assert_eq!(loaded_outcomes.events[0].summary, "stored with note");
+        assert_eq!(store.load_episodic_snapshot().unwrap(), Some(episodic));
+        assert_eq!(store.load_inference_snapshot().unwrap(), Some(inference));
+        assert_eq!(
+            store.load_projection_snapshot().unwrap(),
+            Some(ProjectionSnapshot {
+                co_change_by_lineage: Vec::new(),
+                validation_by_lineage: vec![(
+                    prism_ir::LineageId::new("lineage:10"),
+                    vec![ValidationCheck {
+                        label: "test:smoke".to_string(),
+                        score: 2.0,
+                        last_seen: 11,
+                    }],
+                )],
+            })
+        );
+
+        drop(store);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn sqlite_store_commits_index_batches_atomically() {
+        let path = std::env::temp_dir().join(format!(
+            "prism-store-batch-test-{}.db",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let source_path = PathBuf::from("src/lib.rs");
+        let mut graph = Graph::new();
+        graph.upsert_file(
+            &source_path,
+            1,
+            vec![node("alpha")],
+            Vec::new(),
+            HashMap::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+
+        let batch = IndexPersistBatch {
+            upserted_paths: vec![source_path.clone()],
+            removed_paths: Vec::new(),
+            history_snapshot: HistorySnapshot {
+                node_to_lineage: Vec::new(),
+                events: Vec::new(),
+                co_change_counts: Vec::new(),
+                next_lineage: 1,
+                next_event: 2,
+            },
+            outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+            co_change_deltas: vec![CoChangeDelta {
+                source_lineage: prism_ir::LineageId::new("lineage:1"),
+                target_lineage: prism_ir::LineageId::new("lineage:2"),
+                count_delta: 1,
+            }],
+            validation_deltas: vec![ValidationDelta {
+                lineage: prism_ir::LineageId::new("lineage:1"),
+                label: "test:smoke".to_string(),
+                score_delta: 1.5,
+                last_seen: 7,
+            }],
+            projection_snapshot: None,
+        };
+
+        let mut store = SqliteStore::open(&path).unwrap();
+        store.commit_index_persist_batch(&graph, &batch).unwrap();
+
+        let loaded_graph = store.load_graph().unwrap().unwrap();
+        assert!(loaded_graph.file_state(&source_path).is_some());
+        assert_eq!(
+            store.load_projection_snapshot().unwrap(),
+            Some(ProjectionSnapshot {
+                co_change_by_lineage: vec![(
+                    prism_ir::LineageId::new("lineage:1"),
+                    vec![CoChangeRecord {
+                        lineage: prism_ir::LineageId::new("lineage:2"),
+                        count: 1,
+                    }],
+                )],
+                validation_by_lineage: vec![(
+                    prism_ir::LineageId::new("lineage:1"),
+                    vec![ValidationCheck {
+                        label: "test:smoke".to_string(),
+                        score: 1.5,
+                        last_seen: 7,
+                    }],
+                )],
+            })
+        );
 
         drop(store);
         let _ = std::fs::remove_file(path);

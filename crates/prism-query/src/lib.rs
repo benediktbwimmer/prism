@@ -3,10 +3,15 @@ use std::fs;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 
+use prism_coordination::{
+    Artifact, CoordinationConflict, CoordinationStore, CoordinationTask, Plan, TaskBlocker,
+    WorkClaim,
+};
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
-    AnchorRef, Edge, EdgeKind, LineageEvent, LineageId, Node, NodeId, NodeKind, Skeleton, Subgraph,
-    TaskId,
+    AnchorRef, Capability, ClaimMode, CoordinationTaskId, Edge, EdgeKind, LineageEvent, LineageId,
+    Node, NodeId, NodeKind, PlanId, SessionId, Skeleton, Subgraph, TaskId, Timestamp,
+    WorkspaceRevision,
 };
 use prism_memory::{OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot, TaskReplay};
 use prism_projections::{CoChangeRecord, ProjectionIndex, ProjectionSnapshot};
@@ -17,6 +22,7 @@ pub struct Prism {
     graph: Arc<Graph>,
     history: Arc<HistoryStore>,
     outcomes: Arc<OutcomeMemory>,
+    coordination: Arc<CoordinationStore>,
     projections: RwLock<ProjectionIndex>,
 }
 
@@ -83,7 +89,13 @@ impl Prism {
         outcomes: OutcomeMemory,
     ) -> Self {
         let projections = ProjectionIndex::derive(&history.snapshot(), &outcomes.snapshot());
-        Self::with_history_outcomes_and_projections(graph, history, outcomes, projections)
+        Self::with_history_outcomes_coordination_and_projections(
+            graph,
+            history,
+            outcomes,
+            CoordinationStore::new(),
+            projections,
+        )
     }
 
     pub fn with_history_outcomes_and_projections(
@@ -92,10 +104,27 @@ impl Prism {
         outcomes: OutcomeMemory,
         projections: ProjectionIndex,
     ) -> Self {
+        Self::with_history_outcomes_coordination_and_projections(
+            graph,
+            history,
+            outcomes,
+            CoordinationStore::new(),
+            projections,
+        )
+    }
+
+    pub fn with_history_outcomes_coordination_and_projections(
+        graph: Graph,
+        history: HistoryStore,
+        outcomes: OutcomeMemory,
+        coordination: CoordinationStore,
+        projections: ProjectionIndex,
+    ) -> Self {
         Self {
             graph: Arc::new(graph),
             history: Arc::new(history),
             outcomes: Arc::new(outcomes),
+            coordination: Arc::new(coordination),
             projections: RwLock::new(projections),
         }
     }
@@ -114,6 +143,10 @@ impl Prism {
 
     pub fn outcome_memory(&self) -> Arc<OutcomeMemory> {
         Arc::clone(&self.outcomes)
+    }
+
+    pub fn coordination(&self) -> Arc<CoordinationStore> {
+        Arc::clone(&self.coordination)
     }
 
     pub fn anchors_for(&self, anchors: &[AnchorRef]) -> Vec<AnchorRef> {
@@ -218,6 +251,70 @@ impl Prism {
 
     pub fn resume_task(&self, task: &TaskId) -> TaskReplay {
         self.outcomes.resume_task(task)
+    }
+
+    pub fn workspace_revision(&self) -> WorkspaceRevision {
+        WorkspaceRevision {
+            graph_version: self.history_snapshot().events.len() as u64,
+            git_commit: None,
+        }
+    }
+
+    pub fn coordination_plan(&self, plan_id: &PlanId) -> Option<Plan> {
+        self.coordination.plan(plan_id)
+    }
+
+    pub fn coordination_task(&self, task_id: &CoordinationTaskId) -> Option<CoordinationTask> {
+        self.coordination.task(task_id)
+    }
+
+    pub fn ready_tasks(&self, plan_id: &PlanId) -> Vec<CoordinationTask> {
+        self.coordination
+            .ready_tasks(plan_id, self.workspace_revision())
+    }
+
+    pub fn claims(&self, anchors: &[AnchorRef], now: Timestamp) -> Vec<WorkClaim> {
+        let anchors = self.expand_anchors(anchors);
+        self.coordination.claims_for_anchor(&anchors, now)
+    }
+
+    pub fn conflicts(&self, anchors: &[AnchorRef], now: Timestamp) -> Vec<CoordinationConflict> {
+        let anchors = self.expand_anchors(anchors);
+        self.coordination.conflicts_for_anchor(&anchors, now)
+    }
+
+    pub fn blockers(&self, task_id: &CoordinationTaskId, now: Timestamp) -> Vec<TaskBlocker> {
+        self.coordination
+            .blockers(task_id, self.workspace_revision(), now)
+    }
+
+    pub fn pending_reviews(&self, plan_id: Option<&PlanId>) -> Vec<Artifact> {
+        self.coordination.pending_reviews(plan_id)
+    }
+
+    pub fn artifacts(&self, task_id: &CoordinationTaskId) -> Vec<Artifact> {
+        self.coordination.artifacts(task_id)
+    }
+
+    pub fn simulate_claim(
+        &self,
+        session_id: &SessionId,
+        anchors: &[AnchorRef],
+        capability: Capability,
+        mode: ClaimMode,
+        task_id: Option<&CoordinationTaskId>,
+        now: Timestamp,
+    ) -> Vec<CoordinationConflict> {
+        let anchors = self.expand_anchors(anchors);
+        self.coordination.simulate_claim(
+            session_id,
+            &anchors,
+            capability,
+            mode,
+            task_id,
+            self.workspace_revision(),
+            now,
+        )
     }
 
     pub fn co_change_neighbors(&self, node: &NodeId, limit: usize) -> Vec<CoChange> {

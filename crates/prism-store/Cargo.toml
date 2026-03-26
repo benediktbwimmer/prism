@@ -7,6 +7,8 @@ license.workspace = true
 [dependencies]
 anyhow.workspace = true
 prism-agent = { path = "../prism-agent" }
+prism-coordination = { path = "../prism-coordination" }
+prism-curator = { path = "../prism-curator" }
 prism-history = { path = "../prism-history" }
 prism-memory = { path = "../prism-memory" }
 prism-parser = { path = "../prism-parser" }

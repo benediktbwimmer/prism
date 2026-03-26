@@ -1,4 +1,8 @@
-use prism_ir::{AnchorRef, EdgeKind, EdgeOrigin, Language, NodeKind, Span};
+use prism_coordination::BlockerKind;
+use prism_ir::{
+    AnchorRef, ArtifactStatus, Capability, ClaimMode, ClaimStatus, ConflictSeverity,
+    CoordinationTaskStatus, EdgeKind, EdgeOrigin, Language, NodeKind, PlanStatus, Span,
+};
 use prism_memory::OutcomeEvent;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -122,6 +126,78 @@ pub struct ValidationRecipeView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct WorkspaceRevisionView {
+    pub graph_version: u64,
+    pub git_commit: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanView {
+    pub id: String,
+    pub goal: String,
+    pub status: PlanStatus,
+    pub root_task_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CoordinationTaskView {
+    pub id: String,
+    pub plan_id: String,
+    pub title: String,
+    pub status: CoordinationTaskStatus,
+    pub assignee: Option<String>,
+    pub anchors: Vec<AnchorRef>,
+    pub depends_on: Vec<String>,
+    pub base_revision: WorkspaceRevisionView,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaimView {
+    pub id: String,
+    pub holder: String,
+    pub task_id: Option<String>,
+    pub capability: Capability,
+    pub mode: ClaimMode,
+    pub status: ClaimStatus,
+    pub anchors: Vec<AnchorRef>,
+    pub expires_at: u64,
+    pub base_revision: WorkspaceRevisionView,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConflictView {
+    pub severity: ConflictSeverity,
+    pub summary: String,
+    pub anchors: Vec<AnchorRef>,
+    pub blocking_claim_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockerView {
+    pub kind: BlockerKind,
+    pub summary: String,
+    pub related_task_id: Option<String>,
+    pub related_artifact_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtifactView {
+    pub id: String,
+    pub task_id: String,
+    pub status: ArtifactStatus,
+    pub anchors: Vec<AnchorRef>,
+    pub base_revision: WorkspaceRevisionView,
+    pub diff_ref: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MemoryEntryView {
     pub id: String,
     pub anchors: Vec<AnchorRef>,
@@ -141,6 +217,35 @@ pub struct ScoredMemoryView {
     pub score: f32,
     pub source_module: String,
     pub explanation: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CuratorProposalView {
+    pub index: usize,
+    pub kind: String,
+    pub disposition: String,
+    pub payload: Value,
+    pub decided_at: Option<u64>,
+    pub task_id: Option<String>,
+    pub note: Option<String>,
+    pub output: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CuratorJobView {
+    pub id: String,
+    pub trigger: String,
+    pub status: String,
+    pub task_id: Option<String>,
+    pub focus: Vec<AnchorRef>,
+    pub created_at: u64,
+    pub started_at: Option<u64>,
+    pub finished_at: Option<u64>,
+    pub proposals: Vec<CuratorProposalView>,
+    pub diagnostics: Vec<QueryDiagnostic>,
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -216,11 +321,31 @@ type MemoryRecallOptions = {
   limit?: number;
 };
 
+type CuratorJobQueryOptions = {
+  status?: string;
+  trigger?: string;
+  limit?: number;
+};
+
 type PrismApi = {
   symbol(query: string): SymbolView | null;
   symbols(query: string): SymbolView[];
   search(query: string, options?: SearchOptions): SymbolView[];
   entrypoints(): SymbolView[];
+  plan(planId: string): PlanView | null;
+  task(taskId: string): CoordinationTaskView | null;
+  readyTasks(planId: string): CoordinationTaskView[];
+  claims(target: SymbolView | NodeId | AnchorRef | Array<SymbolView | NodeId | AnchorRef>): ClaimView[];
+  conflicts(target: SymbolView | NodeId | AnchorRef | Array<SymbolView | NodeId | AnchorRef>): ConflictView[];
+  blockers(taskId: string): BlockerView[];
+  pendingReviews(planId?: string): ArtifactView[];
+  artifacts(taskId: string): ArtifactView[];
+  simulateClaim(input: {
+    anchors: Array<SymbolView | NodeId | AnchorRef>;
+    capability: string;
+    mode?: string;
+    taskId?: string;
+  }): ConflictView[];
   lineage(target: SymbolView | NodeId): LineageView | null;
   coChangeNeighbors(target: SymbolView | NodeId): CoChangeView[];
   relatedFailures(target: SymbolView | NodeId): OutcomeEvent[];
@@ -229,6 +354,10 @@ type PrismApi = {
   resumeTask(taskId: string): TaskReplay;
   memory: {
     recall(options?: MemoryRecallOptions): ScoredMemoryView[];
+  };
+  curator: {
+    jobs(options?: CuratorJobQueryOptions): CuratorJobView[];
+    job(id: string): CuratorJobView | null;
   };
   diagnostics(): QueryDiagnostic[];
 };
@@ -346,6 +475,89 @@ type AnchorRef =
 type TaskReplay = {
   task: string;
   events: OutcomeEvent[];
+};
+
+type WorkspaceRevisionView = {
+  graphVersion: number;
+  gitCommit?: string;
+};
+
+type PlanView = {
+  id: string;
+  goal: string;
+  status: string;
+  rootTaskIds: string[];
+};
+
+type CoordinationTaskView = {
+  id: string;
+  planId: string;
+  title: string;
+  status: string;
+  assignee?: string;
+  anchors: AnchorRef[];
+  dependsOn: string[];
+  baseRevision: WorkspaceRevisionView;
+};
+
+type ClaimView = {
+  id: string;
+  holder: string;
+  taskId?: string;
+  capability: string;
+  mode: string;
+  status: string;
+  anchors: AnchorRef[];
+  expiresAt: number;
+  baseRevision: WorkspaceRevisionView;
+};
+
+type ConflictView = {
+  severity: string;
+  summary: string;
+  anchors: AnchorRef[];
+  blockingClaimIds: string[];
+};
+
+type BlockerView = {
+  kind: string;
+  summary: string;
+  relatedTaskId?: string;
+  relatedArtifactId?: string;
+};
+
+type ArtifactView = {
+  id: string;
+  taskId: string;
+  status: string;
+  anchors: AnchorRef[];
+  baseRevision: WorkspaceRevisionView;
+  diffRef?: string;
+};
+
+type CuratorProposalView = {
+  index: number;
+  kind: string;
+  disposition: "pending" | "applied" | "rejected";
+  payload: unknown;
+  decidedAt?: number;
+  taskId?: string;
+  note?: string;
+  output?: string;
+};
+
+type CuratorJobView = {
+  id: string;
+  trigger: string;
+  status: "queued" | "running" | "completed" | "failed" | "skipped";
+  taskId?: string;
+  focus: AnchorRef[];
+  createdAt: number;
+  startedAt?: number;
+  finishedAt?: number;
+  proposals: CuratorProposalView[];
+  diagnostics: QueryDiagnostic[];
+  error?: string;
 };
 ```
 
@@ -502,10 +714,58 @@ return prism.memory.recall({
 });
 ```
 
+### 16. Inspect recent curator proposals through `prism_query`
+
+```ts
+return prism.curator.jobs({ status: "completed", limit: 5 }).map((job) => ({
+  id: job.id,
+  trigger: job.trigger,
+  proposals: job.proposals.map((proposal) => ({
+    kind: proposal.kind,
+    disposition: proposal.disposition,
+  })),
+}));
+```
+
+### 17. Fetch one curator job and keep only pending inferred-edge proposals
+
+```ts
+const job = prism.curator.job("curator:1");
+return job?.proposals.filter(
+  (proposal) => proposal.kind === "inferred_edge" && proposal.disposition === "pending"
+);
+```
+
+### 18. See who is already working in an area
+
+```ts
+const sym = prism.symbol("handle_request");
+return sym ? prism.claims(sym) : [];
+```
+
+### 19. Ask PRISM for blockers on a coordination task
+
+```ts
+return prism.blockers("coord-task:12");
+```
+
+### 20. Simulate an edit claim before taking it
+
+```ts
+const sym = prism.symbol("handle_request");
+return prism.simulateClaim({
+  anchors: sym ? [sym] : [],
+  capability: "Edit",
+  mode: "SoftExclusive",
+});
+```
+
 ## Current implementation surface
 
 - Available now: symbol lookup, search, entrypoints, relations, call graphs, source extraction, lineage history, related failures, blast radius, and task replay by id.
 - Available now: session/workspace episodic memory recall for notes recorded through `prism_note`.
+- Available now: workspace-backed curator job inspection through `prism.curator.jobs()` and `prism.curator.job()`.
+- Available now: coordination plans, tasks, claims, conflicts, blockers, review queues, and claim simulation.
 - Keep query logic small. If you find yourself reconstructing semantics from raw low-level fields every time, that method probably belongs in Prism itself.
 
 ## Separate mutation tools
@@ -516,6 +776,11 @@ The query runtime is read-only. State changes happen through separate MCP tools:
 - `prism_outcome`
 - `prism_note`
 - `prism_infer_edge`
+- `prism_coordination`
+- `prism_claim`
+- `prism_artifact`
+- `prism_curator_promote_edge`
+- `prism_curator_reject_proposal`
 - `prism_test_ran`
 - `prism_failure_observed`
 - `prism_fix_validated`
@@ -625,6 +890,54 @@ function __prismNormalizeFocus(values) {
     .filter((value) => value != null);
 }
 
+function __prismNormalizeAnchor(value) {
+  if (value == null) {
+    return null;
+  }
+  if (typeof value === "object" && value.id != null) {
+    return {
+      type: "node",
+      crateName: value.id.crateName,
+      path: value.id.path,
+      kind: value.id.kind,
+    };
+  }
+  if (typeof value === "object" && value.crateName != null && value.path != null) {
+    return {
+      type: "node",
+      crateName: value.crateName,
+      path: value.path,
+      kind: value.kind,
+    };
+  }
+  if (typeof value === "object" && value.Node != null) {
+    return {
+      type: "node",
+      crateName: value.Node.crateName,
+      path: value.Node.path,
+      kind: value.Node.kind,
+    };
+  }
+  if (typeof value === "object" && value.Lineage != null) {
+    return { type: "lineage", lineageId: value.Lineage };
+  }
+  if (typeof value === "object" && value.File != null) {
+    return { type: "file", fileId: value.File };
+  }
+  if (typeof value === "object" && value.Kind != null) {
+    return { type: "kind", kind: value.Kind };
+  }
+  if (typeof value === "object" && typeof value.type === "string") {
+    return value;
+  }
+  return null;
+}
+
+function __prismNormalizeAnchors(values) {
+  const list = Array.isArray(values) ? values : [values];
+  return list.map(__prismNormalizeAnchor).filter((value) => value != null);
+}
+
 function __prismCleanupGlobals() {
   for (const name of Object.getOwnPropertyNames(globalThis)) {
     if (__prismBaselineGlobals.includes(name)) {
@@ -651,6 +964,38 @@ globalThis.prism = Object.freeze({
   },
   entrypoints() {
     return __prismEnrichSymbols(__prismHost("entrypoints", {}));
+  },
+  plan(planId) {
+    return __prismHost("plan", { plan_id: planId });
+  },
+  task(taskId) {
+    return __prismHost("coordinationTask", { task_id: taskId });
+  },
+  readyTasks(planId) {
+    return __prismHost("readyTasks", { plan_id: planId });
+  },
+  claims(target) {
+    return __prismHost("claims", { anchors: __prismNormalizeAnchors(target) });
+  },
+  conflicts(target) {
+    return __prismHost("conflicts", { anchors: __prismNormalizeAnchors(target) });
+  },
+  blockers(taskId) {
+    return __prismHost("blockers", { task_id: taskId });
+  },
+  pendingReviews(planId) {
+    return __prismHost("pendingReviews", planId == null ? {} : { plan_id: planId });
+  },
+  artifacts(taskId) {
+    return __prismHost("artifacts", { task_id: taskId });
+  },
+  simulateClaim(input) {
+    return __prismHost("simulateClaim", {
+      anchors: __prismNormalizeAnchors(input?.anchors ?? input?.anchor ?? []),
+      capability: input?.capability,
+      mode: input?.mode,
+      task_id: input?.taskId ?? input?.task_id,
+    });
   },
   lineage(target) {
     const id = __prismNormalizeTarget(target);
@@ -699,6 +1044,17 @@ globalThis.prism = Object.freeze({
       });
     },
   }),
+  curator: Object.freeze({
+    jobs(options = {}) {
+      return __prismHost("curatorJobs", options);
+    },
+    job(id) {
+      if (typeof id !== "string" || id.length === 0) {
+        return null;
+      }
+      return __prismHost("curatorJob", { job_id: id });
+    },
+  }),
   diagnostics() {
     return __prismHost("diagnostics", {});
   },
@@ -723,6 +1079,8 @@ mod tests {
         assert!(docs.contains("coChangeNeighbors"));
         assert!(docs.contains("validationRecipe"));
         assert!(docs.contains("prism.memory.recall"));
+        assert!(docs.contains("prism.curator.jobs"));
+        assert!(docs.contains("prism_curator_promote_edge"));
         assert!(docs.contains("prism_symbol"));
         assert!(docs.contains("prism_search"));
     }
@@ -732,6 +1090,7 @@ mod tests {
         let prelude = runtime_prelude();
         assert!(prelude.contains("globalThis.prism"));
         assert!(prelude.contains("__prismHostCall"));
+        assert!(prelude.contains("curator: Object.freeze"));
         assert!(prelude.contains("__prismCleanupGlobals"));
     }
 }

@@ -1,12 +1,11 @@
 [package]
-name = "prism-js"
+name = "prism-coordination"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
-prism-coordination = { path = "../prism-coordination" }
+anyhow.workspace = true
 prism-ir = { path = "../prism-ir" }
-prism-memory = { path = "../prism-memory" }
 serde.workspace = true
 serde_json.workspace = true

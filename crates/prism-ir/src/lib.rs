@@ -115,7 +115,7 @@ impl fmt::Display for NodeId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct LineageId(pub SmolStr);
 
 impl LineageId {
@@ -124,7 +124,7 @@ impl LineageId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct EventId(pub SmolStr);
 
 impl EventId {
@@ -133,13 +133,170 @@ impl EventId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct TaskId(pub SmolStr);
 
 impl TaskId {
     pub fn new(value: impl Into<SmolStr>) -> Self {
         Self(value.into())
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct AgentId(pub SmolStr);
+
+impl AgentId {
+    pub fn new(value: impl Into<SmolStr>) -> Self {
+        Self(value.into())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct SessionId(pub SmolStr);
+
+impl SessionId {
+    pub fn new(value: impl Into<SmolStr>) -> Self {
+        Self(value.into())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct PlanId(pub SmolStr);
+
+impl PlanId {
+    pub fn new(value: impl Into<SmolStr>) -> Self {
+        Self(value.into())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct CoordinationTaskId(pub SmolStr);
+
+impl CoordinationTaskId {
+    pub fn new(value: impl Into<SmolStr>) -> Self {
+        Self(value.into())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct ClaimId(pub SmolStr);
+
+impl ClaimId {
+    pub fn new(value: impl Into<SmolStr>) -> Self {
+        Self(value.into())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct ArtifactId(pub SmolStr);
+
+impl ArtifactId {
+    pub fn new(value: impl Into<SmolStr>) -> Self {
+        Self(value.into())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct ReviewId(pub SmolStr);
+
+impl ReviewId {
+    pub fn new(value: impl Into<SmolStr>) -> Self {
+        Self(value.into())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct WorkspaceRevision {
+    pub graph_version: u64,
+    pub git_commit: Option<SmolStr>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PlanStatus {
+    Draft,
+    Active,
+    Blocked,
+    Completed,
+    Abandoned,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CoordinationTaskStatus {
+    Proposed,
+    Ready,
+    InProgress,
+    Blocked,
+    InReview,
+    Validating,
+    Completed,
+    Abandoned,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ClaimMode {
+    Advisory,
+    SoftExclusive,
+    HardExclusive,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Capability {
+    Observe,
+    Edit,
+    Review,
+    Validate,
+    Merge,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ClaimStatus {
+    Active,
+    Released,
+    Expired,
+    Contended,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ConflictSeverity {
+    Info,
+    Warn,
+    Block,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ArtifactStatus {
+    Proposed,
+    InReview,
+    Approved,
+    Rejected,
+    Superseded,
+    Merged,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ReviewVerdict {
+    Approved,
+    ChangesRequested,
+    Rejected,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CoordinationEventKind {
+    PlanCreated,
+    TaskCreated,
+    TaskAssigned,
+    TaskStatusChanged,
+    TaskBlocked,
+    TaskUnblocked,
+    ClaimAcquired,
+    ClaimRenewed,
+    ClaimReleased,
+    ClaimContended,
+    ArtifactProposed,
+    ArtifactReviewed,
+    ArtifactSuperseded,
+    HandoffRequested,
+    HandoffAccepted,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
