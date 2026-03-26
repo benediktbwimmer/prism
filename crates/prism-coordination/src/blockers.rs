@@ -241,6 +241,7 @@ impl CoordinationStore {
                 .get(&task.plan)
                 .map(|plan| plan.policy.default_claim_mode)
                 .unwrap_or(ClaimMode::SoftExclusive),
+            state.plans.get(&task.plan).map(|plan| &plan.policy),
             Some(&task.id),
             task.base_revision.clone(),
             task.session

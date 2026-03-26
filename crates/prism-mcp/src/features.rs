@@ -102,6 +102,7 @@ impl PrismMcpFeatures {
             | "coordinationTask"
             | "readyTasks"
             | "blockers"
+            | "policyViolations"
             | "taskBlastRadius"
             | "taskValidationRecipe"
             | "taskRisk"

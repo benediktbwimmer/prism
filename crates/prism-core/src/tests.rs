@@ -474,6 +474,7 @@ fn workspace_session_can_disable_coordination_entirely() {
                 },
                 PlanCreateInput {
                     goal: "Coordinate alpha".into(),
+                    status: None,
                     policy: Default::default(),
                 },
             )?;

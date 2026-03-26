@@ -97,6 +97,15 @@ impl Prism {
         self.coordination.artifacts(task_id)
     }
 
+    pub fn policy_violations(
+        &self,
+        plan_id: Option<&PlanId>,
+        task_id: Option<&CoordinationTaskId>,
+        limit: usize,
+    ) -> Vec<prism_coordination::PolicyViolationRecord> {
+        self.coordination.policy_violations(plan_id, task_id, limit)
+    }
+
     pub fn simulate_claim(
         &self,
         session_id: &SessionId,

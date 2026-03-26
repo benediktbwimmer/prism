@@ -206,6 +206,13 @@ globalThis.prism = Object.freeze({
   artifacts(taskId) {
     return __prismHost("artifacts", { taskId });
   },
+  policyViolations(input = {}) {
+    return __prismHost("policyViolations", {
+      planId: input?.planId ?? input?.plan_id,
+      taskId: input?.taskId ?? input?.task_id,
+      limit: input?.limit,
+    });
+  },
   taskBlastRadius(taskId) {
     return __prismHost("taskBlastRadius", { taskId });
   },

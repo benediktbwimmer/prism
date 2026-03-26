@@ -209,9 +209,9 @@ impl PrismMcpServer {
     }
 
     #[tool(
-        description = "Store an agent note anchored to nodes or lineages.",
+        description = "Write anchored memory through a coarse action-based mutation tool.",
         annotations(
-            title = "Store Agent Note",
+            title = "Mutate PRISM Memory",
             read_only_hint = false,
             destructive_hint = false,
             idempotent_hint = false
@@ -219,11 +219,11 @@ impl PrismMcpServer {
         output_schema = rmcp::handler::server::tool::schema_for_output::<MemoryMutationResult>()
             .unwrap()
     )]
-    fn prism_note(
+    fn prism_memory(
         &self,
-        Parameters(args): Parameters<PrismNoteArgs>,
+        Parameters(args): Parameters<PrismMemoryArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let result = self.host.store_note(args).map_err(map_query_error)?;
+        let result = self.host.store_memory(args).map_err(map_query_error)?;
         structured_tool_result_with_links(
             result.clone(),
             vec![
@@ -909,7 +909,7 @@ impl ServerHandler for PrismMcpServer {
 impl PrismMcpServer {
     fn server_instructions(&self) -> String {
         let mut instructions = String::from(
-            "Start with prism://api-reference for the typed query contract and prism://schemas for the JSON Schema catalog. Use prism_get_session or prism://session to inspect the active workspace, task, runtime limits, and active feature flags, prism_configure_session to change task context or limits, prism_query for programmable read-only graph queries, prism_symbol or prism_search for direct lookups, prism://entrypoints for a quick workspace overview, prism://search/{query} for browseable search results, prism://symbol/{crateName}/{kind}/{path} for exact symbol snapshots, prism://lineage/{lineageId} for symbol history, prism://task/{taskId} for recorded task outcomes, prism://event/{eventId}, prism://memory/{memoryId}, and prism://edge/{edgeId} for mutation outputs. Follow each resource payload's schemaUri and relatedResources fields instead of reconstructing URIs by convention. Use the available prism_* mutation tools to record outcomes, notes, inferred edges, task context, and curator proposal decisions.",
+            "Start with prism://api-reference for the typed query contract and prism://schemas for the JSON Schema catalog. Use prism_get_session or prism://session to inspect the active workspace, task, runtime limits, and active feature flags, prism_configure_session to change task context or limits, prism_query for programmable read-only graph queries, prism_symbol or prism_search for direct lookups, prism://entrypoints for a quick workspace overview, prism://search/{query} for browseable search results, prism://symbol/{crateName}/{kind}/{path} for exact symbol snapshots, prism://lineage/{lineageId} for symbol history, prism://task/{taskId} for recorded task outcomes, prism://event/{eventId}, prism://memory/{memoryId}, and prism://edge/{edgeId} for mutation outputs. Follow each resource payload's schemaUri and relatedResources fields instead of reconstructing URIs by convention. Use the available prism_* mutation tools to record outcomes, anchored memory, inferred edges, task context, and curator proposal decisions.",
         );
 
         if self.host.features.mode_label() != "full" {

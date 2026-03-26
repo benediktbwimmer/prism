@@ -17,8 +17,9 @@ use crate::state::CoordinationState;
 use crate::state::CoordinationStore;
 use crate::types::{
     Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
-    ClaimAcquireInput, CoordinationEvent, CoordinationTask, HandoffInput, Plan, PlanCreateInput,
-    PlanUpdateInput, PolicyViolation, PolicyViolationCode, TaskUpdateInput, WorkClaim,
+    ClaimAcquireInput, CoordinationEvent, CoordinationTask, HandoffAcceptInput, HandoffInput, Plan,
+    PlanCreateInput, PlanUpdateInput, PolicyViolation, PolicyViolationCode, TaskUpdateInput,
+    WorkClaim,
 };
 
 fn rejection_error(
@@ -64,7 +65,7 @@ impl CoordinationStore {
         let plan = Plan {
             id: id.clone(),
             goal: input.goal.clone(),
-            status: PlanStatus::Active,
+            status: input.status.unwrap_or(PlanStatus::Active),
             policy: input.policy.unwrap_or_default(),
             root_tasks: Vec::new(),
         };
@@ -336,6 +337,7 @@ impl CoordinationStore {
             title: input.title.clone(),
             status: input.status.unwrap_or(CoordinationTaskStatus::Ready),
             assignee: input.assignee,
+            pending_handoff_to: None,
             session: input.session,
             anchors: dedupe_anchors(input.anchors),
             depends_on: dedupe_ids(input.depends_on),
@@ -524,6 +526,36 @@ impl CoordinationStore {
                     PolicyViolationCode::TerminalTaskEdit,
                     format!(
                         "terminal coordination task `{}` cannot be edited",
+                        previous.id.0
+                    ),
+                    Some(previous.plan.clone()),
+                    Some(previous.id.clone()),
+                    None,
+                    None,
+                    Value::Null,
+                )];
+                return Err(rejection_error(
+                    &mut state,
+                    &meta,
+                    "coordination task update rejected",
+                    Some(previous.plan.clone()),
+                    Some(previous.id.clone()),
+                    None,
+                    None,
+                    violations,
+                ));
+            }
+            if previous.pending_handoff_to.is_some()
+                && (input.title.is_some()
+                    || input.anchors.is_some()
+                    || input.assignee.is_some()
+                    || input.session.is_some()
+                    || input.status.is_some())
+            {
+                let violations = vec![policy_violation(
+                    PolicyViolationCode::HandoffPending,
+                    format!(
+                        "coordination task `{}` has a pending handoff and cannot be updated until it is accepted",
                         previous.id.0
                     ),
                     Some(previous.plan.clone()),
@@ -741,9 +773,15 @@ impl CoordinationStore {
             .get_mut(&input.task_id)
             .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
         let target_agent = input.to_agent.clone();
-        task.assignee = target_agent.clone();
-        task.session = None;
-        task.status = CoordinationTaskStatus::Ready;
+        if let Some(agent) = target_agent.clone() {
+            task.pending_handoff_to = Some(agent.clone());
+            task.status = CoordinationTaskStatus::Blocked;
+        } else {
+            task.assignee = None;
+            task.session = None;
+            task.status = CoordinationTaskStatus::Ready;
+            task.pending_handoff_to = None;
+        }
         task.base_revision = input.base_revision.clone();
         let task = task.clone();
         state.events.push(CoordinationEvent {
@@ -759,16 +797,124 @@ impl CoordinationStore {
                 "to_agent": target_agent.map(|agent| agent.0.to_string())
             }),
         });
+        Ok(task)
+    }
+
+    pub fn accept_handoff(
+        &self,
+        meta: EventMeta,
+        input: HandoffAcceptInput,
+    ) -> Result<CoordinationTask> {
+        let mut state = self
+            .state
+            .write()
+            .expect("coordination store lock poisoned");
+        let previous = state
+            .tasks
+            .get(&input.task_id)
+            .cloned()
+            .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
+        let Some(plan) = state.plans.get(&previous.plan).cloned() else {
+            return Err(anyhow!("unknown plan `{}`", previous.plan.0));
+        };
+        if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
+            let violations = vec![policy_violation(
+                PolicyViolationCode::PlanClosed,
+                format!(
+                    "coordination plan `{}` is {:?} and cannot accept handoffs",
+                    plan.id.0, plan.status
+                ),
+                Some(plan.id.clone()),
+                Some(previous.id.clone()),
+                None,
+                None,
+                Value::Null,
+            )];
+            return Err(rejection_error(
+                &mut state,
+                &meta,
+                "handoff acceptance rejected",
+                Some(plan.id),
+                Some(previous.id),
+                None,
+                None,
+                violations,
+            ));
+        }
+        let Some(target) = previous.pending_handoff_to.clone() else {
+            let violations = vec![policy_violation(
+                PolicyViolationCode::HandoffPending,
+                format!(
+                    "coordination task `{}` does not have a pending handoff",
+                    previous.id.0
+                ),
+                Some(previous.plan.clone()),
+                Some(previous.id.clone()),
+                None,
+                None,
+                Value::Null,
+            )];
+            return Err(rejection_error(
+                &mut state,
+                &meta,
+                "handoff acceptance rejected",
+                Some(previous.plan),
+                Some(previous.id),
+                None,
+                None,
+                violations,
+            ));
+        };
+        if input.agent.as_ref().is_some_and(|agent| *agent != target) {
+            let violations = vec![policy_violation(
+                PolicyViolationCode::HandoffTargetMismatch,
+                format!(
+                    "handoff for task `{}` is assigned to `{}` and cannot be accepted by `{}`",
+                    previous.id.0,
+                    target.0,
+                    input.agent.as_ref().expect("checked above").0
+                ),
+                Some(previous.plan.clone()),
+                Some(previous.id.clone()),
+                None,
+                None,
+                json!({
+                    "expectedAgent": target.0,
+                    "providedAgent": input.agent.as_ref().map(|agent| agent.0.to_string()),
+                }),
+            )];
+            return Err(rejection_error(
+                &mut state,
+                &meta,
+                "handoff acceptance rejected",
+                Some(previous.plan),
+                Some(previous.id),
+                None,
+                None,
+                violations,
+            ));
+        }
+        let task = state
+            .tasks
+            .get_mut(&input.task_id)
+            .expect("task validated above");
+        task.assignee = Some(target.clone());
+        task.pending_handoff_to = None;
+        task.session = None;
+        task.status = CoordinationTaskStatus::Ready;
+        let task = task.clone();
         state.events.push(CoordinationEvent {
             meta: derived_event_meta(&meta, "accepted"),
             kind: CoordinationEventKind::HandoffAccepted,
-            summary: input.summary,
+            summary: format!("handoff accepted by `{}`", target.0),
             plan: Some(task.plan.clone()),
             task: Some(task.id.clone()),
             claim: None,
             artifact: None,
             review: None,
-            metadata: Value::Null,
+            metadata: json!({
+                "agent": target.0.to_string(),
+            }),
         });
         Ok(task)
     }
@@ -865,6 +1011,7 @@ impl CoordinationStore {
             &anchors,
             input.capability,
             mode,
+            policy,
             input.task_id.as_ref(),
             input.base_revision.clone(),
             &session_id,
@@ -983,6 +1130,7 @@ impl CoordinationStore {
     pub fn renew_claim(
         &self,
         meta: EventMeta,
+        session_id: &SessionId,
         claim_id: &ClaimId,
         ttl_seconds: Option<u64>,
     ) -> Result<WorkClaim> {
@@ -991,13 +1139,47 @@ impl CoordinationStore {
             .write()
             .expect("coordination store lock poisoned");
         expire_claims_locked(&mut state, meta.ts);
+        let claim_snapshot = state
+            .claims
+            .get(claim_id)
+            .cloned()
+            .ok_or_else(|| anyhow!("unknown claim `{}`", claim_id.0))?;
+        let claim_plan_id = claim_snapshot
+            .task
+            .as_ref()
+            .and_then(|task_id| state.tasks.get(task_id))
+            .map(|task| task.plan.clone());
+        if &claim_snapshot.holder != session_id {
+            let violations = vec![policy_violation(
+                PolicyViolationCode::ClaimNotOwned,
+                format!(
+                    "claim `{}` is held by `{}` and cannot be renewed by `{}`",
+                    claim_id.0, claim_snapshot.holder.0, session_id.0
+                ),
+                claim_plan_id.clone(),
+                claim_snapshot.task.clone(),
+                Some(claim_snapshot.id.clone()),
+                None,
+                Value::Null,
+            )];
+            return Err(rejection_error(
+                &mut state,
+                &meta,
+                "claim renewal rejected",
+                claim_plan_id,
+                claim_snapshot.task.clone(),
+                Some(claim_snapshot.id.clone()),
+                None,
+                violations,
+            ));
+        }
+        if claim_snapshot.status == prism_ir::ClaimStatus::Expired {
+            return Err(anyhow!("claim `{}` has expired", claim_id.0));
+        }
         let claim = state
             .claims
             .get_mut(claim_id)
             .ok_or_else(|| anyhow!("unknown claim `{}`", claim_id.0))?;
-        if claim.status == prism_ir::ClaimStatus::Expired {
-            return Err(anyhow!("claim `{}` has expired", claim_id.0));
-        }
         claim.expires_at = meta.ts.saturating_add(ttl_seconds.unwrap_or(900));
         claim.status = prism_ir::ClaimStatus::Active;
         let claim = claim.clone();
@@ -1015,19 +1197,58 @@ impl CoordinationStore {
         Ok(claim)
     }
 
-    pub fn release_claim(&self, meta: EventMeta, claim_id: &ClaimId) -> Result<WorkClaim> {
+    pub fn release_claim(
+        &self,
+        meta: EventMeta,
+        session_id: &SessionId,
+        claim_id: &ClaimId,
+    ) -> Result<WorkClaim> {
         let mut state = self
             .state
             .write()
             .expect("coordination store lock poisoned");
         expire_claims_locked(&mut state, meta.ts);
+        let claim_snapshot = state
+            .claims
+            .get(claim_id)
+            .cloned()
+            .ok_or_else(|| anyhow!("unknown claim `{}`", claim_id.0))?;
+        let claim_plan_id = claim_snapshot
+            .task
+            .as_ref()
+            .and_then(|task_id| state.tasks.get(task_id))
+            .map(|task| task.plan.clone());
+        if &claim_snapshot.holder != session_id {
+            let violations = vec![policy_violation(
+                PolicyViolationCode::ClaimNotOwned,
+                format!(
+                    "claim `{}` is held by `{}` and cannot be released by `{}`",
+                    claim_id.0, claim_snapshot.holder.0, session_id.0
+                ),
+                claim_plan_id.clone(),
+                claim_snapshot.task.clone(),
+                Some(claim_snapshot.id.clone()),
+                None,
+                Value::Null,
+            )];
+            return Err(rejection_error(
+                &mut state,
+                &meta,
+                "claim release rejected",
+                claim_plan_id,
+                claim_snapshot.task.clone(),
+                Some(claim_snapshot.id.clone()),
+                None,
+                violations,
+            ));
+        }
+        if claim_snapshot.status == prism_ir::ClaimStatus::Expired {
+            return Err(anyhow!("claim `{}` has expired", claim_id.0));
+        }
         let claim = state
             .claims
             .get_mut(claim_id)
             .ok_or_else(|| anyhow!("unknown claim `{}`", claim_id.0))?;
-        if claim.status == prism_ir::ClaimStatus::Expired {
-            return Err(anyhow!("claim `{}` has expired", claim_id.0));
-        }
         claim.status = prism_ir::ClaimStatus::Released;
         let claim = claim.clone();
         state.events.push(CoordinationEvent {

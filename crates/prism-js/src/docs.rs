@@ -80,6 +80,7 @@ type PrismApi = {
   blockers(taskId: string): BlockerView[];
   pendingReviews(planId?: string): ArtifactView[];
   artifacts(taskId: string): ArtifactView[];
+  policyViolations(input?: { planId?: string; taskId?: string; limit?: number }): PolicyViolationRecordView[];
   taskBlastRadius(taskId: string): ChangeImpactView | null;
   taskValidationRecipe(taskId: string): TaskValidationRecipeView | null;
   taskRisk(taskId: string): TaskRiskView | null;
@@ -157,6 +158,9 @@ type LineageView = {
     ts: number;
     kind: string;
     confidence: number;
+    before: NodeId[];
+    after: NodeId[];
+    evidence: string[];
   }>;
 };
 
@@ -337,6 +341,7 @@ type CoordinationTaskView = {
   title: string;
   status: string;
   assignee?: string;
+  pendingHandoffTo?: string;
   anchors: AnchorRef[];
   dependsOn: string[];
   baseRevision: WorkspaceRevisionView;
@@ -381,6 +386,27 @@ type ArtifactView = {
   requiredValidations: string[];
   validatedChecks: string[];
   riskScore?: number;
+};
+
+type PolicyViolationView = {
+  code: string;
+  summary: string;
+  planId?: string;
+  taskId?: string;
+  claimId?: string;
+  artifactId?: string;
+  details: Record<string, unknown>;
+};
+
+type PolicyViolationRecordView = {
+  eventId: string;
+  ts: number;
+  summary: string;
+  planId?: string;
+  taskId?: string;
+  claimId?: string;
+  artifactId?: string;
+  violations: PolicyViolationView[];
 };
 
 type CuratorProposalView = {
@@ -685,7 +711,7 @@ return prism.claimPreview({
 ## Current implementation surface
 
 - Available now: symbol lookup, search, entrypoints, relations, call graphs, source extraction, lineage history, related failures, blast radius, and task replay by id.
-- Available now: session/workspace memory recall for notes and promoted curator memories.
+- Available now: session/workspace memory recall for anchored memory entries and promoted curator memories.
 - Available now: workspace-backed curator job inspection through `prism.curator.jobs()` and `prism.curator.job()`.
 - Available now: coordination plans, tasks, claims, conflicts, blockers, review queues, claim simulation, and workflow helpers for inbox/task/claim preview.
 - Keep query logic small. If you find yourself reconstructing semantics from raw low-level fields every time, that method probably belongs in Prism itself.
@@ -696,7 +722,7 @@ The query runtime is read-only. State changes happen through separate MCP tools:
 
 - `prism_start_task`
 - `prism_outcome`
-- `prism_note`
+- `prism_memory`
 - `prism_infer_edge`
 - `prism_coordination`
 - `prism_claim`

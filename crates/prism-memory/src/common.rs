@@ -37,6 +37,29 @@ pub(crate) fn provenance_score(source: MemorySource, trust: f32) -> f32 {
     (source_bias + clamp_unit(trust)) / 2.0
 }
 
+pub(crate) fn anchor_overlap(anchors: &[AnchorRef], focus: &[AnchorRef]) -> f32 {
+    if anchors.is_empty() {
+        return if focus.is_empty() { 1.0 } else { 0.0 };
+    }
+
+    if focus.is_empty() {
+        return 1.0;
+    }
+
+    let focus_set = focus.iter().collect::<HashSet<_>>();
+    let overlap = anchors
+        .iter()
+        .filter(|anchor| focus_set.contains(anchor))
+        .count();
+    overlap as f32 / anchors.len() as f32
+}
+
+pub(crate) fn recency_score(created_at: Timestamp) -> f32 {
+    let age = current_timestamp().saturating_sub(created_at) as f32;
+    let one_week = 7.0 * 24.0 * 60.0 * 60.0;
+    1.0 / (1.0 + age / one_week)
+}
+
 pub(crate) fn compare_scored_memory(left: &ScoredMemory, right: &ScoredMemory) -> Ordering {
     right
         .score

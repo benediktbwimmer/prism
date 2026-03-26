@@ -6,9 +6,9 @@ use prism_ir::{AnchorRef, Edge, NodeId, WorkspaceRevision};
 use prism_js::{
     ArtifactRiskView, ArtifactView, BlockerView, ChangeImpactView, ClaimView, CoChangeView,
     ConflictView, CoordinationTaskView, CuratorJobView, CuratorProposalView, DriftCandidateView,
-    EdgeView, MemoryEntryView, NodeIdView, PlanView, QueryDiagnostic, ScoredMemoryView,
-    TaskIntentView, TaskRiskView, TaskValidationRecipeView, ValidationCheckView,
-    ValidationRecipeView, WorkspaceRevisionView,
+    EdgeView, MemoryEntryView, NodeIdView, PlanView, PolicyViolationRecordView,
+    PolicyViolationView, QueryDiagnostic, ScoredMemoryView, TaskIntentView, TaskRiskView,
+    TaskValidationRecipeView, ValidationCheckView, ValidationRecipeView, WorkspaceRevisionView,
 };
 use prism_memory::{MemoryEntry, MemorySource, ScoredMemory};
 use prism_query::{
@@ -472,6 +472,7 @@ pub(crate) fn coordination_task_view(
         title: value.title,
         status: value.status,
         assignee: value.assignee.map(|agent| agent.0.to_string()),
+        pending_handoff_to: value.pending_handoff_to.map(|agent| agent.0.to_string()),
         anchors: value.anchors,
         depends_on: value
             .depends_on
@@ -534,6 +535,42 @@ pub(crate) fn artifact_view(value: prism_coordination::Artifact) -> ArtifactView
         required_validations: value.required_validations,
         validated_checks: value.validated_checks,
         risk_score: value.risk_score,
+    }
+}
+
+pub(crate) fn policy_violation_view(
+    value: prism_coordination::PolicyViolation,
+) -> PolicyViolationView {
+    PolicyViolationView {
+        code: serde_json::to_string(&value.code)
+            .unwrap_or_else(|_| "\"unknown\"".to_string())
+            .trim_matches('"')
+            .to_string(),
+        summary: value.summary,
+        plan_id: value.plan_id.map(|id| id.0.to_string()),
+        task_id: value.task_id.map(|id| id.0.to_string()),
+        claim_id: value.claim_id.map(|id| id.0.to_string()),
+        artifact_id: value.artifact_id.map(|id| id.0.to_string()),
+        details: value.details,
+    }
+}
+
+pub(crate) fn policy_violation_record_view(
+    value: prism_coordination::PolicyViolationRecord,
+) -> PolicyViolationRecordView {
+    PolicyViolationRecordView {
+        event_id: value.event_id.0.to_string(),
+        ts: value.ts,
+        summary: value.summary,
+        plan_id: value.plan_id.map(|id| id.0.to_string()),
+        task_id: value.task_id.map(|id| id.0.to_string()),
+        claim_id: value.claim_id.map(|id| id.0.to_string()),
+        artifact_id: value.artifact_id.map(|id| id.0.to_string()),
+        violations: value
+            .violations
+            .into_iter()
+            .map(policy_violation_view)
+            .collect(),
     }
 }
 

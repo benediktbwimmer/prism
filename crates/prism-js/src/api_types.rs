@@ -71,6 +71,9 @@ pub struct LineageEventView {
     pub ts: u64,
     pub kind: String,
     pub confidence: f32,
+    pub before: Vec<NodeIdView>,
+    pub after: Vec<NodeIdView>,
+    pub evidence: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -222,6 +225,7 @@ pub struct CoordinationTaskView {
     pub title: String,
     pub status: CoordinationTaskStatus,
     pub assignee: Option<String>,
+    pub pending_handoff_to: Option<String>,
     pub anchors: Vec<AnchorRef>,
     pub depends_on: Vec<String>,
     pub base_revision: WorkspaceRevisionView,
@@ -274,6 +278,31 @@ pub struct ArtifactView {
     pub required_validations: Vec<String>,
     pub validated_checks: Vec<String>,
     pub risk_score: Option<f32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PolicyViolationView {
+    pub code: String,
+    pub summary: String,
+    pub plan_id: Option<String>,
+    pub task_id: Option<String>,
+    pub claim_id: Option<String>,
+    pub artifact_id: Option<String>,
+    pub details: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PolicyViolationRecordView {
+    pub event_id: String,
+    pub ts: u64,
+    pub summary: String,
+    pub plan_id: Option<String>,
+    pub task_id: Option<String>,
+    pub claim_id: Option<String>,
+    pub artifact_id: Option<String>,
+    pub violations: Vec<PolicyViolationView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

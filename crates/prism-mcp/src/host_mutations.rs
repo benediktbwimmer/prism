@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use prism_coordination::{
-    HandoffInput, PlanCreateInput, PlanUpdateInput, PolicyViolation, TaskCreateInput,
-    TaskUpdateInput,
+    HandoffAcceptInput, HandoffInput, PlanCreateInput, PlanUpdateInput, PolicyViolation,
+    TaskCreateInput, TaskUpdateInput,
 };
 use prism_curator::{CuratorJobId, CuratorProposal, CuratorProposalDisposition};
 use prism_ir::{
@@ -16,19 +16,21 @@ use serde_json::{json, Value};
 
 use crate::{
     artifact_view, claim_view, conflict_view, convert_acceptance, convert_anchors,
-    convert_completion_context, convert_inferred_scope, convert_node_id, convert_outcome_evidence,
-    convert_outcome_kind, convert_outcome_result, convert_policy, coordination_task_view,
-    curator_disposition_label, curator_job_status_label, curator_proposal, curator_proposal_state,
-    curator_trigger_label, current_timestamp, parse_capability, parse_claim_mode,
-    parse_coordination_task_status, parse_edge_kind, parse_plan_status, parse_review_verdict,
-    plan_view, ArtifactActionInput, ArtifactMutationResult, ArtifactProposePayload,
-    ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput,
-    ClaimMutationResult, ClaimReleasePayload, ClaimRenewPayload, CoordinationMutationKindInput,
+    convert_completion_context, convert_inferred_scope, convert_memory_kind, convert_memory_source,
+    convert_node_id, convert_outcome_evidence, convert_outcome_kind, convert_outcome_result,
+    convert_policy, coordination_task_view, curator_disposition_label, curator_job_status_label,
+    curator_proposal, curator_proposal_state, curator_trigger_label, current_timestamp,
+    parse_capability, parse_claim_mode, parse_coordination_task_status, parse_edge_kind,
+    parse_plan_status, parse_review_verdict, plan_view, ArtifactActionInput,
+    ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
+    ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput, ClaimMutationResult,
+    ClaimReleasePayload, ClaimRenewPayload, CoordinationMutationKindInput,
     CoordinationMutationResult, CuratorJobView, CuratorProposalDecisionResult, EdgeMutationResult,
-    EventMutationResult, MemoryMutationResult, MutationViolationView, PlanUpdatePayload,
-    PrismArtifactArgs, PrismClaimArgs, PrismCoordinationArgs, PrismCuratorPromoteEdgeArgs,
+    EventMutationResult, HandoffAcceptPayload, MemoryMutationActionInput, MemoryMutationResult,
+    MemoryStorePayload, MutationViolationView, PlanUpdatePayload, PrismArtifactArgs,
+    PrismClaimArgs, PrismCoordinationArgs, PrismCuratorPromoteEdgeArgs,
     PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs, PrismInferEdgeArgs,
-    PrismNoteArgs, PrismOutcomeArgs, QueryHost, TaskCreatePayload, TaskUpdatePayload,
+    PrismMemoryArgs, PrismOutcomeArgs, QueryHost, TaskCreatePayload, TaskUpdatePayload,
 };
 
 #[derive(Default)]
@@ -154,46 +156,65 @@ impl QueryHost {
         })
     }
 
-    pub(crate) fn store_note(&self, args: PrismNoteArgs) -> Result<MemoryMutationResult> {
+    pub(crate) fn store_memory(&self, args: PrismMemoryArgs) -> Result<MemoryMutationResult> {
         self.refresh_workspace()?;
         let prism = self.current_prism();
-        let anchors = prism.anchors_for(&convert_anchors(args.anchors)?);
         let task_id = self
             .session
             .task_for_mutation(args.task_id.map(TaskId::new));
-        let mut entry = MemoryEntry::new(MemoryKind::Episodic, args.content);
+        let payload = match args.action {
+            MemoryMutationActionInput::Store => {
+                serde_json::from_value::<MemoryStorePayload>(args.payload)?
+            }
+        };
+        let anchors = prism.anchors_for(&convert_anchors(payload.anchors)?);
+        let kind = convert_memory_kind(payload.kind);
+        let mut entry = MemoryEntry::new(kind, payload.content);
         entry.anchors = anchors;
-        entry.source = MemorySource::Agent;
-        entry.trust = args.trust.unwrap_or(0.5).clamp(0.0, 1.0);
-        entry.metadata = json!({ "task_id": task_id.0.clone() });
+        entry.source = payload
+            .source
+            .map(convert_memory_source)
+            .unwrap_or(MemorySource::Agent);
+        entry.trust = payload.trust.unwrap_or(0.5).clamp(0.0, 1.0);
+        entry.metadata = payload.metadata.unwrap_or(Value::Null);
+        if !entry.metadata.is_object() {
+            entry.metadata = json!({ "value": entry.metadata });
+        }
+        if let Some(object) = entry.metadata.as_object_mut() {
+            object.insert("task_id".to_string(), Value::String(task_id.0.to_string()));
+        }
         let note_anchors = entry.anchors.clone();
         let note_content = entry.content.clone();
         let memory_id = self.session.notes.store(entry)?;
-        let note_event = OutcomeEvent {
-            meta: EventMeta {
-                id: self.session.next_event_id("outcome"),
-                ts: current_timestamp(),
-                actor: EventActor::Agent,
-                correlation: Some(task_id.clone()),
-                causation: None,
-            },
-            anchors: note_anchors,
-            kind: prism_memory::OutcomeKind::NoteAdded,
-            result: prism_memory::OutcomeResult::Success,
-            summary: note_content,
-            evidence: Vec::new(),
-            metadata: Value::Null,
-        };
-        if let Some(workspace) = &self.workspace {
-            let _ = workspace.append_outcome_with_auxiliary(
-                note_event,
-                Some(self.session.notes.snapshot()),
-                None,
-            )?;
+        if kind == MemoryKind::Episodic {
+            let note_event = OutcomeEvent {
+                meta: EventMeta {
+                    id: self.session.next_event_id("outcome"),
+                    ts: current_timestamp(),
+                    actor: EventActor::Agent,
+                    correlation: Some(task_id.clone()),
+                    causation: None,
+                },
+                anchors: note_anchors,
+                kind: prism_memory::OutcomeKind::NoteAdded,
+                result: prism_memory::OutcomeResult::Success,
+                summary: note_content,
+                evidence: Vec::new(),
+                metadata: Value::Null,
+            };
+            if let Some(workspace) = &self.workspace {
+                let _ = workspace.append_outcome_with_auxiliary(
+                    note_event,
+                    Some(self.session.notes.snapshot()),
+                    None,
+                )?;
+            } else {
+                prism.apply_outcome_event_to_projections(&note_event);
+                let _ = prism.outcome_memory().store_event(note_event)?;
+                self.persist_outcomes()?;
+                self.persist_notes()?;
+            }
         } else {
-            prism.apply_outcome_event_to_projections(&note_event);
-            let _ = prism.outcome_memory().store_event(note_event)?;
-            self.persist_outcomes()?;
             self.persist_notes()?;
         }
         Ok(MemoryMutationResult {
@@ -457,6 +478,11 @@ impl QueryHost {
                     meta,
                     PlanCreateInput {
                         goal: payload.goal,
+                        status: payload
+                            .status
+                            .as_deref()
+                            .map(parse_plan_status)
+                            .transpose()?,
                         policy: convert_policy(payload.policy)?,
                     },
                 )?;
@@ -555,6 +581,17 @@ impl QueryHost {
                 )?;
                 Ok(serde_json::to_value(coordination_task_view(task))?)
             }
+            CoordinationMutationKindInput::HandoffAccept => {
+                let payload: HandoffAcceptPayload = serde_json::from_value(args.payload)?;
+                let task = prism.coordination().accept_handoff(
+                    meta,
+                    HandoffAcceptInput {
+                        task_id: CoordinationTaskId::new(payload.task_id),
+                        agent: payload.agent.map(AgentId::new),
+                    },
+                )?;
+                Ok(serde_json::to_value(coordination_task_view(task))?)
+            }
         }
     }
 
@@ -603,6 +640,7 @@ impl QueryHost {
                 let payload: ClaimRenewPayload = serde_json::from_value(args.payload)?;
                 let claim = prism.coordination().renew_claim(
                     meta,
+                    &self.session.session_id(),
                     &ClaimId::new(payload.claim_id.clone()),
                     payload.ttl_seconds,
                 )?;
@@ -617,9 +655,11 @@ impl QueryHost {
             }
             ClaimActionInput::Release => {
                 let payload: ClaimReleasePayload = serde_json::from_value(args.payload)?;
-                let claim = prism
-                    .coordination()
-                    .release_claim(meta, &ClaimId::new(payload.claim_id.clone()))?;
+                let claim = prism.coordination().release_claim(
+                    meta,
+                    &self.session.session_id(),
+                    &ClaimId::new(payload.claim_id.clone()),
+                )?;
                 Ok(ClaimMutationResult {
                     claim_id: Some(payload.claim_id),
                     event_ids: Vec::new(),

@@ -12,7 +12,8 @@ pub use crate::state::CoordinationStore;
 pub use crate::types::{
     AcceptanceCriterion, Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput,
     ArtifactSupersedeInput, BlockerKind, ClaimAcquireInput, CoordinationConflict,
-    CoordinationEvent, CoordinationPolicy, CoordinationSnapshot, CoordinationTask, HandoffInput,
-    Plan, PlanCreateInput, PlanUpdateInput, PolicyViolation, PolicyViolationCode, TaskBlocker,
-    TaskCompletionContext, TaskCreateInput, TaskUpdateInput, WorkClaim,
+    CoordinationEvent, CoordinationPolicy, CoordinationSnapshot, CoordinationTask,
+    HandoffAcceptInput, HandoffInput, Plan, PlanCreateInput, PlanUpdateInput, PolicyViolation,
+    PolicyViolationCode, PolicyViolationRecord, TaskBlocker, TaskCompletionContext,
+    TaskCreateInput, TaskUpdateInput, WorkClaim,
 };

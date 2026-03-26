@@ -316,6 +316,7 @@ pub(crate) fn simulate_conflicts<'a, I>(
     anchors: &[AnchorRef],
     capability: Capability,
     mode: ClaimMode,
+    policy: Option<&CoordinationPolicy>,
     task_id: Option<&CoordinationTaskId>,
     revision: WorkspaceRevision,
     session_id: &SessionId,
@@ -328,7 +329,9 @@ where
         .filter(|claim| anchors_overlap(&claim.anchors, anchors))
         .filter(|claim| &claim.holder != session_id)
         .filter(|claim| task_id.map_or(true, |task| claim.task.as_ref() != Some(task)))
-        .filter_map(|claim| proposal_conflict(claim, anchors, capability, mode, revision.clone()))
+        .filter_map(|claim| {
+            proposal_conflict(claim, anchors, capability, mode, policy, revision.clone())
+        })
         .collect()
 }
 
@@ -337,6 +340,7 @@ fn proposal_conflict(
     anchors: &[AnchorRef],
     capability: Capability,
     mode: ClaimMode,
+    policy: Option<&CoordinationPolicy>,
     revision: WorkspaceRevision,
 ) -> Option<CoordinationConflict> {
     let overlap = overlapping_anchors(&claim.anchors, anchors);
@@ -349,6 +353,8 @@ fn proposal_conflict(
         claim.mode,
         capability,
         mode,
+        &overlap_kinds,
+        policy,
         claim.base_revision.clone(),
         revision,
     );
@@ -382,6 +388,8 @@ pub(crate) fn conflict_between(
             left.mode,
             right.capability,
             right.mode,
+            &overlap_kinds,
+            None,
             left.base_revision.clone(),
             right.base_revision.clone(),
         ),
@@ -409,17 +417,34 @@ fn conflict_severity(
     left_mode: ClaimMode,
     right_capability: Capability,
     right_mode: ClaimMode,
+    overlap_kinds: &[ConflictOverlapKind],
+    policy: Option<&CoordinationPolicy>,
     left_revision: WorkspaceRevision,
     right_revision: WorkspaceRevision,
 ) -> ConflictSeverity {
     let left_write = matches!(left_capability, Capability::Edit | Capability::Merge);
     let right_write = matches!(right_capability, Capability::Edit | Capability::Merge);
+    let precise_overlap = overlap_kinds.iter().any(|kind| {
+        matches!(
+            kind,
+            ConflictOverlapKind::Node | ConflictOverlapKind::Lineage
+        )
+    });
     if matches!(left_mode, ClaimMode::HardExclusive)
         || matches!(right_mode, ClaimMode::HardExclusive)
     {
         return ConflictSeverity::Block;
     }
     if left_write && right_write {
+        if precise_overlap
+            && (matches!(left_mode, ClaimMode::SoftExclusive)
+                || matches!(right_mode, ClaimMode::SoftExclusive)
+                || policy
+                    .map(|policy| policy.max_parallel_editors_per_anchor <= 1)
+                    .unwrap_or(false))
+        {
+            return ConflictSeverity::Block;
+        }
         return ConflictSeverity::Warn;
     }
     if left_revision.graph_version != right_revision.graph_version {

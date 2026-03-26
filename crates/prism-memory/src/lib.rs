@@ -1,11 +1,14 @@
-mod anchored;
 mod common;
 mod composite;
+mod entry_store;
 mod episodic;
 mod outcome;
+mod recall;
 mod semantic;
 mod session;
+mod structural_features;
 mod structural;
+mod text;
 mod types;
 
 #[cfg(test)]

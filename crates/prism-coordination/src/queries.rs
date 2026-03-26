@@ -2,6 +2,7 @@ use prism_ir::{
     AnchorRef, ArtifactStatus, Capability, ClaimMode, CoordinationTaskId, PlanId, SessionId,
     Timestamp, WorkspaceRevision,
 };
+use serde_json::Value;
 
 use crate::helpers::{
     anchors_overlap, claim_is_active, conflict_between, dedupe_conflicts,
@@ -9,8 +10,8 @@ use crate::helpers::{
 };
 use crate::state::CoordinationStore;
 use crate::types::{
-    Artifact, CoordinationConflict, CoordinationEvent, CoordinationTask, Plan, TaskBlocker,
-    WorkClaim,
+    Artifact, CoordinationConflict, CoordinationEvent, CoordinationTask, Plan, PolicyViolation,
+    PolicyViolationRecord, TaskBlocker, WorkClaim,
 };
 
 impl CoordinationStore {
@@ -39,6 +40,13 @@ impl CoordinationStore {
         now: Timestamp,
     ) -> Vec<CoordinationTask> {
         let state = self.state.read().expect("coordination store lock poisoned");
+        if !state
+            .plans
+            .get(plan_id)
+            .is_some_and(|plan| plan.status == prism_ir::PlanStatus::Active)
+        {
+            return Vec::new();
+        }
         let mut tasks = state
             .tasks
             .values()
@@ -120,6 +128,7 @@ impl CoordinationStore {
             anchors,
             capability,
             mode,
+            policy,
             task_id,
             revision,
             session_id,
@@ -187,5 +196,51 @@ impl CoordinationStore {
             .expect("coordination store lock poisoned")
             .events
             .clone()
+    }
+
+    pub fn policy_violations(
+        &self,
+        plan_id: Option<&PlanId>,
+        task_id: Option<&CoordinationTaskId>,
+        limit: usize,
+    ) -> Vec<PolicyViolationRecord> {
+        let state = self.state.read().expect("coordination store lock poisoned");
+        let mut records = state
+            .events
+            .iter()
+            .filter(|event| event.kind == prism_ir::CoordinationEventKind::MutationRejected)
+            .filter(|event| plan_id.is_none_or(|plan_id| event.plan.as_ref() == Some(plan_id)))
+            .filter(|event| task_id.is_none_or(|task_id| event.task.as_ref() == Some(task_id)))
+            .filter_map(|event| {
+                let violations = event
+                    .metadata
+                    .get("violations")
+                    .and_then(|value| {
+                        serde_json::from_value::<Vec<PolicyViolation>>(value.clone()).ok()
+                    })
+                    .unwrap_or_default();
+                if violations.is_empty() && event.metadata == Value::Null {
+                    return None;
+                }
+                Some(PolicyViolationRecord {
+                    event_id: event.meta.id.clone(),
+                    ts: event.meta.ts,
+                    summary: event.summary.clone(),
+                    plan_id: event.plan.clone(),
+                    task_id: event.task.clone(),
+                    claim_id: event.claim.clone(),
+                    artifact_id: event.artifact.clone(),
+                    violations,
+                })
+            })
+            .collect::<Vec<_>>();
+        records.sort_by(|left, right| {
+            right
+                .ts
+                .cmp(&left.ts)
+                .then_with(|| left.event_id.0.cmp(&right.event_id.0))
+        });
+        records.truncate(limit);
+        records
     }
 }

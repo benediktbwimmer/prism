@@ -94,6 +94,22 @@ pub(crate) enum OutcomeResultInput {
     Unknown,
 }
 
+#[derive(Debug, Clone, serde::Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum MemoryKindInput {
+    Episodic,
+    Structural,
+    Semantic,
+}
+
+#[derive(Debug, Clone, serde::Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum MemorySourceInput {
+    Agent,
+    User,
+    System,
+}
+
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub(crate) enum OutcomeEvidenceInput {
@@ -129,10 +145,26 @@ pub(crate) struct PrismOutcomeArgs {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct PrismNoteArgs {
+pub(crate) struct MemoryStorePayload {
     pub(crate) anchors: Vec<AnchorRefInput>,
+    pub(crate) kind: MemoryKindInput,
     pub(crate) content: String,
     pub(crate) trust: Option<f32>,
+    pub(crate) source: Option<MemorySourceInput>,
+    pub(crate) metadata: Option<Value>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum MemoryMutationActionInput {
+    Store,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismMemoryArgs {
+    pub(crate) action: MemoryMutationActionInput,
+    pub(crate) payload: Value,
     #[serde(alias = "task_id")]
     pub(crate) task_id: Option<String>,
 }
@@ -267,6 +299,7 @@ pub(crate) enum CoordinationMutationKindInput {
     TaskCreate,
     TaskUpdate,
     Handoff,
+    HandoffAccept,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -328,6 +361,16 @@ pub(crate) struct CoordinationTaskTargetArgs {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct PolicyViolationQueryArgs {
+    #[serde(alias = "plan_id")]
+    pub(crate) plan_id: Option<String>,
+    #[serde(alias = "task_id")]
+    pub(crate) task_id: Option<String>,
+    pub(crate) limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct LimitArgs {
     pub(crate) limit: Option<usize>,
 }
@@ -359,6 +402,7 @@ pub(crate) struct SimulateClaimArgs {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PlanCreatePayload {
     pub(crate) goal: String,
+    pub(crate) status: Option<String>,
     pub(crate) policy: Option<CoordinationPolicyPayload>,
 }
 
@@ -425,6 +469,13 @@ pub(crate) struct HandoffPayload {
     pub(crate) task_id: String,
     pub(crate) to_agent: Option<String>,
     pub(crate) summary: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct HandoffAcceptPayload {
+    pub(crate) task_id: String,
+    pub(crate) agent: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -394,6 +394,73 @@ fn mcp_returns_structured_coordination_rejections_and_persists_them() {
 }
 
 #[test]
+fn mcp_exposes_policy_violations_through_prism_query() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let plan = host
+        .store_coordination(PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanCreate,
+            payload: json!({
+                "goal": "Ship reviewed change",
+                "policy": { "requireReviewForCompletion": true }
+            }),
+            task_id: None,
+        })
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let task = host
+        .store_coordination(PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::TaskCreate,
+            payload: json!({
+                "planId": plan_id.clone(),
+                "title": "Edit alpha",
+                "anchors": [{
+                    "type": "node",
+                    "crateName": "demo",
+                    "path": "demo::alpha",
+                    "kind": "function"
+                }]
+            }),
+            task_id: None,
+        })
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    let rejected = host
+        .store_coordination(PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::TaskUpdate,
+            payload: json!({
+                "taskId": task_id.clone(),
+                "status": "completed"
+            }),
+            task_id: None,
+        })
+        .unwrap();
+    assert!(rejected.rejected);
+
+    let execution = QueryExecution::new(host.clone(), host.current_prism());
+    let violations = execution
+        .dispatch(
+            "policyViolations",
+            &json!({
+                "planId": plan_id,
+                "taskId": task_id,
+                "limit": 5
+            })
+            .to_string(),
+        )
+        .unwrap();
+    assert_eq!(violations.as_array().unwrap().len(), 1);
+    assert!(violations[0]["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|violation| violation["code"] == "review_required"));
+}
+
+#[test]
 fn mcp_plan_update_completes_plan_and_closed_plan_rejects_new_claims() {
     let root = temp_workspace();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
@@ -505,6 +572,7 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
     assert!(tool_names.contains(&"prism_symbol"));
     assert!(tool_names.contains(&"prism_search"));
     assert!(tool_names.contains(&"prism_outcome"));
+    assert!(tool_names.contains(&"prism_memory"));
     assert!(tool_names.contains(&"prism_start_task"));
     assert!(tool_names.contains(&"prism_coordination"));
     assert!(tool_names.contains(&"prism_claim"));
@@ -1279,8 +1347,39 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
             QueryLanguage::Ts,
         )
         .unwrap();
-    assert_eq!(handed_off.result["assignee"], "agent-b");
-    assert_eq!(handed_off.result["status"], "Ready");
+    assert_eq!(handed_off.result["assignee"], Value::Null);
+    assert_eq!(handed_off.result["pendingHandoffTo"], "agent-b");
+    assert_eq!(handed_off.result["status"], "Blocked");
+
+    let blocked_update = host_b
+        .store_coordination(PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::TaskUpdate,
+            payload: json!({
+                "taskId": task_id.clone(),
+                "status": "in-progress"
+            }),
+            task_id: None,
+        })
+        .unwrap();
+    assert!(blocked_update.rejected);
+    assert!(blocked_update
+        .violations
+        .iter()
+        .any(|violation| violation.code == "handoff_pending"));
+
+    let accepted = host_b
+        .store_coordination(PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::HandoffAccept,
+            payload: json!({
+                "taskId": task_id.clone(),
+                "agent": "agent-b"
+            }),
+            task_id: None,
+        })
+        .unwrap();
+    assert_eq!(accepted.state["assignee"], "agent-b");
+    assert_eq!(accepted.state["pendingHandoffTo"], Value::Null);
+    assert_eq!(accepted.state["status"], "Ready");
 
     let second_claim = host_b
         .store_claim(PrismClaimArgs {
@@ -2272,6 +2371,8 @@ fn exposes_co_change_neighbors() {
         },
         trigger: prism_ir::ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],
+        previous_path: None,
+        current_path: None,
         added: Vec::new(),
         removed: Vec::new(),
         updated: vec![
@@ -2447,14 +2548,19 @@ fn persisted_notes_reload_with_workspace_session() {
     let root = temp_workspace();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
-    host.store_note(PrismNoteArgs {
-        anchors: vec![AnchorRefInput::Node {
-            crate_name: "demo".to_string(),
-            path: "demo::alpha".to_string(),
-            kind: "function".to_string(),
-        }],
-        content: "alpha previously regressed".to_string(),
-        trust: Some(0.9),
+    host.store_memory(PrismMemoryArgs {
+        action: MemoryMutationActionInput::Store,
+        payload: json!({
+            "anchors": [{
+                "type": "node",
+                "crateName": "demo",
+                "path": "demo::alpha",
+                "kind": "function"
+            }],
+            "kind": "episodic",
+            "content": "alpha previously regressed",
+            "trust": 0.9
+        }),
         task_id: Some("task:note".to_string()),
     })
     .expect("note should persist");
@@ -2570,14 +2676,19 @@ fn first_mutation_auto_creates_session_task() {
     let host = host_with_node(demo_node());
 
     let memory = host
-        .store_note(PrismNoteArgs {
-            anchors: vec![AnchorRefInput::Node {
-                crate_name: "demo".to_string(),
-                path: "demo::main".to_string(),
-                kind: "function".to_string(),
-            }],
-            content: "remember this".to_string(),
-            trust: Some(0.8),
+        .store_memory(PrismMemoryArgs {
+            action: MemoryMutationActionInput::Store,
+            payload: json!({
+                "anchors": [{
+                    "type": "node",
+                    "crateName": "demo",
+                    "path": "demo::main",
+                    "kind": "function"
+                }],
+                "kind": "episodic",
+                "content": "remember this",
+                "trust": 0.8
+            }),
             task_id: None,
         })
         .expect("note should store");
@@ -2594,14 +2705,19 @@ fn first_mutation_auto_creates_session_task() {
 fn recalls_session_memory_for_symbol_focus() {
     let host = host_with_node(demo_node());
 
-    host.store_note(PrismNoteArgs {
-        anchors: vec![AnchorRefInput::Node {
-            crate_name: "demo".to_string(),
-            path: "demo::main".to_string(),
-            kind: "function".to_string(),
-        }],
-        content: "main previously regressed on null handling".to_string(),
-        trust: Some(0.9),
+    host.store_memory(PrismMemoryArgs {
+        action: MemoryMutationActionInput::Store,
+        payload: json!({
+            "anchors": [{
+                "type": "node",
+                "crateName": "demo",
+                "path": "demo::main",
+                "kind": "function"
+            }],
+            "kind": "episodic",
+            "content": "main previously regressed on null handling",
+            "trust": 0.9
+        }),
         task_id: None,
     })
     .expect("note should store");

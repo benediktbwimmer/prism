@@ -12,14 +12,14 @@ use crate::{
     claim_view, co_change_view, conflict_view, convert_anchors, convert_node_id,
     coordination_task_view, current_timestamp, drift_candidate_view, edge_kind_label, edge_view,
     js_runtime, lineage_view, merge_node_ids, merge_promoted_checks, parse_capability,
-    parse_claim_mode, parse_memory_kind, parse_node_kind, plan_view, promoted_memory_entries,
-    promoted_summary_texts, promoted_validation_checks, relations_view, scored_memory_view,
-    symbol_for, symbol_view, symbol_views_for_ids, task_intent_view, task_risk_view,
-    task_validation_recipe_view, validation_recipe_view_with, AnchorListArgs, CallGraphArgs,
-    CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, LimitArgs, MemoryRecallArgs,
-    PendingReviewsArgs, PlanTargetArgs, QueryHost, QueryLanguage, SearchArgs, SimulateClaimArgs,
-    SymbolQueryArgs, SymbolTargetArgs, TaskTargetArgs, DEFAULT_CALL_GRAPH_DEPTH,
-    DEFAULT_SEARCH_LIMIT,
+    parse_claim_mode, parse_memory_kind, parse_node_kind, plan_view, policy_violation_record_view,
+    promoted_memory_entries, promoted_summary_texts, promoted_validation_checks, relations_view,
+    scored_memory_view, symbol_for, symbol_view, symbol_views_for_ids, task_intent_view,
+    task_risk_view, task_validation_recipe_view, validation_recipe_view_with, AnchorListArgs,
+    CallGraphArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, LimitArgs,
+    MemoryRecallArgs, PendingReviewsArgs, PlanTargetArgs, PolicyViolationQueryArgs, QueryHost,
+    QueryLanguage, SearchArgs, SimulateClaimArgs, SymbolQueryArgs, SymbolTargetArgs,
+    TaskTargetArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
 };
 
 impl QueryHost {
@@ -280,6 +280,26 @@ impl QueryExecution {
                         .artifacts(&CoordinationTaskId::new(args.task_id))
                         .into_iter()
                         .map(artifact_view)
+                        .collect::<Vec<_>>(),
+                )?)
+            }
+            "policyViolations" => {
+                let args: PolicyViolationQueryArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(
+                    self.prism
+                        .policy_violations(
+                            args.plan_id
+                                .as_ref()
+                                .map(|plan_id| PlanId::new(plan_id.clone()))
+                                .as_ref(),
+                            args.task_id
+                                .as_ref()
+                                .map(|task_id| CoordinationTaskId::new(task_id.clone()))
+                                .as_ref(),
+                            args.limit.unwrap_or(20),
+                        )
+                        .into_iter()
+                        .map(policy_violation_record_view)
                         .collect::<Vec<_>>(),
                 )?)
             }

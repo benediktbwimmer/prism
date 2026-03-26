@@ -55,6 +55,8 @@ pub struct CoordinationTask {
     pub title: String,
     pub status: CoordinationTaskStatus,
     pub assignee: Option<AgentId>,
+    #[serde(default)]
+    pub pending_handoff_to: Option<AgentId>,
     pub session: Option<SessionId>,
     pub anchors: Vec<AnchorRef>,
     pub depends_on: Vec<CoordinationTaskId>,
@@ -104,6 +106,9 @@ pub enum PolicyViolationCode {
     ArtifactStale,
     IncompletePlanTasks,
     ActivePlanClaims,
+    ClaimNotOwned,
+    HandoffPending,
+    HandoffTargetMismatch,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -116,6 +121,18 @@ pub struct PolicyViolation {
     pub artifact_id: Option<ArtifactId>,
     #[serde(default)]
     pub details: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PolicyViolationRecord {
+    pub event_id: EventId,
+    pub ts: Timestamp,
+    pub summary: String,
+    pub plan_id: Option<PlanId>,
+    pub task_id: Option<CoordinationTaskId>,
+    pub claim_id: Option<ClaimId>,
+    pub artifact_id: Option<ArtifactId>,
+    pub violations: Vec<PolicyViolation>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -199,6 +216,7 @@ pub struct CoordinationSnapshot {
 #[derive(Debug, Clone)]
 pub struct PlanCreateInput {
     pub goal: String,
+    pub status: Option<PlanStatus>,
     pub policy: Option<CoordinationPolicy>,
 }
 
@@ -247,6 +265,12 @@ pub struct HandoffInput {
     pub to_agent: Option<AgentId>,
     pub summary: String,
     pub base_revision: WorkspaceRevision,
+}
+
+#[derive(Debug, Clone)]
+pub struct HandoffAcceptInput {
+    pub task_id: CoordinationTaskId,
+    pub agent: Option<AgentId>,
 }
 
 #[derive(Debug, Clone)]

@@ -216,6 +216,13 @@ pub(crate) fn lineage_view(prism: &Prism, id: &NodeId) -> Result<Option<LineageV
                 ts: event.meta.ts,
                 kind: format!("{:?}", event.kind),
                 confidence: event.confidence,
+                before: event.before.into_iter().map(node_id_view).collect(),
+                after: event.after.into_iter().map(node_id_view).collect(),
+                evidence: event
+                    .evidence
+                    .into_iter()
+                    .map(|evidence| format!("{evidence:?}"))
+                    .collect(),
             })
             .collect(),
     }))

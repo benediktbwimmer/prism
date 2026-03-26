@@ -20,6 +20,7 @@ fn claim_conflicts_block_hard_exclusive_overlap() {
             meta("event:1", 1),
             PlanCreateInput {
                 goal: "Ship coordination".to_string(),
+                status: None,
                 policy: None,
             },
         )
@@ -102,6 +103,7 @@ fn review_policy_gates_completion_but_not_ready_work() {
             meta("event:1", 1),
             PlanCreateInput {
                 goal: "Ship reviewed change".to_string(),
+                status: None,
                 policy: Some(CoordinationPolicy {
                     require_review_for_completion: true,
                     ..CoordinationPolicy::default()
@@ -236,6 +238,7 @@ fn edit_capacity_limit_blocks_extra_claims() {
             meta("event:1", 1),
             PlanCreateInput {
                 goal: "Serialize edits".to_string(),
+                status: None,
                 policy: Some(CoordinationPolicy {
                     max_parallel_editors_per_anchor: 1,
                     ..CoordinationPolicy::default()
@@ -324,6 +327,7 @@ fn approving_stale_artifact_is_rejected() {
             meta("event:1", 1),
             PlanCreateInput {
                 goal: "Catch stale approvals".to_string(),
+                status: None,
                 policy: Some(CoordinationPolicy {
                     stale_after_graph_change: true,
                     ..CoordinationPolicy::default()
@@ -400,6 +404,7 @@ fn validation_policy_requires_approved_artifact_checks() {
             meta("event:1", 1),
             PlanCreateInput {
                 goal: "Validate risky change".to_string(),
+                status: None,
                 policy: Some(CoordinationPolicy {
                     require_validation_for_completion: true,
                     ..CoordinationPolicy::default()
@@ -522,6 +527,7 @@ fn risk_threshold_requires_review_before_completion() {
             meta("event:1", 1),
             PlanCreateInput {
                 goal: "Risky edit".to_string(),
+                status: None,
                 policy: Some(CoordinationPolicy {
                     review_required_above_risk_score: Some(0.5),
                     ..CoordinationPolicy::default()
@@ -582,6 +588,7 @@ fn invalid_task_transition_is_rejected() {
             meta("event:1", 1),
             PlanCreateInput {
                 goal: "Enforce task lifecycle".to_string(),
+                status: None,
                 policy: None,
             },
         )
@@ -642,6 +649,7 @@ fn stale_claim_and_artifact_mutations_are_rejected() {
             meta("event:1", 1),
             PlanCreateInput {
                 goal: "Reject stale writes".to_string(),
+                status: None,
                 policy: Some(CoordinationPolicy {
                     stale_after_graph_change: true,
                     ..CoordinationPolicy::default()
@@ -730,6 +738,7 @@ fn plan_completion_requires_terminal_tasks_and_no_active_claims() {
             meta("event:1", 1),
             PlanCreateInput {
                 goal: "Close coordinated work".to_string(),
+                status: None,
                 policy: None,
             },
         )
@@ -807,7 +816,11 @@ fn plan_completion_requires_terminal_tasks_and_no_active_claims() {
     assert!(codes.contains(&"active_plan_claims"));
 
     store
-        .release_claim(meta("event:5", 5), &claim_id.unwrap())
+        .release_claim(
+            meta("event:5", 5),
+            &prism_ir::SessionId::new("session:a"),
+            &claim_id.unwrap(),
+        )
         .unwrap();
     store
         .update_task(
@@ -854,6 +867,7 @@ fn closed_plan_rejects_new_task_and_records_violation() {
             meta("event:1", 1),
             PlanCreateInput {
                 goal: "Archive repo work".to_string(),
+                status: None,
                 policy: None,
             },
         )
@@ -899,4 +913,285 @@ fn closed_plan_rejects_new_task_and_records_violation() {
         prism_ir::CoordinationEventKind::MutationRejected
     );
     assert_eq!(rejection.metadata["violations"][0]["code"], "plan_closed");
+}
+
+#[test]
+fn draft_plan_hides_ready_work_until_activation() {
+    let store = CoordinationStore::new();
+    let (plan_id, plan) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                goal: "Stage a coordinated rollout".to_string(),
+                status: Some(prism_ir::PlanStatus::Draft),
+                policy: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(plan.status, prism_ir::PlanStatus::Draft);
+
+    store
+        .create_task(
+            meta("event:2", 2),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Prepare alpha".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(prism_ir::SessionId::new("session:a")),
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+
+    assert!(store
+        .ready_tasks(
+            &plan_id,
+            prism_ir::WorkspaceRevision {
+                graph_version: 1,
+                git_commit: None,
+            },
+            2,
+        )
+        .is_empty());
+
+    store
+        .update_plan(
+            meta("event:3", 3),
+            PlanUpdateInput {
+                plan_id: plan_id.clone(),
+                status: Some(prism_ir::PlanStatus::Active),
+                goal: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        store
+            .ready_tasks(
+                &plan_id,
+                prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                3,
+            )
+            .len(),
+        1
+    );
+}
+
+#[test]
+fn handoff_acceptance_blocks_updates_until_target_accepts() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                goal: "Transfer alpha safely".to_string(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, task) = store
+        .create_task(
+            meta("event:2", 2),
+            TaskCreateInput {
+                plan_id,
+                title: "Edit alpha".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: Some(prism_ir::AgentId::new("agent-a")),
+                session: Some(prism_ir::SessionId::new("session:a")),
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+
+    let handed_off = store
+        .handoff(
+            meta("event:3", 3),
+            HandoffInput {
+                task_id: task_id.clone(),
+                to_agent: Some(prism_ir::AgentId::new("agent-b")),
+                summary: "handoff alpha to agent-b".to_string(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+            prism_ir::WorkspaceRevision {
+                graph_version: 1,
+                git_commit: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(handed_off.status, prism_ir::CoordinationTaskStatus::Blocked);
+    assert_eq!(
+        handed_off.pending_handoff_to,
+        Some(prism_ir::AgentId::new("agent-b"))
+    );
+    assert_eq!(handed_off.assignee, task.assignee);
+
+    let blocked_update = store
+        .update_task(
+            meta("event:4", 4),
+            TaskUpdateInput {
+                task_id: task_id.clone(),
+                status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                assignee: None,
+                session: None,
+                title: None,
+                anchors: None,
+                base_revision: Some(prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                }),
+                completion_context: None,
+            },
+            prism_ir::WorkspaceRevision {
+                graph_version: 1,
+                git_commit: None,
+            },
+            4,
+        )
+        .unwrap_err();
+    assert!(blocked_update.to_string().contains("pending handoff"));
+
+    let wrong_agent = store
+        .accept_handoff(
+            meta("event:5", 5),
+            HandoffAcceptInput {
+                task_id: task_id.clone(),
+                agent: Some(prism_ir::AgentId::new("agent-c")),
+            },
+        )
+        .unwrap_err();
+    assert!(wrong_agent.to_string().contains("cannot be accepted"));
+
+    let accepted = store
+        .accept_handoff(
+            meta("event:6", 6),
+            HandoffAcceptInput {
+                task_id: task_id.clone(),
+                agent: Some(prism_ir::AgentId::new("agent-b")),
+            },
+        )
+        .unwrap();
+    assert_eq!(accepted.status, prism_ir::CoordinationTaskStatus::Ready);
+    assert_eq!(accepted.assignee, Some(prism_ir::AgentId::new("agent-b")));
+    assert_eq!(accepted.pending_handoff_to, None);
+    assert_eq!(accepted.session, None);
+    assert_eq!(
+        store.events().last().unwrap().kind,
+        prism_ir::CoordinationEventKind::HandoffAccepted
+    );
+}
+
+#[test]
+fn claim_ownership_is_enforced_and_audited() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                goal: "Protect claim ownership".to_string(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, task) = store
+        .create_task(
+            meta("event:2", 2),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Edit alpha".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(prism_ir::SessionId::new("session:a")),
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+    let claim_id = store
+        .acquire_claim(
+            meta("event:3", 3),
+            prism_ir::SessionId::new("session:a"),
+            ClaimAcquireInput {
+                task_id: Some(task_id.clone()),
+                anchors: task.anchors.clone(),
+                capability: prism_ir::Capability::Edit,
+                mode: Some(prism_ir::ClaimMode::SoftExclusive),
+                ttl_seconds: Some(60),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                current_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                agent: None,
+            },
+        )
+        .unwrap()
+        .0
+        .unwrap();
+
+    let renew_error = store
+        .renew_claim(
+            meta("event:4", 4),
+            &prism_ir::SessionId::new("session:b"),
+            &claim_id,
+            Some(120),
+        )
+        .unwrap_err();
+    assert!(renew_error.to_string().contains("cannot be renewed"));
+
+    let release_error = store
+        .release_claim(
+            meta("event:5", 5),
+            &prism_ir::SessionId::new("session:b"),
+            &claim_id,
+        )
+        .unwrap_err();
+    assert!(release_error.to_string().contains("cannot be released"));
+
+    let violations = store.policy_violations(Some(&plan_id), Some(&task_id), 10);
+    assert_eq!(violations.len(), 2);
+    assert!(violations.iter().all(|record| {
+        record
+            .violations
+            .iter()
+            .any(|violation| violation.code == PolicyViolationCode::ClaimNotOwned)
+    }));
+
+    let released = store
+        .release_claim(
+            meta("event:6", 6),
+            &prism_ir::SessionId::new("session:a"),
+            &claim_id,
+        )
+        .unwrap();
+    assert_eq!(released.status, prism_ir::ClaimStatus::Released);
 }

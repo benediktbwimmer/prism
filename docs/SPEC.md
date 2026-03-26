@@ -1815,7 +1815,7 @@ The MCP server exposes explicit mutation tools alongside the read-only `prism_qu
 ```text
 prism_start_task { description: string, tags?: string[] } -> { task_id: string }
 prism_outcome { kind: OutcomeKind, anchors: AnchorRef[], summary: string, result?: OutcomeResult, evidence?: OutcomeEvidence[], task_id?: string } -> EventId
-prism_note { anchors: AnchorRef[], content: string, trust?: float, task_id?: string } -> MemoryId
+prism_memory { action: "store", payload: { anchors: AnchorRef[], kind: MemoryKind, content: string, trust?: float, source?: MemorySource, metadata?: object }, task_id?: string } -> MemoryId
 prism_infer_edge { source: NodeId, target: NodeId, kind: EdgeKind, confidence: float, scope?: InferredEdgeScope, task_id?: string } -> EdgeId
 prism_coordination { kind: "plan_create" | "plan_update" | "task_create" | "task_update" | "handoff", payload: object, task_id?: string } -> { event_id: string, event_ids: string[], rejected: bool, violations: object[], state: object | null }
 prism_claim { action: "acquire" | "renew" | "release", payload: object, task_id?: string } -> { claim_id?: string, event_ids: string[], rejected: bool, conflicts?: ConflictView[], violations: object[], state: object | null }

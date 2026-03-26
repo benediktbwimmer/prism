@@ -9,7 +9,7 @@ use crate::{
     dedupe_resource_link_views, edge_resource_uri, edge_resource_view_link,
     event_resource_view_link, inferred_edge_record_view, lineage_resource_view_link,
     lineage_status, memory_entry_view, memory_resource_uri, memory_resource_view_link,
-    paginate_items, parse_resource_page, relations_view, resource_link_view,
+    node_id_view, paginate_items, parse_resource_page, relations_view, resource_link_view,
     resource_schema_catalog_entries, schema_resource_uri, schema_resource_view_link,
     schemas_resource_uri, schemas_resource_view_link, search_resource_view_link,
     session_resource_uri, session_resource_view_link, symbol_for, symbol_resource_uri,
@@ -310,6 +310,13 @@ impl QueryHost {
                     ts: event.meta.ts,
                     kind: format!("{:?}", event.kind),
                     confidence: event.confidence,
+                    before: event.before.iter().cloned().map(node_id_view).collect(),
+                    after: event.after.iter().cloned().map(node_id_view).collect(),
+                    evidence: event
+                        .evidence
+                        .iter()
+                        .map(|evidence| format!("{evidence:?}"))
+                        .collect(),
                 })
                 .collect::<Vec<_>>(),
             parse_resource_page(

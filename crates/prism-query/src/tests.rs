@@ -1,5 +1,6 @@
 use prism_coordination::{
-    ArtifactProposeInput, CoordinationPolicy, CoordinationStore, PlanCreateInput, TaskCreateInput,
+    ArtifactProposeInput, CoordinationPolicy, CoordinationStore, PlanCreateInput,
+    TaskCompletionContext, TaskCreateInput, TaskUpdateInput,
 };
 use prism_history::HistoryStore;
 use prism_ir::{
@@ -214,6 +215,8 @@ fn outcome_queries_expand_node_to_lineage() {
         },
         trigger: prism_ir::ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],
+        previous_path: Some("/workspace/src/lib.rs".into()),
+        current_path: Some("/workspace/src/lib.rs".into()),
         added: vec![prism_ir::ObservedNode {
             node: Node {
                 id: new_id.clone(),
@@ -372,6 +375,8 @@ fn blast_radius_uses_co_change_history_and_neighbor_validations() {
         },
         trigger: ChangeTrigger::ManualReindex,
         files: vec![FileId(1)],
+        previous_path: Some("/workspace/src/lib.rs".into()),
+        current_path: Some("/workspace/src/lib.rs".into()),
         added: Vec::new(),
         removed: Vec::new(),
         updated: vec![
@@ -516,6 +521,7 @@ fn coordination_queries_expand_into_neighboring_symbols() {
             },
             PlanCreateInput {
                 goal: "Coordinate alpha".into(),
+                status: None,
                 policy: None,
             },
         )
@@ -756,6 +762,7 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
             },
             PlanCreateInput {
                 goal: "Risky edit".into(),
+                status: None,
                 policy: Some(CoordinationPolicy {
                     review_required_above_risk_score: Some(0.2),
                     require_validation_for_completion: true,
@@ -912,6 +919,7 @@ fn exposes_intent_links_and_task_intent() {
             },
             PlanCreateInput {
                 goal: "Ship alpha".into(),
+                status: None,
                 policy: None,
             },
         )
@@ -998,4 +1006,96 @@ fn drift_candidates_flag_specs_without_validations() {
         .reasons
         .iter()
         .any(|reason| reason == "no validation links"));
+}
+
+#[test]
+fn policy_violations_expose_rejected_coordination_mutations() {
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:audit"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Require review".into(),
+                status: None,
+                policy: Some(CoordinationPolicy {
+                    require_review_for_completion: true,
+                    ..CoordinationPolicy::default()
+                }),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:audit"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Edit alpha".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(SessionId::new("session:audit")),
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+    coordination
+        .update_task(
+            EventMeta {
+                id: EventId::new("coord:reject:audit"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskUpdateInput {
+                task_id: task_id.clone(),
+                status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                assignee: None,
+                session: None,
+                title: None,
+                anchors: None,
+                base_revision: None,
+                completion_context: Some(TaskCompletionContext::default()),
+            },
+            WorkspaceRevision {
+                graph_version: 1,
+                git_commit: None,
+            },
+            3,
+        )
+        .unwrap_err();
+
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        Graph::new(),
+        HistoryStore::new(),
+        OutcomeMemory::new(),
+        coordination,
+        ProjectionIndex::default(),
+    );
+    let violations = prism.policy_violations(Some(&plan_id), Some(&task_id), 10);
+    assert_eq!(violations.len(), 1);
+    assert!(
+        violations[0]
+            .violations
+            .iter()
+            .any(|violation| violation.code
+                == prism_coordination::PolicyViolationCode::ReviewRequired)
+    );
 }

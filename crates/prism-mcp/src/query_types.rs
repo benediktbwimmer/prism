@@ -10,8 +10,8 @@ use serde::Deserialize;
 
 use crate::{
     AcceptanceCriterionPayload, AnchorRefInput, CoordinationPolicyPayload, InferredEdgeScopeInput,
-    NodeIdInput, OutcomeEvidenceInput, OutcomeKindInput, OutcomeResultInput,
-    TaskCompletionContextPayload,
+    MemoryKindInput, MemorySourceInput, NodeIdInput, OutcomeEvidenceInput, OutcomeKindInput,
+    OutcomeResultInput, TaskCompletionContextPayload,
 };
 
 #[derive(Debug, Clone, Deserialize)]
@@ -128,6 +128,22 @@ pub(crate) fn convert_outcome_result(result: OutcomeResultInput) -> OutcomeResul
         OutcomeResultInput::Failure => OutcomeResult::Failure,
         OutcomeResultInput::Partial => OutcomeResult::Partial,
         OutcomeResultInput::Unknown => OutcomeResult::Unknown,
+    }
+}
+
+pub(crate) fn convert_memory_kind(kind: MemoryKindInput) -> MemoryKind {
+    match kind {
+        MemoryKindInput::Episodic => MemoryKind::Episodic,
+        MemoryKindInput::Structural => MemoryKind::Structural,
+        MemoryKindInput::Semantic => MemoryKind::Semantic,
+    }
+}
+
+pub(crate) fn convert_memory_source(source: MemorySourceInput) -> prism_memory::MemorySource {
+    match source {
+        MemorySourceInput::Agent => prism_memory::MemorySource::Agent,
+        MemorySourceInput::User => prism_memory::MemorySource::User,
+        MemorySourceInput::System => prism_memory::MemorySource::System,
     }
 }
 
