@@ -14,6 +14,8 @@ use prism_lang_toml::TomlAdapter;
 use prism_lang_yaml::YamlAdapter;
 use prism_parser::LanguageAdapter;
 
+const INDEX_FORMAT_VERSION: u64 = 1;
+
 pub(crate) fn current_timestamp() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -28,15 +30,20 @@ pub(crate) fn current_timestamp_millis() -> u64 {
         .as_millis() as u64
 }
 
-pub(crate) fn stable_hash(source: &str) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    source.hash(&mut hasher);
-    hasher.finish()
+pub(crate) fn persisted_file_hash(source: &str) -> u64 {
+    stable_hash_with_version(source, INDEX_FORMAT_VERSION)
 }
 
 pub(crate) fn stable_hash_bytes(bytes: &[u8]) -> u64 {
     let mut hasher = DefaultHasher::new();
     bytes.hash(&mut hasher);
+    hasher.finish()
+}
+
+fn stable_hash_with_version(source: &str, version: u64) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    version.hash(&mut hasher);
+    source.hash(&mut hasher);
     hasher.finish()
 }
 
@@ -125,6 +132,24 @@ pub(crate) fn default_adapters() -> Vec<Box<dyn LanguageAdapter>> {
         Box::new(TomlAdapter),
         Box::new(YamlAdapter),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{persisted_file_hash, stable_hash_with_version};
+
+    #[test]
+    fn persisted_file_hash_changes_when_index_format_version_changes() {
+        let source = "pub fn alpha() {}\n";
+        assert_eq!(
+            persisted_file_hash(source),
+            stable_hash_with_version(source, 1)
+        );
+        assert_ne!(
+            stable_hash_with_version(source, 1),
+            stable_hash_with_version(source, 2)
+        );
+    }
 }
 
 pub(crate) fn cache_path(root: &Path) -> PathBuf {

@@ -20,7 +20,7 @@ use crate::curator::{CuratorHandle, CuratorHandleRef};
 use crate::indexer::PendingFileParse;
 use crate::resolution::{resolve_calls, resolve_impls, resolve_imports, resolve_intents};
 use crate::session::{WorkspaceRefreshState, WorkspaceSession};
-use crate::util::{stable_hash, workspace_fingerprint, workspace_walk};
+use crate::util::{persisted_file_hash, workspace_fingerprint, workspace_walk};
 use crate::watch::spawn_fs_watch;
 
 pub(crate) fn build_workspace_session(
@@ -127,7 +127,7 @@ pub(crate) fn collect_pending_file_parses(
         let canonical_path = path.to_path_buf();
         seen_files.insert(canonical_path.clone());
         let source = fs::read_to_string(path)?;
-        let hash = stable_hash(&source);
+        let hash = persisted_file_hash(&source);
         pending.push(PendingFileParse {
             path: canonical_path,
             source,
