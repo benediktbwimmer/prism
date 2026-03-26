@@ -1,4 +1,6 @@
+use std::collections::hash_map::DefaultHasher;
 use std::fs;
+use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
@@ -17,6 +19,9 @@ use crate::proxy_server::ProxyMcpServer;
 use crate::{PrismMcpCli, PrismMcpServer};
 
 const DEFAULT_DAEMON_START_TIMEOUT_MS: u64 = 60_000;
+const STABLE_HTTP_PORT_BASE: u16 = 41_000;
+const STABLE_HTTP_PORT_RANGE: u16 = 20_000;
+const STABLE_HTTP_PORT_ATTEMPTS: u16 = 128;
 
 pub(crate) fn default_http_uri_file_path(root: &Path) -> PathBuf {
     root.join(".prism").join("prism-mcp-http-uri")
@@ -41,12 +46,7 @@ pub async fn serve_with_mode(cli: PrismMcpCli) -> Result<()> {
 async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
     let started = Instant::now();
     let server = PrismMcpServer::from_workspace_with_features(root, cli.features())?;
-    let listener = TcpListener::bind(&cli.http_bind).await.with_context(|| {
-        format!(
-            "failed to bind PRISM MCP HTTP listener at {}",
-            cli.http_bind
-        )
-    })?;
+    let listener = bind_listener(cli, root).await?;
     let mcp_path = normalize_route_path(&cli.http_path);
     let health_path = normalize_route_path(&cli.health_path);
     let addr = listener.local_addr()?;
@@ -77,6 +77,34 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
     axum::serve(listener, router)
         .await
         .context("PRISM MCP HTTP server exited unexpectedly")
+}
+
+async fn bind_listener(cli: &PrismMcpCli, root: &Path) -> Result<TcpListener> {
+    if let Some(host) = auto_bind_host(&cli.http_bind) {
+        for candidate in stable_http_bind_candidates(host, root) {
+            match TcpListener::bind(&candidate).await {
+                Ok(listener) => return Ok(listener),
+                Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => continue,
+                Err(error) => {
+                    return Err(error).with_context(|| {
+                        format!("failed to bind PRISM MCP HTTP listener at {candidate}")
+                    });
+                }
+            }
+        }
+        warn!(
+            root = %root.display(),
+            configured_bind = %cli.http_bind,
+            "failed to claim a stable PRISM MCP port; falling back to a dynamic port"
+        );
+    }
+
+    TcpListener::bind(&cli.http_bind).await.with_context(|| {
+        format!(
+            "failed to bind PRISM MCP HTTP listener at {}",
+            cli.http_bind
+        )
+    })
 }
 
 async fn run_bridge(cli: &PrismMcpCli, root: &Path) -> Result<()> {
@@ -240,6 +268,24 @@ fn normalize_route_path(path: &str) -> String {
     }
 }
 
+fn auto_bind_host(bind: &str) -> Option<&str> {
+    bind.rsplit_once(':')
+        .and_then(|(host, port)| (port == "0").then_some(host))
+}
+
+fn stable_http_bind_candidates(host: &str, root: &Path) -> Vec<String> {
+    let mut hasher = DefaultHasher::new();
+    root.to_string_lossy().hash(&mut hasher);
+    let offset = (hasher.finish() % u64::from(STABLE_HTTP_PORT_RANGE)) as u16;
+    let attempts = STABLE_HTTP_PORT_ATTEMPTS.min(STABLE_HTTP_PORT_RANGE);
+    (0..attempts)
+        .map(|step| {
+            let port = STABLE_HTTP_PORT_BASE + ((offset + step) % STABLE_HTTP_PORT_RANGE);
+            format!("{host}:{port}")
+        })
+        .collect()
+}
+
 async fn http_health() -> &'static str {
     "ok"
 }
@@ -259,5 +305,73 @@ impl Drop for HttpUriFileGuard {
                 );
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{auto_bind_host, bind_listener, stable_http_bind_candidates};
+    use crate::{PrismMcpCli, PrismMcpMode};
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn test_cli(root: PathBuf, http_bind: &str) -> PrismMcpCli {
+        PrismMcpCli {
+            root,
+            mode: PrismMcpMode::Daemon,
+            no_coordination: false,
+            enable_coordination: Vec::new(),
+            disable_coordination: Vec::new(),
+            daemon_log: None,
+            daemon_start_timeout_ms: None,
+            http_bind: http_bind.to_string(),
+            http_path: "/mcp".to_string(),
+            health_path: "/healthz".to_string(),
+            http_uri_file: None,
+            upstream_uri: None,
+            daemonize: false,
+        }
+    }
+
+    fn temp_root(label: &str) -> PathBuf {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "prism-mcp-daemon-mode-{label}-{}-{stamp}",
+            std::process::id()
+        ))
+    }
+
+    #[test]
+    fn auto_bind_host_detects_dynamic_port_inputs() {
+        assert_eq!(auto_bind_host("127.0.0.1:0"), Some("127.0.0.1"));
+        assert_eq!(auto_bind_host("localhost:0"), Some("localhost"));
+        assert_eq!(auto_bind_host("127.0.0.1:4242"), None);
+    }
+
+    #[test]
+    fn stable_http_bind_candidates_are_deterministic_for_a_root() {
+        let root = temp_root("stable-candidates");
+        let left = stable_http_bind_candidates("127.0.0.1", &root);
+        let right = stable_http_bind_candidates("127.0.0.1", &root);
+        assert_eq!(left, right);
+        assert!(!left.is_empty());
+    }
+
+    #[tokio::test]
+    async fn bind_listener_reuses_the_same_workspace_port_after_restart() {
+        let root = temp_root("rebind");
+        let cli = test_cli(root.clone(), "127.0.0.1:0");
+
+        let first = bind_listener(&cli, &root).await.unwrap();
+        let first_addr = first.local_addr().unwrap();
+        drop(first);
+
+        let second = bind_listener(&cli, &root).await.unwrap();
+        let second_addr = second.local_addr().unwrap();
+
+        assert_eq!(first_addr, second_addr);
     }
 }
