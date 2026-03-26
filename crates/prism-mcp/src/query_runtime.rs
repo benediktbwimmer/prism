@@ -18,17 +18,17 @@ use crate::{
     owner_symbol_views_for_query, owner_symbol_views_for_target, owner_views_for_target,
     parse_capability, parse_claim_mode, parse_event_actor, parse_memory_kind, parse_node_kind,
     parse_outcome_kind, parse_outcome_result, plan_view, policy_violation_record_view,
-    promoted_memory_entries, promoted_summary_texts, promoted_validation_checks, read_context_view,
-    relations_view, scored_memory_view, search_queries, source_excerpt_for_symbol,
-    spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
-    task_intent_view, task_journal_view, task_risk_view, task_validation_recipe_view,
-    validation_recipe_view_with, AnchorListArgs, CallGraphArgs, CoordinationTaskTargetArgs,
-    CuratorJobArgs, CuratorJobsArgs, ImplementationTargetArgs, LimitArgs, MemoryOutcomeArgs,
-    MemoryRecallArgs, OwnerLookupArgs, PendingReviewsArgs, PlanTargetArgs,
-    PolicyViolationQueryArgs, QueryHost, QueryLanguage, SearchArgs, SimulateClaimArgs,
-    SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskJournalArgs, TaskTargetArgs,
-    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
+    promoted_memory_entries, promoted_summary_texts, promoted_validation_checks, query_diagnostic,
+    read_context_view, relations_view, scored_memory_view, search_queries,
+    source_excerpt_for_symbol, spec_cluster_view, spec_drift_explanation_view, symbol_for,
+    symbol_view, symbol_views_for_ids, task_intent_view, task_journal_view, task_risk_view,
+    task_validation_recipe_view, validation_recipe_view_with, AnchorListArgs, CallGraphArgs,
+    CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, ImplementationTargetArgs,
+    LimitArgs, MemoryOutcomeArgs, MemoryRecallArgs, OwnerLookupArgs, PendingReviewsArgs,
+    PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage, SearchArgs,
+    SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskJournalArgs,
+    TaskTargetArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
 };
 
 impl QueryHost {
@@ -137,11 +137,7 @@ impl QueryExecution {
         self.diagnostics
             .lock()
             .expect("diagnostics lock poisoned")
-            .push(QueryDiagnostic {
-                code: code.to_owned(),
-                message: message.into(),
-                data,
-            });
+            .push(query_diagnostic(code, message, data));
     }
 
     pub(crate) fn dispatch_enveloped(&self, operation: &str, args_json: &str) -> String {

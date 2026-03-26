@@ -15,6 +15,7 @@ use rmcp::{handler::server::router::tool::ToolRouter, transport::stdio, ServiceE
 mod capabilities_resource;
 mod common;
 mod daemon_mode;
+mod diagnostics;
 mod features;
 mod host_mutations;
 mod host_resources;
@@ -39,6 +40,7 @@ mod views;
 use capabilities_resource::*;
 use common::*;
 pub use daemon_mode::serve_with_mode;
+use diagnostics::*;
 pub use features::{CoordinationFeatureFlag, PrismMcpFeatures};
 use js_runtime::JsWorker;
 use memory_metadata::*;

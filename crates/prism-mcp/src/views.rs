@@ -17,7 +17,7 @@ use prism_query::{
 };
 use serde_json::Value;
 
-use crate::{InferredEdgeRecordView, SessionState};
+use crate::{normalize_query_diagnostic, InferredEdgeRecordView, SessionState};
 
 pub(crate) fn curator_job_view(record: CuratorJobRecord) -> Result<CuratorJobView> {
     let id = record.id.0.clone();
@@ -47,10 +47,12 @@ pub(crate) fn curator_job_view(record: CuratorJobRecord) -> Result<CuratorJobVie
         diagnostics: run
             .diagnostics
             .into_iter()
-            .map(|diagnostic| QueryDiagnostic {
-                code: diagnostic.code,
-                message: diagnostic.message,
-                data: diagnostic.data,
+            .map(|diagnostic| {
+                normalize_query_diagnostic(QueryDiagnostic {
+                    code: diagnostic.code,
+                    message: diagnostic.message,
+                    data: diagnostic.data,
+                })
             })
             .collect(),
         error: record.error,

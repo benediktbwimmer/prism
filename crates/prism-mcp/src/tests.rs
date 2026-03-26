@@ -3117,6 +3117,25 @@ return prism.diagnostics();
 }
 
 #[test]
+fn unknown_host_operations_return_actionable_diagnostics() {
+    let host = host_with_node(demo_node());
+    let execution = QueryExecution::new(host.clone(), host.current_prism());
+
+    let error = execution
+        .dispatch("bogusOperation", r#"{}"#)
+        .expect_err("unknown operation should fail");
+
+    assert!(error.to_string().contains("unsupported host operation"));
+    assert_eq!(execution.diagnostics().len(), 1);
+    assert_eq!(execution.diagnostics()[0].code, "unknown_method");
+    assert!(execution.diagnostics()[0]
+        .data
+        .as_ref()
+        .and_then(|data| data["nextAction"].as_str())
+        .is_some_and(|value| value.contains("prism://capabilities")));
+}
+
+#[test]
 fn reuses_warm_runtime_across_queries() {
     let host = host_with_node(demo_node());
 
@@ -3732,6 +3751,13 @@ fn convenience_symbol_query_returns_diagnostics() {
         .and_then(|diagnostic| diagnostic.data.as_ref())
         .and_then(|data| data["suggestedQueries"].as_array())
         .is_some_and(|queries| !queries.is_empty()));
+    assert!(envelope
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.code == "anchor_unresolved")
+        .and_then(|diagnostic| diagnostic.data.as_ref())
+        .and_then(|data| data["nextAction"].as_str())
+        .is_some_and(|value| value.contains("prism.search")));
 }
 
 #[test]
@@ -4109,6 +4135,11 @@ return prism.taskJournal("task:journal", { eventLimit: 10, memoryLimit: 5 });
         .unwrap()
         .iter()
         .any(|diagnostic| diagnostic["code"] == "missing_close_summary"));
+    assert!(result.result["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|diagnostic| diagnostic["data"]["nextAction"].as_str().is_some()));
     assert_eq!(
         result.result["relatedMemory"][0]["entry"]["content"],
         "main changes should always get a regression check"
@@ -4117,6 +4148,37 @@ return prism.taskJournal("task:journal", { eventLimit: 10, memoryLimit: 5 });
         .diagnostics
         .iter()
         .any(|diagnostic| diagnostic.code == "missing_validation"));
+    assert!(result.diagnostics.iter().all(|diagnostic| diagnostic
+        .data
+        .as_ref()
+        .and_then(|data| data["nextAction"].as_str())
+        .is_some()));
+}
+
+#[test]
+fn call_graph_depth_limit_diagnostic_includes_next_action() {
+    let host = host_with_node(demo_node());
+    let result = host
+        .execute(
+            r#"
+const sym = prism.symbol("main");
+return sym?.callGraph(50);
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("call graph query should succeed");
+
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "depth_limited"));
+    assert!(result
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.code == "depth_limited")
+        .and_then(|diagnostic| diagnostic.data.as_ref())
+        .and_then(|data| data["nextAction"].as_str())
+        .is_some_and(|value| value.contains("prism.callGraph")));
 }
 
 #[test]

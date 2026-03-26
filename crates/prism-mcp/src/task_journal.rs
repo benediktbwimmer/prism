@@ -6,7 +6,7 @@ use prism_js::{QueryDiagnostic, TaskJournalView, TaskLifecycleSummaryView};
 use prism_memory::{MemoryModule, OutcomeEvent, OutcomeKind, RecallQuery};
 use prism_query::Prism;
 
-use crate::{scored_memory_view, session_state::SessionTaskState, SessionState};
+use crate::{query_diagnostic, scored_memory_view, session_state::SessionTaskState, SessionState};
 
 pub(crate) const DEFAULT_TASK_JOURNAL_EVENT_LIMIT: usize = 20;
 pub(crate) const DEFAULT_TASK_JOURNAL_MEMORY_LIMIT: usize = 8;
@@ -186,11 +186,11 @@ fn lifecycle_diagnostics(
     let mut diagnostics = Vec::new();
 
     if summary.plan_count == 0 {
-        diagnostics.push(QueryDiagnostic {
-            code: "missing_plan".to_string(),
-            message: "Task has outcome history but no explicit plan-start record.".to_string(),
-            data: None,
-        });
+        diagnostics.push(query_diagnostic(
+            "missing_plan",
+            "Task has outcome history but no explicit plan-start record.",
+            None,
+        ));
     }
 
     let last_patch = latest_timestamp(events, |event| event.kind == OutcomeKind::PatchApplied);
@@ -202,12 +202,11 @@ fn lifecycle_diagnostics(
     });
     if let Some(last_patch_ts) = last_patch {
         if last_validation.is_none_or(|validated| validated < last_patch_ts) {
-            diagnostics.push(QueryDiagnostic {
-                code: "missing_validation".to_string(),
-                message: "Task recorded a patch but no later build, test, or validation outcome."
-                    .to_string(),
-                data: Some(serde_json::json!({ "lastPatchAt": last_patch_ts })),
-            });
+            diagnostics.push(query_diagnostic(
+                "missing_validation",
+                "Task recorded a patch but no later build, test, or validation outcome.",
+                Some(serde_json::json!({ "lastPatchAt": last_patch_ts })),
+            ));
         }
     }
 
@@ -220,21 +219,20 @@ fn lifecycle_diagnostics(
     let last_fix = latest_timestamp(events, |event| event.kind == OutcomeKind::FixValidated);
     if let Some(last_failure_ts) = last_failure {
         if disposition != "abandoned" && last_fix.is_none_or(|fix| fix < last_failure_ts) {
-            diagnostics.push(QueryDiagnostic {
-                code: "unresolved_failure".to_string(),
-                message: "Task has a recorded failure without a later fix validation.".to_string(),
-                data: Some(serde_json::json!({ "lastFailureAt": last_failure_ts })),
-            });
+            diagnostics.push(query_diagnostic(
+                "unresolved_failure",
+                "Task has a recorded failure without a later fix validation.",
+                Some(serde_json::json!({ "lastFailureAt": last_failure_ts })),
+            ));
         }
     }
 
     if disposition == "open" && !events.is_empty() {
-        diagnostics.push(QueryDiagnostic {
-            code: "missing_close_summary".to_string(),
-            message: "Task has recorded history but no final completion or abandonment summary."
-                .to_string(),
-            data: None,
-        });
+        diagnostics.push(query_diagnostic(
+            "missing_close_summary",
+            "Task has recorded history but no final completion or abandonment summary.",
+            None,
+        ));
     }
 
     diagnostics
