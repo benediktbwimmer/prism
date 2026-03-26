@@ -607,6 +607,7 @@ Beyond `prism_query`, the MCP server exposes navigable `prism://...` resources.
 
 - Static resources:
   - `prism://api-reference`
+  - `prism://capabilities`
   - `prism://session`
   - `prism://entrypoints`
   - `prism://schemas`
@@ -961,7 +962,7 @@ return prism.claimPreview({
 - Available now: spec-to-code clustering and drift explanations that group direct links with read/write/persistence/test owners for spec-like symbols.
 - Available now: session/workspace memory recall for anchored memory entries, filtered outcome history, and promoted curator memories.
 - Available now: workspace-backed curator job inspection through `prism.curator.jobs()` and `prism.curator.job()`.
-- Available now: tool input schema resources through `prism://tool-schemas` and `prism://schema/tool/{toolName}` for direct MCP introspection.
+- Available now: a canonical capabilities resource at `prism://capabilities` plus tool input schema resources through `prism://tool-schemas` and `prism://schema/tool/{toolName}` for direct MCP introspection.
 - Available now: coordination plans, tasks, claims, conflicts, blockers, review queues, claim simulation, and workflow helpers for inbox/task/claim preview.
 - Keep query logic small. If you find yourself reconstructing semantics from raw low-level fields every time, that method probably belongs in Prism itself.
 

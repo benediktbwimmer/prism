@@ -1,10 +1,11 @@
 use rmcp::schemars::JsonSchema;
 
 use crate::{
-    dedupe_resource_link_views, resource_meta, schema_resource_contents, schema_resource_uri,
-    schema_resource_view_link, session_resource_view_link, tool_schema_resource_uri,
-    tool_schema_resource_view_link, tool_schemas_resource_view_link, PrismMutationArgs,
-    PrismQueryArgs, PrismSessionArgs, ResourceLinkView, TOOL_SCHEMAS_URI,
+    capabilities_resource_view_link, dedupe_resource_link_views, resource_meta,
+    schema_resource_contents, schema_resource_uri, schema_resource_view_link,
+    session_resource_view_link, tool_schema_resource_uri, tool_schema_resource_view_link,
+    tool_schemas_resource_view_link, PrismMutationArgs, PrismQueryArgs, PrismSessionArgs,
+    ResourceLinkView, TOOL_SCHEMAS_URI,
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
@@ -49,6 +50,7 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
 
 pub(crate) fn tool_schemas_resource_value() -> ToolSchemaCatalogPayload {
     let mut related_resources = vec![
+        capabilities_resource_view_link(),
         tool_schemas_resource_view_link(),
         schema_resource_view_link("tool-schemas"),
         session_resource_view_link(),

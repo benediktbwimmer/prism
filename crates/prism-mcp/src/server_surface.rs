@@ -479,6 +479,9 @@ impl ServerHandler for PrismMcpServer {
                     .with_mime_type("text/markdown")
                     .with_title("PRISM API Reference")
                     .no_annotation(),
+                capabilities_resource_link()
+                    .with_title("PRISM Capabilities")
+                    .no_annotation(),
                 RawResource::new(SESSION_URI, "PRISM Session")
                     .with_description(
                         "Active workspace root, current task context, and runtime query limits",
@@ -541,6 +544,18 @@ impl ServerHandler for PrismMcpServer {
         let contents = if base_uri == API_REFERENCE_URI {
             ResourceContents::text(self.host.api_reference_markdown(), request.uri.clone())
                 .with_mime_type("text/markdown")
+        } else if base_uri == CAPABILITIES_URI {
+            json_resource_contents_with_meta(
+                self.host
+                    .capabilities_resource_value()
+                    .map_err(map_query_error)?,
+                request.uri.clone(),
+                Some(resource_meta(
+                    "capabilities",
+                    Some(schema_resource_uri("capabilities")),
+                    None,
+                )),
+            )?
         } else if base_uri == SCHEMAS_URI {
             json_resource_contents_with_meta(
                 self.host.schemas_resource_value(),
@@ -673,6 +688,12 @@ impl ServerHandler for PrismMcpServer {
             tool_schema_resource_contents(&tool_name, uri)?
         } else if let Some(resource_kind) = parse_schema_resource_uri(uri) {
             match resource_kind.as_str() {
+                "capabilities" => schema_resource_contents::<CapabilitiesResourcePayload>(
+                    uri,
+                    "PRISM Capabilities Resource Schema",
+                    "JSON Schema for the canonical PRISM capabilities resource payload.",
+                    "capabilities",
+                )?,
                 "session" => schema_resource_contents::<SessionResourcePayload>(
                     uri,
                     "PRISM Session Resource Schema",
@@ -834,7 +855,7 @@ impl ServerHandler for PrismMcpServer {
 impl PrismMcpServer {
     fn server_instructions(&self) -> String {
         let mut instructions = String::from(
-            "Start with prism://api-reference for the typed query contract and prism://schemas for the JSON Schema catalog. Use prism://tool-schemas and prism://schema/tool/{toolName} when you need exact MCP tool input shapes. Use prism://session to inspect the active workspace, task, runtime limits, and active feature flags, prism_session to change task context or limits, prism_query for programmable read-only graph queries, prism://entrypoints for a quick workspace overview, prism://search/{query} for browseable search results, prism://symbol/{crateName}/{kind}/{path} for exact symbol snapshots, prism://lineage/{lineageId} for symbol history, prism://task/{taskId} for recorded task outcomes, and prism://event/{eventId}, prism://memory/{memoryId}, and prism://edge/{edgeId} for mutation outputs. Follow each resource payload's schemaUri and relatedResources fields instead of reconstructing URIs by convention. Use prism_mutate for outcomes, anchored memory, validation feedback, inferred edges, coordination state, claims, artifacts, and curator proposal decisions.",
+            "Start with prism://capabilities for the canonical map of query methods, resources, feature gates, and build info, then use prism://api-reference for the typed query contract and prism://schemas for the JSON Schema catalog. Use prism://tool-schemas and prism://schema/tool/{toolName} when you need exact MCP tool input shapes. Use prism://session to inspect the active workspace, task, runtime limits, and active feature flags, prism_session to change task context or limits, prism_query for programmable read-only graph queries, prism://entrypoints for a quick workspace overview, prism://search/{query} for browseable search results, prism://symbol/{crateName}/{kind}/{path} for exact symbol snapshots, prism://lineage/{lineageId} for symbol history, prism://task/{taskId} for recorded task outcomes, and prism://event/{eventId}, prism://memory/{memoryId}, and prism://edge/{edgeId} for mutation outputs. Follow each resource payload's schemaUri and relatedResources fields instead of reconstructing URIs by convention. Use prism_mutate for outcomes, anchored memory, validation feedback, inferred edges, coordination state, claims, artifacts, and curator proposal decisions.",
         );
 
         if self.host.features.mode_label() != "full" {

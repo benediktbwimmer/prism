@@ -5,7 +5,8 @@ use prism_js::LineageEventView;
 use prism_memory::MemoryId;
 
 use crate::{
-    anchor_resource_view_links, blast_radius_view, co_change_view, dedupe_resource_link_views,
+    anchor_resource_view_links, blast_radius_view, capabilities_resource_value,
+    capabilities_resource_view_link, co_change_view, dedupe_resource_link_views,
     derive_task_metadata, edge_resource_uri, edge_resource_view_link, edit_context_queries,
     edit_context_view, event_resource_view_link, inferred_edge_record_view,
     lineage_resource_view_link, lineage_status, memory_entry_view, memory_resource_uri,
@@ -18,12 +19,13 @@ use crate::{
     symbol_resource_view_link, symbol_resource_view_link_for_id, symbol_view, symbol_views_for_ids,
     task_journal_view, task_resource_view_link, task_resource_view_links_from_events,
     tool_schemas_resource_value, tool_schemas_resource_view_link, validation_recipe_view_with,
-    CoordinationFeaturesView, EdgeResourcePayload, EntrypointsResourcePayload,
-    EventResourcePayload, FeatureFlagsView, InferredEdgeRecordView, LineageResourcePayload,
-    MemoryResourcePayload, QueryExecution, QueryHost, ResourceSchemaCatalogPayload, SearchArgs,
-    SearchResourcePayload, SessionLimitsView, SessionResourcePayload, SessionTaskView, SessionView,
-    SymbolResourcePayload, TaskResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
+    CapabilitiesResourcePayload, CoordinationFeaturesView, EdgeResourcePayload,
+    EntrypointsResourcePayload, EventResourcePayload, FeatureFlagsView, InferredEdgeRecordView,
+    LineageResourcePayload, MemoryResourcePayload, QueryExecution, QueryHost,
+    ResourceSchemaCatalogPayload, SearchArgs, SearchResourcePayload, SessionLimitsView,
+    SessionResourcePayload, SessionTaskView, SessionView, SymbolResourcePayload,
+    TaskResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
 };
 
 impl QueryHost {
@@ -67,6 +69,7 @@ impl QueryHost {
         let schema_uri = schema_resource_uri("session");
         let session = self.session_view()?;
         let mut related_resources = vec![
+            capabilities_resource_view_link(),
             session_resource_view_link(),
             schema_resource_view_link("session"),
             schemas_resource_view_link(),
@@ -91,8 +94,13 @@ impl QueryHost {
         })
     }
 
+    pub(crate) fn capabilities_resource_value(&self) -> Result<CapabilitiesResourcePayload> {
+        capabilities_resource_value(self)
+    }
+
     pub(crate) fn schemas_resource_value(&self) -> ResourceSchemaCatalogPayload {
         let mut related_resources = vec![
+            capabilities_resource_view_link(),
             schemas_resource_view_link(),
             schema_resource_view_link("schemas"),
             tool_schemas_resource_view_link(),

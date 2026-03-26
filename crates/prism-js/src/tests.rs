@@ -17,6 +17,7 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("explainDrift"));
     assert!(docs.contains("prism://tool-schemas"));
     assert!(docs.contains("prism://schema/tool/{toolName}"));
+    assert!(docs.contains("prism://capabilities"));
     assert!(docs.contains("prism.curator.jobs"));
     assert!(docs.contains("prism_session"));
     assert!(docs.contains("prism_mutate"));

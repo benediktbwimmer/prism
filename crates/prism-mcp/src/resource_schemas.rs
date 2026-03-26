@@ -2,6 +2,7 @@ use prism_js::{
     ChangeImpactView, CoChangeView, EdgeView, EditContextView, LineageEventView, LineageStatus,
     LineageView, MemoryEntryView, OwnerCandidateView, QueryDiagnostic, ReadContextView,
     RelationsView, SuggestedQueryView, SymbolView, TaskJournalView, ValidationRecipeView,
+    WorkspaceRevisionView,
 };
 use rmcp::schemars::JsonSchema;
 
@@ -88,6 +89,67 @@ pub(crate) struct SessionResourcePayload {
     pub(crate) current_agent: Option<String>,
     pub(crate) limits: SessionLimitsView,
     pub(crate) features: FeatureFlagsView,
+    pub(crate) related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CapabilitiesBuildInfoView {
+    pub(crate) server_name: String,
+    pub(crate) server_version: String,
+    pub(crate) protocol_version: String,
+    pub(crate) workspace_revision: WorkspaceRevisionView,
+    pub(crate) api_reference_uri: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct QueryMethodCapabilityView {
+    pub(crate) name: String,
+    pub(crate) enabled: bool,
+    pub(crate) group: String,
+    pub(crate) feature_gate: Option<String>,
+    pub(crate) description: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ResourceCapabilityView {
+    pub(crate) name: String,
+    pub(crate) uri: String,
+    pub(crate) mime_type: String,
+    pub(crate) description: String,
+    pub(crate) schema_uri: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ResourceTemplateCapabilityView {
+    pub(crate) name: String,
+    pub(crate) uri_template: String,
+    pub(crate) mime_type: String,
+    pub(crate) description: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ToolCapabilityView {
+    pub(crate) name: String,
+    pub(crate) description: String,
+    pub(crate) schema_uri: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CapabilitiesResourcePayload {
+    pub(crate) uri: String,
+    pub(crate) schema_uri: String,
+    pub(crate) build: CapabilitiesBuildInfoView,
+    pub(crate) features: FeatureFlagsView,
+    pub(crate) query_methods: Vec<QueryMethodCapabilityView>,
+    pub(crate) resources: Vec<ResourceCapabilityView>,
+    pub(crate) resource_templates: Vec<ResourceTemplateCapabilityView>,
+    pub(crate) tools: Vec<ToolCapabilityView>,
     pub(crate) related_resources: Vec<ResourceLinkView>,
 }
 

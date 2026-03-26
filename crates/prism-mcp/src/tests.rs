@@ -666,6 +666,11 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         resources["result"]["resources"][0]["name"],
         "PRISM API Reference"
     );
+    assert!(resources["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == CAPABILITIES_URI));
 
     client
         .send(read_resource_request(4, API_REFERENCE_URI))
@@ -677,6 +682,29 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .expect("api reference should be text");
     assert!(api_reference.contains("PRISM Query API"));
     assert!(api_reference.contains("prism_query"));
+
+    client
+        .send(read_resource_request(5, CAPABILITIES_URI))
+        .await
+        .unwrap();
+    let capabilities = response_json(client.receive().await.unwrap());
+    let capabilities_payload = serde_json::from_str::<Value>(
+        capabilities["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("capabilities resource should be text"),
+    )
+    .unwrap();
+    assert_eq!(capabilities_payload["build"]["serverName"], "prism-mcp");
+    assert!(capabilities_payload["queryMethods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|method| method["name"] == "readContext" && method["enabled"] == true));
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == SESSION_URI));
 
     running.cancel().await.unwrap();
 }
@@ -703,6 +731,7 @@ async fn mcp_server_lists_and_reads_tool_schema_resources() {
         .iter()
         .filter_map(|resource| resource["uri"].as_str())
         .collect::<Vec<_>>();
+    assert!(resource_uris.contains(&CAPABILITIES_URI));
     assert!(resource_uris.contains(&TOOL_SCHEMAS_URI));
 
     client
@@ -936,8 +965,30 @@ async fn mcp_server_simple_mode_keeps_minimal_surface_and_reports_features() {
     );
 
     client
+        .send(read_resource_request(4, CAPABILITIES_URI))
+        .await
+        .unwrap();
+    let capabilities = response_json(client.receive().await.unwrap());
+    let capabilities_payload = serde_json::from_str::<Value>(
+        capabilities["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("capabilities resource should be text"),
+    )
+    .unwrap();
+    assert!(capabilities_payload["queryMethods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|method| method["name"] == "plan" && method["enabled"] == false));
+    assert!(capabilities_payload["queryMethods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|method| method["name"] == "claims" && method["enabled"] == false));
+
+    client
         .send(call_tool_request(
-            4,
+            5,
             "prism_mutate",
             json!({
                 "action": "coordination",

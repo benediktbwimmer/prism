@@ -12,6 +12,7 @@ use prism_memory::{EpisodicMemorySnapshot, OutcomeEvent, SessionMemory};
 use prism_query::{Prism, QueryLimits};
 use rmcp::{handler::server::router::tool::ToolRouter, transport::stdio, ServiceExt};
 
+mod capabilities_resource;
 mod common;
 mod daemon_mode;
 mod features;
@@ -34,6 +35,7 @@ mod tool_args;
 mod tool_schemas;
 mod views;
 
+use capabilities_resource::*;
 use common::*;
 pub use daemon_mode::serve_with_mode;
 pub use features::{CoordinationFeatureFlag, PrismMcpFeatures};
@@ -56,6 +58,7 @@ const DEFAULT_SEARCH_LIMIT: usize = 20;
 const DEFAULT_CALL_GRAPH_DEPTH: usize = 3;
 const DEFAULT_RESOURCE_PAGE_LIMIT: usize = 50;
 const ENTRYPOINTS_URI: &str = "prism://entrypoints";
+const CAPABILITIES_URI: &str = "prism://capabilities";
 const SESSION_URI: &str = "prism://session";
 const SCHEMAS_URI: &str = "prism://schemas";
 const TOOL_SCHEMAS_URI: &str = "prism://tool-schemas";

@@ -11,9 +11,9 @@ use serde_json::{json, Value};
 
 use crate::{
     parse_node_kind, ResourceLinkView, ResourcePageView, ResourceSchemaCatalogEntry,
-    EDGE_RESOURCE_TEMPLATE_URI, ENTRYPOINTS_RESOURCE_TEMPLATE_URI, EVENT_RESOURCE_TEMPLATE_URI,
-    LINEAGE_RESOURCE_TEMPLATE_URI, MEMORY_RESOURCE_TEMPLATE_URI, SCHEMAS_URI,
-    SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI, SYMBOL_RESOURCE_TEMPLATE_URI,
+    CAPABILITIES_URI, EDGE_RESOURCE_TEMPLATE_URI, ENTRYPOINTS_RESOURCE_TEMPLATE_URI,
+    EVENT_RESOURCE_TEMPLATE_URI, LINEAGE_RESOURCE_TEMPLATE_URI, MEMORY_RESOURCE_TEMPLATE_URI,
+    SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI, SYMBOL_RESOURCE_TEMPLATE_URI,
     TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI,
 };
 
@@ -279,6 +279,10 @@ pub(crate) fn session_resource_uri() -> String {
     SESSION_URI.to_string()
 }
 
+pub(crate) fn capabilities_resource_uri() -> String {
+    CAPABILITIES_URI.to_string()
+}
+
 pub(crate) fn schemas_resource_uri() -> String {
     SCHEMAS_URI.to_string()
 }
@@ -380,6 +384,19 @@ pub(crate) fn session_resource_link() -> RawResource {
         ))
 }
 
+pub(crate) fn capabilities_resource_link() -> RawResource {
+    RawResource::new(capabilities_resource_uri(), "PRISM Capabilities")
+        .with_description(
+            "Canonical capability map for query methods, resources, features, and build info",
+        )
+        .with_mime_type("application/json")
+        .with_meta(resource_meta(
+            "capabilities",
+            Some(schema_resource_uri("capabilities")),
+            None,
+        ))
+}
+
 pub(crate) fn task_resource_link(task_id: &str) -> RawResource {
     RawResource::new(task_resource_uri(task_id), "PRISM Task Replay")
         .with_description("Task-scoped outcome timeline and correlated events")
@@ -438,6 +455,14 @@ pub(crate) fn schemas_resource_view_link() -> ResourceLinkView {
         schemas_resource_uri(),
         "PRISM Resource Schemas",
         "Catalog of JSON Schemas for every structured PRISM resource payload",
+    )
+}
+
+pub(crate) fn capabilities_resource_view_link() -> ResourceLinkView {
+    resource_link_view(
+        capabilities_resource_uri(),
+        "PRISM Capabilities",
+        "Canonical capability map for query methods, resources, features, and build info",
     )
 }
 
@@ -561,6 +586,14 @@ pub(crate) fn symbol_resource_uri_from_node_id(id: &NodeId) -> String {
 
 pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntry> {
     vec![
+        ResourceSchemaCatalogEntry {
+            resource_kind: "capabilities".to_string(),
+            schema_uri: schema_resource_uri("capabilities"),
+            resource_uri: Some(CAPABILITIES_URI.to_string()),
+            description:
+                "Schema for the canonical PRISM capability map, including methods, resources, and build info."
+                    .to_string(),
+        },
         ResourceSchemaCatalogEntry {
             resource_kind: "schemas".to_string(),
             schema_uri: schema_resource_uri("schemas"),
