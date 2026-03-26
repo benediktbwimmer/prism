@@ -528,6 +528,114 @@ struct InferredEdgeRecordView {
     evidence: Vec<String>,
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ResourceLinkView {
+    uri: String,
+    name: String,
+    description: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SessionResourcePayload {
+    uri: String,
+    workspace_root: Option<String>,
+    current_task: Option<SessionTaskView>,
+    limits: SessionLimitsView,
+    related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EntrypointsResourcePayload {
+    uri: String,
+    entrypoints: Vec<SymbolView>,
+    page: ResourcePageView,
+    truncated: bool,
+    diagnostics: Vec<QueryDiagnostic>,
+    related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SearchResourcePayload {
+    uri: String,
+    query: String,
+    results: Vec<SymbolView>,
+    page: ResourcePageView,
+    truncated: bool,
+    diagnostics: Vec<QueryDiagnostic>,
+    related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SymbolResourcePayload {
+    uri: String,
+    symbol: SymbolView,
+    relations: RelationsView,
+    lineage: Option<LineageView>,
+    co_change_neighbors: Vec<CoChangeView>,
+    related_failures: Vec<OutcomeEvent>,
+    blast_radius: ChangeImpactView,
+    validation_recipe: ValidationRecipeView,
+    diagnostics: Vec<QueryDiagnostic>,
+    related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LineageResourcePayload {
+    uri: String,
+    lineage_id: String,
+    status: LineageStatus,
+    current_nodes: Vec<SymbolView>,
+    current_nodes_truncated: bool,
+    history: Vec<LineageEventView>,
+    history_page: ResourcePageView,
+    truncated: bool,
+    co_change_neighbors: Vec<CoChangeView>,
+    diagnostics: Vec<QueryDiagnostic>,
+    related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TaskResourcePayload {
+    uri: String,
+    task_id: String,
+    events: Vec<OutcomeEvent>,
+    page: ResourcePageView,
+    truncated: bool,
+    related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EventResourcePayload {
+    uri: String,
+    event: OutcomeEvent,
+    related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MemoryResourcePayload {
+    uri: String,
+    memory: MemoryEntryView,
+    task_id: Option<String>,
+    related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EdgeResourcePayload {
+    uri: String,
+    edge: InferredEdgeRecordView,
+    related_resources: Vec<ResourceLinkView>,
+}
+
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct PrismInferEdgeArgs {
@@ -625,12 +733,14 @@ struct PrismArtifactArgs {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PlanTargetArgs {
+    #[serde(alias = "plan_id")]
     plan_id: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct CoordinationTaskTargetArgs {
+    #[serde(alias = "task_id")]
     task_id: String,
 }
 
@@ -643,6 +753,7 @@ struct AnchorListArgs {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PendingReviewsArgs {
+    #[serde(alias = "plan_id")]
     plan_id: Option<String>,
 }
 
@@ -1689,28 +1800,68 @@ fn parse_edge_resource_uri(uri: &str) -> Option<EdgeId> {
         .map(EdgeId)
 }
 
+fn resource_link_view(
+    uri: String,
+    name: impl Into<String>,
+    description: impl Into<String>,
+) -> ResourceLinkView {
+    ResourceLinkView {
+        uri,
+        name: name.into(),
+        description: Some(description.into()),
+    }
+}
+
+fn dedupe_resource_link_views(mut links: Vec<ResourceLinkView>) -> Vec<ResourceLinkView> {
+    links.sort_by(|left, right| left.uri.cmp(&right.uri));
+    links.dedup_by(|left, right| left.uri == right.uri);
+    links
+}
+
+fn session_resource_uri() -> String {
+    SESSION_URI.to_string()
+}
+
+fn task_resource_uri(task_id: &str) -> String {
+    format!("prism://task/{}", percent_encode_component(task_id))
+}
+
+fn search_resource_uri(query: &str) -> String {
+    format!("prism://search/{}", percent_encode_component(query))
+}
+
+fn lineage_resource_uri(lineage_id: &str) -> String {
+    format!("prism://lineage/{}", percent_encode_component(lineage_id))
+}
+
+fn event_resource_uri(event_id: &str) -> String {
+    format!("prism://event/{}", percent_encode_component(event_id))
+}
+
+fn memory_resource_uri(memory_id: &str) -> String {
+    format!("prism://memory/{}", percent_encode_component(memory_id))
+}
+
+fn edge_resource_uri(edge_id: &str) -> String {
+    format!("prism://edge/{}", percent_encode_component(edge_id))
+}
+
 fn session_resource_link() -> RawResource {
-    RawResource::new(SESSION_URI, "PRISM Session")
+    RawResource::new(session_resource_uri(), "PRISM Session")
         .with_description("Active workspace root, current task context, and runtime query limits")
         .with_mime_type("application/json")
 }
 
 fn task_resource_link(task_id: &str) -> RawResource {
-    RawResource::new(
-        format!("prism://task/{}", percent_encode_component(task_id)),
-        "PRISM Task Replay",
-    )
-    .with_description("Task-scoped outcome timeline and correlated events")
-    .with_mime_type("application/json")
+    RawResource::new(task_resource_uri(task_id), "PRISM Task Replay")
+        .with_description("Task-scoped outcome timeline and correlated events")
+        .with_mime_type("application/json")
 }
 
 fn search_resource_link(query: &str) -> RawResource {
-    RawResource::new(
-        format!("prism://search/{}", percent_encode_component(query)),
-        format!("PRISM Search: {query}"),
-    )
-    .with_description("Structured search results and diagnostics for this query")
-    .with_mime_type("application/json")
+    RawResource::new(search_resource_uri(query), format!("PRISM Search: {query}"))
+        .with_description("Structured search results and diagnostics for this query")
+        .with_mime_type("application/json")
 }
 
 fn symbol_resource_link(symbol: &SymbolView) -> RawResource {
@@ -1724,7 +1875,7 @@ fn symbol_resource_link(symbol: &SymbolView) -> RawResource {
 
 fn lineage_resource_link(lineage_id: &str) -> RawResource {
     RawResource::new(
-        format!("prism://lineage/{}", percent_encode_component(lineage_id)),
+        lineage_resource_uri(lineage_id),
         format!("PRISM Lineage: {lineage_id}"),
     )
     .with_description("Structured lineage history and current nodes")
@@ -1733,7 +1884,7 @@ fn lineage_resource_link(lineage_id: &str) -> RawResource {
 
 fn event_resource_link(event_id: &str) -> RawResource {
     RawResource::new(
-        format!("prism://event/{}", percent_encode_component(event_id)),
+        event_resource_uri(event_id),
         format!("PRISM Event: {event_id}"),
     )
     .with_description("Recorded outcome event and associated task metadata")
@@ -1742,7 +1893,7 @@ fn event_resource_link(event_id: &str) -> RawResource {
 
 fn memory_resource_link(memory_id: &str) -> RawResource {
     RawResource::new(
-        format!("prism://memory/{}", percent_encode_component(memory_id)),
+        memory_resource_uri(memory_id),
         format!("PRISM Memory: {memory_id}"),
     )
     .with_description("Stored episodic memory entry and associated task metadata")
@@ -1751,11 +1902,83 @@ fn memory_resource_link(memory_id: &str) -> RawResource {
 
 fn edge_resource_link(edge_id: &str) -> RawResource {
     RawResource::new(
-        format!("prism://edge/{}", percent_encode_component(edge_id)),
+        edge_resource_uri(edge_id),
         format!("PRISM Inferred Edge: {edge_id}"),
     )
     .with_description("Inferred-edge record with scope, evidence, and task metadata")
     .with_mime_type("application/json")
+}
+
+fn session_resource_view_link() -> ResourceLinkView {
+    resource_link_view(
+        session_resource_uri(),
+        "PRISM Session",
+        "Active workspace root, current task context, and runtime query limits",
+    )
+}
+
+fn task_resource_view_link(task_id: &str) -> ResourceLinkView {
+    resource_link_view(
+        task_resource_uri(task_id),
+        "PRISM Task Replay",
+        "Task-scoped outcome timeline and correlated events",
+    )
+}
+
+fn search_resource_view_link(query: &str) -> ResourceLinkView {
+    resource_link_view(
+        search_resource_uri(query),
+        format!("PRISM Search: {query}"),
+        "Structured search results and diagnostics for this query",
+    )
+}
+
+fn symbol_resource_view_link(symbol: &SymbolView) -> ResourceLinkView {
+    resource_link_view(
+        symbol_resource_uri(&symbol.id),
+        format!("PRISM Symbol: {}", symbol.id.path),
+        "Exact symbol snapshot with relations, lineage, and risk context",
+    )
+}
+
+fn symbol_resource_view_link_for_id(id: &NodeId) -> ResourceLinkView {
+    resource_link_view(
+        symbol_resource_uri_from_node_id(id),
+        format!("PRISM Symbol: {}", id.path),
+        "Exact symbol snapshot with relations, lineage, and risk context",
+    )
+}
+
+fn lineage_resource_view_link(lineage_id: &str) -> ResourceLinkView {
+    resource_link_view(
+        lineage_resource_uri(lineage_id),
+        format!("PRISM Lineage: {lineage_id}"),
+        "Structured lineage history and current nodes",
+    )
+}
+
+fn event_resource_view_link(event_id: &str) -> ResourceLinkView {
+    resource_link_view(
+        event_resource_uri(event_id),
+        format!("PRISM Event: {event_id}"),
+        "Recorded outcome event and associated task metadata",
+    )
+}
+
+fn memory_resource_view_link(memory_id: &str) -> ResourceLinkView {
+    resource_link_view(
+        memory_resource_uri(memory_id),
+        format!("PRISM Memory: {memory_id}"),
+        "Stored episodic memory entry and associated task metadata",
+    )
+}
+
+fn edge_resource_view_link(edge_id: &str) -> ResourceLinkView {
+    resource_link_view(
+        edge_resource_uri(edge_id),
+        format!("PRISM Inferred Edge: {edge_id}"),
+        "Inferred-edge record with scope, evidence, and task metadata",
+    )
 }
 
 fn symbol_resource_uri(id: &NodeIdView) -> String {
@@ -1767,12 +1990,45 @@ fn symbol_resource_uri(id: &NodeIdView) -> String {
     )
 }
 
+fn symbol_resource_uri_from_node_id(id: &NodeId) -> String {
+    format!(
+        "prism://symbol/{}/{}/{}",
+        percent_encode_component(id.crate_name.as_str()),
+        percent_encode_component(&id.kind.to_string()),
+        percent_encode_component(id.path.as_str()),
+    )
+}
+
 fn symbol_links(symbol: &SymbolView) -> Vec<RawResource> {
     let mut links = vec![symbol_resource_link(symbol)];
     if let Some(lineage_id) = &symbol.lineage_id {
         links.push(lineage_resource_link(lineage_id));
     }
     links
+}
+
+fn anchor_resource_view_links(anchors: &[AnchorRef]) -> Vec<ResourceLinkView> {
+    let mut links = Vec::new();
+    for anchor in anchors {
+        match anchor {
+            AnchorRef::Node(id) => links.push(symbol_resource_view_link_for_id(id)),
+            AnchorRef::Lineage(lineage_id) => {
+                links.push(lineage_resource_view_link(lineage_id.0.as_str()))
+            }
+            AnchorRef::File(_) | AnchorRef::Kind(_) => {}
+        }
+    }
+    dedupe_resource_link_views(links)
+}
+
+fn task_resource_view_links_from_events(events: &[OutcomeEvent]) -> Vec<ResourceLinkView> {
+    dedupe_resource_link_views(
+        events
+            .iter()
+            .filter_map(|event| event.meta.correlation.as_ref())
+            .map(|task_id| task_resource_view_link(task_id.0.as_str()))
+            .collect(),
+    )
 }
 
 fn percent_decode_lossy(value: &str) -> String {
@@ -1981,8 +2237,26 @@ impl QueryHost {
         })
     }
 
-    fn session_resource_value(&self) -> Result<Value> {
-        serde_json::to_value(self.session_view()?).map_err(Into::into)
+    fn session_resource_value(&self) -> Result<SessionResourcePayload> {
+        let session = self.session_view()?;
+        let mut related_resources = vec![
+            session_resource_view_link(),
+            resource_link_view(
+                ENTRYPOINTS_URI.to_string(),
+                "PRISM Entrypoints",
+                "Workspace entrypoints and top-level starting symbols",
+            ),
+        ];
+        if let Some(task) = &session.current_task {
+            related_resources.push(task_resource_view_link(&task.task_id));
+        }
+        Ok(SessionResourcePayload {
+            uri: session_resource_uri(),
+            workspace_root: session.workspace_root,
+            current_task: session.current_task,
+            limits: session.limits,
+            related_resources: dedupe_resource_link_views(related_resources),
+        })
     }
 
     fn task_metadata(&self, task_id: &TaskId) -> (Option<String>, Vec<String>) {
@@ -2014,7 +2288,7 @@ impl QueryHost {
         (description, tags)
     }
 
-    fn entrypoints_resource_value(&self, uri: &str) -> Result<Value> {
+    fn entrypoints_resource_value(&self, uri: &str) -> Result<EntrypointsResourcePayload> {
         self.refresh_workspace()?;
         let prism = self.current_prism();
         let execution = QueryExecution::new(self.clone(), prism);
@@ -2026,40 +2300,74 @@ impl QueryHost {
                 self.session.limits().max_result_nodes,
             )?,
         );
-        Ok(json!({
-            "entrypoints": paged.items,
-            "page": paged.page,
-            "truncated": paged.truncated,
-            "diagnostics": execution.diagnostics(),
-        }))
+        let mut related_resources = vec![
+            session_resource_view_link(),
+            resource_link_view(
+                uri.to_string(),
+                "PRISM Entrypoints",
+                "Workspace entrypoints and top-level starting symbols",
+            ),
+        ];
+        related_resources.extend(paged.items.iter().take(8).map(symbol_resource_view_link));
+        Ok(EntrypointsResourcePayload {
+            uri: uri.to_string(),
+            entrypoints: paged.items,
+            page: paged.page,
+            truncated: paged.truncated,
+            diagnostics: execution.diagnostics(),
+            related_resources: dedupe_resource_link_views(related_resources),
+        })
     }
 
-    fn symbol_resource_value(&self, id: &NodeId) -> Result<Value> {
+    fn symbol_resource_value(&self, id: &NodeId) -> Result<SymbolResourcePayload> {
         self.refresh_workspace()?;
         let prism = self.current_prism();
         let execution = QueryExecution::new(self.clone(), prism.clone());
         let symbol = symbol_for(prism.as_ref(), id)?;
-        Ok(json!({
-            "symbol": symbol_view(prism.as_ref(), &symbol)?,
-            "relations": relations_view(prism.as_ref(), self.session.as_ref(), id)?,
-            "lineage": lineage_view(prism.as_ref(), id)?,
-            "coChangeNeighbors": prism
-                .co_change_neighbors(id, 8)
-                .into_iter()
-                .map(co_change_view)
-                .collect::<Vec<_>>(),
-            "relatedFailures": prism.related_failures(id),
-            "blastRadius": blast_radius_view(prism.as_ref(), self.session.as_ref(), id),
-            "validationRecipe": validation_recipe_view_with(
-                prism.as_ref(),
-                self.session.as_ref(),
-                id,
-            ),
-            "diagnostics": execution.diagnostics(),
-        }))
+        let symbol = symbol_view(prism.as_ref(), &symbol)?;
+        let relations = relations_view(prism.as_ref(), self.session.as_ref(), id)?;
+        let lineage = lineage_view(prism.as_ref(), id)?;
+        let co_change_neighbors = prism
+            .co_change_neighbors(id, 8)
+            .into_iter()
+            .map(co_change_view)
+            .collect::<Vec<_>>();
+        let related_failures = prism.related_failures(id);
+        let blast_radius = blast_radius_view(prism.as_ref(), self.session.as_ref(), id);
+        let validation_recipe =
+            validation_recipe_view_with(prism.as_ref(), self.session.as_ref(), id);
+        let mut related_resources = vec![
+            session_resource_view_link(),
+            symbol_resource_view_link(&symbol),
+        ];
+        if let Some(lineage) = &lineage {
+            related_resources.push(lineage_resource_view_link(&lineage.lineage_id));
+        }
+        related_resources.extend(task_resource_view_links_from_events(
+            &prism
+                .outcome_memory()
+                .outcomes_for(&[AnchorRef::Node(id.clone())], 16),
+        ));
+        related_resources.extend(
+            related_failures
+                .iter()
+                .map(|event| event_resource_view_link(event.meta.id.0.as_str())),
+        );
+        Ok(SymbolResourcePayload {
+            uri: symbol_resource_uri(&symbol.id),
+            symbol,
+            relations,
+            lineage,
+            co_change_neighbors,
+            related_failures,
+            blast_radius,
+            validation_recipe,
+            diagnostics: execution.diagnostics(),
+            related_resources: dedupe_resource_link_views(related_resources),
+        })
     }
 
-    fn search_resource_value(&self, uri: &str, query: &str) -> Result<Value> {
+    fn search_resource_value(&self, uri: &str, query: &str) -> Result<SearchResourcePayload> {
         self.refresh_workspace()?;
         let execution = QueryExecution::new(self.clone(), self.current_prism());
         let paged = paginate_items(
@@ -2076,16 +2384,27 @@ impl QueryHost {
                 self.session.limits().max_result_nodes,
             )?,
         );
-        Ok(json!({
-            "query": query,
-            "results": paged.items,
-            "page": paged.page,
-            "truncated": paged.truncated,
-            "diagnostics": execution.diagnostics(),
-        }))
+        let mut related_resources = vec![
+            session_resource_view_link(),
+            search_resource_view_link(query),
+        ];
+        related_resources.extend(paged.items.iter().take(8).map(symbol_resource_view_link));
+        Ok(SearchResourcePayload {
+            uri: uri.to_string(),
+            query: query.to_string(),
+            results: paged.items,
+            page: paged.page,
+            truncated: paged.truncated,
+            diagnostics: execution.diagnostics(),
+            related_resources: dedupe_resource_link_views(related_resources),
+        })
     }
 
-    fn lineage_resource_value(&self, uri: &str, lineage: &LineageId) -> Result<Value> {
+    fn lineage_resource_value(
+        &self,
+        uri: &str,
+        lineage: &LineageId,
+    ) -> Result<LineageResourcePayload> {
         self.refresh_workspace()?;
         let prism = self.current_prism();
         let history = prism.history_snapshot();
@@ -2131,20 +2450,27 @@ impl QueryHost {
                 self.session.limits().max_result_nodes,
             )?,
         );
-        Ok(json!({
-            "lineageId": lineage.0,
-            "status": lineage_status(&events),
-            "currentNodes": current_nodes,
-            "currentNodesTruncated": current_nodes_truncated,
-            "history": paged_history.items,
-            "historyPage": paged_history.page,
-            "truncated": paged_history.truncated || current_nodes_truncated,
-            "coChangeNeighbors": co_change_neighbors,
-            "diagnostics": Vec::<QueryDiagnostic>::new(),
-        }))
+        let mut related_resources = vec![
+            session_resource_view_link(),
+            lineage_resource_view_link(lineage.0.as_str()),
+        ];
+        related_resources.extend(current_nodes.iter().map(symbol_resource_view_link));
+        Ok(LineageResourcePayload {
+            uri: uri.to_string(),
+            lineage_id: lineage.0.to_string(),
+            status: lineage_status(&events),
+            current_nodes,
+            current_nodes_truncated,
+            history: paged_history.items,
+            history_page: paged_history.page,
+            truncated: paged_history.truncated || current_nodes_truncated,
+            co_change_neighbors,
+            diagnostics: Vec::new(),
+            related_resources: dedupe_resource_link_views(related_resources),
+        })
     }
 
-    fn task_resource_value(&self, uri: &str, task_id: &TaskId) -> Result<Value> {
+    fn task_resource_value(&self, uri: &str, task_id: &TaskId) -> Result<TaskResourcePayload> {
         self.refresh_workspace()?;
         let prism = self.current_prism();
         let replay = prism.resume_task(task_id);
@@ -2156,57 +2482,122 @@ impl QueryHost {
                 self.session.limits().max_result_nodes,
             )?,
         );
-        Ok(json!({
-            "taskId": replay.task.0,
-            "events": paged.items,
-            "page": paged.page,
-            "truncated": paged.truncated,
-        }))
+        let mut related_resources = vec![
+            session_resource_view_link(),
+            task_resource_view_link(replay.task.0.as_str()),
+        ];
+        related_resources.extend(
+            paged
+                .items
+                .iter()
+                .map(|event| event_resource_view_link(event.meta.id.0.as_str())),
+        );
+        related_resources.extend(
+            paged
+                .items
+                .iter()
+                .flat_map(|event| anchor_resource_view_links(&event.anchors)),
+        );
+        Ok(TaskResourcePayload {
+            uri: uri.to_string(),
+            task_id: replay.task.0.to_string(),
+            events: paged.items,
+            page: paged.page,
+            truncated: paged.truncated,
+            related_resources: dedupe_resource_link_views(related_resources),
+        })
     }
 
-    fn event_resource_value(&self, event_id: &EventId) -> Result<Value> {
+    fn event_resource_value(&self, event_id: &EventId) -> Result<EventResourcePayload> {
         self.refresh_workspace()?;
         let event = self
             .current_prism()
             .outcome_memory()
             .event(event_id)
             .ok_or_else(|| anyhow!("unknown event `{}`", event_id.0))?;
-        Ok(json!({ "event": event }))
+        let mut related_resources = vec![
+            session_resource_view_link(),
+            event_resource_view_link(event_id.0.as_str()),
+        ];
+        if let Some(task_id) = &event.meta.correlation {
+            related_resources.push(task_resource_view_link(task_id.0.as_str()));
+        }
+        related_resources.extend(anchor_resource_view_links(&event.anchors));
+        Ok(EventResourcePayload {
+            uri: event_resource_uri(event_id.0.as_str()),
+            event,
+            related_resources: dedupe_resource_link_views(related_resources),
+        })
     }
 
-    fn memory_resource_value(&self, memory_id: &MemoryId) -> Result<Value> {
+    fn memory_resource_value(&self, memory_id: &MemoryId) -> Result<MemoryResourcePayload> {
         self.refresh_workspace()?;
         let entry = self
             .session
             .notes
             .entry(memory_id)
             .ok_or_else(|| anyhow!("unknown memory `{}`", memory_id.0))?;
-        Ok(json!({
-            "memory": memory_entry_view(entry.clone()),
-            "taskId": entry
-                .metadata
-                .get("task_id")
-                .and_then(|value| value.as_str())
-                .map(ToOwned::to_owned),
-        }))
+        let task_id = entry
+            .metadata
+            .get("task_id")
+            .and_then(|value| value.as_str())
+            .map(ToOwned::to_owned);
+        let mut related_resources = vec![
+            session_resource_view_link(),
+            memory_resource_view_link(&memory_id.0),
+        ];
+        if let Some(task_id) = &task_id {
+            related_resources.push(task_resource_view_link(task_id));
+        }
+        related_resources.extend(anchor_resource_view_links(&entry.anchors));
+        Ok(MemoryResourcePayload {
+            uri: memory_resource_uri(&memory_id.0),
+            memory: memory_entry_view(entry),
+            task_id,
+            related_resources: dedupe_resource_link_views(related_resources),
+        })
     }
 
-    fn edge_resource_value(&self, edge_id: &EdgeId) -> Result<Value> {
+    fn edge_resource_value(&self, edge_id: &EdgeId) -> Result<EdgeResourcePayload> {
         self.refresh_workspace()?;
         let record = self
             .session
             .inferred_edges
             .record(edge_id)
             .ok_or_else(|| anyhow!("unknown inferred edge `{}`", edge_id.0))?;
-        Ok(json!({
-            "edge": inferred_edge_record_view(record),
-        }))
+        let edge = inferred_edge_record_view(record);
+        let mut related_resources = vec![
+            session_resource_view_link(),
+            edge_resource_view_link(&edge.id),
+        ];
+        if let Some(task_id) = &edge.task_id {
+            related_resources.push(task_resource_view_link(task_id));
+        }
+        related_resources.push(symbol_resource_view_link_for_id(&convert_node_id(
+            NodeIdInput {
+                crate_name: edge.edge.source.crate_name.clone(),
+                path: edge.edge.source.path.clone(),
+                kind: edge.edge.source.kind.to_string(),
+            },
+        )?));
+        related_resources.push(symbol_resource_view_link_for_id(&convert_node_id(
+            NodeIdInput {
+                crate_name: edge.edge.target.crate_name.clone(),
+                path: edge.edge.target.path.clone(),
+                kind: edge.edge.target.kind.to_string(),
+            },
+        )?));
+        Ok(EdgeResourcePayload {
+            uri: edge_resource_uri(&edge.id),
+            edge,
+            related_resources: dedupe_resource_link_views(related_resources),
+        })
     }
 
     fn execute_typescript(&self, code: &str) -> Result<QueryEnvelope> {
         self.refresh_workspace()?;
         let source = format!(
-            "(function() {{\n  const __prismUserQuery = () => {{\n{}\n  }};\n  const __prismResult = __prismUserQuery();\n  return __prismResult === undefined ? \"null\" : JSON.stringify(__prismResult);\n}})();\n",
+            "(function() {{\n  try {{\n    const __prismUserQuery = () => {{\n{}\n    }};\n    const __prismResult = __prismUserQuery();\n    return __prismResult === undefined ? \"null\" : JSON.stringify(__prismResult);\n  }} catch (error) {{\n    const __prismMessage = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : error && typeof error === \"object\" && \"message\" in error && error.message\n        ? String(error.message)\n        : String(error);\n    throw new Error(__prismMessage);\n  }}\n}})();\n",
             code
         );
         let transpiled = transpile_typescript(&source)?;
@@ -2403,10 +2794,9 @@ impl QueryHost {
         args: PrismCoordinationArgs,
     ) -> Result<CoordinationMutationResult> {
         self.refresh_workspace()?;
-        let prism = self.current_prism();
         let task = self
             .session
-            .task_for_mutation(args.task_id.map(TaskId::new));
+            .task_for_mutation(args.task_id.clone().map(TaskId::new));
         let event_id = self.session.next_event_id("coordination");
         let meta = EventMeta {
             id: event_id.clone(),
@@ -2415,7 +2805,69 @@ impl QueryHost {
             correlation: Some(task),
             causation: None,
         };
-        let state = match args.kind {
+        let state = if let Some(workspace) = &self.workspace {
+            workspace
+                .mutate_coordination(|prism| self.apply_coordination_mutation(prism, args, meta))?
+        } else {
+            let prism = self.current_prism();
+            self.apply_coordination_mutation(prism.as_ref(), args, meta)?
+        };
+        Ok(CoordinationMutationResult {
+            event_id: event_id.0.to_string(),
+            state,
+        })
+    }
+
+    fn store_claim(&self, args: PrismClaimArgs) -> Result<ClaimMutationResult> {
+        self.refresh_workspace()?;
+        let task = self
+            .session
+            .task_for_mutation(args.task_id.clone().map(TaskId::new));
+        let meta = EventMeta {
+            id: self.session.next_event_id("coordination"),
+            ts: current_timestamp(),
+            actor: EventActor::Agent,
+            correlation: Some(task),
+            causation: None,
+        };
+        let result = if let Some(workspace) = &self.workspace {
+            workspace.mutate_coordination(|prism| self.apply_claim_mutation(prism, args, meta))?
+        } else {
+            let prism = self.current_prism();
+            self.apply_claim_mutation(prism.as_ref(), args, meta)?
+        };
+        Ok(result)
+    }
+
+    fn store_artifact(&self, args: PrismArtifactArgs) -> Result<ArtifactMutationResult> {
+        self.refresh_workspace()?;
+        let task = self
+            .session
+            .task_for_mutation(args.task_id.clone().map(TaskId::new));
+        let meta = EventMeta {
+            id: self.session.next_event_id("coordination"),
+            ts: current_timestamp(),
+            actor: EventActor::Agent,
+            correlation: Some(task),
+            causation: None,
+        };
+        let result = if let Some(workspace) = &self.workspace {
+            workspace
+                .mutate_coordination(|prism| self.apply_artifact_mutation(prism, args, meta))?
+        } else {
+            let prism = self.current_prism();
+            self.apply_artifact_mutation(prism.as_ref(), args, meta)?
+        };
+        Ok(result)
+    }
+
+    fn apply_coordination_mutation(
+        &self,
+        prism: &Prism,
+        args: PrismCoordinationArgs,
+        meta: EventMeta,
+    ) -> Result<Value> {
+        match args.kind {
             CoordinationMutationKindInput::PlanCreate => {
                 let payload: PlanCreatePayload = serde_json::from_value(args.payload)?;
                 let (_, plan) = prism.coordination().create_plan(
@@ -2425,7 +2877,7 @@ impl QueryHost {
                         policy: convert_policy(payload.policy)?,
                     },
                 )?;
-                serde_json::to_value(plan_view(plan))?
+                Ok(serde_json::to_value(plan_view(plan))?)
             }
             CoordinationMutationKindInput::TaskCreate => {
                 let payload: TaskCreatePayload = serde_json::from_value(args.payload)?;
@@ -2452,7 +2904,7 @@ impl QueryHost {
                         base_revision: prism.workspace_revision(),
                     },
                 )?;
-                serde_json::to_value(coordination_task_view(task))?
+                Ok(serde_json::to_value(coordination_task_view(task))?)
             }
             CoordinationMutationKindInput::TaskUpdate => {
                 let payload: TaskUpdatePayload = serde_json::from_value(args.payload)?;
@@ -2471,8 +2923,10 @@ impl QueryHost {
                         anchors: payload.anchors.map(convert_anchors).transpose()?,
                         base_revision: Some(prism.workspace_revision()),
                     },
+                    prism.workspace_revision(),
+                    current_timestamp(),
                 )?;
-                serde_json::to_value(coordination_task_view(task))?
+                Ok(serde_json::to_value(coordination_task_view(task))?)
             }
             CoordinationMutationKindInput::Handoff => {
                 let payload: HandoffPayload = serde_json::from_value(args.payload)?;
@@ -2484,30 +2938,18 @@ impl QueryHost {
                         summary: payload.summary,
                     },
                 )?;
-                serde_json::to_value(coordination_task_view(task))?
+                Ok(serde_json::to_value(coordination_task_view(task))?)
             }
-        };
-        self.persist_coordination()?;
-        Ok(CoordinationMutationResult {
-            event_id: event_id.0.to_string(),
-            state,
-        })
+        }
     }
 
-    fn store_claim(&self, args: PrismClaimArgs) -> Result<ClaimMutationResult> {
-        self.refresh_workspace()?;
-        let prism = self.current_prism();
-        let task = self
-            .session
-            .task_for_mutation(args.task_id.map(TaskId::new));
-        let meta = EventMeta {
-            id: self.session.next_event_id("coordination"),
-            ts: current_timestamp(),
-            actor: EventActor::Agent,
-            correlation: Some(task),
-            causation: None,
-        };
-        let result = match args.action {
+    fn apply_claim_mutation(
+        &self,
+        prism: &Prism,
+        args: PrismClaimArgs,
+        meta: EventMeta,
+    ) -> Result<ClaimMutationResult> {
+        match args.action {
             ClaimActionInput::Acquire => {
                 let payload: ClaimAcquirePayload = serde_json::from_value(args.payload)?;
                 let (claim_id, conflicts, state) = prism.coordination().acquire_claim(
@@ -2523,7 +2965,7 @@ impl QueryHost {
                         agent: payload.agent.map(AgentId::new),
                     },
                 )?;
-                ClaimMutationResult {
+                Ok(ClaimMutationResult {
                     claim_id: claim_id.map(|claim_id| claim_id.0.to_string()),
                     conflicts: conflicts
                         .into_iter()
@@ -2535,7 +2977,7 @@ impl QueryHost {
                         .map(serde_json::to_value)
                         .transpose()?
                         .unwrap_or(Value::Null),
-                }
+                })
             }
             ClaimActionInput::Renew => {
                 let payload: ClaimRenewPayload = serde_json::from_value(args.payload)?;
@@ -2544,42 +2986,33 @@ impl QueryHost {
                     &ClaimId::new(payload.claim_id.clone()),
                     payload.ttl_seconds,
                 )?;
-                ClaimMutationResult {
+                Ok(ClaimMutationResult {
                     claim_id: Some(payload.claim_id),
                     conflicts: Vec::new(),
                     state: serde_json::to_value(claim_view(claim))?,
-                }
+                })
             }
             ClaimActionInput::Release => {
                 let payload: ClaimReleasePayload = serde_json::from_value(args.payload)?;
                 let claim = prism
                     .coordination()
                     .release_claim(meta, &ClaimId::new(payload.claim_id.clone()))?;
-                ClaimMutationResult {
+                Ok(ClaimMutationResult {
                     claim_id: Some(payload.claim_id),
                     conflicts: Vec::new(),
                     state: serde_json::to_value(claim_view(claim))?,
-                }
+                })
             }
-        };
-        self.persist_coordination()?;
-        Ok(result)
+        }
     }
 
-    fn store_artifact(&self, args: PrismArtifactArgs) -> Result<ArtifactMutationResult> {
-        self.refresh_workspace()?;
-        let prism = self.current_prism();
-        let task = self
-            .session
-            .task_for_mutation(args.task_id.map(TaskId::new));
-        let meta = EventMeta {
-            id: self.session.next_event_id("coordination"),
-            ts: current_timestamp(),
-            actor: EventActor::Agent,
-            correlation: Some(task),
-            causation: None,
-        };
-        let result = match args.action {
+    fn apply_artifact_mutation(
+        &self,
+        prism: &Prism,
+        args: PrismArtifactArgs,
+        meta: EventMeta,
+    ) -> Result<ArtifactMutationResult> {
+        match args.action {
             ArtifactActionInput::Propose => {
                 let payload: ArtifactProposePayload = serde_json::from_value(args.payload)?;
                 let task_id = CoordinationTaskId::new(payload.task_id.clone());
@@ -2605,11 +3038,11 @@ impl QueryHost {
                         base_revision: prism.workspace_revision(),
                     },
                 )?;
-                ArtifactMutationResult {
+                Ok(ArtifactMutationResult {
                     artifact_id: Some(artifact_id.0.to_string()),
                     review_id: None,
                     state: serde_json::to_value(artifact_view(artifact))?,
-                }
+                })
             }
             ArtifactActionInput::Supersede => {
                 let payload: ArtifactSupersedePayload = serde_json::from_value(args.payload)?;
@@ -2619,11 +3052,11 @@ impl QueryHost {
                         artifact_id: ArtifactId::new(payload.artifact_id.clone()),
                     },
                 )?;
-                ArtifactMutationResult {
+                Ok(ArtifactMutationResult {
                     artifact_id: Some(payload.artifact_id),
                     review_id: None,
                     state: serde_json::to_value(artifact_view(artifact))?,
-                }
+                })
             }
             ArtifactActionInput::Review => {
                 let payload: ArtifactReviewPayload = serde_json::from_value(args.payload)?;
@@ -2634,16 +3067,15 @@ impl QueryHost {
                         verdict: parse_review_verdict(&payload.verdict)?,
                         summary: payload.summary,
                     },
+                    prism.workspace_revision(),
                 )?;
-                ArtifactMutationResult {
+                Ok(ArtifactMutationResult {
                     artifact_id: Some(payload.artifact_id),
                     review_id: Some(review_id.0.to_string()),
                     state: serde_json::to_value(artifact_view(artifact))?,
-                }
+                })
             }
-        };
-        self.persist_coordination()?;
-        Ok(result)
+        }
     }
 
     fn current_prism(&self) -> Arc<Prism> {
@@ -2679,13 +3111,6 @@ impl QueryHost {
             return Ok(());
         };
         workspace.persist_inference(&self.session.inferred_edges.snapshot_persisted())
-    }
-
-    fn persist_coordination(&self) -> Result<()> {
-        let Some(workspace) = &self.workspace else {
-            return Ok(());
-        };
-        workspace.persist_coordination(&self.current_prism().coordination().snapshot())
     }
 
     fn curator_jobs(&self, args: CuratorJobsArgs) -> Result<Vec<CuratorJobView>> {
@@ -3564,7 +3989,7 @@ impl QueryExecution {
                 let args: PlanTargetArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(
                     self.prism
-                        .ready_tasks(&PlanId::new(args.plan_id))
+                        .ready_tasks(&PlanId::new(args.plan_id), current_timestamp())
                         .into_iter()
                         .map(coordination_task_view)
                         .collect::<Vec<_>>(),
@@ -3653,11 +4078,7 @@ impl QueryExecution {
                             &self.host.session.session_id(),
                             &convert_anchors(args.anchors)?,
                             parse_capability(&args.capability)?,
-                            args.mode
-                                .as_deref()
-                                .map(parse_claim_mode)
-                                .transpose()?
-                                .unwrap_or(ClaimMode::Advisory),
+                            args.mode.as_deref().map(parse_claim_mode).transpose()?,
                             args.task_id
                                 .as_ref()
                                 .map(|task_id| CoordinationTaskId::new(task_id.clone()))
@@ -4516,9 +4937,32 @@ mod tests {
 
     fn first_tool_content_json(response: ServerJsonRpcMessage) -> serde_json::Value {
         let response = response_json(response);
-        let text = response["result"]["content"][0]["text"]
-            .as_str()
-            .expect("tool result should contain json text");
+        if !response["error"].is_null() {
+            panic!("tool call failed: {response}");
+        }
+        if !response["result"]["structuredContent"].is_null() {
+            return response["result"]["structuredContent"].clone();
+        }
+        if let Some(content) = response["result"]["content"].as_array() {
+            if let Some(json) = content.iter().find_map(|item| {
+                let json = item.get("json")?;
+                if json.is_null() {
+                    None
+                } else {
+                    Some(json.clone())
+                }
+            }) {
+                return json;
+            }
+        }
+        let text = response["result"]["content"]
+            .as_array()
+            .and_then(|content| {
+                content
+                    .iter()
+                    .find_map(|item| item.get("text").and_then(Value::as_str))
+            })
+            .unwrap_or_else(|| panic!("tool result should contain json text: {response}"));
         serde_json::from_str(text).expect("tool content should decode as json")
     }
 
@@ -4734,6 +5178,264 @@ return { path: sym?.id.path, kind: sym?.kind };
                 .as_array()
                 .map(|diagnostics| diagnostics.len()),
             Some(0)
+        );
+
+        running.cancel().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() {
+        let server = server_with_node(demo_node());
+        let (server_transport, client_transport) = tokio::io::duplex(4096);
+        let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+        let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+        let _ = initialize_client(&mut client).await;
+        client.send(initialized_notification()).await.unwrap();
+        let running = server_task
+            .await
+            .expect("server join should succeed")
+            .expect("server should initialize");
+
+        client
+            .send(call_tool_request(
+                2,
+                "prism_coordination",
+                json!({
+                    "kind": "plan_create",
+                    "payload": { "goal": "Coordinate the main edit" }
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            ))
+            .await
+            .unwrap();
+        let plan = first_tool_content_json(client.receive().await.unwrap());
+        let plan_id = plan["state"]["id"].as_str().unwrap().to_string();
+
+        client
+            .send(call_tool_request(
+                3,
+                "prism_coordination",
+                json!({
+                    "kind": "task_create",
+                    "payload": {
+                        "planId": plan_id,
+                        "title": "Edit main",
+                        "anchors": [{
+                            "type": "node",
+                            "crateName": "demo",
+                            "path": "demo::main",
+                            "kind": "function"
+                        }]
+                    }
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            ))
+            .await
+            .unwrap();
+        let task = first_tool_content_json(client.receive().await.unwrap());
+        let task_id = task["state"]["id"].as_str().unwrap().to_string();
+
+        client
+            .send(call_tool_request(
+                4,
+                "prism_claim",
+                json!({
+                    "action": "acquire",
+                    "payload": {
+                        "anchors": [{
+                            "type": "node",
+                            "crateName": "demo",
+                            "path": "demo::main",
+                            "kind": "function"
+                        }],
+                        "capability": "Edit",
+                        "mode": "SoftExclusive",
+                        "coordinationTaskId": task_id
+                    }
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            ))
+            .await
+            .unwrap();
+        let claim = first_tool_content_json(client.receive().await.unwrap());
+        assert!(claim["claimId"].as_str().is_some());
+
+        client
+            .send(call_tool_request(
+                5,
+                "prism_artifact",
+                json!({
+                    "action": "propose",
+                    "payload": {
+                        "taskId": task["state"]["id"].as_str().unwrap(),
+                        "diffRef": "patch:1"
+                    }
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            ))
+            .await
+            .unwrap();
+        let artifact = first_tool_content_json(client.receive().await.unwrap());
+        assert!(artifact["artifactId"].as_str().is_some());
+
+        client
+            .send(call_tool_request(
+                6,
+                "prism_query",
+                json!({
+                    "code": format!(
+                        r#"
+const sym = prism.symbol("main");
+return {{
+  plan: prism.plan("{plan_id}"),
+  ready: prism.readyTasks("{plan_id}"),
+  claims: sym ? prism.claims(sym) : [],
+  artifacts: prism.artifacts("{task_id}"),
+}};
+"#
+                    ),
+                    "language": "ts",
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            ))
+            .await
+            .unwrap();
+        let envelope = first_tool_content_json(client.receive().await.unwrap());
+        assert_eq!(
+            envelope["result"]["plan"]["goal"],
+            "Coordinate the main edit"
+        );
+        assert_eq!(envelope["result"]["ready"].as_array().unwrap().len(), 1);
+        assert_eq!(envelope["result"]["claims"].as_array().unwrap().len(), 1);
+        assert_eq!(envelope["result"]["artifacts"].as_array().unwrap().len(), 1);
+
+        running.cancel().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
+        let server = server_with_node(demo_node());
+        let (server_transport, client_transport) = tokio::io::duplex(4096);
+        let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+        let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+        let _ = initialize_client(&mut client).await;
+        client.send(initialized_notification()).await.unwrap();
+        let running = server_task
+            .await
+            .expect("server join should succeed")
+            .expect("server should initialize");
+
+        client
+            .send(call_tool_request(
+                2,
+                "prism_coordination",
+                json!({
+                    "kind": "plan_create",
+                    "payload": {
+                        "goal": "Review-gated change",
+                        "policy": { "requireReviewForCompletion": true }
+                    }
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            ))
+            .await
+            .unwrap();
+        let plan = first_tool_content_json(client.receive().await.unwrap());
+        let plan_id = plan["state"]["id"].as_str().unwrap().to_string();
+
+        client
+            .send(call_tool_request(
+                3,
+                "prism_coordination",
+                json!({
+                    "kind": "task_create",
+                    "payload": {
+                        "planId": plan_id,
+                        "title": "Patch main",
+                        "anchors": [{
+                            "type": "node",
+                            "crateName": "demo",
+                            "path": "demo::main",
+                            "kind": "function"
+                        }]
+                    }
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            ))
+            .await
+            .unwrap();
+        let task = first_tool_content_json(client.receive().await.unwrap());
+        let task_id = task["state"]["id"].as_str().unwrap().to_string();
+
+        client
+            .send(call_tool_request(
+                4,
+                "prism_artifact",
+                json!({
+                    "action": "propose",
+                    "payload": {
+                        "taskId": task_id,
+                        "diffRef": "patch:review-gated"
+                    }
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            ))
+            .await
+            .unwrap();
+        let artifact = first_tool_content_json(client.receive().await.unwrap());
+        assert!(artifact["artifactId"].as_str().is_some());
+
+        client
+            .send(call_tool_request(
+                5,
+                "prism_query",
+                json!({
+                    "code": format!(
+                        r#"
+return {{
+  blockers: prism.blockers("{task_id}"),
+  pendingReviews: prism.pendingReviews("{plan_id}"),
+}};
+"#
+                    ),
+                    "language": "ts",
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            ))
+            .await
+            .unwrap();
+        let envelope = first_tool_content_json(client.receive().await.unwrap());
+        assert_eq!(
+            envelope["result"]["blockers"][0]["kind"],
+            Value::String("ReviewRequired".to_string())
+        );
+        assert_eq!(
+            envelope["result"]["pendingReviews"].as_array().unwrap().len(),
+            1
+        );
+        assert_eq!(
+            envelope["diagnostics"][0]["code"],
+            Value::String("task_blocked".to_string())
         );
 
         running.cancel().await.unwrap();

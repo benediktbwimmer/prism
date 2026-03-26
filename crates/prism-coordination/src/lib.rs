@@ -334,6 +334,9 @@ impl CoordinationStore {
             .state
             .write()
             .expect("coordination store lock poisoned");
+        if !state.plans.contains_key(&input.plan_id) {
+            return Err(anyhow!("unknown plan `{}`", input.plan_id.0));
+        }
         state.next_task += 1;
         let id = CoordinationTaskId::new(format!("coord-task:{}", state.next_task));
         let is_root = input.depends_on.is_empty();
@@ -353,7 +356,7 @@ impl CoordinationStore {
             let plan = state
                 .plans
                 .get_mut(&input.plan_id)
-                .ok_or_else(|| anyhow!("unknown plan `{}`", input.plan_id.0))?;
+                .expect("plan validated above");
             plan.root_tasks.push(id.clone());
             plan.root_tasks = dedupe_ids(plan.root_tasks.clone());
         }
@@ -372,37 +375,75 @@ impl CoordinationStore {
         Ok((id, task))
     }
 
-    pub fn update_task(&self, meta: EventMeta, input: TaskUpdateInput) -> Result<CoordinationTask> {
+    pub fn update_task(
+        &self,
+        meta: EventMeta,
+        input: TaskUpdateInput,
+        current_revision: WorkspaceRevision,
+        now: Timestamp,
+    ) -> Result<CoordinationTask> {
         let mut state = self
             .state
             .write()
             .expect("coordination store lock poisoned");
-        let task = state
-            .tasks
-            .get_mut(&input.task_id)
-            .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
-        if let Some(title) = input.title {
-            task.title = title;
+        let previous;
+        let task_snapshot;
+        {
+            let task = state
+                .tasks
+                .get_mut(&input.task_id)
+                .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
+            previous = task.clone();
+            if let Some(title) = input.title {
+                task.title = title;
+            }
+            if let Some(status) = input.status {
+                task.status = status;
+            }
+            if let Some(assignee) = input.assignee {
+                task.assignee = assignee;
+            }
+            if let Some(session) = input.session {
+                task.session = session;
+            }
+            if let Some(anchors) = input.anchors {
+                task.anchors = dedupe_anchors(anchors);
+            }
+            if let Some(base_revision) = input.base_revision {
+                task.base_revision = base_revision;
+            }
+            task_snapshot = task.clone();
         }
-        if let Some(status) = input.status {
-            task.status = status;
+        let completion_blockers =
+            self.completion_blockers_locked(&state, &task_snapshot, current_revision, now);
+        if task_snapshot.status == CoordinationTaskStatus::Completed
+            && !completion_blockers.is_empty()
+        {
+            return Err(anyhow!(
+                "coordination task `{}` cannot complete: {}",
+                task_snapshot.id.0,
+                completion_blockers
+                    .iter()
+                    .map(|blocker| blocker.summary.as_str())
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            ));
         }
-        if let Some(assignee) = input.assignee {
-            task.assignee = assignee;
-        }
-        if let Some(session) = input.session {
-            task.session = session;
-        }
-        if let Some(anchors) = input.anchors {
-            task.anchors = dedupe_anchors(anchors);
-        }
-        if let Some(base_revision) = input.base_revision {
-            task.base_revision = base_revision;
-        }
-        let task = task.clone();
+        let task = task_snapshot;
+        let kind = if previous.assignee != task.assignee {
+            CoordinationEventKind::TaskAssigned
+        } else if previous.status != task.status && task.status == CoordinationTaskStatus::Blocked {
+            CoordinationEventKind::TaskBlocked
+        } else if previous.status == CoordinationTaskStatus::Blocked
+            && previous.status != task.status
+        {
+            CoordinationEventKind::TaskUnblocked
+        } else {
+            CoordinationEventKind::TaskStatusChanged
+        };
         state.events.push(CoordinationEvent {
             meta,
-            kind: CoordinationEventKind::TaskStatusChanged,
+            kind,
             summary: task.title.clone(),
             plan: Some(task.plan.clone()),
             task: Some(task.id.clone()),
@@ -423,9 +464,24 @@ impl CoordinationStore {
             .tasks
             .get_mut(&input.task_id)
             .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
-        task.assignee = input.to_agent;
+        let target_agent = input.to_agent.clone();
+        task.assignee = target_agent.clone();
+        task.session = None;
         task.status = CoordinationTaskStatus::Ready;
         let task = task.clone();
+        state.events.push(CoordinationEvent {
+            meta: meta.clone(),
+            kind: CoordinationEventKind::HandoffRequested,
+            summary: input.summary.clone(),
+            plan: Some(task.plan.clone()),
+            task: Some(task.id.clone()),
+            claim: None,
+            artifact: None,
+            review: None,
+            metadata: serde_json::json!({
+                "to_agent": target_agent.map(|agent| agent.0.to_string())
+            }),
+        });
         state.events.push(CoordinationEvent {
             meta,
             kind: CoordinationEventKind::HandoffAccepted,
@@ -454,16 +510,32 @@ impl CoordinationStore {
             .state
             .write()
             .expect("coordination store lock poisoned");
+        expire_claims_locked(&mut state, meta.ts);
         let anchors = dedupe_anchors(input.anchors);
-        let conflicts = simulate_conflicts(
+        let policy = plan_policy_for_task(&state, input.task_id.as_ref())?;
+        let mode = input
+            .mode
+            .or_else(|| policy.map(|policy| policy.default_claim_mode))
+            .unwrap_or(ClaimMode::Advisory);
+        let mut conflicts = simulate_conflicts(
             state.claims.values(),
             &anchors,
             input.capability,
-            input.mode.unwrap_or(ClaimMode::Advisory),
+            mode,
             input.task_id.as_ref(),
             input.base_revision.clone(),
             &session_id,
         );
+        conflicts.extend(editor_capacity_conflicts(
+            &state,
+            &anchors,
+            input.capability,
+            input.task_id.as_ref(),
+            &session_id,
+            policy,
+            meta.ts,
+        ));
+        let conflicts = dedupe_conflicts(conflicts);
         let has_blocking = conflicts
             .iter()
             .any(|conflict| conflict.severity == ConflictSeverity::Block);
@@ -490,7 +562,7 @@ impl CoordinationStore {
             task: input.task_id,
             anchors,
             capability: input.capability,
-            mode: input.mode.unwrap_or(ClaimMode::Advisory),
+            mode,
             since: meta.ts,
             expires_at: meta.ts.saturating_add(input.ttl_seconds.unwrap_or(900)),
             status: if conflicts.is_empty() {
@@ -502,7 +574,7 @@ impl CoordinationStore {
         };
         state.claims.insert(id.clone(), claim.clone());
         state.events.push(CoordinationEvent {
-            meta,
+            meta: meta.clone(),
             kind: CoordinationEventKind::ClaimAcquired,
             summary: "claim acquired".to_string(),
             plan: None,
@@ -512,6 +584,25 @@ impl CoordinationStore {
             review: None,
             metadata: Value::Null,
         });
+        if !conflicts.is_empty() {
+            state.events.push(CoordinationEvent {
+                meta: EventMeta {
+                    id: EventId::new(format!("{}:contended", id.0)),
+                    ts: meta.ts,
+                    actor: meta.actor,
+                    correlation: meta.correlation.clone(),
+                    causation: Some(meta.id.clone()),
+                },
+                kind: CoordinationEventKind::ClaimContended,
+                summary: "claim acquired with contention".to_string(),
+                plan: None,
+                task: claim.task.clone(),
+                claim: Some(id.clone()),
+                artifact: None,
+                review: None,
+                metadata: Value::Null,
+            });
+        }
         Ok((Some(id), conflicts, Some(claim)))
     }
 
@@ -525,10 +616,14 @@ impl CoordinationStore {
             .state
             .write()
             .expect("coordination store lock poisoned");
+        expire_claims_locked(&mut state, meta.ts);
         let claim = state
             .claims
             .get_mut(claim_id)
             .ok_or_else(|| anyhow!("unknown claim `{}`", claim_id.0))?;
+        if claim.status == ClaimStatus::Expired {
+            return Err(anyhow!("claim `{}` has expired", claim_id.0));
+        }
         claim.expires_at = meta.ts.saturating_add(ttl_seconds.unwrap_or(900));
         claim.status = ClaimStatus::Active;
         let claim = claim.clone();
@@ -551,10 +646,14 @@ impl CoordinationStore {
             .state
             .write()
             .expect("coordination store lock poisoned");
+        expire_claims_locked(&mut state, meta.ts);
         let claim = state
             .claims
             .get_mut(claim_id)
             .ok_or_else(|| anyhow!("unknown claim `{}`", claim_id.0))?;
+        if claim.status == ClaimStatus::Expired {
+            return Err(anyhow!("claim `{}` has expired", claim_id.0));
+        }
         claim.status = ClaimStatus::Released;
         let claim = claim.clone();
         state.events.push(CoordinationEvent {
@@ -651,6 +750,7 @@ impl CoordinationStore {
         &self,
         meta: EventMeta,
         input: ArtifactReviewInput,
+        current_revision: WorkspaceRevision,
     ) -> Result<(ReviewId, ArtifactReview, Artifact)> {
         let mut state = self
             .state
@@ -658,10 +758,32 @@ impl CoordinationStore {
             .expect("coordination store lock poisoned");
         state.next_review += 1;
         let review_id = ReviewId::new(format!("review:{}", state.next_review));
-        let artifact = state
-            .artifacts
-            .get_mut(&input.artifact_id)
-            .ok_or_else(|| anyhow!("unknown artifact `{}`", input.artifact_id.0))?;
+        let (plan, mut artifact) = {
+            let artifact = state
+                .artifacts
+                .get(&input.artifact_id)
+                .ok_or_else(|| anyhow!("unknown artifact `{}`", input.artifact_id.0))?
+                .clone();
+            let plan = state
+                .tasks
+                .get(&artifact.task)
+                .and_then(|task| state.plans.get(&task.plan))
+                .cloned();
+            (plan, artifact)
+        };
+        if matches!(input.verdict, ReviewVerdict::Approved)
+            && plan
+                .as_ref()
+                .map(|plan| plan.policy.stale_after_graph_change)
+                .unwrap_or(false)
+            && artifact.base_revision.graph_version < current_revision.graph_version
+        {
+            return Err(anyhow!(
+                "artifact `{}` is stale against graph version {}",
+                artifact.id.0,
+                current_revision.graph_version
+            ));
+        }
         let review = ArtifactReview {
             id: review_id.clone(),
             artifact: artifact.id.clone(),
@@ -669,13 +791,17 @@ impl CoordinationStore {
             summary: input.summary.clone(),
             meta: meta.clone(),
         };
-        artifact.reviews.push(review_id.clone());
-        artifact.status = match input.verdict {
+        let artifact_mut = state
+            .artifacts
+            .get_mut(&input.artifact_id)
+            .ok_or_else(|| anyhow!("unknown artifact `{}`", input.artifact_id.0))?;
+        artifact_mut.reviews.push(review_id.clone());
+        artifact_mut.status = match input.verdict {
             ReviewVerdict::Approved => ArtifactStatus::Approved,
             ReviewVerdict::ChangesRequested => ArtifactStatus::InReview,
             ReviewVerdict::Rejected => ArtifactStatus::Rejected,
         };
-        let artifact = artifact.clone();
+        artifact = artifact_mut.clone();
         state.reviews.insert(review_id.clone(), review.clone());
         let plan_id = state
             .tasks
@@ -717,6 +843,7 @@ impl CoordinationStore {
         &self,
         plan_id: &PlanId,
         current_revision: WorkspaceRevision,
+        now: Timestamp,
     ) -> Vec<CoordinationTask> {
         let state = self.state.read().expect("coordination store lock poisoned");
         let mut tasks = state
@@ -730,7 +857,7 @@ impl CoordinationStore {
                 )
             })
             .filter(|task| {
-                self.blockers_locked(&state, task, current_revision.clone())
+                self.readiness_blockers_locked(&state, task, current_revision.clone(), now)
                     .is_empty()
             })
             .cloned()
@@ -781,13 +908,17 @@ impl CoordinationStore {
         session_id: &SessionId,
         anchors: &[AnchorRef],
         capability: Capability,
-        mode: ClaimMode,
+        mode: Option<ClaimMode>,
         task_id: Option<&CoordinationTaskId>,
         revision: WorkspaceRevision,
         now: Timestamp,
     ) -> Vec<CoordinationConflict> {
         let state = self.state.read().expect("coordination store lock poisoned");
-        dedupe_conflicts(simulate_conflicts(
+        let policy = plan_policy_for_task(&state, task_id).ok().flatten();
+        let mode = mode
+            .or_else(|| policy.map(|policy| policy.default_claim_mode))
+            .unwrap_or(ClaimMode::Advisory);
+        let mut conflicts = simulate_conflicts(
             state
                 .claims
                 .values()
@@ -798,7 +929,17 @@ impl CoordinationStore {
             task_id,
             revision,
             session_id,
-        ))
+        );
+        conflicts.extend(editor_capacity_conflicts(
+            &state,
+            anchors,
+            capability,
+            task_id,
+            session_id,
+            policy,
+            now,
+        ));
+        dedupe_conflicts(conflicts)
     }
 
     pub fn blockers(
@@ -811,10 +952,7 @@ impl CoordinationStore {
         let Some(task) = state.tasks.get(task_id) else {
             return Vec::new();
         };
-        self.blockers_locked(&state, task, current_revision)
-            .into_iter()
-            .filter(|blocker| !matches!(blocker.kind, BlockerKind::ClaimConflict) || now > 0)
-            .collect()
+        self.completion_blockers_locked(&state, task, current_revision, now)
     }
 
     pub fn pending_reviews(&self, plan_id: Option<&PlanId>) -> Vec<Artifact> {
@@ -863,7 +1001,34 @@ impl CoordinationStore {
             .clone()
     }
 
-    fn blockers_locked(
+    fn readiness_blockers_locked(
+        &self,
+        state: &CoordinationState,
+        task: &CoordinationTask,
+        current_revision: WorkspaceRevision,
+        now: Timestamp,
+    ) -> Vec<TaskBlocker> {
+        let mut blockers =
+            self.dependency_and_revision_blockers_locked(state, task, current_revision);
+        blockers.extend(self.claim_blockers_locked(state, task, now));
+        blockers
+    }
+
+    fn completion_blockers_locked(
+        &self,
+        state: &CoordinationState,
+        task: &CoordinationTask,
+        current_revision: WorkspaceRevision,
+        now: Timestamp,
+    ) -> Vec<TaskBlocker> {
+        let mut blockers =
+            self.dependency_and_revision_blockers_locked(state, task, current_revision);
+        blockers.extend(self.claim_blockers_locked(state, task, now));
+        blockers.extend(self.review_blockers_locked(state, task));
+        blockers
+    }
+
+    fn dependency_and_revision_blockers_locked(
         &self,
         state: &CoordinationState,
         task: &CoordinationTask,
@@ -905,43 +1070,73 @@ impl CoordinationStore {
                     related_artifact_id: None,
                 });
             }
-
-            if plan.policy.require_review_for_completion {
-                let has_approved = state.artifacts.values().any(|artifact| {
-                    artifact.task == task.id
-                        && matches!(
-                            artifact.status,
-                            ArtifactStatus::Approved | ArtifactStatus::Merged
-                        )
-                });
-                if !has_approved {
-                    let pending_artifact = state
-                        .artifacts
-                        .values()
-                        .find(|artifact| artifact.task == task.id)
-                        .map(|artifact| artifact.id.clone());
-                    blockers.push(TaskBlocker {
-                        kind: BlockerKind::ReviewRequired,
-                        summary: "task requires an approved artifact review".to_string(),
-                        related_task_id: Some(task.id.clone()),
-                        related_artifact_id: pending_artifact,
-                    });
-                }
-            }
         }
+        blockers
+    }
 
-        let claim_conflicts = simulate_conflicts(
-            state.claims.values(),
+    fn review_blockers_locked(
+        &self,
+        state: &CoordinationState,
+        task: &CoordinationTask,
+    ) -> Vec<TaskBlocker> {
+        let Some(plan) = state.plans.get(&task.plan) else {
+            return Vec::new();
+        };
+        if !plan.policy.require_review_for_completion {
+            return Vec::new();
+        }
+        let has_approved = state.artifacts.values().any(|artifact| {
+            artifact.task == task.id
+                && matches!(
+                    artifact.status,
+                    ArtifactStatus::Approved | ArtifactStatus::Merged
+                )
+        });
+        if has_approved {
+            return Vec::new();
+        }
+        let pending_artifact = state
+            .artifacts
+            .values()
+            .find(|artifact| artifact.task == task.id)
+            .map(|artifact| artifact.id.clone());
+        vec![TaskBlocker {
+            kind: BlockerKind::ReviewRequired,
+            summary: "task requires an approved artifact review".to_string(),
+            related_task_id: Some(task.id.clone()),
+            related_artifact_id: pending_artifact,
+        }]
+    }
+
+    fn claim_blockers_locked(
+        &self,
+        state: &CoordinationState,
+        task: &CoordinationTask,
+        now: Timestamp,
+    ) -> Vec<TaskBlocker> {
+        let claim_conflicts = dedupe_conflicts(simulate_conflicts(
+            state
+                .claims
+                .values()
+                .filter(|claim| claim_is_active(claim, now)),
             &task.anchors,
             Capability::Edit,
-            ClaimMode::SoftExclusive,
+            state
+                .plans
+                .get(&task.plan)
+                .map(|plan| plan.policy.default_claim_mode)
+                .unwrap_or(ClaimMode::SoftExclusive),
             Some(&task.id),
             task.base_revision.clone(),
             task.session
                 .as_ref()
                 .unwrap_or(&SessionId::new("session:none")),
-        );
+        ));
+        let mut blockers = Vec::new();
         for conflict in claim_conflicts {
+            if conflict.severity != ConflictSeverity::Block {
+                continue;
+            }
             blockers.push(TaskBlocker {
                 kind: BlockerKind::ClaimConflict,
                 summary: conflict.summary,
@@ -949,9 +1144,89 @@ impl CoordinationStore {
                 related_artifact_id: None,
             });
         }
-
         blockers
     }
+}
+
+fn plan_policy_for_task<'a>(
+    state: &'a CoordinationState,
+    task_id: Option<&CoordinationTaskId>,
+) -> Result<Option<&'a CoordinationPolicy>> {
+    let Some(task_id) = task_id else {
+        return Ok(None);
+    };
+    let task = state
+        .tasks
+        .get(task_id)
+        .ok_or_else(|| anyhow!("unknown coordination task `{}`", task_id.0))?;
+    Ok(state.plans.get(&task.plan).map(|plan| &plan.policy))
+}
+
+fn expire_claims_locked(state: &mut CoordinationState, now: Timestamp) {
+    for claim in state.claims.values_mut() {
+        if matches!(claim.status, ClaimStatus::Active | ClaimStatus::Contended)
+            && claim.expires_at < now
+        {
+            claim.status = ClaimStatus::Expired;
+        }
+    }
+}
+
+fn editor_capacity_conflicts(
+    state: &CoordinationState,
+    anchors: &[AnchorRef],
+    capability: Capability,
+    task_id: Option<&CoordinationTaskId>,
+    session_id: &SessionId,
+    policy: Option<&CoordinationPolicy>,
+    now: Timestamp,
+) -> Vec<CoordinationConflict> {
+    if !matches!(capability, Capability::Edit | Capability::Merge) {
+        return Vec::new();
+    }
+    let requested_limit = policy.map(|policy| usize::from(policy.max_parallel_editors_per_anchor.max(1)));
+    let candidates = state
+        .claims
+        .values()
+        .filter(|claim| claim_is_active(claim, now))
+        .filter(|claim| matches!(claim.capability, Capability::Edit | Capability::Merge))
+        .filter(|claim| &claim.holder != session_id)
+        .filter(|claim| task_id.map_or(true, |task| claim.task.as_ref() != Some(task)))
+        .collect::<Vec<_>>();
+    let mut conflicts = Vec::new();
+    for anchor in anchors {
+        let overlapping = candidates
+            .iter()
+            .copied()
+            .filter(|claim| claim.anchors.contains(anchor))
+            .collect::<Vec<_>>();
+        let limit = overlapping
+            .iter()
+            .filter_map(|claim| {
+                claim
+                    .task
+                    .as_ref()
+                    .and_then(|claim_task_id| plan_policy_for_task(state, Some(claim_task_id)).ok().flatten())
+                    .map(|policy| usize::from(policy.max_parallel_editors_per_anchor.max(1)))
+            })
+            .chain(requested_limit)
+            .min();
+        let Some(limit) = limit else {
+            continue;
+        };
+        if overlapping.len() >= limit {
+            conflicts.push(CoordinationConflict {
+                severity: ConflictSeverity::Block,
+                anchors: vec![anchor.clone()],
+                summary: format!("anchor is already at the edit concurrency limit ({limit})"),
+                blocking_claims: overlapping
+                    .into_iter()
+                    .map(|claim| claim.id.clone())
+                    .collect(),
+            });
+        }
+    }
+    conflicts
 }
 
 fn dedupe_anchors(mut anchors: Vec<AnchorRef>) -> Vec<AnchorRef> {
@@ -1238,5 +1513,281 @@ mod tests {
             .unwrap();
         assert!(second.0.is_none());
         assert_eq!(second.1[0].severity, ConflictSeverity::Block);
+    }
+
+    #[test]
+    fn review_policy_gates_completion_but_not_ready_work() {
+        let store = CoordinationStore::new();
+        let (plan_id, _) = store
+            .create_plan(
+                meta("event:1", 1),
+                PlanCreateInput {
+                    goal: "Ship reviewed change".to_string(),
+                    policy: Some(CoordinationPolicy {
+                        require_review_for_completion: true,
+                        ..CoordinationPolicy::default()
+                    }),
+                },
+            )
+            .unwrap();
+        let (task_id, _) = store
+            .create_task(
+                meta("event:2", 2),
+                TaskCreateInput {
+                    plan_id,
+                    title: "Edit main".to_string(),
+                    status: Some(CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: Some(SessionId::new("session:a")),
+                    anchors: vec![AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: WorkspaceRevision {
+                        graph_version: 1,
+                        git_commit: None,
+                    },
+                },
+            )
+            .unwrap();
+
+        assert_eq!(
+            store
+                .ready_tasks(
+                    &PlanId::new("plan:1"),
+                    WorkspaceRevision {
+                        graph_version: 1,
+                        git_commit: None,
+                    },
+                    2,
+                )
+                .len(),
+            1
+        );
+        assert!(
+            store
+                .update_task(
+                    meta("event:3", 3),
+                    TaskUpdateInput {
+                        task_id: task_id.clone(),
+                        status: Some(CoordinationTaskStatus::Completed),
+                        assignee: None,
+                        session: None,
+                        title: None,
+                        anchors: None,
+                        base_revision: None,
+                    },
+                    WorkspaceRevision {
+                        graph_version: 1,
+                        git_commit: None,
+                    },
+                    3,
+                )
+                .is_err()
+        );
+
+        let (artifact_id, _) = store
+            .propose_artifact(
+                meta("event:4", 4),
+                ArtifactProposeInput {
+                    task_id: task_id.clone(),
+                    anchors: vec![AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                    diff_ref: Some("patch:1".to_string()),
+                    evidence: Vec::new(),
+                    base_revision: WorkspaceRevision {
+                        graph_version: 1,
+                        git_commit: None,
+                    },
+                },
+            )
+            .unwrap();
+        store
+            .review_artifact(
+                meta("event:5", 5),
+                ArtifactReviewInput {
+                    artifact_id,
+                    verdict: ReviewVerdict::Approved,
+                    summary: "looks good".to_string(),
+                },
+                WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            store
+                .update_task(
+                    meta("event:6", 6),
+                    TaskUpdateInput {
+                        task_id,
+                        status: Some(CoordinationTaskStatus::Completed),
+                        assignee: None,
+                        session: None,
+                        title: None,
+                        anchors: None,
+                        base_revision: None,
+                    },
+                    WorkspaceRevision {
+                        graph_version: 1,
+                        git_commit: None,
+                    },
+                    6,
+                )
+                .unwrap()
+                .status,
+            CoordinationTaskStatus::Completed
+        );
+    }
+
+    #[test]
+    fn edit_capacity_limit_blocks_extra_claims() {
+        let store = CoordinationStore::new();
+        let (plan_id, _) = store
+            .create_plan(
+                meta("event:1", 1),
+                PlanCreateInput {
+                    goal: "Serialize edits".to_string(),
+                    policy: Some(CoordinationPolicy {
+                        max_parallel_editors_per_anchor: 1,
+                        ..CoordinationPolicy::default()
+                    }),
+                },
+            )
+            .unwrap();
+        let (task_id, task) = store
+            .create_task(
+                meta("event:2", 2),
+                TaskCreateInput {
+                    plan_id,
+                    title: "Edit main".to_string(),
+                    status: Some(CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: Some(SessionId::new("session:a")),
+                    anchors: vec![AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: WorkspaceRevision {
+                        graph_version: 1,
+                        git_commit: None,
+                    },
+                },
+            )
+            .unwrap();
+        assert!(
+            store
+                .acquire_claim(
+                    meta("event:3", 3),
+                    SessionId::new("session:a"),
+                    ClaimAcquireInput {
+                        task_id: Some(task_id),
+                        anchors: task.anchors.clone(),
+                        capability: Capability::Edit,
+                        mode: Some(ClaimMode::SoftExclusive),
+                        ttl_seconds: Some(60),
+                        base_revision: WorkspaceRevision {
+                            graph_version: 1,
+                            git_commit: None,
+                        },
+                        agent: None,
+                    },
+                )
+                .unwrap()
+                .0
+                .is_some()
+        );
+
+        let blocked = store
+            .acquire_claim(
+                meta("event:4", 4),
+                SessionId::new("session:b"),
+                ClaimAcquireInput {
+                    task_id: None,
+                    anchors: task.anchors.clone(),
+                    capability: Capability::Edit,
+                    mode: Some(ClaimMode::SoftExclusive),
+                    ttl_seconds: Some(60),
+                    base_revision: WorkspaceRevision {
+                        graph_version: 1,
+                        git_commit: None,
+                    },
+                    agent: None,
+                },
+            )
+            .unwrap();
+        assert!(blocked.0.is_none());
+        assert!(
+            blocked
+                .1
+                .iter()
+                .any(|conflict| conflict.severity == ConflictSeverity::Block)
+        );
+    }
+
+    #[test]
+    fn approving_stale_artifact_is_rejected() {
+        let store = CoordinationStore::new();
+        let (plan_id, _) = store
+            .create_plan(
+                meta("event:1", 1),
+                PlanCreateInput {
+                    goal: "Catch stale approvals".to_string(),
+                    policy: Some(CoordinationPolicy {
+                        stale_after_graph_change: true,
+                        ..CoordinationPolicy::default()
+                    }),
+                },
+            )
+            .unwrap();
+        let (task_id, _) = store
+            .create_task(
+                meta("event:2", 2),
+                TaskCreateInput {
+                    plan_id,
+                    title: "Edit main".to_string(),
+                    status: Some(CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: Some(SessionId::new("session:a")),
+                    anchors: vec![AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: WorkspaceRevision {
+                        graph_version: 1,
+                        git_commit: None,
+                    },
+                },
+            )
+            .unwrap();
+        let (artifact_id, _) = store
+            .propose_artifact(
+                meta("event:3", 3),
+                ArtifactProposeInput {
+                    task_id,
+                    anchors: vec![AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                    diff_ref: Some("patch:1".to_string()),
+                    evidence: Vec::new(),
+                    base_revision: WorkspaceRevision {
+                        graph_version: 1,
+                        git_commit: None,
+                    },
+                },
+            )
+            .unwrap();
+
+        assert!(
+            store
+                .review_artifact(
+                    meta("event:4", 4),
+                    ArtifactReviewInput {
+                        artifact_id,
+                        verdict: ReviewVerdict::Approved,
+                        summary: "approve stale patch".to_string(),
+                    },
+                    WorkspaceRevision {
+                        graph_version: 2,
+                        git_commit: None,
+                    },
+                )
+                .is_err()
+        );
     }
 }

@@ -162,6 +162,10 @@ impl WorkspaceSession {
     }
 
     pub fn persist_coordination(&self, snapshot: &CoordinationSnapshot) -> Result<()> {
+        let _guard = self
+            .refresh_lock
+            .lock()
+            .expect("workspace refresh lock poisoned");
         self.store
             .lock()
             .expect("workspace store lock poisoned")
@@ -169,6 +173,41 @@ impl WorkspaceSession {
                 coordination_snapshot: Some(snapshot.clone()),
                 ..AuxiliaryPersistBatch::default()
             })
+    }
+
+    pub fn persist_current_coordination(&self) -> Result<()> {
+        let _guard = self
+            .refresh_lock
+            .lock()
+            .expect("workspace refresh lock poisoned");
+        let prism = self.prism_arc();
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+                coordination_snapshot: Some(prism.coordination_snapshot()),
+                ..AuxiliaryPersistBatch::default()
+            })
+    }
+
+    pub fn mutate_coordination<T, F>(&self, mutate: F) -> Result<T>
+    where
+        F: FnOnce(&Prism) -> Result<T>,
+    {
+        let _guard = self
+            .refresh_lock
+            .lock()
+            .expect("workspace refresh lock poisoned");
+        let prism = self.prism_arc();
+        let result = mutate(prism.as_ref())?;
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+                coordination_snapshot: Some(prism.coordination_snapshot()),
+                ..AuxiliaryPersistBatch::default()
+            })?;
+        Ok(result)
     }
 
     pub fn curator_snapshot(&self) -> CuratorSnapshot {
@@ -218,7 +257,10 @@ impl WorkspaceSession {
         proposal_state.task = task;
         proposal_state.note = note;
         proposal_state.output = output;
-        store.save_curator_snapshot(&state.snapshot)?;
+        store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+            curator_snapshot: Some(state.snapshot.clone()),
+            ..AuxiliaryPersistBatch::default()
+        })?;
         Ok(())
     }
 
@@ -443,7 +485,10 @@ impl CuratorHandleRef {
             error: None,
         };
         state.snapshot.records.push(record);
-        store.save_curator_snapshot(&state.snapshot)?;
+        store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+            curator_snapshot: Some(state.snapshot.clone()),
+            ..AuxiliaryPersistBatch::default()
+        })?;
         drop(state);
 
         if let Some(tx) = &self.tx {
@@ -511,7 +556,10 @@ fn update_curator_record(
         }
     }
     if let Ok(mut store) = store.lock() {
-        let _ = store.save_curator_snapshot(&state.snapshot);
+        let _ = store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+            curator_snapshot: Some(state.snapshot.clone()),
+            ..AuxiliaryPersistBatch::default()
+        });
     }
 }
 

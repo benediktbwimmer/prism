@@ -4,8 +4,8 @@ use std::path::Path;
 use std::sync::{Arc, RwLock};
 
 use prism_coordination::{
-    Artifact, CoordinationConflict, CoordinationStore, CoordinationTask, Plan, TaskBlocker,
-    WorkClaim,
+    Artifact, CoordinationConflict, CoordinationSnapshot, CoordinationStore, CoordinationTask,
+    Plan, TaskBlocker, WorkClaim,
 };
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
@@ -161,6 +161,10 @@ impl Prism {
         self.outcomes.snapshot()
     }
 
+    pub fn coordination_snapshot(&self) -> CoordinationSnapshot {
+        self.coordination.snapshot()
+    }
+
     pub fn projection_snapshot(&self) -> ProjectionSnapshot {
         self.projections
             .read()
@@ -268,9 +272,9 @@ impl Prism {
         self.coordination.task(task_id)
     }
 
-    pub fn ready_tasks(&self, plan_id: &PlanId) -> Vec<CoordinationTask> {
+    pub fn ready_tasks(&self, plan_id: &PlanId, now: Timestamp) -> Vec<CoordinationTask> {
         self.coordination
-            .ready_tasks(plan_id, self.workspace_revision())
+            .ready_tasks(plan_id, self.workspace_revision(), now)
     }
 
     pub fn claims(&self, anchors: &[AnchorRef], now: Timestamp) -> Vec<WorkClaim> {
@@ -301,7 +305,7 @@ impl Prism {
         session_id: &SessionId,
         anchors: &[AnchorRef],
         capability: Capability,
-        mode: ClaimMode,
+        mode: Option<ClaimMode>,
         task_id: Option<&CoordinationTaskId>,
         now: Timestamp,
     ) -> Vec<CoordinationConflict> {

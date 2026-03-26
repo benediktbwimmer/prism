@@ -561,6 +561,49 @@ type CuratorJobView = {
 };
 ```
 
+## MCP Resources
+
+Beyond `prism_query`, the MCP server exposes navigable `prism://...` resources.
+
+- Static resources:
+  - `prism://api-reference`
+  - `prism://session`
+  - `prism://entrypoints`
+- Parameterized resources:
+  - `prism://search/{query}?limit={limit}&cursor={cursor}`
+  - `prism://symbol/{crateName}/{kind}/{path}`
+  - `prism://lineage/{lineageId}?limit={limit}&cursor={cursor}`
+  - `prism://task/{taskId}?limit={limit}&cursor={cursor}`
+  - `prism://event/{eventId}`
+  - `prism://memory/{memoryId}`
+  - `prism://edge/{edgeId}`
+
+Every JSON resource payload now includes:
+
+```ts
+type ResourceLink = {
+  uri: string;
+  name: string;
+  description?: string;
+};
+```
+
+Collection resources also expose cursor metadata:
+
+```ts
+type ResourcePage = {
+  cursor?: string;
+  nextCursor?: string;
+  limit: number;
+  returned: number;
+  total: number;
+  hasMore: boolean;
+  limitCapped: boolean;
+};
+```
+
+Clients should follow `relatedResources` instead of reconstructing adjacent URIs by hand.
+
 ## Limits and determinism
 
 - Search results are capped at 500 nodes by default.
@@ -966,13 +1009,13 @@ globalThis.prism = Object.freeze({
     return __prismEnrichSymbols(__prismHost("entrypoints", {}));
   },
   plan(planId) {
-    return __prismHost("plan", { plan_id: planId });
+    return __prismHost("plan", { planId });
   },
   task(taskId) {
-    return __prismHost("coordinationTask", { task_id: taskId });
+    return __prismHost("coordinationTask", { taskId });
   },
   readyTasks(planId) {
-    return __prismHost("readyTasks", { plan_id: planId });
+    return __prismHost("readyTasks", { planId });
   },
   claims(target) {
     return __prismHost("claims", { anchors: __prismNormalizeAnchors(target) });
@@ -981,20 +1024,20 @@ globalThis.prism = Object.freeze({
     return __prismHost("conflicts", { anchors: __prismNormalizeAnchors(target) });
   },
   blockers(taskId) {
-    return __prismHost("blockers", { task_id: taskId });
+    return __prismHost("blockers", { taskId });
   },
   pendingReviews(planId) {
-    return __prismHost("pendingReviews", planId == null ? {} : { plan_id: planId });
+    return __prismHost("pendingReviews", planId == null ? {} : { planId });
   },
   artifacts(taskId) {
-    return __prismHost("artifacts", { task_id: taskId });
+    return __prismHost("artifacts", { taskId });
   },
   simulateClaim(input) {
     return __prismHost("simulateClaim", {
       anchors: __prismNormalizeAnchors(input?.anchors ?? input?.anchor ?? []),
       capability: input?.capability,
       mode: input?.mode,
-      task_id: input?.taskId ?? input?.task_id,
+      taskId: input?.taskId ?? input?.task_id,
     });
   },
   lineage(target) {
@@ -1033,7 +1076,7 @@ globalThis.prism = Object.freeze({
     return __prismHost("validationRecipe", { id });
   },
   resumeTask(taskId) {
-    return __prismHost("resumeTask", { task_id: taskId });
+    return __prismHost("resumeTask", { taskId });
   },
   memory: Object.freeze({
     recall(options = {}) {
