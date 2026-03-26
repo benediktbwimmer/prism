@@ -363,7 +363,7 @@ fn main() -> Result<()> {
                     focus: anchors,
                     text,
                     limit,
-                    kinds: Some(vec![MemoryKind::Episodic]),
+                    kinds: None,
                     since: None,
                 })?;
                 if results.is_empty() {

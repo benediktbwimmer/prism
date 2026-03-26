@@ -26,19 +26,20 @@ use prism_ir::{
     NodeId, NodeKind, PlanId, ReviewVerdict, SessionId, TaskId, WorkspaceRevision,
 };
 use prism_js::{
-    api_reference_markdown, runtime_prelude, ArtifactView, BlockerView, ChangeImpactView,
-    ClaimView, CoChangeView, ConflictView, CoordinationTaskView, CuratorJobView,
+    api_reference_markdown, runtime_prelude, ArtifactRiskView, ArtifactView, BlockerView,
+    ChangeImpactView, ClaimView, CoChangeView, ConflictView, CoordinationTaskView, CuratorJobView,
     CuratorProposalView, EdgeView, LineageEventView, LineageStatus, LineageView, MemoryEntryView,
     NodeIdView, PlanView, QueryDiagnostic, QueryEnvelope, RelationsView, ScoredMemoryView,
-    SubgraphView, SymbolView, ValidationCheckView, ValidationRecipeView, WorkspaceRevisionView,
-    API_REFERENCE_URI,
+    SubgraphView, SymbolView, TaskRiskView, TaskValidationRecipeView, ValidationCheckView,
+    ValidationRecipeView, WorkspaceRevisionView, API_REFERENCE_URI,
 };
 use prism_memory::{
     EpisodicMemory, MemoryEntry, MemoryId, MemoryKind, MemoryModule, MemorySource, OutcomeEvent,
     OutcomeEvidence, OutcomeKind, OutcomeResult, RecallQuery, ScoredMemory,
 };
 use prism_query::{
-    ChangeImpact, CoChange, Prism, QueryLimits, Symbol, ValidationCheck, ValidationRecipe,
+    ArtifactRisk, ChangeImpact, CoChange, Prism, QueryLimits, Symbol, TaskRisk,
+    TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 use rmcp::{
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
@@ -58,6 +59,7 @@ const DEFAULT_CALL_GRAPH_DEPTH: usize = 3;
 const DEFAULT_RESOURCE_PAGE_LIMIT: usize = 50;
 const ENTRYPOINTS_URI: &str = "prism://entrypoints";
 const SESSION_URI: &str = "prism://session";
+const SCHEMAS_URI: &str = "prism://schemas";
 const ENTRYPOINTS_RESOURCE_TEMPLATE_URI: &str = "prism://entrypoints?limit={limit}&cursor={cursor}";
 const SYMBOL_RESOURCE_TEMPLATE_URI: &str = "prism://symbol/{crateName}/{kind}/{path}";
 const SEARCH_RESOURCE_TEMPLATE_URI: &str = "prism://search/{query}?limit={limit}&cursor={cursor}";
@@ -67,6 +69,7 @@ const TASK_RESOURCE_TEMPLATE_URI: &str = "prism://task/{taskId}?limit={limit}&cu
 const EVENT_RESOURCE_TEMPLATE_URI: &str = "prism://event/{eventId}";
 const MEMORY_RESOURCE_TEMPLATE_URI: &str = "prism://memory/{memoryId}";
 const EDGE_RESOURCE_TEMPLATE_URI: &str = "prism://edge/{edgeId}";
+const SCHEMA_RESOURCE_TEMPLATE_URI: &str = "prism://schema/{resourceKind}";
 static NEXT_SESSION_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug, Clone)]
@@ -441,6 +444,7 @@ struct EdgeMutationResult {
 struct CuratorProposalDecisionResult {
     job_id: String,
     proposal: Value,
+    memory_id: Option<String>,
     edge_id: Option<String>,
 }
 
@@ -506,7 +510,7 @@ struct SessionView {
     limits: SessionLimitsView,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct ResourcePageView {
     cursor: Option<String>,
@@ -518,17 +522,17 @@ struct ResourcePageView {
     limit_capped: bool,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct InferredEdgeRecordView {
     id: String,
     edge: EdgeView,
-    scope: InferredEdgeScope,
+    scope: String,
     task_id: Option<String>,
     evidence: Vec<String>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct ResourceLinkView {
     uri: String,
@@ -536,20 +540,22 @@ struct ResourceLinkView {
     description: Option<String>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct SessionResourcePayload {
     uri: String,
+    schema_uri: String,
     workspace_root: Option<String>,
     current_task: Option<SessionTaskView>,
     limits: SessionLimitsView,
     related_resources: Vec<ResourceLinkView>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct EntrypointsResourcePayload {
     uri: String,
+    schema_uri: String,
     entrypoints: Vec<SymbolView>,
     page: ResourcePageView,
     truncated: bool,
@@ -557,10 +563,11 @@ struct EntrypointsResourcePayload {
     related_resources: Vec<ResourceLinkView>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct SearchResourcePayload {
     uri: String,
+    schema_uri: String,
     query: String,
     results: Vec<SymbolView>,
     page: ResourcePageView,
@@ -569,10 +576,11 @@ struct SearchResourcePayload {
     related_resources: Vec<ResourceLinkView>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct SymbolResourcePayload {
     uri: String,
+    schema_uri: String,
     symbol: SymbolView,
     relations: RelationsView,
     lineage: Option<LineageView>,
@@ -584,10 +592,11 @@ struct SymbolResourcePayload {
     related_resources: Vec<ResourceLinkView>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct LineageResourcePayload {
     uri: String,
+    schema_uri: String,
     lineage_id: String,
     status: LineageStatus,
     current_nodes: Vec<SymbolView>,
@@ -600,10 +609,11 @@ struct LineageResourcePayload {
     related_resources: Vec<ResourceLinkView>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct TaskResourcePayload {
     uri: String,
+    schema_uri: String,
     task_id: String,
     events: Vec<OutcomeEvent>,
     page: ResourcePageView,
@@ -611,28 +621,49 @@ struct TaskResourcePayload {
     related_resources: Vec<ResourceLinkView>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct EventResourcePayload {
     uri: String,
+    schema_uri: String,
     event: OutcomeEvent,
     related_resources: Vec<ResourceLinkView>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct MemoryResourcePayload {
     uri: String,
+    schema_uri: String,
     memory: MemoryEntryView,
     task_id: Option<String>,
     related_resources: Vec<ResourceLinkView>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 struct EdgeResourcePayload {
     uri: String,
+    schema_uri: String,
     edge: InferredEdgeRecordView,
+    related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct ResourceSchemaCatalogEntry {
+    resource_kind: String,
+    schema_uri: String,
+    resource_uri: Option<String>,
+    description: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct ResourceSchemaCatalogPayload {
+    uri: String,
+    schema_uri: String,
+    schemas: Vec<ResourceSchemaCatalogEntry>,
     related_resources: Vec<ResourceLinkView>,
 }
 
@@ -780,7 +811,9 @@ struct CoordinationPolicyPayload {
     default_claim_mode: Option<String>,
     max_parallel_editors_per_anchor: Option<u16>,
     require_review_for_completion: Option<bool>,
+    require_validation_for_completion: Option<bool>,
     stale_after_graph_change: Option<bool>,
+    review_required_above_risk_score: Option<f32>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -810,6 +843,14 @@ struct TaskUpdatePayload {
     assignee: Option<String>,
     title: Option<String>,
     anchors: Option<Vec<AnchorRefInput>>,
+    completion_context: Option<TaskCompletionContextPayload>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TaskCompletionContextPayload {
+    risk_score: Option<f32>,
+    required_validations: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -851,6 +892,9 @@ struct ArtifactProposePayload {
     anchors: Option<Vec<AnchorRefInput>>,
     diff_ref: Option<String>,
     evidence: Option<Vec<String>>,
+    required_validations: Option<Vec<String>>,
+    validated_checks: Option<Vec<String>>,
+    risk_score: Option<f32>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -865,6 +909,15 @@ struct ArtifactReviewPayload {
     artifact_id: String,
     verdict: String,
     summary: String,
+    required_validations: Option<Vec<String>>,
+    validated_checks: Option<Vec<String>>,
+    risk_score: Option<f32>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ArtifactTargetArgs {
+    artifact_id: String,
 }
 
 #[derive(Debug, serde::Serialize, JsonSchema)]
@@ -911,6 +964,19 @@ struct PrismCuratorRejectProposalArgs {
     #[serde(alias = "proposal_index")]
     proposal_index: usize,
     reason: Option<String>,
+    #[serde(alias = "task_id")]
+    task_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct PrismCuratorPromoteMemoryArgs {
+    #[serde(alias = "job_id")]
+    job_id: String,
+    #[serde(alias = "proposal_index")]
+    proposal_index: usize,
+    trust: Option<f32>,
+    note: Option<String>,
     #[serde(alias = "task_id")]
     task_id: Option<String>,
 }
@@ -1361,6 +1427,38 @@ impl PrismMcpServer {
             .promote_curator_edge(args)
             .map_err(map_query_error)?;
         let mut links = vec![session_resource_link()];
+        if let Some(memory_id) = &result.memory_id {
+            links.push(memory_resource_link(memory_id));
+        }
+        if let Some(edge_id) = &result.edge_id {
+            links.push(edge_resource_link(edge_id));
+        }
+        structured_tool_result_with_links(result, links)
+    }
+
+    #[tool(
+        description = "Promote a completed curator structural-memory, risk-summary, or validation-recipe proposal into durable PRISM memory.",
+        annotations(
+            title = "Promote Curator Memory",
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false
+        ),
+        output_schema = rmcp::handler::server::tool::schema_for_output::<CuratorProposalDecisionResult>()
+            .unwrap()
+    )]
+    fn prism_curator_promote_memory(
+        &self,
+        Parameters(args): Parameters<PrismCuratorPromoteMemoryArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let result = self
+            .host
+            .promote_curator_memory(args)
+            .map_err(map_query_error)?;
+        let mut links = vec![session_resource_link()];
+        if let Some(memory_id) = &result.memory_id {
+            links.push(memory_resource_link(memory_id));
+        }
         if let Some(edge_id) = &result.edge_id {
             links.push(edge_resource_link(edge_id));
         }
@@ -1401,7 +1499,7 @@ impl ServerHandler for PrismMcpServer {
         )
         .with_server_info(Implementation::from_build_env())
         .with_instructions(
-            "Start with prism://api-reference for the typed query contract. Use prism_get_session or prism://session to inspect the active workspace, task, and runtime limits, prism_configure_session to change them, prism_query for programmable read-only graph queries, prism_symbol or prism_search for direct lookups, prism://entrypoints for a quick workspace overview, prism://search/{query} for browseable search results, prism://symbol/{crateName}/{kind}/{path} for exact symbol snapshots, prism://lineage/{lineageId} for symbol history, prism://task/{taskId} for recorded task outcomes, prism://event/{eventId}, prism://memory/{memoryId}, and prism://edge/{edgeId} for mutation outputs, and the prism_* mutation tools to record outcomes, notes, inferred edges, task context, and curator proposal decisions.",
+            "Start with prism://api-reference for the typed query contract and prism://schemas for the JSON Schema catalog. Use prism_get_session or prism://session to inspect the active workspace, task, and runtime limits, prism_configure_session to change them, prism_query for programmable read-only graph queries, prism_symbol or prism_search for direct lookups, prism://entrypoints for a quick workspace overview, prism://search/{query} for browseable search results, prism://symbol/{crateName}/{kind}/{path} for exact symbol snapshots, prism://lineage/{lineageId} for symbol history, prism://task/{taskId} for recorded task outcomes, prism://event/{eventId}, prism://memory/{memoryId}, and prism://edge/{edgeId} for mutation outputs. Follow each resource payload's schemaUri and relatedResources fields instead of reconstructing URIs by convention. Use the prism_* mutation tools to record outcomes, notes, inferred edges, task context, and curator proposal decisions.",
         )
         .with_protocol_version(ProtocolVersion::LATEST)
     }
@@ -1418,18 +1516,43 @@ impl ServerHandler for PrismMcpServer {
                         "TypeScript query surface, d.ts-style contract, and usage recipes",
                     )
                     .with_mime_type("text/markdown")
+                    .with_title("PRISM API Reference")
                     .no_annotation(),
                 RawResource::new(SESSION_URI, "PRISM Session")
                     .with_description(
                         "Active workspace root, current task context, and runtime query limits",
                     )
                     .with_mime_type("application/json")
+                    .with_title("PRISM Session")
+                    .with_meta(resource_meta(
+                        "session",
+                        Some(schema_resource_uri("session")),
+                        None,
+                    ))
                     .no_annotation(),
                 RawResource::new(ENTRYPOINTS_URI, "PRISM Entrypoints")
                     .with_description(
                         "Workspace entrypoints and top-level starting symbols in structured JSON, with optional cursor-based pagination",
                     )
                     .with_mime_type("application/json")
+                    .with_title("PRISM Entrypoints")
+                    .with_meta(resource_meta(
+                        "entrypoints",
+                        Some(schema_resource_uri("entrypoints")),
+                        None,
+                    ))
+                    .no_annotation(),
+                RawResource::new(SCHEMAS_URI, "PRISM Resource Schemas")
+                    .with_description(
+                        "Catalog of JSON Schemas for all structured PRISM resource payloads",
+                    )
+                    .with_mime_type("application/json")
+                    .with_title("PRISM Resource Schemas")
+                    .with_meta(resource_meta(
+                        "schemas",
+                        Some(schema_resource_uri("schemas")),
+                        None,
+                    ))
                     .no_annotation(),
             ],
             next_cursor: None,
@@ -1447,69 +1570,193 @@ impl ServerHandler for PrismMcpServer {
         let contents = if base_uri == API_REFERENCE_URI {
             ResourceContents::text(api_reference_markdown(), request.uri.clone())
                 .with_mime_type("text/markdown")
+        } else if base_uri == SCHEMAS_URI {
+            json_resource_contents_with_meta(
+                self.host.schemas_resource_value(),
+                request.uri.clone(),
+                Some(resource_meta(
+                    "schemas",
+                    Some(schema_resource_uri("schemas")),
+                    None,
+                )),
+            )?
         } else if base_uri == SESSION_URI {
-            json_resource_contents(
+            json_resource_contents_with_meta(
                 self.host
                     .session_resource_value()
                     .map_err(map_query_error)?,
                 request.uri.clone(),
+                Some(resource_meta(
+                    "session",
+                    Some(schema_resource_uri("session")),
+                    None,
+                )),
             )?
         } else if base_uri == ENTRYPOINTS_URI {
-            json_resource_contents(
+            json_resource_contents_with_meta(
                 self.host
                     .entrypoints_resource_value(uri)
                     .map_err(map_query_error)?,
                 request.uri.clone(),
+                Some(resource_meta(
+                    "entrypoints",
+                    Some(schema_resource_uri("entrypoints")),
+                    None,
+                )),
             )?
         } else if let Some(query) = parse_search_resource_uri(uri) {
-            json_resource_contents(
+            json_resource_contents_with_meta(
                 self.host
                     .search_resource_value(uri, &query)
                     .map_err(map_query_error)?,
                 request.uri.clone(),
+                Some(resource_meta(
+                    "search",
+                    Some(schema_resource_uri("search")),
+                    None,
+                )),
             )?
         } else if let Some(id) = parse_symbol_resource_uri(uri)? {
-            json_resource_contents(
+            json_resource_contents_with_meta(
                 self.host
                     .symbol_resource_value(&id)
                     .map_err(map_query_error)?,
                 request.uri.clone(),
+                Some(resource_meta(
+                    "symbol",
+                    Some(schema_resource_uri("symbol")),
+                    None,
+                )),
             )?
         } else if let Some(lineage) = parse_lineage_resource_uri(uri) {
-            json_resource_contents(
+            json_resource_contents_with_meta(
                 self.host
                     .lineage_resource_value(uri, &lineage)
                     .map_err(map_query_error)?,
                 request.uri.clone(),
+                Some(resource_meta(
+                    "lineage",
+                    Some(schema_resource_uri("lineage")),
+                    None,
+                )),
             )?
         } else if let Some(task_id) = parse_task_resource_uri(uri) {
-            json_resource_contents(
+            json_resource_contents_with_meta(
                 self.host
                     .task_resource_value(uri, &task_id)
                     .map_err(map_query_error)?,
                 request.uri.clone(),
+                Some(resource_meta(
+                    "task",
+                    Some(schema_resource_uri("task")),
+                    None,
+                )),
             )?
         } else if let Some(event_id) = parse_event_resource_uri(uri) {
-            json_resource_contents(
+            json_resource_contents_with_meta(
                 self.host
                     .event_resource_value(&event_id)
                     .map_err(map_query_error)?,
                 request.uri.clone(),
+                Some(resource_meta(
+                    "event",
+                    Some(schema_resource_uri("event")),
+                    None,
+                )),
             )?
         } else if let Some(memory_id) = parse_memory_resource_uri(uri) {
-            json_resource_contents(
+            json_resource_contents_with_meta(
                 self.host
                     .memory_resource_value(&memory_id)
                     .map_err(map_query_error)?,
                 request.uri.clone(),
+                Some(resource_meta(
+                    "memory",
+                    Some(schema_resource_uri("memory")),
+                    None,
+                )),
             )?
         } else if let Some(edge_id) = parse_edge_resource_uri(uri) {
-            json_resource_contents(
+            json_resource_contents_with_meta(
                 self.host
                     .edge_resource_value(&edge_id)
                     .map_err(map_query_error)?,
                 request.uri.clone(),
+                Some(resource_meta(
+                    "edge",
+                    Some(schema_resource_uri("edge")),
+                    None,
+                )),
             )?
+        } else if let Some(resource_kind) = parse_schema_resource_uri(uri) {
+            match resource_kind.as_str() {
+                "session" => schema_resource_contents::<SessionResourcePayload>(
+                    uri,
+                    "PRISM Session Resource Schema",
+                    "JSON Schema for the PRISM session resource payload.",
+                    "session",
+                )?,
+                "schemas" => schema_resource_contents::<ResourceSchemaCatalogPayload>(
+                    uri,
+                    "PRISM Resource Schema Catalog Schema",
+                    "JSON Schema for the PRISM resource schema catalog payload.",
+                    "schemas",
+                )?,
+                "entrypoints" => schema_resource_contents::<EntrypointsResourcePayload>(
+                    uri,
+                    "PRISM Entrypoints Resource Schema",
+                    "JSON Schema for the PRISM entrypoints resource payload.",
+                    "entrypoints",
+                )?,
+                "search" => schema_resource_contents::<SearchResourcePayload>(
+                    uri,
+                    "PRISM Search Resource Schema",
+                    "JSON Schema for the PRISM search resource payload.",
+                    "search",
+                )?,
+                "symbol" => schema_resource_contents::<SymbolResourcePayload>(
+                    uri,
+                    "PRISM Symbol Resource Schema",
+                    "JSON Schema for the PRISM symbol resource payload.",
+                    "symbol",
+                )?,
+                "lineage" => schema_resource_contents::<LineageResourcePayload>(
+                    uri,
+                    "PRISM Lineage Resource Schema",
+                    "JSON Schema for the PRISM lineage resource payload.",
+                    "lineage",
+                )?,
+                "task" => schema_resource_contents::<TaskResourcePayload>(
+                    uri,
+                    "PRISM Task Resource Schema",
+                    "JSON Schema for the PRISM task replay resource payload.",
+                    "task",
+                )?,
+                "event" => schema_resource_contents::<EventResourcePayload>(
+                    uri,
+                    "PRISM Event Resource Schema",
+                    "JSON Schema for the PRISM event resource payload.",
+                    "event",
+                )?,
+                "memory" => schema_resource_contents::<MemoryResourcePayload>(
+                    uri,
+                    "PRISM Memory Resource Schema",
+                    "JSON Schema for the PRISM memory resource payload.",
+                    "memory",
+                )?,
+                "edge" => schema_resource_contents::<EdgeResourcePayload>(
+                    uri,
+                    "PRISM Edge Resource Schema",
+                    "JSON Schema for the PRISM inferred-edge resource payload.",
+                    "edge",
+                )?,
+                _ => {
+                    return Err(McpError::resource_not_found(
+                        "resource_not_found",
+                        Some(json!({ "uri": request.uri })),
+                    ))
+                }
+            }
         } else {
             return Err(McpError::resource_not_found(
                 "resource_not_found",
@@ -1536,6 +1783,16 @@ impl ServerHandler for PrismMcpServer {
                     "Read workspace entrypoints with optional `limit` and opaque `cursor` pagination",
                 )
                 .with_mime_type("application/json")
+                .no_annotation(),
+                RawResourceTemplate::new(
+                    SCHEMA_RESOURCE_TEMPLATE_URI,
+                    "PRISM Resource Schema",
+                )
+                .with_description(
+                    "Read a JSON Schema document for a structured PRISM resource payload kind such as `session`, `entrypoints`, `search`, `symbol`, `lineage`, `task`, `event`, `memory`, or `edge`",
+                )
+                .with_mime_type("application/schema+json")
+                .with_title("PRISM Resource Schema")
                 .no_annotation(),
                 RawResourceTemplate::new(SEARCH_RESOURCE_TEMPLATE_URI, "PRISM Search")
                     .with_description(
@@ -1619,13 +1876,56 @@ fn json_resource_contents<T: serde::Serialize>(
     value: T,
     uri: impl Into<String>,
 ) -> Result<ResourceContents, McpError> {
+    json_resource_contents_with_meta(value, uri, None)
+}
+
+fn json_resource_contents_with_meta<T: serde::Serialize>(
+    value: T,
+    uri: impl Into<String>,
+    meta: Option<Meta>,
+) -> Result<ResourceContents, McpError> {
     let text = serde_json::to_string_pretty(&value).map_err(|err| {
         McpError::internal_error(
             "failed to serialize resource payload",
             Some(json!({ "error": err.to_string() })),
         )
     })?;
-    Ok(ResourceContents::text(text, uri).with_mime_type("application/json"))
+    let contents = ResourceContents::text(text, uri).with_mime_type("application/json");
+    Ok(match meta {
+        Some(meta) => contents.with_meta(meta),
+        None => contents,
+    })
+}
+
+fn schema_resource_contents<T: JsonSchema + std::any::Any>(
+    schema_uri: &str,
+    title: &str,
+    description: &str,
+    target_resource_kind: &str,
+) -> Result<ResourceContents, McpError> {
+    let mut schema = Value::Object(
+        rmcp::handler::server::tool::schema_for_type::<T>()
+            .as_ref()
+            .clone(),
+    );
+    if let Value::Object(object) = &mut schema {
+        object.insert(
+            "$schema".to_string(),
+            Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
+        );
+        object.insert("$id".to_string(), Value::String(schema_uri.to_string()));
+        object.insert("title".to_string(), Value::String(title.to_string()));
+        object.insert(
+            "description".to_string(),
+            Value::String(description.to_string()),
+        );
+    }
+    json_resource_contents_with_meta(
+        schema,
+        schema_uri.to_string(),
+        Some(resource_meta("schema", None, Some(target_resource_kind))),
+    )
+    .map(|contents| contents.with_mime_type("application/schema+json"))
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1703,6 +2003,12 @@ fn parse_resource_page(
         limit,
         limit_capped: requested > max_limit,
     })
+}
+
+fn parse_schema_resource_uri(uri: &str) -> Option<String> {
+    let (base, _) = split_resource_uri(uri);
+    base.strip_prefix("prism://schema/")
+        .map(percent_decode_lossy)
 }
 
 fn paginate_items<T>(items: Vec<T>, request: ResourcePageRequest) -> PageSlice<T> {
@@ -1822,6 +2128,14 @@ fn session_resource_uri() -> String {
     SESSION_URI.to_string()
 }
 
+fn schemas_resource_uri() -> String {
+    SCHEMAS_URI.to_string()
+}
+
+fn schema_resource_uri(resource_kind: &str) -> String {
+    format!("prism://schema/{}", percent_encode_component(resource_kind))
+}
+
 fn task_resource_uri(task_id: &str) -> String {
     format!("prism://task/{}", percent_encode_component(task_id))
 }
@@ -1846,22 +2160,80 @@ fn edge_resource_uri(edge_id: &str) -> String {
     format!("prism://edge/{}", percent_encode_component(edge_id))
 }
 
+fn resource_meta(
+    resource_kind: &str,
+    schema_uri: Option<String>,
+    target_resource_kind: Option<&str>,
+) -> Meta {
+    let mut prism_meta = serde_json::Map::new();
+    prism_meta.insert(
+        "resourceKind".to_string(),
+        Value::String(resource_kind.to_string()),
+    );
+    if let Some(schema_uri) = schema_uri {
+        prism_meta.insert("schemaUri".to_string(), Value::String(schema_uri));
+    }
+    if let Some(target_resource_kind) = target_resource_kind {
+        prism_meta.insert(
+            "targetResourceKind".to_string(),
+            Value::String(target_resource_kind.to_string()),
+        );
+    }
+    let mut meta = serde_json::Map::new();
+    meta.insert("prism".to_string(), Value::Object(prism_meta));
+    Meta(meta)
+}
+
+fn schemas_resource_link() -> RawResource {
+    RawResource::new(schemas_resource_uri(), "PRISM Resource Schemas")
+        .with_description("Catalog of JSON Schemas for every structured PRISM resource payload")
+        .with_mime_type("application/json")
+        .with_meta(resource_meta("schemas", None, None))
+}
+
+fn schema_resource_link(resource_kind: &str) -> RawResource {
+    RawResource::new(
+        schema_resource_uri(resource_kind),
+        format!("PRISM Schema: {resource_kind}"),
+    )
+    .with_description(format!(
+        "JSON Schema for the structured `{resource_kind}` PRISM resource payload"
+    ))
+    .with_mime_type("application/schema+json")
+    .with_meta(resource_meta("schema", None, Some(resource_kind)))
+}
+
 fn session_resource_link() -> RawResource {
     RawResource::new(session_resource_uri(), "PRISM Session")
         .with_description("Active workspace root, current task context, and runtime query limits")
         .with_mime_type("application/json")
+        .with_meta(resource_meta(
+            "session",
+            Some(schema_resource_uri("session")),
+            None,
+        ))
 }
 
 fn task_resource_link(task_id: &str) -> RawResource {
     RawResource::new(task_resource_uri(task_id), "PRISM Task Replay")
         .with_description("Task-scoped outcome timeline and correlated events")
         .with_mime_type("application/json")
+        .with_meta(resource_meta(
+            "task",
+            Some(schema_resource_uri("task")),
+            None,
+        ))
 }
 
 fn search_resource_link(query: &str) -> RawResource {
     RawResource::new(search_resource_uri(query), format!("PRISM Search: {query}"))
         .with_description("Structured search results and diagnostics for this query")
         .with_mime_type("application/json")
+        .with_meta(resource_meta(
+            "search",
+            Some(schema_resource_uri("search")),
+            None,
+        ))
 }
 
 fn symbol_resource_link(symbol: &SymbolView) -> RawResource {
@@ -1871,6 +2243,11 @@ fn symbol_resource_link(symbol: &SymbolView) -> RawResource {
     )
     .with_description("Exact symbol snapshot with relations, lineage, and risk context")
     .with_mime_type("application/json")
+    .with_meta(resource_meta(
+        "symbol",
+        Some(schema_resource_uri("symbol")),
+        None,
+    ))
 }
 
 fn lineage_resource_link(lineage_id: &str) -> RawResource {
@@ -1880,6 +2257,11 @@ fn lineage_resource_link(lineage_id: &str) -> RawResource {
     )
     .with_description("Structured lineage history and current nodes")
     .with_mime_type("application/json")
+    .with_meta(resource_meta(
+        "lineage",
+        Some(schema_resource_uri("lineage")),
+        None,
+    ))
 }
 
 fn event_resource_link(event_id: &str) -> RawResource {
@@ -1889,6 +2271,11 @@ fn event_resource_link(event_id: &str) -> RawResource {
     )
     .with_description("Recorded outcome event and associated task metadata")
     .with_mime_type("application/json")
+    .with_meta(resource_meta(
+        "event",
+        Some(schema_resource_uri("event")),
+        None,
+    ))
 }
 
 fn memory_resource_link(memory_id: &str) -> RawResource {
@@ -1898,6 +2285,11 @@ fn memory_resource_link(memory_id: &str) -> RawResource {
     )
     .with_description("Stored episodic memory entry and associated task metadata")
     .with_mime_type("application/json")
+    .with_meta(resource_meta(
+        "memory",
+        Some(schema_resource_uri("memory")),
+        None,
+    ))
 }
 
 fn edge_resource_link(edge_id: &str) -> RawResource {
@@ -1907,6 +2299,27 @@ fn edge_resource_link(edge_id: &str) -> RawResource {
     )
     .with_description("Inferred-edge record with scope, evidence, and task metadata")
     .with_mime_type("application/json")
+    .with_meta(resource_meta(
+        "edge",
+        Some(schema_resource_uri("edge")),
+        None,
+    ))
+}
+
+fn schemas_resource_view_link() -> ResourceLinkView {
+    resource_link_view(
+        schemas_resource_uri(),
+        "PRISM Resource Schemas",
+        "Catalog of JSON Schemas for every structured PRISM resource payload",
+    )
+}
+
+fn schema_resource_view_link(resource_kind: &str) -> ResourceLinkView {
+    resource_link_view(
+        schema_resource_uri(resource_kind),
+        format!("PRISM Schema: {resource_kind}"),
+        format!("JSON Schema for the `{resource_kind}` PRISM resource payload"),
+    )
 }
 
 fn session_resource_view_link() -> ResourceLinkView {
@@ -2005,6 +2418,76 @@ fn symbol_links(symbol: &SymbolView) -> Vec<RawResource> {
         links.push(lineage_resource_link(lineage_id));
     }
     links
+}
+
+fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntry> {
+    vec![
+        ResourceSchemaCatalogEntry {
+            resource_kind: "schemas".to_string(),
+            schema_uri: schema_resource_uri("schemas"),
+            resource_uri: Some(SCHEMAS_URI.to_string()),
+            description: "Schema for the JSON Schema catalog resource itself.".to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "session".to_string(),
+            schema_uri: schema_resource_uri("session"),
+            resource_uri: Some(SESSION_URI.to_string()),
+            description: "Schema for the active workspace, task context, and runtime limits."
+                .to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "entrypoints".to_string(),
+            schema_uri: schema_resource_uri("entrypoints"),
+            resource_uri: Some(ENTRYPOINTS_RESOURCE_TEMPLATE_URI.to_string()),
+            description:
+                "Schema for the workspace entrypoint overview and its pagination metadata."
+                    .to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "search".to_string(),
+            schema_uri: schema_resource_uri("search"),
+            resource_uri: Some(SEARCH_RESOURCE_TEMPLATE_URI.to_string()),
+            description: "Schema for browseable search results and diagnostics.".to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "symbol".to_string(),
+            schema_uri: schema_resource_uri("symbol"),
+            resource_uri: Some(SYMBOL_RESOURCE_TEMPLATE_URI.to_string()),
+            description:
+                "Schema for exact symbol snapshots, including relations, lineage, and risk context."
+                    .to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "lineage".to_string(),
+            schema_uri: schema_resource_uri("lineage"),
+            resource_uri: Some(LINEAGE_RESOURCE_TEMPLATE_URI.to_string()),
+            description: "Schema for lineage history and current-node views.".to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "task".to_string(),
+            schema_uri: schema_resource_uri("task"),
+            resource_uri: Some(TASK_RESOURCE_TEMPLATE_URI.to_string()),
+            description: "Schema for task replay pages and correlated outcome events.".to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "event".to_string(),
+            schema_uri: schema_resource_uri("event"),
+            resource_uri: Some(EVENT_RESOURCE_TEMPLATE_URI.to_string()),
+            description: "Schema for a single recorded outcome event.".to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "memory".to_string(),
+            schema_uri: schema_resource_uri("memory"),
+            resource_uri: Some(MEMORY_RESOURCE_TEMPLATE_URI.to_string()),
+            description: "Schema for a single episodic memory entry.".to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "edge".to_string(),
+            schema_uri: schema_resource_uri("edge"),
+            resource_uri: Some(EDGE_RESOURCE_TEMPLATE_URI.to_string()),
+            description: "Schema for a single inferred-edge record.".to_string(),
+        },
+    ]
 }
 
 fn anchor_resource_view_links(anchors: &[AnchorRef]) -> Vec<ResourceLinkView> {
@@ -2238,9 +2721,12 @@ impl QueryHost {
     }
 
     fn session_resource_value(&self) -> Result<SessionResourcePayload> {
+        let schema_uri = schema_resource_uri("session");
         let session = self.session_view()?;
         let mut related_resources = vec![
             session_resource_view_link(),
+            schema_resource_view_link("session"),
+            schemas_resource_view_link(),
             resource_link_view(
                 ENTRYPOINTS_URI.to_string(),
                 "PRISM Entrypoints",
@@ -2252,11 +2738,36 @@ impl QueryHost {
         }
         Ok(SessionResourcePayload {
             uri: session_resource_uri(),
+            schema_uri,
             workspace_root: session.workspace_root,
             current_task: session.current_task,
             limits: session.limits,
             related_resources: dedupe_resource_link_views(related_resources),
         })
+    }
+
+    fn schemas_resource_value(&self) -> ResourceSchemaCatalogPayload {
+        let mut related_resources = vec![
+            schemas_resource_view_link(),
+            schema_resource_view_link("schemas"),
+            session_resource_view_link(),
+            resource_link_view(
+                ENTRYPOINTS_URI.to_string(),
+                "PRISM Entrypoints",
+                "Workspace entrypoints and top-level starting symbols",
+            ),
+        ];
+        related_resources.extend(
+            resource_schema_catalog_entries()
+                .iter()
+                .map(|entry| schema_resource_view_link(&entry.resource_kind)),
+        );
+        ResourceSchemaCatalogPayload {
+            uri: schemas_resource_uri(),
+            schema_uri: schema_resource_uri("schemas"),
+            schemas: resource_schema_catalog_entries(),
+            related_resources: dedupe_resource_link_views(related_resources),
+        }
     }
 
     fn task_metadata(&self, task_id: &TaskId) -> (Option<String>, Vec<String>) {
@@ -2290,6 +2801,7 @@ impl QueryHost {
 
     fn entrypoints_resource_value(&self, uri: &str) -> Result<EntrypointsResourcePayload> {
         self.refresh_workspace()?;
+        let schema_uri = schema_resource_uri("entrypoints");
         let prism = self.current_prism();
         let execution = QueryExecution::new(self.clone(), prism);
         let paged = paginate_items(
@@ -2302,6 +2814,8 @@ impl QueryHost {
         );
         let mut related_resources = vec![
             session_resource_view_link(),
+            schema_resource_view_link("entrypoints"),
+            schemas_resource_view_link(),
             resource_link_view(
                 uri.to_string(),
                 "PRISM Entrypoints",
@@ -2311,6 +2825,7 @@ impl QueryHost {
         related_resources.extend(paged.items.iter().take(8).map(symbol_resource_view_link));
         Ok(EntrypointsResourcePayload {
             uri: uri.to_string(),
+            schema_uri,
             entrypoints: paged.items,
             page: paged.page,
             truncated: paged.truncated,
@@ -2321,6 +2836,7 @@ impl QueryHost {
 
     fn symbol_resource_value(&self, id: &NodeId) -> Result<SymbolResourcePayload> {
         self.refresh_workspace()?;
+        let schema_uri = schema_resource_uri("symbol");
         let prism = self.current_prism();
         let execution = QueryExecution::new(self.clone(), prism.clone());
         let symbol = symbol_for(prism.as_ref(), id)?;
@@ -2339,6 +2855,8 @@ impl QueryHost {
         let mut related_resources = vec![
             session_resource_view_link(),
             symbol_resource_view_link(&symbol),
+            schema_resource_view_link("symbol"),
+            schemas_resource_view_link(),
         ];
         if let Some(lineage) = &lineage {
             related_resources.push(lineage_resource_view_link(&lineage.lineage_id));
@@ -2355,6 +2873,7 @@ impl QueryHost {
         );
         Ok(SymbolResourcePayload {
             uri: symbol_resource_uri(&symbol.id),
+            schema_uri,
             symbol,
             relations,
             lineage,
@@ -2369,6 +2888,7 @@ impl QueryHost {
 
     fn search_resource_value(&self, uri: &str, query: &str) -> Result<SearchResourcePayload> {
         self.refresh_workspace()?;
+        let schema_uri = schema_resource_uri("search");
         let execution = QueryExecution::new(self.clone(), self.current_prism());
         let paged = paginate_items(
             execution.search(SearchArgs {
@@ -2387,10 +2907,13 @@ impl QueryHost {
         let mut related_resources = vec![
             session_resource_view_link(),
             search_resource_view_link(query),
+            schema_resource_view_link("search"),
+            schemas_resource_view_link(),
         ];
         related_resources.extend(paged.items.iter().take(8).map(symbol_resource_view_link));
         Ok(SearchResourcePayload {
             uri: uri.to_string(),
+            schema_uri,
             query: query.to_string(),
             results: paged.items,
             page: paged.page,
@@ -2406,6 +2929,7 @@ impl QueryHost {
         lineage: &LineageId,
     ) -> Result<LineageResourcePayload> {
         self.refresh_workspace()?;
+        let schema_uri = schema_resource_uri("lineage");
         let prism = self.current_prism();
         let history = prism.history_snapshot();
         let events = prism.lineage_history(lineage);
@@ -2453,10 +2977,13 @@ impl QueryHost {
         let mut related_resources = vec![
             session_resource_view_link(),
             lineage_resource_view_link(lineage.0.as_str()),
+            schema_resource_view_link("lineage"),
+            schemas_resource_view_link(),
         ];
         related_resources.extend(current_nodes.iter().map(symbol_resource_view_link));
         Ok(LineageResourcePayload {
             uri: uri.to_string(),
+            schema_uri,
             lineage_id: lineage.0.to_string(),
             status: lineage_status(&events),
             current_nodes,
@@ -2472,6 +2999,7 @@ impl QueryHost {
 
     fn task_resource_value(&self, uri: &str, task_id: &TaskId) -> Result<TaskResourcePayload> {
         self.refresh_workspace()?;
+        let schema_uri = schema_resource_uri("task");
         let prism = self.current_prism();
         let replay = prism.resume_task(task_id);
         let paged = paginate_items(
@@ -2485,6 +3013,8 @@ impl QueryHost {
         let mut related_resources = vec![
             session_resource_view_link(),
             task_resource_view_link(replay.task.0.as_str()),
+            schema_resource_view_link("task"),
+            schemas_resource_view_link(),
         ];
         related_resources.extend(
             paged
@@ -2500,6 +3030,7 @@ impl QueryHost {
         );
         Ok(TaskResourcePayload {
             uri: uri.to_string(),
+            schema_uri,
             task_id: replay.task.0.to_string(),
             events: paged.items,
             page: paged.page,
@@ -2510,6 +3041,7 @@ impl QueryHost {
 
     fn event_resource_value(&self, event_id: &EventId) -> Result<EventResourcePayload> {
         self.refresh_workspace()?;
+        let schema_uri = schema_resource_uri("event");
         let event = self
             .current_prism()
             .outcome_memory()
@@ -2518,6 +3050,8 @@ impl QueryHost {
         let mut related_resources = vec![
             session_resource_view_link(),
             event_resource_view_link(event_id.0.as_str()),
+            schema_resource_view_link("event"),
+            schemas_resource_view_link(),
         ];
         if let Some(task_id) = &event.meta.correlation {
             related_resources.push(task_resource_view_link(task_id.0.as_str()));
@@ -2525,6 +3059,7 @@ impl QueryHost {
         related_resources.extend(anchor_resource_view_links(&event.anchors));
         Ok(EventResourcePayload {
             uri: event_resource_uri(event_id.0.as_str()),
+            schema_uri,
             event,
             related_resources: dedupe_resource_link_views(related_resources),
         })
@@ -2532,6 +3067,7 @@ impl QueryHost {
 
     fn memory_resource_value(&self, memory_id: &MemoryId) -> Result<MemoryResourcePayload> {
         self.refresh_workspace()?;
+        let schema_uri = schema_resource_uri("memory");
         let entry = self
             .session
             .notes
@@ -2545,6 +3081,8 @@ impl QueryHost {
         let mut related_resources = vec![
             session_resource_view_link(),
             memory_resource_view_link(&memory_id.0),
+            schema_resource_view_link("memory"),
+            schemas_resource_view_link(),
         ];
         if let Some(task_id) = &task_id {
             related_resources.push(task_resource_view_link(task_id));
@@ -2552,6 +3090,7 @@ impl QueryHost {
         related_resources.extend(anchor_resource_view_links(&entry.anchors));
         Ok(MemoryResourcePayload {
             uri: memory_resource_uri(&memory_id.0),
+            schema_uri,
             memory: memory_entry_view(entry),
             task_id,
             related_resources: dedupe_resource_link_views(related_resources),
@@ -2560,6 +3099,7 @@ impl QueryHost {
 
     fn edge_resource_value(&self, edge_id: &EdgeId) -> Result<EdgeResourcePayload> {
         self.refresh_workspace()?;
+        let schema_uri = schema_resource_uri("edge");
         let record = self
             .session
             .inferred_edges
@@ -2569,6 +3109,8 @@ impl QueryHost {
         let mut related_resources = vec![
             session_resource_view_link(),
             edge_resource_view_link(&edge.id),
+            schema_resource_view_link("edge"),
+            schemas_resource_view_link(),
         ];
         if let Some(task_id) = &edge.task_id {
             related_resources.push(task_resource_view_link(task_id));
@@ -2589,6 +3131,7 @@ impl QueryHost {
         )?));
         Ok(EdgeResourcePayload {
             uri: edge_resource_uri(&edge.id),
+            schema_uri,
             edge,
             related_resources: dedupe_resource_link_views(related_resources),
         })
@@ -2908,20 +3451,33 @@ impl QueryHost {
             }
             CoordinationMutationKindInput::TaskUpdate => {
                 let payload: TaskUpdatePayload = serde_json::from_value(args.payload)?;
+                let task_id = CoordinationTaskId::new(payload.task_id.clone());
+                let status = payload
+                    .status
+                    .as_deref()
+                    .map(parse_coordination_task_status)
+                    .transpose()?;
+                let completion_context = convert_completion_context(payload.completion_context)
+                    .or_else(|| {
+                        status
+                            .filter(|status| *status == prism_ir::CoordinationTaskStatus::Completed)
+                            .and_then(|_| prism.task_risk(&task_id, meta.ts))
+                            .map(|risk| prism_coordination::TaskCompletionContext {
+                                risk_score: Some(risk.risk_score),
+                                required_validations: risk.likely_validations,
+                            })
+                    });
                 let task = prism.coordination().update_task(
                     meta,
                     TaskUpdateInput {
-                        task_id: CoordinationTaskId::new(payload.task_id),
-                        status: payload
-                            .status
-                            .as_deref()
-                            .map(parse_coordination_task_status)
-                            .transpose()?,
+                        task_id,
+                        status,
                         assignee: payload.assignee.map(|value| Some(AgentId::new(value))),
                         session: None,
                         title: payload.title,
                         anchors: payload.anchors.map(convert_anchors).transpose()?,
                         base_revision: Some(prism.workspace_revision()),
+                        completion_context,
                     },
                     prism.workspace_revision(),
                     current_timestamp(),
@@ -3023,19 +3579,33 @@ impl QueryHost {
                         .map(|task| task.anchors)
                         .unwrap_or_default(),
                 };
+                let evidence = payload
+                    .evidence
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(EventId::new)
+                    .collect::<Vec<_>>();
+                let recipe = prism.task_validation_recipe(&task_id);
+                let risk = prism.task_risk(&task_id, meta.ts);
                 let (artifact_id, artifact) = prism.coordination().propose_artifact(
                     meta,
                     ArtifactProposeInput {
                         task_id,
                         anchors,
                         diff_ref: payload.diff_ref,
-                        evidence: payload
-                            .evidence
-                            .unwrap_or_default()
-                            .into_iter()
-                            .map(EventId::new)
-                            .collect(),
+                        evidence: evidence.clone(),
                         base_revision: prism.workspace_revision(),
+                        required_validations: payload
+                            .required_validations
+                            .unwrap_or_else(|| recipe.map(|recipe| recipe.checks).unwrap_or_default()),
+                        validated_checks: infer_validated_checks(
+                            prism,
+                            &evidence,
+                            payload.validated_checks.unwrap_or_default(),
+                        ),
+                        risk_score: payload
+                            .risk_score
+                            .or_else(|| risk.map(|risk| risk.risk_score)),
                     },
                 )?;
                 Ok(ArtifactMutationResult {
@@ -3060,12 +3630,30 @@ impl QueryHost {
             }
             ArtifactActionInput::Review => {
                 let payload: ArtifactReviewPayload = serde_json::from_value(args.payload)?;
+                let artifact_id = ArtifactId::new(payload.artifact_id.clone());
+                let risk = prism.artifact_risk(&artifact_id, meta.ts);
                 let (review_id, _, artifact) = prism.coordination().review_artifact(
                     meta,
                     ArtifactReviewInput {
-                        artifact_id: ArtifactId::new(payload.artifact_id.clone()),
+                        artifact_id,
                         verdict: parse_review_verdict(&payload.verdict)?,
                         summary: payload.summary,
+                        required_validations: payload.required_validations.unwrap_or_else(|| {
+                            risk.as_ref()
+                                .map(|risk| risk.required_validations.clone())
+                                .unwrap_or_default()
+                        }),
+                        validated_checks: dedupe_strings(
+                            risk.as_ref()
+                                .map(|risk| risk.validated_checks.clone())
+                                .unwrap_or_default()
+                                .into_iter()
+                                .chain(payload.validated_checks.unwrap_or_default())
+                                .collect(),
+                        ),
+                        risk_score: payload
+                            .risk_score
+                            .or_else(|| risk.as_ref().map(|risk| risk.risk_score)),
                     },
                     prism.workspace_revision(),
                 )?;
@@ -3227,7 +3815,178 @@ impl QueryHost {
         Ok(CuratorProposalDecisionResult {
             job_id: args.job_id,
             proposal: serde_json::to_value(proposal)?,
+            memory_id: None,
             edge_id: Some(edge_id.0),
+        })
+    }
+
+    fn promote_curator_memory(
+        &self,
+        args: PrismCuratorPromoteMemoryArgs,
+    ) -> Result<CuratorProposalDecisionResult> {
+        self.refresh_workspace()?;
+        let workspace = self
+            .workspace
+            .as_ref()
+            .ok_or_else(|| anyhow!("curator mutations require a workspace-backed session"))?;
+        let job_id = CuratorJobId(args.job_id.clone());
+        let snapshot = workspace.curator_snapshot();
+        let record = snapshot
+            .records
+            .iter()
+            .find(|record| record.id == job_id)
+            .ok_or_else(|| anyhow!("unknown curator job `{}`", args.job_id))?;
+        let proposal_state = curator_proposal_state(record, args.proposal_index)?;
+        if proposal_state.disposition != CuratorProposalDisposition::Pending {
+            return Err(anyhow!(
+                "curator proposal {} for job `{}` is already {}",
+                args.proposal_index,
+                args.job_id,
+                curator_disposition_label(proposal_state.disposition)
+            ));
+        }
+
+        let task = self
+            .session
+            .task_for_mutation(args.task_id.clone().map(TaskId::new));
+        let prism = self.current_prism();
+        let proposal = curator_proposal(record, args.proposal_index)?;
+        let entry = match proposal {
+            CuratorProposal::StructuralMemory(candidate) => {
+                let mut entry = MemoryEntry::new(candidate.kind, candidate.content.clone());
+                entry.anchors = prism.anchors_for(&candidate.anchors);
+                entry.source = MemorySource::System;
+                entry.trust = args.trust.unwrap_or(candidate.trust).clamp(0.0, 1.0);
+                entry.metadata = json!({
+                    "task_id": task.0.clone(),
+                    "curator": {
+                        "jobId": args.job_id,
+                        "proposalIndex": args.proposal_index,
+                        "kind": "structural_memory",
+                    },
+                    "rationale": candidate.rationale,
+                });
+                entry
+            }
+            CuratorProposal::RiskSummary(candidate) => {
+                let mut entry = MemoryEntry::new(MemoryKind::Semantic, candidate.summary.clone());
+                entry.anchors = prism.anchors_for(&candidate.anchors);
+                entry.source = MemorySource::System;
+                entry.trust = args
+                    .trust
+                    .unwrap_or(match candidate.severity.as_str() {
+                        "low" => 0.55,
+                        "medium" => 0.7,
+                        "high" => 0.85,
+                        _ => 0.6,
+                    })
+                    .clamp(0.0, 1.0);
+                entry.metadata = json!({
+                    "task_id": task.0.clone(),
+                    "curator": {
+                        "jobId": args.job_id,
+                        "proposalIndex": args.proposal_index,
+                        "kind": "risk_summary",
+                    },
+                    "severity": candidate.severity,
+                    "evidenceEvents": candidate
+                        .evidence_events
+                        .iter()
+                        .map(|event| event.0.clone())
+                        .collect::<Vec<_>>(),
+                });
+                entry
+            }
+            CuratorProposal::ValidationRecipe(candidate) => {
+                let mut entry = MemoryEntry::new(
+                    MemoryKind::Structural,
+                    format!(
+                        "Validation recipe for {}: {}",
+                        candidate.target.path,
+                        candidate.checks.join(", ")
+                    ),
+                );
+                entry.anchors = prism.anchors_for(&[AnchorRef::Node(candidate.target.clone())]);
+                entry.source = MemorySource::System;
+                entry.trust = args.trust.unwrap_or(0.8).clamp(0.0, 1.0);
+                entry.metadata = json!({
+                    "task_id": task.0.clone(),
+                    "curator": {
+                        "jobId": args.job_id,
+                        "proposalIndex": args.proposal_index,
+                        "kind": "validation_recipe",
+                    },
+                    "target": candidate.target,
+                    "checks": candidate.checks,
+                    "rationale": candidate.rationale,
+                    "evidence": candidate.evidence,
+                });
+                entry
+            }
+            CuratorProposal::InferredEdge(_) => {
+                return Err(anyhow!(
+                    "curator proposal {} for job `{}` is an inferred edge; use prism_curator_promote_edge",
+                    args.proposal_index,
+                    args.job_id
+                ));
+            }
+        };
+        let memory_summary = entry.content.clone();
+        let memory_anchors = entry.anchors.clone();
+        let memory_id = self.session.notes.store(entry)?;
+        let note_event = OutcomeEvent {
+            meta: EventMeta {
+                id: self.session.next_event_id("outcome"),
+                ts: current_timestamp(),
+                actor: EventActor::System,
+                correlation: Some(task.clone()),
+                causation: None,
+            },
+            anchors: memory_anchors,
+            kind: OutcomeKind::NoteAdded,
+            result: OutcomeResult::Success,
+            summary: memory_summary,
+            evidence: Vec::new(),
+            metadata: json!({
+                "source": "curator",
+                "memoryId": memory_id.0.clone(),
+                "jobId": args.job_id,
+                "proposalIndex": args.proposal_index,
+            }),
+        };
+        if let Some(workspace) = &self.workspace {
+            let _ = workspace.append_outcome_with_auxiliary(
+                note_event,
+                Some(self.session.notes.snapshot()),
+                None,
+            )?;
+        } else {
+            prism.apply_outcome_event_to_projections(&note_event);
+            let _ = prism.outcome_memory().store_event(note_event)?;
+            self.persist_outcomes()?;
+            self.persist_notes()?;
+        }
+        workspace.set_curator_proposal_state(
+            &job_id,
+            args.proposal_index,
+            CuratorProposalDisposition::Applied,
+            Some(task),
+            args.note,
+            Some(memory_id.0.clone()),
+        )?;
+        let proposal = self
+            .curator_job(&args.job_id)?
+            .and_then(|job| {
+                job.proposals
+                    .into_iter()
+                    .find(|proposal| proposal.index == args.proposal_index)
+            })
+            .ok_or_else(|| anyhow!("applied curator proposal could not be reloaded"))?;
+        Ok(CuratorProposalDecisionResult {
+            job_id: args.job_id,
+            proposal: serde_json::to_value(proposal)?,
+            memory_id: Some(memory_id.0),
+            edge_id: None,
         })
     }
 
@@ -3279,6 +4038,7 @@ impl QueryHost {
         Ok(CuratorProposalDecisionResult {
             job_id: args.job_id,
             proposal: serde_json::to_value(proposal)?,
+            memory_id: None,
             edge_id: None,
         })
     }
@@ -3451,6 +4211,77 @@ fn validation_recipe_view(recipe: ValidationRecipe) -> ValidationRecipeView {
     }
 }
 
+fn task_validation_recipe_view(recipe: TaskValidationRecipe) -> TaskValidationRecipeView {
+    TaskValidationRecipeView {
+        task_id: recipe.task_id.0.to_string(),
+        checks: recipe.checks,
+        scored_checks: recipe
+            .scored_checks
+            .into_iter()
+            .map(validation_check_view)
+            .collect(),
+        related_nodes: recipe.related_nodes.into_iter().map(node_id_view).collect(),
+        co_change_neighbors: recipe
+            .co_change_neighbors
+            .into_iter()
+            .map(co_change_view)
+            .collect(),
+        recent_failures: recipe.recent_failures,
+    }
+}
+
+fn task_risk_view(risk: TaskRisk) -> TaskRiskView {
+    TaskRiskView {
+        task_id: risk.task_id.0.to_string(),
+        risk_score: risk.risk_score,
+        review_required: risk.review_required,
+        stale_task: risk.stale_task,
+        has_approved_artifact: risk.has_approved_artifact,
+        likely_validations: risk.likely_validations,
+        missing_validations: risk.missing_validations,
+        validation_checks: risk
+            .validation_checks
+            .into_iter()
+            .map(validation_check_view)
+            .collect(),
+        co_change_neighbors: risk
+            .co_change_neighbors
+            .into_iter()
+            .map(co_change_view)
+            .collect(),
+        risk_events: risk.risk_events,
+        approved_artifact_ids: risk
+            .approved_artifact_ids
+            .into_iter()
+            .map(|artifact_id| artifact_id.0.to_string())
+            .collect(),
+        stale_artifact_ids: risk
+            .stale_artifact_ids
+            .into_iter()
+            .map(|artifact_id| artifact_id.0.to_string())
+            .collect(),
+    }
+}
+
+fn artifact_risk_view(risk: ArtifactRisk) -> ArtifactRiskView {
+    ArtifactRiskView {
+        artifact_id: risk.artifact_id.0.to_string(),
+        task_id: risk.task_id.0.to_string(),
+        risk_score: risk.risk_score,
+        review_required: risk.review_required,
+        stale: risk.stale,
+        required_validations: risk.required_validations,
+        validated_checks: risk.validated_checks,
+        missing_validations: risk.missing_validations,
+        co_change_neighbors: risk
+            .co_change_neighbors
+            .into_iter()
+            .map(co_change_view)
+            .collect(),
+        risk_events: risk.risk_events,
+    }
+}
+
 fn scored_memory_view(memory: ScoredMemory) -> ScoredMemoryView {
     ScoredMemoryView {
         id: memory.id.0,
@@ -3562,6 +4393,8 @@ fn blocker_view(value: prism_coordination::TaskBlocker) -> BlockerView {
         related_artifact_id: value
             .related_artifact_id
             .map(|artifact_id| artifact_id.0.to_string()),
+        risk_score: value.risk_score,
+        validation_checks: value.validation_checks,
     }
 }
 
@@ -3573,6 +4406,9 @@ fn artifact_view(value: prism_coordination::Artifact) -> ArtifactView {
         anchors: value.anchors,
         base_revision: workspace_revision_view(value.base_revision),
         diff_ref: value.diff_ref,
+        required_validations: value.required_validations,
+        validated_checks: value.validated_checks,
+        risk_score: value.risk_score,
     }
 }
 
@@ -3728,7 +4564,7 @@ fn inferred_edge_record_view(record: prism_agent::InferredEdgeRecord) -> Inferre
     InferredEdgeRecordView {
         id: record.id.0,
         edge: edge_view(record.edge),
-        scope: record.scope,
+        scope: format!("{:?}", record.scope),
         task_id: record.task.map(|task| task.0.to_string()),
         evidence: record.evidence,
     }
@@ -4041,6 +4877,25 @@ impl QueryExecution {
                         None,
                     );
                 }
+                if blockers.iter().any(|blocker| {
+                    blocker.kind == prism_coordination::BlockerKind::ValidationRequired
+                }) {
+                    self.push_diagnostic(
+                        "validation_required",
+                        "The coordination task is missing required validations.",
+                        None,
+                    );
+                }
+                if blockers.iter().any(|blocker| {
+                    blocker.kind == prism_coordination::BlockerKind::RiskReviewRequired
+                        || blocker.kind == prism_coordination::BlockerKind::ArtifactStale
+                }) {
+                    self.push_diagnostic(
+                        "task_risk_blocked",
+                        "The coordination task is blocked by risk or stale artifact state.",
+                        None,
+                    );
+                }
                 Ok(serde_json::to_value(
                     blockers.into_iter().map(blocker_view).collect::<Vec<_>>(),
                 )?)
@@ -4068,6 +4923,38 @@ impl QueryExecution {
                         .into_iter()
                         .map(artifact_view)
                         .collect::<Vec<_>>(),
+                )?)
+            }
+            "taskBlastRadius" => {
+                let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(
+                    self.prism
+                        .task_blast_radius(&CoordinationTaskId::new(args.task_id))
+                        .map(change_impact_view),
+                )?)
+            }
+            "taskValidationRecipe" => {
+                let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(
+                    self.prism
+                        .task_validation_recipe(&CoordinationTaskId::new(args.task_id))
+                        .map(task_validation_recipe_view),
+                )?)
+            }
+            "taskRisk" => {
+                let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(
+                    self.prism
+                        .task_risk(&CoordinationTaskId::new(args.task_id), current_timestamp())
+                        .map(task_risk_view),
+                )?)
+            }
+            "artifactRisk" => {
+                let args: ArtifactTargetArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(
+                    self.prism
+                        .artifact_risk(&ArtifactId::new(args.artifact_id), current_timestamp())
+                        .map(artifact_risk_view),
                 )?)
             }
             "simulateClaim" => {
@@ -4406,7 +5293,7 @@ impl QueryExecution {
                 focus,
                 text: args.text,
                 limit: applied,
-                kinds: Some(vec![MemoryKind::Episodic]),
+                kinds: None,
                 since: None,
             })?
             .into_iter()
@@ -4623,8 +5510,14 @@ fn convert_policy(
     if let Some(value) = payload.require_review_for_completion {
         policy.require_review_for_completion = value;
     }
+    if let Some(value) = payload.require_validation_for_completion {
+        policy.require_validation_for_completion = value;
+    }
     if let Some(value) = payload.stale_after_graph_change {
         policy.stale_after_graph_change = value;
+    }
+    if let Some(value) = payload.review_required_above_risk_score {
+        policy.review_required_above_risk_score = Some(value);
     }
     Ok(Some(policy))
 }
@@ -4642,6 +5535,50 @@ fn convert_acceptance(
             })
         })
         .collect()
+}
+
+fn convert_completion_context(
+    payload: Option<TaskCompletionContextPayload>,
+) -> Option<prism_coordination::TaskCompletionContext> {
+    payload.map(|payload| prism_coordination::TaskCompletionContext {
+        risk_score: payload.risk_score,
+        required_validations: payload.required_validations.unwrap_or_default(),
+    })
+}
+
+fn dedupe_strings(mut values: Vec<String>) -> Vec<String> {
+    values.sort();
+    values.dedup();
+    values
+}
+
+fn validation_labels_from_event(event: &OutcomeEvent) -> Vec<String> {
+    if !matches!(event.result, OutcomeResult::Success) {
+        return Vec::new();
+    }
+    event
+        .evidence
+        .iter()
+        .filter_map(|evidence| match evidence {
+            OutcomeEvidence::Test { name, passed } if *passed => Some(format!("test:{name}")),
+            OutcomeEvidence::Build { target, passed } if *passed => Some(format!("build:{target}")),
+            _ => None,
+        })
+        .collect()
+}
+
+fn infer_validated_checks(
+    prism: &Prism,
+    evidence: &[EventId],
+    explicit: Vec<String>,
+) -> Vec<String> {
+    let mut checks = explicit;
+    for event_id in evidence {
+        if let Some(event) = prism.outcome_memory().event(event_id) {
+            checks.extend(validation_labels_from_event(&event));
+        }
+    }
+    dedupe_strings(checks)
 }
 
 fn parse_edge_kind(value: &str) -> Result<EdgeKind> {
@@ -4774,8 +5711,8 @@ mod tests {
     use super::*;
     use prism_core::{index_workspace_session, index_workspace_session_with_curator};
     use prism_curator::{
-        CandidateEdge, CandidateRiskSummary, CuratorBackend, CuratorContext, CuratorJob,
-        CuratorProposal, CuratorRun,
+        CandidateEdge, CandidateMemory, CandidateRiskSummary, CuratorBackend, CuratorContext,
+        CuratorJob, CuratorProposal, CuratorRun,
     };
     use prism_history::HistoryStore;
     use prism_ir::{
@@ -5111,6 +6048,7 @@ return { path: sym?.id.path, kind: sym?.kind };
         assert!(tool_names.contains(&"prism_claim"));
         assert!(tool_names.contains(&"prism_artifact"));
         assert!(tool_names.contains(&"prism_curator_promote_edge"));
+        assert!(tool_names.contains(&"prism_curator_promote_memory"));
         assert!(tool_names.contains(&"prism_curator_reject_proposal"));
 
         client.send(list_resources_request(3)).await.unwrap();
@@ -5286,6 +6224,7 @@ return { path: sym?.id.path, kind: sym?.kind };
             .unwrap();
         let artifact = first_tool_content_json(client.receive().await.unwrap());
         assert!(artifact["artifactId"].as_str().is_some());
+        let artifact_id = artifact["artifactId"].as_str().unwrap().to_string();
 
         client
             .send(call_tool_request(
@@ -5300,6 +6239,10 @@ return {{
   ready: prism.readyTasks("{plan_id}"),
   claims: sym ? prism.claims(sym) : [],
   artifacts: prism.artifacts("{task_id}"),
+  taskBlastRadius: prism.taskBlastRadius("{task_id}"),
+  taskValidationRecipe: prism.taskValidationRecipe("{task_id}"),
+  taskRisk: prism.taskRisk("{task_id}"),
+  artifactRisk: prism.artifactRisk("{artifact_id}"),
 }};
 "#
                     ),
@@ -5319,6 +6262,21 @@ return {{
         assert_eq!(envelope["result"]["ready"].as_array().unwrap().len(), 1);
         assert_eq!(envelope["result"]["claims"].as_array().unwrap().len(), 1);
         assert_eq!(envelope["result"]["artifacts"].as_array().unwrap().len(), 1);
+        assert!(envelope["result"]["taskBlastRadius"]["lineages"]
+            .as_array()
+            .is_some());
+        assert_eq!(
+            envelope["result"]["taskValidationRecipe"]["taskId"],
+            task_id
+        );
+        assert!(envelope["result"]["taskRisk"]["riskScore"]
+            .as_f64()
+            .unwrap()
+            > 0.0);
+        assert_eq!(
+            envelope["result"]["artifactRisk"]["artifactId"],
+            artifact["artifactId"]
+        );
 
         running.cancel().await.unwrap();
     }
@@ -5430,7 +6388,10 @@ return {{
             Value::String("ReviewRequired".to_string())
         );
         assert_eq!(
-            envelope["result"]["pendingReviews"].as_array().unwrap().len(),
+            envelope["result"]["pendingReviews"]
+                .as_array()
+                .unwrap()
+                .len(),
             1
         );
         assert_eq!(
@@ -5533,6 +6494,104 @@ return prism.curator.job("{job_id}")?.proposals[0];
             .unwrap();
         assert_eq!(proposal.result["disposition"], "applied");
         assert_eq!(proposal.result["output"], promoted.edge_id.unwrap());
+    }
+
+    #[test]
+    fn curator_memory_promotion_persists_and_recall_sees_promoted_entry() {
+        let root = temp_workspace();
+
+        #[derive(Default)]
+        struct FakeCurator;
+
+        impl CuratorBackend for FakeCurator {
+            fn run(&self, _job: &CuratorJob, _ctx: &CuratorContext) -> anyhow::Result<CuratorRun> {
+                Ok(CuratorRun {
+                    proposals: vec![CuratorProposal::StructuralMemory(CandidateMemory {
+                        anchors: vec![AnchorRef::Node(NodeId::new(
+                            "demo",
+                            "demo::alpha",
+                            NodeKind::Function,
+                        ))],
+                        kind: MemoryKind::Structural,
+                        content: "alpha owns request routing".to_string(),
+                        trust: 0.82,
+                        rationale: "Repeated successful fixes anchored on alpha".to_string(),
+                    })],
+                    diagnostics: Vec::new(),
+                })
+            }
+        }
+
+        let session = index_workspace_session_with_curator(&root, Arc::new(FakeCurator)).unwrap();
+        let alpha = session
+            .prism()
+            .symbol("alpha")
+            .into_iter()
+            .next()
+            .unwrap()
+            .id()
+            .clone();
+        session
+            .append_outcome(OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new("outcome:routing-note"),
+                    ts: 50,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:curator-memory")),
+                    causation: None,
+                },
+                anchors: vec![AnchorRef::Node(alpha)],
+                kind: OutcomeKind::FixValidated,
+                result: OutcomeResult::Success,
+                summary: "validated alpha routing change".into(),
+                evidence: Vec::new(),
+                metadata: Value::Null,
+            })
+            .unwrap();
+        let job_id = wait_for_completed_curator_job(&session);
+        let host = QueryHost::with_session(session);
+
+        let promoted = host
+            .promote_curator_memory(PrismCuratorPromoteMemoryArgs {
+                job_id: job_id.clone(),
+                proposal_index: 0,
+                trust: None,
+                note: Some("promote repeated routing knowledge".into()),
+                task_id: Some("task:curator-memory".into()),
+            })
+            .expect("memory promotion should succeed");
+        assert!(promoted.memory_id.is_some());
+        assert!(promoted.edge_id.is_none());
+
+        let proposal = host
+            .execute(
+                &format!(
+                    r#"
+const sym = prism.symbol("alpha");
+return {{
+  proposal: prism.curator.job("{job_id}")?.proposals[0],
+  memory: prism.memory.recall({{
+    focus: sym ? [sym] : [],
+    text: "routing",
+    limit: 5,
+  }}),
+}};
+"#
+                ),
+                QueryLanguage::Ts,
+            )
+            .expect("query should succeed");
+
+        assert_eq!(proposal.result["proposal"]["disposition"], "applied");
+        assert_eq!(
+            proposal.result["proposal"]["output"],
+            promoted.memory_id.unwrap()
+        );
+        assert_eq!(proposal.result["memory"][0]["entry"]["kind"], "Structural");
+        assert_eq!(
+            proposal.result["memory"][0]["entry"]["content"],
+            "alpha owns request routing"
+        );
     }
 
     #[test]
@@ -6345,7 +7404,7 @@ return {
             })
             .expect("note should store");
 
-        assert!(memory.memory_id.starts_with("episodic:"));
+        assert!(memory.memory_id.starts_with("memory:"));
         let task = host.session.current_task().expect("task should be created");
         let replay = host.current_prism().resume_task(&task);
         assert_eq!(replay.task, task);

@@ -1,15 +1,18 @@
 use std::fmt;
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 
 pub type EdgeIndex = usize;
 pub type Timestamp = u64;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
 pub struct FileId(pub u32);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub enum Language {
     Rust,
     Markdown,
@@ -18,7 +21,7 @@ pub enum Language {
     Unknown,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub struct Span {
     pub start: u32,
     pub end: u32,
@@ -50,7 +53,7 @@ impl Span {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub enum NodeKind {
     Workspace,
     Package,
@@ -92,9 +95,11 @@ impl fmt::Display for NodeKind {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub struct NodeId {
+    #[schemars(with = "String")]
     pub crate_name: SmolStr,
+    #[schemars(with = "String")]
     pub path: SmolStr,
     pub kind: NodeKind,
 }
@@ -115,8 +120,10 @@ impl fmt::Display for NodeId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct LineageId(pub SmolStr);
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+pub struct LineageId(#[schemars(with = "String")] pub SmolStr);
 
 impl LineageId {
     pub fn new(value: impl Into<SmolStr>) -> Self {
@@ -124,8 +131,10 @@ impl LineageId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct EventId(pub SmolStr);
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+pub struct EventId(#[schemars(with = "String")] pub SmolStr);
 
 impl EventId {
     pub fn new(value: impl Into<SmolStr>) -> Self {
@@ -133,8 +142,10 @@ impl EventId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct TaskId(pub SmolStr);
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+pub struct TaskId(#[schemars(with = "String")] pub SmolStr);
 
 impl TaskId {
     pub fn new(value: impl Into<SmolStr>) -> Self {
@@ -142,8 +153,10 @@ impl TaskId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct AgentId(pub SmolStr);
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+pub struct AgentId(#[schemars(with = "String")] pub SmolStr);
 
 impl AgentId {
     pub fn new(value: impl Into<SmolStr>) -> Self {
@@ -151,8 +164,10 @@ impl AgentId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct SessionId(pub SmolStr);
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+pub struct SessionId(#[schemars(with = "String")] pub SmolStr);
 
 impl SessionId {
     pub fn new(value: impl Into<SmolStr>) -> Self {
@@ -160,8 +175,10 @@ impl SessionId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct PlanId(pub SmolStr);
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+pub struct PlanId(#[schemars(with = "String")] pub SmolStr);
 
 impl PlanId {
     pub fn new(value: impl Into<SmolStr>) -> Self {
@@ -169,8 +186,10 @@ impl PlanId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct CoordinationTaskId(pub SmolStr);
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+pub struct CoordinationTaskId(#[schemars(with = "String")] pub SmolStr);
 
 impl CoordinationTaskId {
     pub fn new(value: impl Into<SmolStr>) -> Self {
@@ -178,8 +197,10 @@ impl CoordinationTaskId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct ClaimId(pub SmolStr);
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+pub struct ClaimId(#[schemars(with = "String")] pub SmolStr);
 
 impl ClaimId {
     pub fn new(value: impl Into<SmolStr>) -> Self {
@@ -187,8 +208,10 @@ impl ClaimId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct ArtifactId(pub SmolStr);
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+pub struct ArtifactId(#[schemars(with = "String")] pub SmolStr);
 
 impl ArtifactId {
     pub fn new(value: impl Into<SmolStr>) -> Self {
@@ -196,8 +219,10 @@ impl ArtifactId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct ReviewId(pub SmolStr);
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+pub struct ReviewId(#[schemars(with = "String")] pub SmolStr);
 
 impl ReviewId {
     pub fn new(value: impl Into<SmolStr>) -> Self {
@@ -205,13 +230,14 @@ impl ReviewId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default, JsonSchema)]
 pub struct WorkspaceRevision {
     pub graph_version: u64,
+    #[schemars(with = "Option<String>")]
     pub git_commit: Option<SmolStr>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum PlanStatus {
     Draft,
     Active,
@@ -220,7 +246,7 @@ pub enum PlanStatus {
     Abandoned,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum CoordinationTaskStatus {
     Proposed,
     Ready,
@@ -232,14 +258,14 @@ pub enum CoordinationTaskStatus {
     Abandoned,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum ClaimMode {
     Advisory,
     SoftExclusive,
     HardExclusive,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum Capability {
     Observe,
     Edit,
@@ -248,7 +274,7 @@ pub enum Capability {
     Merge,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum ClaimStatus {
     Active,
     Released,
@@ -256,14 +282,14 @@ pub enum ClaimStatus {
     Contended,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum ConflictSeverity {
     Info,
     Warn,
     Block,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum ArtifactStatus {
     Proposed,
     InReview,
@@ -273,14 +299,14 @@ pub enum ArtifactStatus {
     Merged,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum ReviewVerdict {
     Approved,
     ChangesRequested,
     Rejected,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum CoordinationEventKind {
     PlanCreated,
     TaskCreated,
@@ -299,7 +325,7 @@ pub enum CoordinationEventKind {
     HandoffAccepted,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub enum AnchorRef {
     Node(NodeId),
     Lineage(LineageId),
@@ -319,7 +345,7 @@ impl From<&NodeId> for AnchorRef {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct EventMeta {
     pub id: EventId,
     pub ts: Timestamp,
@@ -328,13 +354,15 @@ pub struct EventMeta {
     pub causation: Option<EventId>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum EventActor {
     User,
     Agent,
     System,
     GitAuthor {
+        #[schemars(with = "String")]
         name: SmolStr,
+        #[schemars(with = "Option<String>")]
         email: Option<SmolStr>,
     },
     CI,
@@ -358,7 +386,7 @@ pub struct Node {
     pub language: Language,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub enum EdgeKind {
     Contains,
     Calls,
@@ -369,7 +397,7 @@ pub enum EdgeKind {
     DependsOn,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub enum EdgeOrigin {
     Static,
     Inferred,

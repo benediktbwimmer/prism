@@ -9,9 +9,9 @@ use prism_coordination::{
 };
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
-    AnchorRef, Capability, ClaimMode, CoordinationTaskId, Edge, EdgeKind, LineageEvent, LineageId,
-    Node, NodeId, NodeKind, PlanId, SessionId, Skeleton, Subgraph, TaskId, Timestamp,
-    WorkspaceRevision,
+    AnchorRef, ArtifactId, ArtifactStatus, Capability, ClaimMode, CoordinationTaskId, Edge,
+    EdgeKind, LineageEvent, LineageId, Node, NodeId, NodeKind, PlanId, SessionId, Skeleton,
+    Subgraph, TaskId, Timestamp, WorkspaceRevision,
 };
 use prism_memory::{OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot, TaskReplay};
 use prism_projections::{CoChangeRecord, ProjectionIndex, ProjectionSnapshot};
@@ -70,6 +70,46 @@ pub struct ValidationRecipe {
     pub related_nodes: Vec<NodeId>,
     pub co_change_neighbors: Vec<CoChange>,
     pub recent_failures: Vec<OutcomeEvent>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TaskValidationRecipe {
+    pub task_id: CoordinationTaskId,
+    pub checks: Vec<String>,
+    pub scored_checks: Vec<ValidationCheck>,
+    pub related_nodes: Vec<NodeId>,
+    pub co_change_neighbors: Vec<CoChange>,
+    pub recent_failures: Vec<OutcomeEvent>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TaskRisk {
+    pub task_id: CoordinationTaskId,
+    pub risk_score: f32,
+    pub review_required: bool,
+    pub stale_task: bool,
+    pub has_approved_artifact: bool,
+    pub likely_validations: Vec<String>,
+    pub missing_validations: Vec<String>,
+    pub validation_checks: Vec<ValidationCheck>,
+    pub co_change_neighbors: Vec<CoChange>,
+    pub risk_events: Vec<OutcomeEvent>,
+    pub approved_artifact_ids: Vec<ArtifactId>,
+    pub stale_artifact_ids: Vec<ArtifactId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ArtifactRisk {
+    pub artifact_id: ArtifactId,
+    pub task_id: CoordinationTaskId,
+    pub risk_score: f32,
+    pub review_required: bool,
+    pub stale: bool,
+    pub required_validations: Vec<String>,
+    pub validated_checks: Vec<String>,
+    pub missing_validations: Vec<String>,
+    pub co_change_neighbors: Vec<CoChange>,
+    pub risk_events: Vec<OutcomeEvent>,
 }
 
 impl Prism {
@@ -202,55 +242,118 @@ impl Prism {
     }
 
     pub fn blast_radius(&self, node: &NodeId) -> ChangeImpact {
-        let mut direct_nodes = self.graph_neighbors(node);
-        let mut lineages = direct_nodes
-            .iter()
-            .filter_map(|neighbor| self.lineage_of(neighbor))
+        self.impact_for_anchors(&[AnchorRef::Node(node.clone())])
+    }
+
+    pub fn task_blast_radius(&self, task_id: &CoordinationTaskId) -> Option<ChangeImpact> {
+        let task = self.coordination.task(task_id)?;
+        Some(self.impact_for_anchors(&task.anchors))
+    }
+
+    pub fn task_validation_recipe(
+        &self,
+        task_id: &CoordinationTaskId,
+    ) -> Option<TaskValidationRecipe> {
+        let impact = self.task_blast_radius(task_id)?;
+        Some(TaskValidationRecipe {
+            task_id: task_id.clone(),
+            checks: impact.likely_validations,
+            scored_checks: impact.validation_checks,
+            related_nodes: impact.direct_nodes,
+            co_change_neighbors: impact.co_change_neighbors,
+            recent_failures: impact.risk_events,
+        })
+    }
+
+    pub fn task_risk(&self, task_id: &CoordinationTaskId, _now: Timestamp) -> Option<TaskRisk> {
+        let task = self.coordination.task(task_id)?;
+        let impact = self.impact_for_anchors(&task.anchors);
+        let approved_artifacts = self
+            .coordination
+            .artifacts(task_id)
+            .into_iter()
+            .filter(|artifact| {
+                matches!(
+                    artifact.status,
+                    ArtifactStatus::Approved | ArtifactStatus::Merged
+                )
+            })
             .collect::<Vec<_>>();
-        let co_change_neighbors = self.co_change_neighbors(node, 8);
-        if let Some(lineage) = self.lineage_of(node) {
-            lineages.push(lineage);
-        }
-        lineages.extend(
-            co_change_neighbors
+        let validated_checks = dedupe_strings(
+            approved_artifacts
                 .iter()
-                .map(|neighbor| neighbor.lineage.clone()),
+                .flat_map(|artifact| artifact.validated_checks.iter().cloned())
+                .collect(),
         );
-        lineages.sort_by(|left, right| left.0.cmp(&right.0));
-        lineages.dedup();
-
-        direct_nodes.extend(
-            lineages
-                .iter()
-                .flat_map(|lineage| self.history.current_nodes_for_lineage(lineage)),
-        );
-        direct_nodes.retain(|candidate| candidate != node);
-        sort_node_ids(&mut direct_nodes);
-
-        let mut impact_anchors = vec![AnchorRef::Node(node.clone())];
-        impact_anchors.extend(direct_nodes.iter().cloned().map(AnchorRef::Node));
-        impact_anchors.extend(lineages.iter().cloned().map(AnchorRef::Lineage));
-        let impact_anchors = self.expand_anchors(&impact_anchors);
-
-        let risk_events = self.outcomes.related_failures(&impact_anchors, 20);
-        let validation_checks = self
-            .projections
-            .read()
-            .expect("projection lock poisoned")
-            .validation_checks_for_lineages(&lineages, 8);
-        let likely_validations = validation_checks
+        let missing_validations = impact
+            .likely_validations
             .iter()
-            .map(|check| check.label.clone())
-            .collect();
+            .filter(|check| !validated_checks.iter().any(|value| value == *check))
+            .cloned()
+            .collect::<Vec<_>>();
+        let approved_artifact_ids = approved_artifacts
+            .iter()
+            .map(|artifact| artifact.id.clone())
+            .collect::<Vec<_>>();
+        let stale_artifact_ids = approved_artifacts
+            .iter()
+            .filter(|artifact| {
+                artifact.base_revision.graph_version < self.workspace_revision().graph_version
+            })
+            .map(|artifact| artifact.id.clone())
+            .collect::<Vec<_>>();
+        let stale_task = task.base_revision.graph_version < self.workspace_revision().graph_version;
+        let risk_score = score_change_impact(&impact, stale_task || !stale_artifact_ids.is_empty());
+        let review_required = self
+            .coordination
+            .plan(&task.plan)
+            .and_then(|plan| plan.policy.review_required_above_risk_score)
+            .map(|threshold| risk_score >= threshold)
+            .unwrap_or(false);
+        let risk_events = impact.risk_events.clone();
 
-        ChangeImpact {
-            direct_nodes,
-            lineages,
-            likely_validations,
-            validation_checks,
-            co_change_neighbors,
+        Some(TaskRisk {
+            task_id: task_id.clone(),
+            risk_score,
+            review_required,
+            stale_task,
+            has_approved_artifact: !approved_artifact_ids.is_empty(),
+            likely_validations: impact.likely_validations,
+            missing_validations,
+            validation_checks: impact.validation_checks,
+            co_change_neighbors: impact.co_change_neighbors,
             risk_events,
-        }
+            approved_artifact_ids,
+            stale_artifact_ids,
+        })
+    }
+
+    pub fn artifact_risk(&self, artifact_id: &ArtifactId, now: Timestamp) -> Option<ArtifactRisk> {
+        let artifact = self.coordinating_artifact(artifact_id)?;
+        let task_risk = self.task_risk(&artifact.task, now)?;
+        let required_validations = if artifact.required_validations.is_empty() {
+            task_risk.likely_validations.clone()
+        } else {
+            artifact.required_validations.clone()
+        };
+        let validated_checks = dedupe_strings(artifact.validated_checks.clone());
+        let missing_validations = required_validations
+            .iter()
+            .filter(|check| !validated_checks.iter().any(|value| value == *check))
+            .cloned()
+            .collect::<Vec<_>>();
+        Some(ArtifactRisk {
+            artifact_id: artifact.id.clone(),
+            task_id: artifact.task.clone(),
+            risk_score: task_risk.risk_score,
+            review_required: task_risk.review_required,
+            stale: artifact.base_revision.graph_version < self.workspace_revision().graph_version,
+            required_validations,
+            validated_checks,
+            missing_validations,
+            co_change_neighbors: task_risk.co_change_neighbors,
+            risk_events: task_risk.risk_events,
+        })
     }
 
     pub fn resume_task(&self, task: &TaskId) -> TaskReplay {
@@ -275,6 +378,9 @@ impl Prism {
     pub fn ready_tasks(&self, plan_id: &PlanId, now: Timestamp) -> Vec<CoordinationTask> {
         self.coordination
             .ready_tasks(plan_id, self.workspace_revision(), now)
+            .into_iter()
+            .filter(|task| self.blockers(&task.id, now).is_empty())
+            .collect()
     }
 
     pub fn claims(&self, anchors: &[AnchorRef], now: Timestamp) -> Vec<WorkClaim> {
@@ -288,8 +394,51 @@ impl Prism {
     }
 
     pub fn blockers(&self, task_id: &CoordinationTaskId, now: Timestamp) -> Vec<TaskBlocker> {
-        self.coordination
-            .blockers(task_id, self.workspace_revision(), now)
+        let mut blockers = self
+            .coordination
+            .blockers(task_id, self.workspace_revision(), now);
+        if let Some(risk) = self.task_risk(task_id, now) {
+            if !risk.stale_artifact_ids.is_empty() {
+                blockers.push(TaskBlocker {
+                    kind: prism_coordination::BlockerKind::ArtifactStale,
+                    summary: format!(
+                        "approved artifact is stale against graph version {}",
+                        self.workspace_revision().graph_version
+                    ),
+                    related_task_id: Some(task_id.clone()),
+                    related_artifact_id: risk.stale_artifact_ids.first().cloned(),
+                    risk_score: Some(risk.risk_score),
+                    validation_checks: Vec::new(),
+                });
+            }
+            if risk.review_required && !risk.has_approved_artifact {
+                blockers.push(TaskBlocker {
+                    kind: prism_coordination::BlockerKind::RiskReviewRequired,
+                    summary: format!(
+                        "task risk score {:.2} requires review before completion",
+                        risk.risk_score
+                    ),
+                    related_task_id: Some(task_id.clone()),
+                    related_artifact_id: None,
+                    risk_score: Some(risk.risk_score),
+                    validation_checks: Vec::new(),
+                });
+            }
+            if !risk.missing_validations.is_empty() {
+                blockers.push(TaskBlocker {
+                    kind: prism_coordination::BlockerKind::ValidationRequired,
+                    summary: format!(
+                        "task is missing required validations: {}",
+                        risk.missing_validations.join(", ")
+                    ),
+                    related_task_id: Some(task_id.clone()),
+                    related_artifact_id: risk.approved_artifact_ids.first().cloned(),
+                    risk_score: Some(risk.risk_score),
+                    validation_checks: risk.missing_validations.clone(),
+                });
+            }
+        }
+        dedupe_blockers(blockers)
     }
 
     pub fn pending_reviews(&self, plan_id: Option<&PlanId>) -> Vec<Artifact> {
@@ -509,6 +658,258 @@ impl Prism {
         sort_node_ids(&mut neighbors);
         neighbors
     }
+
+    fn coordinating_artifact(&self, artifact_id: &ArtifactId) -> Option<Artifact> {
+        self.coordination.events();
+        self.coordination
+            .snapshot()
+            .artifacts
+            .into_iter()
+            .find(|artifact| &artifact.id == artifact_id)
+    }
+
+    fn impact_for_anchors(&self, anchors: &[AnchorRef]) -> ChangeImpact {
+        let expanded = self.expand_anchors(anchors);
+        let base_nodes = self.resolve_anchor_nodes(&expanded);
+        if base_nodes.is_empty() {
+            let mut lineages = expanded
+                .iter()
+                .filter_map(|anchor| match anchor {
+                    AnchorRef::Lineage(lineage) => Some(lineage.clone()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            lineages.sort_by(|left, right| left.0.cmp(&right.0));
+            lineages.dedup();
+            let direct_nodes = lineages
+                .iter()
+                .flat_map(|lineage| self.history.current_nodes_for_lineage(lineage))
+                .collect::<Vec<_>>();
+            let validation_checks = self
+                .projections
+                .read()
+                .expect("projection lock poisoned")
+                .validation_checks_for_lineages(&lineages, 8);
+            let likely_validations = validation_checks
+                .iter()
+                .map(|check| check.label.clone())
+                .collect::<Vec<_>>();
+            let co_change_neighbors = self.co_change_neighbors_for_lineages(&lineages, 8);
+            let risk_events = self.outcomes.related_failures(&expanded, 20);
+            let mut direct_nodes = dedupe_node_ids(direct_nodes);
+            sort_node_ids(&mut direct_nodes);
+            return ChangeImpact {
+                direct_nodes,
+                lineages,
+                likely_validations,
+                validation_checks,
+                co_change_neighbors,
+                risk_events,
+            };
+        }
+
+        let mut merged = ChangeImpact::default();
+        for node in base_nodes {
+            merge_change_impact(&mut merged, self.node_blast_radius(&node));
+        }
+        merged
+    }
+
+    fn node_blast_radius(&self, node: &NodeId) -> ChangeImpact {
+        let mut direct_nodes = self.graph_neighbors(node);
+        let mut lineages = direct_nodes
+            .iter()
+            .filter_map(|neighbor| self.lineage_of(neighbor))
+            .collect::<Vec<_>>();
+        let co_change_neighbors = self.co_change_neighbors(node, 8);
+        if let Some(lineage) = self.lineage_of(node) {
+            lineages.push(lineage);
+        }
+        lineages.extend(
+            co_change_neighbors
+                .iter()
+                .map(|neighbor| neighbor.lineage.clone()),
+        );
+        lineages.sort_by(|left, right| left.0.cmp(&right.0));
+        lineages.dedup();
+
+        direct_nodes.extend(
+            lineages
+                .iter()
+                .flat_map(|lineage| self.history.current_nodes_for_lineage(lineage)),
+        );
+        direct_nodes.retain(|candidate| candidate != node);
+        sort_node_ids(&mut direct_nodes);
+
+        let mut impact_anchors = vec![AnchorRef::Node(node.clone())];
+        impact_anchors.extend(direct_nodes.iter().cloned().map(AnchorRef::Node));
+        impact_anchors.extend(lineages.iter().cloned().map(AnchorRef::Lineage));
+        let impact_anchors = self.expand_anchors(&impact_anchors);
+
+        let risk_events = self.outcomes.related_failures(&impact_anchors, 20);
+        let validation_checks = self
+            .projections
+            .read()
+            .expect("projection lock poisoned")
+            .validation_checks_for_lineages(&lineages, 8);
+        let likely_validations = validation_checks
+            .iter()
+            .map(|check| check.label.clone())
+            .collect();
+
+        ChangeImpact {
+            direct_nodes,
+            lineages,
+            likely_validations,
+            validation_checks,
+            co_change_neighbors,
+            risk_events,
+        }
+    }
+
+    fn resolve_anchor_nodes(&self, anchors: &[AnchorRef]) -> Vec<NodeId> {
+        let mut nodes = Vec::new();
+        for anchor in anchors {
+            match anchor {
+                AnchorRef::Node(node) => nodes.push(node.clone()),
+                AnchorRef::Lineage(lineage) => {
+                    nodes.extend(self.history.current_nodes_for_lineage(lineage));
+                }
+                AnchorRef::File(file) => {
+                    nodes.extend(
+                        self.graph
+                            .all_nodes()
+                            .filter(|node| node.file == *file)
+                            .map(|node| node.id.clone()),
+                    );
+                }
+                AnchorRef::Kind(kind) => {
+                    nodes.extend(
+                        self.graph
+                            .all_nodes()
+                            .filter(|node| node.kind == *kind)
+                            .map(|node| node.id.clone()),
+                    );
+                }
+            }
+        }
+        let mut nodes = dedupe_node_ids(nodes);
+        sort_node_ids(&mut nodes);
+        nodes
+    }
+
+    fn co_change_neighbors_for_lineages(
+        &self,
+        lineages: &[LineageId],
+        limit: usize,
+    ) -> Vec<CoChange> {
+        let mut combined = Vec::new();
+        for lineage in lineages {
+            combined.extend(
+                self.projections
+                    .read()
+                    .expect("projection lock poisoned")
+                    .co_change_neighbors(lineage, limit),
+            );
+        }
+        combined.sort_by(|left, right| {
+            right
+                .count
+                .cmp(&left.count)
+                .then_with(|| left.lineage.0.cmp(&right.lineage.0))
+        });
+        combined.dedup_by(|left, right| left.lineage == right.lineage);
+        combined
+            .into_iter()
+            .take(limit)
+            .map(|neighbor| {
+                let mut nodes = self.history.current_nodes_for_lineage(&neighbor.lineage);
+                sort_node_ids(&mut nodes);
+                CoChange {
+                    lineage: neighbor.lineage,
+                    count: neighbor.count,
+                    nodes,
+                }
+            })
+            .collect()
+    }
+}
+
+fn dedupe_strings(mut values: Vec<String>) -> Vec<String> {
+    values.sort();
+    values.dedup();
+    values
+}
+
+fn dedupe_node_ids(mut nodes: Vec<NodeId>) -> Vec<NodeId> {
+    sort_node_ids(&mut nodes);
+    nodes.dedup();
+    nodes
+}
+
+fn merge_change_impact(target: &mut ChangeImpact, other: ChangeImpact) {
+    target.direct_nodes.extend(other.direct_nodes);
+    target.lineages.extend(other.lineages);
+    target.likely_validations.extend(other.likely_validations);
+    target.validation_checks.extend(other.validation_checks);
+    target.co_change_neighbors.extend(other.co_change_neighbors);
+    target.risk_events.extend(other.risk_events);
+
+    target.direct_nodes = dedupe_node_ids(std::mem::take(&mut target.direct_nodes));
+    target.lineages.sort_by(|left, right| left.0.cmp(&right.0));
+    target.lineages.dedup();
+    target.likely_validations = dedupe_strings(std::mem::take(&mut target.likely_validations));
+    target.validation_checks.sort_by(|left, right| {
+        right
+            .score
+            .partial_cmp(&left.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| left.label.cmp(&right.label))
+    });
+    target
+        .validation_checks
+        .dedup_by(|left, right| left.label == right.label);
+    target.co_change_neighbors.sort_by(|left, right| {
+        right
+            .count
+            .cmp(&left.count)
+            .then_with(|| left.lineage.0.cmp(&right.lineage.0))
+    });
+    target
+        .co_change_neighbors
+        .dedup_by(|left, right| left.lineage == right.lineage);
+    target
+        .risk_events
+        .sort_by(|left, right| right.meta.ts.cmp(&left.meta.ts));
+    target
+        .risk_events
+        .dedup_by(|left, right| left.meta.id == right.meta.id);
+}
+
+fn dedupe_blockers(mut blockers: Vec<TaskBlocker>) -> Vec<TaskBlocker> {
+    blockers.sort_by(|left, right| {
+        format!("{:?}", left.kind)
+            .cmp(&format!("{:?}", right.kind))
+            .then_with(|| left.summary.cmp(&right.summary))
+    });
+    blockers.dedup_by(|left, right| left.kind == right.kind && left.summary == right.summary);
+    blockers
+}
+
+fn score_change_impact(impact: &ChangeImpact, stale: bool) -> f32 {
+    let failure_score = (impact.risk_events.len() as f32 * 0.25).min(0.5);
+    let validation_score = (impact.validation_checks.len() as f32 * 0.08).min(0.2);
+    let co_change_score = (impact
+        .co_change_neighbors
+        .iter()
+        .take(3)
+        .map(|neighbor| neighbor.count as f32)
+        .sum::<f32>()
+        * 0.04)
+        .min(0.2);
+    let scope_score = (impact.direct_nodes.len() as f32 * 0.02).min(0.1);
+    let stale_score = if stale { 0.15 } else { 0.0 };
+    (failure_score + validation_score + co_change_score + scope_score + stale_score).min(1.0)
 }
 
 struct Match<'a> {
@@ -752,12 +1153,18 @@ fn anchor_label(anchor: &AnchorRef) -> String {
 
 #[cfg(test)]
 mod tests {
+    use prism_coordination::{
+        ArtifactProposeInput, CoordinationPolicy, CoordinationStore, PlanCreateInput,
+        TaskCreateInput,
+    };
     use prism_history::HistoryStore;
     use prism_ir::{
-        AnchorRef, ChangeTrigger, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId, Language,
-        Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, Span, TaskId,
+        AnchorRef, ChangeTrigger, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId,
+        Language, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, SessionId, Span,
+        TaskId, WorkspaceRevision,
     };
     use prism_memory::{OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeResult};
+    use prism_projections::ProjectionIndex;
     use prism_store::Graph;
 
     use super::Prism;
@@ -1338,5 +1745,143 @@ mod tests {
         let replay = prism.resume_task(&task);
         assert_eq!(replay.events.len(), 2);
         assert_eq!(replay.events[0].summary, "validated patch");
+    }
+
+    #[test]
+    fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
+        let mut graph = Graph::new();
+        let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+        graph.add_node(Node {
+            id: alpha.clone(),
+            name: "alpha".into(),
+            kind: NodeKind::Function,
+            file: FileId(1),
+            span: Span::line(1),
+            language: Language::Rust,
+        });
+
+        let mut history = HistoryStore::new();
+        history.seed_nodes([alpha.clone()]);
+
+        let outcomes = OutcomeMemory::new();
+        outcomes
+            .store_event(OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new("outcome:risk"),
+                    ts: 4,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:risk")),
+                    causation: None,
+                },
+                anchors: vec![AnchorRef::Node(alpha.clone())],
+                kind: OutcomeKind::FailureObserved,
+                result: OutcomeResult::Failure,
+                summary: "alpha changes usually break integration".into(),
+                evidence: vec![OutcomeEvidence::Test {
+                    name: "alpha_integration".into(),
+                    passed: false,
+                }],
+                metadata: serde_json::Value::Null,
+            })
+            .unwrap();
+
+        let coordination = CoordinationStore::new();
+        let (plan_id, _) = coordination
+            .create_plan(
+                EventMeta {
+                    id: EventId::new("coord:plan"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: None,
+                    causation: None,
+                },
+                PlanCreateInput {
+                    goal: "Risky edit".into(),
+                    policy: Some(CoordinationPolicy {
+                        review_required_above_risk_score: Some(0.2),
+                        require_validation_for_completion: true,
+                        ..CoordinationPolicy::default()
+                    }),
+                },
+            )
+            .unwrap();
+        let (task_id, _) = coordination
+            .create_task(
+                EventMeta {
+                    id: EventId::new("coord:task"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: None,
+                    causation: None,
+                },
+                TaskCreateInput {
+                    plan_id,
+                    title: "Edit alpha".into(),
+                    status: None,
+                    assignee: None,
+                    session: Some(SessionId::new("session:a")),
+                    anchors: vec![AnchorRef::Node(alpha.clone())],
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: WorkspaceRevision {
+                        graph_version: 1,
+                        git_commit: None,
+                    },
+                },
+            )
+            .unwrap();
+        let (artifact_id, _) = coordination
+            .propose_artifact(
+                EventMeta {
+                    id: EventId::new("coord:artifact"),
+                    ts: 3,
+                    actor: EventActor::Agent,
+                    correlation: None,
+                    causation: None,
+                },
+                ArtifactProposeInput {
+                    task_id: task_id.clone(),
+                    anchors: vec![AnchorRef::Node(alpha.clone())],
+                    diff_ref: Some("patch:1".into()),
+                    evidence: Vec::new(),
+                    base_revision: WorkspaceRevision {
+                        graph_version: 1,
+                        git_commit: None,
+                    },
+                    required_validations: vec!["test:alpha_integration".into()],
+                    validated_checks: Vec::new(),
+                    risk_score: Some(0.7),
+                },
+            )
+            .unwrap();
+
+        let projections = ProjectionIndex::derive(&history.snapshot(), &outcomes.snapshot());
+        let prism = Prism::with_history_outcomes_coordination_and_projections(
+            graph,
+            history,
+            outcomes,
+            coordination,
+            projections,
+        );
+
+        let task_risk = prism.task_risk(&task_id, 5).unwrap();
+        assert!(task_risk.review_required);
+        assert_eq!(task_risk.likely_validations, vec!["test:alpha_integration"]);
+        assert_eq!(task_risk.missing_validations, vec!["test:alpha_integration"]);
+
+        let artifact_risk = prism.artifact_risk(&artifact_id, 5).unwrap();
+        assert!(artifact_risk.review_required);
+        assert_eq!(
+            artifact_risk.missing_validations,
+            vec!["test:alpha_integration"]
+        );
+
+        let blockers = prism.blockers(&task_id, 5);
+        assert!(blockers.iter().any(|blocker| {
+            blocker.kind == prism_coordination::BlockerKind::RiskReviewRequired
+        }));
+        assert!(blockers.iter().any(|blocker| {
+            blocker.kind == prism_coordination::BlockerKind::ValidationRequired
+        }));
     }
 }

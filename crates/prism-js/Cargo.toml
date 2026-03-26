@@ -8,5 +8,6 @@ license.workspace = true
 prism-coordination = { path = "../prism-coordination" }
 prism-ir = { path = "../prism-ir" }
 prism-memory = { path = "../prism-memory" }
+schemars = "1.2.1"
 serde.workspace = true
 serde_json.workspace = true

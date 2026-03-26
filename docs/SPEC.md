@@ -2,6 +2,8 @@
 
 ## Rust Implementation Specification
 
+Current implementation priorities live in [ROADMAP.md](ROADMAP.md).
+
 ## 0. Philosophy
 
 PRISM is a deterministic, local-first perception layer with optional probabilistic augmentation.
@@ -46,6 +48,9 @@ prism/
     prism-history/
     prism-query/
     prism-memory/
+    prism-projections/
+    prism-coordination/
+    prism-curator/
     prism-agent/
     prism-js/
     prism-mcp/
@@ -54,38 +59,49 @@ prism/
 
 `prism-history` is the new conceptual layer that turns raw observed graph change into deterministic temporal lineage. It may begin life inside `prism-store::history`, but the intended boundary is separate.
 
-Dependency direction:
+Additional current crates:
+
+* `prism-projections` owns derived read models such as co-change and validation signals
+* `prism-coordination` owns shared plans, tasks, claims, artifacts, and coordination event state
+* `prism-curator` owns background enrichment and proposal-oriented curation triggers
+
+Dependency direction (simplified):
 
 ```text
 prism-cli
   → prism-core
-      → prism-query
-          → prism-store → prism-ir
-          → prism-history → prism-ir
-          → prism-memory → prism-ir
-      → prism-parser → prism-ir
-          → prism-lang-rust
-          → prism-lang-markdown
-          → prism-lang-json
-          → prism-lang-yaml
-prism-js
   → prism-query
-      → prism-store → prism-ir
-      → prism-history → prism-ir
-      → prism-memory → prism-ir
-prism-mcp
-  → prism-core
-  → prism-js
+prism-core
+  → prism-store → prism-ir
+  → prism-history → prism-ir
+  → prism-memory → prism-ir
+  → prism-projections
   → prism-query
-      → prism-store → prism-ir
-      → prism-history → prism-ir
-      → prism-memory → prism-ir
-  → prism-agent → prism-ir
+  → prism-coordination → prism-ir
+  → prism-curator
   → prism-parser → prism-ir
       → prism-lang-rust
       → prism-lang-markdown
       → prism-lang-json
       → prism-lang-yaml
+prism-query
+  → prism-store → prism-ir
+  → prism-history → prism-ir
+  → prism-memory → prism-ir
+  → prism-projections
+  → prism-coordination → prism-ir
+prism-js
+  → prism-memory → prism-ir
+  → prism-coordination → prism-ir
+prism-mcp
+  → prism-core
+  → prism-js
+  → prism-query
+  → prism-store → prism-ir
+  → prism-memory → prism-ir
+  → prism-coordination → prism-ir
+  → prism-curator
+  → prism-agent → prism-ir
 ```
 
 Critical boundaries:
@@ -96,7 +112,10 @@ Critical boundaries:
 * `prism-store` owns persistence and raw observed change capture
 * `prism-history` owns lineage assignment and time-aware projection
 * `prism-memory` owns structured memory and outcomes, but not graph construction
+* `prism-projections` owns derived signals built from history and outcomes
 * `prism-query` is the join layer over graph, lineage, and memory
+* `prism-coordination` owns shared multi-session workflow state and policy checks
+* `prism-curator` owns background proposal generation over Prism state
 * `prism-js` owns the JavaScript/TypeScript-facing API contract and runtime shim
 * `prism-mcp` owns agent transport, session lifecycle, and embedded query execution
 

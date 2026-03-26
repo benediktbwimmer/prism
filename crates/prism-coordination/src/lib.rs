@@ -8,6 +8,7 @@ use prism_ir::{
     EventMeta, PlanId, PlanStatus, ReviewId, ReviewVerdict, SessionId, Timestamp,
     WorkspaceRevision,
 };
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -16,7 +17,11 @@ pub struct CoordinationPolicy {
     pub default_claim_mode: ClaimMode,
     pub max_parallel_editors_per_anchor: u16,
     pub require_review_for_completion: bool,
+    #[serde(default)]
+    pub require_validation_for_completion: bool,
     pub stale_after_graph_change: bool,
+    #[serde(default)]
+    pub review_required_above_risk_score: Option<f32>,
 }
 
 impl Default for CoordinationPolicy {
@@ -25,7 +30,9 @@ impl Default for CoordinationPolicy {
             default_claim_mode: ClaimMode::Advisory,
             max_parallel_editors_per_anchor: 2,
             require_review_for_completion: false,
+            require_validation_for_completion: false,
             stale_after_graph_change: true,
+            review_required_above_risk_score: None,
         }
     }
 }
@@ -92,6 +99,12 @@ pub struct Artifact {
     pub status: ArtifactStatus,
     pub evidence: Vec<EventId>,
     pub reviews: Vec<ReviewId>,
+    #[serde(default)]
+    pub required_validations: Vec<String>,
+    #[serde(default)]
+    pub validated_checks: Vec<String>,
+    #[serde(default)]
+    pub risk_score: Option<f32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -122,14 +135,21 @@ pub struct TaskBlocker {
     pub summary: String,
     pub related_task_id: Option<CoordinationTaskId>,
     pub related_artifact_id: Option<ArtifactId>,
+    #[serde(default)]
+    pub risk_score: Option<f32>,
+    #[serde(default)]
+    pub validation_checks: Vec<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum BlockerKind {
     Dependency,
     ClaimConflict,
     ReviewRequired,
+    RiskReviewRequired,
+    ValidationRequired,
     StaleRevision,
+    ArtifactStale,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -175,6 +195,13 @@ pub struct TaskUpdateInput {
     pub title: Option<String>,
     pub anchors: Option<Vec<AnchorRef>>,
     pub base_revision: Option<WorkspaceRevision>,
+    pub completion_context: Option<TaskCompletionContext>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct TaskCompletionContext {
+    pub risk_score: Option<f32>,
+    pub required_validations: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -202,6 +229,9 @@ pub struct ArtifactProposeInput {
     pub diff_ref: Option<String>,
     pub evidence: Vec<EventId>,
     pub base_revision: WorkspaceRevision,
+    pub required_validations: Vec<String>,
+    pub validated_checks: Vec<String>,
+    pub risk_score: Option<f32>,
 }
 
 #[derive(Debug, Clone)]
@@ -214,6 +244,9 @@ pub struct ArtifactReviewInput {
     pub artifact_id: ArtifactId,
     pub verdict: ReviewVerdict,
     pub summary: String,
+    pub required_validations: Vec<String>,
+    pub validated_checks: Vec<String>,
+    pub risk_score: Option<f32>,
 }
 
 #[derive(Default)]
@@ -382,6 +415,7 @@ impl CoordinationStore {
         current_revision: WorkspaceRevision,
         now: Timestamp,
     ) -> Result<CoordinationTask> {
+        let completion_context = input.completion_context.clone();
         let mut state = self
             .state
             .write()
@@ -415,14 +449,26 @@ impl CoordinationStore {
             task_snapshot = task.clone();
         }
         let completion_blockers =
-            self.completion_blockers_locked(&state, &task_snapshot, current_revision, now);
+            self.completion_blockers_locked(&state, &task_snapshot, current_revision.clone(), now);
+        let mut policy_blockers = if task_snapshot.status == CoordinationTaskStatus::Completed {
+            self.completion_policy_blockers_locked(
+                &state,
+                &task_snapshot,
+                current_revision,
+                completion_context.as_ref(),
+            )
+        } else {
+            Vec::new()
+        };
         if task_snapshot.status == CoordinationTaskStatus::Completed
-            && !completion_blockers.is_empty()
+            && (!completion_blockers.is_empty() || !policy_blockers.is_empty())
         {
+            let mut blockers = completion_blockers;
+            blockers.append(&mut policy_blockers);
             return Err(anyhow!(
                 "coordination task `{}` cannot complete: {}",
                 task_snapshot.id.0,
-                completion_blockers
+                blockers
                     .iter()
                     .map(|blocker| blocker.summary.as_str())
                     .collect::<Vec<_>>()
@@ -693,6 +739,9 @@ impl CoordinationStore {
             status: ArtifactStatus::Proposed,
             evidence: dedupe_event_ids(input.evidence),
             reviews: Vec::new(),
+            required_validations: dedupe_strings(input.required_validations),
+            validated_checks: dedupe_strings(input.validated_checks),
+            risk_score: input.risk_score,
         };
         state.artifacts.insert(id.clone(), artifact.clone());
         let plan_id = state
@@ -795,6 +844,27 @@ impl CoordinationStore {
             .artifacts
             .get_mut(&input.artifact_id)
             .ok_or_else(|| anyhow!("unknown artifact `{}`", input.artifact_id.0))?;
+        if !input.required_validations.is_empty() {
+            artifact_mut.required_validations = dedupe_strings(input.required_validations.clone());
+        }
+        if !input.validated_checks.is_empty() {
+            let mut checks = artifact_mut.validated_checks.clone();
+            checks.extend(input.validated_checks.clone());
+            artifact_mut.validated_checks = dedupe_strings(checks);
+        }
+        if input.risk_score.is_some() {
+            artifact_mut.risk_score = input.risk_score;
+        }
+        if matches!(input.verdict, ReviewVerdict::Approved) {
+            let missing = missing_validations_for_artifact(artifact_mut);
+            if !missing.is_empty() {
+                return Err(anyhow!(
+                    "artifact `{}` is missing required validations: {}",
+                    artifact_mut.id.0,
+                    missing.join(", ")
+                ));
+            }
+        }
         artifact_mut.reviews.push(review_id.clone());
         artifact_mut.status = match input.verdict {
             ReviewVerdict::Approved => ArtifactStatus::Approved,
@@ -931,13 +1001,7 @@ impl CoordinationStore {
             session_id,
         );
         conflicts.extend(editor_capacity_conflicts(
-            &state,
-            anchors,
-            capability,
-            task_id,
-            session_id,
-            policy,
-            now,
+            &state, anchors, capability, task_id, session_id, policy, now,
         ));
         dedupe_conflicts(conflicts)
     }
@@ -1028,6 +1092,105 @@ impl CoordinationStore {
         blockers
     }
 
+    fn completion_policy_blockers_locked(
+        &self,
+        state: &CoordinationState,
+        task: &CoordinationTask,
+        current_revision: WorkspaceRevision,
+        context: Option<&TaskCompletionContext>,
+    ) -> Vec<TaskBlocker> {
+        let Some(plan) = state.plans.get(&task.plan) else {
+            return Vec::new();
+        };
+        let approved_artifacts = state
+            .artifacts
+            .values()
+            .filter(|artifact| artifact.task == task.id)
+            .filter(|artifact| {
+                matches!(
+                    artifact.status,
+                    ArtifactStatus::Approved | ArtifactStatus::Merged
+                )
+            })
+            .collect::<Vec<_>>();
+        let mut blockers = Vec::new();
+
+        if plan.policy.stale_after_graph_change {
+            let stale = approved_artifacts
+                .iter()
+                .find(|artifact| {
+                    artifact.base_revision.graph_version < current_revision.graph_version
+                })
+                .map(|artifact| artifact.id.clone());
+            if let Some(artifact_id) = stale {
+                blockers.push(TaskBlocker {
+                    kind: BlockerKind::ArtifactStale,
+                    summary: format!(
+                        "approved artifact `{}` is stale against graph version {}",
+                        artifact_id.0, current_revision.graph_version
+                    ),
+                    related_task_id: Some(task.id.clone()),
+                    related_artifact_id: Some(artifact_id),
+                    risk_score: context.and_then(|ctx| ctx.risk_score),
+                    validation_checks: Vec::new(),
+                });
+            }
+        }
+
+        if let Some(context) = context {
+            if let Some(threshold) = plan.policy.review_required_above_risk_score {
+                if context.risk_score.unwrap_or_default() >= threshold
+                    && approved_artifacts.is_empty()
+                {
+                    blockers.push(TaskBlocker {
+                        kind: BlockerKind::RiskReviewRequired,
+                        summary: format!(
+                            "task risk score {:.2} requires review before completion",
+                            context.risk_score.unwrap_or_default()
+                        ),
+                        related_task_id: Some(task.id.clone()),
+                        related_artifact_id: None,
+                        risk_score: context.risk_score,
+                        validation_checks: Vec::new(),
+                    });
+                }
+            }
+
+            if plan.policy.require_validation_for_completion
+                && !context.required_validations.is_empty()
+            {
+                let validated = approved_artifacts
+                    .iter()
+                    .flat_map(|artifact| artifact.validated_checks.iter().cloned())
+                    .collect::<Vec<_>>();
+                let validated = dedupe_strings(validated);
+                let missing = context
+                    .required_validations
+                    .iter()
+                    .filter(|check| !validated.iter().any(|value| value == *check))
+                    .cloned()
+                    .collect::<Vec<_>>();
+                if !missing.is_empty() {
+                    blockers.push(TaskBlocker {
+                        kind: BlockerKind::ValidationRequired,
+                        summary: format!(
+                            "task is missing required validations: {}",
+                            missing.join(", ")
+                        ),
+                        related_task_id: Some(task.id.clone()),
+                        related_artifact_id: approved_artifacts
+                            .first()
+                            .map(|artifact| artifact.id.clone()),
+                        risk_score: context.risk_score,
+                        validation_checks: missing,
+                    });
+                }
+            }
+        }
+
+        blockers
+    }
+
     fn dependency_and_revision_blockers_locked(
         &self,
         state: &CoordinationState,
@@ -1046,12 +1209,16 @@ impl CoordinationStore {
                     ),
                     related_task_id: Some(dependency.id.clone()),
                     related_artifact_id: None,
+                    risk_score: None,
+                    validation_checks: Vec::new(),
                 }),
                 None => blockers.push(TaskBlocker {
                     kind: BlockerKind::Dependency,
                     summary: format!("dependency `{}` is missing", dep.0),
                     related_task_id: Some(dep.clone()),
                     related_artifact_id: None,
+                    risk_score: None,
+                    validation_checks: Vec::new(),
                 }),
             }
         }
@@ -1068,6 +1235,8 @@ impl CoordinationStore {
                     ),
                     related_task_id: Some(task.id.clone()),
                     related_artifact_id: None,
+                    risk_score: None,
+                    validation_checks: Vec::new(),
                 });
             }
         }
@@ -1105,6 +1274,8 @@ impl CoordinationStore {
             summary: "task requires an approved artifact review".to_string(),
             related_task_id: Some(task.id.clone()),
             related_artifact_id: pending_artifact,
+            risk_score: None,
+            validation_checks: Vec::new(),
         }]
     }
 
@@ -1142,6 +1313,8 @@ impl CoordinationStore {
                 summary: conflict.summary,
                 related_task_id: Some(task.id.clone()),
                 related_artifact_id: None,
+                risk_score: None,
+                validation_checks: Vec::new(),
             });
         }
         blockers
@@ -1184,7 +1357,8 @@ fn editor_capacity_conflicts(
     if !matches!(capability, Capability::Edit | Capability::Merge) {
         return Vec::new();
     }
-    let requested_limit = policy.map(|policy| usize::from(policy.max_parallel_editors_per_anchor.max(1)));
+    let requested_limit =
+        policy.map(|policy| usize::from(policy.max_parallel_editors_per_anchor.max(1)));
     let candidates = state
         .claims
         .values()
@@ -1206,7 +1380,11 @@ fn editor_capacity_conflicts(
                 claim
                     .task
                     .as_ref()
-                    .and_then(|claim_task_id| plan_policy_for_task(state, Some(claim_task_id)).ok().flatten())
+                    .and_then(|claim_task_id| {
+                        plan_policy_for_task(state, Some(claim_task_id))
+                            .ok()
+                            .flatten()
+                    })
                     .map(|policy| usize::from(policy.max_parallel_editors_per_anchor.max(1)))
             })
             .chain(requested_limit)
@@ -1256,6 +1434,26 @@ fn dedupe_event_ids(mut ids: Vec<EventId>) -> Vec<EventId> {
     ids.sort_by(|left, right| left.0.cmp(&right.0));
     ids.dedup_by(|left, right| left.0 == right.0);
     ids
+}
+
+fn dedupe_strings(mut values: Vec<String>) -> Vec<String> {
+    values.sort();
+    values.dedup();
+    values
+}
+
+fn missing_validations_for_artifact(artifact: &Artifact) -> Vec<String> {
+    artifact
+        .required_validations
+        .iter()
+        .filter(|check| {
+            !artifact
+                .validated_checks
+                .iter()
+                .any(|value| value == *check)
+        })
+        .cloned()
+        .collect()
 }
 
 fn claim_is_active(claim: &WorkClaim, now: Timestamp) -> bool {
@@ -1563,27 +1761,26 @@ mod tests {
                 .len(),
             1
         );
-        assert!(
-            store
-                .update_task(
-                    meta("event:3", 3),
-                    TaskUpdateInput {
-                        task_id: task_id.clone(),
-                        status: Some(CoordinationTaskStatus::Completed),
-                        assignee: None,
-                        session: None,
-                        title: None,
-                        anchors: None,
-                        base_revision: None,
-                    },
-                    WorkspaceRevision {
-                        graph_version: 1,
-                        git_commit: None,
-                    },
-                    3,
-                )
-                .is_err()
-        );
+        assert!(store
+            .update_task(
+                meta("event:3", 3),
+                TaskUpdateInput {
+                    task_id: task_id.clone(),
+                    status: Some(CoordinationTaskStatus::Completed),
+                    assignee: None,
+                    session: None,
+                    title: None,
+                    anchors: None,
+                    base_revision: None,
+                    completion_context: Some(TaskCompletionContext::default()),
+                },
+                WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                3,
+            )
+            .is_err());
 
         let (artifact_id, _) = store
             .propose_artifact(
@@ -1597,6 +1794,9 @@ mod tests {
                         graph_version: 1,
                         git_commit: None,
                     },
+                    required_validations: Vec::new(),
+                    validated_checks: Vec::new(),
+                    risk_score: None,
                 },
             )
             .unwrap();
@@ -1607,6 +1807,9 @@ mod tests {
                     artifact_id,
                     verdict: ReviewVerdict::Approved,
                     summary: "looks good".to_string(),
+                    required_validations: Vec::new(),
+                    validated_checks: Vec::new(),
+                    risk_score: None,
                 },
                 WorkspaceRevision {
                     graph_version: 1,
@@ -1626,6 +1829,7 @@ mod tests {
                         title: None,
                         anchors: None,
                         base_revision: None,
+                        completion_context: Some(TaskCompletionContext::default()),
                     },
                     WorkspaceRevision {
                         graph_version: 1,
@@ -1673,28 +1877,26 @@ mod tests {
                 },
             )
             .unwrap();
-        assert!(
-            store
-                .acquire_claim(
-                    meta("event:3", 3),
-                    SessionId::new("session:a"),
-                    ClaimAcquireInput {
-                        task_id: Some(task_id),
-                        anchors: task.anchors.clone(),
-                        capability: Capability::Edit,
-                        mode: Some(ClaimMode::SoftExclusive),
-                        ttl_seconds: Some(60),
-                        base_revision: WorkspaceRevision {
-                            graph_version: 1,
-                            git_commit: None,
-                        },
-                        agent: None,
+        assert!(store
+            .acquire_claim(
+                meta("event:3", 3),
+                SessionId::new("session:a"),
+                ClaimAcquireInput {
+                    task_id: Some(task_id),
+                    anchors: task.anchors.clone(),
+                    capability: Capability::Edit,
+                    mode: Some(ClaimMode::SoftExclusive),
+                    ttl_seconds: Some(60),
+                    base_revision: WorkspaceRevision {
+                        graph_version: 1,
+                        git_commit: None,
                     },
-                )
-                .unwrap()
-                .0
-                .is_some()
-        );
+                    agent: None,
+                },
+            )
+            .unwrap()
+            .0
+            .is_some());
 
         let blocked = store
             .acquire_claim(
@@ -1715,12 +1917,10 @@ mod tests {
             )
             .unwrap();
         assert!(blocked.0.is_none());
-        assert!(
-            blocked
-                .1
-                .iter()
-                .any(|conflict| conflict.severity == ConflictSeverity::Block)
-        );
+        assert!(blocked
+            .1
+            .iter()
+            .any(|conflict| conflict.severity == ConflictSeverity::Block));
     }
 
     #[test]
@@ -1769,25 +1969,207 @@ mod tests {
                         graph_version: 1,
                         git_commit: None,
                     },
+                    required_validations: Vec::new(),
+                    validated_checks: Vec::new(),
+                    risk_score: None,
                 },
             )
             .unwrap();
 
-        assert!(
-            store
-                .review_artifact(
-                    meta("event:4", 4),
-                    ArtifactReviewInput {
-                        artifact_id,
-                        verdict: ReviewVerdict::Approved,
-                        summary: "approve stale patch".to_string(),
-                    },
-                    WorkspaceRevision {
-                        graph_version: 2,
+        assert!(store
+            .review_artifact(
+                meta("event:4", 4),
+                ArtifactReviewInput {
+                    artifact_id,
+                    verdict: ReviewVerdict::Approved,
+                    summary: "approve stale patch".to_string(),
+                    required_validations: Vec::new(),
+                    validated_checks: Vec::new(),
+                    risk_score: None,
+                },
+                WorkspaceRevision {
+                    graph_version: 2,
+                    git_commit: None,
+                },
+            )
+            .is_err());
+    }
+
+    #[test]
+    fn validation_policy_requires_approved_artifact_checks() {
+        let store = CoordinationStore::new();
+        let (plan_id, _) = store
+            .create_plan(
+                meta("event:1", 1),
+                PlanCreateInput {
+                    goal: "Validate risky change".to_string(),
+                    policy: Some(CoordinationPolicy {
+                        require_validation_for_completion: true,
+                        ..CoordinationPolicy::default()
+                    }),
+                },
+            )
+            .unwrap();
+        let (task_id, _) = store
+            .create_task(
+                meta("event:2", 2),
+                TaskCreateInput {
+                    plan_id,
+                    title: "Edit main".to_string(),
+                    status: Some(CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: Some(SessionId::new("session:a")),
+                    anchors: vec![AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: WorkspaceRevision {
+                        graph_version: 1,
                         git_commit: None,
                     },
+                },
+            )
+            .unwrap();
+        let (artifact_id, _) = store
+            .propose_artifact(
+                meta("event:3", 3),
+                ArtifactProposeInput {
+                    task_id: task_id.clone(),
+                    anchors: vec![AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                    diff_ref: Some("patch:1".to_string()),
+                    evidence: Vec::new(),
+                    base_revision: WorkspaceRevision {
+                        graph_version: 1,
+                        git_commit: None,
+                    },
+                    required_validations: vec!["test:main_integration".to_string()],
+                    validated_checks: Vec::new(),
+                    risk_score: Some(0.4),
+                },
+            )
+            .unwrap();
+
+        assert!(store
+            .review_artifact(
+                meta("event:4", 4),
+                ArtifactReviewInput {
+                    artifact_id: artifact_id.clone(),
+                    verdict: ReviewVerdict::Approved,
+                    summary: "missing validation".to_string(),
+                    required_validations: vec!["test:main_integration".to_string()],
+                    validated_checks: Vec::new(),
+                    risk_score: Some(0.4),
+                },
+                WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            )
+            .is_err());
+
+        store
+            .review_artifact(
+                meta("event:5", 5),
+                ArtifactReviewInput {
+                    artifact_id,
+                    verdict: ReviewVerdict::Approved,
+                    summary: "validated".to_string(),
+                    required_validations: vec!["test:main_integration".to_string()],
+                    validated_checks: vec!["test:main_integration".to_string()],
+                    risk_score: Some(0.4),
+                },
+                WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            )
+            .unwrap();
+
+        assert_eq!(
+            store
+                .update_task(
+                    meta("event:6", 6),
+                    TaskUpdateInput {
+                        task_id,
+                        status: Some(CoordinationTaskStatus::Completed),
+                        assignee: None,
+                        session: None,
+                        title: None,
+                        anchors: None,
+                        base_revision: None,
+                        completion_context: Some(TaskCompletionContext {
+                            risk_score: Some(0.4),
+                            required_validations: vec!["test:main_integration".to_string()],
+                        }),
+                    },
+                    WorkspaceRevision {
+                        graph_version: 1,
+                        git_commit: None,
+                    },
+                    6,
                 )
-                .is_err()
+                .unwrap()
+                .status,
+            CoordinationTaskStatus::Completed
         );
+    }
+
+    #[test]
+    fn risk_threshold_requires_review_before_completion() {
+        let store = CoordinationStore::new();
+        let (plan_id, _) = store
+            .create_plan(
+                meta("event:1", 1),
+                PlanCreateInput {
+                    goal: "Risky edit".to_string(),
+                    policy: Some(CoordinationPolicy {
+                        review_required_above_risk_score: Some(0.5),
+                        ..CoordinationPolicy::default()
+                    }),
+                },
+            )
+            .unwrap();
+        let (task_id, _) = store
+            .create_task(
+                meta("event:2", 2),
+                TaskCreateInput {
+                    plan_id,
+                    title: "Edit main".to_string(),
+                    status: Some(CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: Some(SessionId::new("session:a")),
+                    anchors: vec![AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: WorkspaceRevision {
+                        graph_version: 1,
+                        git_commit: None,
+                    },
+                },
+            )
+            .unwrap();
+
+        assert!(store
+            .update_task(
+                meta("event:3", 3),
+                TaskUpdateInput {
+                    task_id: task_id.clone(),
+                    status: Some(CoordinationTaskStatus::Completed),
+                    assignee: None,
+                    session: None,
+                    title: None,
+                    anchors: None,
+                    base_revision: None,
+                    completion_context: Some(TaskCompletionContext {
+                        risk_score: Some(0.8),
+                        required_validations: Vec::new(),
+                    }),
+                },
+                WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                3,
+            )
+            .is_err());
     }
 }

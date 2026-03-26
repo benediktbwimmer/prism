@@ -7,15 +7,16 @@ use anyhow::{anyhow, Result};
 use prism_ir::{
     AnchorRef, EventId, EventMeta, LineageEvent, LineageEventKind, NodeId, TaskId, Timestamp,
 };
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub struct MemoryId(pub String);
 
 impl MemoryId {
-    fn episodic(sequence: u64) -> Self {
-        Self(format!("episodic:{sequence}"))
+    fn stored(sequence: u64) -> Self {
+        Self(format!("memory:{sequence}"))
     }
 
     fn pending() -> Self {
@@ -23,21 +24,21 @@ impl MemoryId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub enum MemoryKind {
     Episodic,
     Structural,
     Semantic,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub enum MemorySource {
     Agent,
     User,
     System,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct MemoryEntry {
     pub id: MemoryId,
     pub anchors: Vec<AnchorRef>,
@@ -64,7 +65,7 @@ impl MemoryEntry {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct RecallQuery {
     pub focus: Vec<AnchorRef>,
     pub text: Option<String>,
@@ -73,7 +74,7 @@ pub struct RecallQuery {
     pub since: Option<Timestamp>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct ScoredMemory {
     pub id: MemoryId,
     pub entry: MemoryEntry,
@@ -82,7 +83,7 @@ pub struct ScoredMemory {
     pub explanation: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub enum OutcomeKind {
     NoteAdded,
     HypothesisProposed,
@@ -100,7 +101,7 @@ pub enum OutcomeKind {
     PerfSignalObserved,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub enum OutcomeResult {
     Success,
     Failure,
@@ -108,7 +109,7 @@ pub enum OutcomeResult {
     Unknown,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub enum OutcomeEvidence {
     Commit { sha: String },
     Test { name: String, passed: bool },
@@ -119,7 +120,7 @@ pub enum OutcomeEvidence {
     DiffSummary { text: String },
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct OutcomeEvent {
     pub meta: EventMeta,
     pub anchors: Vec<AnchorRef>,
@@ -440,23 +441,19 @@ impl MemoryModule for EpisodicMemory {
     }
 
     fn supports_kind(&self, kind: MemoryKind) -> bool {
-        kind == MemoryKind::Episodic
+        matches!(
+            kind,
+            MemoryKind::Episodic | MemoryKind::Structural | MemoryKind::Semantic
+        )
     }
 
     fn store(&self, mut entry: MemoryEntry) -> Result<MemoryId> {
-        if entry.kind != MemoryKind::Episodic {
-            return Err(anyhow!(
-                "episodic memory cannot store {:?} entries",
-                entry.kind
-            ));
-        }
-
         entry.anchors = dedupe_anchors(entry.anchors);
         entry.trust = clamp_unit(entry.trust);
 
         let mut state = self.state.write().expect("episodic memory lock poisoned");
         state.next_sequence += 1;
-        let id = MemoryId::episodic(state.next_sequence);
+        let id = MemoryId::stored(state.next_sequence);
         entry.id = id.clone();
 
         for anchor in &entry.anchors {
@@ -474,12 +471,6 @@ impl MemoryModule for EpisodicMemory {
     fn recall(&self, query: &RecallQuery) -> Result<Vec<ScoredMemory>> {
         if query.limit == 0 {
             return Ok(Vec::new());
-        }
-
-        if let Some(kinds) = &query.kinds {
-            if !kinds.contains(&MemoryKind::Episodic) {
-                return Ok(Vec::new());
-            }
         }
 
         let state = self.state.read().expect("episodic memory lock poisoned");
@@ -549,7 +540,10 @@ fn restore_entry(state: &mut EpisodicState, mut entry: MemoryEntry) {
 }
 
 fn memory_sequence(id: &MemoryId) -> Option<u64> {
-    id.0.strip_prefix("episodic:")?.parse().ok()
+    id.0.strip_prefix("memory:")
+        .or_else(|| id.0.strip_prefix("episodic:"))?
+        .parse()
+        .ok()
 }
 
 fn recall_candidates(state: &EpisodicState, query: &RecallQuery) -> HashSet<MemoryId> {
@@ -570,6 +564,12 @@ fn score_episodic_memory(
     entry: MemoryEntry,
     query: &RecallQuery,
 ) -> Option<ScoredMemory> {
+    if let Some(kinds) = &query.kinds {
+        if !kinds.contains(&entry.kind) {
+            return None;
+        }
+    }
+
     if let Some(since) = query.since {
         if entry.created_at < since {
             return None;
@@ -1031,7 +1031,38 @@ mod tests {
 
         let id = memory.store(entry).unwrap();
 
-        assert_eq!(id.0, "episodic:1");
+        assert_eq!(id.0, "memory:1");
+    }
+
+    #[test]
+    fn stored_memory_accepts_structural_and_semantic_kinds() {
+        let memory = EpisodicMemory::new();
+
+        let mut structural = MemoryEntry::new(MemoryKind::Structural, "alpha owns request routing");
+        structural.anchors = vec![anchor_node("alpha")];
+        let structural_id = memory.store(structural).unwrap();
+
+        let mut semantic = MemoryEntry::new(MemoryKind::Semantic, "alpha tends to fail under load");
+        semantic.anchors = vec![anchor_node("alpha")];
+        let semantic_id = memory.store(semantic).unwrap();
+
+        let results = memory
+            .recall(&RecallQuery {
+                focus: vec![anchor_node("alpha")],
+                text: None,
+                limit: 10,
+                kinds: Some(vec![MemoryKind::Structural, MemoryKind::Semantic]),
+                since: None,
+            })
+            .unwrap();
+
+        assert_eq!(results.len(), 2);
+        let ids = results
+            .into_iter()
+            .map(|memory| memory.id)
+            .collect::<Vec<_>>();
+        assert!(ids.contains(&structural_id));
+        assert!(ids.contains(&semantic_id));
     }
 
     #[test]

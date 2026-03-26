@@ -4,12 +4,13 @@ use prism_ir::{
     CoordinationTaskStatus, EdgeKind, EdgeOrigin, Language, NodeKind, PlanStatus, Span,
 };
 use prism_memory::OutcomeEvent;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub const API_REFERENCE_URI: &str = "prism://api-reference";
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeIdView {
     pub crate_name: String,
@@ -17,7 +18,7 @@ pub struct NodeIdView {
     pub kind: NodeKind,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SymbolView {
     pub id: NodeIdView,
@@ -30,7 +31,7 @@ pub struct SymbolView {
     pub lineage_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RelationsView {
     pub contains: Vec<SymbolView>,
@@ -41,7 +42,7 @@ pub struct RelationsView {
     pub implements: Vec<SymbolView>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct LineageView {
     pub lineage_id: String,
@@ -50,7 +51,7 @@ pub struct LineageView {
     pub history: Vec<LineageEventView>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum LineageStatus {
     Active,
@@ -58,7 +59,7 @@ pub enum LineageStatus {
     Ambiguous,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct LineageEventView {
     pub event_id: String,
@@ -67,7 +68,7 @@ pub struct LineageEventView {
     pub confidence: f32,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct EdgeView {
     pub kind: EdgeKind,
@@ -77,7 +78,7 @@ pub struct EdgeView {
     pub confidence: f32,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SubgraphView {
     pub nodes: Vec<SymbolView>,
@@ -86,7 +87,7 @@ pub struct SubgraphView {
     pub max_depth_reached: Option<usize>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ChangeImpactView {
     pub direct_nodes: Vec<NodeIdView>,
@@ -97,7 +98,7 @@ pub struct ChangeImpactView {
     pub risk_events: Vec<OutcomeEvent>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ValidationCheckView {
     pub label: String,
@@ -105,7 +106,7 @@ pub struct ValidationCheckView {
     pub last_seen: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CoChangeView {
     pub lineage: String,
@@ -113,7 +114,7 @@ pub struct CoChangeView {
     pub nodes: Vec<NodeIdView>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ValidationRecipeView {
     pub target: NodeIdView,
@@ -126,12 +127,55 @@ pub struct ValidationRecipeView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TaskValidationRecipeView {
+    pub task_id: String,
+    pub checks: Vec<String>,
+    pub scored_checks: Vec<ValidationCheckView>,
+    pub related_nodes: Vec<NodeIdView>,
+    pub co_change_neighbors: Vec<CoChangeView>,
+    pub recent_failures: Vec<OutcomeEvent>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskRiskView {
+    pub task_id: String,
+    pub risk_score: f32,
+    pub review_required: bool,
+    pub stale_task: bool,
+    pub has_approved_artifact: bool,
+    pub likely_validations: Vec<String>,
+    pub missing_validations: Vec<String>,
+    pub validation_checks: Vec<ValidationCheckView>,
+    pub co_change_neighbors: Vec<CoChangeView>,
+    pub risk_events: Vec<OutcomeEvent>,
+    pub approved_artifact_ids: Vec<String>,
+    pub stale_artifact_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtifactRiskView {
+    pub artifact_id: String,
+    pub task_id: String,
+    pub risk_score: f32,
+    pub review_required: bool,
+    pub stale: bool,
+    pub required_validations: Vec<String>,
+    pub validated_checks: Vec<String>,
+    pub missing_validations: Vec<String>,
+    pub co_change_neighbors: Vec<CoChangeView>,
+    pub risk_events: Vec<OutcomeEvent>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct WorkspaceRevisionView {
     pub graph_version: u64,
     pub git_commit: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct PlanView {
     pub id: String,
@@ -140,7 +184,7 @@ pub struct PlanView {
     pub root_task_ids: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CoordinationTaskView {
     pub id: String,
@@ -153,7 +197,7 @@ pub struct CoordinationTaskView {
     pub base_revision: WorkspaceRevisionView,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaimView {
     pub id: String,
@@ -167,7 +211,7 @@ pub struct ClaimView {
     pub base_revision: WorkspaceRevisionView,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ConflictView {
     pub severity: ConflictSeverity,
@@ -176,16 +220,18 @@ pub struct ConflictView {
     pub blocking_claim_ids: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BlockerView {
     pub kind: BlockerKind,
     pub summary: String,
     pub related_task_id: Option<String>,
     pub related_artifact_id: Option<String>,
+    pub risk_score: Option<f32>,
+    pub validation_checks: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ArtifactView {
     pub id: String,
@@ -194,9 +240,12 @@ pub struct ArtifactView {
     pub anchors: Vec<AnchorRef>,
     pub base_revision: WorkspaceRevisionView,
     pub diff_ref: Option<String>,
+    pub required_validations: Vec<String>,
+    pub validated_checks: Vec<String>,
+    pub risk_score: Option<f32>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MemoryEntryView {
     pub id: String,
@@ -209,7 +258,7 @@ pub struct MemoryEntryView {
     pub trust: f32,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ScoredMemoryView {
     pub id: String,
@@ -219,7 +268,7 @@ pub struct ScoredMemoryView {
     pub explanation: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CuratorProposalView {
     pub index: usize,
@@ -232,7 +281,7 @@ pub struct CuratorProposalView {
     pub output: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CuratorJobView {
     pub id: String,
@@ -248,13 +297,13 @@ pub struct CuratorJobView {
     pub error: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct QueryEnvelope {
     pub result: Value,
     pub diagnostics: Vec<QueryDiagnostic>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct QueryDiagnostic {
     pub code: String,
     pub message: String,
@@ -340,6 +389,10 @@ type PrismApi = {
   blockers(taskId: string): BlockerView[];
   pendingReviews(planId?: string): ArtifactView[];
   artifacts(taskId: string): ArtifactView[];
+  taskBlastRadius(taskId: string): ChangeImpactView | null;
+  taskValidationRecipe(taskId: string): TaskValidationRecipeView | null;
+  taskRisk(taskId: string): TaskRiskView | null;
+  artifactRisk(artifactId: string): ArtifactRiskView | null;
   simulateClaim(input: {
     anchors: Array<SymbolView | NodeId | AnchorRef>;
     capability: string;
@@ -427,6 +480,43 @@ type ValidationRecipeView = {
   relatedNodes: NodeId[];
   coChangeNeighbors: CoChangeView[];
   recentFailures: OutcomeEvent[];
+};
+
+type TaskValidationRecipeView = {
+  taskId: string;
+  checks: string[];
+  scoredChecks: ValidationCheckView[];
+  relatedNodes: NodeId[];
+  coChangeNeighbors: CoChangeView[];
+  recentFailures: OutcomeEvent[];
+};
+
+type TaskRiskView = {
+  taskId: string;
+  riskScore: number;
+  reviewRequired: boolean;
+  staleTask: boolean;
+  hasApprovedArtifact: boolean;
+  likelyValidations: string[];
+  missingValidations: string[];
+  validationChecks: ValidationCheckView[];
+  coChangeNeighbors: CoChangeView[];
+  riskEvents: OutcomeEvent[];
+  approvedArtifactIds: string[];
+  staleArtifactIds: string[];
+};
+
+type ArtifactRiskView = {
+  artifactId: string;
+  taskId: string;
+  riskScore: number;
+  reviewRequired: boolean;
+  stale: boolean;
+  requiredValidations: string[];
+  validatedChecks: string[];
+  missingValidations: string[];
+  coChangeNeighbors: CoChangeView[];
+  riskEvents: OutcomeEvent[];
 };
 
 type ValidationCheckView = {
@@ -524,6 +614,8 @@ type BlockerView = {
   summary: string;
   relatedTaskId?: string;
   relatedArtifactId?: string;
+  riskScore?: number;
+  validationChecks: string[];
 };
 
 type ArtifactView = {
@@ -533,6 +625,9 @@ type ArtifactView = {
   anchors: AnchorRef[];
   baseRevision: WorkspaceRevisionView;
   diffRef?: string;
+  requiredValidations: string[];
+  validatedChecks: string[];
+  riskScore?: number;
 };
 
 type CuratorProposalView = {
@@ -569,7 +664,9 @@ Beyond `prism_query`, the MCP server exposes navigable `prism://...` resources.
   - `prism://api-reference`
   - `prism://session`
   - `prism://entrypoints`
+  - `prism://schemas`
 - Parameterized resources:
+  - `prism://schema/{resourceKind}`
   - `prism://search/{query}?limit={limit}&cursor={cursor}`
   - `prism://symbol/{crateName}/{kind}/{path}`
   - `prism://lineage/{lineageId}?limit={limit}&cursor={cursor}`
@@ -581,6 +678,12 @@ Beyond `prism_query`, the MCP server exposes navigable `prism://...` resources.
 Every JSON resource payload now includes:
 
 ```ts
+type ResourcePayloadBase = {
+  uri: string;
+  schemaUri: string;
+  relatedResources: ResourceLink[];
+};
+
 type ResourceLink = {
   uri: string;
   name: string;
@@ -602,7 +705,7 @@ type ResourcePage = {
 };
 ```
 
-Clients should follow `relatedResources` instead of reconstructing adjacent URIs by hand.
+Clients should follow `schemaUri` and `relatedResources` instead of reconstructing adjacent URIs by hand.
 
 ## Limits and determinism
 
@@ -806,7 +909,7 @@ return prism.simulateClaim({
 ## Current implementation surface
 
 - Available now: symbol lookup, search, entrypoints, relations, call graphs, source extraction, lineage history, related failures, blast radius, and task replay by id.
-- Available now: session/workspace episodic memory recall for notes recorded through `prism_note`.
+- Available now: session/workspace memory recall for notes and promoted curator memories.
 - Available now: workspace-backed curator job inspection through `prism.curator.jobs()` and `prism.curator.job()`.
 - Available now: coordination plans, tasks, claims, conflicts, blockers, review queues, and claim simulation.
 - Keep query logic small. If you find yourself reconstructing semantics from raw low-level fields every time, that method probably belongs in Prism itself.
@@ -823,6 +926,7 @@ The query runtime is read-only. State changes happen through separate MCP tools:
 - `prism_claim`
 - `prism_artifact`
 - `prism_curator_promote_edge`
+- `prism_curator_promote_memory`
 - `prism_curator_reject_proposal`
 - `prism_test_ran`
 - `prism_failure_observed`
@@ -1032,6 +1136,18 @@ globalThis.prism = Object.freeze({
   artifacts(taskId) {
     return __prismHost("artifacts", { taskId });
   },
+  taskBlastRadius(taskId) {
+    return __prismHost("taskBlastRadius", { taskId });
+  },
+  taskValidationRecipe(taskId) {
+    return __prismHost("taskValidationRecipe", { taskId });
+  },
+  taskRisk(taskId) {
+    return __prismHost("taskRisk", { taskId });
+  },
+  artifactRisk(artifactId) {
+    return __prismHost("artifactRisk", { artifactId });
+  },
   simulateClaim(input) {
     return __prismHost("simulateClaim", {
       anchors: __prismNormalizeAnchors(input?.anchors ?? input?.anchor ?? []),
@@ -1124,6 +1240,7 @@ mod tests {
         assert!(docs.contains("prism.memory.recall"));
         assert!(docs.contains("prism.curator.jobs"));
         assert!(docs.contains("prism_curator_promote_edge"));
+        assert!(docs.contains("prism_curator_promote_memory"));
         assert!(docs.contains("prism_symbol"));
         assert!(docs.contains("prism_search"));
     }
