@@ -4,10 +4,12 @@ use prism_ir::{
 };
 use prism_parser::{
     document_name, document_path, extract_intent_targets, fingerprint_from_parts,
-    intent_kind_for_context, normalized_shape_hash, LanguageAdapter, ParseInput, ParseResult,
+    intent_kind_for_context, normalized_shape_hash, whole_file_span, LanguageAdapter, ParseInput,
+    ParseResult,
 };
 use serde_yaml::Value;
 use smol_str::SmolStr;
+use std::collections::HashMap;
 
 pub struct YamlAdapter;
 
@@ -43,6 +45,7 @@ impl LanguageAdapter for YamlAdapter {
             fingerprint_from_parts(["yaml", "document", document_shape.as_str()]),
         );
         result.nodes.push(document_node);
+        let spans = YamlSpanIndex::new(input.source);
         walk_value(
             input,
             &mut result,
@@ -50,6 +53,8 @@ impl LanguageAdapter for YamlAdapter {
             Some(document_id),
             &document_path,
             input.crate_name,
+            &spans,
+            Vec::new(),
         );
         Ok(result)
     }
@@ -62,6 +67,8 @@ fn walk_value(
     parent: Option<NodeId>,
     prefix: &str,
     crate_name: &str,
+    spans: &YamlSpanIndex,
+    key_path: Vec<String>,
 ) {
     match value {
         Value::Mapping(map) => {
@@ -72,12 +79,17 @@ fn walk_value(
                 let path = format!("{prefix}::{key}");
                 let id = NodeId::new(crate_name, path.clone(), NodeKind::YamlKey);
                 let child_shape = value_shape(child);
+                let mut current_key_path = key_path.clone();
+                current_key_path.push(key.clone());
+                let span = spans
+                    .span_for_path(&current_key_path)
+                    .unwrap_or_else(|| whole_file_span(input.source));
                 let node = Node {
                     id: id.clone(),
                     name: SmolStr::new(key),
                     kind: NodeKind::YamlKey,
                     file: input.file_id,
-                    span: Span::whole_file(input.source.len()),
+                    span,
                     language: Language::Yaml,
                 };
                 result.record_fingerprint(
@@ -100,16 +112,34 @@ fn walk_value(
                         source: id.clone(),
                         kind: intent_kind,
                         target: target.into(),
-                        span: Span::whole_file(input.source.len()),
+                        span,
                     });
                 }
-                walk_value(input, result, child, Some(id), &path, crate_name);
+                walk_value(
+                    input,
+                    result,
+                    child,
+                    Some(id),
+                    &path,
+                    crate_name,
+                    spans,
+                    current_key_path,
+                );
             }
         }
         Value::Sequence(values) => {
             for (index, child) in values.iter().enumerate() {
                 let path = format!("{prefix}::[{index}]");
-                walk_value(input, result, child, parent.clone(), &path, crate_name);
+                walk_value(
+                    input,
+                    result,
+                    child,
+                    parent.clone(),
+                    &path,
+                    crate_name,
+                    spans,
+                    key_path.clone(),
+                );
             }
         }
         _ => {}
@@ -157,6 +187,90 @@ fn collect_value_targets(value: &Value, targets: &mut Vec<String>) {
     }
 }
 
+struct YamlSpanIndex {
+    spans: HashMap<String, Span>,
+}
+
+impl YamlSpanIndex {
+    fn new(source: &str) -> Self {
+        let mut spans = HashMap::new();
+        let mut stack = Vec::<(usize, Vec<String>)>::new();
+        let mut line_start = 0usize;
+
+        while line_start < source.len() {
+            let line_end = source[line_start..]
+                .find('\n')
+                .map(|offset| line_start + offset)
+                .unwrap_or(source.len());
+            let line = &source[line_start..line_end];
+            let indent = line
+                .char_indices()
+                .find(|(_, ch)| !matches!(ch, ' ' | '\t'))
+                .map(|(offset, _)| offset)
+                .unwrap_or(line.len());
+            let trimmed = &line[indent..];
+            if !trimmed.is_empty() && !trimmed.starts_with('#') {
+                let (content, indent_offset) = if let Some(rest) = trimmed.strip_prefix("- ") {
+                    (rest, indent + 2)
+                } else {
+                    (trimmed, indent)
+                };
+                if let Some((key, span, nests)) =
+                    parse_yaml_key_line(content, line_start + indent_offset)
+                {
+                    while stack
+                        .last()
+                        .map(|(stack_indent, _)| *stack_indent >= indent_offset)
+                        .unwrap_or(false)
+                    {
+                        stack.pop();
+                    }
+                    let mut path = stack
+                        .last()
+                        .map(|(_, path)| path.clone())
+                        .unwrap_or_default();
+                    path.push(key);
+                    spans.entry(path.join("::")).or_insert(span);
+                    if nests {
+                        stack.push((indent_offset, path));
+                    }
+                }
+            }
+            if line_end == source.len() {
+                break;
+            }
+            line_start = line_end + 1;
+        }
+
+        Self { spans }
+    }
+
+    fn span_for_path(&self, path: &[String]) -> Option<Span> {
+        self.spans.get(&path.join("::")).copied()
+    }
+}
+
+fn parse_yaml_key_line(line: &str, absolute_start: usize) -> Option<(String, Span, bool)> {
+    for candidate in ['"', '\''] {
+        if line.starts_with(candidate) {
+            let closing = line[1..].find(candidate)? + 1;
+            let remainder = line[closing + 1..].trim_start();
+            if let Some(rest) = remainder.strip_prefix(':') {
+                let key = line[1..closing].to_string();
+                let span = Span::new(absolute_start + 1, absolute_start + closing);
+                return Some((key, span, rest.trim().is_empty()));
+            }
+        }
+    }
+    let colon = line.find(':')?;
+    let key = line[..colon].trim_end();
+    if key.is_empty() || key.contains(' ') {
+        return None;
+    }
+    let span = Span::new(absolute_start, absolute_start + key.len());
+    Some((key.to_string(), span, line[colon + 1..].trim().is_empty()))
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::Path;
@@ -183,10 +297,15 @@ mod tests {
             .nodes
             .iter()
             .any(|node| node.kind == NodeKind::Document));
-        assert!(result
+        let service = result
             .nodes
             .iter()
-            .any(|node| node.kind == NodeKind::YamlKey && node.name == "service"));
+            .find(|node| node.kind == NodeKind::YamlKey && node.name == "service")
+            .unwrap();
+        assert_eq!(
+            &input.source[service.span.start as usize..service.span.end as usize],
+            "service"
+        );
         assert_eq!(result.edges.len(), 2);
     }
 }

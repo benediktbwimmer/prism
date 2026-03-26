@@ -2767,6 +2767,88 @@ return {
 }
 
 #[test]
+fn structured_config_keys_expose_precise_locations_and_local_excerpts() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::create_dir_all(root.join("config")).unwrap();
+    fs::write(root.join("src/main.rs"), "fn main() {}\n").unwrap();
+    fs::write(
+        root.join("config/app.json"),
+        "{\n  \"service\": {\n    \"port\": 8080,\n    \"logging\": true\n  },\n  \"other\": 1\n}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("config/app.yaml"),
+        "service:\n  port: 8080\n  logging: true\nother: 1\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[workspace]\nmembers = [\"crates/alpha\"]\nresolver = \"2\"\n\n[dependencies]\nserde = \"1.0\"\n",
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .execute(
+            r#"
+const jsonKey = prism.search("port", { path: "config/app.json", kind: "json-key", limit: 1 })[0];
+const yamlKey = prism.search("port", { path: "config/app.yaml", kind: "yaml-key", limit: 1 })[0];
+const tomlKey = prism.search("members", { path: "Cargo.toml", kind: "toml-key", limit: 1 })[0];
+return {
+  json: {
+    location: jsonKey?.location ?? null,
+    excerpt: jsonKey?.excerpt({ contextLines: 0, maxChars: 200 }) ?? null,
+  },
+  yaml: {
+    location: yamlKey?.location ?? null,
+    excerpt: yamlKey?.excerpt({ contextLines: 0, maxChars: 200 }) ?? null,
+  },
+  toml: {
+    location: tomlKey?.location ?? null,
+    excerpt: tomlKey?.excerpt({ contextLines: 0, maxChars: 200 }) ?? null,
+  },
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("structured config query should succeed");
+
+    assert_eq!(result.result["json"]["location"]["startLine"], 3);
+    assert_eq!(result.result["json"]["location"]["endLine"], 3);
+    assert!(result.result["json"]["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("\"port\": 8080"));
+    assert!(!result.result["json"]["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("\"other\": 1"));
+
+    assert_eq!(result.result["yaml"]["location"]["startLine"], 2);
+    assert_eq!(result.result["yaml"]["location"]["endLine"], 2);
+    assert!(result.result["yaml"]["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("port: 8080"));
+    assert!(!result.result["yaml"]["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("other: 1"));
+
+    assert_eq!(result.result["toml"]["location"]["startLine"], 2);
+    assert_eq!(result.result["toml"]["location"]["endLine"], 2);
+    assert!(result.result["toml"]["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("members = [\"crates/alpha\"]"));
+    assert!(!result.result["toml"]["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("serde = \"1.0\""));
+}
+
+#[test]
 fn symbol_views_expose_edit_slices_with_exact_focus_mapping() {
     let root = temp_workspace();
     write_long_excerpt_workspace(&root);

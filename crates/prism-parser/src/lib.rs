@@ -4,7 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use prism_ir::{Edge, EdgeKind, FileId, Language, Node, NodeId, SymbolFingerprint};
+use prism_ir::{Edge, EdgeKind, FileId, Language, Node, NodeId, Span, SymbolFingerprint};
 use serde::{Deserialize, Serialize};
 
 pub use prism_ir::{UnresolvedCall, UnresolvedImpl, UnresolvedImport, UnresolvedIntent};
@@ -224,6 +224,10 @@ fn normalize_intent_target(value: &str) -> String {
         .trim_end_matches("()")
         .trim()
         .to_owned()
+}
+
+pub fn whole_file_span(source: &str) -> Span {
+    Span::whole_file(source.len())
 }
 
 fn is_plain_symbol_candidate(value: &str) -> bool {

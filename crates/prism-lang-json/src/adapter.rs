@@ -4,10 +4,12 @@ use prism_ir::{
 };
 use prism_parser::{
     document_name, document_path, extract_intent_targets, fingerprint_from_parts,
-    intent_kind_for_context, normalized_shape_hash, LanguageAdapter, ParseInput, ParseResult,
+    intent_kind_for_context, normalized_shape_hash, whole_file_span, LanguageAdapter, ParseInput,
+    ParseResult,
 };
 use serde_json::Value;
 use smol_str::SmolStr;
+use std::collections::HashMap;
 
 pub struct JsonAdapter;
 
@@ -40,6 +42,7 @@ impl LanguageAdapter for JsonAdapter {
             fingerprint_from_parts(["json", "document", document_shape.as_str()]),
         );
         result.nodes.push(document_node);
+        let spans = JsonSpanIndex::new(input.source);
         walk_value(
             input,
             &mut result,
@@ -47,6 +50,8 @@ impl LanguageAdapter for JsonAdapter {
             Some(document_id),
             &document_path,
             input.crate_name,
+            &spans,
+            Vec::new(),
         );
         Ok(result)
     }
@@ -191,6 +196,8 @@ fn walk_value(
     parent: Option<NodeId>,
     prefix: &str,
     crate_name: &str,
+    spans: &JsonSpanIndex,
+    key_path: Vec<String>,
 ) {
     match value {
         Value::Object(map) => {
@@ -198,12 +205,17 @@ fn walk_value(
                 let path = format!("{prefix}::{key}");
                 let id = NodeId::new(crate_name, path.clone(), NodeKind::JsonKey);
                 let value_shape = value_shape(child);
+                let mut current_key_path = key_path.clone();
+                current_key_path.push(key.clone());
+                let span = spans
+                    .span_for_path(&current_key_path)
+                    .unwrap_or_else(|| whole_file_span(input.source));
                 let node = Node {
                     id: id.clone(),
                     name: SmolStr::new(key),
                     kind: NodeKind::JsonKey,
                     file: input.file_id,
-                    span: Span::whole_file(input.source.len()),
+                    span,
                     language: Language::Json,
                 };
                 result.record_fingerprint(
@@ -226,16 +238,34 @@ fn walk_value(
                         source: id.clone(),
                         kind: intent_kind,
                         target: target.into(),
-                        span: Span::whole_file(input.source.len()),
+                        span,
                     });
                 }
-                walk_value(input, result, child, Some(id), &path, crate_name);
+                walk_value(
+                    input,
+                    result,
+                    child,
+                    Some(id),
+                    &path,
+                    crate_name,
+                    spans,
+                    current_key_path,
+                );
             }
         }
         Value::Array(values) => {
             for (index, child) in values.iter().enumerate() {
                 let path = format!("{prefix}::[{index}]");
-                walk_value(input, result, child, parent.clone(), &path, crate_name);
+                walk_value(
+                    input,
+                    result,
+                    child,
+                    parent.clone(),
+                    &path,
+                    crate_name,
+                    spans,
+                    key_path.clone(),
+                );
             }
         }
         _ => {}
@@ -279,6 +309,200 @@ fn collect_value_targets(value: &Value, targets: &mut Vec<String>) {
     }
 }
 
+struct JsonSpanIndex {
+    spans: HashMap<String, Span>,
+}
+
+impl JsonSpanIndex {
+    fn new(source: &str) -> Self {
+        let mut index = JsonSpanIndexer {
+            source,
+            offset: 0,
+            spans: HashMap::new(),
+        };
+        index.skip_ws_and_comments();
+        index.parse_value(Vec::new());
+        Self { spans: index.spans }
+    }
+
+    fn span_for_path(&self, path: &[String]) -> Option<Span> {
+        self.spans.get(&path.join("::")).copied()
+    }
+}
+
+struct JsonSpanIndexer<'a> {
+    source: &'a str,
+    offset: usize,
+    spans: HashMap<String, Span>,
+}
+
+impl<'a> JsonSpanIndexer<'a> {
+    fn parse_value(&mut self, path: Vec<String>) {
+        self.skip_ws_and_comments();
+        match self.peek_byte() {
+            Some(b'{') => self.parse_object(path),
+            Some(b'[') => self.parse_array(path),
+            Some(b'"') => {
+                let _ = self.parse_string();
+            }
+            Some(_) => self.parse_scalar(),
+            None => {}
+        }
+    }
+
+    fn parse_object(&mut self, path: Vec<String>) {
+        self.offset += 1;
+        loop {
+            self.skip_ws_and_comments();
+            if matches!(self.peek_byte(), Some(b'}')) {
+                self.offset += 1;
+                break;
+            }
+            let Some((key, span)) = self.parse_string() else {
+                break;
+            };
+            let mut child_path = path.clone();
+            child_path.push(key);
+            self.spans.entry(child_path.join("::")).or_insert(span);
+            self.skip_ws_and_comments();
+            if matches!(self.peek_byte(), Some(b':')) {
+                self.offset += 1;
+            }
+            self.parse_value(child_path);
+            self.skip_ws_and_comments();
+            match self.peek_byte() {
+                Some(b',') => {
+                    self.offset += 1;
+                }
+                Some(b'}') => {
+                    self.offset += 1;
+                    break;
+                }
+                _ => break,
+            }
+        }
+    }
+
+    fn parse_array(&mut self, path: Vec<String>) {
+        self.offset += 1;
+        loop {
+            self.skip_ws_and_comments();
+            if matches!(self.peek_byte(), Some(b']')) {
+                self.offset += 1;
+                break;
+            }
+            self.parse_value(path.clone());
+            self.skip_ws_and_comments();
+            match self.peek_byte() {
+                Some(b',') => {
+                    self.offset += 1;
+                }
+                Some(b']') => {
+                    self.offset += 1;
+                    break;
+                }
+                _ => break,
+            }
+        }
+    }
+
+    fn parse_scalar(&mut self) {
+        while let Some(byte) = self.peek_byte() {
+            if matches!(byte, b',' | b']' | b'}') || byte.is_ascii_whitespace() {
+                break;
+            }
+            self.offset += 1;
+        }
+    }
+
+    fn parse_string(&mut self) -> Option<(String, Span)> {
+        if self.peek_byte()? != b'"' {
+            return None;
+        }
+        let quote_start = self.offset;
+        self.offset += 1;
+        let content_start = self.offset;
+        let mut value = String::new();
+        let mut escape = false;
+        while let Some((ch, next_offset)) = next_char(self.source, self.offset) {
+            if escape {
+                value.push(ch);
+                escape = false;
+                self.offset = next_offset;
+                continue;
+            }
+            match ch {
+                '\\' => {
+                    escape = true;
+                    self.offset = next_offset;
+                }
+                '"' => {
+                    let span = Span::new(content_start, self.offset);
+                    self.offset = next_offset;
+                    return Some((value, span));
+                }
+                _ => {
+                    value.push(ch);
+                    self.offset = next_offset;
+                }
+            }
+        }
+        self.offset = quote_start;
+        None
+    }
+
+    fn skip_ws_and_comments(&mut self) {
+        loop {
+            while let Some(byte) = self.peek_byte() {
+                if byte.is_ascii_whitespace() {
+                    self.offset += 1;
+                } else {
+                    break;
+                }
+            }
+            let Some(byte) = self.peek_byte() else {
+                break;
+            };
+            let next = self.source.as_bytes().get(self.offset + 1).copied();
+            if byte == b'/' && next == Some(b'/') {
+                self.offset += 2;
+                while let Some(current) = self.peek_byte() {
+                    self.offset += 1;
+                    if current == b'\n' {
+                        break;
+                    }
+                }
+                continue;
+            }
+            if byte == b'/' && next == Some(b'*') {
+                self.offset += 2;
+                while self.offset + 1 < self.source.len() {
+                    if self.source.as_bytes()[self.offset] == b'*'
+                        && self.source.as_bytes()[self.offset + 1] == b'/'
+                    {
+                        self.offset += 2;
+                        break;
+                    }
+                    self.offset += 1;
+                }
+                continue;
+            }
+            break;
+        }
+    }
+
+    fn peek_byte(&self) -> Option<u8> {
+        self.source.as_bytes().get(self.offset).copied()
+    }
+}
+
+fn next_char(source: &str, index: usize) -> Option<(char, usize)> {
+    source[index..]
+        .chars()
+        .next()
+        .map(|ch| (ch, index + ch.len_utf8()))
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::Path;
@@ -297,7 +521,7 @@ mod tests {
             package_root: Path::new("/workspace"),
             path: Path::new("/workspace/config/app.json"),
             file_id: FileId(1),
-            source: "{\"service\":{\"port\":8080}}",
+            source: "{\n  \"service\": {\n    \"port\": 8080\n  }\n}",
         };
 
         let result = adapter.parse(&input).unwrap();
@@ -305,10 +529,15 @@ mod tests {
             .nodes
             .iter()
             .any(|node| node.kind == NodeKind::Document));
-        assert!(result
+        let service = result
             .nodes
             .iter()
-            .any(|node| node.kind == NodeKind::JsonKey && node.name == "service"));
+            .find(|node| node.kind == NodeKind::JsonKey && node.name == "service")
+            .unwrap();
+        assert_eq!(
+            &input.source[service.span.start as usize..service.span.end as usize],
+            "service"
+        );
         assert_eq!(result.edges.len(), 2);
     }
 

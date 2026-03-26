@@ -195,6 +195,8 @@ Needed improvements:
 * include exact neighboring control flow or write-path context
 * make caller, callee, and validation references directly expandable with exact line locations
 * reduce ambiguity between "best symbol match" and "best edit slice"
+* give non-symbol nodes like config keys and document anchors exact local spans instead of
+  falling back to coarse whole-file excerpts when more precise context is available
 
 Success condition:
 
@@ -211,6 +213,10 @@ Needed improvements:
 * more direct narrowing by path, module, owner kind, or task context
 * stronger default disambiguation for common symbol collisions
 * better integration between search results and exact source locations
+* stronger exact narrowing for structured config/document nodes so queries like top-level TOML keys
+  do not overmatch nested paths or similarly named descendants
+* make tool payload expectations easier to discover from the primary surface so agents do not need
+  a separate schema lookup just to send common session or mutation actions correctly
 
 Success condition:
 
