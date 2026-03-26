@@ -2,7 +2,7 @@ use prism_js::{
     ChangeImpactView, CoChangeView, EdgeView, EditContextView, LineageEventView, LineageStatus,
     LineageView, MemoryEntryView, OwnerCandidateView, QueryDiagnostic, ReadContextView,
     RecentChangeContextView, RelationsView, SuggestedQueryView, SymbolView, TaskJournalView,
-    ValidationContextView, ValidationRecipeView, WorkspaceRevisionView,
+    TrustSignalsView, ValidationContextView, ValidationRecipeView, WorkspaceRevisionView,
 };
 use rmcp::schemars::JsonSchema;
 use serde_json::Value;
@@ -190,6 +190,7 @@ pub(crate) struct DiscoveryBundleView {
     pub(crate) related_failures: Vec<OutcomeEvent>,
     pub(crate) blast_radius: ChangeImpactView,
     pub(crate) validation_recipe: ValidationRecipeView,
+    pub(crate) trust_signals: TrustSignalsView,
     pub(crate) why: Vec<String>,
 }
 
@@ -198,6 +199,7 @@ pub(crate) struct DiscoveryBundleView {
 pub(crate) struct SearchResourcePayload {
     pub(crate) uri: String,
     pub(crate) schema_uri: String,
+    pub(crate) workspace_revision: WorkspaceRevisionView,
     pub(crate) query: String,
     pub(crate) strategy: String,
     pub(crate) owner_kind: Option<String>,
@@ -220,6 +222,7 @@ pub(crate) struct SearchResourcePayload {
 pub(crate) struct SymbolResourcePayload {
     pub(crate) uri: String,
     pub(crate) schema_uri: String,
+    pub(crate) workspace_revision: WorkspaceRevisionView,
     pub(crate) symbol: SymbolView,
     pub(crate) discovery: DiscoveryBundleView,
     pub(crate) suggested_reads: Vec<OwnerCandidateView>,

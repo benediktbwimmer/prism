@@ -3,7 +3,10 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::{anyhow, Result};
 use prism_ir::{NodeId, NodeKind};
-use prism_js::{OwnerCandidateView, OwnerHintView, SymbolView};
+use prism_js::{
+    ConfidenceLabel, EvidenceSourceKind, OwnerCandidateView, OwnerHintView, SymbolView,
+    TrustSignalsView,
+};
 use prism_query::{Prism, SourceExcerptOptions};
 use rmcp::schemars::JsonSchema;
 
@@ -37,6 +40,7 @@ pub(crate) struct SpecDriftExplanationView {
     pub(crate) observations: Vec<String>,
     pub(crate) gaps: Vec<String>,
     pub(crate) next_reads: Vec<OwnerCandidateView>,
+    pub(crate) trust_signals: TrustSignalsView,
     pub(crate) cluster: SpecImplementationClusterView,
 }
 
@@ -249,6 +253,7 @@ pub(crate) fn spec_drift_explanation_view(
         observations,
         gaps,
         next_reads,
+        trust_signals: drift_trust_signals(&cluster),
         cluster,
     })
 }
@@ -427,6 +432,7 @@ fn build_owner_candidate_view(
         score: candidate.score,
         matched_terms: candidate.matched_terms,
         why: candidate.why,
+        trust_signals: owner_candidate_trust_signals(false, candidate.score),
     })
 }
 
@@ -436,6 +442,7 @@ fn owner_hint_from_candidate(candidate: &RankedCandidate) -> OwnerHintView {
         score: candidate.score,
         matched_terms: candidate.matched_terms.clone(),
         why: candidate.why.clone(),
+        trust_signals: owner_candidate_trust_signals(false, candidate.score),
     }
 }
 
@@ -769,14 +776,114 @@ fn push_unique_symbol_reads(
             break;
         }
         if seen.insert(symbol.id.path.clone()) {
-            target.push(OwnerCandidateView {
-                symbol: symbol.clone(),
+            let mut symbol = symbol.clone();
+            symbol.owner_hint = Some(OwnerHintView {
                 kind: "direct".to_string(),
                 score: 0,
                 matched_terms: Vec::new(),
                 why: "Direct spec link surfaced by PRISM intent relations.".to_string(),
+                trust_signals: owner_candidate_trust_signals(true, 0),
+            });
+            target.push(OwnerCandidateView {
+                symbol,
+                kind: "direct".to_string(),
+                score: 0,
+                matched_terms: Vec::new(),
+                why: "Direct spec link surfaced by PRISM intent relations.".to_string(),
+                trust_signals: owner_candidate_trust_signals(true, 0),
             });
         }
+    }
+}
+
+fn owner_candidate_trust_signals(direct_graph: bool, score: usize) -> TrustSignalsView {
+    let confidence_label = if direct_graph {
+        ConfidenceLabel::High
+    } else if score >= 10 {
+        ConfidenceLabel::High
+    } else if score >= 6 {
+        ConfidenceLabel::Medium
+    } else {
+        ConfidenceLabel::Low
+    };
+    let mut why = Vec::new();
+    let evidence_sources = if direct_graph {
+        why.push(
+            "This candidate comes from direct PRISM graph links rather than behavioral ranking."
+                .to_string(),
+        );
+        vec![EvidenceSourceKind::DirectGraph]
+    } else {
+        why.push(
+            "This candidate comes from inferred behavioral ranking over names, paths, and excerpts."
+                .to_string(),
+        );
+        if score >= 10 {
+            why.push(
+                "Multiple matched terms and category bonuses pushed the heuristic score into the high-confidence range."
+                    .to_string(),
+            );
+        } else if score >= 6 {
+            why.push(
+                "The ranking found a meaningful term/category match, but it remains heuristic."
+                    .to_string(),
+            );
+        } else {
+            why.push(
+                "The match is weak enough that it should be confirmed against direct links or follow-up context."
+                    .to_string(),
+            );
+        }
+        vec![EvidenceSourceKind::Inferred]
+    };
+    TrustSignalsView {
+        confidence_label,
+        evidence_sources,
+        why,
+    }
+}
+
+fn drift_trust_signals(cluster: &SpecImplementationClusterView) -> TrustSignalsView {
+    let has_direct_graph = !cluster.implementations.is_empty()
+        || !cluster.validations.is_empty()
+        || !cluster.related.is_empty();
+    let has_inferred = !cluster.read_path.is_empty()
+        || !cluster.write_path.is_empty()
+        || !cluster.persistence_path.is_empty()
+        || !cluster.tests.is_empty();
+    let confidence_label = if has_direct_graph && has_inferred {
+        ConfidenceLabel::High
+    } else if has_direct_graph || has_inferred {
+        ConfidenceLabel::Medium
+    } else {
+        ConfidenceLabel::Low
+    };
+    let mut evidence_sources = Vec::new();
+    let mut why = Vec::new();
+    if has_direct_graph {
+        evidence_sources.push(EvidenceSourceKind::DirectGraph);
+        why.push(
+            "The drift explanation is grounded in direct spec, implementation, validation, or related graph links."
+                .to_string(),
+        );
+    }
+    if has_inferred {
+        evidence_sources.push(EvidenceSourceKind::Inferred);
+        why.push(
+            "Behavioral owner paths are included as inferred heuristics to fill gaps in direct links."
+                .to_string(),
+        );
+    }
+    if !has_direct_graph && !has_inferred {
+        why.push(
+            "No direct or inferred supporting evidence was found, so this explanation should be treated cautiously."
+                .to_string(),
+        );
+    }
+    TrustSignalsView {
+        confidence_label,
+        evidence_sources,
+        why,
     }
 }
 

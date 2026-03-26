@@ -58,6 +58,32 @@ pub struct OwnerHintView {
     pub score: usize,
     pub matched_terms: Vec<String>,
     pub why: String,
+    pub trust_signals: TrustSignalsView,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum ConfidenceLabel {
+    Low,
+    Medium,
+    High,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceSourceKind {
+    DirectGraph,
+    Inferred,
+    Memory,
+    Outcome,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TrustSignalsView {
+    pub confidence_label: ConfidenceLabel,
+    pub evidence_sources: Vec<EvidenceSourceKind>,
+    pub why: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -228,6 +254,7 @@ pub struct OwnerCandidateView {
     pub score: usize,
     pub matched_terms: Vec<String>,
     pub why: String,
+    pub trust_signals: TrustSignalsView,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

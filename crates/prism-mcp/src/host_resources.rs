@@ -17,13 +17,14 @@ use crate::{
     session_resource_uri, session_resource_view_link, symbol_for, symbol_resource_uri,
     symbol_resource_view_link, symbol_resource_view_link_for_id, symbol_view, symbol_views_for_ids,
     task_journal_view, task_resource_view_link, task_resource_view_links_from_events,
-    tool_schemas_resource_value, tool_schemas_resource_view_link, CapabilitiesResourcePayload,
-    CoordinationFeaturesView, EdgeResourcePayload, EntrypointsResourcePayload,
-    EventResourcePayload, FeatureFlagsView, InferredEdgeRecordView, LineageResourcePayload,
-    MemoryResourcePayload, QueryExecution, QueryHost, ResourceSchemaCatalogPayload, SearchArgs,
-    SearchResourcePayload, SessionLimitsView, SessionResourcePayload, SessionTaskView, SessionView,
-    SymbolResourcePayload, TaskResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
+    tool_schemas_resource_value, tool_schemas_resource_view_link, workspace_revision_view,
+    CapabilitiesResourcePayload, CoordinationFeaturesView, EdgeResourcePayload,
+    EntrypointsResourcePayload, EventResourcePayload, FeatureFlagsView, InferredEdgeRecordView,
+    LineageResourcePayload, MemoryResourcePayload, QueryExecution, QueryHost,
+    ResourceSchemaCatalogPayload, SearchArgs, SearchResourcePayload, SessionLimitsView,
+    SessionResourcePayload, SessionTaskView, SessionView, SymbolResourcePayload,
+    TaskResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
 };
 
 impl QueryHost {
@@ -220,6 +221,7 @@ impl QueryHost {
         Ok(SymbolResourcePayload {
             uri: symbol_resource_uri(&symbol.id),
             schema_uri,
+            workspace_revision: workspace_revision_view(prism.workspace_revision()),
             symbol,
             discovery,
             suggested_reads,
@@ -334,6 +336,7 @@ impl QueryHost {
         Ok(SearchResourcePayload {
             uri: uri.to_string(),
             schema_uri,
+            workspace_revision: workspace_revision_view(prism.workspace_revision()),
             query: query.to_string(),
             strategy,
             owner_kind,

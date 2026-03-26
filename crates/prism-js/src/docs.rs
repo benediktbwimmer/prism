@@ -193,6 +193,17 @@ type OwnerHintView = {
   score: number;
   matchedTerms: string[];
   why: string;
+  trustSignals: TrustSignalsView;
+};
+
+type ConfidenceLabel = "low" | "medium" | "high";
+
+type EvidenceSourceKind = "direct_graph" | "inferred" | "memory" | "outcome";
+
+type TrustSignalsView = {
+  confidenceLabel: ConfidenceLabel;
+  evidenceSources: EvidenceSourceKind[];
+  why: string[];
 };
 
 type SourceLocationView = {
@@ -356,6 +367,7 @@ type OwnerCandidateView = {
   score: number;
   matchedTerms: string[];
   why: string;
+  trustSignals: TrustSignalsView;
 };
 
 type SpecImplementationClusterView = {
@@ -378,6 +390,7 @@ type SpecDriftExplanationView = {
   observations: string[];
   gaps: string[];
   nextReads: OwnerCandidateView[];
+  trustSignals: TrustSignalsView;
   cluster: SpecImplementationClusterView;
 };
 

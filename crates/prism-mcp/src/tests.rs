@@ -2840,6 +2840,13 @@ return {
         .as_array()
         .expect("drift nextReads should be an array");
     assert!(!next_reads.is_empty());
+    assert!(matches!(
+        result.result["drift"]["trustSignals"]["confidenceLabel"].as_str(),
+        Some("medium" | "high")
+    ));
+    assert!(result.result["drift"]["trustSignals"]["evidenceSources"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|value| value == "inferred")));
     assert!(result.result["drift"]["expectations"]
         .as_array()
         .unwrap()
@@ -2862,6 +2869,7 @@ return {
         .id()
         .clone();
     let symbol_resource = host.symbol_resource_value(&spec_id).unwrap();
+    assert!(symbol_resource.workspace_revision.graph_version > 0);
     assert!(symbol_resource.spec_cluster.is_some());
     assert!(symbol_resource.spec_drift.is_some());
     assert!(!symbol_resource.suggested_reads.is_empty());
@@ -2881,6 +2889,15 @@ return {
             .len()
             >= 3
     );
+    assert!(symbol_resource
+        .discovery
+        .trust_signals
+        .evidence_sources
+        .iter()
+        .any(|source| matches!(
+            source,
+            prism_js::EvidenceSourceKind::DirectGraph | prism_js::EvidenceSourceKind::Inferred
+        )));
     assert!(!symbol_resource.discovery.where_used_behavioral.is_empty());
     assert!(!symbol_resource.discovery.why.is_empty());
     assert_eq!(symbol_resource.suggested_queries[0].label, "Read Context");
@@ -2938,6 +2955,11 @@ return {
                 .unwrap_or_default()
                 .contains("memory_recall")
     }));
+    assert!(behavioral.iter().any(|symbol| {
+        symbol["ownerHint"]["trustSignals"]["evidenceSources"]
+            .as_array()
+            .is_some_and(|items| items.iter().any(|value| value == "inferred"))
+    }));
 
     let owners = result.result["owners"]
         .as_array()
@@ -2948,6 +2970,14 @@ return {
                 .as_str()
                 .unwrap_or_default()
                 .contains("read-oriented")
+    }));
+    assert!(owners.iter().any(|candidate| {
+        matches!(
+            candidate["trustSignals"]["confidenceLabel"].as_str(),
+            Some("medium" | "high")
+        ) && candidate["trustSignals"]["evidenceSources"]
+            .as_array()
+            .is_some_and(|items| items.iter().any(|value| value == "inferred"))
     }));
 
     let implementation_owners = result.result["implementationOwners"]
@@ -2977,12 +3007,18 @@ fn search_resource_payload_surfaces_suggested_reads() {
 
     assert_eq!(payload.strategy, "behavioral");
     assert_eq!(payload.owner_kind.as_deref(), Some("read"));
+    assert!(payload.workspace_revision.graph_version > 0);
     assert!(!payload.suggested_reads.is_empty());
     assert!(payload.discovery.is_some());
     assert!(payload
         .discovery
         .as_ref()
         .is_some_and(|bundle| !bundle.suggested_reads.is_empty()));
+    assert!(payload.discovery.as_ref().is_some_and(|bundle| bundle
+        .trust_signals
+        .evidence_sources
+        .iter()
+        .any(|source| matches!(source, prism_js::EvidenceSourceKind::Inferred))));
     assert!(payload.discovery.as_ref().is_some_and(|bundle| bundle
         .validation_context
         .suggested_queries

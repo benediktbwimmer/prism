@@ -178,6 +178,10 @@ fn search_payload_example() -> Value {
     json!({
         "uri": resource_example_uri("search"),
         "schemaUri": schema_resource_uri("search"),
+        "workspaceRevision": {
+            "graphVersion": 42,
+            "gitCommit": "abc123def456"
+        },
         "query": "read context",
         "strategy": "behavioral",
         "ownerKind": "read",
@@ -200,6 +204,10 @@ fn symbol_payload_example() -> Value {
     json!({
         "uri": symbol_resource_uri_from_node_id(&sample_node_id()),
         "schemaUri": schema_resource_uri("symbol"),
+        "workspaceRevision": {
+            "graphVersion": 42,
+            "gitCommit": "abc123def456"
+        },
         "symbol": sample_symbol(),
         "discovery": sample_discovery_bundle(),
         "suggestedReads": [sample_owner_candidate()],
@@ -239,6 +247,7 @@ fn sample_discovery_bundle() -> Value {
         "relatedFailures": [sample_outcome_event()],
         "blastRadius": sample_change_impact(),
         "validationRecipe": sample_validation_recipe(),
+        "trustSignals": sample_discovery_trust_signals(),
         "why": [
             "Suggested reads prioritize read-oriented owner paths for the target.",
             "Entrypoints and where-used views show how the target is reached from the outside."
@@ -387,7 +396,8 @@ fn sample_symbol() -> Value {
             "kind": "read",
             "score": 93,
             "matchedTerms": ["read", "context"],
-            "why": "Matches the dominant read-path terms."
+            "why": "Matches the dominant read-path terms.",
+            "trustSignals": sample_inferred_trust_signals("high")
         }
     })
 }
@@ -398,7 +408,8 @@ fn sample_owner_candidate() -> Value {
         "kind": "read",
         "score": 93,
         "matchedTerms": ["read", "context"],
-        "why": "Touches the same read path and exposes the next likely file to inspect."
+        "why": "Touches the same read path and exposes the next likely file to inspect.",
+        "trustSignals": sample_inferred_trust_signals("high")
     })
 }
 
@@ -456,6 +467,27 @@ fn sample_recent_change_context() -> Value {
         "lineage": sample_lineage(),
         "why": ["Recent change context keeps outcomes, co-change signals, and lineage together."],
         "suggestedQueries": [sample_suggested_query()],
+    })
+}
+
+fn sample_inferred_trust_signals(label: &str) -> Value {
+    json!({
+        "confidenceLabel": label,
+        "evidenceSources": ["inferred"],
+        "why": ["This result comes from inferred behavioral ranking over names, paths, and excerpts."]
+    })
+}
+
+fn sample_discovery_trust_signals() -> Value {
+    json!({
+        "confidenceLabel": "high",
+        "evidenceSources": ["direct_graph", "inferred", "memory", "outcome"],
+        "why": [
+            "Direct graph links anchor the discovery bundle to indexed structural relations.",
+            "Behavioral owner ranking contributes inferred follow-up reads and usage paths.",
+            "Anchored memory contributes recalled notes and promoted summaries.",
+            "Outcome history contributes recent failures, validations, or recorded events."
+        ]
     })
 }
 

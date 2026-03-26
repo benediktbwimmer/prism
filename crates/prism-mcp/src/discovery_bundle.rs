@@ -1,6 +1,6 @@
 use anyhow::Result;
 use prism_ir::NodeId;
-use prism_js::CoChangeView;
+use prism_js::{CoChangeView, ConfidenceLabel, EvidenceSourceKind, TrustSignalsView};
 use prism_query::Prism;
 
 use crate::{
@@ -73,6 +73,25 @@ pub(crate) fn discovery_bundle_view(
                 .to_string(),
         );
     }
+    let trust_signals = discovery_trust_signals(
+        !read_context.direct_links.is_empty()
+            || !entrypoints.is_empty()
+            || !where_used_direct.is_empty()
+            || !relations.specifies.is_empty()
+            || !relations.specified_by.is_empty()
+            || !relations.implements.is_empty()
+            || !relations.validates.is_empty()
+            || !relations.related.is_empty(),
+        !suggested_reads.is_empty() || !where_used_behavioral.is_empty(),
+        !read_context.related_memory.is_empty()
+            || !edit_context.related_memory.is_empty()
+            || !validation_context.related_memory.is_empty()
+            || !recent_change_context.related_memory.is_empty()
+            || !recent_change_context.promoted_summaries.is_empty(),
+        !related_failures.is_empty()
+            || !recent_change_context.recent_events.is_empty()
+            || !validation_context.recent_failures.is_empty(),
+    );
 
     Ok(DiscoveryBundleView {
         target,
@@ -93,6 +112,66 @@ pub(crate) fn discovery_bundle_view(
         related_failures,
         blast_radius,
         validation_recipe,
+        trust_signals,
         why,
     })
+}
+
+fn discovery_trust_signals(
+    has_direct_graph: bool,
+    has_inferred: bool,
+    has_memory: bool,
+    has_outcome: bool,
+) -> TrustSignalsView {
+    let mut evidence_sources = Vec::new();
+    let mut why = Vec::new();
+    if has_direct_graph {
+        evidence_sources.push(EvidenceSourceKind::DirectGraph);
+        why.push(
+            "Direct graph links anchor the discovery bundle to indexed structural relations."
+                .to_string(),
+        );
+    }
+    if has_inferred {
+        evidence_sources.push(EvidenceSourceKind::Inferred);
+        why.push(
+            "Behavioral owner ranking contributes inferred follow-up reads and usage paths."
+                .to_string(),
+        );
+    }
+    if has_memory {
+        evidence_sources.push(EvidenceSourceKind::Memory);
+        why.push("Anchored memory contributes recalled notes and promoted summaries.".to_string());
+    }
+    if has_outcome {
+        evidence_sources.push(EvidenceSourceKind::Outcome);
+        why.push(
+            "Outcome history contributes recent failures, validations, or recorded events."
+                .to_string(),
+        );
+    }
+    let confidence_label = if has_direct_graph && (has_inferred || has_memory || has_outcome) {
+        ConfidenceLabel::High
+    } else if has_direct_graph
+        || [has_inferred, has_memory, has_outcome]
+            .into_iter()
+            .filter(|value| *value)
+            .count()
+            >= 2
+    {
+        ConfidenceLabel::Medium
+    } else {
+        ConfidenceLabel::Low
+    };
+    if evidence_sources.is_empty() {
+        why.push(
+            "This bundle lacks direct corroborating evidence and should be treated as exploratory."
+                .to_string(),
+        );
+    }
+    TrustSignalsView {
+        confidence_label,
+        evidence_sources,
+        why,
+    }
 }
