@@ -19,7 +19,9 @@ use prism_query::Prism;
 use prism_store::{AuxiliaryPersistBatch, SqliteStore, Store};
 
 use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorHandleRef};
-use crate::util::{current_timestamp, workspace_fingerprint};
+use crate::util::{
+    current_timestamp, current_timestamp_millis, workspace_fingerprint, WorkspaceFingerprint,
+};
 use crate::validation_feedback::{
     append_validation_feedback, load_validation_feedback, ValidationFeedbackEntry,
     ValidationFeedbackRecord,
@@ -29,13 +31,17 @@ use crate::watch::{refresh_prism_snapshot, WatchHandle};
 pub(crate) struct WorkspaceRefreshState {
     observed_fs_revision: AtomicU64,
     applied_fs_revision: AtomicU64,
+    last_fallback_check_ms: AtomicU64,
 }
+
+const FALLBACK_FINGERPRINT_INTERVAL_MS: u64 = 250;
 
 impl WorkspaceRefreshState {
     pub(crate) fn new() -> Self {
         Self {
             observed_fs_revision: AtomicU64::new(0),
             applied_fs_revision: AtomicU64::new(0),
+            last_fallback_check_ms: AtomicU64::new(0),
         }
     }
 
@@ -62,6 +68,22 @@ impl WorkspaceRefreshState {
     pub(crate) fn applied_fs_revision(&self) -> u64 {
         self.applied_fs_revision.load(Ordering::Relaxed)
     }
+
+    pub(crate) fn should_run_fallback_check(&self, now_ms: u64) -> bool {
+        loop {
+            let last = self.last_fallback_check_ms.load(Ordering::Relaxed);
+            if now_ms.saturating_sub(last) < FALLBACK_FINGERPRINT_INTERVAL_MS {
+                return false;
+            }
+            if self
+                .last_fallback_check_ms
+                .compare_exchange(last, now_ms, Ordering::Relaxed, Ordering::Relaxed)
+                .is_ok()
+            {
+                return true;
+            }
+        }
+    }
 }
 
 pub struct WorkspaceSession {
@@ -70,7 +92,7 @@ pub struct WorkspaceSession {
     pub(crate) store: Arc<Mutex<SqliteStore>>,
     pub(crate) refresh_lock: Arc<Mutex<()>>,
     pub(crate) refresh_state: Arc<WorkspaceRefreshState>,
-    pub(crate) fs_fingerprint: Arc<Mutex<u64>>,
+    pub(crate) fs_snapshot: Arc<Mutex<WorkspaceFingerprint>>,
     pub(crate) watch: Option<WatchHandle>,
     pub(crate) curator: Option<CuratorHandle>,
     pub(crate) coordination_enabled: bool,
@@ -93,12 +115,21 @@ impl WorkspaceSession {
     }
 
     pub fn refresh_fs(&self) -> Result<Vec<ObservedChangeSet>> {
-        let current_fingerprint = workspace_fingerprint(&self.root)?;
-        let known_fingerprint = *self
-            .fs_fingerprint
+        if !self.refresh_state.needs_refresh()
+            && !self
+                .refresh_state
+                .should_run_fallback_check(current_timestamp_millis())
+        {
+            return Ok(Vec::new());
+        }
+        let known_snapshot = self
+            .fs_snapshot
             .lock()
-            .expect("workspace fingerprint lock poisoned");
-        if !self.refresh_state.needs_refresh() && current_fingerprint == known_fingerprint {
+            .expect("workspace fingerprint lock poisoned")
+            .clone();
+        let current_fingerprint = workspace_fingerprint(&self.root, Some(&known_snapshot))?;
+        if !self.refresh_state.needs_refresh() && current_fingerprint.value == known_snapshot.value
+        {
             return Ok(Vec::new());
         }
         self.refresh_with_trigger(ChangeTrigger::FsWatch, Some(current_fingerprint))
@@ -432,7 +463,7 @@ impl WorkspaceSession {
     fn refresh_with_trigger(
         &self,
         trigger: ChangeTrigger,
-        known_fingerprint: Option<u64>,
+        known_fingerprint: Option<WorkspaceFingerprint>,
     ) -> Result<Vec<ObservedChangeSet>> {
         let curator = self.curator.as_ref().map(CuratorHandleRef::from);
         let observed = refresh_prism_snapshot(
@@ -440,7 +471,7 @@ impl WorkspaceSession {
             &self.prism,
             &self.store,
             &self.refresh_lock,
-            &self.fs_fingerprint,
+            &self.fs_snapshot,
             self.coordination_enabled,
             curator.as_ref(),
             trigger,

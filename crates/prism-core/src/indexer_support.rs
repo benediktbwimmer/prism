@@ -44,7 +44,7 @@ pub(crate) fn build_workspace_session(
     let store = Arc::new(Mutex::new(store));
     let refresh_lock = Arc::new(Mutex::new(()));
     let refresh_state = Arc::new(WorkspaceRefreshState::new());
-    let fs_fingerprint = Arc::new(Mutex::new(workspace_fingerprint(&root)?));
+    let fs_snapshot = Arc::new(Mutex::new(workspace_fingerprint(&root, None)?));
     let curator_snapshot = {
         let mut store = store.lock().expect("workspace store lock poisoned");
         store.load_curator_snapshot()?.unwrap_or_default()
@@ -61,7 +61,7 @@ pub(crate) fn build_workspace_session(
         Arc::clone(&store),
         Arc::clone(&refresh_lock),
         Arc::clone(&refresh_state),
-        Arc::clone(&fs_fingerprint),
+        Arc::clone(&fs_snapshot),
         coordination_enabled,
         Some(CuratorHandleRef::from(&curator)),
     )?);
@@ -71,7 +71,7 @@ pub(crate) fn build_workspace_session(
         store,
         refresh_lock,
         refresh_state,
-        fs_fingerprint,
+        fs_snapshot,
         watch,
         curator: Some(curator),
         coordination_enabled,

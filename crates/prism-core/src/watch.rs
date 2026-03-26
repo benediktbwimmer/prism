@@ -13,7 +13,7 @@ use prism_store::SqliteStore;
 use crate::curator::{enqueue_curator_for_observed_locked, CuratorHandleRef};
 use crate::indexer::WorkspaceIndexer;
 use crate::session::WorkspaceRefreshState;
-use crate::util::workspace_fingerprint;
+use crate::util::{workspace_fingerprint, WorkspaceFingerprint};
 
 pub(crate) struct WatchHandle {
     pub(crate) stop: mpsc::Sender<()>,
@@ -26,7 +26,7 @@ pub(crate) fn spawn_fs_watch(
     store: Arc<Mutex<SqliteStore>>,
     refresh_lock: Arc<Mutex<()>>,
     refresh_state: Arc<WorkspaceRefreshState>,
-    fs_fingerprint: Arc<Mutex<u64>>,
+    fs_snapshot: Arc<Mutex<WorkspaceFingerprint>>,
     coordination_enabled: bool,
     curator: Option<CuratorHandleRef>,
 ) -> Result<WatchHandle> {
@@ -87,7 +87,7 @@ pub(crate) fn spawn_fs_watch(
                 &prism,
                 &store,
                 &refresh_lock,
-                &fs_fingerprint,
+                &fs_snapshot,
                 coordination_enabled,
                 curator.as_ref(),
                 ChangeTrigger::FsWatch,
@@ -115,21 +115,27 @@ pub(crate) fn refresh_prism_snapshot(
     prism: &Arc<RwLock<Arc<Prism>>>,
     store: &Arc<Mutex<SqliteStore>>,
     refresh_lock: &Arc<Mutex<()>>,
-    fs_fingerprint: &Arc<Mutex<u64>>,
+    fs_snapshot: &Arc<Mutex<WorkspaceFingerprint>>,
     coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
     trigger: ChangeTrigger,
-    known_fingerprint: Option<u64>,
+    known_fingerprint: Option<WorkspaceFingerprint>,
 ) -> Result<Vec<prism_ir::ObservedChangeSet>> {
     let _guard = refresh_lock
         .lock()
         .expect("workspace refresh lock poisoned");
-    let next_fingerprint = known_fingerprint.unwrap_or(workspace_fingerprint(root)?);
+    let cached_snapshot = fs_snapshot
+        .lock()
+        .expect("workspace fingerprint lock poisoned")
+        .clone();
+    let next_fingerprint =
+        known_fingerprint.unwrap_or(workspace_fingerprint(root, Some(&cached_snapshot))?);
     {
-        let current = *fs_fingerprint
+        let current = fs_snapshot
             .lock()
-            .expect("workspace fingerprint lock poisoned");
-        if current == next_fingerprint {
+            .expect("workspace fingerprint lock poisoned")
+            .value;
+        if current == next_fingerprint.value {
             return Ok(Vec::new());
         }
     }
@@ -142,7 +148,7 @@ pub(crate) fn refresh_prism_snapshot(
     let observed = indexer.index_with_trigger(trigger)?;
     let next = Arc::new(indexer.into_prism());
     *prism.write().expect("workspace prism lock poisoned") = Arc::clone(&next);
-    *fs_fingerprint
+    *fs_snapshot
         .lock()
         .expect("workspace fingerprint lock poisoned") = next_fingerprint;
     if let Some(curator) = curator {

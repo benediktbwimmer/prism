@@ -530,6 +530,15 @@ fn refresh_fs_skips_reindex_when_workspace_is_clean() {
 }
 
 #[test]
+fn refresh_state_throttles_clean_fallback_checks() {
+    let state = crate::session::WorkspaceRefreshState::new();
+
+    assert!(state.should_run_fallback_check(1_000));
+    assert!(!state.should_run_fallback_check(1_100));
+    assert!(state.should_run_fallback_check(1_250));
+}
+
+#[test]
 fn appended_outcome_persists_projection_snapshot() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

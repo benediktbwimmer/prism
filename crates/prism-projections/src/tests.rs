@@ -169,6 +169,9 @@ fn co_change_neighbors_are_pruned_to_top_k() {
     let neighbors = index.co_change_neighbors(&source, MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 16);
 
     assert_eq!(neighbors.len(), MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE);
-    assert_eq!(neighbors.first().unwrap().count, (MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 8) as u32);
+    assert_eq!(
+        neighbors.first().unwrap().count,
+        (MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 8) as u32
+    );
     assert_eq!(neighbors.last().unwrap().count, 9);
 }

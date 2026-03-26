@@ -5,6 +5,7 @@ mod schema;
 mod snapshots;
 
 use std::path::Path;
+use std::time::Duration;
 
 use anyhow::Result;
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
@@ -29,6 +30,7 @@ impl SqliteStore {
         }
 
         let conn = Connection::open(path)?;
+        configure_connection(&conn)?;
         schema::init_schema(&conn)?;
         Ok(Self { conn })
     }
@@ -309,4 +311,13 @@ fn bump_metadata_value_tx(tx: &Transaction<'_>, key: &str) -> Result<u64> {
         params![key, next],
     )?;
     Ok(next as u64)
+}
+
+fn configure_connection(conn: &Connection) -> Result<()> {
+    conn.busy_timeout(Duration::from_secs(5))?;
+    conn.pragma_update(None, "journal_mode", "WAL")?;
+    conn.pragma_update(None, "synchronous", "NORMAL")?;
+    conn.pragma_update(None, "temp_store", "MEMORY")?;
+    conn.pragma_update(None, "wal_autocheckpoint", 1000_i64)?;
+    Ok(())
 }

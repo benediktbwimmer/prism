@@ -449,6 +449,61 @@ a {
   font-size: 0.95rem;
 }
 
+/* Testimonials */
+.testimonials {
+  padding: 5rem 2rem;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.testimonial-grid {
+  display: flex;
+  justify-content: center;
+}
+
+.testimonial-card {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  background: rgba(0, 240, 255, 0.03);
+  border-left: 4px solid var(--accent-cyan);
+  max-width: 800px;
+}
+
+.agent-avatar {
+  font-size: 3rem;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1rem;
+  border-radius: 50%;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.quote {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-style: italic;
+  margin-bottom: 1.5rem;
+  color: var(--text-main);
+  line-height: 1.6;
+}
+
+.agent-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.agent-name {
+  font-weight: 800;
+  color: var(--accent-cyan);
+  letter-spacing: 0.5px;
+}
+
+.agent-platform {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
 /* CTA */
 .cta-section {
   text-align: center;

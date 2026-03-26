@@ -243,6 +243,45 @@ fn sqlite_store_persists_projections_in_dedicated_tables() {
 }
 
 #[test]
+fn sqlite_store_configures_connection_pragmas() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-pragmas-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+
+    let store = SqliteStore::open(&path).unwrap();
+    let journal_mode: String = store
+        .conn
+        .pragma_query_value(None, "journal_mode", |row| row.get(0))
+        .unwrap();
+    let synchronous: i64 = store
+        .conn
+        .pragma_query_value(None, "synchronous", |row| row.get(0))
+        .unwrap();
+    let temp_store: i64 = store
+        .conn
+        .pragma_query_value(None, "temp_store", |row| row.get(0))
+        .unwrap();
+    let wal_autocheckpoint: i64 = store
+        .conn
+        .pragma_query_value(None, "wal_autocheckpoint", |row| row.get(0))
+        .unwrap();
+
+    assert_eq!(journal_mode.to_ascii_lowercase(), "wal");
+    assert_eq!(synchronous, 1);
+    assert_eq!(temp_store, 2);
+    assert_eq!(wal_autocheckpoint, 1000);
+
+    drop(store);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(path.with_extension("db-shm"));
+}
+
+#[test]
 fn sqlite_store_prunes_co_change_neighbors_to_top_k() {
     let path = std::env::temp_dir().join(format!(
         "prism-store-projection-prune-test-{}.db",
@@ -276,7 +315,10 @@ fn sqlite_store_prunes_co_change_neighbors_to_top_k() {
         .unwrap();
 
     assert_eq!(neighbors.len(), MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE);
-    assert_eq!(neighbors.first().unwrap().count, (MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 8) as u32);
+    assert_eq!(
+        neighbors.first().unwrap().count,
+        (MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 8) as u32
+    );
     assert_eq!(neighbors.last().unwrap().count, 9);
 
     let row_count: i64 = store
