@@ -11,6 +11,7 @@ use rmcp::transport::{
 };
 use tokio::net::TcpListener;
 use tokio::time::sleep;
+use tracing::{debug, info, warn};
 
 use crate::proxy_server::ProxyMcpServer;
 use crate::{PrismMcpCli, PrismMcpServer};
@@ -38,6 +39,7 @@ pub async fn serve_with_mode(cli: PrismMcpCli) -> Result<()> {
 }
 
 async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
+    let started = Instant::now();
     let server = PrismMcpServer::from_workspace_with_features(root, cli.features())?;
     let listener = TcpListener::bind(&cli.http_bind).await.with_context(|| {
         format!(
@@ -52,6 +54,14 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
     let uri_file_path = cli.http_uri_file_path(root);
     write_http_uri_file(&uri_file_path, &http_uri)?;
     let _uri_guard = HttpUriFileGuard(uri_file_path);
+    info!(
+        mode = "daemon",
+        root = %root.display(),
+        listen_addr = %addr,
+        http_uri = %http_uri,
+        startup_ms = started.elapsed().as_millis(),
+        "prism-mcp daemon ready"
+    );
 
     let service_server = server.clone();
     let service: StreamableHttpService<PrismMcpServer, LocalSessionManager> =
@@ -71,6 +81,12 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
 
 async fn run_bridge(cli: &PrismMcpCli, root: &Path) -> Result<()> {
     let upstream_uri = resolve_upstream_uri(cli, root).await?;
+    info!(
+        mode = "bridge",
+        root = %root.display(),
+        upstream_uri = %upstream_uri,
+        "prism-mcp bridge connected"
+    );
     let proxy = ProxyMcpServer::connect(upstream_uri).await?;
     proxy.serve_stdio().await
 }
@@ -86,8 +102,14 @@ async fn resolve_upstream_uri(cli: &PrismMcpCli, root: &Path) -> Result<String> 
 async fn ensure_daemon_running(cli: &PrismMcpCli, root: &Path) -> Result<String> {
     if let Some(uri) = read_http_uri_file(&cli.http_uri_file_path(root))? {
         if can_connect_uri(&uri).await {
+            debug!(root = %root.display(), uri = %uri, "reusing existing prism-mcp daemon");
             return Ok(uri);
         }
+        warn!(
+            root = %root.display(),
+            uri = %uri,
+            "stale prism-mcp URI file found; respawning daemon"
+        );
     }
 
     spawn_daemon(cli, root)?;
@@ -99,6 +121,7 @@ async fn ensure_daemon_running(cli: &PrismMcpCli, root: &Path) -> Result<String>
     while Instant::now() < deadline {
         if let Some(uri) = read_http_uri_file(&cli.http_uri_file_path(root))? {
             if can_connect_uri(&uri).await {
+                info!(root = %root.display(), uri = %uri, "prism-mcp daemon became healthy");
                 return Ok(uri);
             }
         }
@@ -118,6 +141,13 @@ fn spawn_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         fs::create_dir_all(parent)?;
     }
     let current_exe = std::env::current_exe()?;
+    info!(
+        root = %root.display(),
+        log_path = %log_path.display(),
+        executable = %current_exe.display(),
+        args = ?cli.daemon_spawn_args(root),
+        "spawning detached prism-mcp daemon"
+    );
     let mut command = Command::new("/bin/sh");
     command
         .arg("-c")
@@ -209,6 +239,16 @@ struct HttpUriFileGuard(PathBuf);
 
 impl Drop for HttpUriFileGuard {
     fn drop(&mut self) {
-        let _ = fs::remove_file(&self.0);
+        if let Err(error) = fs::remove_file(&self.0) {
+            if error.kind() != std::io::ErrorKind::NotFound {
+                let error_chain = error.to_string();
+                warn!(
+                    uri_file = %self.0.display(),
+                    error = %error,
+                    error_chain = %error_chain,
+                    "failed to remove prism-mcp URI file"
+                );
+            }
+        }
     }
 }

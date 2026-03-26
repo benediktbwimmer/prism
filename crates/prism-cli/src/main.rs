@@ -1,6 +1,7 @@
 mod cli;
 mod commands;
 mod display;
+mod mcp;
 mod parsing;
 mod runtime;
 

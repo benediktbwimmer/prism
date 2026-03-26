@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use prism_ir::{
     Edge, EdgeKind, EdgeOrigin, Language, Node, NodeId, NodeKind, Span, UnresolvedIntent,
 };
@@ -21,7 +21,8 @@ impl LanguageAdapter for JsonAdapter {
     }
 
     fn parse(&self, input: &ParseInput<'_>) -> Result<ParseResult> {
-        let value: Value = serde_json::from_str(input.source)?;
+        let value: Value = serde_json::from_str(input.source)
+            .with_context(|| format!("failed to parse JSON file {}", input.path.display()))?;
         let mut result = ParseResult::default();
         let document_path = document_path(input);
         let document_id = NodeId::new(input.crate_name, document_path.clone(), NodeKind::Document);

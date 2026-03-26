@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
 
@@ -13,9 +13,12 @@ where
             |row| row.get::<_, String>(0),
         )
         .optional()?;
-    raw.map(|value| serde_json::from_str(&value))
-        .transpose()
-        .map_err(Into::into)
+    raw.map(|value| {
+        serde_json::from_str(&value)
+            .with_context(|| format!("failed to decode snapshot `{key}` from sqlite"))
+    })
+    .transpose()
+    .map_err(Into::into)
 }
 
 pub(super) fn save_snapshot_row<T>(conn: &Connection, key: &str, snapshot: &T) -> Result<()>

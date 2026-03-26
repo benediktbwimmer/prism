@@ -13,6 +13,7 @@ use prism_js::{api_reference_markdown, CuratorJobView, API_REFERENCE_URI};
 use prism_memory::{EpisodicMemorySnapshot, OutcomeEvent, SessionMemory};
 use prism_query::{Prism, QueryLimits};
 use rmcp::{handler::server::router::tool::ToolRouter, transport::stdio, ServiceExt};
+use tracing::debug;
 
 mod capabilities_resource;
 mod common;
@@ -24,6 +25,7 @@ mod features;
 mod host_mutations;
 mod host_resources;
 mod js_runtime;
+mod logging;
 mod memory_metadata;
 mod proxy_server;
 mod query_helpers;
@@ -50,6 +52,7 @@ use discovery_bundle::*;
 use discovery_helpers::*;
 pub use features::{CoordinationFeatureFlag, PrismMcpFeatures};
 use js_runtime::JsWorker;
+pub use logging::{init_logging, log_process_start, log_top_level_error};
 use memory_metadata::*;
 use query_helpers::*;
 use query_runtime::*;
@@ -611,13 +614,15 @@ fn log_refresh_workspace(
         return;
     }
 
-    eprintln!(
-        "prism-mcp refresh path={refresh_path} fs_observed={} fs_applied={} episodic_reloaded={} inference_reloaded={} coordination_reloaded={} duration_ms={duration_ms}",
-        workspace.observed_fs_revision(),
-        workspace.applied_fs_revision(),
+    debug!(
+        refresh_path,
+        fs_observed = workspace.observed_fs_revision(),
+        fs_applied = workspace.applied_fs_revision(),
         episodic_reloaded,
         inference_reloaded,
         coordination_reloaded,
+        duration_ms,
+        "prism-mcp workspace refresh"
     );
 }
 

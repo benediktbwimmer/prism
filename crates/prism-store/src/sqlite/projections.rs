@@ -116,6 +116,13 @@ pub(super) fn save_projection_snapshot_tx(
     Ok(())
 }
 
+pub(super) fn prune_projection_co_change(conn: &mut Connection) -> Result<()> {
+    let tx = conn.transaction()?;
+    prune_projection_co_change_tx(&tx)?;
+    tx.commit()?;
+    Ok(())
+}
+
 pub(super) fn apply_projection_co_change_deltas_tx(
     tx: &Transaction<'_>,
     deltas: &[prism_projections::CoChangeDelta],

@@ -9,6 +9,7 @@ use notify::{recommended_watcher, Event, RecursiveMode, Watcher};
 use prism_ir::ChangeTrigger;
 use prism_query::Prism;
 use prism_store::SqliteStore;
+use tracing::error;
 
 use crate::curator::{enqueue_curator_for_observed_locked, CuratorHandleRef};
 use crate::indexer::WorkspaceIndexer;
@@ -93,7 +94,12 @@ pub(crate) fn spawn_fs_watch(
                 ChangeTrigger::FsWatch,
                 None,
             ) {
-                eprintln!("prism fs watch refresh failed: {error}");
+                error!(
+                    root = %root.display(),
+                    error = %error,
+                    error_chain = %format_error_chain(&error),
+                    "prism fs watch refresh failed"
+                );
             } else {
                 refresh_state.mark_refreshed();
             }
@@ -173,4 +179,12 @@ fn is_relevant_watch_event(root: &Path, event: &Event) -> bool {
         let first = first.as_os_str().to_string_lossy();
         !matches!(first.as_ref(), ".git" | ".prism" | "target")
     })
+}
+
+fn format_error_chain(error: &anyhow::Error) -> String {
+    error
+        .chain()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join(" | ")
 }

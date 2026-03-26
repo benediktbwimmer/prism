@@ -336,6 +336,49 @@ fn sqlite_store_prunes_co_change_neighbors_to_top_k() {
 }
 
 #[test]
+fn sqlite_store_prunes_legacy_co_change_rows_on_open() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-legacy-prune-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+
+    {
+        let mut store = SqliteStore::open(&path).unwrap();
+        let tx = store.conn.transaction().unwrap();
+        for index in 0..(MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 8) {
+            tx.execute(
+                "INSERT INTO projection_co_change(source_lineage, target_lineage, count)
+                 VALUES (?1, ?2, ?3)",
+                rusqlite::params![
+                    "lineage:source",
+                    format!("lineage:{index:03}"),
+                    (MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 8 - index) as i64
+                ],
+            )
+            .unwrap();
+        }
+        tx.commit().unwrap();
+    }
+
+    let store = SqliteStore::open(&path).unwrap();
+    let row_count: i64 = store
+        .conn
+        .query_row(
+            "SELECT COUNT(*) FROM projection_co_change WHERE source_lineage = 'lineage:source'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(row_count as usize, MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE);
+
+    drop(store);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
 fn sqlite_store_commits_auxiliary_snapshots_with_projection_deltas() {
     let path = std::env::temp_dir().join(format!(
         "prism-store-aux-test-{}.db",

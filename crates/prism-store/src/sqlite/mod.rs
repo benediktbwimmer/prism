@@ -29,9 +29,10 @@ impl SqliteStore {
             std::fs::create_dir_all(parent)?;
         }
 
-        let conn = Connection::open(path)?;
+        let mut conn = Connection::open(path)?;
         configure_connection(&conn)?;
         schema::init_schema(&conn)?;
+        projections::prune_projection_co_change(&mut conn)?;
         Ok(Self { conn })
     }
 

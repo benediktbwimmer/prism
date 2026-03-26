@@ -14,6 +14,10 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
+    Mcp {
+        #[command(subcommand)]
+        command: McpCommand,
+    },
     Entrypoints,
     Symbol {
         name: String,
@@ -67,6 +71,30 @@ pub enum Command {
     Outcome {
         #[command(subcommand)]
         command: OutcomeCommand,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum McpCommand {
+    Status,
+    Start {
+        #[arg(long, default_value_t = false)]
+        no_coordination: bool,
+    },
+    Stop {
+        #[arg(long, default_value_t = false)]
+        kill_bridges: bool,
+    },
+    Restart {
+        #[arg(long, default_value_t = false)]
+        kill_bridges: bool,
+        #[arg(long, default_value_t = false)]
+        no_coordination: bool,
+    },
+    Health,
+    Logs {
+        #[arg(long, default_value_t = 50)]
+        lines: usize,
     },
 }
 

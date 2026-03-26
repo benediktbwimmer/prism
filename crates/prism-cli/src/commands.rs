@@ -8,6 +8,7 @@ use crate::display::{
     print_lineage, print_relation_section, print_relations, print_scored_memory, print_symbol,
     print_validation_feedback,
 };
+use crate::mcp;
 use crate::parsing::{
     build_evidence, parse_memory_kind, parse_node_kind_filter, parse_outcome_kind,
     parse_outcome_result, parse_validation_feedback_category, parse_validation_feedback_verdict,
@@ -19,11 +20,16 @@ use crate::runtime::{
 };
 
 pub fn run(cli: Cli) -> Result<()> {
-    let session = index_workspace_session(&cli.root)?;
-    let prism = session.prism();
-    let root = cli.root.clone();
+    let Cli { root, command } = cli;
+    if let Command::Mcp { command } = command {
+        return mcp::handle(&root, command);
+    }
 
-    match cli.command {
+    let session = index_workspace_session(&root)?;
+    let prism = session.prism();
+
+    match command {
+        Command::Mcp { .. } => unreachable!("handled above"),
         Command::Entrypoints => {
             for symbol in prism.entrypoints() {
                 println!("{}", symbol.signature());

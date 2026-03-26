@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use prism_ir::{Edge, EdgeKind, EdgeOrigin, Language, Node, NodeId, NodeKind, Span};
 use prism_store::Graph;
 use smol_str::SmolStr;
@@ -161,8 +161,10 @@ fn manifest_package_name(path: &Path) -> Result<Option<String>> {
         return Ok(None);
     }
 
-    let manifest = fs::read_to_string(path)?;
-    let value: Value = toml::from_str(&manifest)?;
+    let manifest = fs::read_to_string(path)
+        .with_context(|| format!("failed to read manifest {}", path.display()))?;
+    let value: Value = toml::from_str(&manifest)
+        .with_context(|| format!("failed to parse manifest {}", path.display()))?;
     Ok(value
         .get("package")
         .and_then(|package| package.get("name"))

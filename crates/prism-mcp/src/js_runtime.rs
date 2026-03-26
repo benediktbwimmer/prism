@@ -10,7 +10,9 @@ use deno_ast::{
 use prism_js::runtime_prelude;
 use rquickjs::{prelude::Func, Context, Runtime};
 use serde_json::json;
+use tracing::error;
 
+use crate::logging::format_error_chain;
 use crate::QueryExecution;
 
 pub(crate) struct JsWorker {
@@ -32,7 +34,11 @@ impl JsWorker {
         let (tx, rx) = mpsc::channel::<JsWorkerMessage>();
         thread::spawn(move || {
             if let Err(error) = run_js_worker(rx) {
-                eprintln!("prism-mcp js worker failed: {error}");
+                error!(
+                    error = %error,
+                    error_chain = %format_error_chain(&error),
+                    "prism-mcp js worker failed"
+                );
             }
         });
         Self { tx }
