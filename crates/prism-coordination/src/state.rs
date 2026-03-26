@@ -34,41 +34,49 @@ impl CoordinationStore {
     }
 
     pub fn from_snapshot(snapshot: CoordinationSnapshot) -> Self {
-        Self {
-            state: RwLock::new(CoordinationState {
-                plans: snapshot
-                    .plans
-                    .into_iter()
-                    .map(|plan| (plan.id.clone(), plan))
-                    .collect(),
-                tasks: snapshot
-                    .tasks
-                    .into_iter()
-                    .map(|task| (task.id.clone(), task))
-                    .collect(),
-                claims: snapshot
-                    .claims
-                    .into_iter()
-                    .map(|claim| (claim.id.clone(), claim))
-                    .collect(),
-                artifacts: snapshot
-                    .artifacts
-                    .into_iter()
-                    .map(|artifact| (artifact.id.clone(), artifact))
-                    .collect(),
-                reviews: snapshot
-                    .reviews
-                    .into_iter()
-                    .map(|review| (review.id.clone(), review))
-                    .collect(),
-                events: snapshot.events,
-                next_plan: snapshot.next_plan,
-                next_task: snapshot.next_task,
-                next_claim: snapshot.next_claim,
-                next_artifact: snapshot.next_artifact,
-                next_review: snapshot.next_review,
-            }),
-        }
+        let store = Self::new();
+        store.replace_from_snapshot(snapshot);
+        store
+    }
+
+    pub fn replace_from_snapshot(&self, snapshot: CoordinationSnapshot) {
+        let mut state = self
+            .state
+            .write()
+            .expect("coordination store lock poisoned");
+        *state = CoordinationState {
+            plans: snapshot
+                .plans
+                .into_iter()
+                .map(|plan| (plan.id.clone(), plan))
+                .collect(),
+            tasks: snapshot
+                .tasks
+                .into_iter()
+                .map(|task| (task.id.clone(), task))
+                .collect(),
+            claims: snapshot
+                .claims
+                .into_iter()
+                .map(|claim| (claim.id.clone(), claim))
+                .collect(),
+            artifacts: snapshot
+                .artifacts
+                .into_iter()
+                .map(|artifact| (artifact.id.clone(), artifact))
+                .collect(),
+            reviews: snapshot
+                .reviews
+                .into_iter()
+                .map(|review| (review.id.clone(), review))
+                .collect(),
+            events: snapshot.events,
+            next_plan: snapshot.next_plan,
+            next_task: snapshot.next_task,
+            next_claim: snapshot.next_claim,
+            next_artifact: snapshot.next_artifact,
+            next_review: snapshot.next_review,
+        };
     }
 
     pub fn snapshot(&self) -> CoordinationSnapshot {

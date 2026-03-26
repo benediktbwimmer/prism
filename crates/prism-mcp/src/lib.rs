@@ -294,6 +294,7 @@ struct QueryHost {
     loaded_workspace_revision: Arc<AtomicU64>,
     loaded_episodic_revision: Arc<AtomicU64>,
     loaded_inference_revision: Arc<AtomicU64>,
+    loaded_coordination_revision: Arc<AtomicU64>,
     features: PrismMcpFeatures,
 }
 
@@ -332,6 +333,7 @@ impl QueryHost {
             loaded_workspace_revision: Arc::new(AtomicU64::new(0)),
             loaded_episodic_revision: Arc::new(AtomicU64::new(0)),
             loaded_inference_revision: Arc::new(AtomicU64::new(0)),
+            loaded_coordination_revision: Arc::new(AtomicU64::new(0)),
             features,
         }
     }
@@ -367,6 +369,7 @@ impl QueryHost {
             .map(InferenceStore::from_snapshot)
             .unwrap_or_else(InferenceStore::new);
         let inference_revision = workspace.inference_revision().unwrap_or_default();
+        let coordination_revision = workspace.coordination_revision().unwrap_or_default();
         let session = Arc::new(SessionState::with_snapshots(
             prism.as_ref(),
             notes,
@@ -381,6 +384,7 @@ impl QueryHost {
             loaded_workspace_revision: Arc::new(AtomicU64::new(workspace_revision)),
             loaded_episodic_revision: Arc::new(AtomicU64::new(episodic_revision)),
             loaded_inference_revision: Arc::new(AtomicU64::new(inference_revision)),
+            loaded_coordination_revision: Arc::new(AtomicU64::new(coordination_revision)),
             features,
         }
     }
@@ -475,11 +479,13 @@ impl QueryHost {
 
         let episodic_reloaded = self.reload_episodic_snapshot_if_needed(workspace)?;
         let inference_reloaded = self.reload_inference_snapshot_if_needed(workspace)?;
+        let coordination_reloaded = self.reload_coordination_snapshot_if_needed(workspace)?;
         log_refresh_workspace(
             refresh_path,
             workspace,
             episodic_reloaded,
             inference_reloaded,
+            coordination_reloaded,
             started.elapsed().as_millis(),
         );
         Ok(())
@@ -535,6 +541,22 @@ impl QueryHost {
         Ok(true)
     }
 
+    fn reload_coordination_snapshot_if_needed(&self, workspace: &WorkspaceSession) -> Result<bool> {
+        let revision = workspace.coordination_revision()?;
+        let loaded = self.loaded_coordination_revision.load(Ordering::Relaxed);
+        if revision == loaded {
+            return Ok(false);
+        }
+
+        let snapshot = workspace.load_coordination_snapshot()?.unwrap_or_default();
+        workspace
+            .prism_arc()
+            .replace_coordination_snapshot(snapshot);
+        self.loaded_coordination_revision
+            .store(revision, Ordering::Relaxed);
+        Ok(true)
+    }
+
     fn persist_outcomes(&self) -> Result<()> {
         let Some(workspace) = &self.workspace else {
             return Ok(());
@@ -582,6 +604,7 @@ fn log_refresh_workspace(
     workspace: &WorkspaceSession,
     episodic_reloaded: bool,
     inference_reloaded: bool,
+    coordination_reloaded: bool,
     duration_ms: u128,
 ) {
     if env::var_os("PRISM_MCP_REFRESH_LOG").is_none() {
@@ -589,11 +612,12 @@ fn log_refresh_workspace(
     }
 
     eprintln!(
-        "prism-mcp refresh path={refresh_path} fs_observed={} fs_applied={} episodic_reloaded={} inference_reloaded={} duration_ms={duration_ms}",
+        "prism-mcp refresh path={refresh_path} fs_observed={} fs_applied={} episodic_reloaded={} inference_reloaded={} coordination_reloaded={} duration_ms={duration_ms}",
         workspace.observed_fs_revision(),
         workspace.applied_fs_revision(),
         episodic_reloaded,
         inference_reloaded,
+        coordination_reloaded,
     );
 }
 

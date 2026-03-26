@@ -7,7 +7,7 @@ use prism_memory::{
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemorySnapshot, OutcomeResult,
 };
 
-use crate::projections::ProjectionIndex;
+use crate::projections::{ProjectionIndex, MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE};
 
 #[test]
 fn derives_validation_and_co_change_indexes() {
@@ -22,6 +22,7 @@ fn derives_validation_and_co_change_indexes() {
         ],
         events: Vec::new(),
         co_change_counts: vec![(alpha_lineage.clone(), beta_lineage.clone(), 3)],
+        tombstones: Vec::new(),
         next_lineage: 2,
         next_event: 0,
     };
@@ -69,6 +70,7 @@ fn incremental_updates_match_derived_index() {
         ],
         events: Vec::new(),
         co_change_counts: vec![(alpha_lineage.clone(), beta_lineage.clone(), 1)],
+        tombstones: Vec::new(),
         next_lineage: 2,
         next_event: 0,
     };
@@ -141,4 +143,32 @@ fn incremental_updates_match_derived_index() {
     });
 
     assert_eq!(incremental.snapshot(), derived.snapshot());
+}
+
+#[test]
+fn co_change_neighbors_are_pruned_to_top_k() {
+    let source = LineageId::new("lineage:source");
+    let history = HistorySnapshot {
+        node_to_lineage: Vec::new(),
+        events: Vec::new(),
+        co_change_counts: (0..(MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 8))
+            .map(|index| {
+                (
+                    source.clone(),
+                    LineageId::new(format!("lineage:{index:03}")),
+                    (MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 8 - index) as u32,
+                )
+            })
+            .collect(),
+        tombstones: Vec::new(),
+        next_lineage: 0,
+        next_event: 0,
+    };
+
+    let index = ProjectionIndex::derive(&history, &OutcomeMemorySnapshot { events: Vec::new() });
+    let neighbors = index.co_change_neighbors(&source, MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 16);
+
+    assert_eq!(neighbors.len(), MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE);
+    assert_eq!(neighbors.first().unwrap().count, (MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 8) as u32);
+    assert_eq!(neighbors.last().unwrap().count, 9);
 }

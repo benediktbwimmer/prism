@@ -4,17 +4,17 @@ use std::sync::{Arc, Mutex, RwLock};
 
 use anyhow::{anyhow, Result};
 use prism_agent::InferenceSnapshot;
-use prism_coordination::CoordinationStore;
 use prism_coordination::CoordinationSnapshot;
+use prism_coordination::CoordinationStore;
 use prism_curator::{
     CuratorJobId, CuratorProposalDisposition, CuratorProposalState, CuratorSnapshot,
 };
 use prism_history::HistoryStore;
 use prism_ir::{ChangeTrigger, EventId, ObservedChangeSet, TaskId};
-use prism_memory::{EpisodicMemorySnapshot, OutcomeEvent};
 use prism_memory::OutcomeMemory;
-use prism_projections::ProjectionIndex;
+use prism_memory::{EpisodicMemorySnapshot, OutcomeEvent};
 use prism_projections::validation_deltas_for_event;
+use prism_projections::ProjectionIndex;
 use prism_query::Prism;
 use prism_store::{AuxiliaryPersistBatch, SqliteStore, Store};
 
@@ -101,7 +101,7 @@ impl WorkspaceSession {
         if !self.refresh_state.needs_refresh() && current_fingerprint == known_fingerprint {
             return Ok(Vec::new());
         }
-        self.refresh_with_trigger(ChangeTrigger::FsWatch)
+        self.refresh_with_trigger(ChangeTrigger::FsWatch, Some(current_fingerprint))
     }
 
     pub fn needs_refresh(&self) -> bool {
@@ -223,6 +223,16 @@ impl WorkspaceSession {
             .lock()
             .expect("workspace store lock poisoned")
             .inference_revision()
+    }
+
+    pub fn coordination_revision(&self) -> Result<u64> {
+        if !self.coordination_enabled {
+            return Ok(0);
+        }
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .coordination_revision()
     }
 
     pub fn persist_inference(&self, snapshot: &InferenceSnapshot) -> Result<()> {
@@ -419,7 +429,11 @@ impl WorkspaceSession {
         Ok(id)
     }
 
-    fn refresh_with_trigger(&self, trigger: ChangeTrigger) -> Result<Vec<ObservedChangeSet>> {
+    fn refresh_with_trigger(
+        &self,
+        trigger: ChangeTrigger,
+        known_fingerprint: Option<u64>,
+    ) -> Result<Vec<ObservedChangeSet>> {
         let curator = self.curator.as_ref().map(CuratorHandleRef::from);
         let observed = refresh_prism_snapshot(
             &self.root,
@@ -430,7 +444,7 @@ impl WorkspaceSession {
             self.coordination_enabled,
             curator.as_ref(),
             trigger,
-            None,
+            known_fingerprint,
         )?;
         self.refresh_state.mark_refreshed();
         Ok(observed)

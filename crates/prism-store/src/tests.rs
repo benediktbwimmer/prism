@@ -13,6 +13,7 @@ use prism_memory::{
 };
 use prism_projections::{
     CoChangeDelta, CoChangeRecord, ProjectionSnapshot, ValidationCheck, ValidationDelta,
+    MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE,
 };
 
 use crate::{AuxiliaryPersistBatch, Graph, IndexPersistBatch, MemoryStore, SqliteStore, Store};
@@ -236,6 +237,57 @@ fn sqlite_store_persists_projections_in_dedicated_tables() {
         )
         .unwrap();
     assert_eq!(snapshot_rows, 0);
+
+    drop(store);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn sqlite_store_prunes_co_change_neighbors_to_top_k() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-projection-prune-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let source = prism_ir::LineageId::new("lineage:source");
+    let projections = ProjectionSnapshot {
+        co_change_by_lineage: vec![(
+            source.clone(),
+            (0..(MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 8))
+                .map(|index| CoChangeRecord {
+                    lineage: prism_ir::LineageId::new(format!("lineage:{index:03}")),
+                    count: (MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 8 - index) as u32,
+                })
+                .collect(),
+        )],
+        validation_by_lineage: Vec::new(),
+    };
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    store.save_projection_snapshot(&projections).unwrap();
+    let loaded = store.load_projection_snapshot().unwrap().unwrap();
+    let neighbors = loaded
+        .co_change_by_lineage
+        .into_iter()
+        .find(|(lineage, _)| lineage == &source)
+        .map(|(_, neighbors)| neighbors)
+        .unwrap();
+
+    assert_eq!(neighbors.len(), MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE);
+    assert_eq!(neighbors.first().unwrap().count, (MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 8) as u32);
+    assert_eq!(neighbors.last().unwrap().count, 9);
+
+    let row_count: i64 = store
+        .conn
+        .query_row(
+            "SELECT COUNT(*) FROM projection_co_change WHERE source_lineage = ?1",
+            [source.0.as_str()],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(row_count as usize, MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE);
 
     drop(store);
     let _ = std::fs::remove_file(path);

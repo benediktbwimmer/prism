@@ -10,6 +10,8 @@ use crate::types::{
     CoChangeDelta, CoChangeRecord, ProjectionSnapshot, ValidationCheck, ValidationDelta,
 };
 
+pub const MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE: usize = 32;
+
 #[derive(Debug, Clone, Default)]
 pub struct ProjectionIndex {
     co_change_by_lineage: HashMap<LineageId, Vec<CoChangeRecord>>,
@@ -22,8 +24,13 @@ impl ProjectionIndex {
     }
 
     pub fn from_snapshot(snapshot: ProjectionSnapshot) -> Self {
+        let mut co_change_by_lineage = snapshot
+            .co_change_by_lineage
+            .into_iter()
+            .collect::<HashMap<_, _>>();
+        normalize_co_change_by_lineage(&mut co_change_by_lineage);
         Self {
-            co_change_by_lineage: snapshot.co_change_by_lineage.into_iter().collect(),
+            co_change_by_lineage,
             validation_by_lineage: snapshot.validation_by_lineage.into_iter().collect(),
         }
     }
@@ -52,15 +59,7 @@ impl ProjectionIndex {
                     count: *count,
                 });
         }
-        for neighbors in co_change_by_lineage.values_mut() {
-            neighbors.sort_by(|left, right| {
-                right
-                    .count
-                    .cmp(&left.count)
-                    .then_with(|| left.lineage.0.cmp(&right.lineage.0))
-            });
-            neighbors.dedup_by(|left, right| left.lineage == right.lineage);
-        }
+        normalize_co_change_by_lineage(&mut co_change_by_lineage);
 
         let mut validation_scores = HashMap::<LineageId, HashMap<String, (f32, u64)>>::new();
         for event in &outcomes.events {
@@ -157,12 +156,7 @@ impl ProjectionIndex {
             .iter()
             .map(|(lineage, neighbors)| {
                 let mut neighbors = neighbors.clone();
-                neighbors.sort_by(|left, right| {
-                    right
-                        .count
-                        .cmp(&left.count)
-                        .then_with(|| left.lineage.0.cmp(&right.lineage.0))
-                });
+                normalize_co_change_neighbors(&mut neighbors);
                 (lineage.clone(), neighbors)
             })
             .collect::<Vec<_>>();
@@ -358,12 +352,24 @@ fn increment_co_change_neighbor(
             count: count_delta,
         });
     }
+    normalize_co_change_neighbors(neighbors);
+}
+
+fn normalize_co_change_by_lineage(by_lineage: &mut HashMap<LineageId, Vec<CoChangeRecord>>) {
+    for neighbors in by_lineage.values_mut() {
+        normalize_co_change_neighbors(neighbors);
+    }
+}
+
+fn normalize_co_change_neighbors(neighbors: &mut Vec<CoChangeRecord>) {
     neighbors.sort_by(|left, right| {
         right
             .count
             .cmp(&left.count)
             .then_with(|| left.lineage.0.cmp(&right.lineage.0))
     });
+    neighbors.dedup_by(|left, right| left.lineage == right.lineage);
+    neighbors.truncate(MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE);
 }
 
 fn increment_validation_check(

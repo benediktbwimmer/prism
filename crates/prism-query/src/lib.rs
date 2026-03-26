@@ -135,6 +135,10 @@ impl Prism {
         self.coordination.snapshot()
     }
 
+    pub fn replace_coordination_snapshot(&self, snapshot: CoordinationSnapshot) {
+        self.coordination.replace_from_snapshot(snapshot);
+    }
+
     pub fn projection_snapshot(&self) -> ProjectionSnapshot {
         self.projections
             .read()

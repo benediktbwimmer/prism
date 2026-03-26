@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
+use prism_projections::MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE;
 use rusqlite::{params, Connection, Transaction};
 
 pub(super) fn load_projection_snapshot_rows(
@@ -11,10 +12,18 @@ pub(super) fn load_projection_snapshot_rows(
     {
         let mut stmt = conn.prepare(
             "SELECT source_lineage, target_lineage, count
-             FROM projection_co_change
+             FROM (
+                 SELECT source_lineage, target_lineage, count,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY source_lineage
+                            ORDER BY count DESC, target_lineage
+                        ) AS rank
+                 FROM projection_co_change
+             )
+             WHERE rank <= ?1
              ORDER BY source_lineage, count DESC, target_lineage",
         )?;
-        let rows = stmt.query_map([], |row| {
+        let rows = stmt.query_map([MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE as i64], |row| {
             Ok((
                 prism_ir::LineageId::new(row.get::<_, String>(0)?),
                 prism_projections::CoChangeRecord {
@@ -87,6 +96,7 @@ pub(super) fn save_projection_snapshot_tx(
             )?;
         }
     }
+    prune_projection_co_change_tx(tx)?;
 
     for (lineage, checks) in &snapshot.validation_by_lineage {
         for check in checks {
@@ -123,6 +133,29 @@ pub(super) fn apply_projection_co_change_deltas_tx(
             ],
         )?;
     }
+    if !deltas.is_empty() {
+        prune_projection_co_change_tx(tx)?;
+    }
+    Ok(())
+}
+
+fn prune_projection_co_change_tx(tx: &Transaction<'_>) -> Result<()> {
+    tx.execute(
+        "DELETE FROM projection_co_change
+         WHERE (source_lineage, target_lineage) IN (
+             SELECT source_lineage, target_lineage
+             FROM (
+                 SELECT source_lineage, target_lineage,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY source_lineage
+                            ORDER BY count DESC, target_lineage
+                        ) AS rank
+                 FROM projection_co_change
+             )
+             WHERE rank > ?1
+         )",
+        params![MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE as i64],
+    )?;
     Ok(())
 }
 

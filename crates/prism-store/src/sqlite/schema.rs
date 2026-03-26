@@ -135,6 +135,9 @@ pub(super) fn init_schema(conn: &Connection) -> Result<()> {
             PRIMARY KEY (source_lineage, target_lineage)
         );
 
+        CREATE INDEX IF NOT EXISTS idx_projection_co_change_rank
+            ON projection_co_change(source_lineage, count DESC, target_lineage);
+
         CREATE TABLE IF NOT EXISTS projection_validation (
             lineage TEXT NOT NULL,
             label TEXT NOT NULL,

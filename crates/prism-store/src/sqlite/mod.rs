@@ -15,6 +15,7 @@ use crate::store::{AuxiliaryPersistBatch, IndexPersistBatch, Store};
 const WORKSPACE_REVISION_KEY: &str = "revision:workspace";
 const EPISODIC_REVISION_KEY: &str = "revision:episodic";
 const INFERENCE_REVISION_KEY: &str = "revision:inference";
+const COORDINATION_REVISION_KEY: &str = "revision:coordination";
 
 pub struct SqliteStore {
     pub(crate) conn: Connection,
@@ -42,6 +43,10 @@ impl SqliteStore {
 
     pub fn workspace_revision(&self) -> Result<u64> {
         metadata_value(&self.conn, WORKSPACE_REVISION_KEY)
+    }
+
+    pub fn coordination_revision(&self) -> Result<u64> {
+        metadata_value(&self.conn, COORDINATION_REVISION_KEY)
     }
 }
 
@@ -167,7 +172,7 @@ impl Store for SqliteStore {
     ) -> Result<()> {
         let tx = self.conn.transaction()?;
         snapshots::save_snapshot_row_tx(&tx, "coordination", snapshot)?;
-        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        bump_metadata_value_tx(&tx, COORDINATION_REVISION_KEY)?;
         tx.commit()?;
         Ok(())
     }
@@ -192,7 +197,7 @@ impl Store for SqliteStore {
         }
         if let Some(snapshot) = &batch.coordination_snapshot {
             snapshots::save_snapshot_row_tx(&tx, "coordination", snapshot)?;
-            workspace_changed = true;
+            bump_metadata_value_tx(&tx, COORDINATION_REVISION_KEY)?;
         }
         projections::apply_projection_validation_deltas_tx(&tx, &batch.validation_deltas)?;
         if !batch.validation_deltas.is_empty() {
