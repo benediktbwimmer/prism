@@ -333,6 +333,145 @@ fn coordination_mutations_flow_through_query_runtime() {
     assert!(simulated_value.as_array().unwrap().is_empty());
 }
 
+#[test]
+fn mcp_returns_structured_coordination_rejections_and_persists_them() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let plan = host
+        .store_coordination(PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanCreate,
+            payload: json!({
+                "goal": "Ship reviewed change",
+                "policy": { "requireReviewForCompletion": true }
+            }),
+            task_id: None,
+        })
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let task = host
+        .store_coordination(PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::TaskCreate,
+            payload: json!({
+                "planId": plan_id,
+                "title": "Edit alpha",
+                "anchors": [{
+                    "type": "node",
+                    "crateName": "demo",
+                    "path": "demo::alpha",
+                    "kind": "function"
+                }]
+            }),
+            task_id: None,
+        })
+        .unwrap();
+
+    let rejected = host
+        .store_coordination(PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::TaskUpdate,
+            payload: json!({
+                "taskId": task.state["id"].as_str().unwrap(),
+                "status": "completed"
+            }),
+            task_id: None,
+        })
+        .unwrap();
+    assert!(rejected.rejected);
+    assert!(!rejected.event_ids.is_empty());
+    assert_eq!(rejected.state, Value::Null);
+    assert!(rejected
+        .violations
+        .iter()
+        .any(|violation| violation.code == "review_required"));
+
+    let reloaded = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let events = reloaded.current_prism().coordination_snapshot().events;
+    assert_eq!(
+        events.last().unwrap().kind,
+        prism_ir::CoordinationEventKind::MutationRejected
+    );
+}
+
+#[test]
+fn mcp_plan_update_completes_plan_and_closed_plan_rejects_new_claims() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let plan = host
+        .store_coordination(PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanCreate,
+            payload: json!({ "goal": "Single pass coordination" }),
+            task_id: None,
+        })
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let task = host
+        .store_coordination(PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::TaskCreate,
+            payload: json!({
+                "planId": plan_id.clone(),
+                "title": "Edit alpha",
+                "anchors": [{
+                    "type": "node",
+                    "crateName": "demo",
+                    "path": "demo::alpha",
+                    "kind": "function"
+                }]
+            }),
+            task_id: None,
+        })
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(PrismCoordinationArgs {
+        kind: CoordinationMutationKindInput::TaskUpdate,
+        payload: json!({
+            "taskId": task_id.clone(),
+            "status": "completed"
+        }),
+        task_id: None,
+    })
+    .unwrap();
+
+    let completed_plan = host
+        .store_coordination(PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanUpdate,
+            payload: json!({
+                "planId": plan_id.clone(),
+                "status": "completed"
+            }),
+            task_id: None,
+        })
+        .unwrap();
+    assert!(!completed_plan.rejected);
+    assert_eq!(completed_plan.state["status"], "Completed");
+
+    let rejected_claim = host
+        .store_claim(PrismClaimArgs {
+            action: ClaimActionInput::Acquire,
+            payload: json!({
+                "anchors": [{
+                    "type": "node",
+                    "crateName": "demo",
+                    "path": "demo::alpha",
+                    "kind": "function"
+                }],
+                "capability": "Edit",
+                "mode": "SoftExclusive",
+                "coordinationTaskId": task_id
+            }),
+            task_id: None,
+        })
+        .unwrap();
+    assert!(rejected_claim.rejected);
+    assert!(rejected_claim
+        .violations
+        .iter()
+        .any(|violation| violation.code == "plan_closed"));
+}
+
 #[tokio::test]
 async fn mcp_server_advertises_tools_and_api_reference_resource() {
     let server = server_with_node(demo_node());
@@ -1115,6 +1254,12 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
         .conflicts
         .iter()
         .any(|conflict| conflict["severity"] == Value::String("Block".to_string())));
+    assert!(blocked_neighbor_claim.conflicts.iter().any(|conflict| {
+        conflict["overlapKinds"]
+            .as_array()
+            .map(|kinds| kinds.iter().any(|kind| kind == "File"))
+            .unwrap_or(false)
+    }));
 
     host_a
         .store_coordination(PrismCoordinationArgs {
@@ -1388,6 +1533,11 @@ return {{
     text: "routing",
     limit: 5,
   }}),
+  structuralOnly: prism.memory.recall({{
+    focus: sym ? [sym] : [],
+    kinds: ["structural"],
+    limit: 5,
+  }}),
 }};
 "#
             ),
@@ -1404,6 +1554,10 @@ return {{
     assert_eq!(
         proposal.result["memory"][0]["entry"]["content"],
         "alpha owns request routing"
+    );
+    assert_eq!(
+        proposal.result["structuralOnly"][0]["entry"]["kind"],
+        "Structural"
     );
 }
 

@@ -12,13 +12,14 @@ use crate::{
     claim_view, co_change_view, conflict_view, convert_anchors, convert_node_id,
     coordination_task_view, current_timestamp, drift_candidate_view, edge_kind_label, edge_view,
     js_runtime, lineage_view, merge_node_ids, merge_promoted_checks, parse_capability,
-    parse_claim_mode, parse_node_kind, plan_view, promoted_memory_entries, promoted_summary_texts,
-    promoted_validation_checks, relations_view, scored_memory_view, symbol_for, symbol_view,
-    symbol_views_for_ids, task_intent_view, task_risk_view, task_validation_recipe_view,
-    validation_recipe_view_with, AnchorListArgs, CallGraphArgs, CoordinationTaskTargetArgs,
-    CuratorJobArgs, CuratorJobsArgs, LimitArgs, MemoryRecallArgs, PendingReviewsArgs,
-    PlanTargetArgs, QueryHost, QueryLanguage, SearchArgs, SimulateClaimArgs, SymbolQueryArgs,
-    SymbolTargetArgs, TaskTargetArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
+    parse_claim_mode, parse_memory_kind, parse_node_kind, plan_view, promoted_memory_entries,
+    promoted_summary_texts, promoted_validation_checks, relations_view, scored_memory_view,
+    symbol_for, symbol_view, symbol_views_for_ids, task_intent_view, task_risk_view,
+    task_validation_recipe_view, validation_recipe_view_with, AnchorListArgs, CallGraphArgs,
+    CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, LimitArgs, MemoryRecallArgs,
+    PendingReviewsArgs, PlanTargetArgs, QueryHost, QueryLanguage, SearchArgs, SimulateClaimArgs,
+    SymbolQueryArgs, SymbolTargetArgs, TaskTargetArgs, DEFAULT_CALL_GRAPH_DEPTH,
+    DEFAULT_SEARCH_LIMIT,
 };
 
 impl QueryHost {
@@ -809,6 +810,15 @@ impl QueryExecution {
             }
         }
         let focus = self.prism.anchors_for(&focus);
+        let kinds = args
+            .kinds
+            .map(|kinds| {
+                kinds
+                    .into_iter()
+                    .map(|kind| parse_memory_kind(&kind))
+                    .collect::<Result<Vec<_>>>()
+            })
+            .transpose()?;
         let results = self
             .host
             .session
@@ -817,7 +827,7 @@ impl QueryExecution {
                 focus,
                 text: args.text,
                 limit: applied,
-                kinds: None,
+                kinds,
                 since: None,
             })?
             .into_iter()

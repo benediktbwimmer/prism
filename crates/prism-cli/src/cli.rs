@@ -100,11 +100,15 @@ pub enum MemoryCommand {
         text: Option<String>,
         #[arg(long, default_value_t = 5)]
         limit: usize,
+        #[arg(long = "kind")]
+        kinds: Vec<String>,
     },
     Store {
         name: String,
         #[arg(long)]
         content: String,
+        #[arg(long, default_value = "episodic")]
+        kind: String,
     },
 }
 

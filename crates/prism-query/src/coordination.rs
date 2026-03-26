@@ -127,12 +127,18 @@ impl Prism {
 
         for node in processed_nodes {
             scoped.push(AnchorRef::Node(node.clone()));
+            if let Some(graph_node) = self.graph().node(&node) {
+                scoped.push(AnchorRef::File(graph_node.file));
+            }
             if let Some(lineage) = self.lineage_of(&node) {
                 scoped.push(AnchorRef::Lineage(lineage));
             }
 
             for neighbor in self.graph_neighbors(&node).into_iter().take(8) {
                 scoped.push(AnchorRef::Node(neighbor.clone()));
+                if let Some(graph_node) = self.graph().node(&neighbor) {
+                    scoped.push(AnchorRef::File(graph_node.file));
+                }
                 if let Some(lineage) = self.lineage_of(&neighbor) {
                     scoped.push(AnchorRef::Lineage(lineage));
                 }

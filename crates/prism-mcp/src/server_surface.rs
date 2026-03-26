@@ -262,7 +262,7 @@ impl PrismMcpServer {
     }
 
     #[tool(
-        description = "Mutate shared coordination state for plans, tasks, and handoffs.",
+        description = "Mutate shared coordination state for plans, tasks, plan lifecycle, and handoffs.",
         annotations(
             title = "Mutate Coordination State",
             read_only_hint = false,

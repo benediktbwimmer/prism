@@ -3,9 +3,9 @@ use prism_agent::InferredEdgeScope;
 use prism_coordination::{AcceptanceCriterion, CoordinationPolicy};
 use prism_ir::{
     AnchorRef, Capability, ClaimMode, CoordinationTaskStatus, EdgeKind, NodeId, NodeKind,
-    ReviewVerdict,
+    PlanStatus, ReviewVerdict,
 };
-use prism_memory::{OutcomeEvidence, OutcomeKind, OutcomeResult};
+use prism_memory::{MemoryKind, OutcomeEvidence, OutcomeKind, OutcomeResult};
 use serde::Deserialize;
 
 use crate::{
@@ -50,6 +50,16 @@ pub(crate) struct MemoryRecallArgs {
     pub(crate) focus: Option<Vec<NodeIdInput>>,
     pub(crate) text: Option<String>,
     pub(crate) limit: Option<usize>,
+    pub(crate) kinds: Option<Vec<String>>,
+}
+
+pub(crate) fn parse_memory_kind(value: &str) -> Result<MemoryKind> {
+    match value.to_ascii_lowercase().as_str() {
+        "episodic" | "note" | "notes" => Ok(MemoryKind::Episodic),
+        "structural" | "rule" | "invariant" => Ok(MemoryKind::Structural),
+        "semantic" | "summary" => Ok(MemoryKind::Semantic),
+        other => Err(anyhow!("unknown memory kind `{other}`")),
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -176,6 +186,18 @@ pub(crate) fn parse_coordination_task_status(value: &str) -> Result<Coordination
         "completed" => Ok(CoordinationTaskStatus::Completed),
         "abandoned" => Ok(CoordinationTaskStatus::Abandoned),
         other => Err(anyhow!("unknown coordination task status `{other}`")),
+    }
+}
+
+pub(crate) fn parse_plan_status(value: &str) -> Result<PlanStatus> {
+    let normalized = value.trim().to_ascii_lowercase();
+    match normalized.as_str() {
+        "draft" => Ok(PlanStatus::Draft),
+        "active" => Ok(PlanStatus::Active),
+        "blocked" => Ok(PlanStatus::Blocked),
+        "completed" => Ok(PlanStatus::Completed),
+        "abandoned" => Ok(PlanStatus::Abandoned),
+        other => Err(anyhow!("unknown coordination plan status `{other}`")),
     }
 }
 

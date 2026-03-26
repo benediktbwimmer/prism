@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 use prism_ir::LineageEvent;
@@ -8,7 +9,7 @@ use crate::types::{MemoryId, MemoryKind, MemoryModule, RecallQuery, ScoredMemory
 
 #[derive(Default)]
 pub struct MemoryComposite {
-    modules: Vec<(Box<dyn MemoryModule>, f32)>,
+    modules: Vec<(Arc<dyn MemoryModule>, f32)>,
 }
 
 impl MemoryComposite {
@@ -20,7 +21,7 @@ impl MemoryComposite {
     where
         M: MemoryModule + 'static,
     {
-        self.modules.push((Box::new(module), weight.max(0.0)));
+        self.push_shared_module(Arc::new(module), weight);
         self
     }
 
@@ -28,7 +29,16 @@ impl MemoryComposite {
     where
         M: MemoryModule + 'static,
     {
-        self.modules.push((Box::new(module), weight.max(0.0)));
+        self.push_shared_module(Arc::new(module), weight);
+    }
+
+    pub fn with_shared_module(mut self, module: Arc<dyn MemoryModule>, weight: f32) -> Self {
+        self.push_shared_module(module, weight);
+        self
+    }
+
+    pub fn push_shared_module(&mut self, module: Arc<dyn MemoryModule>, weight: f32) {
+        self.modules.push((module, weight.max(0.0)));
     }
 }
 

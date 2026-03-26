@@ -1,7 +1,8 @@
 use prism_coordination::BlockerKind;
 use prism_ir::{
-    AnchorRef, ArtifactStatus, Capability, ClaimMode, ClaimStatus, ConflictSeverity,
-    CoordinationTaskStatus, EdgeKind, EdgeOrigin, Language, NodeKind, PlanStatus, Span,
+    AnchorRef, ArtifactStatus, Capability, ClaimMode, ClaimStatus, ConflictOverlapKind,
+    ConflictSeverity, CoordinationTaskStatus, EdgeKind, EdgeOrigin, Language, NodeKind, PlanStatus,
+    Span,
 };
 use prism_memory::OutcomeEvent;
 use schemars::JsonSchema;
@@ -246,6 +247,7 @@ pub struct ConflictView {
     pub severity: ConflictSeverity,
     pub summary: String,
     pub anchors: Vec<AnchorRef>,
+    pub overlap_kinds: Vec<ConflictOverlapKind>,
     pub blocking_claim_ids: Vec<String>,
 }
 

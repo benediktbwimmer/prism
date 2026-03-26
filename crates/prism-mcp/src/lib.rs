@@ -8,7 +8,7 @@ use prism_agent::InferenceStore;
 use prism_core::{index_workspace_session_with_options, WorkspaceSession, WorkspaceSessionOptions};
 use prism_ir::TaskId;
 use prism_js::{api_reference_markdown, CuratorJobView, API_REFERENCE_URI};
-use prism_memory::{EpisodicMemory, OutcomeEvent};
+use prism_memory::{OutcomeEvent, SessionMemory};
 use prism_query::{Prism, QueryLimits};
 use rmcp::{handler::server::router::tool::ToolRouter, transport::stdio, ServiceExt};
 
@@ -212,7 +212,7 @@ impl QueryHost {
         let prism = Arc::new(prism);
         let session = Arc::new(SessionState::with_limits(
             prism.as_ref(),
-            EpisodicMemory::new(),
+            SessionMemory::new(),
             InferenceStore::new(),
             limits,
         ));
@@ -245,8 +245,8 @@ impl QueryHost {
             .load_episodic_snapshot()
             .ok()
             .flatten()
-            .map(EpisodicMemory::from_snapshot)
-            .unwrap_or_else(EpisodicMemory::new);
+            .map(SessionMemory::from_snapshot)
+            .unwrap_or_else(SessionMemory::new);
         let inferred_edges = workspace
             .load_inference_snapshot()
             .ok()

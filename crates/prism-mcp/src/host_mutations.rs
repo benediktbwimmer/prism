@@ -1,5 +1,8 @@
 use anyhow::{anyhow, Result};
-use prism_coordination::{HandoffInput, PlanCreateInput, TaskCreateInput, TaskUpdateInput};
+use prism_coordination::{
+    HandoffInput, PlanCreateInput, PlanUpdateInput, PolicyViolation, TaskCreateInput,
+    TaskUpdateInput,
+};
 use prism_curator::{CuratorJobId, CuratorProposal, CuratorProposalDisposition};
 use prism_ir::{
     AgentId, AnchorRef, ArtifactId, ClaimId, CoordinationTaskId, Edge, EdgeOrigin, EventActor,
@@ -17,16 +20,56 @@ use crate::{
     convert_outcome_kind, convert_outcome_result, convert_policy, coordination_task_view,
     curator_disposition_label, curator_job_status_label, curator_proposal, curator_proposal_state,
     curator_trigger_label, current_timestamp, parse_capability, parse_claim_mode,
-    parse_coordination_task_status, parse_edge_kind, parse_review_verdict, plan_view,
-    ArtifactActionInput, ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
-    ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput, ClaimMutationResult,
-    ClaimReleasePayload, ClaimRenewPayload, CoordinationMutationKindInput,
+    parse_coordination_task_status, parse_edge_kind, parse_plan_status, parse_review_verdict,
+    plan_view, ArtifactActionInput, ArtifactMutationResult, ArtifactProposePayload,
+    ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput,
+    ClaimMutationResult, ClaimReleasePayload, ClaimRenewPayload, CoordinationMutationKindInput,
     CoordinationMutationResult, CuratorJobView, CuratorProposalDecisionResult, EdgeMutationResult,
-    EventMutationResult, MemoryMutationResult, PrismArtifactArgs, PrismClaimArgs,
-    PrismCoordinationArgs, PrismCuratorPromoteEdgeArgs, PrismCuratorPromoteMemoryArgs,
-    PrismCuratorRejectProposalArgs, PrismInferEdgeArgs, PrismNoteArgs, PrismOutcomeArgs, QueryHost,
-    TaskCreatePayload, TaskUpdatePayload,
+    EventMutationResult, MemoryMutationResult, MutationViolationView, PlanUpdatePayload,
+    PrismArtifactArgs, PrismClaimArgs, PrismCoordinationArgs, PrismCuratorPromoteEdgeArgs,
+    PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs, PrismInferEdgeArgs,
+    PrismNoteArgs, PrismOutcomeArgs, QueryHost, TaskCreatePayload, TaskUpdatePayload,
 };
+
+#[derive(Default)]
+struct CoordinationAudit {
+    event_ids: Vec<String>,
+    violations: Vec<MutationViolationView>,
+    rejected: bool,
+}
+
+fn mutation_violation_view(value: PolicyViolation) -> MutationViolationView {
+    MutationViolationView {
+        code: serde_json::to_string(&value.code)
+            .unwrap_or_else(|_| "\"unknown\"".to_string())
+            .trim_matches('"')
+            .to_string(),
+        summary: value.summary,
+        plan_id: value.plan_id.map(|id| id.0.to_string()),
+        task_id: value.task_id.map(|id| id.0.to_string()),
+        claim_id: value.claim_id.map(|id| id.0.to_string()),
+        artifact_id: value.artifact_id.map(|id| id.0.to_string()),
+        details: value.details,
+    }
+}
+
+fn coordination_audit_since(prism: &Prism, before_len: usize) -> CoordinationAudit {
+    let mut audit = CoordinationAudit::default();
+    for event in prism.coordination().events().into_iter().skip(before_len) {
+        audit.event_ids.push(event.meta.id.0.to_string());
+        if event.kind == prism_ir::CoordinationEventKind::MutationRejected {
+            audit.rejected = true;
+        }
+        if let Some(value) = event.metadata.get("violations") {
+            if let Ok(violations) = serde_json::from_value::<Vec<PolicyViolation>>(value.clone()) {
+                audit
+                    .violations
+                    .extend(violations.into_iter().map(mutation_violation_view));
+            }
+        }
+    }
+    audit
+}
 
 impl QueryHost {
     fn ensure_tool_enabled(&self, tool_name: &str, label: &str) -> Result<()> {
@@ -198,6 +241,8 @@ impl QueryHost {
     ) -> Result<CoordinationMutationResult> {
         self.ensure_tool_enabled("prism_coordination", "coordination workflow mutations")?;
         self.refresh_workspace()?;
+        let prism = self.current_prism();
+        let before_events = prism.coordination().events().len();
         let task = self
             .session
             .task_for_mutation(args.task_id.clone().map(TaskId::new));
@@ -210,14 +255,57 @@ impl QueryHost {
             causation: None,
         };
         let state = if let Some(workspace) = &self.workspace {
-            workspace
-                .mutate_coordination(|prism| self.apply_coordination_mutation(prism, args, meta))?
+            match workspace.mutate_coordination(|prism| {
+                self.apply_coordination_mutation(prism, args, meta.clone())
+            }) {
+                Ok(state) => state,
+                Err(error) => {
+                    let audit = coordination_audit_since(prism.as_ref(), before_events);
+                    if audit.rejected && !audit.event_ids.is_empty() {
+                        workspace.persist_current_coordination()?;
+                        return Ok(CoordinationMutationResult {
+                            event_id: audit
+                                .event_ids
+                                .first()
+                                .cloned()
+                                .unwrap_or_else(|| event_id.0.to_string()),
+                            event_ids: audit.event_ids,
+                            rejected: true,
+                            violations: audit.violations,
+                            state: Value::Null,
+                        });
+                    }
+                    return Err(error);
+                }
+            }
         } else {
-            let prism = self.current_prism();
-            self.apply_coordination_mutation(prism.as_ref(), args, meta)?
+            match self.apply_coordination_mutation(prism.as_ref(), args, meta.clone()) {
+                Ok(state) => state,
+                Err(error) => {
+                    let audit = coordination_audit_since(prism.as_ref(), before_events);
+                    if audit.rejected && !audit.event_ids.is_empty() {
+                        return Ok(CoordinationMutationResult {
+                            event_id: audit
+                                .event_ids
+                                .first()
+                                .cloned()
+                                .unwrap_or_else(|| event_id.0.to_string()),
+                            event_ids: audit.event_ids,
+                            rejected: true,
+                            violations: audit.violations,
+                            state: Value::Null,
+                        });
+                    }
+                    return Err(error);
+                }
+            }
         };
+        let audit = coordination_audit_since(prism.as_ref(), before_events);
         Ok(CoordinationMutationResult {
             event_id: event_id.0.to_string(),
+            event_ids: audit.event_ids,
+            rejected: false,
+            violations: audit.violations,
             state,
         })
     }
@@ -225,6 +313,8 @@ impl QueryHost {
     pub(crate) fn store_claim(&self, args: PrismClaimArgs) -> Result<ClaimMutationResult> {
         self.ensure_tool_enabled("prism_claim", "coordination claim mutations")?;
         self.refresh_workspace()?;
+        let prism = self.current_prism();
+        let before_events = prism.coordination().events().len();
         let task = self
             .session
             .task_for_mutation(args.task_id.clone().map(TaskId::new));
@@ -236,16 +326,62 @@ impl QueryHost {
             causation: None,
         };
         if let Some(workspace) = &self.workspace {
-            workspace.mutate_coordination(|prism| self.apply_claim_mutation(prism, args, meta))
+            match workspace
+                .mutate_coordination(|prism| self.apply_claim_mutation(prism, args, meta.clone()))
+            {
+                Ok(mut result) => {
+                    let audit = coordination_audit_since(prism.as_ref(), before_events);
+                    result.event_ids = audit.event_ids;
+                    result.violations.extend(audit.violations);
+                    Ok(result)
+                }
+                Err(error) => {
+                    let audit = coordination_audit_since(prism.as_ref(), before_events);
+                    if audit.rejected && !audit.event_ids.is_empty() {
+                        workspace.persist_current_coordination()?;
+                        return Ok(ClaimMutationResult {
+                            claim_id: None,
+                            event_ids: audit.event_ids,
+                            rejected: true,
+                            conflicts: Vec::new(),
+                            violations: audit.violations,
+                            state: Value::Null,
+                        });
+                    }
+                    Err(error)
+                }
+            }
         } else {
-            let prism = self.current_prism();
-            self.apply_claim_mutation(prism.as_ref(), args, meta)
+            match self.apply_claim_mutation(prism.as_ref(), args, meta.clone()) {
+                Ok(mut result) => {
+                    let audit = coordination_audit_since(prism.as_ref(), before_events);
+                    result.event_ids = audit.event_ids;
+                    result.violations.extend(audit.violations);
+                    Ok(result)
+                }
+                Err(error) => {
+                    let audit = coordination_audit_since(prism.as_ref(), before_events);
+                    if audit.rejected && !audit.event_ids.is_empty() {
+                        return Ok(ClaimMutationResult {
+                            claim_id: None,
+                            event_ids: audit.event_ids,
+                            rejected: true,
+                            conflicts: Vec::new(),
+                            violations: audit.violations,
+                            state: Value::Null,
+                        });
+                    }
+                    Err(error)
+                }
+            }
         }
     }
 
     pub(crate) fn store_artifact(&self, args: PrismArtifactArgs) -> Result<ArtifactMutationResult> {
         self.ensure_tool_enabled("prism_artifact", "coordination artifact mutations")?;
         self.refresh_workspace()?;
+        let prism = self.current_prism();
+        let before_events = prism.coordination().events().len();
         let task = self
             .session
             .task_for_mutation(args.task_id.clone().map(TaskId::new));
@@ -257,10 +393,54 @@ impl QueryHost {
             causation: None,
         };
         if let Some(workspace) = &self.workspace {
-            workspace.mutate_coordination(|prism| self.apply_artifact_mutation(prism, args, meta))
+            match workspace.mutate_coordination(|prism| {
+                self.apply_artifact_mutation(prism, args, meta.clone())
+            }) {
+                Ok(mut result) => {
+                    let audit = coordination_audit_since(prism.as_ref(), before_events);
+                    result.event_ids = audit.event_ids;
+                    result.violations.extend(audit.violations);
+                    Ok(result)
+                }
+                Err(error) => {
+                    let audit = coordination_audit_since(prism.as_ref(), before_events);
+                    if audit.rejected && !audit.event_ids.is_empty() {
+                        workspace.persist_current_coordination()?;
+                        return Ok(ArtifactMutationResult {
+                            artifact_id: None,
+                            review_id: None,
+                            event_ids: audit.event_ids,
+                            rejected: true,
+                            violations: audit.violations,
+                            state: Value::Null,
+                        });
+                    }
+                    Err(error)
+                }
+            }
         } else {
-            let prism = self.current_prism();
-            self.apply_artifact_mutation(prism.as_ref(), args, meta)
+            match self.apply_artifact_mutation(prism.as_ref(), args, meta.clone()) {
+                Ok(mut result) => {
+                    let audit = coordination_audit_since(prism.as_ref(), before_events);
+                    result.event_ids = audit.event_ids;
+                    result.violations.extend(audit.violations);
+                    Ok(result)
+                }
+                Err(error) => {
+                    let audit = coordination_audit_since(prism.as_ref(), before_events);
+                    if audit.rejected && !audit.event_ids.is_empty() {
+                        return Ok(ArtifactMutationResult {
+                            artifact_id: None,
+                            review_id: None,
+                            event_ids: audit.event_ids,
+                            rejected: true,
+                            violations: audit.violations,
+                            state: Value::Null,
+                        });
+                    }
+                    Err(error)
+                }
+            }
         }
     }
 
@@ -276,6 +456,23 @@ impl QueryHost {
                 let (_, plan) = prism.coordination().create_plan(
                     meta,
                     PlanCreateInput {
+                        goal: payload.goal,
+                        policy: convert_policy(payload.policy)?,
+                    },
+                )?;
+                Ok(serde_json::to_value(plan_view(plan))?)
+            }
+            CoordinationMutationKindInput::PlanUpdate => {
+                let payload: PlanUpdatePayload = serde_json::from_value(args.payload)?;
+                let plan = prism.coordination().update_plan(
+                    meta,
+                    PlanUpdateInput {
+                        plan_id: PlanId::new(payload.plan_id),
+                        status: payload
+                            .status
+                            .as_deref()
+                            .map(parse_plan_status)
+                            .transpose()?,
                         goal: payload.goal,
                         policy: convert_policy(payload.policy)?,
                     },
@@ -387,11 +584,14 @@ impl QueryHost {
                 )?;
                 Ok(ClaimMutationResult {
                     claim_id: claim_id.map(|claim_id| claim_id.0.to_string()),
+                    event_ids: Vec::new(),
+                    rejected: false,
                     conflicts: conflicts
                         .into_iter()
                         .map(conflict_view)
                         .map(serde_json::to_value)
                         .collect::<Result<Vec<_>, _>>()?,
+                    violations: Vec::new(),
                     state: state
                         .map(claim_view)
                         .map(serde_json::to_value)
@@ -408,7 +608,10 @@ impl QueryHost {
                 )?;
                 Ok(ClaimMutationResult {
                     claim_id: Some(payload.claim_id),
+                    event_ids: Vec::new(),
+                    rejected: false,
                     conflicts: Vec::new(),
+                    violations: Vec::new(),
                     state: serde_json::to_value(claim_view(claim))?,
                 })
             }
@@ -419,7 +622,10 @@ impl QueryHost {
                     .release_claim(meta, &ClaimId::new(payload.claim_id.clone()))?;
                 Ok(ClaimMutationResult {
                     claim_id: Some(payload.claim_id),
+                    event_ids: Vec::new(),
+                    rejected: false,
                     conflicts: Vec::new(),
+                    violations: Vec::new(),
                     state: serde_json::to_value(claim_view(claim))?,
                 })
             }
@@ -492,6 +698,9 @@ impl QueryHost {
                 Ok(ArtifactMutationResult {
                     artifact_id: Some(artifact_id.0.to_string()),
                     review_id: None,
+                    event_ids: Vec::new(),
+                    rejected: false,
+                    violations: Vec::new(),
                     state: serde_json::to_value(artifact_view(artifact))?,
                 })
             }
@@ -506,6 +715,9 @@ impl QueryHost {
                 Ok(ArtifactMutationResult {
                     artifact_id: Some(payload.artifact_id),
                     review_id: None,
+                    event_ids: Vec::new(),
+                    rejected: false,
+                    violations: Vec::new(),
                     state: serde_json::to_value(artifact_view(artifact))?,
                 })
             }
@@ -541,6 +753,9 @@ impl QueryHost {
                 Ok(ArtifactMutationResult {
                     artifact_id: Some(payload.artifact_id),
                     review_id: Some(review_id.0.to_string()),
+                    event_ids: Vec::new(),
+                    rejected: false,
+                    violations: Vec::new(),
                     state: serde_json::to_value(artifact_view(artifact))?,
                 })
             }

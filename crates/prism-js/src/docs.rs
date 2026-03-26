@@ -58,6 +58,7 @@ type MemoryRecallOptions = {
   focus?: Array<SymbolView | NodeId>;
   text?: string;
   limit?: number;
+  kinds?: string[];
 };
 
 type CuratorJobQueryOptions = {
@@ -357,6 +358,7 @@ type ConflictView = {
   severity: string;
   summary: string;
   anchors: AnchorRef[];
+  overlapKinds: string[];
   blockingClaimIds: string[];
 };
 

@@ -3,7 +3,7 @@ use std::sync::Mutex;
 
 use prism_agent::InferenceStore;
 use prism_ir::{EventId, SessionId, TaskId};
-use prism_memory::EpisodicMemory;
+use prism_memory::SessionMemory;
 use prism_query::{Prism, QueryLimits};
 
 use crate::{max_event_sequence, max_task_sequence, NEXT_SESSION_ID};
@@ -17,7 +17,7 @@ pub(crate) struct SessionTaskState {
 
 pub(crate) struct SessionState {
     session_id: SessionId,
-    pub(crate) notes: EpisodicMemory,
+    pub(crate) notes: SessionMemory,
     pub(crate) inferred_edges: InferenceStore,
     current_task: Mutex<Option<SessionTaskState>>,
     next_event: AtomicU64,
@@ -28,7 +28,7 @@ pub(crate) struct SessionState {
 impl SessionState {
     pub(crate) fn with_limits(
         prism: &Prism,
-        notes: EpisodicMemory,
+        notes: SessionMemory,
         inferred_edges: InferenceStore,
         limits: QueryLimits,
     ) -> Self {
@@ -37,7 +37,7 @@ impl SessionState {
 
     pub(crate) fn with_snapshots(
         prism: &Prism,
-        notes: EpisodicMemory,
+        notes: SessionMemory,
         inferred_edges: InferenceStore,
         limits: QueryLimits,
     ) -> Self {

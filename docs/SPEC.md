@@ -1392,6 +1392,7 @@ Rules:
 ```rust
 pub enum CoordinationEventKind {
     PlanCreated,
+    PlanUpdated,
     TaskCreated,
     TaskAssigned,
     TaskStatusChanged,
@@ -1406,6 +1407,7 @@ pub enum CoordinationEventKind {
     ArtifactSuperseded,
     HandoffRequested,
     HandoffAccepted,
+    MutationRejected,
 }
 ```
 
@@ -1746,6 +1748,7 @@ interface ConflictView {
   severity: ConflictSeverity;
   summary: string;
   anchors: AnchorRefView[];
+  overlapKinds: string[];
   blockingClaimIds: string[];
 }
 
@@ -1814,9 +1817,9 @@ prism_start_task { description: string, tags?: string[] } -> { task_id: string }
 prism_outcome { kind: OutcomeKind, anchors: AnchorRef[], summary: string, result?: OutcomeResult, evidence?: OutcomeEvidence[], task_id?: string } -> EventId
 prism_note { anchors: AnchorRef[], content: string, trust?: float, task_id?: string } -> MemoryId
 prism_infer_edge { source: NodeId, target: NodeId, kind: EdgeKind, confidence: float, scope?: InferredEdgeScope, task_id?: string } -> EdgeId
-prism_coordination { kind: "plan_create" | "task_create" | "task_update" | "handoff", payload: object, task_id?: string } -> { event_id: string, state: object }
-prism_claim { action: "acquire" | "renew" | "release", payload: object, task_id?: string } -> { claim_id?: string, conflicts?: ConflictView[], state: object }
-prism_artifact { action: "propose" | "supersede" | "review", payload: object, task_id?: string } -> { artifact_id?: string, review_id?: string, state: object }
+prism_coordination { kind: "plan_create" | "plan_update" | "task_create" | "task_update" | "handoff", payload: object, task_id?: string } -> { event_id: string, event_ids: string[], rejected: bool, violations: object[], state: object | null }
+prism_claim { action: "acquire" | "renew" | "release", payload: object, task_id?: string } -> { claim_id?: string, event_ids: string[], rejected: bool, conflicts?: ConflictView[], violations: object[], state: object | null }
+prism_artifact { action: "propose" | "supersede" | "review", payload: object, task_id?: string } -> { artifact_id?: string, review_id?: string, event_ids: string[], rejected: bool, violations: object[], state: object | null }
 ```
 
 Convenience shortcuts for outcome logging:

@@ -8,7 +8,7 @@ use serde_json::json;
 use crate::{
     EpisodicMemory, MemoryComposite, MemoryEntry, MemoryId, MemoryKind, MemoryModule, MemorySource,
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeResult, RecallQuery,
-    ScoredMemory,
+    ScoredMemory, SemanticMemory, SessionMemory, StructuralMemory,
 };
 
 fn node(name: &str) -> NodeId {
@@ -63,8 +63,8 @@ fn episodic_memory_generates_store_owned_ids() {
 }
 
 #[test]
-fn stored_memory_accepts_structural_and_semantic_kinds() {
-    let memory = EpisodicMemory::new();
+fn session_memory_routes_structural_and_semantic_entries() {
+    let memory = SessionMemory::new();
 
     let mut structural = MemoryEntry::new(MemoryKind::Structural, "alpha owns request routing");
     structural.anchors = vec![anchor_node("alpha")];
@@ -91,6 +91,25 @@ fn stored_memory_accepts_structural_and_semantic_kinds() {
         .collect::<Vec<_>>();
     assert!(ids.contains(&structural_id));
     assert!(ids.contains(&semantic_id));
+}
+
+#[test]
+fn dedicated_modules_only_accept_their_own_kind() {
+    let structural = StructuralMemory::new();
+    let semantic = SemanticMemory::new();
+
+    let mut structural_entry =
+        MemoryEntry::new(MemoryKind::Structural, "alpha owns request routing");
+    structural_entry.anchors = vec![anchor_node("alpha")];
+    assert!(structural.store(structural_entry).is_ok());
+
+    let mut semantic_entry = MemoryEntry::new(MemoryKind::Semantic, "alpha tends to fail");
+    semantic_entry.anchors = vec![anchor_node("alpha")];
+    assert!(semantic.store(semantic_entry).is_ok());
+
+    let mut wrong_kind = MemoryEntry::new(MemoryKind::Semantic, "wrong");
+    wrong_kind.anchors = vec![anchor_node("alpha")];
+    assert!(structural.store(wrong_kind).is_err());
 }
 
 #[test]

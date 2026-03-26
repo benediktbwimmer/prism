@@ -10,10 +10,6 @@ use crate::common::current_timestamp;
 pub struct MemoryId(pub String);
 
 impl MemoryId {
-    pub(crate) fn stored(sequence: u64) -> Self {
-        Self(format!("memory:{sequence}"))
-    }
-
     pub(crate) fn pending() -> Self {
         Self("pending".to_string())
     }

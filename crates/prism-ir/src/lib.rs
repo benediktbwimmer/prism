@@ -290,6 +290,14 @@ pub enum ConflictSeverity {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub enum ConflictOverlapKind {
+    Node,
+    Lineage,
+    File,
+    Kind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum ArtifactStatus {
     Proposed,
     InReview,
@@ -309,6 +317,7 @@ pub enum ReviewVerdict {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum CoordinationEventKind {
     PlanCreated,
+    PlanUpdated,
     TaskCreated,
     TaskAssigned,
     TaskStatusChanged,
@@ -323,6 +332,7 @@ pub enum CoordinationEventKind {
     ArtifactSuperseded,
     HandoffRequested,
     HandoffAccepted,
+    MutationRejected,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
@@ -506,6 +516,10 @@ pub struct ObservedChangeSet {
     pub meta: EventMeta,
     pub trigger: ChangeTrigger,
     pub files: Vec<FileId>,
+    #[serde(default)]
+    pub previous_path: Option<SmolStr>,
+    #[serde(default)]
+    pub current_path: Option<SmolStr>,
     pub added: Vec<ObservedNode>,
     pub removed: Vec<ObservedNode>,
     pub updated: Vec<(ObservedNode, ObservedNode)>,

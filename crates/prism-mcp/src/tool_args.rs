@@ -263,6 +263,7 @@ pub(crate) struct PrismFixValidatedArgs {
 #[serde(rename_all = "snake_case")]
 pub(crate) enum CoordinationMutationKindInput {
     PlanCreate,
+    PlanUpdate,
     TaskCreate,
     TaskUpdate,
     Handoff,
@@ -358,6 +359,15 @@ pub(crate) struct SimulateClaimArgs {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PlanCreatePayload {
     pub(crate) goal: String,
+    pub(crate) policy: Option<CoordinationPolicyPayload>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PlanUpdatePayload {
+    pub(crate) plan_id: String,
+    pub(crate) status: Option<String>,
+    pub(crate) goal: Option<String>,
     pub(crate) policy: Option<CoordinationPolicyPayload>,
 }
 
@@ -472,8 +482,23 @@ pub(crate) struct ArtifactReviewPayload {
 
 #[derive(Debug, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct MutationViolationView {
+    pub(crate) code: String,
+    pub(crate) summary: String,
+    pub(crate) plan_id: Option<String>,
+    pub(crate) task_id: Option<String>,
+    pub(crate) claim_id: Option<String>,
+    pub(crate) artifact_id: Option<String>,
+    pub(crate) details: Value,
+}
+
+#[derive(Debug, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct CoordinationMutationResult {
     pub(crate) event_id: String,
+    pub(crate) event_ids: Vec<String>,
+    pub(crate) rejected: bool,
+    pub(crate) violations: Vec<MutationViolationView>,
     pub(crate) state: Value,
 }
 
@@ -481,7 +506,10 @@ pub(crate) struct CoordinationMutationResult {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ClaimMutationResult {
     pub(crate) claim_id: Option<String>,
+    pub(crate) event_ids: Vec<String>,
+    pub(crate) rejected: bool,
     pub(crate) conflicts: Vec<Value>,
+    pub(crate) violations: Vec<MutationViolationView>,
     pub(crate) state: Value,
 }
 
@@ -490,6 +518,9 @@ pub(crate) struct ClaimMutationResult {
 pub(crate) struct ArtifactMutationResult {
     pub(crate) artifact_id: Option<String>,
     pub(crate) review_id: Option<String>,
+    pub(crate) event_ids: Vec<String>,
+    pub(crate) rejected: bool,
+    pub(crate) violations: Vec<MutationViolationView>,
     pub(crate) state: Value,
 }
 

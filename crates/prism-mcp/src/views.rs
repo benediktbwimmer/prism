@@ -501,6 +501,7 @@ pub(crate) fn conflict_view(value: prism_coordination::CoordinationConflict) -> 
         severity: value.severity,
         summary: value.summary,
         anchors: value.anchors,
+        overlap_kinds: value.overlap_kinds,
         blocking_claim_ids: value
             .blocking_claims
             .into_iter()

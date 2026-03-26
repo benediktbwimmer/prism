@@ -721,3 +721,182 @@ fn stale_claim_and_artifact_mutations_are_rejected() {
         .to_string()
         .contains("artifact proposal for task"));
 }
+
+#[test]
+fn plan_completion_requires_terminal_tasks_and_no_active_claims() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                goal: "Close coordinated work".to_string(),
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, task) = store
+        .create_task(
+            meta("event:2", 2),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Finish implementation".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(prism_ir::SessionId::new("session:a")),
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+    let (claim_id, _, _) = store
+        .acquire_claim(
+            meta("event:3", 3),
+            prism_ir::SessionId::new("session:a"),
+            ClaimAcquireInput {
+                task_id: Some(task_id.clone()),
+                anchors: task.anchors.clone(),
+                capability: prism_ir::Capability::Edit,
+                mode: Some(prism_ir::ClaimMode::SoftExclusive),
+                ttl_seconds: Some(60),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                current_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                agent: None,
+            },
+        )
+        .unwrap();
+
+    let error = store
+        .update_plan(
+            meta("event:4", 4),
+            PlanUpdateInput {
+                plan_id: plan_id.clone(),
+                status: Some(prism_ir::PlanStatus::Completed),
+                goal: None,
+                policy: None,
+            },
+        )
+        .unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("coordination plan cannot be completed"));
+
+    let events = store.events();
+    let rejection = events.last().unwrap();
+    assert_eq!(
+        rejection.kind,
+        prism_ir::CoordinationEventKind::MutationRejected
+    );
+    let codes = rejection.metadata["violations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|value| value["code"].as_str())
+        .collect::<Vec<_>>();
+    assert!(codes.contains(&"incomplete_plan_tasks"));
+    assert!(codes.contains(&"active_plan_claims"));
+
+    store
+        .release_claim(meta("event:5", 5), &claim_id.unwrap())
+        .unwrap();
+    store
+        .update_task(
+            meta("event:6", 6),
+            TaskUpdateInput {
+                task_id,
+                status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                assignee: None,
+                session: None,
+                title: None,
+                anchors: None,
+                base_revision: Some(prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                }),
+                completion_context: Some(TaskCompletionContext::default()),
+            },
+            prism_ir::WorkspaceRevision {
+                graph_version: 1,
+                git_commit: None,
+            },
+            6,
+        )
+        .unwrap();
+    let plan = store
+        .update_plan(
+            meta("event:7", 7),
+            PlanUpdateInput {
+                plan_id,
+                status: Some(prism_ir::PlanStatus::Completed),
+                goal: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(plan.status, prism_ir::PlanStatus::Completed);
+}
+
+#[test]
+fn closed_plan_rejects_new_task_and_records_violation() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                goal: "Archive repo work".to_string(),
+                policy: None,
+            },
+        )
+        .unwrap();
+    store
+        .update_plan(
+            meta("event:2", 2),
+            PlanUpdateInput {
+                plan_id: plan_id.clone(),
+                status: Some(prism_ir::PlanStatus::Abandoned),
+                goal: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+
+    let error = store
+        .create_task(
+            meta("event:3", 3),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Should not exist".to_string(),
+                status: None,
+                assignee: None,
+                session: Some(prism_ir::SessionId::new("session:a")),
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("coordination task creation rejected"));
+
+    let rejection = store.events().last().unwrap().clone();
+    assert_eq!(
+        rejection.kind,
+        prism_ir::CoordinationEventKind::MutationRejected
+    );
+    assert_eq!(rejection.metadata["violations"][0]["code"], "plan_closed");
+}

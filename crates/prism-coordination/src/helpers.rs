@@ -2,13 +2,16 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::{anyhow, Result};
 use prism_ir::{
-    AnchorRef, Capability, ClaimMode, ClaimStatus, ConflictSeverity, CoordinationTaskId,
-    CoordinationTaskStatus, EventId, SessionId, Timestamp, WorkspaceRevision,
+    AnchorRef, ArtifactId, Capability, ClaimId, ClaimMode, ClaimStatus, ConflictOverlapKind,
+    ConflictSeverity, CoordinationTaskId, CoordinationTaskStatus, EventId, EventMeta, PlanId,
+    PlanStatus, SessionId, Timestamp, WorkspaceRevision,
 };
+use serde_json::{json, Value};
 
 use crate::state::CoordinationState;
 use crate::types::{
-    AcceptanceCriterion, Artifact, CoordinationConflict, CoordinationPolicy, WorkClaim,
+    AcceptanceCriterion, Artifact, BlockerKind, CoordinationConflict, CoordinationEvent,
+    CoordinationPolicy, PolicyViolation, PolicyViolationCode, TaskBlocker, WorkClaim,
 };
 
 pub(crate) fn plan_policy_for_task<'a>(
@@ -63,6 +66,113 @@ pub(crate) fn validate_task_transition(
             next
         ))
     }
+}
+
+pub(crate) fn validate_plan_transition(previous: PlanStatus, next: PlanStatus) -> Result<()> {
+    use PlanStatus::*;
+
+    let allowed = match previous {
+        Draft => matches!(next, Draft | Active | Abandoned),
+        Active => matches!(next, Active | Blocked | Completed | Abandoned),
+        Blocked => matches!(next, Blocked | Active | Abandoned),
+        Completed => matches!(next, Completed),
+        Abandoned => matches!(next, Abandoned),
+    };
+
+    if allowed {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "invalid coordination plan transition from {:?} to {:?}",
+            previous,
+            next
+        ))
+    }
+}
+
+pub(crate) fn policy_violation(
+    code: PolicyViolationCode,
+    summary: impl Into<String>,
+    plan_id: Option<PlanId>,
+    task_id: Option<CoordinationTaskId>,
+    claim_id: Option<ClaimId>,
+    artifact_id: Option<ArtifactId>,
+    details: Value,
+) -> PolicyViolation {
+    PolicyViolation {
+        code,
+        summary: summary.into(),
+        plan_id,
+        task_id,
+        claim_id,
+        artifact_id,
+        details,
+    }
+}
+
+pub(crate) fn policy_violation_from_blocker(
+    blocker: &TaskBlocker,
+    plan_id: PlanId,
+    task_id: CoordinationTaskId,
+) -> PolicyViolation {
+    let code = match blocker.kind {
+        BlockerKind::Dependency => PolicyViolationCode::IncompletePlanTasks,
+        BlockerKind::ClaimConflict => PolicyViolationCode::ClaimConflict,
+        BlockerKind::ReviewRequired => PolicyViolationCode::ReviewRequired,
+        BlockerKind::RiskReviewRequired => PolicyViolationCode::RiskReviewRequired,
+        BlockerKind::ValidationRequired => PolicyViolationCode::ValidationRequired,
+        BlockerKind::StaleRevision => PolicyViolationCode::StaleRevision,
+        BlockerKind::ArtifactStale => PolicyViolationCode::ArtifactStale,
+    };
+    policy_violation(
+        code,
+        blocker.summary.clone(),
+        Some(plan_id),
+        Some(task_id),
+        None,
+        blocker.related_artifact_id.clone(),
+        json!({
+            "relatedTaskId": blocker.related_task_id.as_ref().map(|value| value.0.to_string()),
+            "validationChecks": blocker.validation_checks,
+            "riskScore": blocker.risk_score,
+        }),
+    )
+}
+
+pub(crate) fn derived_event_meta(meta: &EventMeta, suffix: &str) -> EventMeta {
+    EventMeta {
+        id: EventId::new(format!("{}:{suffix}", meta.id.0)),
+        ts: meta.ts,
+        actor: meta.actor.clone(),
+        correlation: meta.correlation.clone(),
+        causation: Some(meta.id.clone()),
+    }
+}
+
+pub(crate) fn record_rejection(
+    state: &mut CoordinationState,
+    meta: &EventMeta,
+    summary: impl Into<String>,
+    plan_id: Option<PlanId>,
+    task_id: Option<CoordinationTaskId>,
+    claim_id: Option<ClaimId>,
+    artifact_id: Option<ArtifactId>,
+    violations: &[PolicyViolation],
+) -> EventId {
+    let rejection_meta = derived_event_meta(meta, "rejected");
+    let event_id = rejection_meta.id.clone();
+    state.events.push(CoordinationEvent {
+        meta: rejection_meta,
+        kind: prism_ir::CoordinationEventKind::MutationRejected,
+        summary: summary.into(),
+        plan: plan_id,
+        task: task_id,
+        claim: claim_id,
+        artifact: artifact_id,
+        review: None,
+        metadata: json!({ "violations": violations }),
+    });
+    event_id
 }
 
 pub(crate) fn expire_claims_locked(state: &mut CoordinationState, now: Timestamp) {
@@ -126,6 +236,7 @@ pub(crate) fn editor_capacity_conflicts(
             conflicts.push(CoordinationConflict {
                 severity: ConflictSeverity::Block,
                 anchors: vec![anchor.clone()],
+                overlap_kinds: overlap_kinds(&[anchor.clone()]),
                 summary: format!("anchor is already at the edit concurrency limit ({limit})"),
                 blocking_claims: overlapping
                     .into_iter()
@@ -232,6 +343,7 @@ fn proposal_conflict(
     if overlap.is_empty() {
         return None;
     }
+    let overlap_kinds = overlap_kinds(&overlap);
     let severity = conflict_severity(
         claim.capability,
         claim.mode,
@@ -243,13 +355,14 @@ fn proposal_conflict(
     Some(CoordinationConflict {
         severity,
         summary: format!(
-            "claim `{}` conflicts with {:?}/{:?} on {} anchor(s)",
+            "claim `{}` conflicts with {:?}/{:?} across {} scope(s)",
             claim.id.0,
             claim.capability,
             claim.mode,
             overlap.len()
         ),
         anchors: overlap,
+        overlap_kinds,
         blocking_claims: vec![claim.id.clone()],
     })
 }
@@ -262,6 +375,7 @@ pub(crate) fn conflict_between(
     if overlap.is_empty() {
         return None;
     }
+    let overlap_kinds = overlap_kinds(&overlap);
     Some(CoordinationConflict {
         severity: conflict_severity(
             left.capability,
@@ -273,6 +387,7 @@ pub(crate) fn conflict_between(
         ),
         summary: format!("claims `{}` and `{}` overlap", left.id.0, right.id.0),
         anchors: overlap,
+        overlap_kinds,
         blocking_claims: vec![left.id.clone(), right.id.clone()],
     })
 }
@@ -335,6 +450,26 @@ fn severity_rank(severity: ConflictSeverity) -> u8 {
         ConflictSeverity::Warn => 1,
         ConflictSeverity::Block => 2,
     }
+}
+
+fn overlap_kinds(anchors: &[AnchorRef]) -> Vec<ConflictOverlapKind> {
+    let mut kinds = anchors
+        .iter()
+        .map(|anchor| match anchor {
+            AnchorRef::Node(_) => ConflictOverlapKind::Node,
+            AnchorRef::Lineage(_) => ConflictOverlapKind::Lineage,
+            AnchorRef::File(_) => ConflictOverlapKind::File,
+            AnchorRef::Kind(_) => ConflictOverlapKind::Kind,
+        })
+        .collect::<Vec<_>>();
+    kinds.sort_by_key(|kind| match kind {
+        ConflictOverlapKind::Node => 0,
+        ConflictOverlapKind::Lineage => 1,
+        ConflictOverlapKind::File => 2,
+        ConflictOverlapKind::Kind => 3,
+    });
+    kinds.dedup();
+    kinds
 }
 
 pub(crate) fn sorted_values<K, V, F>(values: &HashMap<K, V>, key: F) -> Vec<V>

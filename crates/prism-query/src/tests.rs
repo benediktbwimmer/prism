@@ -596,6 +596,16 @@ fn coordination_queries_expand_into_neighboring_symbols() {
     assert!(simulated
         .iter()
         .any(|conflict| conflict.severity == prism_ir::ConflictSeverity::Block));
+    assert!(simulated.iter().any(|conflict| {
+        conflict.overlap_kinds.iter().any(|kind| {
+            matches!(
+                kind,
+                prism_ir::ConflictOverlapKind::Node
+                    | prism_ir::ConflictOverlapKind::Lineage
+                    | prism_ir::ConflictOverlapKind::File
+            )
+        })
+    }));
 }
 
 #[test]

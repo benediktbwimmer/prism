@@ -4,19 +4,54 @@ use prism_ir::{
     CoordinationTaskId, CoordinationTaskStatus, EventId, EventMeta, PlanId, PlanStatus, ReviewId,
     ReviewVerdict, SessionId, Timestamp, WorkspaceRevision,
 };
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use crate::helpers::{
-    dedupe_anchors, dedupe_conflicts, dedupe_event_ids, dedupe_ids, dedupe_strings,
-    editor_capacity_conflicts, expire_claims_locked, missing_validations_for_artifact,
-    normalize_acceptance, plan_policy_for_task, simulate_conflicts, validate_task_transition,
+    claim_is_active, dedupe_anchors, dedupe_conflicts, dedupe_event_ids, dedupe_ids,
+    dedupe_strings, derived_event_meta, editor_capacity_conflicts, expire_claims_locked,
+    missing_validations_for_artifact, normalize_acceptance, plan_policy_for_task, policy_violation,
+    policy_violation_from_blocker, record_rejection, simulate_conflicts, validate_plan_transition,
+    validate_task_transition,
 };
+use crate::state::CoordinationState;
 use crate::state::CoordinationStore;
 use crate::types::{
     Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
     ClaimAcquireInput, CoordinationEvent, CoordinationTask, HandoffInput, Plan, PlanCreateInput,
-    TaskUpdateInput, WorkClaim,
+    PlanUpdateInput, PolicyViolation, PolicyViolationCode, TaskUpdateInput, WorkClaim,
 };
+
+fn rejection_error(
+    state: &mut CoordinationState,
+    meta: &EventMeta,
+    summary: impl Into<String>,
+    plan_id: Option<PlanId>,
+    task_id: Option<CoordinationTaskId>,
+    claim_id: Option<ClaimId>,
+    artifact_id: Option<prism_ir::ArtifactId>,
+    violations: Vec<PolicyViolation>,
+) -> anyhow::Error {
+    let summary = summary.into();
+    record_rejection(
+        state,
+        meta,
+        summary.clone(),
+        plan_id,
+        task_id,
+        claim_id,
+        artifact_id,
+        &violations,
+    );
+    anyhow!(
+        "{}: {}",
+        summary,
+        violations
+            .iter()
+            .map(|violation| violation.summary.as_str())
+            .collect::<Vec<_>>()
+            .join("; ")
+    )
+}
 
 impl CoordinationStore {
     pub fn create_plan(&self, meta: EventMeta, input: PlanCreateInput) -> Result<(PlanId, Plan)> {
@@ -48,6 +83,164 @@ impl CoordinationStore {
         Ok((id, plan))
     }
 
+    pub fn update_plan(&self, meta: EventMeta, input: PlanUpdateInput) -> Result<Plan> {
+        let mut state = self
+            .state
+            .write()
+            .expect("coordination store lock poisoned");
+        let previous = state
+            .plans
+            .get(&input.plan_id)
+            .cloned()
+            .ok_or_else(|| anyhow!("unknown plan `{}`", input.plan_id.0))?;
+        if matches!(
+            previous.status,
+            PlanStatus::Completed | PlanStatus::Abandoned
+        ) && (input.goal.is_some() || input.policy.is_some())
+        {
+            let violations = vec![policy_violation(
+                PolicyViolationCode::TerminalPlanEdit,
+                format!(
+                    "terminal coordination plan `{}` cannot be edited",
+                    previous.id.0
+                ),
+                Some(previous.id.clone()),
+                None,
+                None,
+                None,
+                Value::Null,
+            )];
+            return Err(rejection_error(
+                &mut state,
+                &meta,
+                "coordination plan update rejected",
+                Some(previous.id),
+                None,
+                None,
+                None,
+                violations,
+            ));
+        }
+        if let Some(next_status) = input.status {
+            if let Err(error) = validate_plan_transition(previous.status, next_status) {
+                let violations = vec![policy_violation(
+                    PolicyViolationCode::InvalidPlanTransition,
+                    error.to_string(),
+                    Some(previous.id.clone()),
+                    None,
+                    None,
+                    None,
+                    json!({
+                        "from": format!("{:?}", previous.status),
+                        "to": format!("{:?}", next_status),
+                    }),
+                )];
+                return Err(rejection_error(
+                    &mut state,
+                    &meta,
+                    "coordination plan update rejected",
+                    Some(previous.id),
+                    None,
+                    None,
+                    None,
+                    violations,
+                ));
+            }
+        }
+        if matches!(input.status, Some(PlanStatus::Completed)) {
+            let mut violations = state
+                .tasks
+                .values()
+                .filter(|task| task.plan == input.plan_id)
+                .filter(|task| {
+                    !matches!(
+                        task.status,
+                        CoordinationTaskStatus::Completed | CoordinationTaskStatus::Abandoned
+                    )
+                })
+                .map(|task| {
+                    policy_violation(
+                        PolicyViolationCode::IncompletePlanTasks,
+                        format!(
+                            "coordination task `{}` is still {:?}",
+                            task.id.0, task.status
+                        ),
+                        Some(input.plan_id.clone()),
+                        Some(task.id.clone()),
+                        None,
+                        None,
+                        Value::Null,
+                    )
+                })
+                .collect::<Vec<_>>();
+            let active_claim_violations = state
+                .claims
+                .values()
+                .filter(|claim| claim_is_active(claim, meta.ts))
+                .filter(|claim| {
+                    claim
+                        .task
+                        .as_ref()
+                        .and_then(|task_id| state.tasks.get(task_id))
+                        .map(|task| task.plan == input.plan_id)
+                        .unwrap_or(false)
+                })
+                .map(|claim| {
+                    policy_violation(
+                        PolicyViolationCode::ActivePlanClaims,
+                        format!("claim `{}` is still active for this plan", claim.id.0),
+                        Some(input.plan_id.clone()),
+                        claim.task.clone(),
+                        Some(claim.id.clone()),
+                        None,
+                        Value::Null,
+                    )
+                })
+                .collect::<Vec<_>>();
+            violations.extend(active_claim_violations);
+            if !violations.is_empty() {
+                return Err(rejection_error(
+                    &mut state,
+                    &meta,
+                    "coordination plan cannot be completed",
+                    Some(input.plan_id),
+                    None,
+                    None,
+                    None,
+                    violations,
+                ));
+            }
+        }
+        let plan = state
+            .plans
+            .get_mut(&input.plan_id)
+            .expect("plan validated above");
+        if let Some(goal) = input.goal {
+            plan.goal = goal;
+        }
+        if let Some(status) = input.status {
+            plan.status = status;
+        }
+        if let Some(policy) = input.policy {
+            plan.policy = policy;
+        }
+        let plan = plan.clone();
+        state.events.push(CoordinationEvent {
+            meta,
+            kind: CoordinationEventKind::PlanUpdated,
+            summary: plan.goal.clone(),
+            plan: Some(plan.id.clone()),
+            task: None,
+            claim: None,
+            artifact: None,
+            review: None,
+            metadata: json!({
+                "status": format!("{:?}", plan.status),
+            }),
+        });
+        Ok(plan)
+    }
+
     pub fn create_task(
         &self,
         meta: EventMeta,
@@ -57,17 +250,80 @@ impl CoordinationStore {
             .state
             .write()
             .expect("coordination store lock poisoned");
-        if !state.plans.contains_key(&input.plan_id) {
+        let Some(plan) = state.plans.get(&input.plan_id).cloned() else {
             return Err(anyhow!("unknown plan `{}`", input.plan_id.0));
+        };
+        if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
+            let violations = vec![policy_violation(
+                PolicyViolationCode::PlanClosed,
+                format!(
+                    "coordination plan `{}` is {:?} and cannot accept new tasks",
+                    plan.id.0, plan.status
+                ),
+                Some(plan.id.clone()),
+                None,
+                None,
+                None,
+                Value::Null,
+            )];
+            return Err(rejection_error(
+                &mut state,
+                &meta,
+                "coordination task creation rejected",
+                Some(plan.id),
+                None,
+                None,
+                None,
+                violations,
+            ));
         }
         for dependency in &input.depends_on {
             let Some(task) = state.tasks.get(dependency) else {
-                return Err(anyhow!("unknown dependency task `{}`", dependency.0));
+                let violations = vec![policy_violation(
+                    PolicyViolationCode::MissingDependency,
+                    format!("unknown dependency task `{}`", dependency.0),
+                    Some(input.plan_id.clone()),
+                    None,
+                    None,
+                    None,
+                    json!({ "dependencyTaskId": dependency.0 }),
+                )];
+                return Err(rejection_error(
+                    &mut state,
+                    &meta,
+                    "coordination task creation rejected",
+                    Some(input.plan_id.clone()),
+                    None,
+                    None,
+                    None,
+                    violations,
+                ));
             };
             if task.plan != input.plan_id {
-                return Err(anyhow!(
-                    "dependency task `{}` belongs to a different plan",
-                    dependency.0
+                let violations = vec![policy_violation(
+                    PolicyViolationCode::CrossPlanDependency,
+                    format!(
+                        "dependency task `{}` belongs to a different plan",
+                        dependency.0
+                    ),
+                    Some(input.plan_id.clone()),
+                    None,
+                    None,
+                    None,
+                    json!({
+                        "dependencyTaskId": dependency.0,
+                        "dependencyPlanId": task.plan.0,
+                    }),
+                )];
+                return Err(rejection_error(
+                    &mut state,
+                    &meta,
+                    "coordination task creation rejected",
+                    Some(input.plan_id.clone()),
+                    None,
+                    None,
+                    None,
+                    violations,
                 ));
             }
         }
@@ -126,6 +382,33 @@ impl CoordinationStore {
             .get(&input.task_id)
             .cloned()
             .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
+        let Some(plan) = state.plans.get(&previous.plan).cloned() else {
+            return Err(anyhow!("unknown plan `{}`", previous.plan.0));
+        };
+        if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
+            let violations = vec![policy_violation(
+                PolicyViolationCode::PlanClosed,
+                format!(
+                    "coordination plan `{}` is {:?} and cannot mutate task `{}`",
+                    plan.id.0, plan.status, previous.id.0
+                ),
+                Some(plan.id.clone()),
+                Some(previous.id.clone()),
+                None,
+                None,
+                Value::Null,
+            )];
+            return Err(rejection_error(
+                &mut state,
+                &meta,
+                "coordination task update rejected",
+                Some(plan.id),
+                Some(previous.id),
+                None,
+                None,
+                violations,
+            ));
+        }
         let stale_writes_enforced = state
             .plans
             .get(&previous.plan)
@@ -142,21 +425,60 @@ impl CoordinationStore {
                 && previous.base_revision.graph_version < current_revision.graph_version
                 && input.base_revision.is_none()
             {
-                return Err(anyhow!(
-                    "coordination task `{}` is stale against graph version {}; provide an updated base revision before mutating it",
-                    previous.id.0,
-                    current_revision.graph_version
+                let violations = vec![policy_violation(
+                    PolicyViolationCode::StaleRevision,
+                    format!(
+                        "coordination task `{}` is stale against graph version {}; provide an updated base revision before mutating it",
+                        previous.id.0, current_revision.graph_version
+                    ),
+                    Some(previous.plan.clone()),
+                    Some(previous.id.clone()),
+                    None,
+                    None,
+                    json!({
+                        "taskBaseGraphVersion": previous.base_revision.graph_version,
+                        "currentGraphVersion": current_revision.graph_version,
+                    }),
+                )];
+                return Err(rejection_error(
+                    &mut state,
+                    &meta,
+                    "coordination task update rejected",
+                    Some(previous.plan.clone()),
+                    Some(previous.id.clone()),
+                    None,
+                    None,
+                    violations,
                 ));
             }
             if let Some(base_revision) = &input.base_revision {
                 if stale_writes_enforced
                     && base_revision.graph_version < current_revision.graph_version
                 {
-                    return Err(anyhow!(
-                        "coordination task `{}` cannot use stale base revision {} when current revision is {}",
-                        previous.id.0,
-                        base_revision.graph_version,
-                        current_revision.graph_version
+                    let violations = vec![policy_violation(
+                        PolicyViolationCode::StaleRevision,
+                        format!(
+                            "coordination task `{}` cannot use stale base revision {} when current revision is {}",
+                            previous.id.0, base_revision.graph_version, current_revision.graph_version
+                        ),
+                        Some(previous.plan.clone()),
+                        Some(previous.id.clone()),
+                        None,
+                        None,
+                        json!({
+                            "baseGraphVersion": base_revision.graph_version,
+                            "currentGraphVersion": current_revision.graph_version,
+                        }),
+                    )];
+                    return Err(rejection_error(
+                        &mut state,
+                        &meta,
+                        "coordination task update rejected",
+                        Some(previous.plan.clone()),
+                        Some(previous.id.clone()),
+                        None,
+                        None,
+                        violations,
                     ));
                 }
             }
@@ -165,7 +487,30 @@ impl CoordinationStore {
                 .map(|status| status != previous.status)
                 .unwrap_or(false);
             if let Some(status) = input.status {
-                validate_task_transition(previous.status, status)?;
+                if let Err(error) = validate_task_transition(previous.status, status) {
+                    let violations = vec![policy_violation(
+                        PolicyViolationCode::InvalidTaskTransition,
+                        error.to_string(),
+                        Some(previous.plan.clone()),
+                        Some(previous.id.clone()),
+                        None,
+                        None,
+                        json!({
+                            "from": format!("{:?}", previous.status),
+                            "to": format!("{:?}", status),
+                        }),
+                    )];
+                    return Err(rejection_error(
+                        &mut state,
+                        &meta,
+                        "coordination task update rejected",
+                        Some(previous.plan.clone()),
+                        Some(previous.id.clone()),
+                        None,
+                        None,
+                        violations,
+                    ));
+                }
             }
             if matches!(
                 previous.status,
@@ -175,9 +520,27 @@ impl CoordinationStore {
                 || input.assignee.is_some()
                 || input.session.is_some())
             {
-                return Err(anyhow!(
-                    "terminal coordination task `{}` cannot be edited",
-                    previous.id.0
+                let violations = vec![policy_violation(
+                    PolicyViolationCode::TerminalTaskEdit,
+                    format!(
+                        "terminal coordination task `{}` cannot be edited",
+                        previous.id.0
+                    ),
+                    Some(previous.plan.clone()),
+                    Some(previous.id.clone()),
+                    None,
+                    None,
+                    Value::Null,
+                )];
+                return Err(rejection_error(
+                    &mut state,
+                    &meta,
+                    "coordination task update rejected",
+                    Some(previous.plan.clone()),
+                    Some(previous.id.clone()),
+                    None,
+                    None,
+                    violations,
                 ));
             }
             if let Some(title) = input.title {
@@ -217,14 +580,25 @@ impl CoordinationStore {
         {
             let mut blockers = completion_blockers;
             blockers.append(&mut policy_blockers);
-            return Err(anyhow!(
-                "coordination task `{}` cannot complete: {}",
-                task_snapshot.id.0,
-                blockers
-                    .iter()
-                    .map(|blocker| blocker.summary.as_str())
-                    .collect::<Vec<_>>()
-                    .join("; ")
+            let violations = blockers
+                .iter()
+                .map(|blocker| {
+                    policy_violation_from_blocker(
+                        blocker,
+                        task_snapshot.plan.clone(),
+                        task_snapshot.id.clone(),
+                    )
+                })
+                .collect::<Vec<_>>();
+            return Err(rejection_error(
+                &mut state,
+                &meta,
+                format!("coordination task `{}` cannot complete", task_snapshot.id.0),
+                Some(task_snapshot.plan.clone()),
+                Some(task_snapshot.id.clone()),
+                None,
+                None,
+                violations,
             ));
         }
         let task = task_snapshot;
@@ -246,7 +620,11 @@ impl CoordinationStore {
             claim: None,
             artifact: None,
             review: None,
-            metadata: Value::Null,
+            metadata: json!({
+                "status": format!("{:?}", task.status),
+                "previousStatus": format!("{:?}", previous.status),
+                "assignee": task.assignee.as_ref().map(|agent| agent.0.to_string()),
+            }),
         });
         Ok(task)
     }
@@ -268,12 +646,57 @@ impl CoordinationStore {
                 .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
             state.plans.get(&task.plan).cloned()
         };
+        if let Some(plan) = plan.as_ref() {
+            if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
+                let violations = vec![policy_violation(
+                    PolicyViolationCode::PlanClosed,
+                    format!(
+                        "coordination plan `{}` is {:?} and cannot hand off task `{}`",
+                        plan.id.0, plan.status, input.task_id.0
+                    ),
+                    Some(plan.id.clone()),
+                    Some(input.task_id.clone()),
+                    None,
+                    None,
+                    Value::Null,
+                )];
+                return Err(rejection_error(
+                    &mut state,
+                    &meta,
+                    "coordination handoff rejected",
+                    Some(plan.id.clone()),
+                    Some(input.task_id.clone()),
+                    None,
+                    None,
+                    violations,
+                ));
+            }
+        }
         if input.base_revision.graph_version < current_revision.graph_version {
-            return Err(anyhow!(
-                "coordination task `{}` cannot hand off from stale base revision {} when current revision is {}",
-                input.task_id.0,
-                input.base_revision.graph_version,
-                current_revision.graph_version
+            let violations = vec![policy_violation(
+                PolicyViolationCode::StaleRevision,
+                format!(
+                    "coordination task `{}` cannot hand off from stale base revision {} when current revision is {}",
+                    input.task_id.0, input.base_revision.graph_version, current_revision.graph_version
+                ),
+                plan.as_ref().map(|plan| plan.id.clone()),
+                Some(input.task_id.clone()),
+                None,
+                None,
+                json!({
+                    "baseGraphVersion": input.base_revision.graph_version,
+                    "currentGraphVersion": current_revision.graph_version,
+                }),
+            )];
+            return Err(rejection_error(
+                &mut state,
+                &meta,
+                "coordination handoff rejected",
+                plan.as_ref().map(|plan| plan.id.clone()),
+                Some(input.task_id.clone()),
+                None,
+                None,
+                violations,
             ));
         }
         if plan
@@ -286,10 +709,30 @@ impl CoordinationStore {
                 .get(&input.task_id)
                 .expect("task validated above");
             if task.base_revision.graph_version < current_revision.graph_version {
-                return Err(anyhow!(
-                    "coordination task `{}` is stale against graph version {} and cannot be handed off until refreshed",
-                    input.task_id.0,
-                    current_revision.graph_version
+                let violations = vec![policy_violation(
+                    PolicyViolationCode::StaleRevision,
+                    format!(
+                        "coordination task `{}` is stale against graph version {} and cannot be handed off until refreshed",
+                        input.task_id.0, current_revision.graph_version
+                    ),
+                    plan.as_ref().map(|plan| plan.id.clone()),
+                    Some(input.task_id.clone()),
+                    None,
+                    None,
+                    json!({
+                        "taskBaseGraphVersion": task.base_revision.graph_version,
+                        "currentGraphVersion": current_revision.graph_version,
+                    }),
+                )];
+                return Err(rejection_error(
+                    &mut state,
+                    &meta,
+                    "coordination handoff rejected",
+                    plan.as_ref().map(|plan| plan.id.clone()),
+                    Some(input.task_id.clone()),
+                    None,
+                    None,
+                    violations,
                 ));
             }
         }
@@ -317,7 +760,7 @@ impl CoordinationStore {
             }),
         });
         state.events.push(CoordinationEvent {
-            meta,
+            meta: derived_event_meta(&meta, "accepted"),
             kind: CoordinationEventKind::HandoffAccepted,
             summary: input.summary,
             plan: Some(task.plan.clone()),
@@ -346,16 +789,71 @@ impl CoordinationStore {
             .expect("coordination store lock poisoned");
         expire_claims_locked(&mut state, meta.ts);
         let anchors = dedupe_anchors(input.anchors);
+        let plan_id = input
+            .task_id
+            .as_ref()
+            .and_then(|task_id| state.tasks.get(task_id))
+            .map(|task| task.plan.clone());
+        let plan = plan_id
+            .as_ref()
+            .and_then(|plan_id| state.plans.get(plan_id))
+            .cloned();
+        if let Some(plan) = plan {
+            if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
+                let violations = vec![policy_violation(
+                    PolicyViolationCode::PlanClosed,
+                    format!(
+                        "coordination plan `{}` is {:?} and cannot accept new claims",
+                        plan.id.0, plan.status
+                    ),
+                    Some(plan.id.clone()),
+                    input.task_id.clone(),
+                    None,
+                    None,
+                    Value::Null,
+                )];
+                return Err(rejection_error(
+                    &mut state,
+                    &meta,
+                    "claim acquisition rejected",
+                    Some(plan.id.clone()),
+                    input.task_id.clone(),
+                    None,
+                    None,
+                    violations,
+                ));
+            }
+        }
         let policy = plan_policy_for_task(&state, input.task_id.as_ref())?;
         if policy
             .map(|policy| policy.stale_after_graph_change)
             .unwrap_or(false)
             && input.base_revision.graph_version < input.current_revision.graph_version
         {
-            return Err(anyhow!(
-                "claim acquisition cannot use stale base revision {} when current revision is {}",
-                input.base_revision.graph_version,
-                input.current_revision.graph_version
+            let violations = vec![policy_violation(
+                PolicyViolationCode::StaleRevision,
+                format!(
+                    "claim acquisition cannot use stale base revision {} when current revision is {}",
+                    input.base_revision.graph_version, input.current_revision.graph_version
+                ),
+                plan_id.clone(),
+                input.task_id.clone(),
+                None,
+                None,
+                json!({
+                    "baseGraphVersion": input.base_revision.graph_version,
+                    "currentGraphVersion": input.current_revision.graph_version,
+                }),
+            )];
+            return Err(rejection_error(
+                &mut state,
+                &meta,
+                "claim acquisition rejected",
+                plan_id.clone(),
+                input.task_id.clone(),
+                None,
+                None,
+                violations,
             ));
         }
         let mode = input
@@ -385,16 +883,45 @@ impl CoordinationStore {
             .iter()
             .any(|conflict| conflict.severity == ConflictSeverity::Block);
         if has_blocking {
+            let violations = conflicts
+                .iter()
+                .filter(|conflict| conflict.severity == ConflictSeverity::Block)
+                .map(|conflict| {
+                    policy_violation(
+                        PolicyViolationCode::ClaimConflict,
+                        conflict.summary.clone(),
+                        plan_id.clone(),
+                        input.task_id.clone(),
+                        None,
+                        None,
+                        json!({
+                            "blockingClaimIds": conflict
+                                .blocking_claims
+                                .iter()
+                                .map(|claim_id| claim_id.0.to_string())
+                                .collect::<Vec<_>>(),
+                            "overlapKinds": conflict
+                                .overlap_kinds
+                                .iter()
+                                .map(|kind| format!("{kind:?}"))
+                                .collect::<Vec<_>>(),
+                        }),
+                    )
+                })
+                .collect::<Vec<_>>();
             state.events.push(CoordinationEvent {
                 meta,
                 kind: CoordinationEventKind::ClaimContended,
                 summary: "claim blocked by active contention".to_string(),
-                plan: None,
+                plan: plan_id.clone(),
                 task: input.task_id.clone(),
                 claim: None,
                 artifact: None,
                 review: None,
-                metadata: Value::Null,
+                metadata: json!({
+                    "conflicts": conflicts.clone(),
+                    "violations": violations.clone(),
+                }),
             });
             return Ok((None, conflicts, None));
         }
@@ -422,12 +949,14 @@ impl CoordinationStore {
             meta: meta.clone(),
             kind: CoordinationEventKind::ClaimAcquired,
             summary: "claim acquired".to_string(),
-            plan: None,
+            plan: plan_id.clone(),
             task: claim.task.clone(),
             claim: Some(id.clone()),
             artifact: None,
             review: None,
-            metadata: Value::Null,
+            metadata: json!({
+                "status": format!("{:?}", claim.status),
+            }),
         });
         if !conflicts.is_empty() {
             state.events.push(CoordinationEvent {
@@ -440,12 +969,12 @@ impl CoordinationStore {
                 },
                 kind: CoordinationEventKind::ClaimContended,
                 summary: "claim acquired with contention".to_string(),
-                plan: None,
+                plan: plan_id,
                 task: claim.task.clone(),
                 claim: Some(id.clone()),
                 artifact: None,
                 review: None,
-                metadata: Value::Null,
+                metadata: json!({ "conflicts": conflicts.clone() }),
             });
         }
         Ok((Some(id), conflicts, Some(claim)))
@@ -528,6 +1057,32 @@ impl CoordinationStore {
             return Err(anyhow!("unknown coordination task `{}`", input.task_id.0));
         };
         let plan = state.plans.get(&task.plan).cloned();
+        if let Some(plan) = plan.as_ref() {
+            if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
+                let violations = vec![policy_violation(
+                    PolicyViolationCode::PlanClosed,
+                    format!(
+                        "coordination plan `{}` is {:?} and cannot accept new artifacts",
+                        plan.id.0, plan.status
+                    ),
+                    Some(plan.id.clone()),
+                    Some(input.task_id.clone()),
+                    None,
+                    None,
+                    Value::Null,
+                )];
+                return Err(rejection_error(
+                    &mut state,
+                    &meta,
+                    "artifact proposal rejected",
+                    Some(plan.id.clone()),
+                    Some(input.task_id.clone()),
+                    None,
+                    None,
+                    violations,
+                ));
+            }
+        }
         if plan
             .as_ref()
             .map(|plan| plan.policy.stale_after_graph_change)
@@ -535,10 +1090,31 @@ impl CoordinationStore {
             && (input.base_revision.graph_version < input.current_revision.graph_version
                 || task.base_revision.graph_version < input.current_revision.graph_version)
         {
-            return Err(anyhow!(
-                "artifact proposal for task `{}` is stale against graph version {}",
-                input.task_id.0,
-                input.current_revision.graph_version
+            let violations = vec![policy_violation(
+                PolicyViolationCode::ArtifactStale,
+                format!(
+                    "artifact proposal for task `{}` is stale against graph version {}",
+                    input.task_id.0, input.current_revision.graph_version
+                ),
+                plan.as_ref().map(|plan| plan.id.clone()),
+                Some(input.task_id.clone()),
+                None,
+                None,
+                json!({
+                    "artifactBaseGraphVersion": input.base_revision.graph_version,
+                    "taskBaseGraphVersion": task.base_revision.graph_version,
+                    "currentGraphVersion": input.current_revision.graph_version,
+                }),
+            )];
+            return Err(rejection_error(
+                &mut state,
+                &meta,
+                "artifact proposal rejected",
+                plan.as_ref().map(|plan| plan.id.clone()),
+                Some(input.task_id.clone()),
+                None,
+                None,
+                violations,
             ));
         }
         state.next_artifact += 1;
@@ -570,7 +1146,11 @@ impl CoordinationStore {
             claim: None,
             artifact: Some(id.clone()),
             review: None,
-            metadata: Value::Null,
+            metadata: json!({
+                "requiredValidations": artifact.required_validations.clone(),
+                "validatedChecks": artifact.validated_checks.clone(),
+                "riskScore": artifact.risk_score,
+            }),
         });
         Ok((id, artifact))
     }
@@ -584,6 +1164,41 @@ impl CoordinationStore {
             .state
             .write()
             .expect("coordination store lock poisoned");
+        let plan_id = state
+            .artifacts
+            .get(&input.artifact_id)
+            .and_then(|artifact| state.tasks.get(&artifact.task))
+            .map(|task| task.plan.clone());
+        let plan = plan_id
+            .as_ref()
+            .and_then(|plan_id| state.plans.get(plan_id))
+            .cloned();
+        if let Some(plan) = plan {
+            if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
+                let violations = vec![policy_violation(
+                    PolicyViolationCode::PlanClosed,
+                    format!(
+                        "coordination plan `{}` is {:?} and cannot supersede artifacts",
+                        plan.id.0, plan.status
+                    ),
+                    Some(plan.id.clone()),
+                    None,
+                    None,
+                    Some(input.artifact_id.clone()),
+                    Value::Null,
+                )];
+                return Err(rejection_error(
+                    &mut state,
+                    &meta,
+                    "artifact supersede rejected",
+                    Some(plan.id.clone()),
+                    None,
+                    None,
+                    Some(input.artifact_id.clone()),
+                    violations,
+                ));
+            }
+        }
         let artifact = state
             .artifacts
             .get_mut(&input.artifact_id)
@@ -598,12 +1213,12 @@ impl CoordinationStore {
             meta,
             kind: CoordinationEventKind::ArtifactSuperseded,
             summary: "artifact superseded".to_string(),
-            plan: plan_id,
+            plan: plan_id.clone(),
             task: Some(artifact.task.clone()),
             claim: None,
             artifact: Some(artifact.id.clone()),
             review: None,
-            metadata: Value::Null,
+            metadata: json!({ "status": "Superseded" }),
         });
         Ok(artifact)
     }
@@ -633,6 +1248,32 @@ impl CoordinationStore {
                 .cloned();
             (plan, artifact)
         };
+        if let Some(plan) = plan.as_ref() {
+            if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
+                let violations = vec![policy_violation(
+                    PolicyViolationCode::PlanClosed,
+                    format!(
+                        "coordination plan `{}` is {:?} and cannot review artifact `{}`",
+                        plan.id.0, plan.status, input.artifact_id.0
+                    ),
+                    Some(plan.id.clone()),
+                    Some(artifact.task.clone()),
+                    None,
+                    Some(input.artifact_id.clone()),
+                    Value::Null,
+                )];
+                return Err(rejection_error(
+                    &mut state,
+                    &meta,
+                    "artifact review rejected",
+                    Some(plan.id.clone()),
+                    Some(artifact.task.clone()),
+                    None,
+                    Some(input.artifact_id.clone()),
+                    violations,
+                ));
+            }
+        }
         if matches!(input.verdict, ReviewVerdict::Approved)
             && plan
                 .as_ref()
@@ -640,10 +1281,30 @@ impl CoordinationStore {
                 .unwrap_or(false)
             && artifact.base_revision.graph_version < current_revision.graph_version
         {
-            return Err(anyhow!(
-                "artifact `{}` is stale against graph version {}",
-                artifact.id.0,
-                current_revision.graph_version
+            let violations = vec![policy_violation(
+                PolicyViolationCode::ArtifactStale,
+                format!(
+                    "artifact `{}` is stale against graph version {}",
+                    artifact.id.0, current_revision.graph_version
+                ),
+                plan.as_ref().map(|plan| plan.id.clone()),
+                Some(artifact.task.clone()),
+                None,
+                Some(artifact.id.clone()),
+                json!({
+                    "artifactBaseGraphVersion": artifact.base_revision.graph_version,
+                    "currentGraphVersion": current_revision.graph_version,
+                }),
+            )];
+            return Err(rejection_error(
+                &mut state,
+                &meta,
+                "artifact review rejected",
+                plan.as_ref().map(|plan| plan.id.clone()),
+                Some(artifact.task.clone()),
+                None,
+                Some(artifact.id.clone()),
+                violations,
             ));
         }
         let review = ArtifactReview {
@@ -653,38 +1314,66 @@ impl CoordinationStore {
             summary: input.summary.clone(),
             meta: meta.clone(),
         };
-        let artifact_mut = state
-            .artifacts
-            .get_mut(&input.artifact_id)
-            .ok_or_else(|| anyhow!("unknown artifact `{}`", input.artifact_id.0))?;
-        if !input.required_validations.is_empty() {
-            artifact_mut.required_validations = dedupe_strings(input.required_validations.clone());
-        }
-        if !input.validated_checks.is_empty() {
-            let mut checks = artifact_mut.validated_checks.clone();
-            checks.extend(input.validated_checks.clone());
-            artifact_mut.validated_checks = dedupe_strings(checks);
-        }
-        if input.risk_score.is_some() {
-            artifact_mut.risk_score = input.risk_score;
-        }
-        if matches!(input.verdict, ReviewVerdict::Approved) {
-            let missing = missing_validations_for_artifact(artifact_mut);
-            if !missing.is_empty() {
-                return Err(anyhow!(
-                    "artifact `{}` is missing required validations: {}",
-                    artifact_mut.id.0,
-                    missing.join(", ")
-                ));
+        let mut review_rejection = None;
+        {
+            let artifact_mut = state
+                .artifacts
+                .get_mut(&input.artifact_id)
+                .ok_or_else(|| anyhow!("unknown artifact `{}`", input.artifact_id.0))?;
+            if !input.required_validations.is_empty() {
+                artifact_mut.required_validations =
+                    dedupe_strings(input.required_validations.clone());
+            }
+            if !input.validated_checks.is_empty() {
+                let mut checks = artifact_mut.validated_checks.clone();
+                checks.extend(input.validated_checks.clone());
+                artifact_mut.validated_checks = dedupe_strings(checks);
+            }
+            if input.risk_score.is_some() {
+                artifact_mut.risk_score = input.risk_score;
+            }
+            if matches!(input.verdict, ReviewVerdict::Approved) {
+                let missing = missing_validations_for_artifact(artifact_mut);
+                if !missing.is_empty() {
+                    review_rejection =
+                        Some((artifact_mut.task.clone(), artifact_mut.id.clone(), missing));
+                }
+            }
+            if review_rejection.is_none() {
+                artifact_mut.reviews.push(review_id.clone());
+                artifact_mut.status = match input.verdict {
+                    ReviewVerdict::Approved => ArtifactStatus::Approved,
+                    ReviewVerdict::ChangesRequested => ArtifactStatus::InReview,
+                    ReviewVerdict::Rejected => ArtifactStatus::Rejected,
+                };
+                artifact = artifact_mut.clone();
             }
         }
-        artifact_mut.reviews.push(review_id.clone());
-        artifact_mut.status = match input.verdict {
-            ReviewVerdict::Approved => ArtifactStatus::Approved,
-            ReviewVerdict::ChangesRequested => ArtifactStatus::InReview,
-            ReviewVerdict::Rejected => ArtifactStatus::Rejected,
-        };
-        artifact = artifact_mut.clone();
+        if let Some((task_id, artifact_id, missing)) = review_rejection {
+            let violations = vec![policy_violation(
+                PolicyViolationCode::ValidationRequired,
+                format!(
+                    "artifact `{}` is missing required validations: {}",
+                    artifact_id.0,
+                    missing.join(", ")
+                ),
+                plan.as_ref().map(|plan| plan.id.clone()),
+                Some(task_id.clone()),
+                None,
+                Some(artifact_id.clone()),
+                json!({ "missingValidations": missing }),
+            )];
+            return Err(rejection_error(
+                &mut state,
+                &meta,
+                "artifact review rejected",
+                plan.as_ref().map(|plan| plan.id.clone()),
+                Some(task_id),
+                None,
+                Some(artifact_id),
+                violations,
+            ));
+        }
         state.reviews.insert(review_id.clone(), review.clone());
         let plan_id = state
             .tasks
@@ -699,7 +1388,12 @@ impl CoordinationStore {
             claim: None,
             artifact: Some(artifact.id.clone()),
             review: Some(review_id.clone()),
-            metadata: Value::Null,
+            metadata: json!({
+                "verdict": format!("{:?}", review.verdict),
+                "requiredValidations": artifact.required_validations.clone(),
+                "validatedChecks": artifact.validated_checks.clone(),
+                "riskScore": artifact.risk_score,
+            }),
         });
         Ok((review_id, review, artifact))
     }

@@ -1,26 +1,26 @@
 use anyhow::Result;
 use prism_core::{index_workspace_session, WorkspaceSession};
-use prism_ir::{AnchorRef, EventActor, EventMeta, OutcomeId, TaskId};
-use prism_memory::{
-    MemoryModule, OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult, RecallQuery,
-};
+use prism_ir::{AnchorRef, EventActor, EventMeta, TaskId};
+use prism_memory::{MemoryModule, OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult};
 
 use crate::cli::{Cli, Command, MemoryCommand, OutcomeCommand, TaskCommand};
 use crate::display::{
     print_lineage, print_relation_section, print_relations, print_scored_memory, print_symbol,
 };
 use crate::parsing::{
-    build_evidence, parse_node_kind_filter, parse_outcome_kind, parse_outcome_result,
+    build_evidence, parse_memory_kind, parse_node_kind_filter, parse_outcome_kind,
+    parse_outcome_result,
 };
 use crate::runtime::{
     build_memory_entry, build_recall_query, build_task_event, current_event_id, current_timestamp,
-    git_diff_summary, load_episodic_memory, record_outcome_event, record_validation_outcome,
+    git_diff_summary, load_session_memory, record_outcome_event, record_validation_outcome,
     resolve_optional_anchors, resolve_single_symbol, run_validation_command,
 };
 
 pub fn run(cli: Cli) -> Result<()> {
     let session = index_workspace_session(&cli.root)?;
     let prism = session.prism();
+    let root = cli.root.clone();
 
     match cli.command {
         Command::Entrypoints => {
@@ -205,7 +205,7 @@ pub fn run(cli: Cli) -> Result<()> {
             }
         }
         Command::Memory { command } => handle_memory_command(&session, prism.as_ref(), command)?,
-        Command::Task { command } => handle_task_command(&cli, &session, prism.as_ref(), command)?,
+        Command::Task { command } => handle_task_command(&root, &session, prism.as_ref(), command)?,
         Command::Outcome { command } => handle_outcome_command(&session, prism.as_ref(), command)?,
     }
 
@@ -218,10 +218,25 @@ fn handle_memory_command(
     command: MemoryCommand,
 ) -> Result<()> {
     match command {
-        MemoryCommand::Recall { name, text, limit } => {
+        MemoryCommand::Recall {
+            name,
+            text,
+            limit,
+            kinds,
+        } => {
             let symbol = resolve_single_symbol(prism, &name)?;
-            let memory = load_episodic_memory(session)?;
-            let results = memory.recall(&build_recall_query(prism, symbol, text, limit))?;
+            let memory = load_session_memory(session)?;
+            let kinds = if kinds.is_empty() {
+                None
+            } else {
+                Some(
+                    kinds
+                        .iter()
+                        .map(|kind| parse_memory_kind(kind))
+                        .collect::<Result<Vec<_>>>()?,
+                )
+            };
+            let results = memory.recall(&build_recall_query(prism, &symbol, text, limit, kinds))?;
             if results.is_empty() {
                 eprintln!("no memory matched `{name}`");
             } else {
@@ -231,10 +246,19 @@ fn handle_memory_command(
                 }
             }
         }
-        MemoryCommand::Store { name, content } => {
+        MemoryCommand::Store {
+            name,
+            content,
+            kind,
+        } => {
             let symbol = resolve_single_symbol(prism, &name)?;
-            let memory = load_episodic_memory(session)?;
-            let id = memory.store(build_memory_entry(prism, symbol, content))?;
+            let memory = load_session_memory(session)?;
+            let id = memory.store(build_memory_entry(
+                prism,
+                symbol,
+                parse_memory_kind(&kind)?,
+                content,
+            ))?;
             session.persist_episodic(&memory.snapshot())?;
             println!("stored memory {}", id.0);
         }
@@ -244,7 +268,7 @@ fn handle_memory_command(
 }
 
 fn handle_task_command(
-    cli: &Cli,
+    root: &std::path::Path,
     session: &WorkspaceSession,
     prism: &prism_query::Prism,
     command: TaskCommand,
@@ -281,7 +305,7 @@ fn handle_task_command(
             staged,
         } => {
             let symbol = resolve_single_symbol(prism, &name)?;
-            let diff_summary = git_diff_summary(&cli.root, staged)?;
+            let diff_summary = git_diff_summary(root, staged)?;
             let summary = summary.unwrap_or_else(|| {
                 if staged {
                     format!("recorded staged patch for {}", symbol.id().path)

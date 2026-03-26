@@ -7,19 +7,19 @@ use crate::types::{
     ScoredMemory,
 };
 
-pub struct EpisodicMemory {
+pub struct SemanticMemory {
     inner: AnchoredMemory,
 }
 
-impl Default for EpisodicMemory {
+impl Default for SemanticMemory {
     fn default() -> Self {
         Self {
-            inner: AnchoredMemory::new("episodic", "memory", &[MemoryKind::Episodic]),
+            inner: AnchoredMemory::new("semantic", "semantic", &[MemoryKind::Semantic]),
         }
     }
 }
 
-impl EpisodicMemory {
+impl SemanticMemory {
     pub fn new() -> Self {
         Self::default()
     }
@@ -35,16 +35,16 @@ impl EpisodicMemory {
     pub fn from_snapshot(snapshot: EpisodicMemorySnapshot) -> Self {
         Self {
             inner: AnchoredMemory::from_snapshot(
-                "episodic",
-                "memory",
-                &[MemoryKind::Episodic],
+                "semantic",
+                "semantic",
+                &[MemoryKind::Semantic],
                 snapshot,
             ),
         }
     }
 }
 
-impl MemoryModule for EpisodicMemory {
+impl MemoryModule for SemanticMemory {
     fn name(&self) -> &'static str {
         self.inner.name()
     }

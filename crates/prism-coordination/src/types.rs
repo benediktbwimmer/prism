@@ -1,8 +1,8 @@
 use prism_ir::{
     AgentId, AnchorRef, ArtifactId, ArtifactStatus, Capability, ClaimId, ClaimMode, ClaimStatus,
-    ConflictSeverity, CoordinationEventKind, CoordinationTaskId, CoordinationTaskStatus, EventId,
-    EventMeta, PlanId, PlanStatus, ReviewId, ReviewVerdict, SessionId, Timestamp,
-    WorkspaceRevision,
+    ConflictOverlapKind, ConflictSeverity, CoordinationEventKind, CoordinationTaskId,
+    CoordinationTaskStatus, EventId, EventMeta, PlanId, PlanStatus, ReviewId, ReviewVerdict,
+    SessionId, Timestamp, WorkspaceRevision,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -81,8 +81,41 @@ pub struct WorkClaim {
 pub struct CoordinationConflict {
     pub severity: ConflictSeverity,
     pub anchors: Vec<AnchorRef>,
+    pub overlap_kinds: Vec<ConflictOverlapKind>,
     pub summary: String,
     pub blocking_claims: Vec<ClaimId>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PolicyViolationCode {
+    InvalidPlanTransition,
+    InvalidTaskTransition,
+    TerminalPlanEdit,
+    TerminalTaskEdit,
+    PlanClosed,
+    MissingDependency,
+    CrossPlanDependency,
+    StaleRevision,
+    ClaimConflict,
+    ReviewRequired,
+    RiskReviewRequired,
+    ValidationRequired,
+    ArtifactStale,
+    IncompletePlanTasks,
+    ActivePlanClaims,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PolicyViolation {
+    pub code: PolicyViolationCode,
+    pub summary: String,
+    pub plan_id: Option<PlanId>,
+    pub task_id: Option<CoordinationTaskId>,
+    pub claim_id: Option<ClaimId>,
+    pub artifact_id: Option<ArtifactId>,
+    #[serde(default)]
+    pub details: Value,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -166,6 +199,14 @@ pub struct CoordinationSnapshot {
 #[derive(Debug, Clone)]
 pub struct PlanCreateInput {
     pub goal: String,
+    pub policy: Option<CoordinationPolicy>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PlanUpdateInput {
+    pub plan_id: PlanId,
+    pub status: Option<PlanStatus>,
+    pub goal: Option<String>,
     pub policy: Option<CoordinationPolicy>,
 }
 

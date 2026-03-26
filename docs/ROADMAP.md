@@ -34,7 +34,9 @@ Status as of 2026-03-26:
 * `prism-store` has been decomposed and no longer centers its implementation in `src/lib.rs`
 * `prism-core` has been decomposed into focused modules, with `lib.rs` now acting as a small facade
 * `prism-mcp` has been substantially decomposed; the former crate-root monolith is now split across runtime, resource, mutation, view, schema, and test modules
-* the largest remaining work in this area is second-pass cleanup of internal boundaries and continued splitting of oversized test and handler modules where it improves ownership
+* `prism-query`, `prism-coordination`, `prism-js`, `prism-memory`, `prism-lang-rust`, `prism-curator`, `prism-cli`, and `prism-projections` have also been split so their roots now act as facades instead of implementation sinks
+* the first-pass modularization work is largely complete across the core workspace
+* the largest remaining work in this area is second-pass cleanup of internal boundaries and selective follow-up splitting where ownership is still too broad
 
 Work:
 
@@ -42,15 +44,16 @@ Work:
 * keep `prism-mcp` split along runtime, resources, query host, mutation handlers, session state, schema, and view boundaries instead of letting behavior drift back into the root
 * keep `prism-core` split along workspace loading, indexing, watch refresh, patch outcomes, curator support, and session boundaries
 * keep `prism-store` split along graph model, store trait, in-memory backend, SQLite schema, graph IO, snapshots, projections, and codecs boundaries
+* keep the newer facades in `prism-query`, `prism-coordination`, `prism-js`, `prism-memory`, `prism-lang-rust`, `prism-curator`, `prism-cli`, and `prism-projections` from collapsing back into broad crate-root files
 * preserve public APIs while moving internals so refactoring does not create churn for downstream crates
 * treat this as a maintainability pass, not a feature pass
 
 Done when:
 
-* large crates no longer concentrate most behavior in one source file
+* large crates no longer concentrate most behavior in one crate-root source file
 * subsystem ownership is obvious from module boundaries
 * new changes can land with smaller review surfaces
-* tests and high-fan-out handlers are no longer the main sources of monolithic growth
+* remaining larger modules represent real ownership boundaries rather than historical crate-root sprawl
 
 ## 2. Documentation Alignment And Product-Surface Cleanup
 
@@ -157,5 +160,5 @@ This cycle is successful when the following are all true:
 * lineage evidence is more exact and uncertainty is represented honestly
 * coordination mutations enforce policy and revision expectations consistently
 * the main cross-crate Prism loop is covered by integration tests
-* the largest crates have started to decompose into clearer module boundaries
+* the largest crates stay decomposed into clearer module boundaries
 * Rust target identity is defined well enough for non-trivial workspaces

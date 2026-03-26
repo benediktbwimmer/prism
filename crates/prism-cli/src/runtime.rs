@@ -5,8 +5,8 @@ use anyhow::{bail, Result};
 use prism_core::WorkspaceSession;
 use prism_ir::{AnchorRef, EventActor, EventId, EventMeta, TaskId};
 use prism_memory::{
-    EpisodicMemory, EpisodicMemorySnapshot, MemoryEntry, MemoryKind, MemoryModule, MemorySource,
-    OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult, RecallQuery,
+    EpisodicMemorySnapshot, MemoryEntry, MemoryKind, MemorySource, OutcomeEvent, OutcomeEvidence,
+    OutcomeKind, OutcomeResult, RecallQuery, SessionMemory,
 };
 use prism_query::Symbol;
 
@@ -46,21 +46,22 @@ pub fn resolve_optional_anchors(
     }
 }
 
-pub fn load_episodic_memory(session: &WorkspaceSession) -> Result<EpisodicMemory> {
+pub fn load_session_memory(session: &WorkspaceSession) -> Result<SessionMemory> {
     let snapshot = session
         .load_episodic_snapshot()?
         .unwrap_or(EpisodicMemorySnapshot {
             entries: Vec::new(),
         });
-    Ok(EpisodicMemory::from_snapshot(snapshot))
+    Ok(SessionMemory::from_snapshot(snapshot))
 }
 
 pub fn build_memory_entry(
     prism: &prism_query::Prism,
     symbol: Symbol<'_>,
+    kind: MemoryKind,
     content: String,
 ) -> MemoryEntry {
-    let mut entry = MemoryEntry::new(MemoryKind::Episodic, content);
+    let mut entry = MemoryEntry::new(kind, content);
     entry.anchors = prism.anchors_for(&[AnchorRef::Node(symbol.id().clone())]);
     entry.source = MemorySource::User;
     entry
@@ -209,16 +210,17 @@ pub fn record_outcome_event(session: &WorkspaceSession, event: OutcomeEvent) -> 
 
 pub fn build_recall_query(
     prism: &prism_query::Prism,
-    symbol: Symbol<'_>,
+    symbol: &Symbol<'_>,
     text: Option<String>,
     limit: usize,
+    kinds: Option<Vec<MemoryKind>>,
 ) -> RecallQuery {
     let anchors = prism.anchors_for(&[AnchorRef::Node(symbol.id().clone())]);
     RecallQuery {
         focus: anchors,
         text,
         limit,
-        kinds: None,
+        kinds,
         since: None,
     }
 }

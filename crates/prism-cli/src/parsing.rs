@@ -1,6 +1,15 @@
 use anyhow::{bail, Result};
 use prism_ir::NodeKind;
-use prism_memory::{OutcomeEvidence, OutcomeKind, OutcomeResult};
+use prism_memory::{MemoryKind, OutcomeEvidence, OutcomeKind, OutcomeResult};
+
+pub fn parse_memory_kind(value: &str) -> Result<MemoryKind> {
+    match value.to_ascii_lowercase().as_str() {
+        "episodic" | "note" | "notes" => Ok(MemoryKind::Episodic),
+        "structural" | "rule" | "invariant" => Ok(MemoryKind::Structural),
+        "semantic" | "summary" => Ok(MemoryKind::Semantic),
+        other => bail!("unknown memory kind `{other}`"),
+    }
+}
 
 pub fn parse_node_kind_filter(value: Option<&str>) -> Result<Option<NodeKind>> {
     let Some(value) = value else {

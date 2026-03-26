@@ -7,19 +7,19 @@ use crate::types::{
     ScoredMemory,
 };
 
-pub struct EpisodicMemory {
+pub struct StructuralMemory {
     inner: AnchoredMemory,
 }
 
-impl Default for EpisodicMemory {
+impl Default for StructuralMemory {
     fn default() -> Self {
         Self {
-            inner: AnchoredMemory::new("episodic", "memory", &[MemoryKind::Episodic]),
+            inner: AnchoredMemory::new("structural", "structural", &[MemoryKind::Structural]),
         }
     }
 }
 
-impl EpisodicMemory {
+impl StructuralMemory {
     pub fn new() -> Self {
         Self::default()
     }
@@ -35,16 +35,16 @@ impl EpisodicMemory {
     pub fn from_snapshot(snapshot: EpisodicMemorySnapshot) -> Self {
         Self {
             inner: AnchoredMemory::from_snapshot(
-                "episodic",
-                "memory",
-                &[MemoryKind::Episodic],
+                "structural",
+                "structural",
+                &[MemoryKind::Structural],
                 snapshot,
             ),
         }
     }
 }
 
-impl MemoryModule for EpisodicMemory {
+impl MemoryModule for StructuralMemory {
     fn name(&self) -> &'static str {
         self.inner.name()
     }
