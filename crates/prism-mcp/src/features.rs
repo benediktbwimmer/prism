@@ -134,6 +134,10 @@ impl PrismMcpFeatures {
             ),
         ]
     }
+
+    pub(crate) fn coordination_layer_enabled(&self) -> bool {
+        self.coordination.workflow || self.coordination.claims || self.coordination.artifacts
+    }
 }
 
 fn enabled_label(enabled: bool) -> &'static str {

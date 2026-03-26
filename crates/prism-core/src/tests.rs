@@ -6,6 +6,7 @@ use std::thread;
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use prism_coordination::PlanCreateInput;
 use prism_curator::{
     CandidateRiskSummary, CuratorBackend, CuratorContext, CuratorJob, CuratorProposal, CuratorRun,
 };
@@ -17,7 +18,7 @@ use prism_store::MemoryStore;
 
 use super::{
     index_workspace, index_workspace_session, index_workspace_session_with_curator,
-    WorkspaceIndexer,
+    index_workspace_session_with_options, WorkspaceIndexer, WorkspaceSessionOptions,
 };
 
 static NEXT_TEMP_WORKSPACE: AtomicU64 = AtomicU64::new(0);
@@ -445,6 +446,59 @@ fn appended_outcome_persists_projection_snapshot() {
         .scored_checks
         .iter()
         .any(|check| check.label == "test:alpha_integration" && check.score > 0.0));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn workspace_session_can_disable_coordination_entirely() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let enabled = index_workspace_session(&root).unwrap();
+    enabled
+        .mutate_coordination(|prism| {
+            let _ = prism.coordination().create_plan(
+                EventMeta {
+                    id: EventId::new("coordination:test"),
+                    ts: 1,
+                    actor: EventActor::User,
+                    correlation: Some(TaskId::new("task:test")),
+                    causation: None,
+                },
+                PlanCreateInput {
+                    goal: "Coordinate alpha".into(),
+                    policy: Default::default(),
+                },
+            )?;
+            Ok(())
+        })
+        .unwrap();
+    drop(enabled);
+
+    let disabled = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: false,
+        },
+    )
+    .unwrap();
+    assert!(!disabled.coordination_enabled);
+    assert!(disabled.load_coordination_snapshot().unwrap().is_none());
+    assert!(disabled.prism().coordination_snapshot().plans.is_empty());
+    let error = disabled
+        .mutate_coordination(|_| Ok::<_, anyhow::Error>(()))
+        .unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        "coordination is disabled for this workspace session"
+    );
 
     let _ = fs::remove_dir_all(root);
 }

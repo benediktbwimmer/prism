@@ -174,7 +174,8 @@ Each product supports multi-agent / multi-session coordination through:
 
 This layer should ship behind explicit feature flags.
 
-- a simple mode should disable the coordination layer end to end
+- a `--no-coordination` mode should disable the coordination layer end to end
+- when all coordination features are off for a session, the coordination layer should not be loaded or persisted for that session
 - workflow, claim, and artifact capabilities should be independently enableable as pressure proves they are worth the complexity
 - the exposed MCP surface should reflect those flags rather than advertising coordination universally
 

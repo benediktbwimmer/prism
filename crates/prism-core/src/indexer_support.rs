@@ -30,6 +30,7 @@ pub(crate) fn build_workspace_session(
     outcomes: OutcomeMemory,
     coordination: CoordinationStore,
     projections: ProjectionIndex,
+    coordination_enabled: bool,
     backend: Option<Arc<dyn CuratorBackend>>,
 ) -> Result<WorkspaceSession> {
     let prism = Arc::new(Prism::with_history_outcomes_coordination_and_projections(
@@ -57,6 +58,7 @@ pub(crate) fn build_workspace_session(
         Arc::clone(&prism),
         Arc::clone(&store),
         Arc::clone(&refresh_lock),
+        coordination_enabled,
         Some(CuratorHandleRef::from(&curator)),
     )?);
     Ok(WorkspaceSession {
@@ -66,6 +68,7 @@ pub(crate) fn build_workspace_session(
         refresh_lock,
         watch,
         curator: Some(curator),
+        coordination_enabled,
     })
 }
 

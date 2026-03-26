@@ -313,6 +313,35 @@ Limits:
 - needs curated datasets
 - requires expected labels or measurable comparisons
 
+#### Label Generation Strategy
+
+Labeling historical replay datasets should use **agent-based labeling via Codex CLI** (with a configurable model), not manual human labeling.
+
+Approach:
+
+1. for each consecutive revision pair, give the agent both full source snapshots, the diff, and any git rename hints
+2. the agent labels each disappeared/appeared symbol pair as rename, move, split, merge, genuinely new, or genuinely dead
+3. the agent assigns a self-confidence score to each label
+4. high-confidence labels enter the dataset directly
+5. low-confidence labels are dropped, not forced into the dataset
+
+Why agent labeling is preferred:
+
+- agents are better than humans at comparing large source files and noticing structural similarity
+- agents do not fatigue after labeling hundreds of renames
+- agents can process thousands of revision pairs across repos
+- dropping low-confidence labels produces a smaller but higher-precision evaluation set, which is more useful than a larger set contaminated by uncertain labels
+
+Monitoring the drop rate:
+
+- the rate of low-confidence labels is itself a signal about the inherent ambiguity of a repo's change patterns
+- track the drop rate as a meta-metric
+- periodically sample dropped cases to verify PRISM at least flags them as `Ambiguous` rather than overcommitting; this ensures the eval set does not systematically exclude all hard cases
+
+Critical rule:
+- do not use PRISM itself to generate labels for its own evaluation; the labeling agent and the system under test must have independent failure modes
+- use a general-purpose LLM with access to raw source and diffs, not the PRISM query surface
+
 ### 6.3 Differential Validation
 
 Compare the product’s extracted world model to another authoritative or lower-level source.
@@ -423,17 +452,22 @@ Validate:
 - ambiguity surfacing
 
 Primary method:
-- historical replay over real Git revisions
+Primary replay dataset:
+- the PRISM repo itself; it is sizeable enough to exercise real lineage scenarios, has a clean commit history, and is manageable in size
+- additional external repos may be added later for diversity
 
-Secondary method:
-- fixture cases with known expected lineage
+Label generation:
+- use Codex CLI with a configurable model to label lineage events across consecutive revisions
+- compare PRISM's deterministic resolver output to the agent-generated labels
+- disagreements are the interesting cases: either PRISM got it wrong, the labeling agent got it wrong, or the case is genuinely ambiguous
+- PRISM must never be used as its own labeling oracle
 
 Metrics:
 - rename continuity accuracy
 - move continuity accuracy
 - false continuity rate
 - ambiguity rate
-- incorrect “Born/Died” rate
+- incorrect "Born/Died" rate
 - incorrect evidence labeling rate
 
 Important rule:

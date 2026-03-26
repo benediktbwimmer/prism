@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use prism_agent::InferenceSnapshot;
 use prism_coordination::CoordinationSnapshot;
 use prism_curator::{
@@ -24,6 +24,7 @@ pub struct WorkspaceSession {
     pub(crate) refresh_lock: Arc<Mutex<()>>,
     pub(crate) watch: Option<WatchHandle>,
     pub(crate) curator: Option<CuratorHandle>,
+    pub(crate) coordination_enabled: bool,
 }
 
 impl WorkspaceSession {
@@ -104,6 +105,9 @@ impl WorkspaceSession {
     }
 
     pub fn load_coordination_snapshot(&self) -> Result<Option<CoordinationSnapshot>> {
+        if !self.coordination_enabled {
+            return Ok(None);
+        }
         self.store
             .lock()
             .expect("workspace store lock poisoned")
@@ -111,6 +115,9 @@ impl WorkspaceSession {
     }
 
     pub fn persist_coordination(&self, snapshot: &CoordinationSnapshot) -> Result<()> {
+        if !self.coordination_enabled {
+            return Ok(());
+        }
         let _guard = self
             .refresh_lock
             .lock()
@@ -125,6 +132,9 @@ impl WorkspaceSession {
     }
 
     pub fn persist_current_coordination(&self) -> Result<()> {
+        if !self.coordination_enabled {
+            return Ok(());
+        }
         let _guard = self
             .refresh_lock
             .lock()
@@ -143,6 +153,11 @@ impl WorkspaceSession {
     where
         F: FnOnce(&Prism) -> Result<T>,
     {
+        if !self.coordination_enabled {
+            return Err(anyhow!(
+                "coordination is disabled for this workspace session"
+            ));
+        }
         let _guard = self
             .refresh_lock
             .lock()
@@ -253,6 +268,7 @@ impl WorkspaceSession {
             &self.prism,
             &self.store,
             &self.refresh_lock,
+            self.coordination_enabled,
             curator.as_ref(),
             trigger,
         )

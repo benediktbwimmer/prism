@@ -5,7 +5,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Result};
 use clap::ArgAction;
 use prism_agent::InferenceStore;
-use prism_core::{index_workspace_session, WorkspaceSession};
+use prism_core::{index_workspace_session_with_options, WorkspaceSession, WorkspaceSessionOptions};
 use prism_ir::TaskId;
 use prism_js::{api_reference_markdown, CuratorJobView, API_REFERENCE_URI};
 use prism_memory::{EpisodicMemory, OutcomeEvent};
@@ -63,8 +63,8 @@ static NEXT_SESSION_ID: AtomicU64 = AtomicU64::new(1);
 pub struct PrismMcpCli {
     #[arg(long, default_value = ".")]
     pub root: PathBuf,
-    #[arg(long, default_value_t = false)]
-    pub simple: bool,
+    #[arg(long = "no-coordination", alias = "simple", default_value_t = false)]
+    pub no_coordination: bool,
     #[arg(long, value_enum, value_delimiter = ',', action = ArgAction::Append)]
     pub enable_coordination: Vec<CoordinationFeatureFlag>,
     #[arg(long, value_enum, value_delimiter = ',', action = ArgAction::Append)]
@@ -73,7 +73,7 @@ pub struct PrismMcpCli {
 
 impl PrismMcpCli {
     pub fn features(&self) -> PrismMcpFeatures {
-        let mut features = if self.simple {
+        let mut features = if self.no_coordination {
             PrismMcpFeatures::simple()
         } else {
             PrismMcpFeatures::full()
@@ -103,7 +103,12 @@ impl PrismMcpServer {
         root: impl AsRef<Path>,
         features: PrismMcpFeatures,
     ) -> Result<Self> {
-        let session = index_workspace_session(root)?;
+        let session = index_workspace_session_with_options(
+            root,
+            WorkspaceSessionOptions {
+                coordination: features.coordination_layer_enabled(),
+            },
+        )?;
         Ok(Self::with_session_and_features(session, features))
     }
 

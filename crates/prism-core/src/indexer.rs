@@ -10,6 +10,7 @@ use crate::patch_outcomes::default_outcome_meta;
 use crate::reanchor::{detect_moved_files, infer_reanchors};
 use crate::session::WorkspaceSession;
 use crate::util::{cache_path, cleanup_legacy_cache, default_adapters};
+use crate::WorkspaceSessionOptions;
 use anyhow::Result;
 use prism_coordination::CoordinationStore;
 use prism_curator::CuratorBackend;
@@ -35,6 +36,7 @@ pub struct WorkspaceIndexer<S: Store> {
     pub(crate) had_projection_snapshot: bool,
     pub(crate) adapters: Vec<Box<dyn LanguageAdapter>>,
     pub(crate) store: S,
+    pub(crate) coordination_enabled: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -47,10 +49,17 @@ pub(crate) struct PendingFileParse {
 
 impl WorkspaceIndexer<SqliteStore> {
     pub fn new(root: impl AsRef<Path>) -> Result<Self> {
+        Self::new_with_options(root, WorkspaceSessionOptions::default())
+    }
+
+    pub fn new_with_options(
+        root: impl AsRef<Path>,
+        options: WorkspaceSessionOptions,
+    ) -> Result<Self> {
         let root = root.as_ref().canonicalize()?;
         cleanup_legacy_cache(&root)?;
         let store = SqliteStore::open(cache_path(&root))?;
-        Self::with_store(root, store)
+        Self::with_store_and_options(root, store, options)
     }
 
     pub fn into_session(
@@ -66,13 +75,22 @@ impl WorkspaceIndexer<SqliteStore> {
             self.outcomes,
             self.coordination,
             self.projections,
+            self.coordination_enabled,
             backend,
         )
     }
 }
 
 impl<S: Store> WorkspaceIndexer<S> {
-    pub fn with_store(root: impl AsRef<Path>, mut store: S) -> Result<Self> {
+    pub fn with_store(root: impl AsRef<Path>, store: S) -> Result<Self> {
+        Self::with_store_and_options(root, store, WorkspaceSessionOptions::default())
+    }
+
+    pub fn with_store_and_options(
+        root: impl AsRef<Path>,
+        mut store: S,
+        options: WorkspaceSessionOptions,
+    ) -> Result<Self> {
         let root = root.as_ref().canonicalize()?;
         let layout = discover_layout(&root)?;
         let stored_graph = store.load_graph()?;
@@ -88,10 +106,14 @@ impl<S: Store> WorkspaceIndexer<S> {
             .load_outcome_snapshot()?
             .map(OutcomeMemory::from_snapshot)
             .unwrap_or_else(OutcomeMemory::new);
-        let coordination = store
-            .load_coordination_snapshot()?
-            .map(CoordinationStore::from_snapshot)
-            .unwrap_or_else(CoordinationStore::new);
+        let coordination = if options.coordination {
+            store
+                .load_coordination_snapshot()?
+                .map(CoordinationStore::from_snapshot)
+                .unwrap_or_else(CoordinationStore::new)
+        } else {
+            CoordinationStore::new()
+        };
         let stored_projection_snapshot = store.load_projection_snapshot()?;
         let had_projection_snapshot = stored_projection_snapshot.is_some();
         let projections = stored_projection_snapshot
@@ -110,6 +132,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             had_projection_snapshot,
             adapters: default_adapters(),
             store,
+            coordination_enabled: options.coordination,
         })
     }
 

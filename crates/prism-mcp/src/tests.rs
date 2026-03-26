@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use clap::Parser;
 use rmcp::{
     model::{ClientJsonRpcMessage, ProtocolVersion, ServerJsonRpcMessage},
     transport::{IntoTransport, Transport},
@@ -114,6 +115,16 @@ fn server_with_node_and_features(node: Node, features: PrismMcpFeatures) -> Pris
 
 fn client_message(raw: &str) -> ClientJsonRpcMessage {
     serde_json::from_str(raw).expect("invalid client json-rpc message")
+}
+
+#[test]
+fn cli_no_coordination_flag_disables_coordination_features() {
+    let cli = PrismMcpCli::parse_from(["prism-mcp", "--no-coordination"]);
+    let features = cli.features();
+    assert_eq!(features.mode_label(), "simple");
+    assert!(!features.coordination.workflow);
+    assert!(!features.coordination.claims);
+    assert!(!features.coordination.artifacts);
 }
 
 fn initialize_request() -> ClientJsonRpcMessage {

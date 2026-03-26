@@ -20,6 +20,17 @@ pub(crate) use indexer::PendingFileParse;
 pub use indexer::WorkspaceIndexer;
 pub use session::WorkspaceSession;
 
+#[derive(Debug, Clone, Copy)]
+pub struct WorkspaceSessionOptions {
+    pub coordination: bool,
+}
+
+impl Default for WorkspaceSessionOptions {
+    fn default() -> Self {
+        Self { coordination: true }
+    }
+}
+
 pub fn index_workspace(root: impl AsRef<std::path::Path>) -> Result<Prism> {
     let mut indexer = WorkspaceIndexer::new(root)?;
     indexer.index()?;
@@ -27,8 +38,15 @@ pub fn index_workspace(root: impl AsRef<std::path::Path>) -> Result<Prism> {
 }
 
 pub fn index_workspace_session(root: impl AsRef<std::path::Path>) -> Result<WorkspaceSession> {
+    index_workspace_session_with_options(root, WorkspaceSessionOptions::default())
+}
+
+pub fn index_workspace_session_with_options(
+    root: impl AsRef<std::path::Path>,
+    options: WorkspaceSessionOptions,
+) -> Result<WorkspaceSession> {
     let root = root.as_ref().canonicalize()?;
-    let mut indexer = WorkspaceIndexer::new(&root)?;
+    let mut indexer = WorkspaceIndexer::new_with_options(&root, options)?;
     indexer.index()?;
     indexer.into_session(root, None)
 }
@@ -37,8 +55,20 @@ pub fn index_workspace_session_with_curator(
     root: impl AsRef<std::path::Path>,
     backend: Arc<dyn CuratorBackend>,
 ) -> Result<WorkspaceSession> {
+    index_workspace_session_with_curator_and_options(
+        root,
+        backend,
+        WorkspaceSessionOptions::default(),
+    )
+}
+
+pub fn index_workspace_session_with_curator_and_options(
+    root: impl AsRef<std::path::Path>,
+    backend: Arc<dyn CuratorBackend>,
+    options: WorkspaceSessionOptions,
+) -> Result<WorkspaceSession> {
     let root = root.as_ref().canonicalize()?;
-    let mut indexer = WorkspaceIndexer::new(&root)?;
+    let mut indexer = WorkspaceIndexer::new_with_options(&root, options)?;
     indexer.index()?;
     indexer.into_session(root, Some(backend))
 }

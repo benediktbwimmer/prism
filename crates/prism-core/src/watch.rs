@@ -23,6 +23,7 @@ pub(crate) fn spawn_fs_watch(
     prism: Arc<RwLock<Arc<Prism>>>,
     store: Arc<Mutex<SqliteStore>>,
     refresh_lock: Arc<Mutex<()>>,
+    coordination_enabled: bool,
     curator: Option<CuratorHandleRef>,
 ) -> Result<WatchHandle> {
     let (stop_tx, stop_rx) = mpsc::channel::<()>();
@@ -81,6 +82,7 @@ pub(crate) fn spawn_fs_watch(
                 &prism,
                 &store,
                 &refresh_lock,
+                coordination_enabled,
                 curator.as_ref(),
                 ChangeTrigger::FsWatch,
             ) {
@@ -104,13 +106,19 @@ pub(crate) fn refresh_prism_snapshot(
     prism: &Arc<RwLock<Arc<Prism>>>,
     store: &Arc<Mutex<SqliteStore>>,
     refresh_lock: &Arc<Mutex<()>>,
+    coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
     trigger: ChangeTrigger,
 ) -> Result<Vec<prism_ir::ObservedChangeSet>> {
     let _guard = refresh_lock
         .lock()
         .expect("workspace refresh lock poisoned");
-    let mut indexer = WorkspaceIndexer::new(root)?;
+    let mut indexer = WorkspaceIndexer::new_with_options(
+        root,
+        crate::WorkspaceSessionOptions {
+            coordination: coordination_enabled,
+        },
+    )?;
     let observed = indexer.index_with_trigger(trigger)?;
     let next = Arc::new(indexer.into_prism());
     *prism.write().expect("workspace prism lock poisoned") = Arc::clone(&next);
