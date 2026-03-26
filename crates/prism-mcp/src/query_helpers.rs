@@ -1,14 +1,21 @@
 use anyhow::{anyhow, Result};
 use prism_ir::{AnchorRef, EdgeKind, NodeId};
 use prism_js::{
-    ChangeImpactView, LineageEventView, LineageStatus, LineageView, OwnerHintView, RelationsView,
-    SourceExcerptView, SourceLocationView, SymbolView, ValidationRecipeView,
+    ChangeImpactView, EditContextView, LineageEventView, LineageStatus, LineageView,
+    OwnerCandidateView, OwnerHintView, ReadContextView, RelationsView, SourceExcerptView,
+    SourceLocationView, SymbolView, ValidationRecipeView,
 };
 use prism_query::{Prism, SourceExcerptOptions, Symbol};
 
 use crate::{
     change_impact_view, merge_node_ids, merge_promoted_checks, node_id_view,
     promoted_summary_texts, promoted_validation_checks, validation_recipe_view, SessionState,
+};
+
+const CANDIDATE_EXCERPT_OPTIONS: SourceExcerptOptions = SourceExcerptOptions {
+    context_lines: 0,
+    max_lines: 4,
+    max_chars: 240,
 };
 
 pub(crate) fn symbol_view(prism: &Prism, symbol: &Symbol<'_>) -> Result<SymbolView> {
@@ -73,6 +80,35 @@ pub(crate) fn source_excerpt_for_symbol(
     symbol.excerpt(options).map(source_excerpt_view)
 }
 
+pub(crate) fn compact_owner_candidate_excerpts(
+    prism: &Prism,
+    candidates: &mut [OwnerCandidateView],
+) -> Result<()> {
+    for candidate in candidates {
+        compact_symbol_excerpt(prism, &mut candidate.symbol)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn compact_read_context_candidate_excerpts(
+    prism: &Prism,
+    context: &mut ReadContextView,
+) -> Result<()> {
+    compact_owner_candidate_excerpts(prism, &mut context.suggested_reads)?;
+    compact_owner_candidate_excerpts(prism, &mut context.tests)?;
+    Ok(())
+}
+
+pub(crate) fn compact_edit_context_candidate_excerpts(
+    prism: &Prism,
+    context: &mut EditContextView,
+) -> Result<()> {
+    compact_owner_candidate_excerpts(prism, &mut context.suggested_reads)?;
+    compact_owner_candidate_excerpts(prism, &mut context.write_paths)?;
+    compact_owner_candidate_excerpts(prism, &mut context.tests)?;
+    Ok(())
+}
+
 fn source_location_view(location: prism_query::SourceLocation) -> SourceLocationView {
     SourceLocationView {
         start_line: location.start_line,
@@ -80,6 +116,18 @@ fn source_location_view(location: prism_query::SourceLocation) -> SourceLocation
         end_line: location.end_line,
         end_column: location.end_column,
     }
+}
+
+fn compact_symbol_excerpt(prism: &Prism, symbol: &mut SymbolView) -> Result<()> {
+    let id = NodeId::new(
+        symbol.id.crate_name.clone(),
+        symbol.id.path.clone(),
+        symbol.kind,
+    );
+    symbol.source_excerpt = symbol_for(prism, &id)?
+        .excerpt(CANDIDATE_EXCERPT_OPTIONS)
+        .map(source_excerpt_view);
+    Ok(())
 }
 
 fn source_excerpt_view(excerpt: prism_query::SourceExcerpt) -> SourceExcerptView {

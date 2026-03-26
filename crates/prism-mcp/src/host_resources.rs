@@ -6,13 +6,14 @@ use prism_memory::MemoryId;
 
 use crate::{
     anchor_resource_view_links, blast_radius_view, capabilities_resource_value,
-    capabilities_resource_view_link, co_change_view, dedupe_resource_link_views,
-    derive_task_metadata, edge_resource_uri, edge_resource_view_link, edit_context_view,
-    event_resource_view_link, inferred_edge_record_view, lineage_resource_view_link,
-    lineage_status, memory_entry_view, memory_resource_uri, memory_resource_view_link,
-    node_id_view, owner_views_for_query, owner_views_for_target, paginate_items,
-    parse_resource_page, parse_resource_query_param, read_context_view, relations_view,
-    resource_link_view, resource_schema_catalog_entries, schema_resource_uri,
+    capabilities_resource_view_link, co_change_view, compact_edit_context_candidate_excerpts,
+    compact_owner_candidate_excerpts, compact_read_context_candidate_excerpts,
+    dedupe_resource_link_views, derive_task_metadata, edge_resource_uri, edge_resource_view_link,
+    edit_context_view, event_resource_view_link, inferred_edge_record_view,
+    lineage_resource_view_link, lineage_status, memory_entry_view, memory_resource_uri,
+    memory_resource_view_link, node_id_view, owner_views_for_query, owner_views_for_target,
+    paginate_items, parse_resource_page, parse_resource_query_param, read_context_view,
+    relations_view, resource_link_view, resource_schema_catalog_entries, schema_resource_uri,
     schema_resource_view_link, schemas_resource_uri, schemas_resource_view_link,
     search_resource_view_link_with_options, session_resource_uri, session_resource_view_link,
     symbol_for, symbol_resource_uri, symbol_resource_view_link, symbol_resource_view_link_for_id,
@@ -193,8 +194,12 @@ impl QueryHost {
                 None,
                 crate::INSIGHT_LIMIT,
             )?);
-        let read_context = read_context_view(prism.as_ref(), self.session.as_ref(), id)?;
-        let edit_context = edit_context_view(prism.as_ref(), self.session.as_ref(), id)?;
+        let mut suggested_reads = suggested_reads;
+        compact_owner_candidate_excerpts(prism.as_ref(), &mut suggested_reads)?;
+        let mut read_context = read_context_view(prism.as_ref(), self.session.as_ref(), id)?;
+        compact_read_context_candidate_excerpts(prism.as_ref(), &mut read_context)?;
+        let mut edit_context = edit_context_view(prism.as_ref(), self.session.as_ref(), id)?;
+        compact_edit_context_candidate_excerpts(prism.as_ref(), &mut edit_context)?;
         let relations = relations_view(prism.as_ref(), self.session.as_ref(), id)?;
         let spec_cluster = crate::spec_cluster_view(prism.as_ref(), id).ok();
         let lineage = crate::lineage_view(prism.as_ref(), id)?;
@@ -285,6 +290,8 @@ impl QueryHost {
             path.as_deref(),
             crate::INSIGHT_LIMIT,
         )?;
+        let mut suggested_reads = suggested_reads;
+        compact_owner_candidate_excerpts(prism.as_ref(), &mut suggested_reads)?;
         let paged = paginate_items(
             execution.search(SearchArgs {
                 query: query.to_string(),
@@ -310,7 +317,9 @@ impl QueryHost {
                     symbol.id.path.clone(),
                     symbol.kind.clone(),
                 );
-                read_context_view(prism.as_ref(), self.session.as_ref(), &id)
+                let mut context = read_context_view(prism.as_ref(), self.session.as_ref(), &id)?;
+                compact_read_context_candidate_excerpts(prism.as_ref(), &mut context)?;
+                Ok::<_, anyhow::Error>(context)
             })
             .transpose()?;
         let top_target = paged.items.first().map(|symbol| {

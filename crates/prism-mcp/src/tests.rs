@@ -265,6 +265,89 @@ fn write_memory_insight_workspace(root: &Path) {
     .unwrap();
 }
 
+fn write_long_excerpt_workspace(root: &Path) {
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("docs/SPEC.md"),
+        "# Memory\n\n## Integration Points\n\nPRISM should enrich memory recall with lineage and prior outcomes.\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "mod recall;\n").unwrap();
+    fs::write(
+        root.join("src/recall.rs"),
+        r#"pub fn memory_recall() {
+    let alpha = "lineage context";
+    let beta = "prior outcomes";
+    let gamma = "task journal";
+    let delta = "behavioral ranking";
+    let epsilon = "validation recipe";
+    let zeta = "related failures";
+    let eta = "read context";
+    let theta = "edit context";
+    let iota = "co change neighbors";
+    let kappa = "owner hints";
+    let lambda = "symbol excerpts";
+    let mu = "candidate ranking";
+    let nu = "session memory";
+    let xi = "evidence chain";
+    let omicron = "workspace revision";
+    let pi = alpha.len()
+        + beta.len()
+        + gamma.len()
+        + delta.len()
+        + epsilon.len()
+        + zeta.len()
+        + eta.len()
+        + theta.len()
+        + iota.len()
+        + kappa.len()
+        + lambda.len()
+        + mu.len()
+        + nu.len()
+        + xi.len()
+        + omicron.len();
+    assert!(pi > 0);
+}
+
+pub fn memory_recall_support() {
+    let alpha = "lineage context";
+    let beta = "prior outcomes";
+    let gamma = "task journal";
+    let delta = "behavioral ranking";
+    let epsilon = "validation recipe";
+    let zeta = "related failures";
+    let eta = "read context";
+    let theta = "edit context";
+    let iota = "co change neighbors";
+    let kappa = "owner hints";
+    let lambda = "symbol excerpts";
+    let mu = "candidate ranking";
+    let nu = "session memory";
+    let xi = "evidence chain";
+    let omicron = "workspace revision";
+    let pi = alpha.len()
+        + beta.len()
+        + gamma.len()
+        + delta.len()
+        + epsilon.len()
+        + zeta.len()
+        + eta.len()
+        + theta.len()
+        + iota.len()
+        + kappa.len()
+        + lambda.len()
+        + mu.len()
+        + nu.len()
+        + xi.len()
+        + omicron.len();
+    assert!(pi > 0);
+}
+"#,
+    )
+    .unwrap();
+}
+
 #[test]
 fn executes_symbol_query() {
     let host = host_with_node(demo_node());
@@ -2831,6 +2914,50 @@ fn search_resource_payload_echoes_applied_uri_options() {
     assert_eq!(payload.kind.as_deref(), Some("function"));
     assert_eq!(payload.path.as_deref(), Some("src/memory"));
     assert!(!payload.include_inferred);
+}
+
+#[test]
+fn resource_suggested_candidates_use_compact_default_excerpts() {
+    let root = temp_workspace();
+    write_long_excerpt_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let id = host
+        .current_prism()
+        .search(
+            "memory_recall",
+            1,
+            Some(NodeKind::Function),
+            Some("src/recall.rs"),
+        )
+        .first()
+        .expect("memory_recall should be indexed")
+        .id()
+        .clone();
+
+    let symbol_payload = host.symbol_resource_value(&id).unwrap();
+    let search_payload = host
+        .search_resource_value(
+            "prism://search/memory_recall?strategy=behavioral&ownerKind=read",
+            "memory_recall",
+        )
+        .unwrap();
+
+    let symbol_candidate_excerpt = symbol_payload
+        .suggested_reads
+        .iter()
+        .filter_map(|candidate| candidate.symbol.source_excerpt.as_ref())
+        .next()
+        .expect("symbol resource suggested candidate should include excerpt");
+    assert!(symbol_candidate_excerpt.text.chars().count() <= 240);
+
+    let search_excerpt = search_payload
+        .suggested_reads
+        .iter()
+        .find(|candidate| candidate.symbol.id.path.contains("memory_recall"))
+        .and_then(|candidate| candidate.symbol.source_excerpt.as_ref())
+        .expect("search resource suggested candidate should include excerpt");
+    assert!(search_excerpt.text.chars().count() <= 240);
+    assert!(search_excerpt.truncated);
 }
 
 #[test]
