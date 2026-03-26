@@ -18,9 +18,9 @@ pub struct SourceExcerptOptions {
 impl Default for SourceExcerptOptions {
     fn default() -> Self {
         Self {
-            context_lines: 0,
-            max_lines: 12,
-            max_chars: 1200,
+            context_lines: 1,
+            max_lines: 14,
+            max_chars: 1400,
         }
     }
 }

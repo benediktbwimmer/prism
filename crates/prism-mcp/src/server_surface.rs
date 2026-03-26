@@ -515,6 +515,16 @@ impl ServerHandler for PrismMcpServer {
                         None,
                     ))
                     .no_annotation(),
+                RawResource::new(TOOL_SCHEMAS_URI, "PRISM Tool Schemas")
+                    .with_description("Catalog of JSON Schemas for PRISM MCP tool input payloads")
+                    .with_mime_type("application/json")
+                    .with_title("PRISM Tool Schemas")
+                    .with_meta(resource_meta(
+                        "tool-schemas",
+                        Some(schema_resource_uri("tool-schemas")),
+                        None,
+                    ))
+                    .no_annotation(),
             ],
             next_cursor: None,
             meta: None,
@@ -538,6 +548,16 @@ impl ServerHandler for PrismMcpServer {
                 Some(resource_meta(
                     "schemas",
                     Some(schema_resource_uri("schemas")),
+                    None,
+                )),
+            )?
+        } else if base_uri == TOOL_SCHEMAS_URI {
+            json_resource_contents_with_meta(
+                self.host.tool_schemas_resource_value(),
+                request.uri.clone(),
+                Some(resource_meta(
+                    "tool-schemas",
+                    Some(schema_resource_uri("tool-schemas")),
                     None,
                 )),
             )?
@@ -649,6 +669,8 @@ impl ServerHandler for PrismMcpServer {
                     None,
                 )),
             )?
+        } else if let Some(tool_name) = parse_tool_schema_resource_uri(uri) {
+            tool_schema_resource_contents(&tool_name, uri)?
         } else if let Some(resource_kind) = parse_schema_resource_uri(uri) {
             match resource_kind.as_str() {
                 "session" => schema_resource_contents::<SessionResourcePayload>(
@@ -662,6 +684,12 @@ impl ServerHandler for PrismMcpServer {
                     "PRISM Resource Schema Catalog Schema",
                     "JSON Schema for the PRISM resource schema catalog payload.",
                     "schemas",
+                )?,
+                "tool-schemas" => schema_resource_contents::<ToolSchemaCatalogPayload>(
+                    uri,
+                    "PRISM Tool Schema Catalog Schema",
+                    "JSON Schema for the PRISM MCP tool schema catalog payload.",
+                    "tool-schemas",
                 )?,
                 "entrypoints" => schema_resource_contents::<EntrypointsResourcePayload>(
                     uri,
@@ -752,6 +780,13 @@ impl ServerHandler for PrismMcpServer {
                     .with_mime_type("application/schema+json")
                     .with_title("PRISM Resource Schema")
                     .no_annotation(),
+                RawResourceTemplate::new(TOOL_SCHEMA_RESOURCE_TEMPLATE_URI, "PRISM Tool Schema")
+                    .with_description(
+                        "Read a JSON Schema document for a PRISM MCP tool input payload such as `prism_query`, `prism_session`, or `prism_mutate`",
+                    )
+                    .with_mime_type("application/schema+json")
+                    .with_title("PRISM Tool Schema")
+                    .no_annotation(),
                 RawResourceTemplate::new(SEARCH_RESOURCE_TEMPLATE_URI, "PRISM Search")
                     .with_description(
                         "Read structured PRISM search results and diagnostics for a query string with optional `limit` and opaque `cursor` pagination",
@@ -799,7 +834,7 @@ impl ServerHandler for PrismMcpServer {
 impl PrismMcpServer {
     fn server_instructions(&self) -> String {
         let mut instructions = String::from(
-            "Start with prism://api-reference for the typed query contract and prism://schemas for the JSON Schema catalog. Use prism://session to inspect the active workspace, task, runtime limits, and active feature flags, prism_session to change task context or limits, prism_query for programmable read-only graph queries, prism://entrypoints for a quick workspace overview, prism://search/{query} for browseable search results, prism://symbol/{crateName}/{kind}/{path} for exact symbol snapshots, prism://lineage/{lineageId} for symbol history, prism://task/{taskId} for recorded task outcomes, and prism://event/{eventId}, prism://memory/{memoryId}, and prism://edge/{edgeId} for mutation outputs. Follow each resource payload's schemaUri and relatedResources fields instead of reconstructing URIs by convention. Use prism_mutate for outcomes, anchored memory, validation feedback, inferred edges, coordination state, claims, artifacts, and curator proposal decisions.",
+            "Start with prism://api-reference for the typed query contract and prism://schemas for the JSON Schema catalog. Use prism://tool-schemas and prism://schema/tool/{toolName} when you need exact MCP tool input shapes. Use prism://session to inspect the active workspace, task, runtime limits, and active feature flags, prism_session to change task context or limits, prism_query for programmable read-only graph queries, prism://entrypoints for a quick workspace overview, prism://search/{query} for browseable search results, prism://symbol/{crateName}/{kind}/{path} for exact symbol snapshots, prism://lineage/{lineageId} for symbol history, prism://task/{taskId} for recorded task outcomes, and prism://event/{eventId}, prism://memory/{memoryId}, and prism://edge/{edgeId} for mutation outputs. Follow each resource payload's schemaUri and relatedResources fields instead of reconstructing URIs by convention. Use prism_mutate for outcomes, anchored memory, validation feedback, inferred edges, coordination state, claims, artifacts, and curator proposal decisions.",
         );
 
         if self.host.features.mode_label() != "full" {

@@ -13,18 +13,20 @@ use crate::{
     artifact_risk_view, artifact_view, blast_radius_view, blocker_view, change_impact_view,
     claim_view, co_change_view, conflict_view, convert_anchors, convert_node_id,
     coordination_task_view, current_timestamp, drift_candidate_view, edge_kind_label, edge_view,
-    js_runtime, lineage_view, merge_node_ids, merge_promoted_checks, parse_capability,
-    parse_claim_mode, parse_event_actor, parse_memory_kind, parse_node_kind, parse_outcome_kind,
+    js_runtime, lineage_view, merge_node_ids, merge_promoted_checks, owner_symbol_views_for_query,
+    owner_symbol_views_for_target, owner_views_for_target, parse_capability, parse_claim_mode,
+    parse_event_actor, parse_memory_kind, parse_node_kind, parse_outcome_kind,
     parse_outcome_result, plan_view, policy_violation_record_view, promoted_memory_entries,
     promoted_summary_texts, promoted_validation_checks, relations_view, scored_memory_view,
-    source_excerpt_for_symbol, symbol_for, symbol_view, symbol_views_for_ids, task_intent_view,
-    task_journal_view, task_risk_view, task_validation_recipe_view, validation_recipe_view_with,
-    AnchorListArgs, CallGraphArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs,
-    LimitArgs, MemoryOutcomeArgs, MemoryRecallArgs, PendingReviewsArgs, PlanTargetArgs,
-    PolicyViolationQueryArgs, QueryHost, QueryLanguage, SearchArgs, SimulateClaimArgs,
-    SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskJournalArgs, TaskTargetArgs,
-    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
+    source_excerpt_for_symbol, spec_cluster_view, spec_drift_explanation_view, symbol_for,
+    symbol_view, symbol_views_for_ids, task_intent_view, task_journal_view, task_risk_view,
+    task_validation_recipe_view, validation_recipe_view_with, AnchorListArgs, CallGraphArgs,
+    CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, ImplementationTargetArgs,
+    LimitArgs, MemoryOutcomeArgs, MemoryRecallArgs, OwnerLookupArgs, PendingReviewsArgs,
+    PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage, SearchArgs,
+    SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskJournalArgs,
+    TaskTargetArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
 };
 
 impl QueryHost {
@@ -571,12 +573,27 @@ impl QueryExecution {
                 )?)?)
             }
             "implementationFor" => {
-                let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                let args: ImplementationTargetArgs = serde_json::from_value(args)?;
                 let id = convert_node_id(args.id)?;
-                Ok(serde_json::to_value(symbol_views_for_ids(
-                    self.prism.as_ref(),
-                    self.prism.implementation_for(&id),
-                )?)?)
+                if args.mode.as_deref() == Some("owners") {
+                    let limit = self
+                        .host
+                        .session
+                        .limits()
+                        .max_result_nodes
+                        .min(INSIGHT_LIMIT);
+                    Ok(serde_json::to_value(owner_symbol_views_for_target(
+                        self.prism.as_ref(),
+                        &id,
+                        args.owner_kind.as_deref(),
+                        limit,
+                    )?)?)
+                } else {
+                    Ok(serde_json::to_value(symbol_views_for_ids(
+                        self.prism.as_ref(),
+                        self.prism.implementation_for(&id),
+                    )?)?)
+                }
             }
             "driftCandidates" => {
                 let args: LimitArgs = serde_json::from_value(args)?;
@@ -587,6 +604,30 @@ impl QueryExecution {
                         .map(drift_candidate_view)
                         .collect::<Vec<_>>(),
                 )?)
+            }
+            "specCluster" => {
+                let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                let id = convert_node_id(args.id)?;
+                Ok(serde_json::to_value(self.spec_cluster(&id)?)?)
+            }
+            "explainDrift" => {
+                let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                let id = convert_node_id(args.id)?;
+                Ok(serde_json::to_value(self.explain_drift(&id)?)?)
+            }
+            "owners" => {
+                let args: OwnerLookupArgs = serde_json::from_value(args)?;
+                let id = convert_node_id(args.id)?;
+                let applied = args
+                    .limit
+                    .unwrap_or(INSIGHT_LIMIT)
+                    .min(self.host.session.limits().max_result_nodes);
+                Ok(serde_json::to_value(owner_views_for_target(
+                    self.prism.as_ref(),
+                    &id,
+                    args.kind.as_deref(),
+                    applied,
+                )?)?)
             }
             "resumeTask" => {
                 let args: TaskTargetArgs = serde_json::from_value(args)?;
@@ -691,17 +732,28 @@ impl QueryExecution {
             );
         }
 
-        let mut results = self
-            .prism
-            .search(
+        let strategy = args.strategy.as_deref().unwrap_or("direct");
+        let mut results = if strategy == "behavioral" {
+            owner_symbol_views_for_query(
+                self.prism.as_ref(),
                 &args.query,
-                applied.saturating_add(1),
+                args.owner_kind.as_deref(),
                 kind,
                 args.path.as_deref(),
-            )
-            .iter()
-            .map(|symbol| symbol_view(self.prism.as_ref(), symbol))
-            .collect::<Result<Vec<_>>>()?;
+                applied.saturating_add(1),
+            )?
+        } else {
+            self.prism
+                .search(
+                    &args.query,
+                    applied.saturating_add(1),
+                    kind,
+                    args.path.as_deref(),
+                )
+                .iter()
+                .map(|symbol| symbol_view(self.prism.as_ref(), symbol))
+                .collect::<Result<Vec<_>>>()?
+        };
 
         if results.len() > applied {
             results.truncate(applied);
@@ -714,6 +766,7 @@ impl QueryExecution {
                 Some(json!({
                     "query": args.query,
                     "applied": applied,
+                    "strategy": strategy,
                 })),
             );
         }
@@ -929,6 +982,14 @@ impl QueryExecution {
             );
         }
         Ok(journal)
+    }
+
+    fn spec_cluster(&self, id: &NodeId) -> Result<crate::SpecImplementationClusterView> {
+        spec_cluster_view(self.prism.as_ref(), id)
+    }
+
+    fn explain_drift(&self, id: &NodeId) -> Result<crate::SpecDriftExplanationView> {
+        spec_drift_explanation_view(self.prism.as_ref(), id)
     }
 
     fn memory_outcomes(&self, args: MemoryOutcomeArgs) -> Result<Vec<prism_memory::OutcomeEvent>> {

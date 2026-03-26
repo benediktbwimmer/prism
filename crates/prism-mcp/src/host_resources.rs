@@ -9,19 +9,20 @@ use crate::{
     dedupe_resource_link_views, derive_task_metadata, edge_resource_uri, edge_resource_view_link,
     event_resource_view_link, inferred_edge_record_view, lineage_resource_view_link,
     lineage_status, memory_entry_view, memory_resource_uri, memory_resource_view_link,
-    node_id_view, paginate_items, parse_resource_page, relations_view, resource_link_view,
+    node_id_view, owner_views_for_query, owner_views_for_target, paginate_items,
+    parse_resource_page, parse_resource_query_param, relations_view, resource_link_view,
     resource_schema_catalog_entries, schema_resource_uri, schema_resource_view_link,
-    schemas_resource_uri, schemas_resource_view_link, search_resource_view_link,
+    schemas_resource_uri, schemas_resource_view_link, search_resource_view_link_with_options,
     session_resource_uri, session_resource_view_link, symbol_for, symbol_resource_uri,
     symbol_resource_view_link, symbol_resource_view_link_for_id, symbol_view, symbol_views_for_ids,
     task_journal_view, task_resource_view_link, task_resource_view_links_from_events,
-    validation_recipe_view_with, CoordinationFeaturesView, EdgeResourcePayload,
-    EntrypointsResourcePayload, EventResourcePayload, FeatureFlagsView, InferredEdgeRecordView,
-    LineageResourcePayload, MemoryResourcePayload, NodeIdInput, QueryExecution, QueryHost,
-    ResourceSchemaCatalogPayload, SearchArgs, SearchResourcePayload, SessionLimitsView,
-    SessionResourcePayload, SessionTaskView, SessionView, SymbolResourcePayload,
-    TaskResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
+    tool_schemas_resource_value, tool_schemas_resource_view_link, validation_recipe_view_with,
+    CoordinationFeaturesView, EdgeResourcePayload, EntrypointsResourcePayload,
+    EventResourcePayload, FeatureFlagsView, InferredEdgeRecordView, LineageResourcePayload,
+    MemoryResourcePayload, NodeIdInput, QueryExecution, QueryHost, ResourceSchemaCatalogPayload,
+    SearchArgs, SearchResourcePayload, SessionLimitsView, SessionResourcePayload, SessionTaskView,
+    SessionView, SymbolResourcePayload, TaskResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
 };
 
 impl QueryHost {
@@ -93,6 +94,7 @@ impl QueryHost {
         let mut related_resources = vec![
             schemas_resource_view_link(),
             schema_resource_view_link("schemas"),
+            tool_schemas_resource_view_link(),
             session_resource_view_link(),
             resource_link_view(
                 ENTRYPOINTS_URI.to_string(),
@@ -111,6 +113,10 @@ impl QueryHost {
             schemas: resource_schema_catalog_entries(),
             related_resources: dedupe_resource_link_views(related_resources),
         }
+    }
+
+    pub(crate) fn tool_schemas_resource_value(&self) -> crate::ToolSchemaCatalogPayload {
+        tool_schemas_resource_value()
     }
 
     pub(crate) fn task_metadata(&self, task_id: &TaskId) -> (Option<String>, Vec<String>) {
@@ -168,7 +174,19 @@ impl QueryHost {
         let execution = QueryExecution::new(self.clone(), prism.clone());
         let symbol = symbol_for(prism.as_ref(), id)?;
         let symbol = symbol_view(prism.as_ref(), &symbol)?;
+        let spec_drift = crate::spec_drift_explanation_view(prism.as_ref(), id).ok();
+        let suggested_reads = spec_drift
+            .as_ref()
+            .map(|drift| drift.next_reads.clone())
+            .filter(|reads| !reads.is_empty())
+            .unwrap_or(owner_views_for_target(
+                prism.as_ref(),
+                id,
+                None,
+                crate::INSIGHT_LIMIT,
+            )?);
         let relations = relations_view(prism.as_ref(), self.session.as_ref(), id)?;
+        let spec_cluster = crate::spec_cluster_view(prism.as_ref(), id).ok();
         let lineage = crate::lineage_view(prism.as_ref(), id)?;
         let co_change_neighbors = prism
             .co_change_neighbors(id, 8)
@@ -185,6 +203,11 @@ impl QueryHost {
             schema_resource_view_link("symbol"),
             schemas_resource_view_link(),
         ];
+        related_resources.extend(
+            suggested_reads
+                .iter()
+                .map(|candidate| symbol_resource_view_link(&candidate.symbol)),
+        );
         if let Some(lineage) = &lineage {
             related_resources.push(lineage_resource_view_link(&lineage.lineage_id));
         }
@@ -202,7 +225,10 @@ impl QueryHost {
             uri: symbol_resource_uri(&symbol.id),
             schema_uri,
             symbol,
+            suggested_reads,
             relations,
+            spec_cluster,
+            spec_drift,
             lineage,
             co_change_neighbors,
             related_failures,
@@ -220,13 +246,29 @@ impl QueryHost {
     ) -> Result<SearchResourcePayload> {
         self.refresh_workspace()?;
         let schema_uri = schema_resource_uri("search");
-        let execution = QueryExecution::new(self.clone(), self.current_prism());
+        let prism = self.current_prism();
+        let execution = QueryExecution::new(self.clone(), prism.clone());
+        let strategy = parse_resource_query_param(uri, "strategy")
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| "direct".to_string());
+        let owner_kind = parse_resource_query_param(uri, "ownerKind")
+            .or_else(|| parse_resource_query_param(uri, "owner_kind"));
+        let suggested_reads = owner_views_for_query(
+            prism.as_ref(),
+            query,
+            owner_kind.as_deref(),
+            None,
+            None,
+            crate::INSIGHT_LIMIT,
+        )?;
         let paged = paginate_items(
             execution.search(SearchArgs {
                 query: query.to_string(),
                 limit: Some(self.session.limits().max_result_nodes),
                 kind: None,
                 path: None,
+                strategy: Some(strategy.clone()),
+                owner_kind: owner_kind.clone(),
                 include_inferred: None,
             })?,
             parse_resource_page(
@@ -237,15 +279,27 @@ impl QueryHost {
         );
         let mut related_resources = vec![
             session_resource_view_link(),
-            search_resource_view_link(query),
+            search_resource_view_link_with_options(
+                query,
+                Some(strategy.as_str()),
+                owner_kind.as_deref(),
+            ),
             schema_resource_view_link("search"),
             schemas_resource_view_link(),
         ];
+        related_resources.extend(
+            suggested_reads
+                .iter()
+                .map(|candidate| symbol_resource_view_link(&candidate.symbol)),
+        );
         related_resources.extend(paged.items.iter().take(8).map(symbol_resource_view_link));
         Ok(SearchResourcePayload {
             uri: uri.to_string(),
             schema_uri,
             query: query.to_string(),
+            strategy,
+            owner_kind,
+            suggested_reads,
             results: paged.items,
             page: paged.page,
             truncated: paged.truncated,

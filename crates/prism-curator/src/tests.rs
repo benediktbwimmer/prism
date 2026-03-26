@@ -235,3 +235,52 @@ fn built_in_synthesis_emits_structural_and_semantic_memory() {
             if candidate.content.contains("Recent outcome context")
     )));
 }
+
+#[test]
+fn curator_memory_proposals_round_trip_without_duplicate_kind_keys() {
+    let proposal = CuratorProposal::StructuralMemory(CandidateMemory {
+        anchors: vec![],
+        kind: prism_memory::MemoryKind::Structural,
+        content: "alpha owns the request path".to_string(),
+        trust: 0.8,
+        rationale: "captured from repeated co-change history".to_string(),
+        category: Some("ownership".to_string()),
+        evidence: CandidateMemoryEvidence::default(),
+    });
+
+    let json = serde_json::to_string(&proposal).expect("proposal should serialize");
+    assert_eq!(json.matches("\"kind\":").count(), 1);
+    assert!(json.contains("\"kind\":\"structural_memory\""));
+    assert!(json.contains("\"memoryKind\":\"Structural\""));
+
+    let decoded: CuratorProposal = serde_json::from_str(&json).expect("proposal should decode");
+    assert_eq!(decoded, proposal);
+}
+
+#[test]
+fn curator_memory_proposals_decode_legacy_duplicate_kind_shape() {
+    let json = r#"{
+        "kind": "structural_memory",
+        "anchors": [],
+        "kind": "Structural",
+        "content": "alpha owns the request path",
+        "trust": 0.8,
+        "rationale": "captured from repeated co-change history",
+        "category": "ownership",
+        "evidence": {
+            "event_ids": [],
+            "validation_checks": [],
+            "co_change_lineages": []
+        }
+    }"#;
+
+    let decoded: CuratorProposal =
+        serde_json::from_str(json).expect("legacy proposal should decode");
+    assert!(matches!(
+        decoded,
+        CuratorProposal::StructuralMemory(CandidateMemory {
+            kind: prism_memory::MemoryKind::Structural,
+            ..
+        })
+    ));
+}

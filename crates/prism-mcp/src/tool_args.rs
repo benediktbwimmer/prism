@@ -1,9 +1,15 @@
 use prism_js::TaskJournalView;
-use rmcp::schemars::JsonSchema;
+use rmcp::schemars::{JsonSchema, Schema};
 use serde::Deserialize;
 use serde_json::Value;
 
 use crate::SessionView;
+
+fn ensure_root_object_input_schema(schema: &mut Schema) {
+    if schema.get("type").is_none() {
+        schema.insert("type".to_string(), Value::String("object".to_string()));
+    }
+}
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
@@ -260,6 +266,7 @@ pub(crate) struct PrismConfigureSessionArgs {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(transform = ensure_root_object_input_schema)]
 #[serde(rename_all = "snake_case", tag = "action", content = "input")]
 pub(crate) enum PrismSessionArgs {
     StartTask(PrismStartTaskArgs),
@@ -302,6 +309,7 @@ pub(crate) struct PrismInferEdgeArgs {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(transform = ensure_root_object_input_schema)]
 #[serde(rename_all = "snake_case", tag = "action", content = "input")]
 pub(crate) enum PrismMutationArgs {
     Outcome(PrismOutcomeArgs),

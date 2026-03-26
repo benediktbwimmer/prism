@@ -1,12 +1,20 @@
 use std::fs;
+use std::path::Path;
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use axum::Router;
 use clap::Parser;
 use rmcp::{
-    model::{ClientJsonRpcMessage, ProtocolVersion, ServerJsonRpcMessage},
-    transport::{IntoTransport, Transport},
+    model::{
+        CallToolRequestParams, ClientJsonRpcMessage, ProtocolVersion, ReadResourceRequestParams,
+        ServerJsonRpcMessage,
+    },
+    transport::{
+        streamable_http_server::session::local::LocalSessionManager, IntoTransport,
+        StreamableHttpServerConfig, StreamableHttpService, Transport,
+    },
     ServiceExt,
 };
 
@@ -225,6 +233,36 @@ fn first_tool_content_json(response: ServerJsonRpcMessage) -> serde_json::Value 
         })
         .unwrap_or_else(|| panic!("tool result should contain json text: {response}"));
     serde_json::from_str(text).expect("tool content should decode as json")
+}
+
+fn write_memory_insight_workspace(root: &Path) {
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::create_dir_all(root.join("tests")).unwrap();
+    fs::write(
+        root.join("docs/SPEC.md"),
+        "# Memory\n\n## Integration Points\n\nPRISM should enrich memory recall with lineage and prior outcomes.\n\n* current node\n* mapped lineage\n* prior outcomes\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "mod recall;\nmod persist;\n\npub struct OutcomeMemory;\npub struct SessionMemory;\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/recall.rs"),
+        "pub fn memory_recall() {}\n\npub fn task_journal_view() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/persist.rs"),
+        "pub fn reanchor_persisted_memory_snapshot() {}\n\npub fn persist_memory_snapshot() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("tests/memory_paths.rs"),
+        "#[test]\nfn memory_recall_keeps_lineage_context() {}\n",
+    )
+    .unwrap();
 }
 
 #[test]
@@ -614,6 +652,9 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
     assert!(tool_names.contains(&"prism_query"));
     assert!(tool_names.contains(&"prism_session"));
     assert!(tool_names.contains(&"prism_mutate"));
+    for tool in tools["result"]["tools"].as_array().unwrap() {
+        assert_eq!(tool["inputSchema"]["type"], "object");
+    }
 
     client.send(list_resources_request(3)).await.unwrap();
     let resources = response_json(client.receive().await.unwrap());
@@ -638,6 +679,179 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
     assert!(api_reference.contains("prism_query"));
 
     running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_lists_and_reads_tool_schema_resources() {
+    let server = server_with_node(demo_node());
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client.send(list_resources_request(2)).await.unwrap();
+    let resources = response_json(client.receive().await.unwrap());
+    let resource_uris = resources["result"]["resources"]
+        .as_array()
+        .expect("resources/list should return an array")
+        .iter()
+        .filter_map(|resource| resource["uri"].as_str())
+        .collect::<Vec<_>>();
+    assert!(resource_uris.contains(&TOOL_SCHEMAS_URI));
+
+    client
+        .send(read_resource_request(3, TOOL_SCHEMAS_URI))
+        .await
+        .unwrap();
+    let catalog = response_json(client.receive().await.unwrap());
+    let catalog_payload = serde_json::from_str::<Value>(
+        catalog["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("tool schema catalog should be text"),
+    )
+    .unwrap();
+    assert!(catalog_payload["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|entry| entry["toolName"] == "prism_mutate"));
+
+    client
+        .send(read_resource_request(4, "prism://schema/tool/prism_mutate"))
+        .await
+        .unwrap();
+    let schema = response_json(client.receive().await.unwrap());
+    assert_eq!(
+        schema["result"]["contents"][0]["mimeType"],
+        "application/schema+json"
+    );
+    let schema_payload = serde_json::from_str::<Value>(
+        schema["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("tool schema should be text"),
+    )
+    .unwrap();
+    assert_eq!(
+        schema_payload["title"],
+        "PRISM Tool Input Schema: prism_mutate"
+    );
+    assert_eq!(schema_payload["$id"], "prism://schema/tool/prism_mutate");
+    assert_eq!(schema_payload["type"], "object");
+    assert!(schema_payload.get("oneOf").is_some());
+    assert!(schema_payload.to_string().contains("\"action\""));
+    assert!(schema_payload.to_string().contains("validation_feedback"));
+
+    client
+        .send(read_resource_request(
+            5,
+            "prism://schema/tool/prism_session",
+        ))
+        .await
+        .unwrap();
+    let session_schema = response_json(client.receive().await.unwrap());
+    let session_schema_payload = serde_json::from_str::<Value>(
+        session_schema["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("tool schema should be text"),
+    )
+    .unwrap();
+    assert_eq!(session_schema_payload["type"], "object");
+    assert!(session_schema_payload.get("oneOf").is_some());
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn stdio_proxy_forwards_to_streamable_http_upstream() {
+    let upstream = server_with_node(demo_node());
+    let service: StreamableHttpService<PrismMcpServer, LocalSessionManager> =
+        StreamableHttpService::new(
+            move || Ok(upstream.clone()),
+            Default::default(),
+            StreamableHttpServerConfig {
+                sse_keep_alive: None,
+                ..Default::default()
+            },
+        );
+    let router = Router::new().nest_service("/mcp", service);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("listener should bind");
+    let addr = listener.local_addr().expect("listener should expose addr");
+    let upstream_task = tokio::spawn(async move {
+        let _ = axum::serve(listener, router).await;
+    });
+
+    let proxy = crate::proxy_server::ProxyMcpServer::connect(format!("http://{addr}/mcp"))
+        .await
+        .expect("proxy should connect to upstream");
+    let (client_transport, server_transport) = tokio::io::duplex(64 * 1024);
+    let proxy_task = tokio::spawn(async move {
+        let running = proxy
+            .serve(server_transport)
+            .await
+            .expect("proxy should initialize on stdio transport");
+        let _ = running.waiting().await;
+    });
+
+    let client = ().serve(client_transport).await.expect("client should connect through proxy");
+
+    let resources = client
+        .list_all_resources()
+        .await
+        .expect("proxy should forward resources/list");
+    assert!(resources
+        .iter()
+        .any(|resource| resource.uri == API_REFERENCE_URI));
+
+    let templates = client
+        .list_all_resource_templates()
+        .await
+        .expect("proxy should forward resource template listing");
+    assert!(templates
+        .iter()
+        .any(|template| template.uri_template == ENTRYPOINTS_RESOURCE_TEMPLATE_URI));
+
+    let tools = client
+        .list_all_tools()
+        .await
+        .expect("proxy should forward tools/list");
+    assert!(tools.iter().any(|tool| tool.name == "prism_query"));
+
+    let session = client
+        .read_resource(ReadResourceRequestParams::new(SESSION_URI))
+        .await
+        .expect("proxy should forward resources/read");
+    assert_eq!(session.contents.len(), 1);
+
+    let query = client
+        .call_tool(CallToolRequestParams::new("prism_query").with_arguments(
+            serde_json::Map::from_iter([(String::from("code"), json!("return 'proxy-ok';"))]),
+        ))
+        .await
+        .expect("proxy should forward tools/call");
+    let query_payload = query.structured_content.unwrap_or_else(|| {
+        serde_json::from_str(
+            &query.content[0]
+                .as_text()
+                .expect("query result should expose text content")
+                .text,
+        )
+        .expect("query text content should be valid json")
+    });
+    assert_eq!(query_payload["result"], "proxy-ok");
+
+    client.cancel().await.unwrap();
+    proxy_task.abort();
+    let _ = proxy_task.await;
+    upstream_task.abort();
+    let _ = upstream_task.await;
 }
 
 #[test]
@@ -2349,6 +2563,182 @@ return {
 }
 
 #[test]
+fn spec_cluster_and_drift_surface_behavioral_owners() {
+    let root = temp_workspace();
+    write_memory_insight_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .execute(
+            r#"
+const spec = prism.search("Integration Points", {
+  path: "docs/SPEC.md",
+  kind: "markdown-heading",
+  limit: 1,
+})[0];
+return {
+  cluster: spec ? prism.specCluster(spec) : null,
+  drift: spec ? prism.explainDrift(spec) : null,
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed");
+
+    let read_paths = result.result["cluster"]["readPath"]
+        .as_array()
+        .expect("cluster readPath should be an array");
+    assert!(read_paths.iter().any(|candidate| {
+        candidate["symbol"]["id"]["path"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("memory_recall")
+    }));
+
+    let persistence_paths = result.result["cluster"]["persistencePath"]
+        .as_array()
+        .expect("cluster persistencePath should be an array");
+    assert!(persistence_paths.iter().any(|candidate| {
+        candidate["symbol"]["id"]["path"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("reanchor_persisted_memory_snapshot")
+    }));
+
+    let tests = result.result["cluster"]["tests"]
+        .as_array()
+        .expect("cluster tests should be an array");
+    assert!(tests.iter().any(|candidate| {
+        candidate["symbol"]["filePath"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("/tests/")
+    }));
+
+    let next_reads = result.result["drift"]["nextReads"]
+        .as_array()
+        .expect("drift nextReads should be an array");
+    assert!(!next_reads.is_empty());
+    assert!(result.result["drift"]["expectations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|value| value
+            .as_str()
+            .unwrap_or_default()
+            .contains("prior outcomes")));
+
+    let spec_id = host
+        .current_prism()
+        .search(
+            "Integration Points",
+            1,
+            Some(NodeKind::MarkdownHeading),
+            Some("docs/SPEC.md"),
+        )
+        .first()
+        .expect("spec heading should be indexed")
+        .id()
+        .clone();
+    let symbol_resource = host.symbol_resource_value(&spec_id).unwrap();
+    assert!(symbol_resource.spec_cluster.is_some());
+    assert!(symbol_resource.spec_drift.is_some());
+    assert!(!symbol_resource.suggested_reads.is_empty());
+}
+
+#[test]
+fn owner_lookup_and_behavioral_search_prefer_behavioral_owners() {
+    let root = temp_workspace();
+    write_memory_insight_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .execute(
+            r#"
+const spec = prism.search("Integration Points", {
+  path: "docs/SPEC.md",
+  kind: "markdown-heading",
+  limit: 1,
+})[0];
+return {
+  behavioral: prism.search("memory recall", {
+    strategy: "behavioral",
+    ownerKind: "read",
+    limit: 5,
+  }),
+  owners: spec ? prism.owners(spec, { kind: "read", limit: 5 }) : [],
+  implementationOwners: spec
+    ? prism.implementationFor(spec, { mode: "owners", ownerKind: "read" })
+    : [],
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed");
+
+    let behavioral = result.result["behavioral"]
+        .as_array()
+        .expect("behavioral search should return an array");
+    assert!(!behavioral.is_empty());
+    assert!(behavioral.iter().any(|symbol| {
+        symbol["ownerHint"]["kind"].as_str() == Some("read")
+            && symbol["id"]["path"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("memory_recall")
+    }));
+
+    let owners = result.result["owners"]
+        .as_array()
+        .expect("owners should return an array");
+    assert!(owners.iter().any(|candidate| {
+        candidate["kind"].as_str() == Some("read")
+            && candidate["why"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("read-oriented")
+    }));
+
+    let implementation_owners = result.result["implementationOwners"]
+        .as_array()
+        .expect("owner-mode implementationFor should return an array");
+    assert!(implementation_owners.iter().any(|symbol| {
+        symbol["ownerHint"]["kind"].as_str() == Some("read")
+            && symbol["id"]["path"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("memory_recall")
+    }));
+}
+
+#[test]
+fn search_resource_payload_surfaces_suggested_reads() {
+    let root = temp_workspace();
+    write_memory_insight_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let payload = host
+        .search_resource_value(
+            "prism://search/memory%20recall?strategy=behavioral&ownerKind=read",
+            "memory recall",
+        )
+        .unwrap();
+
+    assert_eq!(payload.strategy, "behavioral");
+    assert_eq!(payload.owner_kind.as_deref(), Some("read"));
+    assert!(!payload.suggested_reads.is_empty());
+    assert!(payload.suggested_reads.iter().any(|candidate| {
+        candidate.kind == "read" && candidate.symbol.id.path.contains("memory_recall")
+    }));
+    assert!(payload.results.iter().any(|symbol| {
+        symbol
+            .owner_hint
+            .as_ref()
+            .is_some_and(|hint| hint.kind == "read")
+    }));
+}
+
+#[test]
 fn custom_query_limits_apply_per_host() {
     let mut graph = Graph::new();
     graph.add_node(Node {
@@ -3084,6 +3474,8 @@ fn convenience_search_query_returns_structured_envelope() {
             limit: Some(1),
             kind: None,
             path: None,
+            strategy: None,
+            owner_kind: None,
             include_inferred: None,
         })
         .expect("search query should succeed");

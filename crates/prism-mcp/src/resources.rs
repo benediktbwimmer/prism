@@ -14,7 +14,7 @@ use crate::{
     EDGE_RESOURCE_TEMPLATE_URI, ENTRYPOINTS_RESOURCE_TEMPLATE_URI, EVENT_RESOURCE_TEMPLATE_URI,
     LINEAGE_RESOURCE_TEMPLATE_URI, MEMORY_RESOURCE_TEMPLATE_URI, SCHEMAS_URI,
     SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI, SYMBOL_RESOURCE_TEMPLATE_URI,
-    TASK_RESOURCE_TEMPLATE_URI,
+    TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -140,6 +140,13 @@ pub(crate) fn parse_schema_resource_uri(uri: &str) -> Option<String> {
         .map(percent_decode_lossy)
 }
 
+pub(crate) fn parse_tool_schema_resource_uri(uri: &str) -> Option<String> {
+    let (base, _) = split_resource_uri(uri);
+    base.strip_prefix("prism://schema/tool/")
+        .map(percent_decode_lossy)
+        .filter(|tool_name| !tool_name.trim().is_empty())
+}
+
 pub(crate) fn paginate_items<T>(items: Vec<T>, request: ResourcePageRequest) -> PageSlice<T> {
     let total = items.len();
     let start = request.offset.min(total);
@@ -198,6 +205,19 @@ pub(crate) fn parse_search_resource_uri(uri: &str) -> Option<String> {
     base.strip_prefix("prism://search/")
         .map(percent_decode_lossy)
         .filter(|query| !query.trim().is_empty())
+}
+
+pub(crate) fn parse_resource_query_param(uri: &str, name: &str) -> Option<String> {
+    let (_, query) = split_resource_uri(uri);
+    query.and_then(|query| {
+        query
+            .split('&')
+            .filter(|part| !part.is_empty())
+            .find_map(|part| {
+                let (raw_key, raw_value) = part.split_once('=').unwrap_or((part, ""));
+                (percent_decode_lossy(raw_key) == name).then(|| percent_decode_lossy(raw_value))
+            })
+    })
 }
 
 pub(crate) fn parse_lineage_resource_uri(uri: &str) -> Option<LineageId> {
@@ -263,8 +283,19 @@ pub(crate) fn schemas_resource_uri() -> String {
     SCHEMAS_URI.to_string()
 }
 
+pub(crate) fn tool_schemas_resource_uri() -> String {
+    TOOL_SCHEMAS_URI.to_string()
+}
+
 pub(crate) fn schema_resource_uri(resource_kind: &str) -> String {
     format!("prism://schema/{}", percent_encode_component(resource_kind))
+}
+
+pub(crate) fn tool_schema_resource_uri(tool_name: &str) -> String {
+    format!(
+        "prism://schema/tool/{}",
+        percent_encode_component(tool_name)
+    )
 }
 
 pub(crate) fn task_resource_uri(task_id: &str) -> String {
@@ -273,6 +304,29 @@ pub(crate) fn task_resource_uri(task_id: &str) -> String {
 
 pub(crate) fn search_resource_uri(query: &str) -> String {
     format!("prism://search/{}", percent_encode_component(query))
+}
+
+pub(crate) fn search_resource_uri_with_options(
+    query: &str,
+    strategy: Option<&str>,
+    owner_kind: Option<&str>,
+) -> String {
+    let mut uri = search_resource_uri(query);
+    let mut params = Vec::new();
+    if let Some(strategy) = strategy.filter(|value| !value.is_empty()) {
+        params.push(format!("strategy={}", percent_encode_component(strategy)));
+    }
+    if let Some(owner_kind) = owner_kind.filter(|value| !value.is_empty()) {
+        params.push(format!(
+            "ownerKind={}",
+            percent_encode_component(owner_kind)
+        ));
+    }
+    if !params.is_empty() {
+        uri.push('?');
+        uri.push_str(&params.join("&"));
+    }
+    uri
 }
 
 pub(crate) fn lineage_resource_uri(lineage_id: &str) -> String {
@@ -387,11 +441,27 @@ pub(crate) fn schemas_resource_view_link() -> ResourceLinkView {
     )
 }
 
+pub(crate) fn tool_schemas_resource_view_link() -> ResourceLinkView {
+    resource_link_view(
+        tool_schemas_resource_uri(),
+        "PRISM Tool Schemas",
+        "Catalog of JSON Schemas for PRISM MCP tool input payloads",
+    )
+}
+
 pub(crate) fn schema_resource_view_link(resource_kind: &str) -> ResourceLinkView {
     resource_link_view(
         schema_resource_uri(resource_kind),
         format!("PRISM Schema: {resource_kind}"),
         format!("JSON Schema for the `{resource_kind}` PRISM resource payload"),
+    )
+}
+
+pub(crate) fn tool_schema_resource_view_link(tool_name: &str) -> ResourceLinkView {
+    resource_link_view(
+        tool_schema_resource_uri(tool_name),
+        format!("PRISM Tool Schema: {tool_name}"),
+        format!("JSON Schema for the `{tool_name}` tool input payload"),
     )
 }
 
@@ -411,9 +481,13 @@ pub(crate) fn task_resource_view_link(task_id: &str) -> ResourceLinkView {
     )
 }
 
-pub(crate) fn search_resource_view_link(query: &str) -> ResourceLinkView {
+pub(crate) fn search_resource_view_link_with_options(
+    query: &str,
+    strategy: Option<&str>,
+    owner_kind: Option<&str>,
+) -> ResourceLinkView {
     resource_link_view(
-        search_resource_uri(query),
+        search_resource_uri_with_options(query, strategy, owner_kind),
         format!("PRISM Search: {query}"),
         "Structured search results and diagnostics for this query",
     )
@@ -499,6 +573,12 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             resource_uri: Some(SESSION_URI.to_string()),
             description: "Schema for the active workspace, task context, and runtime limits."
                 .to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "tool-schemas".to_string(),
+            schema_uri: schema_resource_uri("tool-schemas"),
+            resource_uri: Some(TOOL_SCHEMAS_URI.to_string()),
+            description: "Schema for the tool-schema catalog resource.".to_string(),
         },
         ResourceSchemaCatalogEntry {
             resource_kind: "entrypoints".to_string(),

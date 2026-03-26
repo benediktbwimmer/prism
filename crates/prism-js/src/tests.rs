@@ -9,6 +9,12 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("coChangeNeighbors"));
     assert!(docs.contains("validationRecipe"));
     assert!(docs.contains("prism.memory.recall"));
+    assert!(docs.contains("owners(target"));
+    assert!(docs.contains("strategy?: \"direct\" | \"behavioral\""));
+    assert!(docs.contains("specCluster"));
+    assert!(docs.contains("explainDrift"));
+    assert!(docs.contains("prism://tool-schemas"));
+    assert!(docs.contains("prism://schema/tool/{toolName}"));
     assert!(docs.contains("prism.curator.jobs"));
     assert!(docs.contains("prism_session"));
     assert!(docs.contains("prism_mutate"));
@@ -21,6 +27,10 @@ fn prelude_exposes_global_prism() {
     let prelude = runtime_prelude();
     assert!(prelude.contains("globalThis.prism"));
     assert!(prelude.contains("__prismHostCall"));
+    assert!(prelude.contains("owners(target, options = {})"));
+    assert!(prelude.contains("implementationFor(target, options = {})"));
+    assert!(prelude.contains("specCluster(target)"));
+    assert!(prelude.contains("explainDrift(target)"));
     assert!(prelude.contains("curator: Object.freeze"));
     assert!(prelude.contains("__prismCleanupGlobals"));
 }

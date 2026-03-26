@@ -48,6 +48,16 @@ pub struct SymbolView {
     pub language: Language,
     pub lineage_id: Option<String>,
     pub source_excerpt: Option<SourceExcerptView>,
+    pub owner_hint: Option<OwnerHintView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct OwnerHintView {
+    pub kind: String,
+    pub score: usize,
+    pub matched_terms: Vec<String>,
+    pub why: String,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -199,7 +209,7 @@ pub struct ArtifactRiskView {
     pub promoted_summaries: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DriftCandidateView {
     pub spec: NodeIdView,
@@ -210,7 +220,17 @@ pub struct DriftCandidateView {
     pub recent_failures: Vec<OutcomeEvent>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct OwnerCandidateView {
+    pub symbol: SymbolView,
+    pub kind: String,
+    pub score: usize,
+    pub matched_terms: Vec<String>,
+    pub why: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskIntentView {
     pub task_id: String,

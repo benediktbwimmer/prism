@@ -1,7 +1,7 @@
 use prism_js::{
     ChangeImpactView, CoChangeView, EdgeView, LineageEventView, LineageStatus, LineageView,
-    MemoryEntryView, QueryDiagnostic, RelationsView, SymbolView, TaskJournalView,
-    ValidationRecipeView,
+    MemoryEntryView, OwnerCandidateView, QueryDiagnostic, RelationsView, SymbolView,
+    TaskJournalView, ValidationRecipeView,
 };
 use rmcp::schemars::JsonSchema;
 
@@ -109,6 +109,9 @@ pub(crate) struct SearchResourcePayload {
     pub(crate) uri: String,
     pub(crate) schema_uri: String,
     pub(crate) query: String,
+    pub(crate) strategy: String,
+    pub(crate) owner_kind: Option<String>,
+    pub(crate) suggested_reads: Vec<OwnerCandidateView>,
     pub(crate) results: Vec<SymbolView>,
     pub(crate) page: ResourcePageView,
     pub(crate) truncated: bool,
@@ -122,7 +125,10 @@ pub(crate) struct SymbolResourcePayload {
     pub(crate) uri: String,
     pub(crate) schema_uri: String,
     pub(crate) symbol: SymbolView,
+    pub(crate) suggested_reads: Vec<OwnerCandidateView>,
     pub(crate) relations: RelationsView,
+    pub(crate) spec_cluster: Option<crate::SpecImplementationClusterView>,
+    pub(crate) spec_drift: Option<crate::SpecDriftExplanationView>,
     pub(crate) lineage: Option<LineageView>,
     pub(crate) co_change_neighbors: Vec<CoChangeView>,
     pub(crate) related_failures: Vec<OutcomeEvent>,

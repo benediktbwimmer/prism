@@ -99,6 +99,49 @@ function __prismEnrichLineage(raw) {
   };
 }
 
+function __prismEnrichInsightCandidate(raw) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    symbol: __prismEnrichSymbol(raw.symbol),
+  };
+}
+
+function __prismEnrichInsightCandidates(values) {
+  return Array.isArray(values) ? values.map(__prismEnrichInsightCandidate) : [];
+}
+
+function __prismEnrichSpecCluster(raw) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    spec: __prismEnrichSymbol(raw.spec),
+    implementations: __prismEnrichSymbols(raw.implementations),
+    validations: __prismEnrichSymbols(raw.validations),
+    related: __prismEnrichSymbols(raw.related),
+    readPath: __prismEnrichInsightCandidates(raw.readPath),
+    writePath: __prismEnrichInsightCandidates(raw.writePath),
+    persistencePath: __prismEnrichInsightCandidates(raw.persistencePath),
+    tests: __prismEnrichInsightCandidates(raw.tests),
+  };
+}
+
+function __prismEnrichSpecDrift(raw) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    spec: __prismEnrichSymbol(raw.spec),
+    nextReads: __prismEnrichInsightCandidates(raw.nextReads),
+    cluster: __prismEnrichSpecCluster(raw.cluster),
+  };
+}
+
 function __prismNormalizeFocus(values) {
   if (!Array.isArray(values)) {
     return [];
@@ -184,7 +227,15 @@ globalThis.prism = Object.freeze({
   },
   search(query, options = {}) {
     return __prismEnrichSymbols(
-      __prismHost("search", Object.assign({ query }, options))
+      __prismHost("search", {
+        query,
+        limit: options?.limit,
+        kind: options?.kind,
+        path: options?.path,
+        strategy: options?.strategy,
+        ownerKind: options?.ownerKind ?? options?.owner_kind,
+        includeInferred: options?.includeInferred ?? options?.include_inferred,
+      })
     );
   },
   entrypoints() {
@@ -314,15 +365,48 @@ globalThis.prism = Object.freeze({
     }
     return __prismEnrichSymbols(__prismHost("specFor", { id }));
   },
-  implementationFor(target) {
+  implementationFor(target, options = {}) {
     const id = __prismNormalizeTarget(target);
     if (id == null) {
       return [];
     }
-    return __prismEnrichSymbols(__prismHost("implementationFor", { id }));
+    return __prismEnrichSymbols(
+      __prismHost("implementationFor", {
+        id,
+        mode: options?.mode,
+        ownerKind: options?.ownerKind ?? options?.owner_kind,
+      })
+    );
+  },
+  owners(target, options = {}) {
+    const id = __prismNormalizeTarget(target);
+    if (id == null) {
+      return [];
+    }
+    return __prismEnrichInsightCandidates(
+      __prismHost("owners", {
+        id,
+        kind: options?.kind,
+        limit: options?.limit,
+      })
+    );
   },
   driftCandidates(limit) {
     return __prismHost("driftCandidates", limit == null ? {} : { limit });
+  },
+  specCluster(target) {
+    const id = __prismNormalizeTarget(target);
+    if (id == null) {
+      return null;
+    }
+    return __prismEnrichSpecCluster(__prismHost("specCluster", { id }));
+  },
+  explainDrift(target) {
+    const id = __prismNormalizeTarget(target);
+    if (id == null) {
+      return null;
+    }
+    return __prismEnrichSpecDrift(__prismHost("explainDrift", { id }));
   },
   resumeTask(taskId) {
     return __prismHost("resumeTask", { taskId });

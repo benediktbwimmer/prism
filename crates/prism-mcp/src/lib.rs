@@ -19,6 +19,7 @@ mod host_mutations;
 mod host_resources;
 mod js_runtime;
 mod memory_metadata;
+mod proxy_server;
 mod query_helpers;
 mod query_runtime;
 mod query_types;
@@ -26,8 +27,10 @@ mod resource_schemas;
 mod resources;
 mod server_surface;
 mod session_state;
+mod spec_insights;
 mod task_journal;
 mod tool_args;
+mod tool_schemas;
 mod views;
 
 use common::*;
@@ -41,8 +44,10 @@ use query_types::*;
 use resource_schemas::*;
 use resources::*;
 use session_state::SessionState;
+use spec_insights::*;
 use task_journal::*;
 use tool_args::*;
+use tool_schemas::*;
 use views::*;
 
 const DEFAULT_SEARCH_LIMIT: usize = 20;
@@ -51,9 +56,11 @@ const DEFAULT_RESOURCE_PAGE_LIMIT: usize = 50;
 const ENTRYPOINTS_URI: &str = "prism://entrypoints";
 const SESSION_URI: &str = "prism://session";
 const SCHEMAS_URI: &str = "prism://schemas";
+const TOOL_SCHEMAS_URI: &str = "prism://tool-schemas";
 const ENTRYPOINTS_RESOURCE_TEMPLATE_URI: &str = "prism://entrypoints?limit={limit}&cursor={cursor}";
 const SYMBOL_RESOURCE_TEMPLATE_URI: &str = "prism://symbol/{crateName}/{kind}/{path}";
-const SEARCH_RESOURCE_TEMPLATE_URI: &str = "prism://search/{query}?limit={limit}&cursor={cursor}";
+const SEARCH_RESOURCE_TEMPLATE_URI: &str =
+    "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}";
 const LINEAGE_RESOURCE_TEMPLATE_URI: &str =
     "prism://lineage/{lineageId}?limit={limit}&cursor={cursor}";
 const TASK_RESOURCE_TEMPLATE_URI: &str = "prism://task/{taskId}?limit={limit}&cursor={cursor}";
@@ -61,6 +68,7 @@ const EVENT_RESOURCE_TEMPLATE_URI: &str = "prism://event/{eventId}";
 const MEMORY_RESOURCE_TEMPLATE_URI: &str = "prism://memory/{memoryId}";
 const EDGE_RESOURCE_TEMPLATE_URI: &str = "prism://edge/{edgeId}";
 const SCHEMA_RESOURCE_TEMPLATE_URI: &str = "prism://schema/{resourceKind}";
+const TOOL_SCHEMA_RESOURCE_TEMPLATE_URI: &str = "prism://schema/tool/{toolName}";
 static NEXT_SESSION_ID: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug, Clone, clap::Parser)]
@@ -77,12 +85,20 @@ pub struct PrismMcpCli {
     pub enable_coordination: Vec<CoordinationFeatureFlag>,
     #[arg(long, value_enum, value_delimiter = ',', action = ArgAction::Append)]
     pub disable_coordination: Vec<CoordinationFeatureFlag>,
-    #[arg(long)]
-    pub socket: Option<PathBuf>,
     #[arg(long = "daemon-log")]
     pub daemon_log: Option<PathBuf>,
     #[arg(long = "daemon-start-timeout-ms")]
     pub daemon_start_timeout_ms: Option<u64>,
+    #[arg(long = "http-bind", default_value = "127.0.0.1:0")]
+    pub http_bind: String,
+    #[arg(long = "http-path", default_value = "/mcp")]
+    pub http_path: String,
+    #[arg(long = "health-path", default_value = "/healthz")]
+    pub health_path: String,
+    #[arg(long = "http-uri-file")]
+    pub http_uri_file: Option<PathBuf>,
+    #[arg(long = "upstream-uri")]
+    pub upstream_uri: Option<String>,
 }
 
 impl PrismMcpCli {
@@ -101,10 +117,10 @@ impl PrismMcpCli {
         features
     }
 
-    fn socket_path(&self, root: &Path) -> PathBuf {
-        self.socket
+    fn http_uri_file_path(&self, root: &Path) -> PathBuf {
+        self.http_uri_file
             .clone()
-            .unwrap_or_else(|| daemon_mode::default_socket_path(root))
+            .unwrap_or_else(|| daemon_mode::default_http_uri_file_path(root))
     }
 
     fn log_path(&self, root: &Path) -> PathBuf {
@@ -141,10 +157,14 @@ impl PrismMcpCli {
                     .to_string(),
             );
         }
-        if let Some(socket) = &self.socket {
-            args.push("--socket".to_string());
-            args.push(socket.display().to_string());
-        }
+        args.push("--http-bind".to_string());
+        args.push(self.http_bind.clone());
+        args.push("--http-path".to_string());
+        args.push(self.http_path.clone());
+        args.push("--health-path".to_string());
+        args.push(self.health_path.clone());
+        args.push("--http-uri-file".to_string());
+        args.push(self.http_uri_file_path(root).display().to_string());
         args
     }
 }

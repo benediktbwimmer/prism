@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use prism_ir::{AnchorRef, EdgeKind, NodeId};
 use prism_js::{
-    ChangeImpactView, LineageEventView, LineageStatus, LineageView, RelationsView,
+    ChangeImpactView, LineageEventView, LineageStatus, LineageView, OwnerHintView, RelationsView,
     SourceExcerptView, SourceLocationView, SymbolView, ValidationRecipeView,
 };
 use prism_query::{Prism, SourceExcerptOptions, Symbol};
@@ -12,6 +12,14 @@ use crate::{
 };
 
 pub(crate) fn symbol_view(prism: &Prism, symbol: &Symbol<'_>) -> Result<SymbolView> {
+    symbol_view_with_owner_hint(prism, symbol, None)
+}
+
+pub(crate) fn symbol_view_with_owner_hint(
+    prism: &Prism,
+    symbol: &Symbol<'_>,
+    owner_hint: Option<OwnerHintView>,
+) -> Result<SymbolView> {
     let node = symbol.node();
     Ok(SymbolView {
         id: node_id_view(symbol.id().clone()),
@@ -31,6 +39,7 @@ pub(crate) fn symbol_view(prism: &Prism, symbol: &Symbol<'_>) -> Result<SymbolVi
         source_excerpt: symbol
             .excerpt(SourceExcerptOptions::default())
             .map(source_excerpt_view),
+        owner_hint,
     })
 }
 

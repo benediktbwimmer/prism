@@ -25,6 +25,9 @@ pub(crate) struct SearchArgs {
     pub(crate) limit: Option<usize>,
     pub(crate) kind: Option<String>,
     pub(crate) path: Option<String>,
+    pub(crate) strategy: Option<String>,
+    #[serde(alias = "ownerKind")]
+    pub(crate) owner_kind: Option<String>,
     #[serde(alias = "includeInferred")]
     pub(crate) include_inferred: Option<bool>,
 }
@@ -32,6 +35,22 @@ pub(crate) struct SearchArgs {
 #[derive(Debug, Deserialize)]
 pub(crate) struct SymbolTargetArgs {
     pub(crate) id: NodeIdInput,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ImplementationTargetArgs {
+    pub(crate) id: NodeIdInput,
+    pub(crate) mode: Option<String>,
+    pub(crate) owner_kind: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct OwnerLookupArgs {
+    pub(crate) id: NodeIdInput,
+    pub(crate) kind: Option<String>,
+    pub(crate) limit: Option<usize>,
 }
 
 #[derive(Debug, Deserialize)]

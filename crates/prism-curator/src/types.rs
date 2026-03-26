@@ -3,7 +3,11 @@ use prism_agent::InferredEdgeScope;
 use prism_ir::{AnchorRef, Edge, EventId, LineageEvent, LineageId, Node, NodeId, TaskId};
 use prism_memory::{MemoryEntry, MemoryKind, OutcomeEvent};
 use prism_projections::{CoChangeRecord, ValidationCheck};
-use serde::{Deserialize, Serialize};
+use serde::{
+    de::{self, MapAccess, Visitor},
+    ser::SerializeMap,
+    Deserialize, Deserializer, Serialize, Serializer,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CuratorJobId(pub String);
@@ -132,14 +136,193 @@ pub struct CandidateValidationRecipe {
     pub evidence: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[derive(Debug, Clone, PartialEq)]
 pub enum CuratorProposal {
     InferredEdge(CandidateEdge),
     StructuralMemory(CandidateMemory),
     SemanticMemory(CandidateMemory),
     RiskSummary(CandidateRiskSummary),
     ValidationRecipe(CandidateValidationRecipe),
+}
+
+impl Serialize for CuratorProposal {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map = serializer.serialize_map(None)?;
+        match self {
+            Self::InferredEdge(edge) => serialize_tagged_object("inferred_edge", edge, &mut map)?,
+            Self::StructuralMemory(memory) => {
+                serialize_tagged_memory("structural_memory", memory, &mut map)?
+            }
+            Self::SemanticMemory(memory) => {
+                serialize_tagged_memory("semantic_memory", memory, &mut map)?
+            }
+            Self::RiskSummary(summary) => {
+                serialize_tagged_object("risk_summary", summary, &mut map)?
+            }
+            Self::ValidationRecipe(recipe) => {
+                serialize_tagged_object("validation_recipe", recipe, &mut map)?
+            }
+        }
+        map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for CuratorProposal {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_map(CuratorProposalVisitor)
+    }
+}
+
+fn serialize_tagged_object<S, T>(tag: &'static str, value: &T, map: &mut S) -> Result<(), S::Error>
+where
+    S: SerializeMap,
+    T: Serialize,
+{
+    map.serialize_entry("kind", tag)?;
+    let serde_json::Value::Object(object) =
+        serde_json::to_value(value).map_err(serde::ser::Error::custom)?
+    else {
+        return Err(serde::ser::Error::custom(
+            "curator proposal payload must serialize to an object",
+        ));
+    };
+    for (key, value) in object {
+        map.serialize_entry(&key, &value)?;
+    }
+    Ok(())
+}
+
+fn serialize_tagged_memory<S>(
+    tag: &'static str,
+    memory: &CandidateMemory,
+    map: &mut S,
+) -> Result<(), S::Error>
+where
+    S: SerializeMap,
+{
+    map.serialize_entry("kind", tag)?;
+    let serde_json::Value::Object(mut object) =
+        serde_json::to_value(memory).map_err(serde::ser::Error::custom)?
+    else {
+        return Err(serde::ser::Error::custom(
+            "candidate memory must serialize to an object",
+        ));
+    };
+    if let Some(kind) = object.remove("kind") {
+        map.serialize_entry("memoryKind", &kind)?;
+    }
+    for (key, value) in object {
+        map.serialize_entry(&key, &value)?;
+    }
+    Ok(())
+}
+
+struct CuratorProposalVisitor;
+
+impl<'de> Visitor<'de> for CuratorProposalVisitor {
+    type Value = CuratorProposal;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("a curator proposal object")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut proposal_kind = None::<String>;
+        let mut memory_kind = None::<MemoryKind>;
+        let mut fields = serde_json::Map::new();
+
+        while let Some(key) = map.next_key::<String>()? {
+            match key.as_str() {
+                "kind" => {
+                    let raw = map.next_value::<String>()?;
+                    if proposal_kind.is_none() && is_proposal_kind(&raw) {
+                        proposal_kind = Some(raw);
+                    } else {
+                        memory_kind = Some(parse_memory_kind(&raw).map_err(de::Error::custom)?);
+                    }
+                }
+                "memoryKind" | "memory_kind" => {
+                    let raw = map.next_value::<String>()?;
+                    memory_kind = Some(parse_memory_kind(&raw).map_err(de::Error::custom)?);
+                }
+                _ => {
+                    let value = map.next_value::<serde_json::Value>()?;
+                    fields.insert(key, value);
+                }
+            }
+        }
+
+        let proposal_kind = proposal_kind.ok_or_else(|| de::Error::missing_field("kind"))?;
+        match proposal_kind.as_str() {
+            "inferred_edge" => decode_payload(fields).map(CuratorProposal::InferredEdge),
+            "risk_summary" => decode_payload(fields).map(CuratorProposal::RiskSummary),
+            "validation_recipe" => decode_payload(fields).map(CuratorProposal::ValidationRecipe),
+            "structural_memory" => {
+                decode_memory_payload(fields, memory_kind.unwrap_or(MemoryKind::Structural))
+                    .map(CuratorProposal::StructuralMemory)
+            }
+            "semantic_memory" => {
+                decode_memory_payload(fields, memory_kind.unwrap_or(MemoryKind::Semantic))
+                    .map(CuratorProposal::SemanticMemory)
+            }
+            other => Err(de::Error::unknown_variant(
+                other,
+                &[
+                    "inferred_edge",
+                    "structural_memory",
+                    "semantic_memory",
+                    "risk_summary",
+                    "validation_recipe",
+                ],
+            )),
+        }
+    }
+}
+
+fn is_proposal_kind(value: &str) -> bool {
+    matches!(
+        value,
+        "inferred_edge"
+            | "structural_memory"
+            | "semantic_memory"
+            | "risk_summary"
+            | "validation_recipe"
+    )
+}
+
+fn parse_memory_kind(value: &str) -> Result<MemoryKind, serde_json::Error> {
+    serde_json::from_value(serde_json::Value::String(value.to_string()))
+}
+
+fn decode_payload<T, E>(fields: serde_json::Map<String, serde_json::Value>) -> Result<T, E>
+where
+    T: for<'de> Deserialize<'de>,
+    E: de::Error,
+{
+    serde_json::from_value(serde_json::Value::Object(fields)).map_err(E::custom)
+}
+
+fn decode_memory_payload<E>(
+    mut fields: serde_json::Map<String, serde_json::Value>,
+    memory_kind: MemoryKind,
+) -> Result<CandidateMemory, E>
+where
+    E: de::Error,
+{
+    fields.insert(
+        "kind".to_string(),
+        serde_json::to_value(memory_kind).map_err(E::custom)?,
+    );
+    decode_payload(fields)
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
