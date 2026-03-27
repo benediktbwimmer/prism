@@ -5,8 +5,7 @@ use prism_ir::{AnchorRef, EdgeKind, NodeId};
 use prism_js::{
     ChangeImpactView, DiscoveryBundleView, EditContextView, FocusedBlockView, OwnerCandidateView,
     OwnerHintView, ReadContextView, RecentChangeContextView, RelationsView, SourceExcerptView,
-    SourceLocationView, SourceSliceView, SymbolView, ValidationContextView,
-    ValidationRecipeView,
+    SourceLocationView, SourceSliceView, SymbolView, ValidationContextView, ValidationRecipeView,
 };
 use prism_query::{EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
 
@@ -437,7 +436,6 @@ pub(crate) fn relations_view(
         )?,
     })
 }
-
 
 pub(crate) fn blast_radius_view(
     prism: &Prism,

@@ -11,6 +11,7 @@ from typing import Any
 from benchmark_common import ROOT, dump_json, instance_id, load_json
 from benchmark_harness import HarnessError, _arm, _load_run_id
 from benchmark_runner import record_telemetry_instance
+from benchmark_workspace import prepare_isolated_workspace, source_workspace_dir
 
 
 READ_COMMAND_PREFIXES = (
@@ -56,28 +57,19 @@ def _instance_prompt(instance: dict[str, Any]) -> str:
     )
 
 
-def _workspace_dir(instance: dict[str, Any]) -> Path:
-    raw = instance.get("workspace_dir")
-    if not isinstance(raw, str) or not raw.strip():
-        raise HarnessError(
-            f"instance `{instance_id(instance)}` is missing `workspace_dir` in the manifest"
-        )
-    path = Path(raw)
-    if not path.is_absolute():
-        path = ROOT / path
-    if not path.exists():
-        raise HarnessError(f"workspace_dir does not exist for `{instance_id(instance)}`: {path}")
-    return path
-
-
-def _compose_prompt(config: dict[str, Any], arm_name: str, instance: dict[str, Any]) -> str:
+def _compose_prompt(
+    config: dict[str, Any],
+    arm_name: str,
+    instance: dict[str, Any],
+    workspace_dir: Path,
+) -> str:
     arm = _arm(config, arm_name)
     arm_prompt = Path(arm["prompt_abspath"]).read_text(encoding="utf-8").strip()
     body = _instance_prompt(instance).strip()
     return (
         f"{arm_prompt}\n\n"
         f"Benchmark instance: `{instance_id(instance)}`\n"
-        f"Working directory: `{_workspace_dir(instance)}`\n\n"
+        f"Working directory: `{workspace_dir}`\n\n"
         "Task:\n"
         f"{body}\n\n"
         "Requirements:\n"
@@ -91,10 +83,9 @@ def _compose_prompt(config: dict[str, Any], arm_name: str, instance: dict[str, A
 def _build_codex_command(
     config: dict[str, Any],
     arm_name: str,
-    instance: dict[str, Any],
+    workspace_dir: Path,
     last_message_path: Path,
 ) -> list[str]:
-    workspace_dir = _workspace_dir(instance)
     arm = _arm(config, arm_name)
     execution = config["execution"]
 
@@ -251,8 +242,11 @@ def run_codex_instance(
             )
         path.parent.mkdir(parents=True, exist_ok=True)
 
-    prompt = _compose_prompt(config, arm_name, instance)
-    command = _build_codex_command(config, arm_name, instance, last_message_path)
+    source_workspace = source_workspace_dir(instance)
+    isolated_workspace = prepare_isolated_workspace(config, run_id, arm_name, instance)
+
+    prompt = _compose_prompt(config, arm_name, instance, isolated_workspace)
+    command = _build_codex_command(config, arm_name, isolated_workspace, last_message_path)
 
     started = time.perf_counter()
     proc = subprocess.run(
@@ -267,7 +261,7 @@ def run_codex_instance(
     transcript_path.write_text(proc.stdout, encoding="utf-8")
     stderr_path.write_text(proc.stderr, encoding="utf-8")
 
-    patch = _git_diff(_workspace_dir(instance))
+    patch = _git_diff(isolated_workspace)
     patch_path.write_text(patch, encoding="utf-8")
     _write_prediction_entry(
         predictions_path,
@@ -299,7 +293,8 @@ def run_codex_instance(
     return {
         "arm": arm_name,
         "instance_id": instance_name,
-        "workspace_dir": str(_workspace_dir(instance)),
+        "source_workspace_dir": str(source_workspace),
+        "workspace_dir": str(isolated_workspace),
         "returncode": proc.returncode,
         "patch_path": str(patch_path),
         "predictions_path": str(predictions_path),
@@ -315,4 +310,50 @@ def run_codex_instance(
         "shell_read_commands": parsed["shell_read_commands"],
         "repeated_reads": parsed["repeated_reads"],
         "wall_time_seconds": wall_time_seconds,
+    }
+
+
+def run_codex_batch(
+    config: dict[str, Any],
+    arm_name: str,
+    *,
+    force: bool = False,
+    continue_on_error: bool = False,
+    instance_names: list[str] | None = None,
+) -> dict[str, Any]:
+    selected = instance_names or config["instance_ids"]
+    completed: list[dict[str, Any]] = []
+    failures: list[dict[str, Any]] = []
+
+    for instance_name in selected:
+        try:
+            completed.append(
+                run_codex_instance(
+                    config,
+                    arm_name,
+                    instance_name,
+                    force=force,
+                )
+            )
+        except Exception as exc:
+            failure = {
+                "instance_id": instance_name,
+                "error": str(exc),
+            }
+            failures.append(failure)
+            if not continue_on_error:
+                return {
+                    "arm": arm_name,
+                    "attempted": len(completed) + len(failures),
+                    "completed": completed,
+                    "failures": failures,
+                    "stopped_early": True,
+                }
+
+    return {
+        "arm": arm_name,
+        "attempted": len(selected),
+        "completed": completed,
+        "failures": failures,
+        "stopped_early": False,
     }

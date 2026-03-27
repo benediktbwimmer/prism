@@ -49,6 +49,7 @@ The only intended difference between the two arms is PRISM availability.
 
 - `control`: Codex without PRISM MCP access
 - `prism`: Codex with PRISM MCP access and explicit permission to prefer PRISM for repo awareness
+- both arms must run against separate isolated workspaces derived from the same pristine source checkout
 
 ## Telemetry Rule
 

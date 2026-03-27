@@ -310,11 +310,7 @@ fn broad_identifier_search_prefers_owner_module_over_path_inherited_functions() 
         language: Language::Rust,
     });
     graph.add_node(Node {
-        id: NodeId::new(
-            "demo",
-            "demo::helpers::anchor_sort_key",
-            NodeKind::Function,
-        ),
+        id: NodeId::new("demo", "demo::helpers::anchor_sort_key", NodeKind::Function),
         name: "anchor_sort_key".into(),
         kind: NodeKind::Function,
         file: helpers_file,

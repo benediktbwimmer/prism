@@ -28,6 +28,7 @@ For the first phase, this directory provides:
 - a runner CLI that can plan, materialize, record, and finalize benchmark runs
 - harness-oriented helpers for predictions templates, command rendering, report ingestion, and external command execution
 - Codex CLI execution helpers that can run rich benchmark instances and write patches back into predictions files
+- isolated per-arm workspaces so `control` and `prism` runs do not share a mutable repo
 
 ## Layout
 
@@ -106,5 +107,24 @@ python3 benchmarks/scripts/run_benchmark.py run-codex-instance \
   --arm control \
   --instance demo__instance
 ```
+
+Run Codex for all instances in one arm:
+
+```bash
+python3 benchmarks/scripts/run_benchmark.py run-codex-batch \
+  --config benchmarks/tracks/swe-bench-pro/configs/pilot.json \
+  --arm prism \
+  --continue-on-error
+```
+
+Run both `control` and `prism` arms for the same manifest:
+
+```bash
+python3 benchmarks/scripts/run_benchmark.py run-comparison \
+  --config benchmarks/tracks/swe-bench-pro/configs/pilot.json \
+  --continue-on-error
+```
+
+`run-codex-instance`, `run-codex-batch`, and `run-comparison` execute against generated isolated git workspaces for each arm and instance. The manifest `workspace_dir` is treated as the pristine source checkout, and the benchmark runner leaves it untouched while capturing each arm's patch from its own isolated worktree.
 
 The configs in `tracks/*/configs/` are the source of truth for the first benchmark runs.

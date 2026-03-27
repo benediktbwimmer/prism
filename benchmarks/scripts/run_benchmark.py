@@ -7,7 +7,8 @@ import json
 from pathlib import Path
 
 from benchmark_common import dump_json
-from benchmark_codex import run_codex_instance
+from benchmark_compare import run_codex_comparison
+from benchmark_codex import run_codex_batch, run_codex_instance
 from benchmark_config import load_normalized_config
 from benchmark_harness import ingest_report, prepare_predictions, render_harness_commands, run_harness_command
 from benchmark_runner import build_plan, finalize_run, materialize_run, record_instance
@@ -64,6 +65,25 @@ def _parse_args() -> argparse.Namespace:
     run_codex_instance_parser.add_argument("--arm", required=True, choices=["control", "prism"])
     run_codex_instance_parser.add_argument("--instance", required=True)
     run_codex_instance_parser.add_argument("--force", action="store_true")
+
+    run_codex_batch_parser = subparsers.add_parser(
+        "run-codex-batch",
+        help="run Codex for all or selected manifest instances and write patches into the predictions file",
+    )
+    run_codex_batch_parser.add_argument("--config", required=True, type=Path)
+    run_codex_batch_parser.add_argument("--arm", required=True, choices=["control", "prism"])
+    run_codex_batch_parser.add_argument("--instance", action="append", dest="instances")
+    run_codex_batch_parser.add_argument("--force", action="store_true")
+    run_codex_batch_parser.add_argument("--continue-on-error", action="store_true")
+
+    run_comparison_parser = subparsers.add_parser(
+        "run-comparison",
+        help="materialize artifacts if needed, prepare predictions, then run both control and prism Codex arms",
+    )
+    run_comparison_parser.add_argument("--config", required=True, type=Path)
+    run_comparison_parser.add_argument("--instance", action="append", dest="instances")
+    run_comparison_parser.add_argument("--force", action="store_true")
+    run_comparison_parser.add_argument("--continue-on-error", action="store_true")
 
     record_parser = subparsers.add_parser("record-instance", help="record one instance outcome and telemetry")
     record_parser.add_argument("--result", required=True, type=Path)
@@ -130,6 +150,28 @@ def main() -> int:
     if args.command == "run-codex-instance":
         config = load_normalized_config(args.config)
         outcome = run_codex_instance(config, args.arm, args.instance, force=args.force)
+        print(json.dumps(outcome, indent=2))
+        return 0
+
+    if args.command == "run-codex-batch":
+        config = load_normalized_config(args.config)
+        outcome = run_codex_batch(
+            config,
+            args.arm,
+            force=args.force,
+            continue_on_error=args.continue_on_error,
+            instance_names=args.instances,
+        )
+        print(json.dumps(outcome, indent=2))
+        return 0
+
+    if args.command == "run-comparison":
+        outcome = run_codex_comparison(
+            args.config,
+            force=args.force,
+            continue_on_error=args.continue_on_error,
+            instance_names=args.instances,
+        )
         print(json.dumps(outcome, indent=2))
         return 0
 

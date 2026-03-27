@@ -55,6 +55,7 @@ struct CandidateSearchData {
     searchable: String,
     compact: String,
     matched_terms: Vec<String>,
+    excerpt_only: bool,
 }
 
 struct RankedCandidateBuckets {
@@ -620,16 +621,21 @@ fn prepare_candidate_search_data(
         .unwrap_or_default();
     let mut searchable = format!("{file_path} {} {}", node.id.path, node.name).to_ascii_lowercase();
     let mut matched = matched_terms(&scope.query_terms, &searchable);
+    let mut excerpt_only = false;
     if matched.is_empty() {
         if let Ok(symbol) = symbol_for(prism, &node.id) {
             if let Some(excerpt) = symbol.excerpt(SourceExcerptOptions::default()) {
                 searchable.push(' ');
                 searchable.push_str(&excerpt.text.to_ascii_lowercase());
                 matched = matched_terms(&scope.query_terms, &searchable);
+                excerpt_only = !matched.is_empty();
             }
         }
     }
     if matched.is_empty() {
+        return None;
+    }
+    if excerpt_only && is_low_signal_excerpt_only_candidate(&file_path, &node.id.path, &node.name) {
         return None;
     }
     let compact = normalize_compact(&searchable);
@@ -638,6 +644,7 @@ fn prepare_candidate_search_data(
         searchable,
         compact,
         matched_terms: matched,
+        excerpt_only,
     })
 }
 
@@ -666,6 +673,7 @@ fn score_candidate(
         + kind_bonus
         + direct_hits * 3
         + source_bonus;
+    let score = score.saturating_sub(search_data.excerpt_only as usize);
     let why = match category {
         InsightCategory::ReadPath => {
             "Matched discovery terms inside read-oriented code paths or excerpts.".to_string()
@@ -698,6 +706,33 @@ fn matched_terms(query_terms: &[String], searchable: &str) -> Vec<String> {
         .take(8)
         .cloned()
         .collect::<Vec<_>>()
+}
+
+fn is_low_signal_excerpt_only_candidate(file_path: &str, id_path: &str, name: &str) -> bool {
+    let file_path = file_path.to_ascii_lowercase();
+    let id_path = id_path.to_ascii_lowercase();
+    let name = name.to_ascii_lowercase();
+    let haystacks = [file_path.as_str(), id_path.as_str(), name.as_str()];
+    haystacks.iter().copied().any(|value| {
+        contains_any(
+            value,
+            &[
+                "schema_example",
+                "schema_examples",
+                "payload_example",
+                "replay_case",
+                "replay_cases",
+                "query_replay_cases",
+                "fixture",
+                "fixtures",
+                "testdata",
+                "snapshot",
+                "snapshots",
+                "example",
+                "examples",
+            ],
+        )
+    })
 }
 
 fn build_search_scope(

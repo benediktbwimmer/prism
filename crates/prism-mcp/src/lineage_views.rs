@@ -1,5 +1,5 @@
 use anyhow::Result;
-use prism_ir::{LineageEvent, LineageEvidence, LineageEventKind, NodeId};
+use prism_ir::{LineageEvent, LineageEventKind, LineageEvidence, NodeId};
 use prism_js::{LineageEventView, LineageEvidenceView, LineageStatus, LineageView, SymbolView};
 use prism_query::Prism;
 

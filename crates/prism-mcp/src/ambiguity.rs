@@ -349,7 +349,10 @@ fn rank_candidate(
         }
     }
 
-    if broad_identifier_query && direct_match_rank.is_none() && path_inherits_query(&path_lower, &query_lower) {
+    if broad_identifier_query
+        && direct_match_rank.is_none()
+        && path_inherits_query(&path_lower, &query_lower)
+    {
         if matches!(
             symbol.kind,
             NodeKind::Function
@@ -995,9 +998,11 @@ fn direct_symbol_match_rank(symbol: &SymbolView, query_lower: &str) -> Option<u8
 }
 
 fn path_inherits_query(path_lower: &str, query_lower: &str) -> bool {
-    identifier_tokens(path_lower)
-        .iter()
-        .any(|token| *token == query_lower || identifier_stem(token) == identifier_stem(query_lower) || token.starts_with(query_lower))
+    identifier_tokens(path_lower).iter().any(|token| {
+        *token == query_lower
+            || identifier_stem(token) == identifier_stem(query_lower)
+            || token.starts_with(query_lower)
+    })
 }
 
 fn identifier_stem(value: &str) -> String {

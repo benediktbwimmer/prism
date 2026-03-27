@@ -7204,7 +7204,10 @@ pub fn conflict_between() {}
         .expect("search query should succeed");
 
     assert_eq!(envelope.result[0]["kind"], "Module");
-    assert_eq!(envelope.result[0]["id"]["path"].as_str(), Some("demo::helpers"));
+    assert_eq!(
+        envelope.result[0]["id"]["path"].as_str(),
+        Some("demo::helpers")
+    );
 }
 
 #[test]
@@ -7404,6 +7407,74 @@ fn explicit_search_modes_can_prefer_behavioral_owners_without_behavioral_strateg
                     .as_str()
                     .is_some_and(|path| path.contains("memory_recall"))
         })));
+}
+
+#[test]
+fn behavioral_owner_search_ignores_excerpt_only_schema_example_noise() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod runtime;
+pub mod schema_examples;
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/runtime.rs"),
+        r#"
+pub fn lookup_session_state() {
+    let helper_mode = true;
+    assert!(helper_mode);
+}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/schema_examples.rs"),
+        r##"
+pub fn read_payload_example() {
+    let _payload = r#"{"helper":true}"#;
+}
+"##,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let envelope = host
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "helper".to_string(),
+                limit: Some(5),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: Some("direct".to_string()),
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: Some(true),
+                prefer_editable_targets: None,
+                prefer_behavioral_owners: Some(true),
+                owner_kind: Some("read".to_string()),
+                include_inferred: None,
+            },
+        )
+        .expect("search query should succeed");
+
+    assert_eq!(
+        envelope.result[0]["id"]["path"].as_str(),
+        Some("demo::runtime::lookup_session_state")
+    );
+    assert!(envelope.result.as_array().is_some_and(|results| {
+        !results.iter().any(|symbol| {
+            symbol["id"]["path"]
+                .as_str()
+                .is_some_and(|path| path.contains("schema_examples"))
+        })
+    }));
 }
 
 #[test]

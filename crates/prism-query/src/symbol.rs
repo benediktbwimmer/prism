@@ -504,7 +504,8 @@ fn direct_symbol_match_rank(node: &Node, query_lower: &str) -> Option<u8> {
         .any(|token| identifier_stem(token) == query_stem)
     {
         Some(2)
-    } else if has_token_prefix(&leaf_lower, query_lower) || has_token_prefix(&name_lower, query_lower)
+    } else if has_token_prefix(&leaf_lower, query_lower)
+        || has_token_prefix(&name_lower, query_lower)
     {
         Some(3)
     } else if leaf_lower.contains(query_lower) || name_lower.contains(query_lower) {

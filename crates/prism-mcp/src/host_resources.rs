@@ -496,10 +496,7 @@ impl QueryHost {
             })
             .unwrap_or_default();
         let paged_history = paginate_items(
-            events
-                .iter()
-                .map(lineage_event_view)
-                .collect::<Vec<_>>(),
+            events.iter().map(lineage_event_view).collect::<Vec<_>>(),
             parse_resource_page(
                 uri,
                 DEFAULT_RESOURCE_PAGE_LIMIT,
