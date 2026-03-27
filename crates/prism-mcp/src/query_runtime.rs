@@ -23,10 +23,10 @@ use crate::text_search::search_text;
 use crate::{
     ambiguity_diagnostic_data, apply_module_filter, artifact_risk_view, artifact_view,
     blast_radius_view, blocker_view, change_impact_view, changed_files, changed_symbols,
-    claim_view, co_change_view, conflict_view, convert_anchors, convert_node_id,
+    claim_view, co_change_view, combined_parse_typescript_error, conflict_view, convert_anchors, convert_node_id,
     coordination_task_view, current_timestamp, diff_for, drift_candidate_view, edge_kind_label,
     edge_view, edit_slice_for_symbol, entrypoints_for, focused_block_for_symbol, js_runtime,
-    lineage_view, merge_node_ids, merge_promoted_checks, missing_return_hint, next_reads,
+    is_query_parse_error, lineage_view, merge_node_ids, merge_promoted_checks, missing_return_hint, next_reads,
     owner_symbol_views_for_query, owner_symbol_views_for_target, owner_views_for_target,
     parse_capability, parse_claim_mode, parse_event_actor, parse_memory_kind, parse_node_kind,
     parse_outcome_kind, parse_outcome_result, parse_typescript_error, plan_view,
@@ -55,6 +55,15 @@ use crate::{
 enum TsSnippetMode {
     StatementBody,
     ImplicitExpression,
+}
+
+impl TsSnippetMode {
+    fn code(self) -> &'static str {
+        match self {
+            TsSnippetMode::StatementBody => "statement_body",
+            TsSnippetMode::ImplicitExpression => "implicit_expression",
+        }
+    }
 }
 
 struct PreparedTypescriptQuery {
@@ -176,7 +185,17 @@ impl QueryHost {
                         query_run.clone(),
                     ) {
                         Ok(expression_attempt) => expression_attempt,
-                        Err(_) => return Err(statement_error),
+                        Err(expression_error) => {
+                            if is_query_parse_error(&statement_error)
+                                && is_query_parse_error(&expression_error)
+                            {
+                                return Err(combined_parse_typescript_error(
+                                    statement_error,
+                                    expression_error,
+                                ));
+                            }
+                            return Err(statement_error);
+                        }
                     }
                 }
             };
@@ -256,14 +275,24 @@ impl QueryHost {
     ) -> Result<TypescriptAttempt> {
         let prepared = prepare_typescript_query(code, mode);
         let transpiled = js_runtime::transpile_typescript(&prepared.source).map_err(|error| {
-            parse_typescript_error(error, code, prepared.user_snippet_first_line)
+            parse_typescript_error(
+                error,
+                code,
+                prepared.user_snippet_first_line,
+                mode.code(),
+            )
         })?;
         let execution = QueryExecution::new(self.clone(), self.current_prism(), query_run);
         let raw_result = self
             .worker_pool
             .execute(transpiled, execution.clone())
             .map_err(|error| {
-                runtime_or_serialization_error(error, code, prepared.user_snippet_first_line)
+                runtime_or_serialization_error(
+                    error,
+                    code,
+                    prepared.user_snippet_first_line,
+                    mode.code(),
+                )
             })?;
         let mut result = serde_json::from_str(&raw_result)
             .map_err(|error| result_decode_error(error.into(), &raw_result))?;
