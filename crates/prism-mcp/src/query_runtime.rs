@@ -14,37 +14,38 @@ use prism_memory::{MemoryModule, OutcomeRecallQuery, RecallQuery};
 use prism_query::{EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
 use serde_json::{json, Value};
 
-use crate::file_queries::{file_around, file_read};
+use crate::file_queries::{
+    file_around, file_read, DEFAULT_FILE_AROUND_CONTEXT_LINES, DEFAULT_FILE_AROUND_MAX_CHARS,
+    DEFAULT_FILE_READ_MAX_CHARS,
+};
 use crate::runtime_views::{runtime_logs, runtime_status, runtime_timeline};
 use crate::text_search::search_text;
 use crate::{
     ambiguity_diagnostic_data, apply_module_filter, artifact_risk_view, artifact_view,
     blast_radius_view, blocker_view, change_impact_view, changed_files, changed_symbols,
     claim_view, co_change_view, conflict_view, convert_anchors, convert_node_id,
-    coordination_task_view, current_timestamp, diff_for, drift_candidate_view,
-    edge_kind_label, edge_view, edit_context_view, edit_slice_for_symbol, entrypoints_for,
-    focused_block_for_symbol, js_runtime, lineage_view, merge_node_ids, merge_promoted_checks,
-    next_reads, owner_symbol_views_for_query, owner_symbol_views_for_target,
-    owner_views_for_target, parse_capability, parse_claim_mode, parse_event_actor,
-    parse_memory_kind, parse_node_kind, parse_outcome_kind, parse_outcome_result, plan_view,
-    policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
-    promoted_validation_checks, query_diagnostic, rank_search_results, read_context_view,
-    recent_change_context_view, recent_patches, relations_view, scored_memory_view,
-    search_queries, source_excerpt_for_symbol, spec_cluster_view, spec_drift_explanation_view,
-    symbol_for, symbol_view, symbol_views_for_ids, task_intent_view, task_journal_view,
-    task_risk_view, task_validation_recipe_view, tool_catalog_views, tool_schema_view,
-    validation_context_view, validation_recipe_view_with, where_used, AnchorListArgs,
-    CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs, CoordinationTaskTargetArgs,
-    CuratorJobArgs, CuratorJobsArgs, DiffForArgs, DiscoveryTargetArgs, EditSliceArgs,
-    FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs, MemoryOutcomeArgs,
-    MemoryRecallArgs, NodeIdInput, OwnerLookupArgs, PendingReviewsArgs, PlanTargetArgs,
-    PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun,
-    QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs,
-    SearchAmbiguityContext, SearchArgs, SearchTextArgs, SimulateClaimArgs, SourceExcerptArgs,
-    SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode,
-    TaskTargetArgs, ToolNameArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH,
-    DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
-    INSIGHT_LIMIT,
+    coordination_task_view, current_timestamp, diff_for, drift_candidate_view, edge_kind_label,
+    edge_view, edit_context_view, edit_slice_for_symbol, entrypoints_for, focused_block_for_symbol,
+    js_runtime, lineage_view, merge_node_ids, merge_promoted_checks, next_reads,
+    owner_symbol_views_for_query, owner_symbol_views_for_target, owner_views_for_target,
+    parse_capability, parse_claim_mode, parse_event_actor, parse_memory_kind, parse_node_kind,
+    parse_outcome_kind, parse_outcome_result, plan_view, policy_violation_record_view,
+    promoted_memory_entries, promoted_summary_texts, promoted_validation_checks, query_diagnostic,
+    rank_search_results, read_context_view, recent_change_context_view, recent_patches,
+    relations_view, scored_memory_view, search_queries, source_excerpt_for_symbol,
+    spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
+    task_intent_view, task_journal_view, task_risk_view, task_validation_recipe_view,
+    tool_catalog_views, tool_schema_view, validation_context_view, validation_recipe_view_with,
+    where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs,
+    CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, DiffForArgs, DiscoveryTargetArgs,
+    EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs,
+    MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs, PendingReviewsArgs,
+    PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun,
+    QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchAmbiguityContext,
+    SearchArgs, SearchTextArgs, SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs,
+    SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode, TaskTargetArgs,
+    ToolNameArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
 };
 
 impl QueryHost {
@@ -142,7 +143,7 @@ impl QueryHost {
         match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize, bool)> {
             self.refresh_workspace()?;
             let source = format!(
-                "(function() {{\n  try {{\n    const __prismUserQuery = () => {{\n{}\n    }};\n    const __prismResult = __prismUserQuery();\n    return __prismResult === undefined ? \"null\" : JSON.stringify(__prismResult);\n  }} catch (error) {{\n    const __prismMessage = error && typeof error === \"object\" && \"message\" in error && error.message\n      ? String(error.message)\n      : String(error);\n    const __prismStack = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : null;\n    const __prismCombined = __prismStack && __prismStack.includes(__prismMessage)\n      ? __prismStack\n      : __prismStack\n        ? `${{__prismMessage}}\\n${{__prismStack}}`\n        : __prismMessage;\n    throw new Error(__prismCombined);\n  }}\n}})();\n",
+                "(async function() {{\n  try {{\n    const __prismUserQuery = async () => {{\n{}\n    }};\n    const __prismResult = await __prismUserQuery();\n    return __prismResult === undefined ? \"null\" : JSON.stringify(__prismResult);\n  }} catch (error) {{\n    const __prismMessage = error && typeof error === \"object\" && \"message\" in error && error.message\n      ? String(error.message)\n      : String(error);\n    const __prismStack = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : null;\n    const __prismCombined = __prismStack && __prismStack.includes(__prismMessage)\n      ? __prismStack\n      : __prismStack\n        ? `${{__prismMessage}}\\n${{__prismStack}}`\n        : __prismMessage;\n    throw new Error(__prismCombined);\n  }}\n}})();\n",
                 code
             );
             let transpiled = js_runtime::transpile_typescript(&source)?;
@@ -667,11 +668,50 @@ impl QueryExecution {
             }
             "fileRead" => {
                 let args: FileReadArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(file_read(&self.host, args)?)?)
+                let excerpt = file_read(&self.host, args.clone())?;
+                if excerpt.truncated {
+                    let max_chars = args.max_chars.unwrap_or(DEFAULT_FILE_READ_MAX_CHARS);
+                    self.push_diagnostic(
+                        "result_truncated",
+                        format!(
+                            "File excerpt for `{}` was truncated by the {max_chars} character cap. Next action: raise `maxChars` or narrow the line range.",
+                            args.path
+                        ),
+                        Some(json!({
+                            "operation": "fileRead",
+                            "path": args.path,
+                            "startLine": args.start_line.unwrap_or(1),
+                            "endLine": args.end_line,
+                            "maxChars": max_chars,
+                            "nextAction": "Use prism.file(path).read({ startLine: ..., endLine: ..., maxChars: ... }) with a tighter range or larger maxChars.",
+                        })),
+                    );
+                }
+                Ok(serde_json::to_value(excerpt)?)
             }
             "fileAround" => {
                 let args: FileAroundArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(file_around(&self.host, args)?)?)
+                let slice = file_around(&self.host, args.clone())?;
+                if slice.truncated {
+                    let max_chars = args.max_chars.unwrap_or(DEFAULT_FILE_AROUND_MAX_CHARS);
+                    self.push_diagnostic(
+                        "result_truncated",
+                        format!(
+                            "File context for `{}` around line {} was truncated by the {max_chars} character cap. Next action: raise `maxChars` or narrow the line window.",
+                            args.path, args.line
+                        ),
+                        Some(json!({
+                            "operation": "fileAround",
+                            "path": args.path,
+                            "line": args.line,
+                            "before": args.before.unwrap_or(DEFAULT_FILE_AROUND_CONTEXT_LINES),
+                            "after": args.after.unwrap_or(DEFAULT_FILE_AROUND_CONTEXT_LINES),
+                            "maxChars": max_chars,
+                            "nextAction": "Use prism.file(path).around({ line: ..., before: ..., after: ..., maxChars: ... }) with a tighter window or larger maxChars.",
+                        })),
+                    );
+                }
+                Ok(serde_json::to_value(slice)?)
             }
             "tools" => Ok(serde_json::to_value(self.tools())?),
             "tool" => {
@@ -1022,9 +1062,7 @@ impl QueryExecution {
         let path_mode = parse_path_mode(args.path_mode.as_deref())?;
         let explicit_task_id = args.task_id.clone();
         let current_task_id = self.host.session.current_task().map(|task| task.0);
-        let effective_task_id = explicit_task_id
-            .as_deref()
-            .or(current_task_id.as_deref());
+        let effective_task_id = explicit_task_id.as_deref().or(current_task_id.as_deref());
         let exact_structured =
             args.structured_path.is_some() || args.top_level_only.unwrap_or(false);
         let needs_post_filter = path_mode == SearchPathMode::Exact || exact_structured;

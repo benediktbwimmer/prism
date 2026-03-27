@@ -200,7 +200,7 @@ pub(crate) struct EditSliceArgs {
     pub(crate) max_chars: Option<usize>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct FileReadArgs {
     pub(crate) path: String,
@@ -209,7 +209,7 @@ pub(crate) struct FileReadArgs {
     pub(crate) max_chars: Option<usize>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct FileAroundArgs {
     pub(crate) path: String,

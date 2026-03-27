@@ -15,10 +15,10 @@ use prism_query::{Prism, QueryLimits};
 use rmcp::{handler::server::router::tool::ToolRouter, transport::stdio, ServiceExt};
 use tracing::{debug, info};
 
+mod ambiguity;
 mod capabilities_resource;
 mod change_views;
 mod common;
-mod ambiguity;
 mod daemon_mode;
 mod diagnostics;
 mod discovery_bundle;
@@ -52,10 +52,10 @@ mod tool_args;
 mod tool_schemas;
 mod views;
 
+use ambiguity::*;
 use capabilities_resource::*;
 use change_views::*;
 use common::*;
-use ambiguity::*;
 pub use daemon_mode::serve_with_mode;
 use diagnostics::*;
 use discovery_bundle::*;

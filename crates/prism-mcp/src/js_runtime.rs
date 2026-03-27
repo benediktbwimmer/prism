@@ -8,7 +8,9 @@ use deno_ast::{
     TranspileOptions,
 };
 use prism_js::runtime_prelude;
-use rquickjs::{prelude::Func, CatchResultExt, CaughtError, Context, Runtime};
+use rquickjs::{
+    promise::MaybePromise, prelude::Func, CatchResultExt, CaughtError, Context, Runtime,
+};
 use serde_json::json;
 use tracing::error;
 
@@ -103,7 +105,14 @@ fn run_js_worker(rx: mpsc::Receiver<JsWorkerMessage>) -> Result<()> {
                 }
 
                 let result = context.with(|ctx| -> Result<String> {
-                    ctx.eval::<String, _>(request.script.as_str())
+                    let promise = ctx
+                        .eval::<MaybePromise<'_>, _>(request.script.as_str())
+                        .catch(&ctx)
+                        .map_err(|error| {
+                            format_caught_js_error("javascript query evaluation failed", error)
+                        })?;
+                    promise
+                        .finish::<String>()
                         .catch(&ctx)
                         .map_err(|error| {
                             format_caught_js_error("javascript query evaluation failed", error)

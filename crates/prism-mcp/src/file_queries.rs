@@ -7,9 +7,9 @@ use prism_query::{source_excerpt_for_line_range, source_slice_around_line};
 
 use crate::{FileAroundArgs, FileReadArgs, QueryHost};
 
-const DEFAULT_FILE_READ_MAX_CHARS: usize = 1400;
-const DEFAULT_FILE_AROUND_MAX_CHARS: usize = 1200;
-const DEFAULT_FILE_AROUND_CONTEXT_LINES: usize = 2;
+pub(crate) const DEFAULT_FILE_READ_MAX_CHARS: usize = 1400;
+pub(crate) const DEFAULT_FILE_AROUND_MAX_CHARS: usize = 1200;
+pub(crate) const DEFAULT_FILE_AROUND_CONTEXT_LINES: usize = 2;
 
 pub(crate) fn file_read(host: &QueryHost, args: FileReadArgs) -> Result<SourceExcerptView> {
     let path = resolve_workspace_path(host, &args.path)?;

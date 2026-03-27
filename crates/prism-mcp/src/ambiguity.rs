@@ -1,5 +1,5 @@
 use anyhow::Result;
-use prism_ir::{AnchorRef, CoordinationTaskId};
+use prism_ir::{AnchorRef, CoordinationTaskId, NodeKind};
 use prism_js::{QueryDiagnostic, SuggestedQueryView, SymbolView};
 use prism_query::Prism;
 use rmcp::schemars::JsonSchema;
@@ -110,7 +110,10 @@ pub(crate) fn rank_search_results(
             .then_with(|| left.symbol.id.path.cmp(&right.symbol.id.path))
     });
 
-    *results = ranked.iter().map(|candidate| candidate.symbol.clone()).collect();
+    *results = ranked
+        .iter()
+        .map(|candidate| candidate.symbol.clone())
+        .collect();
 
     if ranked.len() <= 1 {
         return Ok(None);
@@ -170,7 +173,10 @@ pub(crate) fn search_ambiguity_from_diagnostics(
 }
 
 fn search_is_ambiguous(ranked: &[RankedCandidate]) -> bool {
-    let exact_matches = ranked.iter().filter(|candidate| candidate.exact_name_match).count();
+    let exact_matches = ranked
+        .iter()
+        .filter(|candidate| candidate.exact_name_match)
+        .count();
     if exact_matches > 1 {
         return true;
     }
@@ -190,9 +196,14 @@ fn rank_candidate(
     let mut reasons = Vec::new();
     let normalized_query = context.query.trim();
     let query_lower = normalized_query.to_ascii_lowercase();
+    let query_stem = identifier_stem(&query_lower);
     let path = symbol.id.path.as_str();
     let leaf = path.rsplit("::").next().unwrap_or(path);
+    let leaf_lower = leaf.to_ascii_lowercase();
+    let name_lower = symbol.name.to_ascii_lowercase();
     let exact_name_match = symbol.name == normalized_query || leaf == normalized_query;
+    let broad_identifier_query =
+        context.strategy == "direct" && is_broad_identifier_query(normalized_query);
 
     if path == normalized_query {
         score += 140;
@@ -200,12 +211,35 @@ fn rank_candidate(
     } else if exact_name_match {
         score += 100;
         reasons.push("Exact symbol-name match.".to_string());
-    } else if symbol.name.eq_ignore_ascii_case(normalized_query) || leaf.eq_ignore_ascii_case(normalized_query) {
+    } else if symbol.name.eq_ignore_ascii_case(normalized_query)
+        || leaf.eq_ignore_ascii_case(normalized_query)
+    {
         score += 90;
         reasons.push("Case-insensitive symbol-name match.".to_string());
     } else if path.ends_with(&format!("::{normalized_query}")) {
         score += 70;
         reasons.push("Leaf path segment matches the query.".to_string());
+    }
+
+    if !exact_name_match {
+        let leaf_tokens = identifier_tokens(&leaf_lower);
+        let name_tokens = identifier_tokens(&name_lower);
+        if leaf_tokens.iter().any(|token| *token == query_lower)
+            || name_tokens.iter().any(|token| *token == query_lower)
+        {
+            score += 55;
+            reasons.push("Identifier token matches the query.".to_string());
+        } else if leaf_tokens
+            .iter()
+            .chain(name_tokens.iter())
+            .any(|token| identifier_stem(token) == query_stem)
+        {
+            score += 40;
+            reasons.push("Identifier token stem matches the query.".to_string());
+        } else if leaf_lower.contains(&query_lower) || name_lower.contains(&query_lower) {
+            score += 22;
+            reasons.push("Identifier contains the query text.".to_string());
+        }
     }
 
     if let Some(module) = context.module.filter(|value| !value.is_empty()) {
@@ -216,6 +250,77 @@ fn rank_candidate(
     } else if let Some(module) = module_path(&symbol) {
         if path == module {
             score += 10;
+        }
+    }
+
+    match symbol.kind {
+        NodeKind::Function | NodeKind::Method => {
+            score += 24;
+            reasons.push("Callable code preferred for broad symbol queries.".to_string());
+        }
+        NodeKind::Struct
+        | NodeKind::Enum
+        | NodeKind::Trait
+        | NodeKind::Impl
+        | NodeKind::TypeAlias => {
+            score += 16;
+            reasons.push("Implementation type preferred over module/document matches.".to_string());
+        }
+        NodeKind::Field => {
+            score += 8;
+        }
+        NodeKind::Module if !exact_name_match => {
+            score -= 8;
+            reasons.push(
+                "Module match slightly de-prioritized behind concrete code targets.".to_string(),
+            );
+        }
+        NodeKind::Document
+        | NodeKind::Package
+        | NodeKind::Workspace
+        | NodeKind::MarkdownHeading
+        | NodeKind::JsonKey
+        | NodeKind::TomlKey
+        | NodeKind::YamlKey
+            if !exact_name_match =>
+        {
+            score -= 12;
+            reasons.push(
+                "Non-code container match de-prioritized for a broad symbol query.".to_string(),
+            );
+        }
+        _ => {}
+    }
+
+    if broad_identifier_query {
+        match symbol.kind {
+            NodeKind::Module if exact_name_match => {
+                score += 14;
+                reasons.push("Module/file owner preferred for a bare noun query.".to_string());
+            }
+            NodeKind::Field if exact_name_match => {
+                score -= 20;
+                reasons.push(
+                    "Bare field match de-prioritized behind owning code or module targets."
+                        .to_string(),
+                );
+            }
+            NodeKind::Document
+            | NodeKind::Package
+            | NodeKind::Workspace
+            | NodeKind::MarkdownHeading
+            | NodeKind::JsonKey
+            | NodeKind::TomlKey
+            | NodeKind::YamlKey
+                if exact_name_match =>
+            {
+                score -= 24;
+                reasons.push(
+                    "Exact non-code container match de-prioritized for a bare noun query."
+                        .to_string(),
+                );
+            }
+            _ => {}
         }
     }
 
@@ -251,7 +356,7 @@ fn rank_candidate(
     }
 
     if !query_lower.contains("test") && is_test_symbol(&symbol) {
-        score -= 20;
+        score -= 45;
         reasons.push("Test-only symbol de-prioritized for a non-test query.".to_string());
     }
 
@@ -260,11 +365,14 @@ fn rank_candidate(
     if symbol.location.is_some() {
         score += 2;
     }
-    if prism.lineage_of(&prism_ir::NodeId::new(
-        symbol.id.crate_name.clone(),
-        symbol.id.path.clone(),
-        symbol.kind,
-    )).is_some() {
+    if prism
+        .lineage_of(&prism_ir::NodeId::new(
+            symbol.id.crate_name.clone(),
+            symbol.id.path.clone(),
+            symbol.kind,
+        ))
+        .is_some()
+    {
         score += 1;
     }
 
@@ -277,10 +385,16 @@ fn rank_candidate(
     }
 }
 
-fn ambiguity_candidate_view(
-    query: &str,
-    candidate: &RankedCandidate,
-) -> AmbiguityCandidateView {
+fn is_broad_identifier_query(query: &str) -> bool {
+    let trimmed = query.trim();
+    !trimmed.is_empty()
+        && !trimmed.contains("::")
+        && trimmed
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+}
+
+fn ambiguity_candidate_view(query: &str, candidate: &RankedCandidate) -> AmbiguityCandidateView {
     AmbiguityCandidateView {
         symbol: candidate.symbol.clone(),
         module: candidate.module.clone(),
@@ -308,7 +422,8 @@ fn ambiguity_queries(
                     context.owner_kind,
                     context.task_id,
                 ),
-                why: "Narrow directly to the chosen file path before retrying the search.".to_string(),
+                why: "Narrow directly to the chosen file path before retrying the search."
+                    .to_string(),
             });
         }
         if let Some(module) = first.module.as_deref() {
@@ -357,7 +472,10 @@ fn ambiguity_why(
     let mut why = vec![
         "PRISM ranked candidates by exact name/path match, module scope, task scope, owner hints, and test-versus-implementation heuristics.".to_string(),
     ];
-    let exact_matches = ranked.iter().filter(|candidate| candidate.exact_name_match).count();
+    let exact_matches = ranked
+        .iter()
+        .filter(|candidate| candidate.exact_name_match)
+        .count();
     if exact_matches > 1 {
         why.push(format!(
             "{exact_matches} exact symbol-name matches remain after ranking."
@@ -467,7 +585,10 @@ fn search_query_call(
             serde_json::to_string(task_id).expect("task id should serialize")
         ));
     }
-    format!("return prism.search({query_json}, {{ {} }});", parts.join(", "))
+    format!(
+        "return prism.search({query_json}, {{ {} }});",
+        parts.join(", ")
+    )
 }
 
 fn build_task_scope(prism: &Prism, task_id: &str) -> Option<TaskScope> {
@@ -494,7 +615,10 @@ fn build_task_scope(prism: &Prism, task_id: &str) -> Option<TaskScope> {
     let mut lineages = Vec::new();
     let mut seen_nodes = Vec::new();
     for node in nodes {
-        if seen_nodes.iter().any(|existing| existing == node.path.as_str()) {
+        if seen_nodes
+            .iter()
+            .any(|existing| existing == node.path.as_str())
+        {
             continue;
         }
         seen_nodes.push(node.path.to_string());
@@ -527,7 +651,12 @@ fn candidate_task_match(symbol: &SymbolView, task_scope: Option<&TaskScope>) -> 
     symbol
         .lineage_id
         .as_ref()
-        .filter(|lineage| task_scope.lineages.iter().any(|candidate| candidate == *lineage))
+        .filter(|lineage| {
+            task_scope
+                .lineages
+                .iter()
+                .any(|candidate| candidate == *lineage)
+        })
         .map(|_| TaskMatch::SameLineage)
 }
 
@@ -550,10 +679,31 @@ fn matches_module(symbol: &SymbolView, module: &str) -> bool {
 
 fn is_test_symbol(symbol: &SymbolView) -> bool {
     symbol.id.path.contains("::tests::")
-        || symbol
-            .file_path
-            .as_deref()
-            .is_some_and(|path| path.contains("/tests/") || path.ends_with("_test.rs") || path.ends_with("_tests.rs"))
+        || symbol.file_path.as_deref().is_some_and(|path| {
+            path.contains("/tests/") || path.ends_with("_test.rs") || path.ends_with("_tests.rs")
+        })
+}
+
+fn identifier_tokens(value: &str) -> Vec<&str> {
+    value
+        .split(|ch: char| !ch.is_ascii_alphanumeric())
+        .filter(|token| !token.is_empty())
+        .collect()
+}
+
+fn identifier_stem(value: &str) -> String {
+    if value.len() > 4 && value.ends_with("ies") {
+        let mut stem = value[..value.len() - 3].to_string();
+        stem.push('y');
+        return stem;
+    }
+    if value.len() > 3 && value.ends_with("es") {
+        return value[..value.len() - 2].to_string();
+    }
+    if value.len() > 3 && value.ends_with('s') {
+        return value[..value.len() - 1].to_string();
+    }
+    value.to_string()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

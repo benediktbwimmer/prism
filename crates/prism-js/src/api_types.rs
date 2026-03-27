@@ -72,6 +72,8 @@ pub struct ToolFieldSchemaView {
     pub description: Option<String>,
     pub types: Vec<String>,
     pub enum_values: Vec<String>,
+    #[serde(default)]
+    pub nested_fields: Vec<ToolFieldSchemaView>,
     pub schema: Value,
 }
 

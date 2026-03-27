@@ -11,6 +11,8 @@ use crate::{
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
+const MAX_SCHEMA_SUMMARY_DEPTH: usize = 3;
+
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ToolSchemaCatalogEntry {
@@ -231,6 +233,16 @@ fn tool_field_view(
     field_schema: &Value,
     required_fields: &[String],
 ) -> ToolFieldSchemaView {
+    tool_field_view_with_depth(root_schema, name, field_schema, required_fields, 0)
+}
+
+fn tool_field_view_with_depth(
+    root_schema: &Value,
+    name: &str,
+    field_schema: &Value,
+    required_fields: &[String],
+    depth: usize,
+) -> ToolFieldSchemaView {
     let resolved = resolve_schema_ref(root_schema, field_schema);
     ToolFieldSchemaView {
         name: name.to_string(),
@@ -241,7 +253,8 @@ fn tool_field_view(
             .map(ToString::to_string),
         types: schema_type_labels(root_schema, resolved),
         enum_values: schema_enum_values(root_schema, resolved),
-        schema: resolved.clone(),
+        nested_fields: nested_schema_fields(root_schema, resolved, depth + 1),
+        schema: expand_schema_refs(root_schema, resolved, depth),
     }
 }
 
@@ -310,4 +323,102 @@ fn schema_enum_values(root_schema: &Value, schema: &Value) -> Vec<String> {
         }
     }
     Vec::new()
+}
+
+fn nested_schema_fields(
+    root_schema: &Value,
+    schema: &Value,
+    depth: usize,
+) -> Vec<ToolFieldSchemaView> {
+    if depth > MAX_SCHEMA_SUMMARY_DEPTH {
+        return Vec::new();
+    }
+
+    let resolved = resolve_schema_ref(root_schema, schema);
+    if let Some(properties) = resolved.get("properties").and_then(Value::as_object) {
+        let required_fields = resolved
+            .get("required")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flat_map(|items| items.iter())
+            .filter_map(Value::as_str)
+            .map(ToString::to_string)
+            .collect::<Vec<_>>();
+        return properties
+            .iter()
+            .map(|(name, field_schema)| {
+                tool_field_view_with_depth(root_schema, name, field_schema, &required_fields, depth)
+            })
+            .collect();
+    }
+
+    if let Some(items) = resolved.get("items") {
+        return nested_schema_fields(root_schema, items, depth);
+    }
+
+    for key in ["allOf", "oneOf", "anyOf"] {
+        if let Some(variants) = resolved.get(key).and_then(Value::as_array) {
+            let mut merged = Vec::new();
+            for variant in variants {
+                for field in nested_schema_fields(root_schema, variant, depth) {
+                    merge_nested_field(&mut merged, field);
+                }
+            }
+            if !merged.is_empty() {
+                return merged;
+            }
+        }
+    }
+
+    Vec::new()
+}
+
+fn merge_nested_field(fields: &mut Vec<ToolFieldSchemaView>, incoming: ToolFieldSchemaView) {
+    if let Some(existing) = fields.iter_mut().find(|field| field.name == incoming.name) {
+        existing.required &= incoming.required;
+        if existing.description.is_none() {
+            existing.description = incoming.description;
+        }
+        merge_unique_strings(&mut existing.types, incoming.types);
+        merge_unique_strings(&mut existing.enum_values, incoming.enum_values);
+        for nested in incoming.nested_fields {
+            merge_nested_field(&mut existing.nested_fields, nested);
+        }
+        return;
+    }
+    fields.push(incoming);
+}
+
+fn expand_schema_refs(root_schema: &Value, schema: &Value, depth: usize) -> Value {
+    if depth >= MAX_SCHEMA_SUMMARY_DEPTH {
+        return resolve_schema_ref(root_schema, schema).clone();
+    }
+
+    match resolve_schema_ref(root_schema, schema) {
+        Value::Array(items) => Value::Array(
+            items
+                .iter()
+                .map(|item| expand_schema_refs(root_schema, item, depth + 1))
+                .collect(),
+        ),
+        Value::Object(map) => Value::Object(
+            map.iter()
+                .map(|(key, value)| {
+                    (
+                        key.clone(),
+                        expand_schema_refs(root_schema, value, depth + 1),
+                    )
+                })
+                .collect(),
+        ),
+        other => other.clone(),
+    }
+}
+
+fn merge_unique_strings(target: &mut Vec<String>, values: Vec<String>) {
+    for value in values {
+        if !target.contains(&value) {
+            target.push(value);
+        }
+    }
 }

@@ -353,6 +353,7 @@ type ToolFieldSchemaView = {
   description?: string;
   types: string[];
   enumValues: string[];
+  nestedFields: ToolFieldSchemaView[];
   schema: unknown;
 };
 

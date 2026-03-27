@@ -76,6 +76,7 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("testBlocks: FocusedBlockView[];"));
     assert!(docs.contains("type ToolCatalogEntryView = {"));
     assert!(docs.contains("type ToolFieldSchemaView = {"));
+    assert!(docs.contains("nestedFields: ToolFieldSchemaView[];"));
     assert!(docs.contains("type ToolActionSchemaView = {"));
     assert!(docs.contains("type ToolSchemaView = {"));
     assert!(docs.contains("type RuntimeStatusView = {"));
