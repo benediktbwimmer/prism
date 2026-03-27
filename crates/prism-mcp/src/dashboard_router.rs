@@ -8,7 +8,7 @@ use axum::response::{Html, IntoResponse};
 use axum::routing::{get, get_service};
 use axum::{Json, Router};
 use serde::Deserialize;
-use tower_http::services::ServeDir;
+use tower_http::services::{ServeDir, ServeFile};
 
 use crate::dashboard_types::{
     DashboardBootstrapView, DashboardCoordinationSummaryView, DashboardOperationDetailView,
@@ -16,7 +16,9 @@ use crate::dashboard_types::{
 };
 use crate::runtime_views::runtime_status;
 use crate::{
-    dashboard_assets::{dashboard_assets_dir, dashboard_index_html, dashboard_unbuilt_html},
+    dashboard_assets::{
+        dashboard_assets_dir, dashboard_dist_dir, dashboard_index_html, dashboard_unbuilt_html,
+    },
     QueryHost,
 };
 
@@ -34,8 +36,13 @@ struct OperationsQuery {
 
 pub(crate) fn routes(state: DashboardAppState) -> Router {
     let assets_dir = dashboard_assets_dir(&state.root);
+    let favicon_path = dashboard_dist_dir(&state.root).join("favicon.svg");
     Router::new()
         .route("/dashboard", get(dashboard_index))
+        .route_service(
+            "/dashboard/favicon.svg",
+            get_service(ServeFile::new(favicon_path)),
+        )
         .route("/dashboard/api/bootstrap", get(dashboard_bootstrap))
         .route("/dashboard/api/summary", get(dashboard_summary))
         .route("/dashboard/api/task", get(dashboard_task))
@@ -65,10 +72,15 @@ async fn dashboard_bootstrap(
     State(state): State<DashboardAppState>,
     Query(query): Query<OperationsQuery>,
 ) -> std::result::Result<Json<DashboardBootstrapView>, (StatusCode, String)> {
-    state.host.refresh_workspace().map_err(internal_error)?;
-    let summary = state.host.dashboard_summary_view().map_err(internal_error)?;
+    let summary = state
+        .host
+        .dashboard_summary_view()
+        .map_err(internal_error)?;
     let operations = state.host.dashboard_operations_view(query.limit);
-    let task = state.host.dashboard_task_snapshot().map_err(internal_error)?;
+    let task = state
+        .host
+        .dashboard_task_snapshot()
+        .map_err(internal_error)?;
     let coordination = state
         .host
         .dashboard_coordination_summary()
@@ -84,16 +96,17 @@ async fn dashboard_bootstrap(
 async fn dashboard_summary(
     State(state): State<DashboardAppState>,
 ) -> std::result::Result<Json<DashboardSummaryView>, (StatusCode, String)> {
-    state.host.refresh_workspace().map_err(internal_error)?;
     Ok(Json(
-        state.host.dashboard_summary_view().map_err(internal_error)?,
+        state
+            .host
+            .dashboard_summary_view()
+            .map_err(internal_error)?,
     ))
 }
 
 async fn dashboard_task(
     State(state): State<DashboardAppState>,
 ) -> std::result::Result<Json<DashboardTaskSnapshotView>, (StatusCode, String)> {
-    state.host.refresh_workspace().map_err(internal_error)?;
     Ok(Json(
         state
             .host
@@ -105,7 +118,6 @@ async fn dashboard_task(
 async fn dashboard_coordination(
     State(state): State<DashboardAppState>,
 ) -> std::result::Result<Json<DashboardCoordinationSummaryView>, (StatusCode, String)> {
-    state.host.refresh_workspace().map_err(internal_error)?;
     Ok(Json(
         state
             .host

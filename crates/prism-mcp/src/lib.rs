@@ -7,7 +7,10 @@ use std::time::Instant;
 use anyhow::{anyhow, Result};
 use clap::{ArgAction, ValueEnum};
 use prism_agent::InferenceStore;
-use prism_core::{index_workspace_session_with_options, WorkspaceSession, WorkspaceSessionOptions};
+use prism_core::{
+    index_workspace_session_with_options, FsRefreshStatus, WorkspaceSession,
+    WorkspaceSessionOptions,
+};
 use prism_ir::TaskId;
 use prism_js::{api_reference_markdown, CuratorJobView, API_REFERENCE_URI};
 use prism_memory::{EpisodicMemorySnapshot, OutcomeEvent, SessionMemory};
@@ -102,7 +105,7 @@ const TOOL_SCHEMAS_URI: &str = "prism://tool-schemas";
 const ENTRYPOINTS_RESOURCE_TEMPLATE_URI: &str = "prism://entrypoints?limit={limit}&cursor={cursor}";
 const SYMBOL_RESOURCE_TEMPLATE_URI: &str = "prism://symbol/{crateName}/{kind}/{path}";
 const SEARCH_RESOURCE_TEMPLATE_URI: &str =
-    "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&includeInferred={includeInferred}";
+    "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&preferCallableCode={preferCallableCode}&preferEditableTargets={preferEditableTargets}&preferBehavioralOwners={preferBehavioralOwners}&includeInferred={includeInferred}";
 const LINEAGE_RESOURCE_TEMPLATE_URI: &str =
     "prism://lineage/{lineageId}?limit={limit}&cursor={cursor}";
 const TASK_RESOURCE_TEMPLATE_URI: &str = "prism://task/{taskId}?limit={limit}&cursor={cursor}";
@@ -371,6 +374,15 @@ struct QueryHost {
     features: PrismMcpFeatures,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct WorkspaceRefreshReport {
+    refresh_path: &'static str,
+    deferred: bool,
+    episodic_reloaded: bool,
+    inference_reloaded: bool,
+    coordination_reloaded: bool,
+}
+
 impl QueryHost {
     #[cfg(test)]
     fn new(prism: Prism) -> Self {
@@ -530,6 +542,10 @@ impl QueryHost {
             self.session.set_limits(limits);
         }
 
+        if args.current_task_id.is_some() {
+            self.refresh_workspace()?;
+        }
+
         if args.clear_current_task.unwrap_or(false) {
             self.session.clear_current_task();
         } else if let Some(task_id) = args.current_task_id {
@@ -559,7 +575,7 @@ impl QueryHost {
                 .set_current_agent(prism_ir::AgentId::new(agent));
         }
 
-        self.session_view()
+        Ok(self.session_view_without_refresh())
     }
 
     fn current_prism(&self) -> Arc<Prism> {
@@ -607,6 +623,74 @@ impl QueryHost {
             let _ = self.publish_dashboard_coordination_update();
         }
         Ok(())
+    }
+
+    pub(crate) fn refresh_workspace_for_query(&self) -> Result<WorkspaceRefreshReport> {
+        let Some(workspace) = &self.workspace else {
+            return Ok(WorkspaceRefreshReport {
+                refresh_path: "none",
+                deferred: false,
+                episodic_reloaded: false,
+                inference_reloaded: false,
+                coordination_reloaded: false,
+            });
+        };
+
+        let started = Instant::now();
+        let mut refresh_path = "fast";
+        if self.reload_workspace_snapshot_if_needed(workspace)? {
+            refresh_path = "full";
+        }
+        let deferred = match workspace.refresh_fs_nonblocking()? {
+            FsRefreshStatus::Clean => false,
+            FsRefreshStatus::Refreshed => {
+                refresh_path = "full";
+                false
+            }
+            FsRefreshStatus::DeferredBusy => {
+                refresh_path = "deferred";
+                true
+            }
+        };
+        let (episodic_reloaded, inference_reloaded, coordination_reloaded) = if deferred {
+            (false, false, false)
+        } else {
+            self.sync_workspace_revision(workspace)?;
+            (
+                self.reload_episodic_snapshot_if_needed(workspace)?,
+                self.reload_inference_snapshot_if_needed(workspace)?,
+                self.reload_coordination_snapshot_if_needed(workspace)?,
+            )
+        };
+        log_refresh_workspace(
+            refresh_path,
+            workspace,
+            episodic_reloaded,
+            inference_reloaded,
+            coordination_reloaded,
+            started.elapsed().as_millis(),
+        );
+        self.dashboard_state.publish_value(
+            "runtime.refreshed",
+            json!({
+                "refreshPath": refresh_path,
+                "durationMs": started.elapsed().as_millis(),
+                "coordinationReloaded": coordination_reloaded,
+                "deferred": deferred,
+                "episodicReloaded": episodic_reloaded,
+                "inferenceReloaded": inference_reloaded,
+            }),
+        );
+        if coordination_reloaded {
+            let _ = self.publish_dashboard_coordination_update();
+        }
+        Ok(WorkspaceRefreshReport {
+            refresh_path,
+            deferred,
+            episodic_reloaded,
+            inference_reloaded,
+            coordination_reloaded,
+        })
     }
 
     fn reload_workspace_snapshot_if_needed(&self, workspace: &WorkspaceSession) -> Result<bool> {

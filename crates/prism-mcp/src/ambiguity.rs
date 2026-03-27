@@ -19,6 +19,9 @@ pub(crate) struct SearchAmbiguityView {
     pub(crate) path: Option<String>,
     pub(crate) module: Option<String>,
     pub(crate) task_id: Option<String>,
+    pub(crate) prefer_callable_code: Option<bool>,
+    pub(crate) prefer_editable_targets: Option<bool>,
+    pub(crate) prefer_behavioral_owners: Option<bool>,
     pub(crate) candidate_count: usize,
     pub(crate) returned: Option<SymbolView>,
     pub(crate) why: Vec<String>,
@@ -50,6 +53,9 @@ pub(crate) struct SearchAmbiguityContext<'a> {
     pub(crate) path: Option<&'a str>,
     pub(crate) module: Option<&'a str>,
     pub(crate) task_id: Option<&'a str>,
+    pub(crate) prefer_callable_code: Option<bool>,
+    pub(crate) prefer_editable_targets: Option<bool>,
+    pub(crate) prefer_behavioral_owners: Option<bool>,
     pub(crate) task_scope_mode: TaskScopeMode,
 }
 
@@ -60,6 +66,13 @@ struct RankedCandidate {
     score: i32,
     reasons: Vec<String>,
     exact_name_match: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct SearchIntent {
+    prefer_callable_code: bool,
+    prefer_editable_targets: bool,
+    prefer_behavioral_owners: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -127,7 +140,7 @@ pub(crate) fn rank_search_results(
     let candidates = ranked
         .iter()
         .take(MAX_AMBIGUITY_CANDIDATES)
-        .map(|candidate| ambiguity_candidate_view(context.query, candidate))
+        .map(|candidate| ambiguity_candidate_view(context, candidate))
         .collect::<Vec<_>>();
     let suggested_queries = ambiguity_queries(context, &candidates);
     Ok(Some(SearchAmbiguityView {
@@ -137,6 +150,9 @@ pub(crate) fn rank_search_results(
         path: context.path.map(str::to_string),
         module: context.module.map(str::to_string),
         task_id: task_scope.as_ref().map(|scope| scope.task_id.clone()),
+        prefer_callable_code: context.prefer_callable_code,
+        prefer_editable_targets: context.prefer_editable_targets,
+        prefer_behavioral_owners: context.prefer_behavioral_owners,
         candidate_count: ranked.len(),
         returned: ranked.first().map(|candidate| candidate.symbol.clone()),
         why,
@@ -204,6 +220,7 @@ fn rank_candidate(
     let exact_name_match = symbol.name == normalized_query || leaf == normalized_query;
     let broad_identifier_query =
         context.strategy == "direct" && is_broad_identifier_query(normalized_query);
+    let intent = SearchIntent::from_context(context, broad_identifier_query);
 
     if path == normalized_query {
         score += 140;
@@ -267,7 +284,7 @@ fn rank_candidate(
             reasons.push("Implementation type preferred over module/document matches.".to_string());
         }
         NodeKind::Field => {
-            score += 8;
+            score += 4;
         }
         NodeKind::Module if !exact_name_match => {
             score -= 8;
@@ -324,6 +341,51 @@ fn rank_candidate(
         }
     }
 
+    if intent.prefer_callable_code {
+        match symbol.kind {
+            NodeKind::Function | NodeKind::Method => {
+                score += 18;
+                reasons.push("Search intent prefers callable implementation code.".to_string());
+            }
+            NodeKind::Module if !exact_name_match => {
+                score -= 10;
+                reasons.push(
+                    "Search intent de-prioritized module containers behind callable code."
+                        .to_string(),
+                );
+            }
+            _ => {}
+        }
+    }
+
+    if intent.prefer_editable_targets {
+        if is_editable_target(&symbol) {
+            score += 14;
+            reasons.push("Search intent prefers editable implementation targets.".to_string());
+        } else if matches!(
+            symbol.kind,
+            NodeKind::Document
+                | NodeKind::Package
+                | NodeKind::Workspace
+                | NodeKind::MarkdownHeading
+                | NodeKind::JsonKey
+                | NodeKind::TomlKey
+                | NodeKind::YamlKey
+        ) {
+            score -= 14;
+            reasons.push(
+                "Search intent de-prioritized container/document matches behind editable code."
+                    .to_string(),
+            );
+        } else if matches!(symbol.kind, NodeKind::Module) && !exact_name_match {
+            score -= 10;
+            reasons.push(
+                "Search intent de-prioritized non-exact modules behind editable code targets."
+                    .to_string(),
+            );
+        }
+    }
+
     if let Some(task_match) = candidate_task_match(&symbol, task_scope) {
         score += match task_match {
             TaskMatch::ExactNode => 120,
@@ -345,12 +407,17 @@ fn rank_candidate(
         });
     }
 
-    if context.strategy == "behavioral" {
+    if intent.prefer_behavioral_owners {
         if let Some(owner_hint) = symbol.owner_hint.as_ref() {
-            score += owner_hint.score.min(24) as i32;
+            let owner_boost = if context.strategy == "behavioral" {
+                owner_hint.score.min(24) as i32
+            } else {
+                owner_hint.score.min(14) as i32
+            };
+            score += owner_boost;
             reasons.push(format!(
-                "Strong {} owner hint (score {}).",
-                owner_hint.kind, owner_hint.score
+                "Search intent preferred {} owner hints (score {}, applied {}).",
+                owner_hint.kind, owner_hint.score, owner_boost
             ));
         }
     }
@@ -394,13 +461,21 @@ fn is_broad_identifier_query(query: &str) -> bool {
             .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
 }
 
-fn ambiguity_candidate_view(query: &str, candidate: &RankedCandidate) -> AmbiguityCandidateView {
+fn ambiguity_candidate_view(
+    context: &SearchAmbiguityContext<'_>,
+    candidate: &RankedCandidate,
+) -> AmbiguityCandidateView {
     AmbiguityCandidateView {
         symbol: candidate.symbol.clone(),
         module: candidate.module.clone(),
         score: candidate.score,
         reasons: candidate.reasons.clone(),
-        suggested_queries: candidate_queries(query, candidate),
+        suggested_queries: candidate_queries(
+            context.query,
+            &candidate.symbol,
+            candidate.module.as_deref(),
+            context,
+        ),
     }
 }
 
@@ -419,6 +494,9 @@ fn ambiguity_queries(
                     None,
                     Some(&first.symbol.kind.to_string()),
                     Some(context.strategy),
+                    context.prefer_callable_code,
+                    context.prefer_editable_targets,
+                    context.prefer_behavioral_owners,
                     context.owner_kind,
                     context.task_id,
                 ),
@@ -435,6 +513,9 @@ fn ambiguity_queries(
                     Some(module),
                     Some(&first.symbol.kind.to_string()),
                     Some(context.strategy),
+                    context.prefer_callable_code,
+                    context.prefer_editable_targets,
+                    context.prefer_behavioral_owners,
                     context.owner_kind,
                     context.task_id,
                 ),
@@ -453,6 +534,9 @@ fn ambiguity_queries(
                 context.module,
                 None,
                 Some(context.strategy),
+                context.prefer_callable_code,
+                context.prefer_editable_targets,
+                context.prefer_behavioral_owners,
                 context.owner_kind,
                 Some(task_id),
             ),
@@ -487,6 +571,27 @@ fn ambiguity_why(
     if let Some(path) = context.path.filter(|value| !value.is_empty()) {
         why.push(format!("Applied path filter `{path}` before ranking."));
     }
+    let intent = SearchIntent::from_context(
+        context,
+        context.strategy == "direct" && is_broad_identifier_query(context.query),
+    );
+    if context.prefer_callable_code == Some(true) {
+        why.push("Applied explicit callable-code preference for ranking.".to_string());
+    } else if intent.prefer_callable_code && context.strategy == "direct" {
+        why.push("Broad direct query defaulted toward callable implementation code.".to_string());
+    }
+    if context.prefer_editable_targets == Some(true) {
+        why.push("Applied explicit editable-target preference for ranking.".to_string());
+    } else if intent.prefer_editable_targets && context.strategy == "direct" {
+        why.push(
+            "Broad direct query defaulted toward editable implementation targets.".to_string(),
+        );
+    }
+    if context.prefer_behavioral_owners == Some(true) {
+        why.push("Applied explicit behavioral-owner preference for ranking.".to_string());
+    } else if context.strategy == "behavioral" {
+        why.push("Behavioral strategy preferred semantic owner hints during ranking.".to_string());
+    }
     if let Some(scope) = task_scope {
         let scoped_matches = ranked
             .iter()
@@ -512,24 +617,32 @@ fn ambiguity_why(
     why
 }
 
-fn candidate_queries(query: &str, candidate: &RankedCandidate) -> Vec<SuggestedQueryView> {
+fn candidate_queries(
+    query: &str,
+    symbol: &SymbolView,
+    module: Option<&str>,
+    context: &SearchAmbiguityContext<'_>,
+) -> Vec<SuggestedQueryView> {
     let mut suggestions = read_context_queries(&prism_ir::NodeId::new(
-        candidate.symbol.id.crate_name.clone(),
-        candidate.symbol.id.path.clone(),
-        candidate.symbol.kind,
+        symbol.id.crate_name.clone(),
+        symbol.id.path.clone(),
+        symbol.kind,
     ));
     suggestions.truncate(2);
-    if let Some(module) = candidate.module.as_deref() {
+    if let Some(module) = module {
         suggestions.push(SuggestedQueryView {
             label: "Narrow To Module".to_string(),
             query: search_query_call(
                 query,
                 None,
                 Some(module),
-                Some(&candidate.symbol.kind.to_string()),
-                Some("direct"),
-                None,
-                None,
+                Some(&symbol.kind.to_string()),
+                Some(context.strategy),
+                context.prefer_callable_code,
+                context.prefer_editable_targets,
+                context.prefer_behavioral_owners,
+                context.owner_kind,
+                context.task_id,
             ),
             why: "Retry the search inside this candidate's module path.".to_string(),
         });
@@ -543,6 +656,9 @@ fn search_query_call(
     module: Option<&str>,
     kind: Option<&str>,
     strategy: Option<&str>,
+    prefer_callable_code: Option<bool>,
+    prefer_editable_targets: Option<bool>,
+    prefer_behavioral_owners: Option<bool>,
     owner_kind: Option<&str>,
     task_id: Option<&str>,
 ) -> String {
@@ -552,6 +668,17 @@ fn search_query_call(
         parts.push(format!(
             "strategy: {}",
             serde_json::to_string(strategy).expect("strategy should serialize")
+        ));
+    }
+    if let Some(prefer_callable_code) = prefer_callable_code {
+        parts.push(format!("preferCallableCode: {prefer_callable_code}"));
+    }
+    if let Some(prefer_editable_targets) = prefer_editable_targets {
+        parts.push(format!("preferEditableTargets: {prefer_editable_targets}"));
+    }
+    if let Some(prefer_behavioral_owners) = prefer_behavioral_owners {
+        parts.push(format!(
+            "preferBehavioralOwners: {prefer_behavioral_owners}"
         ));
     }
     if let Some(owner_kind) = owner_kind.filter(|value| !value.is_empty()) {
@@ -588,6 +715,36 @@ fn search_query_call(
     format!(
         "return prism.search({query_json}, {{ {} }});",
         parts.join(", ")
+    )
+}
+
+impl SearchIntent {
+    fn from_context(context: &SearchAmbiguityContext<'_>, broad_identifier_query: bool) -> Self {
+        Self {
+            prefer_callable_code: context
+                .prefer_callable_code
+                .unwrap_or(broad_identifier_query),
+            prefer_editable_targets: context
+                .prefer_editable_targets
+                .unwrap_or(broad_identifier_query),
+            prefer_behavioral_owners: context
+                .prefer_behavioral_owners
+                .unwrap_or(context.strategy == "behavioral"),
+        }
+    }
+}
+
+fn is_editable_target(symbol: &SymbolView) -> bool {
+    matches!(
+        symbol.kind,
+        NodeKind::Function
+            | NodeKind::Method
+            | NodeKind::Struct
+            | NodeKind::Enum
+            | NodeKind::Trait
+            | NodeKind::Impl
+            | NodeKind::TypeAlias
+            | NodeKind::Field
     )
 }
 

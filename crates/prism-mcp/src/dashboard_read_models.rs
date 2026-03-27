@@ -8,8 +8,8 @@ use crate::dashboard_types::{
 use crate::runtime_views::{runtime_status, runtime_timeline};
 use crate::{
     artifact_view, current_timestamp, policy_violation_record_view, task_journal_view,
-    CoordinationFeaturesView, FeatureFlagsView, QueryHost, RuntimeTimelineArgs,
-    SessionLimitsView, SessionTaskView, SessionView,
+    CoordinationFeaturesView, FeatureFlagsView, QueryHost, RuntimeTimelineArgs, SessionLimitsView,
+    SessionTaskView, SessionView,
 };
 
 const DASHBOARD_TASK_EVENT_LIMIT: usize = 12;
@@ -62,7 +62,9 @@ impl QueryHost {
         Ok(DashboardTaskSnapshotView { session, journal })
     }
 
-    pub(crate) fn dashboard_coordination_summary(&self) -> Result<DashboardCoordinationSummaryView> {
+    pub(crate) fn dashboard_coordination_summary(
+        &self,
+    ) -> Result<DashboardCoordinationSummaryView> {
         if !self.features.coordination_layer_enabled() {
             return Ok(DashboardCoordinationSummaryView::disabled());
         }
@@ -111,9 +113,7 @@ impl QueryHost {
             active_claim_count: snapshot
                 .claims
                 .iter()
-                .filter(|claim| {
-                    claim.status == ClaimStatus::Active && claim.expires_at > now
-                })
+                .filter(|claim| claim.status == ClaimStatus::Active && claim.expires_at > now)
                 .count(),
             pending_review_count,
             proposed_artifact_count: snapshot
@@ -148,11 +148,14 @@ fn dashboard_session_view(host: &QueryHost) -> SessionView {
             .workspace
             .as_ref()
             .map(|workspace| workspace.root().display().to_string()),
-        current_task: host.session.current_task_state().map(|task| SessionTaskView {
-            task_id: task.id.0.to_string(),
-            description: task.description,
-            tags: task.tags,
-        }),
+        current_task: host
+            .session
+            .current_task_state()
+            .map(|task| SessionTaskView {
+                task_id: task.id.0.to_string(),
+                description: task.description,
+                tags: task.tags,
+            }),
         current_agent: host
             .session
             .current_agent()

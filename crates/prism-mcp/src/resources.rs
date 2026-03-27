@@ -337,6 +337,9 @@ pub(crate) fn search_resource_uri_with_options(
     path_mode: Option<&str>,
     structured_path: Option<&str>,
     top_level_only: Option<bool>,
+    prefer_callable_code: Option<bool>,
+    prefer_editable_targets: Option<bool>,
+    prefer_behavioral_owners: Option<bool>,
     include_inferred: Option<bool>,
 ) -> String {
     let mut uri = search_resource_uri(query);
@@ -373,6 +376,15 @@ pub(crate) fn search_resource_uri_with_options(
     }
     if let Some(top_level_only) = top_level_only {
         params.push(format!("topLevelOnly={top_level_only}"));
+    }
+    if let Some(prefer_callable_code) = prefer_callable_code {
+        params.push(format!("preferCallableCode={prefer_callable_code}"));
+    }
+    if let Some(prefer_editable_targets) = prefer_editable_targets {
+        params.push(format!("preferEditableTargets={prefer_editable_targets}"));
+    }
+    if let Some(prefer_behavioral_owners) = prefer_behavioral_owners {
+        params.push(format!("preferBehavioralOwners={prefer_behavioral_owners}"));
     }
     if let Some(include_inferred) = include_inferred {
         params.push(format!("includeInferred={include_inferred}"));
@@ -568,6 +580,9 @@ pub(crate) fn search_resource_view_link_with_options(
     path_mode: Option<&str>,
     structured_path: Option<&str>,
     top_level_only: Option<bool>,
+    prefer_callable_code: Option<bool>,
+    prefer_editable_targets: Option<bool>,
+    prefer_behavioral_owners: Option<bool>,
     include_inferred: Option<bool>,
 ) -> ResourceLinkView {
     resource_link_view(
@@ -582,6 +597,9 @@ pub(crate) fn search_resource_view_link_with_options(
             path_mode,
             structured_path,
             top_level_only,
+            prefer_callable_code,
+            prefer_editable_targets,
+            prefer_behavioral_owners,
             include_inferred,
         ),
         format!("PRISM Search: {query}"),

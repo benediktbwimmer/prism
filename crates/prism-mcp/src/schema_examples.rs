@@ -141,7 +141,7 @@ fn capabilities_payload_example() -> Value {
         }],
         "resourceTemplates": [{
             "name": "PRISM Search",
-            "uriTemplate": "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&includeInferred={includeInferred}",
+            "uriTemplate": "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&preferCallableCode={preferCallableCode}&preferEditableTargets={preferEditableTargets}&preferBehavioralOwners={preferBehavioralOwners}&includeInferred={includeInferred}",
             "mimeType": "application/json",
             "description": "Read structured search results and diagnostics for a query.",
             "exampleUri": resource_example_uri("search"),
@@ -348,7 +348,7 @@ fn resource_schema_catalog_payload_example() -> Value {
         "schemas": [{
             "resourceKind": "search",
             "schemaUri": schema_resource_uri("search"),
-            "resourceUri": "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&includeInferred={includeInferred}",
+            "resourceUri": "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&preferCallableCode={preferCallableCode}&preferEditableTargets={preferEditableTargets}&preferBehavioralOwners={preferBehavioralOwners}&includeInferred={includeInferred}",
             "exampleUri": resource_example_uri("search"),
             "description": "Schema for browseable search results and diagnostics."
         }],

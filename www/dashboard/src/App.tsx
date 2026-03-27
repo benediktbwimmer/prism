@@ -1,7 +1,7 @@
 import {
   startTransition,
   useEffect,
-  useEffectEvent,
+  useRef,
   useState,
 } from 'react'
 
@@ -28,6 +28,7 @@ export function App() {
   const [selectedOperationId, setSelectedOperationId] = useState<string | null>(null)
   const [selectedOperation, setSelectedOperation] = useState<DashboardOperationDetailView | null>(null)
   const [detailStatus, setDetailStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+  const selectedOperationIdRef = useRef<string | null>(null)
   const [themeChoice, setThemeChoice] = useState<ThemeChoice>(() => {
     const stored = window.localStorage.getItem(THEME_KEY)
     if (stored === 'light' || stored === 'dark' || stored === 'system') {
@@ -46,47 +47,27 @@ export function App() {
     root.dataset.theme = resolvedDark ? 'dark' : 'light'
   }, [themeChoice])
 
-  const loadDashboard = useEffectEvent(async () => {
-    const response = await fetch('/dashboard/api/bootstrap')
-    const next = (await response.json()) as DashboardBootstrapView
-    startTransition(() => setDashboard(next))
-  })
+  useEffect(() => {
+    let cancelled = false
+    async function loadDashboard() {
+      const response = await fetch('/dashboard/api/bootstrap')
+      const next = (await response.json()) as DashboardBootstrapView
+      if (cancelled) {
+        return
+      }
+      startTransition(() => setDashboard(next))
+    }
+    void loadDashboard()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
-    void loadDashboard()
-  }, [loadDashboard])
+    selectedOperationIdRef.current = selectedOperationId
+  }, [selectedOperationId])
 
-  const refreshSummary = useEffectEvent(async () => {
-    const response = await fetch('/dashboard/api/summary')
-    const summary = (await response.json()) as DashboardSummaryView
-    startTransition(() => {
-      setDashboard((current) =>
-        current
-          ? {
-              ...current,
-              summary,
-            }
-          : current,
-      )
-    })
-  })
-
-  const refreshCoordination = useEffectEvent(async () => {
-    const response = await fetch('/dashboard/api/coordination')
-    const coordination = (await response.json()) as DashboardCoordinationSummaryView
-    startTransition(() => {
-      setDashboard((current) =>
-        current
-          ? {
-              ...current,
-              coordination,
-            }
-          : current,
-      )
-    })
-  })
-
-  const loadOperationDetail = useEffectEvent(async (id: string) => {
+  async function loadOperationDetail(id: string) {
     setDetailStatus('loading')
     setSelectedOperation(null)
     try {
@@ -105,123 +86,153 @@ export function App() {
         setDetailStatus('error')
       })
     }
-  })
+  }
 
-  const selectOperation = useEffectEvent((id: string) => {
+  function selectOperation(id: string) {
     setSelectedOperationId(id)
     void loadOperationDetail(id)
-  })
-
-  const handleActiveEvent = useEffectEvent((operation: ActiveOperationView) => {
-    startTransition(() => {
-      setDashboard((current) => {
-        if (!current) return current
-        const active = [operation, ...current.operations.active.filter((item) => item.id !== operation.id)]
-          .sort((left, right) => right.startedAt - left.startedAt)
-          .slice(0, 30)
-        return {
-          ...current,
-          summary: {
-            ...current.summary,
-            activeQueryCount: active.filter((item) => item.kind === 'query').length,
-            activeMutationCount: active.filter((item) => item.kind === 'mutation').length,
-          },
-          operations: {
-            ...current.operations,
-            active,
-          },
-        }
-      })
-    })
-    if (selectedOperationId === operation.id) {
-      void loadOperationDetail(operation.id)
-    }
-  })
-
-  const handleFinishedQuery = useEffectEvent((query: QueryLogEntryView) => {
-    startTransition(() => {
-      setDashboard((current) => {
-        if (!current) return current
-        const active = current.operations.active.filter((item) => item.id !== query.id)
-        const recentQueries = [query, ...current.operations.recentQueries.filter((item) => item.id !== query.id)].slice(0, 20)
-        return {
-          ...current,
-          summary: {
-            ...current.summary,
-            activeQueryCount: active.filter((item) => item.kind === 'query').length,
-            activeMutationCount: active.filter((item) => item.kind === 'mutation').length,
-            recentQueryErrorCount: recentQueries.filter((item) => !item.success).length,
-          },
-          operations: {
-            ...current.operations,
-            active,
-            recentQueries,
-          },
-        }
-      })
-    })
-    if (selectedOperationId === query.id) {
-      void loadOperationDetail(query.id)
-    }
-  })
-
-  const handleFinishedMutation = useEffectEvent((mutation: MutationLogEntryView) => {
-    startTransition(() => {
-      setDashboard((current) => {
-        if (!current) return current
-        const active = current.operations.active.filter((item) => item.id !== mutation.id)
-        const recentMutations = [mutation, ...current.operations.recentMutations.filter((item) => item.id !== mutation.id)].slice(0, 20)
-        return {
-          ...current,
-          summary: {
-            ...current.summary,
-            activeQueryCount: active.filter((item) => item.kind === 'query').length,
-            activeMutationCount: active.filter((item) => item.kind === 'mutation').length,
-          },
-          operations: {
-            ...current.operations,
-            active,
-            recentMutations,
-          },
-        }
-      })
-    })
-    if (selectedOperationId === mutation.id) {
-      void loadOperationDetail(mutation.id)
-    }
-  })
-
-  const handleTaskUpdate = useEffectEvent((task: DashboardTaskSnapshotView) => {
-    startTransition(() => {
-      setDashboard((current) =>
-        current
-          ? {
-              ...current,
-              task,
-              summary: {
-                ...current.summary,
-                session: task.session,
-              },
-            }
-          : current,
-      )
-    })
-  })
-
-  const handleCoordinationUpdate = useEffectEvent((coordination: DashboardCoordinationSummaryView) => {
-    startTransition(() => {
-      setDashboard((current) =>
-        current
-          ? {
-              ...current,
-              coordination,
-            }
-          : current,
-      )
-    })
-  })
+  }
 
   useEffect(() => {
+    async function refreshSummary() {
+      const response = await fetch('/dashboard/api/summary')
+      const summary = (await response.json()) as DashboardSummaryView
+      startTransition(() => {
+        setDashboard((current) =>
+          current
+            ? {
+                ...current,
+                summary,
+              }
+            : current,
+        )
+      })
+    }
+
+    async function refreshCoordination() {
+      const response = await fetch('/dashboard/api/coordination')
+      const coordination = (await response.json()) as DashboardCoordinationSummaryView
+      startTransition(() => {
+        setDashboard((current) =>
+          current
+            ? {
+                ...current,
+                coordination,
+              }
+            : current,
+        )
+      })
+    }
+
+    function handleActiveEvent(operation: ActiveOperationView) {
+      startTransition(() => {
+        setDashboard((current) => {
+          if (!current) return current
+          const active = [operation, ...current.operations.active.filter((item) => item.id !== operation.id)]
+            .sort((left, right) => right.startedAt - left.startedAt)
+            .slice(0, 30)
+          return {
+            ...current,
+            summary: {
+              ...current.summary,
+              activeQueryCount: active.filter((item) => item.kind === 'query').length,
+              activeMutationCount: active.filter((item) => item.kind === 'mutation').length,
+            },
+            operations: {
+              ...current.operations,
+              active,
+            },
+          }
+        })
+      })
+      if (selectedOperationIdRef.current === operation.id) {
+        void loadOperationDetail(operation.id)
+      }
+    }
+
+    function handleFinishedQuery(query: QueryLogEntryView) {
+      startTransition(() => {
+        setDashboard((current) => {
+          if (!current) return current
+          const active = current.operations.active.filter((item) => item.id !== query.id)
+          const recentQueries = [query, ...current.operations.recentQueries.filter((item) => item.id !== query.id)].slice(0, 20)
+          return {
+            ...current,
+            summary: {
+              ...current.summary,
+              activeQueryCount: active.filter((item) => item.kind === 'query').length,
+              activeMutationCount: active.filter((item) => item.kind === 'mutation').length,
+              recentQueryErrorCount: recentQueries.filter((item) => !item.success).length,
+            },
+            operations: {
+              ...current.operations,
+              active,
+              recentQueries,
+            },
+          }
+        })
+      })
+      if (selectedOperationIdRef.current === query.id) {
+        void loadOperationDetail(query.id)
+      }
+    }
+
+    function handleFinishedMutation(mutation: MutationLogEntryView) {
+      startTransition(() => {
+        setDashboard((current) => {
+          if (!current) return current
+          const active = current.operations.active.filter((item) => item.id !== mutation.id)
+          const recentMutations = [mutation, ...current.operations.recentMutations.filter((item) => item.id !== mutation.id)].slice(0, 20)
+          return {
+            ...current,
+            summary: {
+              ...current.summary,
+              activeQueryCount: active.filter((item) => item.kind === 'query').length,
+              activeMutationCount: active.filter((item) => item.kind === 'mutation').length,
+            },
+            operations: {
+              ...current.operations,
+              active,
+              recentMutations,
+            },
+          }
+        })
+      })
+      if (selectedOperationIdRef.current === mutation.id) {
+        void loadOperationDetail(mutation.id)
+      }
+    }
+
+    function handleTaskUpdate(task: DashboardTaskSnapshotView) {
+      startTransition(() => {
+        setDashboard((current) =>
+          current
+            ? {
+                ...current,
+                task,
+                summary: {
+                  ...current.summary,
+                  session: task.session,
+                },
+              }
+            : current,
+        )
+      })
+    }
+
+    function handleCoordinationUpdate(coordination: DashboardCoordinationSummaryView) {
+      startTransition(() => {
+        setDashboard((current) =>
+          current
+            ? {
+                ...current,
+                coordination,
+              }
+            : current,
+        )
+      })
+    }
+
     const source = new EventSource('/dashboard/events')
     setConnection('connecting')
 
@@ -260,15 +271,7 @@ export function App() {
     return () => {
       source.close()
     }
-  }, [
-    handleActiveEvent,
-    handleCoordinationUpdate,
-    handleFinishedMutation,
-    handleFinishedQuery,
-    handleTaskUpdate,
-    refreshCoordination,
-    refreshSummary,
-  ])
+  }, [])
 
   if (!dashboard) {
     return (

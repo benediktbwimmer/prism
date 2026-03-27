@@ -40,6 +40,12 @@ pub(crate) struct SearchArgs {
     pub(crate) structured_path: Option<String>,
     #[serde(alias = "topLevelOnly")]
     pub(crate) top_level_only: Option<bool>,
+    #[serde(alias = "preferCallableCode")]
+    pub(crate) prefer_callable_code: Option<bool>,
+    #[serde(alias = "preferEditableTargets")]
+    pub(crate) prefer_editable_targets: Option<bool>,
+    #[serde(alias = "preferBehavioralOwners")]
+    pub(crate) prefer_behavioral_owners: Option<bool>,
     #[serde(alias = "ownerKind")]
     pub(crate) owner_kind: Option<String>,
     #[serde(alias = "includeInferred")]

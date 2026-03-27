@@ -127,7 +127,6 @@ impl QueryHost {
     }
 
     pub(crate) fn start_task(&self, description: String, tags: Vec<String>) -> Result<TaskId> {
-        self.refresh_workspace()?;
         let task = self.session.start_task(&description, &tags);
         let event = OutcomeEvent {
             meta: EventMeta {

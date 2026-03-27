@@ -56,7 +56,10 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
     let http_uri = format!("http://{addr}{mcp_path}");
     let uri_file_path = cli.http_uri_file_path(root);
     write_http_uri_file(&uri_file_path, &http_uri)?;
-    let _uri_guard = HttpUriFileGuard(uri_file_path);
+    let _uri_guard = HttpUriFileGuard {
+        path: uri_file_path,
+        expected_uri: http_uri.clone(),
+    };
     info!(
         mode = "daemon",
         root = %root.display(),
@@ -155,16 +158,32 @@ async fn resolve_upstream_uri(cli: &PrismMcpCli, root: &Path) -> Result<String> 
 }
 
 async fn ensure_daemon_running(cli: &PrismMcpCli, root: &Path) -> Result<String> {
-    if let Some(uri) = read_http_uri_file(&cli.http_uri_file_path(root))? {
-        if can_connect_uri(&uri).await {
-            debug!(root = %root.display(), uri = %uri, "reusing existing prism-mcp daemon");
-            return Ok(uri);
-        }
+    if let Some(uri) = first_healthy_daemon_uri(cli, root).await? {
+        debug!(root = %root.display(), uri = %uri, "reusing existing prism-mcp daemon");
+        return Ok(uri);
+    }
+
+    if live_daemon_process_count(root)? > 0 {
+        let timeout = Duration::from_millis(
+            cli.daemon_start_timeout_ms
+                .unwrap_or(DEFAULT_DAEMON_START_TIMEOUT_MS),
+        );
+        let deadline = Instant::now() + timeout;
         warn!(
             root = %root.display(),
-            uri = %uri,
-            "stale prism-mcp URI file found; respawning daemon"
+            "prism-mcp daemon process exists but no healthy URI is visible yet; waiting for readiness"
         );
+        while Instant::now() < deadline {
+            if let Some(uri) = first_healthy_daemon_uri(cli, root).await? {
+                info!(root = %root.display(), uri = %uri, "prism-mcp daemon became healthy");
+                return Ok(uri);
+            }
+            sleep(Duration::from_millis(50)).await;
+        }
+        return Err(anyhow!(
+            "a PRISM MCP daemon process exists for {} but never became healthy; use `prism mcp restart`",
+            root.display()
+        ));
     }
 
     spawn_daemon(cli, root)?;
@@ -174,11 +193,9 @@ async fn ensure_daemon_running(cli: &PrismMcpCli, root: &Path) -> Result<String>
     );
     let deadline = Instant::now() + timeout;
     while Instant::now() < deadline {
-        if let Some(uri) = read_http_uri_file(&cli.http_uri_file_path(root))? {
-            if can_connect_uri(&uri).await {
-                info!(root = %root.display(), uri = %uri, "prism-mcp daemon became healthy");
-                return Ok(uri);
-            }
+        if let Some(uri) = first_healthy_daemon_uri(cli, root).await? {
+            info!(root = %root.display(), uri = %uri, "prism-mcp daemon became healthy");
+            return Ok(uri);
         }
         sleep(Duration::from_millis(50)).await;
     }
@@ -267,11 +284,62 @@ fn read_http_uri_file(path: &Path) -> Result<Option<String>> {
     Ok(Some(trimmed.to_string()))
 }
 
+async fn first_healthy_daemon_uri(cli: &PrismMcpCli, root: &Path) -> Result<Option<String>> {
+    for uri in daemon_uri_candidates(cli, root)? {
+        if can_connect_uri(&uri).await {
+            return Ok(Some(uri));
+        }
+    }
+    Ok(None)
+}
+
+fn daemon_uri_candidates(cli: &PrismMcpCli, root: &Path) -> Result<Vec<String>> {
+    let mut candidates = Vec::new();
+    if let Some(uri) = read_http_uri_file(&cli.http_uri_file_path(root))? {
+        candidates.push(uri);
+    }
+    if let Some(state) = runtime_state::read_runtime_state(root)? {
+        for process in state.processes {
+            if process.kind != "daemon" {
+                continue;
+            }
+            let Some(uri) = process.http_uri else {
+                continue;
+            };
+            if !candidates.contains(&uri) {
+                candidates.push(uri);
+            }
+        }
+    }
+    Ok(candidates)
+}
+
 async fn can_connect_uri(uri: &str) -> bool {
     match uri_authority(uri) {
         Some(authority) => tokio::net::TcpStream::connect(authority).await.is_ok(),
         None => false,
     }
+}
+
+fn live_daemon_process_count(root: &Path) -> Result<usize> {
+    let output = Command::new("ps")
+        .args(["-axo", "command="])
+        .output()
+        .context("failed to list processes with ps")?;
+    if !output.status.success() {
+        return Err(anyhow!(
+            "ps failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+
+    let root_flag = format!("--root {}", root.display());
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter(|line| line.contains("prism-mcp"))
+        .filter(|line| line.contains("--mode daemon"))
+        .filter(|line| line.contains(&root_flag))
+        .count())
 }
 
 fn uri_authority(uri: &str) -> Option<&str> {
@@ -317,15 +385,35 @@ async fn http_health() -> &'static str {
     "ok"
 }
 
-struct HttpUriFileGuard(PathBuf);
+struct HttpUriFileGuard {
+    path: PathBuf,
+    expected_uri: String,
+}
 
 impl Drop for HttpUriFileGuard {
     fn drop(&mut self) {
-        if let Err(error) = fs::remove_file(&self.0) {
+        let should_remove = match fs::read_to_string(&self.path) {
+            Ok(current) => current.trim() == self.expected_uri,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+            Err(error) => {
+                let error_chain = error.to_string();
+                warn!(
+                    uri_file = %self.path.display(),
+                    error = %error,
+                    error_chain = %error_chain,
+                    "failed to inspect prism-mcp URI file before cleanup"
+                );
+                false
+            }
+        };
+        if !should_remove {
+            return;
+        }
+        if let Err(error) = fs::remove_file(&self.path) {
             if error.kind() != std::io::ErrorKind::NotFound {
                 let error_chain = error.to_string();
                 warn!(
-                    uri_file = %self.0.display(),
+                    uri_file = %self.path.display(),
                     error = %error,
                     error_chain = %error_chain,
                     "failed to remove prism-mcp URI file"
@@ -337,8 +425,9 @@ impl Drop for HttpUriFileGuard {
 
 #[cfg(test)]
 mod tests {
-    use super::{auto_bind_host, bind_listener, stable_http_bind_candidates};
+    use super::{auto_bind_host, bind_listener, stable_http_bind_candidates, HttpUriFileGuard};
     use crate::{PrismMcpCli, PrismMcpMode};
+    use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -370,6 +459,32 @@ mod tests {
             "prism-mcp-daemon-mode-{label}-{}-{stamp}",
             std::process::id()
         ))
+    }
+
+    #[test]
+    fn uri_guard_only_removes_matching_uri_file() {
+        let root = temp_root("uri-guard");
+        let prism_dir = root.join(".prism");
+        fs::create_dir_all(&prism_dir).unwrap();
+        let uri_path = prism_dir.join("prism-mcp-http-uri");
+        fs::write(&uri_path, "http://127.0.0.1:41000/mcp\n").unwrap();
+
+        {
+            let _guard = HttpUriFileGuard {
+                path: uri_path.clone(),
+                expected_uri: "http://127.0.0.1:42000/mcp".to_string(),
+            };
+        }
+        assert!(uri_path.exists());
+
+        {
+            let _guard = HttpUriFileGuard {
+                path: uri_path.clone(),
+                expected_uri: "http://127.0.0.1:41000/mcp".to_string(),
+            };
+        }
+        assert!(!uri_path.exists());
+        fs::remove_dir_all(root).ok();
     }
 
     #[test]

@@ -28,10 +28,9 @@ use crate::{
 };
 
 impl QueryHost {
-    pub(crate) fn session_view(&self) -> Result<SessionView> {
-        self.refresh_workspace()?;
+    pub(crate) fn session_view_without_refresh(&self) -> SessionView {
         let limits = self.session.limits();
-        Ok(SessionView {
+        SessionView {
             workspace_root: self
                 .workspace
                 .as_ref()
@@ -62,7 +61,12 @@ impl QueryHost {
                 },
                 internal_developer: self.features.internal_developer,
             },
-        })
+        }
+    }
+
+    pub(crate) fn session_view(&self) -> Result<SessionView> {
+        self.refresh_workspace()?;
+        Ok(self.session_view_without_refresh())
     }
 
     pub(crate) fn session_resource_value(&self) -> Result<SessionResourcePayload> {
@@ -288,6 +292,30 @@ impl QueryHost {
                 other => Err(anyhow!("invalid topLevelOnly value `{other}`")),
             })
             .transpose()?;
+        let prefer_callable_code = parse_resource_query_param(uri, "preferCallableCode")
+            .or_else(|| parse_resource_query_param(uri, "prefer_callable_code"))
+            .map(|value| match value.trim().to_ascii_lowercase().as_str() {
+                "true" | "1" | "yes" => Ok(true),
+                "false" | "0" | "no" => Ok(false),
+                other => Err(anyhow!("invalid preferCallableCode value `{other}`")),
+            })
+            .transpose()?;
+        let prefer_editable_targets = parse_resource_query_param(uri, "preferEditableTargets")
+            .or_else(|| parse_resource_query_param(uri, "prefer_editable_targets"))
+            .map(|value| match value.trim().to_ascii_lowercase().as_str() {
+                "true" | "1" | "yes" => Ok(true),
+                "false" | "0" | "no" => Ok(false),
+                other => Err(anyhow!("invalid preferEditableTargets value `{other}`")),
+            })
+            .transpose()?;
+        let prefer_behavioral_owners = parse_resource_query_param(uri, "preferBehavioralOwners")
+            .or_else(|| parse_resource_query_param(uri, "prefer_behavioral_owners"))
+            .map(|value| match value.trim().to_ascii_lowercase().as_str() {
+                "true" | "1" | "yes" => Ok(true),
+                "false" | "0" | "no" => Ok(false),
+                other => Err(anyhow!("invalid preferBehavioralOwners value `{other}`")),
+            })
+            .transpose()?;
         let include_inferred = parse_resource_query_param(uri, "includeInferred")
             .or_else(|| parse_resource_query_param(uri, "include_inferred"))
             .map(|value| match value.trim().to_ascii_lowercase().as_str() {
@@ -320,6 +348,9 @@ impl QueryHost {
                 strategy: Some(strategy.clone()),
                 structured_path: structured_path.clone(),
                 top_level_only,
+                prefer_callable_code,
+                prefer_editable_targets,
+                prefer_behavioral_owners,
                 owner_kind: owner_kind.clone(),
                 include_inferred: Some(include_inferred),
             })?,
@@ -365,6 +396,9 @@ impl QueryHost {
             path_mode.as_deref(),
             structured_path.as_deref(),
             top_level_only,
+            prefer_callable_code,
+            prefer_editable_targets,
+            prefer_behavioral_owners,
             Some(include_inferred),
         )];
         related_resources.extend(paged.items.iter().take(8).map(symbol_resource_view_link));
@@ -390,6 +424,9 @@ impl QueryHost {
             path_mode,
             structured_path,
             top_level_only,
+            prefer_callable_code,
+            prefer_editable_targets,
+            prefer_behavioral_owners,
             include_inferred,
             suggested_reads,
             results: paged.items,

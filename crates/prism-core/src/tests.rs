@@ -561,6 +561,30 @@ fn refresh_fs_skips_reindex_when_workspace_is_clean() {
 }
 
 #[test]
+fn refresh_fs_nonblocking_defers_when_refresh_is_in_progress() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    session.refresh_state.mark_fs_dirty();
+    let _guard = session
+        .refresh_lock
+        .lock()
+        .expect("workspace refresh lock poisoned");
+
+    let status = session.refresh_fs_nonblocking().unwrap();
+    assert_eq!(status, crate::FsRefreshStatus::DeferredBusy);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn refresh_state_throttles_clean_fallback_checks() {
     let state = crate::session::WorkspaceRefreshState::new();
 

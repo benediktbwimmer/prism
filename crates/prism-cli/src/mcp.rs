@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{BTreeSet, VecDeque};
 use std::fs;
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -26,11 +26,26 @@ enum McpProcessKind {
 #[derive(Debug, Clone)]
 struct McpProcess {
     pid: u32,
+    ppid: u32,
     rss_kb: u64,
     elapsed: String,
     command: String,
     kind: McpProcessKind,
     health_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BridgeState {
+    Connected,
+    Idle,
+    Orphaned,
+}
+
+#[derive(Debug, Clone, Default)]
+struct BridgeCounts {
+    connected: usize,
+    idle: usize,
+    orphaned: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -73,8 +88,13 @@ fn status(root: &Path) -> Result<()> {
     let processes = list_processes(root)?;
     let daemons = select_kind(&processes, McpProcessKind::Daemon);
     let bridges = select_kind(&processes, McpProcessKind::Bridge);
-    let uri = read_uri_file(&paths.uri_file)?;
+    let uri = resolve_daemon_uri(root, &paths, &daemons)?;
     let health = health_status(&uri, daemon_health_path(&daemons))?;
+    let connected_bridge_pids = uri
+        .as_deref()
+        .and_then(|uri| connected_process_ids_for_uri(uri).ok())
+        .unwrap_or_default();
+    let bridge_counts = classify_bridges(&bridges, &connected_bridge_pids);
 
     println!("root: {}", root.display());
     println!("daemon_count: {}", daemons.len());
@@ -84,6 +104,9 @@ fn status(root: &Path) -> Result<()> {
         println!("daemon_elapsed: {}", daemon.elapsed);
     }
     println!("bridge_count: {}", bridges.len());
+    println!("connected_bridge_count: {}", bridge_counts.connected);
+    println!("idle_bridge_count: {}", bridge_counts.idle);
+    println!("orphan_bridge_count: {}", bridge_counts.orphaned);
     println!("uri_file: {}", paths.uri_file.display());
     println!("uri: {}", uri.as_deref().unwrap_or("<missing>"));
     println!("health: {}", health.detail);
@@ -107,6 +130,9 @@ fn status(root: &Path) -> Result<()> {
     }
     if daemons.len() > 1 {
         println!("warning: multiple daemon processes are running for this workspace");
+    }
+    if bridge_counts.orphaned > 0 {
+        println!("warning: orphaned bridge processes are running for this workspace");
     }
     if daemons.is_empty() && !bridges.is_empty() {
         println!("warning: bridge processes exist without a daemon");
@@ -135,7 +161,7 @@ fn start(root: &Path, no_coordination: bool, internal_developer: bool) -> Result
 
     let binary = prism_mcp_binary()?;
     spawn_daemon(root, &binary, &paths, no_coordination, internal_developer)?;
-    let uri = wait_for_healthy_uri(&paths, DEFAULT_HEALTH_PATH)?;
+    let uri = wait_for_healthy_uri(root, &paths, DEFAULT_HEALTH_PATH)?;
     println!("started daemon");
     println!("uri: {uri}");
     status(root)
@@ -182,7 +208,7 @@ fn health(root: &Path) -> Result<()> {
     let paths = McpPaths::for_root(root);
     let processes = list_processes(root)?;
     let daemons = select_kind(&processes, McpProcessKind::Daemon);
-    let uri = read_uri_file(&paths.uri_file)?;
+    let uri = resolve_daemon_uri(root, &paths, &daemons)?;
     let health = health_status(&uri, daemon_health_path(&daemons))?;
     println!("{}", health.detail);
     if !health.ok {
@@ -234,7 +260,7 @@ fn list_processes(root: &Path) -> Result<Vec<McpProcess>> {
 fn parse_ps_line(line: &str) -> Option<McpProcess> {
     let mut parts = line.split_whitespace();
     let pid = parts.next()?.parse().ok()?;
-    let _ppid = parts.next()?.parse::<u32>().ok()?;
+    let ppid = parts.next()?.parse::<u32>().ok()?;
     let rss_kb = parts.next()?.parse().ok()?;
     let elapsed = parts.next()?.to_string();
     let command = parts.collect::<Vec<_>>().join(" ");
@@ -245,12 +271,39 @@ fn parse_ps_line(line: &str) -> Option<McpProcess> {
     };
     Some(McpProcess {
         pid,
+        ppid,
         rss_kb,
         elapsed,
         health_path: command_option_value(&command, "--health-path"),
         command,
         kind,
     })
+}
+
+fn bridge_state(process: &McpProcess, connected_bridge_pids: &BTreeSet<u32>) -> Option<BridgeState> {
+    if process.kind != McpProcessKind::Bridge {
+        return None;
+    }
+    if connected_bridge_pids.contains(&process.pid) {
+        Some(BridgeState::Connected)
+    } else if process.ppid == 1 {
+        Some(BridgeState::Orphaned)
+    } else {
+        Some(BridgeState::Idle)
+    }
+}
+
+fn classify_bridges(bridges: &[McpProcess], connected_bridge_pids: &BTreeSet<u32>) -> BridgeCounts {
+    let mut counts = BridgeCounts::default();
+    for process in bridges {
+        match bridge_state(process, connected_bridge_pids) {
+            Some(BridgeState::Connected) => counts.connected += 1,
+            Some(BridgeState::Idle) => counts.idle += 1,
+            Some(BridgeState::Orphaned) => counts.orphaned += 1,
+            None => {}
+        }
+    }
+    counts
 }
 
 fn select_kind(processes: &[McpProcess], kind: McpProcessKind) -> Vec<McpProcess> {
@@ -368,10 +421,11 @@ fn chrono_like_timestamp() -> String {
     now.to_string()
 }
 
-fn wait_for_healthy_uri(paths: &McpPaths, health_path: &str) -> Result<String> {
+fn wait_for_healthy_uri(root: &Path, paths: &McpPaths, health_path: &str) -> Result<String> {
     let deadline = Instant::now() + START_TIMEOUT;
     while Instant::now() < deadline {
-        let uri = read_uri_file(&paths.uri_file)?;
+        let daemons = select_kind(&list_processes(root)?, McpProcessKind::Daemon);
+        let uri = resolve_daemon_uri(root, paths, &daemons)?;
         if let Some(uri) = uri {
             let health = health_status(&Some(uri.clone()), health_path)?;
             if health.ok {
@@ -441,6 +495,75 @@ fn read_uri_file(path: &Path) -> Result<Option<String>> {
     Ok(Some(value.to_string()))
 }
 
+fn resolve_daemon_uri(
+    root: &Path,
+    paths: &McpPaths,
+    daemons: &[McpProcess],
+) -> Result<Option<String>> {
+    if let Some(uri) = read_uri_file(&paths.uri_file)? {
+        return Ok(Some(uri));
+    }
+    runtime_state_uri(root, daemons)
+}
+
+fn runtime_state_uri(root: &Path, daemons: &[McpProcess]) -> Result<Option<String>> {
+    if daemons.is_empty() {
+        return Ok(None);
+    }
+    let live_pids = daemons.iter().map(|daemon| daemon.pid).collect::<Vec<_>>();
+    let path = root.join(".prism").join("prism-mcp-runtime.json");
+    if !path.exists() {
+        return Ok(None);
+    }
+    let bytes = fs::read(&path)
+        .with_context(|| format!("failed to read runtime state {}", path.display()))?;
+    let Ok(value) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
+        return Ok(None);
+    };
+    Ok(value
+        .get("processes")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .find(|process| {
+            process
+                .get("kind")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|kind| kind == "daemon")
+                && process
+                    .get("pid")
+                    .and_then(serde_json::Value::as_u64)
+                    .is_some_and(|pid| live_pids.contains(&(pid as u32)))
+        })
+        .and_then(|process| process.get("http_uri"))
+        .and_then(serde_json::Value::as_str)
+        .map(ToString::to_string))
+}
+
+fn connected_process_ids_for_uri(uri: &str) -> Result<BTreeSet<u32>> {
+    let Some(port) = uri_port(uri) else {
+        return Ok(BTreeSet::new());
+    };
+    let output = Command::new("lsof")
+        .args([
+            "-nP",
+            &format!("-iTCP:{port}"),
+            "-sTCP:ESTABLISHED",
+            "-Fp",
+        ])
+        .output()
+        .context("failed to inspect established TCP connections with lsof")?;
+    if !output.status.success() {
+        return Ok(BTreeSet::new());
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(|line| line.strip_prefix('p'))
+        .filter_map(|pid| pid.parse::<u32>().ok())
+        .collect())
+}
+
 fn health_status(uri: &Option<String>, health_path: &str) -> Result<HealthStatus> {
     let Some(uri) = uri else {
         return Ok(HealthStatus {
@@ -479,6 +602,12 @@ fn http_health_check(uri: &str, health_path: &str) -> Result<()> {
         "unexpected response: {}",
         response.lines().next().unwrap_or("<empty>")
     )
+}
+
+fn uri_port(uri: &str) -> Option<u16> {
+    uri_authority(uri)?
+        .rsplit_once(':')
+        .and_then(|(_, port)| port.parse::<u16>().ok())
 }
 
 fn resolve_socket_addr(authority: &str) -> Result<SocketAddr> {
@@ -526,6 +655,21 @@ impl McpPaths {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_root(label: &str) -> PathBuf {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = env::temp_dir().join(format!(
+            "prism-cli-mcp-tests-{label}-{}-{stamp}",
+            std::process::id()
+        ));
+        fs::create_dir_all(root.join(".prism")).unwrap();
+        root
+    }
 
     #[test]
     fn parses_ps_lines_for_prism_mcp() {
@@ -534,8 +678,49 @@ mod tests {
         )
         .expect("process should parse");
         assert_eq!(process.pid, 29267);
+        assert_eq!(process.ppid, 1);
         assert_eq!(process.kind, McpProcessKind::Daemon);
         assert_eq!(process.health_path.as_deref(), Some("/healthz"));
+    }
+
+    #[test]
+    fn classify_bridges_distinguishes_connected_idle_and_orphaned() {
+        let bridges = vec![
+            McpProcess {
+                pid: 10,
+                ppid: 1000,
+                rss_kb: 1,
+                elapsed: "00:01".to_string(),
+                command: "prism-mcp --mode bridge".to_string(),
+                kind: McpProcessKind::Bridge,
+                health_path: None,
+            },
+            McpProcess {
+                pid: 11,
+                ppid: 1001,
+                rss_kb: 1,
+                elapsed: "00:02".to_string(),
+                command: "prism-mcp --mode bridge".to_string(),
+                kind: McpProcessKind::Bridge,
+                health_path: None,
+            },
+            McpProcess {
+                pid: 12,
+                ppid: 1,
+                rss_kb: 1,
+                elapsed: "00:03".to_string(),
+                command: "prism-mcp --mode bridge".to_string(),
+                kind: McpProcessKind::Bridge,
+                health_path: None,
+            },
+        ];
+        let connected = BTreeSet::from([10_u32]);
+
+        let counts = classify_bridges(&bridges, &connected);
+
+        assert_eq!(counts.connected, 1);
+        assert_eq!(counts.idle, 1);
+        assert_eq!(counts.orphaned, 1);
     }
 
     #[test]
@@ -559,5 +744,38 @@ mod tests {
             Some("example.com")
         );
         assert_eq!(uri_authority("not-a-uri"), None);
+    }
+
+    #[test]
+    fn runtime_state_uri_falls_back_when_uri_file_is_missing() {
+        let root = temp_root("runtime-state-uri");
+        fs::write(
+            root.join(".prism").join("prism-mcp-runtime.json"),
+            r#"{
+  "processes": [
+    { "pid": 12, "kind": "daemon", "http_uri": "http://127.0.0.1:41000/mcp" },
+    { "pid": 99, "kind": "bridge", "http_uri": null }
+  ],
+  "events": []
+}"#,
+        )
+        .unwrap();
+
+        let uri = runtime_state_uri(
+            &root,
+            &[McpProcess {
+                pid: 12,
+                ppid: 1,
+                rss_kb: 0,
+                elapsed: "00:01".to_string(),
+                command: "prism-mcp --mode daemon".to_string(),
+                kind: McpProcessKind::Daemon,
+                health_path: Some("/healthz".to_string()),
+            }],
+        )
+        .unwrap();
+
+        assert_eq!(uri.as_deref(), Some("http://127.0.0.1:41000/mcp"));
+        fs::remove_dir_all(root).ok();
     }
 }

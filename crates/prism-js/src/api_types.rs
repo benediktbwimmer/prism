@@ -168,12 +168,14 @@ pub struct RuntimeHealthView {
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeProcessView {
     pub pid: u32,
+    pub parent_pid: u32,
     pub rss_kb: u64,
     pub rss_mb: f64,
     pub elapsed: String,
     pub kind: String,
     pub command: String,
     pub health_path: Option<String>,
+    pub bridge_state: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -190,6 +192,9 @@ pub struct RuntimeStatusView {
     pub health: RuntimeHealthView,
     pub daemon_count: usize,
     pub bridge_count: usize,
+    pub connected_bridge_count: usize,
+    pub idle_bridge_count: usize,
+    pub orphan_bridge_count: usize,
     pub processes: Vec<RuntimeProcessView>,
     pub process_error: Option<String>,
 }

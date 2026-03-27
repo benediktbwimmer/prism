@@ -69,6 +69,9 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("pathMode?: \"contains\" | \"exact\";"));
     assert!(docs.contains("structuredPath?: string;"));
     assert!(docs.contains("topLevelOnly?: boolean;"));
+    assert!(docs.contains("preferCallableCode?: boolean;"));
+    assert!(docs.contains("preferEditableTargets?: boolean;"));
+    assert!(docs.contains("preferBehavioralOwners?: boolean;"));
     assert!(docs.contains("type TextSearchMatchView = {"));
     assert!(docs.contains("type QueryLogOptions = {"));
     assert!(docs.contains("type RuntimeLogOptions = {"));
@@ -103,6 +106,11 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("type TextSearchBundleView = {"));
     assert!(docs.contains("type TargetBundleView = {"));
     assert!(docs.contains("type RuntimeStatusView = {"));
+    assert!(docs.contains("parentPid: number;"));
+    assert!(docs.contains("bridgeState?: string;"));
+    assert!(docs.contains("connectedBridgeCount: number;"));
+    assert!(docs.contains("idleBridgeCount: number;"));
+    assert!(docs.contains("orphanBridgeCount: number;"));
     assert!(docs.contains("type RuntimeLogEventView = {"));
     assert!(docs.contains("type QueryLogEntryView = {"));
     assert!(docs.contains("type QueryTraceView = {"));
@@ -119,7 +127,7 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("prism://capabilities"));
     assert!(docs.contains("Inspect tool payload requirements without leaving `prism_query`"));
     assert!(docs.contains(
-        "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&includeInferred={includeInferred}"
+        "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&preferCallableCode={preferCallableCode}&preferEditableTargets={preferEditableTargets}&preferBehavioralOwners={preferBehavioralOwners}&includeInferred={includeInferred}"
     ));
     assert!(docs.contains("prism.curator.jobs"));
     assert!(docs.contains("prism_session"));
@@ -161,6 +169,14 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("taskId: options?.taskId ?? options?.task_id"));
     assert!(prelude.contains("structuredPath: options?.structuredPath ?? options?.structured_path"));
     assert!(prelude.contains("topLevelOnly: options?.topLevelOnly ?? options?.top_level_only"));
+    assert!(prelude.contains("preferCallableCode:"));
+    assert!(prelude.contains("options?.preferCallableCode ?? options?.prefer_callable_code"));
+    assert!(prelude.contains("preferEditableTargets:"));
+    assert!(prelude.contains("options?.preferEditableTargets ?? options?.prefer_editable_targets"));
+    assert!(prelude.contains("preferBehavioralOwners:"));
+    assert!(
+        prelude.contains("options?.preferBehavioralOwners ?? options?.prefer_behavioral_owners")
+    );
     assert!(prelude.contains("file(path)"));
     assert!(prelude.contains("queryLog(options = {})"));
     assert!(prelude.contains("slowQueries(options = {})"));

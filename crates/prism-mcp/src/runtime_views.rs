@@ -1,10 +1,8 @@
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fs;
-use std::io::{BufRead, BufReader, Read, Write};
-use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
 use prism_js::{RuntimeHealthView, RuntimeLogEventView, RuntimeProcessView, RuntimeStatusView};
@@ -36,12 +34,27 @@ enum McpProcessKind {
 #[derive(Debug, Clone)]
 struct McpProcess {
     pid: u32,
+    ppid: u32,
     rss_kb: u64,
     elapsed: String,
     command: String,
     kind: McpProcessKind,
     health_path: Option<String>,
     http_uri: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BridgeState {
+    Connected,
+    Idle,
+    Orphaned,
+}
+
+#[derive(Debug, Clone, Default)]
+struct BridgeCounts {
+    connected: usize,
+    idle: usize,
+    orphaned: usize,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -72,8 +85,13 @@ pub(crate) fn runtime_status(host: &QueryHost) -> Result<RuntimeStatusView> {
     let bridges = select_kind(&processes, McpProcessKind::Bridge);
     let uri = read_uri_file(&paths.uri_file)?
         .or_else(|| daemons.iter().find_map(|process| process.http_uri.clone()));
+    let connected_bridge_pids = uri
+        .as_deref()
+        .and_then(|uri| connected_process_ids_for_uri(uri).ok())
+        .unwrap_or_default();
+    let bridge_counts = classify_bridges(&bridges, &connected_bridge_pids);
     let health_path = daemon_health_path(&daemons).to_string();
-    let health = health_status(&uri, &health_path)?;
+    let health = health_status(&uri, &daemons, process_error.as_deref());
 
     Ok(RuntimeStatusView {
         root: root.display().to_string(),
@@ -87,7 +105,13 @@ pub(crate) fn runtime_status(host: &QueryHost) -> Result<RuntimeStatusView> {
         health,
         daemon_count: daemons.len(),
         bridge_count: bridges.len(),
-        processes: processes.into_iter().map(runtime_process_view).collect(),
+        connected_bridge_count: bridge_counts.connected,
+        idle_bridge_count: bridge_counts.idle,
+        orphan_bridge_count: bridge_counts.orphaned,
+        processes: processes
+            .into_iter()
+            .map(|process| runtime_process_view(process, &connected_bridge_pids))
+            .collect(),
         process_error,
     })
 }
@@ -189,9 +213,11 @@ fn file_len(path: &Path) -> Option<u64> {
     fs::metadata(path).ok().map(|metadata| metadata.len())
 }
 
-fn runtime_process_view(process: McpProcess) -> RuntimeProcessView {
+fn runtime_process_view(process: McpProcess, connected_bridge_pids: &BTreeSet<u32>) -> RuntimeProcessView {
+    let bridge_state = bridge_state(&process, connected_bridge_pids).map(bridge_state_label);
     RuntimeProcessView {
         pid: process.pid,
+        parent_pid: process.ppid,
         rss_kb: process.rss_kb,
         rss_mb: process.rss_kb as f64 / 1024.0,
         elapsed: process.elapsed,
@@ -202,6 +228,7 @@ fn runtime_process_view(process: McpProcess) -> RuntimeProcessView {
         .to_string(),
         command: process.command,
         health_path: process.health_path,
+        bridge_state,
     }
 }
 
@@ -217,58 +244,38 @@ fn runtime_state_event_view(event: RuntimeEventRecord) -> RuntimeLogEventView {
     }
 }
 
-fn health_status(uri: &Option<String>, health_path: &str) -> Result<RuntimeHealthView> {
+fn health_status(
+    uri: &Option<String>,
+    daemons: &[McpProcess],
+    process_error: Option<&str>,
+) -> RuntimeHealthView {
+    if let Some(error) = process_error {
+        return RuntimeHealthView {
+            ok: false,
+            detail: format!("process listing failed: {error}"),
+        };
+    }
+
     let Some(uri) = uri else {
-        return Ok(RuntimeHealthView {
+        return RuntimeHealthView {
             ok: false,
             detail: "missing uri file".to_string(),
-        });
+        };
     };
-    match http_health_check(uri, health_path) {
-        Ok(()) => Ok(RuntimeHealthView {
-            ok: true,
-            detail: format!("ok ({uri})"),
-        }),
-        Err(error) => Ok(RuntimeHealthView {
+
+    if daemons.is_empty() {
+        return RuntimeHealthView {
             ok: false,
-            detail: format!("unhealthy ({uri}): {error}"),
-        }),
+            detail: format!("no daemon process for {uri}"),
+        };
     }
-}
 
-fn http_health_check(uri: &str, health_path: &str) -> Result<()> {
-    let authority = uri_authority(uri).ok_or_else(|| anyhow!("invalid uri"))?;
-    let addr = resolve_socket_addr(authority)?;
-    let mut stream = TcpStream::connect_timeout(&addr, Duration::from_secs(2))
-        .with_context(|| format!("failed to connect to {authority}"))?;
-    stream.set_read_timeout(Some(Duration::from_secs(2)))?;
-    stream.set_write_timeout(Some(Duration::from_secs(2)))?;
-    let request =
-        format!("GET {health_path} HTTP/1.1\r\nHost: {authority}\r\nConnection: close\r\n\r\n");
-    stream.write_all(request.as_bytes())?;
-    let mut response = String::new();
-    stream.read_to_string(&mut response)?;
-    if response.starts_with("HTTP/1.1 200") || response.starts_with("HTTP/1.0 200") {
-        return Ok(());
-    }
-    bail!(
-        "unexpected response: {}",
-        response.lines().next().unwrap_or("<empty>")
-    )
-}
-
-fn resolve_socket_addr(authority: &str) -> Result<SocketAddr> {
-    authority
-        .to_socket_addrs()?
-        .next()
-        .ok_or_else(|| anyhow!("could not resolve {authority}"))
-}
-
-fn uri_authority(uri: &str) -> Option<&str> {
-    uri.strip_prefix("http://")
-        .or_else(|| uri.strip_prefix("https://"))
-        .and_then(|rest| rest.split('/').next())
-        .filter(|value| !value.is_empty())
+    let detail = if daemons.len() == 1 {
+        format!("ok ({uri})")
+    } else {
+        format!("ok ({uri}; {} daemon processes)", daemons.len())
+    };
+    RuntimeHealthView { ok: true, detail }
 }
 
 fn list_runtime_processes(
@@ -319,7 +326,7 @@ fn probe_runtime_state_processes(
         .map(|process| process.pid.to_string())
         .collect::<Vec<_>>();
     let output = Command::new("ps")
-        .args(["-o", "pid=,rss=,etime=,command=", "-p", &pids.join(",")])
+        .args(["-o", "pid=,ppid=,rss=,etime=,command=", "-p", &pids.join(",")])
         .output()
         .context("failed to inspect runtime state processes with ps")?;
     if !output.status.success() {
@@ -335,7 +342,7 @@ fn probe_runtime_state_processes(
         .collect::<BTreeMap<_, _>>();
     let mut processes = Vec::new();
     for line in String::from_utf8_lossy(&output.stdout).lines() {
-        let Some((pid, rss_kb, elapsed, command)) = parse_process_snapshot_line(line) else {
+        let Some((pid, ppid, rss_kb, elapsed, command)) = parse_process_snapshot_line(line) else {
             continue;
         };
         let Some(record) = records.get(&pid) else {
@@ -346,6 +353,7 @@ fn probe_runtime_state_processes(
         };
         processes.push(McpProcess {
             pid,
+            ppid,
             rss_kb,
             elapsed,
             command,
@@ -360,7 +368,7 @@ fn probe_runtime_state_processes(
 fn parse_ps_line(line: &str) -> Option<McpProcess> {
     let mut parts = line.split_whitespace();
     let pid = parts.next()?.parse().ok()?;
-    let _ppid = parts.next()?.parse::<u32>().ok()?;
+    let ppid = parts.next()?.parse::<u32>().ok()?;
     let rss_kb = parts.next()?.parse().ok()?;
     let elapsed = parts.next()?.to_string();
     let command = parts.collect::<Vec<_>>().join(" ");
@@ -372,6 +380,7 @@ fn parse_ps_line(line: &str) -> Option<McpProcess> {
     };
     Some(McpProcess {
         pid,
+        ppid,
         rss_kb,
         elapsed,
         command,
@@ -381,13 +390,86 @@ fn parse_ps_line(line: &str) -> Option<McpProcess> {
     })
 }
 
-fn parse_process_snapshot_line(line: &str) -> Option<(u32, u64, String, String)> {
+fn bridge_state(process: &McpProcess, connected_bridge_pids: &BTreeSet<u32>) -> Option<BridgeState> {
+    if process.kind != McpProcessKind::Bridge {
+        return None;
+    }
+    if connected_bridge_pids.contains(&process.pid) {
+        Some(BridgeState::Connected)
+    } else if process.ppid == 1 {
+        Some(BridgeState::Orphaned)
+    } else {
+        Some(BridgeState::Idle)
+    }
+}
+
+fn bridge_state_label(state: BridgeState) -> String {
+    match state {
+        BridgeState::Connected => "connected",
+        BridgeState::Idle => "idle",
+        BridgeState::Orphaned => "orphaned",
+    }
+    .to_string()
+}
+
+fn classify_bridges(bridges: &[McpProcess], connected_bridge_pids: &BTreeSet<u32>) -> BridgeCounts {
+    let mut counts = BridgeCounts::default();
+    for process in bridges {
+        match bridge_state(process, connected_bridge_pids) {
+            Some(BridgeState::Connected) => counts.connected += 1,
+            Some(BridgeState::Idle) => counts.idle += 1,
+            Some(BridgeState::Orphaned) => counts.orphaned += 1,
+            None => {}
+        }
+    }
+    counts
+}
+
+fn connected_process_ids_for_uri(uri: &str) -> Result<BTreeSet<u32>> {
+    let Some(port) = uri_port(uri) else {
+        return Ok(BTreeSet::new());
+    };
+    let output = Command::new("lsof")
+        .args([
+            "-nP",
+            &format!("-iTCP:{port}"),
+            "-sTCP:ESTABLISHED",
+            "-Fp",
+        ])
+        .output()
+        .context("failed to inspect established TCP connections with lsof")?;
+    if !output.status.success() {
+        return Ok(BTreeSet::new());
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(|line| line.strip_prefix('p'))
+        .filter_map(|pid| pid.parse::<u32>().ok())
+        .collect())
+}
+
+fn uri_port(uri: &str) -> Option<u16> {
+    uri_authority(uri)?
+        .rsplit_once(':')
+        .and_then(|(_, port)| port.parse::<u16>().ok())
+}
+
+fn uri_authority(uri: &str) -> Option<&str> {
+    uri.strip_prefix("http://")
+        .or_else(|| uri.strip_prefix("https://"))
+        .and_then(|rest| rest.split('/').next())
+        .filter(|authority| !authority.is_empty())
+}
+
+fn parse_process_snapshot_line(line: &str) -> Option<(u32, u32, u64, String, String)> {
     let mut parts = line.split_whitespace();
     let pid = parts.next()?.parse().ok()?;
+    let ppid = parts.next()?.parse().ok()?;
     let rss_kb = parts.next()?.parse().ok()?;
     let elapsed = parts.next()?.to_string();
     let command = parts.collect::<Vec<_>>().join(" ");
-    Some((pid, rss_kb, elapsed, command))
+    Some((pid, ppid, rss_kb, elapsed, command))
 }
 
 fn select_kind(processes: &[McpProcess], kind: McpProcessKind) -> Vec<McpProcess> {
@@ -582,6 +664,7 @@ mod tests {
         .expect("expected prism-mcp process");
 
         assert_eq!(process.pid, 29267);
+        assert_eq!(process.ppid, 1);
         assert_eq!(process.rss_kb, 4454352);
         assert_eq!(process.elapsed, "02:12:24");
         assert_eq!(process.kind, McpProcessKind::Daemon);
@@ -591,12 +674,13 @@ mod tests {
 
     #[test]
     fn parses_scoped_ps_lines_for_runtime_state_processes() {
-        let (pid, rss_kb, elapsed, command) = parse_process_snapshot_line(
-            "29267 4454352 02:12:24 /Users/bene/code/prism/target/release/prism-mcp --mode daemon",
+        let (pid, ppid, rss_kb, elapsed, command) = parse_process_snapshot_line(
+            "29267 1 4454352 02:12:24 /Users/bene/code/prism/target/release/prism-mcp --mode daemon",
         )
         .expect("expected process snapshot");
 
         assert_eq!(pid, 29267);
+        assert_eq!(ppid, 1);
         assert_eq!(rss_kb, 4454352);
         assert_eq!(elapsed, "02:12:24");
         assert_eq!(
@@ -646,5 +730,98 @@ mod tests {
             line_number: None,
             fields: None,
         }));
+    }
+
+    #[test]
+    fn health_status_uses_process_state_instead_of_self_http_probe() {
+        let daemon = McpProcess {
+            pid: 29267,
+            ppid: 1,
+            rss_kb: 4454352,
+            elapsed: "02:12:24".to_string(),
+            command: "/Users/bene/code/prism/target/release/prism-mcp --mode daemon".to_string(),
+            kind: McpProcessKind::Daemon,
+            health_path: Some("/healthz".to_string()),
+            http_uri: Some("http://127.0.0.1:52695/mcp".to_string()),
+        };
+
+        let healthy = health_status(
+            &Some("http://127.0.0.1:52695/mcp".to_string()),
+            &[daemon.clone()],
+            None,
+        );
+        assert!(healthy.ok);
+        assert_eq!(healthy.detail, "ok (http://127.0.0.1:52695/mcp)");
+
+        let missing_daemon =
+            health_status(&Some("http://127.0.0.1:52695/mcp".to_string()), &[], None);
+        assert!(!missing_daemon.ok);
+        assert_eq!(
+            missing_daemon.detail,
+            "no daemon process for http://127.0.0.1:52695/mcp"
+        );
+
+        let process_error = health_status(
+            &Some("http://127.0.0.1:52695/mcp".to_string()),
+            &[daemon],
+            Some("ps failed"),
+        );
+        assert!(!process_error.ok);
+        assert_eq!(process_error.detail, "process listing failed: ps failed");
+    }
+
+    #[test]
+    fn classify_bridges_distinguishes_connected_idle_and_orphaned() {
+        let bridges = vec![
+            McpProcess {
+                pid: 10,
+                ppid: 1000,
+                rss_kb: 1,
+                elapsed: "00:01".to_string(),
+                command: "prism-mcp --mode bridge".to_string(),
+                kind: McpProcessKind::Bridge,
+                health_path: None,
+                http_uri: None,
+            },
+            McpProcess {
+                pid: 11,
+                ppid: 1001,
+                rss_kb: 1,
+                elapsed: "00:02".to_string(),
+                command: "prism-mcp --mode bridge".to_string(),
+                kind: McpProcessKind::Bridge,
+                health_path: None,
+                http_uri: None,
+            },
+            McpProcess {
+                pid: 12,
+                ppid: 1,
+                rss_kb: 1,
+                elapsed: "00:03".to_string(),
+                command: "prism-mcp --mode bridge".to_string(),
+                kind: McpProcessKind::Bridge,
+                health_path: None,
+                http_uri: None,
+            },
+        ];
+        let connected = BTreeSet::from([10_u32]);
+
+        let counts = classify_bridges(&bridges, &connected);
+
+        assert_eq!(counts.connected, 1);
+        assert_eq!(counts.idle, 1);
+        assert_eq!(counts.orphaned, 1);
+        assert_eq!(
+            bridge_state(&bridges[0], &connected).map(bridge_state_label),
+            Some("connected".to_string())
+        );
+        assert_eq!(
+            bridge_state(&bridges[1], &connected).map(bridge_state_label),
+            Some("idle".to_string())
+        );
+        assert_eq!(
+            bridge_state(&bridges[2], &connected).map(bridge_state_label),
+            Some("orphaned".to_string())
+        );
     }
 }

@@ -69,6 +69,9 @@ type SearchOptions = {
   strategy?: "direct" | "behavioral";
   structuredPath?: string;
   topLevelOnly?: boolean;
+  preferCallableCode?: boolean;
+  preferEditableTargets?: boolean;
+  preferBehavioralOwners?: boolean;
   ownerKind?: "read" | "write" | "persist" | "test" | "all";
   includeInferred?: boolean;
 };
@@ -475,12 +478,14 @@ type RuntimeHealthView = {
 
 type RuntimeProcessView = {
   pid: number;
+  parentPid: number;
   rssKb: number;
   rssMb: number;
   elapsed: string;
   kind: string;
   command: string;
   healthPath?: string;
+  bridgeState?: string;
 };
 
 type RuntimeStatusView = {
@@ -495,6 +500,9 @@ type RuntimeStatusView = {
   health: RuntimeHealthView;
   daemonCount: number;
   bridgeCount: number;
+  connectedBridgeCount: number;
+  idleBridgeCount: number;
+  orphanBridgeCount: number;
   processes: RuntimeProcessView[];
   processError?: string;
 };
@@ -1091,7 +1099,7 @@ Beyond `prism_query`, the MCP server exposes navigable `prism://...` resources.
 - Parameterized resources:
   - `prism://schema/{resourceKind}`
   - `prism://schema/tool/{toolName}`
-  - `prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&includeInferred={includeInferred}`
+  - `prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&preferCallableCode={preferCallableCode}&preferEditableTargets={preferEditableTargets}&preferBehavioralOwners={preferBehavioralOwners}&includeInferred={includeInferred}`
   - `prism://symbol/{crateName}/{kind}/{path}`
   - `prism://lineage/{lineageId}?limit={limit}&cursor={cursor}`
   - `prism://task/{taskId}?limit={limit}&cursor={cursor}`

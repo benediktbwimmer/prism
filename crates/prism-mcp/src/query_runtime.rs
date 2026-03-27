@@ -1,5 +1,6 @@
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use anyhow::{anyhow, Context, Result};
 use prism_ir::{AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, LineageId, NodeId, PlanId};
@@ -172,7 +173,21 @@ impl QueryHost {
         let query_run = self.begin_query_run("typescript", code);
         let mut execution = None;
         match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize, bool)> {
-            self.refresh_workspace()?;
+            let refresh_started = Instant::now();
+            let refresh = self.refresh_workspace_for_query()?;
+            query_run.record_phase(
+                "typescript.refreshWorkspace",
+                &json!({
+                    "refreshPath": refresh.refresh_path,
+                    "deferred": refresh.deferred,
+                    "episodicReloaded": refresh.episodic_reloaded,
+                    "inferenceReloaded": refresh.inference_reloaded,
+                    "coordinationReloaded": refresh.coordination_reloaded,
+                }),
+                refresh_started.elapsed(),
+                true,
+                None,
+            );
             let mut statement_attempt = match self.execute_typescript_attempt(
                 code,
                 TsSnippetMode::StatementBody,
@@ -274,24 +289,143 @@ impl QueryHost {
         mode: TsSnippetMode,
         query_run: QueryRun,
     ) -> Result<TypescriptAttempt> {
+        let prepared_started = Instant::now();
         let prepared = prepare_typescript_query(code, mode);
-        let transpiled = js_runtime::transpile_typescript(&prepared.source).map_err(|error| {
-            parse_typescript_error(error, code, prepared.user_snippet_first_line, mode.code())
-        })?;
-        let execution = QueryExecution::new(self.clone(), self.current_prism(), query_run);
-        let raw_result = self
-            .worker_pool
-            .execute(transpiled, execution.clone())
-            .map_err(|error| {
-                runtime_or_serialization_error(
+        query_run.record_phase(
+            &format!("typescript.{}.prepare", mode.code()),
+            &json!({ "mode": mode.code() }),
+            prepared_started.elapsed(),
+            true,
+            None,
+        );
+        let transpile_started = Instant::now();
+        let transpiled = match js_runtime::transpile_typescript(&prepared.source) {
+            Ok(transpiled) => {
+                query_run.record_phase(
+                    &format!("typescript.{}.transpile", mode.code()),
+                    &json!({ "mode": mode.code() }),
+                    transpile_started.elapsed(),
+                    true,
+                    None,
+                );
+                transpiled
+            }
+            Err(error) => {
+                let error = parse_typescript_error(
                     error,
                     code,
                     prepared.user_snippet_first_line,
                     mode.code(),
-                )
-            })?;
-        let mut result = serde_json::from_str(&raw_result)
-            .map_err(|error| result_decode_error(error.into(), &raw_result))?;
+                );
+                query_run.record_phase(
+                    &format!("typescript.{}.transpile", mode.code()),
+                    &json!({ "mode": mode.code() }),
+                    transpile_started.elapsed(),
+                    false,
+                    Some(error.to_string()),
+                );
+                return Err(error);
+            }
+        };
+        let execution = QueryExecution::new(self.clone(), self.current_prism(), query_run);
+        let worker_roundtrip_started = Instant::now();
+        let worker_reply = match self.worker_pool.execute(transpiled, execution.clone()) {
+            Ok(reply) => reply,
+            Err(error) => {
+                let error = runtime_or_serialization_error(
+                    error,
+                    code,
+                    prepared.user_snippet_first_line,
+                    mode.code(),
+                );
+                execution.query_run().record_phase(
+                    &format!("typescript.{}.workerRoundTrip", mode.code()),
+                    &json!({ "mode": mode.code() }),
+                    worker_roundtrip_started.elapsed(),
+                    false,
+                    Some(error.to_string()),
+                );
+                return Err(error);
+            }
+        };
+        execution.query_run().record_phase(
+            &format!("typescript.{}.workerQueueWait", mode.code()),
+            &json!({
+                "mode": mode.code(),
+                "workerIndex": worker_reply.worker_index,
+            }),
+            worker_reply.queue_wait,
+            true,
+            None,
+        );
+        execution.query_run().record_phase(
+            &format!("typescript.{}.workerEval", mode.code()),
+            &json!({
+                "mode": mode.code(),
+                "workerIndex": worker_reply.worker_index,
+            }),
+            worker_reply.eval_duration,
+            worker_reply.result.is_ok(),
+            worker_reply.result.as_ref().err().map(ToString::to_string),
+        );
+        execution.query_run().record_phase(
+            &format!("typescript.{}.workerCleanup", mode.code()),
+            &json!({
+                "mode": mode.code(),
+                "workerIndex": worker_reply.worker_index,
+            }),
+            worker_reply.cleanup_duration,
+            true,
+            None,
+        );
+        execution.query_run().record_phase(
+            &format!("typescript.{}.workerRoundTrip", mode.code()),
+            &json!({
+                "mode": mode.code(),
+                "workerIndex": worker_reply.worker_index,
+            }),
+            worker_roundtrip_started.elapsed(),
+            worker_reply.result.is_ok(),
+            worker_reply.result.as_ref().err().map(ToString::to_string),
+        );
+        let raw_result = worker_reply.result.map_err(|error| {
+            runtime_or_serialization_error(
+                error,
+                code,
+                prepared.user_snippet_first_line,
+                mode.code(),
+            )
+        })?;
+        let decode_started = Instant::now();
+        let mut result = match serde_json::from_str(&raw_result) {
+            Ok(result) => {
+                execution.query_run().record_phase(
+                    &format!("typescript.{}.decodeResult", mode.code()),
+                    &json!({
+                        "mode": mode.code(),
+                        "jsonBytes": raw_result.len(),
+                    }),
+                    decode_started.elapsed(),
+                    true,
+                    None,
+                );
+                result
+            }
+            Err(error) => {
+                let error = result_decode_error(error.into(), &raw_result);
+                execution.query_run().record_phase(
+                    &format!("typescript.{}.decodeResult", mode.code()),
+                    &json!({
+                        "mode": mode.code(),
+                        "jsonBytes": raw_result.len(),
+                    }),
+                    decode_started.elapsed(),
+                    false,
+                    Some(error.to_string()),
+                );
+                return Err(error);
+            }
+        };
         let mut output_cap_hit = false;
         let limits = self.session.limits();
         if raw_result.len() > limits.max_output_json_bytes {
@@ -361,6 +495,10 @@ impl QueryExecution {
             diagnostics: Arc::new(Mutex::new(Vec::new())),
             semantic_context_cache: Arc::new(Mutex::new(SemanticContextCache::default())),
         }
+    }
+
+    pub(crate) fn query_run(&self) -> &QueryRun {
+        &self.query_run
     }
 
     pub(crate) fn diagnostics(&self) -> Vec<QueryDiagnostic> {
@@ -1133,6 +1271,9 @@ impl QueryExecution {
                 path: None,
                 module: None,
                 task_id: current_task_id.as_deref(),
+                prefer_callable_code: None,
+                prefer_editable_targets: None,
+                prefer_behavioral_owners: None,
                 task_scope_mode: TaskScopeMode::Prefer,
             },
             false,
@@ -1226,6 +1367,7 @@ impl QueryExecution {
         }
 
         let strategy = args.strategy.as_deref().unwrap_or("direct");
+        let prefer_behavioral_owners = args.prefer_behavioral_owners.unwrap_or(false);
         let mut results = if strategy == "behavioral" {
             owner_symbol_views_for_query(
                 self.prism.as_ref(),
@@ -1242,6 +1384,21 @@ impl QueryExecution {
                 .map(|symbol| symbol_view(self.prism.as_ref(), symbol))
                 .collect::<Result<Vec<_>>>()?
         };
+        if strategy != "behavioral" && prefer_behavioral_owners {
+            let owner_results = owner_symbol_views_for_query(
+                self.prism.as_ref(),
+                &args.query,
+                args.owner_kind.as_deref(),
+                kind,
+                args.path.as_deref(),
+                backend_limit,
+            )?;
+            for candidate in owner_results {
+                if !results.iter().any(|existing| existing.id == candidate.id) {
+                    results.push(candidate);
+                }
+            }
+        }
         apply_search_post_filters(
             &mut results,
             self.host
@@ -1265,6 +1422,9 @@ impl QueryExecution {
                 path: args.path.as_deref(),
                 module: args.module.as_deref(),
                 task_id: effective_task_id,
+                prefer_callable_code: args.prefer_callable_code,
+                prefer_editable_targets: args.prefer_editable_targets,
+                prefer_behavioral_owners: args.prefer_behavioral_owners,
                 task_scope_mode: if explicit_task_id.is_some() {
                     TaskScopeMode::Filter
                 } else {

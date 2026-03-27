@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 use std::thread;
 use std::time::Duration;
 
@@ -127,9 +127,61 @@ pub(crate) fn refresh_prism_snapshot(
     trigger: ChangeTrigger,
     known_fingerprint: Option<WorkspaceFingerprint>,
 ) -> Result<Vec<prism_ir::ObservedChangeSet>> {
-    let _guard = refresh_lock
+    let guard = refresh_lock
         .lock()
         .expect("workspace refresh lock poisoned");
+    refresh_prism_snapshot_with_guard(
+        root,
+        prism,
+        store,
+        fs_snapshot,
+        coordination_enabled,
+        curator,
+        trigger,
+        known_fingerprint,
+        guard,
+    )
+}
+
+pub(crate) fn try_refresh_prism_snapshot(
+    root: &Path,
+    prism: &Arc<RwLock<Arc<Prism>>>,
+    store: &Arc<Mutex<SqliteStore>>,
+    refresh_lock: &Arc<Mutex<()>>,
+    fs_snapshot: &Arc<Mutex<WorkspaceFingerprint>>,
+    coordination_enabled: bool,
+    curator: Option<&CuratorHandleRef>,
+    trigger: ChangeTrigger,
+    known_fingerprint: Option<WorkspaceFingerprint>,
+) -> Result<Option<Vec<prism_ir::ObservedChangeSet>>> {
+    let Ok(guard) = refresh_lock.try_lock() else {
+        return Ok(None);
+    };
+    let observed = refresh_prism_snapshot_with_guard(
+        root,
+        prism,
+        store,
+        fs_snapshot,
+        coordination_enabled,
+        curator,
+        trigger,
+        known_fingerprint,
+        guard,
+    )?;
+    Ok(Some(observed))
+}
+
+fn refresh_prism_snapshot_with_guard(
+    root: &Path,
+    prism: &Arc<RwLock<Arc<Prism>>>,
+    store: &Arc<Mutex<SqliteStore>>,
+    fs_snapshot: &Arc<Mutex<WorkspaceFingerprint>>,
+    coordination_enabled: bool,
+    curator: Option<&CuratorHandleRef>,
+    trigger: ChangeTrigger,
+    known_fingerprint: Option<WorkspaceFingerprint>,
+    _guard: MutexGuard<'_, ()>,
+) -> Result<Vec<prism_ir::ObservedChangeSet>> {
     let cached_snapshot = fs_snapshot
         .lock()
         .expect("workspace fingerprint lock poisoned")

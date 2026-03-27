@@ -3948,7 +3948,9 @@ return {
         .as_str()
         .unwrap_or_default()
         .starts_with("session:"));
-    assert_eq!(recent[0]["operations"][0], "fileAround");
+    assert!(recent[0]["operations"]
+        .as_array()
+        .is_some_and(|ops| ops.iter().any(|value| value == "fileAround")));
     let touched = recent[0]["touched"].as_array().expect("touched values");
     assert!(touched.iter().any(|value| value == "src/recall.rs"));
     assert!(
@@ -3966,16 +3968,25 @@ return {
     );
 
     assert_eq!(result.result["trace"]["entry"]["id"], recent[0]["id"]);
-    assert_eq!(
-        result.result["trace"]["entry"]["operations"][0],
-        "fileAround"
-    );
+    assert!(result.result["trace"]["entry"]["operations"]
+        .as_array()
+        .is_some_and(|ops| ops.iter().any(|value| value == "fileAround")));
     let phases = result.result["trace"]["phases"]
         .as_array()
         .expect("trace phases");
-    assert_eq!(phases.len(), 1);
-    assert_eq!(phases[0]["operation"], "fileAround");
-    assert_eq!(phases[0]["success"], true);
+    let operations = phases
+        .iter()
+        .filter_map(|phase| phase["operation"].as_str())
+        .collect::<Vec<_>>();
+    assert!(operations.contains(&"typescript.refreshWorkspace"));
+    assert!(operations.contains(&"typescript.statement_body.prepare"));
+    assert!(operations.contains(&"typescript.statement_body.transpile"));
+    assert!(operations.contains(&"typescript.statement_body.workerRoundTrip"));
+    assert!(operations.contains(&"fileAround"));
+    assert!(phases
+        .iter()
+        .find(|phase| phase["operation"] == "fileAround")
+        .is_some_and(|phase| phase["success"] == true));
 }
 
 #[test]
@@ -5138,7 +5149,7 @@ version.workspace = true
 
     let payload = host
         .search_resource_value(
-            "prism://search/workspace?strategy=direct&kind=toml-key&path=Cargo.toml&pathMode=exact&structuredPath=workspace&topLevelOnly=true&includeInferred=false",
+            "prism://search/workspace?strategy=direct&kind=toml-key&path=Cargo.toml&pathMode=exact&structuredPath=workspace&topLevelOnly=true&preferCallableCode=false&preferEditableTargets=true&preferBehavioralOwners=true&includeInferred=false",
             "workspace",
         )
         .unwrap();
@@ -5150,6 +5161,9 @@ version.workspace = true
     assert_eq!(payload.path_mode.as_deref(), Some("exact"));
     assert_eq!(payload.structured_path.as_deref(), Some("workspace"));
     assert_eq!(payload.top_level_only, Some(true));
+    assert_eq!(payload.prefer_callable_code, Some(false));
+    assert_eq!(payload.prefer_editable_targets, Some(true));
+    assert_eq!(payload.prefer_behavioral_owners, Some(true));
     assert!(!payload.include_inferred);
     assert_eq!(payload.results.len(), 1);
     assert_eq!(
@@ -6273,6 +6287,9 @@ fn convenience_search_query_returns_structured_envelope() {
             strategy: None,
             structured_path: None,
             top_level_only: None,
+            prefer_callable_code: None,
+            prefer_editable_targets: None,
+            prefer_behavioral_owners: None,
             owner_kind: None,
             include_inferred: None,
         })
@@ -6359,6 +6376,9 @@ pub mod beta;
             strategy: None,
             structured_path: None,
             top_level_only: None,
+            prefer_callable_code: None,
+            prefer_editable_targets: None,
+            prefer_behavioral_owners: None,
             owner_kind: None,
             include_inferred: None,
         })
@@ -6412,6 +6432,9 @@ pub mod beta;
             strategy: None,
             structured_path: None,
             top_level_only: None,
+            prefer_callable_code: None,
+            prefer_editable_targets: None,
+            prefer_behavioral_owners: None,
             owner_kind: None,
             include_inferred: None,
         })
@@ -6457,6 +6480,9 @@ pub mod planner;
             strategy: None,
             structured_path: None,
             top_level_only: None,
+            prefer_callable_code: None,
+            prefer_editable_targets: None,
+            prefer_behavioral_owners: None,
             owner_kind: None,
             include_inferred: None,
         })
@@ -6472,6 +6498,48 @@ pub mod planner;
                 .diagnostics
                 .iter()
                 .any(|diagnostic| diagnostic.code == "ambiguous_search")
+    );
+}
+
+#[test]
+fn explicit_search_modes_prefer_callable_code_over_exact_module_collisions() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod session;
+
+pub fn session() {}
+"#,
+    )
+    .unwrap();
+    fs::write(root.join("src/session.rs"), "pub fn load() {}\n").unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let envelope = host
+        .search_query(SearchArgs {
+            query: "session".to_string(),
+            limit: Some(5),
+            kind: None,
+            path: None,
+            module: None,
+            task_id: None,
+            path_mode: None,
+            strategy: None,
+            structured_path: None,
+            top_level_only: None,
+            prefer_callable_code: Some(true),
+            prefer_editable_targets: Some(true),
+            prefer_behavioral_owners: None,
+            owner_kind: None,
+            include_inferred: None,
+        })
+        .expect("search query should succeed");
+
+    assert_eq!(envelope.result[0]["kind"], "Function");
+    assert_eq!(
+        envelope.result[0]["id"]["path"].as_str(),
+        Some("demo::session")
     );
 }
 
@@ -6504,6 +6572,9 @@ mod tests {
             strategy: None,
             structured_path: None,
             top_level_only: None,
+            prefer_callable_code: None,
+            prefer_editable_targets: None,
+            prefer_behavioral_owners: None,
             owner_kind: None,
             include_inferred: None,
         })
@@ -6549,6 +6620,9 @@ pub struct QueryHost {
             strategy: None,
             structured_path: None,
             top_level_only: None,
+            prefer_callable_code: None,
+            prefer_editable_targets: None,
+            prefer_behavioral_owners: None,
             owner_kind: None,
             include_inferred: None,
         })
@@ -6559,6 +6633,43 @@ pub struct QueryHost {
         envelope.result[0]["id"]["path"].as_str(),
         Some("demo::session")
     );
+}
+
+#[test]
+fn explicit_search_modes_can_prefer_behavioral_owners_without_behavioral_strategy() {
+    let root = temp_workspace();
+    write_memory_insight_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let envelope = host
+        .search_query(SearchArgs {
+            query: "memory recall".to_string(),
+            limit: Some(5),
+            kind: None,
+            path: None,
+            module: None,
+            task_id: None,
+            path_mode: None,
+            strategy: Some("direct".to_string()),
+            structured_path: None,
+            top_level_only: None,
+            prefer_callable_code: None,
+            prefer_editable_targets: None,
+            prefer_behavioral_owners: Some(true),
+            owner_kind: Some("read".to_string()),
+            include_inferred: None,
+        })
+        .expect("search query should succeed");
+
+    assert!(envelope.result.as_array().is_some_and(|results| results
+        .iter()
+        .take(3)
+        .any(|symbol| {
+            symbol["ownerHint"]["kind"].as_str() == Some("read")
+                && symbol["id"]["path"]
+                    .as_str()
+                    .is_some_and(|path| path.contains("memory_recall"))
+        })));
 }
 
 #[test]

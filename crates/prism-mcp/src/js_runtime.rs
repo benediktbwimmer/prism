@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context as AnyhowContext, Result};
 use deno_ast::{
@@ -31,13 +32,23 @@ pub(crate) struct JsWorkerPool {
 }
 
 pub(crate) struct JsWorker {
+    index: usize,
     tx: mpsc::Sender<JsWorkerMessage>,
 }
 
 struct JsWorkerRequest {
     script: String,
     execution: QueryExecution,
-    reply: mpsc::Sender<Result<String>>,
+    enqueued_at: Instant,
+    reply: mpsc::Sender<JsWorkerReply>,
+}
+
+pub(crate) struct JsWorkerReply {
+    pub(crate) worker_index: usize,
+    pub(crate) queue_wait: Duration,
+    pub(crate) eval_duration: Duration,
+    pub(crate) cleanup_duration: Duration,
+    pub(crate) result: Result<String>,
 }
 
 enum JsWorkerMessage {
@@ -52,14 +63,18 @@ impl JsWorkerPool {
 
     pub(crate) fn with_worker_count(worker_count: usize) -> Self {
         let worker_count = worker_count.max(1);
-        let workers = (0..worker_count).map(|_| JsWorker::spawn()).collect();
+        let workers = (0..worker_count).map(JsWorker::spawn).collect();
         Self {
             workers,
             next_worker: AtomicUsize::new(0),
         }
     }
 
-    pub(crate) fn execute(&self, script: String, execution: QueryExecution) -> Result<String> {
+    pub(crate) fn execute(
+        &self,
+        script: String,
+        execution: QueryExecution,
+    ) -> Result<JsWorkerReply> {
         let index = self.next_worker.fetch_add(1, Ordering::Relaxed) % self.workers.len();
         self.workers[index].execute(script, execution)
     }
@@ -71,10 +86,10 @@ impl JsWorkerPool {
 }
 
 impl JsWorker {
-    pub(crate) fn spawn() -> Self {
+    pub(crate) fn spawn(index: usize) -> Self {
         let (tx, rx) = mpsc::channel::<JsWorkerMessage>();
         thread::spawn(move || {
-            if let Err(error) = run_js_worker(rx) {
+            if let Err(error) = run_js_worker(index, rx) {
                 error!(
                     error = %error,
                     error_chain = %format_error_chain(&error),
@@ -82,22 +97,27 @@ impl JsWorker {
                 );
             }
         });
-        Self { tx }
+        Self { index, tx }
     }
 
-    pub(crate) fn execute(&self, script: String, execution: QueryExecution) -> Result<String> {
+    pub(crate) fn execute(
+        &self,
+        script: String,
+        execution: QueryExecution,
+    ) -> Result<JsWorkerReply> {
         let (reply_tx, reply_rx) = mpsc::channel();
         self.tx
             .send(JsWorkerMessage::Execute(JsWorkerRequest {
                 script,
                 execution,
+                enqueued_at: Instant::now(),
                 reply: reply_tx,
             }))
             .map_err(|_| anyhow!("js worker is unavailable"))?;
 
-        reply_rx
+        Ok(reply_rx
             .recv()
-            .map_err(|_| anyhow!("js worker dropped the query response"))?
+            .map_err(|_| anyhow!("js worker {} dropped the query response", self.index))?)
     }
 }
 
@@ -111,7 +131,7 @@ fn configured_query_worker_count() -> usize {
         .unwrap_or(1)
 }
 
-fn run_js_worker(rx: mpsc::Receiver<JsWorkerMessage>) -> Result<()> {
+fn run_js_worker(worker_index: usize, rx: mpsc::Receiver<JsWorkerMessage>) -> Result<()> {
     let runtime = Runtime::new().context("failed to create JS runtime")?;
     let context = Context::full(&runtime).context("failed to create JS context")?;
     let active_execution = Arc::new(Mutex::new(None::<QueryExecution>));
@@ -146,6 +166,7 @@ fn run_js_worker(rx: mpsc::Receiver<JsWorkerMessage>) -> Result<()> {
     while let Ok(message) = rx.recv() {
         match message {
             JsWorkerMessage::Execute(request) => {
+                let queue_wait = request.enqueued_at.elapsed();
                 {
                     let mut guard = active_execution
                         .lock()
@@ -153,6 +174,7 @@ fn run_js_worker(rx: mpsc::Receiver<JsWorkerMessage>) -> Result<()> {
                     *guard = Some(request.execution.clone());
                 }
 
+                let eval_started = Instant::now();
                 let result = context.with(|ctx| -> Result<String> {
                     let promise = ctx
                         .eval::<MaybePromise<'_>, _>(request.script.as_str())
@@ -164,12 +186,15 @@ fn run_js_worker(rx: mpsc::Receiver<JsWorkerMessage>) -> Result<()> {
                         format_caught_js_error("javascript query evaluation failed", error)
                     })
                 });
+                let eval_duration = eval_started.elapsed();
 
+                let cleanup_started = Instant::now();
                 let cleanup_result = context.with(|ctx| -> Result<()> {
                     ctx.eval::<(), _>("__prismCleanupGlobals()")
                         .catch(&ctx)
                         .map_err(|error| format_caught_js_error("javascript cleanup failed", error))
                 });
+                let cleanup_duration = cleanup_started.elapsed();
 
                 {
                     let mut guard = active_execution
@@ -184,7 +209,13 @@ fn run_js_worker(rx: mpsc::Receiver<JsWorkerMessage>) -> Result<()> {
                     (Ok(_), Err(error)) => Err(error),
                 };
 
-                let _ = request.reply.send(final_result);
+                let _ = request.reply.send(JsWorkerReply {
+                    worker_index,
+                    queue_wait,
+                    eval_duration,
+                    cleanup_duration,
+                    result: final_result,
+                });
             }
         }
     }

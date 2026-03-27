@@ -26,7 +26,14 @@ use crate::validation_feedback::{
     append_validation_feedback, load_validation_feedback, ValidationFeedbackEntry,
     ValidationFeedbackRecord,
 };
-use crate::watch::{refresh_prism_snapshot, WatchHandle};
+use crate::watch::{refresh_prism_snapshot, try_refresh_prism_snapshot, WatchHandle};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FsRefreshStatus {
+    Clean,
+    Refreshed,
+    DeferredBusy,
+}
 
 pub(crate) struct WorkspaceRefreshState {
     observed_fs_revision: AtomicU64,
@@ -133,6 +140,33 @@ impl WorkspaceSession {
             return Ok(Vec::new());
         }
         self.refresh_with_trigger(ChangeTrigger::FsWatch, Some(current_fingerprint))
+    }
+
+    pub fn refresh_fs_nonblocking(&self) -> Result<FsRefreshStatus> {
+        if !self.refresh_state.needs_refresh()
+            && !self
+                .refresh_state
+                .should_run_fallback_check(current_timestamp_millis())
+        {
+            return Ok(FsRefreshStatus::Clean);
+        }
+        let known_snapshot = self
+            .fs_snapshot
+            .lock()
+            .expect("workspace fingerprint lock poisoned")
+            .clone();
+        let current_fingerprint = workspace_fingerprint(&self.root, Some(&known_snapshot))?;
+        if !self.refresh_state.needs_refresh() && current_fingerprint.value == known_snapshot.value
+        {
+            return Ok(FsRefreshStatus::Clean);
+        }
+        let refreshed =
+            self.try_refresh_with_trigger(ChangeTrigger::FsWatch, Some(current_fingerprint))?;
+        if refreshed {
+            Ok(FsRefreshStatus::Refreshed)
+        } else {
+            Ok(FsRefreshStatus::DeferredBusy)
+        }
     }
 
     pub fn needs_refresh(&self) -> bool {
@@ -479,6 +513,29 @@ impl WorkspaceSession {
         )?;
         self.refresh_state.mark_refreshed();
         Ok(observed)
+    }
+
+    fn try_refresh_with_trigger(
+        &self,
+        trigger: ChangeTrigger,
+        known_fingerprint: Option<WorkspaceFingerprint>,
+    ) -> Result<bool> {
+        let observed = try_refresh_prism_snapshot(
+            &self.root,
+            &self.prism,
+            &self.store,
+            &self.refresh_lock,
+            &self.fs_snapshot,
+            self.coordination_enabled,
+            self.curator.as_ref().map(CuratorHandleRef::from).as_ref(),
+            trigger,
+            known_fingerprint,
+        )?;
+        if observed.is_some() {
+            self.refresh_state.mark_refreshed();
+            return Ok(true);
+        }
+        Ok(false)
     }
 }
 

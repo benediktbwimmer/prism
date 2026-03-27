@@ -487,6 +487,12 @@ function __prismSymbolBundle(query, options = {}) {
           path: options?.path,
           module: options?.module,
           strategy: options?.strategy,
+          preferCallableCode:
+            options?.preferCallableCode ?? options?.prefer_callable_code,
+          preferEditableTargets:
+            options?.preferEditableTargets ?? options?.prefer_editable_targets,
+          preferBehavioralOwners:
+            options?.preferBehavioralOwners ?? options?.prefer_behavioral_owners,
           ownerKind: options?.ownerKind ?? options?.owner_kind,
           includeInferred: options?.includeInferred ?? options?.include_inferred,
         })
@@ -535,6 +541,12 @@ globalThis.prism = Object.freeze({
         strategy: options?.strategy,
         structuredPath: options?.structuredPath ?? options?.structured_path,
         topLevelOnly: options?.topLevelOnly ?? options?.top_level_only,
+        preferCallableCode:
+          options?.preferCallableCode ?? options?.prefer_callable_code,
+        preferEditableTargets:
+          options?.preferEditableTargets ?? options?.prefer_editable_targets,
+        preferBehavioralOwners:
+          options?.preferBehavioralOwners ?? options?.prefer_behavioral_owners,
         ownerKind: options?.ownerKind ?? options?.owner_kind,
         includeInferred: options?.includeInferred ?? options?.include_inferred,
       })
@@ -813,6 +825,12 @@ globalThis.prism = Object.freeze({
               limit: options?.semanticLimit,
               path: topMatch.path,
               kind: options?.semanticKind,
+              preferCallableCode:
+                options?.preferCallableCode ?? options?.prefer_callable_code,
+              preferEditableTargets:
+                options?.preferEditableTargets ?? options?.prefer_editable_targets,
+              preferBehavioralOwners:
+                options?.preferBehavioralOwners ?? options?.prefer_behavioral_owners,
               ownerKind: options?.ownerKind ?? options?.owner_kind,
               strategy: options?.strategy,
               includeInferred: options?.includeInferred ?? options?.include_inferred,

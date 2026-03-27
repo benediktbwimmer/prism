@@ -1,6 +1,6 @@
 use prism_js::{
-    ArtifactView, PolicyViolationRecordView, QueryLogEntryView, QueryTraceView, RuntimeLogEventView,
-    RuntimeStatusView, TaskJournalView,
+    ArtifactView, PolicyViolationRecordView, QueryLogEntryView, QueryTraceView,
+    RuntimeLogEventView, RuntimeStatusView, TaskJournalView,
 };
 use serde::Serialize;
 use serde_json::Value;

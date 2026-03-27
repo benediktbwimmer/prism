@@ -123,7 +123,7 @@ impl PrismMcpServer {
                     },
                 )?;
                 let task_id = task.0.to_string();
-                let session = self.host.session_view().map_err(map_query_error)?;
+                let session = self.host.session_view_without_refresh();
                 structured_tool_result_with_links(
                     PrismSessionMutationResult {
                         action: SessionMutationActionSchema::StartTask,
@@ -197,7 +197,7 @@ impl PrismMcpServer {
                         )
                     },
                 )?;
-                let session = self.host.session_view().map_err(map_query_error)?;
+                let session = self.host.session_view_without_refresh();
                 structured_tool_result_with_links(
                     PrismSessionMutationResult {
                         action: SessionMutationActionSchema::FinishTask,
@@ -238,7 +238,7 @@ impl PrismMcpServer {
                         )
                     },
                 )?;
-                let session = self.host.session_view().map_err(map_query_error)?;
+                let session = self.host.session_view_without_refresh();
                 structured_tool_result_with_links(
                     PrismSessionMutationResult {
                         action: SessionMutationActionSchema::AbandonTask,
@@ -398,10 +398,12 @@ impl PrismMcpServer {
                 let result = self.execute_logged_mutation(
                     "mutate.coordination",
                     || self.host.store_coordination(args),
-                    |result| MutationDashboardMeta::coordination(
-                        result.event_ids.clone(),
-                        result.violations.len(),
-                    ),
+                    |result| {
+                        MutationDashboardMeta::coordination(
+                            result.event_ids.clone(),
+                            result.violations.len(),
+                        )
+                    },
                 )?;
                 structured_tool_result(PrismMutationResult {
                     action: PrismMutationActionSchema::Coordination,
