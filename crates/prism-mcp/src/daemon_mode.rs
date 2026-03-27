@@ -131,36 +131,73 @@ async fn bind_listener(cli: &PrismMcpCli, root: &Path) -> Result<TcpListener> {
 }
 
 async fn run_bridge(cli: &PrismMcpCli, root: &Path) -> Result<()> {
-    let upstream_uri = resolve_upstream_uri(cli, root).await?;
+    let resolution_started = Instant::now();
+    let upstream = resolve_upstream_uri(cli, root).await?;
     info!(
         mode = "bridge",
         root = %root.display(),
-        upstream_uri = %upstream_uri,
+        upstream_uri = %upstream.uri,
         "prism-mcp bridge connected"
     );
-    if let Err(error) = runtime_state::record_bridge_connected(root, &upstream_uri) {
+    if let Err(error) = runtime_state::record_bridge_upstream_resolved(
+        root,
+        &upstream.uri,
+        upstream.source,
+        resolution_started.elapsed().as_millis(),
+        upstream.daemon_wait_ms,
+        upstream.spawned_daemon,
+    ) {
+        warn!(
+            error = %error,
+            root = %root.display(),
+            "failed to update prism runtime state for bridge upstream resolution"
+        );
+    }
+    let connect_started = Instant::now();
+    let proxy = ProxyMcpServer::connect(upstream.uri.clone()).await?;
+    if let Err(error) = runtime_state::record_bridge_connected_with_latency(
+        root,
+        &upstream.uri,
+        Some(connect_started.elapsed().as_millis()),
+    ) {
         warn!(
             error = %error,
             root = %root.display(),
             "failed to update prism runtime state for bridge connection"
         );
     }
-    let proxy = ProxyMcpServer::connect(upstream_uri).await?;
     proxy.serve_stdio().await
 }
 
-async fn resolve_upstream_uri(cli: &PrismMcpCli, root: &Path) -> Result<String> {
+struct UpstreamResolution {
+    uri: String,
+    source: &'static str,
+    daemon_wait_ms: u128,
+    spawned_daemon: bool,
+}
+
+async fn resolve_upstream_uri(cli: &PrismMcpCli, root: &Path) -> Result<UpstreamResolution> {
     if let Some(uri) = &cli.upstream_uri {
-        return Ok(uri.clone());
+        return Ok(UpstreamResolution {
+            uri: uri.clone(),
+            source: "explicit_upstream_uri",
+            daemon_wait_ms: 0,
+            spawned_daemon: false,
+        });
     }
 
     ensure_daemon_running(cli, root).await
 }
 
-async fn ensure_daemon_running(cli: &PrismMcpCli, root: &Path) -> Result<String> {
+async fn ensure_daemon_running(cli: &PrismMcpCli, root: &Path) -> Result<UpstreamResolution> {
     if let Some(uri) = first_healthy_daemon_uri(cli, root).await? {
         debug!(root = %root.display(), uri = %uri, "reusing existing prism-mcp daemon");
-        return Ok(uri);
+        return Ok(UpstreamResolution {
+            uri,
+            source: "existing_healthy_daemon",
+            daemon_wait_ms: 0,
+            spawned_daemon: false,
+        });
     }
 
     if live_daemon_process_count(root)? > 0 {
@@ -168,6 +205,7 @@ async fn ensure_daemon_running(cli: &PrismMcpCli, root: &Path) -> Result<String>
             cli.daemon_start_timeout_ms
                 .unwrap_or(DEFAULT_DAEMON_START_TIMEOUT_MS),
         );
+        let wait_started = Instant::now();
         let deadline = Instant::now() + timeout;
         warn!(
             root = %root.display(),
@@ -176,7 +214,12 @@ async fn ensure_daemon_running(cli: &PrismMcpCli, root: &Path) -> Result<String>
         while Instant::now() < deadline {
             if let Some(uri) = first_healthy_daemon_uri(cli, root).await? {
                 info!(root = %root.display(), uri = %uri, "prism-mcp daemon became healthy");
-                return Ok(uri);
+                return Ok(UpstreamResolution {
+                    uri,
+                    source: "waited_for_existing_daemon",
+                    daemon_wait_ms: wait_started.elapsed().as_millis(),
+                    spawned_daemon: false,
+                });
             }
             sleep(Duration::from_millis(50)).await;
         }
@@ -191,11 +234,17 @@ async fn ensure_daemon_running(cli: &PrismMcpCli, root: &Path) -> Result<String>
         cli.daemon_start_timeout_ms
             .unwrap_or(DEFAULT_DAEMON_START_TIMEOUT_MS),
     );
+    let wait_started = Instant::now();
     let deadline = Instant::now() + timeout;
     while Instant::now() < deadline {
         if let Some(uri) = first_healthy_daemon_uri(cli, root).await? {
             info!(root = %root.display(), uri = %uri, "prism-mcp daemon became healthy");
-            return Ok(uri);
+            return Ok(UpstreamResolution {
+                uri,
+                source: "spawned_daemon",
+                daemon_wait_ms: wait_started.elapsed().as_millis(),
+                spawned_daemon: true,
+            });
         }
         sleep(Duration::from_millis(50)).await;
     }

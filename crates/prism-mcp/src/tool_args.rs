@@ -15,6 +15,8 @@ fn parse_tagged_tool_input<T>(tool_name: &str, value: Value) -> Result<T, String
 where
     T: serde::de::DeserializeOwned,
 {
+    let used_flat_shorthand = is_flat_tagged_tool_input(&value);
+    let value = normalize_tagged_tool_input(value);
     let tool = tool_schema_view(tool_name);
     let action = value
         .get("action")
@@ -52,9 +54,21 @@ where
         {
             if let Some(action_schema) = tool.actions.iter().find(|candidate| candidate.action == action_name)
             {
+                let field_label = if used_flat_shorthand {
+                    field.to_string()
+                } else {
+                    format!("input.{field}")
+                };
+                let shorthand_hint = if used_flat_shorthand {
+                    format!(
+                        " Flat shorthand was detected, so `{field}` can stay at the top level or inside `input.{field}`."
+                    )
+                } else {
+                    String::new()
+                };
                 return format!(
-                    "{tool_name} action `{action_name}` is missing required field `input.{field}`; required fields: {}. Inspect via prism.tool(\"{tool_name}\")?.actions.find((action) => action.action === \"{action_name}\").",
-                    action_schema.required_fields.join(", ")
+                    "{tool_name} action `{action_name}` is missing required field `{field_label}`; required fields: {}. Inspect via prism.tool(\"{tool_name}\")?.actions.find((action) => action.action === \"{action_name}\").{shorthand_hint}",
+                    action_schema.required_fields.join(", "),
                 );
             }
         }
@@ -64,6 +78,37 @@ where
             error
         )
     })
+}
+
+fn is_flat_tagged_tool_input(value: &Value) -> bool {
+    value.as_object().is_some_and(|object| {
+        object.contains_key("action") && !object.contains_key("input") && object.len() > 1
+    })
+}
+
+fn normalize_tagged_tool_input(mut value: Value) -> Value {
+    let Some(object) = value.as_object_mut() else {
+        return value;
+    };
+    if !is_flat_tagged_tool_input(&Value::Object(object.clone())) {
+        return value;
+    }
+
+    let mut input = serde_json::Map::new();
+    let keys = object
+        .keys()
+        .filter(|key| key.as_str() != "action")
+        .cloned()
+        .collect::<Vec<_>>();
+    for key in keys {
+        if let Some(field) = object.remove(&key) {
+            input.insert(key, field);
+        }
+    }
+    if !input.is_empty() {
+        object.insert("input".to_string(), Value::Object(input));
+    }
+    value
 }
 
 fn missing_field_name(parse_error: &str) -> Option<&str> {

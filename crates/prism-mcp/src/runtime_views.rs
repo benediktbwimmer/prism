@@ -667,6 +667,8 @@ fn is_timeline_event(event: &RuntimeLogEventView) -> bool {
             | "built prism workspace session"
             | "built prism-mcp workspace server"
             | "prism-mcp daemon ready"
+            | "prism-mcp bridge resolved upstream"
+            | "prism-mcp bridge connected"
             | "prism-mcp workspace refresh"
     )
 }
@@ -684,6 +686,7 @@ impl RuntimePaths {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn parses_ps_lines_for_runtime_status() {
@@ -758,6 +761,19 @@ mod tests {
             file: None,
             line_number: None,
             fields: None,
+        }));
+        assert!(is_timeline_event(&RuntimeLogEventView {
+            timestamp: Some("2026-03-26T15:12:36Z".to_string()),
+            level: Some("INFO".to_string()),
+            message: "prism-mcp bridge resolved upstream".to_string(),
+            target: Some("prism_mcp::daemon_mode".to_string()),
+            file: None,
+            line_number: None,
+            fields: Some(json!({
+                "resolutionSource": "existing_healthy_daemon",
+                "resolutionMs": 12,
+                "daemonWaitMs": 0,
+            })),
         }));
     }
 

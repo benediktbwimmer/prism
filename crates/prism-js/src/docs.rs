@@ -269,6 +269,11 @@ type PrismApi = {
   runtimeStatus(): RuntimeStatusView;
   runtimeLogs(options?: RuntimeLogOptions): RuntimeLogEventView[];
   runtimeTimeline(options?: RuntimeTimelineOptions): RuntimeLogEventView[];
+  runtime: {
+    status(): RuntimeStatusView;
+    logs(options?: RuntimeLogOptions): RuntimeLogEventView[];
+    timeline(options?: RuntimeTimelineOptions): RuntimeLogEventView[];
+  };
   memory: {
     recall(options?: MemoryRecallOptions): ScoredMemoryView[];
     outcomes(options?: MemoryOutcomeOptions): OutcomeEvent[];
@@ -1327,9 +1332,9 @@ return sym ? prism.diffFor(sym, { limit: 5 }) : [];
 
 ```ts
 return {
-  status: prism.runtimeStatus(),
-  timeline: prism.runtimeTimeline({ limit: 5 }),
-  warnings: prism.runtimeLogs({ level: "WARN", limit: 5 }),
+  status: prism.runtime.status(),
+  timeline: prism.runtime.timeline({ limit: 5 }),
+  warnings: prism.runtime.logs({ level: "WARN", limit: 5 }),
 };
 ```
 
@@ -1681,7 +1686,8 @@ return prism.claimPreview({
 - Available now: bounded workspace file reads through `prism.file(path).read(...)` and `prism.file(path).around(...)` for exact line-range and around-line inspection without leaving the PRISM query surface.
 - Available now: bounded workspace text search through `prism.searchText(...)` with regex support, path/glob filters, exact match locations, and capped snippets, plus `prism.textSearchBundle(...)` to collapse text matches, one raw file window, and nearby semantic context into one helper.
 - Available now: semantic recent-change inspection through `prism.changedFiles(...)`, `prism.changedSymbols(path, ...)`, `prism.recentPatches(...)`, `prism.diffFor(target, ...)`, and `prism.taskChanges(taskId, ...)` backed by recorded patch outcomes instead of raw diff dumps.
-- Available now: workspace-backed runtime introspection through `prism.runtimeStatus()`, `prism.runtimeLogs(...)`, and `prism.runtimeTimeline(...)` for daemon health, recent structured log events, and startup/refresh diagnosis without defaulting to shell status checks.
+- Available now: workspace-backed runtime introspection through `prism.runtimeStatus()`, `prism.runtimeLogs(...)`, and `prism.runtimeTimeline(...)` for daemon health, recent structured log events, startup/refresh diagnosis, and bridge upstream-resolution / connect latency without defaulting to shell status checks.
+- Available now: a namespaced runtime alias through `prism.runtime.status()`, `prism.runtime.logs(...)`, and `prism.runtime.timeline(...)` so query authors do not have to remember only the flat runtime helpers.
 - Available now: non-symbol repo coverage for markdown headings plus structured JSON, YAML, and TOML config keys through the normal PRISM search and relation surface.
 - Available now: ambiguity-aware search narrowing through `path`, `module`, `taskId`, behavioral owner hints, and exact focused-block follow-ups surfaced directly from diagnostics and search resources.
 - Available now: a first-class query log through `prism.queryLog(...)`, `prism.slowQueries(...)`, and `prism.queryTrace(id)` with duration, diagnostics, truncation metadata, and phase breakdowns.
@@ -1699,6 +1705,7 @@ The query runtime is read-only. State changes happen through two coarse MCP muta
 - `prism_session`
   - action `start_task`
   - action `configure`
+  - shorthand `{ action, ...fields }` is accepted in addition to the canonical `{ action, input: { ... } }`
 - `prism_mutate`
   - action `outcome`
   - action `memory`
@@ -1712,6 +1719,7 @@ The query runtime is read-only. State changes happen through two coarse MCP muta
   - action `curator_promote_edge`
   - action `curator_promote_memory`
   - action `curator_reject_proposal`
+  - shorthand `{ action, ...fields }` is accepted in addition to the canonical `{ action, input: { ... } }`
 
 Read current session state through `prism://session`.
 

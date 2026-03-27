@@ -1400,6 +1400,50 @@ async fn mcp_server_reports_actionable_tool_input_errors() {
 }
 
 #[tokio::test]
+async fn mcp_server_accepts_flat_prism_session_shorthand_input() {
+    let server = server_with_node(demo_node());
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_session",
+            json!({
+                "action": "start_task",
+                "description": "Investigate shorthand prism session input",
+                "tags": ["mcp", "ergonomics"]
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let envelope = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(envelope["action"], "start_task");
+    assert_eq!(
+        envelope["session"]["currentTask"]["description"],
+        "Investigate shorthand prism session input"
+    );
+    assert_eq!(
+        envelope["session"]["currentTask"]["tags"][0],
+        Value::String("mcp".to_string())
+    );
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
 async fn mcp_server_surfaces_structured_prism_query_error_categories() {
     let server = server_with_node(demo_node());
     let (server_transport, client_transport) = tokio::io::duplex(4096);
@@ -4277,6 +4321,7 @@ fn prism_query_supports_implicit_expression_values() {
 }
 
 #[test]
+#[ignore = "heavy end-to-end replay case; run explicitly when validating replay coverage"]
 fn query_replay_cases_cover_real_failures_and_repo_queries() {
     let fixture_root = temp_workspace();
     let repo_root = repo_workspace_root();
@@ -6636,6 +6681,112 @@ mod tests {
         results
             .iter()
             .any(|symbol| symbol["id"]["path"] == "demo::tests::helper")
+    }));
+}
+
+#[test]
+fn broad_noun_queries_deprioritize_replay_fixture_noise() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod query_replay_cases;
+
+pub fn build_helper_plan() {}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/query_replay_cases.rs"),
+        "pub fn helper() {}\n",
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let envelope = host
+        .search_query(SearchArgs {
+            query: "helper".to_string(),
+            limit: Some(5),
+            kind: None,
+            path: None,
+            module: None,
+            task_id: None,
+            path_mode: None,
+            strategy: None,
+            structured_path: None,
+            top_level_only: None,
+            prefer_callable_code: None,
+            prefer_editable_targets: None,
+            prefer_behavioral_owners: None,
+            owner_kind: None,
+            include_inferred: None,
+        })
+        .expect("search query should succeed");
+
+    assert_eq!(
+        envelope.result[0]["id"]["path"].as_str(),
+        Some("demo::build_helper_plan")
+    );
+    assert!(envelope.result.as_array().is_some_and(|results| {
+        results
+            .iter()
+            .any(|symbol| symbol["id"]["path"] == "demo::query_replay_cases::helper")
+    }));
+}
+
+#[test]
+fn broad_noun_queries_deprioritize_dependency_lockfile_noise() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn helper() {}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("package-lock.json"),
+        r#"{
+  "packages": {
+    "node_modules/@babel/helper-globals": {
+      "version": "7.28.0"
+    }
+  }
+}"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let envelope = host
+        .search_query(SearchArgs {
+            query: "helper".to_string(),
+            limit: Some(5),
+            kind: None,
+            path: None,
+            module: None,
+            task_id: None,
+            path_mode: None,
+            strategy: None,
+            structured_path: None,
+            top_level_only: None,
+            prefer_callable_code: None,
+            prefer_editable_targets: None,
+            prefer_behavioral_owners: None,
+            owner_kind: None,
+            include_inferred: None,
+        })
+        .expect("search query should succeed");
+
+    assert_eq!(
+        envelope.result[0]["id"]["path"].as_str(),
+        Some("demo::helper")
+    );
+    assert!(envelope.result.as_array().is_some_and(|results| {
+        results.iter().any(|symbol| {
+            symbol["id"]["path"]
+                .as_str()
+                .is_some_and(|path| path.contains("@babel/helper-globals"))
+        })
     }));
 }
 

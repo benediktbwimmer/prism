@@ -145,7 +145,43 @@ pub(crate) fn record_daemon_ready(
     })
 }
 
-pub(crate) fn record_bridge_connected(root: &Path, upstream_uri: &str) -> Result<()> {
+pub(crate) fn record_bridge_upstream_resolved(
+    root: &Path,
+    upstream_uri: &str,
+    resolution_source: &str,
+    resolution_ms: u128,
+    daemon_wait_ms: u128,
+    spawned_daemon: bool,
+) -> Result<()> {
+    update_runtime_state(root, |state| {
+        for process in &mut state.processes {
+            if process.pid == std::process::id() && process.kind == "bridge" {
+                process.upstream_uri = Some(upstream_uri.to_string());
+            }
+        }
+        push_event(
+            state,
+            "INFO",
+            "prism-mcp bridge resolved upstream",
+            "prism_mcp::daemon_mode",
+            Some("crates/prism-mcp/src/daemon_mode.rs"),
+            None,
+            json!({
+                "upstreamUri": upstream_uri,
+                "resolutionSource": resolution_source,
+                "resolutionMs": resolution_ms,
+                "daemonWaitMs": daemon_wait_ms,
+                "spawnedDaemon": spawned_daemon,
+            }),
+        );
+    })
+}
+
+pub(crate) fn record_bridge_connected_with_latency(
+    root: &Path,
+    upstream_uri: &str,
+    connect_ms: Option<u128>,
+) -> Result<()> {
     update_runtime_state(root, |state| {
         for process in &mut state.processes {
             if process.pid == std::process::id() && process.kind == "bridge" {
@@ -161,6 +197,7 @@ pub(crate) fn record_bridge_connected(root: &Path, upstream_uri: &str) -> Result
             None,
             json!({
                 "upstreamUri": upstream_uri,
+                "connectMs": connect_ms,
             }),
         );
     })

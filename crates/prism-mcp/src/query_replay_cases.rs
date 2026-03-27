@@ -79,6 +79,26 @@ return {
             expectation: ReplayExpectation::Success(assert_output_cap_result),
         },
         ReplayCase {
+            name: "fixture_runtime_namespace_alias",
+            profile: ReplayHostProfile::FixtureDefault,
+            code: r#"
+return {
+  status: prism.runtime.status(),
+  warnings: prism.runtime.logs({ level: "WARN", limit: 1 }),
+  timeline: prism.runtime.timeline({ limit: 1 }),
+};
+"#,
+            expectation: ReplayExpectation::Success(assert_runtime_namespace_alias),
+        },
+        ReplayCase {
+            name: "fixture_runtime_namespace_unknown_method",
+            profile: ReplayHostProfile::FixtureDefault,
+            code: r#"
+return prism.runtime.inspect();
+"#,
+            expectation: ReplayExpectation::Error(assert_runtime_namespace_hint),
+        },
+        ReplayCase {
             name: "repo_helper_bundle",
             profile: ReplayHostProfile::RepoDefault,
             code: r#"
@@ -185,8 +205,28 @@ fn assert_output_cap_result(envelope: &QueryEnvelope) {
         .any(|diagnostic| diagnostic.code == "result_truncated"));
 }
 
+fn assert_runtime_namespace_alias(envelope: &QueryEnvelope) {
+    assert!(envelope.result["status"].is_object());
+    assert!(envelope.result["warnings"].is_array());
+    assert!(envelope.result["timeline"].is_array());
+}
+
+fn assert_runtime_namespace_hint(message: &str) {
+    assert!(message.contains("prism_query runtime failed"), "{message}");
+    assert!(message.contains("prism.runtime.status()"), "{message}");
+    assert!(message.contains("prism.runtimeTimeline(...)"), "{message}");
+}
+
 fn assert_repo_helper_bundle(envelope: &QueryEnvelope) {
     assert_repo_bundle_matches_token(envelope, "helper");
+    let top_result_path = envelope.result["topResultPath"]
+        .as_str()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    assert!(
+        !top_result_path.contains("query_replay_cases"),
+        "expected helper ranking to avoid replay scaffolding: {top_result_path}"
+    );
 }
 
 fn assert_repo_search_bundle(envelope: &QueryEnvelope) {

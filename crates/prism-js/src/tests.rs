@@ -189,6 +189,13 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("runtimeStatus()"));
     assert!(prelude.contains("runtimeLogs(options = {})"));
     assert!(prelude.contains("runtimeTimeline(options = {})"));
+    assert!(prelude.contains("runtime: Object.freeze({"));
+    assert!(prelude.contains("status() {"));
+    assert!(prelude.contains("return prism.runtimeStatus();"));
+    assert!(prelude.contains("logs(options = {}) {"));
+    assert!(prelude.contains("return prism.runtimeLogs(options);"));
+    assert!(prelude.contains("timeline(options = {}) {"));
+    assert!(prelude.contains("return prism.runtimeTimeline(options);"));
     assert!(prelude.contains("editSlice(options = {})"));
     assert!(prelude.contains("nextReads(target, options = {})"));
     assert!(prelude.contains("whereUsed(target, options = {})"));

@@ -142,7 +142,13 @@ fn status(root: &Path) -> Result<()> {
 
 fn start(root: &Path, no_coordination: bool, internal_developer: bool) -> Result<()> {
     let paths = McpPaths::for_root(root);
-    let processes = list_processes(root)?;
+    let mut processes = list_processes(root)?;
+    let orphaned = orphaned_bridges(&processes);
+    if !orphaned.is_empty() {
+        reap_processes(root, &orphaned)?;
+        println!("reaped {} orphaned bridge process(es)", orphaned.len());
+        processes = list_processes(root)?;
+    }
     let daemons = select_kind(&processes, McpProcessKind::Daemon);
     if !daemons.is_empty() {
         let uri = read_uri_file(&paths.uri_file)?;
@@ -309,6 +315,14 @@ fn classify_bridges(bridges: &[McpProcess], connected_bridge_pids: &BTreeSet<u32
     counts
 }
 
+fn orphaned_bridges(processes: &[McpProcess]) -> Vec<McpProcess> {
+    processes
+        .iter()
+        .filter(|process| process.kind == McpProcessKind::Bridge && process.ppid == 1)
+        .cloned()
+        .collect()
+}
+
 fn select_kind(processes: &[McpProcess], kind: McpProcessKind) -> Vec<McpProcess> {
     processes
         .iter()
@@ -466,6 +480,23 @@ fn signal_processes(processes: &[McpProcess], signal: &str) -> Result<()> {
             "kill failed: {}",
             String::from_utf8_lossy(&output.stderr).trim()
         );
+    }
+    Ok(())
+}
+
+fn reap_processes(root: &Path, processes: &[McpProcess]) -> Result<()> {
+    if processes.is_empty() {
+        return Ok(());
+    }
+    signal_processes(processes, "-TERM")?;
+    wait_for_exit(root, processes, STOP_TIMEOUT)?;
+    let remaining = list_processes(root)?
+        .into_iter()
+        .filter(|process| processes.iter().any(|target| target.pid == process.pid))
+        .collect::<Vec<_>>();
+    if !remaining.is_empty() {
+        signal_processes(&remaining, "-KILL")?;
+        wait_for_exit(root, &remaining, Duration::from_secs(2))?;
     }
     Ok(())
 }
@@ -719,6 +750,44 @@ mod tests {
         assert_eq!(counts.connected, 1);
         assert_eq!(counts.idle, 1);
         assert_eq!(counts.orphaned, 1);
+    }
+
+    #[test]
+    fn orphaned_bridges_only_selects_bridge_processes_with_init_parent() {
+        let processes = vec![
+            McpProcess {
+                pid: 10,
+                ppid: 1,
+                rss_kb: 1,
+                elapsed: "00:01".to_string(),
+                command: "prism-mcp --mode bridge".to_string(),
+                kind: McpProcessKind::Bridge,
+                health_path: None,
+            },
+            McpProcess {
+                pid: 11,
+                ppid: 1000,
+                rss_kb: 1,
+                elapsed: "00:02".to_string(),
+                command: "prism-mcp --mode bridge".to_string(),
+                kind: McpProcessKind::Bridge,
+                health_path: None,
+            },
+            McpProcess {
+                pid: 12,
+                ppid: 1,
+                rss_kb: 1,
+                elapsed: "00:03".to_string(),
+                command: "prism-mcp --mode daemon".to_string(),
+                kind: McpProcessKind::Daemon,
+                health_path: Some("/healthz".to_string()),
+            },
+        ];
+
+        let orphaned = orphaned_bridges(&processes);
+
+        assert_eq!(orphaned.len(), 1);
+        assert_eq!(orphaned[0].pid, 10);
     }
 
     #[test]

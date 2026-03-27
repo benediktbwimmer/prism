@@ -426,6 +426,31 @@ fn rank_candidate(
         score -= 45;
         reasons.push("Test-only symbol de-prioritized for a non-test query.".to_string());
     }
+    if broad_identifier_query
+        && !query_lower.contains("test")
+        && !query_lower.contains("replay")
+        && !query_lower.contains("fixture")
+    {
+        if is_dependency_metadata_symbol(&symbol) {
+            score -= 420;
+            reasons.push(
+                "Dependency lockfile and vendored package metadata strongly de-prioritized for a broad implementation search."
+                    .to_string(),
+            );
+        } else if is_query_replay_case_symbol(&symbol) {
+            score -= 520;
+            reasons.push(
+                "Query replay harness helpers strongly de-prioritized for a broad implementation search."
+                    .to_string(),
+            );
+        } else if is_replay_or_fixture_symbol(&symbol) {
+            score -= 80;
+            reasons.push(
+                "Replay/fixture scaffolding strongly de-prioritized for a broad implementation search."
+                    .to_string(),
+            );
+        }
+    }
 
     let depth = path.matches("::").count() as i32;
     score += (8 - depth).max(0);
@@ -839,6 +864,50 @@ fn is_test_symbol(symbol: &SymbolView) -> bool {
         || symbol.file_path.as_deref().is_some_and(|path| {
             path.contains("/tests/") || path.ends_with("_test.rs") || path.ends_with("_tests.rs")
         })
+}
+
+fn is_replay_or_fixture_symbol(symbol: &SymbolView) -> bool {
+    let symbol_path = symbol.id.path.to_ascii_lowercase();
+    let file_path = symbol
+        .file_path
+        .as_deref()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    symbol_path.contains("query_replay_cases")
+        || symbol_path.contains("fixture")
+        || file_path.contains("query_replay_cases")
+        || file_path.contains("/fixtures/")
+        || file_path.contains("/testdata/")
+        || file_path.ends_with("_fixture.rs")
+        || file_path.ends_with("_fixtures.rs")
+}
+
+fn is_query_replay_case_symbol(symbol: &SymbolView) -> bool {
+    let symbol_path = symbol.id.path.to_ascii_lowercase();
+    let file_path = symbol
+        .file_path
+        .as_deref()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    symbol_path.contains("query_replay_cases")
+        || file_path.contains("query_replay_cases.rs")
+        || (file_path.contains("query_replay_cases") && symbol_path.contains("assert_"))
+}
+
+fn is_dependency_metadata_symbol(symbol: &SymbolView) -> bool {
+    let symbol_path = symbol.id.path.to_ascii_lowercase();
+    let file_path = symbol
+        .file_path
+        .as_deref()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    file_path.ends_with("package-lock.json")
+        || file_path.ends_with("cargo.lock")
+        || file_path.ends_with("pnpm-lock.yaml")
+        || file_path.ends_with("yarn.lock")
+        || symbol_path.contains("node_modules/")
+        || symbol_path.contains("package_lock")
+        || symbol_path.contains("pnpm_lock")
 }
 
 fn identifier_tokens(value: &str) -> Vec<&str> {

@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use prism_ir::{Language, Node, NodeId, NodeKind, Span};
+use prism_ir::{Language, Node, NodeId, NodeKind, Span, SymbolFingerprint};
 use prism_parser::{
     fingerprint_from_parts, normalized_shape_hash, LanguageAdapter, ParseInput, ParseResult,
     UnresolvedCall, UnresolvedImpl, UnresolvedImport,
@@ -19,6 +19,24 @@ use crate::syntax::{
 };
 
 pub struct RustAdapter;
+
+fn fingerprint_from_signature_and_shape<I, S>(
+    signature_parts: I,
+    shape_hash: &str,
+) -> SymbolFingerprint
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let signature = fingerprint_from_parts(signature_parts);
+    let shape_hash = u64::from_str_radix(shape_hash, 16).unwrap_or(signature.signature_hash);
+    SymbolFingerprint::with_parts(
+        signature.signature_hash,
+        Some(shape_hash),
+        Some(shape_hash),
+        None,
+    )
+}
 
 impl LanguageAdapter for RustAdapter {
     fn language(&self) -> Language {
@@ -480,7 +498,8 @@ fn parse_function(
     push_fingerprinted_node(
         result,
         function_node,
-        fingerprint_from_parts([
+        fingerprint_from_signature_and_shape(
+            [
             "rust",
             kind_label(kind),
             param_count.to_string().as_str(),
@@ -489,8 +508,9 @@ fn parse_function(
             } else {
                 "unit"
             },
+            ],
             body_shape.as_str(),
-        ]),
+        ),
     );
     push_contains_edge(result, scope.parent_id.clone(), id.clone());
 

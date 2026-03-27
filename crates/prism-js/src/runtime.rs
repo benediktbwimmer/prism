@@ -1058,6 +1058,17 @@ globalThis.prism = Object.freeze({
       contains: options?.contains,
     });
   },
+  runtime: Object.freeze({
+    status() {
+      return prism.runtimeStatus();
+    },
+    logs(options = {}) {
+      return prism.runtimeLogs(options);
+    },
+    timeline(options = {}) {
+      return prism.runtimeTimeline(options);
+    },
+  }),
   memory: Object.freeze({
     recall(options = {}) {
       return __prismHost("memoryRecall", {

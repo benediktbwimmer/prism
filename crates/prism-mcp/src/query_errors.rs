@@ -249,6 +249,7 @@ fn build_runtime_error(
         .unwrap_or_default();
     let first_line = first_detail_line(detail);
     let attempted_label = attempted_mode_label(attempted_mode);
+    let next_action = merge_runtime_repair_hint(detail, code, next_action);
     let mut message = format!(
         "{summary} while interpreting the snippet as {attempted_label}{line_hint}: {first_line}"
     );
@@ -281,6 +282,35 @@ fn build_runtime_error(
         message,
         data,
     }
+}
+
+fn merge_runtime_repair_hint(
+    detail: &str,
+    code: &str,
+    next_action: Option<String>,
+) -> Option<String> {
+    match runtime_repair_hint(detail, code) {
+        Some(hint) => match next_action {
+            Some(existing) if existing == hint => Some(existing),
+            Some(existing) => Some(format!("{hint} {existing}")),
+            None => Some(hint),
+        },
+        None => next_action,
+    }
+}
+
+fn runtime_repair_hint(detail: &str, code: &str) -> Option<String> {
+    let detail_lower = detail.to_ascii_lowercase();
+    if code.contains("prism.runtime.")
+        && (detail_lower.contains("not a function")
+            || detail_lower.contains("cannot read properties of undefined")
+            || detail_lower.contains("undefined"))
+    {
+        return Some(
+            "Use `prism.runtime.status()`, `prism.runtime.logs(...)`, or `prism.runtime.timeline(...)`. The flat aliases `prism.runtimeStatus()`, `prism.runtimeLogs(...)`, and `prism.runtimeTimeline(...)` still work too.".to_string(),
+        );
+    }
+    None
 }
 
 fn attach_location(target: &mut Value, location: &SnippetLocation) {
@@ -566,5 +596,23 @@ mod tests {
             "const sym = prism.symbol(\"main\");",
             &Value::Bool(true)
         ));
+    }
+
+    #[test]
+    fn runtime_namespace_hint_suggests_valid_runtime_helpers() {
+        let runtime = runtime_or_serialization_error(
+            anyhow!(format!(
+                "javascript query evaluation failed: {QUERY_RUNTIME_ERROR_MARKER}\n{USER_SNIPPET_LOCATION_MARKER} 1:21\nTypeError: prism.runtime.inspect is not a function\n    at __prismUserQuery (eval_script:4:21)"
+            )),
+            "return prism.runtime.inspect();",
+            4,
+            STATEMENT_BODY_MODE,
+        );
+        let runtime = runtime.downcast::<super::QueryExecutionError>().unwrap();
+        let next_action = runtime.data()["nextAction"]
+            .as_str()
+            .expect("nextAction should be present");
+        assert!(next_action.contains("prism.runtime.status()"));
+        assert!(next_action.contains("prism.runtimeLogs(...)"));
     }
 }

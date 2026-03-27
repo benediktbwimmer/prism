@@ -493,7 +493,7 @@ fn watcher_refreshes_session_after_external_edit() {
     .unwrap();
     fs::write(
         root.join("src/lib.rs"),
-        "pub fn alpha() { beta(); }\npub fn beta() {}\n",
+        "fn alpha() { helper(); }\nfn helper() {}\n",
     )
     .unwrap();
 
@@ -534,6 +534,150 @@ fn watcher_refreshes_session_after_external_edit() {
         .filter(|event| event.kind == OutcomeKind::PatchApplied)
         .count();
     assert_eq!(patch_events, 1);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn reload_preserves_lineage_patch_outcomes_memory_and_projections_after_rename() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "fn alpha() { helper(); }\nfn helper() {}\n",
+    )
+    .unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::alpha")
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    let mut note = MemoryEntry::new(MemoryKind::Episodic, "alpha previously regressed");
+    note.anchors = vec![AnchorRef::Node(alpha.clone())];
+    session
+        .persist_episodic(&EpisodicMemorySnapshot {
+            entries: vec![note],
+        })
+        .unwrap();
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "fn renamed_alpha() { helper(); }\nfn helper() {}\n",
+    )
+    .unwrap();
+
+    let observed = session.refresh_fs().unwrap();
+    assert!(observed.iter().any(|change| {
+        let saw_updated_rename = change.updated.iter().any(|(before, after)| {
+            before.node.id.path == "demo::alpha" && after.node.id.path == "demo::renamed_alpha"
+        });
+        let saw_split_add_remove = change
+            .removed
+            .iter()
+            .any(|node| node.node.id.path == "demo::alpha")
+            && change
+                .added
+                .iter()
+                .any(|node| node.node.id.path == "demo::renamed_alpha");
+        saw_updated_rename || saw_split_add_remove
+    }));
+
+    let renamed_alpha = session
+        .prism()
+        .symbol("renamed_alpha")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::renamed_alpha")
+        .expect("renamed alpha should be indexed after refresh")
+        .id()
+        .clone();
+    session
+        .append_outcome(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:renamed-alpha:test"),
+                ts: 20,
+                actor: EventActor::User,
+                correlation: Some(TaskId::new("task:renamed-alpha")),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(renamed_alpha.clone())],
+            kind: OutcomeKind::FailureObserved,
+            result: OutcomeResult::Failure,
+            summary: "renamed alpha needs integration coverage".into(),
+            evidence: vec![OutcomeEvidence::Test {
+                name: "renamed_alpha_integration".into(),
+                passed: false,
+            }],
+            metadata: serde_json::Value::Null,
+        })
+        .unwrap();
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let reloaded_prism = reloaded.prism();
+    let renamed_alpha = reloaded_prism
+        .symbol("renamed_alpha")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::renamed_alpha")
+        .expect("renamed alpha should survive reload")
+        .id()
+        .clone();
+
+    assert!(reloaded_prism
+        .symbol("alpha")
+        .into_iter()
+        .all(|symbol| symbol.id().path != "demo::alpha"));
+
+    let lineage = reloaded_prism
+        .lineage_of(&renamed_alpha)
+        .expect("renamed alpha should keep a lineage");
+    let history = reloaded_prism.lineage_history(&lineage);
+    assert!(history.iter().any(|event| {
+        event.kind == LineageEventKind::Renamed
+            && event.before.iter().any(|node| node.path == "demo::alpha")
+            && event
+                .after
+                .iter()
+                .any(|node| node.path == "demo::renamed_alpha")
+    }));
+
+    let patch_events = reloaded_prism
+        .outcome_memory()
+        .outcomes_for(&[AnchorRef::Node(renamed_alpha.clone())], 10)
+        .into_iter()
+        .filter(|event| event.kind == OutcomeKind::PatchApplied)
+        .collect::<Vec<_>>();
+    assert_eq!(patch_events.len(), 1);
+
+    let snapshot = reloaded
+        .load_episodic_snapshot()
+        .unwrap()
+        .expect("reanchored note should persist");
+    let entry = snapshot
+        .entries
+        .iter()
+        .find(|entry| entry.content == "alpha previously regressed")
+        .expect("reanchored note should be present");
+    assert!(entry
+        .anchors
+        .contains(&AnchorRef::Node(renamed_alpha.clone())));
+    assert!(entry.anchors.contains(&AnchorRef::Lineage(lineage.clone())));
+    assert!(!entry.anchors.contains(&AnchorRef::Node(alpha.clone())));
+
+    let recipe = reloaded_prism.validation_recipe(&renamed_alpha);
+    assert!(recipe
+        .scored_checks
+        .iter()
+        .any(|check| check.label == "test:renamed_alpha_integration" && check.score > 0.0));
 
     let _ = fs::remove_dir_all(root);
 }
