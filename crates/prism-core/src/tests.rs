@@ -277,6 +277,82 @@ fn validation_feedback_persists_across_workspace_reloads() {
 }
 
 #[test]
+fn validation_feedback_writes_do_not_wait_for_refresh_lock() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let _guard = session
+        .refresh_lock
+        .lock()
+        .expect("workspace refresh lock poisoned");
+
+    let entry = session
+        .append_validation_feedback(ValidationFeedbackRecord {
+            task_id: Some("task:feedback".to_string()),
+            context: "feedback should not block on refresh".to_string(),
+            anchors: Vec::new(),
+            prism_said: "mutation blocked behind refresh".to_string(),
+            actually_true: "validation feedback can append independently".to_string(),
+            category: ValidationFeedbackCategory::Memory,
+            verdict: ValidationFeedbackVerdict::Helpful,
+            corrected_manually: false,
+            correction: None,
+            metadata: serde_json::Value::Null,
+        })
+        .unwrap();
+
+    assert!(entry.id.starts_with("feedback:"));
+    assert_eq!(session.validation_feedback(Some(5)).unwrap().len(), 1);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn try_append_outcome_defers_when_refresh_is_in_progress() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let _guard = session
+        .refresh_lock
+        .lock()
+        .expect("workspace refresh lock poisoned");
+
+    let event = OutcomeEvent {
+        meta: EventMeta {
+            id: EventId::new("outcome:test:busy".to_string()),
+            ts: 1,
+            actor: EventActor::Agent,
+            correlation: Some(TaskId::new("task:busy".to_string())),
+            causation: None,
+        },
+        anchors: Vec::new(),
+        kind: OutcomeKind::PlanCreated,
+        result: OutcomeResult::Success,
+        summary: "busy refresh".to_string(),
+        evidence: Vec::new(),
+        metadata: serde_json::Value::Null,
+    };
+
+    assert!(session.try_append_outcome(event).unwrap().is_none());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn uses_member_package_identity_and_attaches_workspace_docs() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("crates/alpha/src")).unwrap();

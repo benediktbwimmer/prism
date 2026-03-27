@@ -74,9 +74,13 @@ def _compose_prompt(
         f"{body}\n\n"
         "Requirements:\n"
         "- Make the needed code changes directly in the working directory.\n"
+        "- Keep the patch as narrow as possible for the named benchmark issue.\n"
+        "- After finding a plausible fix, run at least one targeted local test or validation command if a relevant one is discoverable within the time budget.\n"
+        "- Prefer targeted validation over additional exploratory reading once the likely fix area is identified.\n"
+        "- Do not add broad new fixtures, snapshots, or unrelated test coverage.\n"
         "- Do not commit.\n"
         "- Leave the working tree with the intended patch applied.\n"
-        "- End with a short summary of what you changed.\n"
+        "- End with a short summary of what you changed and what local validation you ran, or why you could not run it.\n"
     )
 
 

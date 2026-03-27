@@ -58,6 +58,10 @@ pub struct Graph {
     file_records: HashMap<PathBuf, FileRecord>,
     file_paths: HashMap<FileId, PathBuf>,
     path_to_file: HashMap<PathBuf, FileId>,
+    #[serde(skip)]
+    node_name_index: HashMap<String, Vec<NodeId>>,
+    #[serde(skip)]
+    node_path_index: HashMap<String, Vec<NodeId>>,
     next_file_id: u32,
 }
 
@@ -84,6 +88,8 @@ impl Graph {
             file_records: snapshot.file_records,
             file_paths: HashMap::new(),
             path_to_file: HashMap::new(),
+            node_name_index: HashMap::new(),
+            node_path_index: HashMap::new(),
             next_file_id: snapshot.next_file_id,
         };
 
@@ -281,8 +287,22 @@ impl Graph {
     }
 
     pub fn add_edge(&mut self, edge: Edge) {
-        self.edges.push(edge);
-        self.rebuild_adjacency();
+        self.extend_edges(std::iter::once(edge));
+    }
+
+    pub fn extend_edges<I>(&mut self, edges: I) -> usize
+    where
+        I: IntoIterator<Item = Edge>,
+    {
+        let mut appended = 0usize;
+        for edge in edges {
+            self.edges.push(edge);
+            appended += 1;
+        }
+        if appended > 0 {
+            self.rebuild_adjacency();
+        }
+        appended
     }
 
     pub fn node(&self, id: &NodeId) -> Option<&Node> {
@@ -290,9 +310,20 @@ impl Graph {
     }
 
     pub fn nodes_by_name(&self, name: &str) -> Vec<&Node> {
-        self.nodes
-            .values()
-            .filter(|node| node.name == name)
+        self.node_name_index
+            .get(name)
+            .into_iter()
+            .flat_map(|ids| ids.iter())
+            .filter_map(|id| self.nodes.get(id))
+            .collect()
+    }
+
+    pub fn nodes_by_exact_path(&self, path: &str) -> Vec<&Node> {
+        self.node_path_index
+            .get(path)
+            .into_iter()
+            .flat_map(|ids| ids.iter())
+            .filter_map(|id| self.nodes.get(id))
             .collect()
     }
 
@@ -334,6 +365,10 @@ impl Graph {
 
     pub fn tracked_files(&self) -> Vec<PathBuf> {
         self.file_records.keys().cloned().collect()
+    }
+
+    pub fn file_records(&self) -> impl Iterator<Item = (&PathBuf, &FileRecord)> {
+        self.file_records.iter()
     }
 
     pub fn next_file_id(&self) -> u32 {
@@ -469,15 +504,44 @@ impl Graph {
         }
     }
 
-    pub fn clear_edges_by_kind(&mut self, kinds: &[EdgeKind]) {
+    pub fn clear_edges_by_kind(&mut self, kinds: &[EdgeKind]) -> usize {
+        let before = self.edges.len();
         self.edges.retain(|edge| !kinds.contains(&edge.kind));
-        self.rebuild_adjacency();
+        let removed = before.saturating_sub(self.edges.len());
+        if removed > 0 {
+            self.rebuild_adjacency();
+        }
+        removed
+    }
+
+    pub fn clear_derived_edges_for_nodes(&mut self, node_ids: &HashSet<NodeId>) -> usize {
+        if node_ids.is_empty() {
+            return 0;
+        }
+        let before = self.edges.len();
+        self.edges.retain(|edge| {
+            !is_derived_kind(edge.kind)
+                || (!node_ids.contains(&edge.source) && !node_ids.contains(&edge.target))
+        });
+        let removed = before.saturating_sub(self.edges.len());
+        if removed > 0 {
+            self.rebuild_adjacency();
+        }
+        removed
     }
 
     pub fn unresolved_calls(&self) -> Vec<UnresolvedCall> {
         self.file_records
             .values()
             .flat_map(|record| record.unresolved_calls.clone())
+            .collect()
+    }
+
+    pub fn unresolved_calls_for_paths(&self, paths: &HashSet<PathBuf>) -> Vec<UnresolvedCall> {
+        self.file_records
+            .iter()
+            .filter(|(path, _)| paths.contains(*path))
+            .flat_map(|(_, record)| record.unresolved_calls.clone())
             .collect()
     }
 
@@ -488,6 +552,14 @@ impl Graph {
             .collect()
     }
 
+    pub fn unresolved_imports_for_paths(&self, paths: &HashSet<PathBuf>) -> Vec<UnresolvedImport> {
+        self.file_records
+            .iter()
+            .filter(|(path, _)| paths.contains(*path))
+            .flat_map(|(_, record)| record.unresolved_imports.clone())
+            .collect()
+    }
+
     pub fn unresolved_impls(&self) -> Vec<UnresolvedImpl> {
         self.file_records
             .values()
@@ -495,10 +567,34 @@ impl Graph {
             .collect()
     }
 
+    pub fn unresolved_impls_for_paths(&self, paths: &HashSet<PathBuf>) -> Vec<UnresolvedImpl> {
+        self.file_records
+            .iter()
+            .filter(|(path, _)| paths.contains(*path))
+            .flat_map(|(_, record)| record.unresolved_impls.clone())
+            .collect()
+    }
+
     pub fn unresolved_intents(&self) -> Vec<UnresolvedIntent> {
         self.file_records
             .values()
             .flat_map(|record| record.unresolved_intents.clone())
+            .collect()
+    }
+
+    pub fn unresolved_intents_for_paths(&self, paths: &HashSet<PathBuf>) -> Vec<UnresolvedIntent> {
+        self.file_records
+            .iter()
+            .filter(|(path, _)| paths.contains(*path))
+            .flat_map(|(_, record)| record.unresolved_intents.clone())
+            .collect()
+    }
+
+    pub fn node_ids_for_paths(&self, paths: &HashSet<PathBuf>) -> HashSet<NodeId> {
+        paths
+            .iter()
+            .filter_map(|path| self.file_records.get(path))
+            .flat_map(|record| record.nodes.iter().cloned())
             .collect()
     }
 
@@ -516,6 +612,7 @@ impl Graph {
     fn rebuild_adjacency(&mut self) {
         self.adjacency.clear();
         self.reverse_adjacency.clear();
+        self.rebuild_node_indexes();
 
         for (index, edge) in self.edges.iter().enumerate() {
             self.adjacency
@@ -526,6 +623,22 @@ impl Graph {
                 .entry(edge.target.clone())
                 .or_default()
                 .push(index);
+        }
+    }
+
+    fn rebuild_node_indexes(&mut self) {
+        self.node_name_index.clear();
+        self.node_path_index.clear();
+
+        for node in self.nodes.values() {
+            self.node_name_index
+                .entry(node.name.to_string())
+                .or_default()
+                .push(node.id.clone());
+            self.node_path_index
+                .entry(node.id.path.to_string())
+                .or_default()
+                .push(node.id.clone());
         }
     }
 

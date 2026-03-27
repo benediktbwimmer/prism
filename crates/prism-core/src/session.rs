@@ -499,14 +499,14 @@ impl WorkspaceSession {
         self.append_outcome_with_auxiliary(event, None, None)
     }
 
+    pub fn try_append_outcome(&self, event: OutcomeEvent) -> Result<Option<EventId>> {
+        self.try_append_outcome_with_auxiliary(event, None, None)
+    }
+
     pub fn append_validation_feedback(
         &self,
         record: ValidationFeedbackRecord,
     ) -> Result<ValidationFeedbackEntry> {
-        let _guard = self
-            .refresh_lock
-            .lock()
-            .expect("workspace refresh lock poisoned");
         append_validation_feedback(&self.root, record)
     }
 
@@ -514,10 +514,6 @@ impl WorkspaceSession {
         &self,
         limit: Option<usize>,
     ) -> Result<Vec<ValidationFeedbackEntry>> {
-        let _guard = self
-            .refresh_lock
-            .lock()
-            .expect("workspace refresh lock poisoned");
         let mut entries = load_validation_feedback(&self.root)?;
         entries.reverse();
         if let Some(limit) = limit {
@@ -536,6 +532,28 @@ impl WorkspaceSession {
             .refresh_lock
             .lock()
             .expect("workspace refresh lock poisoned");
+        self.append_outcome_with_auxiliary_guarded(event, episodic_snapshot, inference_snapshot)
+    }
+
+    pub fn try_append_outcome_with_auxiliary(
+        &self,
+        event: OutcomeEvent,
+        episodic_snapshot: Option<EpisodicMemorySnapshot>,
+        inference_snapshot: Option<InferenceSnapshot>,
+    ) -> Result<Option<EventId>> {
+        let Ok(_guard) = self.refresh_lock.try_lock() else {
+            return Ok(None);
+        };
+        self.append_outcome_with_auxiliary_guarded(event, episodic_snapshot, inference_snapshot)
+            .map(Some)
+    }
+
+    fn append_outcome_with_auxiliary_guarded(
+        &self,
+        event: OutcomeEvent,
+        episodic_snapshot: Option<EpisodicMemorySnapshot>,
+        inference_snapshot: Option<InferenceSnapshot>,
+    ) -> Result<EventId> {
         let prism = self.prism_arc();
         let deltas = validation_deltas_for_event(&event, |node| prism.lineage_of(node));
         prism.apply_outcome_event_to_projections(&event);

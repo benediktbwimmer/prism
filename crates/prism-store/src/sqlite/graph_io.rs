@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::Result;
-use rusqlite::{params, Connection, OptionalExtension, Transaction};
+use rusqlite::{params, CachedStatement, Connection, OptionalExtension, Transaction};
 use tracing::info;
 
 use crate::graph::{FileRecord, FileState, Graph, GraphSnapshot};
@@ -202,78 +202,147 @@ pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
     })))
 }
 
-pub(super) fn delete_file_state(tx: &Transaction<'_>, path: &Path) -> Result<()> {
-    let file_path = path.to_string_lossy();
-    tx.execute(
-        "DELETE FROM edges WHERE file_path = ?1",
-        params![file_path.as_ref()],
-    )?;
-    tx.execute(
-        "DELETE FROM nodes
-         WHERE EXISTS (
-            SELECT 1 FROM file_nodes
-            WHERE file_nodes.file_path = ?1
-              AND file_nodes.node_crate_name = nodes.crate_name
-              AND file_nodes.node_path = nodes.path
-              AND file_nodes.node_kind = nodes.kind
-         )",
-        params![file_path.as_ref()],
-    )?;
-    tx.execute(
-        "DELETE FROM file_nodes WHERE file_path = ?1",
-        params![file_path.as_ref()],
-    )?;
-    tx.execute(
-        "DELETE FROM node_fingerprints WHERE file_path = ?1",
-        params![file_path.as_ref()],
-    )?;
-    tx.execute(
-        "DELETE FROM file_records WHERE path = ?1",
-        params![file_path.as_ref()],
-    )?;
-    tx.execute(
-        "DELETE FROM unresolved_calls WHERE file_path = ?1",
-        params![file_path.as_ref()],
-    )?;
-    tx.execute(
-        "DELETE FROM unresolved_imports WHERE file_path = ?1",
-        params![file_path.as_ref()],
-    )?;
-    tx.execute(
-        "DELETE FROM unresolved_impls WHERE file_path = ?1",
-        params![file_path.as_ref()],
-    )?;
-    tx.execute(
-        "DELETE FROM unresolved_intents WHERE file_path = ?1",
-        params![file_path.as_ref()],
-    )?;
-    Ok(())
+pub(super) struct FileStateWriter<'tx> {
+    delete_edges: CachedStatement<'tx>,
+    select_file_nodes: CachedStatement<'tx>,
+    delete_node_by_id: CachedStatement<'tx>,
+    delete_file_nodes: CachedStatement<'tx>,
+    delete_node_fingerprints: CachedStatement<'tx>,
+    delete_file_records: CachedStatement<'tx>,
+    delete_unresolved_calls: CachedStatement<'tx>,
+    delete_unresolved_imports: CachedStatement<'tx>,
+    delete_unresolved_impls: CachedStatement<'tx>,
+    delete_unresolved_intents: CachedStatement<'tx>,
+    insert_file_record: CachedStatement<'tx>,
+    insert_node: CachedStatement<'tx>,
+    insert_file_node: CachedStatement<'tx>,
+    insert_node_fingerprint: CachedStatement<'tx>,
+    insert_edge: CachedStatement<'tx>,
+    insert_unresolved_call: CachedStatement<'tx>,
+    insert_unresolved_import: CachedStatement<'tx>,
+    insert_unresolved_impl: CachedStatement<'tx>,
+    insert_unresolved_intent: CachedStatement<'tx>,
 }
 
-pub(super) fn save_file_state_tx(tx: &Transaction<'_>, state: &FileState) -> Result<()> {
-    delete_file_state(tx, &state.path)?;
+impl<'tx> FileStateWriter<'tx> {
+    pub(super) fn new(tx: &'tx Transaction<'tx>) -> Result<Self> {
+        Ok(Self {
+            delete_edges: tx.prepare_cached("DELETE FROM edges WHERE file_path = ?1")?,
+            select_file_nodes: tx.prepare_cached(
+                "SELECT node_crate_name, node_path, node_kind
+                 FROM file_nodes
+                 WHERE file_path = ?1",
+            )?,
+            delete_node_by_id: tx.prepare_cached(
+                "DELETE FROM nodes
+                 WHERE crate_name = ?1
+                   AND path = ?2
+                   AND kind = ?3",
+            )?,
+            delete_file_nodes: tx
+                .prepare_cached("DELETE FROM file_nodes WHERE file_path = ?1")?,
+            delete_node_fingerprints: tx
+                .prepare_cached("DELETE FROM node_fingerprints WHERE file_path = ?1")?,
+            delete_file_records: tx.prepare_cached("DELETE FROM file_records WHERE path = ?1")?,
+            delete_unresolved_calls: tx
+                .prepare_cached("DELETE FROM unresolved_calls WHERE file_path = ?1")?,
+            delete_unresolved_imports: tx
+                .prepare_cached("DELETE FROM unresolved_imports WHERE file_path = ?1")?,
+            delete_unresolved_impls: tx
+                .prepare_cached("DELETE FROM unresolved_impls WHERE file_path = ?1")?,
+            delete_unresolved_intents: tx
+                .prepare_cached("DELETE FROM unresolved_intents WHERE file_path = ?1")?,
+            insert_file_record: tx.prepare_cached(
+                "INSERT INTO file_records(path, file_id, hash) VALUES (?1, ?2, ?3)",
+            )?,
+            insert_node: tx.prepare_cached(
+                "INSERT INTO nodes(crate_name, path, kind, name, file_id, span_start, span_end, language)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+                 ON CONFLICT(crate_name, path, kind) DO UPDATE SET
+                    name = excluded.name,
+                    file_id = excluded.file_id,
+                    span_start = excluded.span_start,
+                    span_end = excluded.span_end,
+                    language = excluded.language",
+            )?,
+            insert_file_node: tx.prepare_cached(
+                "INSERT INTO file_nodes(file_path, node_crate_name, node_path, node_kind) VALUES (?1, ?2, ?3, ?4)",
+            )?,
+            insert_node_fingerprint: tx.prepare_cached(
+                "INSERT INTO node_fingerprints(file_path, node_crate_name, node_path, node_kind, fingerprint)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+            )?,
+            insert_edge: tx.prepare_cached(
+                "INSERT INTO edges(file_path, kind, source_crate_name, source_path, source_kind, target_crate_name, target_path, target_kind, origin, confidence)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            )?,
+            insert_unresolved_call: tx.prepare_cached(
+                "INSERT INTO unresolved_calls(file_path, caller_crate_name, caller_path, caller_kind, name, span_start, span_end, module_path)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            )?,
+            insert_unresolved_import: tx.prepare_cached(
+                "INSERT INTO unresolved_imports(file_path, importer_crate_name, importer_path, importer_kind, path, span_start, span_end, module_path, target_path)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            )?,
+            insert_unresolved_impl: tx.prepare_cached(
+                "INSERT INTO unresolved_impls(file_path, impl_crate_name, impl_path, impl_kind, target, span_start, span_end, module_path)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            )?,
+            insert_unresolved_intent: tx.prepare_cached(
+                "INSERT INTO unresolved_intents(file_path, source_crate_name, source_path, source_kind, kind, target, span_start, span_end)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            )?,
+        })
+    }
 
-    let file_path = state.path.to_string_lossy();
-    tx.execute(
-        "INSERT INTO file_records(path, file_id, hash) VALUES (?1, ?2, ?3)",
-        params![
+    pub(super) fn delete_file_state(&mut self, path: &Path) -> Result<()> {
+        let file_path = path.to_string_lossy();
+        let stale_nodes = {
+            let mut rows = self.select_file_nodes.query(params![file_path.as_ref()])?;
+            let mut stale_nodes = Vec::new();
+            while let Some(row) = rows.next()? {
+                stale_nodes.push((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)?,
+                ));
+            }
+            stale_nodes
+        };
+        self.delete_edges.execute(params![file_path.as_ref()])?;
+        for (crate_name, path, kind) in stale_nodes {
+            self.delete_node_by_id
+                .execute(params![crate_name, path, kind])?;
+        }
+        self.delete_file_nodes
+            .execute(params![file_path.as_ref()])?;
+        self.delete_node_fingerprints
+            .execute(params![file_path.as_ref()])?;
+        self.delete_file_records
+            .execute(params![file_path.as_ref()])?;
+        self.delete_unresolved_calls
+            .execute(params![file_path.as_ref()])?;
+        self.delete_unresolved_imports
+            .execute(params![file_path.as_ref()])?;
+        self.delete_unresolved_impls
+            .execute(params![file_path.as_ref()])?;
+        self.delete_unresolved_intents
+            .execute(params![file_path.as_ref()])?;
+        Ok(())
+    }
+
+    pub(super) fn save_file_state(&mut self, state: &FileState) -> Result<()> {
+        self.delete_file_state(&state.path)?;
+
+        let file_path = state.path.to_string_lossy();
+        self.insert_file_record.execute(params![
             file_path.as_ref(),
             state.record.file_id.0,
             state.record.hash as i64
-        ],
-    )?;
+        ])?;
 
-    for node in &state.nodes {
-        tx.execute(
-            "INSERT INTO nodes(crate_name, path, kind, name, file_id, span_start, span_end, language)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-             ON CONFLICT(crate_name, path, kind) DO UPDATE SET
-                name = excluded.name,
-                file_id = excluded.file_id,
-                span_start = excluded.span_start,
-                span_end = excluded.span_end,
-                language = excluded.language",
-            params![
+        for node in &state.nodes {
+            self.insert_node.execute(params![
                 node.id.crate_name.as_str(),
                 node.id.path.as_str(),
                 encode_node_kind(node.kind),
@@ -282,41 +351,30 @@ pub(super) fn save_file_state_tx(tx: &Transaction<'_>, state: &FileState) -> Res
                 node.span.start,
                 node.span.end,
                 encode_language(node.language),
-            ],
-        )?;
-    }
+            ])?;
+        }
 
-    for node_id in &state.record.nodes {
-        tx.execute(
-            "INSERT INTO file_nodes(file_path, node_crate_name, node_path, node_kind) VALUES (?1, ?2, ?3, ?4)",
-            params![
+        for node_id in &state.record.nodes {
+            self.insert_file_node.execute(params![
                 file_path.as_ref(),
                 node_id.crate_name.as_str(),
                 node_id.path.as_str(),
                 encode_node_kind(node_id.kind),
-            ],
-        )?;
-    }
+            ])?;
+        }
 
-    for (node_id, fingerprint) in &state.record.fingerprints {
-        tx.execute(
-            "INSERT INTO node_fingerprints(file_path, node_crate_name, node_path, node_kind, fingerprint)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![
+        for (node_id, fingerprint) in &state.record.fingerprints {
+            self.insert_node_fingerprint.execute(params![
                 file_path.as_ref(),
                 node_id.crate_name.as_str(),
                 node_id.path.as_str(),
                 encode_node_kind(node_id.kind),
                 serde_json::to_string(fingerprint)?,
-            ],
-        )?;
-    }
+            ])?;
+        }
 
-    for edge in &state.edges {
-        tx.execute(
-            "INSERT INTO edges(file_path, kind, source_crate_name, source_path, source_kind, target_crate_name, target_path, target_kind, origin, confidence)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-            params![
+        for edge in &state.edges {
+            self.insert_edge.execute(params![
                 file_path.as_ref(),
                 encode_edge_kind(edge.kind),
                 edge.source.crate_name.as_str(),
@@ -327,15 +385,11 @@ pub(super) fn save_file_state_tx(tx: &Transaction<'_>, state: &FileState) -> Res
                 encode_node_kind(edge.target.kind),
                 encode_edge_origin(edge.origin),
                 edge.confidence,
-            ],
-        )?;
-    }
+            ])?;
+        }
 
-    for call in &state.record.unresolved_calls {
-        tx.execute(
-            "INSERT INTO unresolved_calls(file_path, caller_crate_name, caller_path, caller_kind, name, span_start, span_end, module_path)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            params![
+        for call in &state.record.unresolved_calls {
+            self.insert_unresolved_call.execute(params![
                 file_path.as_ref(),
                 call.caller.crate_name.as_str(),
                 call.caller.path.as_str(),
@@ -344,15 +398,11 @@ pub(super) fn save_file_state_tx(tx: &Transaction<'_>, state: &FileState) -> Res
                 call.span.start,
                 call.span.end,
                 call.module_path.as_str(),
-            ],
-        )?;
-    }
+            ])?;
+        }
 
-    for import in &state.record.unresolved_imports {
-        tx.execute(
-            "INSERT INTO unresolved_imports(file_path, importer_crate_name, importer_path, importer_kind, path, span_start, span_end, module_path, target_path)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-            params![
+        for import in &state.record.unresolved_imports {
+            self.insert_unresolved_import.execute(params![
                 file_path.as_ref(),
                 import.importer.crate_name.as_str(),
                 import.importer.path.as_str(),
@@ -362,15 +412,11 @@ pub(super) fn save_file_state_tx(tx: &Transaction<'_>, state: &FileState) -> Res
                 import.span.end,
                 import.module_path.as_str(),
                 import.path.as_str(),
-            ],
-        )?;
-    }
+            ])?;
+        }
 
-    for implementation in &state.record.unresolved_impls {
-        tx.execute(
-            "INSERT INTO unresolved_impls(file_path, impl_crate_name, impl_path, impl_kind, target, span_start, span_end, module_path)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            params![
+        for implementation in &state.record.unresolved_impls {
+            self.insert_unresolved_impl.execute(params![
                 file_path.as_ref(),
                 implementation.impl_node.crate_name.as_str(),
                 implementation.impl_node.path.as_str(),
@@ -379,15 +425,11 @@ pub(super) fn save_file_state_tx(tx: &Transaction<'_>, state: &FileState) -> Res
                 implementation.span.start,
                 implementation.span.end,
                 implementation.module_path.as_str(),
-            ],
-        )?;
-    }
+            ])?;
+        }
 
-    for intent in &state.record.unresolved_intents {
-        tx.execute(
-            "INSERT INTO unresolved_intents(file_path, source_crate_name, source_path, source_kind, kind, target, span_start, span_end)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            params![
+        for intent in &state.record.unresolved_intents {
+            self.insert_unresolved_intent.execute(params![
                 file_path.as_ref(),
                 intent.source.crate_name.as_str(),
                 intent.source.path.as_str(),
@@ -396,11 +438,11 @@ pub(super) fn save_file_state_tx(tx: &Transaction<'_>, state: &FileState) -> Res
                 intent.target.as_str(),
                 intent.span.start,
                 intent.span.end,
-            ],
-        )?;
-    }
+            ])?;
+        }
 
-    Ok(())
+        Ok(())
+    }
 }
 
 pub(super) fn replace_derived_edges_tx(tx: &Transaction<'_>, graph: &Graph) -> Result<()> {
@@ -416,22 +458,22 @@ pub(super) fn replace_derived_edges_tx(tx: &Transaction<'_>, graph: &Graph) -> R
         ],
     )?;
 
+    let mut insert_edge = tx.prepare_cached(
+        "INSERT INTO edges(file_path, kind, source_crate_name, source_path, source_kind, target_crate_name, target_path, target_kind, origin, confidence)
+         VALUES (NULL, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+    )?;
     for edge in graph.derived_edges() {
-        tx.execute(
-            "INSERT INTO edges(file_path, kind, source_crate_name, source_path, source_kind, target_crate_name, target_path, target_kind, origin, confidence)
-             VALUES (NULL, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-            params![
-                encode_edge_kind(edge.kind),
-                edge.source.crate_name.as_str(),
-                edge.source.path.as_str(),
-                encode_node_kind(edge.source.kind),
-                edge.target.crate_name.as_str(),
-                edge.target.path.as_str(),
-                encode_node_kind(edge.target.kind),
-                encode_edge_origin(edge.origin),
-                edge.confidence,
-            ],
-        )?;
+        insert_edge.execute(params![
+            encode_edge_kind(edge.kind),
+            edge.source.crate_name.as_str(),
+            edge.source.path.as_str(),
+            encode_node_kind(edge.source.kind),
+            edge.target.crate_name.as_str(),
+            edge.target.path.as_str(),
+            encode_node_kind(edge.target.kind),
+            encode_edge_origin(edge.origin),
+            edge.confidence,
+        ])?;
     }
 
     Ok(())
@@ -444,27 +486,27 @@ pub(super) fn finalize_tx(tx: &Transaction<'_>, graph: &Graph) -> Result<()> {
         params![graph.next_file_id()],
     )?;
 
+    let mut insert_root_node = tx.prepare_cached(
+        "INSERT INTO nodes(crate_name, path, kind, name, file_id, span_start, span_end, language)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+         ON CONFLICT(crate_name, path, kind) DO UPDATE SET
+            name = excluded.name,
+            file_id = excluded.file_id,
+            span_start = excluded.span_start,
+            span_end = excluded.span_end,
+            language = excluded.language",
+    )?;
     for node in graph.root_nodes() {
-        tx.execute(
-            "INSERT INTO nodes(crate_name, path, kind, name, file_id, span_start, span_end, language)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
-             ON CONFLICT(crate_name, path, kind) DO UPDATE SET
-                name = excluded.name,
-                file_id = excluded.file_id,
-                span_start = excluded.span_start,
-                span_end = excluded.span_end,
-                language = excluded.language",
-            params![
-                node.id.crate_name.as_str(),
-                node.id.path.as_str(),
-                encode_node_kind(node.kind),
-                node.name.as_str(),
-                node.file.0,
-                node.span.start,
-                node.span.end,
-                encode_language(node.language),
-            ],
-        )?;
+        insert_root_node.execute(params![
+            node.id.crate_name.as_str(),
+            node.id.path.as_str(),
+            encode_node_kind(node.kind),
+            node.name.as_str(),
+            node.file.0,
+            node.span.start,
+            node.span.end,
+            encode_language(node.language),
+        ])?;
     }
 
     tx.execute(
@@ -480,22 +522,22 @@ pub(super) fn finalize_tx(tx: &Transaction<'_>, graph: &Graph) -> Result<()> {
         ],
     )?;
 
+    let mut insert_root_edge = tx.prepare_cached(
+        "INSERT INTO edges(file_path, kind, source_crate_name, source_path, source_kind, target_crate_name, target_path, target_kind, origin, confidence)
+         VALUES (NULL, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+    )?;
     for edge in graph.root_edges() {
-        tx.execute(
-            "INSERT INTO edges(file_path, kind, source_crate_name, source_path, source_kind, target_crate_name, target_path, target_kind, origin, confidence)
-             VALUES (NULL, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-            params![
-                encode_edge_kind(edge.kind),
-                edge.source.crate_name.as_str(),
-                edge.source.path.as_str(),
-                encode_node_kind(edge.source.kind),
-                edge.target.crate_name.as_str(),
-                edge.target.path.as_str(),
-                encode_node_kind(edge.target.kind),
-                encode_edge_origin(edge.origin),
-                edge.confidence,
-            ],
-        )?;
+        insert_root_edge.execute(params![
+            encode_edge_kind(edge.kind),
+            edge.source.crate_name.as_str(),
+            edge.source.path.as_str(),
+            encode_node_kind(edge.source.kind),
+            edge.target.crate_name.as_str(),
+            edge.target.path.as_str(),
+            encode_node_kind(edge.target.kind),
+            encode_edge_origin(edge.origin),
+            edge.confidence,
+        ])?;
     }
 
     Ok(())

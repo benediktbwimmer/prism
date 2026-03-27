@@ -269,11 +269,38 @@ fn sqlite_store_configures_connection_pragmas() {
         .conn
         .pragma_query_value(None, "wal_autocheckpoint", |row| row.get(0))
         .unwrap();
+    let user_version: i64 = store
+        .conn
+        .pragma_query_value(None, "user_version", |row| row.get(0))
+        .unwrap();
+    let indexed_tables = [
+        "idx_edges_file_path_kind",
+        "idx_file_nodes_file_path_node",
+        "idx_node_fingerprints_file_path",
+        "idx_unresolved_calls_file_path",
+        "idx_unresolved_imports_file_path",
+        "idx_unresolved_impls_file_path",
+        "idx_unresolved_intents_file_path",
+    ]
+    .into_iter()
+    .map(|name| {
+        store
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = ?1",
+                [name],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap()
+    })
+    .collect::<Vec<_>>();
 
     assert_eq!(journal_mode.to_ascii_lowercase(), "wal");
     assert_eq!(synchronous, 1);
     assert_eq!(temp_store, 2);
     assert_eq!(wal_autocheckpoint, 1000);
+    assert_eq!(user_version, 10);
+    assert!(indexed_tables.into_iter().all(|count| count == 1));
 
     drop(store);
     let _ = std::fs::remove_file(&path);

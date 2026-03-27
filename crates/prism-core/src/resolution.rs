@@ -5,7 +5,8 @@ use prism_parser::{
 use prism_store::Graph;
 use std::collections::HashSet;
 
-pub(crate) fn resolve_calls(graph: &mut Graph, unresolved: Vec<UnresolvedCall>) {
+pub(crate) fn resolve_calls(graph: &Graph, unresolved: Vec<UnresolvedCall>) -> Vec<Edge> {
+    let mut resolved = Vec::new();
     for call in unresolved {
         let Some(target) = resolve_target(
             graph,
@@ -19,7 +20,7 @@ pub(crate) fn resolve_calls(graph: &mut Graph, unresolved: Vec<UnresolvedCall>) 
         ) else {
             continue;
         };
-        graph.add_edge(Edge {
+        resolved.push(Edge {
             kind: EdgeKind::Calls,
             source: call.caller.clone(),
             target,
@@ -27,9 +28,11 @@ pub(crate) fn resolve_calls(graph: &mut Graph, unresolved: Vec<UnresolvedCall>) 
             confidence: 0.6,
         });
     }
+    resolved
 }
 
-pub(crate) fn resolve_imports(graph: &mut Graph, unresolved: Vec<UnresolvedImport>) {
+pub(crate) fn resolve_imports(graph: &Graph, unresolved: Vec<UnresolvedImport>) -> Vec<Edge> {
+    let mut resolved = Vec::new();
     for import in unresolved {
         let name = import
             .path
@@ -49,7 +52,7 @@ pub(crate) fn resolve_imports(graph: &mut Graph, unresolved: Vec<UnresolvedImpor
         ) else {
             continue;
         };
-        graph.add_edge(Edge {
+        resolved.push(Edge {
             kind: EdgeKind::Imports,
             source: import.importer.clone(),
             target,
@@ -57,9 +60,11 @@ pub(crate) fn resolve_imports(graph: &mut Graph, unresolved: Vec<UnresolvedImpor
             confidence: 0.8,
         });
     }
+    resolved
 }
 
-pub(crate) fn resolve_impls(graph: &mut Graph, unresolved: Vec<UnresolvedImpl>) {
+pub(crate) fn resolve_impls(graph: &Graph, unresolved: Vec<UnresolvedImpl>) -> Vec<Edge> {
+    let mut resolved = Vec::new();
     for implementation in unresolved {
         let name = implementation
             .target
@@ -79,7 +84,7 @@ pub(crate) fn resolve_impls(graph: &mut Graph, unresolved: Vec<UnresolvedImpl>) 
         ) else {
             continue;
         };
-        graph.add_edge(Edge {
+        resolved.push(Edge {
             kind: EdgeKind::Implements,
             source: implementation.impl_node.clone(),
             target,
@@ -87,10 +92,12 @@ pub(crate) fn resolve_impls(graph: &mut Graph, unresolved: Vec<UnresolvedImpl>) 
             confidence: 0.8,
         });
     }
+    resolved
 }
 
-pub(crate) fn resolve_intents(graph: &mut Graph, unresolved: Vec<UnresolvedIntent>) {
+pub(crate) fn resolve_intents(graph: &Graph, unresolved: Vec<UnresolvedIntent>) -> Vec<Edge> {
     let mut seen = HashSet::<(EdgeKind, NodeId, NodeId)>::new();
+    let mut resolved = Vec::new();
     for intent in unresolved {
         let Some(target) = resolve_intent_target(graph, &intent) else {
             continue;
@@ -100,7 +107,7 @@ pub(crate) fn resolve_intents(graph: &mut Graph, unresolved: Vec<UnresolvedInten
         {
             continue;
         }
-        graph.add_edge(Edge {
+        resolved.push(Edge {
             kind: intent.kind,
             source: intent.source.clone(),
             target,
@@ -108,6 +115,7 @@ pub(crate) fn resolve_intents(graph: &mut Graph, unresolved: Vec<UnresolvedInten
             confidence: 0.7,
         });
     }
+    resolved
 }
 
 fn resolve_target(graph: &Graph, target: SymbolTarget<'_>) -> Option<NodeId> {
@@ -120,8 +128,9 @@ fn resolve_target(graph: &Graph, target: SymbolTarget<'_>) -> Option<NodeId> {
 
     if !target.target_path.is_empty() {
         if let Some(node) = graph
-            .all_nodes()
-            .find(|node| allowed(node.kind) && node.id.path == target.target_path)
+            .nodes_by_exact_path(target.target_path)
+            .into_iter()
+            .find(|node| allowed(node.kind))
         {
             return Some(node.id.clone());
         }
@@ -129,16 +138,17 @@ fn resolve_target(graph: &Graph, target: SymbolTarget<'_>) -> Option<NodeId> {
 
     let exact_path = format!("{}::{}", target.module_path, target.name);
     if let Some(node) = graph
-        .all_nodes()
-        .find(|node| allowed(node.kind) && node.id.path == exact_path)
+        .nodes_by_exact_path(&exact_path)
+        .into_iter()
+        .find(|node| allowed(node.kind))
     {
         return Some(node.id.clone());
     }
 
     let mut matches = graph
-        .all_nodes()
+        .nodes_by_name(target.name)
+        .into_iter()
         .filter(|node| allowed(node.kind))
-        .filter(|node| node.name == target.name)
         .map(|node| node.id.clone())
         .collect::<Vec<_>>();
 
@@ -152,15 +162,26 @@ fn resolve_target(graph: &Graph, target: SymbolTarget<'_>) -> Option<NodeId> {
 fn resolve_intent_target(graph: &Graph, intent: &UnresolvedIntent) -> Option<NodeId> {
     let exact = intent.target.as_str();
     let mut matches = graph
-        .all_nodes()
+        .nodes_by_exact_path(exact)
+        .into_iter()
         .filter(|node| is_intent_target_kind(node.kind))
-        .filter(|node| node.id.path == exact || node.name == exact)
         .map(|node| node.id.clone())
         .collect::<Vec<_>>();
 
+    matches.extend(
+        graph
+            .nodes_by_name(exact)
+            .into_iter()
+            .filter(|node| is_intent_target_kind(node.kind))
+            .map(|node| node.id.clone()),
+    );
+    dedupe_node_ids(&mut matches);
+
     if matches.is_empty() && exact.contains("::") {
+        let terminal_name = exact.rsplit("::").next().unwrap_or(exact);
         matches = graph
-            .all_nodes()
+            .nodes_by_name(terminal_name)
+            .into_iter()
             .filter(|node| is_intent_target_kind(node.kind))
             .filter(|node| node.id.path.ends_with(exact))
             .map(|node| node.id.clone())
@@ -184,6 +205,11 @@ fn resolve_intent_target(graph: &Graph, intent: &UnresolvedIntent) -> Option<Nod
         .map(|candidate| score_intent_target(candidate, intent))
         .unwrap_or(i32::MIN);
     (best_score > next_score).then_some(best)
+}
+
+fn dedupe_node_ids(ids: &mut Vec<NodeId>) {
+    let mut seen = HashSet::new();
+    ids.retain(|id| seen.insert(id.clone()));
 }
 
 fn is_intent_target_kind(kind: NodeKind) -> bool {

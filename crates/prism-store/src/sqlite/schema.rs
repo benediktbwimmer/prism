@@ -1,7 +1,7 @@
 use anyhow::Result;
 use rusqlite::Connection;
 
-const SCHEMA_VERSION: i64 = 8;
+const SCHEMA_VERSION: i64 = 10;
 
 pub(super) fn init_schema(conn: &Connection) -> Result<()> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
@@ -145,6 +145,27 @@ pub(super) fn init_schema(conn: &Connection) -> Result<()> {
             last_seen INTEGER NOT NULL,
             PRIMARY KEY (lineage, label)
         );
+
+        CREATE INDEX IF NOT EXISTS idx_edges_file_path_kind
+            ON edges(file_path, kind);
+
+        CREATE INDEX IF NOT EXISTS idx_file_nodes_file_path_node
+            ON file_nodes(file_path, node_crate_name, node_path, node_kind);
+
+        CREATE INDEX IF NOT EXISTS idx_node_fingerprints_file_path
+            ON node_fingerprints(file_path);
+
+        CREATE INDEX IF NOT EXISTS idx_unresolved_calls_file_path
+            ON unresolved_calls(file_path);
+
+        CREATE INDEX IF NOT EXISTS idx_unresolved_imports_file_path
+            ON unresolved_imports(file_path);
+
+        CREATE INDEX IF NOT EXISTS idx_unresolved_impls_file_path
+            ON unresolved_impls(file_path);
+
+        CREATE INDEX IF NOT EXISTS idx_unresolved_intents_file_path
+            ON unresolved_intents(file_path);
         "#,
     )?;
     conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;

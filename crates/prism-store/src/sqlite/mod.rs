@@ -291,27 +291,33 @@ impl Store for SqliteStore {
         let tx = self.conn.transaction()?;
 
         let remove_started = Instant::now();
-        for path in &batch.removed_paths {
-            graph_io::delete_file_state(&tx, path)?;
+        {
+            let mut file_state_writer = graph_io::FileStateWriter::new(&tx)?;
+            for path in &batch.removed_paths {
+                file_state_writer.delete_file_state(path)?;
+            }
         }
         let delete_file_state_ms = remove_started.elapsed().as_millis();
 
         let upsert_started = Instant::now();
         let mut file_state_totals = FileStatePersistTotals::default();
-        for path in &batch.upserted_paths {
-            let Some(state) = graph.file_state(path) else {
-                file_state_totals.skipped_missing_upsert_count += 1;
-                continue;
-            };
-            file_state_totals.persisted_file_state_count += 1;
-            file_state_totals.node_count += state.nodes.len();
-            file_state_totals.edge_count += state.edges.len();
-            file_state_totals.fingerprint_count += state.record.fingerprints.len();
-            file_state_totals.unresolved_call_count += state.record.unresolved_calls.len();
-            file_state_totals.unresolved_import_count += state.record.unresolved_imports.len();
-            file_state_totals.unresolved_impl_count += state.record.unresolved_impls.len();
-            file_state_totals.unresolved_intent_count += state.record.unresolved_intents.len();
-            graph_io::save_file_state_tx(&tx, &state)?;
+        {
+            let mut file_state_writer = graph_io::FileStateWriter::new(&tx)?;
+            for path in &batch.upserted_paths {
+                let Some(state) = graph.file_state(path) else {
+                    file_state_totals.skipped_missing_upsert_count += 1;
+                    continue;
+                };
+                file_state_totals.persisted_file_state_count += 1;
+                file_state_totals.node_count += state.nodes.len();
+                file_state_totals.edge_count += state.edges.len();
+                file_state_totals.fingerprint_count += state.record.fingerprints.len();
+                file_state_totals.unresolved_call_count += state.record.unresolved_calls.len();
+                file_state_totals.unresolved_import_count += state.record.unresolved_imports.len();
+                file_state_totals.unresolved_impl_count += state.record.unresolved_impls.len();
+                file_state_totals.unresolved_intent_count += state.record.unresolved_intents.len();
+                file_state_writer.save_file_state(&state)?;
+            }
         }
         let save_file_state_ms = upsert_started.elapsed().as_millis();
 
@@ -440,16 +446,20 @@ impl Store for SqliteStore {
             return Ok(());
         };
         let tx = self.conn.transaction()?;
-        graph_io::save_file_state_tx(&tx, &state)?;
+        let mut file_state_writer = graph_io::FileStateWriter::new(&tx)?;
+        file_state_writer.save_file_state(&state)?;
         bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        drop(file_state_writer);
         tx.commit()?;
         Ok(())
     }
 
     fn remove_file_state(&mut self, path: &Path) -> Result<()> {
         let tx = self.conn.transaction()?;
-        graph_io::delete_file_state(&tx, path)?;
+        let mut file_state_writer = graph_io::FileStateWriter::new(&tx)?;
+        file_state_writer.delete_file_state(path)?;
         bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        drop(file_state_writer);
         tx.commit()?;
         Ok(())
     }

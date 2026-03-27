@@ -149,8 +149,9 @@ impl QueryHost {
             metadata: json!({ "tags": tags }),
         };
         if let Some(workspace) = &self.workspace {
-            let _ = workspace.append_outcome(event)?;
-            self.sync_workspace_revision(workspace)?;
+            if workspace.try_append_outcome(event)?.is_some() {
+                self.sync_workspace_revision(workspace)?;
+            }
         } else {
             let prism = self.current_prism();
             prism.apply_outcome_event_to_projections(&event);

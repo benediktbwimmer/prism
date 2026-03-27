@@ -56,6 +56,13 @@ The only intended difference between the two arms is PRISM availability.
 - `prism`: Codex with PRISM MCP access and explicit permission to prefer PRISM for repo awareness
 - both arms must run against separate isolated workspaces derived from the same pristine source checkout
 
+The prompt pair should also enforce the same execution discipline in both arms:
+
+- prefer the smallest patch that addresses the named benchmark issue
+- require at least one targeted local validation step when a relevant command is discoverable within budget
+- prefer targeted validation over extra repo exploration once a plausible fix is identified
+- avoid broad new fixtures, snapshots, or unrelated test expansion
+
 ## Telemetry Rule
 
 Benchmark outcome and PRISM telemetry must be collected separately.
