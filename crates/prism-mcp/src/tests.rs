@@ -30,8 +30,8 @@ use prism_curator::{
 };
 use prism_history::HistoryStore;
 use prism_ir::{
-    AnchorRef, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId, Language, Node, NodeId,
-    NodeKind, Span, TaskId,
+    AnchorRef, ChangeTrigger, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId, Language,
+    Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, Span, SymbolFingerprint, TaskId,
 };
 use prism_memory::{
     MemoryEntry, MemoryId, MemoryKind, MemoryModule, MemorySource, OutcomeEvent, OutcomeEvidence,
@@ -74,8 +74,12 @@ fn host_with_session_internal_and_limits(
 }
 
 fn test_session(host: &QueryHost) -> Arc<SessionState> {
-    static TEST_SESSIONS: OnceLock<Mutex<HashMap<usize, Arc<SessionState>>>> = OnceLock::new();
-    let key = Arc::as_ptr(&host.dashboard_state()) as usize;
+    static TEST_SESSIONS: OnceLock<Mutex<HashMap<(usize, usize), Arc<SessionState>>>> =
+        OnceLock::new();
+    let key = (
+        Arc::as_ptr(&host.dashboard_state()) as usize,
+        Arc::as_ptr(&host.current_prism()) as usize,
+    );
     let sessions = TEST_SESSIONS.get_or_init(|| Mutex::new(HashMap::new()));
     let mut sessions = sessions.lock().expect("test sessions lock poisoned");
     Arc::clone(
@@ -3157,6 +3161,110 @@ return {
         .starts_with("lineage:"));
     assert_eq!(result.result["lineageStatus"], "active");
     assert_eq!(result.result["currentPath"], "demo::alpha");
+}
+
+#[test]
+fn lineage_views_expose_summaries_and_evidence_details() {
+    let renamed = NodeId::new("demo", "demo::new_name", NodeKind::Function);
+
+    let mut graph = Graph::new();
+    graph.add_node(Node {
+        id: renamed.clone(),
+        name: "new_name".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+
+    let mut history = HistoryStore::new();
+    history.seed_nodes([NodeId::new("demo", "demo::old_name", NodeKind::Function)]);
+    history.apply(&ObservedChangeSet {
+        meta: EventMeta {
+            id: EventId::new("change:rename"),
+            ts: 7,
+            actor: EventActor::System,
+            correlation: None,
+            causation: None,
+        },
+        trigger: ChangeTrigger::ManualReindex,
+        files: vec![FileId(1)],
+        previous_path: Some("/workspace/src/lib.rs".into()),
+        current_path: Some("/workspace/src/lib.rs".into()),
+        added: vec![ObservedNode {
+            node: Node {
+                id: renamed.clone(),
+                name: "new_name".into(),
+                kind: NodeKind::Function,
+                file: FileId(1),
+                span: Span::line(1),
+                language: Language::Rust,
+            },
+            fingerprint: SymbolFingerprint::with_parts(10, Some(20), Some(20), None),
+        }],
+        removed: vec![ObservedNode {
+            node: Node {
+                id: NodeId::new("demo", "demo::old_name", NodeKind::Function),
+                name: "old_name".into(),
+                kind: NodeKind::Function,
+                file: FileId(1),
+                span: Span::line(1),
+                language: Language::Rust,
+            },
+            fingerprint: SymbolFingerprint::with_parts(10, Some(20), Some(20), None),
+        }],
+        updated: Vec::new(),
+        edge_added: Vec::new(),
+        edge_removed: Vec::new(),
+    });
+
+    let host = host_with_prism(Prism::with_history(graph, history));
+    let result = host
+        .execute(
+            test_session(&host),
+            r#"
+const lineage = prism.symbol("new_name")?.lineage();
+return {
+  status: lineage?.status ?? null,
+  summary: lineage?.summary ?? null,
+  uncertainty: lineage?.uncertainty ?? [],
+  eventSummary: lineage?.history[0]?.summary ?? null,
+  evidenceCodes: lineage?.history[0]?.evidenceDetails.map((item) => item.code) ?? [],
+  evidenceLabels: lineage?.history[0]?.evidenceDetails.map((item) => item.label) ?? [],
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed");
+
+    assert_eq!(result.result["status"], "active");
+    assert!(result.result["summary"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("Latest event: Renamed from demo::old_name to demo::new_name."));
+    assert_eq!(
+        result.result["uncertainty"].as_array().map(Vec::len),
+        Some(0)
+    );
+    assert_eq!(
+        result.result["eventSummary"],
+        "Renamed from demo::old_name to demo::new_name."
+    );
+    let evidence_codes = result.result["evidenceCodes"]
+        .as_array()
+        .expect("evidence codes should be present")
+        .iter()
+        .filter_map(|value| value.as_str())
+        .collect::<Vec<_>>();
+    assert!(evidence_codes.contains(&"fingerprint_match"));
+    assert!(evidence_codes.contains(&"signature_match"));
+    let evidence_labels = result.result["evidenceLabels"]
+        .as_array()
+        .expect("evidence labels should be present")
+        .iter()
+        .filter_map(|value| value.as_str())
+        .collect::<Vec<_>>();
+    assert!(evidence_labels.contains(&"Exact Fingerprint Match"));
 }
 
 #[test]
@@ -7050,6 +7158,53 @@ mod tests {
                 .is_some_and(|path| path.contains("::tests::"))
         })
     }));
+}
+
+#[test]
+fn broad_noun_queries_prefer_owner_module_over_path_inherited_helper_functions() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod helpers;
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/helpers.rs"),
+        r#"
+pub fn anchor_sort_key() {}
+pub fn conflict_between() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let envelope = host
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "helper".to_string(),
+                limit: Some(5),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: None,
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: None,
+                prefer_editable_targets: None,
+                prefer_behavioral_owners: None,
+                owner_kind: None,
+                include_inferred: None,
+            },
+        )
+        .expect("search query should succeed");
+
+    assert_eq!(envelope.result[0]["kind"], "Module");
+    assert_eq!(envelope.result[0]["id"]["path"].as_str(), Some("demo::helpers"));
 }
 
 #[test]

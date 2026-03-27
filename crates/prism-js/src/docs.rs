@@ -547,6 +547,8 @@ type LineageView = {
   lineageId: string;
   current: SymbolView;
   status: "active" | "dead" | "ambiguous";
+  summary: string;
+  uncertainty: string[];
   history: Array<{
     eventId: string;
     ts: number;
@@ -555,6 +557,12 @@ type LineageView = {
     before: NodeId[];
     after: NodeId[];
     evidence: string[];
+    evidenceDetails: Array<{
+      code: string;
+      label: string;
+      detail: string;
+    }>;
+    summary: string;
   }>;
 };
 

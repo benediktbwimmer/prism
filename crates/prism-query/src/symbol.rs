@@ -96,8 +96,8 @@ impl Prism {
             .collect::<Vec<_>>();
         if broad_identifier_query {
             matches.sort_by(|left, right| {
-                broad_query_preference_rank(left.node)
-                    .cmp(&broad_query_preference_rank(right.node))
+                broad_query_preference_rank(left.node, &query_lower)
+                    .cmp(&broad_query_preference_rank(right.node, &query_lower))
                     .then_with(|| left.score.cmp(&right.score))
                     .then_with(|| left.path_len.cmp(&right.path_len))
                     .then_with(|| left.path.cmp(&right.path))
@@ -450,7 +450,8 @@ fn is_test_node(node: &Node) -> bool {
     path.contains("::tests::") || path.ends_with("::tests")
 }
 
-fn broad_query_preference_rank(node: &Node) -> u8 {
+fn broad_query_preference_rank(node: &Node, query_lower: &str) -> (u8, u8) {
+    let direct_match_rank = direct_symbol_match_rank(node, query_lower);
     match node.kind {
         NodeKind::Function
         | NodeKind::Method
@@ -458,16 +459,58 @@ fn broad_query_preference_rank(node: &Node) -> u8 {
         | NodeKind::Enum
         | NodeKind::Trait
         | NodeKind::Impl
-        | NodeKind::TypeAlias => 0,
-        NodeKind::Module => 1,
-        NodeKind::Field => 2,
+        | NodeKind::TypeAlias => {
+            if let Some(rank) = direct_match_rank {
+                (0, rank)
+            } else {
+                (3, 0)
+            }
+        }
+        NodeKind::Module => {
+            if let Some(rank) = direct_match_rank {
+                (1, rank)
+            } else {
+                (4, 0)
+            }
+        }
+        NodeKind::Field => {
+            if let Some(rank) = direct_match_rank {
+                (2, rank)
+            } else {
+                (5, 0)
+            }
+        }
         NodeKind::Document
         | NodeKind::Package
         | NodeKind::Workspace
         | NodeKind::MarkdownHeading
         | NodeKind::JsonKey
         | NodeKind::TomlKey
-        | NodeKind::YamlKey => 3,
+        | NodeKind::YamlKey => (6, direct_match_rank.unwrap_or(0)),
+    }
+}
+
+fn direct_symbol_match_rank(node: &Node, query_lower: &str) -> Option<u8> {
+    let leaf_lower = last_path_segment(node.id.path.as_str())?.to_ascii_lowercase();
+    let name_lower = node.name.to_ascii_lowercase();
+    let query_stem = identifier_stem(query_lower);
+
+    if leaf_lower == query_lower || name_lower == query_lower {
+        Some(0)
+    } else if has_token(&leaf_lower, query_lower) || has_token(&name_lower, query_lower) {
+        Some(1)
+    } else if tokens(&leaf_lower)
+        .chain(tokens(&name_lower))
+        .any(|token| identifier_stem(token) == query_stem)
+    {
+        Some(2)
+    } else if has_token_prefix(&leaf_lower, query_lower) || has_token_prefix(&name_lower, query_lower)
+    {
+        Some(3)
+    } else if leaf_lower.contains(query_lower) || name_lower.contains(query_lower) {
+        Some(4)
+    } else {
+        None
     }
 }
 
@@ -478,4 +521,19 @@ fn is_broad_identifier_query(query: &str) -> bool {
         && trimmed
             .chars()
             .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+}
+
+fn identifier_stem(value: &str) -> String {
+    if value.len() > 4 && value.ends_with("ies") {
+        let mut stem = value[..value.len() - 3].to_string();
+        stem.push('y');
+        return stem;
+    }
+    if value.len() > 3 && value.ends_with("es") {
+        return value[..value.len() - 2].to_string();
+    }
+    if value.len() > 3 && value.ends_with('s') {
+        return value[..value.len() - 1].to_string();
+    }
+    value.to_string()
 }

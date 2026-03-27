@@ -295,6 +295,56 @@ fn broad_identifier_search_suppresses_test_noise_when_non_test_code_exists() {
 }
 
 #[test]
+fn broad_identifier_search_prefers_owner_module_over_path_inherited_functions() {
+    use std::path::Path;
+
+    let mut graph = Graph::new();
+    let helpers_file = graph.ensure_file(Path::new("/workspace/src/helpers.rs"));
+
+    graph.add_node(Node {
+        id: NodeId::new("demo", "demo::helpers", NodeKind::Module),
+        name: "helpers".into(),
+        kind: NodeKind::Module,
+        file: helpers_file,
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    graph.add_node(Node {
+        id: NodeId::new(
+            "demo",
+            "demo::helpers::anchor_sort_key",
+            NodeKind::Function,
+        ),
+        name: "anchor_sort_key".into(),
+        kind: NodeKind::Function,
+        file: helpers_file,
+        span: Span::line(3),
+        language: Language::Rust,
+    });
+    graph.add_node(Node {
+        id: NodeId::new(
+            "demo",
+            "demo::helpers::conflict_between",
+            NodeKind::Function,
+        ),
+        name: "conflict_between".into(),
+        kind: NodeKind::Function,
+        file: helpers_file,
+        span: Span::line(7),
+        language: Language::Rust,
+    });
+
+    let prism = Prism::new(graph);
+    let results = prism.search("helper", 5, None, None);
+
+    assert_eq!(results[0].id().path, "demo::helpers");
+    assert!(results
+        .iter()
+        .skip(1)
+        .all(|symbol| !matches!(symbol.node().kind, NodeKind::Module)));
+}
+
+#[test]
 fn exposes_lineage_queries_when_history_is_present() {
     let mut graph = Graph::new();
     let node_id = NodeId::new("demo", "demo::alpha", NodeKind::Function);

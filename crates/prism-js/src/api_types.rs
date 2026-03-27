@@ -285,6 +285,8 @@ pub struct LineageView {
     pub lineage_id: String,
     pub current: SymbolView,
     pub status: LineageStatus,
+    pub summary: String,
+    pub uncertainty: Vec<String>,
     pub history: Vec<LineageEventView>,
 }
 
@@ -306,6 +308,16 @@ pub struct LineageEventView {
     pub before: Vec<NodeIdView>,
     pub after: Vec<NodeIdView>,
     pub evidence: Vec<String>,
+    pub evidence_details: Vec<LineageEvidenceView>,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LineageEvidenceView {
+    pub code: String,
+    pub label: String,
+    pub detail: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

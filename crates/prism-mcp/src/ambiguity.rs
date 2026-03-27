@@ -217,6 +217,8 @@ fn rank_candidate(
     let leaf = path.rsplit("::").next().unwrap_or(path);
     let leaf_lower = leaf.to_ascii_lowercase();
     let name_lower = symbol.name.to_ascii_lowercase();
+    let path_lower = path.to_ascii_lowercase();
+    let direct_match_rank = direct_symbol_match_rank(&symbol, &query_lower);
     let exact_name_match = symbol.name == normalized_query || leaf == normalized_query;
     let broad_identifier_query =
         context.strategy == "direct" && is_broad_identifier_query(normalized_query);
@@ -311,6 +313,12 @@ fn rank_candidate(
 
     if broad_identifier_query {
         match symbol.kind {
+            NodeKind::Module if direct_match_rank.is_some() => {
+                score += 34;
+                reasons.push(
+                    "Direct module owner match preferred over child symbols that only inherit the query through their path.".to_string(),
+                );
+            }
             NodeKind::Module if exact_name_match => {
                 score += 14;
                 reasons.push("Module/file owner preferred for a bare noun query.".to_string());
@@ -338,6 +346,25 @@ fn rank_candidate(
                 );
             }
             _ => {}
+        }
+    }
+
+    if broad_identifier_query && direct_match_rank.is_none() && path_inherits_query(&path_lower, &query_lower) {
+        if matches!(
+            symbol.kind,
+            NodeKind::Function
+                | NodeKind::Method
+                | NodeKind::Struct
+                | NodeKind::Enum
+                | NodeKind::Trait
+                | NodeKind::Impl
+                | NodeKind::TypeAlias
+                | NodeKind::Field
+        ) {
+            score -= 38;
+            reasons.push(
+                "Child symbol only inherited the query through its containing path; owner modules match first.".to_string(),
+            );
         }
     }
 
@@ -931,6 +958,46 @@ fn identifier_tokens(value: &str) -> Vec<&str> {
         .split(|ch: char| !ch.is_ascii_alphanumeric())
         .filter(|token| !token.is_empty())
         .collect()
+}
+
+fn direct_symbol_match_rank(symbol: &SymbolView, query_lower: &str) -> Option<u8> {
+    let path = symbol.id.path.as_str();
+    let leaf = path.rsplit("::").next().unwrap_or(path);
+    let leaf_lower = leaf.to_ascii_lowercase();
+    let name_lower = symbol.name.to_ascii_lowercase();
+    let query_stem = identifier_stem(query_lower);
+
+    if leaf_lower == query_lower || name_lower == query_lower {
+        Some(0)
+    } else if identifier_tokens(&leaf_lower)
+        .iter()
+        .chain(identifier_tokens(&name_lower).iter())
+        .any(|token| *token == query_lower)
+    {
+        Some(1)
+    } else if identifier_tokens(&leaf_lower)
+        .iter()
+        .chain(identifier_tokens(&name_lower).iter())
+        .any(|token| identifier_stem(token) == query_stem)
+    {
+        Some(2)
+    } else if identifier_tokens(&leaf_lower)
+        .iter()
+        .chain(identifier_tokens(&name_lower).iter())
+        .any(|token| token.starts_with(query_lower))
+    {
+        Some(3)
+    } else if leaf_lower.contains(query_lower) || name_lower.contains(query_lower) {
+        Some(4)
+    } else {
+        None
+    }
+}
+
+fn path_inherits_query(path_lower: &str, query_lower: &str) -> bool {
+    identifier_tokens(path_lower)
+        .iter()
+        .any(|token| *token == query_lower || identifier_stem(token) == identifier_stem(query_lower) || token.starts_with(query_lower))
 }
 
 fn identifier_stem(value: &str) -> String {

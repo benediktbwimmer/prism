@@ -3,10 +3,10 @@ use std::thread;
 use anyhow::{anyhow, Result};
 use prism_ir::{AnchorRef, EdgeKind, NodeId};
 use prism_js::{
-    ChangeImpactView, DiscoveryBundleView, EditContextView, FocusedBlockView, LineageEventView,
-    LineageStatus, LineageView, OwnerCandidateView, OwnerHintView, ReadContextView,
-    RecentChangeContextView, RelationsView, SourceExcerptView, SourceLocationView, SourceSliceView,
-    SymbolView, ValidationContextView, ValidationRecipeView,
+    ChangeImpactView, DiscoveryBundleView, EditContextView, FocusedBlockView, OwnerCandidateView,
+    OwnerHintView, ReadContextView, RecentChangeContextView, RelationsView, SourceExcerptView,
+    SourceLocationView, SourceSliceView, SymbolView, ValidationContextView,
+    ValidationRecipeView,
 };
 use prism_query::{EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
 
@@ -438,51 +438,6 @@ pub(crate) fn relations_view(
     })
 }
 
-pub(crate) fn lineage_view(prism: &Prism, id: &NodeId) -> Result<Option<LineageView>> {
-    let Some(lineage) = prism.lineage_of(id) else {
-        return Ok(None);
-    };
-    let current = symbol_for(prism, id)?;
-    let events = prism.lineage_history(&lineage);
-    let status = lineage_status(&events);
-    Ok(Some(LineageView {
-        lineage_id: lineage.0.to_string(),
-        current: symbol_view(prism, &current)?,
-        status,
-        history: events
-            .into_iter()
-            .map(|event| LineageEventView {
-                event_id: event.meta.id.0.to_string(),
-                ts: event.meta.ts,
-                kind: format!("{:?}", event.kind),
-                confidence: event.confidence,
-                before: event.before.into_iter().map(node_id_view).collect(),
-                after: event.after.into_iter().map(node_id_view).collect(),
-                evidence: event
-                    .evidence
-                    .into_iter()
-                    .map(|evidence| format!("{evidence:?}"))
-                    .collect(),
-            })
-            .collect(),
-    }))
-}
-
-pub(crate) fn lineage_status(events: &[prism_ir::LineageEvent]) -> LineageStatus {
-    if events
-        .iter()
-        .any(|event| matches!(event.kind, prism_ir::LineageEventKind::Ambiguous))
-    {
-        LineageStatus::Ambiguous
-    } else if events
-        .last()
-        .is_some_and(|event| matches!(event.kind, prism_ir::LineageEventKind::Died))
-    {
-        LineageStatus::Dead
-    } else {
-        LineageStatus::Active
-    }
-}
 
 pub(crate) fn blast_radius_view(
     prism: &Prism,

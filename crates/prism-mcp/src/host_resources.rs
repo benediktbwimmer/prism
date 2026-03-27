@@ -1,7 +1,6 @@
 use anyhow::{anyhow, Result};
 use prism_agent::EdgeId;
 use prism_ir::{AnchorRef, EventId, LineageId, NodeId, TaskId};
-use prism_js::LineageEventView;
 use prism_memory::MemoryId;
 use std::sync::Arc;
 
@@ -10,8 +9,8 @@ use crate::{
     co_change_view, compact_discovery_bundle_candidate_excerpts, compact_owner_candidate_excerpts,
     dedupe_resource_link_views, derive_task_metadata, discovery_bundle_view, edge_resource_uri,
     edge_resource_view_link, event_resource_view_link, inferred_edge_record_view,
-    lineage_resource_view_link, lineage_status, memory_entry_view, memory_resource_uri,
-    memory_resource_view_link, node_id_view, owner_views_for_query, paginate_items,
+    lineage_event_view, lineage_resource_view_link, lineage_status, memory_entry_view,
+    memory_resource_uri, memory_resource_view_link, owner_views_for_query, paginate_items,
     parse_resource_page, parse_resource_query_param, resource_link_view,
     resource_schema_catalog_entries, schema_resource_uri, schema_resource_view_link,
     schemas_resource_uri, schemas_resource_view_link, search_ambiguity_from_diagnostics,
@@ -499,19 +498,7 @@ impl QueryHost {
         let paged_history = paginate_items(
             events
                 .iter()
-                .map(|event| LineageEventView {
-                    event_id: event.meta.id.0.to_string(),
-                    ts: event.meta.ts,
-                    kind: format!("{:?}", event.kind),
-                    confidence: event.confidence,
-                    before: event.before.iter().cloned().map(node_id_view).collect(),
-                    after: event.after.iter().cloned().map(node_id_view).collect(),
-                    evidence: event
-                        .evidence
-                        .iter()
-                        .map(|evidence| format!("{evidence:?}"))
-                        .collect(),
-                })
+                .map(lineage_event_view)
                 .collect::<Vec<_>>(),
             parse_resource_page(
                 uri,
