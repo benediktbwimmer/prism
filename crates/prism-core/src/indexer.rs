@@ -4,7 +4,8 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use crate::indexer_support::{
-    build_workspace_session, collect_pending_file_parses, resolve_graph_edges,
+    build_workspace_session, collect_pending_file_parses, path_matches_refresh_scope,
+    resolve_graph_edges,
 };
 use crate::layout::{discover_layout, sync_root_nodes, PackageInfo, WorkspaceLayout};
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
@@ -182,7 +183,7 @@ impl<S: Store> WorkspaceIndexer<S> {
     }
 
     pub fn index_with_changes(&mut self) -> Result<Vec<prism_ir::GraphChange>> {
-        let (_, changes) = self.index_impl(ChangeTrigger::ManualReindex)?;
+        let (_, changes) = self.index_impl(ChangeTrigger::ManualReindex, None)?;
         Ok(changes)
     }
 
@@ -191,13 +192,27 @@ impl<S: Store> WorkspaceIndexer<S> {
     }
 
     pub fn index_with_trigger(&mut self, trigger: ChangeTrigger) -> Result<Vec<ObservedChangeSet>> {
-        let (observed, _) = self.index_impl(trigger)?;
+        let (observed, _) = self.index_impl(trigger, None)?;
+        Ok(observed)
+    }
+
+    pub fn index_with_scope<I>(
+        &mut self,
+        trigger: ChangeTrigger,
+        dirty_paths: I,
+    ) -> Result<Vec<ObservedChangeSet>>
+    where
+        I: IntoIterator<Item = PathBuf>,
+    {
+        let dirty_paths = dirty_paths.into_iter().collect::<HashSet<_>>();
+        let (observed, _) = self.index_impl(trigger, Some(&dirty_paths))?;
         Ok(observed)
     }
 
     fn index_impl(
         &mut self,
         trigger: ChangeTrigger,
+        refresh_scope: Option<&HashSet<PathBuf>>,
     ) -> Result<(Vec<ObservedChangeSet>, Vec<prism_ir::GraphChange>)> {
         let started = Instant::now();
         info!(
@@ -215,10 +230,19 @@ impl<S: Store> WorkspaceIndexer<S> {
         let mut validation_deltas = Vec::<ValidationDelta>::new();
         let mut upserted_paths = Vec::<PathBuf>::new();
         let mut removed_paths = Vec::<PathBuf>::new();
+        let expanded_refresh_scope = refresh_scope.map(|scope| self.expand_refresh_scope(scope));
         let walk_root = self.root.clone();
         let collect_pending_started = Instant::now();
-        let (mut pending, seen_files) = collect_pending_file_parses(&walk_root, &self.adapters)?;
+        let (mut pending, seen_files) = collect_pending_file_parses(
+            &walk_root,
+            &self.adapters,
+            expanded_refresh_scope.as_ref(),
+        )?;
         let collect_pending_ms = collect_pending_started.elapsed().as_millis();
+        let targeted_refresh = refresh_scope.is_some();
+        let refresh_scope_path_count = refresh_scope.map_or(0, HashSet::len);
+        let expanded_refresh_scope_path_count =
+            expanded_refresh_scope.as_ref().map_or(0, HashSet::len);
         let pending_file_count = pending.len();
         let pending_bytes = pending
             .iter()
@@ -226,6 +250,9 @@ impl<S: Store> WorkspaceIndexer<S> {
             .sum::<usize>();
         info!(
             root = %self.root.display(),
+            targeted_refresh,
+            refresh_scope_path_count,
+            expanded_refresh_scope_path_count,
             pending_file_count,
             pending_bytes,
             seen_file_count = seen_files.len(),
@@ -233,7 +260,12 @@ impl<S: Store> WorkspaceIndexer<S> {
             "collected prism pending file parses"
         );
 
-        let moved_paths = detect_moved_files(&self.graph, &seen_files, &mut pending);
+        let moved_paths = detect_moved_files(
+            &self.graph,
+            &seen_files,
+            expanded_refresh_scope.as_ref(),
+            &mut pending,
+        );
         let moved_file_count = moved_paths.len();
         let mut skipped_unchanged_count = 0usize;
         let parse_apply_started = Instant::now();
@@ -306,6 +338,8 @@ impl<S: Store> WorkspaceIndexer<S> {
             {
                 warn!(
                     root = %self.root.display(),
+                    targeted_refresh,
+                    expanded_refresh_scope_path_count,
                     path = %pending_file.path.display(),
                     language = ?language,
                     source_bytes = pending_file.source.len(),
@@ -321,6 +355,8 @@ impl<S: Store> WorkspaceIndexer<S> {
             if parsed_file_count % 25 == 0 {
                 info!(
                     root = %self.root.display(),
+                    targeted_refresh,
+                    expanded_refresh_scope_path_count,
                     parsed_file_count,
                     skipped_unchanged_count,
                     elapsed_ms = parse_apply_started.elapsed().as_millis(),
@@ -331,6 +367,9 @@ impl<S: Store> WorkspaceIndexer<S> {
         let parse_apply_ms = parse_apply_started.elapsed().as_millis();
         info!(
             root = %self.root.display(),
+            targeted_refresh,
+            refresh_scope_path_count,
+            expanded_refresh_scope_path_count,
             parsed_file_count,
             skipped_unchanged_count,
             moved_file_count,
@@ -340,6 +379,12 @@ impl<S: Store> WorkspaceIndexer<S> {
 
         let remove_missing_started = Instant::now();
         for tracked in self.graph.tracked_files() {
+            if expanded_refresh_scope
+                .as_ref()
+                .is_some_and(|scope| !path_matches_refresh_scope(&tracked, scope))
+            {
+                continue;
+            }
             if !seen_files.contains(&tracked) && !moved_paths.contains(&tracked) {
                 let update = self.graph.remove_file_with_observed(
                     &tracked,
@@ -361,18 +406,32 @@ impl<S: Store> WorkspaceIndexer<S> {
         let remove_missing_ms = remove_missing_started.elapsed().as_millis();
         info!(
             root = %self.root.display(),
+            targeted_refresh,
+            refresh_scope_path_count,
+            expanded_refresh_scope_path_count,
             removed_file_count = removed_paths.len(),
             remove_missing_ms,
             "finished prism missing-file removal phase"
         );
 
         let resolve_edges_started = Instant::now();
-        resolve_graph_edges(&mut self.graph);
+        let resolve_edge_stats = resolve_graph_edges(&mut self.graph);
         let resolve_edges_ms = resolve_edges_started.elapsed().as_millis();
         info!(
             root = %self.root.display(),
+            targeted_refresh,
+            refresh_scope_path_count,
+            expanded_refresh_scope_path_count,
             node_count = self.graph.node_count(),
             edge_count = self.graph.edge_count(),
+            unresolved_call_count = resolve_edge_stats.unresolved_call_count,
+            unresolved_import_count = resolve_edge_stats.unresolved_import_count,
+            unresolved_impl_count = resolve_edge_stats.unresolved_impl_count,
+            unresolved_intent_count = resolve_edge_stats.unresolved_intent_count,
+            resolve_calls_ms = resolve_edge_stats.resolve_calls_ms,
+            resolve_imports_ms = resolve_edge_stats.resolve_imports_ms,
+            resolve_impls_ms = resolve_edge_stats.resolve_impls_ms,
+            resolve_intents_ms = resolve_edge_stats.resolve_intents_ms,
             resolve_edges_ms,
             "finished prism edge resolution phase"
         );
@@ -403,6 +462,9 @@ impl<S: Store> WorkspaceIndexer<S> {
         let persist_ms = if skip_persist {
             info!(
                 root = %self.root.display(),
+                targeted_refresh,
+                refresh_scope_path_count,
+                expanded_refresh_scope_path_count,
                 "skipped prism index persistence batch because workspace state is unchanged"
             );
             0
@@ -412,6 +474,9 @@ impl<S: Store> WorkspaceIndexer<S> {
             let persist_ms = persist_started.elapsed().as_millis();
             info!(
                 root = %self.root.display(),
+                targeted_refresh,
+                refresh_scope_path_count,
+                expanded_refresh_scope_path_count,
                 upserted_file_count,
                 removed_file_count,
                 co_change_delta_count,
@@ -426,6 +491,9 @@ impl<S: Store> WorkspaceIndexer<S> {
         let reanchor_memory_ms = reanchor_started.elapsed().as_millis();
         info!(
             root = %self.root.display(),
+            targeted_refresh,
+            refresh_scope_path_count,
+            expanded_refresh_scope_path_count,
             lineage_event_count = all_lineage_events.len(),
             reanchor_memory_ms,
             "reanchored persisted prism memory"
@@ -435,6 +503,9 @@ impl<S: Store> WorkspaceIndexer<S> {
         info!(
             root = %self.root.display(),
             trigger = ?trigger,
+            targeted_refresh,
+            refresh_scope_path_count,
+            expanded_refresh_scope_path_count,
             pending_file_count,
             pending_bytes,
             seen_file_count = seen_files.len(),
@@ -451,9 +522,17 @@ impl<S: Store> WorkspaceIndexer<S> {
             node_count = self.graph.node_count(),
             edge_count = self.graph.edge_count(),
             file_count = self.graph.file_count(),
+            unresolved_call_count = resolve_edge_stats.unresolved_call_count,
+            unresolved_import_count = resolve_edge_stats.unresolved_import_count,
+            unresolved_impl_count = resolve_edge_stats.unresolved_impl_count,
+            unresolved_intent_count = resolve_edge_stats.unresolved_intent_count,
             collect_pending_ms,
             parse_apply_ms,
             remove_missing_ms,
+            resolve_calls_ms = resolve_edge_stats.resolve_calls_ms,
+            resolve_imports_ms = resolve_edge_stats.resolve_imports_ms,
+            resolve_impls_ms = resolve_edge_stats.resolve_impls_ms,
+            resolve_intents_ms = resolve_edge_stats.resolve_intents_ms,
             resolve_edges_ms,
             persist_ms,
             reanchor_memory_ms,
@@ -461,6 +540,32 @@ impl<S: Store> WorkspaceIndexer<S> {
             "completed prism workspace indexing"
         );
         Ok((observed_changes, changes))
+    }
+
+    fn expand_refresh_scope(&self, refresh_scope: &HashSet<PathBuf>) -> HashSet<PathBuf> {
+        let mut expanded = refresh_scope.clone();
+        for path in refresh_scope {
+            let Some(file_state) = self.graph.file_state(path) else {
+                continue;
+            };
+            for node in &file_state.nodes {
+                for edge in self.graph.edges_from(&node.id, None) {
+                    if let Some(target) = self.graph.node(&edge.target) {
+                        if let Some(target_path) = self.graph.file_path(target.file) {
+                            expanded.insert(target_path.clone());
+                        }
+                    }
+                }
+                for edge in self.graph.edges_to(&node.id, None) {
+                    if let Some(source) = self.graph.node(&edge.source) {
+                        if let Some(source_path) = self.graph.file_path(source.file) {
+                            expanded.insert(source_path.clone());
+                        }
+                    }
+                }
+            }
+        }
+        expanded
     }
 
     pub fn graph(&self) -> &Graph {

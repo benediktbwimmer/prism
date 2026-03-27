@@ -144,6 +144,40 @@ Current write paths:
 
 The first replay and evaluation harness should ingest these real dogfooding entries instead of relying on imagined fixtures alone.
 
+### 3.8 Memory Dogfooding Plan
+
+PRISM memory should be validated through normal repo work, not only through synthetic fixtures.
+
+For the next stretch of PRISM work, agents should treat memory as a required first-pass read whenever a task touches an area that has likely been worked on before.
+
+Use four recurring workflows:
+
+1. Resume subsystem work after a time gap.
+   Start with `prism.memory.recall({ text: "...", limit: 5 })` and then compare it to `prism.memory.recall({ focus: [target], limit: 5 })`.
+   Success means recall surfaces at least one prior decision, validation, or failure that changes what the agent reads or tests next.
+2. Investigate a regression or recurring failure.
+   Start with `prism.memory.outcomes(...)` filtered to `TestRan`, `FailureObserved`, `FixValidated`, `NoteAdded`, and `PlanCreated` before falling back to raw history or git archaeology.
+   Success means the prior failure or validation trail is understandable without reconstructing the whole story manually.
+3. Follow up after a rename, move, or re-anchorable refactor.
+   Compare exact-focus recall on the current symbol with text recall and lineage-adjacent anchors.
+   Success means the older context survives the rename strongly enough to guide the next edit or validation.
+4. Continue another agent's work in the same area.
+   Start with task journal, filtered outcomes, and memory recall before broad file reads.
+   Success means the incoming agent can explain prior intent, what was tried, and what still looks risky before opening large code slices.
+
+For each workflow, record:
+
+- whether the best memory came from exact focus, text recall, or a combination
+- whether the surfaced memory was `helpful`, `mixed`, `stale`, `noisy`, or `wrong`
+- whether the task still required manual chat or git archaeology after recall
+- at least one `validation_feedback` entry whenever memory materially helped, missed, or misled
+
+Important rule:
+
+- broad unscoped recall is useful as a recency feed, but it should not be treated as proof that retrieval is working for the actual task target
+
+The immediate goal is not to maximize memory volume. The goal is to learn which capture and retrieval patterns actually help an agent resume work, avoid repeated mistakes, and recover prior validations over multi-day repo work.
+
 ---
 
 ## 4. Truth Classes
@@ -701,6 +735,13 @@ Suggested metric groups:
 - `memory_reanchor_accuracy`
 - `wrong_memory_reanchor_rate`
 - `stale_memory_surface_rate`
+- `memory_first_hit_rate`
+- `topic_recall_success_rate`
+- `focus_recall_miss_rate`
+- `non_patch_outcome_signal_rate`
+- `memory_helpful_rate`
+- `structural_memory_share`
+- `semantic_memory_share`
 
 ### 10.4 Projection Metrics
 - `blast_radius_topk_recall`

@@ -11,7 +11,7 @@ use prism_curator::{
     CandidateRiskSummary, CuratorBackend, CuratorContext, CuratorJob, CuratorProposal, CuratorRun,
 };
 use prism_ir::{
-    AnchorRef, EdgeKind, EventActor, EventId, EventMeta, GraphChange, LineageEvent,
+    AnchorRef, ChangeTrigger, EdgeKind, EventActor, EventId, EventMeta, GraphChange, LineageEvent,
     LineageEventKind, LineageEvidence, LineageId, NodeId, NodeKind, TaskId,
 };
 use prism_memory::{
@@ -1052,7 +1052,9 @@ fn refresh_fs_nonblocking_defers_when_refresh_is_in_progress() {
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
 
     let session = index_workspace_session(&root).unwrap();
-    session.refresh_state.mark_fs_dirty();
+    session
+        .refresh_state
+        .mark_fs_dirty_paths(std::iter::empty::<PathBuf>());
     let _guard = session
         .refresh_lock
         .lock()
@@ -1094,6 +1096,86 @@ fn refresh_state_throttles_clean_fallback_checks() {
     assert!(state.should_run_fallback_check(1_000));
     assert!(!state.should_run_fallback_check(1_100));
     assert!(state.should_run_fallback_check(1_250));
+}
+
+#[test]
+fn refresh_state_keeps_later_dirty_path_revisions_pending() {
+    let state = crate::session::WorkspaceRefreshState::new();
+    let path = PathBuf::from("/tmp/demo.rs");
+
+    let first_revision = state.mark_fs_dirty_paths([path.clone()]);
+    let second_revision = state.mark_fs_dirty_paths([path.clone()]);
+
+    state.mark_refreshed_revision(first_revision, std::slice::from_ref(&path));
+    assert!(state.needs_refresh());
+    let pending = state.dirty_paths_snapshot();
+    assert_eq!(pending.len(), 1);
+    assert!(pending.contains(&path));
+
+    state.mark_refreshed_revision(second_revision, std::slice::from_ref(&path));
+    assert!(!state.needs_refresh());
+    assert!(state.dirty_paths_snapshot().is_empty());
+}
+
+#[test]
+fn index_with_scope_refreshes_only_dirty_paths_and_removals() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/a.rs"), "pub fn alpha() {}\n").unwrap();
+    fs::write(root.join("src/b.rs"), "pub fn beta() {}\n").unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "mod a;\nmod b;\npub use a::alpha;\npub use b::beta;\n",
+    )
+    .unwrap();
+
+    let mut indexer = WorkspaceIndexer::with_store(&root, MemoryStore::default()).unwrap();
+    indexer.index().unwrap();
+    assert!(indexer
+        .graph()
+        .nodes_by_name("alpha")
+        .iter()
+        .any(|node| node.id.path.ends_with("::alpha")));
+    assert!(indexer
+        .graph()
+        .nodes_by_name("beta")
+        .iter()
+        .any(|node| node.id.path.ends_with("::beta")));
+
+    fs::write(root.join("src/a.rs"), "pub fn gamma() {}\n").unwrap();
+    indexer
+        .index_with_scope(ChangeTrigger::FsWatch, [root.join("src/a.rs")])
+        .unwrap();
+
+    assert!(indexer
+        .graph()
+        .all_nodes()
+        .any(|node| node.id.path.ends_with("::a::gamma")));
+    assert!(indexer
+        .graph()
+        .all_nodes()
+        .any(|node| node.id.path.ends_with("::b::beta")));
+
+    fs::remove_file(root.join("src/b.rs")).unwrap();
+    indexer
+        .index_with_scope(ChangeTrigger::FsWatch, [root.join("src/b.rs")])
+        .unwrap();
+
+    assert!(indexer
+        .graph()
+        .all_nodes()
+        .any(|node| node.id.path.ends_with("::a::gamma")));
+    assert!(indexer
+        .graph()
+        .file_record(&root.join("src/b.rs"))
+        .is_none());
+
+    let _ = fs::remove_dir_all(root);
 }
 
 #[test]

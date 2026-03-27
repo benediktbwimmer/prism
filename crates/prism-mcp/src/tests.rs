@@ -8084,6 +8084,203 @@ pub fn next_reads() {}
 }
 
 #[test]
+fn broad_helper_queries_deprioritize_low_level_helpers_module_utilities() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod helpers;
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/helpers.rs"),
+        r#"
+pub fn lookup_registry() {
+    let helper_mode = true;
+    assert!(helper_mode);
+}
+
+pub fn anchor_sort_key() {}
+pub fn conflict_between() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let envelope = host
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "helper".to_string(),
+                limit: Some(5),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: Some("direct".to_string()),
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: Some(true),
+                prefer_editable_targets: Some(true),
+                prefer_behavioral_owners: Some(true),
+                owner_kind: Some("read".to_string()),
+                include_inferred: None,
+            },
+        )
+        .expect("search query should succeed");
+
+    assert_eq!(
+        envelope.result[0]["id"]["path"].as_str(),
+        Some("demo::helpers::lookup_registry")
+    );
+    let top_paths = envelope
+        .result
+        .as_array()
+        .expect("search results should be an array")
+        .iter()
+        .take(2)
+        .filter_map(|value| value["id"]["path"].as_str())
+        .collect::<Vec<_>>();
+    assert!(
+        !top_paths
+            .iter()
+            .any(|path| path == &"demo::helpers::anchor_sort_key"
+                || path == &"demo::helpers::conflict_between"),
+        "expected low-level helpers.rs utilities to rank below task-facing helper code, got {top_paths:?}"
+    );
+}
+
+#[test]
+fn broad_helper_queries_deprioritize_internal_helpers_module_plumbing() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod helpers;
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/helpers.rs"),
+        r#"
+pub fn lookup_registry() {
+    let helper_mode = true;
+    assert!(helper_mode);
+}
+
+pub(crate) fn derived_event_meta() {}
+fn expire_claims_locked() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let envelope = host
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "helper".to_string(),
+                limit: Some(5),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: Some("direct".to_string()),
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: Some(true),
+                prefer_editable_targets: Some(true),
+                prefer_behavioral_owners: Some(true),
+                owner_kind: Some("read".to_string()),
+                include_inferred: None,
+            },
+        )
+        .expect("search query should succeed");
+
+    assert_eq!(
+        envelope.result[0]["id"]["path"].as_str(),
+        Some("demo::helpers::lookup_registry")
+    );
+    let top_paths = envelope
+        .result
+        .as_array()
+        .expect("search results should be an array")
+        .iter()
+        .take(2)
+        .filter_map(|value| value["id"]["path"].as_str())
+        .collect::<Vec<_>>();
+    assert!(
+        !top_paths
+            .iter()
+            .any(|path| path == &"demo::helpers::derived_event_meta"
+                || path == &"demo::helpers::expire_claims_locked"),
+        "expected internal helpers.rs plumbing to rank below task-facing helper code, got {top_paths:?}"
+    );
+}
+
+#[test]
+fn broad_helper_queries_surface_weak_match_diagnostics_for_internal_modules() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod helpers;
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/helpers.rs"),
+        r#"
+pub(crate) fn derived_event_meta() {}
+fn expire_claims_locked() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let envelope = host
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "helper".to_string(),
+                limit: Some(5),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: Some("direct".to_string()),
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: Some(true),
+                prefer_editable_targets: Some(true),
+                prefer_behavioral_owners: Some(true),
+                owner_kind: Some("read".to_string()),
+                include_inferred: None,
+            },
+        )
+        .expect("search query should succeed");
+
+    assert!(envelope
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "weak_search_match"));
+    let weak = envelope
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.code == "weak_search_match")
+        .expect("weak_search_match diagnostic should be present");
+    assert!(weak
+        .data
+        .as_ref()
+        .and_then(|data| data["reason"].as_str())
+        .is_some_and(|reason| !reason.trim().is_empty()));
+}
+
+#[test]
 fn broad_implementation_search_deprioritizes_lib_rs_facade_wrappers() {
     let root = temp_workspace();
     fs::write(

@@ -39,19 +39,19 @@ use crate::{
     spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
     task_intent_view, task_journal_view, task_risk_view, task_validation_recipe_view,
     tool_catalog_views, tool_schema_view, validation_context_view_cached,
-    validation_recipe_view_with, where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs,
-    ChangedSymbolsArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, DiffForArgs,
-    DiscoveryTargetArgs, EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs,
-    LimitArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
-    PendingReviewsArgs, PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage,
-    QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs,
-    SearchAmbiguityContext, SearchArgs, SearchTextArgs, SemanticContextCache, SessionState,
-    SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs,
-    TaskJournalArgs, TaskScopeMode, TaskTargetArgs, ToolNameArgs, ValidationFeedbackArgs,
-    WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
-    QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER,
-    USER_SNIPPET_MARKER,
+    validation_recipe_view_with, weak_search_match_diagnostic_data, weak_search_match_reason,
+    where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs,
+    CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, DiffForArgs, DiscoveryTargetArgs,
+    EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs,
+    MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs, PendingReviewsArgs,
+    PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun,
+    QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchAmbiguityContext,
+    SearchArgs, SearchTextArgs, SemanticContextCache, SessionState, SimulateClaimArgs,
+    SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs,
+    TaskScopeMode, TaskTargetArgs, ToolNameArgs, ValidationFeedbackArgs, WhereUsedArgs,
+    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER,
+    QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -1506,6 +1506,20 @@ impl QueryExecution {
                     "Use prism.search(query, { path: ..., module: ..., ownerKind: ..., taskId: ..., limit: ... }) to narrow the candidates, or run prism.focusedBlock(...) on the intended result.",
                 )),
             );
+            if let Some(reason) = weak_search_match_reason(ambiguity) {
+                self.push_diagnostic(
+                    "weak_search_match",
+                    format!(
+                        "Search for `{}` is too generic to produce a confident first hop. {} Next action: add a behavior term, module, path, or task filter.",
+                        args.query, reason
+                    ),
+                    Some(weak_search_match_diagnostic_data(
+                        ambiguity,
+                        reason,
+                        "Use prism.search(query, { path: ..., module: ..., ownerKind: ..., taskId: ..., limit: ... }) with a behavior term or scope filter, or jump straight to prism.readContext(...) on an intended candidate.",
+                    )),
+                );
+            }
         }
 
         if results.len() > applied {

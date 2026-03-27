@@ -27,6 +27,12 @@ That means:
 * `LineageId` answers "what is the same thing through time?"
 * memory and outcomes attach through `AnchorRef`, not raw file offsets or transient parser details
 
+High-level framing:
+
+* PRISM already derives a strong spatial perception layer: what exists, where it lives, what relates to what, and what context matters before an edit
+* the next phase is reliable temporal perception: what happened here before, what survived change, what failed, what worked, and what durable lessons should shape the next action
+* memory is the missing bridge from repo exploration to accumulated repo experience
+
 ---
 
 # 1. Crate Architecture

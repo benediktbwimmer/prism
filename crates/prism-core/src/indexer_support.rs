@@ -106,30 +106,37 @@ pub(crate) fn build_workspace_session(
 pub(crate) fn collect_pending_file_parses(
     walk_root: &Path,
     adapters: &[Box<dyn LanguageAdapter>],
+    refresh_scope: Option<&HashSet<PathBuf>>,
 ) -> Result<(Vec<PendingFileParse>, HashSet<PathBuf>)> {
     let mut pending = Vec::<PendingFileParse>::new();
     let mut seen_files = HashSet::<PathBuf>::new();
+    let paths = if let Some(scope) = refresh_scope {
+        collect_refresh_scope_paths(scope)?
+    } else {
+        workspace_walk(walk_root)
+            .filter_map(Result::ok)
+            .filter(|entry| {
+                entry
+                    .file_type()
+                    .map(|file_type| file_type.is_file())
+                    .unwrap_or(false)
+            })
+            .map(|entry| entry.path().to_path_buf())
+            .collect()
+    };
 
-    for entry in workspace_walk(walk_root).filter_map(Result::ok) {
-        if !entry
-            .file_type()
-            .map(|file_type| file_type.is_file())
-            .unwrap_or(false)
-        {
-            continue;
-        }
-
-        let path = entry.path();
-        let Some(_adapter) = adapters.iter().find(|adapter| adapter.supports_path(path)) else {
+    for path in paths {
+        let Some(_adapter) = adapters.iter().find(|adapter| adapter.supports_path(&path)) else {
             continue;
         };
 
-        let canonical_path = path.to_path_buf();
-        seen_files.insert(canonical_path.clone());
-        let source = fs::read_to_string(path)?;
+        if !seen_files.insert(path.clone()) {
+            continue;
+        }
+        let source = fs::read_to_string(&path)?;
         let hash = persisted_file_hash(&source);
         pending.push(PendingFileParse {
-            path: canonical_path,
+            path,
             source,
             hash,
             previous_path: None,
@@ -139,7 +146,58 @@ pub(crate) fn collect_pending_file_parses(
     Ok((pending, seen_files))
 }
 
-pub(crate) fn resolve_graph_edges(graph: &mut Graph) {
+fn collect_refresh_scope_paths(scope: &HashSet<PathBuf>) -> Result<Vec<PathBuf>> {
+    let mut paths = Vec::new();
+    let mut seen = HashSet::new();
+    for path in scope {
+        if !path.exists() {
+            continue;
+        }
+        if path.is_file() {
+            if seen.insert(path.clone()) {
+                paths.push(path.clone());
+            }
+            continue;
+        }
+        if !path.is_dir() {
+            continue;
+        }
+        for entry in workspace_walk(path).filter_map(Result::ok) {
+            if !entry
+                .file_type()
+                .map(|file_type| file_type.is_file())
+                .unwrap_or(false)
+            {
+                continue;
+            }
+            let entry_path = entry.path().to_path_buf();
+            if seen.insert(entry_path.clone()) {
+                paths.push(entry_path);
+            }
+        }
+    }
+    Ok(paths)
+}
+
+pub(crate) fn path_matches_refresh_scope(path: &Path, refresh_scope: &HashSet<PathBuf>) -> bool {
+    refresh_scope.iter().any(|candidate| {
+        path == candidate || path.starts_with(candidate) || candidate.starts_with(path)
+    })
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct ResolveGraphEdgesStats {
+    pub(crate) unresolved_call_count: usize,
+    pub(crate) unresolved_import_count: usize,
+    pub(crate) unresolved_impl_count: usize,
+    pub(crate) unresolved_intent_count: usize,
+    pub(crate) resolve_calls_ms: u128,
+    pub(crate) resolve_imports_ms: u128,
+    pub(crate) resolve_impls_ms: u128,
+    pub(crate) resolve_intents_ms: u128,
+}
+
+pub(crate) fn resolve_graph_edges(graph: &mut Graph) -> ResolveGraphEdgesStats {
     graph.clear_edges_by_kind(&[
         EdgeKind::Calls,
         EdgeKind::Imports,
@@ -152,8 +210,30 @@ pub(crate) fn resolve_graph_edges(graph: &mut Graph) {
     let unresolved_imports = graph.unresolved_imports();
     let unresolved_impls = graph.unresolved_impls();
     let unresolved_intents = graph.unresolved_intents();
+    let unresolved_call_count = unresolved_calls.len();
+    let unresolved_import_count = unresolved_imports.len();
+    let unresolved_impl_count = unresolved_impls.len();
+    let unresolved_intent_count = unresolved_intents.len();
+    let resolve_calls_started = Instant::now();
     resolve_calls(graph, unresolved_calls);
+    let resolve_calls_ms = resolve_calls_started.elapsed().as_millis();
+    let resolve_imports_started = Instant::now();
     resolve_imports(graph, unresolved_imports);
+    let resolve_imports_ms = resolve_imports_started.elapsed().as_millis();
+    let resolve_impls_started = Instant::now();
     resolve_impls(graph, unresolved_impls);
+    let resolve_impls_ms = resolve_impls_started.elapsed().as_millis();
+    let resolve_intents_started = Instant::now();
     resolve_intents(graph, unresolved_intents);
+    let resolve_intents_ms = resolve_intents_started.elapsed().as_millis();
+    ResolveGraphEdgesStats {
+        unresolved_call_count,
+        unresolved_import_count,
+        unresolved_impl_count,
+        unresolved_intent_count,
+        resolve_calls_ms,
+        resolve_imports_ms,
+        resolve_impls_ms,
+        resolve_intents_ms,
+    }
 }

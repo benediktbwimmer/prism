@@ -187,6 +187,35 @@ pub(crate) fn ambiguity_diagnostic_data(
     })
 }
 
+pub(crate) fn weak_search_match_reason(ambiguity: &SearchAmbiguityView) -> Option<&'static str> {
+    let top = ambiguity.candidates.first()?;
+    if top.bucket == "container" && top.score <= 0 {
+        Some("Top candidates are generic containers or support modules rather than strong implementation matches.")
+    } else if top.bucket == "tests" {
+        Some("Top candidates are test-only matches rather than likely implementation targets.")
+    } else if top.score <= 0 {
+        Some("The strongest remaining candidate is still weak after ranking and likely needs more intent.")
+    } else {
+        None
+    }
+}
+
+pub(crate) fn weak_search_match_diagnostic_data(
+    ambiguity: &SearchAmbiguityView,
+    reason: &str,
+    next_action: &str,
+) -> Value {
+    json!({
+        "query": ambiguity.query,
+        "candidateCount": ambiguity.candidate_count,
+        "returned": ambiguity.returned,
+        "ambiguity": ambiguity,
+        "reason": reason,
+        "suggestedQueries": ambiguity.suggested_queries,
+        "nextAction": next_action,
+    })
+}
+
 pub(crate) fn search_ambiguity_from_diagnostics(
     diagnostics: &[QueryDiagnostic],
 ) -> Option<SearchAmbiguityView> {
@@ -395,6 +424,18 @@ fn rank_candidate(
         score -= 220;
         reasons.push(
             "Generic helper-plumbing utilities de-prioritized behind task-facing helper code."
+                .to_string(),
+        );
+    }
+
+    if bare_identifier_query
+        && identifier_stem(&query_lower) == "helper"
+        && !exact_name_match
+        && is_internal_plain_helpers_symbol(&symbol)
+    {
+        score -= 80;
+        reasons.push(
+            "Internal helpers.rs plumbing de-prioritized behind task-facing helper entrypoints."
                 .to_string(),
         );
     }
@@ -1282,25 +1323,58 @@ fn is_generic_helper_utility_symbol(symbol: &SymbolView) -> bool {
             "_contexts.rs",
         ],
     );
+    let plain_helpers_module =
+        symbol_path.contains("::helpers::") || file_path.ends_with("/helpers.rs");
     let utility_name = contains_any(
         &name,
         &[
+            "anchor_",
+            "anchors_",
+            "claim_",
             "is_",
             "compact_",
             "collect_",
+            "conflict_",
             "cached_",
             "context_",
+            "dedupe_",
             "edit_slice_",
             "focused_",
             "next_",
+            "normalize_",
             "owner_",
+            "overlap",
+            "sort_key",
             "candidate_",
             "source_",
+            "severity",
             "summary_",
             "summarize_",
         ],
     );
-    utility_module || (name.contains("helper") && utility_name)
+    utility_module
+        || (plain_helpers_module && utility_name)
+        || (name.contains("helper") && utility_name)
+}
+
+fn is_internal_plain_helpers_symbol(symbol: &SymbolView) -> bool {
+    let symbol_path = symbol.id.path.to_ascii_lowercase();
+    let file_path = symbol
+        .file_path
+        .as_deref()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let in_plain_helpers_module =
+        symbol_path.contains("::helpers::") || file_path.ends_with("/helpers.rs");
+    if !in_plain_helpers_module {
+        return false;
+    }
+    let snippet = symbol
+        .source_excerpt
+        .as_ref()
+        .map(|excerpt| excerpt.text.trim_start())
+        .unwrap_or("");
+    snippet.starts_with("pub(crate) fn") || snippet.starts_with("fn ")
 }
 
 fn is_dependency_metadata_symbol(symbol: &SymbolView) -> bool {

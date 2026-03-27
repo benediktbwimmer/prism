@@ -5,15 +5,20 @@ use prism_ir::{Node, NodeId};
 use prism_parser::ParseResult;
 use prism_store::{FileState, Graph};
 
+use crate::indexer_support::path_matches_refresh_scope;
 use crate::PendingFileParse;
 
 pub(crate) fn detect_moved_files(
     graph: &Graph,
     seen_files: &HashSet<PathBuf>,
+    refresh_scope: Option<&HashSet<PathBuf>>,
     pending: &mut [PendingFileParse],
 ) -> HashSet<PathBuf> {
     let mut old_by_hash = HashMap::<u64, Vec<PathBuf>>::new();
     for tracked in graph.tracked_files() {
+        if refresh_scope.is_some_and(|scope| !path_matches_refresh_scope(&tracked, scope)) {
+            continue;
+        }
         if seen_files.contains(&tracked) {
             continue;
         }

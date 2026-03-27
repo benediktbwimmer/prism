@@ -67,27 +67,32 @@ pub(crate) fn spawn_fs_watch(
             let Ok(event) = event else {
                 continue;
             };
-            if !is_relevant_watch_event(&root, &event) {
+            let mut dirty_paths = relevant_watch_paths(&root, &event);
+            if dirty_paths.is_empty() {
                 continue;
             }
-            refresh_state.mark_fs_dirty();
 
             while let Ok(next) = event_rx.recv_timeout(Duration::from_millis(75)) {
                 if stop_rx.try_recv().is_ok() {
                     return;
                 }
                 if let Ok(next) = next {
-                    if !is_relevant_watch_event(&root, &next) {
+                    let next_paths = relevant_watch_paths(&root, &next);
+                    if next_paths.is_empty() {
                         continue;
                     }
+                    dirty_paths.extend(next_paths);
                 }
             }
+
+            refresh_state.mark_fs_dirty_paths(dirty_paths.iter().cloned());
 
             if let Err(error) = refresh_prism_snapshot(
                 &root,
                 &prism,
                 &store,
                 &refresh_lock,
+                &refresh_state,
                 &fs_snapshot,
                 coordination_enabled,
                 curator.as_ref(),
@@ -100,8 +105,6 @@ pub(crate) fn spawn_fs_watch(
                     error_chain = %format_error_chain(&error),
                     "prism fs watch refresh failed"
                 );
-            } else {
-                refresh_state.mark_refreshed();
             }
         }
     });
@@ -121,6 +124,7 @@ pub(crate) fn refresh_prism_snapshot(
     prism: &Arc<RwLock<Arc<Prism>>>,
     store: &Arc<Mutex<SqliteStore>>,
     refresh_lock: &Arc<Mutex<()>>,
+    refresh_state: &Arc<WorkspaceRefreshState>,
     fs_snapshot: &Arc<Mutex<WorkspaceFingerprint>>,
     coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
@@ -134,6 +138,7 @@ pub(crate) fn refresh_prism_snapshot(
         root,
         prism,
         store,
+        refresh_state,
         fs_snapshot,
         coordination_enabled,
         curator,
@@ -148,6 +153,7 @@ pub(crate) fn try_refresh_prism_snapshot(
     prism: &Arc<RwLock<Arc<Prism>>>,
     store: &Arc<Mutex<SqliteStore>>,
     refresh_lock: &Arc<Mutex<()>>,
+    refresh_state: &Arc<WorkspaceRefreshState>,
     fs_snapshot: &Arc<Mutex<WorkspaceFingerprint>>,
     coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
@@ -161,6 +167,7 @@ pub(crate) fn try_refresh_prism_snapshot(
         root,
         prism,
         store,
+        refresh_state,
         fs_snapshot,
         coordination_enabled,
         curator,
@@ -175,6 +182,7 @@ fn refresh_prism_snapshot_with_guard(
     root: &Path,
     prism: &Arc<RwLock<Arc<Prism>>>,
     store: &Arc<Mutex<SqliteStore>>,
+    refresh_state: &Arc<WorkspaceRefreshState>,
     fs_snapshot: &Arc<Mutex<WorkspaceFingerprint>>,
     coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
@@ -182,6 +190,12 @@ fn refresh_prism_snapshot_with_guard(
     known_fingerprint: Option<WorkspaceFingerprint>,
     _guard: MutexGuard<'_, ()>,
 ) -> Result<Vec<prism_ir::ObservedChangeSet>> {
+    let observed_revision = refresh_state.observed_fs_revision();
+    let dirty_paths = if trigger == ChangeTrigger::FsWatch {
+        refresh_state.dirty_paths_snapshot()
+    } else {
+        Vec::new()
+    };
     let cached_snapshot = fs_snapshot
         .lock()
         .expect("workspace fingerprint lock poisoned")
@@ -203,7 +217,11 @@ fn refresh_prism_snapshot_with_guard(
             coordination: coordination_enabled,
         },
     )?;
-    let observed = indexer.index_with_trigger(trigger)?;
+    let observed = if dirty_paths.is_empty() {
+        indexer.index_with_trigger(trigger)?
+    } else {
+        indexer.index_with_scope(trigger, dirty_paths.iter().cloned())?
+    };
     let next = Arc::new(indexer.into_prism());
     *prism.write().expect("workspace prism lock poisoned") = Arc::clone(&next);
     *fs_snapshot
@@ -213,24 +231,47 @@ fn refresh_prism_snapshot_with_guard(
         let mut store = store.lock().expect("workspace store lock poisoned");
         enqueue_curator_for_observed_locked(curator, next.as_ref(), &mut store, &observed)?;
     }
+    refresh_state.mark_refreshed_revision(observed_revision, &dirty_paths);
     Ok(observed)
 }
 
-fn is_relevant_watch_event(root: &Path, event: &Event) -> bool {
-    if event.paths.is_empty() {
+fn relevant_watch_paths(root: &Path, event: &Event) -> Vec<PathBuf> {
+    event
+        .paths
+        .iter()
+        .filter_map(|path| {
+            let Ok(relative) = path.strip_prefix(root) else {
+                return Some(path.clone());
+            };
+            (!is_ignored_watch_relative_path(relative)).then(|| path.clone())
+        })
+        .collect()
+}
+
+fn is_ignored_watch_relative_path(relative: &Path) -> bool {
+    let components = relative
+        .components()
+        .map(|component| component.as_os_str().to_string_lossy().into_owned())
+        .collect::<Vec<_>>();
+    if components.is_empty() {
         return false;
     }
 
-    event.paths.iter().any(|path| {
-        let Ok(relative) = path.strip_prefix(root) else {
-            return true;
-        };
-        let Some(first) = relative.components().next() else {
-            return true;
-        };
-        let first = first.as_os_str().to_string_lossy();
-        !matches!(first.as_ref(), ".git" | ".prism" | "target")
-    })
+    if components.iter().any(|component| {
+        matches!(
+            component.as_str(),
+            ".git" | ".prism" | "target" | "node_modules"
+        )
+    }) {
+        return true;
+    }
+
+    matches!(
+        components.as_slice(),
+        [first, second, ..]
+            if first == "benchmarks"
+                && matches!(second.as_str(), "external" | "results")
+    )
 }
 
 fn format_error_chain(error: &anyhow::Error) -> String {
@@ -239,4 +280,64 @@ fn format_error_chain(error: &anyhow::Error) -> String {
         .map(ToString::to_string)
         .collect::<Vec<_>>()
         .join(" | ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{is_ignored_watch_relative_path, relevant_watch_paths};
+    use notify::{
+        event::{EventAttributes, ModifyKind},
+        Event, EventKind,
+    };
+    use std::path::PathBuf;
+
+    fn modify_event(path: PathBuf) -> Event {
+        Event {
+            kind: EventKind::Modify(ModifyKind::Any),
+            paths: vec![path],
+            attrs: EventAttributes::new(),
+        }
+    }
+
+    #[test]
+    fn ignored_watch_paths_skip_generated_benchmark_results() {
+        assert!(is_ignored_watch_relative_path(
+            PathBuf::from("benchmarks/results/local/prism/workspaces/demo/repo/src/lib.rs")
+                .as_path()
+        ));
+        assert!(is_ignored_watch_relative_path(
+            PathBuf::from("benchmarks/external/demo/src/lib.rs").as_path()
+        ));
+        assert!(is_ignored_watch_relative_path(
+            PathBuf::from("node_modules/pkg/index.json").as_path()
+        ));
+        assert!(!is_ignored_watch_relative_path(
+            PathBuf::from("crates/prism-core/src/watch.rs").as_path()
+        ));
+    }
+
+    #[test]
+    fn relevant_watch_paths_drop_ignored_generated_paths() {
+        let root = PathBuf::from("/workspace/prism");
+        let event = Event {
+            kind: EventKind::Modify(ModifyKind::Any),
+            paths: vec![
+                root.join("benchmarks/results/local/prism/workspaces/demo/repo/src/lib.rs"),
+                root.join("crates/prism-core/src/watch.rs"),
+            ],
+            attrs: EventAttributes::new(),
+        };
+
+        let paths = relevant_watch_paths(&root, &event);
+        assert_eq!(paths, vec![root.join("crates/prism-core/src/watch.rs")]);
+    }
+
+    #[test]
+    fn relevant_watch_paths_keep_out_of_root_events() {
+        let root = PathBuf::from("/workspace/prism");
+        let outside = PathBuf::from("/tmp/external.rs");
+        let event = modify_event(outside.clone());
+        let paths = relevant_watch_paths(&root, &event);
+        assert_eq!(paths, vec![outside]);
+    }
 }

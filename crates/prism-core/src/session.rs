@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
@@ -41,6 +42,7 @@ pub(crate) struct WorkspaceRefreshState {
     observed_fs_revision: AtomicU64,
     applied_fs_revision: AtomicU64,
     last_fallback_check_ms: AtomicU64,
+    dirty_paths: Mutex<HashMap<PathBuf, u64>>,
 }
 
 const FALLBACK_FINGERPRINT_INTERVAL_MS: u64 = 250;
@@ -51,18 +53,51 @@ impl WorkspaceRefreshState {
             observed_fs_revision: AtomicU64::new(0),
             applied_fs_revision: AtomicU64::new(0),
             last_fallback_check_ms: AtomicU64::new(0),
+            dirty_paths: Mutex::new(HashMap::new()),
         }
     }
 
-    pub(crate) fn mark_fs_dirty(&self) {
-        self.observed_fs_revision.fetch_add(1, Ordering::Relaxed);
+    pub(crate) fn mark_fs_dirty_paths<I>(&self, paths: I) -> u64
+    where
+        I: IntoIterator<Item = PathBuf>,
+    {
+        let revision = self.observed_fs_revision.fetch_add(1, Ordering::Relaxed) + 1;
+        let mut dirty_paths = self
+            .dirty_paths
+            .lock()
+            .expect("workspace dirty paths lock poisoned");
+        for path in paths {
+            dirty_paths.insert(path, revision);
+        }
+        revision
     }
 
-    pub(crate) fn mark_refreshed(&self) {
-        self.applied_fs_revision.store(
-            self.observed_fs_revision.load(Ordering::Relaxed),
-            Ordering::Relaxed,
-        );
+    pub(crate) fn dirty_paths_snapshot(&self) -> Vec<PathBuf> {
+        self.dirty_paths
+            .lock()
+            .expect("workspace dirty paths lock poisoned")
+            .keys()
+            .cloned()
+            .collect()
+    }
+
+    pub(crate) fn mark_refreshed_revision(&self, revision: u64, consumed_paths: &[PathBuf]) {
+        self.applied_fs_revision.store(revision, Ordering::Relaxed);
+        if consumed_paths.is_empty() {
+            return;
+        }
+        let mut dirty_paths = self
+            .dirty_paths
+            .lock()
+            .expect("workspace dirty paths lock poisoned");
+        for path in consumed_paths {
+            let should_remove = dirty_paths
+                .get(path)
+                .is_some_and(|path_revision| *path_revision <= revision);
+            if should_remove {
+                dirty_paths.remove(path);
+            }
+        }
     }
 
     pub(crate) fn needs_refresh(&self) -> bool {
@@ -531,13 +566,13 @@ impl WorkspaceSession {
             &self.prism,
             &self.store,
             &self.refresh_lock,
+            &self.refresh_state,
             &self.fs_snapshot,
             self.coordination_enabled,
             curator.as_ref(),
             trigger,
             known_fingerprint,
         )?;
-        self.refresh_state.mark_refreshed();
         Ok(observed)
     }
 
@@ -551,17 +586,14 @@ impl WorkspaceSession {
             &self.prism,
             &self.store,
             &self.refresh_lock,
+            &self.refresh_state,
             &self.fs_snapshot,
             self.coordination_enabled,
             self.curator.as_ref().map(CuratorHandleRef::from).as_ref(),
             trigger,
             known_fingerprint,
         )?;
-        if observed.is_some() {
-            self.refresh_state.mark_refreshed();
-            return Ok(true);
-        }
-        Ok(false)
+        Ok(observed.is_some())
     }
 }
 
