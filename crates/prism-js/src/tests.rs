@@ -151,6 +151,7 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("targetBundle(target, options = {})"));
     assert!(prelude.contains("searchText(query, options = {})"));
     assert!(prelude.contains("__prismBundleSummary("));
+    assert!(prelude.contains("__prismWithLocalDiagnostics("));
     assert!(prelude.contains("__prismResolveSuggestedReads("));
     assert!(prelude.contains("__prismTextSearchSemanticQuery(query, options = {})"));
     assert!(prelude.contains("tools()"));

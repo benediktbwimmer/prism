@@ -51,6 +51,24 @@ use crate::{
     USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
 };
 
+#[derive(Debug, Clone, Copy)]
+enum TsSnippetMode {
+    StatementBody,
+    ImplicitExpression,
+}
+
+struct PreparedTypescriptQuery {
+    source: String,
+    user_snippet_first_line: usize,
+}
+
+struct TypescriptAttempt {
+    execution: QueryExecution,
+    result: Value,
+    json_bytes: usize,
+    output_cap_hit: bool,
+}
+
 impl QueryHost {
     pub(crate) fn execute(&self, code: &str, language: QueryLanguage) -> Result<QueryEnvelope> {
         match language {
@@ -145,61 +163,51 @@ impl QueryHost {
         let mut execution = None;
         match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize, bool)> {
             self.refresh_workspace()?;
-            let source = format!(
-                "(async function() {{\n  const __prismLocationRegex = /(?:file:\\/\\/\\/prism\\/query\\.ts|eval_script):(?<line>\\d+):(?<column>\\d+)/;\n  const __prismParseLocation = (value) => {{\n    const __prismMatch = typeof value === \"string\" ? value.match(__prismLocationRegex) : null;\n    if (!__prismMatch || !__prismMatch.groups) {{\n      return null;\n    }}\n    return {{\n      line: Number(__prismMatch.groups.line),\n      column: Number(__prismMatch.groups.column),\n    }};\n  }};\n  const __prismFormatError = (error) => {{\n    const __prismMessage = error && typeof error === \"object\" && \"message\" in error && error.message\n      ? String(error.message)\n      : String(error);\n    const __prismStack = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : null;\n    return __prismStack && __prismStack.includes(__prismMessage)\n      ? __prismStack\n      : __prismStack\n        ? `${{__prismMessage}}\\n${{__prismStack}}`\n        : __prismMessage;\n  }};\n  const __prismUserLocation = (error, baseLine) => {{\n    if (typeof baseLine !== \"number\") {{\n      return null;\n    }}\n    const __prismStack = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : \"\";\n    const __prismLines = __prismStack.split(\"\\n\");\n    const __prismFrame = __prismLines.find((line) => line.includes(\"__prismUserQuery\"))\n      || __prismLines.find((line) => line.includes(\"eval_script:\"));\n    const __prismLocation = __prismParseLocation(__prismFrame);\n    if (!__prismLocation) {{\n      return null;\n    }}\n    return {{\n      line: Math.max(1, __prismLocation.line - baseLine + 1),\n      column: __prismLocation.column,\n    }};\n  }};\n  const __prismThrowTaggedError = (marker, error, userLocation = null) => {{\n    const __prismFormatted = __prismFormatError(error);\n    const __prismHeadline = __prismFormatted.split(\"\\n\")[0] || String(error);\n    const __prismUserLocationLine = userLocation\n      ? `\\n{} ${{userLocation.line}}:${{userLocation.column}}`\n      : \"\";\n    const __prismWrapped = new Error(`${{marker}}\\n${{__prismHeadline}}${{__prismUserLocationLine}}`);\n    __prismWrapped.stack = `${{userLocation ? `{} ${{userLocation.line}}:${{userLocation.column}}\\n` : \"\"}}${{__prismFormatted}}`;\n    throw __prismWrapped;\n  }};\n  let __prismUserSnippetBaseLine = null;\n  const __prismUserQuery = async () => {{\n    const __prismBaseLocation = __prismParseLocation(new Error().stack || \"\");\n    __prismUserSnippetBaseLine = __prismBaseLocation ? __prismBaseLocation.line + 1 : null;\n{}\n{}\n  }};\n  let __prismResult;\n  try {{\n    __prismResult = await __prismUserQuery();\n  }} catch (error) {{\n    __prismThrowTaggedError(\"{}\", error, __prismUserLocation(error, __prismUserSnippetBaseLine));\n  }}\n  try {{\n    return __prismResult === undefined ? \"null\" : JSON.stringify(__prismResult);\n  }} catch (error) {{\n    __prismThrowTaggedError(\"{}\", error);\n  }}\n}})();\n",
-                USER_SNIPPET_LOCATION_MARKER,
-                USER_SNIPPET_LOCATION_MARKER,
-                USER_SNIPPET_MARKER,
+            let mut statement_attempt = match self.execute_typescript_attempt(
                 code,
-                QUERY_RUNTIME_ERROR_MARKER,
-                QUERY_SERIALIZATION_ERROR_MARKER,
-            );
-            let user_snippet_first_line = source
-                .lines()
-                .position(|line| line.trim() == USER_SNIPPET_MARKER)
-                .map(|index| index + 2)
-                .unwrap_or(1);
-            let transpiled = js_runtime::transpile_typescript(&source)
-                .map_err(|error| parse_typescript_error(error, code, user_snippet_first_line))?;
-            let created =
-                QueryExecution::new(self.clone(), self.current_prism(), query_run.clone());
-            execution = Some(created.clone());
-            let raw_result = self
-                .worker_pool
-                .execute(transpiled, created.clone())
-                .map_err(|error| {
-                    runtime_or_serialization_error(error, code, user_snippet_first_line)
-                })?;
-            let mut result = serde_json::from_str(&raw_result)
-                .map_err(|error| result_decode_error(error.into(), &raw_result))?;
-            let mut output_cap_hit = false;
-            let limits = self.session.limits();
-            if raw_result.len() > limits.max_output_json_bytes {
-                created.push_diagnostic(
-                    "result_truncated",
-                    format!(
-                        "Query output exceeded the {} byte session cap.",
-                        limits.max_output_json_bytes
-                    ),
-                    Some(json!({
-                        "applied": limits.max_output_json_bytes,
-                        "observed": raw_result.len(),
-                    })),
-                );
-                result = Value::Null;
-                output_cap_hit = true;
+                TsSnippetMode::StatementBody,
+                query_run.clone(),
+            ) {
+                Ok(attempt) => attempt,
+                Err(statement_error) => {
+                    match self.execute_typescript_attempt(
+                        code,
+                        TsSnippetMode::ImplicitExpression,
+                        query_run.clone(),
+                    ) {
+                        Ok(expression_attempt) => expression_attempt,
+                        Err(_) => return Err(statement_error),
+                    }
+                }
+            };
+            execution = Some(statement_attempt.execution.clone());
+            if !statement_attempt.output_cap_hit
+                && missing_return_hint(code, &statement_attempt.result)
+            {
+                if let Ok(expression_attempt) = self.execute_typescript_attempt(
+                    code,
+                    TsSnippetMode::ImplicitExpression,
+                    query_run.clone(),
+                ) {
+                    execution = Some(expression_attempt.execution.clone());
+                    statement_attempt = expression_attempt;
+                } else {
+                    statement_attempt.execution.push_diagnostic(
+                        "query_return_missing",
+                        "Query returned undefined, which usually means the snippet did not return a final value.",
+                        Some(json!({
+                            "nextAction": "Add `return ...` as the final statement if you meant the query to produce a result.",
+                        })),
+                    );
+                }
             }
-            if !output_cap_hit && missing_return_hint(code, &result) {
-                created.push_diagnostic(
-                    "query_return_missing",
-                    "Query returned undefined, which usually means the snippet did not return a final value.",
-                    Some(json!({
-                        "nextAction": "Add `return ...` as the final statement if you meant the query to produce a result.",
-                    })),
-                );
-            }
-            let diagnostics = created.diagnostics();
-            Ok((result, diagnostics, raw_result.len(), output_cap_hit))
+            let diagnostics = statement_attempt.execution.diagnostics();
+            Ok((
+                statement_attempt.result,
+                diagnostics,
+                statement_attempt.json_bytes,
+                statement_attempt.output_cap_hit,
+            ))
         })() {
             Ok((result, diagnostics, json_bytes, output_cap_hit)) => {
                 query_run.finish_success(
@@ -238,6 +246,75 @@ impl QueryHost {
                 .collect::<Vec<_>>(),
         )
         .map_err(Into::into)
+    }
+
+    fn execute_typescript_attempt(
+        &self,
+        code: &str,
+        mode: TsSnippetMode,
+        query_run: QueryRun,
+    ) -> Result<TypescriptAttempt> {
+        let prepared = prepare_typescript_query(code, mode);
+        let transpiled = js_runtime::transpile_typescript(&prepared.source).map_err(|error| {
+            parse_typescript_error(error, code, prepared.user_snippet_first_line)
+        })?;
+        let execution = QueryExecution::new(self.clone(), self.current_prism(), query_run);
+        let raw_result = self
+            .worker_pool
+            .execute(transpiled, execution.clone())
+            .map_err(|error| {
+                runtime_or_serialization_error(error, code, prepared.user_snippet_first_line)
+            })?;
+        let mut result = serde_json::from_str(&raw_result)
+            .map_err(|error| result_decode_error(error.into(), &raw_result))?;
+        let mut output_cap_hit = false;
+        let limits = self.session.limits();
+        if raw_result.len() > limits.max_output_json_bytes {
+            execution.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Query output exceeded the {} byte session cap.",
+                    limits.max_output_json_bytes
+                ),
+                Some(json!({
+                    "applied": limits.max_output_json_bytes,
+                    "observed": raw_result.len(),
+                })),
+            );
+            result = Value::Null;
+            output_cap_hit = true;
+        }
+        Ok(TypescriptAttempt {
+            execution,
+            result,
+            json_bytes: raw_result.len(),
+            output_cap_hit,
+        })
+    }
+}
+
+fn prepare_typescript_query(code: &str, mode: TsSnippetMode) -> PreparedTypescriptQuery {
+    let user_body = match mode {
+        TsSnippetMode::StatementBody => code.to_string(),
+        TsSnippetMode::ImplicitExpression => format!("return (\n{}\n);", code),
+    };
+    let source = format!(
+        "(async function() {{\n  const __prismLocationRegex = /(?:file:\\/\\/\\/prism\\/query\\.ts|eval_script):(?<line>\\d+):(?<column>\\d+)/;\n  const __prismParseLocation = (value) => {{\n    const __prismMatch = typeof value === \"string\" ? value.match(__prismLocationRegex) : null;\n    if (!__prismMatch || !__prismMatch.groups) {{\n      return null;\n    }}\n    return {{\n      line: Number(__prismMatch.groups.line),\n      column: Number(__prismMatch.groups.column),\n    }};\n  }};\n  const __prismFormatError = (error) => {{\n    const __prismMessage = error && typeof error === \"object\" && \"message\" in error && error.message\n      ? String(error.message)\n      : String(error);\n    const __prismStack = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : null;\n    return __prismStack && __prismStack.includes(__prismMessage)\n      ? __prismStack\n      : __prismStack\n        ? `${{__prismMessage}}\\n${{__prismStack}}`\n        : __prismMessage;\n  }};\n  const __prismUserLocation = (error, baseLine) => {{\n    if (typeof baseLine !== \"number\") {{\n      return null;\n    }}\n    const __prismStack = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : \"\";\n    const __prismLines = __prismStack.split(\"\\n\");\n    const __prismFrame = __prismLines.find((line) => line.includes(\"__prismUserQuery\"))\n      || __prismLines.find((line) => line.includes(\"eval_script:\"));\n    const __prismLocation = __prismParseLocation(__prismFrame);\n    if (!__prismLocation) {{\n      return null;\n    }}\n    return {{\n      line: Math.max(1, __prismLocation.line - baseLine + 1),\n      column: __prismLocation.column,\n    }};\n  }};\n  const __prismThrowTaggedError = (marker, error, userLocation = null) => {{\n    const __prismFormatted = __prismFormatError(error);\n    const __prismHeadline = __prismFormatted.split(\"\\n\")[0] || String(error);\n    const __prismUserLocationLine = userLocation\n      ? `\\n{} ${{userLocation.line}}:${{userLocation.column}}`\n      : \"\";\n    const __prismWrapped = new Error(`${{marker}}\\n${{__prismHeadline}}${{__prismUserLocationLine}}`);\n    __prismWrapped.stack = `${{userLocation ? `{} ${{userLocation.line}}:${{userLocation.column}}\\n` : \"\"}}${{__prismFormatted}}`;\n    throw __prismWrapped;\n  }};\n  let __prismUserSnippetBaseLine = null;\n  const __prismUserQuery = async () => {{\n    const __prismBaseLocation = __prismParseLocation(new Error().stack || \"\");\n    __prismUserSnippetBaseLine = __prismBaseLocation ? __prismBaseLocation.line + 1 : null;\n{}\n{}\n  }};\n  let __prismResult;\n  try {{\n    __prismResult = await __prismUserQuery();\n  }} catch (error) {{\n    __prismThrowTaggedError(\"{}\", error, __prismUserLocation(error, __prismUserSnippetBaseLine));\n  }}\n  try {{\n    return __prismResult === undefined ? \"null\" : JSON.stringify(__prismResult);\n  }} catch (error) {{\n    __prismThrowTaggedError(\"{}\", error);\n  }}\n}})();\n",
+        USER_SNIPPET_LOCATION_MARKER,
+        USER_SNIPPET_LOCATION_MARKER,
+        USER_SNIPPET_MARKER,
+        user_body,
+        QUERY_RUNTIME_ERROR_MARKER,
+        QUERY_SERIALIZATION_ERROR_MARKER,
+    );
+    let user_snippet_first_line = source
+        .lines()
+        .position(|line| line.trim() == USER_SNIPPET_MARKER)
+        .map(|index| index + 2)
+        .unwrap_or(1);
+    PreparedTypescriptQuery {
+        source,
+        user_snippet_first_line,
     }
 }
 

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::thread;
 
 use anyhow::Result;
 use prism_ir::{AnchorRef, NodeId, NodeKind};
@@ -40,12 +41,28 @@ pub(crate) struct SemanticContextCache {
     pub(crate) lineage: HashMap<NodeId, Option<LineageView>>,
 }
 
+struct SemanticContextPrefetch {
+    target_symbol: SymbolView,
+    target_block: FocusedBlockView,
+    relations: RelationsView,
+    owner_views: GroupedOwnerCandidateViews,
+    related_memory: Vec<ScoredMemoryView>,
+    recent_failures: Vec<OutcomeEvent>,
+    blast_radius: ChangeImpactView,
+    validation_recipe: ValidationRecipeView,
+    recent_events: Vec<OutcomeEvent>,
+    co_change_neighbors: Vec<CoChangeView>,
+    promoted_summaries: Vec<String>,
+    lineage: Option<LineageView>,
+}
+
 pub(crate) fn read_context_view_cached(
     prism: &Prism,
     session: &SessionState,
     cache: &mut SemanticContextCache,
     target: &NodeId,
 ) -> Result<ReadContextView> {
+    prefetch_semantic_context_cache(prism, session, cache, target)?;
     let target_symbol = cached_target_symbol(prism, cache, target)?;
     let target_block = cached_target_block(prism, cache, target)?;
     let direct_links = cached_direct_links(prism, session, cache, target)?;
@@ -101,6 +118,7 @@ pub(crate) fn edit_context_view_cached(
     cache: &mut SemanticContextCache,
     target: &NodeId,
 ) -> Result<EditContextView> {
+    prefetch_semantic_context_cache(prism, session, cache, target)?;
     let target_symbol = cached_target_symbol(prism, cache, target)?;
     let target_block = cached_target_block(prism, cache, target)?;
     let direct_links = cached_direct_links(prism, session, cache, target)?;
@@ -170,6 +188,7 @@ pub(crate) fn validation_context_view_cached(
     cache: &mut SemanticContextCache,
     target: &NodeId,
 ) -> Result<ValidationContextView> {
+    prefetch_semantic_context_cache(prism, session, cache, target)?;
     let target_symbol = cached_target_symbol(prism, cache, target)?;
     let target_block = cached_target_block(prism, cache, target)?;
     let tests = cached_owner_views(prism, cache, target)?.tests.clone();
@@ -216,6 +235,7 @@ pub(crate) fn recent_change_context_view_cached(
     cache: &mut SemanticContextCache,
     target: &NodeId,
 ) -> Result<RecentChangeContextView> {
+    prefetch_semantic_context_cache(prism, session, cache, target)?;
     let target_symbol = cached_target_symbol(prism, cache, target)?;
     let recent_events = cached_recent_events(prism, cache, target);
     let recent_failures = cached_recent_failures(prism, cache, target);
@@ -254,7 +274,146 @@ pub(crate) fn recent_change_context_view_cached(
     })
 }
 
-fn cached_target_symbol(
+pub(crate) fn prefetch_semantic_context_cache(
+    prism: &Prism,
+    session: &SessionState,
+    cache: &mut SemanticContextCache,
+    target: &NodeId,
+) -> Result<()> {
+    if semantic_context_cache_complete(cache, target) {
+        return Ok(());
+    }
+
+    let target_node = target.clone();
+    let recall_focus = prism.anchors_for(&[AnchorRef::Node(target_node.clone())]);
+    let promoted_focus = vec![AnchorRef::Node(target_node.clone())];
+    let prefetched = thread::scope(|scope| -> Result<SemanticContextPrefetch> {
+        let target_symbol_task = scope
+            .spawn(|| -> Result<SymbolView> { symbol_view(prism, &symbol_for(prism, target)?) });
+        let target_block_task =
+            scope.spawn(|| -> Result<FocusedBlockView> { context_target_block(prism, target) });
+        let relations_task =
+            scope.spawn(|| -> Result<RelationsView> { relations_view(prism, session, target) });
+        let owner_views_task = scope.spawn(|| -> Result<GroupedOwnerCandidateViews> {
+            grouped_owner_views_for_target(prism, target, INSIGHT_LIMIT)
+        });
+        let related_memory_task = scope.spawn(move || -> Result<Vec<ScoredMemoryView>> {
+            Ok(session
+                .notes
+                .recall(&RecallQuery {
+                    focus: recall_focus,
+                    text: None,
+                    limit: MEMORY_CONTEXT_LIMIT,
+                    kinds: None,
+                    since: None,
+                })?
+                .into_iter()
+                .map(scored_memory_view)
+                .collect::<Vec<_>>())
+        });
+        let recent_failures_task = scope.spawn(|| {
+            let mut failures = prism.related_failures(target);
+            failures.truncate(FAILURE_CONTEXT_LIMIT);
+            failures
+        });
+        let blast_radius_task = scope.spawn(|| blast_radius_view(prism, session, target));
+        let recent_events_task = scope.spawn({
+            let target = target_node.clone();
+            move || prism.outcomes_for(&[AnchorRef::Node(target)], RECENT_EVENT_LIMIT)
+        });
+        let co_change_neighbors_task = scope.spawn(|| {
+            prism
+                .co_change_neighbors(target, 8)
+                .into_iter()
+                .map(co_change_view)
+                .collect::<Vec<_>>()
+        });
+        let promoted_summaries_task =
+            scope.spawn(move || promoted_summary_texts(session, prism, &promoted_focus));
+        let lineage_task =
+            scope.spawn(|| -> Result<Option<LineageView>> { lineage_view(prism, target) });
+
+        let blast_radius = blast_radius_task
+            .join()
+            .expect("blast-radius prefetch task panicked");
+        Ok(SemanticContextPrefetch {
+            target_symbol: target_symbol_task
+                .join()
+                .expect("target-symbol prefetch task panicked")?,
+            target_block: target_block_task
+                .join()
+                .expect("target-block prefetch task panicked")?,
+            relations: relations_task
+                .join()
+                .expect("relations prefetch task panicked")?,
+            owner_views: owner_views_task
+                .join()
+                .expect("owner-view prefetch task panicked")?,
+            related_memory: related_memory_task
+                .join()
+                .expect("related-memory prefetch task panicked")?,
+            recent_failures: recent_failures_task
+                .join()
+                .expect("recent-failures prefetch task panicked"),
+            validation_recipe: validation_recipe_from_blast_radius(target, &blast_radius),
+            blast_radius,
+            recent_events: recent_events_task
+                .join()
+                .expect("recent-events prefetch task panicked"),
+            co_change_neighbors: co_change_neighbors_task
+                .join()
+                .expect("co-change prefetch task panicked"),
+            promoted_summaries: promoted_summaries_task
+                .join()
+                .expect("promoted-summaries prefetch task panicked"),
+            lineage: lineage_task
+                .join()
+                .expect("lineage prefetch task panicked")?,
+        })
+    })?;
+
+    cache
+        .target_symbols
+        .insert(target.clone(), prefetched.target_symbol);
+    cache
+        .target_blocks
+        .insert(target.clone(), prefetched.target_block);
+    cache
+        .relations
+        .insert(target.clone(), prefetched.relations.clone());
+    cache.direct_links.insert(
+        target.clone(),
+        direct_links_from_relations(&prefetched.relations),
+    );
+    cache
+        .owner_views
+        .insert(target.clone(), prefetched.owner_views);
+    cache
+        .related_memory
+        .insert(target.clone(), prefetched.related_memory);
+    cache
+        .recent_failures
+        .insert(target.clone(), prefetched.recent_failures);
+    cache
+        .blast_radius
+        .insert(target.clone(), prefetched.blast_radius);
+    cache
+        .validation_recipe
+        .insert(target.clone(), prefetched.validation_recipe);
+    cache
+        .recent_events
+        .insert(target.clone(), prefetched.recent_events);
+    cache
+        .co_change_neighbors
+        .insert(target.clone(), prefetched.co_change_neighbors);
+    cache
+        .promoted_summaries
+        .insert(target.clone(), prefetched.promoted_summaries);
+    cache.lineage.insert(target.clone(), prefetched.lineage);
+    Ok(())
+}
+
+pub(crate) fn cached_target_symbol(
     prism: &Prism,
     cache: &mut SemanticContextCache,
     target: &NodeId,
@@ -280,7 +439,7 @@ fn cached_target_block(
     Ok(value)
 }
 
-fn cached_relations(
+pub(crate) fn cached_relations(
     prism: &Prism,
     session: &SessionState,
     cache: &mut SemanticContextCache,
@@ -321,7 +480,7 @@ fn cached_direct_links(
     Ok(links)
 }
 
-fn cached_owner_views(
+pub(crate) fn cached_owner_views(
     prism: &Prism,
     cache: &mut SemanticContextCache,
     target: &NodeId,
@@ -374,7 +533,7 @@ fn cached_related_memory(
     Ok(value)
 }
 
-fn cached_recent_failures(
+pub(crate) fn cached_recent_failures(
     prism: &Prism,
     cache: &mut SemanticContextCache,
     target: &NodeId,
@@ -390,7 +549,7 @@ fn cached_recent_failures(
     failures
 }
 
-fn cached_blast_radius(
+pub(crate) fn cached_blast_radius(
     prism: &Prism,
     session: &SessionState,
     cache: &mut SemanticContextCache,
@@ -404,7 +563,7 @@ fn cached_blast_radius(
     value
 }
 
-fn cached_validation_recipe(
+pub(crate) fn cached_validation_recipe(
     prism: &Prism,
     session: &SessionState,
     cache: &mut SemanticContextCache,
@@ -445,7 +604,7 @@ fn cached_recent_events(
     value
 }
 
-fn cached_co_change_neighbors(
+pub(crate) fn cached_co_change_neighbors(
     prism: &Prism,
     cache: &mut SemanticContextCache,
     target: &NodeId,
@@ -480,7 +639,7 @@ fn cached_promoted_summaries(
     value
 }
 
-fn cached_lineage(
+pub(crate) fn cached_lineage(
     prism: &Prism,
     cache: &mut SemanticContextCache,
     target: &NodeId,
@@ -651,6 +810,57 @@ fn push_unique_symbols(target: &mut Vec<SymbolView>, candidates: &[SymbolView], 
             continue;
         }
         target.push(candidate.clone());
+    }
+}
+
+fn semantic_context_cache_complete(cache: &SemanticContextCache, target: &NodeId) -> bool {
+    cache.target_symbols.contains_key(target)
+        && cache.target_blocks.contains_key(target)
+        && cache.relations.contains_key(target)
+        && cache.direct_links.contains_key(target)
+        && cache.owner_views.contains_key(target)
+        && cache.related_memory.contains_key(target)
+        && cache.recent_failures.contains_key(target)
+        && cache.blast_radius.contains_key(target)
+        && cache.validation_recipe.contains_key(target)
+        && cache.recent_events.contains_key(target)
+        && cache.co_change_neighbors.contains_key(target)
+        && cache.promoted_summaries.contains_key(target)
+        && cache.lineage.contains_key(target)
+}
+
+fn direct_links_from_relations(relations: &RelationsView) -> Vec<SymbolView> {
+    let mut links = Vec::new();
+    push_unique_symbols(&mut links, &relations.specifies, INSIGHT_LIMIT);
+    push_unique_symbols(&mut links, &relations.specified_by, INSIGHT_LIMIT);
+    push_unique_symbols(&mut links, &relations.implements, INSIGHT_LIMIT);
+    push_unique_symbols(&mut links, &relations.validates, INSIGHT_LIMIT);
+    push_unique_symbols(&mut links, &relations.validated_by, INSIGHT_LIMIT);
+    push_unique_symbols(&mut links, &relations.related, INSIGHT_LIMIT);
+    push_unique_symbols(&mut links, &relations.related_by, INSIGHT_LIMIT);
+    if links.is_empty() {
+        push_unique_symbols(&mut links, &relations.callers, INSIGHT_LIMIT);
+        push_unique_symbols(&mut links, &relations.callees, INSIGHT_LIMIT);
+        push_unique_symbols(&mut links, &relations.references, INSIGHT_LIMIT);
+    }
+    links
+}
+
+fn validation_recipe_from_blast_radius(
+    target: &NodeId,
+    blast_radius: &ChangeImpactView,
+) -> ValidationRecipeView {
+    ValidationRecipeView {
+        target: NodeIdView {
+            crate_name: target.crate_name.to_string(),
+            path: target.path.to_string(),
+            kind: target.kind,
+        },
+        checks: blast_radius.likely_validations.clone(),
+        scored_checks: blast_radius.validation_checks.clone(),
+        related_nodes: blast_radius.direct_nodes.clone(),
+        co_change_neighbors: blast_radius.co_change_neighbors.clone(),
+        recent_failures: blast_radius.risk_events.clone(),
     }
 }
 

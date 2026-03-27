@@ -104,6 +104,17 @@ function __prismDiagnosticCodes(diagnostics) {
     : [];
 }
 
+function __prismWithLocalDiagnostics(run) {
+  const before = prism.diagnostics();
+  const beforeCount = Array.isArray(before) ? before.length : 0;
+  const value = run();
+  const after = prism.diagnostics();
+  return {
+    value,
+    diagnostics: Array.isArray(after) ? after.slice(beforeCount) : [],
+  };
+}
+
 function __prismBundleSummary(kind, resultCount, diagnostics) {
   const diagnosticCodes = __prismDiagnosticCodes(diagnostics);
   return {
@@ -458,40 +469,48 @@ function __prismFile(path) {
 }
 
 function __prismSymbolBundle(query, options = {}) {
-  const hasQuery = typeof query === "string" && query.trim() !== "";
-  const directResult = hasQuery ? prism.symbol(query) : null;
-  const directDiagnostics = prism.diagnostics();
-  const needsCandidates =
-    hasQuery &&
-    (directResult == null || __prismDiagnosticCodes(directDiagnostics).includes("ambiguous_symbol"));
-  const candidates = needsCandidates
-    ? prism.search(query, {
-        limit: options?.limit ?? options?.candidateLimit ?? options?.candidate_limit ?? 5,
-        kind: options?.kind,
-        path: options?.path,
-        module: options?.module,
-        strategy: options?.strategy,
-        ownerKind: options?.ownerKind ?? options?.owner_kind,
-        includeInferred: options?.includeInferred ?? options?.include_inferred,
-      })
-    : directResult != null
-      ? [directResult]
-      : [];
-  const result = directResult ?? (candidates.length > 0 ? candidates[0] : null);
-  const diagnostics = prism.diagnostics();
-  const discovery =
-    result != null && __prismIncludeDiscovery(options) ? prism.discovery(result) : null;
-  const readContext = result ? discovery?.readContext ?? prism.readContext(result) : null;
+  const scoped = __prismWithLocalDiagnostics(() => {
+    const hasQuery = typeof query === "string" && query.trim() !== "";
+    const directLookup = hasQuery
+      ? __prismWithLocalDiagnostics(() => prism.symbol(query))
+      : { value: null, diagnostics: [] };
+    const directResult = directLookup.value;
+    const directDiagnostics = directLookup.diagnostics;
+    const needsCandidates =
+      hasQuery &&
+      (directResult == null ||
+        __prismDiagnosticCodes(directDiagnostics).includes("ambiguous_symbol"));
+    const candidates = needsCandidates
+      ? prism.search(query, {
+          limit: options?.limit ?? options?.candidateLimit ?? options?.candidate_limit ?? 5,
+          kind: options?.kind,
+          path: options?.path,
+          module: options?.module,
+          strategy: options?.strategy,
+          ownerKind: options?.ownerKind ?? options?.owner_kind,
+          includeInferred: options?.includeInferred ?? options?.include_inferred,
+        })
+      : directResult != null
+        ? [directResult]
+        : [];
+    const result = directResult ?? (candidates.length > 0 ? candidates[0] : null);
+    const discovery =
+      result != null && __prismIncludeDiscovery(options) ? prism.discovery(result) : null;
+    const readContext = result ? discovery?.readContext ?? prism.readContext(result) : null;
+    return {
+      query,
+      result,
+      candidates,
+      discovery,
+      focusedBlock: result ? prism.focusedBlock(result) : null,
+      readContext,
+      suggestedReads: __prismResolveSuggestedReads(result, discovery, readContext, options),
+    };
+  });
   return {
-    query,
-    result,
-    candidates,
-    discovery,
-    focusedBlock: result ? prism.focusedBlock(result) : null,
-    readContext,
-    suggestedReads: __prismResolveSuggestedReads(result, discovery, readContext, options),
-    summary: __prismBundleSummary("symbol", candidates.length, diagnostics),
-    diagnostics,
+    ...scoped.value,
+    summary: __prismBundleSummary("symbol", scoped.value.candidates.length, scoped.diagnostics),
+    diagnostics: scoped.diagnostics,
   };
 }
 
@@ -744,104 +763,122 @@ globalThis.prism = Object.freeze({
     return __prismEnrichDiscoveryBundle(__prismHost("discoveryBundle", targetPayload));
   },
   searchBundle(query, options = {}) {
-    const results = prism.search(query, options);
-    const topResult = Array.isArray(results) && results.length > 0 ? results[0] : null;
-    const discovery =
-      topResult != null && __prismIncludeDiscovery(options) ? prism.discovery(topResult) : null;
-    const readContext = topResult ? discovery?.readContext ?? prism.readContext(topResult) : null;
-    const diagnostics = prism.diagnostics();
+    const scoped = __prismWithLocalDiagnostics(() => {
+      const results = prism.search(query, options);
+      const topResult = Array.isArray(results) && results.length > 0 ? results[0] : null;
+      const discovery =
+        topResult != null && __prismIncludeDiscovery(options) ? prism.discovery(topResult) : null;
+      const readContext =
+        topResult ? discovery?.readContext ?? prism.readContext(topResult) : null;
+      return {
+        query,
+        results,
+        topResult,
+        discovery,
+        focusedBlock: topResult ? prism.focusedBlock(topResult) : null,
+        readContext,
+        suggestedReads: __prismResolveSuggestedReads(topResult, discovery, readContext, options),
+        validationContext:
+          topResult ? discovery?.validationContext ?? prism.validationContext(topResult) : null,
+        recentChangeContext:
+          topResult
+            ? discovery?.recentChangeContext ?? prism.recentChangeContext(topResult)
+            : null,
+      };
+    });
     return {
-      query,
-      results,
-      topResult,
-      discovery,
-      focusedBlock: topResult ? prism.focusedBlock(topResult) : null,
-      readContext,
-      suggestedReads: __prismResolveSuggestedReads(topResult, discovery, readContext, options),
-      validationContext:
-        topResult ? discovery?.validationContext ?? prism.validationContext(topResult) : null,
-      recentChangeContext:
-        topResult
-          ? discovery?.recentChangeContext ?? prism.recentChangeContext(topResult)
-          : null,
-      summary: __prismBundleSummary("search", results.length, diagnostics),
-      diagnostics,
+      ...scoped.value,
+      summary: __prismBundleSummary("search", scoped.value.results.length, scoped.diagnostics),
+      diagnostics: scoped.diagnostics,
     };
   },
   textSearchBundle(query, options = {}) {
-    const matches = prism.searchText(query, options);
-    const topMatch = Array.isArray(matches) && matches.length > 0 ? matches[0] : null;
-    const rawContext =
-      topMatch != null
-        ? prism.file(topMatch.path).around({
-            line: topMatch.location.startLine,
-            before: options?.aroundBefore,
-            after: options?.aroundAfter,
-            maxChars: options?.aroundMaxChars,
-          })
-        : null;
-    const semanticQuery =
-      topMatch != null ? __prismTextSearchSemanticQuery(query, options) : null;
-    const semanticResults =
-      topMatch != null && semanticQuery != null
-        ? prism.search(semanticQuery, {
-            limit: options?.semanticLimit,
-            path: topMatch.path,
-            kind: options?.semanticKind,
-            ownerKind: options?.ownerKind ?? options?.owner_kind,
-            strategy: options?.strategy,
-            includeInferred: options?.includeInferred ?? options?.include_inferred,
-          })
-        : [];
-    const topSymbol =
-      Array.isArray(semanticResults) && semanticResults.length > 0 ? semanticResults[0] : null;
-    const discovery =
-      topSymbol != null && __prismIncludeDiscovery(options) ? prism.discovery(topSymbol) : null;
-    const readContext = topSymbol ? discovery?.readContext ?? prism.readContext(topSymbol) : null;
-    const diagnostics = prism.diagnostics();
+    const scoped = __prismWithLocalDiagnostics(() => {
+      const matches = prism.searchText(query, options);
+      const topMatch = Array.isArray(matches) && matches.length > 0 ? matches[0] : null;
+      const rawContext =
+        topMatch != null
+          ? prism.file(topMatch.path).around({
+              line: topMatch.location.startLine,
+              before: options?.aroundBefore,
+              after: options?.aroundAfter,
+              maxChars: options?.aroundMaxChars,
+            })
+          : null;
+      const semanticQuery =
+        topMatch != null ? __prismTextSearchSemanticQuery(query, options) : null;
+      const semanticResults =
+        topMatch != null && semanticQuery != null
+          ? prism.search(semanticQuery, {
+              limit: options?.semanticLimit,
+              path: topMatch.path,
+              kind: options?.semanticKind,
+              ownerKind: options?.ownerKind ?? options?.owner_kind,
+              strategy: options?.strategy,
+              includeInferred: options?.includeInferred ?? options?.include_inferred,
+            })
+          : [];
+      const topSymbol =
+        Array.isArray(semanticResults) && semanticResults.length > 0 ? semanticResults[0] : null;
+      const discovery =
+        topSymbol != null && __prismIncludeDiscovery(options) ? prism.discovery(topSymbol) : null;
+      const readContext =
+        topSymbol ? discovery?.readContext ?? prism.readContext(topSymbol) : null;
+      return {
+        query,
+        matches,
+        topMatch,
+        rawContext,
+        semanticQuery,
+        semanticResults,
+        topSymbol,
+        discovery,
+        focusedBlock: topSymbol ? prism.focusedBlock(topSymbol) : null,
+        readContext,
+        suggestedReads: __prismResolveSuggestedReads(topSymbol, discovery, readContext, options),
+      };
+    });
     return {
-      query,
-      matches,
-      topMatch,
-      rawContext,
-      semanticQuery,
-      semanticResults,
-      topSymbol,
-      discovery,
-      focusedBlock: topSymbol ? prism.focusedBlock(topSymbol) : null,
-      readContext,
-      suggestedReads: __prismResolveSuggestedReads(topSymbol, discovery, readContext, options),
-      summary: __prismBundleSummary("text_search", matches.length, diagnostics),
-      diagnostics,
+      ...scoped.value,
+      summary: __prismBundleSummary("text_search", scoped.value.matches.length, scoped.diagnostics),
+      diagnostics: scoped.diagnostics,
     };
   },
   targetBundle(target, options = {}) {
-    const providedDiscovery = __prismDiscoveryFromBundle(target);
-    const targetPayload = __prismNormalizeTargetPayload(__prismBundleSeedTarget(target));
-    if (targetPayload == null) {
+    const scoped = __prismWithLocalDiagnostics(() => {
+      const providedDiscovery = __prismDiscoveryFromBundle(target);
+      const targetPayload = __prismNormalizeTargetPayload(__prismBundleSeedTarget(target));
+      if (targetPayload == null) {
+        return null;
+      }
+      const discovery =
+        providedDiscovery ??
+        (__prismIncludeDiscovery(options) ? prism.discovery(targetPayload) : null);
+      const focusedBlock = prism.focusedBlock(targetPayload);
+      const editContext = discovery?.editContext ?? prism.editContext(targetPayload);
+      const readContext = discovery?.readContext ?? prism.readContext(targetPayload);
+      const targetSymbol = discovery?.target ?? focusedBlock?.symbol ?? null;
+      if (targetSymbol == null || editContext == null) {
+        return null;
+      }
+      return {
+        target: targetSymbol,
+        discovery,
+        focusedBlock,
+        diff: prism.diffFor(targetPayload, options),
+        editContext,
+        readContext,
+        suggestedReads: __prismResolveSuggestedReads(targetPayload, discovery, readContext, options),
+        likelyTests: editContext?.testBlocks ?? [],
+      };
+    });
+    if (scoped.value == null) {
       return null;
     }
-    const discovery =
-      providedDiscovery ?? (__prismIncludeDiscovery(options) ? prism.discovery(targetPayload) : null);
-    const focusedBlock = prism.focusedBlock(targetPayload);
-    const editContext = discovery?.editContext ?? prism.editContext(targetPayload);
-    const readContext = discovery?.readContext ?? prism.readContext(targetPayload);
-    const targetSymbol = discovery?.target ?? focusedBlock?.symbol ?? null;
-    if (targetSymbol == null || editContext == null) {
-      return null;
-    }
-    const diagnostics = prism.diagnostics();
     return {
-      target: targetSymbol,
-      discovery,
-      focusedBlock,
-      diff: prism.diffFor(targetPayload, options),
-      editContext,
-      readContext,
-      suggestedReads: __prismResolveSuggestedReads(targetPayload, discovery, readContext, options),
-      likelyTests: editContext?.testBlocks ?? [],
-      summary: __prismBundleSummary("target", 1, diagnostics),
-      diagnostics,
+      ...scoped.value,
+      summary: __prismBundleSummary("target", 1, scoped.diagnostics),
+      diagnostics: scoped.diagnostics,
     };
   },
   nextReads(target, options = {}) {

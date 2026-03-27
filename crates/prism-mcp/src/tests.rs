@@ -3392,6 +3392,89 @@ return {
 }
 
 #[test]
+fn bundle_helpers_keep_diagnostics_local_to_each_helper_call() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod alpha;
+pub mod beta;
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/alpha.rs"),
+        r#"
+pub fn helper() {
+    core();
+}
+
+pub fn core() {}
+"#,
+    )
+    .unwrap();
+    fs::write(root.join("src/beta.rs"), "pub fn helper() {}\n").unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .execute(
+            r#"
+const broad = prism.searchBundle("helper", { limit: 5 });
+const exact = prism.symbolBundle("core");
+const text = prism.textSearchBundle("core", {
+  path: "src/alpha.rs",
+  semanticLimit: 2,
+  aroundBefore: 1,
+  aroundAfter: 2,
+});
+return {
+  broad: {
+    diagnosticCodes: broad.diagnostics.map((diagnostic) => diagnostic.code),
+    summary: broad.summary,
+  },
+  exact: {
+    resultPath: exact.result?.id?.path ?? null,
+    diagnosticCodes: exact.diagnostics.map((diagnostic) => diagnostic.code),
+    summary: exact.summary,
+  },
+  text: {
+    topMatchPath: text.topMatch?.path ?? null,
+    diagnosticCodes: text.diagnostics.map((diagnostic) => diagnostic.code),
+    summary: text.summary,
+  },
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("bundle-local diagnostics query should succeed");
+
+    let broad = &result.result["broad"];
+    assert!(broad["diagnosticCodes"]
+        .as_array()
+        .expect("broad diagnostics")
+        .iter()
+        .any(|diagnostic| diagnostic == "ambiguous_search"));
+    assert_eq!(broad["summary"]["ambiguous"], true);
+
+    let exact = &result.result["exact"];
+    assert_eq!(exact["resultPath"], "demo::alpha::core");
+    assert_eq!(exact["summary"]["kind"], "symbol");
+    assert_eq!(exact["summary"]["resultCount"], 1);
+    assert_eq!(exact["summary"]["ambiguous"], false);
+    assert_eq!(exact["summary"]["truncated"], false);
+    assert_eq!(exact["diagnosticCodes"], json!([]));
+    assert_eq!(exact["summary"]["diagnosticCodes"], json!([]));
+
+    let text = &result.result["text"];
+    assert_eq!(text["topMatchPath"], "src/alpha.rs");
+    assert_eq!(text["summary"]["kind"], "text_search");
+    assert_eq!(text["summary"]["ambiguous"], false);
+    assert_eq!(text["summary"]["truncated"], false);
+    assert_eq!(text["diagnosticCodes"], json!([]));
+    assert_eq!(text["summary"]["diagnosticCodes"], json!([]));
+}
+
+#[test]
 fn text_search_bundle_collapses_raw_match_and_semantic_context_into_one_query() {
     let root = temp_workspace();
     fs::write(
@@ -4041,6 +4124,51 @@ return {
     assert_eq!(result.result["top"], "demo::alpha");
     assert_eq!(result.result["exact"], "demo::alpha");
     assert_eq!(result.result["count"], 1);
+}
+
+#[test]
+fn prism_query_supports_implicit_expression_object_results() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .execute(
+            r#"
+({
+  top: (await prism.search("alpha", { limit: 1, kind: "function" }))[0]?.id.path ?? null,
+  exact: (await prism.symbol("alpha"))?.id.path ?? null,
+  count: (await prism.search("alpha", { limit: 2, kind: "function" })).length,
+})
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("implicit expression query should succeed");
+
+    assert_eq!(result.result["top"], "demo::alpha");
+    assert_eq!(result.result["exact"], "demo::alpha");
+    assert_eq!(result.result["count"], 1);
+    assert!(!result
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "query_return_missing"));
+}
+
+#[test]
+fn prism_query_supports_implicit_expression_values() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .execute(
+            r#"
+(await prism.symbol("alpha"))?.id.path ?? null
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("implicit expression value query should succeed");
+
+    assert_eq!(result.result, Value::String("demo::alpha".to_string()));
+    assert!(result.diagnostics.is_empty());
 }
 
 #[test]
