@@ -1,8 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fs;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
 use prism_js::{RuntimeHealthView, RuntimeLogEventView, RuntimeProcessView, RuntimeStatusView};
@@ -213,7 +215,10 @@ fn file_len(path: &Path) -> Option<u64> {
     fs::metadata(path).ok().map(|metadata| metadata.len())
 }
 
-fn runtime_process_view(process: McpProcess, connected_bridge_pids: &BTreeSet<u32>) -> RuntimeProcessView {
+fn runtime_process_view(
+    process: McpProcess,
+    connected_bridge_pids: &BTreeSet<u32>,
+) -> RuntimeProcessView {
     let bridge_state = bridge_state(&process, connected_bridge_pids).map(bridge_state_label);
     RuntimeProcessView {
         pid: process.pid,
@@ -263,7 +268,7 @@ fn health_status(
         };
     };
 
-    if daemons.is_empty() {
+    if daemons.is_empty() && !health_probe_ok(uri, DEFAULT_HEALTH_PATH) {
         return RuntimeHealthView {
             ok: false,
             detail: format!("no daemon process for {uri}"),
@@ -276,6 +281,27 @@ fn health_status(
         format!("ok ({uri}; {} daemon processes)", daemons.len())
     };
     RuntimeHealthView { ok: true, detail }
+}
+
+fn health_probe_ok(uri: &str, health_path: &str) -> bool {
+    let Some(authority) = uri_authority(uri) else {
+        return false;
+    };
+    let Ok(mut stream) = TcpStream::connect(authority) else {
+        return false;
+    };
+    let _ = stream.set_read_timeout(Some(Duration::from_millis(300)));
+    let _ = stream.set_write_timeout(Some(Duration::from_millis(300)));
+    let request =
+        format!("GET {health_path} HTTP/1.1\r\nHost: {authority}\r\nConnection: close\r\n\r\n");
+    if stream.write_all(request.as_bytes()).is_err() {
+        return false;
+    }
+    let mut response = String::new();
+    if stream.read_to_string(&mut response).is_err() {
+        return false;
+    }
+    response.starts_with("HTTP/1.1 200") || response.starts_with("HTTP/1.0 200")
 }
 
 fn list_runtime_processes(
@@ -326,7 +352,12 @@ fn probe_runtime_state_processes(
         .map(|process| process.pid.to_string())
         .collect::<Vec<_>>();
     let output = Command::new("ps")
-        .args(["-o", "pid=,ppid=,rss=,etime=,command=", "-p", &pids.join(",")])
+        .args([
+            "-o",
+            "pid=,ppid=,rss=,etime=,command=",
+            "-p",
+            &pids.join(","),
+        ])
         .output()
         .context("failed to inspect runtime state processes with ps")?;
     if !output.status.success() {
@@ -390,7 +421,10 @@ fn parse_ps_line(line: &str) -> Option<McpProcess> {
     })
 }
 
-fn bridge_state(process: &McpProcess, connected_bridge_pids: &BTreeSet<u32>) -> Option<BridgeState> {
+fn bridge_state(
+    process: &McpProcess,
+    connected_bridge_pids: &BTreeSet<u32>,
+) -> Option<BridgeState> {
     if process.kind != McpProcessKind::Bridge {
         return None;
     }
@@ -430,12 +464,7 @@ fn connected_process_ids_for_uri(uri: &str) -> Result<BTreeSet<u32>> {
         return Ok(BTreeSet::new());
     };
     let output = Command::new("lsof")
-        .args([
-            "-nP",
-            &format!("-iTCP:{port}"),
-            "-sTCP:ESTABLISHED",
-            "-Fp",
-        ])
+        .args(["-nP", &format!("-iTCP:{port}"), "-sTCP:ESTABLISHED", "-Fp"])
         .output()
         .context("failed to inspect established TCP connections with lsof")?;
     if !output.status.success() {
@@ -753,12 +782,11 @@ mod tests {
         assert!(healthy.ok);
         assert_eq!(healthy.detail, "ok (http://127.0.0.1:52695/mcp)");
 
-        let missing_daemon =
-            health_status(&Some("http://127.0.0.1:52695/mcp".to_string()), &[], None);
+        let missing_daemon = health_status(&Some("http://127.0.0.1:9/mcp".to_string()), &[], None);
         assert!(!missing_daemon.ok);
         assert_eq!(
             missing_daemon.detail,
-            "no daemon process for http://127.0.0.1:52695/mcp"
+            "no daemon process for http://127.0.0.1:9/mcp"
         );
 
         let process_error = health_status(

@@ -154,26 +154,43 @@ impl QueryHost {
         Ok(task)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn finish_task(
         &self,
         args: PrismFinishTaskArgs,
     ) -> Result<TaskClosureMutationResult> {
-        self.close_task(args, TaskClosureDisposition::Completed)
+        self.refresh_workspace()?;
+        self.close_task_without_refresh(args, TaskClosureDisposition::Completed)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn abandon_task(
         &self,
         args: PrismFinishTaskArgs,
     ) -> Result<TaskClosureMutationResult> {
-        self.close_task(args, TaskClosureDisposition::Abandoned)
+        self.refresh_workspace()?;
+        self.close_task_without_refresh(args, TaskClosureDisposition::Abandoned)
     }
 
-    fn close_task(
+    pub(crate) fn finish_task_without_refresh(
+        &self,
+        args: PrismFinishTaskArgs,
+    ) -> Result<TaskClosureMutationResult> {
+        self.close_task_without_refresh(args, TaskClosureDisposition::Completed)
+    }
+
+    pub(crate) fn abandon_task_without_refresh(
+        &self,
+        args: PrismFinishTaskArgs,
+    ) -> Result<TaskClosureMutationResult> {
+        self.close_task_without_refresh(args, TaskClosureDisposition::Abandoned)
+    }
+
+    fn close_task_without_refresh(
         &self,
         args: PrismFinishTaskArgs,
         disposition: TaskClosureDisposition,
     ) -> Result<TaskClosureMutationResult> {
-        self.refresh_workspace()?;
         if args.summary.trim().is_empty() {
             return Err(anyhow!("task summary cannot be empty"));
         }
@@ -267,8 +284,16 @@ impl QueryHost {
         })
     }
 
+    #[allow(dead_code)]
     pub(crate) fn store_outcome(&self, args: PrismOutcomeArgs) -> Result<EventMutationResult> {
         self.refresh_workspace()?;
+        self.store_outcome_without_refresh(args)
+    }
+
+    pub(crate) fn store_outcome_without_refresh(
+        &self,
+        args: PrismOutcomeArgs,
+    ) -> Result<EventMutationResult> {
         let prism = self.current_prism();
         let anchors = prism.anchors_for(&convert_anchors(args.anchors)?);
         let task_id = self
@@ -311,8 +336,16 @@ impl QueryHost {
         })
     }
 
+    #[allow(dead_code)]
     pub(crate) fn store_memory(&self, args: PrismMemoryArgs) -> Result<MemoryMutationResult> {
         self.refresh_workspace()?;
+        self.store_memory_without_refresh(args)
+    }
+
+    pub(crate) fn store_memory_without_refresh(
+        &self,
+        args: PrismMemoryArgs,
+    ) -> Result<MemoryMutationResult> {
         let prism = self.current_prism();
         let task_id = self
             .session
@@ -372,11 +405,19 @@ impl QueryHost {
         })
     }
 
+    #[allow(dead_code)]
     pub(crate) fn store_validation_feedback(
         &self,
         args: PrismValidationFeedbackArgs,
     ) -> Result<ValidationFeedbackMutationResult> {
         self.refresh_workspace()?;
+        self.store_validation_feedback_without_refresh(args)
+    }
+
+    pub(crate) fn store_validation_feedback_without_refresh(
+        &self,
+        args: PrismValidationFeedbackArgs,
+    ) -> Result<ValidationFeedbackMutationResult> {
         let prism = self.current_prism();
         let task_id = self
             .session

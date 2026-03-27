@@ -280,7 +280,10 @@ fn parse_ps_line(line: &str) -> Option<McpProcess> {
     })
 }
 
-fn bridge_state(process: &McpProcess, connected_bridge_pids: &BTreeSet<u32>) -> Option<BridgeState> {
+fn bridge_state(
+    process: &McpProcess,
+    connected_bridge_pids: &BTreeSet<u32>,
+) -> Option<BridgeState> {
     if process.kind != McpProcessKind::Bridge {
         return None;
     }
@@ -545,12 +548,7 @@ fn connected_process_ids_for_uri(uri: &str) -> Result<BTreeSet<u32>> {
         return Ok(BTreeSet::new());
     };
     let output = Command::new("lsof")
-        .args([
-            "-nP",
-            &format!("-iTCP:{port}"),
-            "-sTCP:ESTABLISHED",
-            "-Fp",
-        ])
+        .args(["-nP", &format!("-iTCP:{port}"), "-sTCP:ESTABLISHED", "-Fp"])
         .output()
         .context("failed to inspect established TCP connections with lsof")?;
     if !output.status.success() {

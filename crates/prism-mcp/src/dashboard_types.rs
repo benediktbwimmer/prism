@@ -1,5 +1,5 @@
 use prism_js::{
-    ArtifactView, PolicyViolationRecordView, QueryLogEntryView, QueryTraceView,
+    ArtifactView, PolicyViolationRecordView, QueryLogEntryView, QueryPhaseView, QueryTraceView,
     RuntimeLogEventView, RuntimeStatusView, TaskJournalView,
 };
 use serde::Serialize;
@@ -69,6 +69,7 @@ pub(crate) struct MutationLogEntryView {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MutationTraceView {
     pub(crate) entry: MutationLogEntryView,
+    pub(crate) phases: Vec<QueryPhaseView>,
     pub(crate) result: Value,
 }
 

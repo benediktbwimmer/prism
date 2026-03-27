@@ -20,6 +20,7 @@ use rmcp::{
 
 use super::query_replay_cases::{replay_cases, ReplayExpectation, ReplayHostProfile};
 use super::*;
+use crate::server_surface::{MutationDashboardMeta, MutationRefreshPolicy};
 use prism_agent::{InferenceSnapshot, InferredEdgeScope};
 use prism_core::{index_workspace_session, index_workspace_session_with_curator};
 use prism_curator::{
@@ -4016,6 +4017,68 @@ return prism.queryLog({ limit: 1, operation: "runtimeLogs" })[0];
 }
 
 #[test]
+fn mutation_trace_records_internal_phases_for_persisted_only_mutations() {
+    let root = temp_workspace();
+    let server = PrismMcpServer::with_session_and_features(
+        index_workspace_session(&root).unwrap(),
+        PrismMcpFeatures::full().with_internal_developer(true),
+    );
+
+    let result = server
+        .execute_logged_mutation(
+            "mutate.outcome",
+            MutationRefreshPolicy::PersistedOnly,
+            || {
+                server.host.store_outcome_without_refresh(PrismOutcomeArgs {
+                    kind: OutcomeKindInput::FixValidated,
+                    anchors: vec![AnchorRefInput::Node {
+                        crate_name: "demo".to_string(),
+                        path: "demo::alpha".to_string(),
+                        kind: "function".to_string(),
+                    }],
+                    summary: "validated alpha".to_string(),
+                    result: Some(OutcomeResultInput::Success),
+                    evidence: None,
+                    task_id: None,
+                })
+            },
+            |result| {
+                MutationDashboardMeta::task(
+                    Some(result.task_id.clone()),
+                    vec![result.task_id.clone(), result.event_id.clone()],
+                    0,
+                )
+            },
+        )
+        .expect("mutation should succeed");
+
+    assert!(result.event_id.starts_with("outcome:"));
+
+    let detail = server
+        .host
+        .dashboard_operation_detail("mutation:1")
+        .expect("mutation detail should exist");
+    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+        panic!("expected mutation trace");
+    };
+    let operations = trace
+        .phases
+        .iter()
+        .map(|phase| phase.operation.as_str())
+        .collect::<Vec<_>>();
+    assert!(operations.contains(&"mutation.refreshWorkspace"));
+    assert!(operations.contains(&"mutation.operation"));
+    assert!(operations.contains(&"mutation.encodeResult"));
+    assert!(operations.contains(&"mutation.publishTaskUpdate"));
+    assert!(trace
+        .phases
+        .iter()
+        .find(|phase| phase.operation == "mutation.refreshWorkspace")
+        .and_then(|phase| phase.args_summary.as_ref())
+        .is_some_and(|args| args["refreshPath"] != Value::String("skipped".to_string())));
+}
+
+#[test]
 fn prism_query_errors_include_js_message_and_stack() {
     let root = temp_workspace();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
@@ -4385,23 +4448,10 @@ return {
 
 #[test]
 fn prism_runtime_views_prefer_structured_runtime_state() {
-    use std::io::{Read, Write};
-    use std::net::TcpListener;
-
     let root = temp_workspace();
     let prism_dir = root.join(".prism");
     fs::create_dir_all(&prism_dir).unwrap();
-
-    let listener = TcpListener::bind("127.0.0.1:0").expect("bind health server");
-    let addr = listener.local_addr().expect("local addr");
-    let server = thread::spawn(move || {
-        let (mut stream, _) = listener.accept().expect("accept health check");
-        let mut request = [0_u8; 512];
-        let _ = stream.read(&mut request);
-        stream
-            .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
-            .expect("write health response");
-    });
+    let addr = "127.0.0.1:9";
 
     fs::write(
         prism_dir.join("prism-mcp-http-uri"),
@@ -4488,8 +4538,6 @@ return {
     assert_eq!(timeline[0]["message"], "starting prism-mcp");
     assert_eq!(timeline[1]["message"], "built prism-mcp workspace server");
     assert_eq!(timeline[2]["message"], "prism-mcp daemon ready");
-
-    server.join().expect("health server should exit cleanly");
 }
 
 #[test]
@@ -6661,10 +6709,10 @@ fn explicit_search_modes_can_prefer_behavioral_owners_without_behavioral_strateg
         })
         .expect("search query should succeed");
 
-    assert!(envelope.result.as_array().is_some_and(|results| results
-        .iter()
-        .take(3)
-        .any(|symbol| {
+    assert!(envelope
+        .result
+        .as_array()
+        .is_some_and(|results| results.iter().take(3).any(|symbol| {
             symbol["ownerHint"]["kind"].as_str() == Some("read")
                 && symbol["id"]["path"]
                     .as_str()

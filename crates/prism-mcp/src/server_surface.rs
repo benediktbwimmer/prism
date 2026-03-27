@@ -6,10 +6,11 @@ use rmcp::{
 };
 use serde::Serialize;
 use serde_json::json;
+use std::time::Instant;
 
 use crate::*;
 
-struct MutationDashboardMeta {
+pub(crate) struct MutationDashboardMeta {
     task_id: Option<String>,
     result_ids: Vec<String>,
     violation_count: usize,
@@ -17,8 +18,18 @@ struct MutationDashboardMeta {
     publish_coordination_update: bool,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) enum MutationRefreshPolicy {
+    None,
+    PersistedOnly,
+}
+
 impl MutationDashboardMeta {
-    fn task(task_id: Option<String>, result_ids: Vec<String>, violation_count: usize) -> Self {
+    pub(crate) fn task(
+        task_id: Option<String>,
+        result_ids: Vec<String>,
+        violation_count: usize,
+    ) -> Self {
         Self {
             task_id,
             result_ids,
@@ -28,7 +39,7 @@ impl MutationDashboardMeta {
         }
     }
 
-    fn coordination(result_ids: Vec<String>, violation_count: usize) -> Self {
+    pub(crate) fn coordination(result_ids: Vec<String>, violation_count: usize) -> Self {
         Self {
             task_id: None,
             result_ids,
@@ -44,9 +55,10 @@ impl PrismMcpServer {
         Self::tool_router()
     }
 
-    fn execute_logged_mutation<T, F, G>(
+    pub(crate) fn execute_logged_mutation<T, F, G>(
         &self,
         action: &str,
+        refresh_policy: MutationRefreshPolicy,
         operation: F,
         finish: G,
     ) -> Result<T, McpError>
@@ -56,27 +68,121 @@ impl PrismMcpServer {
         G: FnOnce(&T) -> MutationDashboardMeta,
     {
         let run = self.host.begin_mutation_run(action);
+        let refresh_started = Instant::now();
+        match refresh_policy {
+            MutationRefreshPolicy::None => run.record_phase(
+                "mutation.refreshWorkspace",
+                &json!({ "refreshPath": "skipped" }),
+                refresh_started.elapsed(),
+                true,
+                None,
+            ),
+            MutationRefreshPolicy::PersistedOnly => {
+                match self.host.refresh_workspace_for_mutation() {
+                    Ok(refresh) => run.record_phase(
+                        "mutation.refreshWorkspace",
+                        &json!({
+                            "refreshPath": refresh.refresh_path,
+                            "deferred": refresh.deferred,
+                            "episodicReloaded": refresh.episodic_reloaded,
+                            "inferenceReloaded": refresh.inference_reloaded,
+                            "coordinationReloaded": refresh.coordination_reloaded,
+                        }),
+                        refresh_started.elapsed(),
+                        true,
+                        None,
+                    ),
+                    Err(error) => {
+                        let message = error.to_string();
+                        run.record_phase(
+                            "mutation.refreshWorkspace",
+                            &json!({ "refreshPath": "error" }),
+                            refresh_started.elapsed(),
+                            false,
+                            Some(message.clone()),
+                        );
+                        run.finish_error(message);
+                        return Err(map_query_error(error));
+                    }
+                }
+            }
+        }
+
+        let operation_started = Instant::now();
         match operation() {
             Ok(result) => {
+                run.record_phase(
+                    "mutation.operation",
+                    &json!({ "action": action }),
+                    operation_started.elapsed(),
+                    true,
+                    None,
+                );
                 let meta = finish(&result);
-                let result_json =
-                    serde_json::to_value(&result).map_err(|err| map_query_error(err.into()))?;
+                let encode_started = Instant::now();
+                let result_json = match serde_json::to_value(&result) {
+                    Ok(result_json) => {
+                        run.record_phase(
+                            "mutation.encodeResult",
+                            &json!({ "action": action }),
+                            encode_started.elapsed(),
+                            true,
+                            None,
+                        );
+                        result_json
+                    }
+                    Err(error) => {
+                        let mapped = map_query_error(error.into());
+                        run.record_phase(
+                            "mutation.encodeResult",
+                            &json!({ "action": action }),
+                            encode_started.elapsed(),
+                            false,
+                            Some(mapped.to_string()),
+                        );
+                        run.finish_error(mapped.to_string());
+                        return Err(mapped);
+                    }
+                };
+                if meta.publish_task_update {
+                    let publish_started = Instant::now();
+                    let _ = self.host.publish_dashboard_task_update();
+                    run.record_phase(
+                        "mutation.publishTaskUpdate",
+                        &json!({ "action": action }),
+                        publish_started.elapsed(),
+                        true,
+                        None,
+                    );
+                }
+                if meta.publish_coordination_update {
+                    let publish_started = Instant::now();
+                    let _ = self.host.publish_dashboard_coordination_update();
+                    run.record_phase(
+                        "mutation.publishCoordinationUpdate",
+                        &json!({ "action": action }),
+                        publish_started.elapsed(),
+                        true,
+                        None,
+                    );
+                }
                 run.finish_success(
                     meta.task_id.clone(),
                     meta.result_ids,
                     meta.violation_count,
                     result_json,
                 );
-                if meta.publish_task_update {
-                    let _ = self.host.publish_dashboard_task_update();
-                }
-                if meta.publish_coordination_update {
-                    let _ = self.host.publish_dashboard_coordination_update();
-                }
                 Ok(result)
             }
             Err(error) => {
                 let message = error.to_string();
+                run.record_phase(
+                    "mutation.operation",
+                    &json!({ "action": action }),
+                    operation_started.elapsed(),
+                    false,
+                    Some(message.clone()),
+                );
                 run.finish_error(message);
                 Err(map_query_error(error))
             }
@@ -113,6 +219,7 @@ impl PrismMcpServer {
 
                 let task = self.execute_logged_mutation(
                     "session.start_task",
+                    MutationRefreshPolicy::None,
                     || {
                         self.host
                             .start_task(args.description, args.tags.unwrap_or_default())
@@ -139,7 +246,8 @@ impl PrismMcpServer {
             PrismSessionArgs::Configure(args) => {
                 let session = self.execute_logged_mutation(
                     "session.configure",
-                    || self.host.configure_session(args),
+                    MutationRefreshPolicy::PersistedOnly,
+                    || self.host.configure_session_without_refresh(args),
                     |session| {
                         MutationDashboardMeta::task(
                             session
@@ -184,7 +292,8 @@ impl PrismMcpServer {
 
                 let result = self.execute_logged_mutation(
                     "session.finish_task",
-                    || self.host.finish_task(args),
+                    MutationRefreshPolicy::PersistedOnly,
+                    || self.host.finish_task_without_refresh(args),
                     |result| {
                         MutationDashboardMeta::task(
                             Some(result.task_id.clone()),
@@ -225,7 +334,8 @@ impl PrismMcpServer {
 
                 let result = self.execute_logged_mutation(
                     "session.abandon_task",
-                    || self.host.abandon_task(args),
+                    MutationRefreshPolicy::PersistedOnly,
+                    || self.host.abandon_task_without_refresh(args),
                     |result| {
                         MutationDashboardMeta::task(
                             Some(result.task_id.clone()),
@@ -304,7 +414,8 @@ impl PrismMcpServer {
             PrismMutationArgs::Outcome(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.outcome",
-                    || self.host.store_outcome(args),
+                    MutationRefreshPolicy::PersistedOnly,
+                    || self.host.store_outcome_without_refresh(args),
                     |result| {
                         MutationDashboardMeta::task(
                             Some(result.task_id.clone()),
@@ -328,7 +439,8 @@ impl PrismMcpServer {
             PrismMutationArgs::Memory(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.memory",
-                    || self.host.store_memory(args),
+                    MutationRefreshPolicy::PersistedOnly,
+                    || self.host.store_memory_without_refresh(args),
                     |result| {
                         MutationDashboardMeta::task(
                             Some(result.task_id.clone()),
@@ -352,7 +464,8 @@ impl PrismMcpServer {
             PrismMutationArgs::ValidationFeedback(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.validation_feedback",
-                    || self.host.store_validation_feedback(args),
+                    MutationRefreshPolicy::PersistedOnly,
+                    || self.host.store_validation_feedback_without_refresh(args),
                     |result| {
                         MutationDashboardMeta::task(
                             Some(result.task_id.clone()),
@@ -373,6 +486,7 @@ impl PrismMcpServer {
             PrismMutationArgs::InferEdge(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.infer_edge",
+                    MutationRefreshPolicy::None,
                     || self.host.store_inferred_edge(args),
                     |result| {
                         MutationDashboardMeta::task(
@@ -397,6 +511,7 @@ impl PrismMcpServer {
             PrismMutationArgs::Coordination(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.coordination",
+                    MutationRefreshPolicy::None,
                     || self.host.store_coordination(args),
                     |result| {
                         MutationDashboardMeta::coordination(
@@ -414,6 +529,7 @@ impl PrismMcpServer {
             PrismMutationArgs::Claim(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.claim",
+                    MutationRefreshPolicy::None,
                     || self.host.store_claim(args),
                     |result| {
                         let mut result_ids = result.event_ids.clone();
@@ -432,6 +548,7 @@ impl PrismMcpServer {
             PrismMutationArgs::Artifact(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.artifact",
+                    MutationRefreshPolicy::None,
                     || self.host.store_artifact(args),
                     |result| {
                         let mut result_ids = result.event_ids.clone();
@@ -458,8 +575,9 @@ impl PrismMcpServer {
                 );
                 let result = self.execute_logged_mutation(
                     "mutate.test_ran",
+                    MutationRefreshPolicy::PersistedOnly,
                     || {
-                        self.host.store_outcome(PrismOutcomeArgs {
+                        self.host.store_outcome_without_refresh(PrismOutcomeArgs {
                             kind: OutcomeKindInput::TestRan,
                             anchors: args.anchors,
                             summary,
@@ -501,8 +619,9 @@ impl PrismMcpServer {
                     .map(|trace| vec![OutcomeEvidenceInput::StackTrace { hash: trace }]);
                 let result = self.execute_logged_mutation(
                     "mutate.failure_observed",
+                    MutationRefreshPolicy::PersistedOnly,
                     || {
-                        self.host.store_outcome(PrismOutcomeArgs {
+                        self.host.store_outcome_without_refresh(PrismOutcomeArgs {
                             kind: OutcomeKindInput::FailureObserved,
                             anchors: args.anchors,
                             summary: args.summary,
@@ -534,8 +653,9 @@ impl PrismMcpServer {
             PrismMutationArgs::FixValidated(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.fix_validated",
+                    MutationRefreshPolicy::PersistedOnly,
                     || {
-                        self.host.store_outcome(PrismOutcomeArgs {
+                        self.host.store_outcome_without_refresh(PrismOutcomeArgs {
                             kind: OutcomeKindInput::FixValidated,
                             anchors: args.anchors,
                             summary: args.summary,
@@ -567,6 +687,7 @@ impl PrismMcpServer {
             PrismMutationArgs::CuratorPromoteEdge(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.curator_promote_edge",
+                    MutationRefreshPolicy::None,
                     || self.host.promote_curator_edge(args),
                     |result| {
                         let mut result_ids = vec![result.job_id.clone()];
@@ -598,6 +719,7 @@ impl PrismMcpServer {
             PrismMutationArgs::CuratorPromoteMemory(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.curator_promote_memory",
+                    MutationRefreshPolicy::None,
                     || self.host.promote_curator_memory(args),
                     |result| {
                         let mut result_ids = vec![result.job_id.clone()];
@@ -629,6 +751,7 @@ impl PrismMcpServer {
             PrismMutationArgs::CuratorRejectProposal(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.curator_reject_proposal",
+                    MutationRefreshPolicy::None,
                     || self.host.reject_curator_proposal(args),
                     |result| MutationDashboardMeta::coordination(vec![result.job_id.clone()], 0),
                 )?;

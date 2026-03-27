@@ -101,6 +101,27 @@ export function OperationDrawer({ detail, status, selectedId, onClose }: Props) 
             <Metric label="Violations" value={String(detail.trace.entry.violationCount)} />
             <Metric label="Task" value={detail.trace.entry.taskId ?? 'none'} />
           </div>
+          <div className="detail-block">
+            <h3>Phase Trace</h3>
+            {detail.trace.phases.length === 0 ? (
+              <p>No phase trace captured.</p>
+            ) : (
+              <div className="phase-list">
+                {detail.trace.phases.map((phase) => (
+                  <article key={`${phase.operation}-${phase.startedAt}`} className="phase-card">
+                    <div className="phase-header">
+                      <strong>{phase.operation}</strong>
+                      <span>{phase.durationMs} ms</span>
+                    </div>
+                    <p>{phase.success ? 'ok' : 'error'}</p>
+                    {phase.touched.length ? <p>{phase.touched.join(', ')}</p> : null}
+                    {phase.argsSummary ? <pre>{JSON.stringify(phase.argsSummary, null, 2)}</pre> : null}
+                    {phase.error ? <p className="detail-error-text">{phase.error}</p> : null}
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
           <ListSection
             title="Result IDs"
             values={detail.trace.entry.resultIds}

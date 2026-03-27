@@ -506,7 +506,16 @@ impl QueryHost {
         }
     }
 
+    #[allow(dead_code)]
     fn configure_session(&self, args: PrismConfigureSessionArgs) -> Result<SessionView> {
+        self.refresh_workspace()?;
+        self.configure_session_without_refresh(args)
+    }
+
+    fn configure_session_without_refresh(
+        &self,
+        args: PrismConfigureSessionArgs,
+    ) -> Result<SessionView> {
         if args.clear_current_task.unwrap_or(false)
             && (args.current_task_id.is_some()
                 || args.current_task_description.is_some()
@@ -540,10 +549,6 @@ impl QueryHost {
                 return Err(anyhow!("session limits must be greater than zero"));
             }
             self.session.set_limits(limits);
-        }
-
-        if args.current_task_id.is_some() {
-            self.refresh_workspace()?;
         }
 
         if args.clear_current_task.unwrap_or(false) {
@@ -652,9 +657,7 @@ impl QueryHost {
                 true
             }
         };
-        let (episodic_reloaded, inference_reloaded, coordination_reloaded) = if deferred {
-            (false, false, false)
-        } else {
+        let (episodic_reloaded, inference_reloaded, coordination_reloaded) = {
             self.sync_workspace_revision(workspace)?;
             (
                 self.reload_episodic_snapshot_if_needed(workspace)?,
@@ -687,6 +690,66 @@ impl QueryHost {
         Ok(WorkspaceRefreshReport {
             refresh_path,
             deferred,
+            episodic_reloaded,
+            inference_reloaded,
+            coordination_reloaded,
+        })
+    }
+
+    pub(crate) fn refresh_workspace_for_mutation(&self) -> Result<WorkspaceRefreshReport> {
+        let Some(workspace) = &self.workspace else {
+            return Ok(WorkspaceRefreshReport {
+                refresh_path: "none",
+                deferred: false,
+                episodic_reloaded: false,
+                inference_reloaded: false,
+                coordination_reloaded: false,
+            });
+        };
+
+        let started = Instant::now();
+        let workspace_reloaded = self.reload_workspace_snapshot_if_needed(workspace)?;
+        if workspace_reloaded {
+            self.sync_workspace_revision(workspace)?;
+        }
+        let episodic_reloaded = self.reload_episodic_snapshot_if_needed(workspace)?;
+        let inference_reloaded = self.reload_inference_snapshot_if_needed(workspace)?;
+        let coordination_reloaded = self.reload_coordination_snapshot_if_needed(workspace)?;
+        let refresh_path = if workspace_reloaded
+            || episodic_reloaded
+            || inference_reloaded
+            || coordination_reloaded
+        {
+            "persisted"
+        } else {
+            "none"
+        };
+        log_refresh_workspace(
+            refresh_path,
+            workspace,
+            episodic_reloaded,
+            inference_reloaded,
+            coordination_reloaded,
+            started.elapsed().as_millis(),
+        );
+        self.dashboard_state.publish_value(
+            "runtime.refreshed",
+            json!({
+                "refreshPath": refresh_path,
+                "durationMs": started.elapsed().as_millis(),
+                "coordinationReloaded": coordination_reloaded,
+                "deferred": false,
+                "episodicReloaded": episodic_reloaded,
+                "inferenceReloaded": inference_reloaded,
+                "workspaceReloaded": workspace_reloaded,
+            }),
+        );
+        if coordination_reloaded {
+            let _ = self.publish_dashboard_coordination_update();
+        }
+        Ok(WorkspaceRefreshReport {
+            refresh_path,
+            deferred: false,
             episodic_reloaded,
             inference_reloaded,
             coordination_reloaded,

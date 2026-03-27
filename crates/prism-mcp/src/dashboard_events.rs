@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use async_stream::stream;
 use axum::response::sse::Event;
@@ -13,6 +13,7 @@ use crate::dashboard_types::{
     ActiveOperationView, DashboardEventEnvelope, DashboardOperationDetailView,
     DashboardOperationsView, MutationLogEntryView, MutationTraceView,
 };
+use crate::query_log::{duration_to_ms, summarize_value, touches_for_value};
 use crate::{current_timestamp, QueryHost, QueryLogArgs, QueryRun};
 
 const DASHBOARD_EVENT_CAPACITY: usize = 512;
@@ -53,11 +54,13 @@ pub(crate) struct MutationRun {
     started: Instant,
     session_id: String,
     task_id: Option<String>,
+    phases: Arc<Mutex<Vec<QueryPhaseView>>>,
 }
 
 #[derive(Debug, Clone)]
 struct MutationTraceRecord {
     entry: MutationLogEntryView,
+    phases: Vec<QueryPhaseView>,
     result: serde_json::Value,
 }
 
@@ -156,6 +159,7 @@ impl DashboardState {
             .cloned()
             .map(|record| MutationTraceView {
                 entry: record.entry,
+                phases: record.phases,
                 result: record.result,
             })
     }
@@ -202,6 +206,7 @@ impl QueryHost {
             started: Instant::now(),
             session_id: self.session.session_id().0.to_string(),
             task_id: self.session.current_task().map(|task| task.0.to_string()),
+            phases: Arc::new(Mutex::new(Vec::new())),
         };
         let active = ActiveOperationView {
             id: run.id.clone(),
@@ -271,6 +276,30 @@ impl QueryHost {
 }
 
 impl MutationRun {
+    pub(crate) fn record_phase(
+        &self,
+        operation: &str,
+        args: &serde_json::Value,
+        duration: Duration,
+        success: bool,
+        error: Option<String>,
+    ) {
+        let phase = QueryPhaseView {
+            operation: operation.to_string(),
+            started_at: current_timestamp(),
+            duration_ms: duration_to_ms(duration),
+            args_summary: Some(summarize_value(args)),
+            touched: touches_for_value(args),
+            success,
+            error,
+        };
+        self.phases
+            .lock()
+            .expect("mutation log phases lock poisoned")
+            .push(phase.clone());
+        self.dashboard_phase(&phase);
+    }
+
     pub(crate) fn finish_success(
         self,
         task_id: Option<String>,
@@ -278,6 +307,11 @@ impl MutationRun {
         violation_count: usize,
         result: serde_json::Value,
     ) {
+        let phases = self
+            .phases
+            .lock()
+            .expect("mutation log phases lock poisoned")
+            .clone();
         let entry = MutationLogEntryView {
             id: self.id.clone(),
             action: self.action.clone(),
@@ -293,6 +327,7 @@ impl MutationRun {
         self.dashboard.remove_active(&self.id);
         self.dashboard.push_mutation(MutationTraceRecord {
             entry: entry.clone(),
+            phases,
             result,
         });
         self.dashboard
@@ -300,6 +335,11 @@ impl MutationRun {
     }
 
     pub(crate) fn finish_error(self, error: impl Into<String>) {
+        let phases = self
+            .phases
+            .lock()
+            .expect("mutation log phases lock poisoned")
+            .clone();
         let entry = MutationLogEntryView {
             id: self.id.clone(),
             action: self.action.clone(),
@@ -315,10 +355,29 @@ impl MutationRun {
         self.dashboard.remove_active(&self.id);
         self.dashboard.push_mutation(MutationTraceRecord {
             entry: entry.clone(),
+            phases,
             result: serde_json::Value::Null,
         });
         self.dashboard
             .publish_value("mutation.finished", json!(entry));
+    }
+
+    fn dashboard_phase(&self, phase: &QueryPhaseView) {
+        let active = ActiveOperationView {
+            id: self.id.clone(),
+            kind: "mutation".to_string(),
+            label: self.action.clone(),
+            started_at: self.started_at,
+            session_id: self.session_id.clone(),
+            task_id: self.task_id.clone(),
+            status: "running".to_string(),
+            phase: Some(phase.operation.clone()),
+            touched: phase.touched.clone(),
+            error: phase.error.clone(),
+        };
+        self.dashboard.upsert_active(active.clone());
+        self.dashboard
+            .publish_value("mutation.phase", json!(active));
     }
 }
 

@@ -135,6 +135,7 @@ export type MutationLogEntryView = {
 
 export type MutationTraceView = {
   entry: MutationLogEntryView
+  phases: QueryPhaseView[]
   result: unknown
 }
 

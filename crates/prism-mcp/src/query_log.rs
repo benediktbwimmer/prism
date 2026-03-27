@@ -345,7 +345,7 @@ fn summarize_query(query_text: &str, kind: &str) -> String {
     }
 }
 
-fn summarize_value(value: &Value) -> Value {
+pub(crate) fn summarize_value(value: &Value) -> Value {
     match value {
         Value::String(string) => Value::String(clamp_string(string, MAX_SUMMARY_CHARS)),
         Value::Array(items) => Value::Array(
@@ -365,7 +365,7 @@ fn summarize_value(value: &Value) -> Value {
     }
 }
 
-fn touches_for_value(value: &Value) -> Vec<String> {
+pub(crate) fn touches_for_value(value: &Value) -> Vec<String> {
     let mut touched = BTreeSet::new();
     collect_touch_values(value, &mut Vec::new(), &mut touched);
     touched.into_iter().collect()
@@ -521,6 +521,6 @@ fn item_count(value: &Value) -> Option<usize> {
     }
 }
 
-fn duration_to_ms(duration: Duration) -> u64 {
+pub(crate) fn duration_to_ms(duration: Duration) -> u64 {
     duration.as_millis().min(u64::MAX as u128) as u64
 }
