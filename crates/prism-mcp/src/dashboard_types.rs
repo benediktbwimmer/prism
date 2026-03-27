@@ -1,5 +1,9 @@
-use prism_js::{QueryLogEntryView, QueryTraceView, RuntimeLogEventView, RuntimeStatusView};
+use prism_js::{
+    ArtifactView, PolicyViolationRecordView, QueryLogEntryView, QueryTraceView, RuntimeLogEventView,
+    RuntimeStatusView, TaskJournalView,
+};
 use serde::Serialize;
+use serde_json::Value;
 
 use crate::SessionView;
 
@@ -19,6 +23,8 @@ pub(crate) struct DashboardSummaryView {
 pub(crate) struct DashboardBootstrapView {
     pub(crate) summary: DashboardSummaryView,
     pub(crate) operations: DashboardOperationsView,
+    pub(crate) task: DashboardTaskSnapshotView,
+    pub(crate) coordination: DashboardCoordinationSummaryView,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -63,6 +69,7 @@ pub(crate) struct MutationLogEntryView {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MutationTraceView {
     pub(crate) entry: MutationLogEntryView,
+    pub(crate) result: Value,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -71,6 +78,45 @@ pub(crate) enum DashboardOperationDetailView {
     Active { operation: ActiveOperationView },
     Query { trace: QueryTraceView },
     Mutation { trace: MutationTraceView },
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct DashboardTaskSnapshotView {
+    pub(crate) session: SessionView,
+    pub(crate) journal: Option<TaskJournalView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct DashboardCoordinationSummaryView {
+    pub(crate) enabled: bool,
+    pub(crate) active_plan_count: usize,
+    pub(crate) task_count: usize,
+    pub(crate) ready_task_count: usize,
+    pub(crate) in_review_task_count: usize,
+    pub(crate) active_claim_count: usize,
+    pub(crate) pending_review_count: usize,
+    pub(crate) proposed_artifact_count: usize,
+    pub(crate) recent_pending_reviews: Vec<ArtifactView>,
+    pub(crate) recent_violations: Vec<PolicyViolationRecordView>,
+}
+
+impl DashboardCoordinationSummaryView {
+    pub(crate) fn disabled() -> Self {
+        Self {
+            enabled: false,
+            active_plan_count: 0,
+            task_count: 0,
+            ready_task_count: 0,
+            in_review_task_count: 0,
+            active_claim_count: 0,
+            pending_review_count: 0,
+            proposed_artifact_count: 0,
+            recent_pending_reviews: Vec::new(),
+            recent_violations: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]

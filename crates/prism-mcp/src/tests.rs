@@ -5296,6 +5296,48 @@ return spec
 }
 
 #[test]
+fn discovery_bundle_query_trace_records_internal_subphases() {
+    let root = temp_workspace();
+    write_memory_insight_workspace(&root);
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    host.execute(
+        r#"
+const spec = prism.search("Integration Points", {
+  path: "docs/SPEC.md",
+  kind: "markdown-heading",
+  limit: 1,
+})[0];
+return spec ? prism.discovery(spec) : null;
+"#,
+        QueryLanguage::Ts,
+    )
+    .expect("discovery query should succeed");
+
+    let trace = host
+        .execute(
+            r#"
+const recent = prism.queryLog({ limit: 5 });
+const discovery = recent.find((entry) => entry.operations.includes("discoveryBundle"));
+return discovery ? prism.queryTrace(discovery.id) : null;
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query trace lookup should succeed");
+
+    let phases = trace.result["phases"].as_array().expect("trace phases");
+    let operations = phases
+        .iter()
+        .filter_map(|phase| phase["operation"].as_str())
+        .collect::<Vec<_>>();
+    assert!(operations.contains(&"discoveryBundle.prefetch"));
+    assert!(operations.contains(&"discoveryBundle.entrypointsFor"));
+    assert!(operations.contains(&"discoveryBundle.whereUsedBehavioral"));
+    assert!(operations.contains(&"discoveryBundle.sharedContext"));
+    assert!(operations.contains(&"discoveryBundle"));
+}
+
+#[test]
 fn discovery_helpers_surface_next_reads_and_behavioral_where_used() {
     let root = temp_workspace();
     write_memory_insight_workspace(&root);

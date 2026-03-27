@@ -47,6 +47,7 @@ struct CoordinationAudit {
     rejected: bool,
 }
 
+#[derive(Clone, serde::Serialize)]
 pub(crate) struct TaskClosureMutationResult {
     pub(crate) task_id: String,
     pub(crate) event_id: String,

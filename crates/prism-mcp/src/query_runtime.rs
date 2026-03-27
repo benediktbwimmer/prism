@@ -1973,10 +1973,11 @@ impl QueryExecution {
             .semantic_context_cache
             .lock()
             .expect("semantic context cache lock poisoned");
-        crate::discovery_bundle_view_cached(
+        crate::discovery_bundle_view_cached_with_trace(
             self.prism.as_ref(),
             self.host.session.as_ref(),
             &mut cache,
+            Some(self.query_run.clone()),
             id,
         )
     }

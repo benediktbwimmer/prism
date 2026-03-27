@@ -1,17 +1,19 @@
 use std::thread;
+use std::time::Instant;
 
 use anyhow::Result;
 use prism_ir::NodeId;
 use prism_js::{ConfidenceLabel, DiscoveryBundleView, EvidenceSourceKind, TrustSignalsView};
 use prism_query::Prism;
 use serde::de::DeserializeOwned;
+use serde_json::json;
 
 use crate::{
     cached_blast_radius, cached_co_change_neighbors, cached_lineage, cached_owner_views,
     cached_recent_failures, cached_relations, cached_target_symbol, cached_validation_recipe,
     edit_context_view_cached, entrypoints_for, next_reads, prefetch_semantic_context_cache,
     read_context_view_cached, recent_change_context_view_cached, symbol_suggested_queries,
-    validation_context_view_cached, where_used, SemanticContextCache, SessionState,
+    validation_context_view_cached, where_used, QueryRun, SemanticContextCache, SessionState,
 };
 
 pub(crate) fn discovery_bundle_view(
@@ -29,8 +31,22 @@ pub(crate) fn discovery_bundle_view_cached(
     cache: &mut SemanticContextCache,
     id: &NodeId,
 ) -> Result<DiscoveryBundleView> {
-    prefetch_semantic_context_cache(prism, session, cache, id)?;
-    let target = cached_target_symbol(prism, cache, id)?;
+    discovery_bundle_view_cached_with_trace(prism, session, cache, None, id)
+}
+
+pub(crate) fn discovery_bundle_view_cached_with_trace(
+    prism: &Prism,
+    session: &SessionState,
+    cache: &mut SemanticContextCache,
+    query_run: Option<QueryRun>,
+    id: &NodeId,
+) -> Result<DiscoveryBundleView> {
+    record_bundle_phase(query_run.as_ref(), id, "discoveryBundle.prefetch", || {
+        prefetch_semantic_context_cache(prism, session, cache, id)
+    })?;
+    let target = record_bundle_phase(query_run.as_ref(), id, "discoveryBundle.target", || {
+        cached_target_symbol(prism, cache, id)
+    })?;
     let (spec_drift, entrypoints, where_used_direct, where_used_behavioral, spec_cluster): (
         Option<prism_js::SpecDriftExplanationView>,
         Vec<prism_js::SymbolView>,
@@ -38,23 +54,60 @@ pub(crate) fn discovery_bundle_view_cached(
         Vec<prism_js::SymbolView>,
         Option<prism_js::SpecImplementationClusterView>,
     ) = thread::scope(|scope| -> Result<_> {
-        let spec_drift_task = scope.spawn(|| {
-            crate::spec_drift_explanation_view(prism, id)
-                .ok()
-                .map(convert_view)
-                .transpose()
+        let spec_drift_run = query_run.clone();
+        let spec_drift_task = scope.spawn(move || {
+            record_bundle_phase(
+                spec_drift_run.as_ref(),
+                id,
+                "discoveryBundle.specDrift",
+                || {
+                    crate::spec_drift_explanation_view(prism, id)
+                        .ok()
+                        .map(convert_view)
+                        .transpose()
+                },
+            )
         });
-        let entrypoints_task =
-            scope.spawn(|| entrypoints_for(prism, session, id, crate::INSIGHT_LIMIT));
-        let where_used_direct_task =
-            scope.spawn(|| where_used(prism, session, id, Some("direct"), crate::INSIGHT_LIMIT));
-        let where_used_behavioral_task = scope
-            .spawn(|| where_used(prism, session, id, Some("behavioral"), crate::INSIGHT_LIMIT));
-        let spec_cluster_task = scope.spawn(|| {
-            crate::spec_cluster_view(prism, id)
-                .ok()
-                .map(convert_view)
-                .transpose()
+        let entrypoints_run = query_run.clone();
+        let entrypoints_task = scope.spawn(move || {
+            record_bundle_phase(
+                entrypoints_run.as_ref(),
+                id,
+                "discoveryBundle.entrypointsFor",
+                || entrypoints_for(prism, session, id, crate::INSIGHT_LIMIT),
+            )
+        });
+        let where_used_direct_run = query_run.clone();
+        let where_used_direct_task = scope.spawn(move || {
+            record_bundle_phase(
+                where_used_direct_run.as_ref(),
+                id,
+                "discoveryBundle.whereUsedDirect",
+                || where_used(prism, session, id, Some("direct"), crate::INSIGHT_LIMIT),
+            )
+        });
+        let where_used_behavioral_run = query_run.clone();
+        let where_used_behavioral_task = scope.spawn(move || {
+            record_bundle_phase(
+                where_used_behavioral_run.as_ref(),
+                id,
+                "discoveryBundle.whereUsedBehavioral",
+                || where_used(prism, session, id, Some("behavioral"), crate::INSIGHT_LIMIT),
+            )
+        });
+        let spec_cluster_run = query_run.clone();
+        let spec_cluster_task = scope.spawn(move || {
+            record_bundle_phase(
+                spec_cluster_run.as_ref(),
+                id,
+                "discoveryBundle.specCluster",
+                || {
+                    crate::spec_cluster_view(prism, id)
+                        .ok()
+                        .map(convert_view)
+                        .transpose()
+                },
+            )
         });
         Ok((
             spec_drift_task
@@ -74,27 +127,70 @@ pub(crate) fn discovery_bundle_view_cached(
                 .expect("spec-cluster bundle task panicked")?,
         ))
     })?;
-    let suggested_reads = spec_drift
-        .as_ref()
-        .map(|drift| drift.next_reads.clone())
-        .filter(|reads| !reads.is_empty())
-        .unwrap_or(next_reads(prism, id, crate::INSIGHT_LIMIT)?);
+    let suggested_reads = record_bundle_phase(
+        query_run.as_ref(),
+        id,
+        "discoveryBundle.suggestedReads",
+        || {
+            Ok(spec_drift
+                .as_ref()
+                .map(|drift| drift.next_reads.clone())
+                .filter(|reads| !reads.is_empty())
+                .unwrap_or(next_reads(prism, id, crate::INSIGHT_LIMIT)?))
+        },
+    )?;
     let suggested_reads = if suggested_reads.is_empty() {
         cached_owner_views(prism, cache, id)?.all.clone()
     } else {
         suggested_reads
     };
-    let read_context = read_context_view_cached(prism, session, cache, id)?;
-    let edit_context = edit_context_view_cached(prism, session, cache, id)?;
-    let validation_context = validation_context_view_cached(prism, session, cache, id)?;
-    let recent_change_context = recent_change_context_view_cached(prism, session, cache, id)?;
+    let read_context = record_bundle_phase(
+        query_run.as_ref(),
+        id,
+        "discoveryBundle.readContext",
+        || read_context_view_cached(prism, session, cache, id),
+    )?;
+    let edit_context = record_bundle_phase(
+        query_run.as_ref(),
+        id,
+        "discoveryBundle.editContext",
+        || edit_context_view_cached(prism, session, cache, id),
+    )?;
+    let validation_context = record_bundle_phase(
+        query_run.as_ref(),
+        id,
+        "discoveryBundle.validationContext",
+        || validation_context_view_cached(prism, session, cache, id),
+    )?;
+    let recent_change_context = record_bundle_phase(
+        query_run.as_ref(),
+        id,
+        "discoveryBundle.recentChangeContext",
+        || recent_change_context_view_cached(prism, session, cache, id),
+    )?;
     let suggested_queries = symbol_suggested_queries(id);
-    let relations = cached_relations(prism, session, cache, id)?;
-    let lineage = cached_lineage(prism, cache, id)?;
-    let co_change_neighbors = cached_co_change_neighbors(prism, cache, id);
-    let related_failures = cached_recent_failures(prism, cache, id);
-    let blast_radius = cached_blast_radius(prism, session, cache, id);
-    let validation_recipe = cached_validation_recipe(prism, session, cache, id);
+    let (
+        relations,
+        lineage,
+        co_change_neighbors,
+        related_failures,
+        blast_radius,
+        validation_recipe,
+    ) = record_bundle_phase(
+        query_run.as_ref(),
+        id,
+        "discoveryBundle.sharedContext",
+        || {
+            Ok((
+                cached_relations(prism, session, cache, id)?,
+                cached_lineage(prism, cache, id)?,
+                cached_co_change_neighbors(prism, cache, id),
+                cached_recent_failures(prism, cache, id),
+                cached_blast_radius(prism, session, cache, id),
+                cached_validation_recipe(prism, session, cache, id),
+            ))
+        },
+    )?;
 
     let mut why = vec![
         "Suggested reads prioritize read-oriented owner paths for the target.".to_string(),
@@ -163,6 +259,32 @@ pub(crate) fn discovery_bundle_view_cached(
         trust_signals,
         why,
     })
+}
+
+fn record_bundle_phase<T>(
+    query_run: Option<&QueryRun>,
+    id: &NodeId,
+    operation: &str,
+    work: impl FnOnce() -> Result<T>,
+) -> Result<T> {
+    let started = Instant::now();
+    let result = work();
+    if let Some(query_run) = query_run {
+        query_run.record_phase(
+            operation,
+            &json!({
+                "id": {
+                    "crateName": id.crate_name.clone(),
+                    "kind": id.kind,
+                    "path": id.path.clone(),
+                }
+            }),
+            started.elapsed(),
+            result.is_ok(),
+            result.as_ref().err().map(ToString::to_string),
+        );
+    }
+    result
 }
 
 fn convert_view<T, U>(value: T) -> Result<U>

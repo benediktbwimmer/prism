@@ -11,13 +11,13 @@ use serde::Deserialize;
 use tower_http::services::ServeDir;
 
 use crate::dashboard_types::{
-    DashboardBootstrapView, DashboardOperationDetailView, DashboardOperationsView,
-    DashboardSummaryView,
+    DashboardBootstrapView, DashboardCoordinationSummaryView, DashboardOperationDetailView,
+    DashboardOperationsView, DashboardSummaryView, DashboardTaskSnapshotView,
 };
-use crate::runtime_views::{runtime_status, runtime_timeline};
+use crate::runtime_views::runtime_status;
 use crate::{
     dashboard_assets::{dashboard_assets_dir, dashboard_index_html, dashboard_unbuilt_html},
-    QueryHost, QueryLogArgs, RuntimeTimelineArgs,
+    QueryHost,
 };
 
 #[derive(Clone)]
@@ -38,6 +38,8 @@ pub(crate) fn routes(state: DashboardAppState) -> Router {
         .route("/dashboard", get(dashboard_index))
         .route("/dashboard/api/bootstrap", get(dashboard_bootstrap))
         .route("/dashboard/api/summary", get(dashboard_summary))
+        .route("/dashboard/api/task", get(dashboard_task))
+        .route("/dashboard/api/coordination", get(dashboard_coordination))
         .route("/dashboard/api/runtime", get(dashboard_runtime))
         .route("/dashboard/api/operations", get(dashboard_operations))
         .route(
@@ -63,18 +65,53 @@ async fn dashboard_bootstrap(
     State(state): State<DashboardAppState>,
     Query(query): Query<OperationsQuery>,
 ) -> std::result::Result<Json<DashboardBootstrapView>, (StatusCode, String)> {
-    let summary = summary_view(&state.host)?;
+    state.host.refresh_workspace().map_err(internal_error)?;
+    let summary = state.host.dashboard_summary_view().map_err(internal_error)?;
     let operations = state.host.dashboard_operations_view(query.limit);
+    let task = state.host.dashboard_task_snapshot().map_err(internal_error)?;
+    let coordination = state
+        .host
+        .dashboard_coordination_summary()
+        .map_err(internal_error)?;
     Ok(Json(DashboardBootstrapView {
         summary,
         operations,
+        task,
+        coordination,
     }))
 }
 
 async fn dashboard_summary(
     State(state): State<DashboardAppState>,
 ) -> std::result::Result<Json<DashboardSummaryView>, (StatusCode, String)> {
-    Ok(Json(summary_view(&state.host)?))
+    state.host.refresh_workspace().map_err(internal_error)?;
+    Ok(Json(
+        state.host.dashboard_summary_view().map_err(internal_error)?,
+    ))
+}
+
+async fn dashboard_task(
+    State(state): State<DashboardAppState>,
+) -> std::result::Result<Json<DashboardTaskSnapshotView>, (StatusCode, String)> {
+    state.host.refresh_workspace().map_err(internal_error)?;
+    Ok(Json(
+        state
+            .host
+            .dashboard_task_snapshot()
+            .map_err(internal_error)?,
+    ))
+}
+
+async fn dashboard_coordination(
+    State(state): State<DashboardAppState>,
+) -> std::result::Result<Json<DashboardCoordinationSummaryView>, (StatusCode, String)> {
+    state.host.refresh_workspace().map_err(internal_error)?;
+    Ok(Json(
+        state
+            .host
+            .dashboard_coordination_summary()
+            .map_err(internal_error)?,
+    ))
 }
 
 async fn dashboard_runtime(
@@ -122,42 +159,6 @@ async fn dashboard_events(
             .interval(std::time::Duration::from_secs(15))
             .text("keepalive"),
     )
-}
-
-fn summary_view(
-    host: &Arc<QueryHost>,
-) -> std::result::Result<DashboardSummaryView, (StatusCode, String)> {
-    let session = host.session_view().map_err(internal_error)?;
-    let runtime = runtime_status(host.as_ref()).map_err(internal_error)?;
-    let active = host.dashboard_state().active_operations();
-    let active_query_count = active.iter().filter(|op| op.kind == "query").count();
-    let active_mutation_count = active.iter().filter(|op| op.kind == "mutation").count();
-    let recent_queries = host.query_log_entries(QueryLogArgs {
-        limit: Some(10),
-        since: None,
-        target: None,
-        operation: None,
-        task_id: None,
-        min_duration_ms: None,
-    });
-    let recent_query_error_count = recent_queries.iter().filter(|entry| !entry.success).count();
-    let last_runtime_event = runtime_timeline(
-        host.as_ref(),
-        RuntimeTimelineArgs {
-            limit: Some(1),
-            contains: None,
-        },
-    )
-    .map_err(internal_error)?
-    .pop();
-    Ok(DashboardSummaryView {
-        session,
-        runtime,
-        active_query_count,
-        active_mutation_count,
-        recent_query_error_count,
-        last_runtime_event,
-    })
 }
 
 fn internal_error(error: anyhow::Error) -> (StatusCode, String) {

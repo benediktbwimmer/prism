@@ -23,6 +23,7 @@ mod common;
 mod daemon_mode;
 mod dashboard_assets;
 mod dashboard_events;
+mod dashboard_read_models;
 mod dashboard_router;
 mod dashboard_types;
 mod diagnostics;
@@ -568,7 +569,7 @@ impl QueryHost {
             .unwrap_or_else(|| Arc::clone(&self.prism))
     }
 
-    fn refresh_workspace(&self) -> Result<()> {
+    pub(crate) fn refresh_workspace(&self) -> Result<()> {
         let Some(workspace) = &self.workspace else {
             return Ok(());
         };
@@ -602,6 +603,9 @@ impl QueryHost {
                 "inferenceReloaded": inference_reloaded,
             }),
         );
+        if coordination_reloaded {
+            let _ = self.publish_dashboard_coordination_update();
+        }
         Ok(())
     }
 

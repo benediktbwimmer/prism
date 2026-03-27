@@ -27,7 +27,7 @@ pub(crate) struct DashboardState {
     replay: Mutex<VecDeque<DashboardEventEnvelope>>,
     sender: broadcast::Sender<DashboardEventEnvelope>,
     active_operations: Mutex<BTreeMap<String, ActiveOperationView>>,
-    mutation_log: Mutex<VecDeque<MutationLogEntryView>>,
+    mutation_log: Mutex<VecDeque<MutationTraceRecord>>,
 }
 
 impl Default for DashboardState {
@@ -53,6 +53,12 @@ pub(crate) struct MutationRun {
     started: Instant,
     session_id: String,
     task_id: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct MutationTraceRecord {
+    entry: MutationLogEntryView,
+    result: serde_json::Value,
 }
 
 impl DashboardState {
@@ -93,7 +99,7 @@ impl DashboardState {
             .remove(id);
     }
 
-    fn push_mutation(&self, entry: MutationLogEntryView) {
+    fn push_mutation(&self, record: MutationTraceRecord) {
         let mut log = self
             .mutation_log
             .lock()
@@ -101,7 +107,7 @@ impl DashboardState {
         if log.len() == MUTATION_LOG_CAPACITY {
             log.pop_front();
         }
-        log.push_back(entry);
+        log.push_back(record);
     }
 
     pub(crate) fn active_operations(&self) -> Vec<ActiveOperationView> {
@@ -130,7 +136,7 @@ impl DashboardState {
             .iter()
             .rev()
             .take(limit)
-            .cloned()
+            .map(|record| record.entry.clone())
             .collect::<Vec<_>>();
         entries.sort_by(|left, right| {
             right
@@ -146,9 +152,12 @@ impl DashboardState {
             .lock()
             .expect("dashboard mutation log lock poisoned")
             .iter()
-            .find(|entry| entry.id == id)
+            .find(|record| record.entry.id == id)
             .cloned()
-            .map(|entry| MutationTraceView { entry })
+            .map(|record| MutationTraceView {
+                entry: record.entry,
+                result: record.result,
+            })
     }
 
     pub(crate) fn sse_stream(
@@ -267,6 +276,7 @@ impl MutationRun {
         task_id: Option<String>,
         result_ids: Vec<String>,
         violation_count: usize,
+        result: serde_json::Value,
     ) {
         let entry = MutationLogEntryView {
             id: self.id.clone(),
@@ -281,7 +291,10 @@ impl MutationRun {
             violation_count,
         };
         self.dashboard.remove_active(&self.id);
-        self.dashboard.push_mutation(entry.clone());
+        self.dashboard.push_mutation(MutationTraceRecord {
+            entry: entry.clone(),
+            result,
+        });
         self.dashboard
             .publish_value("mutation.finished", json!(entry));
     }
@@ -300,7 +313,10 @@ impl MutationRun {
             violation_count: 0,
         };
         self.dashboard.remove_active(&self.id);
-        self.dashboard.push_mutation(entry.clone());
+        self.dashboard.push_mutation(MutationTraceRecord {
+            entry: entry.clone(),
+            result: serde_json::Value::Null,
+        });
         self.dashboard
             .publish_value("mutation.finished", json!(entry));
     }
