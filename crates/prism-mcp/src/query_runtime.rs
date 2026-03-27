@@ -4,11 +4,11 @@ use std::sync::{Arc, Mutex};
 use anyhow::{anyhow, Context, Result};
 use prism_ir::{AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, LineageId, NodeId, PlanId};
 use prism_js::{
-    ChangedFileView, ChangedSymbolView, DiffHunkView, EditContextView, FocusedBlockView,
-    PatchEventView, QueryDiagnostic, QueryEnvelope, ReadContextView, RecentChangeContextView,
-    RuntimeLogEventView, RuntimeStatusView, ScoredMemoryView, SourceExcerptView, SourceSliceView,
-    SubgraphView, SymbolView, TextSearchMatchView, ToolCatalogEntryView, ToolSchemaView,
-    ValidationContextView,
+    ChangedFileView, ChangedSymbolView, DiffHunkView, DiscoveryBundleView, EditContextView,
+    FocusedBlockView, PatchEventView, QueryDiagnostic, QueryEnvelope, ReadContextView,
+    RecentChangeContextView, RuntimeLogEventView, RuntimeStatusView, ScoredMemoryView,
+    SourceExcerptView, SourceSliceView, SubgraphView, SymbolView, TextSearchMatchView,
+    ToolCatalogEntryView, ToolSchemaView, ValidationContextView,
 };
 use prism_memory::{MemoryModule, OutcomeRecallQuery, RecallQuery};
 use prism_query::{EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
@@ -25,27 +25,30 @@ use crate::{
     blast_radius_view, blocker_view, change_impact_view, changed_files, changed_symbols,
     claim_view, co_change_view, conflict_view, convert_anchors, convert_node_id,
     coordination_task_view, current_timestamp, diff_for, drift_candidate_view, edge_kind_label,
-    edge_view, edit_context_view, edit_slice_for_symbol, entrypoints_for, focused_block_for_symbol,
-    js_runtime, lineage_view, merge_node_ids, merge_promoted_checks, next_reads,
+    edge_view, edit_slice_for_symbol, entrypoints_for, focused_block_for_symbol, js_runtime,
+    lineage_view, merge_node_ids, merge_promoted_checks, missing_return_hint, next_reads,
     owner_symbol_views_for_query, owner_symbol_views_for_target, owner_views_for_target,
     parse_capability, parse_claim_mode, parse_event_actor, parse_memory_kind, parse_node_kind,
-    parse_outcome_kind, parse_outcome_result, plan_view, policy_violation_record_view,
-    promoted_memory_entries, promoted_summary_texts, promoted_validation_checks, query_diagnostic,
-    rank_search_results, read_context_view, recent_change_context_view, recent_patches,
-    relations_view, scored_memory_view, search_queries, source_excerpt_for_symbol,
+    parse_outcome_kind, parse_outcome_result, parse_typescript_error, plan_view,
+    policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
+    promoted_validation_checks, query_diagnostic, rank_search_results, read_context_view_cached,
+    recent_change_context_view_cached, recent_patches, relations_view, result_decode_error,
+    runtime_or_serialization_error, scored_memory_view, search_queries, source_excerpt_for_symbol,
     spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
     task_intent_view, task_journal_view, task_risk_view, task_validation_recipe_view,
-    tool_catalog_views, tool_schema_view, validation_context_view, validation_recipe_view_with,
-    where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs,
-    CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, DiffForArgs, DiscoveryTargetArgs,
-    EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs,
-    MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs, PendingReviewsArgs,
-    PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun,
-    QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchAmbiguityContext,
-    SearchArgs, SearchTextArgs, SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs,
-    SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode, TaskTargetArgs,
-    ToolNameArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
+    tool_catalog_views, tool_schema_view, validation_context_view_cached,
+    validation_recipe_view_with, where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs,
+    ChangedSymbolsArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, DiffForArgs,
+    DiscoveryTargetArgs, EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs,
+    LimitArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
+    PendingReviewsArgs, PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage,
+    QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs,
+    SearchAmbiguityContext, SearchArgs, SearchTextArgs, SemanticContextCache, SimulateClaimArgs,
+    SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs,
+    TaskScopeMode, TaskTargetArgs, ToolNameArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH,
+    DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
+    INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER,
+    USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
 };
 
 impl QueryHost {
@@ -143,16 +146,32 @@ impl QueryHost {
         match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize, bool)> {
             self.refresh_workspace()?;
             let source = format!(
-                "(async function() {{\n  try {{\n    const __prismUserQuery = async () => {{\n{}\n    }};\n    const __prismResult = await __prismUserQuery();\n    return __prismResult === undefined ? \"null\" : JSON.stringify(__prismResult);\n  }} catch (error) {{\n    const __prismMessage = error && typeof error === \"object\" && \"message\" in error && error.message\n      ? String(error.message)\n      : String(error);\n    const __prismStack = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : null;\n    const __prismCombined = __prismStack && __prismStack.includes(__prismMessage)\n      ? __prismStack\n      : __prismStack\n        ? `${{__prismMessage}}\\n${{__prismStack}}`\n        : __prismMessage;\n    throw new Error(__prismCombined);\n  }}\n}})();\n",
-                code
+                "(async function() {{\n  const __prismLocationRegex = /(?:file:\\/\\/\\/prism\\/query\\.ts|eval_script):(?<line>\\d+):(?<column>\\d+)/;\n  const __prismParseLocation = (value) => {{\n    const __prismMatch = typeof value === \"string\" ? value.match(__prismLocationRegex) : null;\n    if (!__prismMatch || !__prismMatch.groups) {{\n      return null;\n    }}\n    return {{\n      line: Number(__prismMatch.groups.line),\n      column: Number(__prismMatch.groups.column),\n    }};\n  }};\n  const __prismFormatError = (error) => {{\n    const __prismMessage = error && typeof error === \"object\" && \"message\" in error && error.message\n      ? String(error.message)\n      : String(error);\n    const __prismStack = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : null;\n    return __prismStack && __prismStack.includes(__prismMessage)\n      ? __prismStack\n      : __prismStack\n        ? `${{__prismMessage}}\\n${{__prismStack}}`\n        : __prismMessage;\n  }};\n  const __prismUserLocation = (error, baseLine) => {{\n    if (typeof baseLine !== \"number\") {{\n      return null;\n    }}\n    const __prismStack = error && typeof error === \"object\" && \"stack\" in error && error.stack\n      ? String(error.stack)\n      : \"\";\n    const __prismLines = __prismStack.split(\"\\n\");\n    const __prismFrame = __prismLines.find((line) => line.includes(\"__prismUserQuery\"))\n      || __prismLines.find((line) => line.includes(\"eval_script:\"));\n    const __prismLocation = __prismParseLocation(__prismFrame);\n    if (!__prismLocation) {{\n      return null;\n    }}\n    return {{\n      line: Math.max(1, __prismLocation.line - baseLine + 1),\n      column: __prismLocation.column,\n    }};\n  }};\n  const __prismThrowTaggedError = (marker, error, userLocation = null) => {{\n    const __prismFormatted = __prismFormatError(error);\n    const __prismHeadline = __prismFormatted.split(\"\\n\")[0] || String(error);\n    const __prismUserLocationLine = userLocation\n      ? `\\n{} ${{userLocation.line}}:${{userLocation.column}}`\n      : \"\";\n    const __prismWrapped = new Error(`${{marker}}\\n${{__prismHeadline}}${{__prismUserLocationLine}}`);\n    __prismWrapped.stack = `${{userLocation ? `{} ${{userLocation.line}}:${{userLocation.column}}\\n` : \"\"}}${{__prismFormatted}}`;\n    throw __prismWrapped;\n  }};\n  let __prismUserSnippetBaseLine = null;\n  const __prismUserQuery = async () => {{\n    const __prismBaseLocation = __prismParseLocation(new Error().stack || \"\");\n    __prismUserSnippetBaseLine = __prismBaseLocation ? __prismBaseLocation.line + 1 : null;\n{}\n{}\n  }};\n  let __prismResult;\n  try {{\n    __prismResult = await __prismUserQuery();\n  }} catch (error) {{\n    __prismThrowTaggedError(\"{}\", error, __prismUserLocation(error, __prismUserSnippetBaseLine));\n  }}\n  try {{\n    return __prismResult === undefined ? \"null\" : JSON.stringify(__prismResult);\n  }} catch (error) {{\n    __prismThrowTaggedError(\"{}\", error);\n  }}\n}})();\n",
+                USER_SNIPPET_LOCATION_MARKER,
+                USER_SNIPPET_LOCATION_MARKER,
+                USER_SNIPPET_MARKER,
+                code,
+                QUERY_RUNTIME_ERROR_MARKER,
+                QUERY_SERIALIZATION_ERROR_MARKER,
             );
-            let transpiled = js_runtime::transpile_typescript(&source)?;
+            let user_snippet_first_line = source
+                .lines()
+                .position(|line| line.trim() == USER_SNIPPET_MARKER)
+                .map(|index| index + 2)
+                .unwrap_or(1);
+            let transpiled = js_runtime::transpile_typescript(&source)
+                .map_err(|error| parse_typescript_error(error, code, user_snippet_first_line))?;
             let created =
                 QueryExecution::new(self.clone(), self.current_prism(), query_run.clone());
             execution = Some(created.clone());
-            let raw_result = self.worker.execute(transpiled, created.clone())?;
-            let mut result =
-                serde_json::from_str(&raw_result).context("failed to decode query result JSON")?;
+            let raw_result = self
+                .worker_pool
+                .execute(transpiled, created.clone())
+                .map_err(|error| {
+                    runtime_or_serialization_error(error, code, user_snippet_first_line)
+                })?;
+            let mut result = serde_json::from_str(&raw_result)
+                .map_err(|error| result_decode_error(error.into(), &raw_result))?;
             let mut output_cap_hit = false;
             let limits = self.session.limits();
             if raw_result.len() > limits.max_output_json_bytes {
@@ -169,6 +188,15 @@ impl QueryHost {
                 );
                 result = Value::Null;
                 output_cap_hit = true;
+            }
+            if !output_cap_hit && missing_return_hint(code, &result) {
+                created.push_diagnostic(
+                    "query_return_missing",
+                    "Query returned undefined, which usually means the snippet did not return a final value.",
+                    Some(json!({
+                        "nextAction": "Add `return ...` as the final statement if you meant the query to produce a result.",
+                    })),
+                );
             }
             let diagnostics = created.diagnostics();
             Ok((result, diagnostics, raw_result.len(), output_cap_hit))
@@ -219,6 +247,7 @@ pub(crate) struct QueryExecution {
     prism: Arc<Prism>,
     query_run: QueryRun,
     diagnostics: Arc<Mutex<Vec<QueryDiagnostic>>>,
+    semantic_context_cache: Arc<Mutex<SemanticContextCache>>,
 }
 
 impl QueryExecution {
@@ -228,6 +257,7 @@ impl QueryExecution {
             prism,
             query_run,
             diagnostics: Arc::new(Mutex::new(Vec::new())),
+            semantic_context_cache: Arc::new(Mutex::new(SemanticContextCache::default())),
         }
     }
 
@@ -806,6 +836,11 @@ impl QueryExecution {
                 let args: SymbolTargetArgs = serde_json::from_value(args)?;
                 let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 Ok(serde_json::to_value(self.recent_change_context(&id)?)?)
+            }
+            "discoveryBundle" => {
+                let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                let id = self.resolve_target_id(args.id, args.lineage_id)?;
+                Ok(serde_json::to_value(self.discovery_bundle(&id)?)?)
             }
             "nextReads" => {
                 let args: DiscoveryTargetArgs = serde_json::from_value(args)?;
@@ -1771,28 +1806,77 @@ impl QueryExecution {
         Ok(journal)
     }
 
-    fn spec_cluster(&self, id: &NodeId) -> Result<crate::SpecImplementationClusterView> {
+    fn spec_cluster(&self, id: &NodeId) -> Result<prism_js::SpecImplementationClusterView> {
         spec_cluster_view(self.prism.as_ref(), id)
     }
 
-    fn explain_drift(&self, id: &NodeId) -> Result<crate::SpecDriftExplanationView> {
+    fn explain_drift(&self, id: &NodeId) -> Result<prism_js::SpecDriftExplanationView> {
         spec_drift_explanation_view(self.prism.as_ref(), id)
     }
 
     fn read_context(&self, id: &NodeId) -> Result<ReadContextView> {
-        read_context_view(self.prism.as_ref(), self.host.session.as_ref(), id)
+        let mut cache = self
+            .semantic_context_cache
+            .lock()
+            .expect("semantic context cache lock poisoned");
+        read_context_view_cached(
+            self.prism.as_ref(),
+            self.host.session.as_ref(),
+            &mut cache,
+            id,
+        )
     }
 
     fn edit_context(&self, id: &NodeId) -> Result<EditContextView> {
-        edit_context_view(self.prism.as_ref(), self.host.session.as_ref(), id)
+        let mut cache = self
+            .semantic_context_cache
+            .lock()
+            .expect("semantic context cache lock poisoned");
+        crate::edit_context_view_cached(
+            self.prism.as_ref(),
+            self.host.session.as_ref(),
+            &mut cache,
+            id,
+        )
     }
 
     fn validation_context(&self, id: &NodeId) -> Result<ValidationContextView> {
-        validation_context_view(self.prism.as_ref(), self.host.session.as_ref(), id)
+        let mut cache = self
+            .semantic_context_cache
+            .lock()
+            .expect("semantic context cache lock poisoned");
+        validation_context_view_cached(
+            self.prism.as_ref(),
+            self.host.session.as_ref(),
+            &mut cache,
+            id,
+        )
     }
 
     fn recent_change_context(&self, id: &NodeId) -> Result<RecentChangeContextView> {
-        recent_change_context_view(self.prism.as_ref(), self.host.session.as_ref(), id)
+        let mut cache = self
+            .semantic_context_cache
+            .lock()
+            .expect("semantic context cache lock poisoned");
+        recent_change_context_view_cached(
+            self.prism.as_ref(),
+            self.host.session.as_ref(),
+            &mut cache,
+            id,
+        )
+    }
+
+    fn discovery_bundle(&self, id: &NodeId) -> Result<DiscoveryBundleView> {
+        let mut cache = self
+            .semantic_context_cache
+            .lock()
+            .expect("semantic context cache lock poisoned");
+        crate::discovery_bundle_view_cached(
+            self.prism.as_ref(),
+            self.host.session.as_ref(),
+            &mut cache,
+            id,
+        )
     }
 
     fn memory_outcomes(&self, args: MemoryOutcomeArgs) -> Result<Vec<prism_memory::OutcomeEvent>> {

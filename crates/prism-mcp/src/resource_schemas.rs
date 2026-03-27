@@ -1,8 +1,8 @@
 use prism_js::{
-    ChangeImpactView, CoChangeView, EdgeView, EditContextView, LineageEventView, LineageStatus,
-    LineageView, MemoryEntryView, OwnerCandidateView, QueryDiagnostic, ReadContextView,
-    RecentChangeContextView, RelationsView, SuggestedQueryView, SymbolView, TaskJournalView,
-    TrustSignalsView, ValidationContextView, ValidationRecipeView, WorkspaceRevisionView,
+    ChangeImpactView, CoChangeView, DiscoveryBundleView, EdgeView, EditContextView,
+    LineageEventView, LineageStatus, LineageView, MemoryEntryView, OwnerCandidateView,
+    QueryDiagnostic, ReadContextView, RelationsView, SuggestedQueryView, SymbolView,
+    TaskJournalView, ValidationRecipeView, WorkspaceRevisionView,
 };
 use rmcp::schemars::JsonSchema;
 use serde_json::Value;
@@ -172,31 +172,6 @@ pub(crate) struct EntrypointsResourcePayload {
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct DiscoveryBundleView {
-    pub(crate) target: SymbolView,
-    pub(crate) suggested_reads: Vec<OwnerCandidateView>,
-    pub(crate) read_context: ReadContextView,
-    pub(crate) edit_context: EditContextView,
-    pub(crate) validation_context: ValidationContextView,
-    pub(crate) recent_change_context: RecentChangeContextView,
-    pub(crate) entrypoints: Vec<SymbolView>,
-    pub(crate) where_used_direct: Vec<SymbolView>,
-    pub(crate) where_used_behavioral: Vec<SymbolView>,
-    pub(crate) suggested_queries: Vec<SuggestedQueryView>,
-    pub(crate) relations: RelationsView,
-    pub(crate) spec_cluster: Option<crate::SpecImplementationClusterView>,
-    pub(crate) spec_drift: Option<crate::SpecDriftExplanationView>,
-    pub(crate) lineage: Option<LineageView>,
-    pub(crate) co_change_neighbors: Vec<CoChangeView>,
-    pub(crate) related_failures: Vec<OutcomeEvent>,
-    pub(crate) blast_radius: ChangeImpactView,
-    pub(crate) validation_recipe: ValidationRecipeView,
-    pub(crate) trust_signals: TrustSignalsView,
-    pub(crate) why: Vec<String>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
 pub(crate) struct SearchResourcePayload {
     pub(crate) uri: String,
     pub(crate) schema_uri: String,
@@ -237,8 +212,8 @@ pub(crate) struct SymbolResourcePayload {
     pub(crate) edit_context: EditContextView,
     pub(crate) suggested_queries: Vec<SuggestedQueryView>,
     pub(crate) relations: RelationsView,
-    pub(crate) spec_cluster: Option<crate::SpecImplementationClusterView>,
-    pub(crate) spec_drift: Option<crate::SpecDriftExplanationView>,
+    pub(crate) spec_cluster: Option<prism_js::SpecImplementationClusterView>,
+    pub(crate) spec_drift: Option<prism_js::SpecDriftExplanationView>,
     pub(crate) lineage: Option<LineageView>,
     pub(crate) co_change_neighbors: Vec<CoChangeView>,
     pub(crate) related_failures: Vec<OutcomeEvent>,

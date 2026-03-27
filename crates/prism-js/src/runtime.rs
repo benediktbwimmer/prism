@@ -49,6 +49,84 @@ function __prismNormalizeTargetPayload(target) {
   return lineageId == null ? { id } : id == null ? { lineageId } : { id, lineageId };
 }
 
+function __prismBundleSeedTarget(target) {
+  if (target == null || typeof target !== "object") {
+    return target;
+  }
+  if (target.topResult != null) {
+    return target.topResult;
+  }
+  if (target.target != null) {
+    return target.target;
+  }
+  return target;
+}
+
+function __prismDiscoveryFromBundle(target) {
+  if (target == null || typeof target !== "object") {
+    return null;
+  }
+  if (target.discovery != null && typeof target.discovery === "object" && target.discovery.target != null) {
+    return target.discovery;
+  }
+  if (
+    target.target != null &&
+    target.readContext != null &&
+    target.editContext != null &&
+    target.validationContext != null &&
+    target.recentChangeContext != null
+  ) {
+    return target;
+  }
+  return null;
+}
+
+function __prismIncludeDiscovery(options = {}) {
+  return options?.includeDiscovery === true;
+}
+
+function __prismSuggestedReadLimit(options = {}) {
+  return options?.suggestedReadLimit ?? options?.suggested_read_limit ?? 5;
+}
+
+function __prismTextSearchSemanticQuery(query, options = {}) {
+  if (typeof options?.semanticQuery === "string" && options.semanticQuery.trim() !== "") {
+    return options.semanticQuery;
+  }
+  return options?.regex === true ? null : query;
+}
+
+function __prismDiagnosticCodes(diagnostics) {
+  return Array.isArray(diagnostics)
+    ? diagnostics
+        .map((diagnostic) => diagnostic?.code)
+        .filter((code) => typeof code === "string" && code.length > 0)
+    : [];
+}
+
+function __prismBundleSummary(kind, resultCount, diagnostics) {
+  const diagnosticCodes = __prismDiagnosticCodes(diagnostics);
+  return {
+    kind,
+    resultCount,
+    empty: resultCount === 0,
+    truncated: diagnosticCodes.includes("result_truncated"),
+    ambiguous:
+      diagnosticCodes.includes("ambiguous_search") || diagnosticCodes.includes("ambiguous_symbol"),
+    diagnosticCodes,
+  };
+}
+
+function __prismResolveSuggestedReads(target, discovery, readContext, options = {}) {
+  if (Array.isArray(discovery?.suggestedReads) && discovery.suggestedReads.length > 0) {
+    return discovery.suggestedReads;
+  }
+  if (Array.isArray(readContext?.suggestedReads) && readContext.suggestedReads.length > 0) {
+    return readContext.suggestedReads;
+  }
+  return target != null ? prism.nextReads(target, { limit: __prismSuggestedReadLimit(options) }) : [];
+}
+
 function __prismNormalizePath(path) {
   if (typeof path !== "string" || path.trim() === "") {
     throw new Error("path must be a non-empty string");
@@ -257,6 +335,28 @@ function __prismEnrichRecentChangeContext(raw) {
   };
 }
 
+function __prismEnrichDiscoveryBundle(raw) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    target: __prismEnrichSymbol(raw.target),
+    suggestedReads: __prismEnrichInsightCandidates(raw.suggestedReads),
+    readContext: __prismEnrichReadContext(raw.readContext),
+    editContext: __prismEnrichEditContext(raw.editContext),
+    validationContext: __prismEnrichValidationContext(raw.validationContext),
+    recentChangeContext: __prismEnrichRecentChangeContext(raw.recentChangeContext),
+    entrypoints: __prismEnrichSymbols(raw.entrypoints),
+    whereUsedDirect: __prismEnrichSymbols(raw.whereUsedDirect),
+    whereUsedBehavioral: __prismEnrichSymbols(raw.whereUsedBehavioral),
+    relations: __prismEnrichRelations(raw.relations),
+    specCluster: __prismEnrichSpecCluster(raw.specCluster),
+    specDrift: __prismEnrichSpecDrift(raw.specDrift),
+    lineage: __prismEnrichLineage(raw.lineage),
+  };
+}
+
 function __prismNormalizeFocus(values) {
   if (!Array.isArray(values)) {
     return [];
@@ -357,10 +457,49 @@ function __prismFile(path) {
   });
 }
 
+function __prismSymbolBundle(query, options = {}) {
+  const hasQuery = typeof query === "string" && query.trim() !== "";
+  const directResult = hasQuery ? prism.symbol(query) : null;
+  const directDiagnostics = prism.diagnostics();
+  const needsCandidates =
+    hasQuery &&
+    (directResult == null || __prismDiagnosticCodes(directDiagnostics).includes("ambiguous_symbol"));
+  const candidates = needsCandidates
+    ? prism.search(query, {
+        limit: options?.limit ?? options?.candidateLimit ?? options?.candidate_limit ?? 5,
+        kind: options?.kind,
+        path: options?.path,
+        module: options?.module,
+        strategy: options?.strategy,
+        ownerKind: options?.ownerKind ?? options?.owner_kind,
+        includeInferred: options?.includeInferred ?? options?.include_inferred,
+      })
+    : directResult != null
+      ? [directResult]
+      : [];
+  const result = directResult ?? (candidates.length > 0 ? candidates[0] : null);
+  const diagnostics = prism.diagnostics();
+  const discovery =
+    result != null && __prismIncludeDiscovery(options) ? prism.discovery(result) : null;
+  const readContext = result ? discovery?.readContext ?? prism.readContext(result) : null;
+  return {
+    query,
+    result,
+    candidates,
+    discovery,
+    focusedBlock: result ? prism.focusedBlock(result) : null,
+    readContext,
+    suggestedReads: __prismResolveSuggestedReads(result, discovery, readContext, options),
+    summary: __prismBundleSummary("symbol", candidates.length, diagnostics),
+    diagnostics,
+  };
+}
+
 globalThis.prism = Object.freeze({
   symbol(query) {
     return __prismEnrichSymbol(__prismHost("symbol", { query }));
   },
+  symbolBundle: __prismSymbolBundle,
   symbols(query) {
     return __prismEnrichSymbols(__prismHost("symbols", { query }));
   },
@@ -596,6 +735,114 @@ globalThis.prism = Object.freeze({
       return null;
     }
     return __prismEnrichRecentChangeContext(__prismHost("recentChangeContext", targetPayload));
+  },
+  discovery(target) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
+      return null;
+    }
+    return __prismEnrichDiscoveryBundle(__prismHost("discoveryBundle", targetPayload));
+  },
+  searchBundle(query, options = {}) {
+    const results = prism.search(query, options);
+    const topResult = Array.isArray(results) && results.length > 0 ? results[0] : null;
+    const discovery =
+      topResult != null && __prismIncludeDiscovery(options) ? prism.discovery(topResult) : null;
+    const readContext = topResult ? discovery?.readContext ?? prism.readContext(topResult) : null;
+    const diagnostics = prism.diagnostics();
+    return {
+      query,
+      results,
+      topResult,
+      discovery,
+      focusedBlock: topResult ? prism.focusedBlock(topResult) : null,
+      readContext,
+      suggestedReads: __prismResolveSuggestedReads(topResult, discovery, readContext, options),
+      validationContext:
+        topResult ? discovery?.validationContext ?? prism.validationContext(topResult) : null,
+      recentChangeContext:
+        topResult
+          ? discovery?.recentChangeContext ?? prism.recentChangeContext(topResult)
+          : null,
+      summary: __prismBundleSummary("search", results.length, diagnostics),
+      diagnostics,
+    };
+  },
+  textSearchBundle(query, options = {}) {
+    const matches = prism.searchText(query, options);
+    const topMatch = Array.isArray(matches) && matches.length > 0 ? matches[0] : null;
+    const rawContext =
+      topMatch != null
+        ? prism.file(topMatch.path).around({
+            line: topMatch.location.startLine,
+            before: options?.aroundBefore,
+            after: options?.aroundAfter,
+            maxChars: options?.aroundMaxChars,
+          })
+        : null;
+    const semanticQuery =
+      topMatch != null ? __prismTextSearchSemanticQuery(query, options) : null;
+    const semanticResults =
+      topMatch != null && semanticQuery != null
+        ? prism.search(semanticQuery, {
+            limit: options?.semanticLimit,
+            path: topMatch.path,
+            kind: options?.semanticKind,
+            ownerKind: options?.ownerKind ?? options?.owner_kind,
+            strategy: options?.strategy,
+            includeInferred: options?.includeInferred ?? options?.include_inferred,
+          })
+        : [];
+    const topSymbol =
+      Array.isArray(semanticResults) && semanticResults.length > 0 ? semanticResults[0] : null;
+    const discovery =
+      topSymbol != null && __prismIncludeDiscovery(options) ? prism.discovery(topSymbol) : null;
+    const readContext = topSymbol ? discovery?.readContext ?? prism.readContext(topSymbol) : null;
+    const diagnostics = prism.diagnostics();
+    return {
+      query,
+      matches,
+      topMatch,
+      rawContext,
+      semanticQuery,
+      semanticResults,
+      topSymbol,
+      discovery,
+      focusedBlock: topSymbol ? prism.focusedBlock(topSymbol) : null,
+      readContext,
+      suggestedReads: __prismResolveSuggestedReads(topSymbol, discovery, readContext, options),
+      summary: __prismBundleSummary("text_search", matches.length, diagnostics),
+      diagnostics,
+    };
+  },
+  targetBundle(target, options = {}) {
+    const providedDiscovery = __prismDiscoveryFromBundle(target);
+    const targetPayload = __prismNormalizeTargetPayload(__prismBundleSeedTarget(target));
+    if (targetPayload == null) {
+      return null;
+    }
+    const discovery =
+      providedDiscovery ?? (__prismIncludeDiscovery(options) ? prism.discovery(targetPayload) : null);
+    const focusedBlock = prism.focusedBlock(targetPayload);
+    const editContext = discovery?.editContext ?? prism.editContext(targetPayload);
+    const readContext = discovery?.readContext ?? prism.readContext(targetPayload);
+    const targetSymbol = discovery?.target ?? focusedBlock?.symbol ?? null;
+    if (targetSymbol == null || editContext == null) {
+      return null;
+    }
+    const diagnostics = prism.diagnostics();
+    return {
+      target: targetSymbol,
+      discovery,
+      focusedBlock,
+      diff: prism.diffFor(targetPayload, options),
+      editContext,
+      readContext,
+      suggestedReads: __prismResolveSuggestedReads(targetPayload, discovery, readContext, options),
+      likelyTests: editContext?.testBlocks ?? [],
+      summary: __prismBundleSummary("target", 1, diagnostics),
+      diagnostics,
+    };
   },
   nextReads(target, options = {}) {
     const targetPayload = __prismNormalizeTargetPayload(target);

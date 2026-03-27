@@ -1,17 +1,16 @@
 use anyhow::{anyhow, Result};
 use prism_ir::{AnchorRef, EdgeKind, NodeId};
 use prism_js::{
-    ChangeImpactView, EditContextView, FocusedBlockView, LineageEventView, LineageStatus,
-    LineageView, OwnerCandidateView, OwnerHintView, ReadContextView, RecentChangeContextView,
-    RelationsView, SourceExcerptView, SourceLocationView, SourceSliceView, SymbolView,
-    ValidationContextView, ValidationRecipeView,
+    ChangeImpactView, DiscoveryBundleView, EditContextView, FocusedBlockView, LineageEventView,
+    LineageStatus, LineageView, OwnerCandidateView, OwnerHintView, ReadContextView,
+    RecentChangeContextView, RelationsView, SourceExcerptView, SourceLocationView, SourceSliceView,
+    SymbolView, ValidationContextView, ValidationRecipeView,
 };
 use prism_query::{EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
 
 use crate::{
     change_impact_view, merge_node_ids, merge_promoted_checks, node_id_view,
-    promoted_summary_texts, promoted_validation_checks, validation_recipe_view,
-    DiscoveryBundleView, SessionState,
+    promoted_summary_texts, promoted_validation_checks, validation_recipe_view, SessionState,
 };
 
 const CANDIDATE_EXCERPT_OPTIONS: SourceExcerptOptions = SourceExcerptOptions {
@@ -74,20 +73,9 @@ pub(crate) fn symbol_views_for_ids(prism: &Prism, ids: Vec<NodeId>) -> Result<Ve
 }
 
 pub(crate) fn symbol_for<'a>(prism: &'a Prism, id: &NodeId) -> Result<Symbol<'a>> {
-    let node = prism
-        .graph()
-        .node(id)
-        .ok_or_else(|| anyhow!("unknown symbol `{}`", id.path))?;
-    let matching = prism.search(
-        &node.id.path,
-        prism.graph().nodes.len().max(1),
-        Some(node.kind),
-        None,
-    );
-    matching
-        .into_iter()
-        .find(|symbol| symbol.id() == id)
-        .ok_or_else(|| anyhow!("symbol `{}` is no longer queryable", id.path))
+    prism
+        .symbol_by_id(id)
+        .ok_or_else(|| anyhow!("unknown symbol `{}`", id.path))
 }
 
 pub(crate) fn source_excerpt_for_symbol(

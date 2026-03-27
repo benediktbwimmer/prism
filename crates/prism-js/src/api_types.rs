@@ -701,6 +701,133 @@ pub struct RecentChangeContextView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct SpecImplementationClusterView {
+    pub spec: SymbolView,
+    pub notes: Vec<String>,
+    pub implementations: Vec<SymbolView>,
+    pub validations: Vec<SymbolView>,
+    pub related: Vec<SymbolView>,
+    pub read_path: Vec<OwnerCandidateView>,
+    pub write_path: Vec<OwnerCandidateView>,
+    pub persistence_path: Vec<OwnerCandidateView>,
+    pub tests: Vec<OwnerCandidateView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SpecDriftExplanationView {
+    pub spec: SymbolView,
+    pub notes: Vec<String>,
+    pub drift_reasons: Vec<String>,
+    pub expectations: Vec<String>,
+    pub observations: Vec<String>,
+    pub gaps: Vec<String>,
+    pub next_reads: Vec<OwnerCandidateView>,
+    pub trust_signals: TrustSignalsView,
+    pub cluster: SpecImplementationClusterView,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscoveryBundleView {
+    pub target: SymbolView,
+    pub suggested_reads: Vec<OwnerCandidateView>,
+    pub read_context: ReadContextView,
+    pub edit_context: EditContextView,
+    pub validation_context: ValidationContextView,
+    pub recent_change_context: RecentChangeContextView,
+    pub entrypoints: Vec<SymbolView>,
+    pub where_used_direct: Vec<SymbolView>,
+    pub where_used_behavioral: Vec<SymbolView>,
+    pub suggested_queries: Vec<SuggestedQueryView>,
+    pub relations: RelationsView,
+    pub spec_cluster: Option<SpecImplementationClusterView>,
+    pub spec_drift: Option<SpecDriftExplanationView>,
+    pub lineage: Option<LineageView>,
+    pub co_change_neighbors: Vec<CoChangeView>,
+    pub related_failures: Vec<OutcomeEvent>,
+    pub blast_radius: ChangeImpactView,
+    pub validation_recipe: ValidationRecipeView,
+    pub trust_signals: TrustSignalsView,
+    pub why: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchBundleView {
+    pub query: String,
+    pub results: Vec<SymbolView>,
+    pub top_result: Option<SymbolView>,
+    pub discovery: Option<DiscoveryBundleView>,
+    pub focused_block: Option<FocusedBlockView>,
+    pub read_context: Option<ReadContextView>,
+    pub suggested_reads: Vec<OwnerCandidateView>,
+    pub validation_context: Option<ValidationContextView>,
+    pub recent_change_context: Option<RecentChangeContextView>,
+    pub summary: BundleSummaryView,
+    pub diagnostics: Vec<QueryDiagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SymbolBundleView {
+    pub query: String,
+    pub result: Option<SymbolView>,
+    pub candidates: Vec<SymbolView>,
+    pub discovery: Option<DiscoveryBundleView>,
+    pub focused_block: Option<FocusedBlockView>,
+    pub read_context: Option<ReadContextView>,
+    pub suggested_reads: Vec<OwnerCandidateView>,
+    pub summary: BundleSummaryView,
+    pub diagnostics: Vec<QueryDiagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TextSearchBundleView {
+    pub query: String,
+    pub matches: Vec<TextSearchMatchView>,
+    pub top_match: Option<TextSearchMatchView>,
+    pub raw_context: Option<SourceSliceView>,
+    pub semantic_query: Option<String>,
+    pub semantic_results: Vec<SymbolView>,
+    pub top_symbol: Option<SymbolView>,
+    pub discovery: Option<DiscoveryBundleView>,
+    pub focused_block: Option<FocusedBlockView>,
+    pub read_context: Option<ReadContextView>,
+    pub suggested_reads: Vec<OwnerCandidateView>,
+    pub summary: BundleSummaryView,
+    pub diagnostics: Vec<QueryDiagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TargetBundleView {
+    pub target: SymbolView,
+    pub discovery: Option<DiscoveryBundleView>,
+    pub focused_block: Option<FocusedBlockView>,
+    pub diff: Vec<DiffHunkView>,
+    pub edit_context: EditContextView,
+    pub read_context: ReadContextView,
+    pub suggested_reads: Vec<OwnerCandidateView>,
+    pub likely_tests: Vec<FocusedBlockView>,
+    pub summary: BundleSummaryView,
+    pub diagnostics: Vec<QueryDiagnostic>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BundleSummaryView {
+    pub kind: String,
+    pub result_count: usize,
+    pub empty: bool,
+    pub truncated: bool,
+    pub ambiguous: bool,
+    pub diagnostic_codes: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct QueryResultSummaryView {
     pub kind: String,
     pub json_bytes: usize,

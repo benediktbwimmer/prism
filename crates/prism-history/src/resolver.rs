@@ -52,9 +52,7 @@ pub(crate) fn resolve_change_set(
             .cloned()
             .unwrap_or_else(|| store.alloc_lineage());
         store.tombstones.remove(&lineage);
-        store
-            .node_to_lineage
-            .insert(after.node.id.clone(), lineage.clone());
+        store.assign_node_lineage(after.node.id.clone(), lineage.clone());
         emitted.push(store.make_event(
             change_set,
             lineage,
@@ -184,8 +182,7 @@ pub(crate) fn resolve_change_set(
             continue;
         }
         let lineage = store
-            .node_to_lineage
-            .remove(&removed.node.id)
+            .remove_node_lineage(&removed.node.id)
             .unwrap_or_else(|| store.alloc_lineage());
         store.record_tombstone(&lineage, removed);
         emitted.push(store.make_event(
@@ -221,9 +218,7 @@ pub(crate) fn resolve_change_set(
         if top_indexes.len() == 1 {
             let candidate = &revive_candidates[top_indexes[0]];
             store.tombstones.remove(&candidate.lineage);
-            store
-                .node_to_lineage
-                .insert(added.node.id.clone(), candidate.lineage.clone());
+            store.assign_node_lineage(added.node.id.clone(), candidate.lineage.clone());
             emitted.push(store.make_event(
                 change_set,
                 candidate.lineage.clone(),
@@ -247,9 +242,7 @@ pub(crate) fn resolve_change_set(
                 .collect::<Vec<_>>(),
         );
         store.tombstones.remove(&canonical);
-        store
-            .node_to_lineage
-            .insert(added.node.id.clone(), canonical.clone());
+        store.assign_node_lineage(added.node.id.clone(), canonical.clone());
         let before = dedupe_node_ids(
             candidate_group
                 .iter()
@@ -278,9 +271,7 @@ pub(crate) fn resolve_change_set(
             continue;
         }
         let lineage = store.alloc_lineage();
-        store
-            .node_to_lineage
-            .insert(added.node.id.clone(), lineage.clone());
+        store.assign_node_lineage(added.node.id.clone(), lineage.clone());
         emitted.push(store.make_event(
             change_set,
             lineage,
@@ -414,8 +405,7 @@ fn apply_group(
         .map(|index| {
             let node = &removed[*index];
             let lineage = store
-                .node_to_lineage
-                .remove(&node.node.id)
+                .remove_node_lineage(&node.node.id)
                 .unwrap_or_else(|| store.alloc_lineage());
             (*index, lineage)
         })
@@ -437,9 +427,7 @@ fn apply_group(
         .iter()
         .map(|index| {
             let node_id = added[*index].node.id.clone();
-            store
-                .node_to_lineage
-                .insert(node_id.clone(), canonical.clone());
+            store.assign_node_lineage(node_id.clone(), canonical.clone());
             node_id
         })
         .collect::<Vec<_>>();

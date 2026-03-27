@@ -9,6 +9,8 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("coChangeNeighbors"));
     assert!(docs.contains("validationRecipe"));
     assert!(docs.contains("readContext"));
+    assert!(docs
+        .contains("symbolBundle(query: string, options?: SymbolBundleOptions): SymbolBundleView;"));
     assert!(docs.contains("editContext"));
     assert!(docs.contains("type QueryTarget = SymbolView | NodeId | { lineageId: string };"));
     assert!(docs.contains("full(target: QueryTarget): string | null;"));
@@ -23,11 +25,20 @@ fn api_reference_mentions_primary_tool() {
     ));
     assert!(docs.contains("validationContext(target"));
     assert!(docs.contains("recentChangeContext(target"));
+    assert!(docs.contains("discovery(target: QueryTarget): DiscoveryBundleView | null;"));
+    assert!(docs
+        .contains("searchBundle(query: string, options?: SearchBundleOptions): SearchBundleView;"));
+    assert!(docs.contains(
+        "targetBundle(target: QueryTarget | SearchBundleView | DiscoveryBundleView, options?: TargetBundleOptions): TargetBundleView | null;"
+    ));
     assert!(docs.contains("nextReads(target"));
     assert!(docs.contains("whereUsed(target"));
     assert!(docs.contains("entrypointsFor(target"));
     assert!(docs.contains(
         "searchText(query: string, options?: SearchTextOptions): TextSearchMatchView[];"
+    ));
+    assert!(docs.contains(
+        "textSearchBundle(query: string, options?: TextSearchBundleOptions): TextSearchBundleView;"
     ));
     assert!(docs.contains("tools(): ToolCatalogEntryView[];"));
     assert!(docs.contains("tool(name: string): ToolSchemaView | null;"));
@@ -65,6 +76,12 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("type ChangedFilesOptions = {"));
     assert!(docs.contains("type RecentPatchesOptions = {"));
     assert!(docs.contains("type DiffForOptions = {"));
+    assert!(docs.contains("type SearchBundleOptions = SearchOptions & {"));
+    assert!(docs.contains("type SymbolBundleOptions = {"));
+    assert!(docs.contains("type TextSearchBundleOptions = SearchTextOptions & {"));
+    assert!(docs.contains("type TargetBundleOptions = DiffForOptions & {"));
+    assert!(docs.contains("type BundleSummaryView = {"));
+    assert!(docs.contains("suggestedReadLimit?: number;"));
     assert!(docs.contains("type ChangedFileView = {"));
     assert!(docs.contains("type ChangedSymbolView = {"));
     assert!(docs.contains("type PatchEventView = {"));
@@ -79,6 +96,12 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("nestedFields: ToolFieldSchemaView[];"));
     assert!(docs.contains("type ToolActionSchemaView = {"));
     assert!(docs.contains("type ToolSchemaView = {"));
+    assert!(docs.contains("type DiscoveryBundleView = {"));
+    assert!(docs.contains("type SearchBundleView = {"));
+    assert!(docs.contains("type SymbolBundleView = {"));
+    assert!(docs.contains("candidates: SymbolView[];"));
+    assert!(docs.contains("type TextSearchBundleView = {"));
+    assert!(docs.contains("type TargetBundleView = {"));
     assert!(docs.contains("type RuntimeStatusView = {"));
     assert!(docs.contains("type RuntimeLogEventView = {"));
     assert!(docs.contains("type QueryLogEntryView = {"));
@@ -112,6 +135,7 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("__prismHostCall"));
     assert!(prelude.contains("__prismNormalizeTargetPayload"));
     assert!(prelude.contains("full(target)"));
+    assert!(prelude.contains("symbolBundle: __prismSymbolBundle"));
     assert!(prelude.contains("excerpt(target, options = {})"));
     assert!(prelude.contains("editSlice(target, options = {})"));
     assert!(prelude.contains("focusedBlock(target, options = {})"));
@@ -121,7 +145,14 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("editContext(target)"));
     assert!(prelude.contains("validationContext(target)"));
     assert!(prelude.contains("recentChangeContext(target)"));
+    assert!(prelude.contains("discovery(target)"));
+    assert!(prelude.contains("searchBundle(query, options = {})"));
+    assert!(prelude.contains("textSearchBundle(query, options = {})"));
+    assert!(prelude.contains("targetBundle(target, options = {})"));
     assert!(prelude.contains("searchText(query, options = {})"));
+    assert!(prelude.contains("__prismBundleSummary("));
+    assert!(prelude.contains("__prismResolveSuggestedReads("));
+    assert!(prelude.contains("__prismTextSearchSemanticQuery(query, options = {})"));
     assert!(prelude.contains("tools()"));
     assert!(prelude.contains("tool(name)"));
     assert!(prelude.contains("pathMode: options?.pathMode ?? options?.path_mode"));

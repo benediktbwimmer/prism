@@ -5,7 +5,12 @@ use prism_query::Prism;
 use rmcp::{model::*, ErrorData as McpError};
 use serde_json::json;
 
+use crate::QueryExecutionError;
+
 pub(crate) fn map_query_error(error: anyhow::Error) -> McpError {
+    if let Some(query_error) = error.downcast_ref::<QueryExecutionError>() {
+        return McpError::internal_error(query_error.summary(), Some(query_error.data().clone()));
+    }
     McpError::internal_error(
         "prism query failed",
         Some(json!({

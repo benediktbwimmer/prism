@@ -1,3 +1,8 @@
+#[cfg(not(test))]
+use std::env;
+#[cfg(not(test))]
+use std::num::NonZeroUsize;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -17,6 +22,14 @@ use tracing::error;
 use crate::logging::format_error_chain;
 use crate::QueryExecution;
 
+#[cfg(not(test))]
+const QUERY_WORKER_ENV: &str = "PRISM_MCP_QUERY_WORKERS";
+
+pub(crate) struct JsWorkerPool {
+    workers: Vec<JsWorker>,
+    next_worker: AtomicUsize,
+}
+
 pub(crate) struct JsWorker {
     tx: mpsc::Sender<JsWorkerMessage>,
 }
@@ -29,6 +42,32 @@ struct JsWorkerRequest {
 
 enum JsWorkerMessage {
     Execute(JsWorkerRequest),
+}
+
+impl JsWorkerPool {
+    #[cfg(not(test))]
+    pub(crate) fn spawn() -> Self {
+        Self::with_worker_count(configured_query_worker_count())
+    }
+
+    pub(crate) fn with_worker_count(worker_count: usize) -> Self {
+        let worker_count = worker_count.max(1);
+        let workers = (0..worker_count).map(|_| JsWorker::spawn()).collect();
+        Self {
+            workers,
+            next_worker: AtomicUsize::new(0),
+        }
+    }
+
+    pub(crate) fn execute(&self, script: String, execution: QueryExecution) -> Result<String> {
+        let index = self.next_worker.fetch_add(1, Ordering::Relaxed) % self.workers.len();
+        self.workers[index].execute(script, execution)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn worker_count(&self) -> usize {
+        self.workers.len()
+    }
 }
 
 impl JsWorker {
@@ -60,6 +99,16 @@ impl JsWorker {
             .recv()
             .map_err(|_| anyhow!("js worker dropped the query response"))?
     }
+}
+
+#[cfg(not(test))]
+fn configured_query_worker_count() -> usize {
+    env::var(QUERY_WORKER_ENV)
+        .ok()
+        .and_then(|raw| raw.trim().parse::<usize>().ok())
+        .filter(|count| *count > 0)
+        .or_else(|| thread::available_parallelism().map(NonZeroUsize::get).ok())
+        .unwrap_or(1)
 }
 
 fn run_js_worker(rx: mpsc::Receiver<JsWorkerMessage>) -> Result<()> {

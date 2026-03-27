@@ -309,3 +309,21 @@ fn snapshot_round_trip_preserves_tombstones() {
     let restored = HistoryStore::from_snapshot(snapshot);
     assert_eq!(restored.snapshot().tombstones.len(), 1);
 }
+
+#[test]
+fn snapshot_round_trip_preserves_lineage_node_index() {
+    let mut history = HistoryStore::new();
+    history.seed_nodes([NodeId::new("demo", "demo::alpha", NodeKind::Function)]);
+    history.apply(&change_set(
+        vec![observed(function("demo::alpha_v2", 1), 10, 20)],
+        vec![observed(function("demo::alpha", 1), 10, 20)],
+    ));
+
+    let lineage = history
+        .lineage_of(&NodeId::new("demo", "demo::alpha_v2", NodeKind::Function))
+        .unwrap();
+    let expected = history.current_nodes_for_lineage(&lineage);
+
+    let restored = HistoryStore::from_snapshot(history.snapshot());
+    assert_eq!(restored.current_nodes_for_lineage(&lineage), expected);
+}

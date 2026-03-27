@@ -40,6 +40,16 @@ interface QueryDiagnostic {
 
 Diagnostics are how the server tells you a query was ambiguous, truncated, or capped.
 
+Tool-level failures from `prism_query` now separate the main query failure classes:
+
+- `query_parse_failed` for TypeScript parse/transpile errors
+- `query_runtime_failed` for runtime exceptions from the snippet itself
+- `query_result_not_serializable` when the final returned value cannot be JSON-serialized
+- `query_result_decode_failed` when PRISM itself fails to decode the JS result envelope
+
+When PRISM can map a failure back to the submitted snippet, the MCP error payload includes
+`line`, `column`, and `nextAction`.
+
 ## Type surface
 
 ```ts
@@ -153,11 +163,42 @@ type DiffForOptions = {
   taskId?: string;
 };
 
+type SearchBundleOptions = SearchOptions & {
+  includeDiscovery?: boolean;
+  suggestedReadLimit?: number;
+};
+
+type SymbolBundleOptions = {
+  includeDiscovery?: boolean;
+  suggestedReadLimit?: number;
+};
+
+type TextSearchBundleOptions = SearchTextOptions & {
+  semanticQuery?: string;
+  semanticLimit?: number;
+  semanticKind?: string;
+  ownerKind?: string;
+  strategy?: "direct" | "behavioral";
+  includeDiscovery?: boolean;
+  includeInferred?: boolean;
+  aroundBefore?: number;
+  aroundAfter?: number;
+  aroundMaxChars?: number;
+  suggestedReadLimit?: number;
+};
+
+type TargetBundleOptions = DiffForOptions & {
+  includeDiscovery?: boolean;
+  suggestedReadLimit?: number;
+};
+
 type PrismApi = {
   symbol(query: string): SymbolView | null;
+  symbolBundle(query: string, options?: SymbolBundleOptions): SymbolBundleView;
   symbols(query: string): SymbolView[];
   search(query: string, options?: SearchOptions): SymbolView[];
   searchText(query: string, options?: SearchTextOptions): TextSearchMatchView[];
+  textSearchBundle(query: string, options?: TextSearchBundleOptions): TextSearchBundleView;
   tools(): ToolCatalogEntryView[];
   tool(name: string): ToolSchemaView | null;
   entrypoints(): SymbolView[];
@@ -203,6 +244,9 @@ type PrismApi = {
   editContext(target: QueryTarget): EditContextView | null;
   validationContext(target: QueryTarget): ValidationContextView | null;
   recentChangeContext(target: QueryTarget): RecentChangeContextView | null;
+  discovery(target: QueryTarget): DiscoveryBundleView | null;
+  searchBundle(query: string, options?: SearchBundleOptions): SearchBundleView;
+  targetBundle(target: QueryTarget | SearchBundleView | DiscoveryBundleView, options?: TargetBundleOptions): TargetBundleView | null;
   nextReads(target: QueryTarget, options?: NextReadsOptions): OwnerCandidateView[];
   whereUsed(target: QueryTarget, options?: WhereUsedOptions): SymbolView[];
   entrypointsFor(target: QueryTarget, options?: NextReadsOptions): SymbolView[];
@@ -595,6 +639,93 @@ type RecentChangeContextView = {
   lineage: LineageView | null;
   why: string[];
   suggestedQueries: SuggestedQueryView[];
+};
+
+type DiscoveryBundleView = {
+  target: SymbolView;
+  suggestedReads: OwnerCandidateView[];
+  readContext: ReadContextView;
+  editContext: EditContextView;
+  validationContext: ValidationContextView;
+  recentChangeContext: RecentChangeContextView;
+  entrypoints: SymbolView[];
+  whereUsedDirect: SymbolView[];
+  whereUsedBehavioral: SymbolView[];
+  suggestedQueries: SuggestedQueryView[];
+  relations: RelationsView;
+  specCluster?: SpecImplementationClusterView;
+  specDrift?: SpecDriftExplanationView;
+  lineage?: LineageView;
+  coChangeNeighbors: CoChangeView[];
+  relatedFailures: OutcomeEvent[];
+  blastRadius: ChangeImpactView;
+  validationRecipe: ValidationRecipeView;
+  trustSignals: TrustSignalsView;
+  why: string[];
+};
+
+type BundleSummaryView = {
+  kind: string;
+  resultCount: number;
+  empty: boolean;
+  truncated: boolean;
+  ambiguous: boolean;
+  diagnosticCodes: string[];
+};
+
+type SearchBundleView = {
+  query: string;
+  results: SymbolView[];
+  topResult?: SymbolView;
+  discovery?: DiscoveryBundleView;
+  focusedBlock?: FocusedBlockView;
+  readContext?: ReadContextView;
+  suggestedReads: OwnerCandidateView[];
+  validationContext?: ValidationContextView;
+  recentChangeContext?: RecentChangeContextView;
+  summary: BundleSummaryView;
+  diagnostics: QueryDiagnostic[];
+};
+
+type SymbolBundleView = {
+  query: string;
+  result?: SymbolView;
+  candidates: SymbolView[];
+  discovery?: DiscoveryBundleView;
+  focusedBlock?: FocusedBlockView;
+  readContext?: ReadContextView;
+  suggestedReads: OwnerCandidateView[];
+  summary: BundleSummaryView;
+  diagnostics: QueryDiagnostic[];
+};
+
+type TextSearchBundleView = {
+  query: string;
+  matches: TextSearchMatchView[];
+  topMatch?: TextSearchMatchView;
+  rawContext?: SourceSliceView;
+  semanticQuery?: string;
+  semanticResults: SymbolView[];
+  topSymbol?: SymbolView;
+  discovery?: DiscoveryBundleView;
+  focusedBlock?: FocusedBlockView;
+  readContext?: ReadContextView;
+  suggestedReads: OwnerCandidateView[];
+  summary: BundleSummaryView;
+  diagnostics: QueryDiagnostic[];
+};
+
+type TargetBundleView = {
+  target: SymbolView;
+  discovery?: DiscoveryBundleView;
+  focusedBlock?: FocusedBlockView;
+  diff: DiffHunkView[];
+  editContext: EditContextView;
+  readContext: ReadContextView;
+  suggestedReads: OwnerCandidateView[];
+  likelyTests: FocusedBlockView[];
+  summary: BundleSummaryView;
+  diagnostics: QueryDiagnostic[];
 };
 
 type DriftCandidateView = {
@@ -1055,6 +1186,15 @@ return {
 };
 ```
 
+### 4b. If the query accidentally forgets its final return, PRISM warns instead of silently hiding it
+
+```ts
+const sym = prism.symbol("handle_request");
+```
+
+This returns `null` plus a `query_return_missing` diagnostic telling you to add a final
+`return ...` if you intended the query to produce a result.
+
 ### 5. Summarize entrypoints
 
 ```ts
@@ -1451,7 +1591,70 @@ return prism.coordinationInbox("plan:12");
 return prism.taskContext("coord-task:12");
 ```
 
-### 36. Preview a claim and tell whether it is blocked
+### 36. Collapse target discovery into one helper
+
+```ts
+const search = prism.searchBundle("handle_request", { limit: 1 });
+return prism.targetBundle(search);
+```
+
+### 37. Collapse direct symbol lookup into one consistent envelope
+
+```ts
+return prism.symbolBundle("handle_request", { includeDiscovery: true });
+```
+
+### 38. Collapse search plus top-target context into one helper
+
+```ts
+return prism.searchBundle("helper", { limit: 5 });
+```
+
+### 39. Opt into the slower full discovery bundle only when you need it
+
+```ts
+const search = prism.searchBundle("helper", {
+  limit: 5,
+  includeDiscovery: true,
+});
+return prism.targetBundle(search, { includeDiscovery: true, limit: 3 });
+```
+
+### 40. Collapse text search, raw file context, and semantic owner lookup into one helper
+
+```ts
+return prism.textSearchBundle("query_return_missing", {
+  path: "crates/prism-mcp/src",
+  semanticLimit: 3,
+  aroundBefore: 2,
+  aroundAfter: 8,
+});
+```
+
+### 41. Use regex text search but still ask for semantic context with a separate query string
+
+```ts
+return prism.textSearchBundle("query_[a-z_]+", {
+  regex: true,
+  path: "crates/prism-mcp/src",
+  semanticQuery: "query_return_missing",
+  semanticLimit: 3,
+});
+```
+
+### 42. Inspect the bundle summary flags directly
+
+```ts
+const bundle = prism.searchBundle("helper", { limit: 5 });
+return {
+  count: bundle.summary.resultCount,
+  ambiguous: bundle.summary.ambiguous,
+  truncated: bundle.summary.truncated,
+  diagnosticCodes: bundle.summary.diagnosticCodes,
+};
+```
+
+### 43. Preview a claim and tell whether it is blocked
 
 ```ts
 const sym = prism.symbol("handle_request");
@@ -1466,8 +1669,9 @@ return prism.claimPreview({
 
 - Available now: symbol lookup, search, entrypoints, line-aware symbol locations, bounded source excerpts, focused local block retrieval, source extraction, relations, call graphs, lineage history, related failures, blast radius, and task replay by id.
 - Available now: owner-biased discovery helpers through `prism.owners(...)`, `prism.nextReads(...)`, `prism.whereUsed(...)`, `prism.entrypointsFor(...)`, behavioral `prism.search(...)`, `prism.readContext(...)`, `prism.editContext(...)`, `prism.validationContext(...)`, `prism.recentChangeContext(...)`, and `implementationFor(..., { mode: "owners" })` without changing the direct primitive semantics.
+- Available now: consistent eager bundle helpers through `prism.symbolBundle(...)`, `prism.searchBundle(...)`, `prism.textSearchBundle(...)`, and `prism.targetBundle(...)` with stable `summary`, `diagnostics`, and `suggestedReads` fields.
 - Available now: bounded workspace file reads through `prism.file(path).read(...)` and `prism.file(path).around(...)` for exact line-range and around-line inspection without leaving the PRISM query surface.
-- Available now: bounded workspace text search through `prism.searchText(...)` with regex support, path/glob filters, exact match locations, and capped snippets.
+- Available now: bounded workspace text search through `prism.searchText(...)` with regex support, path/glob filters, exact match locations, and capped snippets, plus `prism.textSearchBundle(...)` to collapse text matches, one raw file window, and nearby semantic context into one helper.
 - Available now: semantic recent-change inspection through `prism.changedFiles(...)`, `prism.changedSymbols(path, ...)`, `prism.recentPatches(...)`, `prism.diffFor(target, ...)`, and `prism.taskChanges(taskId, ...)` backed by recorded patch outcomes instead of raw diff dumps.
 - Available now: workspace-backed runtime introspection through `prism.runtimeStatus()`, `prism.runtimeLogs(...)`, and `prism.runtimeTimeline(...)` for daemon health, recent structured log events, and startup/refresh diagnosis without defaulting to shell status checks.
 - Available now: non-symbol repo coverage for markdown headings plus structured JSON, YAML, and TOML config keys through the normal PRISM search and relation surface.

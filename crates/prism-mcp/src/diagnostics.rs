@@ -93,6 +93,9 @@ fn default_next_action(code: &str, message: &str, data: Option<&Value>) -> Optio
                 return None;
             }
         }
+        "query_return_missing" => {
+            "Add `return ...` as the final statement if the query should produce a value."
+        }
         "result_truncated" => return Some(result_truncated_next_action(message, data).to_string()),
         _ => {
             "Inspect the diagnostic payload and retry with a narrower or more specific PRISM query."
@@ -199,6 +202,11 @@ mod tests {
                 "anchor_unresolved",
                 "No curator job matched `curator:1`.",
                 Some(json!({ "jobId": "curator:1" })),
+            ),
+            (
+                "query_return_missing",
+                "Query returned undefined, which usually means the snippet did not return a final value.",
+                None,
             ),
             (
                 "result_truncated",

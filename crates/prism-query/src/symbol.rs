@@ -40,6 +40,13 @@ pub struct Relations {
 }
 
 impl Prism {
+    pub fn symbol_by_id(&self, id: &NodeId) -> Option<Symbol<'_>> {
+        self.graph.node(id).map(|_| Symbol {
+            prism: self,
+            id: id.clone(),
+        })
+    }
+
     pub fn symbol(&self, query: &str) -> Vec<Symbol<'_>> {
         let matches = self.sorted_matches(query);
         let Some(best_score) = matches.first().map(|entry| entry.score) else {

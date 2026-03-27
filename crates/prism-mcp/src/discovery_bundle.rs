@@ -1,13 +1,17 @@
 use anyhow::Result;
 use prism_ir::NodeId;
-use prism_js::{CoChangeView, ConfidenceLabel, EvidenceSourceKind, TrustSignalsView};
+use prism_js::{
+    CoChangeView, ConfidenceLabel, DiscoveryBundleView, EvidenceSourceKind,
+    SpecDriftExplanationView, SpecImplementationClusterView, TrustSignalsView,
+};
 use prism_query::Prism;
+use serde::de::DeserializeOwned;
 
 use crate::{
-    blast_radius_view, co_change_view, edit_context_view, entrypoints_for, lineage_view,
-    next_reads, owner_views_for_target, read_context_view, recent_change_context_view,
-    relations_view, symbol_for, symbol_suggested_queries, symbol_view, validation_context_view,
-    validation_recipe_view_with, where_used, DiscoveryBundleView, SessionState,
+    blast_radius_view, co_change_view, edit_context_view_cached, entrypoints_for, lineage_view,
+    next_reads, read_context_view_cached, recent_change_context_view_cached, relations_view,
+    symbol_for, symbol_suggested_queries, symbol_view, validation_context_view_cached,
+    validation_recipe_view_with, where_used, SemanticContextCache, SessionState,
 };
 
 pub(crate) fn discovery_bundle_view(
@@ -15,29 +19,46 @@ pub(crate) fn discovery_bundle_view(
     session: &SessionState,
     id: &NodeId,
 ) -> Result<DiscoveryBundleView> {
+    let mut cache = SemanticContextCache::default();
+    discovery_bundle_view_cached(prism, session, &mut cache, id)
+}
+
+pub(crate) fn discovery_bundle_view_cached(
+    prism: &Prism,
+    session: &SessionState,
+    cache: &mut SemanticContextCache,
+    id: &NodeId,
+) -> Result<DiscoveryBundleView> {
     let target = symbol_view(prism, &symbol_for(prism, id)?)?;
-    let spec_drift = crate::spec_drift_explanation_view(prism, id).ok();
+    let spec_drift: Option<SpecDriftExplanationView> =
+        crate::spec_drift_explanation_view(prism, id)
+            .ok()
+            .map(convert_view)
+            .transpose()?;
     let suggested_reads = spec_drift
         .as_ref()
         .map(|drift| drift.next_reads.clone())
         .filter(|reads| !reads.is_empty())
         .unwrap_or(next_reads(prism, id, crate::INSIGHT_LIMIT)?);
     let suggested_reads = if suggested_reads.is_empty() {
-        owner_views_for_target(prism, id, None, crate::INSIGHT_LIMIT)?
+        cache_owner_views(prism, cache, id)?.all.clone()
     } else {
         suggested_reads
     };
-    let read_context = read_context_view(prism, session, id)?;
-    let edit_context = edit_context_view(prism, session, id)?;
-    let validation_context = validation_context_view(prism, session, id)?;
-    let recent_change_context = recent_change_context_view(prism, session, id)?;
+    let read_context = read_context_view_cached(prism, session, cache, id)?;
+    let edit_context = edit_context_view_cached(prism, session, cache, id)?;
+    let validation_context = validation_context_view_cached(prism, session, cache, id)?;
+    let recent_change_context = recent_change_context_view_cached(prism, session, cache, id)?;
     let entrypoints = entrypoints_for(prism, session, id, crate::INSIGHT_LIMIT)?;
     let where_used_direct = where_used(prism, session, id, Some("direct"), crate::INSIGHT_LIMIT)?;
     let where_used_behavioral =
         where_used(prism, session, id, Some("behavioral"), crate::INSIGHT_LIMIT)?;
     let suggested_queries = symbol_suggested_queries(id);
     let relations = relations_view(prism, session, id)?;
-    let spec_cluster = crate::spec_cluster_view(prism, id).ok();
+    let spec_cluster: Option<SpecImplementationClusterView> = crate::spec_cluster_view(prism, id)
+        .ok()
+        .map(convert_view)
+        .transpose()?;
     let lineage = lineage_view(prism, id)?;
     let co_change_neighbors = prism
         .co_change_neighbors(id, 8)
@@ -115,6 +136,27 @@ pub(crate) fn discovery_bundle_view(
         trust_signals,
         why,
     })
+}
+
+fn cache_owner_views(
+    prism: &Prism,
+    cache: &mut SemanticContextCache,
+    id: &NodeId,
+) -> Result<crate::GroupedOwnerCandidateViews> {
+    if let Some(value) = cache.owner_views.get(id) {
+        return Ok(value.clone());
+    }
+    let value = crate::grouped_owner_views_for_target(prism, id, crate::INSIGHT_LIMIT)?;
+    cache.owner_views.insert(id.clone(), value.clone());
+    Ok(value)
+}
+
+fn convert_view<T, U>(value: T) -> Result<U>
+where
+    T: serde::Serialize,
+    U: DeserializeOwned,
+{
+    Ok(serde_json::from_value(serde_json::to_value(value)?)?)
 }
 
 fn discovery_trust_signals(

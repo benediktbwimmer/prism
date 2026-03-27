@@ -4,45 +4,22 @@ use std::collections::{HashMap, HashSet};
 use anyhow::{anyhow, Result};
 use prism_ir::{NodeId, NodeKind};
 use prism_js::{
-    ConfidenceLabel, EvidenceSourceKind, OwnerCandidateView, OwnerHintView, SymbolView,
-    TrustSignalsView,
+    ConfidenceLabel, EvidenceSourceKind, OwnerCandidateView, OwnerHintView,
+    SpecDriftExplanationView, SpecImplementationClusterView, SymbolView, TrustSignalsView,
 };
 use prism_query::{Prism, SourceExcerptOptions};
-use rmcp::schemars::JsonSchema;
 
 use crate::{symbol_for, symbol_view, symbol_view_with_owner_hint, symbol_views_for_ids};
 
 const DIRECT_LINK_LIMIT: usize = 12;
 pub(crate) const INSIGHT_LIMIT: usize = 6;
 const QUERY_TERM_LIMIT: usize = 24;
-
-#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct SpecImplementationClusterView {
-    pub(crate) spec: SymbolView,
-    pub(crate) notes: Vec<String>,
-    pub(crate) implementations: Vec<SymbolView>,
-    pub(crate) validations: Vec<SymbolView>,
-    pub(crate) related: Vec<SymbolView>,
-    pub(crate) read_path: Vec<OwnerCandidateView>,
-    pub(crate) write_path: Vec<OwnerCandidateView>,
-    pub(crate) persistence_path: Vec<OwnerCandidateView>,
-    pub(crate) tests: Vec<OwnerCandidateView>,
-}
-
-#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct SpecDriftExplanationView {
-    pub(crate) spec: SymbolView,
-    pub(crate) notes: Vec<String>,
-    pub(crate) drift_reasons: Vec<String>,
-    pub(crate) expectations: Vec<String>,
-    pub(crate) observations: Vec<String>,
-    pub(crate) gaps: Vec<String>,
-    pub(crate) next_reads: Vec<OwnerCandidateView>,
-    pub(crate) trust_signals: TrustSignalsView,
-    pub(crate) cluster: SpecImplementationClusterView,
-}
+const ALL_INSIGHT_CATEGORIES: [InsightCategory; 4] = [
+    InsightCategory::ReadPath,
+    InsightCategory::WritePath,
+    InsightCategory::PersistencePath,
+    InsightCategory::Tests,
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum InsightCategory {
@@ -70,6 +47,22 @@ struct SearchScope {
     query_terms: Vec<String>,
     direct_markers: Vec<String>,
     excluded: HashSet<NodeId>,
+}
+
+struct CandidateSearchData {
+    file_path: String,
+    searchable: String,
+    compact: String,
+    matched_terms: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub(crate) struct GroupedOwnerCandidateViews {
+    pub(crate) all: Vec<OwnerCandidateView>,
+    pub(crate) read_path: Vec<OwnerCandidateView>,
+    pub(crate) write_path: Vec<OwnerCandidateView>,
+    pub(crate) persistence_path: Vec<OwnerCandidateView>,
+    pub(crate) tests: Vec<OwnerCandidateView>,
 }
 
 pub(crate) fn spec_cluster_view(
@@ -112,38 +105,11 @@ pub(crate) fn spec_cluster_view(
             .collect(),
     );
 
-    let read_path = collect_owner_candidates(
-        prism,
-        &scope,
-        None,
-        None,
-        &[InsightCategory::ReadPath],
-        INSIGHT_LIMIT,
-    )?;
-    let write_path = collect_owner_candidates(
-        prism,
-        &scope,
-        None,
-        None,
-        &[InsightCategory::WritePath],
-        INSIGHT_LIMIT,
-    )?;
-    let persistence_path = collect_owner_candidates(
-        prism,
-        &scope,
-        None,
-        None,
-        &[InsightCategory::PersistencePath],
-        INSIGHT_LIMIT,
-    )?;
-    let tests = collect_owner_candidates(
-        prism,
-        &scope,
-        None,
-        None,
-        &[InsightCategory::Tests],
-        INSIGHT_LIMIT,
-    )?;
+    let grouped = collect_owner_candidates_grouped(prism, &scope, None, None, INSIGHT_LIMIT)?;
+    let read_path = grouped.read_path;
+    let write_path = grouped.write_path;
+    let persistence_path = grouped.persistence_path;
+    let tests = grouped.tests;
 
     Ok(SpecImplementationClusterView {
         spec: spec_view,
@@ -264,6 +230,16 @@ pub(crate) fn owner_views_for_target(
     owner_kind: Option<&str>,
     limit: usize,
 ) -> Result<Vec<OwnerCandidateView>> {
+    ensure_known_owner_kind(owner_kind)?;
+    let grouped = grouped_owner_views_for_target(prism, target, limit)?;
+    Ok(select_grouped_owner_views(&grouped, owner_kind))
+}
+
+pub(crate) fn grouped_owner_views_for_target(
+    prism: &Prism,
+    target: &NodeId,
+    limit: usize,
+) -> Result<GroupedOwnerCandidateViews> {
     let symbol = symbol_for(prism, target)?;
     let relations = symbol.relations();
     let mut direct_ids = prism.spec_for(target);
@@ -284,8 +260,7 @@ pub(crate) fn owner_views_for_target(
             .chain(direct_ids.iter().cloned())
             .collect(),
     );
-    let categories = categories_from_filter(owner_kind)?;
-    collect_owner_candidates(prism, &scope, None, None, &categories, limit)
+    collect_owner_candidates_grouped(prism, &scope, None, None, limit)
 }
 
 pub(crate) fn owner_views_for_query(
@@ -296,9 +271,10 @@ pub(crate) fn owner_views_for_query(
     path_filter: Option<&str>,
     limit: usize,
 ) -> Result<Vec<OwnerCandidateView>> {
+    ensure_known_owner_kind(owner_kind)?;
     let scope = build_search_scope(query, query, &[], HashSet::new());
-    let categories = categories_from_filter(owner_kind)?;
-    collect_owner_candidates(prism, &scope, kind_filter, path_filter, &categories, limit)
+    let grouped = collect_owner_candidates_grouped(prism, &scope, kind_filter, path_filter, limit)?;
+    Ok(select_grouped_owner_views(&grouped, owner_kind))
 }
 
 pub(crate) fn owner_symbol_views_for_target(
@@ -362,15 +338,18 @@ fn resolve_spec_target(prism: &Prism, target: &NodeId) -> Result<ResolvedSpecTar
     }
 }
 
-fn collect_owner_candidates(
+fn collect_owner_candidates_grouped(
     prism: &Prism,
     scope: &SearchScope,
     kind_filter: Option<NodeKind>,
     path_filter: Option<&str>,
-    categories: &[InsightCategory],
     limit: usize,
-) -> Result<Vec<OwnerCandidateView>> {
-    let mut best = HashMap::<NodeId, RankedCandidate>::new();
+) -> Result<GroupedOwnerCandidateViews> {
+    let mut best_all = HashMap::<NodeId, RankedCandidate>::new();
+    let mut best_by_category = ALL_INSIGHT_CATEGORIES
+        .into_iter()
+        .map(|category| (category, HashMap::<NodeId, RankedCandidate>::new()))
+        .collect::<HashMap<_, _>>();
     let path_filter = path_filter.map(|value| value.to_ascii_lowercase());
 
     for node in prism.graph().all_nodes() {
@@ -387,23 +366,80 @@ fn collect_owner_candidates(
             continue;
         }
 
-        for &category in categories {
+        let search_data = prepare_candidate_search_data(prism, node, scope);
+        for category in ALL_INSIGHT_CATEGORIES {
             if !supports_category(node.kind, category) {
                 continue;
             }
-            let Some(candidate) = score_candidate(prism, node, scope, category) else {
+            let Some(search_data) = search_data.as_ref() else {
+                break;
+            };
+            let Some(candidate) = score_candidate(node, scope, search_data, category) else {
                 continue;
             };
-            match best.get(&candidate.id) {
+            if let Some(category_best) = best_by_category.get_mut(&category) {
+                match category_best.get(&candidate.id) {
+                    Some(existing) if !is_better_candidate(&candidate, existing) => {}
+                    _ => {
+                        category_best.insert(candidate.id.clone(), candidate.clone());
+                    }
+                }
+            }
+            match best_all.get(&candidate.id) {
                 Some(existing) if !is_better_candidate(&candidate, existing) => {}
                 _ => {
-                    best.insert(candidate.id.clone(), candidate);
+                    best_all.insert(candidate.id.clone(), candidate);
                 }
             }
         }
     }
 
-    let mut ranked = best.into_values().collect::<Vec<_>>();
+    Ok(GroupedOwnerCandidateViews {
+        all: build_owner_candidate_views(prism, best_all.into_values().collect(), limit)?,
+        read_path: build_owner_candidate_views(
+            prism,
+            best_by_category
+                .remove(&InsightCategory::ReadPath)
+                .unwrap_or_default()
+                .into_values()
+                .collect(),
+            limit,
+        )?,
+        write_path: build_owner_candidate_views(
+            prism,
+            best_by_category
+                .remove(&InsightCategory::WritePath)
+                .unwrap_or_default()
+                .into_values()
+                .collect(),
+            limit,
+        )?,
+        persistence_path: build_owner_candidate_views(
+            prism,
+            best_by_category
+                .remove(&InsightCategory::PersistencePath)
+                .unwrap_or_default()
+                .into_values()
+                .collect(),
+            limit,
+        )?,
+        tests: build_owner_candidate_views(
+            prism,
+            best_by_category
+                .remove(&InsightCategory::Tests)
+                .unwrap_or_default()
+                .into_values()
+                .collect(),
+            limit,
+        )?,
+    })
+}
+
+fn build_owner_candidate_views(
+    prism: &Prism,
+    mut ranked: Vec<RankedCandidate>,
+    limit: usize,
+) -> Result<Vec<OwnerCandidateView>> {
     ranked.sort_by(|left, right| {
         right
             .score
@@ -418,6 +454,29 @@ fn collect_owner_candidates(
         .into_iter()
         .map(|candidate| build_owner_candidate_view(prism, candidate))
         .collect()
+}
+
+fn select_grouped_owner_views(
+    grouped: &GroupedOwnerCandidateViews,
+    owner_kind: Option<&str>,
+) -> Vec<OwnerCandidateView> {
+    match owner_kind.map(normalize_compact).as_deref() {
+        None | Some("") | Some("all") => grouped.all.clone(),
+        Some("read") | Some("reader") => grouped.read_path.clone(),
+        Some("write") | Some("writer") | Some("mutation") => grouped.write_path.clone(),
+        Some("persist") | Some("persistence") | Some("storage") => grouped.persistence_path.clone(),
+        Some("test") | Some("tests") | Some("validation") => grouped.tests.clone(),
+        Some(_) => grouped.all.clone(),
+    }
+}
+
+fn ensure_known_owner_kind(filter: Option<&str>) -> Result<()> {
+    match filter.map(normalize_compact).as_deref() {
+        None | Some("") | Some("all") | Some("read") | Some("reader") | Some("write")
+        | Some("writer") | Some("mutation") | Some("persist") | Some("persistence")
+        | Some("storage") | Some("test") | Some("tests") | Some("validation") => Ok(()),
+        Some(other) => Err(anyhow!("unknown owner kind `{other}`")),
+    }
 }
 
 fn build_owner_candidate_view(
@@ -446,51 +505,64 @@ fn owner_hint_from_candidate(candidate: &RankedCandidate) -> OwnerHintView {
     }
 }
 
-fn score_candidate(
+fn prepare_candidate_search_data(
     prism: &Prism,
     node: &prism_ir::Node,
     scope: &SearchScope,
-    category: InsightCategory,
-) -> Option<RankedCandidate> {
+) -> Option<CandidateSearchData> {
     let file_path = prism
         .graph()
         .file_path(node.file)
         .map(|path| path.to_string_lossy().into_owned())
         .unwrap_or_default();
     let mut searchable = format!("{file_path} {} {}", node.id.path, node.name).to_ascii_lowercase();
-    if let Ok(symbol) = symbol_for(prism, &node.id) {
-        if let Some(excerpt) = symbol.excerpt(SourceExcerptOptions::default()) {
-            searchable.push(' ');
-            searchable.push_str(&excerpt.text.to_ascii_lowercase());
+    let mut matched = matched_terms(&scope.query_terms, &searchable);
+    if matched.is_empty() {
+        if let Ok(symbol) = symbol_for(prism, &node.id) {
+            if let Some(excerpt) = symbol.excerpt(SourceExcerptOptions::default()) {
+                searchable.push(' ');
+                searchable.push_str(&excerpt.text.to_ascii_lowercase());
+                matched = matched_terms(&scope.query_terms, &searchable);
+            }
         }
     }
-    let compact = normalize_compact(&searchable);
-
-    let matched_terms = scope
-        .query_terms
-        .iter()
-        .filter(|term| searchable.contains(term.as_str()))
-        .take(8)
-        .cloned()
-        .collect::<Vec<_>>();
-    if matched_terms.is_empty() {
+    if matched.is_empty() {
         return None;
     }
+    let compact = normalize_compact(&searchable);
+    Some(CandidateSearchData {
+        file_path,
+        searchable,
+        compact,
+        matched_terms: matched,
+    })
+}
 
-    let category_bonus = category_bonus(category, &searchable, &file_path)?;
+fn score_candidate(
+    node: &prism_ir::Node,
+    scope: &SearchScope,
+    search_data: &CandidateSearchData,
+    category: InsightCategory,
+) -> Option<RankedCandidate> {
+    let category_bonus = category_bonus(category, &search_data.searchable, &search_data.file_path)?;
     let direct_hits = scope
         .direct_markers
         .iter()
-        .filter(|marker| compact.contains(marker.as_str()))
+        .filter(|marker| search_data.compact.contains(marker.as_str()))
         .count();
     let kind_bonus = match node.kind {
         NodeKind::Function | NodeKind::Method => 2,
         NodeKind::Module => 1,
         _ => 0,
     };
-    let source_bonus =
-        usize::from(searchable.contains(".recall(") || searchable.contains(".store("));
-    let score = matched_terms.len() + category_bonus + kind_bonus + direct_hits * 3 + source_bonus;
+    let source_bonus = usize::from(
+        search_data.searchable.contains(".recall(") || search_data.searchable.contains(".store("),
+    );
+    let score = search_data.matched_terms.len()
+        + category_bonus
+        + kind_bonus
+        + direct_hits * 3
+        + source_bonus;
     let why = match category {
         InsightCategory::ReadPath => {
             "Matched discovery terms inside read-oriented code paths or excerpts.".to_string()
@@ -511,9 +583,18 @@ fn score_candidate(
         id: node.id.clone(),
         category,
         score,
-        matched_terms,
+        matched_terms: search_data.matched_terms.clone(),
         why,
     })
+}
+
+fn matched_terms(query_terms: &[String], searchable: &str) -> Vec<String> {
+    query_terms
+        .iter()
+        .filter(|term| searchable.contains(term.as_str()))
+        .take(8)
+        .cloned()
+        .collect::<Vec<_>>()
 }
 
 fn build_search_scope(
@@ -533,24 +614,6 @@ fn build_search_scope(
         query_terms,
         direct_markers,
         excluded,
-    }
-}
-
-fn categories_from_filter(filter: Option<&str>) -> Result<Vec<InsightCategory>> {
-    match filter.map(normalize_compact).as_deref() {
-        None | Some("") | Some("all") => Ok(vec![
-            InsightCategory::ReadPath,
-            InsightCategory::WritePath,
-            InsightCategory::PersistencePath,
-            InsightCategory::Tests,
-        ]),
-        Some("read") | Some("reader") => Ok(vec![InsightCategory::ReadPath]),
-        Some("write") | Some("writer") | Some("mutation") => Ok(vec![InsightCategory::WritePath]),
-        Some("persist") | Some("persistence") | Some("storage") => {
-            Ok(vec![InsightCategory::PersistencePath])
-        }
-        Some("test") | Some("tests") | Some("validation") => Ok(vec![InsightCategory::Tests]),
-        Some(other) => Err(anyhow!("unknown owner kind `{other}`")),
     }
 }
 

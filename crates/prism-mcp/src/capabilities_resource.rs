@@ -218,6 +218,12 @@ fn query_method_specs() -> Vec<(
             "Build a recent-change bundle with outcomes, co-change signals, and lineage.",
         ),
         (
+            "discoveryBundle",
+            "core",
+            None,
+            "Build a composite discovery bundle for a target in one host call.",
+        ),
+        (
             "nextReads",
             "core",
             None,

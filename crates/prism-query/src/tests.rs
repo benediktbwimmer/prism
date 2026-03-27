@@ -135,6 +135,28 @@ fn search_respects_limit() {
 }
 
 #[test]
+fn symbol_by_id_returns_exact_symbol_without_searching() {
+    let mut graph = Graph::new();
+    let target = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: target.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+
+    let prism = Prism::new(graph);
+    let symbol = prism
+        .symbol_by_id(&target)
+        .expect("exact node id lookup should return a symbol");
+
+    assert_eq!(symbol.id(), &target);
+    assert_eq!(symbol.name(), "alpha");
+}
+
+#[test]
 fn search_can_filter_by_kind_and_path() {
     use std::path::Path;
 

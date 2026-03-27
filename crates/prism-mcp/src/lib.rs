@@ -32,6 +32,7 @@ mod logging;
 mod memory_metadata;
 mod process_lifecycle;
 mod proxy_server;
+mod query_errors;
 mod query_helpers;
 mod query_log;
 mod query_runtime;
@@ -61,10 +62,11 @@ use diagnostics::*;
 use discovery_bundle::*;
 use discovery_helpers::*;
 pub use features::{CoordinationFeatureFlag, PrismMcpFeatures};
-use js_runtime::JsWorker;
+use js_runtime::JsWorkerPool;
 pub use logging::{init_logging, log_process_start, log_top_level_error};
 use memory_metadata::*;
 pub use process_lifecycle::maybe_daemonize_process;
+use query_errors::*;
 use query_helpers::*;
 use query_log::*;
 use query_runtime::*;
@@ -103,6 +105,16 @@ const EDGE_RESOURCE_TEMPLATE_URI: &str = "prism://edge/{edgeId}";
 const SCHEMA_RESOURCE_TEMPLATE_URI: &str = "prism://schema/{resourceKind}";
 const TOOL_SCHEMA_RESOURCE_TEMPLATE_URI: &str = "prism://schema/tool/{toolName}";
 static NEXT_SESSION_ID: AtomicU64 = AtomicU64::new(1);
+
+#[cfg(test)]
+fn default_query_worker_pool() -> JsWorkerPool {
+    JsWorkerPool::with_worker_count(1)
+}
+
+#[cfg(not(test))]
+fn default_query_worker_pool() -> JsWorkerPool {
+    JsWorkerPool::spawn()
+}
 
 #[derive(Debug, Clone, clap::Parser)]
 #[command(name = "prism-mcp")]
@@ -341,7 +353,7 @@ impl PrismMcpServer {
 struct QueryHost {
     prism: Arc<Prism>,
     session: Arc<SessionState>,
-    worker: Arc<JsWorker>,
+    worker_pool: Arc<JsWorkerPool>,
     query_log_store: Arc<QueryLogStore>,
     workspace: Option<Arc<WorkspaceSession>>,
     loaded_workspace_revision: Arc<AtomicU64>,
@@ -371,6 +383,20 @@ impl QueryHost {
         limits: QueryLimits,
         features: PrismMcpFeatures,
     ) -> Self {
+        Self::new_with_limits_features_and_worker_count(
+            prism,
+            limits,
+            features,
+            default_query_worker_pool(),
+        )
+    }
+
+    fn new_with_limits_features_and_worker_count(
+        prism: Prism,
+        limits: QueryLimits,
+        features: PrismMcpFeatures,
+        worker_pool: JsWorkerPool,
+    ) -> Self {
         let prism = Arc::new(prism);
         let session = Arc::new(SessionState::with_limits(
             prism.as_ref(),
@@ -381,7 +407,7 @@ impl QueryHost {
         Self {
             prism: prism.clone(),
             session,
-            worker: Arc::new(JsWorker::spawn()),
+            worker_pool: Arc::new(worker_pool),
             query_log_store: Arc::new(QueryLogStore::default()),
             workspace: None,
             loaded_workspace_revision: Arc::new(AtomicU64::new(0)),
@@ -405,6 +431,20 @@ impl QueryHost {
         workspace: WorkspaceSession,
         limits: QueryLimits,
         features: PrismMcpFeatures,
+    ) -> Self {
+        Self::with_session_limits_features_and_worker_count(
+            workspace,
+            limits,
+            features,
+            default_query_worker_pool(),
+        )
+    }
+
+    fn with_session_limits_features_and_worker_count(
+        workspace: WorkspaceSession,
+        limits: QueryLimits,
+        features: PrismMcpFeatures,
+        worker_pool: JsWorkerPool,
     ) -> Self {
         let workspace = Arc::new(workspace);
         let prism = workspace.prism_arc();
@@ -433,7 +473,7 @@ impl QueryHost {
         Self {
             prism,
             session,
-            worker: Arc::new(JsWorker::spawn()),
+            worker_pool: Arc::new(worker_pool),
             query_log_store: Arc::new(QueryLogStore::default()),
             workspace: Some(workspace),
             loaded_workspace_revision: Arc::new(AtomicU64::new(workspace_revision)),

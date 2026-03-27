@@ -10,6 +10,7 @@ use crate::snapshot::{CoChangeNeighbor, HistorySnapshot, LineageTombstone};
 #[derive(Debug, Clone, Default)]
 pub struct HistoryStore {
     pub(crate) node_to_lineage: HashMap<NodeId, LineageId>,
+    pub(crate) lineage_to_nodes: HashMap<LineageId, Vec<NodeId>>,
     pub(crate) events: Vec<LineageEvent>,
     pub(crate) co_change_counts: HashMap<(LineageId, LineageId), u32>,
     pub(crate) tombstones: HashMap<LineageId, LineageTombstone>,
@@ -41,7 +42,7 @@ impl HistoryStore {
         for node in nodes {
             if !self.node_to_lineage.contains_key(&node) {
                 let lineage = self.alloc_lineage();
-                self.node_to_lineage.insert(node, lineage);
+                self.assign_node_lineage(node, lineage);
             }
         }
     }
@@ -91,19 +92,10 @@ impl HistoryStore {
     }
 
     pub fn current_nodes_for_lineage(&self, lineage: &LineageId) -> Vec<NodeId> {
-        let mut nodes = self
-            .node_to_lineage
-            .iter()
-            .filter(|(_, mapped)| *mapped == lineage)
-            .map(|(node, _)| node.clone())
-            .collect::<Vec<_>>();
-        nodes.sort_by(|left, right| {
-            left.crate_name
-                .cmp(&right.crate_name)
-                .then_with(|| left.path.cmp(&right.path))
-                .then_with(|| left.kind.to_string().cmp(&right.kind.to_string()))
-        });
-        nodes
+        self.lineage_to_nodes
+            .get(lineage)
+            .cloned()
+            .unwrap_or_default()
     }
 
     pub fn snapshot(&self) -> HistorySnapshot {
@@ -126,22 +118,49 @@ impl HistoryStore {
     }
 
     pub fn from_snapshot(snapshot: HistorySnapshot) -> Self {
+        let HistorySnapshot {
+            node_to_lineage,
+            events,
+            co_change_counts,
+            tombstones,
+            next_lineage,
+            next_event,
+        } = snapshot;
+        let node_to_lineage = node_to_lineage.into_iter().collect::<HashMap<_, _>>();
         Self {
-            node_to_lineage: snapshot.node_to_lineage.into_iter().collect(),
-            events: snapshot.events,
-            co_change_counts: snapshot
-                .co_change_counts
+            lineage_to_nodes: lineage_to_nodes_index(&node_to_lineage),
+            node_to_lineage,
+            events,
+            co_change_counts: co_change_counts
                 .into_iter()
                 .map(|(left, right, count)| (normalize_lineage_pair(left, right), count))
                 .collect(),
-            tombstones: snapshot
-                .tombstones
+            tombstones: tombstones
                 .into_iter()
                 .map(|tombstone| (tombstone.lineage.clone(), tombstone))
                 .collect(),
-            next_lineage: snapshot.next_lineage,
-            next_event: snapshot.next_event,
+            next_lineage,
+            next_event,
         }
+    }
+
+    pub(crate) fn assign_node_lineage(&mut self, node: NodeId, lineage: LineageId) {
+        let previous = self.node_to_lineage.insert(node.clone(), lineage.clone());
+        if previous.as_ref() == Some(&lineage) {
+            ensure_lineage_node(&mut self.lineage_to_nodes, lineage, node);
+            return;
+        }
+
+        if let Some(previous) = previous {
+            remove_lineage_node(&mut self.lineage_to_nodes, &previous, &node);
+        }
+        ensure_lineage_node(&mut self.lineage_to_nodes, lineage, node);
+    }
+
+    pub(crate) fn remove_node_lineage(&mut self, node: &NodeId) -> Option<LineageId> {
+        let lineage = self.node_to_lineage.remove(node)?;
+        remove_lineage_node(&mut self.lineage_to_nodes, &lineage, node);
+        Some(lineage)
     }
 
     pub(crate) fn make_event(
@@ -216,4 +235,53 @@ pub(crate) fn normalize_lineage_pair(left: LineageId, right: LineageId) -> (Line
     } else {
         (right, left)
     }
+}
+
+fn lineage_to_nodes_index(
+    node_to_lineage: &HashMap<NodeId, LineageId>,
+) -> HashMap<LineageId, Vec<NodeId>> {
+    let mut lineage_to_nodes = HashMap::<LineageId, Vec<NodeId>>::new();
+    for (node, lineage) in node_to_lineage {
+        ensure_lineage_node(&mut lineage_to_nodes, lineage.clone(), node.clone());
+    }
+    lineage_to_nodes
+}
+
+fn ensure_lineage_node(
+    lineage_to_nodes: &mut HashMap<LineageId, Vec<NodeId>>,
+    lineage: LineageId,
+    node: NodeId,
+) {
+    let nodes = lineage_to_nodes.entry(lineage).or_default();
+    if nodes.iter().any(|existing| existing == &node) {
+        return;
+    }
+    nodes.push(node);
+    sort_node_ids(nodes);
+}
+
+fn remove_lineage_node(
+    lineage_to_nodes: &mut HashMap<LineageId, Vec<NodeId>>,
+    lineage: &LineageId,
+    node: &NodeId,
+) {
+    let remove_entry = match lineage_to_nodes.get_mut(lineage) {
+        Some(nodes) => {
+            nodes.retain(|existing| existing != node);
+            nodes.is_empty()
+        }
+        None => false,
+    };
+    if remove_entry {
+        lineage_to_nodes.remove(lineage);
+    }
+}
+
+fn sort_node_ids(nodes: &mut [NodeId]) {
+    nodes.sort_by(|left, right| {
+        left.crate_name
+            .cmp(&right.crate_name)
+            .then_with(|| left.path.cmp(&right.path))
+            .then_with(|| left.kind.to_string().cmp(&right.kind.to_string()))
+    });
 }

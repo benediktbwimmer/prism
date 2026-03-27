@@ -1163,6 +1163,22 @@ fn simple_mode_disables_coordination_host_paths() {
         .contains("coordination workflow queries are disabled"));
 }
 
+#[test]
+fn query_host_uses_configured_worker_pool_size() {
+    let host = QueryHost::new_with_limits_features_and_worker_count(
+        Prism::new(Graph::default()),
+        QueryLimits::default(),
+        PrismMcpFeatures::default(),
+        JsWorkerPool::with_worker_count(3),
+    );
+
+    assert_eq!(host.worker_pool.worker_count(), 3);
+    let result = host
+        .execute("return 'pool-ok';", QueryLanguage::Ts)
+        .expect("typescript query should execute");
+    assert_eq!(result.result, json!("pool-ok"));
+}
+
 #[tokio::test]
 async fn mcp_server_simple_mode_keeps_minimal_surface_and_reports_features() {
     let server = server_with_node_and_features(demo_node(), PrismMcpFeatures::simple());
@@ -1358,6 +1374,48 @@ async fn mcp_server_reports_actionable_tool_input_errors() {
     assert!(message.contains(
         "Inspect via prism.tool(\"prism_mutate\")?.actions.find((action) => action.action === \"validation_feedback\")"
     ));
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_surfaces_structured_prism_query_error_categories() {
+    let server = server_with_node(demo_node());
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_query",
+            json!({
+                "code": "const broken = ;\nreturn broken;"
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let response = response_json(client.receive().await.unwrap());
+    assert_eq!(response["error"]["code"], -32603);
+    assert_eq!(response["error"]["message"], "prism_query parse failed");
+    assert_eq!(response["error"]["data"]["code"], "query_parse_failed");
+    assert_eq!(response["error"]["data"]["line"], 1);
+    assert_eq!(response["error"]["data"]["column"], 16);
+    assert!(response["error"]["data"]["nextAction"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("TypeScript syntax"));
 
     running.cancel().await.unwrap();
 }
@@ -3181,6 +3239,243 @@ return {
 }
 
 #[test]
+fn bundle_helpers_collapse_search_and_target_context_into_one_query() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod alpha;
+pub mod beta;
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/alpha.rs"),
+        r#"
+pub fn helper() {
+    core();
+}
+
+pub fn core() {}
+"#,
+    )
+    .unwrap();
+    fs::write(root.join("src/beta.rs"), "pub fn helper() {}\n").unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .execute(
+            r#"
+const symbol = prism.symbolBundle("helper", { includeDiscovery: true });
+const search = prism.searchBundle("helper", { limit: 5 });
+const target = prism.targetBundle(search);
+const richSearch = prism.searchBundle("helper", { limit: 5, includeDiscovery: true });
+const richTarget = prism.targetBundle(richSearch, { includeDiscovery: true });
+return {
+  symbol: {
+    query: symbol?.query ?? null,
+    resultPath: symbol?.result?.id?.path ?? null,
+    candidateCount: symbol?.candidates?.length ?? 0,
+    discoveryPath: symbol?.discovery?.target?.id?.path ?? null,
+    readContextPath: symbol?.readContext?.target?.id?.path ?? null,
+    suggestedReadsCount: symbol?.suggestedReads?.length ?? 0,
+    summary: symbol?.summary ?? null,
+  },
+  search: {
+    query: search.query,
+    resultCount: search.results.length,
+    topResultPath: search.topResult?.id?.path ?? null,
+    focusedPath: search.focusedBlock?.symbol?.id?.path ?? null,
+    readContextPath: search.readContext?.target?.id?.path ?? null,
+    validationPath: search.validationContext?.target?.id?.path ?? null,
+    recentChangePath: search.recentChangeContext?.target?.id?.path ?? null,
+    hasDiscovery: search.discovery != null,
+    suggestedReadsCount: search.suggestedReads.length,
+    summary: search.summary,
+    diagnosticCodes: search.diagnostics.map((diagnostic) => diagnostic.code),
+  },
+  target: target == null ? null : {
+    targetPath: target.target.id.path,
+    editContextPath: target.editContext.target.id.path,
+    readContextPath: target.readContext.target.id.path,
+    hasDiscovery: target.discovery != null,
+    suggestedReadsCount: target.suggestedReads.length,
+    diffCount: target.diff.length,
+    likelyTestsCount: target.likelyTests.length,
+    summary: target.summary,
+  },
+  richSearch: {
+    topResultPath: richSearch.topResult?.id?.path ?? null,
+    discoveryPath: richSearch.discovery?.target?.id?.path ?? null,
+    readContextPath: richSearch.readContext?.target?.id?.path ?? null,
+    suggestedReadsCount: richSearch.suggestedReads.length,
+    summary: richSearch.summary,
+  },
+  richTarget: richTarget == null ? null : {
+    targetPath: richTarget.target.id.path,
+    discoveryPath: richTarget.discovery?.target?.id?.path ?? null,
+    editContextPath: richTarget.editContext.target.id.path,
+    readContextPath: richTarget.readContext.target.id.path,
+    suggestedReadsCount: richTarget.suggestedReads.length,
+    summary: richTarget.summary,
+  },
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("bundle helpers query should succeed");
+
+    let symbol = &result.result["symbol"];
+    assert_eq!(symbol["query"], "helper");
+    assert_eq!(symbol["resultPath"], "demo::alpha::helper");
+    assert_eq!(symbol["candidateCount"], 2);
+    assert_eq!(symbol["discoveryPath"], symbol["resultPath"]);
+    assert_eq!(symbol["readContextPath"], symbol["resultPath"]);
+    assert!(symbol["suggestedReadsCount"].as_u64().unwrap_or_default() > 0);
+    assert_eq!(symbol["summary"]["kind"], "symbol");
+    assert_eq!(symbol["summary"]["resultCount"], 2);
+    assert_eq!(symbol["summary"]["empty"], false);
+    assert_eq!(symbol["summary"]["ambiguous"], true);
+
+    let search = &result.result["search"];
+    assert_eq!(search["query"], "helper");
+    assert_eq!(search["resultCount"], 2);
+    assert_eq!(search["focusedPath"], search["topResultPath"]);
+    assert_eq!(search["readContextPath"], search["topResultPath"]);
+    assert_eq!(search["validationPath"], search["topResultPath"]);
+    assert_eq!(search["recentChangePath"], search["topResultPath"]);
+    assert_eq!(search["hasDiscovery"], false);
+    assert!(search["suggestedReadsCount"].as_u64().is_some());
+    assert_eq!(search["summary"]["kind"], "search");
+    assert_eq!(search["summary"]["resultCount"], 2);
+    assert_eq!(search["summary"]["ambiguous"], true);
+    assert!(search["diagnosticCodes"]
+        .as_array()
+        .expect("bundle diagnostics")
+        .iter()
+        .any(|diagnostic| diagnostic == "ambiguous_search"));
+
+    let target = &result.result["target"];
+    assert_eq!(target["targetPath"], search["topResultPath"]);
+    assert_eq!(target["hasDiscovery"], false);
+    assert_eq!(target["editContextPath"], target["targetPath"]);
+    assert_eq!(target["readContextPath"], target["targetPath"]);
+    assert!(target["suggestedReadsCount"].as_u64().is_some());
+    assert_eq!(target["summary"]["kind"], "target");
+    assert_eq!(target["summary"]["resultCount"], 1);
+    assert!(target["diffCount"].as_u64().is_some());
+    assert!(target["likelyTestsCount"].as_u64().is_some());
+
+    let rich_search = &result.result["richSearch"];
+    assert_eq!(rich_search["discoveryPath"], rich_search["topResultPath"]);
+    assert_eq!(rich_search["readContextPath"], rich_search["topResultPath"]);
+    assert!(
+        rich_search["suggestedReadsCount"]
+            .as_u64()
+            .unwrap_or_default()
+            > 0
+    );
+    assert_eq!(rich_search["summary"]["kind"], "search");
+
+    let rich_target = &result.result["richTarget"];
+    assert_eq!(rich_target["targetPath"], rich_search["topResultPath"]);
+    assert_eq!(rich_target["discoveryPath"], rich_target["targetPath"]);
+    assert_eq!(rich_target["editContextPath"], rich_target["targetPath"]);
+    assert_eq!(rich_target["readContextPath"], rich_target["targetPath"]);
+    assert!(
+        rich_target["suggestedReadsCount"]
+            .as_u64()
+            .unwrap_or_default()
+            > 0
+    );
+    assert_eq!(rich_target["summary"]["kind"], "target");
+}
+
+#[test]
+fn text_search_bundle_collapses_raw_match_and_semantic_context_into_one_query() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod alpha;
+pub mod beta;
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/alpha.rs"),
+        r#"
+pub fn helper() {
+    core();
+}
+
+pub fn core() {}
+"#,
+    )
+    .unwrap();
+    fs::write(root.join("src/beta.rs"), "pub fn helper() {}\n").unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .execute(
+            r#"
+const bundle = prism.textSearchBundle("helper", {
+  path: "src/alpha.rs",
+  semanticLimit: 3,
+  aroundBefore: 1,
+  aroundAfter: 4,
+});
+const regexBundle = prism.textSearchBundle("helper\\(", {
+  regex: true,
+  path: "src/alpha.rs",
+  semanticQuery: "helper",
+  semanticLimit: 3,
+  includeDiscovery: true,
+});
+return { bundle, regexBundle };
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("text search bundle query should succeed");
+
+    let bundle = &result.result["bundle"];
+    assert_eq!(bundle["query"], "helper");
+    assert_eq!(bundle["topMatch"]["path"], "src/alpha.rs");
+    assert_eq!(
+        bundle["rawContext"]["focus"]["startLine"],
+        bundle["topMatch"]["location"]["startLine"]
+    );
+    assert_eq!(bundle["semanticQuery"], "helper");
+    assert_eq!(
+        bundle["focusedBlock"]["symbol"]["id"]["path"],
+        bundle["topSymbol"]["id"]["path"]
+    );
+    assert_eq!(
+        bundle["readContext"]["target"]["id"]["path"],
+        bundle["topSymbol"]["id"]["path"]
+    );
+    assert!(bundle["suggestedReads"].is_array());
+    assert_eq!(bundle["summary"]["kind"], "text_search");
+    assert_eq!(bundle["summary"]["resultCount"], 1);
+    assert!(bundle["discovery"].is_null());
+    assert!(bundle["diagnostics"].is_array());
+
+    let regex_bundle = &result.result["regexBundle"];
+    assert_eq!(regex_bundle["query"], "helper\\(");
+    assert_eq!(regex_bundle["semanticQuery"], "helper");
+    assert_eq!(
+        regex_bundle["discovery"]["target"]["id"]["path"],
+        regex_bundle["topSymbol"]["id"]["path"]
+    );
+    assert_eq!(
+        regex_bundle["readContext"]["target"]["id"]["path"],
+        regex_bundle["topSymbol"]["id"]["path"]
+    );
+    assert!(regex_bundle["suggestedReads"].is_array());
+    assert_eq!(regex_bundle["summary"]["kind"], "text_search");
+}
+
+#[test]
 fn lineage_targets_remap_stale_symbol_ids_to_current_edit_slices() {
     let root = temp_workspace();
     let source = "pub fn alpha_v2() { beta(); }\npub fn beta() {}\n";
@@ -3621,14 +3916,106 @@ throw new Error("boom");
         .expect_err("query should fail");
 
     let message = error.to_string();
-    assert!(
-        message.contains("javascript query evaluation failed"),
-        "{message}"
-    );
+    assert!(message.contains("prism_query runtime failed"), "{message}");
+    assert!(message.contains("boom"), "{message}");
     assert!(
         !message.contains("Exception generated by QuickJS"),
         "{message}"
     );
+}
+
+#[test]
+fn prism_query_parse_errors_map_back_to_user_snippet_locations() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let error = host
+        .execute(
+            r#"
+const broken = ;
+return broken;
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect_err("query should fail");
+
+    let message = error.to_string();
+    assert!(message.contains("prism_query parse failed"), "{message}");
+    assert!(
+        message.contains("user snippet line 2, column 16"),
+        "{message}"
+    );
+    assert!(message.contains("Fix the TypeScript syntax"), "{message}");
+}
+
+#[test]
+fn prism_query_runtime_errors_map_back_to_user_snippet_locations() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let error = host
+        .execute(
+            r#"
+const value = 1;
+throw new Error("boom");
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect_err("query should fail");
+
+    let message = error.to_string();
+    assert!(message.contains("prism_query runtime failed"), "{message}");
+    assert!(message.contains("boom"), "{message}");
+    assert!(
+        message.contains("Inspect the referenced user-snippet line"),
+        "{message}"
+    );
+}
+
+#[test]
+fn prism_query_serialization_failures_have_actionable_hints() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let error = host
+        .execute(
+            r#"
+const value = {};
+value.self = value;
+return value;
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect_err("query should fail");
+
+    let message = error.to_string();
+    assert!(
+        message.contains("prism_query result is not JSON-serializable"),
+        "{message}"
+    );
+    assert!(message.contains("circular reference"), "{message}");
+    assert!(message.contains("JSON-serializable values"), "{message}");
+}
+
+#[test]
+fn prism_query_missing_return_emits_actionable_diagnostic() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .execute(
+            r#"
+const sym = prism.symbol("alpha");
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed");
+
+    assert_eq!(result.result, Value::Null);
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "query_return_missing"));
 }
 
 #[test]
