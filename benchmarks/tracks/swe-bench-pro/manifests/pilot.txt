@@ -1,0 +1,4 @@
+# Plain-text manifests may list one instance id per line.
+# For Codex execution, prefer a `.jsonl` manifest with:
+# {"instance_id":"demo__instance","workspace_dir":"/abs/path","prompt":"..."}
+# or {"instance_id":"demo__instance","workspace_dir":"/abs/path","prompt_path":"/abs/path/to/task.md"}

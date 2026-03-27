@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prism.dev/schemas/benchmarks/run-result.schema.json",
+  "title": "PRISM Benchmark Run Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "run_id",
+    "status",
+    "track",
+    "cohort",
+    "git_commit",
+    "started_at",
+    "finished_at",
+    "arms"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["planned", "running", "completed"]
+    },
+    "track": {
+      "type": "string"
+    },
+    "cohort": {
+      "type": "string"
+    },
+    "git_commit": {
+      "type": "string"
+    },
+    "started_at": {
+      "type": "string"
+    },
+    "finished_at": {
+      "type": ["string", "null"]
+    },
+    "config_path": {
+      "type": "string"
+    },
+    "arms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "prism_enabled",
+          "model",
+          "reasoning_effort",
+          "instance_outcomes",
+          "benchmark_outcome",
+          "telemetry_summary"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "prism_enabled": {
+            "type": "boolean"
+          },
+          "model": {
+            "type": "string"
+          },
+          "reasoning_effort": {
+            "type": "string"
+          },
+          "instance_outcomes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["instance_id", "status"],
+              "properties": {
+                "instance_id": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["resolved", "unresolved", "error"]
+                }
+              }
+            }
+          },
+          "benchmark_outcome": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "instances_attempted",
+              "instances_resolved",
+              "instances_unresolved",
+              "harness_errors",
+              "resolution_rate"
+            ],
+            "properties": {
+              "instances_attempted": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "instances_resolved": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "instances_unresolved": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "harness_errors": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "resolution_rate": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          },
+          "telemetry_summary": {
+            "$ref": "telemetry.schema.json#/$defs/telemetrySummary"
+          }
+        }
+      }
+    }
+  }
+}

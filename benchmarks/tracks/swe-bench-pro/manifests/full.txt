@@ -1,0 +1,2 @@
+# Plain-text manifests may list one instance id per line.
+# For Codex execution, prefer a `.jsonl` manifest with workspace and prompt context.

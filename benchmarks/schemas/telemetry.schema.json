@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prism.dev/schemas/benchmarks/telemetry.schema.json",
+  "title": "PRISM Benchmark Telemetry",
+  "$defs": {
+    "telemetrySummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "prompt_tokens",
+        "completion_tokens",
+        "tool_calls",
+        "prism_queries",
+        "shell_commands",
+        "shell_read_commands",
+        "repeated_reads",
+        "patch_attempts",
+        "wall_time_seconds"
+      ],
+      "properties": {
+        "prompt_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "completion_tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tool_calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "prism_queries": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "shell_commands": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "shell_read_commands": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "repeated_reads": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "patch_attempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wall_time_seconds": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "run_id",
+    "status",
+    "track",
+    "cohort",
+    "git_commit",
+    "started_at",
+    "finished_at",
+    "arms"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["planned", "running", "completed"]
+    },
+    "track": {
+      "type": "string"
+    },
+    "cohort": {
+      "type": "string"
+    },
+    "git_commit": {
+      "type": "string"
+    },
+    "started_at": {
+      "type": "string"
+    },
+    "finished_at": {
+      "type": ["string", "null"]
+    },
+    "arms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "prism_enabled",
+          "summary",
+          "instances"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "prism_enabled": {
+            "type": "boolean"
+          },
+          "summary": {
+            "$ref": "#/$defs/telemetrySummary"
+          },
+          "instances": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "instance_id",
+                "resolved",
+                "prompt_tokens",
+                "completion_tokens",
+                "tool_calls",
+                "prism_queries",
+                "shell_commands",
+                "shell_read_commands",
+                "repeated_reads",
+                "patch_attempts",
+                "wall_time_seconds"
+              ],
+              "properties": {
+                "instance_id": {
+                  "type": "string"
+                },
+                "resolved": {
+                  "type": ["boolean", "null"]
+                },
+                "prompt_tokens": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "completion_tokens": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "tool_calls": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "prism_queries": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "shell_commands": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "shell_read_commands": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "repeated_reads": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "patch_attempts": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "wall_time_seconds": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,281 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prism.dev/schemas/benchmarks/run-config.schema.json",
+  "title": "PRISM Benchmark Run Config",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "track",
+    "cohort",
+    "agent",
+    "benchmark",
+    "harness",
+    "execution",
+    "arms",
+    "run",
+    "telemetry",
+    "output"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "track": {
+      "type": "string"
+    },
+    "cohort": {
+      "type": "string",
+      "enum": ["pilot", "full"]
+    },
+    "description": {
+      "type": "string"
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "model", "reasoning_effort"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "reasoning_effort": {
+          "type": "string"
+        }
+      }
+    },
+    "benchmark": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["suite", "instance_manifest"],
+      "properties": {
+        "suite": {
+          "type": "string"
+        },
+        "subset": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
+        },
+        "instance_manifest": {
+          "type": "string"
+        }
+      }
+    },
+    "harness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adapter",
+        "predictions_path",
+        "predictions_format",
+        "report_path",
+        "command_templates",
+        "report_parser"
+      ],
+      "properties": {
+        "adapter": {
+          "type": "string",
+          "enum": ["command-template"]
+        },
+        "predictions_path": {
+          "type": "string"
+        },
+        "predictions_format": {
+          "type": "string",
+          "enum": ["dict", "list"]
+        },
+        "report_path": {
+          "type": "string"
+        },
+        "report_parser": {
+          "type": "string",
+          "enum": ["swebench-summary"]
+        },
+        "command_templates": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["submit"],
+          "properties": {
+            "submit": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "get_report": {
+              "type": ["array", "null"],
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adapter",
+        "sandbox",
+        "ephemeral",
+        "transcript_path",
+        "stderr_path",
+        "last_message_path",
+        "patch_path",
+        "config_overrides"
+      ],
+      "properties": {
+        "adapter": {
+          "type": "string",
+          "enum": ["codex-cli"]
+        },
+        "sandbox": {
+          "type": "string",
+          "enum": ["read-only", "workspace-write", "danger-full-access"]
+        },
+        "ephemeral": {
+          "type": "boolean"
+        },
+        "transcript_path": {
+          "type": "string"
+        },
+        "stderr_path": {
+          "type": "string"
+        },
+        "last_message_path": {
+          "type": "string"
+        },
+        "patch_path": {
+          "type": "string"
+        },
+        "config_overrides": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "arms": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "prism_enabled", "prompt_path", "tool_profile"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": ["control", "prism"]
+          },
+          "prism_enabled": {
+            "type": "boolean"
+          },
+          "prompt_path": {
+            "type": "string"
+          },
+          "tool_profile": {
+            "type": "string"
+          },
+          "codex_config_overrides": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "codex_args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_instances",
+        "max_turns_per_instance",
+        "timeout_minutes_per_instance",
+        "parallelism",
+        "retry_budget"
+      ],
+      "properties": {
+        "max_instances": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "max_turns_per_instance": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "timeout_minutes_per_instance": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "parallelism": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "retry_budget": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capture_tokens",
+        "capture_tool_calls",
+        "capture_prism_queries",
+        "capture_shell_reads",
+        "capture_wall_time",
+        "capture_patch_attempts"
+      ],
+      "properties": {
+        "capture_tokens": {
+          "type": "boolean"
+        },
+        "capture_tool_calls": {
+          "type": "boolean"
+        },
+        "capture_prism_queries": {
+          "type": "boolean"
+        },
+        "capture_shell_reads": {
+          "type": "boolean"
+        },
+        "capture_wall_time": {
+          "type": "boolean"
+        },
+        "capture_patch_attempts": {
+          "type": "boolean"
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["result_path", "telemetry_path"],
+      "properties": {
+        "result_path": {
+          "type": "string"
+        },
+        "telemetry_path": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

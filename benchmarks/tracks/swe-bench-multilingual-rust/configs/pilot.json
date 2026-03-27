@@ -1,0 +1,101 @@
+{
+  "version": "0.1",
+  "track": "swe-bench-multilingual-rust",
+  "cohort": "pilot",
+  "description": "Pilot Codex Prism-vs-control comparison on an explicit SWE-bench Multilingual Rust manifest.",
+  "agent": {
+    "name": "codex",
+    "model": "<set-per-run>",
+    "reasoning_effort": "<set-per-run>"
+  },
+  "benchmark": {
+    "suite": "swe-bench-multilingual",
+    "language": "rust",
+    "instance_manifest": "benchmarks/tracks/swe-bench-multilingual-rust/manifests/pilot.txt"
+  },
+  "harness": {
+    "adapter": "command-template",
+    "predictions_path": "benchmarks/results/local/{run_id}/{arm}/predictions.json",
+    "predictions_format": "dict",
+    "report_path": "benchmarks/results/local/{run_id}/{arm}/report.json",
+    "report_parser": "swebench-summary",
+    "command_templates": {
+      "submit": [
+        "sb-cli",
+        "submit",
+        "<set-subset>",
+        "<set-split>",
+        "--predictions_path",
+        "{predictions_path}",
+        "--run_id",
+        "{submission_run_id}",
+        "--output_dir",
+        "{arm_output_dir}",
+        "--gen_report",
+        "1",
+        "--wait_for_evaluation",
+        "1",
+        "--verify_submission",
+        "1",
+        "--overwrite",
+        "1"
+      ],
+      "get_report": [
+        "sb-cli",
+        "get-report",
+        "{submission_run_id}"
+      ]
+    }
+  },
+  "execution": {
+    "adapter": "codex-cli",
+    "sandbox": "workspace-write",
+    "ephemeral": true,
+    "transcript_path": "benchmarks/results/local/{run_id}/{arm}/transcripts/{instance_id}.jsonl",
+    "stderr_path": "benchmarks/results/local/{run_id}/{arm}/stderr/{instance_id}.log",
+    "last_message_path": "benchmarks/results/local/{run_id}/{arm}/messages/{instance_id}.txt",
+    "patch_path": "benchmarks/results/local/{run_id}/{arm}/patches/{instance_id}.diff",
+    "config_overrides": [
+      "reasoning_effort=\"{reasoning_effort}\""
+    ]
+  },
+  "arms": [
+    {
+      "name": "control",
+      "prism_enabled": false,
+      "prompt_path": "benchmarks/prompts/codex/control.md",
+      "tool_profile": "codex-control",
+      "codex_config_overrides": [
+        "mcp_servers.prism.enabled=false"
+      ]
+    },
+    {
+      "name": "prism",
+      "prism_enabled": true,
+      "prompt_path": "benchmarks/prompts/codex/prism.md",
+      "tool_profile": "codex-prism",
+      "codex_config_overrides": [
+        "mcp_servers.prism.enabled=true"
+      ]
+    }
+  ],
+  "run": {
+    "max_instances": 20,
+    "max_turns_per_instance": 50,
+    "timeout_minutes_per_instance": 60,
+    "parallelism": 1,
+    "retry_budget": 0
+  },
+  "telemetry": {
+    "capture_tokens": true,
+    "capture_tool_calls": true,
+    "capture_prism_queries": true,
+    "capture_shell_reads": true,
+    "capture_wall_time": true,
+    "capture_patch_attempts": true
+  },
+  "output": {
+    "result_path": "benchmarks/results/local/swe-bench-multilingual-rust-pilot.json",
+    "telemetry_path": "benchmarks/results/local/swe-bench-multilingual-rust-pilot.telemetry.json"
+  }
+}
