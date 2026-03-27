@@ -79,7 +79,7 @@ async fn dashboard_bootstrap(
     let operations = state.host.dashboard_operations_view(query.limit);
     let task = state
         .host
-        .dashboard_task_snapshot()
+        .dashboard_task_snapshot(None)
         .map_err(internal_error)?;
     let coordination = state
         .host
@@ -110,7 +110,7 @@ async fn dashboard_task(
     Ok(Json(
         state
             .host
-            .dashboard_task_snapshot()
+            .dashboard_task_snapshot(None)
             .map_err(internal_error)?,
     ))
 }

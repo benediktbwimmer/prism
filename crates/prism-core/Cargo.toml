@@ -15,6 +15,7 @@ prism-ir = { path = "../prism-ir" }
 prism-history = { path = "../prism-history" }
 prism-lang-json = { path = "../prism-lang-json" }
 prism-lang-markdown = { path = "../prism-lang-markdown" }
+prism-lang-python = { path = "../prism-lang-python" }
 prism-lang-rust = { path = "../prism-lang-rust" }
 prism-lang-toml = { path = "../prism-lang-toml" }
 prism-lang-yaml = { path = "../prism-lang-yaml" }

@@ -253,6 +253,48 @@ fn broad_identifier_search_prefers_code_over_replay_and_lockfile_noise() {
 }
 
 #[test]
+fn broad_identifier_search_suppresses_test_noise_when_non_test_code_exists() {
+    use std::path::Path;
+
+    let mut graph = Graph::new();
+    let lib_file = graph.ensure_file(Path::new("/workspace/src/lib.rs"));
+    let helpers_file = graph.ensure_file(Path::new("/workspace/src/query_helpers.rs"));
+
+    graph.add_node(Node {
+        id: NodeId::new("demo", "demo::build_helper_plan", NodeKind::Function),
+        name: "build_helper_plan".into(),
+        kind: NodeKind::Function,
+        file: lib_file,
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    graph.add_node(Node {
+        id: NodeId::new("demo", "demo::query_helpers", NodeKind::Module),
+        name: "query_helpers".into(),
+        kind: NodeKind::Module,
+        file: helpers_file,
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    graph.add_node(Node {
+        id: NodeId::new("demo", "demo::tests::helper", NodeKind::Function),
+        name: "helper".into(),
+        kind: NodeKind::Function,
+        file: lib_file,
+        span: Span::line(10),
+        language: Language::Rust,
+    });
+
+    let prism = Prism::new(graph);
+    let results = prism.search("helper", 5, None, None);
+
+    assert_eq!(results[0].id().path, "demo::build_helper_plan");
+    assert!(results
+        .iter()
+        .all(|symbol| !symbol.id().path.contains("::tests::")));
+}
+
+#[test]
 fn exposes_lineage_queries_when_history_is_present() {
     let mut graph = Graph::new();
     let node_id = NodeId::new("demo", "demo::alpha", NodeKind::Function);

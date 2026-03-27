@@ -71,18 +71,21 @@ impl Prism {
         path_filter: Option<&str>,
     ) -> Vec<Symbol<'_>> {
         let path_filter = path_filter.map(|value| value.trim().to_ascii_lowercase());
+        let broad_identifier_query =
+            kind.is_none() && path_filter.is_none() && is_broad_identifier_query(query);
+        let query_lower = query.trim().to_ascii_lowercase();
         let mut matches = self.sorted_matches(query);
-        if kind.is_none() && path_filter.is_none() && is_broad_identifier_query(query) {
+        if broad_identifier_query {
             let (preferred, suppressed): (Vec<_>, Vec<_>) = matches
                 .into_iter()
-                .partition(|entry| !self.is_low_signal_broad_query_node(entry.node));
+                .partition(|entry| !self.is_suppressed_broad_query_node(entry.node, &query_lower));
             matches = if preferred.is_empty() {
                 suppressed
             } else {
                 preferred
             };
         }
-        matches
+        matches = matches
             .into_iter()
             .filter(|entry| kind.map_or(true, |kind| entry.node.kind == kind))
             .filter(|entry| {
@@ -90,6 +93,18 @@ impl Prism {
                     .as_deref()
                     .map_or(true, |filter| self.matches_path_filter(entry.node, filter))
             })
+            .collect::<Vec<_>>();
+        if broad_identifier_query {
+            matches.sort_by(|left, right| {
+                broad_query_preference_rank(left.node)
+                    .cmp(&broad_query_preference_rank(right.node))
+                    .then_with(|| left.score.cmp(&right.score))
+                    .then_with(|| left.path_len.cmp(&right.path_len))
+                    .then_with(|| left.path.cmp(&right.path))
+            });
+        }
+        matches
+            .into_iter()
             .take(limit)
             .map(|entry| Symbol {
                 prism: self,
@@ -180,6 +195,11 @@ impl Prism {
                 .as_str()
                 .to_ascii_lowercase()
                 .contains(path_filter)
+    }
+
+    fn is_suppressed_broad_query_node(&self, node: &Node, query_lower: &str) -> bool {
+        self.is_low_signal_broad_query_node(node)
+            || (!query_lower.contains("test") && is_test_node(node))
     }
 
     fn is_low_signal_broad_query_node(&self, node: &Node) -> bool {
@@ -428,6 +448,27 @@ fn tokens(value: &str) -> impl Iterator<Item = &str> {
 fn is_test_node(node: &Node) -> bool {
     let path = node.id.path.as_str();
     path.contains("::tests::") || path.ends_with("::tests")
+}
+
+fn broad_query_preference_rank(node: &Node) -> u8 {
+    match node.kind {
+        NodeKind::Function
+        | NodeKind::Method
+        | NodeKind::Struct
+        | NodeKind::Enum
+        | NodeKind::Trait
+        | NodeKind::Impl
+        | NodeKind::TypeAlias => 0,
+        NodeKind::Module => 1,
+        NodeKind::Field => 2,
+        NodeKind::Document
+        | NodeKind::Package
+        | NodeKind::Workspace
+        | NodeKind::MarkdownHeading
+        | NodeKind::JsonKey
+        | NodeKind::TomlKey
+        | NodeKind::YamlKey => 3,
+    }
 }
 
 fn is_broad_identifier_query(query: &str) -> bool {

@@ -539,6 +539,157 @@ fn watcher_refreshes_session_after_external_edit() {
 }
 
 #[test]
+fn watcher_refresh_enqueues_curator_with_patch_outcomes_and_projection_context() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "fn alpha() { helper(); }\nfn helper() {}\nfn beta() {}\n",
+    )
+    .unwrap();
+
+    #[derive(Clone, Debug, PartialEq)]
+    struct CapturedCuratorRun {
+        trigger: prism_curator::CuratorTrigger,
+        focus: Vec<AnchorRef>,
+        outcome_kinds: Vec<OutcomeKind>,
+        co_change_count: usize,
+    }
+
+    #[derive(Clone, Default)]
+    struct FakeCurator {
+        seen: Arc<Mutex<Vec<CapturedCuratorRun>>>,
+    }
+
+    impl CuratorBackend for FakeCurator {
+        fn run(&self, job: &CuratorJob, ctx: &CuratorContext) -> anyhow::Result<CuratorRun> {
+            self.seen.lock().unwrap().push(CapturedCuratorRun {
+                trigger: job.trigger.clone(),
+                focus: job.focus.clone(),
+                outcome_kinds: ctx
+                    .outcomes
+                    .iter()
+                    .map(|event| event.kind.clone())
+                    .collect(),
+                co_change_count: ctx.projections.co_change.len(),
+            });
+            Ok(CuratorRun {
+                proposals: vec![CuratorProposal::RiskSummary(CandidateRiskSummary {
+                    anchors: job.focus.clone(),
+                    summary: "watcher refresh needs review".into(),
+                    severity: "medium".into(),
+                    evidence_events: ctx
+                        .outcomes
+                        .iter()
+                        .map(|event| event.meta.id.clone())
+                        .collect(),
+                })],
+                diagnostics: Vec::new(),
+            })
+        }
+    }
+
+    let backend = FakeCurator::default();
+    let session = index_workspace_session_with_curator(&root, Arc::new(backend.clone())).unwrap();
+    let initial_runs = backend.seen.lock().unwrap().len();
+    fs::write(
+        root.join("src/lib.rs"),
+        "fn gamma() { delta(); }\nfn delta() {}\nfn beta() {}\n",
+    )
+    .unwrap();
+
+    let mut gamma = None;
+    let mut delta = None;
+    let mut completed = false;
+    for _ in 0..60 {
+        let prism = session.prism();
+        gamma = prism
+            .symbol("gamma")
+            .into_iter()
+            .find(|symbol| symbol.id().path == "demo::gamma")
+            .map(|symbol| symbol.id().clone());
+        delta = prism
+            .symbol("delta")
+            .into_iter()
+            .find(|symbol| symbol.id().path == "demo::delta")
+            .map(|symbol| symbol.id().clone());
+        completed = session.curator_snapshot().records.iter().any(|record| {
+            record.status == prism_curator::CuratorJobStatus::Completed
+                && record.job.trigger == prism_curator::CuratorTrigger::HotspotChanged
+        });
+        if gamma.is_some() && delta.is_some() && completed {
+            break;
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+
+    let gamma = gamma.expect("watcher refresh should index gamma");
+    let delta = delta.expect("watcher refresh should index delta");
+    assert!(completed);
+
+    let patch_events = session
+        .prism()
+        .outcome_memory()
+        .outcomes_for(&[AnchorRef::Node(gamma.clone())], 10)
+        .into_iter()
+        .filter(|event| event.kind == OutcomeKind::PatchApplied)
+        .count();
+    assert_eq!(patch_events, 1);
+
+    let neighbors = session.prism().co_change_neighbors(&gamma, 8);
+    assert!(neighbors
+        .iter()
+        .any(|neighbor| neighbor.nodes.iter().any(|node| node.path == delta.path)));
+
+    let seen = backend.seen.lock().unwrap().clone();
+    assert_eq!(seen.len(), initial_runs + 1);
+    let captured = seen.last().unwrap();
+    assert_eq!(
+        captured.trigger,
+        prism_curator::CuratorTrigger::HotspotChanged
+    );
+    assert!(captured
+        .focus
+        .iter()
+        .any(|anchor| matches!(anchor, AnchorRef::Node(node) if node.path == "demo::gamma")));
+    assert!(captured.outcome_kinds.contains(&OutcomeKind::PatchApplied));
+    assert!(captured.co_change_count > 0);
+
+    drop(session);
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let snapshot = reloaded.curator_snapshot();
+    assert!(snapshot.records.iter().any(|record| {
+        record.job.trigger == prism_curator::CuratorTrigger::HotspotChanged
+            && matches!(
+                record.run.as_ref().and_then(|run| run.proposals.first()),
+                Some(CuratorProposal::RiskSummary(summary))
+                    if summary.summary == "watcher refresh needs review"
+            )
+    }));
+
+    let reloaded_gamma = reloaded
+        .prism()
+        .symbol("gamma")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::gamma")
+        .expect("gamma should survive reload")
+        .id()
+        .clone();
+    let reloaded_neighbors = reloaded.prism().co_change_neighbors(&reloaded_gamma, 8);
+    assert!(reloaded_neighbors
+        .iter()
+        .any(|neighbor| neighbor.nodes.iter().any(|node| node.path == "demo::delta")));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn reload_preserves_lineage_patch_outcomes_memory_and_projections_after_rename() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -678,6 +829,191 @@ fn reload_preserves_lineage_patch_outcomes_memory_and_projections_after_rename()
         .scored_checks
         .iter()
         .any(|check| check.label == "test:renamed_alpha_integration" && check.score > 0.0));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn reload_preserves_coordination_claim_resolution_through_rename() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "fn alpha() { helper(); }\nfn helper() {}\n",
+    )
+    .unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::alpha")
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    let (plan_id, task_id, holder) = session
+        .mutate_coordination(|prism| {
+            let scoped_anchors =
+                prism.coordination_scope_anchors(&[AnchorRef::Node(alpha.clone())]);
+            let base_revision = prism.workspace_revision();
+            let lineage = prism
+                .lineage_of(&alpha)
+                .expect("alpha should have a lineage before rename");
+            assert!(scoped_anchors.contains(&AnchorRef::Lineage(lineage)));
+
+            let (plan_id, _) = prism.coordination().create_plan(
+                EventMeta {
+                    id: EventId::new("coordination:rename-plan"),
+                    ts: 1,
+                    actor: EventActor::User,
+                    correlation: Some(TaskId::new("task:coordination-rename")),
+                    causation: None,
+                },
+                PlanCreateInput {
+                    goal: "Coordinate rename follow-up".into(),
+                    status: None,
+                    policy: Default::default(),
+                },
+            )?;
+            let (task_id, _) = prism.coordination().create_task(
+                EventMeta {
+                    id: EventId::new("coordination:rename-task"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:coordination-rename")),
+                    causation: None,
+                },
+                prism_coordination::TaskCreateInput {
+                    plan_id: plan_id.clone(),
+                    title: "Rename alpha safely".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: Some(prism_ir::SessionId::new("session:rename-owner")),
+                    anchors: scoped_anchors.clone(),
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: base_revision.clone(),
+                },
+            )?;
+            let holder = prism_ir::SessionId::new("session:rename-owner");
+            prism.coordination().acquire_claim(
+                EventMeta {
+                    id: EventId::new("coordination:rename-claim"),
+                    ts: 3,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:coordination-rename")),
+                    causation: None,
+                },
+                holder.clone(),
+                prism_coordination::ClaimAcquireInput {
+                    task_id: Some(task_id.clone()),
+                    anchors: scoped_anchors,
+                    capability: prism_ir::Capability::Edit,
+                    mode: Some(prism_ir::ClaimMode::HardExclusive),
+                    ttl_seconds: Some(300),
+                    base_revision: base_revision.clone(),
+                    current_revision: base_revision,
+                    agent: None,
+                },
+            )?;
+            Ok((plan_id, task_id, holder))
+        })
+        .unwrap();
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "fn renamed_alpha() { helper(); }\nfn helper() {}\n",
+    )
+    .unwrap();
+
+    let observed = session.refresh_fs().unwrap();
+    assert!(observed.iter().any(|change| {
+        let saw_updated_rename = change.updated.iter().any(|(before, after)| {
+            before.node.id.path == "demo::alpha" && after.node.id.path == "demo::renamed_alpha"
+        });
+        let saw_split_add_remove = change
+            .removed
+            .iter()
+            .any(|node| node.node.id.path == "demo::alpha")
+            && change
+                .added
+                .iter()
+                .any(|node| node.node.id.path == "demo::renamed_alpha");
+        saw_updated_rename || saw_split_add_remove
+    }));
+    drop(session);
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let reloaded_prism = reloaded.prism();
+    let renamed_alpha = reloaded_prism
+        .symbol("renamed_alpha")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::renamed_alpha")
+        .expect("renamed alpha should survive reload")
+        .id()
+        .clone();
+    let lineage = reloaded_prism
+        .lineage_of(&renamed_alpha)
+        .expect("renamed alpha should keep its lineage");
+
+    let task = reloaded_prism
+        .coordination_task(&task_id)
+        .expect("coordination task should persist across reload");
+    assert_eq!(task.plan, plan_id);
+    assert!(task.anchors.contains(&AnchorRef::Lineage(lineage.clone())));
+
+    let claims = reloaded_prism.claims(&[AnchorRef::Node(renamed_alpha.clone())], 10);
+    assert_eq!(claims.len(), 1);
+    assert_eq!(claims[0].holder, holder);
+    assert_eq!(claims[0].task.as_ref(), Some(&task_id));
+    assert!(claims[0]
+        .anchors
+        .contains(&AnchorRef::Lineage(lineage.clone())));
+
+    let conflicts = reloaded_prism.simulate_claim(
+        &prism_ir::SessionId::new("session:rename-contender"),
+        &[AnchorRef::Node(renamed_alpha.clone())],
+        prism_ir::Capability::Edit,
+        Some(prism_ir::ClaimMode::HardExclusive),
+        None,
+        10,
+    );
+    assert!(conflicts.iter().any(|conflict| {
+        conflict.severity == prism_ir::ConflictSeverity::Block
+            && conflict.overlap_kinds.iter().any(|kind| {
+                matches!(
+                    kind,
+                    prism_ir::ConflictOverlapKind::Node
+                        | prism_ir::ConflictOverlapKind::Lineage
+                        | prism_ir::ConflictOverlapKind::File
+                )
+            })
+    }));
+
+    let snapshot = reloaded
+        .load_coordination_snapshot()
+        .unwrap()
+        .expect("coordination snapshot should persist");
+    assert!(snapshot.tasks.iter().any(|persisted| {
+        persisted.id == task_id
+            && persisted
+                .anchors
+                .contains(&AnchorRef::Lineage(lineage.clone()))
+    }));
+    assert!(snapshot.claims.iter().any(|persisted| {
+        persisted.task.as_ref() == Some(&task_id)
+            && persisted.holder == holder
+            && persisted
+                .anchors
+                .contains(&AnchorRef::Lineage(lineage.clone()))
+    }));
 
     let _ = fs::remove_dir_all(root);
 }
@@ -1032,6 +1368,91 @@ fn default_curator_synthesizes_memory_proposals_without_backend() {
         CuratorProposal::SemanticMemory(candidate)
             if candidate.content.contains("Recent outcome context")
     )));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn indexes_python_workspace_without_cargo_manifest() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src/demo_pkg")).unwrap();
+    fs::write(
+        root.join("pyproject.toml"),
+        "[project]\nname = \"demo-pkg\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/demo_pkg/base.py"), "class Base:\n    pass\n").unwrap();
+    fs::write(
+        root.join("src/demo_pkg/service.py"),
+        r#"
+from .base import Base
+
+
+class Service(Base):
+    setting = 1
+
+    def __init__(self):
+        self.value = helper()
+
+
+def helper():
+    return 1
+"#,
+    )
+    .unwrap();
+
+    let mut indexer = WorkspaceIndexer::new(&root).unwrap();
+    indexer.index().unwrap();
+
+    assert!(indexer
+        .graph()
+        .nodes_by_name("Base")
+        .into_iter()
+        .any(|node| node.id.path == "demo_pkg::base::Base"));
+    assert!(indexer
+        .graph()
+        .nodes_by_name("Service")
+        .into_iter()
+        .any(|node| node.id.path == "demo_pkg::service::Service"));
+    assert!(indexer
+        .graph()
+        .nodes_by_name("__init__")
+        .into_iter()
+        .any(|node| node.id.path == "demo_pkg::service::Service::__init__"));
+    assert!(
+        indexer
+            .graph()
+            .nodes_by_name("setting")
+            .into_iter()
+            .any(|node| node.id.path == "demo_pkg::service::Service::setting"),
+        "setting nodes: {:?}",
+        indexer
+            .graph()
+            .nodes_by_name("setting")
+            .into_iter()
+            .map(|node| node.id.path.clone())
+            .collect::<Vec<_>>()
+    );
+    assert!(indexer
+        .graph()
+        .nodes_by_name("value")
+        .into_iter()
+        .any(|node| node.id.path == "demo_pkg::service::Service::value"));
+    assert!(indexer.graph().edges.iter().any(|edge| {
+        edge.kind == EdgeKind::Calls
+            && edge.source.path == "demo_pkg::service::Service::__init__"
+            && edge.target.path == "demo_pkg::service::helper"
+    }));
+    assert!(indexer.graph().edges.iter().any(|edge| {
+        edge.kind == EdgeKind::Imports
+            && edge.source.path == "demo_pkg::service"
+            && edge.target.path == "demo_pkg::base::Base"
+    }));
+    assert!(indexer.graph().edges.iter().any(|edge| {
+        edge.kind == EdgeKind::RelatedTo
+            && edge.source.path == "demo_pkg::service::Service"
+            && edge.target.path == "demo_pkg::base::Base"
+    }));
 
     let _ = fs::remove_dir_all(root);
 }

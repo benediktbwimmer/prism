@@ -35,7 +35,7 @@ use crate::{
     PrismClaimArgs, PrismCoordinationArgs, PrismCuratorPromoteEdgeArgs,
     PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs, PrismFinishTaskArgs,
     PrismInferEdgeArgs, PrismMemoryArgs, PrismOutcomeArgs, PrismValidationFeedbackArgs, QueryHost,
-    TaskCreatePayload, TaskUpdatePayload, ValidationFeedbackCategoryInput,
+    SessionState, TaskCreatePayload, TaskUpdatePayload, ValidationFeedbackCategoryInput,
     ValidationFeedbackMutationResult, ValidationFeedbackVerdictInput,
     DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
@@ -126,11 +126,16 @@ impl QueryHost {
         Ok(())
     }
 
-    pub(crate) fn start_task(&self, description: String, tags: Vec<String>) -> Result<TaskId> {
-        let task = self.session.start_task(&description, &tags);
+    pub(crate) fn start_task(
+        &self,
+        session: &SessionState,
+        description: String,
+        tags: Vec<String>,
+    ) -> Result<TaskId> {
+        let task = session.start_task(&description, &tags);
         let event = OutcomeEvent {
             meta: EventMeta {
-                id: self.session.next_event_id("outcome"),
+                id: session.next_event_id("outcome"),
                 ts: current_timestamp(),
                 actor: EventActor::Agent,
                 correlation: Some(task.clone()),
@@ -157,37 +162,42 @@ impl QueryHost {
     #[allow(dead_code)]
     pub(crate) fn finish_task(
         &self,
+        session: &SessionState,
         args: PrismFinishTaskArgs,
     ) -> Result<TaskClosureMutationResult> {
         self.refresh_workspace()?;
-        self.close_task_without_refresh(args, TaskClosureDisposition::Completed)
+        self.close_task_without_refresh(session, args, TaskClosureDisposition::Completed)
     }
 
     #[allow(dead_code)]
     pub(crate) fn abandon_task(
         &self,
+        session: &SessionState,
         args: PrismFinishTaskArgs,
     ) -> Result<TaskClosureMutationResult> {
         self.refresh_workspace()?;
-        self.close_task_without_refresh(args, TaskClosureDisposition::Abandoned)
+        self.close_task_without_refresh(session, args, TaskClosureDisposition::Abandoned)
     }
 
     pub(crate) fn finish_task_without_refresh(
         &self,
+        session: &SessionState,
         args: PrismFinishTaskArgs,
     ) -> Result<TaskClosureMutationResult> {
-        self.close_task_without_refresh(args, TaskClosureDisposition::Completed)
+        self.close_task_without_refresh(session, args, TaskClosureDisposition::Completed)
     }
 
     pub(crate) fn abandon_task_without_refresh(
         &self,
+        session: &SessionState,
         args: PrismFinishTaskArgs,
     ) -> Result<TaskClosureMutationResult> {
-        self.close_task_without_refresh(args, TaskClosureDisposition::Abandoned)
+        self.close_task_without_refresh(session, args, TaskClosureDisposition::Abandoned)
     }
 
     fn close_task_without_refresh(
         &self,
+        session: &SessionState,
         args: PrismFinishTaskArgs,
         disposition: TaskClosureDisposition,
     ) -> Result<TaskClosureMutationResult> {
@@ -195,7 +205,7 @@ impl QueryHost {
             return Err(anyhow!("task summary cannot be empty"));
         }
 
-        let current_task = self.session.current_task_state();
+        let current_task = session.current_task_state();
         let task = args
             .task_id
             .map(TaskId::new)
@@ -226,11 +236,11 @@ impl QueryHost {
         entry.source = MemorySource::Agent;
         entry.trust = disposition.trust();
         entry.metadata = task_journal_memory_metadata(Value::Null, &task, disposition.label());
-        let memory_id = self.session.notes.store(entry)?;
+        let memory_id = session.notes.store(entry)?;
 
         let event = OutcomeEvent {
             meta: EventMeta {
-                id: self.session.next_event_id("outcome"),
+                id: session.next_event_id("outcome"),
                 ts: current_timestamp(),
                 actor: EventActor::Agent,
                 correlation: Some(task.clone()),
@@ -250,11 +260,7 @@ impl QueryHost {
             }),
         };
         let event_id = if let Some(workspace) = &self.workspace {
-            workspace.append_outcome_with_auxiliary(
-                event,
-                Some(self.session.notes.snapshot()),
-                None,
-            )?
+            workspace.append_outcome_with_auxiliary(event, Some(session.notes.snapshot()), None)?
         } else {
             prism.apply_outcome_event_to_projections(&event);
             let id = prism.outcome_memory().store_event(event)?;
@@ -264,11 +270,11 @@ impl QueryHost {
         };
 
         if current_task.as_ref().is_some_and(|state| state.id == task) {
-            self.session.clear_current_task();
+            session.clear_current_task();
         }
 
         let journal = task_journal_view(
-            self.session.as_ref(),
+            session,
             self.current_prism().as_ref(),
             &task,
             metadata_override,
@@ -285,23 +291,26 @@ impl QueryHost {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn store_outcome(&self, args: PrismOutcomeArgs) -> Result<EventMutationResult> {
+    pub(crate) fn store_outcome(
+        &self,
+        session: &SessionState,
+        args: PrismOutcomeArgs,
+    ) -> Result<EventMutationResult> {
         self.refresh_workspace()?;
-        self.store_outcome_without_refresh(args)
+        self.store_outcome_without_refresh(session, args)
     }
 
     pub(crate) fn store_outcome_without_refresh(
         &self,
+        session: &SessionState,
         args: PrismOutcomeArgs,
     ) -> Result<EventMutationResult> {
         let prism = self.current_prism();
         let anchors = prism.anchors_for(&convert_anchors(args.anchors)?);
-        let task_id = self
-            .session
-            .task_for_mutation(args.task_id.map(TaskId::new));
+        let task_id = session.task_for_mutation(args.task_id.map(TaskId::new));
         let event = OutcomeEvent {
             meta: EventMeta {
-                id: self.session.next_event_id("outcome"),
+                id: session.next_event_id("outcome"),
                 ts: current_timestamp(),
                 actor: EventActor::Agent,
                 correlation: Some(task_id.clone()),
@@ -337,19 +346,22 @@ impl QueryHost {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn store_memory(&self, args: PrismMemoryArgs) -> Result<MemoryMutationResult> {
+    pub(crate) fn store_memory(
+        &self,
+        session: &SessionState,
+        args: PrismMemoryArgs,
+    ) -> Result<MemoryMutationResult> {
         self.refresh_workspace()?;
-        self.store_memory_without_refresh(args)
+        self.store_memory_without_refresh(session, args)
     }
 
     pub(crate) fn store_memory_without_refresh(
         &self,
+        session: &SessionState,
         args: PrismMemoryArgs,
     ) -> Result<MemoryMutationResult> {
         let prism = self.current_prism();
-        let task_id = self
-            .session
-            .task_for_mutation(args.task_id.map(TaskId::new));
+        let task_id = session.task_for_mutation(args.task_id.map(TaskId::new));
         let payload = match args.action {
             MemoryMutationActionInput::Store => {
                 serde_json::from_value::<MemoryStorePayload>(args.payload)?
@@ -367,11 +379,11 @@ impl QueryHost {
         entry.metadata = manual_memory_metadata(payload.metadata.unwrap_or(Value::Null), &task_id);
         let note_anchors = entry.anchors.clone();
         let note_content = entry.content.clone();
-        let memory_id = self.session.notes.store(entry)?;
+        let memory_id = session.notes.store(entry)?;
         if kind == MemoryKind::Episodic {
             let note_event = OutcomeEvent {
                 meta: EventMeta {
-                    id: self.session.next_event_id("outcome"),
+                    id: session.next_event_id("outcome"),
                     ts: current_timestamp(),
                     actor: EventActor::Agent,
                     correlation: Some(task_id.clone()),
@@ -387,7 +399,7 @@ impl QueryHost {
             if let Some(workspace) = &self.workspace {
                 let _ = workspace.append_outcome_with_auxiliary(
                     note_event,
-                    Some(self.session.notes.snapshot()),
+                    Some(session.notes.snapshot()),
                     None,
                 )?;
             } else {
@@ -408,20 +420,20 @@ impl QueryHost {
     #[allow(dead_code)]
     pub(crate) fn store_validation_feedback(
         &self,
+        session: &SessionState,
         args: PrismValidationFeedbackArgs,
     ) -> Result<ValidationFeedbackMutationResult> {
         self.refresh_workspace()?;
-        self.store_validation_feedback_without_refresh(args)
+        self.store_validation_feedback_without_refresh(session, args)
     }
 
     pub(crate) fn store_validation_feedback_without_refresh(
         &self,
+        session: &SessionState,
         args: PrismValidationFeedbackArgs,
     ) -> Result<ValidationFeedbackMutationResult> {
         let prism = self.current_prism();
-        let task_id = self
-            .session
-            .task_for_mutation(args.task_id.map(TaskId::new));
+        let task_id = session.task_for_mutation(args.task_id.map(TaskId::new));
         let anchors = prism.anchors_for(&convert_anchors(args.anchors)?);
         let workspace = self.workspace.as_ref().ok_or_else(|| {
             anyhow!("validation feedback logging requires a workspace-backed PRISM session")
@@ -446,11 +458,10 @@ impl QueryHost {
 
     pub(crate) fn store_inferred_edge(
         &self,
+        session: &SessionState,
         args: PrismInferEdgeArgs,
     ) -> Result<EdgeMutationResult> {
-        let task = self
-            .session
-            .task_for_mutation(args.task_id.map(TaskId::new));
+        let task = session.task_for_mutation(args.task_id.map(TaskId::new));
         let edge = Edge {
             kind: parse_edge_kind(&args.kind)?,
             source: convert_node_id(args.source)?,
@@ -462,7 +473,7 @@ impl QueryHost {
             .scope
             .map(convert_inferred_scope)
             .unwrap_or(prism_agent::InferredEdgeScope::SessionOnly);
-        let id = self.session.inferred_edges.store_edge(
+        let id = session.inferred_edges.store_edge(
             edge,
             scope,
             Some(task.clone()),
@@ -479,16 +490,15 @@ impl QueryHost {
 
     pub(crate) fn store_coordination(
         &self,
+        session: &SessionState,
         args: PrismCoordinationArgs,
     ) -> Result<CoordinationMutationResult> {
         self.ensure_tool_enabled("prism_coordination", "coordination workflow mutations")?;
         self.refresh_workspace()?;
         let prism = self.current_prism();
         let before_events = prism.coordination().events().len();
-        let task = self
-            .session
-            .task_for_mutation(args.task_id.clone().map(TaskId::new));
-        let event_id = self.session.next_event_id("coordination");
+        let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
+        let event_id = session.next_event_id("coordination");
         let meta = EventMeta {
             id: event_id.clone(),
             ts: current_timestamp(),
@@ -498,7 +508,7 @@ impl QueryHost {
         };
         let state = if let Some(workspace) = &self.workspace {
             match workspace.mutate_coordination(|prism| {
-                self.apply_coordination_mutation(prism, args, meta.clone())
+                self.apply_coordination_mutation(session, prism, args, meta.clone())
             }) {
                 Ok(state) => state,
                 Err(error) => {
@@ -521,7 +531,7 @@ impl QueryHost {
                 }
             }
         } else {
-            match self.apply_coordination_mutation(prism.as_ref(), args, meta.clone()) {
+            match self.apply_coordination_mutation(session, prism.as_ref(), args, meta.clone()) {
                 Ok(state) => state,
                 Err(error) => {
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
@@ -552,25 +562,27 @@ impl QueryHost {
         })
     }
 
-    pub(crate) fn store_claim(&self, args: PrismClaimArgs) -> Result<ClaimMutationResult> {
+    pub(crate) fn store_claim(
+        &self,
+        session: &SessionState,
+        args: PrismClaimArgs,
+    ) -> Result<ClaimMutationResult> {
         self.ensure_tool_enabled("prism_claim", "coordination claim mutations")?;
         self.refresh_workspace()?;
         let prism = self.current_prism();
         let before_events = prism.coordination().events().len();
-        let task = self
-            .session
-            .task_for_mutation(args.task_id.clone().map(TaskId::new));
+        let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
         let meta = EventMeta {
-            id: self.session.next_event_id("coordination"),
+            id: session.next_event_id("coordination"),
             ts: current_timestamp(),
             actor: EventActor::Agent,
             correlation: Some(task),
             causation: None,
         };
         if let Some(workspace) = &self.workspace {
-            match workspace
-                .mutate_coordination(|prism| self.apply_claim_mutation(prism, args, meta.clone()))
-            {
+            match workspace.mutate_coordination(|prism| {
+                self.apply_claim_mutation(session, prism, args, meta.clone())
+            }) {
                 Ok(mut result) => {
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     result.event_ids = audit.event_ids;
@@ -594,7 +606,7 @@ impl QueryHost {
                 }
             }
         } else {
-            match self.apply_claim_mutation(prism.as_ref(), args, meta.clone()) {
+            match self.apply_claim_mutation(session, prism.as_ref(), args, meta.clone()) {
                 Ok(mut result) => {
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     result.event_ids = audit.event_ids;
@@ -619,16 +631,18 @@ impl QueryHost {
         }
     }
 
-    pub(crate) fn store_artifact(&self, args: PrismArtifactArgs) -> Result<ArtifactMutationResult> {
+    pub(crate) fn store_artifact(
+        &self,
+        session: &SessionState,
+        args: PrismArtifactArgs,
+    ) -> Result<ArtifactMutationResult> {
         self.ensure_tool_enabled("prism_artifact", "coordination artifact mutations")?;
         self.refresh_workspace()?;
         let prism = self.current_prism();
         let before_events = prism.coordination().events().len();
-        let task = self
-            .session
-            .task_for_mutation(args.task_id.clone().map(TaskId::new));
+        let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
         let meta = EventMeta {
-            id: self.session.next_event_id("coordination"),
+            id: session.next_event_id("coordination"),
             ts: current_timestamp(),
             actor: EventActor::Agent,
             correlation: Some(task),
@@ -688,6 +702,7 @@ impl QueryHost {
 
     pub(crate) fn apply_coordination_mutation(
         &self,
+        session: &SessionState,
         prism: &Prism,
         args: PrismCoordinationArgs,
         meta: EventMeta,
@@ -741,8 +756,8 @@ impl QueryHost {
                         assignee: payload
                             .assignee
                             .map(AgentId::new)
-                            .or_else(|| self.session.current_agent()),
-                        session: Some(self.session.session_id()),
+                            .or_else(|| session.current_agent()),
+                        session: Some(session.session_id()),
                         anchors: convert_anchors(payload.anchors.unwrap_or_default())?,
                         depends_on: payload
                             .depends_on
@@ -807,7 +822,7 @@ impl QueryHost {
             }
             CoordinationMutationKindInput::HandoffAccept => {
                 let payload: HandoffAcceptPayload = serde_json::from_value(args.payload)?;
-                let session_agent = self.session.current_agent();
+                let session_agent = session.current_agent();
                 if let (Some(expected), Some(current)) =
                     (payload.agent.as_ref(), session_agent.as_ref())
                 {
@@ -832,6 +847,7 @@ impl QueryHost {
 
     pub(crate) fn apply_claim_mutation(
         &self,
+        session: &SessionState,
         prism: &Prism,
         args: PrismClaimArgs,
         meta: EventMeta,
@@ -842,7 +858,7 @@ impl QueryHost {
                 let anchors = prism.coordination_scope_anchors(&convert_anchors(payload.anchors)?);
                 let (claim_id, conflicts, state) = prism.coordination().acquire_claim(
                     meta,
-                    self.session.session_id(),
+                    session.session_id(),
                     prism_coordination::ClaimAcquireInput {
                         task_id: payload.coordination_task_id.map(CoordinationTaskId::new),
                         anchors,
@@ -854,7 +870,7 @@ impl QueryHost {
                         agent: payload
                             .agent
                             .map(AgentId::new)
-                            .or_else(|| self.session.current_agent()),
+                            .or_else(|| session.current_agent()),
                     },
                 )?;
                 Ok(ClaimMutationResult {
@@ -878,7 +894,7 @@ impl QueryHost {
                 let payload: ClaimRenewPayload = serde_json::from_value(args.payload)?;
                 let claim = prism.coordination().renew_claim(
                     meta,
-                    &self.session.session_id(),
+                    &session.session_id(),
                     &ClaimId::new(payload.claim_id.clone()),
                     payload.ttl_seconds,
                 )?;
@@ -895,7 +911,7 @@ impl QueryHost {
                 let payload: ClaimReleasePayload = serde_json::from_value(args.payload)?;
                 let claim = prism.coordination().release_claim(
                     meta,
-                    &self.session.session_id(),
+                    &session.session_id(),
                     &ClaimId::new(payload.claim_id.clone()),
                 )?;
                 Ok(ClaimMutationResult {
@@ -1042,6 +1058,7 @@ impl QueryHost {
 
     pub(crate) fn promote_curator_edge(
         &self,
+        session: &SessionState,
         args: PrismCuratorPromoteEdgeArgs,
     ) -> Result<CuratorProposalDecisionResult> {
         self.refresh_workspace()?;
@@ -1074,9 +1091,7 @@ impl QueryHost {
             ));
         };
 
-        let task = self
-            .session
-            .task_for_mutation(args.task_id.map(TaskId::new));
+        let task = session.task_for_mutation(args.task_id.map(TaskId::new));
         let scope =
             args.scope
                 .map(convert_inferred_scope)
@@ -1086,7 +1101,7 @@ impl QueryHost {
                     }
                     scope => scope,
                 });
-        let edge_id = self.session.inferred_edges.store_edge(
+        let edge_id = session.inferred_edges.store_edge(
             candidate.edge.clone(),
             scope,
             Some(task.clone()),
@@ -1121,6 +1136,7 @@ impl QueryHost {
 
     pub(crate) fn promote_curator_memory(
         &self,
+        session: &SessionState,
         args: PrismCuratorPromoteMemoryArgs,
     ) -> Result<CuratorProposalDecisionResult> {
         self.refresh_workspace()?;
@@ -1145,9 +1161,7 @@ impl QueryHost {
             ));
         }
 
-        let task = self
-            .session
-            .task_for_mutation(args.task_id.clone().map(TaskId::new));
+        let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
         let prism = self.current_prism();
         let proposal = curator_proposal(record, args.proposal_index)?;
         let entry = match proposal {
@@ -1269,10 +1283,10 @@ impl QueryHost {
         };
         let memory_summary = entry.content.clone();
         let memory_anchors = entry.anchors.clone();
-        let memory_id = self.session.notes.store(entry)?;
+        let memory_id = session.notes.store(entry)?;
         let note_event = OutcomeEvent {
             meta: EventMeta {
-                id: self.session.next_event_id("outcome"),
+                id: session.next_event_id("outcome"),
                 ts: current_timestamp(),
                 actor: EventActor::System,
                 correlation: Some(task.clone()),
@@ -1293,7 +1307,7 @@ impl QueryHost {
         if let Some(workspace) = &self.workspace {
             let _ = workspace.append_outcome_with_auxiliary(
                 note_event,
-                Some(self.session.notes.snapshot()),
+                Some(session.notes.snapshot()),
                 None,
             )?;
         } else {
@@ -1328,6 +1342,7 @@ impl QueryHost {
 
     pub(crate) fn reject_curator_proposal(
         &self,
+        session: &SessionState,
         args: PrismCuratorRejectProposalArgs,
     ) -> Result<CuratorProposalDecisionResult> {
         self.refresh_workspace()?;
@@ -1352,9 +1367,7 @@ impl QueryHost {
             ));
         }
 
-        let task = self
-            .session
-            .task_for_mutation(args.task_id.map(TaskId::new));
+        let task = session.task_for_mutation(args.task_id.map(TaskId::new));
         workspace.set_curator_proposal_state(
             &job_id,
             args.proposal_index,

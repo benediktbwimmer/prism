@@ -1,6 +1,6 @@
 use std::fs;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -70,6 +70,18 @@ fn host_with_session_internal_and_limits(
         workspace,
         limits,
         PrismMcpFeatures::full().with_internal_developer(true),
+    )
+}
+
+fn test_session(host: &QueryHost) -> Arc<SessionState> {
+    static TEST_SESSIONS: OnceLock<Mutex<HashMap<usize, Arc<SessionState>>>> = OnceLock::new();
+    let key = Arc::as_ptr(&host.dashboard_state()) as usize;
+    let sessions = TEST_SESSIONS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut sessions = sessions.lock().expect("test sessions lock poisoned");
+    Arc::clone(
+        sessions
+            .entry(key)
+            .or_insert_with(|| host.new_session_state()),
     )
 }
 
@@ -382,6 +394,7 @@ fn executes_symbol_query() {
     let host = host_with_node(demo_node());
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const sym = prism.symbol("main");
 return { path: sym?.id.path, kind: sym?.kind };
@@ -398,67 +411,80 @@ return { path: sym?.id.path, kind: sym?.kind };
 fn coordination_mutations_flow_through_query_runtime() {
     let host = host_with_node(demo_node());
     let plan = host
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::PlanCreate,
-            payload: json!({ "goal": "Ship coordination" }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Ship coordination" }),
+                task_id: None,
+            },
+        )
         .unwrap();
     assert_eq!(plan.state["goal"], "Ship coordination");
 
     let task = host
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::TaskCreate,
-            payload: json!({
-                "planId": plan.state["id"].as_str().unwrap(),
-                "title": "Edit main",
-                "anchors": [{
-                    "type": "node",
-                    "crateName": "demo",
-                    "path": "demo::main",
-                    "kind": "function"
-                }]
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit main",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::main",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     let task_id = task.state["id"].as_str().unwrap().to_string();
 
     let claim = host
-        .store_claim(PrismClaimArgs {
-            action: ClaimActionInput::Acquire,
-            payload: json!({
-                "anchors": [{
-                    "type": "node",
-                    "crateName": "demo",
-                    "path": "demo::main",
-                    "kind": "function"
-                }],
-                "capability": "Edit",
-                "mode": "SoftExclusive",
-                "coordinationTaskId": task_id
-            }),
-            task_id: None,
-        })
+        .store_claim(
+            test_session(&host).as_ref(),
+            PrismClaimArgs {
+                action: ClaimActionInput::Acquire,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::main",
+                        "kind": "function"
+                    }],
+                    "capability": "Edit",
+                    "mode": "SoftExclusive",
+                    "coordinationTaskId": task_id
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     assert!(claim.claim_id.is_some());
 
     let artifact = host
-        .store_artifact(PrismArtifactArgs {
-            action: ArtifactActionInput::Propose,
-            payload: json!({
-                "taskId": task.state["id"].as_str().unwrap(),
-                "diffRef": "patch:1"
-            }),
-            task_id: None,
-        })
+        .store_artifact(
+            test_session(&host).as_ref(),
+            PrismArtifactArgs {
+                action: ArtifactActionInput::Propose,
+                payload: json!({
+                    "taskId": task.state["id"].as_str().unwrap(),
+                    "diffRef": "patch:1"
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     assert!(artifact.artifact_id.is_some());
 
     let execution = QueryExecution::new(
         host.clone(),
+        test_session(&host),
         host.current_prism(),
-        host.begin_query_run("test", "dispatch plan"),
+        host.begin_query_run(test_session(&host).as_ref(), "test", "dispatch plan"),
     );
     let plan_value = execution
         .dispatch("plan", r#"{ "planId": "plan:1" }"#)
@@ -494,43 +520,52 @@ fn mcp_returns_structured_coordination_rejections_and_persists_them() {
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
 
     let plan = host
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::PlanCreate,
-            payload: json!({
-                "goal": "Ship reviewed change",
-                "policy": { "requireReviewForCompletion": true }
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "goal": "Ship reviewed change",
+                    "policy": { "requireReviewForCompletion": true }
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     let plan_id = plan.state["id"].as_str().unwrap().to_string();
 
     let task = host
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::TaskCreate,
-            payload: json!({
-                "planId": plan_id,
-                "title": "Edit alpha",
-                "anchors": [{
-                    "type": "node",
-                    "crateName": "demo",
-                    "path": "demo::alpha",
-                    "kind": "function"
-                }]
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id,
+                    "title": "Edit alpha",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
 
     let rejected = host
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::TaskUpdate,
-            payload: json!({
-                "taskId": task.state["id"].as_str().unwrap(),
-                "status": "completed"
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskUpdate,
+                payload: json!({
+                    "taskId": task.state["id"].as_str().unwrap(),
+                    "status": "completed"
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     assert!(rejected.rejected);
     assert!(!rejected.event_ids.is_empty());
@@ -554,51 +589,65 @@ fn mcp_exposes_policy_violations_through_prism_query() {
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
 
     let plan = host
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::PlanCreate,
-            payload: json!({
-                "goal": "Ship reviewed change",
-                "policy": { "requireReviewForCompletion": true }
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "goal": "Ship reviewed change",
+                    "policy": { "requireReviewForCompletion": true }
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     let plan_id = plan.state["id"].as_str().unwrap().to_string();
 
     let task = host
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::TaskCreate,
-            payload: json!({
-                "planId": plan_id.clone(),
-                "title": "Edit alpha",
-                "anchors": [{
-                    "type": "node",
-                    "crateName": "demo",
-                    "path": "demo::alpha",
-                    "kind": "function"
-                }]
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Edit alpha",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     let task_id = task.state["id"].as_str().unwrap().to_string();
 
     let rejected = host
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::TaskUpdate,
-            payload: json!({
-                "taskId": task_id.clone(),
-                "status": "completed"
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskUpdate,
+                payload: json!({
+                    "taskId": task_id.clone(),
+                    "status": "completed"
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     assert!(rejected.rejected);
 
     let execution = QueryExecution::new(
         host.clone(),
+        test_session(&host),
         host.current_prism(),
-        host.begin_query_run("test", "dispatch policy violations"),
+        host.begin_query_run(
+            test_session(&host).as_ref(),
+            "test",
+            "dispatch policy violations",
+        ),
     );
     let violations = execution
         .dispatch(
@@ -625,34 +674,43 @@ fn configure_session_binds_current_agent_and_task_create_inherits_it() {
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
     let session = host
-        .configure_session(PrismConfigureSessionArgs {
-            limits: None,
-            current_task_id: None,
-            current_task_description: None,
-            current_task_tags: None,
-            clear_current_task: None,
-            current_agent: Some("agent-a".to_string()),
-            clear_current_agent: None,
-        })
+        .configure_session(
+            test_session(&host).as_ref(),
+            PrismConfigureSessionArgs {
+                limits: None,
+                current_task_id: None,
+                current_task_description: None,
+                current_task_tags: None,
+                clear_current_task: None,
+                current_agent: Some("agent-a".to_string()),
+                clear_current_agent: None,
+            },
+        )
         .unwrap();
     assert_eq!(session.current_agent.as_deref(), Some("agent-a"));
 
     let plan = host
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::PlanCreate,
-            payload: json!({ "goal": "Bind agent identity" }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Bind agent identity" }),
+                task_id: None,
+            },
+        )
         .unwrap();
     let task = host
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::TaskCreate,
-            payload: json!({
-                "planId": plan.state["id"].as_str().unwrap(),
-                "title": "Edit alpha"
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha"
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     assert_eq!(task.state["assignee"], "agent-a");
 
@@ -666,71 +724,86 @@ fn mcp_plan_update_completes_plan_and_closed_plan_rejects_new_claims() {
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
     let plan = host
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::PlanCreate,
-            payload: json!({ "goal": "Single pass coordination" }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Single pass coordination" }),
+                task_id: None,
+            },
+        )
         .unwrap();
     let plan_id = plan.state["id"].as_str().unwrap().to_string();
 
     let task = host
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::TaskCreate,
-            payload: json!({
-                "planId": plan_id.clone(),
-                "title": "Edit alpha",
-                "anchors": [{
-                    "type": "node",
-                    "crateName": "demo",
-                    "path": "demo::alpha",
-                    "kind": "function"
-                }]
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Edit alpha",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     let task_id = task.state["id"].as_str().unwrap().to_string();
 
-    host.store_coordination(PrismCoordinationArgs {
-        kind: CoordinationMutationKindInput::TaskUpdate,
-        payload: json!({
-            "taskId": task_id.clone(),
-            "status": "completed"
-        }),
-        task_id: None,
-    })
-    .unwrap();
-
-    let completed_plan = host
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::PlanUpdate,
+    host.store_coordination(
+        test_session(&host).as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::TaskUpdate,
             payload: json!({
-                "planId": plan_id.clone(),
+                "taskId": task_id.clone(),
                 "status": "completed"
             }),
             task_id: None,
-        })
+        },
+    )
+    .unwrap();
+
+    let completed_plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanUpdate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "status": "completed"
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     assert!(!completed_plan.rejected);
     assert_eq!(completed_plan.state["status"], "Completed");
 
     let rejected_claim = host
-        .store_claim(PrismClaimArgs {
-            action: ClaimActionInput::Acquire,
-            payload: json!({
-                "anchors": [{
-                    "type": "node",
-                    "crateName": "demo",
-                    "path": "demo::alpha",
-                    "kind": "function"
-                }],
-                "capability": "Edit",
-                "mode": "SoftExclusive",
-                "coordinationTaskId": task_id
-            }),
-            task_id: None,
-        })
+        .store_claim(
+            test_session(&host).as_ref(),
+            PrismClaimArgs {
+                action: ClaimActionInput::Acquire,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }],
+                    "capability": "Edit",
+                    "mode": "SoftExclusive",
+                    "coordinationTaskId": task_id
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     assert!(rejected_claim.rejected);
     assert!(rejected_claim
@@ -1161,11 +1234,14 @@ fn simple_mode_disables_coordination_host_paths() {
     );
 
     let error = host
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::PlanCreate,
-            payload: json!({ "goal": "Ship coordination" }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Ship coordination" }),
+                task_id: None,
+            },
+        )
         .unwrap_err();
     assert!(error
         .to_string()
@@ -1173,8 +1249,13 @@ fn simple_mode_disables_coordination_host_paths() {
 
     let execution = QueryExecution::new(
         host.clone(),
+        test_session(&host),
         host.current_prism(),
-        host.begin_query_run("test", "dispatch simple-mode plan"),
+        host.begin_query_run(
+            test_session(&host).as_ref(),
+            "test",
+            "dispatch simple-mode plan",
+        ),
     );
     let error = execution
         .dispatch("plan", r#"{ "planId": "plan:1" }"#)
@@ -1195,7 +1276,7 @@ fn query_host_uses_configured_worker_pool_size() {
 
     assert_eq!(host.worker_pool.worker_count(), 3);
     let result = host
-        .execute("return 'pool-ok';", QueryLanguage::Ts)
+        .execute(test_session(&host), "return 'pool-ok';", QueryLanguage::Ts)
         .expect("typescript query should execute");
     assert_eq!(result.result, json!("pool-ok"));
 }
@@ -1705,36 +1786,47 @@ fn drift_candidates_and_task_intent_flow_through_prism_query_reads() {
 
     let host = host_with_prism(Prism::new(graph));
     let plan = host
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::PlanCreate,
-            payload: json!({ "goal": "Coordinate request handling" }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Coordinate request handling" }),
+                task_id: None,
+            },
+        )
         .unwrap();
     let plan_id = plan.state["id"].as_str().unwrap().to_string();
 
     let task = host
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::TaskCreate,
-            payload: json!({
-                "planId": plan_id,
-                "title": "Implement request flow",
-                "anchors": [{
-                    "type": "node",
-                    "crateName": "demo",
-                    "path": "demo::handle_request",
-                    "kind": "function"
-                }]
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id,
+                    "title": "Implement request flow",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::handle_request",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     let task_id = task.state["id"].as_str().unwrap().to_string();
 
     let execution = QueryExecution::new(
         host.clone(),
+        test_session(&host),
         host.current_prism(),
-        host.begin_query_run("test", "dispatch drift candidates"),
+        host.begin_query_run(
+            test_session(&host).as_ref(),
+            "test",
+            "dispatch drift candidates",
+        ),
     );
     let drift_value = execution.dispatch("driftCandidates", r#"{}"#).unwrap();
     let intent_value = execution
@@ -1892,70 +1984,83 @@ fn coordination_workflow_helpers_summarize_inbox_context_and_claim_preview() {
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
     let plan = writer
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::PlanCreate,
-            payload: json!({
-                "goal": "Coordinate alpha",
-                "policy": {
-                    "requireReviewForCompletion": true,
-                    "maxParallelEditorsPerAnchor": 1
-                }
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&writer).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "goal": "Coordinate alpha",
+                    "policy": {
+                        "requireReviewForCompletion": true,
+                        "maxParallelEditorsPerAnchor": 1
+                    }
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     let plan_id = plan.state["id"].as_str().unwrap().to_string();
 
     let task = writer
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::TaskCreate,
-            payload: json!({
-                "planId": plan_id.clone(),
-                "title": "Edit alpha",
-                "status": "Ready",
-                "anchors": [{
-                    "type": "node",
-                    "crateName": "demo",
-                    "path": "demo::alpha",
-                    "kind": "function"
-                }]
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&writer).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Edit alpha",
+                    "status": "Ready",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     let task_id = task.state["id"].as_str().unwrap().to_string();
 
     writer
-        .store_claim(PrismClaimArgs {
-            action: ClaimActionInput::Acquire,
-            payload: json!({
-                "anchors": [{
-                    "type": "node",
-                    "crateName": "demo",
-                    "path": "demo::alpha",
-                    "kind": "function"
-                }],
-                "capability": "Edit",
-                "mode": "SoftExclusive",
-                "coordinationTaskId": task_id.clone()
-            }),
-            task_id: None,
-        })
+        .store_claim(
+            test_session(&writer).as_ref(),
+            PrismClaimArgs {
+                action: ClaimActionInput::Acquire,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }],
+                    "capability": "Edit",
+                    "mode": "SoftExclusive",
+                    "coordinationTaskId": task_id.clone()
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
 
     writer
-        .store_artifact(PrismArtifactArgs {
-            action: ArtifactActionInput::Propose,
-            payload: json!({
-                "taskId": task.state["id"].as_str().unwrap(),
-                "diffRef": "patch:alpha"
-            }),
-            task_id: None,
-        })
+        .store_artifact(
+            test_session(&writer).as_ref(),
+            PrismArtifactArgs {
+                action: ArtifactActionInput::Propose,
+                payload: json!({
+                    "taskId": task.state["id"].as_str().unwrap(),
+                    "diffRef": "patch:alpha"
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
 
     let result = host
         .execute(
+            test_session(&host),
             &format!(
                 r#"
 const alpha = prism.symbol("alpha");
@@ -2012,84 +2117,99 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
     let host_b = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
     host_b
-        .configure_session(PrismConfigureSessionArgs {
-            limits: None,
-            current_task_id: None,
-            current_task_description: None,
-            current_task_tags: None,
-            clear_current_task: None,
-            current_agent: Some("agent-b".to_string()),
-            clear_current_agent: None,
-        })
+        .configure_session(
+            test_session(&host_b).as_ref(),
+            PrismConfigureSessionArgs {
+                limits: None,
+                current_task_id: None,
+                current_task_description: None,
+                current_task_tags: None,
+                clear_current_task: None,
+                current_agent: Some("agent-b".to_string()),
+                clear_current_agent: None,
+            },
+        )
         .unwrap();
 
     let plan = host_a
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::PlanCreate,
-            payload: json!({
-                "goal": "Coordinate alpha across sessions",
-                "policy": {
-                    "requireReviewForCompletion": true,
-                    "maxParallelEditorsPerAnchor": 1
-                }
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host_a).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "goal": "Coordinate alpha across sessions",
+                    "policy": {
+                        "requireReviewForCompletion": true,
+                        "maxParallelEditorsPerAnchor": 1
+                    }
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     let plan_id = plan.state["id"].as_str().unwrap().to_string();
 
     let task = host_a
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::TaskCreate,
-            payload: json!({
-                "planId": plan_id.clone(),
-                "title": "Edit alpha",
-                "anchors": [{
-                    "type": "node",
-                    "crateName": "demo",
-                    "path": "demo::alpha",
-                    "kind": "function"
-                }]
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host_a).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Edit alpha",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     let task_id = task.state["id"].as_str().unwrap().to_string();
 
     let first_claim = host_a
-        .store_claim(PrismClaimArgs {
-            action: ClaimActionInput::Acquire,
-            payload: json!({
-                "anchors": [{
-                    "type": "node",
-                    "crateName": "demo",
-                    "path": "demo::alpha",
-                    "kind": "function"
-                }],
-                "capability": "Edit",
-                "mode": "SoftExclusive",
-                "coordinationTaskId": task_id.clone()
-            }),
-            task_id: None,
-        })
+        .store_claim(
+            test_session(&host_a).as_ref(),
+            PrismClaimArgs {
+                action: ClaimActionInput::Acquire,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }],
+                    "capability": "Edit",
+                    "mode": "SoftExclusive",
+                    "coordinationTaskId": task_id.clone()
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     assert!(first_claim.claim_id.is_some());
 
     let blocked_neighbor_claim = host_b
-        .store_claim(PrismClaimArgs {
-            action: ClaimActionInput::Acquire,
-            payload: json!({
-                "anchors": [{
-                    "type": "node",
-                    "crateName": "demo",
-                    "path": "demo::beta",
-                    "kind": "function"
-                }],
-                "capability": "Edit",
-                "mode": "SoftExclusive"
-            }),
-            task_id: None,
-        })
+        .store_claim(
+            test_session(&host_b).as_ref(),
+            PrismClaimArgs {
+                action: ClaimActionInput::Acquire,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::beta",
+                        "kind": "function"
+                    }],
+                    "capability": "Edit",
+                    "mode": "SoftExclusive"
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     assert!(blocked_neighbor_claim.claim_id.is_none());
     assert!(blocked_neighbor_claim
@@ -2104,19 +2224,23 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
     }));
 
     host_a
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::Handoff,
-            payload: json!({
-                "taskId": task_id.clone(),
-                "toAgent": "agent-b",
-                "summary": "handoff alpha implementation to agent-b"
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host_a).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::Handoff,
+                payload: json!({
+                    "taskId": task_id.clone(),
+                    "toAgent": "agent-b",
+                    "summary": "handoff alpha implementation to agent-b"
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
 
     let handed_off = host_b
         .execute(
+            test_session(&host_b),
             &format!(r#"return prism.task("{task_id}");"#),
             QueryLanguage::Ts,
         )
@@ -2126,14 +2250,17 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
     assert_eq!(handed_off.result["status"], "Blocked");
 
     let blocked_update = host_b
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::TaskUpdate,
-            payload: json!({
-                "taskId": task_id.clone(),
-                "status": "in-progress"
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host_b).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskUpdate,
+                payload: json!({
+                    "taskId": task_id.clone(),
+                    "status": "in-progress"
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     assert!(blocked_update.rejected);
     assert!(blocked_update
@@ -2142,25 +2269,31 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
         .any(|violation| violation.code == "handoff_pending"));
 
     host_b
-        .configure_session(PrismConfigureSessionArgs {
-            limits: None,
-            current_task_id: None,
-            current_task_description: None,
-            current_task_tags: None,
-            clear_current_task: None,
-            current_agent: None,
-            clear_current_agent: Some(true),
-        })
+        .configure_session(
+            test_session(&host_b).as_ref(),
+            PrismConfigureSessionArgs {
+                limits: None,
+                current_task_id: None,
+                current_task_description: None,
+                current_task_tags: None,
+                clear_current_task: None,
+                current_agent: None,
+                clear_current_agent: Some(true),
+            },
+        )
         .unwrap();
     let missing_agent = host_b
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::HandoffAccept,
-            payload: json!({
-                "taskId": task_id.clone(),
-                "agent": "agent-b"
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host_b).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::HandoffAccept,
+                payload: json!({
+                    "taskId": task_id.clone(),
+                    "agent": "agent-b"
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     assert!(missing_agent.rejected);
     assert!(missing_agent
@@ -2169,88 +2302,107 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
         .any(|violation| violation.code == "agent_identity_required"));
 
     host_b
-        .configure_session(PrismConfigureSessionArgs {
-            limits: None,
-            current_task_id: None,
-            current_task_description: None,
-            current_task_tags: None,
-            clear_current_task: None,
-            current_agent: Some("agent-b".to_string()),
-            clear_current_agent: None,
-        })
+        .configure_session(
+            test_session(&host_b).as_ref(),
+            PrismConfigureSessionArgs {
+                limits: None,
+                current_task_id: None,
+                current_task_description: None,
+                current_task_tags: None,
+                clear_current_task: None,
+                current_agent: Some("agent-b".to_string()),
+                clear_current_agent: None,
+            },
+        )
         .unwrap();
 
     let accepted = host_b
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::HandoffAccept,
-            payload: json!({
-                "taskId": task_id.clone(),
-                "agent": "agent-b"
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host_b).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::HandoffAccept,
+                payload: json!({
+                    "taskId": task_id.clone(),
+                    "agent": "agent-b"
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     assert_eq!(accepted.state["assignee"], "agent-b");
     assert_eq!(accepted.state["pendingHandoffTo"], Value::Null);
     assert_eq!(accepted.state["status"], "Ready");
 
     let second_claim = host_b
-        .store_claim(PrismClaimArgs {
-            action: ClaimActionInput::Acquire,
-            payload: json!({
-                "anchors": [{
-                    "type": "node",
-                    "crateName": "demo",
-                    "path": "demo::alpha",
-                    "kind": "function"
-                }],
-                "capability": "Edit",
-                "mode": "SoftExclusive",
-                "coordinationTaskId": task_id.clone()
-            }),
-            task_id: None,
-        })
+        .store_claim(
+            test_session(&host_b).as_ref(),
+            PrismClaimArgs {
+                action: ClaimActionInput::Acquire,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }],
+                    "capability": "Edit",
+                    "mode": "SoftExclusive",
+                    "coordinationTaskId": task_id.clone()
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     assert!(second_claim.claim_id.is_some());
 
     let artifact = host_b
-        .store_artifact(PrismArtifactArgs {
-            action: ArtifactActionInput::Propose,
-            payload: json!({
-                "taskId": task.state["id"].as_str().unwrap(),
-                "diffRef": "patch:alpha-shared"
-            }),
-            task_id: None,
-        })
+        .store_artifact(
+            test_session(&host_b).as_ref(),
+            PrismArtifactArgs {
+                action: ArtifactActionInput::Propose,
+                payload: json!({
+                    "taskId": task.state["id"].as_str().unwrap(),
+                    "diffRef": "patch:alpha-shared"
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     let artifact_id = artifact.artifact_id.clone().unwrap();
 
     host_a
-        .store_artifact(PrismArtifactArgs {
-            action: ArtifactActionInput::Review,
-            payload: json!({
-                "artifactId": artifact_id,
-                "verdict": "approved",
-                "summary": "reviewed after handoff"
-            }),
-            task_id: None,
-        })
+        .store_artifact(
+            test_session(&host_a).as_ref(),
+            PrismArtifactArgs {
+                action: ArtifactActionInput::Review,
+                payload: json!({
+                    "artifactId": artifact_id,
+                    "verdict": "approved",
+                    "summary": "reviewed after handoff"
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
 
     let completed = host_b
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::TaskUpdate,
-            payload: json!({
-                "taskId": task_id.clone(),
-                "status": "completed"
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host_b).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskUpdate,
+                payload: json!({
+                    "taskId": task_id.clone(),
+                    "status": "completed"
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     assert_eq!(completed.state["status"], "Completed");
 
     let final_state = host_a
         .execute(
+            test_session(&host_a),
             &format!(
                 r#"
 return {{
@@ -2330,6 +2482,7 @@ fn curator_reads_flow_through_prism_query_and_edge_promotion_is_explicit() {
 
     let jobs = host
         .execute(
+            test_session(&host),
             r#"
 return prism.curator.jobs({ status: "completed", limit: 5 });
 "#,
@@ -2342,18 +2495,22 @@ return prism.curator.jobs({ status: "completed", limit: 5 });
     assert_eq!(jobs.result[0]["proposals"][0]["disposition"], "pending");
 
     let promoted = host
-        .promote_curator_edge(PrismCuratorPromoteEdgeArgs {
-            job_id: job_id.clone(),
-            proposal_index: 0,
-            scope: Some(InferredEdgeScopeInput::Persisted),
-            note: Some("accepted after review".into()),
-            task_id: Some("task:promotion".into()),
-        })
+        .promote_curator_edge(
+            test_session(&host).as_ref(),
+            PrismCuratorPromoteEdgeArgs {
+                job_id: job_id.clone(),
+                proposal_index: 0,
+                scope: Some(InferredEdgeScopeInput::Persisted),
+                note: Some("accepted after review".into()),
+                task_id: Some("task:promotion".into()),
+            },
+        )
         .unwrap();
     assert!(promoted.edge_id.is_some());
 
     let proposal = host
         .execute(
+            test_session(&host),
             &format!(
                 r#"
 return prism.curator.job("{job_id}")?.proposals[0];
@@ -2424,19 +2581,23 @@ fn curator_memory_promotion_persists_and_recall_sees_promoted_entry() {
     let host = QueryHost::with_session(session);
 
     let promoted = host
-        .promote_curator_memory(PrismCuratorPromoteMemoryArgs {
-            job_id: job_id.clone(),
-            proposal_index: 0,
-            trust: None,
-            note: Some("promote repeated routing knowledge".into()),
-            task_id: Some("task:curator-memory".into()),
-        })
+        .promote_curator_memory(
+            test_session(&host).as_ref(),
+            PrismCuratorPromoteMemoryArgs {
+                job_id: job_id.clone(),
+                proposal_index: 0,
+                trust: None,
+                note: Some("promote repeated routing knowledge".into()),
+                task_id: Some("task:curator-memory".into()),
+            },
+        )
         .expect("memory promotion should succeed");
     assert!(promoted.memory_id.is_some());
     assert!(promoted.edge_id.is_none());
 
     let proposal = host
         .execute(
+            test_session(&host),
             &format!(
                 r#"
 const sym = prism.symbol("alpha");
@@ -2565,17 +2726,21 @@ fn semantic_curator_memory_promotion_persists_and_is_recallable() {
     let job_id = wait_for_completed_curator_job(&session);
     let host = QueryHost::with_session(session);
 
-    host.promote_curator_memory(PrismCuratorPromoteMemoryArgs {
-        job_id,
-        proposal_index: 0,
-        trust: None,
-        note: Some("promote semantic context".into()),
-        task_id: Some("task:semantic-memory".into()),
-    })
+    host.promote_curator_memory(
+        test_session(&host).as_ref(),
+        PrismCuratorPromoteMemoryArgs {
+            job_id,
+            proposal_index: 0,
+            trust: None,
+            note: Some("promote semantic context".into()),
+            task_id: Some("task:semantic-memory".into()),
+        },
+    )
     .expect("semantic memory promotion should succeed");
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const sym = prism.symbol("alpha");
 return prism.memory.recall({
@@ -2697,43 +2862,53 @@ fn promoted_curator_knowledge_feeds_validation_and_risk_queries() {
     let host = QueryHost::with_session(session);
 
     let plan = host
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::PlanCreate,
-            payload: json!({ "goal": "Change alpha safely" }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Change alpha safely" }),
+                task_id: None,
+            },
+        )
         .unwrap();
     let task = host
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::TaskCreate,
-            payload: json!({
-                "planId": plan.state["id"].as_str().unwrap(),
-                "title": "Edit alpha",
-                "anchors": [{
-                    "type": "node",
-                    "crateName": "demo",
-                    "path": "demo::alpha",
-                    "kind": "function"
-                }]
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     let task_id = task.state["id"].as_str().unwrap().to_string();
     let artifact = host
-        .store_artifact(PrismArtifactArgs {
-            action: ArtifactActionInput::Propose,
-            payload: json!({
-                "taskId": task_id,
-                "diffRef": "patch:alpha-risk"
-            }),
-            task_id: None,
-        })
+        .store_artifact(
+            test_session(&host).as_ref(),
+            PrismArtifactArgs {
+                action: ArtifactActionInput::Propose,
+                payload: json!({
+                    "taskId": task_id,
+                    "diffRef": "patch:alpha-risk"
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     let artifact_id = artifact.artifact_id.clone().unwrap();
 
     let before = host
         .execute(
+            test_session(&host),
             &format!(
                 r#"
 const sym = prism.symbol("alpha");
@@ -2769,25 +2944,32 @@ return {{
         0
     );
 
-    host.promote_curator_memory(PrismCuratorPromoteMemoryArgs {
-        job_id: job_id.clone(),
-        proposal_index: 0,
-        trust: None,
-        note: Some("promote validation recipe".into()),
-        task_id: Some(task_id.clone()),
-    })
+    host.promote_curator_memory(
+        test_session(&host).as_ref(),
+        PrismCuratorPromoteMemoryArgs {
+            job_id: job_id.clone(),
+            proposal_index: 0,
+            trust: None,
+            note: Some("promote validation recipe".into()),
+            task_id: Some(task_id.clone()),
+        },
+    )
     .expect("validation recipe promotion should succeed");
-    host.promote_curator_memory(PrismCuratorPromoteMemoryArgs {
-        job_id,
-        proposal_index: 1,
-        trust: None,
-        note: Some("promote risk summary".into()),
-        task_id: Some(task_id.clone()),
-    })
+    host.promote_curator_memory(
+        test_session(&host).as_ref(),
+        PrismCuratorPromoteMemoryArgs {
+            job_id,
+            proposal_index: 1,
+            trust: None,
+            note: Some("promote risk summary".into()),
+            task_id: Some(task_id.clone()),
+        },
+    )
     .expect("risk summary promotion should succeed");
 
     let after = host
         .execute(
+            test_session(&host),
             &format!(
                 r#"
 const sym = prism.symbol("alpha");
@@ -2882,17 +3064,21 @@ fn curator_rejection_is_a_distinct_mutation() {
     let host = QueryHost::with_session(session);
 
     let rejected = host
-        .reject_curator_proposal(PrismCuratorRejectProposalArgs {
-            job_id: job_id.clone(),
-            proposal_index: 0,
-            reason: Some("not enough evidence".into()),
-            task_id: Some("task:review".into()),
-        })
+        .reject_curator_proposal(
+            test_session(&host).as_ref(),
+            PrismCuratorRejectProposalArgs {
+                job_id: job_id.clone(),
+                proposal_index: 0,
+                reason: Some("not enough evidence".into()),
+                task_id: Some("task:review".into()),
+            },
+        )
         .unwrap();
     assert!(rejected.edge_id.is_none());
 
     let proposal = host
         .execute(
+            test_session(&host),
             &format!(
                 r#"
 return prism.curator.job("{job_id}")?.proposals[0];
@@ -2941,6 +3127,7 @@ fn js_views_use_camel_case_and_enriched_nested_symbols() {
     let host = host_with_prism(Prism::with_history(graph, history));
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const sym = prism.symbol("alpha");
 const graph = sym?.callGraph(1);
@@ -2979,6 +3166,7 @@ fn symbol_views_expose_source_locations_and_excerpts() {
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const sym = prism.symbol("alpha");
 return {
@@ -3036,6 +3224,7 @@ fn structured_config_keys_expose_precise_locations_and_local_excerpts() {
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const jsonKey = prism.search("port", { path: "config/app.json", kind: "json-key", limit: 1 })[0];
 const yamlKey = prism.search("port", { path: "config/app.yaml", kind: "yaml-key", limit: 1 })[0];
@@ -3101,6 +3290,7 @@ fn symbol_views_expose_edit_slices_with_exact_focus_mapping() {
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const sym = prism.search("memory_recall", { path: "src/recall.rs", kind: "function", limit: 1 })[0];
 return {
@@ -3155,7 +3345,7 @@ fn focused_blocks_return_exact_local_context_for_code_and_doc_targets() {
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
     let result = host
-        .execute(
+        .execute(test_session(&host),
             r#"
 const fnSym = prism.search("memory_recall", { path: "src/recall.rs", kind: "function", limit: 1 })[0];
 const spec = prism.search("Integration Points", { path: "docs/SPEC.md", kind: "markdown-heading", limit: 1 })[0];
@@ -3207,7 +3397,7 @@ return {
 fn prism_tool_queries_surface_schema_actions_and_examples() {
     let host = host_with_node(demo_node());
     let result = host
-        .execute(
+        .execute(test_session(&host),
             r#"
 const tools = prism.tools();
 const mutate = prism.tool("prism_mutate");
@@ -3330,6 +3520,7 @@ pub fn core() {}
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const symbol = prism.symbolBundle("helper", { includeDiscovery: true });
 const search = prism.searchBundle("helper", { limit: 5 });
@@ -3483,6 +3674,7 @@ pub fn core() {}
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const broad = prism.searchBundle("helper", { limit: 5 });
 const exact = prism.symbolBundle("core");
@@ -3566,6 +3758,7 @@ pub fn core() {}
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const bundle = prism.textSearchBundle("helper", {
   path: "src/alpha.rs",
@@ -3742,6 +3935,7 @@ fn lineage_targets_remap_stale_symbol_ids_to_current_edit_slices() {
     let host = host_with_prism(Prism::with_history(graph, history));
 
     let lineage = match host.execute(
+        test_session(&host),
         &format!(
             r#"
 const stale = {{ id: {}, lineageId: "{}" }};
@@ -3761,6 +3955,7 @@ return prism.lineage(stale);
         Err(error) => panic!("reloaded lineage query should succeed: {error:#}"),
     };
     let slice = match host.execute(
+        test_session(&host),
         &format!(
             r#"
 const stale = {{ id: {}, lineageId: "{}" }};
@@ -3780,6 +3975,7 @@ return prism.editSlice(stale, {{ maxLines: 2, maxChars: 120 }});
         Err(error) => panic!("reloaded edit slice query should succeed: {error:#}"),
     };
     let full = match host.execute(
+        test_session(&host),
         &format!(
             r#"
 const stale = {{ id: {}, lineageId: "{}" }};
@@ -3823,6 +4019,7 @@ fn prism_file_queries_read_exact_ranges_and_around_line_slices() {
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 return {
   read: prism.file("src/recall.rs").read({ startLine: 2, endLine: 4 }),
@@ -3862,6 +4059,7 @@ fn prism_text_search_returns_exact_locations_and_honors_filters() {
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 return {
   literal: prism.searchText("read context", {
@@ -3941,6 +4139,7 @@ fn prism_query_log_exposes_recent_slow_and_trace_views() {
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
 
     host.execute(
+        test_session(&host),
         r#"
 return prism.searchText("read context", {
   path: "src/recall.rs",
@@ -3953,6 +4152,7 @@ return prism.searchText("read context", {
     .expect("text search query should succeed");
 
     host.execute(
+        test_session(&host),
         r#"
 return prism.file("src/recall.rs").around({
   line: 8,
@@ -3966,6 +4166,7 @@ return prism.file("src/recall.rs").around({
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const recent = prism.queryLog({ limit: 5, target: "src/recall.rs" });
 const slow = prism.slowQueries({
@@ -4040,6 +4241,7 @@ fn prism_query_log_touched_prefers_semantic_targets() {
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
 
     host.execute(
+        test_session(&host),
         r#"
 return prism.runtimeLogs({ level: "WARN", limit: 2 });
 "#,
@@ -4049,6 +4251,7 @@ return prism.runtimeLogs({ level: "WARN", limit: 2 });
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 return prism.queryLog({ limit: 1, operation: "runtimeLogs" })[0];
 "#,
@@ -4073,18 +4276,21 @@ fn mutation_trace_records_internal_phases_for_persisted_only_mutations() {
             "mutate.outcome",
             MutationRefreshPolicy::PersistedOnly,
             || {
-                server.host.store_outcome_without_refresh(PrismOutcomeArgs {
-                    kind: OutcomeKindInput::FixValidated,
-                    anchors: vec![AnchorRefInput::Node {
-                        crate_name: "demo".to_string(),
-                        path: "demo::alpha".to_string(),
-                        kind: "function".to_string(),
-                    }],
-                    summary: "validated alpha".to_string(),
-                    result: Some(OutcomeResultInput::Success),
-                    evidence: None,
-                    task_id: None,
-                })
+                server.host.store_outcome_without_refresh(
+                    test_session(&server.host).as_ref(),
+                    PrismOutcomeArgs {
+                        kind: OutcomeKindInput::FixValidated,
+                        anchors: vec![AnchorRefInput::Node {
+                            crate_name: "demo".to_string(),
+                            path: "demo::alpha".to_string(),
+                            kind: "function".to_string(),
+                        }],
+                        summary: "validated alpha".to_string(),
+                        result: Some(OutcomeResultInput::Success),
+                        evidence: None,
+                        task_id: None,
+                    },
+                )
             },
             |result| {
                 MutationDashboardMeta::task(
@@ -4129,6 +4335,7 @@ fn prism_query_errors_include_js_message_and_stack() {
 
     let error = host
         .execute(
+            test_session(&host),
             r#"
 throw new Error("boom");
 "#,
@@ -4152,6 +4359,7 @@ fn prism_query_parse_errors_map_back_to_user_snippet_locations() {
 
     let error = host
         .execute(
+            test_session(&host),
             r#"
 const broken = ;
 return broken;
@@ -4185,6 +4393,7 @@ fn prism_query_runtime_errors_map_back_to_user_snippet_locations() {
 
     let error = host
         .execute(
+            test_session(&host),
             r#"
 const value = 1;
 throw new Error("boom");
@@ -4210,6 +4419,7 @@ fn prism_query_serialization_failures_have_actionable_hints() {
 
     let error = host
         .execute(
+            test_session(&host),
             r#"
 const value = {};
 value.self = value;
@@ -4236,6 +4446,7 @@ fn prism_query_missing_return_emits_actionable_diagnostic() {
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const sym = prism.symbol("alpha");
 "#,
@@ -4257,6 +4468,7 @@ fn prism_query_supports_async_style_multi_statement_snippets() {
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const results = await prism.search("alpha", { limit: 2, kind: "function" });
 const sym = await prism.symbol("alpha");
@@ -4282,6 +4494,7 @@ fn prism_query_supports_implicit_expression_object_results() {
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 ({
   top: (await prism.search("alpha", { limit: 1, kind: "function" }))[0]?.id.path ?? null,
@@ -4309,6 +4522,7 @@ fn prism_query_supports_implicit_expression_values() {
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 (await prism.symbol("alpha"))?.id.path ?? null
 "#,
@@ -4352,7 +4566,7 @@ fn query_replay_cases_cover_real_failures_and_repo_queries() {
         match case.expectation {
             ReplayExpectation::Success(assertion) => {
                 let envelope = host
-                    .execute(case.code, QueryLanguage::Ts)
+                    .execute(test_session(&host), case.code, QueryLanguage::Ts)
                     .unwrap_or_else(|error| {
                         panic!("replay case `{}` should succeed: {error}", case.name)
                     });
@@ -4360,7 +4574,7 @@ fn query_replay_cases_cover_real_failures_and_repo_queries() {
             }
             ReplayExpectation::Error(assertion) => {
                 let error = host
-                    .execute(case.code, QueryLanguage::Ts)
+                    .execute(test_session(&host), case.code, QueryLanguage::Ts)
                     .expect_err(&format!("replay case `{}` should fail", case.name));
                 assertion(&error.to_string());
             }
@@ -4443,6 +4657,7 @@ fn prism_runtime_views_surface_status_logs_and_timeline() {
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
     let result = host
         .execute(
+            test_session(&host),
             r#"
 return {
   status: prism.runtimeStatus(),
@@ -4557,6 +4772,7 @@ fn prism_runtime_views_prefer_structured_runtime_state() {
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
     let result = host
         .execute(
+            test_session(&host),
             r#"
 return {
   status: prism.runtimeStatus(),
@@ -4604,7 +4820,11 @@ fn prism_runtime_views_ignore_invalid_runtime_state_sidecar() {
 
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
     let result = host
-        .execute("return prism.runtimeStatus();", QueryLanguage::Ts)
+        .execute(
+            test_session(&host),
+            "return prism.runtimeStatus();",
+            QueryLanguage::Ts,
+        )
         .expect("invalid runtime state should not break runtime status");
 
     assert_eq!(result.result["health"]["ok"], false);
@@ -4687,6 +4907,7 @@ fn prism_change_views_surface_recent_files_symbols_and_task_changes() {
     let host = host_with_prism(Prism::with_history_and_outcomes(graph, history, outcomes));
     let result = host
         .execute(
+            test_session(&host),
             r#"
 return {
   files: prism.changedFiles({ limit: 5, path: "src/lib.rs" }),
@@ -4796,6 +5017,7 @@ serde = "1.0"
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const workspaceKey = prism.search("workspace", {
   path: "Cargo.toml",
@@ -4867,6 +5089,7 @@ version.workspace = true
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
     let result = host
         .execute(
+            test_session(&host),
             r#"
 return {
   topLevel: prism.search("workspace", {
@@ -4924,7 +5147,7 @@ fn markdown_heading_symbols_cover_their_section_body() {
 
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
     let result = host
-        .execute(
+        .execute(test_session(&host),
             r#"
 const heading = prism.search("Top", { path: "docs/SPEC.md", kind: "markdown-heading", limit: 1 })[0];
 return {
@@ -4953,6 +5176,7 @@ fn spec_cluster_and_drift_surface_behavioral_owners() {
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const spec = prism.search("Integration Points", {
   path: "docs/SPEC.md",
@@ -5030,7 +5254,9 @@ return {
         .expect("spec heading should be indexed")
         .id()
         .clone();
-    let symbol_resource = host.symbol_resource_value(&spec_id).unwrap();
+    let symbol_resource = host
+        .symbol_resource_value(test_session(&host), &spec_id)
+        .unwrap();
     assert!(symbol_resource.workspace_revision.graph_version > 0);
     assert!(symbol_resource.spec_cluster.is_some());
     assert!(symbol_resource.spec_drift.is_some());
@@ -5089,6 +5315,7 @@ fn owner_lookup_and_behavioral_search_prefer_behavioral_owners() {
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const spec = prism.search("Integration Points", {
   path: "docs/SPEC.md",
@@ -5167,6 +5394,7 @@ fn search_resource_payload_surfaces_suggested_reads() {
 
     let payload = host
         .search_resource_value(
+            test_session(&host),
             "prism://search/memory%20recall?strategy=behavioral&ownerKind=read",
             "memory recall",
         )
@@ -5241,7 +5469,7 @@ version.workspace = true
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
     let payload = host
-        .search_resource_value(
+        .search_resource_value(test_session(&host),
             "prism://search/workspace?strategy=direct&kind=toml-key&path=Cargo.toml&pathMode=exact&structuredPath=workspace&topLevelOnly=true&preferCallableCode=false&preferEditableTargets=true&preferBehavioralOwners=true&includeInferred=false",
             "workspace",
         )
@@ -5283,9 +5511,12 @@ fn resource_suggested_candidates_use_compact_default_excerpts() {
         .id()
         .clone();
 
-    let symbol_payload = host.symbol_resource_value(&id).unwrap();
+    let symbol_payload = host
+        .symbol_resource_value(test_session(&host), &id)
+        .unwrap();
     let search_payload = host
         .search_resource_value(
+            test_session(&host),
             "prism://search/memory_recall?strategy=behavioral&ownerKind=read",
             "memory_recall",
         )
@@ -5347,6 +5578,7 @@ fn read_and_edit_context_queries_return_semantic_bundles() {
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const spec = prism.search("Integration Points", {
   path: "docs/SPEC.md",
@@ -5409,6 +5641,7 @@ fn discovery_bundle_query_trace_records_internal_subphases() {
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
 
     host.execute(
+        test_session(&host),
         r#"
 const spec = prism.search("Integration Points", {
   path: "docs/SPEC.md",
@@ -5423,6 +5656,7 @@ return spec ? prism.discovery(spec) : null;
 
     let trace = host
         .execute(
+            test_session(&host),
             r#"
 const recent = prism.queryLog({ limit: 5 });
 const discovery = recent.find((entry) => entry.operations.includes("discoveryBundle"));
@@ -5452,6 +5686,7 @@ fn discovery_helpers_surface_next_reads_and_behavioral_where_used() {
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const spec = prism.search("Integration Points", {
   path: "docs/SPEC.md",
@@ -5484,6 +5719,7 @@ fn discovery_helpers_surface_direct_where_used_and_entrypoints() {
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const beta = prism.symbol("beta");
 return beta
@@ -5539,6 +5775,7 @@ fn custom_query_limits_apply_per_host() {
 
     let search = host
         .execute(
+            test_session(&host),
             r#"
 return prism.search("a", { limit: 10 }).map((sym) => sym.id.path);
 "#,
@@ -5550,6 +5787,7 @@ return prism.search("a", { limit: 10 }).map((sym) => sym.id.path);
 
     let depth = host
         .execute(
+            test_session(&host),
             r#"
 const sym = prism.symbol("alpha");
 return sym?.callGraph(9);
@@ -5563,21 +5801,23 @@ return sym?.callGraph(9);
         .iter()
         .any(|diagnostic| diagnostic.code == "depth_limited"));
 
-    let capped = QueryHost::new_with_limits(
+    let capped_host = QueryHost::new_with_limits(
         Prism::new(Graph::new()),
         QueryLimits {
             max_result_nodes: 1,
             max_call_graph_depth: 1,
             max_output_json_bytes: 32,
         },
-    )
-    .execute(
-        r#"
+    );
+    let capped = capped_host
+        .execute(
+            test_session(&capped_host),
+            r#"
 return "abcdefghijklmnopqrstuvwxyz0123456789";
 "#,
-        QueryLanguage::Ts,
-    )
-    .expect("query should succeed");
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed");
     assert_eq!(capped.result, Value::Null);
     assert!(capped
         .diagnostics
@@ -5590,6 +5830,7 @@ fn search_kind_filter_uses_cli_style_names() {
     let host = host_with_node(demo_node());
     let result = host
         .execute(
+            test_session(&host),
             r#"
 return prism.search("main", { kind: "function" });
 "#,
@@ -5604,6 +5845,7 @@ fn reports_diagnostics_for_overbroad_searches() {
     let host = host_with_node(demo_node());
     let result = host
         .execute(
+            test_session(&host),
             r#"
 prism.search("main", { limit: 1000 });
 return prism.diagnostics();
@@ -5625,8 +5867,13 @@ fn unknown_host_operations_return_actionable_diagnostics() {
     let host = host_with_node(demo_node());
     let execution = QueryExecution::new(
         host.clone(),
+        test_session(&host),
         host.current_prism(),
-        host.begin_query_run("test", "dispatch unknown operation"),
+        host.begin_query_run(
+            test_session(&host).as_ref(),
+            "test",
+            "dispatch unknown operation",
+        ),
     );
 
     let error = execution
@@ -5649,6 +5896,7 @@ fn reuses_warm_runtime_across_queries() {
 
     let first = host
         .execute(
+            test_session(&host),
             r#"
 const sym = prism.symbol("main");
 return sym?.id.path;
@@ -5658,6 +5906,7 @@ return sym?.id.path;
         .expect("first query should succeed");
     let second = host
         .execute(
+            test_session(&host),
             r#"
 return prism.entrypoints().map((sym) => sym.id.path);
 "#,
@@ -5674,6 +5923,7 @@ fn cleans_up_user_globals_between_queries() {
     let host = host_with_node(demo_node());
 
     host.execute(
+        test_session(&host),
         r#"
 globalThis.__prismLeaked = 1;
 return true;
@@ -5684,6 +5934,7 @@ return true;
 
     let second = host
         .execute(
+            test_session(&host),
             r#"
 return typeof globalThis.__prismLeaked;
 "#,
@@ -5752,6 +6003,7 @@ fn exposes_blast_radius_and_related_failures() {
     let host = host_with_prism(Prism::with_history_and_outcomes(graph, history, outcomes));
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const sym = prism.symbol("alpha");
 return {
@@ -5815,6 +6067,7 @@ fn exposes_validation_recipe() {
     let host = host_with_prism(Prism::with_history_and_outcomes(graph, history, outcomes));
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const sym = prism.symbol("alpha");
 return sym ? prism.validationRecipe(sym) : null;
@@ -5928,6 +6181,7 @@ fn exposes_co_change_neighbors() {
     let host = host_with_prism(Prism::with_history(graph, history));
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const sym = prism.symbol("alpha");
 return sym ? prism.coChangeNeighbors(sym) : [];
@@ -5964,27 +6218,31 @@ fn inferred_edge_overlay_affects_relations_queries() {
     });
 
     let host = host_with_prism(Prism::new(graph));
-    host.store_inferred_edge(PrismInferEdgeArgs {
-        source: NodeIdInput {
-            crate_name: "demo".to_string(),
-            path: "demo::alpha".to_string(),
-            kind: "function".to_string(),
+    host.store_inferred_edge(
+        test_session(&host).as_ref(),
+        PrismInferEdgeArgs {
+            source: NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::alpha".to_string(),
+                kind: "function".to_string(),
+            },
+            target: NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::beta".to_string(),
+                kind: "function".to_string(),
+            },
+            kind: "calls".to_string(),
+            confidence: 0.9,
+            scope: Some(InferredEdgeScopeInput::SessionOnly),
+            evidence: Some(vec!["task-local inference".to_string()]),
+            task_id: None,
         },
-        target: NodeIdInput {
-            crate_name: "demo".to_string(),
-            path: "demo::beta".to_string(),
-            kind: "function".to_string(),
-        },
-        kind: "calls".to_string(),
-        confidence: 0.9,
-        scope: Some(InferredEdgeScopeInput::SessionOnly),
-        evidence: Some(vec!["task-local inference".to_string()]),
-        task_id: None,
-    })
+    )
     .expect("inferred edge should store");
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const sym = prism.symbol("alpha");
 return sym ? sym.relations().callees.map((node) => node.id.path) : [];
@@ -6001,28 +6259,32 @@ fn persisted_inferred_edges_reload_with_workspace_session() {
     let root = temp_workspace();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
-    host.store_inferred_edge(PrismInferEdgeArgs {
-        source: NodeIdInput {
-            crate_name: "demo".to_string(),
-            path: "demo::alpha".to_string(),
-            kind: "function".to_string(),
+    host.store_inferred_edge(
+        test_session(&host).as_ref(),
+        PrismInferEdgeArgs {
+            source: NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::alpha".to_string(),
+                kind: "function".to_string(),
+            },
+            target: NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::beta".to_string(),
+                kind: "function".to_string(),
+            },
+            kind: "calls".to_string(),
+            confidence: 0.95,
+            scope: Some(InferredEdgeScopeInput::Persisted),
+            evidence: Some(vec!["persisted inference".to_string()]),
+            task_id: Some("task:persist".to_string()),
         },
-        target: NodeIdInput {
-            crate_name: "demo".to_string(),
-            path: "demo::beta".to_string(),
-            kind: "function".to_string(),
-        },
-        kind: "calls".to_string(),
-        confidence: 0.95,
-        scope: Some(InferredEdgeScopeInput::Persisted),
-        evidence: Some(vec!["persisted inference".to_string()]),
-        task_id: Some("task:persist".to_string()),
-    })
+    )
     .expect("inferred edge should persist");
 
     let reloaded = QueryHost::with_session(index_workspace_session(&root).unwrap());
     let result = reloaded
         .execute(
+            test_session(&reloaded),
             r#"
 const sym = prism.symbol("alpha");
 return sym ? sym.relations().callees.map((node) => node.id.path) : [];
@@ -6044,21 +6306,24 @@ fn persisted_notes_reload_with_workspace_session() {
     let root = temp_workspace();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
-    host.store_memory(PrismMemoryArgs {
-        action: MemoryMutationActionInput::Store,
-        payload: json!({
-            "anchors": [{
-                "type": "node",
-                "crateName": "demo",
-                "path": "demo::alpha",
-                "kind": "function"
-            }],
-            "kind": "episodic",
-            "content": "alpha previously regressed",
-            "trust": 0.9
-        }),
-        task_id: Some("task:note".to_string()),
-    })
+    host.store_memory(
+        test_session(&host).as_ref(),
+        PrismMemoryArgs {
+            action: MemoryMutationActionInput::Store,
+            payload: json!({
+                "anchors": [{
+                    "type": "node",
+                    "crateName": "demo",
+                    "path": "demo::alpha",
+                    "kind": "function"
+                }],
+                "kind": "episodic",
+                "content": "alpha previously regressed",
+                "trust": 0.9
+            }),
+            task_id: Some("task:note".to_string()),
+        },
+    )
     .expect("note should persist");
 
     let reloaded = QueryHost::with_session(index_workspace_session(&root).unwrap());
@@ -6068,8 +6333,7 @@ fn persisted_notes_reload_with_workspace_session() {
     assert_eq!(replay.events.len(), 1);
     assert_eq!(replay.events[0].kind, OutcomeKind::NoteAdded);
 
-    let recalled = reloaded
-        .session
+    let recalled = test_session(&reloaded)
         .notes
         .recall(&RecallQuery {
             focus: vec![AnchorRef::Node(NodeId::new(
@@ -6093,24 +6357,27 @@ fn validation_feedback_mutation_persists_to_workspace_log() {
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
     let result = host
-        .store_validation_feedback(PrismValidationFeedbackArgs {
-            anchors: vec![AnchorRefInput::Node {
-                crate_name: "demo".to_string(),
-                path: "demo::alpha".to_string(),
-                kind: "function".to_string(),
-            }],
-            context: "blast-radius check for alpha".to_string(),
-            prism_said: "Prism only reported alpha".to_string(),
-            actually_true: "beta was also affected through the call graph".to_string(),
-            category: ValidationFeedbackCategoryInput::Projection,
-            verdict: ValidationFeedbackVerdictInput::Wrong,
-            corrected_manually: Some(true),
-            correction: Some("checked callers directly and updated the plan".to_string()),
-            metadata: Some(json!({
-                "query": "prism.blastRadius(alpha)",
-            })),
-            task_id: Some("task:feedback".to_string()),
-        })
+        .store_validation_feedback(
+            test_session(&host).as_ref(),
+            PrismValidationFeedbackArgs {
+                anchors: vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::alpha".to_string(),
+                    kind: "function".to_string(),
+                }],
+                context: "blast-radius check for alpha".to_string(),
+                prism_said: "Prism only reported alpha".to_string(),
+                actually_true: "beta was also affected through the call graph".to_string(),
+                category: ValidationFeedbackCategoryInput::Projection,
+                verdict: ValidationFeedbackVerdictInput::Wrong,
+                corrected_manually: Some(true),
+                correction: Some("checked callers directly and updated the plan".to_string()),
+                metadata: Some(json!({
+                    "query": "prism.blastRadius(alpha)",
+                })),
+                task_id: Some("task:feedback".to_string()),
+            },
+        )
         .expect("validation feedback should persist");
 
     assert!(result.entry_id.starts_with("feedback:"));
@@ -6136,6 +6403,7 @@ fn auto_refreshes_workspace_and_records_patch_events() {
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const sym = prism.symbol("gamma");
 const alpha = prism.symbol("alpha");
@@ -6186,6 +6454,7 @@ fn unchanged_query_skips_workspace_refresh() {
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 return prism.symbol("alpha")?.id.path ?? null;
 "#,
@@ -6204,21 +6473,24 @@ fn refresh_workspace_reloads_updated_persisted_notes() {
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
     let stored = host
-        .store_memory(PrismMemoryArgs {
-            action: MemoryMutationActionInput::Store,
-            payload: json!({
-                "anchors": [{
-                    "type": "node",
-                    "crateName": "demo",
-                    "path": "demo::feature::alpha",
-                    "kind": "function"
-                }],
-                "kind": "episodic",
-                "content": "alpha needs care during routing changes",
-                "trust": 0.8
-            }),
-            task_id: None,
-        })
+        .store_memory(
+            test_session(&host).as_ref(),
+            PrismMemoryArgs {
+                action: MemoryMutationActionInput::Store,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::feature::alpha",
+                        "kind": "function"
+                    }],
+                    "kind": "episodic",
+                    "content": "alpha needs care during routing changes",
+                    "trust": 0.8
+                }),
+                task_id: None,
+            },
+        )
         .expect("note should store");
 
     let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
@@ -6242,6 +6514,7 @@ fn refresh_workspace_reloads_updated_persisted_notes() {
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const sym = prism.symbol("beta");
 return prism.memory.recall({
@@ -6254,8 +6527,7 @@ return prism.memory.recall({
         )
         .expect("memory recall should succeed after snapshot reload");
 
-    let entry = host
-        .session
+    let entry = test_session(&host)
         .notes
         .entry(&MemoryId(stored.memory_id.clone()))
         .expect("stored note should remain in session memory");
@@ -6278,23 +6550,26 @@ fn refresh_workspace_reloads_updated_persisted_inference_without_fs_refresh() {
     let root = temp_workspace();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
-    host.store_inferred_edge(PrismInferEdgeArgs {
-        source: NodeIdInput {
-            crate_name: "demo".to_string(),
-            path: "demo::alpha".to_string(),
-            kind: "function".to_string(),
+    host.store_inferred_edge(
+        test_session(&host).as_ref(),
+        PrismInferEdgeArgs {
+            source: NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::alpha".to_string(),
+                kind: "function".to_string(),
+            },
+            target: NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::beta".to_string(),
+                kind: "function".to_string(),
+            },
+            kind: "calls".to_string(),
+            confidence: 0.95,
+            scope: Some(InferredEdgeScopeInput::Persisted),
+            evidence: Some(vec!["persisted inference".to_string()]),
+            task_id: Some("task:persist".to_string()),
         },
-        target: NodeIdInput {
-            crate_name: "demo".to_string(),
-            path: "demo::beta".to_string(),
-            kind: "function".to_string(),
-        },
-        kind: "calls".to_string(),
-        confidence: 0.95,
-        scope: Some(InferredEdgeScopeInput::Persisted),
-        evidence: Some(vec!["persisted inference".to_string()]),
-        task_id: Some("task:persist".to_string()),
-    })
+    )
     .expect("inferred edge should persist");
 
     let workspace = host
@@ -6315,6 +6590,7 @@ fn refresh_workspace_reloads_updated_persisted_inference_without_fs_refresh() {
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const sym = prism.symbol("alpha");
 return sym ? sym.relations().callees.map((node) => node.id.path) : [];
@@ -6341,7 +6617,7 @@ fn convenience_symbol_query_returns_diagnostics() {
     let host = host_with_node(demo_node());
 
     let envelope = host
-        .symbol_query("missing")
+        .symbol_query(test_session(&host), "missing")
         .expect("symbol query should succeed");
     assert!(envelope.result.is_object() || envelope.result.is_null());
     assert!(envelope
@@ -6369,23 +6645,26 @@ fn convenience_search_query_returns_structured_envelope() {
     let host = host_with_node(demo_node());
 
     let envelope = host
-        .search_query(SearchArgs {
-            query: "main".to_string(),
-            limit: Some(1),
-            kind: None,
-            path: None,
-            module: None,
-            task_id: None,
-            path_mode: None,
-            strategy: None,
-            structured_path: None,
-            top_level_only: None,
-            prefer_callable_code: None,
-            prefer_editable_targets: None,
-            prefer_behavioral_owners: None,
-            owner_kind: None,
-            include_inferred: None,
-        })
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "main".to_string(),
+                limit: Some(1),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: None,
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: None,
+                prefer_editable_targets: None,
+                prefer_behavioral_owners: None,
+                owner_kind: None,
+                include_inferred: None,
+            },
+        )
         .expect("search query should succeed");
     assert!(envelope.result.is_array());
     assert!(envelope.diagnostics.is_empty());
@@ -6409,7 +6688,7 @@ mod tests {
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
     let envelope = host
-        .symbol_query("helper")
+        .symbol_query(test_session(&host), "helper")
         .expect("symbol query should succeed");
     let diagnostic = envelope
         .diagnostics
@@ -6458,23 +6737,26 @@ pub mod beta;
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
     let module_envelope = host
-        .search_query(SearchArgs {
-            query: "helper".to_string(),
-            limit: Some(5),
-            kind: None,
-            path: None,
-            module: Some("demo::beta".to_string()),
-            task_id: None,
-            path_mode: None,
-            strategy: None,
-            structured_path: None,
-            top_level_only: None,
-            prefer_callable_code: None,
-            prefer_editable_targets: None,
-            prefer_behavioral_owners: None,
-            owner_kind: None,
-            include_inferred: None,
-        })
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "helper".to_string(),
+                limit: Some(5),
+                kind: None,
+                path: None,
+                module: Some("demo::beta".to_string()),
+                task_id: None,
+                path_mode: None,
+                strategy: None,
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: None,
+                prefer_editable_targets: None,
+                prefer_behavioral_owners: None,
+                owner_kind: None,
+                include_inferred: None,
+            },
+        )
         .expect("module search should succeed");
     assert_eq!(
         module_envelope
@@ -6489,48 +6771,57 @@ pub mod beta;
     );
 
     let plan = host
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::PlanCreate,
-            payload: json!({ "goal": "Investigate helper collision" }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Investigate helper collision" }),
+                task_id: None,
+            },
+        )
         .unwrap();
     let task = host
-        .store_coordination(PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::TaskCreate,
-            payload: json!({
-                "planId": plan.state["id"].as_str().unwrap(),
-                "title": "Inspect beta helper",
-                "anchors": [{
-                    "type": "node",
-                    "crateName": "demo",
-                    "path": "demo::beta::helper",
-                    "kind": "function"
-                }]
-            }),
-            task_id: None,
-        })
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Inspect beta helper",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::beta::helper",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
         .unwrap();
     let task_id = task.state["id"].as_str().unwrap().to_string();
 
     let task_envelope = host
-        .search_query(SearchArgs {
-            query: "helper".to_string(),
-            limit: Some(5),
-            kind: None,
-            path: None,
-            module: None,
-            task_id: Some(task_id),
-            path_mode: None,
-            strategy: None,
-            structured_path: None,
-            top_level_only: None,
-            prefer_callable_code: None,
-            prefer_editable_targets: None,
-            prefer_behavioral_owners: None,
-            owner_kind: None,
-            include_inferred: None,
-        })
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "helper".to_string(),
+                limit: Some(5),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: Some(task_id),
+                path_mode: None,
+                strategy: None,
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: None,
+                prefer_editable_targets: None,
+                prefer_behavioral_owners: None,
+                owner_kind: None,
+                include_inferred: None,
+            },
+        )
         .expect("task-scoped search should succeed");
     assert_eq!(
         task_envelope.result.as_array().map(|results| results.len()),
@@ -6562,23 +6853,26 @@ pub mod planner;
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
     let envelope = host
-        .search_query(SearchArgs {
-            query: "helper".to_string(),
-            limit: Some(5),
-            kind: None,
-            path: None,
-            module: None,
-            task_id: None,
-            path_mode: None,
-            strategy: None,
-            structured_path: None,
-            top_level_only: None,
-            prefer_callable_code: None,
-            prefer_editable_targets: None,
-            prefer_behavioral_owners: None,
-            owner_kind: None,
-            include_inferred: None,
-        })
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "helper".to_string(),
+                limit: Some(5),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: None,
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: None,
+                prefer_editable_targets: None,
+                prefer_behavioral_owners: None,
+                owner_kind: None,
+                include_inferred: None,
+            },
+        )
         .expect("search query should succeed");
 
     assert_eq!(
@@ -6610,23 +6904,26 @@ pub fn session() {}
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
     let envelope = host
-        .search_query(SearchArgs {
-            query: "session".to_string(),
-            limit: Some(5),
-            kind: None,
-            path: None,
-            module: None,
-            task_id: None,
-            path_mode: None,
-            strategy: None,
-            structured_path: None,
-            top_level_only: None,
-            prefer_callable_code: Some(true),
-            prefer_editable_targets: Some(true),
-            prefer_behavioral_owners: None,
-            owner_kind: None,
-            include_inferred: None,
-        })
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "session".to_string(),
+                limit: Some(5),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: None,
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: Some(true),
+                prefer_editable_targets: Some(true),
+                prefer_behavioral_owners: None,
+                owner_kind: None,
+                include_inferred: None,
+            },
+        )
         .expect("search query should succeed");
 
     assert_eq!(envelope.result[0]["kind"], "Function");
@@ -6654,23 +6951,26 @@ mod tests {
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
     let envelope = host
-        .search_query(SearchArgs {
-            query: "helper".to_string(),
-            limit: Some(5),
-            kind: None,
-            path: None,
-            module: None,
-            task_id: None,
-            path_mode: None,
-            strategy: None,
-            structured_path: None,
-            top_level_only: None,
-            prefer_callable_code: None,
-            prefer_editable_targets: None,
-            prefer_behavioral_owners: None,
-            owner_kind: None,
-            include_inferred: None,
-        })
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "helper".to_string(),
+                limit: Some(5),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: None,
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: None,
+                prefer_editable_targets: None,
+                prefer_behavioral_owners: None,
+                owner_kind: None,
+                include_inferred: None,
+            },
+        )
         .expect("search query should succeed");
 
     assert_eq!(
@@ -6678,9 +6978,77 @@ mod tests {
         Some("demo::helper_registry")
     );
     assert!(envelope.result.as_array().is_some_and(|results| {
-        results
+        !results
             .iter()
             .any(|symbol| symbol["id"]["path"] == "demo::tests::helper")
+    }));
+}
+
+#[test]
+fn broad_noun_queries_overfetch_past_test_and_module_noise() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod query_helpers;
+pub mod discovery_helpers;
+
+pub fn build_helper_plan() {}
+
+#[cfg(test)]
+mod tests {
+    pub fn helper() {}
+    pub fn bundle_helpers_keep_diagnostics_local_to_each_helper_call() {}
+    pub fn discovery_helpers_surface_direct_where_used_and_entrypoints() {}
+}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/query_helpers.rs"),
+        "pub fn hydrate_owner() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/discovery_helpers.rs"),
+        "pub fn collect_related_owner() {}\n",
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let envelope = host
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "helper".to_string(),
+                limit: Some(3),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: None,
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: None,
+                prefer_editable_targets: None,
+                prefer_behavioral_owners: None,
+                owner_kind: None,
+                include_inferred: None,
+            },
+        )
+        .expect("search query should succeed");
+
+    assert_eq!(
+        envelope.result[0]["id"]["path"].as_str(),
+        Some("demo::build_helper_plan")
+    );
+    assert!(envelope.result.as_array().is_some_and(|results| {
+        !results.iter().any(|symbol| {
+            symbol["id"]["path"]
+                .as_str()
+                .is_some_and(|path| path.contains("::tests::"))
+        })
     }));
 }
 
@@ -6704,23 +7072,26 @@ pub fn build_helper_plan() {}
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
     let envelope = host
-        .search_query(SearchArgs {
-            query: "helper".to_string(),
-            limit: Some(5),
-            kind: None,
-            path: None,
-            module: None,
-            task_id: None,
-            path_mode: None,
-            strategy: None,
-            structured_path: None,
-            top_level_only: None,
-            prefer_callable_code: None,
-            prefer_editable_targets: None,
-            prefer_behavioral_owners: None,
-            owner_kind: None,
-            include_inferred: None,
-        })
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "helper".to_string(),
+                limit: Some(5),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: None,
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: None,
+                prefer_editable_targets: None,
+                prefer_behavioral_owners: None,
+                owner_kind: None,
+                include_inferred: None,
+            },
+        )
         .expect("search query should succeed");
 
     assert_eq!(
@@ -6728,7 +7099,7 @@ pub fn build_helper_plan() {}
         Some("demo::build_helper_plan")
     );
     assert!(envelope.result.as_array().is_some_and(|results| {
-        results
+        !results
             .iter()
             .any(|symbol| symbol["id"]["path"] == "demo::query_replay_cases::helper")
     }));
@@ -6758,23 +7129,26 @@ pub fn helper() {}
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
     let envelope = host
-        .search_query(SearchArgs {
-            query: "helper".to_string(),
-            limit: Some(5),
-            kind: None,
-            path: None,
-            module: None,
-            task_id: None,
-            path_mode: None,
-            strategy: None,
-            structured_path: None,
-            top_level_only: None,
-            prefer_callable_code: None,
-            prefer_editable_targets: None,
-            prefer_behavioral_owners: None,
-            owner_kind: None,
-            include_inferred: None,
-        })
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "helper".to_string(),
+                limit: Some(5),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: None,
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: None,
+                prefer_editable_targets: None,
+                prefer_behavioral_owners: None,
+                owner_kind: None,
+                include_inferred: None,
+            },
+        )
         .expect("search query should succeed");
 
     assert_eq!(
@@ -6782,7 +7156,7 @@ pub fn helper() {}
         Some("demo::helper")
     );
     assert!(envelope.result.as_array().is_some_and(|results| {
-        results.iter().any(|symbol| {
+        !results.iter().any(|symbol| {
             symbol["id"]["path"]
                 .as_str()
                 .is_some_and(|path| path.contains("@babel/helper-globals"))
@@ -6808,23 +7182,26 @@ pub struct QueryHost {
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
     let envelope = host
-        .search_query(SearchArgs {
-            query: "session".to_string(),
-            limit: Some(5),
-            kind: None,
-            path: None,
-            module: None,
-            task_id: None,
-            path_mode: None,
-            strategy: None,
-            structured_path: None,
-            top_level_only: None,
-            prefer_callable_code: None,
-            prefer_editable_targets: None,
-            prefer_behavioral_owners: None,
-            owner_kind: None,
-            include_inferred: None,
-        })
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "session".to_string(),
+                limit: Some(5),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: None,
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: None,
+                prefer_editable_targets: None,
+                prefer_behavioral_owners: None,
+                owner_kind: None,
+                include_inferred: None,
+            },
+        )
         .expect("search query should succeed");
 
     assert_eq!(envelope.result[0]["kind"], "Module");
@@ -6841,23 +7218,26 @@ fn explicit_search_modes_can_prefer_behavioral_owners_without_behavioral_strateg
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
     let envelope = host
-        .search_query(SearchArgs {
-            query: "memory recall".to_string(),
-            limit: Some(5),
-            kind: None,
-            path: None,
-            module: None,
-            task_id: None,
-            path_mode: None,
-            strategy: Some("direct".to_string()),
-            structured_path: None,
-            top_level_only: None,
-            prefer_callable_code: None,
-            prefer_editable_targets: None,
-            prefer_behavioral_owners: Some(true),
-            owner_kind: Some("read".to_string()),
-            include_inferred: None,
-        })
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "memory recall".to_string(),
+                limit: Some(5),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: Some("direct".to_string()),
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: None,
+                prefer_editable_targets: None,
+                prefer_behavioral_owners: Some(true),
+                owner_kind: Some("read".to_string()),
+                include_inferred: None,
+            },
+        )
         .expect("search query should succeed");
 
     assert!(envelope
@@ -6879,6 +7259,7 @@ fn file_around_truncation_emits_actionable_diagnostic() {
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 return prism.file("src/recall.rs").around({
   line: 8,
@@ -6932,7 +7313,7 @@ pub mod beta;
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
     let payload = host
-        .search_resource_value("prism://search/helper", "helper")
+        .search_resource_value(test_session(&host), "prism://search/helper", "helper")
         .expect("search resource should succeed");
 
     assert!(payload.ambiguity.is_some());
@@ -6958,25 +7339,30 @@ fn first_mutation_auto_creates_session_task() {
     let host = host_with_node(demo_node());
 
     let memory = host
-        .store_memory(PrismMemoryArgs {
-            action: MemoryMutationActionInput::Store,
-            payload: json!({
-                "anchors": [{
-                    "type": "node",
-                    "crateName": "demo",
-                    "path": "demo::main",
-                    "kind": "function"
-                }],
-                "kind": "episodic",
-                "content": "remember this",
-                "trust": 0.8
-            }),
-            task_id: None,
-        })
+        .store_memory(
+            test_session(&host).as_ref(),
+            PrismMemoryArgs {
+                action: MemoryMutationActionInput::Store,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::main",
+                        "kind": "function"
+                    }],
+                    "kind": "episodic",
+                    "content": "remember this",
+                    "trust": 0.8
+                }),
+                task_id: None,
+            },
+        )
         .expect("note should store");
 
     assert!(memory.memory_id.starts_with("memory:"));
-    let task = host.session.current_task().expect("task should be created");
+    let task = test_session(&host)
+        .current_task()
+        .expect("task should be created");
     let replay = host.current_prism().resume_task(&task);
     assert_eq!(replay.task, task);
     assert_eq!(replay.events.len(), 1);
@@ -6987,25 +7373,29 @@ fn first_mutation_auto_creates_session_task() {
 fn recalls_session_memory_for_symbol_focus() {
     let host = host_with_node(demo_node());
 
-    host.store_memory(PrismMemoryArgs {
-        action: MemoryMutationActionInput::Store,
-        payload: json!({
-            "anchors": [{
-                "type": "node",
-                "crateName": "demo",
-                "path": "demo::main",
-                "kind": "function"
-            }],
-            "kind": "episodic",
-            "content": "main previously regressed on null handling",
-            "trust": 0.9
-        }),
-        task_id: None,
-    })
+    host.store_memory(
+        test_session(&host).as_ref(),
+        PrismMemoryArgs {
+            action: MemoryMutationActionInput::Store,
+            payload: json!({
+                "anchors": [{
+                    "type": "node",
+                    "crateName": "demo",
+                    "path": "demo::main",
+                    "kind": "function"
+                }],
+                "kind": "episodic",
+                "content": "main previously regressed on null handling",
+                "trust": 0.9
+            }),
+            task_id: None,
+        },
+    )
     .expect("note should store");
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const sym = prism.symbol("main");
 return prism.memory.recall({
@@ -7039,7 +7429,7 @@ fn memory_recall_respects_kinds_and_since_filters() {
     old_structural.created_at = 10;
     old_structural.source = MemorySource::User;
     old_structural.trust = 1.0;
-    host.session.notes.store(old_structural).unwrap();
+    test_session(&host).notes.store(old_structural).unwrap();
 
     let mut fresh_semantic =
         MemoryEntry::new(MemoryKind::Semantic, "main often flakes during retries");
@@ -7051,10 +7441,11 @@ fn memory_recall_respects_kinds_and_since_filters() {
     fresh_semantic.created_at = 50;
     fresh_semantic.source = MemorySource::System;
     fresh_semantic.trust = 0.8;
-    host.session.notes.store(fresh_semantic).unwrap();
+    test_session(&host).notes.store(fresh_semantic).unwrap();
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const sym = prism.symbol("main");
 return prism.memory.recall({
@@ -7132,6 +7523,7 @@ fn memory_outcomes_support_filtered_history_queries() {
     let host = host_with_prism(Prism::with_history_and_outcomes(graph, history, outcomes));
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const sym = prism.symbol("alpha");
 return prism.memory.outcomes({
@@ -7156,37 +7548,47 @@ return prism.memory.outcomes({
 fn finish_task_writes_summary_memory_clears_session_task_and_updates_task_resource() {
     let host = host_with_node(demo_node());
     let task = host
-        .start_task("Investigate main".to_string(), vec!["bug".to_string()])
+        .start_task(
+            test_session(&host).as_ref(),
+            "Investigate main".to_string(),
+            vec!["bug".to_string()],
+        )
         .expect("task should start");
 
-    host.store_outcome(PrismOutcomeArgs {
-        kind: OutcomeKindInput::FixValidated,
-        anchors: vec![AnchorRefInput::Node {
-            crate_name: "demo".to_string(),
-            path: "demo::main".to_string(),
-            kind: "function".to_string(),
-        }],
-        summary: "validated main behavior".to_string(),
-        result: Some(OutcomeResultInput::Success),
-        evidence: None,
-        task_id: None,
-    })
-    .expect("validation outcome should store");
-
-    let result = host
-        .finish_task(PrismFinishTaskArgs {
-            summary: "Closed out main investigation with validation coverage".to_string(),
-            anchors: Some(vec![AnchorRefInput::Node {
+    host.store_outcome(
+        test_session(&host).as_ref(),
+        PrismOutcomeArgs {
+            kind: OutcomeKindInput::FixValidated,
+            anchors: vec![AnchorRefInput::Node {
                 crate_name: "demo".to_string(),
                 path: "demo::main".to_string(),
                 kind: "function".to_string(),
-            }]),
+            }],
+            summary: "validated main behavior".to_string(),
+            result: Some(OutcomeResultInput::Success),
+            evidence: None,
             task_id: None,
-        })
+        },
+    )
+    .expect("validation outcome should store");
+
+    let result = host
+        .finish_task(
+            test_session(&host).as_ref(),
+            PrismFinishTaskArgs {
+                summary: "Closed out main investigation with validation coverage".to_string(),
+                anchors: Some(vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::main".to_string(),
+                    kind: "function".to_string(),
+                }]),
+                task_id: None,
+            },
+        )
         .expect("finish task should succeed");
 
     assert_eq!(result.task_id, task.0);
-    assert_eq!(host.session.current_task(), None);
+    assert_eq!(test_session(&host).current_task(), None);
     assert_eq!(result.journal.disposition, "completed");
     assert_eq!(
         result.journal.summary.final_summary.as_deref(),
@@ -7209,8 +7611,7 @@ fn finish_task_writes_summary_memory_clears_session_task_and_updates_task_resour
         result.memory_id
     );
 
-    let memory = host
-        .session
+    let memory = test_session(&host)
         .notes
         .entry(&MemoryId(result.memory_id.clone()))
         .expect("summary memory should exist");
@@ -7221,7 +7622,11 @@ fn finish_task_writes_summary_memory_clears_session_task_and_updates_task_resour
     assert_eq!(memory.metadata["taskLifecycle"]["disposition"], "completed");
 
     let resource = host
-        .task_resource_value(&task_resource_uri(&result.task_id), &task)
+        .task_resource_value(
+            test_session(&host).as_ref(),
+            &task_resource_uri(&result.task_id),
+            &task,
+        )
         .expect("task resource should load");
     assert_eq!(resource.journal.disposition, "completed");
     assert_eq!(
@@ -7286,10 +7691,11 @@ fn task_journal_query_reports_missing_validation_and_related_memory() {
     );
     memory.anchors = vec![AnchorRef::Node(main_id)];
     memory.trust = 0.9;
-    host.session.notes.store(memory).unwrap();
+    test_session(&host).notes.store(memory).unwrap();
 
     let result = host
         .execute(
+            test_session(&host),
             r#"
 return prism.taskJournal("task:journal", { eventLimit: 10, memoryLimit: 5 });
 "#,
@@ -7334,6 +7740,7 @@ fn call_graph_depth_limit_diagnostic_includes_next_action() {
     let host = host_with_node(demo_node());
     let result = host
         .execute(
+            test_session(&host),
             r#"
 const sym = prism.symbol("main");
 return sym?.callGraph(50);
@@ -7359,29 +7766,39 @@ return sym?.callGraph(50);
 fn abandon_task_suppresses_unresolved_failure_diagnostic() {
     let host = host_with_node(demo_node());
     let task = host
-        .start_task("Investigate main".to_string(), Vec::new())
+        .start_task(
+            test_session(&host).as_ref(),
+            "Investigate main".to_string(),
+            Vec::new(),
+        )
         .expect("task should start");
 
-    host.store_outcome(PrismOutcomeArgs {
-        kind: OutcomeKindInput::FailureObserved,
-        anchors: vec![AnchorRefInput::Node {
-            crate_name: "demo".to_string(),
-            path: "demo::main".to_string(),
-            kind: "function".to_string(),
-        }],
-        summary: "main is blocked by upstream".to_string(),
-        result: Some(OutcomeResultInput::Failure),
-        evidence: None,
-        task_id: None,
-    })
+    host.store_outcome(
+        test_session(&host).as_ref(),
+        PrismOutcomeArgs {
+            kind: OutcomeKindInput::FailureObserved,
+            anchors: vec![AnchorRefInput::Node {
+                crate_name: "demo".to_string(),
+                path: "demo::main".to_string(),
+                kind: "function".to_string(),
+            }],
+            summary: "main is blocked by upstream".to_string(),
+            result: Some(OutcomeResultInput::Failure),
+            evidence: None,
+            task_id: None,
+        },
+    )
     .expect("failure outcome should store");
 
     let result = host
-        .abandon_task(PrismFinishTaskArgs {
-            summary: "Stopped after upstream dependency failure".to_string(),
-            anchors: None,
-            task_id: None,
-        })
+        .abandon_task(
+            test_session(&host).as_ref(),
+            PrismFinishTaskArgs {
+                summary: "Stopped after upstream dependency failure".to_string(),
+                anchors: None,
+                task_id: None,
+            },
+        )
         .expect("abandon task should succeed");
 
     assert_eq!(result.task_id, task.0);
@@ -7402,10 +7819,14 @@ fn explicit_start_task_sets_session_default_and_logs_plan() {
     let host = host_with_node(demo_node());
 
     let task = host
-        .start_task("Investigate main".to_string(), vec!["bug".to_string()])
+        .start_task(
+            test_session(&host).as_ref(),
+            "Investigate main".to_string(),
+            vec!["bug".to_string()],
+        )
         .expect("task should start");
 
-    assert_eq!(host.session.current_task(), Some(task.clone()));
+    assert_eq!(test_session(&host).current_task(), Some(task.clone()));
     let replay = host.current_prism().resume_task(&task);
     assert_eq!(replay.events.len(), 1);
     assert_eq!(replay.events[0].kind, OutcomeKind::PlanCreated);
@@ -7417,27 +7838,193 @@ fn explicit_start_task_sets_session_default_and_logs_plan() {
 fn explicit_task_override_does_not_replace_session_default() {
     let host = host_with_node(demo_node());
     let active = host
-        .start_task("Primary task".to_string(), Vec::new())
+        .start_task(
+            test_session(&host).as_ref(),
+            "Primary task".to_string(),
+            Vec::new(),
+        )
         .expect("task should start");
 
     let explicit = TaskId::new("task:secondary:99");
     let event = host
-        .store_outcome(PrismOutcomeArgs {
-            kind: OutcomeKindInput::FailureObserved,
-            anchors: vec![AnchorRefInput::Node {
-                crate_name: "demo".to_string(),
-                path: "demo::main".to_string(),
-                kind: "function".to_string(),
-            }],
-            summary: "secondary failure".to_string(),
-            result: Some(OutcomeResultInput::Failure),
-            evidence: None,
-            task_id: Some(explicit.0.to_string()),
-        })
+        .store_outcome(
+            test_session(&host).as_ref(),
+            PrismOutcomeArgs {
+                kind: OutcomeKindInput::FailureObserved,
+                anchors: vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::main".to_string(),
+                    kind: "function".to_string(),
+                }],
+                summary: "secondary failure".to_string(),
+                result: Some(OutcomeResultInput::Failure),
+                evidence: None,
+                task_id: Some(explicit.0.to_string()),
+            },
+        )
         .expect("outcome should store");
 
-    assert_eq!(host.session.current_task(), Some(active));
+    assert_eq!(test_session(&host).current_task(), Some(active));
     let replay = host.current_prism().resume_task(&explicit);
     assert_eq!(replay.events.len(), 1);
     assert_eq!(replay.events[0].meta.id.0, event.event_id);
+}
+
+#[test]
+fn cloned_servers_isolate_session_state_but_share_persisted_state() {
+    let server = server_with_node(demo_node());
+    let client_a = server.clone();
+    let client_b = server.clone();
+
+    assert!(Arc::ptr_eq(&client_a.host, &client_b.host));
+    assert_ne!(
+        client_a.session.session_id().0,
+        client_b.session.session_id().0
+    );
+
+    client_a
+        .host
+        .configure_session_without_refresh(
+            client_a.session.as_ref(),
+            PrismConfigureSessionArgs {
+                limits: Some(QueryLimitsInput {
+                    max_result_nodes: Some(3),
+                    max_call_graph_depth: None,
+                    max_output_json_bytes: None,
+                }),
+                current_task_id: None,
+                current_task_description: None,
+                current_task_tags: None,
+                clear_current_task: None,
+                current_agent: Some("agent-a".to_string()),
+                clear_current_agent: None,
+            },
+        )
+        .unwrap();
+    let task_a = client_a
+        .host
+        .start_task(
+            client_a.session.as_ref(),
+            "Investigate main".to_string(),
+            vec!["bug".to_string()],
+        )
+        .unwrap();
+
+    let session_a = client_a
+        .host
+        .session_resource_value(client_a.session.as_ref())
+        .unwrap();
+    let session_b = client_b
+        .host
+        .session_resource_value(client_b.session.as_ref())
+        .unwrap();
+    assert_eq!(session_a.current_agent.as_deref(), Some("agent-a"));
+    assert_eq!(
+        session_a
+            .current_task
+            .as_ref()
+            .map(|task| task.task_id.as_str()),
+        Some(task_a.0.as_str())
+    );
+    assert_eq!(session_a.limits.max_result_nodes, 3);
+    assert_eq!(session_b.current_agent, None);
+    assert!(session_b.current_task.is_none());
+    assert_eq!(
+        session_b.limits.max_result_nodes,
+        QueryLimits::default().max_result_nodes
+    );
+
+    let session_edge = client_a
+        .host
+        .store_inferred_edge(
+            client_a.session.as_ref(),
+            PrismInferEdgeArgs {
+                kind: "calls".to_string(),
+                source: NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::main".to_string(),
+                    kind: "function".to_string(),
+                },
+                target: NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::main".to_string(),
+                    kind: "function".to_string(),
+                },
+                confidence: 0.8,
+                scope: Some(InferredEdgeScopeInput::SessionOnly),
+                evidence: None,
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert!(client_a
+        .session
+        .inferred_edges
+        .record(&prism_agent::EdgeId(session_edge.edge_id.clone()))
+        .is_some());
+    assert!(client_b
+        .session
+        .inferred_edges
+        .record(&prism_agent::EdgeId(session_edge.edge_id.clone()))
+        .is_none());
+
+    let persisted_edge = client_a
+        .host
+        .store_inferred_edge(
+            client_a.session.as_ref(),
+            PrismInferEdgeArgs {
+                kind: "calls".to_string(),
+                source: NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::main".to_string(),
+                    kind: "function".to_string(),
+                },
+                target: NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::main".to_string(),
+                    kind: "function".to_string(),
+                },
+                confidence: 0.9,
+                scope: Some(InferredEdgeScopeInput::Persisted),
+                evidence: Some(vec!["shared persisted inference".to_string()]),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert!(client_b
+        .session
+        .inferred_edges
+        .record(&prism_agent::EdgeId(persisted_edge.edge_id.clone()))
+        .is_some());
+
+    client_a
+        .host
+        .execute(
+            Arc::clone(&client_a.session),
+            r#"return prism.symbol("main")?.id.path;"#,
+            QueryLanguage::Ts,
+        )
+        .unwrap();
+    client_b
+        .host
+        .execute(
+            Arc::clone(&client_b.session),
+            r#"return prism.symbol("main")?.id.path;"#,
+            QueryLanguage::Ts,
+        )
+        .unwrap();
+    let query_log = client_a.host.query_log_entries(QueryLogArgs {
+        limit: Some(10),
+        since: None,
+        target: None,
+        operation: None,
+        task_id: None,
+        min_duration_ms: None,
+    });
+    assert!(query_log
+        .iter()
+        .any(|entry| entry.session_id == client_a.session.session_id().0));
+    assert!(query_log
+        .iter()
+        .any(|entry| entry.session_id == client_b.session.session_id().0));
 }

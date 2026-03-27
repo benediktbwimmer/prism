@@ -9,7 +9,7 @@ use crate::runtime_views::{runtime_status, runtime_timeline};
 use crate::{
     artifact_view, current_timestamp, policy_violation_record_view, task_journal_view,
     CoordinationFeaturesView, FeatureFlagsView, QueryHost, RuntimeTimelineArgs, SessionLimitsView,
-    SessionTaskView, SessionView,
+    SessionState, SessionTaskView, SessionView,
 };
 
 const DASHBOARD_TASK_EVENT_LIMIT: usize = 12;
@@ -19,7 +19,7 @@ const DASHBOARD_COORDINATION_VIOLATION_LIMIT: usize = 6;
 
 impl QueryHost {
     pub(crate) fn dashboard_summary_view(&self) -> Result<DashboardSummaryView> {
-        let session = dashboard_session_view(self);
+        let session = dashboard_session_view(self, None);
         let runtime = runtime_status(self)?;
         let active = self.dashboard_state().active_operations();
         let active_query_count = active.iter().filter(|op| op.kind == "query").count();
@@ -52,12 +52,18 @@ impl QueryHost {
         })
     }
 
-    pub(crate) fn dashboard_task_snapshot(&self) -> Result<DashboardTaskSnapshotView> {
-        let session = dashboard_session_view(self);
+    pub(crate) fn dashboard_task_snapshot(
+        &self,
+        active_session: Option<&SessionState>,
+    ) -> Result<DashboardTaskSnapshotView> {
+        let session = dashboard_session_view(self, active_session);
         let journal = session
             .current_task
             .as_ref()
-            .map(|task| current_task_journal(self, &task.task_id))
+            .and_then(|task| {
+                active_session
+                    .map(|active_session| current_task_journal(self, active_session, &task.task_id))
+            })
             .transpose()?;
         Ok(DashboardTaskSnapshotView { session, journal })
     }
@@ -126,8 +132,8 @@ impl QueryHost {
         })
     }
 
-    pub(crate) fn publish_dashboard_task_update(&self) -> Result<()> {
-        let snapshot = self.dashboard_task_snapshot()?;
+    pub(crate) fn publish_dashboard_task_update(&self, session: &SessionState) -> Result<()> {
+        let snapshot = self.dashboard_task_snapshot(Some(session))?;
         self.dashboard_state()
             .publish_value("task.updated", serde_json::to_value(snapshot)?);
         Ok(())
@@ -141,25 +147,24 @@ impl QueryHost {
     }
 }
 
-fn dashboard_session_view(host: &QueryHost) -> SessionView {
-    let limits = host.session.limits();
+fn dashboard_session_view(host: &QueryHost, session: Option<&SessionState>) -> SessionView {
+    let limits = session
+        .map(SessionState::limits)
+        .unwrap_or(host.default_limits);
     SessionView {
         workspace_root: host
             .workspace
             .as_ref()
             .map(|workspace| workspace.root().display().to_string()),
-        current_task: host
-            .session
-            .current_task_state()
-            .map(|task| SessionTaskView {
+        current_task: session.and_then(|session| {
+            session.current_task_state().map(|task| SessionTaskView {
                 task_id: task.id.0.to_string(),
                 description: task.description,
                 tags: task.tags,
-            }),
-        current_agent: host
-            .session
-            .current_agent()
-            .map(|agent| agent.0.to_string()),
+            })
+        }),
+        current_agent: session
+            .and_then(|session| session.current_agent().map(|agent| agent.0.to_string())),
         limits: SessionLimitsView {
             max_result_nodes: limits.max_result_nodes,
             max_call_graph_depth: limits.max_call_graph_depth,
@@ -177,11 +182,15 @@ fn dashboard_session_view(host: &QueryHost) -> SessionView {
     }
 }
 
-fn current_task_journal(host: &QueryHost, task_id: &str) -> Result<TaskJournalView> {
+fn current_task_journal(
+    host: &QueryHost,
+    session: &SessionState,
+    task_id: &str,
+) -> Result<TaskJournalView> {
     let prism = host.current_prism();
     let task_id = TaskId::new(task_id.to_string());
     task_journal_view(
-        host.session.as_ref(),
+        session,
         prism.as_ref(),
         &task_id,
         None,

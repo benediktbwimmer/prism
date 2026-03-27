@@ -109,6 +109,34 @@ pub(crate) fn discover_layout(root: &Path) -> Result<WorkspaceLayout> {
         .unwrap_or("workspace")
         .to_owned();
     let workspace_name = normalize_identifier(&workspace_display_name);
+    if root.join("Cargo.toml").exists() {
+        return discover_cargo_layout(root, workspace_name, workspace_display_name);
+    }
+
+    discover_python_layout(root, workspace_name, workspace_display_name)
+}
+
+fn manifest_package_name(path: &Path) -> Result<Option<String>> {
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let manifest = fs::read_to_string(path)
+        .with_context(|| format!("failed to read manifest {}", path.display()))?;
+    let value: Value = toml::from_str(&manifest)
+        .with_context(|| format!("failed to parse manifest {}", path.display()))?;
+    Ok(value
+        .get("package")
+        .and_then(|package| package.get("name"))
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned))
+}
+
+fn discover_cargo_layout(
+    root: &Path,
+    workspace_name: String,
+    workspace_display_name: String,
+) -> Result<WorkspaceLayout> {
     let workspace_manifest = root.join("Cargo.toml");
     let root_package_name = manifest_package_name(&workspace_manifest)?
         .unwrap_or_else(|| workspace_display_name.clone());
@@ -156,7 +184,95 @@ pub(crate) fn discover_layout(root: &Path) -> Result<WorkspaceLayout> {
     })
 }
 
-fn manifest_package_name(path: &Path) -> Result<Option<String>> {
+fn discover_python_layout(
+    root: &Path,
+    workspace_name: String,
+    workspace_display_name: String,
+) -> Result<WorkspaceLayout> {
+    let workspace_manifest = root_manifest_path(root);
+    let root_package_name = package_name_for_manifest(&workspace_manifest)?
+        .unwrap_or_else(|| workspace_display_name.clone());
+    let mut packages = vec![PackageInfo::new(
+        root_package_name,
+        root.to_path_buf(),
+        workspace_manifest.clone(),
+    )];
+    let mut seen_roots = std::collections::HashSet::from([root.to_path_buf()]);
+
+    for entry in workspace_walk(root).filter_map(Result::ok) {
+        if !entry
+            .file_type()
+            .map(|file_type| file_type.is_file())
+            .unwrap_or(false)
+        {
+            continue;
+        }
+
+        let manifest_path = entry.path();
+        if !is_python_manifest(manifest_path) || manifest_path == workspace_manifest {
+            continue;
+        }
+
+        let package_root = manifest_path
+            .parent()
+            .unwrap_or(root)
+            .canonicalize()
+            .unwrap_or_else(|_| manifest_path.parent().unwrap_or(root).to_path_buf());
+        if !seen_roots.insert(package_root.clone()) {
+            continue;
+        }
+
+        let package_name = package_name_for_manifest(manifest_path)?.unwrap_or_else(|| {
+            package_root
+                .file_name()
+                .and_then(|value| value.to_str())
+                .unwrap_or("workspace")
+                .to_owned()
+        });
+        packages.push(PackageInfo::new(
+            package_name,
+            package_root,
+            manifest_path.to_path_buf(),
+        ));
+    }
+
+    Ok(WorkspaceLayout {
+        workspace_name,
+        workspace_display_name,
+        workspace_manifest,
+        packages,
+    })
+}
+
+fn root_manifest_path(root: &Path) -> PathBuf {
+    [
+        root.join("pyproject.toml"),
+        root.join("setup.py"),
+        root.join("setup.cfg"),
+    ]
+    .into_iter()
+    .find(|path| path.exists())
+    .unwrap_or_else(|| root.join("pyproject.toml"))
+}
+
+fn is_python_manifest(path: &Path) -> bool {
+    matches!(
+        path.file_name().and_then(|value| value.to_str()),
+        Some("pyproject.toml" | "setup.py" | "setup.cfg")
+    )
+}
+
+fn package_name_for_manifest(path: &Path) -> Result<Option<String>> {
+    match path.file_name().and_then(|value| value.to_str()) {
+        Some("Cargo.toml") => manifest_package_name(path),
+        Some("pyproject.toml") => pyproject_package_name(path),
+        Some("setup.cfg") => setup_cfg_package_name(path),
+        Some("setup.py") => setup_py_package_name(path),
+        _ => Ok(None),
+    }
+}
+
+fn pyproject_package_name(path: &Path) -> Result<Option<String>> {
     if !path.exists() {
         return Ok(None);
     }
@@ -166,10 +282,73 @@ fn manifest_package_name(path: &Path) -> Result<Option<String>> {
     let value: Value = toml::from_str(&manifest)
         .with_context(|| format!("failed to parse manifest {}", path.display()))?;
     Ok(value
-        .get("package")
-        .and_then(|package| package.get("name"))
+        .get("project")
+        .and_then(|project| project.get("name"))
         .and_then(Value::as_str)
+        .or_else(|| {
+            value
+                .get("tool")
+                .and_then(|tool| tool.get("poetry"))
+                .and_then(|poetry| poetry.get("name"))
+                .and_then(Value::as_str)
+        })
         .map(ToOwned::to_owned))
+}
+
+fn setup_cfg_package_name(path: &Path) -> Result<Option<String>> {
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let config = fs::read_to_string(path)
+        .with_context(|| format!("failed to read manifest {}", path.display()))?;
+    let mut in_metadata = false;
+    for line in config.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            in_metadata = trimmed.eq_ignore_ascii_case("[metadata]");
+            continue;
+        }
+        if !in_metadata {
+            continue;
+        }
+        if let Some((key, value)) = trimmed.split_once('=') {
+            if key.trim().eq_ignore_ascii_case("name") {
+                let name = value.trim();
+                if !name.is_empty() {
+                    return Ok(Some(name.to_owned()));
+                }
+            }
+        }
+    }
+    Ok(None)
+}
+
+fn setup_py_package_name(path: &Path) -> Result<Option<String>> {
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let setup = fs::read_to_string(path)
+        .with_context(|| format!("failed to read manifest {}", path.display()))?;
+    Ok(extract_setup_py_keyword(&setup, "name"))
+}
+
+fn extract_setup_py_keyword(source: &str, key: &str) -> Option<String> {
+    let patterns = [format!("{key}="), format!("{key} =")];
+    for pattern in patterns {
+        let Some(index) = source.find(&pattern) else {
+            continue;
+        };
+        let remainder = source[index + pattern.len()..].trim_start();
+        let quote = remainder.chars().next()?;
+        if quote != '"' && quote != '\'' {
+            continue;
+        }
+        let end = remainder[1..].find(quote)?;
+        return Some(remainder[1..1 + end].to_owned());
+    }
+    None
 }
 
 fn normalize_identifier(value: &str) -> String {

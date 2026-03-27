@@ -14,7 +14,7 @@ use crate::dashboard_types::{
     DashboardOperationsView, MutationLogEntryView, MutationTraceView,
 };
 use crate::query_log::{duration_to_ms, summarize_value, touches_for_value};
-use crate::{current_timestamp, QueryHost, QueryLogArgs, QueryRun};
+use crate::{current_timestamp, QueryHost, QueryLogArgs, QueryRun, SessionState};
 
 const DASHBOARD_EVENT_CAPACITY: usize = 512;
 const ACTIVE_OPERATION_LIMIT: usize = 256;
@@ -193,7 +193,7 @@ impl DashboardState {
 }
 
 impl QueryHost {
-    pub(crate) fn begin_mutation_run(&self, action: &str) -> MutationRun {
+    pub(crate) fn begin_mutation_run(&self, session: &SessionState, action: &str) -> MutationRun {
         let sequence = self
             .dashboard_state
             .next_mutation_id
@@ -204,8 +204,8 @@ impl QueryHost {
             action: action.to_string(),
             started_at: current_timestamp(),
             started: Instant::now(),
-            session_id: self.session.session_id().0.to_string(),
-            task_id: self.session.current_task().map(|task| task.0.to_string()),
+            session_id: session.session_id().0.to_string(),
+            task_id: session.current_task().map(|task| task.0.to_string()),
             phases: Arc::new(Mutex::new(Vec::new())),
         };
         let active = ActiveOperationView {

@@ -240,10 +240,20 @@ pub enum PrismMcpMode {
     Bridge,
 }
 
-#[derive(Clone)]
 pub struct PrismMcpServer {
     tool_router: ToolRouter<PrismMcpServer>,
     host: Arc<QueryHost>,
+    session: Arc<SessionState>,
+}
+
+impl Clone for PrismMcpServer {
+    fn clone(&self) -> Self {
+        Self {
+            tool_router: self.tool_router.clone(),
+            host: Arc::clone(&self.host),
+            session: self.host.new_session_state(),
+        }
+    }
 }
 
 impl PrismMcpServer {
@@ -312,11 +322,13 @@ impl PrismMcpServer {
         limits: QueryLimits,
         features: PrismMcpFeatures,
     ) -> Self {
+        let host = Arc::new(QueryHost::new_with_limits_and_features(
+            prism, limits, features,
+        ));
         Self {
             tool_router: Self::build_tool_router(),
-            host: Arc::new(QueryHost::new_with_limits_and_features(
-                prism, limits, features,
-            )),
+            session: host.new_session_state(),
+            host,
         }
     }
 
@@ -344,11 +356,13 @@ impl PrismMcpServer {
         limits: QueryLimits,
         features: PrismMcpFeatures,
     ) -> Self {
+        let host = Arc::new(QueryHost::with_session_and_limits_and_features(
+            session, limits, features,
+        ));
         Self {
             tool_router: Self::build_tool_router(),
-            host: Arc::new(QueryHost::with_session_and_limits_and_features(
-                session, limits, features,
-            )),
+            session: host.new_session_state(),
+            host,
         }
     }
 
@@ -362,7 +376,11 @@ impl PrismMcpServer {
 #[derive(Clone)]
 struct QueryHost {
     prism: Arc<Prism>,
-    session: Arc<SessionState>,
+    notes: Arc<SessionMemory>,
+    inferred_edges: Arc<InferenceStore>,
+    next_event: Arc<AtomicU64>,
+    next_task: Arc<AtomicU64>,
+    default_limits: QueryLimits,
     worker_pool: Arc<JsWorkerPool>,
     query_log_store: Arc<QueryLogStore>,
     dashboard_state: Arc<DashboardState>,
@@ -418,15 +436,13 @@ impl QueryHost {
         worker_pool: JsWorkerPool,
     ) -> Self {
         let prism = Arc::new(prism);
-        let session = Arc::new(SessionState::with_limits(
-            prism.as_ref(),
-            SessionMemory::new(),
-            InferenceStore::new(),
-            limits,
-        ));
         Self {
             prism: prism.clone(),
-            session,
+            notes: Arc::new(SessionMemory::new()),
+            inferred_edges: Arc::new(InferenceStore::new()),
+            next_event: Arc::new(AtomicU64::new(max_event_sequence(prism.as_ref()))),
+            next_task: Arc::new(AtomicU64::new(max_task_sequence(prism.as_ref()))),
+            default_limits: limits,
             worker_pool: Arc::new(worker_pool),
             query_log_store: Arc::new(QueryLogStore::default()),
             dashboard_state: Arc::new(DashboardState::default()),
@@ -485,15 +501,13 @@ impl QueryHost {
             .unwrap_or_else(InferenceStore::new);
         let inference_revision = workspace.inference_revision().unwrap_or_default();
         let coordination_revision = workspace.coordination_revision().unwrap_or_default();
-        let session = Arc::new(SessionState::with_snapshots(
-            prism.as_ref(),
-            notes,
-            inferred_edges,
-            limits,
-        ));
         Self {
-            prism,
-            session,
+            prism: Arc::clone(&prism),
+            notes: Arc::new(notes),
+            inferred_edges: Arc::new(inferred_edges),
+            next_event: Arc::new(AtomicU64::new(max_event_sequence(prism.as_ref()))),
+            next_task: Arc::new(AtomicU64::new(max_task_sequence(prism.as_ref()))),
+            default_limits: limits,
             worker_pool: Arc::new(worker_pool),
             query_log_store: Arc::new(QueryLogStore::default()),
             dashboard_state: Arc::new(DashboardState::default()),
@@ -506,14 +520,29 @@ impl QueryHost {
         }
     }
 
+    fn new_session_state(&self) -> Arc<SessionState> {
+        Arc::new(SessionState::new(
+            Arc::clone(&self.notes),
+            Arc::clone(&self.inferred_edges),
+            Arc::clone(&self.next_event),
+            Arc::clone(&self.next_task),
+            self.default_limits,
+        ))
+    }
+
     #[allow(dead_code)]
-    fn configure_session(&self, args: PrismConfigureSessionArgs) -> Result<SessionView> {
+    fn configure_session(
+        &self,
+        session: &SessionState,
+        args: PrismConfigureSessionArgs,
+    ) -> Result<SessionView> {
         self.refresh_workspace()?;
-        self.configure_session_without_refresh(args)
+        self.configure_session_without_refresh(session, args)
     }
 
     fn configure_session_without_refresh(
         &self,
+        session: &SessionState,
         args: PrismConfigureSessionArgs,
     ) -> Result<SessionView> {
         if args.clear_current_task.unwrap_or(false)
@@ -532,7 +561,7 @@ impl QueryHost {
         }
 
         if let Some(input) = args.limits {
-            let mut limits = self.session.limits();
+            let mut limits = session.limits();
             if let Some(value) = input.max_result_nodes {
                 limits.max_result_nodes = value;
             }
@@ -548,39 +577,38 @@ impl QueryHost {
             {
                 return Err(anyhow!("session limits must be greater than zero"));
             }
-            self.session.set_limits(limits);
+            session.set_limits(limits);
         }
 
         if args.clear_current_task.unwrap_or(false) {
-            self.session.clear_current_task();
+            session.clear_current_task();
         } else if let Some(task_id) = args.current_task_id {
             let task_id = TaskId::new(task_id);
-            let (description, tags) = self.task_metadata(&task_id);
-            self.session.set_current_task(
+            let (description, tags) = self.task_metadata(session, &task_id);
+            session.set_current_task(
                 task_id,
                 args.current_task_description.or(description),
                 args.current_task_tags.unwrap_or(tags),
             );
         } else if args.current_task_description.is_some() || args.current_task_tags.is_some() {
-            if self.session.current_task_state().is_none() {
+            if session.current_task_state().is_none() {
                 return Err(anyhow!(
                     "no active task is set; use prism_session with action `start_task` or provide currentTaskId"
                 ));
             }
-            self.session.update_current_task_metadata(
+            session.update_current_task_metadata(
                 args.current_task_description.map(Some),
                 args.current_task_tags,
             );
         }
 
         if args.clear_current_agent.unwrap_or(false) {
-            self.session.clear_current_agent();
+            session.clear_current_agent();
         } else if let Some(agent) = args.current_agent {
-            self.session
-                .set_current_agent(prism_ir::AgentId::new(agent));
+            session.set_current_agent(prism_ir::AgentId::new(agent));
         }
 
-        Ok(self.session_view_without_refresh())
+        Ok(self.session_view_without_refresh(session))
     }
 
     fn current_prism(&self) -> Arc<Prism> {
@@ -786,7 +814,7 @@ impl QueryHost {
             .unwrap_or(EpisodicMemorySnapshot {
                 entries: Vec::new(),
             });
-        self.session.notes.replace_from_snapshot(snapshot);
+        self.notes.replace_from_snapshot(snapshot);
         self.loaded_episodic_revision
             .store(revision, Ordering::Relaxed);
         Ok(true)
@@ -800,7 +828,7 @@ impl QueryHost {
         }
 
         let snapshot = workspace.load_inference_snapshot()?.unwrap_or_default();
-        self.session.inferred_edges.replace_from_snapshot(snapshot);
+        self.inferred_edges.replace_from_snapshot(snapshot);
         self.loaded_inference_revision
             .store(revision, Ordering::Relaxed);
         Ok(true)
@@ -833,14 +861,14 @@ impl QueryHost {
         let Some(workspace) = &self.workspace else {
             return Ok(());
         };
-        workspace.persist_episodic(&self.session.notes.snapshot())
+        workspace.persist_episodic(&self.notes.snapshot())
     }
 
     fn persist_inferred_edges(&self) -> Result<()> {
         let Some(workspace) = &self.workspace else {
             return Ok(());
         };
-        workspace.persist_inference(&self.session.inferred_edges.snapshot_persisted())
+        workspace.persist_inference(&self.inferred_edges.snapshot_persisted())
     }
 
     fn api_reference_markdown(&self) -> String {

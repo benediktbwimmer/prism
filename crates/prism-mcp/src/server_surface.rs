@@ -6,6 +6,7 @@ use rmcp::{
 };
 use serde::Serialize;
 use serde_json::json;
+use std::sync::Arc;
 use std::time::Instant;
 
 use crate::*;
@@ -67,7 +68,7 @@ impl PrismMcpServer {
         F: FnOnce() -> Result<T, anyhow::Error>,
         G: FnOnce(&T) -> MutationDashboardMeta,
     {
-        let run = self.host.begin_mutation_run(action);
+        let run = self.host.begin_mutation_run(self.session.as_ref(), action);
         let refresh_started = Instant::now();
         match refresh_policy {
             MutationRefreshPolicy::None => run.record_phase(
@@ -146,7 +147,9 @@ impl PrismMcpServer {
                 };
                 if meta.publish_task_update {
                     let publish_started = Instant::now();
-                    let _ = self.host.publish_dashboard_task_update();
+                    let _ = self
+                        .host
+                        .publish_dashboard_task_update(self.session.as_ref());
                     run.record_phase(
                         "mutation.publishTaskUpdate",
                         &json!({ "action": action }),
@@ -221,8 +224,11 @@ impl PrismMcpServer {
                     "session.start_task",
                     MutationRefreshPolicy::None,
                     || {
-                        self.host
-                            .start_task(args.description, args.tags.unwrap_or_default())
+                        self.host.start_task(
+                            self.session.as_ref(),
+                            args.description,
+                            args.tags.unwrap_or_default(),
+                        )
                     },
                     |task| {
                         let task_id = task.0.to_string();
@@ -230,7 +236,9 @@ impl PrismMcpServer {
                     },
                 )?;
                 let task_id = task.0.to_string();
-                let session = self.host.session_view_without_refresh();
+                let session = self
+                    .host
+                    .session_view_without_refresh(self.session.as_ref());
                 structured_tool_result_with_links(
                     PrismSessionMutationResult {
                         action: SessionMutationActionSchema::StartTask,
@@ -247,7 +255,10 @@ impl PrismMcpServer {
                 let session = self.execute_logged_mutation(
                     "session.configure",
                     MutationRefreshPolicy::PersistedOnly,
-                    || self.host.configure_session_without_refresh(args),
+                    || {
+                        self.host
+                            .configure_session_without_refresh(self.session.as_ref(), args)
+                    },
                     |session| {
                         MutationDashboardMeta::task(
                             session
@@ -293,7 +304,10 @@ impl PrismMcpServer {
                 let result = self.execute_logged_mutation(
                     "session.finish_task",
                     MutationRefreshPolicy::PersistedOnly,
-                    || self.host.finish_task_without_refresh(args),
+                    || {
+                        self.host
+                            .finish_task_without_refresh(self.session.as_ref(), args)
+                    },
                     |result| {
                         MutationDashboardMeta::task(
                             Some(result.task_id.clone()),
@@ -306,7 +320,9 @@ impl PrismMcpServer {
                         )
                     },
                 )?;
-                let session = self.host.session_view_without_refresh();
+                let session = self
+                    .host
+                    .session_view_without_refresh(self.session.as_ref());
                 structured_tool_result_with_links(
                     PrismSessionMutationResult {
                         action: SessionMutationActionSchema::FinishTask,
@@ -335,7 +351,10 @@ impl PrismMcpServer {
                 let result = self.execute_logged_mutation(
                     "session.abandon_task",
                     MutationRefreshPolicy::PersistedOnly,
-                    || self.host.abandon_task_without_refresh(args),
+                    || {
+                        self.host
+                            .abandon_task_without_refresh(self.session.as_ref(), args)
+                    },
                     |result| {
                         MutationDashboardMeta::task(
                             Some(result.task_id.clone()),
@@ -348,7 +367,9 @@ impl PrismMcpServer {
                         )
                     },
                 )?;
-                let session = self.host.session_view_without_refresh();
+                let session = self
+                    .host
+                    .session_view_without_refresh(self.session.as_ref());
                 structured_tool_result_with_links(
                     PrismSessionMutationResult {
                         action: SessionMutationActionSchema::AbandonTask,
@@ -390,7 +411,7 @@ impl PrismMcpServer {
         let language = args.language.unwrap_or(QueryLanguage::Ts);
         let envelope = self
             .host
-            .execute(&args.code, language)
+            .execute(Arc::clone(&self.session), &args.code, language)
             .map_err(map_query_error)?;
         structured_tool_result(envelope)
     }
@@ -415,7 +436,10 @@ impl PrismMcpServer {
                 let result = self.execute_logged_mutation(
                     "mutate.outcome",
                     MutationRefreshPolicy::PersistedOnly,
-                    || self.host.store_outcome_without_refresh(args),
+                    || {
+                        self.host
+                            .store_outcome_without_refresh(self.session.as_ref(), args)
+                    },
                     |result| {
                         MutationDashboardMeta::task(
                             Some(result.task_id.clone()),
@@ -440,7 +464,10 @@ impl PrismMcpServer {
                 let result = self.execute_logged_mutation(
                     "mutate.memory",
                     MutationRefreshPolicy::PersistedOnly,
-                    || self.host.store_memory_without_refresh(args),
+                    || {
+                        self.host
+                            .store_memory_without_refresh(self.session.as_ref(), args)
+                    },
                     |result| {
                         MutationDashboardMeta::task(
                             Some(result.task_id.clone()),
@@ -465,7 +492,10 @@ impl PrismMcpServer {
                 let result = self.execute_logged_mutation(
                     "mutate.validation_feedback",
                     MutationRefreshPolicy::PersistedOnly,
-                    || self.host.store_validation_feedback_without_refresh(args),
+                    || {
+                        self.host
+                            .store_validation_feedback_without_refresh(self.session.as_ref(), args)
+                    },
                     |result| {
                         MutationDashboardMeta::task(
                             Some(result.task_id.clone()),
@@ -487,7 +517,7 @@ impl PrismMcpServer {
                 let result = self.execute_logged_mutation(
                     "mutate.infer_edge",
                     MutationRefreshPolicy::None,
-                    || self.host.store_inferred_edge(args),
+                    || self.host.store_inferred_edge(self.session.as_ref(), args),
                     |result| {
                         MutationDashboardMeta::task(
                             Some(result.task_id.clone()),
@@ -512,7 +542,7 @@ impl PrismMcpServer {
                 let result = self.execute_logged_mutation(
                     "mutate.coordination",
                     MutationRefreshPolicy::None,
-                    || self.host.store_coordination(args),
+                    || self.host.store_coordination(self.session.as_ref(), args),
                     |result| {
                         MutationDashboardMeta::coordination(
                             result.event_ids.clone(),
@@ -530,7 +560,7 @@ impl PrismMcpServer {
                 let result = self.execute_logged_mutation(
                     "mutate.claim",
                     MutationRefreshPolicy::None,
-                    || self.host.store_claim(args),
+                    || self.host.store_claim(self.session.as_ref(), args),
                     |result| {
                         let mut result_ids = result.event_ids.clone();
                         if let Some(claim_id) = &result.claim_id {
@@ -549,7 +579,7 @@ impl PrismMcpServer {
                 let result = self.execute_logged_mutation(
                     "mutate.artifact",
                     MutationRefreshPolicy::None,
-                    || self.host.store_artifact(args),
+                    || self.host.store_artifact(self.session.as_ref(), args),
                     |result| {
                         let mut result_ids = result.event_ids.clone();
                         if let Some(artifact_id) = &result.artifact_id {
@@ -577,21 +607,24 @@ impl PrismMcpServer {
                     "mutate.test_ran",
                     MutationRefreshPolicy::PersistedOnly,
                     || {
-                        self.host.store_outcome_without_refresh(PrismOutcomeArgs {
-                            kind: OutcomeKindInput::TestRan,
-                            anchors: args.anchors,
-                            summary,
-                            result: Some(if args.passed {
-                                OutcomeResultInput::Success
-                            } else {
-                                OutcomeResultInput::Failure
-                            }),
-                            evidence: Some(vec![OutcomeEvidenceInput::Test {
-                                name: args.test,
-                                passed: args.passed,
-                            }]),
-                            task_id: args.task_id,
-                        })
+                        self.host.store_outcome_without_refresh(
+                            self.session.as_ref(),
+                            PrismOutcomeArgs {
+                                kind: OutcomeKindInput::TestRan,
+                                anchors: args.anchors,
+                                summary,
+                                result: Some(if args.passed {
+                                    OutcomeResultInput::Success
+                                } else {
+                                    OutcomeResultInput::Failure
+                                }),
+                                evidence: Some(vec![OutcomeEvidenceInput::Test {
+                                    name: args.test,
+                                    passed: args.passed,
+                                }]),
+                                task_id: args.task_id,
+                            },
+                        )
                     },
                     |result| {
                         MutationDashboardMeta::task(
@@ -621,14 +654,17 @@ impl PrismMcpServer {
                     "mutate.failure_observed",
                     MutationRefreshPolicy::PersistedOnly,
                     || {
-                        self.host.store_outcome_without_refresh(PrismOutcomeArgs {
-                            kind: OutcomeKindInput::FailureObserved,
-                            anchors: args.anchors,
-                            summary: args.summary,
-                            result: Some(OutcomeResultInput::Failure),
-                            evidence,
-                            task_id: args.task_id,
-                        })
+                        self.host.store_outcome_without_refresh(
+                            self.session.as_ref(),
+                            PrismOutcomeArgs {
+                                kind: OutcomeKindInput::FailureObserved,
+                                anchors: args.anchors,
+                                summary: args.summary,
+                                result: Some(OutcomeResultInput::Failure),
+                                evidence,
+                                task_id: args.task_id,
+                            },
+                        )
                     },
                     |result| {
                         MutationDashboardMeta::task(
@@ -655,14 +691,17 @@ impl PrismMcpServer {
                     "mutate.fix_validated",
                     MutationRefreshPolicy::PersistedOnly,
                     || {
-                        self.host.store_outcome_without_refresh(PrismOutcomeArgs {
-                            kind: OutcomeKindInput::FixValidated,
-                            anchors: args.anchors,
-                            summary: args.summary,
-                            result: Some(OutcomeResultInput::Success),
-                            evidence: None,
-                            task_id: args.task_id,
-                        })
+                        self.host.store_outcome_without_refresh(
+                            self.session.as_ref(),
+                            PrismOutcomeArgs {
+                                kind: OutcomeKindInput::FixValidated,
+                                anchors: args.anchors,
+                                summary: args.summary,
+                                result: Some(OutcomeResultInput::Success),
+                                evidence: None,
+                                task_id: args.task_id,
+                            },
+                        )
                     },
                     |result| {
                         MutationDashboardMeta::task(
@@ -688,7 +727,7 @@ impl PrismMcpServer {
                 let result = self.execute_logged_mutation(
                     "mutate.curator_promote_edge",
                     MutationRefreshPolicy::None,
-                    || self.host.promote_curator_edge(args),
+                    || self.host.promote_curator_edge(self.session.as_ref(), args),
                     |result| {
                         let mut result_ids = vec![result.job_id.clone()];
                         if let Some(memory_id) = &result.memory_id {
@@ -720,7 +759,10 @@ impl PrismMcpServer {
                 let result = self.execute_logged_mutation(
                     "mutate.curator_promote_memory",
                     MutationRefreshPolicy::None,
-                    || self.host.promote_curator_memory(args),
+                    || {
+                        self.host
+                            .promote_curator_memory(self.session.as_ref(), args)
+                    },
                     |result| {
                         let mut result_ids = vec![result.job_id.clone()];
                         if let Some(memory_id) = &result.memory_id {
@@ -752,7 +794,10 @@ impl PrismMcpServer {
                 let result = self.execute_logged_mutation(
                     "mutate.curator_reject_proposal",
                     MutationRefreshPolicy::None,
-                    || self.host.reject_curator_proposal(args),
+                    || {
+                        self.host
+                            .reject_curator_proposal(self.session.as_ref(), args)
+                    },
                     |result| MutationDashboardMeta::coordination(vec![result.job_id.clone()], 0),
                 )?;
                 structured_tool_result_with_links(
@@ -935,7 +980,7 @@ impl ServerHandler for PrismMcpServer {
         } else if base_uri == SESSION_URI {
             json_resource_contents_with_meta(
                 self.host
-                    .session_resource_value()
+                    .session_resource_value(self.session.as_ref())
                     .map_err(map_query_error)?,
                 request.uri.clone(),
                 Some(resource_meta(
@@ -947,7 +992,7 @@ impl ServerHandler for PrismMcpServer {
         } else if base_uri == ENTRYPOINTS_URI {
             json_resource_contents_with_meta(
                 self.host
-                    .entrypoints_resource_value(uri)
+                    .entrypoints_resource_value(Arc::clone(&self.session), uri)
                     .map_err(map_query_error)?,
                 request.uri.clone(),
                 Some(resource_meta(
@@ -959,7 +1004,7 @@ impl ServerHandler for PrismMcpServer {
         } else if let Some(query) = parse_search_resource_uri(uri) {
             json_resource_contents_with_meta(
                 self.host
-                    .search_resource_value(uri, &query)
+                    .search_resource_value(Arc::clone(&self.session), uri, &query)
                     .map_err(map_query_error)?,
                 request.uri.clone(),
                 Some(resource_meta(
@@ -971,7 +1016,7 @@ impl ServerHandler for PrismMcpServer {
         } else if let Some(id) = parse_symbol_resource_uri(uri)? {
             json_resource_contents_with_meta(
                 self.host
-                    .symbol_resource_value(&id)
+                    .symbol_resource_value(Arc::clone(&self.session), &id)
                     .map_err(map_query_error)?,
                 request.uri.clone(),
                 Some(resource_meta(
@@ -983,7 +1028,7 @@ impl ServerHandler for PrismMcpServer {
         } else if let Some(lineage) = parse_lineage_resource_uri(uri) {
             json_resource_contents_with_meta(
                 self.host
-                    .lineage_resource_value(uri, &lineage)
+                    .lineage_resource_value(self.session.as_ref(), uri, &lineage)
                     .map_err(map_query_error)?,
                 request.uri.clone(),
                 Some(resource_meta(
@@ -995,7 +1040,7 @@ impl ServerHandler for PrismMcpServer {
         } else if let Some(task_id) = parse_task_resource_uri(uri) {
             json_resource_contents_with_meta(
                 self.host
-                    .task_resource_value(uri, &task_id)
+                    .task_resource_value(self.session.as_ref(), uri, &task_id)
                     .map_err(map_query_error)?,
                 request.uri.clone(),
                 Some(resource_meta(
@@ -1019,7 +1064,7 @@ impl ServerHandler for PrismMcpServer {
         } else if let Some(memory_id) = parse_memory_resource_uri(uri) {
             json_resource_contents_with_meta(
                 self.host
-                    .memory_resource_value(&memory_id)
+                    .memory_resource_value(self.session.as_ref(), &memory_id)
                     .map_err(map_query_error)?,
                 request.uri.clone(),
                 Some(resource_meta(
@@ -1031,7 +1076,7 @@ impl ServerHandler for PrismMcpServer {
         } else if let Some(edge_id) = parse_edge_resource_uri(uri) {
             json_resource_contents_with_meta(
                 self.host
-                    .edge_resource_value(&edge_id)
+                    .edge_resource_value(self.session.as_ref(), &edge_id)
                     .map_err(map_query_error)?,
                 request.uri.clone(),
                 Some(resource_meta(

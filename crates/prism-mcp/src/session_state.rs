@@ -1,12 +1,12 @@
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
-use prism_agent::InferenceStore;
+use prism_agent::{InferenceStore, InferredEdgeRecord, InferredEdgeScope};
 use prism_ir::{AgentId, EventId, SessionId, TaskId};
 use prism_memory::SessionMemory;
-use prism_query::{Prism, QueryLimits};
+use prism_query::QueryLimits;
 
-use crate::{max_event_sequence, max_task_sequence, NEXT_SESSION_ID};
+use crate::NEXT_SESSION_ID;
 
 #[derive(Debug, Clone)]
 pub(crate) struct SessionTaskState {
@@ -17,29 +17,21 @@ pub(crate) struct SessionTaskState {
 
 pub(crate) struct SessionState {
     session_id: SessionId,
-    pub(crate) notes: SessionMemory,
-    pub(crate) inferred_edges: InferenceStore,
+    pub(crate) notes: Arc<SessionMemory>,
+    pub(crate) inferred_edges: SessionInferenceStore,
     current_task: Mutex<Option<SessionTaskState>>,
     current_agent: Mutex<Option<AgentId>>,
-    next_event: AtomicU64,
-    next_task: AtomicU64,
+    next_event: Arc<AtomicU64>,
+    next_task: Arc<AtomicU64>,
     limits: Mutex<QueryLimits>,
 }
 
 impl SessionState {
-    pub(crate) fn with_limits(
-        prism: &Prism,
-        notes: SessionMemory,
-        inferred_edges: InferenceStore,
-        limits: QueryLimits,
-    ) -> Self {
-        Self::with_snapshots(prism, notes, inferred_edges, limits)
-    }
-
-    pub(crate) fn with_snapshots(
-        prism: &Prism,
-        notes: SessionMemory,
-        inferred_edges: InferenceStore,
+    pub(crate) fn new(
+        notes: Arc<SessionMemory>,
+        inferred_edges: Arc<InferenceStore>,
+        next_event: Arc<AtomicU64>,
+        next_task: Arc<AtomicU64>,
         limits: QueryLimits,
     ) -> Self {
         Self {
@@ -48,11 +40,11 @@ impl SessionState {
                 NEXT_SESSION_ID.fetch_add(1, Ordering::Relaxed)
             )),
             notes,
-            inferred_edges,
+            inferred_edges: SessionInferenceStore::new(inferred_edges),
             current_task: Mutex::new(None),
             current_agent: Mutex::new(None),
-            next_event: AtomicU64::new(max_event_sequence(prism)),
-            next_task: AtomicU64::new(max_task_sequence(prism)),
+            next_event,
+            next_task,
             limits: Mutex::new(limits),
         }
     }
@@ -183,5 +175,60 @@ impl SessionState {
 
     pub(crate) fn set_limits(&self, limits: QueryLimits) {
         *self.limits.lock().expect("session limits lock poisoned") = limits;
+    }
+}
+
+pub(crate) struct SessionInferenceStore {
+    persisted: Arc<InferenceStore>,
+    session_only: InferenceStore,
+}
+
+impl SessionInferenceStore {
+    fn new(persisted: Arc<InferenceStore>) -> Self {
+        Self {
+            persisted,
+            session_only: InferenceStore::new(),
+        }
+    }
+
+    pub(crate) fn record(&self, id: &prism_agent::EdgeId) -> Option<InferredEdgeRecord> {
+        self.session_only
+            .record(id)
+            .or_else(|| self.persisted.record(id))
+    }
+
+    pub(crate) fn edges_from(
+        &self,
+        source: &prism_ir::NodeId,
+        kind: Option<prism_ir::EdgeKind>,
+    ) -> Vec<InferredEdgeRecord> {
+        let mut records = self.persisted.edges_from(source, kind);
+        records.extend(self.session_only.edges_from(source, kind));
+        records
+    }
+
+    pub(crate) fn edges_to(
+        &self,
+        target: &prism_ir::NodeId,
+        kind: Option<prism_ir::EdgeKind>,
+    ) -> Vec<InferredEdgeRecord> {
+        let mut records = self.persisted.edges_to(target, kind);
+        records.extend(self.session_only.edges_to(target, kind));
+        records
+    }
+
+    pub(crate) fn store_edge(
+        &self,
+        edge: prism_ir::Edge,
+        scope: InferredEdgeScope,
+        task: Option<TaskId>,
+        evidence: Vec<String>,
+    ) -> prism_agent::EdgeId {
+        match scope {
+            InferredEdgeScope::SessionOnly => {
+                self.session_only.store_edge(edge, scope, task, evidence)
+            }
+            _ => self.persisted.store_edge(edge, scope, task, evidence),
+        }
     }
 }

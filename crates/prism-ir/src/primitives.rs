@@ -12,6 +12,7 @@ pub struct FileId(pub u32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 pub enum Language {
     Rust,
+    Python,
     Markdown,
     Json,
     Toml,

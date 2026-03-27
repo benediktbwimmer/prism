@@ -423,8 +423,13 @@ fn rank_candidate(
     }
 
     if !query_lower.contains("test") && is_test_symbol(&symbol) {
-        score -= 45;
-        reasons.push("Test-only symbol de-prioritized for a non-test query.".to_string());
+        let penalty = if broad_identifier_query { 120 } else { 45 };
+        score -= penalty;
+        reasons.push(if broad_identifier_query {
+            "Test-only symbol strongly de-prioritized for a broad non-test query.".to_string()
+        } else {
+            "Test-only symbol de-prioritized for a non-test query.".to_string()
+        });
     }
     if broad_identifier_query
         && !query_lower.contains("test")
@@ -477,7 +482,7 @@ fn rank_candidate(
     }
 }
 
-fn is_broad_identifier_query(query: &str) -> bool {
+pub(crate) fn is_broad_identifier_query(query: &str) -> bool {
     let trimmed = query.trim();
     !trimmed.is_empty()
         && !trimmed.contains("::")
@@ -862,7 +867,15 @@ fn matches_module(symbol: &SymbolView, module: &str) -> bool {
 fn is_test_symbol(symbol: &SymbolView) -> bool {
     symbol.id.path.contains("::tests::")
         || symbol.file_path.as_deref().is_some_and(|path| {
-            path.contains("/tests/") || path.ends_with("_test.rs") || path.ends_with("_tests.rs")
+            path.contains("/tests/")
+                || path.ends_with("_test.rs")
+                || path.ends_with("_tests.rs")
+                || path.ends_with("_test.py")
+                || path.ends_with("_tests.py")
+                || path.ends_with("conftest.py")
+                || path.rsplit('/').next().is_some_and(|file_name| {
+                    file_name.starts_with("test_") && file_name.ends_with(".py")
+                })
         })
 }
 
@@ -880,6 +893,8 @@ fn is_replay_or_fixture_symbol(symbol: &SymbolView) -> bool {
         || file_path.contains("/testdata/")
         || file_path.ends_with("_fixture.rs")
         || file_path.ends_with("_fixtures.rs")
+        || file_path.ends_with("_fixture.py")
+        || file_path.ends_with("_fixtures.py")
 }
 
 fn is_query_replay_case_symbol(symbol: &SymbolView) -> bool {
@@ -891,6 +906,7 @@ fn is_query_replay_case_symbol(symbol: &SymbolView) -> bool {
         .to_ascii_lowercase();
     symbol_path.contains("query_replay_cases")
         || file_path.contains("query_replay_cases.rs")
+        || file_path.contains("query_replay_cases.py")
         || (file_path.contains("query_replay_cases") && symbol_path.contains("assert_"))
 }
 

@@ -22,35 +22,35 @@ use crate::file_queries::{
 use crate::runtime_views::{runtime_logs, runtime_status, runtime_timeline};
 use crate::text_search::search_text;
 use crate::{
-    ambiguity_diagnostic_data, apply_module_filter, artifact_risk_view, artifact_view,
-    blast_radius_view, blocker_view, change_impact_view, changed_files, changed_symbols,
-    claim_view, co_change_view, combined_parse_typescript_error, conflict_view, convert_anchors,
-    convert_node_id, coordination_task_view, current_timestamp, diff_for, drift_candidate_view,
-    edge_kind_label, edge_view, edit_slice_for_symbol, entrypoints_for, focused_block_for_symbol,
-    is_query_parse_error, js_runtime, lineage_view, merge_node_ids, merge_promoted_checks,
-    missing_return_hint, next_reads, owner_symbol_views_for_query, owner_symbol_views_for_target,
-    owner_views_for_target, parse_capability, parse_claim_mode, parse_event_actor,
-    parse_memory_kind, parse_node_kind, parse_outcome_kind, parse_outcome_result,
-    parse_typescript_error, plan_view, policy_violation_record_view, promoted_memory_entries,
-    promoted_summary_texts, promoted_validation_checks, query_diagnostic, rank_search_results,
-    read_context_view_cached, recent_change_context_view_cached, recent_patches, relations_view,
-    result_decode_error, runtime_or_serialization_error, scored_memory_view, search_queries,
-    source_excerpt_for_symbol, spec_cluster_view, spec_drift_explanation_view, symbol_for,
-    symbol_view, symbol_views_for_ids, task_intent_view, task_journal_view, task_risk_view,
-    task_validation_recipe_view, tool_catalog_views, tool_schema_view,
-    validation_context_view_cached, validation_recipe_view_with, where_used, AnchorListArgs,
-    CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs, CoordinationTaskTargetArgs,
-    CuratorJobArgs, CuratorJobsArgs, DiffForArgs, DiscoveryTargetArgs, EditSliceArgs,
-    FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs, MemoryOutcomeArgs,
-    MemoryRecallArgs, NodeIdInput, OwnerLookupArgs, PendingReviewsArgs, PlanTargetArgs,
-    PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs,
-    RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchAmbiguityContext, SearchArgs,
-    SearchTextArgs, SemanticContextCache, SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs,
-    SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode, TaskTargetArgs,
-    ToolNameArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
-    QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER,
-    USER_SNIPPET_MARKER,
+    ambiguity::is_broad_identifier_query, ambiguity_diagnostic_data, apply_module_filter,
+    artifact_risk_view, artifact_view, blast_radius_view, blocker_view, change_impact_view,
+    changed_files, changed_symbols, claim_view, co_change_view, combined_parse_typescript_error,
+    conflict_view, convert_anchors, convert_node_id, coordination_task_view, current_timestamp,
+    diff_for, drift_candidate_view, edge_kind_label, edge_view, edit_slice_for_symbol,
+    entrypoints_for, focused_block_for_symbol, is_query_parse_error, js_runtime, lineage_view,
+    merge_node_ids, merge_promoted_checks, missing_return_hint, next_reads,
+    owner_symbol_views_for_query, owner_symbol_views_for_target, owner_views_for_target,
+    parse_capability, parse_claim_mode, parse_event_actor, parse_memory_kind, parse_node_kind,
+    parse_outcome_kind, parse_outcome_result, parse_typescript_error, plan_view,
+    policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
+    promoted_validation_checks, query_diagnostic, rank_search_results, read_context_view_cached,
+    recent_change_context_view_cached, recent_patches, relations_view, result_decode_error,
+    runtime_or_serialization_error, scored_memory_view, search_queries, source_excerpt_for_symbol,
+    spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
+    task_intent_view, task_journal_view, task_risk_view, task_validation_recipe_view,
+    tool_catalog_views, tool_schema_view, validation_context_view_cached,
+    validation_recipe_view_with, where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs,
+    ChangedSymbolsArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, DiffForArgs,
+    DiscoveryTargetArgs, EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs,
+    LimitArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
+    PendingReviewsArgs, PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage,
+    QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs,
+    SearchAmbiguityContext, SearchArgs, SearchTextArgs, SemanticContextCache, SessionState,
+    SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs,
+    TaskJournalArgs, TaskScopeMode, TaskTargetArgs, ToolNameArgs, WhereUsedArgs,
+    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER,
+    QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -81,20 +81,34 @@ struct TypescriptAttempt {
 }
 
 impl QueryHost {
-    pub(crate) fn execute(&self, code: &str, language: QueryLanguage) -> Result<QueryEnvelope> {
+    pub(crate) fn execute(
+        &self,
+        session: Arc<SessionState>,
+        code: &str,
+        language: QueryLanguage,
+    ) -> Result<QueryEnvelope> {
         match language {
-            QueryLanguage::Ts => self.execute_typescript(code),
+            QueryLanguage::Ts => self.execute_typescript(session, code),
         }
     }
 
     #[cfg(test)]
-    pub(crate) fn symbol_query(&self, query: &str) -> Result<QueryEnvelope> {
-        let query_run = self.begin_query_run("symbolQuery", format!("symbol({query})"));
+    pub(crate) fn symbol_query(
+        &self,
+        session: Arc<SessionState>,
+        query: &str,
+    ) -> Result<QueryEnvelope> {
+        let query_run =
+            self.begin_query_run(session.as_ref(), "symbolQuery", format!("symbol({query})"));
         let mut execution = None;
         match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize)> {
             self.refresh_workspace()?;
-            let created =
-                QueryExecution::new(self.clone(), self.current_prism(), query_run.clone());
+            let created = QueryExecution::new(
+                self.clone(),
+                Arc::clone(&session),
+                self.current_prism(),
+                query_run.clone(),
+            );
             execution = Some(created.clone());
             let result = serde_json::to_value(created.best_symbol(query)?)?;
             let diagnostics = created.diagnostics();
@@ -129,13 +143,25 @@ impl QueryHost {
     }
 
     #[cfg(test)]
-    pub(crate) fn search_query(&self, args: SearchArgs) -> Result<QueryEnvelope> {
-        let query_run = self.begin_query_run("searchQuery", format!("search({})", args.query));
+    pub(crate) fn search_query(
+        &self,
+        session: Arc<SessionState>,
+        args: SearchArgs,
+    ) -> Result<QueryEnvelope> {
+        let query_run = self.begin_query_run(
+            session.as_ref(),
+            "searchQuery",
+            format!("search({})", args.query),
+        );
         let mut execution = None;
         match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize)> {
             self.refresh_workspace()?;
-            let created =
-                QueryExecution::new(self.clone(), self.current_prism(), query_run.clone());
+            let created = QueryExecution::new(
+                self.clone(),
+                Arc::clone(&session),
+                self.current_prism(),
+                query_run.clone(),
+            );
             execution = Some(created.clone());
             let result = serde_json::to_value(created.search(args)?)?;
             let diagnostics = created.diagnostics();
@@ -169,8 +195,8 @@ impl QueryHost {
         }
     }
 
-    fn execute_typescript(&self, code: &str) -> Result<QueryEnvelope> {
-        let query_run = self.begin_query_run("typescript", code);
+    fn execute_typescript(&self, session: Arc<SessionState>, code: &str) -> Result<QueryEnvelope> {
+        let query_run = self.begin_query_run(session.as_ref(), "typescript", code);
         let mut execution = None;
         match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize, bool)> {
             let refresh_started = Instant::now();
@@ -189,6 +215,7 @@ impl QueryHost {
                 None,
             );
             let mut statement_attempt = match self.execute_typescript_attempt(
+                Arc::clone(&session),
                 code,
                 TsSnippetMode::StatementBody,
                 query_run.clone(),
@@ -196,6 +223,7 @@ impl QueryHost {
                 Ok(attempt) => attempt,
                 Err(statement_error) => {
                     match self.execute_typescript_attempt(
+                        Arc::clone(&session),
                         code,
                         TsSnippetMode::ImplicitExpression,
                         query_run.clone(),
@@ -220,6 +248,7 @@ impl QueryHost {
                 && missing_return_hint(code, &statement_attempt.result)
             {
                 if let Ok(expression_attempt) = self.execute_typescript_attempt(
+                    Arc::clone(&session),
                     code,
                     TsSnippetMode::ImplicitExpression,
                     query_run.clone(),
@@ -285,6 +314,7 @@ impl QueryHost {
 
     fn execute_typescript_attempt(
         &self,
+        session: Arc<SessionState>,
         code: &str,
         mode: TsSnippetMode,
         query_run: QueryRun,
@@ -327,7 +357,12 @@ impl QueryHost {
                 return Err(error);
             }
         };
-        let execution = QueryExecution::new(self.clone(), self.current_prism(), query_run);
+        let execution = QueryExecution::new(
+            self.clone(),
+            Arc::clone(&session),
+            self.current_prism(),
+            query_run,
+        );
         let worker_roundtrip_started = Instant::now();
         let worker_reply = match self.worker_pool.execute(transpiled, execution.clone()) {
             Ok(reply) => reply,
@@ -427,7 +462,7 @@ impl QueryHost {
             }
         };
         let mut output_cap_hit = false;
-        let limits = self.session.limits();
+        let limits = session.limits();
         if raw_result.len() > limits.max_output_json_bytes {
             execution.push_diagnostic(
                 "result_truncated",
@@ -480,6 +515,7 @@ fn prepare_typescript_query(code: &str, mode: TsSnippetMode) -> PreparedTypescri
 #[derive(Clone)]
 pub(crate) struct QueryExecution {
     host: QueryHost,
+    session: Arc<SessionState>,
     prism: Arc<Prism>,
     query_run: QueryRun,
     diagnostics: Arc<Mutex<Vec<QueryDiagnostic>>>,
@@ -487,9 +523,15 @@ pub(crate) struct QueryExecution {
 }
 
 impl QueryExecution {
-    pub(crate) fn new(host: QueryHost, prism: Arc<Prism>, query_run: QueryRun) -> Self {
+    pub(crate) fn new(
+        host: QueryHost,
+        session: Arc<SessionState>,
+        prism: Arc<Prism>,
+        query_run: QueryRun,
+    ) -> Self {
         Self {
             host,
+            session,
             prism,
             query_run,
             diagnostics: Arc::new(Mutex::new(Vec::new())),
@@ -757,7 +799,7 @@ impl QueryExecution {
                             .unwrap_or_default();
                         let mut view = change_impact_view(impact);
                         view.promoted_summaries = promoted_summary_texts(
-                            self.host.session.as_ref(),
+                            self.session.as_ref(),
                             self.prism.as_ref(),
                             &anchors,
                         );
@@ -780,7 +822,7 @@ impl QueryExecution {
                             merge_promoted_checks(
                                 &mut recipe.scored_checks,
                                 promoted_validation_checks(
-                                    self.host.session.as_ref(),
+                                    self.session.as_ref(),
                                     self.prism.as_ref(),
                                     &anchors,
                                 ),
@@ -809,12 +851,12 @@ impl QueryExecution {
                                 .map(|task| task.anchors.clone())
                                 .unwrap_or_default();
                             let promoted_summaries = promoted_summary_texts(
-                                self.host.session.as_ref(),
+                                self.session.as_ref(),
                                 self.prism.as_ref(),
                                 &anchors,
                             );
                             let promoted_risk_boost = promoted_memory_entries(
-                                self.host.session.as_ref(),
+                                self.session.as_ref(),
                                 self.prism.as_ref(),
                                 &anchors,
                                 "risk_summary",
@@ -870,12 +912,12 @@ impl QueryExecution {
                                 .map(|artifact| artifact.anchors)
                                 .unwrap_or_default();
                             let promoted_summaries = promoted_summary_texts(
-                                self.host.session.as_ref(),
+                                self.session.as_ref(),
                                 self.prism.as_ref(),
                                 &anchors,
                             );
                             let promoted_risk_boost = promoted_memory_entries(
-                                self.host.session.as_ref(),
+                                self.session.as_ref(),
                                 self.prism.as_ref(),
                                 &anchors,
                                 "risk_summary",
@@ -914,7 +956,7 @@ impl QueryExecution {
                 Ok(serde_json::to_value(
                     self.prism
                         .simulate_claim(
-                            &self.host.session.session_id(),
+                            &self.session.session_id(),
                             &convert_anchors(args.anchors)?,
                             parse_capability(&args.capability)?,
                             args.mode.as_deref().map(parse_claim_mode).transpose()?,
@@ -1005,7 +1047,7 @@ impl QueryExecution {
                 let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 Ok(serde_json::to_value(relations_view(
                     self.prism.as_ref(),
-                    self.host.session.as_ref(),
+                    self.session.as_ref(),
                     &id,
                 )?)?)
             }
@@ -1044,7 +1086,7 @@ impl QueryExecution {
                 let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 Ok(serde_json::to_value(blast_radius_view(
                     self.prism.as_ref(),
-                    self.host.session.as_ref(),
+                    self.session.as_ref(),
                     &id,
                 ))?)
             }
@@ -1053,7 +1095,7 @@ impl QueryExecution {
                 let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 Ok(serde_json::to_value(validation_recipe_view_with(
                     self.prism.as_ref(),
-                    self.host.session.as_ref(),
+                    self.session.as_ref(),
                     &id,
                 ))?)
             }
@@ -1088,7 +1130,7 @@ impl QueryExecution {
                 let applied = args
                     .limit
                     .unwrap_or(INSIGHT_LIMIT)
-                    .min(self.host.session.limits().max_result_nodes);
+                    .min(self.session.limits().max_result_nodes);
                 Ok(serde_json::to_value(next_reads(
                     self.prism.as_ref(),
                     &id,
@@ -1101,10 +1143,10 @@ impl QueryExecution {
                 let applied = args
                     .limit
                     .unwrap_or(INSIGHT_LIMIT)
-                    .min(self.host.session.limits().max_result_nodes);
+                    .min(self.session.limits().max_result_nodes);
                 Ok(serde_json::to_value(where_used(
                     self.prism.as_ref(),
-                    self.host.session.as_ref(),
+                    self.session.as_ref(),
                     &id,
                     args.mode.as_deref(),
                     applied,
@@ -1116,10 +1158,10 @@ impl QueryExecution {
                 let applied = args
                     .limit
                     .unwrap_or(INSIGHT_LIMIT)
-                    .min(self.host.session.limits().max_result_nodes);
+                    .min(self.session.limits().max_result_nodes);
                 Ok(serde_json::to_value(entrypoints_for(
                     self.prism.as_ref(),
-                    self.host.session.as_ref(),
+                    self.session.as_ref(),
                     &id,
                     applied,
                 )?)?)
@@ -1136,12 +1178,7 @@ impl QueryExecution {
                 let args: ImplementationTargetArgs = serde_json::from_value(args)?;
                 let id = self.resolve_target_id(args.id, args.lineage_id)?;
                 if args.mode.as_deref() == Some("owners") {
-                    let limit = self
-                        .host
-                        .session
-                        .limits()
-                        .max_result_nodes
-                        .min(INSIGHT_LIMIT);
+                    let limit = self.session.limits().max_result_nodes.min(INSIGHT_LIMIT);
                     Ok(serde_json::to_value(owner_symbol_views_for_target(
                         self.prism.as_ref(),
                         &id,
@@ -1181,7 +1218,7 @@ impl QueryExecution {
                 let applied = args
                     .limit
                     .unwrap_or(INSIGHT_LIMIT)
-                    .min(self.host.session.limits().max_result_nodes);
+                    .min(self.session.limits().max_result_nodes);
                 Ok(serde_json::to_value(owner_views_for_target(
                     self.prism.as_ref(),
                     &id,
@@ -1260,7 +1297,7 @@ impl QueryExecution {
 
     pub(crate) fn best_symbol(&self, query: &str) -> Result<Option<SymbolView>> {
         let mut matches = self.symbols(query)?;
-        let current_task_id = self.host.session.current_task().map(|task| task.0);
+        let current_task_id = self.session.current_task().map(|task| task.0);
         let ambiguity = rank_search_results(
             self.prism.as_ref(),
             &mut matches,
@@ -1335,17 +1372,29 @@ impl QueryExecution {
         let _include_inferred = args.include_inferred.unwrap_or(true);
         let kind = args.kind.as_deref().map(parse_node_kind).transpose()?;
         let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
-        let limits = self.host.session.limits();
+        let limits = self.session.limits();
         let applied = requested.min(limits.max_result_nodes);
         let path_mode = parse_path_mode(args.path_mode.as_deref())?;
         let explicit_task_id = args.task_id.clone();
-        let current_task_id = self.host.session.current_task().map(|task| task.0);
+        let current_task_id = self.session.current_task().map(|task| task.0);
         let effective_task_id = explicit_task_id.as_deref().or(current_task_id.as_deref());
+        let strategy = args.strategy.as_deref().unwrap_or("direct");
         let exact_structured =
             args.structured_path.is_some() || args.top_level_only.unwrap_or(false);
         let needs_post_filter = path_mode == SearchPathMode::Exact || exact_structured;
+        let broad_identifier_overfetch = strategy == "direct"
+            && kind.is_none()
+            && args.path.is_none()
+            && args.module.is_none()
+            && explicit_task_id.is_none()
+            && is_broad_identifier_query(&args.query);
         let backend_limit = if needs_post_filter {
             limits.max_result_nodes.saturating_add(1)
+        } else if broad_identifier_overfetch {
+            applied
+                .saturating_mul(8)
+                .max(32)
+                .min(limits.max_result_nodes.saturating_add(1))
         } else {
             applied.saturating_add(1)
         };
@@ -1366,7 +1415,6 @@ impl QueryExecution {
             );
         }
 
-        let strategy = args.strategy.as_deref().unwrap_or("direct");
         let prefer_behavioral_owners = args.prefer_behavioral_owners.unwrap_or(false);
         let mut results = if strategy == "behavioral" {
             owner_symbol_views_for_query(
@@ -1470,11 +1518,7 @@ impl QueryExecution {
     }
 
     pub(crate) fn search_text(&self, args: SearchTextArgs) -> Result<Vec<TextSearchMatchView>> {
-        let outcome = search_text(
-            self.host(),
-            args,
-            self.host.session.limits().max_result_nodes,
-        )?;
+        let outcome = search_text(self.host(), args, self.session.limits().max_result_nodes)?;
         if outcome.requested > outcome.applied {
             self.push_diagnostic(
                 "result_truncated",
@@ -1507,7 +1551,7 @@ impl QueryExecution {
 
     pub(crate) fn changed_files(&self, args: ChangedFilesArgs) -> Result<Vec<ChangedFileView>> {
         let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
-        let applied = requested.min(self.host.session.limits().max_result_nodes);
+        let applied = requested.min(self.session.limits().max_result_nodes);
         let mut results = changed_files(
             self.prism.as_ref(),
             args.task_id.as_ref(),
@@ -1551,7 +1595,7 @@ impl QueryExecution {
         args: ChangedSymbolsArgs,
     ) -> Result<Vec<ChangedSymbolView>> {
         let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
-        let applied = requested.min(self.host.session.limits().max_result_nodes);
+        let applied = requested.min(self.session.limits().max_result_nodes);
         let mut results = changed_symbols(
             self.prism.as_ref(),
             &args.path,
@@ -1593,7 +1637,7 @@ impl QueryExecution {
 
     pub(crate) fn recent_patches(&self, args: RecentPatchesArgs) -> Result<Vec<PatchEventView>> {
         let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
-        let applied = requested.min(self.host.session.limits().max_result_nodes);
+        let applied = requested.min(self.session.limits().max_result_nodes);
         let target = args.target.map(convert_node_id).transpose()?;
         let mut results = recent_patches(
             self.prism.as_ref(),
@@ -1636,7 +1680,7 @@ impl QueryExecution {
 
     pub(crate) fn diff_for(&self, args: DiffForArgs) -> Result<Vec<DiffHunkView>> {
         let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
-        let applied = requested.min(self.host.session.limits().max_result_nodes);
+        let applied = requested.min(self.session.limits().max_result_nodes);
         let requested_id = args.id.map(convert_node_id).transpose()?;
         let requested_lineage = args.lineage_id.map(LineageId::new);
 
@@ -1738,7 +1782,7 @@ impl QueryExecution {
 
     pub(crate) fn runtime_logs(&self, args: RuntimeLogArgs) -> Result<Vec<RuntimeLogEventView>> {
         let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
-        let applied = requested.min(self.host.session.limits().max_result_nodes);
+        let applied = requested.min(self.session.limits().max_result_nodes);
         let mut results = runtime_logs(
             &self.host,
             RuntimeLogArgs {
@@ -1771,7 +1815,7 @@ impl QueryExecution {
         args: RuntimeTimelineArgs,
     ) -> Result<Vec<RuntimeLogEventView>> {
         let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
-        let applied = requested.min(self.host.session.limits().max_result_nodes);
+        let applied = requested.min(self.session.limits().max_result_nodes);
         let mut results = runtime_timeline(
             &self.host,
             RuntimeTimelineArgs {
@@ -1812,7 +1856,7 @@ impl QueryExecution {
 
     pub(crate) fn task_changes(&self, args: TaskChangesArgs) -> Result<Vec<PatchEventView>> {
         let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
-        let applied = requested.min(self.host.session.limits().max_result_nodes);
+        let applied = requested.min(self.session.limits().max_result_nodes);
         let mut results = recent_patches(
             self.prism.as_ref(),
             None,
@@ -1859,7 +1903,7 @@ impl QueryExecution {
     }
 
     pub(crate) fn entrypoints(&self) -> Result<Vec<SymbolView>> {
-        let limits = self.host.session.limits();
+        let limits = self.session.limits();
         let mut results = self.symbols_from(self.prism.entrypoints())?;
         if results.len() > limits.max_result_nodes {
             results.truncate(limits.max_result_nodes);
@@ -1878,7 +1922,7 @@ impl QueryExecution {
     }
 
     fn call_graph(&self, args: CallGraphArgs) -> Result<SubgraphView> {
-        let limits = self.host.session.limits();
+        let limits = self.session.limits();
         let id = self.resolve_target_id(args.id, args.lineage_id)?;
         let requested = args.depth.unwrap_or(DEFAULT_CALL_GRAPH_DEPTH);
         let applied = requested.min(limits.max_call_graph_depth);
@@ -1904,7 +1948,6 @@ impl QueryExecution {
                 continue;
             }
             for record in self
-                .host
                 .session
                 .inferred_edges
                 .edges_from(&current, Some(EdgeKind::Calls))
@@ -1963,7 +2006,7 @@ impl QueryExecution {
 
     fn memory_recall(&self, args: MemoryRecallArgs) -> Result<Vec<ScoredMemoryView>> {
         let requested = args.limit.unwrap_or(5);
-        let limits = self.host.session.limits();
+        let limits = self.session.limits();
         let applied = requested.min(limits.max_result_nodes);
         if requested > limits.max_result_nodes {
             self.push_diagnostic(
@@ -1996,7 +2039,6 @@ impl QueryExecution {
             })
             .transpose()?;
         let results = self
-            .host
             .session
             .notes
             .recall(&RecallQuery {
@@ -2017,7 +2059,7 @@ impl QueryExecution {
         let memory_requested = args
             .memory_limit
             .unwrap_or(DEFAULT_TASK_JOURNAL_MEMORY_LIMIT);
-        let limits = self.host.session.limits();
+        let limits = self.session.limits();
         let event_limit = event_requested.min(limits.max_result_nodes);
         let memory_limit = memory_requested.min(limits.max_result_nodes);
 
@@ -2051,7 +2093,7 @@ impl QueryExecution {
         }
 
         let journal = task_journal_view(
-            self.host.session.as_ref(),
+            self.session.as_ref(),
             self.prism.as_ref(),
             &args.task_id,
             None,
@@ -2081,12 +2123,7 @@ impl QueryExecution {
             .semantic_context_cache
             .lock()
             .expect("semantic context cache lock poisoned");
-        read_context_view_cached(
-            self.prism.as_ref(),
-            self.host.session.as_ref(),
-            &mut cache,
-            id,
-        )
+        read_context_view_cached(self.prism.as_ref(), self.session.as_ref(), &mut cache, id)
     }
 
     fn edit_context(&self, id: &NodeId) -> Result<EditContextView> {
@@ -2094,12 +2131,7 @@ impl QueryExecution {
             .semantic_context_cache
             .lock()
             .expect("semantic context cache lock poisoned");
-        crate::edit_context_view_cached(
-            self.prism.as_ref(),
-            self.host.session.as_ref(),
-            &mut cache,
-            id,
-        )
+        crate::edit_context_view_cached(self.prism.as_ref(), self.session.as_ref(), &mut cache, id)
     }
 
     fn validation_context(&self, id: &NodeId) -> Result<ValidationContextView> {
@@ -2107,12 +2139,7 @@ impl QueryExecution {
             .semantic_context_cache
             .lock()
             .expect("semantic context cache lock poisoned");
-        validation_context_view_cached(
-            self.prism.as_ref(),
-            self.host.session.as_ref(),
-            &mut cache,
-            id,
-        )
+        validation_context_view_cached(self.prism.as_ref(), self.session.as_ref(), &mut cache, id)
     }
 
     fn recent_change_context(&self, id: &NodeId) -> Result<RecentChangeContextView> {
@@ -2122,7 +2149,7 @@ impl QueryExecution {
             .expect("semantic context cache lock poisoned");
         recent_change_context_view_cached(
             self.prism.as_ref(),
-            self.host.session.as_ref(),
+            self.session.as_ref(),
             &mut cache,
             id,
         )
@@ -2135,7 +2162,7 @@ impl QueryExecution {
             .expect("semantic context cache lock poisoned");
         crate::discovery_bundle_view_cached_with_trace(
             self.prism.as_ref(),
-            self.host.session.as_ref(),
+            self.session.as_ref(),
             &mut cache,
             Some(self.query_run.clone()),
             id,
@@ -2144,7 +2171,7 @@ impl QueryExecution {
 
     fn memory_outcomes(&self, args: MemoryOutcomeArgs) -> Result<Vec<prism_memory::OutcomeEvent>> {
         let requested = args.limit.unwrap_or(10);
-        let limits = self.host.session.limits();
+        let limits = self.session.limits();
         let applied = requested.min(limits.max_result_nodes);
         if requested > limits.max_result_nodes {
             self.push_diagnostic(

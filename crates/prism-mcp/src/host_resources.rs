@@ -3,6 +3,7 @@ use prism_agent::EdgeId;
 use prism_ir::{AnchorRef, EventId, LineageId, NodeId, TaskId};
 use prism_js::LineageEventView;
 use prism_memory::MemoryId;
+use std::sync::Arc;
 
 use crate::{
     anchor_resource_view_links, capabilities_resource_value, capabilities_resource_view_link,
@@ -22,31 +23,26 @@ use crate::{
     CoordinationFeaturesView, EdgeResourcePayload, EntrypointsResourcePayload,
     EventResourcePayload, FeatureFlagsView, InferredEdgeRecordView, LineageResourcePayload,
     MemoryResourcePayload, QueryExecution, QueryHost, ResourceSchemaCatalogPayload, SearchArgs,
-    SearchResourcePayload, SessionLimitsView, SessionResourcePayload, SessionTaskView, SessionView,
-    SymbolResourcePayload, TaskResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
+    SearchResourcePayload, SessionLimitsView, SessionResourcePayload, SessionState,
+    SessionTaskView, SessionView, SymbolResourcePayload, TaskResourcePayload,
+    DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
 };
 
 impl QueryHost {
-    pub(crate) fn session_view_without_refresh(&self) -> SessionView {
-        let limits = self.session.limits();
+    pub(crate) fn session_view_without_refresh(&self, session: &SessionState) -> SessionView {
+        let limits = session.limits();
         SessionView {
             workspace_root: self
                 .workspace
                 .as_ref()
                 .map(|workspace| workspace.root().display().to_string()),
-            current_task: self
-                .session
-                .current_task_state()
-                .map(|task| SessionTaskView {
-                    task_id: task.id.0.to_string(),
-                    description: task.description,
-                    tags: task.tags,
-                }),
-            current_agent: self
-                .session
-                .current_agent()
-                .map(|agent| agent.0.to_string()),
+            current_task: session.current_task_state().map(|task| SessionTaskView {
+                task_id: task.id.0.to_string(),
+                description: task.description,
+                tags: task.tags,
+            }),
+            current_agent: session.current_agent().map(|agent| agent.0.to_string()),
             limits: SessionLimitsView {
                 max_result_nodes: limits.max_result_nodes,
                 max_call_graph_depth: limits.max_call_graph_depth,
@@ -64,14 +60,17 @@ impl QueryHost {
         }
     }
 
-    pub(crate) fn session_view(&self) -> Result<SessionView> {
-        self.refresh_workspace()?;
-        Ok(self.session_view_without_refresh())
+    pub(crate) fn session_view(&self, session: &SessionState) -> Result<SessionView> {
+        self.refresh_workspace_for_query()?;
+        Ok(self.session_view_without_refresh(session))
     }
 
-    pub(crate) fn session_resource_value(&self) -> Result<SessionResourcePayload> {
+    pub(crate) fn session_resource_value(
+        &self,
+        session: &SessionState,
+    ) -> Result<SessionResourcePayload> {
         let schema_uri = schema_resource_uri("session");
-        let session = self.session_view()?;
+        let session = self.session_view(session)?;
         let mut related_resources = vec![
             capabilities_resource_view_link(),
             session_resource_view_link(),
@@ -132,10 +131,14 @@ impl QueryHost {
         tool_schemas_resource_value()
     }
 
-    pub(crate) fn task_metadata(&self, task_id: &TaskId) -> (Option<String>, Vec<String>) {
+    pub(crate) fn task_metadata(
+        &self,
+        session: &SessionState,
+        task_id: &TaskId,
+    ) -> (Option<String>, Vec<String>) {
         let replay = self.current_prism().resume_task(task_id);
         derive_task_metadata(
-            self.session.current_task_state().as_ref(),
+            session.current_task_state().as_ref(),
             task_id,
             &replay.events,
             None,
@@ -144,22 +147,24 @@ impl QueryHost {
 
     pub(crate) fn entrypoints_resource_value(
         &self,
+        session: Arc<SessionState>,
         uri: &str,
     ) -> Result<EntrypointsResourcePayload> {
-        self.refresh_workspace()?;
+        self.refresh_workspace_for_query()?;
         let schema_uri = schema_resource_uri("entrypoints");
         let prism = self.current_prism();
         let execution = QueryExecution::new(
             self.clone(),
+            Arc::clone(&session),
             prism,
-            self.begin_query_run("resource", "prism://entrypoints"),
+            self.begin_query_run(session.as_ref(), "resource", "prism://entrypoints"),
         );
         let paged = paginate_items(
             execution.entrypoints()?,
             parse_resource_page(
                 uri,
                 DEFAULT_RESOURCE_PAGE_LIMIT,
-                self.session.limits().max_result_nodes,
+                session.limits().max_result_nodes,
             )?,
         );
         let mut related_resources = vec![
@@ -184,18 +189,27 @@ impl QueryHost {
         })
     }
 
-    pub(crate) fn symbol_resource_value(&self, id: &NodeId) -> Result<SymbolResourcePayload> {
-        self.refresh_workspace()?;
+    pub(crate) fn symbol_resource_value(
+        &self,
+        session: Arc<SessionState>,
+        id: &NodeId,
+    ) -> Result<SymbolResourcePayload> {
+        self.refresh_workspace_for_query()?;
         let schema_uri = schema_resource_uri("symbol");
         let prism = self.current_prism();
         let execution = QueryExecution::new(
             self.clone(),
+            Arc::clone(&session),
             prism.clone(),
-            self.begin_query_run("resource", format!("prism://symbol/{}", id.path)),
+            self.begin_query_run(
+                session.as_ref(),
+                "resource",
+                format!("prism://symbol/{}", id.path),
+            ),
         );
         let symbol = symbol_for(prism.as_ref(), id)?;
         let symbol = symbol_view(prism.as_ref(), &symbol)?;
-        let mut discovery = discovery_bundle_view(prism.as_ref(), self.session.as_ref(), id)?;
+        let mut discovery = discovery_bundle_view(prism.as_ref(), session.as_ref(), id)?;
         compact_discovery_bundle_candidate_excerpts(prism.as_ref(), &mut discovery)?;
         let suggested_reads = discovery.suggested_reads.clone();
         let read_context = discovery.read_context.clone();
@@ -256,16 +270,22 @@ impl QueryHost {
 
     pub(crate) fn search_resource_value(
         &self,
+        session: Arc<SessionState>,
         uri: &str,
         query: &str,
     ) -> Result<SearchResourcePayload> {
-        self.refresh_workspace()?;
+        self.refresh_workspace_for_query()?;
         let schema_uri = schema_resource_uri("search");
         let prism = self.current_prism();
         let execution = QueryExecution::new(
             self.clone(),
+            Arc::clone(&session),
             prism.clone(),
-            self.begin_query_run("resource", format!("prism://search/{query}")),
+            self.begin_query_run(
+                session.as_ref(),
+                "resource",
+                format!("prism://search/{query}"),
+            ),
         );
         let strategy = parse_resource_query_param(uri, "strategy")
             .filter(|value| !value.is_empty())
@@ -339,7 +359,7 @@ impl QueryHost {
         let paged = paginate_items(
             execution.search(SearchArgs {
                 query: query.to_string(),
-                limit: Some(self.session.limits().max_result_nodes),
+                limit: Some(session.limits().max_result_nodes),
                 kind: kind.clone(),
                 path: path.clone(),
                 module: module.clone(),
@@ -357,7 +377,7 @@ impl QueryHost {
             parse_resource_page(
                 uri,
                 DEFAULT_RESOURCE_PAGE_LIMIT,
-                self.session.limits().max_result_nodes,
+                session.limits().max_result_nodes,
             )?,
         );
         let discovery = paged
@@ -369,7 +389,7 @@ impl QueryHost {
                     symbol.id.path.clone(),
                     symbol.kind.clone(),
                 );
-                let mut bundle = discovery_bundle_view(prism.as_ref(), self.session.as_ref(), &id)?;
+                let mut bundle = discovery_bundle_view(prism.as_ref(), session.as_ref(), &id)?;
                 compact_discovery_bundle_candidate_excerpts(prism.as_ref(), &mut bundle)?;
                 Ok::<_, anyhow::Error>(bundle)
             })
@@ -443,10 +463,11 @@ impl QueryHost {
 
     pub(crate) fn lineage_resource_value(
         &self,
+        session: &SessionState,
         uri: &str,
         lineage: &LineageId,
     ) -> Result<LineageResourcePayload> {
-        self.refresh_workspace()?;
+        self.refresh_workspace_for_query()?;
         let schema_uri = schema_resource_uri("lineage");
         let prism = self.current_prism();
         let history = prism.history_snapshot();
@@ -462,9 +483,8 @@ impl QueryHost {
                 .then_with(|| left.path.cmp(&right.path))
                 .then_with(|| left.kind.to_string().cmp(&right.kind.to_string()))
         });
-        let current_nodes_truncated =
-            current_node_ids.len() > self.session.limits().max_result_nodes;
-        current_node_ids.truncate(self.session.limits().max_result_nodes);
+        let current_nodes_truncated = current_node_ids.len() > session.limits().max_result_nodes;
+        current_node_ids.truncate(session.limits().max_result_nodes);
         let current_nodes = symbol_views_for_ids(prism.as_ref(), current_node_ids.clone())?;
         let co_change_neighbors = current_node_ids
             .first()
@@ -496,7 +516,7 @@ impl QueryHost {
             parse_resource_page(
                 uri,
                 DEFAULT_RESOURCE_PAGE_LIMIT,
-                self.session.limits().max_result_nodes,
+                session.limits().max_result_nodes,
             )?,
         );
         let mut related_resources = vec![
@@ -524,15 +544,16 @@ impl QueryHost {
 
     pub(crate) fn task_resource_value(
         &self,
+        session: &SessionState,
         uri: &str,
         task_id: &TaskId,
     ) -> Result<TaskResourcePayload> {
-        self.refresh_workspace()?;
+        self.refresh_workspace_for_query()?;
         let schema_uri = schema_resource_uri("task");
         let prism = self.current_prism();
         let replay = prism.resume_task(task_id);
         let journal = task_journal_view(
-            self.session.as_ref(),
+            session,
             prism.as_ref(),
             task_id,
             None,
@@ -544,7 +565,7 @@ impl QueryHost {
             parse_resource_page(
                 uri,
                 DEFAULT_RESOURCE_PAGE_LIMIT,
-                self.session.limits().max_result_nodes,
+                session.limits().max_result_nodes,
             )?,
         );
         let mut related_resources = vec![
@@ -578,7 +599,7 @@ impl QueryHost {
     }
 
     pub(crate) fn event_resource_value(&self, event_id: &EventId) -> Result<EventResourcePayload> {
-        self.refresh_workspace()?;
+        self.refresh_workspace_for_query()?;
         let schema_uri = schema_resource_uri("event");
         let event = self
             .current_prism()
@@ -605,12 +626,12 @@ impl QueryHost {
 
     pub(crate) fn memory_resource_value(
         &self,
+        session: &SessionState,
         memory_id: &MemoryId,
     ) -> Result<MemoryResourcePayload> {
-        self.refresh_workspace()?;
+        self.refresh_workspace_for_query()?;
         let schema_uri = schema_resource_uri("memory");
-        let entry = self
-            .session
+        let entry = session
             .notes
             .entry(memory_id)
             .ok_or_else(|| anyhow!("unknown memory `{}`", memory_id.0))?;
@@ -638,11 +659,14 @@ impl QueryHost {
         })
     }
 
-    pub(crate) fn edge_resource_value(&self, edge_id: &EdgeId) -> Result<EdgeResourcePayload> {
-        self.refresh_workspace()?;
+    pub(crate) fn edge_resource_value(
+        &self,
+        session: &SessionState,
+        edge_id: &EdgeId,
+    ) -> Result<EdgeResourcePayload> {
+        self.refresh_workspace_for_query()?;
         let schema_uri = schema_resource_uri("edge");
-        let record = self
-            .session
+        let record = session
             .inferred_edges
             .record(edge_id)
             .ok_or_else(|| anyhow!("unknown inferred edge `{}`", edge_id.0))?;

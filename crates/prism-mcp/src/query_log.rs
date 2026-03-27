@@ -8,7 +8,7 @@ use prism_js::{
 };
 use serde_json::Value;
 
-use crate::{current_timestamp, DashboardState, QueryHost, QueryLogArgs};
+use crate::{current_timestamp, DashboardState, QueryHost, QueryLogArgs, SessionState};
 
 const QUERY_LOG_CAPACITY: usize = 200;
 const DEFAULT_QUERY_LOG_LIMIT: usize = 20;
@@ -66,7 +66,12 @@ struct QueryLogFilter {
 }
 
 impl QueryHost {
-    pub(crate) fn begin_query_run(&self, kind: &str, query_text: impl Into<String>) -> QueryRun {
+    pub(crate) fn begin_query_run(
+        &self,
+        session: &SessionState,
+        kind: &str,
+        query_text: impl Into<String>,
+    ) -> QueryRun {
         let query_text = clamp_string(&query_text.into(), MAX_QUERY_TEXT_CHARS);
         let sequence = self.query_log_store.next_id.fetch_add(1, Ordering::Relaxed);
         let run = QueryRun {
@@ -76,8 +81,8 @@ impl QueryHost {
             query_text,
             started_at: current_timestamp(),
             started: Instant::now(),
-            session_id: self.session.session_id().0.to_string(),
-            task_id: self.session.current_task().map(|task| task.0.to_string()),
+            session_id: session.session_id().0.to_string(),
+            task_id: session.current_task().map(|task| task.0.to_string()),
             dashboard: Arc::clone(&self.dashboard_state),
             phases: Arc::new(Mutex::new(Vec::new())),
         };
@@ -431,6 +436,7 @@ fn looks_like_touch_value(value: &str) -> bool {
 
 fn matches_file_name(value: &str) -> bool {
     value.ends_with(".rs")
+        || value.ends_with(".py")
         || value.ends_with(".toml")
         || value.ends_with(".json")
         || value.ends_with(".yaml")

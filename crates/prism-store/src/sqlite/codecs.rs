@@ -102,6 +102,7 @@ pub(super) fn encode_language(language: Language) -> i64 {
         Language::Toml => 3,
         Language::Yaml => 4,
         Language::Unknown => 5,
+        Language::Python => 6,
     }
 }
 
@@ -113,6 +114,7 @@ pub(super) fn decode_language(value: i64) -> rusqlite::Result<Language> {
         3 => Language::Toml,
         4 => Language::Yaml,
         5 => Language::Unknown,
+        6 => Language::Python,
         other => {
             return Err(from_sql_conversion_error(format!(
                 "invalid language: {other}"

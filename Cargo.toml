@@ -11,6 +11,7 @@ members = [
     "crates/prism-memory",
     "crates/prism-lang-json",
     "crates/prism-lang-markdown",
+    "crates/prism-lang-python",
     "crates/prism-lang-rust",
     "crates/prism-lang-toml",
     "crates/prism-lang-yaml",
@@ -42,4 +43,5 @@ toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 tree-sitter = "0.26"
+tree-sitter-python = "0.25.0"
 walkdir = "2.5"
