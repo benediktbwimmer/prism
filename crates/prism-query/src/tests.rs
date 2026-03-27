@@ -193,6 +193,66 @@ fn search_can_filter_by_kind_and_path() {
 }
 
 #[test]
+fn broad_identifier_search_prefers_code_over_replay_and_lockfile_noise() {
+    use std::path::Path;
+
+    let mut graph = Graph::new();
+    let planner_file = graph.ensure_file(Path::new("/workspace/src/planner.rs"));
+    let replay_file = graph.ensure_file(Path::new(
+        "/workspace/crates/prism-mcp/src/query_replay_cases.rs",
+    ));
+    let lockfile = graph.ensure_file(Path::new("/workspace/www/dashboard/package-lock.json"));
+
+    graph.add_node(Node {
+        id: NodeId::new(
+            "demo",
+            "demo::planner::build_helper_plan",
+            NodeKind::Function,
+        ),
+        name: "build_helper_plan".into(),
+        kind: NodeKind::Function,
+        file: planner_file,
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    graph.add_node(Node {
+        id: NodeId::new(
+            "demo",
+            "demo::query_replay_cases::assert_repo_helper_bundle",
+            NodeKind::Function,
+        ),
+        name: "assert_repo_helper_bundle".into(),
+        kind: NodeKind::Function,
+        file: replay_file,
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    graph.add_node(Node {
+        id: NodeId::new(
+            "demo",
+            "demo::document::package_lock_json::packages::node_modules/@babel/helper-globals",
+            NodeKind::JsonKey,
+        ),
+        name: "node_modules/@babel/helper-globals".into(),
+        kind: NodeKind::JsonKey,
+        file: lockfile,
+        span: Span::line(1),
+        language: Language::Json,
+    });
+
+    let prism = Prism::new(graph);
+    let results = prism.search("helper", 5, None, None);
+
+    assert_eq!(results[0].id().path, "demo::planner::build_helper_plan");
+    assert!(!results
+        .iter()
+        .any(|symbol| symbol.id().path.contains("query_replay_cases")));
+    assert!(!results
+        .iter()
+        .any(|symbol| symbol.id().path.contains("@babel/helper-globals")));
+}
+
+#[test]
 fn exposes_lineage_queries_when_history_is_present() {
     let mut graph = Graph::new();
     let node_id = NodeId::new("demo", "demo::alpha", NodeKind::Function);

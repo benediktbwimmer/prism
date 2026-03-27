@@ -71,7 +71,18 @@ impl Prism {
         path_filter: Option<&str>,
     ) -> Vec<Symbol<'_>> {
         let path_filter = path_filter.map(|value| value.trim().to_ascii_lowercase());
-        self.sorted_matches(query)
+        let mut matches = self.sorted_matches(query);
+        if kind.is_none() && path_filter.is_none() && is_broad_identifier_query(query) {
+            let (preferred, suppressed): (Vec<_>, Vec<_>) = matches
+                .into_iter()
+                .partition(|entry| !self.is_low_signal_broad_query_node(entry.node));
+            matches = if preferred.is_empty() {
+                suppressed
+            } else {
+                preferred
+            };
+        }
+        matches
             .into_iter()
             .filter(|entry| kind.map_or(true, |kind| entry.node.kind == kind))
             .filter(|entry| {
@@ -169,6 +180,38 @@ impl Prism {
                 .as_str()
                 .to_ascii_lowercase()
                 .contains(path_filter)
+    }
+
+    fn is_low_signal_broad_query_node(&self, node: &Node) -> bool {
+        self.is_query_replay_case_node(node) || self.is_dependency_metadata_node(node)
+    }
+
+    fn is_query_replay_case_node(&self, node: &Node) -> bool {
+        let path = node.id.path.as_str().to_ascii_lowercase();
+        let file_path = self
+            .graph
+            .file_path(node.file)
+            .map(|path| path.to_string_lossy().to_ascii_lowercase())
+            .unwrap_or_default();
+        path.contains("query_replay_cases")
+            || file_path.contains("query_replay_cases.rs")
+            || (file_path.contains("query_replay_cases") && path.contains("assert_"))
+    }
+
+    fn is_dependency_metadata_node(&self, node: &Node) -> bool {
+        let path = node.id.path.as_str().to_ascii_lowercase();
+        let file_path = self
+            .graph
+            .file_path(node.file)
+            .map(|path| path.to_string_lossy().to_ascii_lowercase())
+            .unwrap_or_default();
+        file_path.ends_with("package-lock.json")
+            || file_path.ends_with("cargo.lock")
+            || file_path.ends_with("pnpm-lock.yaml")
+            || file_path.ends_with("yarn.lock")
+            || path.contains("node_modules/")
+            || path.contains("package_lock")
+            || path.contains("pnpm_lock")
     }
 }
 
@@ -385,4 +428,13 @@ fn tokens(value: &str) -> impl Iterator<Item = &str> {
 fn is_test_node(node: &Node) -> bool {
     let path = node.id.path.as_str();
     path.contains("::tests::") || path.ends_with("::tests")
+}
+
+fn is_broad_identifier_query(query: &str) -> bool {
+    let trimmed = query.trim();
+    !trimmed.is_empty()
+        && !trimmed.contains("::")
+        && trimmed
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
 }

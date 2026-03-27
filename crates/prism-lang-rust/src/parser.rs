@@ -500,14 +500,14 @@ fn parse_function(
         function_node,
         fingerprint_from_signature_and_shape(
             [
-            "rust",
-            kind_label(kind),
-            param_count.to_string().as_str(),
-            if node.child_by_field_name("return_type").is_some() {
-                "ret"
-            } else {
-                "unit"
-            },
+                "rust",
+                kind_label(kind),
+                param_count.to_string().as_str(),
+                if node.child_by_field_name("return_type").is_some() {
+                    "ret"
+                } else {
+                    "unit"
+                },
             ],
             body_shape.as_str(),
         ),
