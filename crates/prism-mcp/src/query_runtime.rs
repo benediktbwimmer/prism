@@ -23,32 +23,33 @@ use crate::text_search::search_text;
 use crate::{
     ambiguity_diagnostic_data, apply_module_filter, artifact_risk_view, artifact_view,
     blast_radius_view, blocker_view, change_impact_view, changed_files, changed_symbols,
-    claim_view, co_change_view, combined_parse_typescript_error, conflict_view, convert_anchors, convert_node_id,
-    coordination_task_view, current_timestamp, diff_for, drift_candidate_view, edge_kind_label,
-    edge_view, edit_slice_for_symbol, entrypoints_for, focused_block_for_symbol, js_runtime,
-    is_query_parse_error, lineage_view, merge_node_ids, merge_promoted_checks, missing_return_hint, next_reads,
-    owner_symbol_views_for_query, owner_symbol_views_for_target, owner_views_for_target,
-    parse_capability, parse_claim_mode, parse_event_actor, parse_memory_kind, parse_node_kind,
-    parse_outcome_kind, parse_outcome_result, parse_typescript_error, plan_view,
-    policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
-    promoted_validation_checks, query_diagnostic, rank_search_results, read_context_view_cached,
-    recent_change_context_view_cached, recent_patches, relations_view, result_decode_error,
-    runtime_or_serialization_error, scored_memory_view, search_queries, source_excerpt_for_symbol,
-    spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
-    task_intent_view, task_journal_view, task_risk_view, task_validation_recipe_view,
-    tool_catalog_views, tool_schema_view, validation_context_view_cached,
-    validation_recipe_view_with, where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs,
-    ChangedSymbolsArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, DiffForArgs,
-    DiscoveryTargetArgs, EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs,
-    LimitArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
-    PendingReviewsArgs, PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage,
-    QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs,
-    SearchAmbiguityContext, SearchArgs, SearchTextArgs, SemanticContextCache, SimulateClaimArgs,
-    SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs,
-    TaskScopeMode, TaskTargetArgs, ToolNameArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH,
-    DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
-    INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER,
-    USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
+    claim_view, co_change_view, combined_parse_typescript_error, conflict_view, convert_anchors,
+    convert_node_id, coordination_task_view, current_timestamp, diff_for, drift_candidate_view,
+    edge_kind_label, edge_view, edit_slice_for_symbol, entrypoints_for, focused_block_for_symbol,
+    is_query_parse_error, js_runtime, lineage_view, merge_node_ids, merge_promoted_checks,
+    missing_return_hint, next_reads, owner_symbol_views_for_query, owner_symbol_views_for_target,
+    owner_views_for_target, parse_capability, parse_claim_mode, parse_event_actor,
+    parse_memory_kind, parse_node_kind, parse_outcome_kind, parse_outcome_result,
+    parse_typescript_error, plan_view, policy_violation_record_view, promoted_memory_entries,
+    promoted_summary_texts, promoted_validation_checks, query_diagnostic, rank_search_results,
+    read_context_view_cached, recent_change_context_view_cached, recent_patches, relations_view,
+    result_decode_error, runtime_or_serialization_error, scored_memory_view, search_queries,
+    source_excerpt_for_symbol, spec_cluster_view, spec_drift_explanation_view, symbol_for,
+    symbol_view, symbol_views_for_ids, task_intent_view, task_journal_view, task_risk_view,
+    task_validation_recipe_view, tool_catalog_views, tool_schema_view,
+    validation_context_view_cached, validation_recipe_view_with, where_used, AnchorListArgs,
+    CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs, CoordinationTaskTargetArgs,
+    CuratorJobArgs, CuratorJobsArgs, DiffForArgs, DiscoveryTargetArgs, EditSliceArgs,
+    FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs, MemoryOutcomeArgs,
+    MemoryRecallArgs, NodeIdInput, OwnerLookupArgs, PendingReviewsArgs, PlanTargetArgs,
+    PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs,
+    RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchAmbiguityContext, SearchArgs,
+    SearchTextArgs, SemanticContextCache, SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs,
+    SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode, TaskTargetArgs,
+    ToolNameArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
+    QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER,
+    USER_SNIPPET_MARKER,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -275,12 +276,7 @@ impl QueryHost {
     ) -> Result<TypescriptAttempt> {
         let prepared = prepare_typescript_query(code, mode);
         let transpiled = js_runtime::transpile_typescript(&prepared.source).map_err(|error| {
-            parse_typescript_error(
-                error,
-                code,
-                prepared.user_snippet_first_line,
-                mode.code(),
-            )
+            parse_typescript_error(error, code, prepared.user_snippet_first_line, mode.code())
         })?;
         let execution = QueryExecution::new(self.clone(), self.current_prism(), query_run);
         let raw_result = self

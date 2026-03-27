@@ -1,8 +1,9 @@
 use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet};
+use std::thread;
 
 use anyhow::{anyhow, Result};
-use prism_ir::{NodeId, NodeKind};
+use prism_ir::{Node, NodeId, NodeKind};
 use prism_js::{
     ConfidenceLabel, EvidenceSourceKind, OwnerCandidateView, OwnerHintView,
     SpecDriftExplanationView, SpecImplementationClusterView, SymbolView, TrustSignalsView,
@@ -54,6 +55,11 @@ struct CandidateSearchData {
     searchable: String,
     compact: String,
     matched_terms: Vec<String>,
+}
+
+struct RankedCandidateBuckets {
+    best_all: HashMap<NodeId, RankedCandidate>,
+    best_by_category: HashMap<InsightCategory, HashMap<NodeId, RankedCandidate>>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -345,24 +351,104 @@ fn collect_owner_candidates_grouped(
     path_filter: Option<&str>,
     limit: usize,
 ) -> Result<GroupedOwnerCandidateViews> {
-    let mut best_all = HashMap::<NodeId, RankedCandidate>::new();
-    let mut best_by_category = ALL_INSIGHT_CATEGORIES
-        .into_iter()
-        .map(|category| (category, HashMap::<NodeId, RankedCandidate>::new()))
-        .collect::<HashMap<_, _>>();
     let path_filter = path_filter.map(|value| value.to_ascii_lowercase());
+    let path_filter_ref = path_filter.as_deref();
+    let nodes = prism.graph().all_nodes().collect::<Vec<_>>();
+    let worker_count = owner_candidate_worker_count(nodes.len());
+    let mut ranked = if worker_count <= 1 {
+        collect_owner_candidates_chunk(prism, &nodes, scope, kind_filter, path_filter_ref)
+    } else {
+        let chunk_size = nodes.len().div_ceil(worker_count);
+        let partials = thread::scope(|scope_threads| {
+            let mut tasks = Vec::new();
+            for chunk in nodes.chunks(chunk_size) {
+                tasks.push(scope_threads.spawn(move || {
+                    collect_owner_candidates_chunk(
+                        prism,
+                        chunk,
+                        scope,
+                        kind_filter,
+                        path_filter_ref,
+                    )
+                }));
+            }
+            let mut partials = Vec::with_capacity(tasks.len());
+            for task in tasks {
+                partials.push(
+                    task.join()
+                        .expect("owner-candidate worker panicked while scanning nodes"),
+                );
+            }
+            partials
+        });
+        let mut merged = ranked_candidate_buckets();
+        for partial in partials {
+            merge_ranked_candidate_buckets(&mut merged, partial);
+        }
+        merged
+    };
 
-    for node in prism.graph().all_nodes() {
+    Ok(GroupedOwnerCandidateViews {
+        all: build_owner_candidate_views(prism, ranked.best_all.into_values().collect(), limit)?,
+        read_path: build_owner_candidate_views(
+            prism,
+            ranked
+                .best_by_category
+                .remove(&InsightCategory::ReadPath)
+                .unwrap_or_default()
+                .into_values()
+                .collect(),
+            limit,
+        )?,
+        write_path: build_owner_candidate_views(
+            prism,
+            ranked
+                .best_by_category
+                .remove(&InsightCategory::WritePath)
+                .unwrap_or_default()
+                .into_values()
+                .collect(),
+            limit,
+        )?,
+        persistence_path: build_owner_candidate_views(
+            prism,
+            ranked
+                .best_by_category
+                .remove(&InsightCategory::PersistencePath)
+                .unwrap_or_default()
+                .into_values()
+                .collect(),
+            limit,
+        )?,
+        tests: build_owner_candidate_views(
+            prism,
+            ranked
+                .best_by_category
+                .remove(&InsightCategory::Tests)
+                .unwrap_or_default()
+                .into_values()
+                .collect(),
+            limit,
+        )?,
+    })
+}
+
+fn collect_owner_candidates_chunk(
+    prism: &Prism,
+    nodes: &[&Node],
+    scope: &SearchScope,
+    kind_filter: Option<NodeKind>,
+    path_filter: Option<&str>,
+) -> RankedCandidateBuckets {
+    let mut ranked = ranked_candidate_buckets();
+    for node in nodes {
         if scope.excluded.contains(&node.id) {
             continue;
         }
         if kind_filter.is_some_and(|kind| node.kind != kind) {
             continue;
         }
-        if path_filter
-            .as_deref()
-            .is_some_and(|filter| !matches_path_filter(prism, node, filter))
-        {
+        if path_filter.is_some_and(|filter| !matches_path_filter(prism, node, filter)) {
             continue;
         }
 
@@ -377,62 +463,79 @@ fn collect_owner_candidates_grouped(
             let Some(candidate) = score_candidate(node, scope, search_data, category) else {
                 continue;
             };
-            if let Some(category_best) = best_by_category.get_mut(&category) {
+            merge_ranked_candidate(&mut ranked, candidate);
+        }
+    }
+    ranked
+}
+
+fn ranked_candidate_buckets() -> RankedCandidateBuckets {
+    RankedCandidateBuckets {
+        best_all: HashMap::new(),
+        best_by_category: ALL_INSIGHT_CATEGORIES
+            .into_iter()
+            .map(|category| (category, HashMap::<NodeId, RankedCandidate>::new()))
+            .collect(),
+    }
+}
+
+fn merge_ranked_candidate_buckets(
+    target: &mut RankedCandidateBuckets,
+    source: RankedCandidateBuckets,
+) {
+    let RankedCandidateBuckets {
+        best_all,
+        best_by_category,
+    } = source;
+
+    for (category, candidates) in best_by_category {
+        if let Some(category_best) = target.best_by_category.get_mut(&category) {
+            for candidate in candidates.into_values() {
                 match category_best.get(&candidate.id) {
                     Some(existing) if !is_better_candidate(&candidate, existing) => {}
                     _ => {
-                        category_best.insert(candidate.id.clone(), candidate.clone());
+                        category_best.insert(candidate.id.clone(), candidate);
                     }
-                }
-            }
-            match best_all.get(&candidate.id) {
-                Some(existing) if !is_better_candidate(&candidate, existing) => {}
-                _ => {
-                    best_all.insert(candidate.id.clone(), candidate);
                 }
             }
         }
     }
 
-    Ok(GroupedOwnerCandidateViews {
-        all: build_owner_candidate_views(prism, best_all.into_values().collect(), limit)?,
-        read_path: build_owner_candidate_views(
-            prism,
-            best_by_category
-                .remove(&InsightCategory::ReadPath)
-                .unwrap_or_default()
-                .into_values()
-                .collect(),
-            limit,
-        )?,
-        write_path: build_owner_candidate_views(
-            prism,
-            best_by_category
-                .remove(&InsightCategory::WritePath)
-                .unwrap_or_default()
-                .into_values()
-                .collect(),
-            limit,
-        )?,
-        persistence_path: build_owner_candidate_views(
-            prism,
-            best_by_category
-                .remove(&InsightCategory::PersistencePath)
-                .unwrap_or_default()
-                .into_values()
-                .collect(),
-            limit,
-        )?,
-        tests: build_owner_candidate_views(
-            prism,
-            best_by_category
-                .remove(&InsightCategory::Tests)
-                .unwrap_or_default()
-                .into_values()
-                .collect(),
-            limit,
-        )?,
-    })
+    for candidate in best_all.into_values() {
+        match target.best_all.get(&candidate.id) {
+            Some(existing) if !is_better_candidate(&candidate, existing) => {}
+            _ => {
+                target.best_all.insert(candidate.id.clone(), candidate);
+            }
+        }
+    }
+}
+
+fn merge_ranked_candidate(target: &mut RankedCandidateBuckets, candidate: RankedCandidate) {
+    if let Some(category_best) = target.best_by_category.get_mut(&candidate.category) {
+        match category_best.get(&candidate.id) {
+            Some(existing) if !is_better_candidate(&candidate, existing) => {}
+            _ => {
+                category_best.insert(candidate.id.clone(), candidate.clone());
+            }
+        }
+    }
+    match target.best_all.get(&candidate.id) {
+        Some(existing) if !is_better_candidate(&candidate, existing) => {}
+        _ => {
+            target.best_all.insert(candidate.id.clone(), candidate);
+        }
+    }
+}
+
+fn owner_candidate_worker_count(node_count: usize) -> usize {
+    if node_count < 2 {
+        return 1;
+    }
+    thread::available_parallelism()
+        .map(|count| count.get())
+        .unwrap_or(1)
+        .min(node_count)
 }
 
 fn build_owner_candidate_views(

@@ -12,6 +12,30 @@ impl PrismMcpServer {
     pub(crate) fn build_tool_router() -> ToolRouter<Self> {
         Self::tool_router()
     }
+
+    fn execute_logged_mutation<T, F, G>(
+        &self,
+        action: &str,
+        operation: F,
+        finish: G,
+    ) -> Result<T, McpError>
+    where
+        F: FnOnce() -> Result<T, anyhow::Error>,
+        G: FnOnce(MutationRun, &T),
+    {
+        let run = self.host.begin_mutation_run(action);
+        match operation() {
+            Ok(result) => {
+                finish(run, &result);
+                Ok(result)
+            }
+            Err(error) => {
+                let message = error.to_string();
+                run.finish_error(message);
+                Err(map_query_error(error))
+            }
+        }
+    }
 }
 
 #[tool_router]
@@ -41,10 +65,17 @@ impl PrismMcpServer {
                     ));
                 }
 
-                let task = self
-                    .host
-                    .start_task(args.description, args.tags.unwrap_or_default())
-                    .map_err(map_query_error)?;
+                let task = self.execute_logged_mutation(
+                    "session.start_task",
+                    || {
+                        self.host
+                            .start_task(args.description, args.tags.unwrap_or_default())
+                    },
+                    |run, task| {
+                        let task_id = task.0.to_string();
+                        run.finish_success(Some(task_id.clone()), vec![task_id], 0);
+                    },
+                )?;
                 let task_id = task.0.to_string();
                 let session = self.host.session_view().map_err(map_query_error)?;
                 structured_tool_result_with_links(
@@ -60,7 +91,24 @@ impl PrismMcpServer {
                 )
             }
             PrismSessionArgs::Configure(args) => {
-                let session = self.host.configure_session(args).map_err(map_query_error)?;
+                let session = self.execute_logged_mutation(
+                    "session.configure",
+                    || self.host.configure_session(args),
+                    |run, session| {
+                        run.finish_success(
+                            session
+                                .current_task
+                                .as_ref()
+                                .map(|task| task.task_id.clone()),
+                            session
+                                .current_task
+                                .as_ref()
+                                .map(|task| vec![task.task_id.clone()])
+                                .unwrap_or_default(),
+                            0,
+                        );
+                    },
+                )?;
                 let mut links = vec![session_resource_link()];
                 if let Some(task) = &session.current_task {
                     links.push(task_resource_link(&task.task_id));
@@ -88,7 +136,21 @@ impl PrismMcpServer {
                     ));
                 }
 
-                let result = self.host.finish_task(args).map_err(map_query_error)?;
+                let result = self.execute_logged_mutation(
+                    "session.finish_task",
+                    || self.host.finish_task(args),
+                    |run, result| {
+                        run.finish_success(
+                            Some(result.task_id.clone()),
+                            vec![
+                                result.task_id.clone(),
+                                result.event_id.clone(),
+                                result.memory_id.clone(),
+                            ],
+                            0,
+                        );
+                    },
+                )?;
                 let session = self.host.session_view().map_err(map_query_error)?;
                 structured_tool_result_with_links(
                     PrismSessionMutationResult {
@@ -115,7 +177,21 @@ impl PrismMcpServer {
                     ));
                 }
 
-                let result = self.host.abandon_task(args).map_err(map_query_error)?;
+                let result = self.execute_logged_mutation(
+                    "session.abandon_task",
+                    || self.host.abandon_task(args),
+                    |run, result| {
+                        run.finish_success(
+                            Some(result.task_id.clone()),
+                            vec![
+                                result.task_id.clone(),
+                                result.event_id.clone(),
+                                result.memory_id.clone(),
+                            ],
+                            0,
+                        );
+                    },
+                )?;
                 let session = self.host.session_view().map_err(map_query_error)?;
                 structured_tool_result_with_links(
                     PrismSessionMutationResult {
@@ -180,7 +256,17 @@ impl PrismMcpServer {
     ) -> Result<CallToolResult, McpError> {
         match args {
             PrismMutationArgs::Outcome(args) => {
-                let result = self.host.store_outcome(args).map_err(map_query_error)?;
+                let result = self.execute_logged_mutation(
+                    "mutate.outcome",
+                    || self.host.store_outcome(args),
+                    |run, result| {
+                        run.finish_success(
+                            Some(result.task_id.clone()),
+                            vec![result.task_id.clone(), result.event_id.clone()],
+                            0,
+                        );
+                    },
+                )?;
                 structured_tool_result_with_links(
                     PrismMutationResult {
                         action: PrismMutationActionSchema::Outcome,
@@ -194,7 +280,17 @@ impl PrismMcpServer {
                 )
             }
             PrismMutationArgs::Memory(args) => {
-                let result = self.host.store_memory(args).map_err(map_query_error)?;
+                let result = self.execute_logged_mutation(
+                    "mutate.memory",
+                    || self.host.store_memory(args),
+                    |run, result| {
+                        run.finish_success(
+                            Some(result.task_id.clone()),
+                            vec![result.task_id.clone(), result.memory_id.clone()],
+                            0,
+                        );
+                    },
+                )?;
                 structured_tool_result_with_links(
                     PrismMutationResult {
                         action: PrismMutationActionSchema::Memory,
@@ -208,10 +304,17 @@ impl PrismMcpServer {
                 )
             }
             PrismMutationArgs::ValidationFeedback(args) => {
-                let result = self
-                    .host
-                    .store_validation_feedback(args)
-                    .map_err(map_query_error)?;
+                let result = self.execute_logged_mutation(
+                    "mutate.validation_feedback",
+                    || self.host.store_validation_feedback(args),
+                    |run, result| {
+                        run.finish_success(
+                            Some(result.task_id.clone()),
+                            vec![result.task_id.clone(), result.entry_id.clone()],
+                            0,
+                        );
+                    },
+                )?;
                 structured_tool_result_with_links(
                     PrismMutationResult {
                         action: PrismMutationActionSchema::ValidationFeedback,
@@ -222,10 +325,17 @@ impl PrismMcpServer {
                 )
             }
             PrismMutationArgs::InferEdge(args) => {
-                let result = self
-                    .host
-                    .store_inferred_edge(args)
-                    .map_err(map_query_error)?;
+                let result = self.execute_logged_mutation(
+                    "mutate.infer_edge",
+                    || self.host.store_inferred_edge(args),
+                    |run, result| {
+                        run.finish_success(
+                            Some(result.task_id.clone()),
+                            vec![result.task_id.clone(), result.edge_id.clone()],
+                            0,
+                        );
+                    },
+                )?;
                 structured_tool_result_with_links(
                     PrismMutationResult {
                         action: PrismMutationActionSchema::InferEdge,
@@ -239,10 +349,13 @@ impl PrismMcpServer {
                 )
             }
             PrismMutationArgs::Coordination(args) => {
-                let result = self
-                    .host
-                    .store_coordination(args)
-                    .map_err(map_query_error)?;
+                let result = self.execute_logged_mutation(
+                    "mutate.coordination",
+                    || self.host.store_coordination(args),
+                    |run, result| {
+                        run.finish_success(None, result.event_ids.clone(), result.violations.len());
+                    },
+                )?;
                 structured_tool_result(PrismMutationResult {
                     action: PrismMutationActionSchema::Coordination,
                     result: serde_json::to_value(result)
@@ -250,7 +363,17 @@ impl PrismMcpServer {
                 })
             }
             PrismMutationArgs::Claim(args) => {
-                let result = self.host.store_claim(args).map_err(map_query_error)?;
+                let result = self.execute_logged_mutation(
+                    "mutate.claim",
+                    || self.host.store_claim(args),
+                    |run, result| {
+                        let mut result_ids = result.event_ids.clone();
+                        if let Some(claim_id) = &result.claim_id {
+                            result_ids.push(claim_id.clone());
+                        }
+                        run.finish_success(None, result_ids, result.violations.len());
+                    },
+                )?;
                 structured_tool_result(PrismMutationResult {
                     action: PrismMutationActionSchema::Claim,
                     result: serde_json::to_value(result)
@@ -258,7 +381,20 @@ impl PrismMcpServer {
                 })
             }
             PrismMutationArgs::Artifact(args) => {
-                let result = self.host.store_artifact(args).map_err(map_query_error)?;
+                let result = self.execute_logged_mutation(
+                    "mutate.artifact",
+                    || self.host.store_artifact(args),
+                    |run, result| {
+                        let mut result_ids = result.event_ids.clone();
+                        if let Some(artifact_id) = &result.artifact_id {
+                            result_ids.push(artifact_id.clone());
+                        }
+                        if let Some(review_id) = &result.review_id {
+                            result_ids.push(review_id.clone());
+                        }
+                        run.finish_success(None, result_ids, result.violations.len());
+                    },
+                )?;
                 structured_tool_result(PrismMutationResult {
                     action: PrismMutationActionSchema::Artifact,
                     result: serde_json::to_value(result)
@@ -271,24 +407,33 @@ impl PrismMcpServer {
                     args.test,
                     if args.passed { "passed" } else { "failed" }
                 );
-                let result = self
-                    .host
-                    .store_outcome(PrismOutcomeArgs {
-                        kind: OutcomeKindInput::TestRan,
-                        anchors: args.anchors,
-                        summary,
-                        result: Some(if args.passed {
-                            OutcomeResultInput::Success
-                        } else {
-                            OutcomeResultInput::Failure
-                        }),
-                        evidence: Some(vec![OutcomeEvidenceInput::Test {
-                            name: args.test,
-                            passed: args.passed,
-                        }]),
-                        task_id: args.task_id,
-                    })
-                    .map_err(map_query_error)?;
+                let result = self.execute_logged_mutation(
+                    "mutate.test_ran",
+                    || {
+                        self.host.store_outcome(PrismOutcomeArgs {
+                            kind: OutcomeKindInput::TestRan,
+                            anchors: args.anchors,
+                            summary,
+                            result: Some(if args.passed {
+                                OutcomeResultInput::Success
+                            } else {
+                                OutcomeResultInput::Failure
+                            }),
+                            evidence: Some(vec![OutcomeEvidenceInput::Test {
+                                name: args.test,
+                                passed: args.passed,
+                            }]),
+                            task_id: args.task_id,
+                        })
+                    },
+                    |run, result| {
+                        run.finish_success(
+                            Some(result.task_id.clone()),
+                            vec![result.task_id.clone(), result.event_id.clone()],
+                            0,
+                        );
+                    },
+                )?;
                 structured_tool_result_with_links(
                     PrismMutationResult {
                         action: PrismMutationActionSchema::TestRan,
@@ -305,17 +450,26 @@ impl PrismMcpServer {
                 let evidence = args
                     .trace
                     .map(|trace| vec![OutcomeEvidenceInput::StackTrace { hash: trace }]);
-                let result = self
-                    .host
-                    .store_outcome(PrismOutcomeArgs {
-                        kind: OutcomeKindInput::FailureObserved,
-                        anchors: args.anchors,
-                        summary: args.summary,
-                        result: Some(OutcomeResultInput::Failure),
-                        evidence,
-                        task_id: args.task_id,
-                    })
-                    .map_err(map_query_error)?;
+                let result = self.execute_logged_mutation(
+                    "mutate.failure_observed",
+                    || {
+                        self.host.store_outcome(PrismOutcomeArgs {
+                            kind: OutcomeKindInput::FailureObserved,
+                            anchors: args.anchors,
+                            summary: args.summary,
+                            result: Some(OutcomeResultInput::Failure),
+                            evidence,
+                            task_id: args.task_id,
+                        })
+                    },
+                    |run, result| {
+                        run.finish_success(
+                            Some(result.task_id.clone()),
+                            vec![result.task_id.clone(), result.event_id.clone()],
+                            0,
+                        );
+                    },
+                )?;
                 structured_tool_result_with_links(
                     PrismMutationResult {
                         action: PrismMutationActionSchema::FailureObserved,
@@ -329,17 +483,26 @@ impl PrismMcpServer {
                 )
             }
             PrismMutationArgs::FixValidated(args) => {
-                let result = self
-                    .host
-                    .store_outcome(PrismOutcomeArgs {
-                        kind: OutcomeKindInput::FixValidated,
-                        anchors: args.anchors,
-                        summary: args.summary,
-                        result: Some(OutcomeResultInput::Success),
-                        evidence: None,
-                        task_id: args.task_id,
-                    })
-                    .map_err(map_query_error)?;
+                let result = self.execute_logged_mutation(
+                    "mutate.fix_validated",
+                    || {
+                        self.host.store_outcome(PrismOutcomeArgs {
+                            kind: OutcomeKindInput::FixValidated,
+                            anchors: args.anchors,
+                            summary: args.summary,
+                            result: Some(OutcomeResultInput::Success),
+                            evidence: None,
+                            task_id: args.task_id,
+                        })
+                    },
+                    |run, result| {
+                        run.finish_success(
+                            Some(result.task_id.clone()),
+                            vec![result.task_id.clone(), result.event_id.clone()],
+                            0,
+                        );
+                    },
+                )?;
                 structured_tool_result_with_links(
                     PrismMutationResult {
                         action: PrismMutationActionSchema::FixValidated,
@@ -353,10 +516,20 @@ impl PrismMcpServer {
                 )
             }
             PrismMutationArgs::CuratorPromoteEdge(args) => {
-                let result = self
-                    .host
-                    .promote_curator_edge(args)
-                    .map_err(map_query_error)?;
+                let result = self.execute_logged_mutation(
+                    "mutate.curator_promote_edge",
+                    || self.host.promote_curator_edge(args),
+                    |run, result| {
+                        let mut result_ids = vec![result.job_id.clone()];
+                        if let Some(memory_id) = &result.memory_id {
+                            result_ids.push(memory_id.clone());
+                        }
+                        if let Some(edge_id) = &result.edge_id {
+                            result_ids.push(edge_id.clone());
+                        }
+                        run.finish_success(None, result_ids, 0);
+                    },
+                )?;
                 let mut links = vec![session_resource_link()];
                 if let Some(memory_id) = &result.memory_id {
                     links.push(memory_resource_link(memory_id));
@@ -374,10 +547,20 @@ impl PrismMcpServer {
                 )
             }
             PrismMutationArgs::CuratorPromoteMemory(args) => {
-                let result = self
-                    .host
-                    .promote_curator_memory(args)
-                    .map_err(map_query_error)?;
+                let result = self.execute_logged_mutation(
+                    "mutate.curator_promote_memory",
+                    || self.host.promote_curator_memory(args),
+                    |run, result| {
+                        let mut result_ids = vec![result.job_id.clone()];
+                        if let Some(memory_id) = &result.memory_id {
+                            result_ids.push(memory_id.clone());
+                        }
+                        if let Some(edge_id) = &result.edge_id {
+                            result_ids.push(edge_id.clone());
+                        }
+                        run.finish_success(None, result_ids, 0);
+                    },
+                )?;
                 let mut links = vec![session_resource_link()];
                 if let Some(memory_id) = &result.memory_id {
                     links.push(memory_resource_link(memory_id));
@@ -395,10 +578,13 @@ impl PrismMcpServer {
                 )
             }
             PrismMutationArgs::CuratorRejectProposal(args) => {
-                let result = self
-                    .host
-                    .reject_curator_proposal(args)
-                    .map_err(map_query_error)?;
+                let result = self.execute_logged_mutation(
+                    "mutate.curator_reject_proposal",
+                    || self.host.reject_curator_proposal(args),
+                    |run, result| {
+                        run.finish_success(None, vec![result.job_id.clone()], 0);
+                    },
+                )?;
                 structured_tool_result_with_links(
                     PrismMutationResult {
                         action: PrismMutationActionSchema::CuratorRejectProposal,

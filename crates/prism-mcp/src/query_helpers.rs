@@ -1,3 +1,5 @@
+use std::thread;
+
 use anyhow::{anyhow, Result};
 use prism_ir::{AnchorRef, EdgeKind, NodeId};
 use prism_js::{
@@ -137,24 +139,61 @@ pub(crate) fn focused_blocks_for_symbol_views(
     symbols: &[SymbolView],
     limit: usize,
 ) -> Result<Vec<FocusedBlockView>> {
-    symbols
-        .iter()
-        .take(limit)
-        .map(|symbol| {
-            let id = NodeId::new(
-                symbol.id.crate_name.clone(),
-                symbol.id.path.clone(),
-                symbol.kind,
+    let symbols = symbols.iter().take(limit).collect::<Vec<_>>();
+    let worker_count = focused_block_worker_count(symbols.len());
+    if worker_count <= 1 {
+        return symbols
+            .into_iter()
+            .map(|symbol| focused_block_from_symbol_view(prism, symbol))
+            .collect();
+    }
+
+    let chunk_size = symbols.len().div_ceil(worker_count);
+    thread::scope(|scope| -> Result<Vec<FocusedBlockView>> {
+        let mut tasks = Vec::new();
+        for chunk in symbols.chunks(chunk_size) {
+            tasks.push(scope.spawn(move || -> Result<Vec<FocusedBlockView>> {
+                chunk
+                    .iter()
+                    .map(|symbol| focused_block_from_symbol_view(prism, symbol))
+                    .collect()
+            }));
+        }
+
+        let mut focused_blocks = Vec::with_capacity(symbols.len());
+        for task in tasks {
+            focused_blocks.extend(
+                task.join()
+                    .expect("focused-block worker panicked while expanding symbols")?,
             );
-            let symbol = symbol_for(prism, &id)?;
-            focused_block_for_symbol(prism, &symbol, CONTEXT_BLOCK_OPTIONS)
-        })
-        .collect()
+        }
+        Ok(focused_blocks)
+    })
 }
 
 pub(crate) fn context_target_block(prism: &Prism, target: &NodeId) -> Result<FocusedBlockView> {
     let symbol = symbol_for(prism, target)?;
     focused_block_for_symbol(prism, &symbol, CONTEXT_BLOCK_OPTIONS)
+}
+
+fn focused_block_from_symbol_view(prism: &Prism, symbol: &SymbolView) -> Result<FocusedBlockView> {
+    let id = NodeId::new(
+        symbol.id.crate_name.clone(),
+        symbol.id.path.clone(),
+        symbol.kind,
+    );
+    let symbol = symbol_for(prism, &id)?;
+    focused_block_for_symbol(prism, &symbol, CONTEXT_BLOCK_OPTIONS)
+}
+
+fn focused_block_worker_count(symbol_count: usize) -> usize {
+    if symbol_count < 2 {
+        return 1;
+    }
+    thread::available_parallelism()
+        .map(|count| count.get())
+        .unwrap_or(1)
+        .min(symbol_count)
 }
 
 pub(crate) fn compact_owner_candidate_excerpts(

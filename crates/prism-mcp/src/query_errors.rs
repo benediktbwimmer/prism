@@ -124,8 +124,7 @@ pub(crate) fn result_decode_error(error: anyhow::Error, raw_result: &str) -> any
 }
 
 pub(crate) fn is_query_parse_error(error: &anyhow::Error) -> bool {
-    query_execution_error(error)
-        .and_then(|error| error.data()["code"].as_str())
+    query_execution_error(error).and_then(|error| error.data()["code"].as_str())
         == Some("query_parse_failed")
 }
 
@@ -325,9 +324,10 @@ fn attempted_mode_label(attempted_mode: &str) -> &'static str {
 fn rewritten_query_preview(code: &str, attempted_mode: &str) -> Value {
     match attempted_mode {
         STATEMENT_BODY_MODE => Value::String(truncate_preview(code, 200)),
-        IMPLICIT_EXPRESSION_MODE => {
-            Value::String(truncate_preview(&format!("return (\n{}\n);", code.trim()), 200))
-        }
+        IMPLICIT_EXPRESSION_MODE => Value::String(truncate_preview(
+            &format!("return (\n{}\n);", code.trim()),
+            200,
+        )),
         _ => Value::Null,
     }
 }
@@ -337,8 +337,7 @@ fn query_execution_error(error: &anyhow::Error) -> Option<&QueryExecutionError> 
 }
 
 fn attempt_summary(error: &QueryExecutionError) -> String {
-    let attempted = error
-        .data()["attemptedModeLabel"]
+    let attempted = error.data()["attemptedModeLabel"]
         .as_str()
         .unwrap_or("query");
     let first = first_detail_line(error.data()["error"].as_str().unwrap_or_default());
@@ -528,26 +527,32 @@ mod tests {
 
     #[test]
     fn combines_parse_errors_from_both_interpretations() {
-        let statement = build_transpile_error(
+        let statement: anyhow::Error = build_transpile_error(
             "Expression expected at file:///prism/query.ts:4:16",
             "const broken = ;\nreturn broken;",
             4,
             STATEMENT_BODY_MODE,
-        );
-        let expression = build_transpile_error(
+        )
+        .into();
+        let expression: anyhow::Error = build_transpile_error(
             "Expected ',', got ':' at file:///prism/query.ts:4:7",
             "const broken = ;\nreturn broken;",
             4,
             IMPLICIT_EXPRESSION_MODE,
-        );
+        )
+        .into();
 
-        assert!(is_query_parse_error(&anyhow!(statement.to_string()).context("noop")).not());
-        let combined = combined_parse_typescript_error(statement.into(), expression.into());
+        assert!(is_query_parse_error(&statement));
+        assert!(is_query_parse_error(&expression));
+        let combined = combined_parse_typescript_error(statement, expression);
         let combined = combined.downcast::<super::QueryExecutionError>().unwrap();
         assert!(combined.to_string().contains("Statement-body mode"));
         assert!(combined.to_string().contains("Implicit-expression mode"));
         assert_eq!(combined.data()["attemptedModes"][0], STATEMENT_BODY_MODE);
-        assert_eq!(combined.data()["attemptedModes"][1], IMPLICIT_EXPRESSION_MODE);
+        assert_eq!(
+            combined.data()["attemptedModes"][1],
+            IMPLICIT_EXPRESSION_MODE
+        );
     }
 
     #[test]

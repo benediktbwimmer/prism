@@ -13,6 +13,7 @@ use prism_js::{api_reference_markdown, CuratorJobView, API_REFERENCE_URI};
 use prism_memory::{EpisodicMemorySnapshot, OutcomeEvent, SessionMemory};
 use prism_query::{Prism, QueryLimits};
 use rmcp::{handler::server::router::tool::ToolRouter, transport::stdio, ServiceExt};
+use serde_json::json;
 use tracing::{debug, info};
 
 mod ambiguity;
@@ -20,6 +21,10 @@ mod capabilities_resource;
 mod change_views;
 mod common;
 mod daemon_mode;
+mod dashboard_assets;
+mod dashboard_events;
+mod dashboard_router;
+mod dashboard_types;
 mod diagnostics;
 mod discovery_bundle;
 mod discovery_helpers;
@@ -58,6 +63,7 @@ use capabilities_resource::*;
 use change_views::*;
 use common::*;
 pub use daemon_mode::serve_with_mode;
+use dashboard_events::*;
 use diagnostics::*;
 use discovery_bundle::*;
 use discovery_helpers::*;
@@ -355,6 +361,7 @@ struct QueryHost {
     session: Arc<SessionState>,
     worker_pool: Arc<JsWorkerPool>,
     query_log_store: Arc<QueryLogStore>,
+    dashboard_state: Arc<DashboardState>,
     workspace: Option<Arc<WorkspaceSession>>,
     loaded_workspace_revision: Arc<AtomicU64>,
     loaded_episodic_revision: Arc<AtomicU64>,
@@ -409,6 +416,7 @@ impl QueryHost {
             session,
             worker_pool: Arc::new(worker_pool),
             query_log_store: Arc::new(QueryLogStore::default()),
+            dashboard_state: Arc::new(DashboardState::default()),
             workspace: None,
             loaded_workspace_revision: Arc::new(AtomicU64::new(0)),
             loaded_episodic_revision: Arc::new(AtomicU64::new(0)),
@@ -475,6 +483,7 @@ impl QueryHost {
             session,
             worker_pool: Arc::new(worker_pool),
             query_log_store: Arc::new(QueryLogStore::default()),
+            dashboard_state: Arc::new(DashboardState::default()),
             workspace: Some(workspace),
             loaded_workspace_revision: Arc::new(AtomicU64::new(workspace_revision)),
             loaded_episodic_revision: Arc::new(AtomicU64::new(episodic_revision)),
@@ -582,6 +591,16 @@ impl QueryHost {
             inference_reloaded,
             coordination_reloaded,
             started.elapsed().as_millis(),
+        );
+        self.dashboard_state.publish_value(
+            "runtime.refreshed",
+            json!({
+                "refreshPath": refresh_path,
+                "durationMs": started.elapsed().as_millis(),
+                "coordinationReloaded": coordination_reloaded,
+                "episodicReloaded": episodic_reloaded,
+                "inferenceReloaded": inference_reloaded,
+            }),
         );
         Ok(())
     }
@@ -812,6 +831,9 @@ fn log_refresh_workspace(
         "prism-mcp workspace refresh"
     );
 }
+
+#[cfg(test)]
+mod query_replay_cases;
 
 #[cfg(test)]
 mod tests;

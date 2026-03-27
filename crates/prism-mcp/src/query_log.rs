@@ -8,7 +8,7 @@ use prism_js::{
 };
 use serde_json::Value;
 
-use crate::{current_timestamp, QueryHost, QueryLogArgs};
+use crate::{current_timestamp, DashboardState, QueryHost, QueryLogArgs};
 
 const QUERY_LOG_CAPACITY: usize = 200;
 const DEFAULT_QUERY_LOG_LIMIT: usize = 20;
@@ -37,14 +37,15 @@ impl Default for QueryLogStore {
 
 #[derive(Debug, Clone)]
 pub(crate) struct QueryRun {
-    id: String,
-    kind: String,
-    query_text: String,
-    query_summary: String,
-    started_at: u64,
-    started: Instant,
-    session_id: String,
-    task_id: Option<String>,
+    pub(crate) id: String,
+    pub(crate) kind: String,
+    pub(crate) query_text: String,
+    pub(crate) query_summary: String,
+    pub(crate) started_at: u64,
+    pub(crate) started: Instant,
+    pub(crate) session_id: String,
+    pub(crate) task_id: Option<String>,
+    dashboard: Arc<DashboardState>,
     phases: Arc<Mutex<Vec<QueryPhaseView>>>,
 }
 
@@ -68,7 +69,7 @@ impl QueryHost {
     pub(crate) fn begin_query_run(&self, kind: &str, query_text: impl Into<String>) -> QueryRun {
         let query_text = clamp_string(&query_text.into(), MAX_QUERY_TEXT_CHARS);
         let sequence = self.query_log_store.next_id.fetch_add(1, Ordering::Relaxed);
-        QueryRun {
+        let run = QueryRun {
             id: format!("query:{sequence}"),
             kind: kind.to_string(),
             query_summary: summarize_query(&query_text, kind),
@@ -77,8 +78,11 @@ impl QueryHost {
             started: Instant::now(),
             session_id: self.session.session_id().0.to_string(),
             task_id: self.session.current_task().map(|task| task.0.to_string()),
+            dashboard: Arc::clone(&self.dashboard_state),
             phases: Arc::new(Mutex::new(Vec::new())),
-        }
+        };
+        run.dashboard_start(self.dashboard_state.as_ref());
+        run
     }
 
     pub(crate) fn query_log_entries(&self, args: QueryLogArgs) -> Vec<QueryLogEntryView> {
@@ -105,18 +109,20 @@ impl QueryRun {
         success: bool,
         error: Option<String>,
     ) {
+        let phase = QueryPhaseView {
+            operation: operation.to_string(),
+            started_at: current_timestamp(),
+            duration_ms: duration_to_ms(duration),
+            args_summary: Some(summarize_value(args)),
+            touched: touches_for_value(args),
+            success,
+            error,
+        };
         self.phases
             .lock()
             .expect("query log phases lock poisoned")
-            .push(QueryPhaseView {
-                operation: operation.to_string(),
-                started_at: current_timestamp(),
-                duration_ms: duration_to_ms(duration),
-                args_summary: Some(summarize_value(args)),
-                touched: touches_for_value(args),
-                success,
-                error,
-            });
+            .push(phase.clone());
+        self.dashboard_phase(self.dashboard.as_ref(), &phase);
     }
 
     pub(crate) fn finish_success(
@@ -127,14 +133,16 @@ impl QueryRun {
         json_bytes: usize,
         output_cap_hit: bool,
     ) {
-        store.push(self.build_record(
+        let record = self.build_record(
             Some(result),
             diagnostics,
             json_bytes,
             output_cap_hit,
             true,
             None,
-        ));
+        );
+        store.push(record.clone());
+        self.dashboard_finish(self.dashboard.as_ref(), &record.entry);
     }
 
     pub(crate) fn finish_error(
@@ -143,7 +151,9 @@ impl QueryRun {
         diagnostics: Vec<QueryDiagnostic>,
         error: impl Into<String>,
     ) {
-        store.push(self.build_record(None, diagnostics, 0, false, false, Some(error.into())));
+        let record = self.build_record(None, diagnostics, 0, false, false, Some(error.into()));
+        store.push(record.clone());
+        self.dashboard_finish(self.dashboard.as_ref(), &record.entry);
     }
 
     fn build_record(

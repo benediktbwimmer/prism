@@ -18,6 +18,7 @@ use rmcp::{
     ServiceExt,
 };
 
+use super::query_replay_cases::{replay_cases, ReplayExpectation, ReplayHostProfile};
 use super::*;
 use prism_agent::{InferenceSnapshot, InferredEdgeScope};
 use prism_core::{index_workspace_session, index_workspace_session_with_curator};
@@ -60,6 +61,17 @@ fn host_with_session_internal(workspace: WorkspaceSession) -> QueryHost {
     )
 }
 
+fn host_with_session_internal_and_limits(
+    workspace: WorkspaceSession,
+    limits: QueryLimits,
+) -> QueryHost {
+    QueryHost::with_session_and_limits_and_features(
+        workspace,
+        limits,
+        PrismMcpFeatures::full().with_internal_developer(true),
+    )
+}
+
 fn temp_workspace() -> PathBuf {
     let suffix = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -78,6 +90,14 @@ fn temp_workspace() -> PathBuf {
     )
     .unwrap();
     root
+}
+
+fn repo_workspace_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .expect("repo root should exist")
+        .to_path_buf()
 }
 
 fn wait_for_completed_curator_job(session: &WorkspaceSession) -> String {
@@ -1415,7 +1435,7 @@ async fn mcp_server_surfaces_structured_prism_query_error_categories() {
     assert!(response["error"]["data"]["nextAction"]
         .as_str()
         .unwrap_or_default()
-        .contains("TypeScript syntax"));
+        .contains("single expression such as `({ ... })`"));
 
     running.cancel().await.unwrap();
 }
@@ -4028,7 +4048,16 @@ return broken;
         message.contains("user snippet line 2, column 16"),
         "{message}"
     );
-    assert!(message.contains("Fix the TypeScript syntax"), "{message}");
+    assert!(message.contains("Statement-body mode"), "{message}");
+    assert!(message.contains("Implicit-expression mode"), "{message}");
+    assert!(
+        message.contains("single expression such as `({ ... })`"),
+        "{message}"
+    );
+    assert!(
+        message.contains("statement-style snippet with an explicit `return ...`"),
+        "{message}"
+    );
 }
 
 #[test]
@@ -4049,6 +4078,7 @@ throw new Error("boom");
     let message = error.to_string();
     assert!(message.contains("prism_query runtime failed"), "{message}");
     assert!(message.contains("boom"), "{message}");
+    assert!(message.contains("statement-body query"), "{message}");
     assert!(
         message.contains("Inspect the referenced user-snippet line"),
         "{message}"
@@ -4077,6 +4107,7 @@ return value;
         "{message}"
     );
     assert!(message.contains("circular reference"), "{message}");
+    assert!(message.contains("statement-body query"), "{message}");
     assert!(message.contains("JSON-serializable values"), "{message}");
 }
 
@@ -4169,6 +4200,53 @@ fn prism_query_supports_implicit_expression_values() {
 
     assert_eq!(result.result, Value::String("demo::alpha".to_string()));
     assert!(result.diagnostics.is_empty());
+}
+
+#[test]
+fn query_replay_cases_cover_real_failures_and_repo_queries() {
+    let fixture_root = temp_workspace();
+    let repo_root = repo_workspace_root();
+
+    let mut fixture_default_host = None;
+    let mut fixture_tiny_output_cap_host = None;
+    let mut repo_default_host = None;
+
+    for case in replay_cases() {
+        let host = match case.profile {
+            ReplayHostProfile::FixtureDefault => fixture_default_host.get_or_insert_with(|| {
+                host_with_session_internal(index_workspace_session(&fixture_root).unwrap())
+            }),
+            ReplayHostProfile::FixtureTinyOutputCap => fixture_tiny_output_cap_host
+                .get_or_insert_with(|| {
+                    let mut limits = QueryLimits::default();
+                    limits.max_output_json_bytes = 64;
+                    host_with_session_internal_and_limits(
+                        index_workspace_session(&fixture_root).unwrap(),
+                        limits,
+                    )
+                }),
+            ReplayHostProfile::RepoDefault => repo_default_host.get_or_insert_with(|| {
+                host_with_session_internal(index_workspace_session(&repo_root).unwrap())
+            }),
+        };
+
+        match case.expectation {
+            ReplayExpectation::Success(assertion) => {
+                let envelope = host
+                    .execute(case.code, QueryLanguage::Ts)
+                    .unwrap_or_else(|error| {
+                        panic!("replay case `{}` should succeed: {error}", case.name)
+                    });
+                assertion(&envelope);
+            }
+            ReplayExpectation::Error(assertion) => {
+                let error = host
+                    .execute(case.code, QueryLanguage::Ts)
+                    .expect_err(&format!("replay case `{}` should fail", case.name));
+                assertion(&error.to_string());
+            }
+        }
+    }
 }
 
 #[test]

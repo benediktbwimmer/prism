@@ -3,6 +3,7 @@ use std::fs;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
@@ -15,6 +16,7 @@ use tokio::net::TcpListener;
 use tokio::time::sleep;
 use tracing::{debug, info, warn};
 
+use crate::dashboard_router::{routes as dashboard_routes, DashboardAppState};
 use crate::proxy_server::ProxyMcpServer;
 use crate::runtime_state;
 use crate::{PrismMcpCli, PrismMcpServer};
@@ -83,9 +85,14 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
             Default::default(),
             StreamableHttpServerConfig::default(),
         );
+    let dashboard_state = DashboardAppState {
+        host: Arc::clone(&server.host),
+        root: root.to_path_buf(),
+    };
     let router = Router::new()
         .route(&health_path, get(http_health))
-        .nest_service(&mcp_path, service);
+        .nest_service(&mcp_path, service)
+        .merge(dashboard_routes(dashboard_state));
 
     axum::serve(listener, router)
         .await
