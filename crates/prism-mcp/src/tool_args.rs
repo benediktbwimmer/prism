@@ -100,8 +100,7 @@ pub(crate) struct NodeIdInput {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub(crate) enum AnchorRefInput {
     Node {
-        #[serde(alias = "crate_name")]
-        #[serde(alias = "crateName")]
+        #[serde(rename = "crateName", alias = "crate_name")]
         crate_name: String,
         path: String,
         kind: String,

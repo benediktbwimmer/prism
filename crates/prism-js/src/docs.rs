@@ -18,6 +18,7 @@ Treat this like a repo-specific read-only query shell.
 - TypeScript is for composition.
 - Prism is where semantic meaning should live.
 - Return the final value with `return ...`.
+- Ordinary multi-statement snippets are supported, including top-level `await`.
 - The returned value must be JSON-serializable.
 - `language` currently supports only `"ts"`.
 - `prism_query` is read-only in this implementation.
@@ -1041,6 +1042,17 @@ return {
 ```ts
 const sym = prism.symbol("RequestContext") ?? prism.search("RequestContext", { limit: 1 })[0];
 return sym;
+```
+
+### 4a. Use async-style composition when it keeps the query clearer
+
+```ts
+const results = await prism.search("handle_request", { limit: 3, kind: "function" });
+const target = await prism.symbol("handle_request");
+return {
+  top: results[0],
+  exact: target,
+};
 ```
 
 ### 5. Summarize entrypoints
