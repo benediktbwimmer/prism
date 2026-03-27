@@ -1,3 +1,7 @@
 /target
 /.prism
 .DS_Store
+/.venv-sb-cli
+/.venv-swebench
+/benchmarks/external/
+/benchmarks/results/local/

@@ -15,16 +15,24 @@ BENCHMARKS = ROOT / "benchmarks"
 TRACKS = BENCHMARKS / "tracks"
 
 
-def load_json(path: Path) -> dict[str, Any]:
+def load_json(path: Path) -> Any:
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
-def dump_json(path: Path, payload: dict[str, Any]) -> None:
+def dump_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2, sort_keys=False)
         handle.write("\n")
+
+
+def dump_jsonl(path: Path, items: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        for item in items:
+            handle.write(json.dumps(item, sort_keys=False))
+            handle.write("\n")
 
 
 def read_manifest(path: Path) -> list[str]:

@@ -150,6 +150,7 @@ impl QueryHost {
         };
         if let Some(workspace) = &self.workspace {
             let _ = workspace.append_outcome(event)?;
+            self.sync_workspace_revision(workspace)?;
         } else {
             let prism = self.current_prism();
             prism.apply_outcome_event_to_projections(&event);
@@ -260,7 +261,14 @@ impl QueryHost {
             }),
         };
         let event_id = if let Some(workspace) = &self.workspace {
-            workspace.append_outcome_with_auxiliary(event, Some(session.notes.snapshot()), None)?
+            let event_id = workspace.append_outcome_with_auxiliary(
+                event,
+                Some(session.notes.snapshot()),
+                None,
+            )?;
+            self.sync_workspace_revision(workspace)?;
+            self.sync_episodic_revision(workspace)?;
+            event_id
         } else {
             prism.apply_outcome_event_to_projections(&event);
             let id = prism.outcome_memory().store_event(event)?;
@@ -332,7 +340,9 @@ impl QueryHost {
             metadata: Value::Null,
         };
         let event_id = if let Some(workspace) = &self.workspace {
-            workspace.append_outcome(event)?
+            let event_id = workspace.append_outcome(event)?;
+            self.sync_workspace_revision(workspace)?;
+            event_id
         } else {
             prism.apply_outcome_event_to_projections(&event);
             let id = prism.outcome_memory().store_event(event)?;
@@ -402,6 +412,8 @@ impl QueryHost {
                     Some(session.notes.snapshot()),
                     None,
                 )?;
+                self.sync_workspace_revision(workspace)?;
+                self.sync_episodic_revision(workspace)?;
             } else {
                 prism.apply_outcome_event_to_projections(&note_event);
                 let _ = prism.outcome_memory().store_event(note_event)?;
@@ -510,11 +522,15 @@ impl QueryHost {
             match workspace.mutate_coordination(|prism| {
                 self.apply_coordination_mutation(session, prism, args, meta.clone())
             }) {
-                Ok(state) => state,
+                Ok(state) => {
+                    self.sync_coordination_revision(workspace)?;
+                    state
+                }
                 Err(error) => {
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     if audit.rejected && !audit.event_ids.is_empty() {
                         workspace.persist_current_coordination()?;
+                        self.sync_coordination_revision(workspace)?;
                         return Ok(CoordinationMutationResult {
                             event_id: audit
                                 .event_ids
@@ -584,6 +600,7 @@ impl QueryHost {
                 self.apply_claim_mutation(session, prism, args, meta.clone())
             }) {
                 Ok(mut result) => {
+                    self.sync_coordination_revision(workspace)?;
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     result.event_ids = audit.event_ids;
                     result.violations.extend(audit.violations);
@@ -593,6 +610,7 @@ impl QueryHost {
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     if audit.rejected && !audit.event_ids.is_empty() {
                         workspace.persist_current_coordination()?;
+                        self.sync_coordination_revision(workspace)?;
                         return Ok(ClaimMutationResult {
                             claim_id: None,
                             event_ids: audit.event_ids,
@@ -653,6 +671,7 @@ impl QueryHost {
                 self.apply_artifact_mutation(prism, args, meta.clone())
             }) {
                 Ok(mut result) => {
+                    self.sync_coordination_revision(workspace)?;
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     result.event_ids = audit.event_ids;
                     result.violations.extend(audit.violations);
@@ -662,6 +681,7 @@ impl QueryHost {
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     if audit.rejected && !audit.event_ids.is_empty() {
                         workspace.persist_current_coordination()?;
+                        self.sync_coordination_revision(workspace)?;
                         return Ok(ArtifactMutationResult {
                             artifact_id: None,
                             review_id: None,
@@ -1310,6 +1330,8 @@ impl QueryHost {
                 Some(session.notes.snapshot()),
                 None,
             )?;
+            self.sync_workspace_revision(workspace)?;
+            self.sync_episodic_revision(workspace)?;
         } else {
             prism.apply_outcome_event_to_projections(&note_event);
             let _ = prism.outcome_memory().store_event(note_event)?;

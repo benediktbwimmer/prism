@@ -403,6 +403,13 @@ struct WorkspaceRefreshReport {
     coordination_reloaded: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WorkspaceSnapshotReloadStatus {
+    Unchanged,
+    Reloaded,
+    DeferredBusy,
+}
+
 impl QueryHost {
     #[cfg(test)]
     fn new(prism: Prism) -> Self {
@@ -487,22 +494,19 @@ impl QueryHost {
     ) -> Self {
         let workspace = Arc::new(workspace);
         let prism = workspace.prism_arc();
-        let workspace_revision = workspace.workspace_revision().unwrap_or_default();
+        let revisions = workspace.snapshot_revisions().unwrap_or_default();
         let notes = workspace
             .load_episodic_snapshot()
             .ok()
             .flatten()
             .map(SessionMemory::from_snapshot)
             .unwrap_or_else(SessionMemory::new);
-        let episodic_revision = workspace.episodic_revision().unwrap_or_default();
         let inferred_edges = workspace
             .load_inference_snapshot()
             .ok()
             .flatten()
             .map(InferenceStore::from_snapshot)
             .unwrap_or_else(InferenceStore::new);
-        let inference_revision = workspace.inference_revision().unwrap_or_default();
-        let coordination_revision = workspace.coordination_revision().unwrap_or_default();
         Self {
             prism: Arc::clone(&prism),
             notes: Arc::new(notes),
@@ -514,10 +518,10 @@ impl QueryHost {
             query_log_store: Arc::new(QueryLogStore::default()),
             dashboard_state: Arc::new(DashboardState::default()),
             workspace: Some(workspace),
-            loaded_workspace_revision: Arc::new(AtomicU64::new(workspace_revision)),
-            loaded_episodic_revision: Arc::new(AtomicU64::new(episodic_revision)),
-            loaded_inference_revision: Arc::new(AtomicU64::new(inference_revision)),
-            loaded_coordination_revision: Arc::new(AtomicU64::new(coordination_revision)),
+            loaded_workspace_revision: Arc::new(AtomicU64::new(revisions.workspace)),
+            loaded_episodic_revision: Arc::new(AtomicU64::new(revisions.episodic)),
+            loaded_inference_revision: Arc::new(AtomicU64::new(revisions.inference)),
+            loaded_coordination_revision: Arc::new(AtomicU64::new(revisions.coordination)),
             features,
         }
     }
@@ -626,16 +630,20 @@ impl QueryHost {
         };
 
         let started = Instant::now();
+        let revisions = workspace.snapshot_revisions()?;
         let mut refresh_path = "fast";
-        if self.reload_workspace_snapshot_if_needed(workspace)? {
+        if self.reload_workspace_snapshot_if_needed(workspace, revisions.workspace)? {
             refresh_path = "full";
         }
         let _ = workspace.refresh_fs()?;
-        self.sync_workspace_revision(workspace)?;
+        self.sync_workspace_revision_value(revisions.workspace);
 
-        let episodic_reloaded = self.reload_episodic_snapshot_if_needed(workspace)?;
-        let inference_reloaded = self.reload_inference_snapshot_if_needed(workspace)?;
-        let coordination_reloaded = self.reload_coordination_snapshot_if_needed(workspace)?;
+        let episodic_reloaded =
+            self.reload_episodic_snapshot_if_needed(workspace, revisions.episodic)?;
+        let inference_reloaded =
+            self.reload_inference_snapshot_if_needed(workspace, revisions.inference)?;
+        let coordination_reloaded =
+            self.reload_coordination_snapshot_if_needed(workspace, revisions.coordination)?;
         log_refresh_workspace(
             refresh_path,
             workspace,
@@ -672,27 +680,39 @@ impl QueryHost {
         };
 
         let started = Instant::now();
+        let revisions = workspace.snapshot_revisions()?;
         let mut refresh_path = "fast";
-        if self.reload_workspace_snapshot_if_needed(workspace)? {
-            refresh_path = "full";
-        }
-        let deferred = match workspace.refresh_fs_nonblocking()? {
-            FsRefreshStatus::Clean => false,
-            FsRefreshStatus::Refreshed => {
-                refresh_path = "full";
+        let deferred = match self
+            .try_reload_workspace_snapshot_if_needed(workspace, revisions.workspace)?
+        {
+            WorkspaceSnapshotReloadStatus::Unchanged => match workspace.refresh_fs_nonblocking()? {
+                FsRefreshStatus::Clean => false,
+                FsRefreshStatus::Refreshed => {
+                    refresh_path = "full";
+                    false
+                }
+                FsRefreshStatus::DeferredBusy => {
+                    refresh_path = "deferred";
+                    true
+                }
+            },
+            WorkspaceSnapshotReloadStatus::Reloaded => {
+                refresh_path = "persisted";
                 false
             }
-            FsRefreshStatus::DeferredBusy => {
+            WorkspaceSnapshotReloadStatus::DeferredBusy => {
                 refresh_path = "deferred";
                 true
             }
         };
-        let (episodic_reloaded, inference_reloaded, coordination_reloaded) = {
-            self.sync_workspace_revision(workspace)?;
+        let (episodic_reloaded, inference_reloaded, coordination_reloaded) = if deferred {
+            (false, false, false)
+        } else {
+            self.sync_workspace_revision_value(revisions.workspace);
             (
-                self.reload_episodic_snapshot_if_needed(workspace)?,
-                self.reload_inference_snapshot_if_needed(workspace)?,
-                self.reload_coordination_snapshot_if_needed(workspace)?,
+                self.reload_episodic_snapshot_if_needed(workspace, revisions.episodic)?,
+                self.reload_inference_snapshot_if_needed(workspace, revisions.inference)?,
+                self.reload_coordination_snapshot_if_needed(workspace, revisions.coordination)?,
             )
         };
         log_refresh_workspace(
@@ -738,14 +758,28 @@ impl QueryHost {
         };
 
         let started = Instant::now();
-        let workspace_reloaded = self.reload_workspace_snapshot_if_needed(workspace)?;
+        let revisions = workspace.snapshot_revisions()?;
+        let (workspace_reloaded, deferred) =
+            match self.try_reload_workspace_snapshot_if_needed(workspace, revisions.workspace)? {
+                WorkspaceSnapshotReloadStatus::Unchanged => (false, false),
+                WorkspaceSnapshotReloadStatus::Reloaded => (true, false),
+                WorkspaceSnapshotReloadStatus::DeferredBusy => (false, true),
+            };
         if workspace_reloaded {
-            self.sync_workspace_revision(workspace)?;
+            self.sync_workspace_revision_value(revisions.workspace);
         }
-        let episodic_reloaded = self.reload_episodic_snapshot_if_needed(workspace)?;
-        let inference_reloaded = self.reload_inference_snapshot_if_needed(workspace)?;
-        let coordination_reloaded = self.reload_coordination_snapshot_if_needed(workspace)?;
-        let refresh_path = if workspace_reloaded
+        let (episodic_reloaded, inference_reloaded, coordination_reloaded) = if deferred {
+            (false, false, false)
+        } else {
+            (
+                self.reload_episodic_snapshot_if_needed(workspace, revisions.episodic)?,
+                self.reload_inference_snapshot_if_needed(workspace, revisions.inference)?,
+                self.reload_coordination_snapshot_if_needed(workspace, revisions.coordination)?,
+            )
+        };
+        let refresh_path = if deferred {
+            "deferred"
+        } else if workspace_reloaded
             || episodic_reloaded
             || inference_reloaded
             || coordination_reloaded
@@ -768,7 +802,7 @@ impl QueryHost {
                 "refreshPath": refresh_path,
                 "durationMs": started.elapsed().as_millis(),
                 "coordinationReloaded": coordination_reloaded,
-                "deferred": false,
+                "deferred": deferred,
                 "episodicReloaded": episodic_reloaded,
                 "inferenceReloaded": inference_reloaded,
                 "workspaceReloaded": workspace_reloaded,
@@ -779,15 +813,18 @@ impl QueryHost {
         }
         Ok(WorkspaceRefreshReport {
             refresh_path,
-            deferred: false,
+            deferred,
             episodic_reloaded,
             inference_reloaded,
             coordination_reloaded,
         })
     }
 
-    fn reload_workspace_snapshot_if_needed(&self, workspace: &WorkspaceSession) -> Result<bool> {
-        let revision = workspace.workspace_revision()?;
+    fn reload_workspace_snapshot_if_needed(
+        &self,
+        workspace: &WorkspaceSession,
+        revision: u64,
+    ) -> Result<bool> {
         let loaded = self.loaded_workspace_revision.load(Ordering::Relaxed);
         if revision == loaded {
             return Ok(false);
@@ -797,15 +834,72 @@ impl QueryHost {
         Ok(true)
     }
 
+    fn try_reload_workspace_snapshot_if_needed(
+        &self,
+        workspace: &WorkspaceSession,
+        revision: u64,
+    ) -> Result<WorkspaceSnapshotReloadStatus> {
+        let loaded = self.loaded_workspace_revision.load(Ordering::Relaxed);
+        if revision == loaded {
+            return Ok(WorkspaceSnapshotReloadStatus::Unchanged);
+        }
+
+        if workspace.try_reload_persisted_prism()? {
+            Ok(WorkspaceSnapshotReloadStatus::Reloaded)
+        } else {
+            Ok(WorkspaceSnapshotReloadStatus::DeferredBusy)
+        }
+    }
+
     fn sync_workspace_revision(&self, workspace: &WorkspaceSession) -> Result<()> {
         let revision = workspace.workspace_revision()?;
-        self.loaded_workspace_revision
-            .store(revision, Ordering::Relaxed);
+        self.sync_workspace_revision_value(revision);
         Ok(())
     }
 
-    fn reload_episodic_snapshot_if_needed(&self, workspace: &WorkspaceSession) -> Result<bool> {
+    pub(crate) fn sync_episodic_revision(&self, workspace: &WorkspaceSession) -> Result<()> {
         let revision = workspace.episodic_revision()?;
+        self.sync_episodic_revision_value(revision);
+        Ok(())
+    }
+
+    pub(crate) fn sync_inference_revision(&self, workspace: &WorkspaceSession) -> Result<()> {
+        let revision = workspace.inference_revision()?;
+        self.sync_inference_revision_value(revision);
+        Ok(())
+    }
+
+    pub(crate) fn sync_coordination_revision(&self, workspace: &WorkspaceSession) -> Result<()> {
+        let revision = workspace.coordination_revision()?;
+        self.sync_coordination_revision_value(revision);
+        Ok(())
+    }
+
+    fn sync_workspace_revision_value(&self, revision: u64) {
+        self.loaded_workspace_revision
+            .store(revision, Ordering::Relaxed);
+    }
+
+    fn sync_episodic_revision_value(&self, revision: u64) {
+        self.loaded_episodic_revision
+            .store(revision, Ordering::Relaxed);
+    }
+
+    fn sync_inference_revision_value(&self, revision: u64) {
+        self.loaded_inference_revision
+            .store(revision, Ordering::Relaxed);
+    }
+
+    fn sync_coordination_revision_value(&self, revision: u64) {
+        self.loaded_coordination_revision
+            .store(revision, Ordering::Relaxed);
+    }
+
+    fn reload_episodic_snapshot_if_needed(
+        &self,
+        workspace: &WorkspaceSession,
+        revision: u64,
+    ) -> Result<bool> {
         let loaded = self.loaded_episodic_revision.load(Ordering::Relaxed);
         if revision == loaded {
             return Ok(false);
@@ -817,13 +911,15 @@ impl QueryHost {
                 entries: Vec::new(),
             });
         self.notes.replace_from_snapshot(snapshot);
-        self.loaded_episodic_revision
-            .store(revision, Ordering::Relaxed);
+        self.sync_episodic_revision_value(revision);
         Ok(true)
     }
 
-    fn reload_inference_snapshot_if_needed(&self, workspace: &WorkspaceSession) -> Result<bool> {
-        let revision = workspace.inference_revision()?;
+    fn reload_inference_snapshot_if_needed(
+        &self,
+        workspace: &WorkspaceSession,
+        revision: u64,
+    ) -> Result<bool> {
         let loaded = self.loaded_inference_revision.load(Ordering::Relaxed);
         if revision == loaded {
             return Ok(false);
@@ -831,13 +927,15 @@ impl QueryHost {
 
         let snapshot = workspace.load_inference_snapshot()?.unwrap_or_default();
         self.inferred_edges.replace_from_snapshot(snapshot);
-        self.loaded_inference_revision
-            .store(revision, Ordering::Relaxed);
+        self.sync_inference_revision_value(revision);
         Ok(true)
     }
 
-    fn reload_coordination_snapshot_if_needed(&self, workspace: &WorkspaceSession) -> Result<bool> {
-        let revision = workspace.coordination_revision()?;
+    fn reload_coordination_snapshot_if_needed(
+        &self,
+        workspace: &WorkspaceSession,
+        revision: u64,
+    ) -> Result<bool> {
         let loaded = self.loaded_coordination_revision.load(Ordering::Relaxed);
         if revision == loaded {
             return Ok(false);
@@ -847,8 +945,7 @@ impl QueryHost {
         workspace
             .prism_arc()
             .replace_coordination_snapshot(snapshot);
-        self.loaded_coordination_revision
-            .store(revision, Ordering::Relaxed);
+        self.sync_coordination_revision_value(revision);
         Ok(true)
     }
 
@@ -856,21 +953,24 @@ impl QueryHost {
         let Some(workspace) = &self.workspace else {
             return Ok(());
         };
-        workspace.persist_outcomes()
+        workspace.persist_outcomes()?;
+        self.sync_workspace_revision(workspace)
     }
 
     fn persist_notes(&self) -> Result<()> {
         let Some(workspace) = &self.workspace else {
             return Ok(());
         };
-        workspace.persist_episodic(&self.notes.snapshot())
+        workspace.persist_episodic(&self.notes.snapshot())?;
+        self.sync_episodic_revision(workspace)
     }
 
     fn persist_inferred_edges(&self) -> Result<()> {
         let Some(workspace) = &self.workspace else {
             return Ok(());
         };
-        workspace.persist_inference(&self.inferred_edges.snapshot_persisted())
+        workspace.persist_inference(&self.inferred_edges.snapshot_persisted())?;
+        self.sync_inference_revision(workspace)
     }
 
     fn api_reference_markdown(&self) -> String {
@@ -908,15 +1008,18 @@ fn strip_internal_developer_api_reference(markdown: &str) -> String {
         "  queryLog(options?: QueryLogOptions): QueryLogEntryView[];",
         "  slowQueries(options?: QueryLogOptions): QueryLogEntryView[];",
         "  queryTrace(id: string): QueryTraceView | null;",
+        "  validationFeedback(options?: ValidationFeedbackOptions): ValidationFeedbackView[];",
     ];
     const TYPE_BLOCKS: &[&str] = &[
         "type QueryLogOptions = {",
+        "type ValidationFeedbackOptions = {",
         "type RuntimeLogOptions = {",
         "type RuntimeTimelineOptions = {",
         "type RuntimeHealthView = {",
         "type RuntimeProcessView = {",
         "type RuntimeStatusView = {",
         "type RuntimeLogEventView = {",
+        "type ValidationFeedbackView = {",
         "type QueryResultSummaryView = {",
         "type QueryPhaseView = {",
         "type QueryLogEntryView = {",
@@ -925,10 +1028,12 @@ fn strip_internal_developer_api_reference(markdown: &str) -> String {
     const HEADING_SECTIONS: &[&str] = &[
         "### 7a. Inspect recent query behavior through PRISM itself",
         "### 7e. Inspect daemon status and recent runtime activity through PRISM",
+        "### 7f. Inspect validation feedback recorded while dogfooding PRISM",
     ];
     const BULLET_PATTERNS: &[&str] = &[
         "workspace-backed runtime introspection through `prism.runtimeStatus()`",
         "a first-class query log through `prism.queryLog(...)`",
+        "internal validation-feedback inspection through `prism.validationFeedback(...)`",
     ];
 
     let mut output = Vec::new();

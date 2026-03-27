@@ -100,6 +100,18 @@ pub(crate) struct RuntimeTimelineArgs {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct ValidationFeedbackArgs {
+    pub(crate) limit: Option<usize>,
+    pub(crate) since: Option<u64>,
+    pub(crate) task_id: Option<String>,
+    pub(crate) verdict: Option<String>,
+    pub(crate) category: Option<String>,
+    pub(crate) contains: Option<String>,
+    pub(crate) corrected_manually: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ChangedFilesArgs {
     pub(crate) since: Option<u64>,
     pub(crate) limit: Option<usize>,

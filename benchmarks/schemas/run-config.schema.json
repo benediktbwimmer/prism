@@ -58,7 +58,16 @@
         "subset": {
           "type": "string"
         },
+        "dataset_name": {
+          "type": "string"
+        },
+        "split": {
+          "type": "string"
+        },
         "language": {
+          "type": "string"
+        },
+        "raw_sample_path": {
           "type": "string"
         },
         "instance_manifest": {
@@ -95,6 +104,21 @@
         "report_parser": {
           "type": "string",
           "enum": ["swebench-summary"]
+        },
+        "working_dir": {
+          "type": "string"
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "template_vars": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         },
         "command_templates": {
           "type": "object",

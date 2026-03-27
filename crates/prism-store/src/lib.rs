@@ -5,7 +5,7 @@ mod store;
 
 pub use graph::{FileRecord, FileState, FileUpdate, Graph, GraphSnapshot};
 pub use memory_store::MemoryStore;
-pub use sqlite::SqliteStore;
+pub use sqlite::{SnapshotRevisions, SqliteStore};
 pub use store::{AuxiliaryPersistBatch, IndexPersistBatch, Store};
 
 #[cfg(test)]

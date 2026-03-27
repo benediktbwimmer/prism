@@ -893,6 +893,35 @@ pub struct QueryTraceView {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidationFeedbackOptions {
+    pub limit: Option<usize>,
+    pub since: Option<u64>,
+    pub task_id: Option<String>,
+    pub verdict: Option<String>,
+    pub category: Option<String>,
+    pub contains: Option<String>,
+    pub corrected_manually: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidationFeedbackView {
+    pub id: String,
+    pub recorded_at: u64,
+    pub task_id: Option<String>,
+    pub context: String,
+    pub anchors: Vec<AnchorRef>,
+    pub prism_said: String,
+    pub actually_true: String,
+    pub category: String,
+    pub verdict: String,
+    pub corrected_manually: bool,
+    pub correction: Option<String>,
+    pub metadata: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct QueryEnvelope {
     pub result: Value,
     pub diagnostics: Vec<QueryDiagnostic>,

@@ -1058,6 +1058,18 @@ globalThis.prism = Object.freeze({
       contains: options?.contains,
     });
   },
+  validationFeedback(options = {}) {
+    return __prismHost("validationFeedback", {
+      limit: options?.limit,
+      since: options?.since,
+      taskId: options?.taskId ?? options?.task_id,
+      verdict: options?.verdict,
+      category: options?.category,
+      contains: options?.contains,
+      correctedManually:
+        options?.correctedManually ?? options?.corrected_manually,
+    });
+  },
   runtime: Object.freeze({
     status() {
       return prism.runtimeStatus();

@@ -22,7 +22,10 @@ use super::query_replay_cases::{replay_cases, ReplayExpectation, ReplayHostProfi
 use super::*;
 use crate::server_surface::{MutationDashboardMeta, MutationRefreshPolicy};
 use prism_agent::{InferenceSnapshot, InferredEdgeScope};
-use prism_core::{index_workspace_session, index_workspace_session_with_curator};
+use prism_core::{
+    index_workspace_session, index_workspace_session_with_curator, ValidationFeedbackCategory,
+    ValidationFeedbackRecord, ValidationFeedbackVerdict,
+};
 use prism_curator::{
     CandidateEdge, CandidateMemory, CandidateMemoryEvidence, CandidateRiskSummary,
     CandidateValidationRecipe, CuratorBackend, CuratorContext, CuratorJob, CuratorProposal,
@@ -1036,6 +1039,9 @@ async fn mcp_server_internal_developer_mode_surfaces_runtime_and_query_history_q
         .expect("api reference should be text");
     assert!(api_reference.contains("runtimeStatus(): RuntimeStatusView;"));
     assert!(api_reference.contains("queryLog(options?: QueryLogOptions): QueryLogEntryView[];"));
+    assert!(api_reference.contains(
+        "validationFeedback(options?: ValidationFeedbackOptions): ValidationFeedbackView[];"
+    ));
 
     client
         .send(read_resource_request(3, CAPABILITIES_URI))
@@ -1059,6 +1065,11 @@ async fn mcp_server_internal_developer_mode_surfaces_runtime_and_query_history_q
         .unwrap()
         .iter()
         .any(|method| method["name"] == "queryLog"));
+    assert!(capabilities_payload["queryMethods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|method| method["name"] == "validationFeedback"));
 
     running.cancel().await.unwrap();
 }
@@ -2088,7 +2099,7 @@ return {{
             .as_array()
             .unwrap()
             .len(),
-        0
+        1
     );
     assert_eq!(
         result.result["inbox"]["pendingReviews"]
@@ -4437,6 +4448,67 @@ fn mutation_trace_records_internal_phases_for_persisted_only_mutations() {
 }
 
 #[test]
+fn follow_up_queries_skip_persisted_refresh_after_local_outcome_write() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    host.store_outcome_without_refresh(
+        test_session(&host).as_ref(),
+        PrismOutcomeArgs {
+            kind: OutcomeKindInput::FixValidated,
+            anchors: vec![AnchorRefInput::Node {
+                crate_name: "demo".to_string(),
+                path: "demo::alpha".to_string(),
+                kind: "function".to_string(),
+            }],
+            summary: "validated alpha".to_string(),
+            result: Some(OutcomeResultInput::Success),
+            evidence: None,
+            task_id: None,
+        },
+    )
+    .expect("local outcome write should succeed");
+
+    host.execute(
+        test_session(&host),
+        r#"
+return prism.runtimeStatus();
+"#,
+        QueryLanguage::Ts,
+    )
+    .expect("follow-up query should succeed");
+
+    let trace = host
+        .execute(
+            test_session(&host),
+            r#"
+const recent = prism.queryLog({ limit: 1, operation: "runtimeStatus" });
+return recent[0] ? prism.queryTrace(recent[0].id) : null;
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("trace lookup should succeed")
+        .result;
+
+    let refresh_phase = trace["phases"]
+        .as_array()
+        .expect("trace phases")
+        .iter()
+        .find(|phase| phase["operation"] == "typescript.refreshWorkspace")
+        .expect("refresh phase should exist");
+    let args = refresh_phase["argsSummary"]
+        .as_object()
+        .expect("refresh args");
+    assert_eq!(
+        args.get("refreshPath"),
+        Some(&Value::String("fast".to_string()))
+    );
+    assert_eq!(args.get("episodicReloaded"), Some(&Value::Bool(false)));
+    assert_eq!(args.get("inferenceReloaded"), Some(&Value::Bool(false)));
+    assert_eq!(args.get("coordinationReloaded"), Some(&Value::Bool(false)));
+}
+
+#[test]
 fn prism_query_errors_include_js_message_and_stack() {
     let root = temp_workspace();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
@@ -6499,6 +6571,59 @@ fn validation_feedback_mutation_persists_to_workspace_log() {
 }
 
 #[test]
+fn validation_feedback_query_reads_internal_feedback_stream() {
+    let root = temp_workspace();
+    let workspace = index_workspace_session(&root).unwrap();
+    workspace
+        .append_validation_feedback(ValidationFeedbackRecord {
+            task_id: Some("task:feedback".to_string()),
+            context: "session behavioral-owner dogfood".to_string(),
+            anchors: vec![AnchorRef::Node(NodeId::new(
+                "demo",
+                "demo::alpha",
+                NodeKind::Function,
+            ))],
+            prism_said: "dashboard and schema helpers ranked too high".to_string(),
+            actually_true: "deeper runtime owners should rank first".to_string(),
+            category: ValidationFeedbackCategory::Projection,
+            verdict: ValidationFeedbackVerdict::Helpful,
+            corrected_manually: true,
+            correction: Some("tightened behavioral penalties".to_string()),
+            metadata: json!({ "query": "prism.search(\"session\")" }),
+        })
+        .expect("feedback append should succeed");
+    let host = host_with_session_internal(workspace);
+
+    let result = host
+        .execute(
+            test_session(&host),
+            r#"
+return prism.validationFeedback({
+  limit: 5,
+  category: "projection",
+  verdict: "helpful",
+  contains: "session",
+  correctedManually: true,
+});
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("validation feedback query should succeed");
+
+    let entries = result
+        .result
+        .as_array()
+        .expect("feedback results should be an array");
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0]["category"], "projection");
+    assert_eq!(entries[0]["verdict"], "helpful");
+    assert_eq!(entries[0]["taskId"], "task:feedback");
+    assert_eq!(entries[0]["correctedManually"], true);
+    assert_eq!(entries[0]["metadata"]["query"], "prism.search(\"session\")");
+    assert!(entries[0]["anchors"][0].to_string().contains("demo::alpha"));
+}
+
+#[test]
 fn auto_refreshes_workspace_and_records_patch_events() {
     let root = temp_workspace();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
@@ -7410,6 +7535,360 @@ fn explicit_search_modes_can_prefer_behavioral_owners_without_behavioral_strateg
 }
 
 #[test]
+fn direct_search_merges_behavioral_owner_hints_for_same_symbol() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn session_view() {
+    let current_session = read_session_state();
+    assert!(!current_session.is_empty());
+}
+
+fn read_session_state() -> &'static str {
+    "ready"
+}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let envelope = host
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "session".to_string(),
+                limit: Some(5),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: Some("direct".to_string()),
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: Some(true),
+                prefer_editable_targets: Some(true),
+                prefer_behavioral_owners: Some(true),
+                owner_kind: Some("read".to_string()),
+                include_inferred: None,
+            },
+        )
+        .expect("search query should succeed");
+
+    let session_view = envelope
+        .result
+        .as_array()
+        .and_then(|results| {
+            results
+                .iter()
+                .find(|symbol| symbol["id"]["path"].as_str() == Some("demo::session_view"))
+        })
+        .expect("session_view should be returned");
+    assert_eq!(session_view["ownerHint"]["kind"].as_str(), Some("read"));
+}
+
+#[test]
+fn behavioral_owner_search_prefers_deeper_session_implementations_over_surface_wrappers() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+mod dashboard;
+mod resources;
+mod runtime;
+
+pub use dashboard::dashboard_session_view;
+pub use resources::session_resource_link;
+pub use runtime::load_session_memory;
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/runtime.rs"),
+        r#"
+pub fn load_session_memory() {
+    let session_state = fetch_session_state();
+    assert!(!session_state.is_empty());
+}
+
+fn fetch_session_state() -> &'static str {
+    "ready"
+}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/resources.rs"),
+        r#"
+pub fn session_resource_link() -> &'static str {
+    "/session"
+}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/dashboard.rs"),
+        r#"
+pub fn dashboard_session_view() -> &'static str {
+    "session"
+}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let envelope = host
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "session".to_string(),
+                limit: Some(5),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: Some("behavioral".to_string()),
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: None,
+                prefer_editable_targets: None,
+                prefer_behavioral_owners: None,
+                owner_kind: Some("read".to_string()),
+                include_inferred: None,
+            },
+        )
+        .expect("search query should succeed");
+
+    let top_paths = envelope
+        .result
+        .as_array()
+        .expect("behavioral search should return an array")
+        .iter()
+        .take(2)
+        .filter_map(|value| value["id"]["path"].as_str())
+        .collect::<Vec<_>>();
+    assert!(
+        top_paths
+            .iter()
+            .all(|path| path.starts_with("demo::runtime::")),
+        "expected deeper runtime implementations to outrank surface wrappers, got {top_paths:?}"
+    );
+    assert!(
+        !top_paths
+            .iter()
+            .any(|path| path == &"demo::resources::session_resource_link"
+                || path == &"demo::dashboard::dashboard_session_view"),
+        "expected surface wrappers to rank below runtime implementations, got {top_paths:?}"
+    );
+}
+
+#[test]
+fn behavioral_owner_search_deprioritizes_schema_examples_for_broad_read_queries() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+mod resources;
+mod runtime;
+mod schema_examples;
+
+pub use resources::session_resource_link;
+pub use runtime::{fetch_session_state, load_session_history, load_session_memory};
+pub use schema_examples::session_payload_example;
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/runtime.rs"),
+        r#"
+pub fn load_session_memory() {
+    let session_state = fetch_session_state();
+    assert!(!session_state.is_empty());
+}
+
+pub fn fetch_session_state() -> &'static str {
+    "ready"
+}
+
+pub fn load_session_history() -> &'static str {
+    fetch_session_state()
+}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/resources.rs"),
+        r#"
+pub fn session_resource_link() -> &'static str {
+    "/session"
+}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/schema_examples.rs"),
+        r#"
+pub fn session_payload_example() -> &'static str {
+    "{\"currentTask\":\"demo-session\"}"
+}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let envelope = host
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "session".to_string(),
+                limit: Some(6),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: Some("behavioral".to_string()),
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: None,
+                prefer_editable_targets: None,
+                prefer_behavioral_owners: None,
+                owner_kind: Some("read".to_string()),
+                include_inferred: None,
+            },
+        )
+        .expect("search query should succeed");
+
+    let top_paths = envelope
+        .result
+        .as_array()
+        .expect("behavioral search should return an array")
+        .iter()
+        .take(3)
+        .filter_map(|value| value["id"]["path"].as_str())
+        .collect::<Vec<_>>();
+    assert!(
+        top_paths
+            .iter()
+            .all(|path| path.starts_with("demo::runtime::")),
+        "expected runtime implementations to outrank schema/resource surfaces, got {top_paths:?}"
+    );
+}
+
+#[test]
+fn ambiguity_payload_exposes_buckets_for_broad_first_hop_queries() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+mod dashboard;
+mod resources;
+mod runtime;
+mod schema_examples;
+
+pub use dashboard::dashboard_session_view;
+pub use resources::session_resource_link;
+pub use runtime::load_session_memory;
+pub use schema_examples::session_payload_example;
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/runtime.rs"),
+        r#"
+pub fn load_session_memory() {
+    let session_state = fetch_session_state();
+    assert!(!session_state.is_empty());
+}
+
+fn fetch_session_state() -> &'static str {
+    "ready"
+}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/resources.rs"),
+        r#"
+pub fn session_resource_link() -> &'static str {
+    "/session"
+}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/dashboard.rs"),
+        r#"
+pub fn dashboard_session_view() -> &'static str {
+    "session"
+}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/schema_examples.rs"),
+        r#"
+pub fn session_payload_example() -> &'static str {
+    "{\"currentTask\":\"demo-session\"}"
+}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let envelope = host
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "session".to_string(),
+                limit: Some(8),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: Some("behavioral".to_string()),
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: None,
+                prefer_editable_targets: None,
+                prefer_behavioral_owners: None,
+                owner_kind: Some("read".to_string()),
+                include_inferred: None,
+            },
+        )
+        .expect("search query should succeed");
+
+    let ambiguity = envelope
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.code == "ambiguous_search")
+        .and_then(|diagnostic| diagnostic.data.as_ref())
+        .and_then(|data| data["ambiguity"].as_object())
+        .expect("ambiguous search payload should be present");
+
+    let why = ambiguity["why"].as_array().expect("why should be an array");
+    assert!(why.iter().any(|value| {
+        value
+            .as_str()
+            .is_some_and(|line| line.contains("Broad-query bucketing grouped candidates"))
+    }));
+
+    let candidates = ambiguity["candidates"]
+        .as_array()
+        .expect("ambiguity candidates should be an array");
+    assert_eq!(candidates[0]["bucket"], "implementation");
+    assert!(candidates
+        .iter()
+        .any(|candidate| candidate["bucket"] == "surface"));
+    assert!(candidates
+        .iter()
+        .any(|candidate| candidate["bucket"] != "implementation"));
+}
+
+#[test]
 fn behavioral_owner_search_ignores_excerpt_only_schema_example_noise() {
     let root = temp_workspace();
     fs::write(
@@ -7475,6 +7954,188 @@ pub fn read_payload_example() {
                 .is_some_and(|path| path.contains("schema_examples"))
         })
     }));
+}
+
+#[test]
+fn explicit_callable_behavioral_owner_search_prefers_functions_over_exact_module_nouns() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod helpers;
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/helpers.rs"),
+        r#"
+pub fn lookup_registry() {
+    let helper_mode = true;
+    assert!(helper_mode);
+}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let envelope = host
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "helper".to_string(),
+                limit: Some(5),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: Some("direct".to_string()),
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: Some(true),
+                prefer_editable_targets: Some(true),
+                prefer_behavioral_owners: Some(true),
+                owner_kind: Some("read".to_string()),
+                include_inferred: None,
+            },
+        )
+        .expect("search query should succeed");
+
+    assert_eq!(envelope.result[0]["kind"], "Function");
+    assert_eq!(
+        envelope.result[0]["id"]["path"].as_str(),
+        Some("demo::helpers::lookup_registry")
+    );
+}
+
+#[test]
+fn broad_helper_queries_deprioritize_generic_query_helpers_utilities() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod helpers;
+pub mod query_helpers;
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/helpers.rs"),
+        r#"
+pub fn lookup_registry() {
+    let helper_mode = true;
+    assert!(helper_mode);
+}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/query_helpers.rs"),
+        r#"
+pub fn compact_owner_candidate_excerpts() {}
+pub fn helper_candidate_summary() {}
+pub fn next_reads() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let envelope = host
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "helper".to_string(),
+                limit: Some(5),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: Some("direct".to_string()),
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: Some(true),
+                prefer_editable_targets: Some(true),
+                prefer_behavioral_owners: Some(true),
+                owner_kind: Some("read".to_string()),
+                include_inferred: None,
+            },
+        )
+        .expect("search query should succeed");
+
+    assert_eq!(
+        envelope.result[0]["id"]["path"].as_str(),
+        Some("demo::helpers::lookup_registry")
+    );
+    let top_paths = envelope
+        .result
+        .as_array()
+        .expect("search results should be an array")
+        .iter()
+        .take(2)
+        .filter_map(|value| value["id"]["path"].as_str())
+        .collect::<Vec<_>>();
+    assert!(
+        !top_paths
+            .iter()
+            .any(|path| path.starts_with("demo::query_helpers::")),
+        "expected generic query_helpers utilities to rank below task-facing helper code, got {top_paths:?}"
+    );
+}
+
+#[test]
+fn broad_implementation_search_deprioritizes_lib_rs_facade_wrappers() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+mod session;
+
+pub fn index_workspace_session() {
+    session::load_session_state();
+}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/session.rs"),
+        r#"
+pub fn load_session_state() {
+    let session_state = "ready";
+    assert!(!session_state.is_empty());
+}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let envelope = host
+        .search_query(
+            test_session(&host),
+            SearchArgs {
+                query: "session".to_string(),
+                limit: Some(5),
+                kind: None,
+                path: None,
+                module: None,
+                task_id: None,
+                path_mode: None,
+                strategy: Some("direct".to_string()),
+                structured_path: None,
+                top_level_only: None,
+                prefer_callable_code: Some(true),
+                prefer_editable_targets: Some(true),
+                prefer_behavioral_owners: Some(true),
+                owner_kind: Some("read".to_string()),
+                include_inferred: None,
+            },
+        )
+        .expect("search query should succeed");
+
+    assert_eq!(
+        envelope.result[0]["id"]["path"].as_str(),
+        Some("demo::session::load_session_state")
+    );
 }
 
 #[test]

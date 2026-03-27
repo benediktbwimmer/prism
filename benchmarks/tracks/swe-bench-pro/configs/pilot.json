@@ -5,12 +5,15 @@
   "description": "Pilot Codex Prism-vs-control comparison on an explicit SWE-bench Pro manifest.",
   "agent": {
     "name": "codex",
-    "model": "<set-per-run>",
-    "reasoning_effort": "<set-per-run>"
+    "model": "gpt-5.4",
+    "reasoning_effort": "medium"
   },
   "benchmark": {
     "suite": "swe-bench-pro",
+    "dataset_name": "ScaleAI/SWE-bench_Pro",
+    "split": "test",
     "subset": "public",
+    "raw_sample_path": "benchmarks/tracks/swe-bench-pro/data/swe_bench_pro_test.jsonl",
     "instance_manifest": "benchmarks/tracks/swe-bench-pro/manifests/pilot.txt"
   },
   "harness": {
@@ -19,32 +22,31 @@
     "predictions_format": "dict",
     "report_path": "benchmarks/results/local/{run_id}/{arm}/report.json",
     "report_parser": "swebench-summary",
+    "working_dir": "benchmarks/external/SWE-bench_Pro-os",
+    "environment": {
+      "DOCKER_HOST": "{docker_host}"
+    },
+    "template_vars": {
+      "dockerhub_username": "jefzda"
+    },
     "command_templates": {
       "submit": [
-        "sb-cli",
-        "submit",
-        "<set-subset>",
-        "<set-split>",
-        "--predictions_path",
+        "python3",
+        "swe_bench_pro_eval.py",
+        "--raw_sample_path",
+        "{raw_sample_path}",
+        "--patch_path",
         "{predictions_path}",
-        "--run_id",
-        "{submission_run_id}",
         "--output_dir",
         "{arm_output_dir}",
-        "--gen_report",
-        "1",
-        "--wait_for_evaluation",
-        "1",
-        "--verify_submission",
-        "1",
-        "--overwrite",
-        "1"
+        "--scripts_dir",
+        "run_scripts",
+        "--num_workers",
+        "{parallelism}",
+        "--dockerhub_username",
+        "{dockerhub_username}"
       ],
-      "get_report": [
-        "sb-cli",
-        "get-report",
-        "{submission_run_id}"
-      ]
+      "get_report": null
     }
   },
   "execution": {

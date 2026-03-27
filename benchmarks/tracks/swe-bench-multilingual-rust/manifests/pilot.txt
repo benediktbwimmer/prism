@@ -1,3 +1,20 @@
-# Plain-text manifests may list one instance id per line.
-# For Codex execution, prefer a `.jsonl` manifest with:
-# {"instance_id":"demo__instance","workspace_dir":"/abs/path","prompt":"..."}
+astral-sh__ruff-15309
+astral-sh__ruff-15330
+astral-sh__ruff-15356
+astral-sh__ruff-15394
+astral-sh__ruff-15443
+astral-sh__ruff-15543
+astral-sh__ruff-15626
+burntsushi__ripgrep-2209
+burntsushi__ripgrep-2576
+nushell__nushell-12901
+nushell__nushell-12950
+nushell__nushell-13246
+nushell__nushell-13605
+nushell__nushell-13831
+sharkdp__bat-1892
+sharkdp__bat-2201
+sharkdp__bat-2260
+sharkdp__bat-2393
+sharkdp__bat-2650
+sharkdp__bat-2835

@@ -20,7 +20,7 @@ use prism_query::Prism;
 
 pub(crate) use indexer::PendingFileParse;
 pub use indexer::WorkspaceIndexer;
-pub use session::{FsRefreshStatus, WorkspaceSession};
+pub use session::{FsRefreshStatus, WorkspaceSession, WorkspaceSnapshotRevisions};
 pub use validation_feedback::{
     ValidationFeedbackCategory, ValidationFeedbackEntry, ValidationFeedbackRecord,
     ValidationFeedbackVerdict,

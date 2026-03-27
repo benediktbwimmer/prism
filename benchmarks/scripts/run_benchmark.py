@@ -11,7 +11,9 @@ from benchmark_compare import run_codex_comparison
 from benchmark_codex import run_codex_batch, run_codex_instance
 from benchmark_config import load_normalized_config
 from benchmark_harness import ingest_report, prepare_predictions, render_harness_commands, run_harness_command
+from benchmark_prepare import prepare_track
 from benchmark_runner import build_plan, finalize_run, materialize_run, record_instance
+from benchmark_sync_repos import sync_repo_mirrors
 
 
 def _parse_args() -> argparse.Namespace:
@@ -25,6 +27,25 @@ def _parse_args() -> argparse.Namespace:
     materialize_parser = subparsers.add_parser("materialize", help="create plan, result, and telemetry artifacts")
     materialize_parser.add_argument("--config", required=True, type=Path)
     materialize_parser.add_argument("--force", action="store_true")
+
+    prepare_track_parser = subparsers.add_parser(
+        "prepare-track",
+        help="materialize pristine source workspaces, prompt files, and a rich manifest for one track config",
+    )
+    prepare_track_parser.add_argument("--config", required=True, type=Path)
+    prepare_track_parser.add_argument("--dataset", required=True, type=Path)
+    prepare_track_parser.add_argument("--repo-template")
+    prepare_track_parser.add_argument("--output-dir", type=Path)
+    prepare_track_parser.add_argument("--force", action="store_true")
+
+    sync_repos_parser = subparsers.add_parser(
+        "sync-repos",
+        help="clone or refresh local repo mirrors for a benchmark dataset slice",
+    )
+    sync_repos_parser.add_argument("--dataset", required=True, type=Path)
+    sync_repos_parser.add_argument("--output-dir", required=True, type=Path)
+    sync_repos_parser.add_argument("--manifest", type=Path)
+    sync_repos_parser.add_argument("--github-host", default="https://github.com")
 
     prepare_predictions_parser = subparsers.add_parser(
         "prepare-predictions",
@@ -121,6 +142,27 @@ def main() -> int:
     if args.command == "materialize":
         created = materialize_run(args.config, force=args.force)
         print(json.dumps(created, indent=2))
+        return 0
+
+    if args.command == "prepare-track":
+        prepared = prepare_track(
+            args.config,
+            args.dataset,
+            repo_template=args.repo_template,
+            output_dir=args.output_dir,
+            force=args.force,
+        )
+        print(json.dumps(prepared, indent=2))
+        return 0
+
+    if args.command == "sync-repos":
+        synced = sync_repo_mirrors(
+            args.dataset,
+            args.output_dir,
+            manifest_path=args.manifest,
+            github_host=args.github_host,
+        )
+        print(json.dumps(synced, indent=2))
         return 0
 
     if args.command == "prepare-predictions":

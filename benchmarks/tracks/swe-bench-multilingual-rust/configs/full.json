@@ -5,46 +5,47 @@
   "description": "Full Codex Prism-vs-control comparison on the approved SWE-bench Multilingual Rust manifest.",
   "agent": {
     "name": "codex",
-    "model": "<set-per-run>",
-    "reasoning_effort": "<set-per-run>"
+    "model": "gpt-5.4",
+    "reasoning_effort": "medium"
   },
   "benchmark": {
     "suite": "swe-bench-multilingual",
+    "dataset_name": "SWE-bench/SWE-bench_Multilingual",
+    "split": "test",
     "language": "rust",
     "instance_manifest": "benchmarks/tracks/swe-bench-multilingual-rust/manifests/full.txt"
   },
   "harness": {
     "adapter": "command-template",
     "predictions_path": "benchmarks/results/local/{run_id}/{arm}/predictions.json",
-    "predictions_format": "dict",
-    "report_path": "benchmarks/results/local/{run_id}/{arm}/report.json",
+    "predictions_format": "list",
+    "report_path": "benchmarks/results/local/{run_id}/{arm}/{model_slug}.{submission_run_id}.json",
     "report_parser": "swebench-summary",
+    "working_dir": "{arm_output_dir}",
+    "environment": {
+      "DOCKER_HOST": "{docker_host}"
+    },
     "command_templates": {
       "submit": [
-        "sb-cli",
-        "submit",
-        "<set-subset>",
-        "<set-split>",
+        ".venv-swebench/bin/python",
+        "-m",
+        "swebench.harness.run_evaluation",
+        "--dataset_name",
+        "{dataset_name}",
+        "--split",
+        "{split}",
         "--predictions_path",
         "{predictions_path}",
+        "--max_workers",
+        "{parallelism}",
+        "--timeout",
+        "{timeout_seconds}",
         "--run_id",
         "{submission_run_id}",
-        "--output_dir",
-        "{arm_output_dir}",
-        "--gen_report",
-        "1",
-        "--wait_for_evaluation",
-        "1",
-        "--verify_submission",
-        "1",
-        "--overwrite",
-        "1"
+        "--namespace",
+        "none"
       ],
-      "get_report": [
-        "sb-cli",
-        "get-report",
-        "{submission_run_id}"
-      ]
+      "get_report": null
     }
   },
   "execution": {

@@ -34,6 +34,7 @@ pub(crate) struct SearchAmbiguityView {
 pub(crate) struct AmbiguityCandidateView {
     pub(crate) symbol: SymbolView,
     pub(crate) module: Option<String>,
+    pub(crate) bucket: String,
     pub(crate) score: i32,
     pub(crate) reasons: Vec<String>,
     pub(crate) suggested_queries: Vec<SuggestedQueryView>,
@@ -63,9 +64,20 @@ pub(crate) struct SearchAmbiguityContext<'a> {
 struct RankedCandidate {
     symbol: SymbolView,
     module: Option<String>,
+    bucket: CandidateBucket,
     score: i32,
     reasons: Vec<String>,
     exact_name_match: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CandidateBucket {
+    Implementation,
+    Surface,
+    ExampleFixture,
+    Tests,
+    Container,
+    Other,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -220,9 +232,10 @@ fn rank_candidate(
     let path_lower = path.to_ascii_lowercase();
     let direct_match_rank = direct_symbol_match_rank(&symbol, &query_lower);
     let exact_name_match = symbol.name == normalized_query || leaf == normalized_query;
-    let broad_identifier_query =
-        context.strategy == "direct" && is_broad_identifier_query(normalized_query);
-    let intent = SearchIntent::from_context(context, broad_identifier_query);
+    let bare_identifier_query = is_broad_identifier_query(normalized_query);
+    let broad_identifier_query = context.strategy == "direct" && bare_identifier_query;
+    let intent = SearchIntent::from_context(context, bare_identifier_query);
+    let bucket = classify_candidate_bucket(&symbol);
 
     if path == normalized_query {
         score += 140;
@@ -313,7 +326,10 @@ fn rank_candidate(
 
     if broad_identifier_query {
         match symbol.kind {
-            NodeKind::Module if direct_match_rank.is_some() => {
+            NodeKind::Module
+                if direct_match_rank.is_some()
+                    && !(intent.prefer_callable_code && intent.prefer_behavioral_owners) =>
+            {
                 score += 34;
                 reasons.push(
                     "Direct module owner match preferred over child symbols that only inherit the query through their path.".to_string(),
@@ -364,11 +380,23 @@ fn rank_candidate(
                 | NodeKind::TypeAlias
                 | NodeKind::Field
         ) {
-            score -= 38;
+            score -= 64;
             reasons.push(
                 "Child symbol only inherited the query through its containing path; owner modules match first.".to_string(),
             );
         }
+    }
+
+    if bare_identifier_query
+        && identifier_stem(&query_lower) == "helper"
+        && !exact_name_match
+        && is_generic_helper_utility_symbol(&symbol)
+    {
+        score -= 220;
+        reasons.push(
+            "Generic helper-plumbing utilities de-prioritized behind task-facing helper code."
+                .to_string(),
+        );
     }
 
     if intent.prefer_callable_code {
@@ -377,12 +405,33 @@ fn rank_candidate(
                 score += 18;
                 reasons.push("Search intent prefers callable implementation code.".to_string());
             }
-            NodeKind::Module if !exact_name_match => {
-                score -= 10;
-                reasons.push(
-                    "Search intent de-prioritized module containers behind callable code."
-                        .to_string(),
-                );
+            NodeKind::Module => {
+                let penalty = if broad_identifier_query && intent.prefer_behavioral_owners {
+                    if exact_name_match {
+                        72
+                    } else {
+                        24
+                    }
+                } else if exact_name_match {
+                    if broad_identifier_query {
+                        32
+                    } else {
+                        12
+                    }
+                } else {
+                    10
+                };
+                if penalty > 0 {
+                    score -= penalty;
+                    reasons.push(
+                        if broad_identifier_query && intent.prefer_behavioral_owners {
+                            "Explicit callable behavioral-owner search de-prioritized module containers behind concrete owner code.".to_string()
+                        } else {
+                            "Search intent de-prioritized module containers behind callable code."
+                                .to_string()
+                        },
+                    );
+                }
             }
             _ => {}
         }
@@ -416,6 +465,47 @@ fn rank_candidate(
         }
     }
 
+    if bare_identifier_query
+        && intent.prefer_callable_code
+        && intent.prefer_editable_targets
+        && !exact_name_match
+        && is_facade_file_symbol(&symbol)
+    {
+        score -= 22;
+        reasons.push(
+            "Broad implementation search de-prioritized facade entrypoints from lib.rs/main.rs behind deeper owned code.".to_string(),
+        );
+    }
+
+    if bare_identifier_query && intent.prefer_behavioral_owners {
+        if !query_mentions_schema_or_examples(&query_lower)
+            && is_schema_example_surface_symbol(&symbol)
+        {
+            score -= 120;
+            reasons.push(
+                "Schema/example helpers de-prioritized for a broad implementation search."
+                    .to_string(),
+            );
+        } else if !query_mentions_read_surface(&query_lower)
+            && is_read_surface_wrapper_symbol(&symbol)
+        {
+            score -= 88;
+            reasons.push(
+                "Session-surface view/resource wrappers de-prioritized behind deeper read implementations."
+                    .to_string(),
+            );
+        }
+    }
+
+    if bare_identifier_query {
+        if let Some((adjustment, reason)) =
+            bucket_adjustment(bucket, &query_lower, &intent, exact_name_match)
+        {
+            score += adjustment;
+            reasons.push(reason.to_string());
+        }
+    }
+
     if let Some(task_match) = candidate_task_match(&symbol, task_scope) {
         score += match task_match {
             TaskMatch::ExactNode => 120,
@@ -441,6 +531,11 @@ fn rank_candidate(
         if let Some(owner_hint) = symbol.owner_hint.as_ref() {
             let owner_boost = if context.strategy == "behavioral" {
                 owner_hint.score.min(24) as i32
+            } else if broad_identifier_query
+                && intent.prefer_callable_code
+                && matches!(symbol.kind, NodeKind::Function | NodeKind::Method)
+            {
+                owner_hint.score.min(24) as i32 + 18
             } else {
                 owner_hint.score.min(14) as i32
             };
@@ -453,15 +548,15 @@ fn rank_candidate(
     }
 
     if !query_lower.contains("test") && is_test_symbol(&symbol) {
-        let penalty = if broad_identifier_query { 120 } else { 45 };
+        let penalty = if bare_identifier_query { 120 } else { 45 };
         score -= penalty;
-        reasons.push(if broad_identifier_query {
+        reasons.push(if bare_identifier_query {
             "Test-only symbol strongly de-prioritized for a broad non-test query.".to_string()
         } else {
             "Test-only symbol de-prioritized for a non-test query.".to_string()
         });
     }
-    if broad_identifier_query
+    if bare_identifier_query
         && !query_lower.contains("test")
         && !query_lower.contains("replay")
         && !query_lower.contains("fixture")
@@ -506,6 +601,7 @@ fn rank_candidate(
     RankedCandidate {
         module: module_path(&symbol),
         symbol,
+        bucket,
         score,
         reasons,
         exact_name_match,
@@ -528,6 +624,7 @@ fn ambiguity_candidate_view(
     AmbiguityCandidateView {
         symbol: candidate.symbol.clone(),
         module: candidate.module.clone(),
+        bucket: candidate.bucket.label().to_string(),
         score: candidate.score,
         reasons: candidate.reasons.clone(),
         suggested_queries: candidate_queries(
@@ -631,10 +728,8 @@ fn ambiguity_why(
     if let Some(path) = context.path.filter(|value| !value.is_empty()) {
         why.push(format!("Applied path filter `{path}` before ranking."));
     }
-    let intent = SearchIntent::from_context(
-        context,
-        context.strategy == "direct" && is_broad_identifier_query(context.query),
-    );
+    let bare_identifier_query = is_broad_identifier_query(context.query);
+    let intent = SearchIntent::from_context(context, bare_identifier_query);
     if context.prefer_callable_code == Some(true) {
         why.push("Applied explicit callable-code preference for ranking.".to_string());
     } else if intent.prefer_callable_code && context.strategy == "direct" {
@@ -651,6 +746,15 @@ fn ambiguity_why(
         why.push("Applied explicit behavioral-owner preference for ranking.".to_string());
     } else if context.strategy == "behavioral" {
         why.push("Behavioral strategy preferred semantic owner hints during ranking.".to_string());
+    }
+    if bare_identifier_query {
+        let bucket_summary = summarize_candidate_buckets(ranked);
+        if !bucket_summary.is_empty() {
+            why.push(format!(
+                "Broad-query bucketing grouped candidates by likely intent: {}.",
+                bucket_summary
+            ));
+        }
     }
     if let Some(scope) = task_scope {
         let scoped_matches = ranked
@@ -779,17 +883,41 @@ fn search_query_call(
 }
 
 impl SearchIntent {
-    fn from_context(context: &SearchAmbiguityContext<'_>, broad_identifier_query: bool) -> Self {
+    fn from_context(context: &SearchAmbiguityContext<'_>, bare_identifier_query: bool) -> Self {
         Self {
             prefer_callable_code: context
                 .prefer_callable_code
-                .unwrap_or(broad_identifier_query),
+                .unwrap_or(bare_identifier_query),
             prefer_editable_targets: context
                 .prefer_editable_targets
-                .unwrap_or(broad_identifier_query),
+                .unwrap_or(bare_identifier_query),
             prefer_behavioral_owners: context
                 .prefer_behavioral_owners
                 .unwrap_or(context.strategy == "behavioral"),
+        }
+    }
+}
+
+impl CandidateBucket {
+    fn label(self) -> &'static str {
+        match self {
+            CandidateBucket::Implementation => "implementation",
+            CandidateBucket::Surface => "surface",
+            CandidateBucket::ExampleFixture => "example_fixture",
+            CandidateBucket::Tests => "tests",
+            CandidateBucket::Container => "container",
+            CandidateBucket::Other => "other",
+        }
+    }
+
+    fn summary_label(self) -> &'static str {
+        match self {
+            CandidateBucket::Implementation => "implementation owners",
+            CandidateBucket::Surface => "surface wrappers",
+            CandidateBucket::ExampleFixture => "examples and fixtures",
+            CandidateBucket::Tests => "tests",
+            CandidateBucket::Container => "containers",
+            CandidateBucket::Other => "other",
         }
     }
 }
@@ -806,6 +934,116 @@ fn is_editable_target(symbol: &SymbolView) -> bool {
             | NodeKind::TypeAlias
             | NodeKind::Field
     )
+}
+
+fn classify_candidate_bucket(symbol: &SymbolView) -> CandidateBucket {
+    if is_test_symbol(symbol) {
+        CandidateBucket::Tests
+    } else if is_schema_example_surface_symbol(symbol)
+        || is_query_replay_case_symbol(symbol)
+        || is_replay_or_fixture_symbol(symbol)
+    {
+        CandidateBucket::ExampleFixture
+    } else if is_read_surface_wrapper_symbol(symbol) || is_facade_file_symbol(symbol) {
+        CandidateBucket::Surface
+    } else if matches!(
+        symbol.kind,
+        NodeKind::Module
+            | NodeKind::Document
+            | NodeKind::Package
+            | NodeKind::Workspace
+            | NodeKind::MarkdownHeading
+            | NodeKind::JsonKey
+            | NodeKind::TomlKey
+            | NodeKind::YamlKey
+    ) {
+        CandidateBucket::Container
+    } else if is_editable_target(symbol)
+        || matches!(
+            symbol.kind,
+            NodeKind::Function
+                | NodeKind::Method
+                | NodeKind::Struct
+                | NodeKind::Enum
+                | NodeKind::Trait
+                | NodeKind::Impl
+                | NodeKind::TypeAlias
+        )
+    {
+        CandidateBucket::Implementation
+    } else {
+        CandidateBucket::Other
+    }
+}
+
+fn bucket_adjustment(
+    bucket: CandidateBucket,
+    query_lower: &str,
+    intent: &SearchIntent,
+    exact_name_match: bool,
+) -> Option<(i32, &'static str)> {
+    let implementation_intent = intent.prefer_callable_code
+        || intent.prefer_editable_targets
+        || intent.prefer_behavioral_owners;
+    match bucket {
+        CandidateBucket::Implementation => Some((
+            if implementation_intent { 28 } else { 0 },
+            if implementation_intent {
+                "Broad-query bucketing promoted likely implementation owners ahead of wrappers and containers."
+            } else {
+                "Broad-query bucketing classified this candidate as implementation-owned code."
+            },
+        )),
+        CandidateBucket::Surface if !query_mentions_read_surface(query_lower) => Some((
+            if implementation_intent { -44 } else { -18 },
+            "Broad-query bucketing de-prioritized surface wrappers behind deeper implementation owners.",
+        )),
+        CandidateBucket::ExampleFixture if !query_mentions_schema_or_examples(query_lower) => {
+            Some((
+                if implementation_intent { -56 } else { -26 },
+                "Broad-query bucketing de-prioritized examples and fixtures behind implementation code.",
+            ))
+        }
+        CandidateBucket::Tests if !query_lower.contains("test") => Some((
+            if implementation_intent { -24 } else { -8 },
+            "Broad-query bucketing de-prioritized tests for a non-test query.",
+        )),
+        CandidateBucket::Container if exact_name_match && !implementation_intent => Some((
+            8,
+            "Broad-query bucketing preserved the exact owning container for a bare noun query.",
+        )),
+        CandidateBucket::Container if implementation_intent => Some((
+            -18,
+            "Broad-query bucketing de-prioritized containers behind implementation owners.",
+        )),
+        _ => None,
+    }
+}
+
+fn summarize_candidate_buckets(ranked: &[RankedCandidate]) -> String {
+    let mut ordered = Vec::<CandidateBucket>::new();
+    let mut counts = Vec::<(CandidateBucket, usize)>::new();
+    for candidate in ranked.iter().take(5) {
+        if let Some((_, count)) = counts
+            .iter_mut()
+            .find(|(bucket, _)| *bucket == candidate.bucket)
+        {
+            *count += 1;
+        } else {
+            ordered.push(candidate.bucket);
+            counts.push((candidate.bucket, 1));
+        }
+    }
+    ordered
+        .into_iter()
+        .filter_map(|bucket| {
+            counts
+                .iter()
+                .find(|(candidate_bucket, _)| *candidate_bucket == bucket)
+                .map(|(_, count)| format!("{} ({count})", bucket.summary_label()))
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn build_task_scope(prism: &Prism, task_id: &str) -> Option<TaskScope> {
@@ -940,6 +1178,131 @@ fn is_query_replay_case_symbol(symbol: &SymbolView) -> bool {
         || (file_path.contains("query_replay_cases") && symbol_path.contains("assert_"))
 }
 
+fn is_facade_file_symbol(symbol: &SymbolView) -> bool {
+    let file_path = symbol
+        .file_path
+        .as_deref()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    file_path.ends_with("/src/lib.rs") || file_path.ends_with("/src/main.rs")
+}
+
+fn is_schema_example_surface_symbol(symbol: &SymbolView) -> bool {
+    let symbol_path = symbol.id.path.to_ascii_lowercase();
+    let file_path = symbol
+        .file_path
+        .as_deref()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let name = symbol.name.to_ascii_lowercase();
+    contains_any(
+        &symbol_path,
+        &[
+            "schema_example",
+            "schema_examples",
+            "payload_example",
+            "payload_examples",
+            "session_payload_example",
+        ],
+    ) || contains_any(
+        &file_path,
+        &[
+            "schema_example",
+            "schema_examples",
+            "payload_example",
+            "payload_examples",
+            "/examples/",
+            "_example.rs",
+            "_examples.rs",
+        ],
+    ) || contains_any(
+        &name,
+        &[
+            "schema_example",
+            "schema_examples",
+            "payload_example",
+            "payload_examples",
+        ],
+    )
+}
+
+fn is_read_surface_wrapper_symbol(symbol: &SymbolView) -> bool {
+    let symbol_path = symbol.id.path.to_ascii_lowercase();
+    let file_path = symbol
+        .file_path
+        .as_deref()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let name = symbol.name.to_ascii_lowercase();
+    contains_any(
+        &symbol_path,
+        &[
+            "dashboard",
+            "resource",
+            "_view",
+            "_uri",
+            "_link",
+            "read_models",
+        ],
+    ) || contains_any(
+        &file_path,
+        &[
+            "dashboard",
+            "resource",
+            "_view.rs",
+            "_uri.rs",
+            "_link.rs",
+            "read_models",
+        ],
+    ) || contains_any(&name, &["view", "resource", "uri", "link", "dashboard"])
+}
+
+fn is_generic_helper_utility_symbol(symbol: &SymbolView) -> bool {
+    let symbol_path = symbol.id.path.to_ascii_lowercase();
+    let file_path = symbol
+        .file_path
+        .as_deref()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let name = symbol.name.to_ascii_lowercase();
+    let utility_module = contains_any(
+        &symbol_path,
+        &[
+            "query_helpers",
+            "discovery_helpers",
+            "_helpers::",
+            "_contexts::",
+        ],
+    ) || contains_any(
+        &file_path,
+        &[
+            "query_helpers.rs",
+            "discovery_helpers.rs",
+            "_helpers.rs",
+            "_contexts.rs",
+        ],
+    );
+    let utility_name = contains_any(
+        &name,
+        &[
+            "is_",
+            "compact_",
+            "collect_",
+            "cached_",
+            "context_",
+            "edit_slice_",
+            "focused_",
+            "next_",
+            "owner_",
+            "candidate_",
+            "source_",
+            "summary_",
+            "summarize_",
+        ],
+    );
+    utility_module || (name.contains("helper") && utility_name)
+}
+
 fn is_dependency_metadata_symbol(symbol: &SymbolView) -> bool {
     let symbol_path = symbol.id.path.to_ascii_lowercase();
     let file_path = symbol
@@ -961,6 +1324,29 @@ fn identifier_tokens(value: &str) -> Vec<&str> {
         .split(|ch: char| !ch.is_ascii_alphanumeric())
         .filter(|token| !token.is_empty())
         .collect()
+}
+
+fn query_mentions_schema_or_examples(query_lower: &str) -> bool {
+    contains_any(query_lower, &["schema", "example", "examples", "payload"])
+}
+
+fn query_mentions_read_surface(query_lower: &str) -> bool {
+    contains_any(
+        query_lower,
+        &[
+            "view",
+            "views",
+            "resource",
+            "resources",
+            "uri",
+            "link",
+            "dashboard",
+        ],
+    )
+}
+
+fn contains_any(value: &str, needles: &[&str]) -> bool {
+    needles.iter().any(|needle| value.contains(needle))
 }
 
 fn direct_symbol_match_rank(symbol: &SymbolView, query_lower: &str) -> Option<u8> {

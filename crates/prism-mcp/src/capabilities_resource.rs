@@ -463,6 +463,12 @@ fn query_method_specs() -> Vec<(
             "Inspect the phase-by-phase trace for one recorded PRISM query.",
         ),
         (
+            "validationFeedback",
+            "internal",
+            Some("internal_developer"),
+            "Read recent validation-feedback entries recorded while dogfooding PRISM on this workspace.",
+        ),
+        (
             "diagnostics",
             "core",
             None,

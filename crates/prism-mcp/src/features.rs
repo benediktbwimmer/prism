@@ -107,7 +107,7 @@ impl PrismMcpFeatures {
     pub(crate) fn disabled_query_group(&self, operation: &str) -> Option<&'static str> {
         match operation {
             "runtimeStatus" | "runtimeLogs" | "runtimeTimeline" | "queryLog" | "slowQueries"
-            | "queryTrace"
+            | "queryTrace" | "validationFeedback"
                 if !self.internal_developer =>
             {
                 Some("internal_developer")

@@ -35,9 +35,56 @@ def _git_output(repo_dir: Path, *args: str) -> str:
     return proc.stdout.strip()
 
 
+def git_repo_root(path: Path) -> Path:
+    return Path(_git_output(path, "rev-parse", "--show-toplevel")).resolve()
+
+
+def remove_worktree(source_repo: Path, dest_repo: Path) -> None:
+    if not dest_repo.exists():
+        return
+    proc = subprocess.run(
+        ["git", "-C", str(source_repo), "worktree", "remove", "--force", str(dest_repo)],
+        text=True,
+        capture_output=True,
+    )
+    if proc.returncode != 0:
+        shutil.rmtree(dest_repo, ignore_errors=True)
+
+
+def clean_worktree(repo_dir: Path, ref: str = "HEAD") -> None:
+    subprocess.run(
+        ["git", "-C", str(repo_dir), "reset", "--hard", ref],
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(repo_dir), "clean", "-fdx"],
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+
+def create_detached_worktree(source_repo: Path, dest_repo: Path, ref: str) -> None:
+    dest_repo.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["git", "-C", str(source_repo), "worktree", "add", "--detach", str(dest_repo), ref],
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    clean_worktree(dest_repo, ref)
+
+
+def prepare_detached_worktree(source_repo: Path, dest_repo: Path, ref: str) -> None:
+    remove_worktree(source_repo, dest_repo)
+    create_detached_worktree(source_repo, dest_repo, ref)
+
+
 def _source_repo_layout(instance: dict[str, Any]) -> tuple[Path, Path]:
     workspace_dir = source_workspace_dir(instance)
-    repo_root = Path(_git_output(workspace_dir, "rev-parse", "--show-toplevel")).resolve()
+    repo_root = git_repo_root(workspace_dir)
     try:
         relative_dir = workspace_dir.relative_to(repo_root)
     except ValueError as exc:
@@ -62,40 +109,6 @@ def isolated_repo_dir(
     return result_dir / arm_name / "workspaces" / instance_name / "repo"
 
 
-def _remove_existing_isolated_repo(source_repo: Path, dest_repo: Path) -> None:
-    if not dest_repo.exists():
-        return
-    proc = subprocess.run(
-        ["git", "-C", str(source_repo), "worktree", "remove", "--force", str(dest_repo)],
-        text=True,
-        capture_output=True,
-    )
-    if proc.returncode != 0:
-        shutil.rmtree(dest_repo, ignore_errors=True)
-
-
-def _create_isolated_repo(source_repo: Path, dest_repo: Path) -> None:
-    dest_repo.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.run(
-        ["git", "-C", str(source_repo), "worktree", "add", "--detach", str(dest_repo), "HEAD"],
-        text=True,
-        capture_output=True,
-        check=True,
-    )
-    subprocess.run(
-        ["git", "-C", str(dest_repo), "reset", "--hard", "HEAD"],
-        text=True,
-        capture_output=True,
-        check=True,
-    )
-    subprocess.run(
-        ["git", "-C", str(dest_repo), "clean", "-fdx"],
-        text=True,
-        capture_output=True,
-        check=True,
-    )
-
-
 def prepare_isolated_workspace(
     config: dict[str, Any],
     run_id: str,
@@ -104,8 +117,7 @@ def prepare_isolated_workspace(
 ) -> Path:
     source_repo, relative_dir = _source_repo_layout(instance)
     dest_repo = isolated_repo_dir(config, run_id, arm_name, instance_id(instance))
-    _remove_existing_isolated_repo(source_repo, dest_repo)
-    _create_isolated_repo(source_repo, dest_repo)
+    prepare_detached_worktree(source_repo, dest_repo, "HEAD")
     isolated_dir = dest_repo / relative_dir
     if not isolated_dir.exists():
         raise HarnessError(

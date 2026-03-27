@@ -19,6 +19,11 @@ The first benchmark tracks are:
 
 These tracks should be reported separately.
 
+They also require different evaluator backends:
+
+- `swe-bench-multilingual-rust`: local `swebench` harness
+- `swe-bench-pro`: `scaleapi/SWE-bench_Pro-os`
+
 ## Evaluated Agent
 
 The evaluated agent family is `Codex`.

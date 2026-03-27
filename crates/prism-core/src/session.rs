@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 
 use anyhow::{anyhow, Result};
 use prism_agent::InferenceSnapshot;
@@ -17,6 +17,8 @@ use prism_projections::validation_deltas_for_event;
 use prism_projections::ProjectionIndex;
 use prism_query::Prism;
 use prism_store::{AuxiliaryPersistBatch, SqliteStore, Store};
+
+pub use prism_store::SnapshotRevisions as WorkspaceSnapshotRevisions;
 
 use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorHandleRef};
 use crate::util::{
@@ -212,10 +214,22 @@ impl WorkspaceSession {
     }
 
     pub fn reload_persisted_prism(&self) -> Result<()> {
-        let _guard = self
+        let guard = self
             .refresh_lock
             .lock()
             .expect("workspace refresh lock poisoned");
+        self.reload_persisted_prism_with_guard(guard)
+    }
+
+    pub fn try_reload_persisted_prism(&self) -> Result<bool> {
+        let Ok(guard) = self.refresh_lock.try_lock() else {
+            return Ok(false);
+        };
+        self.reload_persisted_prism_with_guard(guard)?;
+        Ok(true)
+    }
+
+    fn reload_persisted_prism_with_guard(&self, _guard: MutexGuard<'_, ()>) -> Result<()> {
         let mut store = self.store.lock().expect("workspace store lock poisoned");
         let graph = store.load_graph()?.unwrap_or_default();
         let mut history = store
@@ -257,6 +271,18 @@ impl WorkspaceSession {
             .lock()
             .expect("workspace store lock poisoned")
             .workspace_revision()
+    }
+
+    pub fn snapshot_revisions(&self) -> Result<WorkspaceSnapshotRevisions> {
+        let mut revisions = self
+            .store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .snapshot_revisions()?;
+        if !self.coordination_enabled {
+            revisions.coordination = 0;
+        }
+        Ok(revisions)
     }
 
     pub fn episodic_revision(&self) -> Result<u64> {

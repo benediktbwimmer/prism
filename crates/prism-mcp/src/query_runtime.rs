@@ -9,7 +9,7 @@ use prism_js::{
     FocusedBlockView, PatchEventView, QueryDiagnostic, QueryEnvelope, ReadContextView,
     RecentChangeContextView, RuntimeLogEventView, RuntimeStatusView, ScoredMemoryView,
     SourceExcerptView, SourceSliceView, SubgraphView, SymbolView, TextSearchMatchView,
-    ToolCatalogEntryView, ToolSchemaView, ValidationContextView,
+    ToolCatalogEntryView, ToolSchemaView, ValidationContextView, ValidationFeedbackView,
 };
 use prism_memory::{MemoryModule, OutcomeRecallQuery, RecallQuery};
 use prism_query::{EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
@@ -47,10 +47,11 @@ use crate::{
     QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs,
     SearchAmbiguityContext, SearchArgs, SearchTextArgs, SemanticContextCache, SessionState,
     SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs,
-    TaskJournalArgs, TaskScopeMode, TaskTargetArgs, ToolNameArgs, WhereUsedArgs,
-    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER,
-    QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
+    TaskJournalArgs, TaskScopeMode, TaskTargetArgs, ToolNameArgs, ValidationFeedbackArgs,
+    WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
+    QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER,
+    USER_SNIPPET_MARKER,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -645,6 +646,10 @@ impl QueryExecution {
                     );
                 }
                 Ok(serde_json::to_value(trace)?)
+            }
+            "validationFeedback" => {
+                let args: ValidationFeedbackArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.validation_feedback(args)?)?)
             }
             "entrypoints" => Ok(serde_json::to_value(self.entrypoints()?)?),
             "plan" => {
@@ -1442,7 +1447,14 @@ impl QueryExecution {
                 backend_limit,
             )?;
             for candidate in owner_results {
-                if !results.iter().any(|existing| existing.id == candidate.id) {
+                if let Some(existing) = results
+                    .iter_mut()
+                    .find(|existing| existing.id == candidate.id)
+                {
+                    if existing.owner_hint.is_none() && candidate.owner_hint.is_some() {
+                        existing.owner_hint = candidate.owner_hint;
+                    }
+                } else {
                     results.push(candidate);
                 }
             }
@@ -1895,6 +1907,86 @@ impl QueryExecution {
                 })),
             );
         }
+        Ok(results)
+    }
+
+    pub(crate) fn validation_feedback(
+        &self,
+        args: ValidationFeedbackArgs,
+    ) -> Result<Vec<ValidationFeedbackView>> {
+        let Some(workspace) = &self.host.workspace else {
+            return Ok(Vec::new());
+        };
+
+        let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
+        let applied = requested.min(self.session.limits().max_result_nodes);
+        let contains = args
+            .contains
+            .as_ref()
+            .map(|value| value.to_ascii_lowercase());
+        let verdict = args
+            .verdict
+            .as_ref()
+            .map(|value| value.to_ascii_lowercase());
+        let category = args
+            .category
+            .as_ref()
+            .map(|value| value.to_ascii_lowercase());
+
+        let mut results = workspace
+            .validation_feedback(None)?
+            .into_iter()
+            .filter(|entry| {
+                args.since.is_none_or(|since| entry.recorded_at >= since)
+                    && args
+                        .task_id
+                        .as_ref()
+                        .is_none_or(|task_id| entry.task_id.as_ref() == Some(task_id))
+                    && verdict.as_ref().is_none_or(|verdict| {
+                        entry.verdict.to_string().eq_ignore_ascii_case(verdict)
+                    })
+                    && category.as_ref().is_none_or(|category| {
+                        entry.category.to_string().eq_ignore_ascii_case(category)
+                    })
+                    && args
+                        .corrected_manually
+                        .is_none_or(|corrected| entry.corrected_manually == corrected)
+                    && contains
+                        .as_ref()
+                        .is_none_or(|needle| validation_feedback_contains(entry, needle))
+            })
+            .map(validation_feedback_view)
+            .collect::<Vec<_>>();
+
+        if requested > applied {
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Validation-feedback limit was capped at {} instead of {requested}. Next action: narrow with `category`, `verdict`, `contains`, or `taskId` before raising the limit.",
+                    applied
+                ),
+                Some(json!({
+                    "requested": requested,
+                    "applied": applied,
+                    "nextAction": "Use prism.validationFeedback({ category: ..., verdict: ..., contains: ..., taskId: ..., limit: ... }) to narrow the result set.",
+                })),
+            );
+        }
+        if results.len() > applied {
+            results.truncate(applied);
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Validation feedback was truncated at {} entries. Next action: narrow with `category`, `verdict`, `contains`, or `taskId`.",
+                    applied
+                ),
+                Some(json!({
+                    "applied": applied,
+                    "nextAction": "Use prism.validationFeedback({ category: ..., verdict: ..., contains: ..., taskId: ..., limit: ... }) to narrow the result set.",
+                })),
+            );
+        }
+
         Ok(results)
     }
 
@@ -2493,4 +2585,40 @@ fn normalize_structured_path(path: &str) -> Vec<String> {
 
 fn normalize_query_path(path: &str) -> String {
     path.trim_start_matches("./").replace('\\', "/")
+}
+
+fn validation_feedback_contains(entry: &prism_core::ValidationFeedbackEntry, needle: &str) -> bool {
+    entry.context.to_ascii_lowercase().contains(needle)
+        || entry.prism_said.to_ascii_lowercase().contains(needle)
+        || entry.actually_true.to_ascii_lowercase().contains(needle)
+        || entry
+            .correction
+            .as_ref()
+            .is_some_and(|value| value.to_ascii_lowercase().contains(needle))
+        || entry
+            .task_id
+            .as_ref()
+            .is_some_and(|value| value.to_ascii_lowercase().contains(needle))
+        || entry
+            .metadata
+            .to_string()
+            .to_ascii_lowercase()
+            .contains(needle)
+}
+
+fn validation_feedback_view(entry: prism_core::ValidationFeedbackEntry) -> ValidationFeedbackView {
+    ValidationFeedbackView {
+        id: entry.id,
+        recorded_at: entry.recorded_at,
+        task_id: entry.task_id,
+        context: entry.context,
+        anchors: entry.anchors,
+        prism_said: entry.prism_said,
+        actually_true: entry.actually_true,
+        category: entry.category.to_string(),
+        verdict: entry.verdict.to_string(),
+        corrected_manually: entry.corrected_manually,
+        correction: entry.correction,
+        metadata: entry.metadata,
+    }
 }

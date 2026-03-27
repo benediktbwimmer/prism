@@ -19,6 +19,14 @@ const EPISODIC_REVISION_KEY: &str = "revision:episodic";
 const INFERENCE_REVISION_KEY: &str = "revision:inference";
 const COORDINATION_REVISION_KEY: &str = "revision:coordination";
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct SnapshotRevisions {
+    pub workspace: u64,
+    pub episodic: u64,
+    pub inference: u64,
+    pub coordination: u64,
+}
+
 #[derive(Debug, Default, Clone, Copy)]
 struct FileStatePersistTotals {
     persisted_file_state_count: usize,
@@ -85,6 +93,32 @@ impl SqliteStore {
 
     pub fn coordination_revision(&self) -> Result<u64> {
         metadata_value(&self.conn, COORDINATION_REVISION_KEY)
+    }
+
+    pub fn snapshot_revisions(&self) -> Result<SnapshotRevisions> {
+        let mut revisions = SnapshotRevisions::default();
+        let mut stmt = self.conn.prepare(
+            "SELECT key, value FROM metadata
+             WHERE key IN (?1, ?2, ?3, ?4)",
+        )?;
+        let mut rows = stmt.query(params![
+            WORKSPACE_REVISION_KEY,
+            EPISODIC_REVISION_KEY,
+            INFERENCE_REVISION_KEY,
+            COORDINATION_REVISION_KEY,
+        ])?;
+        while let Some(row) = rows.next()? {
+            let key = row.get::<_, String>(0)?;
+            let value = row.get::<_, i64>(1)? as u64;
+            match key.as_str() {
+                WORKSPACE_REVISION_KEY => revisions.workspace = value,
+                EPISODIC_REVISION_KEY => revisions.episodic = value,
+                INFERENCE_REVISION_KEY => revisions.inference = value,
+                COORDINATION_REVISION_KEY => revisions.coordination = value,
+                _ => {}
+            }
+        }
+        Ok(revisions)
     }
 }
 

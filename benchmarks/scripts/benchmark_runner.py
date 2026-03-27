@@ -62,8 +62,11 @@ def build_plan(config_path: Path) -> dict[str, Any]:
         "agent": config["agent"],
         "benchmark": {
           "suite": config["benchmark"]["suite"],
+          "dataset_name": config["benchmark"].get("dataset_name"),
+          "split": config["benchmark"].get("split"),
           "subset": config["benchmark"].get("subset"),
           "language": config["benchmark"].get("language"),
+          "raw_sample_path": config["benchmark"].get("raw_sample_path"),
           "instance_manifest": config["benchmark"]["instance_manifest"],
           "instance_count": len(config["instances"]),
         },

@@ -53,6 +53,7 @@ struct SearchScope {
 struct CandidateSearchData {
     file_path: String,
     searchable: String,
+    behavioral_text: String,
     compact: String,
     matched_terms: Vec<String>,
     excerpt_only: bool,
@@ -619,7 +620,13 @@ fn prepare_candidate_search_data(
         .file_path(node.file)
         .map(|path| path.to_string_lossy().into_owned())
         .unwrap_or_default();
+    let file_name = std::path::Path::new(&file_path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
     let mut searchable = format!("{file_path} {} {}", node.id.path, node.name).to_ascii_lowercase();
+    let mut behavioral_text = format!("{file_name} {}", node.name).to_ascii_lowercase();
     let mut matched = matched_terms(&scope.query_terms, &searchable);
     let mut excerpt_only = false;
     if matched.is_empty() {
@@ -627,6 +634,8 @@ fn prepare_candidate_search_data(
             if let Some(excerpt) = symbol.excerpt(SourceExcerptOptions::default()) {
                 searchable.push(' ');
                 searchable.push_str(&excerpt.text.to_ascii_lowercase());
+                behavioral_text.push(' ');
+                behavioral_text.push_str(&excerpt.text.to_ascii_lowercase());
                 matched = matched_terms(&scope.query_terms, &searchable);
                 excerpt_only = !matched.is_empty();
             }
@@ -642,6 +651,7 @@ fn prepare_candidate_search_data(
     Some(CandidateSearchData {
         file_path,
         searchable,
+        behavioral_text,
         compact,
         matched_terms: matched,
         excerpt_only,
@@ -654,7 +664,11 @@ fn score_candidate(
     search_data: &CandidateSearchData,
     category: InsightCategory,
 ) -> Option<RankedCandidate> {
-    let category_bonus = category_bonus(category, &search_data.searchable, &search_data.file_path)?;
+    let category_bonus = category_bonus(
+        category,
+        &search_data.behavioral_text,
+        &search_data.file_path,
+    )?;
     let direct_hits = scope
         .direct_markers
         .iter()
@@ -866,18 +880,39 @@ fn normalize_sentence(value: &str) -> String {
     value.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-fn category_bonus(category: InsightCategory, searchable: &str, file_path: &str) -> Option<usize> {
+fn category_bonus(
+    category: InsightCategory,
+    behavioral_text: &str,
+    file_path: &str,
+) -> Option<usize> {
     match category {
-        InsightCategory::ReadPath => contains_any(
-            searchable,
-            &[
-                "read", "query", "search", "recall", "journal", "view", "inspect", "lookup",
-                "context", "resource",
-            ],
-        )
-        .then_some(3),
+        InsightCategory::ReadPath => {
+            if contains_any(
+                behavioral_text,
+                &[
+                    "read", "load", "query", "search", "recall", "inspect", "lookup", "resolve",
+                    "fetch", "tail", "scan",
+                ],
+            ) {
+                Some(4)
+            } else if contains_any(
+                behavioral_text,
+                &[
+                    "context", "journal", "history", "status", "timeline", "log", "logs",
+                ],
+            ) {
+                Some(3)
+            } else if contains_any(
+                behavioral_text,
+                &["view", "resource", "uri", "link", "dashboard"],
+            ) {
+                Some(1)
+            } else {
+                None
+            }
+        }
         InsightCategory::WritePath => contains_any(
-            searchable,
+            behavioral_text,
             &[
                 "write", "store", "mutate", "apply", "record", "update", "finish", "abandon",
                 "promote", "infer", "append",
@@ -885,7 +920,7 @@ fn category_bonus(category: InsightCategory, searchable: &str, file_path: &str) 
         )
         .then_some(3),
         InsightCategory::PersistencePath => contains_any(
-            searchable,
+            behavioral_text,
             &[
                 "persist", "snapshot", "load", "save", "sqlite", "commit", "refresh", "cache",
                 "reload",
@@ -894,8 +929,8 @@ fn category_bonus(category: InsightCategory, searchable: &str, file_path: &str) 
         .then_some(3),
         InsightCategory::Tests => {
             file_path.to_ascii_lowercase().contains("test")
-                || searchable.contains("#[test]")
-                || searchable.contains("assert")
+                || behavioral_text.contains("#[test]")
+                || behavioral_text.contains("assert")
         }
         .then_some(4),
     }

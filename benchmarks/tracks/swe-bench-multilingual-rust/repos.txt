@@ -1,0 +1,8 @@
+# Official Rust subset repos used by the multilingual track.
+tokio-rs/tokio
+tokio-rs/axum
+BurntSushi/ripgrep
+sharkdp/bat
+astral-sh/ruff
+uutils/coreutils
+nushell/nushell

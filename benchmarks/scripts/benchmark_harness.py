@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -38,40 +39,125 @@ def _arm(config: dict[str, Any], arm_name: str) -> dict[str, Any]:
     raise HarnessError(f"unknown arm: {arm_name}")
 
 
+def _resolve_path_like(value: str) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else ROOT / path
+
+
+def _maybe_resolve_repo_path(value: str) -> str:
+    if not value:
+        return value
+    path = Path(value)
+    if path.is_absolute():
+        return str(path)
+    return str((ROOT / path).resolve())
+
+
+def _render_value(template: str, context: dict[str, str]) -> str:
+    return template.format(**context)
+
+
+def _detect_docker_host() -> str:
+    explicit = os.environ.get("DOCKER_HOST", "").strip()
+    if explicit:
+        return explicit
+
+    try:
+        context_name = subprocess.run(
+            ["docker", "context", "show"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return ""
+
+    if not context_name:
+        return ""
+
+    try:
+        raw = subprocess.run(
+            ["docker", "context", "inspect", context_name],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout
+        payload = json.loads(raw)
+    except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError):
+        return ""
+
+    if not isinstance(payload, list) or not payload:
+        return ""
+    context = payload[0]
+    endpoints = context.get("Endpoints", {})
+    if not isinstance(endpoints, dict):
+        return ""
+    docker_endpoint = endpoints.get("docker", {})
+    if not isinstance(docker_endpoint, dict):
+        return ""
+    host = docker_endpoint.get("Host")
+    return str(host).strip() if isinstance(host, str) else ""
+
+
 def _template_context(config: dict[str, Any], arm_name: str) -> dict[str, str]:
     run_id = _load_run_id(config)
     arm = _arm(config, arm_name)
     arm_output_dir = ROOT / "benchmarks" / "results" / "local" / run_id / arm_name
+    base_context = {
+        "run_id": run_id,
+        "arm": arm_name,
+        "track": config["track"],
+        "cohort": config["cohort"],
+        "model": config["agent"]["model"],
+        "model_slug": config["agent"]["model"].replace("/", "__"),
+        "reasoning_effort": config["agent"]["reasoning_effort"],
+        "suite": config["benchmark"]["suite"],
+        "dataset_name": str(config["benchmark"].get("dataset_name", "")),
+        "split": str(config["benchmark"].get("split", "")),
+        "subset": str(config["benchmark"].get("subset", "")),
+        "language": str(config["benchmark"].get("language", "")),
+        "raw_sample_path": _maybe_resolve_repo_path(str(config["benchmark"].get("raw_sample_path", ""))),
+        "docker_host": _detect_docker_host(),
+        "arm_output_dir": str(arm_output_dir),
+        "submission_run_id": f"{run_id}-{arm_name}",
+        "tool_profile": arm["tool_profile"],
+        "parallelism": str(config["run"]["parallelism"]),
+        "max_instances": str(config["run"]["max_instances"]),
+        "timeout_minutes": str(config["run"]["timeout_minutes_per_instance"]),
+        "timeout_seconds": str(config["run"]["timeout_minutes_per_instance"] * 60),
+        "max_turns": str(config["run"]["max_turns_per_instance"]),
+        "retry_budget": str(config["run"]["retry_budget"]),
+    }
     predictions_path = Path(
-        str(config["harness"]["predictions_path"]).format(run_id=run_id, arm=arm_name)
+        _render_value(str(config["harness"]["predictions_path"]), base_context)
     )
     report_path = Path(
-        str(config["harness"]["report_path"]).format(run_id=run_id, arm=arm_name)
+        _render_value(str(config["harness"]["report_path"]), base_context)
     )
     if not predictions_path.is_absolute():
         predictions_path = ROOT / predictions_path
     if not report_path.is_absolute():
         report_path = ROOT / report_path
 
-    submission_run_id = f"{run_id}-{arm_name}"
-    return {
-        "run_id": run_id,
-        "arm": arm_name,
-        "track": config["track"],
-        "cohort": config["cohort"],
-        "suite": config["benchmark"]["suite"],
-        "subset": str(config["benchmark"].get("subset", "")),
-        "language": str(config["benchmark"].get("language", "")),
+    context = {
+        **base_context,
         "predictions_path": str(predictions_path),
         "report_path": str(report_path),
-        "arm_output_dir": str(arm_output_dir),
-        "submission_run_id": submission_run_id,
-        "tool_profile": arm["tool_profile"],
     }
+    for key, value in config["harness"].get("template_vars", {}).items():
+        context[key] = _render_value(str(value), context)
+    return context
 
 
 def _render_template_parts(parts: list[str], context: dict[str, str]) -> list[str]:
-    return [part.format(**context) for part in parts]
+    rendered = [_render_value(part, context) for part in parts]
+    if rendered:
+        executable = Path(rendered[0])
+        if not executable.is_absolute() and len(executable.parts) > 1:
+            rendered[0] = str(ROOT / executable)
+    return rendered
 
 
 def prepare_predictions(config: dict[str, Any], force: bool = False) -> list[dict[str, Any]]:
@@ -107,6 +193,16 @@ def prepare_predictions(config: dict[str, Any], force: bool = False) -> list[dic
 
 def render_harness_commands(config: dict[str, Any], arm_name: str) -> dict[str, Any]:
     context = _template_context(config, arm_name)
+    working_dir_template = config["harness"].get("working_dir")
+    working_dir = (
+        _resolve_path_like(_render_value(working_dir_template, context))
+        if isinstance(working_dir_template, str) and working_dir_template.strip()
+        else ROOT
+    )
+    environment = {
+        key: _render_value(str(value), context)
+        for key, value in config["harness"].get("environment", {}).items()
+    }
     commands = {
         name: _render_template_parts(parts, context)
         for name, parts in config["harness"]["command_templates"].items()
@@ -115,6 +211,8 @@ def render_harness_commands(config: dict[str, Any], arm_name: str) -> dict[str, 
     return {
         "arm": arm_name,
         "context": context,
+        "working_dir": str(working_dir),
+        "environment": environment,
         "commands": commands,
     }
 
@@ -128,19 +226,32 @@ def run_harness_command(config: dict[str, Any], arm_name: str, step: str, dry_ru
     context = rendered["context"]
     Path(context["arm_output_dir"]).mkdir(parents=True, exist_ok=True)
     command = commands[step]
+    working_dir = Path(rendered["working_dir"])
+    environment = dict(os.environ)
+    environment.update(rendered["environment"])
     if dry_run:
-        return {"arm": arm_name, "step": step, "command": command, "dry_run": True}
+        return {
+            "arm": arm_name,
+            "step": step,
+            "command": command,
+            "working_dir": str(working_dir),
+            "environment": rendered["environment"],
+            "dry_run": True,
+        }
 
     proc = subprocess.run(
         command,
-        cwd=ROOT,
+        cwd=working_dir,
         text=True,
         capture_output=True,
+        env=environment,
     )
     return {
         "arm": arm_name,
         "step": step,
         "command": command,
+        "working_dir": str(working_dir),
+        "environment": rendered["environment"],
         "returncode": proc.returncode,
         "stdout": proc.stdout,
         "stderr": proc.stderr,

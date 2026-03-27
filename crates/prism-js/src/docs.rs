@@ -133,6 +133,16 @@ type QueryLogOptions = {
   minDurationMs?: number;
 };
 
+type ValidationFeedbackOptions = {
+  limit?: number;
+  since?: number;
+  taskId?: string;
+  verdict?: string;
+  category?: string;
+  contains?: string;
+  correctedManually?: boolean;
+};
+
 type RuntimeLogOptions = {
   limit?: number;
   level?: string;
@@ -269,6 +279,7 @@ type PrismApi = {
   runtimeStatus(): RuntimeStatusView;
   runtimeLogs(options?: RuntimeLogOptions): RuntimeLogEventView[];
   runtimeTimeline(options?: RuntimeTimelineOptions): RuntimeLogEventView[];
+  validationFeedback(options?: ValidationFeedbackOptions): ValidationFeedbackView[];
   runtime: {
     status(): RuntimeStatusView;
     logs(options?: RuntimeLogOptions): RuntimeLogEventView[];
@@ -892,6 +903,21 @@ type QueryTraceView = {
   phases: QueryPhaseView[];
 };
 
+type ValidationFeedbackView = {
+  id: string;
+  recordedAt: number;
+  taskId?: string;
+  context: string;
+  anchors: AnchorRef[];
+  prismSaid: string;
+  actuallyTrue: string;
+  category: string;
+  verdict: string;
+  correctedManually: boolean;
+  correction?: string;
+  metadata: unknown;
+};
+
 type ArtifactRiskView = {
   artifactId: string;
   taskId: string;
@@ -1344,6 +1370,16 @@ return {
   timeline: prism.runtime.timeline({ limit: 5 }),
   warnings: prism.runtime.logs({ level: "WARN", limit: 5 }),
 };
+```
+
+### 7f. Inspect validation feedback recorded while dogfooding PRISM
+
+```ts
+return prism.validationFeedback({
+  limit: 5,
+  category: "projection",
+  contains: "session",
+});
 ```
 
 ### 8. Narrow by path fragment, module, or task context

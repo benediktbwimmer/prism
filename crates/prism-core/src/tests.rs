@@ -1065,6 +1065,29 @@ fn refresh_fs_nonblocking_defers_when_refresh_is_in_progress() {
 }
 
 #[test]
+fn try_reload_persisted_prism_defers_when_refresh_is_in_progress() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let _guard = session
+        .refresh_lock
+        .lock()
+        .expect("workspace refresh lock poisoned");
+
+    let reloaded = session.try_reload_persisted_prism().unwrap();
+    assert!(!reloaded);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn refresh_state_throttles_clean_fallback_checks() {
     let state = crate::session::WorkspaceRefreshState::new();
 
