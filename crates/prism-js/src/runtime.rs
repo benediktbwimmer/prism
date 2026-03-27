@@ -371,6 +371,8 @@ globalThis.prism = Object.freeze({
         limit: options?.limit,
         kind: options?.kind,
         path: options?.path,
+        module: options?.module,
+        taskId: options?.taskId ?? options?.task_id,
         pathMode: options?.pathMode ?? options?.path_mode,
         strategy: options?.strategy,
         structuredPath: options?.structuredPath ?? options?.structured_path,

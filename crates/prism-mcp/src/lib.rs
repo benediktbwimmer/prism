@@ -18,6 +18,7 @@ use tracing::{debug, info};
 mod capabilities_resource;
 mod change_views;
 mod common;
+mod ambiguity;
 mod daemon_mode;
 mod diagnostics;
 mod discovery_bundle;
@@ -54,6 +55,7 @@ mod views;
 use capabilities_resource::*;
 use change_views::*;
 use common::*;
+use ambiguity::*;
 pub use daemon_mode::serve_with_mode;
 use diagnostics::*;
 use discovery_bundle::*;
@@ -91,7 +93,7 @@ const TOOL_SCHEMAS_URI: &str = "prism://tool-schemas";
 const ENTRYPOINTS_RESOURCE_TEMPLATE_URI: &str = "prism://entrypoints?limit={limit}&cursor={cursor}";
 const SYMBOL_RESOURCE_TEMPLATE_URI: &str = "prism://symbol/{crateName}/{kind}/{path}";
 const SEARCH_RESOURCE_TEMPLATE_URI: &str =
-    "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&includeInferred={includeInferred}";
+    "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&includeInferred={includeInferred}";
 const LINEAGE_RESOURCE_TEMPLATE_URI: &str =
     "prism://lineage/{lineageId}?limit={limit}&cursor={cursor}";
 const TASK_RESOURCE_TEMPLATE_URI: &str = "prism://task/{taskId}?limit={limit}&cursor={cursor}";

@@ -4825,7 +4825,7 @@ return prism.diagnostics();
     assert_eq!(result.diagnostics[0].code, "result_truncated");
     assert_eq!(
         result.diagnostics[0].data.as_ref().and_then(|data| data["nextAction"].as_str()),
-        Some("Use prism.search(query, { path: ..., kind: ..., limit: ... }) to narrow the result set.")
+        Some("Use prism.search(query, { path: ..., module: ..., kind: ..., taskId: ..., limit: ... }) to narrow the result set.")
     );
 }
 
@@ -5583,6 +5583,8 @@ fn convenience_search_query_returns_structured_envelope() {
             limit: Some(1),
             kind: None,
             path: None,
+            module: None,
+            task_id: None,
             path_mode: None,
             strategy: None,
             structured_path: None,
@@ -5593,6 +5595,182 @@ fn convenience_search_query_returns_structured_envelope() {
         .expect("search query should succeed");
     assert!(envelope.result.is_array());
     assert!(envelope.diagnostics.is_empty());
+}
+
+#[test]
+fn ambiguous_symbol_queries_surface_ranked_narrowing_context() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn helper() {}
+
+#[cfg(test)]
+mod tests {
+    pub fn helper() {}
+}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let envelope = host
+        .symbol_query("helper")
+        .expect("symbol query should succeed");
+    let diagnostic = envelope
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.code == "ambiguous_symbol")
+        .expect("ambiguity diagnostic should be present");
+    let ambiguity = diagnostic
+        .data
+        .as_ref()
+        .and_then(|data| data["ambiguity"].as_object())
+        .expect("ambiguity payload should be present");
+
+    assert_eq!(ambiguity["candidateCount"].as_u64(), Some(2));
+    assert_eq!(
+        ambiguity["returned"]["id"]["path"].as_str(),
+        envelope.result["id"]["path"].as_str()
+    );
+    assert!(
+        envelope.result["id"]["path"]
+            .as_str()
+            .is_some_and(|path| !path.contains("::tests::"))
+    );
+    assert!(
+        ambiguity["candidates"][0]["suggestedQueries"]
+            .as_array()
+            .is_some_and(|queries| !queries.is_empty())
+    );
+    assert!(
+        ambiguity["suggestedQueries"]
+            .as_array()
+            .is_some_and(|queries| queries.iter().any(|query| {
+                query["label"]
+                    .as_str()
+                    .is_some_and(|label| label == "Focused Block")
+            }))
+    );
+}
+
+#[test]
+fn search_supports_module_and_task_scope_narrowing() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod alpha;
+pub mod beta;
+"#,
+    )
+    .unwrap();
+    fs::write(root.join("src/alpha.rs"), "pub fn helper() {}\n").unwrap();
+    fs::write(root.join("src/beta.rs"), "pub fn helper() {}\n").unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let module_envelope = host
+        .search_query(SearchArgs {
+            query: "helper".to_string(),
+            limit: Some(5),
+            kind: None,
+            path: None,
+            module: Some("demo::beta".to_string()),
+            task_id: None,
+            path_mode: None,
+            strategy: None,
+            structured_path: None,
+            top_level_only: None,
+            owner_kind: None,
+            include_inferred: None,
+        })
+        .expect("module search should succeed");
+    assert_eq!(module_envelope.result.as_array().map(|results| results.len()), Some(1));
+    assert_eq!(
+        module_envelope.result[0]["id"]["path"].as_str(),
+        Some("demo::beta::helper")
+    );
+
+    let plan = host
+        .store_coordination(PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanCreate,
+            payload: json!({ "goal": "Investigate helper collision" }),
+            task_id: None,
+        })
+        .unwrap();
+    let task = host
+        .store_coordination(PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::TaskCreate,
+            payload: json!({
+                "planId": plan.state["id"].as_str().unwrap(),
+                "title": "Inspect beta helper",
+                "anchors": [{
+                    "type": "node",
+                    "crateName": "demo",
+                    "path": "demo::beta::helper",
+                    "kind": "function"
+                }]
+            }),
+            task_id: None,
+        })
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    let task_envelope = host
+        .search_query(SearchArgs {
+            query: "helper".to_string(),
+            limit: Some(5),
+            kind: None,
+            path: None,
+            module: None,
+            task_id: Some(task_id),
+            path_mode: None,
+            strategy: None,
+            structured_path: None,
+            top_level_only: None,
+            owner_kind: None,
+            include_inferred: None,
+        })
+        .expect("task-scoped search should succeed");
+    assert_eq!(task_envelope.result.as_array().map(|results| results.len()), Some(1));
+    assert_eq!(
+        task_envelope.result[0]["id"]["path"].as_str(),
+        Some("demo::beta::helper")
+    );
+}
+
+#[test]
+fn search_resource_payload_surfaces_ambiguity_context() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod alpha;
+pub mod beta;
+"#,
+    )
+    .unwrap();
+    fs::write(root.join("src/alpha.rs"), "pub fn helper() {}\n").unwrap();
+    fs::write(root.join("src/beta.rs"), "pub fn helper() {}\n").unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let payload = host
+        .search_resource_value("prism://search/helper", "helper")
+        .expect("search resource should succeed");
+
+    assert!(payload.ambiguity.is_some());
+    assert_eq!(
+        payload
+            .ambiguity
+            .as_ref()
+            .and_then(|ambiguity| ambiguity.returned.as_ref())
+            .map(|symbol| symbol.id.path.as_str()),
+        payload.results.first().map(|symbol| symbol.id.path.as_str())
+    );
+    assert!(payload
+        .suggested_queries
+        .iter()
+        .any(|query| query.label == "Focused Block"));
 }
 
 #[test]

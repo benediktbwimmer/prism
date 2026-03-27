@@ -53,6 +53,8 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("editSlice(options?: EditSliceOptions)"));
     assert!(docs.contains("relativeFocus"));
     assert!(docs.contains("type SearchTextOptions = {"));
+    assert!(docs.contains("module?: string;"));
+    assert!(docs.contains("taskId?: string;"));
     assert!(docs.contains("pathMode?: \"contains\" | \"exact\";"));
     assert!(docs.contains("structuredPath?: string;"));
     assert!(docs.contains("topLevelOnly?: boolean;"));
@@ -93,7 +95,7 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("prism://capabilities"));
     assert!(docs.contains("Inspect tool payload requirements without leaving `prism_query`"));
     assert!(docs.contains(
-        "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&includeInferred={includeInferred}"
+        "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&includeInferred={includeInferred}"
     ));
     assert!(docs.contains("prism.curator.jobs"));
     assert!(docs.contains("prism_session"));
@@ -122,6 +124,8 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("tools()"));
     assert!(prelude.contains("tool(name)"));
     assert!(prelude.contains("pathMode: options?.pathMode ?? options?.path_mode"));
+    assert!(prelude.contains("module: options?.module"));
+    assert!(prelude.contains("taskId: options?.taskId ?? options?.task_id"));
     assert!(prelude.contains("structuredPath: options?.structuredPath ?? options?.structured_path"));
     assert!(prelude.contains("topLevelOnly: options?.topLevelOnly ?? options?.top_level_only"));
     assert!(prelude.contains("file(path)"));

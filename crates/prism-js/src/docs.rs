@@ -52,6 +52,8 @@ type SearchOptions = {
   limit?: number;
   kind?: string;
   path?: string;
+  module?: string;
+  taskId?: string;
   pathMode?: "contains" | "exact";
   strategy?: "direct" | "behavioral";
   structuredPath?: string;
@@ -956,7 +958,7 @@ Beyond `prism_query`, the MCP server exposes navigable `prism://...` resources.
 - Parameterized resources:
   - `prism://schema/{resourceKind}`
   - `prism://schema/tool/{toolName}`
-  - `prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&includeInferred={includeInferred}`
+  - `prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&includeInferred={includeInferred}`
   - `prism://symbol/{crateName}/{kind}/{path}`
   - `prism://lineage/{lineageId}?limit={limit}&cursor={cursor}`
   - `prism://task/{taskId}?limit={limit}&cursor={cursor}`
@@ -1170,12 +1172,14 @@ return {
 };
 ```
 
-### 8. Narrow by path fragment
+### 8. Narrow by path fragment, module, or task context
 
 ```ts
 return prism.search("config", {
   kind: "struct",
   path: "src/settings",
+  module: "demo::settings",
+  taskId: "coord-task:12",
   limit: 10,
 });
 ```
@@ -1454,6 +1458,7 @@ return prism.claimPreview({
 - Available now: semantic recent-change inspection through `prism.changedFiles(...)`, `prism.changedSymbols(path, ...)`, `prism.recentPatches(...)`, `prism.diffFor(target, ...)`, and `prism.taskChanges(taskId, ...)` backed by recorded patch outcomes instead of raw diff dumps.
 - Available now: workspace-backed runtime introspection through `prism.runtimeStatus()`, `prism.runtimeLogs(...)`, and `prism.runtimeTimeline(...)` for daemon health, recent structured log events, and startup/refresh diagnosis without defaulting to shell status checks.
 - Available now: non-symbol repo coverage for markdown headings plus structured JSON, YAML, and TOML config keys through the normal PRISM search and relation surface.
+- Available now: ambiguity-aware search narrowing through `path`, `module`, `taskId`, behavioral owner hints, and exact focused-block follow-ups surfaced directly from diagnostics and search resources.
 - Available now: a first-class query log through `prism.queryLog(...)`, `prism.slowQueries(...)`, and `prism.queryTrace(id)` with duration, diagnostics, truncation metadata, and phase breakdowns.
 - Available now: spec-to-code clustering and drift explanations that group direct links with read/write/persistence/test owners for spec-like symbols.
 - Available now: session/workspace memory recall for anchored memory entries, filtered outcome history, and promoted curator memories.

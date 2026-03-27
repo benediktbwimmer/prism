@@ -13,18 +13,18 @@ use crate::{
     memory_resource_view_link, node_id_view, owner_views_for_query, paginate_items,
     parse_resource_page, parse_resource_query_param, resource_link_view,
     resource_schema_catalog_entries, schema_resource_uri, schema_resource_view_link,
-    schemas_resource_uri, schemas_resource_view_link, search_resource_view_link_with_options,
-    session_resource_uri, session_resource_view_link, symbol_for, symbol_resource_uri,
-    symbol_resource_view_link, symbol_resource_view_link_for_id, symbol_view, symbol_views_for_ids,
-    task_journal_view, task_resource_view_link, task_resource_view_links_from_events,
-    tool_schemas_resource_value, tool_schemas_resource_view_link, workspace_revision_view,
-    CapabilitiesResourcePayload, CoordinationFeaturesView, EdgeResourcePayload,
-    EntrypointsResourcePayload, EventResourcePayload, FeatureFlagsView, InferredEdgeRecordView,
-    LineageResourcePayload, MemoryResourcePayload, QueryExecution, QueryHost,
-    ResourceSchemaCatalogPayload, SearchArgs, SearchResourcePayload, SessionLimitsView,
-    SessionResourcePayload, SessionTaskView, SessionView, SymbolResourcePayload,
-    TaskResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
+    schemas_resource_uri, schemas_resource_view_link, search_ambiguity_from_diagnostics,
+    search_resource_view_link_with_options, session_resource_uri, session_resource_view_link,
+    symbol_for, symbol_resource_uri, symbol_resource_view_link, symbol_resource_view_link_for_id,
+    symbol_view, symbol_views_for_ids, task_journal_view, task_resource_view_link,
+    task_resource_view_links_from_events, tool_schemas_resource_value,
+    tool_schemas_resource_view_link, workspace_revision_view, CapabilitiesResourcePayload,
+    CoordinationFeaturesView, EdgeResourcePayload, EntrypointsResourcePayload,
+    EventResourcePayload, FeatureFlagsView, InferredEdgeRecordView, LineageResourcePayload,
+    MemoryResourcePayload, QueryExecution, QueryHost, ResourceSchemaCatalogPayload, SearchArgs,
+    SearchResourcePayload, SessionLimitsView, SessionResourcePayload, SessionTaskView, SessionView,
+    SymbolResourcePayload, TaskResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
 };
 
 impl QueryHost {
@@ -270,6 +270,10 @@ impl QueryHost {
             .or_else(|| parse_resource_query_param(uri, "owner_kind"));
         let kind = parse_resource_query_param(uri, "kind").filter(|value| !value.is_empty());
         let path = parse_resource_query_param(uri, "path").filter(|value| !value.is_empty());
+        let module = parse_resource_query_param(uri, "module").filter(|value| !value.is_empty());
+        let task_id = parse_resource_query_param(uri, "taskId")
+            .or_else(|| parse_resource_query_param(uri, "task_id"))
+            .filter(|value| !value.is_empty());
         let path_mode = parse_resource_query_param(uri, "pathMode")
             .or_else(|| parse_resource_query_param(uri, "path_mode"))
             .filter(|value| !value.is_empty());
@@ -310,6 +314,8 @@ impl QueryHost {
                 limit: Some(self.session.limits().max_result_nodes),
                 kind: kind.clone(),
                 path: path.clone(),
+                module: module.clone(),
+                task_id: task_id.clone(),
                 path_mode: path_mode.clone(),
                 strategy: Some(strategy.clone()),
                 structured_path: structured_path.clone(),
@@ -345,13 +351,17 @@ impl QueryHost {
                 symbol.kind.clone(),
             )
         });
-        let suggested_queries = crate::search_suggested_queries(query, top_target.as_ref());
+        let ambiguity = search_ambiguity_from_diagnostics(&execution.diagnostics());
+        let suggested_queries =
+            crate::search_suggested_queries(query, top_target.as_ref(), ambiguity.as_ref());
         let mut related_resources = vec![search_resource_view_link_with_options(
             query,
             Some(strategy.as_str()),
             owner_kind.as_deref(),
             kind.as_deref(),
             path.as_deref(),
+            module.as_deref(),
+            task_id.as_deref(),
             path_mode.as_deref(),
             structured_path.as_deref(),
             top_level_only,
@@ -375,6 +385,8 @@ impl QueryHost {
             owner_kind,
             kind,
             path,
+            module,
+            task_id,
             path_mode,
             structured_path,
             top_level_only,
@@ -383,6 +395,7 @@ impl QueryHost {
             results: paged.items,
             discovery,
             top_read_context,
+            ambiguity,
             suggested_queries,
             page: paged.page,
             truncated: paged.truncated,

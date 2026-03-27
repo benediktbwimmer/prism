@@ -30,6 +30,9 @@ pub(crate) struct SearchArgs {
     pub(crate) limit: Option<usize>,
     pub(crate) kind: Option<String>,
     pub(crate) path: Option<String>,
+    pub(crate) module: Option<String>,
+    #[serde(alias = "taskId")]
+    pub(crate) task_id: Option<String>,
     #[serde(alias = "pathMode")]
     pub(crate) path_mode: Option<String>,
     pub(crate) strategy: Option<String>,

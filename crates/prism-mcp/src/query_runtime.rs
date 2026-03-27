@@ -18,30 +18,33 @@ use crate::file_queries::{file_around, file_read};
 use crate::runtime_views::{runtime_logs, runtime_status, runtime_timeline};
 use crate::text_search::search_text;
 use crate::{
-    artifact_risk_view, artifact_view, blast_radius_view, blocker_view, change_impact_view,
-    changed_files, changed_symbols, claim_view, co_change_view, conflict_view, convert_anchors,
-    convert_node_id, coordination_task_view, current_timestamp, diff_for, drift_candidate_view,
+    ambiguity_diagnostic_data, apply_module_filter, artifact_risk_view, artifact_view,
+    blast_radius_view, blocker_view, change_impact_view, changed_files, changed_symbols,
+    claim_view, co_change_view, conflict_view, convert_anchors, convert_node_id,
+    coordination_task_view, current_timestamp, diff_for, drift_candidate_view,
     edge_kind_label, edge_view, edit_context_view, edit_slice_for_symbol, entrypoints_for,
     focused_block_for_symbol, js_runtime, lineage_view, merge_node_ids, merge_promoted_checks,
     next_reads, owner_symbol_views_for_query, owner_symbol_views_for_target,
     owner_views_for_target, parse_capability, parse_claim_mode, parse_event_actor,
     parse_memory_kind, parse_node_kind, parse_outcome_kind, parse_outcome_result, plan_view,
     policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
-    promoted_validation_checks, query_diagnostic, read_context_view, recent_change_context_view,
-    recent_patches, relations_view, scored_memory_view, search_queries, source_excerpt_for_symbol,
-    spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
-    task_intent_view, task_journal_view, task_risk_view, task_validation_recipe_view,
-    tool_catalog_views, tool_schema_view, validation_context_view, validation_recipe_view_with,
-    where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs,
-    CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, DiffForArgs, DiscoveryTargetArgs,
-    EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs,
-    MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs, PendingReviewsArgs,
-    PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun,
-    QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchArgs,
-    SearchTextArgs, SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs,
-    TaskChangesArgs, TaskJournalArgs, TaskTargetArgs, ToolNameArgs, WhereUsedArgs,
-    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
+    promoted_validation_checks, query_diagnostic, rank_search_results, read_context_view,
+    recent_change_context_view, recent_patches, relations_view, scored_memory_view,
+    search_queries, source_excerpt_for_symbol, spec_cluster_view, spec_drift_explanation_view,
+    symbol_for, symbol_view, symbol_views_for_ids, task_intent_view, task_journal_view,
+    task_risk_view, task_validation_recipe_view, tool_catalog_views, tool_schema_view,
+    validation_context_view, validation_recipe_view_with, where_used, AnchorListArgs,
+    CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs, CoordinationTaskTargetArgs,
+    CuratorJobArgs, CuratorJobsArgs, DiffForArgs, DiscoveryTargetArgs, EditSliceArgs,
+    FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs, MemoryOutcomeArgs,
+    MemoryRecallArgs, NodeIdInput, OwnerLookupArgs, PendingReviewsArgs, PlanTargetArgs,
+    PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun,
+    QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs,
+    SearchAmbiguityContext, SearchArgs, SearchTextArgs, SimulateClaimArgs, SourceExcerptArgs,
+    SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode,
+    TaskTargetArgs, ToolNameArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH,
+    DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
+    INSIGHT_LIMIT,
 };
 
 impl QueryHost {
@@ -941,7 +944,22 @@ impl QueryExecution {
     }
 
     pub(crate) fn best_symbol(&self, query: &str) -> Result<Option<SymbolView>> {
-        let matches = self.symbols(query)?;
+        let mut matches = self.symbols(query)?;
+        let current_task_id = self.host.session.current_task().map(|task| task.0);
+        let ambiguity = rank_search_results(
+            self.prism.as_ref(),
+            &mut matches,
+            &SearchAmbiguityContext {
+                query,
+                strategy: "direct",
+                owner_kind: None,
+                path: None,
+                module: None,
+                task_id: current_task_id.as_deref(),
+                task_scope_mode: TaskScopeMode::Prefer,
+            },
+            false,
+        )?;
         if matches.is_empty() {
             self.push_diagnostic(
                 "anchor_unresolved",
@@ -957,21 +975,31 @@ impl QueryExecution {
             return Ok(None);
         }
         if matches.len() > 1 {
+            let next_action = if current_task_id.is_some() {
+                "Run prism.search(query, { module: ..., path: ..., kind: ..., taskId: ..., limit: 5 }) and then call prism.focusedBlock(...) or prism.readContext(...) on the intended result."
+            } else {
+                "Run prism.search(query, { module: ..., path: ..., kind: ..., limit: 5 }) and then call prism.focusedBlock(...) or prism.readContext(...) on the intended result."
+            };
             self.push_diagnostic(
                 "ambiguous_symbol",
                 format!(
-                    "`{query}` matched {} symbols; returning the first best match. Next action: narrow the lookup with `path`, `kind`, or inspect `prism.readContext(...)` on the intended target.",
+                    "`{query}` matched {} symbols; returning the highest-ranked candidate. Next action: narrow with `path`, `module`, `kind`, or task context, or inspect `prism.focusedBlock(...)` on the intended target.",
                     matches.len()
                 ),
-                Some(json!({
-                    "query": query,
-                    "matches": matches
-                        .iter()
-                        .map(|symbol| symbol.id.path.to_string())
-                        .collect::<Vec<_>>(),
-                    "nextAction": "Run prism.search(query, { kind: ..., path: ..., limit: 5 }) and then call prism.readContext(...) on the intended result.",
-                    "suggestedQueries": search_queries(query),
-                })),
+                ambiguity
+                    .as_ref()
+                    .map(|ambiguity| ambiguity_diagnostic_data(ambiguity, next_action))
+                    .or_else(|| {
+                        Some(json!({
+                            "query": query,
+                            "matches": matches
+                                .iter()
+                                .map(|symbol| symbol.id.path.to_string())
+                                .collect::<Vec<_>>(),
+                            "nextAction": next_action,
+                            "suggestedQueries": search_queries(query),
+                        }))
+                    }),
             );
         }
         Ok(matches.into_iter().next())
@@ -992,6 +1020,11 @@ impl QueryExecution {
         let limits = self.host.session.limits();
         let applied = requested.min(limits.max_result_nodes);
         let path_mode = parse_path_mode(args.path_mode.as_deref())?;
+        let explicit_task_id = args.task_id.clone();
+        let current_task_id = self.host.session.current_task().map(|task| task.0);
+        let effective_task_id = explicit_task_id
+            .as_deref()
+            .or(current_task_id.as_deref());
         let exact_structured =
             args.structured_path.is_some() || args.top_level_only.unwrap_or(false);
         let needs_post_filter = path_mode == SearchPathMode::Exact || exact_structured;
@@ -1005,13 +1038,13 @@ impl QueryExecution {
             self.push_diagnostic(
                 "result_truncated",
                 format!(
-                    "Search limit was capped at {} instead of {requested}. Next action: narrow the query with `path` or `kind` before raising the limit.",
+                    "Search limit was capped at {} instead of {requested}. Next action: narrow the query with `path`, `module`, `kind`, or `taskId` before raising the limit.",
                     limits.max_result_nodes
                 ),
                 Some(json!({
                     "requested": requested,
                     "applied": applied,
-                    "nextAction": "Use prism.search(query, { path: ..., kind: ..., limit: ... }) to narrow the result set.",
+                    "nextAction": "Use prism.search(query, { path: ..., module: ..., kind: ..., taskId: ..., limit: ... }) to narrow the result set.",
                     "suggestedQueries": search_queries(&args.query),
                 })),
             );
@@ -1045,20 +1078,54 @@ impl QueryExecution {
             args.structured_path.as_deref(),
             args.top_level_only.unwrap_or(false),
         );
+        apply_module_filter(&mut results, args.module.as_deref());
+
+        let ambiguity = rank_search_results(
+            self.prism.as_ref(),
+            &mut results,
+            &SearchAmbiguityContext {
+                query: &args.query,
+                strategy,
+                owner_kind: args.owner_kind.as_deref(),
+                path: args.path.as_deref(),
+                module: args.module.as_deref(),
+                task_id: effective_task_id,
+                task_scope_mode: if explicit_task_id.is_some() {
+                    TaskScopeMode::Filter
+                } else {
+                    TaskScopeMode::Prefer
+                },
+            },
+            true,
+        )?;
+
+        if let Some(ambiguity) = ambiguity.as_ref() {
+            self.push_diagnostic(
+                "ambiguous_search",
+                format!(
+                    "Search for `{}` returned multiple strong candidates. Next action: narrow with `path`, `module`, `ownerKind`, or `taskId`, or inspect `prism.focusedBlock(...)` on one candidate.",
+                    args.query
+                ),
+                Some(ambiguity_diagnostic_data(
+                    ambiguity,
+                    "Use prism.search(query, { path: ..., module: ..., ownerKind: ..., taskId: ..., limit: ... }) to narrow the candidates, or run prism.focusedBlock(...) on the intended result.",
+                )),
+            );
+        }
 
         if results.len() > applied {
             results.truncate(applied);
             self.push_diagnostic(
                 "result_truncated",
                 format!(
-                    "Search results for `{}` were truncated at {} entries. Next action: narrow with `path` or `kind`, then open `prism.readContext(...)` on the top candidate.",
+                    "Search results for `{}` were truncated at {} entries. Next action: narrow with `path`, `module`, `kind`, or `taskId`, then open `prism.focusedBlock(...)` or `prism.readContext(...)` on the top candidate.",
                     args.query, applied
                 ),
                 Some(json!({
                     "query": args.query,
                     "applied": applied,
                     "strategy": strategy,
-                    "nextAction": "Use a narrower prism.search(...) call and then inspect prism.readContext(...) on one candidate.",
+                    "nextAction": "Use a narrower prism.search(...) call with path/module/task filters and then inspect prism.focusedBlock(...) or prism.readContext(...) on one candidate.",
                     "suggestedQueries": search_queries(&args.query),
                 })),
             );

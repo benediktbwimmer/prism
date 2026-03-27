@@ -332,6 +332,8 @@ pub(crate) fn search_resource_uri_with_options(
     owner_kind: Option<&str>,
     kind: Option<&str>,
     path: Option<&str>,
+    module: Option<&str>,
+    task_id: Option<&str>,
     path_mode: Option<&str>,
     structured_path: Option<&str>,
     top_level_only: Option<bool>,
@@ -353,6 +355,12 @@ pub(crate) fn search_resource_uri_with_options(
     }
     if let Some(path) = path.filter(|value| !value.is_empty()) {
         params.push(format!("path={}", percent_encode_component(path)));
+    }
+    if let Some(module) = module.filter(|value| !value.is_empty()) {
+        params.push(format!("module={}", percent_encode_component(module)));
+    }
+    if let Some(task_id) = task_id.filter(|value| !value.is_empty()) {
+        params.push(format!("taskId={}", percent_encode_component(task_id)));
     }
     if let Some(path_mode) = path_mode.filter(|value| !value.is_empty()) {
         params.push(format!("pathMode={}", percent_encode_component(path_mode)));
@@ -555,6 +563,8 @@ pub(crate) fn search_resource_view_link_with_options(
     owner_kind: Option<&str>,
     kind: Option<&str>,
     path: Option<&str>,
+    module: Option<&str>,
+    task_id: Option<&str>,
     path_mode: Option<&str>,
     structured_path: Option<&str>,
     top_level_only: Option<bool>,
@@ -567,6 +577,8 @@ pub(crate) fn search_resource_view_link_with_options(
             owner_kind,
             kind,
             path,
+            module,
+            task_id,
             path_mode,
             structured_path,
             top_level_only,
