@@ -1240,6 +1240,60 @@ async fn stdio_proxy_forwards_to_streamable_http_upstream() {
     let _ = upstream_task.await;
 }
 
+#[tokio::test]
+async fn stdio_proxy_exits_after_idle_timeout() {
+    let upstream = server_with_node(demo_node());
+    let service: StreamableHttpService<PrismMcpServer, LocalSessionManager> =
+        StreamableHttpService::new(
+            move || Ok(upstream.clone()),
+            Default::default(),
+            StreamableHttpServerConfig {
+                sse_keep_alive: None,
+                ..Default::default()
+            },
+        );
+    let router = Router::new().nest_service("/mcp", service);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("listener should bind");
+    let addr = listener.local_addr().expect("listener should expose addr");
+    let upstream_task = tokio::spawn(async move {
+        let _ = axum::serve(listener, router).await;
+    });
+
+    let proxy = crate::proxy_server::ProxyMcpServer::connect(format!("http://{addr}/mcp"))
+        .await
+        .expect("proxy should connect to upstream");
+    let (client_transport, server_transport) = tokio::io::duplex(64 * 1024);
+    let proxy_task = tokio::spawn(async move {
+        proxy
+            .serve_transport_with_idle_timeout(
+                server_transport,
+                Duration::from_millis(150),
+                Duration::from_millis(20),
+            )
+            .await
+            .expect("proxy should exit cleanly after idle timeout");
+    });
+
+    let client = ().serve(client_transport).await.expect("client should connect through proxy");
+
+    let tools = client
+        .list_all_tools()
+        .await
+        .expect("proxy should forward tools/list before becoming idle");
+    assert!(tools.iter().any(|tool| tool.name == "prism_query"));
+
+    tokio::time::timeout(Duration::from_secs(2), proxy_task)
+        .await
+        .expect("idle proxy should exit within the timeout")
+        .expect("proxy task should complete cleanly");
+
+    drop(client);
+    upstream_task.abort();
+    let _ = upstream_task.await;
+}
+
 #[test]
 fn simple_mode_disables_coordination_host_paths() {
     let host = QueryHost::new_with_limits_and_features(

@@ -1,11 +1,13 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use prism_ir::{
     EventId, EventMeta, LineageEvent, LineageId, NodeId, ObservedChangeSet, ObservedNode,
 };
 
 use crate::resolver::resolve_change_set;
-use crate::snapshot::{CoChangeNeighbor, HistorySnapshot, LineageTombstone};
+use crate::snapshot::{
+    CoChangeNeighbor, HistoryCoChangeDelta, HistoryPersistDelta, HistorySnapshot, LineageTombstone,
+};
 
 #[derive(Debug, Clone, Default)]
 pub struct HistoryStore {
@@ -35,16 +37,19 @@ impl HistoryStore {
         events
     }
 
-    pub fn seed_nodes<I>(&mut self, nodes: I)
+    pub fn seed_nodes<I>(&mut self, nodes: I) -> Vec<(NodeId, LineageId)>
     where
         I: IntoIterator<Item = NodeId>,
     {
+        let mut seeded = Vec::new();
         for node in nodes {
             if !self.node_to_lineage.contains_key(&node) {
                 let lineage = self.alloc_lineage();
-                self.assign_node_lineage(node, lineage);
+                self.assign_node_lineage(node.clone(), lineage.clone());
+                seeded.push((node, lineage));
             }
         }
+        seeded
     }
 
     pub fn lineage_of(&self, node: &NodeId) -> Option<LineageId> {
@@ -112,6 +117,62 @@ impl HistoryStore {
                 .map(|((left, right), count)| (left.clone(), right.clone(), *count))
                 .collect(),
             tombstones: self.tombstones.values().cloned().collect(),
+            next_lineage: self.next_lineage,
+            next_event: self.next_event,
+        }
+    }
+
+    pub fn persistence_delta(
+        &self,
+        events: &[LineageEvent],
+        seeded_node_lineages: &[(NodeId, LineageId)],
+        co_change_deltas: &[HistoryCoChangeDelta],
+    ) -> HistoryPersistDelta {
+        let mut removed_nodes = HashSet::<NodeId>::new();
+        let mut upserted_node_lineages = HashMap::<NodeId, LineageId>::new();
+        let mut touched_lineages = HashSet::<LineageId>::new();
+
+        for (node, lineage) in seeded_node_lineages {
+            upserted_node_lineages.insert(node.clone(), lineage.clone());
+        }
+
+        for event in events {
+            touched_lineages.insert(event.lineage.clone());
+            for node in &event.before {
+                removed_nodes.insert(node.clone());
+            }
+            for node in &event.after {
+                if let Some(lineage) = self.node_to_lineage.get(node) {
+                    upserted_node_lineages.insert(node.clone(), lineage.clone());
+                }
+            }
+        }
+
+        let mut removed_nodes = removed_nodes.into_iter().collect::<Vec<_>>();
+        sort_node_ids(&mut removed_nodes);
+
+        let mut upserted_node_lineages = upserted_node_lineages.into_iter().collect::<Vec<_>>();
+        upserted_node_lineages.sort_by(|left, right| compare_node_ids(&left.0, &right.0));
+
+        let mut upserted_tombstones = Vec::new();
+        let mut removed_tombstone_lineages = Vec::new();
+        let mut touched_lineages = touched_lineages.into_iter().collect::<Vec<_>>();
+        touched_lineages.sort_by(|left, right| left.0.cmp(&right.0));
+        for lineage in touched_lineages {
+            if let Some(tombstone) = self.tombstones.get(&lineage) {
+                upserted_tombstones.push(tombstone.clone());
+            } else {
+                removed_tombstone_lineages.push(lineage);
+            }
+        }
+
+        HistoryPersistDelta {
+            removed_nodes,
+            upserted_node_lineages,
+            appended_events: events.to_vec(),
+            co_change_deltas: co_change_deltas.to_vec(),
+            upserted_tombstones,
+            removed_tombstone_lineages,
             next_lineage: self.next_lineage,
             next_event: self.next_event,
         }
@@ -278,10 +339,12 @@ fn remove_lineage_node(
 }
 
 fn sort_node_ids(nodes: &mut [NodeId]) {
-    nodes.sort_by(|left, right| {
-        left.crate_name
-            .cmp(&right.crate_name)
-            .then_with(|| left.path.cmp(&right.path))
-            .then_with(|| left.kind.to_string().cmp(&right.kind.to_string()))
-    });
+    nodes.sort_by(compare_node_ids);
+}
+
+fn compare_node_ids(left: &NodeId, right: &NodeId) -> std::cmp::Ordering {
+    left.crate_name
+        .cmp(&right.crate_name)
+        .then_with(|| left.path.cmp(&right.path))
+        .then_with(|| left.kind.to_string().cmp(&right.kind.to_string()))
 }

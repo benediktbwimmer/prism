@@ -1,5 +1,6 @@
 mod codecs;
 mod graph_io;
+mod history_io;
 mod projections;
 mod schema;
 mod snapshots;
@@ -128,12 +129,16 @@ impl Store for SqliteStore {
     }
 
     fn load_history_snapshot(&mut self) -> Result<Option<prism_history::HistorySnapshot>> {
-        snapshots::load_snapshot_row(&self.conn, "history")
+        if let Some(snapshot) = history_io::load_history_snapshot(&self.conn)? {
+            Ok(Some(snapshot))
+        } else {
+            snapshots::load_snapshot_row(&self.conn, "history")
+        }
     }
 
     fn save_history_snapshot(&mut self, snapshot: &prism_history::HistorySnapshot) -> Result<()> {
         let tx = self.conn.transaction()?;
-        snapshots::save_snapshot_row_tx(&tx, "history", snapshot)?;
+        history_io::replace_history_snapshot_tx(&tx, snapshot)?;
         bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
         tx.commit()?;
         Ok(())
@@ -145,7 +150,7 @@ impl Store for SqliteStore {
         deltas: &[prism_projections::CoChangeDelta],
     ) -> Result<()> {
         let tx = self.conn.transaction()?;
-        snapshots::save_snapshot_row_tx(&tx, "history", snapshot)?;
+        history_io::replace_history_snapshot_tx(&tx, snapshot)?;
         projections::apply_projection_co_change_deltas_tx(&tx, deltas)?;
         bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
         tx.commit()?;
@@ -364,7 +369,11 @@ impl Store for SqliteStore {
         let finalize_ms = finalize_started.elapsed().as_millis();
 
         let save_history_started = Instant::now();
-        snapshots::save_snapshot_row_tx(&tx, "history", &batch.history_snapshot)?;
+        if let Some(history_delta) = &batch.history_delta {
+            history_io::apply_history_delta_tx(&tx, history_delta)?;
+        } else {
+            history_io::replace_history_snapshot_tx(&tx, &batch.history_snapshot)?;
+        }
         let save_history_ms = save_history_started.elapsed().as_millis();
 
         let save_outcomes_started = Instant::now();

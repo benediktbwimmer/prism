@@ -17,7 +17,7 @@ use crate::WorkspaceSessionOptions;
 use anyhow::Result;
 use prism_coordination::CoordinationStore;
 use prism_curator::CuratorBackend;
-use prism_history::HistoryStore;
+use prism_history::{HistoryCoChangeDelta, HistoryStore};
 use prism_ir::{ChangeTrigger, Edge, EdgeKind, EdgeOrigin, LineageEvent, ObservedChangeSet};
 use prism_memory::OutcomeMemory;
 use prism_parser::{LanguageAdapter, ParseInput, ParseResult};
@@ -442,10 +442,26 @@ impl<S: Store> WorkspaceIndexer<S> {
             resolve_edges_ms,
             "finished prism edge resolution phase"
         );
-        self.history
+        let seeded_node_lineages = self
+            .history
             .seed_nodes(self.graph.all_nodes().map(|node| node.id.clone()));
         let projection_snapshot =
             (!self.had_projection_snapshot).then(|| self.projections.snapshot());
+        let history_delta = self.had_prior_snapshot.then(|| {
+            let co_change_history_deltas = co_change_deltas
+                .iter()
+                .map(|delta| HistoryCoChangeDelta {
+                    source_lineage: delta.source_lineage.clone(),
+                    target_lineage: delta.target_lineage.clone(),
+                    count_delta: delta.count_delta,
+                })
+                .collect::<Vec<_>>();
+            self.history.persistence_delta(
+                &all_lineage_events,
+                &seeded_node_lineages,
+                &co_change_history_deltas,
+            )
+        });
         let upserted_file_count = upserted_paths.len();
         let removed_file_count = removed_paths.len();
         let co_change_delta_count = co_change_deltas.len();
@@ -454,6 +470,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             upserted_paths,
             removed_paths,
             history_snapshot: self.history.snapshot(),
+            history_delta,
             outcome_snapshot: self.outcomes.snapshot(),
             co_change_deltas,
             validation_deltas,

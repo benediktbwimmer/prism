@@ -1,7 +1,7 @@
 use anyhow::Result;
 use rusqlite::Connection;
 
-const SCHEMA_VERSION: i64 = 10;
+const SCHEMA_VERSION: i64 = 11;
 
 pub(super) fn init_schema(conn: &Connection) -> Result<()> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
@@ -19,6 +19,10 @@ pub(super) fn init_schema(conn: &Connection) -> Result<()> {
             DROP TABLE IF EXISTS unresolved_impls;
             DROP TABLE IF EXISTS unresolved_intents;
             DROP TABLE IF EXISTS snapshots;
+            DROP TABLE IF EXISTS history_node_lineages;
+            DROP TABLE IF EXISTS history_events;
+            DROP TABLE IF EXISTS history_co_change;
+            DROP TABLE IF EXISTS history_tombstones;
             DROP TABLE IF EXISTS projection_co_change;
             DROP TABLE IF EXISTS projection_validation;
             "#,
@@ -128,6 +132,33 @@ pub(super) fn init_schema(conn: &Connection) -> Result<()> {
             value TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS history_node_lineages (
+            node_crate_name TEXT NOT NULL,
+            node_path TEXT NOT NULL,
+            node_kind INTEGER NOT NULL,
+            lineage TEXT NOT NULL,
+            PRIMARY KEY (node_crate_name, node_path, node_kind)
+        );
+
+        CREATE TABLE IF NOT EXISTS history_events (
+            event_id TEXT PRIMARY KEY,
+            ts INTEGER NOT NULL,
+            lineage TEXT NOT NULL,
+            payload TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS history_co_change (
+            source_lineage TEXT NOT NULL,
+            target_lineage TEXT NOT NULL,
+            count INTEGER NOT NULL,
+            PRIMARY KEY (source_lineage, target_lineage)
+        );
+
+        CREATE TABLE IF NOT EXISTS history_tombstones (
+            lineage TEXT PRIMARY KEY,
+            payload TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS projection_co_change (
             source_lineage TEXT NOT NULL,
             target_lineage TEXT NOT NULL,
@@ -166,6 +197,12 @@ pub(super) fn init_schema(conn: &Connection) -> Result<()> {
 
         CREATE INDEX IF NOT EXISTS idx_unresolved_intents_file_path
             ON unresolved_intents(file_path);
+
+        CREATE INDEX IF NOT EXISTS idx_history_events_ts_id
+            ON history_events(ts, event_id);
+
+        CREATE INDEX IF NOT EXISTS idx_history_events_lineage
+            ON history_events(lineage, ts, event_id);
         "#,
     )?;
     conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;

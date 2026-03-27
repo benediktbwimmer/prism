@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use prism_agent::{EdgeId, InferenceSnapshot, InferredEdgeRecord, InferredEdgeScope};
-use prism_history::HistorySnapshot;
+use prism_history::{HistoryPersistDelta, HistorySnapshot, LineageTombstone};
 use prism_ir::{
     Edge, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta, FileId, GraphChange, Language,
     Node, NodeId, NodeKind, Span,
@@ -612,6 +612,7 @@ fn sqlite_store_commits_index_batches_atomically() {
             next_lineage: 1,
             next_event: 2,
         },
+        history_delta: None,
         outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
         co_change_deltas: vec![CoChangeDelta {
             source_lineage: prism_ir::LineageId::new("lineage:1"),
@@ -658,6 +659,157 @@ fn sqlite_store_commits_index_batches_atomically() {
 }
 
 #[test]
+fn sqlite_store_applies_incremental_history_delta() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-history-delta-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let source_path = PathBuf::from("src/lib.rs");
+    let lineage = prism_ir::LineageId::new("lineage:1");
+    let neighbor = prism_ir::LineageId::new("lineage:2");
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
+
+    let born_event = prism_ir::LineageEvent {
+        meta: EventMeta {
+            id: EventId::new("evt:1"),
+            ts: 1,
+            actor: EventActor::System,
+            correlation: None,
+            causation: None,
+        },
+        lineage: lineage.clone(),
+        kind: prism_ir::LineageEventKind::Born,
+        before: Vec::new(),
+        after: vec![alpha.clone()],
+        confidence: 1.0,
+        evidence: Vec::new(),
+    };
+    let renamed_event = prism_ir::LineageEvent {
+        meta: EventMeta {
+            id: EventId::new("evt:2"),
+            ts: 2,
+            actor: EventActor::System,
+            correlation: None,
+            causation: None,
+        },
+        lineage: lineage.clone(),
+        kind: prism_ir::LineageEventKind::Updated,
+        before: vec![alpha.clone()],
+        after: vec![beta.clone()],
+        confidence: 1.0,
+        evidence: Vec::new(),
+    };
+
+    let initial_snapshot = HistorySnapshot {
+        node_to_lineage: vec![(alpha.clone(), lineage.clone())],
+        events: vec![born_event.clone()],
+        co_change_counts: vec![(lineage.clone(), neighbor.clone(), 1)],
+        tombstones: Vec::new(),
+        next_lineage: 1,
+        next_event: 2,
+    };
+    let expected_snapshot = HistorySnapshot {
+        node_to_lineage: vec![(beta.clone(), lineage.clone())],
+        events: vec![born_event, renamed_event.clone()],
+        co_change_counts: vec![(lineage.clone(), neighbor.clone(), 2)],
+        tombstones: Vec::new(),
+        next_lineage: 1,
+        next_event: 3,
+    };
+
+    let mut initial_graph = Graph::new();
+    initial_graph.upsert_file(
+        &source_path,
+        1,
+        vec![node("alpha")],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    store
+        .commit_index_persist_batch(
+            &initial_graph,
+            &IndexPersistBatch {
+                upserted_paths: vec![source_path.clone()],
+                removed_paths: Vec::new(),
+                history_snapshot: initial_snapshot.clone(),
+                history_delta: None,
+                outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+                co_change_deltas: vec![CoChangeDelta {
+                    source_lineage: lineage.clone(),
+                    target_lineage: neighbor.clone(),
+                    count_delta: 1,
+                }],
+                validation_deltas: Vec::new(),
+                projection_snapshot: None,
+            },
+        )
+        .unwrap();
+
+    let mut renamed_graph = Graph::new();
+    renamed_graph.upsert_file(
+        &source_path,
+        2,
+        vec![node("beta")],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+    store
+        .commit_index_persist_batch(
+            &renamed_graph,
+            &IndexPersistBatch {
+                upserted_paths: vec![source_path],
+                removed_paths: Vec::new(),
+                history_snapshot: expected_snapshot.clone(),
+                history_delta: Some(HistoryPersistDelta {
+                    removed_nodes: vec![alpha],
+                    upserted_node_lineages: vec![(beta, lineage.clone())],
+                    appended_events: vec![renamed_event],
+                    co_change_deltas: vec![prism_history::HistoryCoChangeDelta {
+                        source_lineage: lineage.clone(),
+                        target_lineage: neighbor.clone(),
+                        count_delta: 1,
+                    }],
+                    upserted_tombstones: Vec::<LineageTombstone>::new(),
+                    removed_tombstone_lineages: Vec::new(),
+                    next_lineage: 1,
+                    next_event: 3,
+                }),
+                outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+                co_change_deltas: vec![CoChangeDelta {
+                    source_lineage: lineage.clone(),
+                    target_lineage: neighbor.clone(),
+                    count_delta: 1,
+                }],
+                validation_deltas: Vec::new(),
+                projection_snapshot: None,
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        store.load_history_snapshot().unwrap(),
+        Some(expected_snapshot)
+    );
+
+    drop(store);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
 fn sqlite_store_tolerates_duplicate_node_ids_in_single_file_state() {
     let path = std::env::temp_dir().join(format!(
         "prism-store-duplicate-node-test-{}.db",
@@ -691,6 +843,7 @@ fn sqlite_store_tolerates_duplicate_node_ids_in_single_file_state() {
             next_lineage: 1,
             next_event: 2,
         },
+        history_delta: None,
         outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
         co_change_deltas: Vec::new(),
         validation_deltas: Vec::new(),

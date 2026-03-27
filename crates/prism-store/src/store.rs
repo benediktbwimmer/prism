@@ -4,7 +4,7 @@ use anyhow::Result;
 use prism_agent::InferenceSnapshot;
 use prism_coordination::CoordinationSnapshot;
 use prism_curator::CuratorSnapshot;
-use prism_history::HistorySnapshot;
+use prism_history::{HistoryPersistDelta, HistorySnapshot};
 use prism_memory::{EpisodicMemorySnapshot, OutcomeMemorySnapshot};
 use prism_projections::{CoChangeDelta, ProjectionSnapshot, ValidationDelta};
 
@@ -15,6 +15,7 @@ pub struct IndexPersistBatch {
     pub upserted_paths: Vec<PathBuf>,
     pub removed_paths: Vec<PathBuf>,
     pub history_snapshot: HistorySnapshot,
+    pub history_delta: Option<HistoryPersistDelta>,
     pub outcome_snapshot: OutcomeMemorySnapshot,
     pub co_change_deltas: Vec<CoChangeDelta>,
     pub validation_deltas: Vec<ValidationDelta>,
