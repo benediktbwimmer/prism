@@ -178,7 +178,7 @@ impl Prism {
         }
     }
 
-    fn impact_for_anchors(&self, anchors: &[AnchorRef]) -> ChangeImpact {
+    pub(crate) fn impact_for_anchors(&self, anchors: &[AnchorRef]) -> ChangeImpact {
         let expanded = self.expand_anchors(anchors);
         let base_nodes = self.resolve_anchor_nodes(&expanded);
         if base_nodes.is_empty() {
@@ -353,7 +353,7 @@ fn merge_change_impact(target: &mut ChangeImpact, other: ChangeImpact) {
         .dedup_by(|left, right| left.meta.id == right.meta.id);
 }
 
-fn score_change_impact(impact: &ChangeImpact, stale: bool) -> f32 {
+pub(crate) fn score_change_impact(impact: &ChangeImpact, stale: bool) -> f32 {
     let failure_score = (impact.risk_events.len() as f32 * 0.25).min(0.5);
     let validation_score = (impact.validation_checks.len() as f32 * 0.08).min(0.2);
     let co_change_score = (impact

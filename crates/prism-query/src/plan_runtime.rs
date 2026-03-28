@@ -79,6 +79,10 @@ impl NativePlanRuntimeState {
             .unwrap_or_default()
     }
 
+    pub(crate) fn policy(&self, plan_id: &PlanId) -> Option<CoordinationPolicy> {
+        self.policies.get(plan_id.0.as_str()).cloned()
+    }
+
     pub(crate) fn ready_nodes(&self, plan_id: &PlanId) -> Vec<PlanNode> {
         let Some(graph) = self.graphs.get(plan_id.0.as_str()) else {
             return Vec::new();
@@ -100,28 +104,6 @@ impl NativePlanRuntimeState {
             .collect::<Vec<_>>();
         nodes.sort_by(|left, right| left.id.0.cmp(&right.id.0));
         nodes
-    }
-
-    pub(crate) fn node_blockers(
-        &self,
-        plan_id: &PlanId,
-        node_id: &PlanNodeId,
-    ) -> Vec<PlanNodeBlocker> {
-        let Some(graph) = self.graphs.get(plan_id.0.as_str()) else {
-            return Vec::new();
-        };
-        let Some(node) = graph.nodes.iter().find(|node| node.id == *node_id) else {
-            return Vec::new();
-        };
-        let overlays = self
-            .execution_overlays
-            .get(plan_id.0.as_str())
-            .map(Vec::as_slice)
-            .unwrap_or(&[]);
-        let mut blockers = readiness_blockers_for_node(graph, overlays, node);
-        blockers.extend(completion_blockers_for_node(graph, node));
-        sort_and_dedupe_plan_node_blockers(&mut blockers);
-        blockers
     }
 
     pub(crate) fn apply_to_coordination_snapshot(
@@ -584,6 +566,12 @@ fn plan_node_blocker_kind_key(kind: PlanNodeBlockerKind) -> u8 {
         PlanNodeBlockerKind::BlockingNode => 1,
         PlanNodeBlockerKind::ValidationGate => 2,
         PlanNodeBlockerKind::Handoff => 3,
+        PlanNodeBlockerKind::ClaimConflict => 4,
+        PlanNodeBlockerKind::ReviewRequired => 5,
+        PlanNodeBlockerKind::RiskReviewRequired => 6,
+        PlanNodeBlockerKind::ValidationRequired => 7,
+        PlanNodeBlockerKind::StaleRevision => 8,
+        PlanNodeBlockerKind::ArtifactStale => 9,
     }
 }
 
@@ -717,6 +705,20 @@ fn completion_blockers_for_node(graph: &PlanGraph, node: &PlanNode) -> Vec<PlanN
                 .collect(),
         });
     }
+    sort_and_dedupe_plan_node_blockers(&mut blockers);
+    blockers
+}
+
+pub(crate) fn node_blockers_for_graph(
+    graph: &PlanGraph,
+    overlays: &[PlanExecutionOverlay],
+    node_id: &PlanNodeId,
+) -> Vec<PlanNodeBlocker> {
+    let Some(node) = graph.nodes.iter().find(|node| node.id == *node_id) else {
+        return Vec::new();
+    };
+    let mut blockers = readiness_blockers_for_node(graph, overlays, node);
+    blockers.extend(completion_blockers_for_node(graph, node));
     sort_and_dedupe_plan_node_blockers(&mut blockers);
     blockers
 }

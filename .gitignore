@@ -6,6 +6,7 @@
 !/.prism/concepts/
 /.prism/concepts/*
 !/.prism/concepts/events.jsonl
+!/.prism/concepts/relations.jsonl
 .DS_Store
 /.venv-sb-cli
 /.venv-swebench

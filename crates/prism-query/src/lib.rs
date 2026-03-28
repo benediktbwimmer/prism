@@ -3,6 +3,7 @@ mod coordination;
 mod impact;
 mod intent;
 mod outcomes;
+mod plan_completion;
 mod plan_runtime;
 mod source;
 mod symbol;
@@ -585,6 +586,25 @@ impl Prism {
         acceptance: Option<Vec<prism_ir::PlanAcceptanceCriterion>>,
         base_revision: Option<WorkspaceRevision>,
     ) -> Result<PlanId> {
+        if matches!(status, Some(PlanNodeStatus::Completed)) {
+            let mut preview = self
+                .plan_runtime
+                .read()
+                .expect("plan runtime lock poisoned")
+                .clone();
+            let plan_id = preview.update_node(
+                node_id,
+                status,
+                assignee.clone(),
+                is_abstract,
+                title.clone(),
+                anchors.clone(),
+                depends_on.clone(),
+                acceptance.clone(),
+                base_revision.clone(),
+            )?;
+            self.validate_native_plan_node_completion_preview(&preview, &plan_id, node_id)?;
+        }
         self.mutate_native_plan_runtime(|runtime| {
             runtime.update_node(
                 node_id,

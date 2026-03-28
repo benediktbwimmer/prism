@@ -103,6 +103,12 @@ pub enum PlanNodeBlockerKind {
     BlockingNode,
     ValidationGate,
     Handoff,
+    ClaimConflict,
+    ReviewRequired,
+    RiskReviewRequired,
+    ValidationRequired,
+    StaleRevision,
+    ArtifactStale,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

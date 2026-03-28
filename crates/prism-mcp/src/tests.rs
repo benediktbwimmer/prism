@@ -740,6 +740,82 @@ fn plan_node_mutations_return_graph_native_views() {
 }
 
 #[test]
+fn native_plan_node_completion_rejects_missing_review_and_validation() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "goal": "Require completion evidence",
+                    "policy": { "requireReviewForCompletion": true }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let node = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Ship main",
+                    "acceptance": [{
+                        "label": "main is validated",
+                        "requiredChecks": [{ "id": "validation:ci" }],
+                        "evidencePolicy": "review-and-validation"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let node_id = node.state["id"].as_str().unwrap().to_string();
+
+    let execution = QueryExecution::new(
+        host.clone(),
+        test_session(&host),
+        host.current_prism(),
+        host.begin_query_run(test_session(&host).as_ref(), "test", "native completion blockers"),
+    );
+    let blockers = execution
+        .dispatch(
+            "planNodeBlockers",
+            &format!(r#"{{ "planId": "{plan_id}", "nodeId": "{node_id}" }}"#),
+        )
+        .unwrap();
+    let kinds = blockers
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|blocker| blocker["kind"].as_str().unwrap().to_string())
+        .collect::<Vec<_>>();
+    assert!(kinds.contains(&"ReviewRequired".to_string()));
+    assert!(kinds.contains(&"ValidationRequired".to_string()));
+
+    let error = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeUpdate,
+                payload: json!({
+                    "nodeId": node_id,
+                    "status": "completed"
+                }),
+                task_id: None,
+            },
+        )
+        .expect_err("completion should reject without review/validation evidence");
+    assert!(error.to_string().contains("cannot complete"));
+}
+
+#[test]
 fn plan_edge_mutations_update_projected_dependency_graph() {
     let host = host_with_node(demo_node());
 

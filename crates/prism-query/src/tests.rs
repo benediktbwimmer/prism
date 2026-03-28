@@ -2283,6 +2283,236 @@ fn native_plan_ready_nodes_and_blockers_follow_edge_semantics() {
 }
 
 #[test]
+fn native_plan_node_completion_rejects_missing_review_and_acceptance_validation() {
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:native-complete"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Require completion evidence".into(),
+                status: None,
+                policy: Some(CoordinationPolicy {
+                    require_review_for_completion: true,
+                    ..CoordinationPolicy::default()
+                }),
+            },
+        )
+        .unwrap();
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        history,
+        outcomes,
+        coordination,
+        ProjectionIndex::default(),
+    );
+
+    let node_id = prism
+        .create_native_plan_node(
+            &plan_id,
+            "Ship main".into(),
+            Some(PlanNodeStatus::Ready),
+            None,
+            false,
+            Vec::new(),
+            Vec::new(),
+            vec![prism_ir::PlanAcceptanceCriterion {
+                label: "main is validated".into(),
+                anchors: Vec::new(),
+                required_checks: vec![prism_ir::ValidationRef {
+                    id: "validation:ci".into(),
+                }],
+                evidence_policy: prism_ir::AcceptanceEvidencePolicy::ReviewAndValidation,
+            }],
+            WorkspaceRevision {
+                graph_version: 1,
+                git_commit: None,
+            },
+        )
+        .unwrap();
+
+    let blockers = prism.plan_node_blockers(&plan_id, &node_id);
+    assert!(blockers
+        .iter()
+        .any(|blocker| blocker.kind == PlanNodeBlockerKind::ReviewRequired));
+    assert!(blockers
+        .iter()
+        .any(|blocker| blocker.kind == PlanNodeBlockerKind::ValidationRequired));
+
+    let error = prism
+        .update_native_plan_node(
+            &node_id,
+            Some(PlanNodeStatus::Completed),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect_err("native node completion should reject missing evidence");
+    assert!(error.to_string().contains("cannot complete"));
+    assert!(error.to_string().contains("approved review artifact"));
+}
+
+#[test]
+fn task_backed_native_plan_node_completion_uses_continuity_review_state() {
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:task-backed-native"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Complete through native node update".into(),
+                status: None,
+                policy: Some(CoordinationPolicy {
+                    require_review_for_completion: true,
+                    ..CoordinationPolicy::default()
+                }),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:task-backed-native"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Edit alpha".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(SessionId::new("session:native")),
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        history,
+        outcomes,
+        coordination,
+        ProjectionIndex::default(),
+    );
+    let node_id = PlanNodeId::new(task_id.0.clone());
+
+    let before = prism.plan_node_blockers(&plan_id, &node_id);
+    assert!(before
+        .iter()
+        .any(|blocker| blocker.kind == PlanNodeBlockerKind::ReviewRequired));
+    assert!(prism
+        .update_native_plan_node(
+            &node_id,
+            Some(PlanNodeStatus::Completed),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .is_err());
+
+    let (artifact_id, _) = prism
+        .propose_native_artifact(
+            EventMeta {
+                id: EventId::new("coord:artifact:task-backed-native"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            prism_coordination::ArtifactProposeInput {
+                task_id: prism_ir::CoordinationTaskId::new(task_id.0.clone()),
+                anchors: Vec::new(),
+                diff_ref: Some("patch:alpha".into()),
+                evidence: Vec::new(),
+                base_revision: WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                current_revision: WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                required_validations: Vec::new(),
+                validated_checks: Vec::new(),
+                risk_score: None,
+            },
+        )
+        .unwrap();
+    prism
+        .review_native_artifact(
+            EventMeta {
+                id: EventId::new("coord:review:task-backed-native"),
+                ts: 4,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            prism_coordination::ArtifactReviewInput {
+                artifact_id,
+                verdict: prism_ir::ReviewVerdict::Approved,
+                summary: "approved".into(),
+                required_validations: Vec::new(),
+                validated_checks: Vec::new(),
+                risk_score: None,
+            },
+            WorkspaceRevision {
+                graph_version: 1,
+                git_commit: None,
+            },
+        )
+        .unwrap();
+
+    let after = prism.plan_node_blockers(&plan_id, &node_id);
+    assert!(!after
+        .iter()
+        .any(|blocker| blocker.kind == PlanNodeBlockerKind::ReviewRequired));
+    prism
+        .update_native_plan_node(
+            &node_id,
+            Some(PlanNodeStatus::Completed),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("approved artifact should satisfy native completion gate");
+}
+
+#[test]
 fn native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges() {
     let graph = Graph::new();
     let history = HistoryStore::new();
