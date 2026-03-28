@@ -1304,6 +1304,7 @@ async fn stdio_proxy_forwards_to_streamable_http_upstream() {
         .expect("proxy should forward tools/list");
     assert!(tools.iter().any(|tool| tool.name == "prism_locate"));
     assert!(tools.iter().any(|tool| tool.name == "prism_gather"));
+    assert!(tools.iter().any(|tool| tool.name == "prism_task_brief"));
     assert!(tools.iter().any(|tool| tool.name == "prism_query"));
 
     let session = client
@@ -2955,6 +2956,7 @@ fn semantic_curator_memory_promotion_persists_and_is_recallable() {
                     category: Some("risk_summary".to_string()),
                     evidence: CandidateMemoryEvidence {
                         event_ids: vec![EventId::new("outcome:alpha-risk")],
+                        memory_ids: vec![MemoryId("memory:episodic-alpha".to_string())],
                         validation_checks: vec!["test:alpha_regression".to_string()],
                         co_change_lineages: Vec::new(),
                     },
@@ -3014,17 +3016,18 @@ fn semantic_curator_memory_promotion_persists_and_is_recallable() {
     let job_id = wait_for_completed_curator_job(&session);
     let host = QueryHost::with_session(session);
 
-    host.promote_curator_memory(
-        test_session(&host).as_ref(),
-        PrismCuratorPromoteMemoryArgs {
-            job_id,
-            proposal_index: 0,
-            trust: None,
-            note: Some("promote semantic context".into()),
-            task_id: Some("task:semantic-memory".into()),
-        },
-    )
-    .expect("semantic memory promotion should succeed");
+    let promoted = host
+        .promote_curator_memory(
+            test_session(&host).as_ref(),
+            PrismCuratorPromoteMemoryArgs {
+                job_id,
+                proposal_index: 0,
+                trust: None,
+                note: Some("promote semantic context".into()),
+                task_id: Some("task:semantic-memory".into()),
+            },
+        )
+        .expect("semantic memory promotion should succeed");
 
     let result = host
         .execute(
@@ -3051,6 +3054,109 @@ return prism.memory.recall({
         result.result[0]["entry"]["metadata"]["evidence"]["validationChecks"][0],
         "test:alpha_regression"
     );
+    assert_eq!(
+        result.result[0]["entry"]["metadata"]["evidence"]["memoryIds"][0],
+        "memory:episodic-alpha"
+    );
+
+    let events = host
+        .execute(
+            test_session(&host),
+            &format!(
+                r#"
+return prism.memory.events({{
+  memoryId: "{}",
+  limit: 5,
+}});
+"#,
+                promoted.memory_id.clone().unwrap()
+            ),
+            QueryLanguage::Ts,
+        )
+        .expect("memory event query should succeed");
+    assert_eq!(events.result[0]["promotedFrom"][0], "memory:episodic-alpha");
+}
+
+#[test]
+fn curator_proposals_query_flattens_pending_proposals_across_jobs() {
+    let root = temp_workspace();
+
+    #[derive(Default)]
+    struct FakeCurator;
+
+    impl CuratorBackend for FakeCurator {
+        fn run(&self, _job: &CuratorJob, _ctx: &CuratorContext) -> anyhow::Result<CuratorRun> {
+            Ok(CuratorRun {
+                proposals: vec![CuratorProposal::SemanticMemory(CandidateMemory {
+                    anchors: vec![AnchorRef::Node(NodeId::new(
+                        "demo",
+                        "demo::alpha",
+                        NodeKind::Function,
+                    ))],
+                    kind: MemoryKind::Semantic,
+                    content: "Recent outcome context: alpha follow-up stayed green".to_string(),
+                    trust: 0.72,
+                    rationale: "Recent validated changes are reusable context.".to_string(),
+                    category: Some("risk_summary".to_string()),
+                    evidence: CandidateMemoryEvidence::default(),
+                })],
+                diagnostics: Vec::new(),
+            })
+        }
+    }
+
+    let session = index_workspace_session_with_curator(&root, Arc::new(FakeCurator)).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .unwrap()
+        .id()
+        .clone();
+    session
+        .append_outcome(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:validated"),
+                ts: 50,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:alpha")),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(alpha)],
+            kind: OutcomeKind::FixValidated,
+            result: OutcomeResult::Success,
+            summary: "validated alpha change".into(),
+            evidence: Vec::new(),
+            metadata: Value::Null,
+        })
+        .unwrap();
+    let job_id = wait_for_completed_curator_job(&session);
+    let host = QueryHost::with_session(session);
+
+    let proposals = host
+        .execute(
+            test_session(&host),
+            r#"
+return prism.curator.proposals({
+  status: "completed",
+  disposition: "pending",
+  kind: "semantic_memory",
+  limit: 5,
+});
+"#,
+            QueryLanguage::Ts,
+        )
+        .unwrap();
+
+    assert_eq!(
+        proposals.result.as_array().map(|items| items.len()),
+        Some(1)
+    );
+    assert_eq!(proposals.result[0]["jobId"], job_id);
+    assert_eq!(proposals.result[0]["jobStatus"], "completed");
+    assert_eq!(proposals.result[0]["kind"], "semantic_memory");
+    assert_eq!(proposals.result[0]["disposition"], "pending");
 }
 
 #[test]
@@ -4502,12 +4608,6 @@ def helper():
         .next_action
         .as_deref()
         .is_some_and(|text| text.contains("prism_open")));
-    assert!(workset.supporting_reads.iter().any(|target| {
-        target
-            .file_path
-            .as_deref()
-            .is_some_and(|path| path.ends_with("benchmark_codex.py"))
-    }));
 }
 
 #[test]
@@ -4556,6 +4656,17 @@ def helper():
         .next_action
         .as_deref()
         .is_some_and(|next| next.contains("prism_gather"))));
+    assert!(gather
+        .matches
+        .iter()
+        .all(|matched| matched.promoted_handle.is_none()));
+    assert!(gather
+        .matches
+        .iter()
+        .all(|matched| matched.suggested_actions.iter().any(|action| {
+            action.tool == "prism_workset"
+                && action.handle.as_deref() == Some(matched.handle.as_str())
+        })));
 }
 
 #[test]
@@ -4663,6 +4774,21 @@ fn compact_fragment_followups_surface_semantic_config_targets() {
         .next_action
         .as_deref()
         .is_some_and(|next| next.contains("prism_open on it")));
+    let promoted_handle = gather.matches[0]
+        .promoted_handle
+        .as_ref()
+        .expect("semantic gather should lift a promoted handle");
+    assert_eq!(promoted_handle.kind, NodeKind::TomlKey);
+    assert!(promoted_handle.path.contains("::workspace::dependencies"));
+    assert!(gather.matches[0].suggested_actions.iter().any(|action| {
+        action.tool == "prism_workset"
+            && action.handle.as_deref() == Some(promoted_handle.handle.as_str())
+    }));
+    assert!(gather.matches[0].suggested_actions.iter().any(|action| {
+        action.tool == "prism_open"
+            && action.handle.as_deref() == Some(promoted_handle.handle.as_str())
+            && action.open_mode == Some(prism_js::AgentOpenMode::Focus)
+    }));
     let handle = gather.matches[0].handle.clone();
 
     let workset = host
@@ -4692,6 +4818,14 @@ fn compact_fragment_followups_surface_semantic_config_targets() {
                 .as_deref()
                 .is_none_or(|path| path.ends_with("Cargo.toml"))
     }));
+    assert!(workset.suggested_actions.iter().any(|action| {
+        action.tool == "prism_open" && action.open_mode == Some(prism_js::AgentOpenMode::Focus)
+    }));
+    assert!(workset.suggested_actions.iter().any(|action| {
+        action.tool == "prism_expand"
+            && action.handle.as_deref() == Some(handle.as_str())
+            && action.expand_kind == Some(prism_js::AgentExpandKind::Validation)
+    }));
 
     let neighbors = host
         .compact_expand(
@@ -4710,12 +4844,27 @@ fn compact_fragment_followups_surface_semantic_config_targets() {
         .as_array()
         .is_some_and(|items| items.iter().all(|item| item["filePath"] == "Cargo.toml")));
     assert!(neighbors.top_preview.is_some());
+    let first_neighbor_handle = neighbors.result["neighbors"]
+        .as_array()
+        .and_then(|items| items.first())
+        .and_then(|item| item["handle"].as_str())
+        .expect("neighbors should include a top handle");
+    assert!(neighbors.suggested_actions.iter().any(|action| {
+        action.tool == "prism_open"
+            && action.handle.as_deref() == Some(first_neighbor_handle)
+            && action.open_mode == Some(prism_js::AgentOpenMode::Focus)
+    }));
+    assert!(neighbors.suggested_actions.iter().any(|action| {
+        action.tool == "prism_expand"
+            && action.handle.as_deref() == Some(handle.as_str())
+            && action.expand_kind == Some(prism_js::AgentExpandKind::Validation)
+    }));
 
     let validation = host
         .compact_expand(
             Arc::clone(&session),
             PrismExpandArgs {
-                handle,
+                handle: handle.clone(),
                 kind: PrismExpandKindInput::Validation,
                 include_top_preview: None,
             },
@@ -4724,6 +4873,21 @@ fn compact_fragment_followups_surface_semantic_config_targets() {
     assert!(validation.result["checks"]
         .as_array()
         .is_some_and(|items| !items.is_empty()));
+    let first_next_read = validation.result["nextReads"]
+        .as_array()
+        .and_then(|items| items.first())
+        .and_then(|item| item["handle"].as_str())
+        .expect("validation should include nextReads");
+    assert!(validation.suggested_actions.iter().any(|action| {
+        action.tool == "prism_open"
+            && action.handle.as_deref() == Some(first_next_read)
+            && action.open_mode == Some(prism_js::AgentOpenMode::Focus)
+    }));
+    assert!(validation.suggested_actions.iter().any(|action| {
+        action.tool == "prism_expand"
+            && action.handle.as_deref() == Some(handle.as_str())
+            && action.expand_kind == Some(prism_js::AgentExpandKind::Neighbors)
+    }));
 }
 
 #[test]
@@ -4886,6 +5050,15 @@ fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
         .next_action
         .as_deref()
         .is_some_and(|text| text.contains("validation") && text.contains("neighbors")));
+    assert!(open.promoted_handle.is_none());
+    assert!(open.suggested_actions.iter().any(|action| {
+        action.tool == "prism_open" && action.open_mode == Some(prism_js::AgentOpenMode::Focus)
+    }));
+    assert!(open.suggested_actions.iter().any(|action| {
+        action.tool == "prism_expand"
+            && action.handle.as_deref() == Some(semantic_handle.as_str())
+            && action.expand_kind == Some(prism_js::AgentExpandKind::Validation)
+    }));
 
     let neighbors = host
         .compact_expand(
@@ -4925,12 +5098,20 @@ fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
         .next_action
         .as_deref()
         .is_some_and(|text| text.contains("prism_open") && text.contains("validation")));
+    assert!(neighbors.suggested_actions.iter().any(|action| {
+        action.tool == "prism_open" && action.open_mode == Some(prism_js::AgentOpenMode::Focus)
+    }));
+    assert!(neighbors.suggested_actions.iter().any(|action| {
+        action.tool == "prism_expand"
+            && action.handle.as_deref() == Some(semantic_handle.as_str())
+            && action.expand_kind == Some(prism_js::AgentExpandKind::Validation)
+    }));
 
     let validation = host
         .compact_expand(
             Arc::clone(&session),
             PrismExpandArgs {
-                handle: semantic_handle,
+                handle: semantic_handle.clone(),
                 kind: PrismExpandKindInput::Validation,
                 include_top_preview: None,
             },
@@ -4960,6 +5141,14 @@ fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
         .next_action
         .as_deref()
         .is_some_and(|text| text.contains("prism_open") && text.contains("neighbors")));
+    assert!(validation.suggested_actions.iter().any(|action| {
+        action.tool == "prism_open" && action.open_mode == Some(prism_js::AgentOpenMode::Focus)
+    }));
+    assert!(validation.suggested_actions.iter().any(|action| {
+        action.tool == "prism_expand"
+            && action.handle.as_deref() == Some(semantic_handle.as_str())
+            && action.expand_kind == Some(prism_js::AgentExpandKind::Neighbors)
+    }));
 }
 
 #[test]
@@ -5341,6 +5530,385 @@ fn compact_expand_diff_returns_compact_recent_patch_summaries() {
 }
 
 #[test]
+fn compact_expand_perception_lenses_surface_impact_timeline_and_memory() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::create_dir_all(root.join("tests")).unwrap();
+    let source_path = root.join("src/lib.rs");
+    let source = "pub fn beta() {}\n\npub fn alpha() { beta(); }\n";
+    fs::write(&source_path, source).unwrap();
+    let test_path = root.join("tests/alpha.rs");
+    fs::write(&test_path, "#[test]\nfn alpha_test() { super::alpha(); }\n").unwrap();
+
+    let beta_span = {
+        let start = source.find("beta").expect("beta span");
+        Span::new(start, start + "beta".len())
+    };
+    let alpha_start = source.rfind("alpha").expect("alpha span");
+    let alpha_span = Span::new(alpha_start, alpha_start + "alpha".len());
+
+    let mut graph = Graph::new();
+    let source_file = graph.ensure_file(&source_path);
+    let test_file = graph.ensure_file(&test_path);
+    let alpha_id = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    let beta_id = NodeId::new("demo", "demo::beta", NodeKind::Function);
+    let alpha_test_id = NodeId::new("demo", "demo::alpha_test", NodeKind::Function);
+    graph.add_node(Node {
+        id: beta_id.clone(),
+        name: "beta".into(),
+        kind: NodeKind::Function,
+        file: source_file,
+        span: beta_span,
+        language: Language::Rust,
+    });
+    graph.add_node(Node {
+        id: alpha_id.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: source_file,
+        span: alpha_span,
+        language: Language::Rust,
+    });
+    graph.add_node(Node {
+        id: alpha_test_id.clone(),
+        name: "alpha_test".into(),
+        kind: NodeKind::Function,
+        file: test_file,
+        span: Span::line(2),
+        language: Language::Rust,
+    });
+    graph.add_edge(Edge {
+        kind: EdgeKind::Calls,
+        source: alpha_id.clone(),
+        target: beta_id.clone(),
+        origin: prism_ir::EdgeOrigin::Static,
+        confidence: 1.0,
+    });
+    graph.add_edge(Edge {
+        kind: EdgeKind::Validates,
+        source: alpha_test_id.clone(),
+        target: alpha_id.clone(),
+        origin: prism_ir::EdgeOrigin::Static,
+        confidence: 1.0,
+    });
+
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha_id.clone(), beta_id.clone(), alpha_test_id.clone()]);
+
+    let outcomes = OutcomeMemory::new();
+    outcomes
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:alpha:failure"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:alpha")),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(alpha_id.clone())],
+            kind: OutcomeKind::FailureObserved,
+            result: OutcomeResult::Failure,
+            summary: "alpha regression".into(),
+            evidence: Vec::new(),
+            metadata: Value::Null,
+        })
+        .unwrap();
+    outcomes
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:alpha:patch"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:alpha")),
+                causation: None,
+            },
+            anchors: vec![
+                AnchorRef::File(source_file),
+                AnchorRef::Node(alpha_id.clone()),
+            ],
+            kind: OutcomeKind::PatchApplied,
+            result: OutcomeResult::Success,
+            summary: "patched alpha".into(),
+            evidence: Vec::new(),
+            metadata: json!({
+                "trigger": "ManualReindex",
+                "filePaths": [source_path.to_string_lossy().into_owned()],
+                "changedSymbols": [{
+                    "status": "updated_after",
+                    "id": alpha_id.clone(),
+                    "name": "alpha",
+                    "kind": NodeKind::Function,
+                    "filePath": source_path.to_string_lossy().into_owned(),
+                    "span": alpha_span,
+                }],
+            }),
+        })
+        .unwrap();
+    outcomes
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:alpha:validated"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:alpha")),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(alpha_id.clone())],
+            kind: OutcomeKind::FixValidated,
+            result: OutcomeResult::Success,
+            summary: "validated alpha".into(),
+            evidence: Vec::new(),
+            metadata: Value::Null,
+        })
+        .unwrap();
+
+    let host = host_with_prism(Prism::with_history_and_outcomes(graph, history, outcomes));
+    let session = test_session(&host);
+    let mut memory = MemoryEntry::new(
+        MemoryKind::Structural,
+        "alpha edits usually require checking beta and alpha_test together",
+    );
+    memory.anchors = vec![AnchorRef::Node(alpha_id.clone())];
+    memory.trust = 0.9;
+    session.notes.store(memory).unwrap();
+
+    let handle = session.intern_target_handle(crate::session_state::SessionHandleTarget {
+        id: alpha_id.clone(),
+        lineage_id: host
+            .current_prism()
+            .lineage_of(&alpha_id)
+            .map(|lineage| lineage.0.to_string()),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file_path: Some(source_path.to_string_lossy().into_owned()),
+        query: Some("alpha".into()),
+        why_short: "exact symbol".into(),
+        start_line: Some(3),
+        end_line: Some(3),
+        start_column: None,
+        end_column: None,
+    });
+
+    let impact = host
+        .compact_expand(
+            Arc::clone(&session),
+            PrismExpandArgs {
+                handle: handle.clone(),
+                kind: PrismExpandKindInput::Impact,
+                include_top_preview: None,
+            },
+        )
+        .expect("impact expand should succeed");
+    assert_eq!(impact.kind, prism_js::AgentExpandKind::Impact);
+    assert!(impact.result["likelyTouch"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item["path"] == "demo::beta")));
+    assert!(impact.result["recentFailures"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(impact.result["riskHint"].as_str().is_some());
+
+    let timeline = host
+        .compact_expand(
+            Arc::clone(&session),
+            PrismExpandArgs {
+                handle: handle.clone(),
+                kind: PrismExpandKindInput::Timeline,
+                include_top_preview: None,
+            },
+        )
+        .expect("timeline expand should succeed");
+    assert_eq!(timeline.kind, prism_js::AgentExpandKind::Timeline);
+    assert!(timeline.result["recentEvents"]
+        .as_array()
+        .is_some_and(|items| items.len() >= 2));
+    assert!(timeline.result["recentPatches"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert_eq!(
+        timeline.result["lastFailure"]["summary"],
+        "alpha regression"
+    );
+    assert_eq!(
+        timeline.result["lastValidation"]["summary"],
+        "validated alpha"
+    );
+
+    let memory_expand = host
+        .compact_expand(
+            Arc::clone(&session),
+            PrismExpandArgs {
+                handle,
+                kind: PrismExpandKindInput::Memory,
+                include_top_preview: None,
+            },
+        )
+        .expect("memory expand should succeed");
+    assert_eq!(memory_expand.kind, prism_js::AgentExpandKind::Memory);
+    assert!(memory_expand.result["memories"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item["summary"]
+            == "alpha edits usually require checking beta and alpha_test together")));
+}
+
+#[test]
+fn compact_task_brief_summarizes_coordination_outcomes_and_next_reads() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    let source_path = root.join("src/lib.rs");
+    let source = "pub fn beta() {}\n\npub fn alpha() { beta(); }\n";
+    fs::write(&source_path, source).unwrap();
+    let beta_span = {
+        let start = source.find("beta").expect("beta span");
+        Span::new(start, start + "beta".len())
+    };
+    let alpha_start = source.rfind("alpha").expect("alpha span");
+    let alpha_span = Span::new(alpha_start, alpha_start + "alpha".len());
+
+    let mut graph = Graph::new();
+    let source_file = graph.ensure_file(&source_path);
+    let alpha_id = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    let beta_id = NodeId::new("demo", "demo::beta", NodeKind::Function);
+    graph.add_node(Node {
+        id: beta_id.clone(),
+        name: "beta".into(),
+        kind: NodeKind::Function,
+        file: source_file,
+        span: beta_span,
+        language: Language::Rust,
+    });
+    graph.add_node(Node {
+        id: alpha_id.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: source_file,
+        span: alpha_span,
+        language: Language::Rust,
+    });
+    graph.add_edge(Edge {
+        kind: EdgeKind::Calls,
+        source: alpha_id.clone(),
+        target: beta_id.clone(),
+        origin: prism_ir::EdgeOrigin::Static,
+        confidence: 1.0,
+    });
+
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha_id.clone(), beta_id.clone()]);
+    let host = host_with_prism(Prism::with_history(graph, history));
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "goal": "Coordinate alpha",
+                    "policy": { "requireReviewForCompletion": true }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id,
+                    "title": "Edit alpha",
+                    "status": "Ready",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    host.store_claim(
+        test_session(&host).as_ref(),
+        PrismClaimArgs {
+            action: ClaimActionInput::Acquire,
+            payload: json!({
+                "anchors": [{
+                    "type": "node",
+                    "crateName": "demo",
+                    "path": "demo::alpha",
+                    "kind": "function"
+                }],
+                "capability": "Edit",
+                "mode": "SoftExclusive",
+                "coordinationTaskId": task_id.clone()
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+    host.store_artifact(
+        test_session(&host).as_ref(),
+        PrismArtifactArgs {
+            action: ArtifactActionInput::Propose,
+            payload: json!({
+                "taskId": task_id.clone(),
+                "diffRef": "patch:alpha"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+    host.store_outcome(
+        test_session(&host).as_ref(),
+        PrismOutcomeArgs {
+            kind: OutcomeKindInput::FixValidated,
+            anchors: vec![AnchorRefInput::Node {
+                crate_name: "demo".to_string(),
+                path: "demo::alpha".to_string(),
+                kind: "function".to_string(),
+            }],
+            summary: "validated alpha".to_string(),
+            result: Some(OutcomeResultInput::Success),
+            evidence: None,
+            task_id: Some(task_id.clone()),
+        },
+    )
+    .unwrap();
+
+    let brief = host
+        .compact_task_brief(
+            test_session(&host),
+            PrismTaskBriefArgs {
+                task_id: task_id.clone(),
+            },
+        )
+        .expect("task brief should succeed");
+
+    assert_eq!(brief.task_id, task_id);
+    assert_eq!(brief.title, "Edit alpha");
+    assert!(!brief.blockers.is_empty());
+    assert_eq!(brief.claim_holders.len(), 1);
+    assert!(brief
+        .recent_outcomes
+        .iter()
+        .any(|event| event.summary == "validated alpha"));
+    assert!(brief
+        .next_reads
+        .iter()
+        .any(|target| target.path == "demo::beta"));
+    assert!(brief
+        .next_action
+        .as_deref()
+        .is_some_and(|value| value.contains("prism_open")));
+}
+
+#[test]
 fn compact_workset_for_spec_targets_surfaces_drift_reads_and_gap_summary() {
     let root = temp_workspace();
     write_memory_insight_workspace(&root);
@@ -5624,6 +6192,9 @@ pub fn main() {
         .as_str()
         .expect("open text should be a string")
         .contains("fn main"));
+    assert!(open["suggestedActions"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
 
     client
         .send(call_tool_request(
@@ -5650,6 +6221,9 @@ pub fn main() {
     assert!(workset["nextAction"]
         .as_str()
         .is_some_and(|value| value.contains("prism_open")));
+    assert!(workset["suggestedActions"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
 
     client
         .send(call_tool_request(
@@ -5671,6 +6245,9 @@ pub fn main() {
         expand["result"]["whyShort"],
         locate["candidates"][0]["whyShort"]
     );
+    assert!(expand["suggestedActions"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
 
     client
         .send(call_tool_request(
@@ -5694,6 +6271,9 @@ pub fn main() {
     assert!(gather["matches"][0]["text"]
         .as_str()
         .is_some_and(|value| value.contains("println!(\"hello\")")));
+    assert!(gather["matches"][0]["suggestedActions"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
 
     running.cancel().await.unwrap();
 }

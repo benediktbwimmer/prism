@@ -12,6 +12,7 @@ Target default agent path:
 - `prism_open`
 - `prism_workset`
 - `prism_expand`
+- `prism_task_brief` for compact coordination-task reads when you already have a task id
 - `prism_query` only when the compact surface cannot express the need
 
 Compact-tool note:
@@ -153,6 +154,15 @@ type TaskJournalOptions = {
 type CuratorJobQueryOptions = {
   status?: string;
   trigger?: string;
+  limit?: number;
+};
+
+type CuratorProposalQueryOptions = {
+  status?: string;
+  trigger?: string;
+  kind?: string;
+  disposition?: string;
+  taskId?: string;
   limit?: number;
 };
 
@@ -328,6 +338,7 @@ type PrismApi = {
   };
   curator: {
     jobs(options?: CuratorJobQueryOptions): CuratorJobView[];
+    proposals(options?: CuratorProposalQueryOptions): CuratorProposalRecordView[];
     job(id: string): CuratorJobView | null;
   };
   queryLog(options?: QueryLogOptions): QueryLogEntryView[];
@@ -1170,6 +1181,25 @@ type CuratorProposalView = {
   output?: string;
 };
 
+type CuratorProposalRecordView = {
+  jobId: string;
+  jobTrigger: string;
+  jobStatus: "queued" | "running" | "completed" | "failed" | "skipped";
+  jobTaskId?: string;
+  focus: AnchorRef[];
+  jobCreatedAt: number;
+  jobStartedAt?: number;
+  jobFinishedAt?: number;
+  index: number;
+  kind: string;
+  disposition: "pending" | "applied" | "rejected";
+  payload: unknown;
+  decidedAt?: number;
+  proposalTaskId?: string;
+  note?: string;
+  output?: string;
+};
+
 type CuratorJobView = {
   id: string;
   trigger: string;
@@ -1676,6 +1706,16 @@ return job?.proposals.filter(
 );
 ```
 
+### 30a. Inspect pending curator proposals without walking whole jobs
+
+```ts
+return prism.curator.proposals({
+  status: "completed",
+  disposition: "pending",
+  limit: 5,
+});
+```
+
 ### 31. See who is already working in an area
 
 ```ts
@@ -1803,8 +1843,8 @@ return prism.claimPreview({
 ## Current implementation surface
 
 - Target direction: a compact staged default agent ABI built around `prism_locate`, `prism_open`,
-  `prism_gather`, `prism_workset`, and `prism_expand`, with `prism_query` retained as the semantic IR and escape
-  hatch.
+  `prism_gather`, `prism_workset`, `prism_expand`, and `prism_task_brief`, with `prism_query`
+  retained as the semantic IR and escape hatch.
 - Available now: symbol lookup, search, entrypoints, line-aware symbol locations, bounded source excerpts, focused local block retrieval, source extraction, relations, call graphs, lineage history, related failures, blast radius, and task replay by id.
 - Available now: owner-biased discovery helpers through `prism.owners(...)`, `prism.nextReads(...)`, `prism.whereUsed(...)`, `prism.entrypointsFor(...)`, behavioral `prism.search(...)`, `prism.readContext(...)`, `prism.editContext(...)`, `prism.validationContext(...)`, `prism.recentChangeContext(...)`, and `implementationFor(..., { mode: "owners" })` without changing the direct primitive semantics.
 - Available now: consistent eager bundle helpers through `prism.symbolBundle(...)`, `prism.searchBundle(...)`, `prism.textSearchBundle(...)`, and `prism.targetBundle(...)` with stable `summary`, `diagnostics`, and `suggestedReads` fields. These remain useful, but they are no longer the intended long-term default first hop for agent work.
@@ -1818,7 +1858,7 @@ return prism.claimPreview({
 - Available now: a first-class query log through `prism.queryLog(...)`, `prism.slowQueries(...)`, and `prism.queryTrace(id)` with duration, diagnostics, truncation metadata, and phase breakdowns.
 - Available now: spec-to-code clustering and drift explanations that group direct links with read/write/persistence/test owners for spec-like symbols.
 - Available now: session/workspace memory recall for anchored memory entries, filtered outcome history, and promoted curator memories.
-- Available now: workspace-backed curator job inspection through `prism.curator.jobs()` and `prism.curator.job()`.
+- Available now: workspace-backed curator job inspection through `prism.curator.jobs()`, flat proposal inspection through `prism.curator.proposals()`, and job detail through `prism.curator.job()`.
 - Available now: a canonical capabilities resource at `prism://capabilities` plus tool input schema resources through `prism://tool-schemas` and `prism://schema/tool/{toolName}` for direct MCP introspection.
 - Available now: coordination plans, tasks, claims, conflicts, blockers, review queues, claim simulation, and workflow helpers for inbox/task/claim preview.
 - Keep query logic small. If you find yourself reconstructing semantics from raw low-level fields every time, that method probably belongs in Prism itself.

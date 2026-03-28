@@ -57,6 +57,9 @@ pub(crate) fn tool_input_example(tool_name: &str) -> Option<Value> {
             "handle": "handle:1",
             "kind": "validation",
         })),
+        "prism_task_brief" => Some(json!({
+            "taskId": "coord-task:1",
+        })),
         "prism_query" => Some(json!({
             "code": "return prism.search(\"read context\", { limit: 5, strategy: \"behavioral\", ownerKind: \"read\" });",
             "language": "ts",
@@ -406,6 +409,11 @@ fn tool_schema_catalog_payload_example() -> Value {
             "schemaUri": tool_schema_resource_uri("prism_expand"),
             "description": "Input schema for explicit depth-on-demand handle expansion.",
             "exampleInput": tool_input_example("prism_expand"),
+        }, {
+            "toolName": "prism_task_brief",
+            "schemaUri": tool_schema_resource_uri("prism_task_brief"),
+            "description": "Input schema for the compact coordination task brief tool.",
+            "exampleInput": tool_input_example("prism_task_brief"),
         }, {
             "toolName": "prism_query",
             "schemaUri": tool_schema_resource_uri("prism_query"),

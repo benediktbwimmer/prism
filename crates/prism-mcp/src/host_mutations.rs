@@ -9,7 +9,7 @@ use prism_ir::{
     AgentId, AnchorRef, ArtifactId, ClaimId, CoordinationTaskId, Edge, EdgeOrigin, EventActor,
     EventId, EventMeta, PlanId, TaskId,
 };
-use prism_js::TaskJournalView;
+use prism_js::{CuratorProposalRecordView, TaskJournalView};
 use prism_memory::{
     MemoryEntry, MemoryEvent, MemoryEventKind, MemoryKind, MemoryModule, MemoryScope, MemorySource,
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult,
@@ -1228,7 +1228,7 @@ impl QueryHost {
         let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
         let prism = self.current_prism();
         let proposal = curator_proposal(record, args.proposal_index)?;
-        let entry = match proposal {
+        let (entry, promoted_from) = match proposal {
             CuratorProposal::StructuralMemory(candidate) => {
                 let mut entry = MemoryEntry::new(candidate.kind, candidate.content.clone());
                 entry.anchors = prism.anchors_for(&candidate.anchors);
@@ -1243,7 +1243,7 @@ impl QueryHost {
                     args.proposal_index,
                     Value::Null,
                 );
-                entry
+                (entry, candidate.evidence.memory_ids.clone())
             }
             CuratorProposal::SemanticMemory(candidate) => {
                 let mut entry = MemoryEntry::new(candidate.kind, candidate.content.clone());
@@ -1259,7 +1259,7 @@ impl QueryHost {
                     args.proposal_index,
                     Value::Null,
                 );
-                entry
+                (entry, candidate.evidence.memory_ids.clone())
             }
             CuratorProposal::RiskSummary(candidate) => {
                 let candidate_memory = prism_curator::CandidateMemory {
@@ -1276,6 +1276,7 @@ impl QueryHost {
                     category: Some("risk_summary".to_string()),
                     evidence: prism_curator::CandidateMemoryEvidence {
                         event_ids: candidate.evidence_events.clone(),
+                        memory_ids: Vec::new(),
                         validation_checks: Vec::new(),
                         co_change_lineages: Vec::new(),
                     },
@@ -1301,7 +1302,7 @@ impl QueryHost {
                             .collect::<Vec<_>>(),
                     }),
                 );
-                entry
+                (entry, candidate_memory.evidence.memory_ids.clone())
             }
             CuratorProposal::ValidationRecipe(candidate) => {
                 let candidate_memory = prism_curator::CandidateMemory {
@@ -1317,6 +1318,7 @@ impl QueryHost {
                     category: Some("validation_recipe".to_string()),
                     evidence: prism_curator::CandidateMemoryEvidence {
                         event_ids: Vec::new(),
+                        memory_ids: Vec::new(),
                         validation_checks: candidate.checks.clone(),
                         co_change_lineages: Vec::new(),
                     },
@@ -1339,7 +1341,7 @@ impl QueryHost {
                         "evidence": candidate.evidence,
                     }),
                 );
-                entry
+                (entry, candidate_memory.evidence.memory_ids.clone())
             }
             CuratorProposal::InferredEdge(_) => {
                 return Err(anyhow!(
@@ -1360,7 +1362,7 @@ impl QueryHost {
             MemoryEventKind::Promoted,
             stored_entry.clone(),
             Some(task.0.to_string()),
-            Vec::new(),
+            promoted_from,
             Vec::new(),
         ))?;
         let note_event = OutcomeEvent {
@@ -1499,6 +1501,66 @@ impl QueryHost {
             jobs.truncate(limit);
         }
         Ok(jobs)
+    }
+
+    pub(crate) fn curator_proposals(
+        &self,
+        args: crate::CuratorProposalsArgs,
+    ) -> Result<Vec<CuratorProposalRecordView>> {
+        self.refresh_workspace()?;
+        let Some(workspace) = &self.workspace else {
+            return Ok(Vec::new());
+        };
+        let mut proposals = Vec::new();
+        for record in workspace.curator_snapshot().records {
+            if args
+                .status
+                .as_deref()
+                .is_some_and(|status| curator_job_status_label(&record) != status)
+                || args
+                    .trigger
+                    .as_deref()
+                    .is_some_and(|trigger| curator_trigger_label(&record.job.trigger) != trigger)
+            {
+                continue;
+            }
+            let run = record.run.clone().unwrap_or_default();
+            for (index, proposal) in run.proposals.into_iter().enumerate() {
+                let state = record
+                    .proposal_states
+                    .get(index)
+                    .cloned()
+                    .unwrap_or_default();
+                if args.disposition.as_deref().is_some_and(|disposition| {
+                    curator_disposition_label(state.disposition) != disposition
+                }) || args.task_id.as_deref().is_some_and(|task_id| {
+                    record.job.task.as_ref().map(|task| task.0.as_str()) != Some(task_id)
+                        && state.task.as_ref().map(|task| task.0.as_str()) != Some(task_id)
+                }) {
+                    continue;
+                }
+                let proposal_view =
+                    crate::curator_proposal_record_view(&record, index, proposal, state)?;
+                if args
+                    .kind
+                    .as_deref()
+                    .is_none_or(|kind| proposal_view.kind == kind)
+                {
+                    proposals.push(proposal_view);
+                }
+            }
+        }
+
+        proposals.sort_by(|left, right| {
+            right
+                .job_created_at
+                .cmp(&left.job_created_at)
+                .then_with(|| left.index.cmp(&right.index))
+        });
+        if let Some(limit) = args.limit {
+            proposals.truncate(limit);
+        }
+        Ok(proposals)
     }
 
     pub(crate) fn curator_job(&self, job_id: &str) -> Result<Option<CuratorJobView>> {

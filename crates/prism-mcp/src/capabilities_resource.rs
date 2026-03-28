@@ -305,6 +305,12 @@ fn query_method_specs() -> Vec<(
             None,
             "Inspect recorded curator jobs.",
         ),
+        (
+            "curatorProposals",
+            "curator",
+            None,
+            "Inspect curator proposals across jobs with flat filtering.",
+        ),
         ("curatorJob", "curator", None, "Inspect one curator job."),
         (
             "plan",

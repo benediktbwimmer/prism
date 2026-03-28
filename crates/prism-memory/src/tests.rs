@@ -8,8 +8,8 @@ use serde_json::json;
 use crate::{
     common::compare_scored_memory, EpisodicMemory, MemoryComposite, MemoryEntry, MemoryId,
     MemoryKind, MemoryModule, MemorySource, OutcomeEvent, OutcomeEvidence, OutcomeKind,
-    OutcomeMemory, OutcomeRecallQuery, OutcomeResult, RecallQuery, ScoredMemory, SemanticMemory,
-    SessionMemory, StructuralMemory,
+    OutcomeMemory, OutcomeRecallQuery, OutcomeResult, RecallQuery, ScoredMemory,
+    SemanticBackendKind, SemanticMemory, SemanticMemoryConfig, SessionMemory, StructuralMemory,
 };
 
 fn node(name: &str) -> NodeId {
@@ -251,6 +251,77 @@ fn semantic_memory_recalls_metadata_backed_context() {
         .explanation
         .as_deref()
         .is_some_and(|text| text.contains("semantic")));
+}
+
+#[test]
+fn semantic_memory_alias_bridge_connects_login_to_auth_terms() {
+    let memory = SemanticMemory::new();
+
+    let mut auth = MemoryEntry::new(
+        MemoryKind::Semantic,
+        "Authentication state breaks when the credential cache races the session refresh.",
+    );
+    auth.anchors = vec![anchor_node("alpha")];
+    memory.store(auth).unwrap();
+
+    let mut unrelated = MemoryEntry::new(
+        MemoryKind::Semantic,
+        "Filesystem watchers duplicate events during search indexing refreshes.",
+    );
+    unrelated.anchors = vec![anchor_node("alpha")];
+    memory.store(unrelated).unwrap();
+
+    let results = memory
+        .recall(&RecallQuery {
+            focus: vec![anchor_node("alpha")],
+            text: Some("login session credential issue".into()),
+            limit: 5,
+            kinds: Some(vec![MemoryKind::Semantic]),
+            since: None,
+        })
+        .unwrap();
+
+    assert_eq!(results.len(), 1);
+    assert!(results[0]
+        .entry
+        .content
+        .contains("Authentication state breaks"));
+    assert!(results[0]
+        .explanation
+        .as_deref()
+        .is_some_and(|text| text.contains("alias")));
+}
+
+#[test]
+fn semantic_memory_openai_preference_falls_back_to_local_without_runtime_support() {
+    let memory = SemanticMemory::with_config(SemanticMemoryConfig {
+        preferred_backend: SemanticBackendKind::OpenAi,
+        openai: None,
+    });
+
+    let mut entry = MemoryEntry::new(
+        MemoryKind::Semantic,
+        "Ownership stays with the routing owner during migration review.",
+    );
+    entry.anchors = vec![anchor_node("alpha")];
+    memory.store(entry).unwrap();
+
+    let results = memory
+        .recall(&RecallQuery {
+            focus: vec![anchor_node("alpha")],
+            text: Some("who owns the routing migration".into()),
+            limit: 5,
+            kinds: Some(vec![MemoryKind::Semantic]),
+            since: None,
+        })
+        .unwrap();
+
+    assert_eq!(memory.configured_backend(), SemanticBackendKind::OpenAi);
+    assert_eq!(results.len(), 1);
+    assert!(results[0]
+        .explanation
+        .as_deref()
+        .is_some_and(|text| text.contains("backend local-fallback")));
 }
 
 #[test]

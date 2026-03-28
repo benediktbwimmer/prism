@@ -1,3 +1,8 @@
+use prism_js::AgentSuggestedActionView;
+
+use super::suggested_actions::{
+    dedupe_suggested_actions, suggested_expand_action, suggested_open_action,
+};
 use super::text_fragments::{
     compact_text_fragment_likely_tests, compact_text_fragment_supporting_reads, read_text_fragment,
 };
@@ -57,6 +62,10 @@ pub(super) fn budgeted_workset_result(
     why: String,
     remapped: bool,
 ) -> Result<AgentWorksetResultView> {
+    let followup_handle =
+        result_primary_followup_handle(&primary, &supporting_reads, &likely_tests);
+    let suggested_actions =
+        compact_workset_suggested_actions(target, &primary.handle, &followup_handle);
     let mut result = AgentWorksetResultView {
         primary,
         supporting_reads,
@@ -65,6 +74,7 @@ pub(super) fn budgeted_workset_result(
         truncated: false,
         remapped,
         next_action: Some(compact_workset_next_action(target)),
+        suggested_actions,
     };
     let mut trimmed = false;
 
@@ -93,11 +103,75 @@ pub(super) fn budgeted_workset_result(
             trimmed = true;
         }
     }
+    if workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES {
+        let tightened = clamp_string(&result.why, WORKSET_WHY_ULTRA_TIGHT_MAX_CHARS);
+        if tightened != result.why {
+            result.why = tightened;
+            trimmed = true;
+        }
+    }
+    if workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES && result.next_action.is_some() {
+        result.next_action = None;
+        trimmed = true;
+    }
+    while workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES
+        && result.suggested_actions.len() > 1
+    {
+        result.suggested_actions.pop();
+        trimmed = true;
+    }
 
     if trimmed {
         result.truncated = true;
     }
     Ok(result)
+}
+
+fn compact_workset_suggested_actions(
+    target: &SessionHandleTarget,
+    current_handle: &str,
+    followup_handle: &Option<String>,
+) -> Vec<AgentSuggestedActionView> {
+    let mut actions = Vec::new();
+    if let Some(handle) = followup_handle {
+        actions.push(suggested_open_action(handle.clone(), AgentOpenMode::Focus));
+    }
+    if is_structured_config_target(target.kind) {
+        actions.push(suggested_expand_action(
+            current_handle,
+            AgentExpandKind::Validation,
+        ));
+    } else if is_text_fragment_target(target) {
+        actions.push(suggested_expand_action(
+            current_handle,
+            AgentExpandKind::Neighbors,
+        ));
+    } else if is_spec_like_kind(target.kind)
+        || target.file_path.as_deref().is_some_and(is_docs_path)
+    {
+        actions.push(suggested_expand_action(
+            current_handle,
+            AgentExpandKind::Drift,
+        ));
+    } else {
+        actions.push(suggested_expand_action(
+            current_handle,
+            AgentExpandKind::Validation,
+        ));
+    }
+    dedupe_suggested_actions(actions)
+}
+
+fn result_primary_followup_handle(
+    primary: &AgentTargetHandleView,
+    supporting_reads: &[AgentTargetHandleView],
+    likely_tests: &[AgentTargetHandleView],
+) -> Option<String> {
+    supporting_reads
+        .first()
+        .or_else(|| likely_tests.first())
+        .map(|handle| handle.handle.clone())
+        .or_else(|| Some(primary.handle.clone()))
 }
 
 fn compact_workset_next_action(target: &SessionHandleTarget) -> String {
@@ -209,6 +283,9 @@ pub(super) fn structured_symbol_followups(
 ) -> Result<Vec<AgentTargetHandleView>> {
     if !is_structured_config_target(target.kind) {
         return Ok(Vec::new());
+    }
+    if is_text_fragment_target(target) {
+        return compact_text_fragment_supporting_reads(host, session, target, limit);
     }
     let symbol_id = target_symbol_id(target)?;
     let symbol = symbol_for(prism, symbol_id)?;

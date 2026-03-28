@@ -30,8 +30,8 @@ pub use crate::source::{
 };
 pub use crate::symbol::{Relations, Symbol};
 pub use crate::types::{
-    ArtifactRisk, ChangeImpact, CoChange, DriftCandidate, QueryLimits, TaskIntent, TaskRisk,
-    TaskValidationRecipe, ValidationCheck, ValidationRecipe,
+    ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens, ConceptPacket, DriftCandidate,
+    QueryLimits, TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 
 pub struct Prism {
@@ -89,8 +89,9 @@ impl Prism {
         history: HistoryStore,
         outcomes: OutcomeMemory,
         coordination: CoordinationStore,
-        projections: ProjectionIndex,
+        mut projections: ProjectionIndex,
     ) -> Self {
+        projections.reseed_from_history(&history.snapshot());
         let started = Instant::now();
         let node_count = graph.node_count();
         let edge_count = graph.edge_count();
@@ -249,5 +250,23 @@ impl Prism {
         let mut nodes = dedupe_node_ids(nodes);
         sort_node_ids(&mut nodes);
         nodes
+    }
+
+    pub fn concepts(&self, query: &str, limit: usize) -> Vec<ConceptPacket> {
+        self.projections
+            .read()
+            .expect("projection lock poisoned")
+            .concepts(query, limit)
+    }
+
+    pub fn concept(&self, query: &str) -> Option<ConceptPacket> {
+        self.concepts(query, 1).into_iter().next()
+    }
+
+    pub fn concept_by_handle(&self, handle: &str) -> Option<ConceptPacket> {
+        self.projections
+            .read()
+            .expect("projection lock poisoned")
+            .concept_by_handle(handle)
     }
 }

@@ -27,6 +27,7 @@ pub(crate) fn manual_memory_metadata(existing: Value, task_id: &TaskId) -> Value
     metadata.entry("evidence".to_string()).or_insert_with(|| {
         json!({
             "eventIds": [],
+            "memoryIds": [],
             "validationChecks": [],
             "coChangeLineages": [],
         })
@@ -77,6 +78,12 @@ pub(crate) fn curator_memory_metadata(
             "eventIds": candidate
                 .evidence
                 .event_ids
+                .iter()
+                .map(|id| id.0.clone())
+                .collect::<Vec<_>>(),
+            "memoryIds": candidate
+                .evidence
+                .memory_ids
                 .iter()
                 .map(|id| id.0.clone())
                 .collect::<Vec<_>>(),
@@ -143,6 +150,7 @@ pub(crate) fn task_journal_memory_metadata(
     metadata.entry("evidence".to_string()).or_insert_with(|| {
         json!({
             "eventIds": [],
+            "memoryIds": [],
             "validationChecks": [],
             "coChangeLineages": [],
         })

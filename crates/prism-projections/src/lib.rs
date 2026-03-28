@@ -1,4 +1,5 @@
 mod common;
+mod concepts;
 mod intent;
 mod projections;
 #[cfg(test)]
@@ -11,6 +12,6 @@ pub use crate::projections::{
     MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE,
 };
 pub use crate::types::{
-    CoChangeDelta, CoChangeRecord, IntentDriftRecord, IntentSpecProjection, ProjectionSnapshot,
-    ValidationCheck, ValidationDelta,
+    CoChangeDelta, CoChangeRecord, ConceptDecodeLens, ConceptPacket, IntentDriftRecord,
+    IntentSpecProjection, ProjectionSnapshot, ValidationCheck, ValidationDelta,
 };

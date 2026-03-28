@@ -54,6 +54,25 @@ pub(crate) struct SearchArgs {
     pub(crate) include_inferred: Option<bool>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct ConceptQueryArgs {
+    pub(crate) query: String,
+    pub(crate) limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct ConceptHandleArgs {
+    pub(crate) handle: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct DecodeConceptArgs {
+    pub(crate) handle: Option<String>,
+    pub(crate) query: Option<String>,
+    pub(crate) lens: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub(crate) struct SymbolTargetArgs {
     pub(crate) id: Option<NodeIdInput>,
@@ -388,6 +407,18 @@ fn normalize_enum_label(value: &str) -> String {
 pub(crate) struct CuratorJobsArgs {
     pub(crate) status: Option<String>,
     pub(crate) trigger: Option<String>,
+    pub(crate) limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CuratorProposalsArgs {
+    pub(crate) status: Option<String>,
+    pub(crate) trigger: Option<String>,
+    pub(crate) kind: Option<String>,
+    pub(crate) disposition: Option<String>,
+    #[serde(alias = "task_id")]
+    pub(crate) task_id: Option<String>,
     pub(crate) limit: Option<usize>,
 }
 

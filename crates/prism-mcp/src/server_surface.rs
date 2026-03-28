@@ -1,6 +1,6 @@
 use prism_js::{
     AgentExpandResultView, AgentGatherResultView, AgentLocateResultView, AgentOpenResultView,
-    AgentWorksetResultView,
+    AgentTaskBriefResultView, AgentWorksetResultView,
 };
 use rmcp::{
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
@@ -511,7 +511,7 @@ impl PrismMcpServer {
     }
 
     #[tool(
-        description = "Expand one compact handle on demand with diagnostics, lineage, neighbors, diff, or validation detail.",
+        description = "Expand one compact handle on demand with diagnostics, lineage, neighbors, diff, validation, impact, timeline, memory, or drift detail.",
         annotations(title = "Expand PRISM Handle", read_only_hint = true),
         output_schema =
             rmcp::handler::server::tool::schema_for_output::<AgentExpandResultView>().unwrap()

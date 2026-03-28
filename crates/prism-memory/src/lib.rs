@@ -19,7 +19,7 @@ pub use crate::composite::MemoryComposite;
 pub use crate::episodic::EpisodicMemory;
 pub use crate::outcome::OutcomeMemory;
 pub use crate::outcome_query::OutcomeRecallQuery;
-pub use crate::semantic::SemanticMemory;
+pub use crate::semantic::{SemanticBackendKind, SemanticMemory, SemanticMemoryConfig};
 pub use crate::session::SessionMemory;
 pub use crate::structural::StructuralMemory;
 pub use crate::types::{

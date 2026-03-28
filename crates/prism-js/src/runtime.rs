@@ -1128,6 +1128,16 @@ globalThis.prism = Object.freeze({
     jobs(options = {}) {
       return __prismHost("curatorJobs", options);
     },
+    proposals(options = {}) {
+      return __prismHost("curatorProposals", {
+        status: options?.status,
+        trigger: options?.trigger,
+        kind: options?.kind,
+        disposition: options?.disposition,
+        taskId: options?.taskId ?? options?.task_id,
+        limit: options?.limit,
+      });
+    },
     job(id) {
       if (typeof id !== "string" || id.length === 0) {
         return null;

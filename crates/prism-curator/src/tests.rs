@@ -284,3 +284,36 @@ fn curator_memory_proposals_decode_legacy_duplicate_kind_shape() {
         })
     ));
 }
+
+#[test]
+fn synthesize_promotes_strong_episodic_memory_with_source_provenance() {
+    let job = sample_job();
+    let mut ctx = sample_context();
+    let mut memory = prism_memory::MemoryEntry::new(
+        prism_memory::MemoryKind::Episodic,
+        "workspace dependencies heading follows up well when same-file implementation owners are present",
+    );
+    memory.id = prism_memory::MemoryId("memory:episodic-source".to_string());
+    memory.anchors = job.focus.clone();
+    memory.trust = 0.84;
+    memory.metadata = serde_json::json!({
+        "provenance": {
+            "origin": "manual_store",
+            "kind": "manual_memory",
+        }
+    });
+    ctx.memories.push(memory);
+
+    let run = synthesize_curator_run(&job, &ctx);
+
+    assert!(run.proposals.iter().any(|proposal| matches!(
+        proposal,
+        CuratorProposal::StructuralMemory(candidate)
+            if candidate.category.as_deref() == Some("episodic_promotion")
+                && candidate
+                    .evidence
+                    .memory_ids
+                    .iter()
+                    .any(|id| id.0 == "memory:episodic-source")
+    )));
+}

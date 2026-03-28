@@ -217,6 +217,9 @@ pub(crate) enum PrismExpandKindInput {
     Neighbors,
     Diff,
     Validation,
+    Impact,
+    Timeline,
+    Memory,
     Drift,
 }
 
@@ -231,6 +234,13 @@ pub(crate) struct PrismExpandArgs {
         description = "When true and kind is `neighbors`, also include one bounded preview for the top neighbor."
     )]
     pub(crate) include_top_preview: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismTaskBriefArgs {
+    #[schemars(description = "Coordination task id to summarize through the compact task lens.")]
+    pub(crate) task_id: String,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]

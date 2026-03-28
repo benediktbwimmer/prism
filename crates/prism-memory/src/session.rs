@@ -5,7 +5,7 @@ use prism_ir::LineageEvent;
 
 use crate::composite::MemoryComposite;
 use crate::episodic::EpisodicMemory;
-use crate::semantic::SemanticMemory;
+use crate::semantic::{SemanticMemory, SemanticMemoryConfig};
 use crate::structural::StructuralMemory;
 use crate::types::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryId, MemoryKind, MemoryModule, RecallQuery,
@@ -24,24 +24,38 @@ impl Default for SessionMemory {
         let episodic = Arc::new(EpisodicMemory::new());
         let structural = Arc::new(StructuralMemory::new());
         let semantic = Arc::new(SemanticMemory::new());
+        compose_session_memory(episodic, structural, semantic)
+    }
+}
 
-        let mut composite = MemoryComposite::new();
-        composite.push_shared_module(episodic.clone(), 1.0);
-        composite.push_shared_module(structural.clone(), 1.0);
-        composite.push_shared_module(semantic.clone(), 1.0);
+fn compose_session_memory(
+    episodic: Arc<EpisodicMemory>,
+    structural: Arc<StructuralMemory>,
+    semantic: Arc<SemanticMemory>,
+) -> SessionMemory {
+    let mut composite = MemoryComposite::new();
+    composite.push_shared_module(episodic.clone(), 1.0);
+    composite.push_shared_module(structural.clone(), 1.0);
+    composite.push_shared_module(semantic.clone(), 1.0);
 
-        Self {
-            episodic,
-            structural,
-            semantic,
-            composite,
-        }
+    SessionMemory {
+        episodic,
+        structural,
+        semantic,
+        composite,
     }
 }
 
 impl SessionMemory {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn with_semantic_config(config: SemanticMemoryConfig) -> Self {
+        let episodic = Arc::new(EpisodicMemory::new());
+        let structural = Arc::new(StructuralMemory::new());
+        let semantic = Arc::new(SemanticMemory::with_config(config));
+        compose_session_memory(episodic, structural, semantic)
     }
 
     pub fn entry(&self, id: &MemoryId) -> Option<MemoryEntry> {
@@ -111,17 +125,7 @@ impl SessionMemory {
             entries: semantic_entries,
         }));
 
-        let mut composite = MemoryComposite::new();
-        composite.push_shared_module(episodic.clone(), 1.0);
-        composite.push_shared_module(structural.clone(), 1.0);
-        composite.push_shared_module(semantic.clone(), 1.0);
-
-        Self {
-            episodic,
-            structural,
-            semantic,
-            composite,
-        }
+        compose_session_memory(episodic, structural, semantic)
     }
 
     pub fn apply_lineage_events(&self, events: &[LineageEvent]) -> Result<()> {

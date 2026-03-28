@@ -18,6 +18,8 @@ use serde_json::{json, Value};
 mod expand;
 mod locate;
 mod open;
+mod suggested_actions;
+mod task_brief;
 mod text_fragments;
 mod workset;
 
@@ -67,6 +69,7 @@ const WORKSET_TEST_LIMIT: usize = 2;
 pub(crate) const WORKSET_MAX_JSON_BYTES: usize = 1024;
 const WORKSET_WHY_MAX_CHARS: usize = 160;
 const WORKSET_WHY_TIGHT_MAX_CHARS: usize = 72;
+const WORKSET_WHY_ULTRA_TIGHT_MAX_CHARS: usize = 48;
 const EXPAND_NEIGHBOR_LIMIT: usize = 6;
 const EXPAND_DIFF_LIMIT: usize = 5;
 const EXPAND_COMPACT_DIFF_LIMIT: usize = 3;
@@ -81,12 +84,33 @@ const EXPAND_DRIFT_NEXT_READ_LIMIT: usize = 3;
 const EXPAND_DRIFT_LIST_LIMIT: usize = 3;
 const EXPAND_DRIFT_TEXT_MAX_CHARS: usize = 120;
 const EXPAND_DRIFT_MAX_JSON_BYTES: usize = 1400;
+const EXPAND_IMPACT_TOUCH_LIMIT: usize = 3;
+const EXPAND_IMPACT_TEST_LIMIT: usize = 2;
+const EXPAND_IMPACT_FAILURE_LIMIT: usize = 3;
+const EXPAND_IMPACT_TEXT_MAX_CHARS: usize = 120;
+const EXPAND_IMPACT_MAX_JSON_BYTES: usize = 1400;
+const EXPAND_TIMELINE_EVENT_LIMIT: usize = 4;
+const EXPAND_TIMELINE_PATCH_LIMIT: usize = 2;
+const EXPAND_TIMELINE_TEXT_MAX_CHARS: usize = 120;
+const EXPAND_TIMELINE_MAX_JSON_BYTES: usize = 1400;
+const EXPAND_MEMORY_LIMIT: usize = 3;
+const EXPAND_MEMORY_TEXT_MAX_CHARS: usize = 120;
+const EXPAND_MEMORY_MATCH_MAX_CHARS: usize = 96;
+const EXPAND_MEMORY_MAX_JSON_BYTES: usize = 1400;
 const COMPACT_VALIDATION_CHECK_LIMIT: usize = 2;
 const COMPACT_VALIDATION_CHECK_MAX_CHARS: usize = 96;
 const SPEC_BODY_IDENTIFIER_LIMIT: usize = 8;
 const SPEC_IDENTIFIER_SEARCH_LIMIT: usize = 6;
 const SPEC_IDENTIFIER_TEXT_LIMIT: usize = 2;
 const MAX_WHY_SHORT_CHARS: usize = 120;
+const TASK_BRIEF_BLOCKER_LIMIT: usize = 3;
+const TASK_BRIEF_CLAIM_HOLDER_LIMIT: usize = 3;
+const TASK_BRIEF_CONFLICT_LIMIT: usize = 2;
+const TASK_BRIEF_OUTCOME_LIMIT: usize = 4;
+const TASK_BRIEF_VALIDATION_LIMIT: usize = 4;
+const TASK_BRIEF_NEXT_READ_LIMIT: usize = 2;
+const TASK_BRIEF_TEXT_MAX_CHARS: usize = 120;
+const TASK_BRIEF_MAX_JSON_BYTES: usize = 1500;
 const LOCATE_SECONDARY_FILE_DIVERSITY_BONUS: i32 = 18;
 const LOCATE_SECONDARY_KIND_DIVERSITY_BONUS: i32 = 7;
 const TEXT_FRAGMENT_CRATE_NAME: &str = "__prism_text__";
@@ -577,6 +601,9 @@ fn agent_expand_kind(kind: &PrismExpandKindInput) -> AgentExpandKind {
         PrismExpandKindInput::Neighbors => AgentExpandKind::Neighbors,
         PrismExpandKindInput::Diff => AgentExpandKind::Diff,
         PrismExpandKindInput::Validation => AgentExpandKind::Validation,
+        PrismExpandKindInput::Impact => AgentExpandKind::Impact,
+        PrismExpandKindInput::Timeline => AgentExpandKind::Timeline,
+        PrismExpandKindInput::Memory => AgentExpandKind::Memory,
         PrismExpandKindInput::Drift => AgentExpandKind::Drift,
     }
 }
@@ -698,7 +725,9 @@ mod tests {
             truncated: false,
             remapped: false,
             next_action: None,
+            promoted_handle: None,
             related_handles,
+            suggested_actions: Vec::new(),
         }
     }
 

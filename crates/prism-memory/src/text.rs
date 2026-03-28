@@ -3,6 +3,30 @@ use std::collections::HashSet;
 use serde_json::Value;
 
 const EMBEDDING_DIM: usize = 64;
+const TOKEN_ALIAS_GROUPS: &[&[&str]] = &[
+    &[
+        "auth",
+        "authenticate",
+        "authentication",
+        "authorization",
+        "authorize",
+        "credential",
+        "credentials",
+        "login",
+        "signin",
+        "signon",
+    ],
+    &["owner", "ownership", "owns", "maintainer", "maintainers"],
+    &[
+        "validate",
+        "validation",
+        "verify",
+        "verification",
+        "check",
+        "checks",
+    ],
+    &["config", "configuration", "setting", "settings"],
+];
 
 pub(crate) fn embedding_text(content: &str, metadata: &Value) -> String {
     let mut text = content.to_string();
@@ -12,7 +36,8 @@ pub(crate) fn embedding_text(content: &str, metadata: &Value) -> String {
 
 pub(crate) fn tokenize(text: &str) -> Vec<String> {
     text.split(|ch: char| !ch.is_ascii_alphanumeric())
-        .filter_map(normalize_token)
+        .flat_map(split_identifier_like)
+        .filter_map(|token| normalize_token(&token))
         .collect()
 }
 
@@ -20,9 +45,13 @@ pub(crate) fn token_set(text: &str) -> HashSet<String> {
     tokenize(text).into_iter().collect()
 }
 
+pub(crate) fn expanded_token_set(text: &str) -> HashSet<String> {
+    expand_token_set(&token_set(text))
+}
+
 pub(crate) fn hashed_embedding(text: &str) -> Vec<f32> {
     let mut vector = vec![0.0; EMBEDDING_DIM];
-    for token in tokenize(text) {
+    for token in expanded_token_set(text) {
         let hash = stable_hash(&token);
         let index = (hash as usize) % EMBEDDING_DIM;
         let sign = if ((hash >> 8) & 1) == 0 { 1.0 } else { -1.0 };
@@ -115,6 +144,55 @@ fn normalize_token(token: &str) -> Option<String> {
         }
     }
     Some(stem)
+}
+
+fn split_identifier_like(token: &str) -> Vec<String> {
+    if token.is_empty() {
+        return Vec::new();
+    }
+
+    let mut parts = Vec::new();
+    let mut current = String::new();
+    let mut previous_is_lower = false;
+    for ch in token.chars() {
+        let boundary = !current.is_empty() && previous_is_lower && ch.is_ascii_uppercase();
+        if boundary {
+            parts.push(current.clone());
+            current.clear();
+        }
+        current.push(ch);
+        previous_is_lower = ch.is_ascii_lowercase();
+    }
+    if !current.is_empty() {
+        parts.push(current);
+    }
+    parts
+}
+
+fn expand_token_set(tokens: &HashSet<String>) -> HashSet<String> {
+    let mut expanded = tokens.clone();
+    for token in tokens {
+        for alias_group in TOKEN_ALIAS_GROUPS {
+            if alias_group.iter().any(|alias| token == alias) {
+                expanded.extend(alias_group.iter().map(|alias| alias.to_string()));
+            }
+        }
+        if token.starts_with("auth") {
+            expanded.extend(
+                ["auth", "authenticate", "authentication", "login", "signin"]
+                    .into_iter()
+                    .map(str::to_string),
+            );
+        }
+        if token.starts_with("own") {
+            expanded.extend(
+                ["owner", "ownership", "owns"]
+                    .into_iter()
+                    .map(str::to_string),
+            );
+        }
+    }
+    expanded
 }
 
 fn stable_hash(value: &str) -> u64 {

@@ -89,6 +89,18 @@ pub struct AgentTextPreviewView {
     pub truncated: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentSuggestedActionView {
+    pub tool: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub handle: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub open_mode: Option<AgentOpenMode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expand_kind: Option<AgentExpandKind>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentGatherResultView {
@@ -119,7 +131,11 @@ pub struct AgentOpenResultView {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_action: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub promoted_handle: Option<AgentTargetHandleView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub related_handles: Option<Vec<AgentTargetHandleView>>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub suggested_actions: Vec<AgentSuggestedActionView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -133,6 +149,8 @@ pub struct AgentWorksetResultView {
     pub remapped: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_action: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub suggested_actions: Vec<AgentSuggestedActionView>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -143,6 +161,9 @@ pub enum AgentExpandKind {
     Neighbors,
     Diff,
     Validation,
+    Impact,
+    Timeline,
+    Memory,
     Drift,
 }
 
@@ -157,6 +178,49 @@ pub struct AgentExpandResultView {
     pub top_preview: Option<AgentTextPreviewView>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_action: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub suggested_actions: Vec<AgentSuggestedActionView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentTaskBlockerView {
+    pub kind: BlockerKind,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentOutcomeSummaryView {
+    pub ts: u64,
+    pub kind: String,
+    pub result: String,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentTaskBriefResultView {
+    pub task_id: String,
+    pub title: String,
+    pub status: CoordinationTaskStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assignee: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pending_handoff_to: Option<String>,
+    pub blockers: Vec<AgentTaskBlockerView>,
+    pub claim_holders: Vec<String>,
+    pub conflict_summaries: Vec<String>,
+    pub recent_outcomes: Vec<AgentOutcomeSummaryView>,
+    pub likely_validations: Vec<String>,
+    pub next_reads: Vec<AgentTargetHandleView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub risk_hint: Option<String>,
+    pub truncated: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_action: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub suggested_actions: Vec<AgentSuggestedActionView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -504,6 +568,48 @@ pub struct ValidationRecipeView {
     pub recent_failures: Vec<OutcomeEvent>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ConceptDecodeLensView {
+    Open,
+    Workset,
+    Validation,
+    Timeline,
+    Memory,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ConceptPacketView {
+    pub handle: String,
+    pub canonical_name: String,
+    pub summary: String,
+    pub aliases: Vec<String>,
+    pub confidence: f32,
+    pub core_members: Vec<NodeIdView>,
+    pub supporting_members: Vec<NodeIdView>,
+    pub likely_tests: Vec<NodeIdView>,
+    pub evidence: Vec<String>,
+    pub risk_hint: Option<String>,
+    pub decode_lenses: Vec<ConceptDecodeLensView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ConceptDecodeView {
+    pub concept: ConceptPacketView,
+    pub lens: ConceptDecodeLensView,
+    pub primary: Option<SymbolView>,
+    pub members: Vec<SymbolView>,
+    pub supporting_reads: Vec<SymbolView>,
+    pub likely_tests: Vec<SymbolView>,
+    pub recent_failures: Vec<OutcomeEvent>,
+    pub related_memory: Vec<ScoredMemoryView>,
+    pub recent_patches: Vec<PatchEventView>,
+    pub validation_recipe: Option<ValidationRecipeView>,
+    pub evidence: Vec<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskValidationRecipeView {
@@ -763,6 +869,27 @@ pub struct CuratorProposalView {
     pub payload: Value,
     pub decided_at: Option<u64>,
     pub task_id: Option<String>,
+    pub note: Option<String>,
+    pub output: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CuratorProposalRecordView {
+    pub job_id: String,
+    pub job_trigger: String,
+    pub job_status: String,
+    pub job_task_id: Option<String>,
+    pub focus: Vec<AnchorRef>,
+    pub job_created_at: u64,
+    pub job_started_at: Option<u64>,
+    pub job_finished_at: Option<u64>,
+    pub index: usize,
+    pub kind: String,
+    pub disposition: String,
+    pub payload: Value,
+    pub decided_at: Option<u64>,
+    pub proposal_task_id: Option<String>,
     pub note: Option<String>,
     pub output: Option<String>,
 }

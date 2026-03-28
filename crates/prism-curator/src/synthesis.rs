@@ -1,7 +1,10 @@
 use std::collections::HashSet;
 
 use prism_ir::AnchorRef;
-use prism_memory::{MemoryKind, OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult};
+use prism_memory::{
+    MemoryEntry, MemoryKind, OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult,
+};
+use serde_json::Value;
 
 use crate::types::{
     CandidateMemory, CandidateMemoryEvidence, CuratorContext, CuratorDiagnostic, CuratorJob,
@@ -23,6 +26,7 @@ pub fn synthesize_curator_run(job: &CuratorJob, ctx: &CuratorContext) -> Curator
     if let Some(proposal) = semantic_outcome_summary(job, ctx) {
         proposals.push(proposal);
     }
+    proposals.extend(episodic_promotion_rules(job, ctx));
 
     proposals = dedupe_proposals(proposals);
     if proposals.len() > job.budget.max_proposals {
@@ -101,6 +105,7 @@ fn repeated_failure_validation_rule(
 
     let evidence = CandidateMemoryEvidence {
         event_ids: failures.iter().map(|event| event.meta.id.clone()).collect(),
+        memory_ids: Vec::new(),
         validation_checks: checks.clone(),
         co_change_lineages: Vec::new(),
     };
@@ -146,6 +151,7 @@ fn migration_rule(job: &CuratorJob, ctx: &CuratorContext) -> Option<CuratorPropo
                 .iter()
                 .map(|event| event.meta.id.clone())
                 .collect(),
+            memory_ids: Vec::new(),
             validation_checks: Vec::new(),
             co_change_lineages: Vec::new(),
         },
@@ -181,6 +187,7 @@ fn co_change_rule(job: &CuratorJob, ctx: &CuratorContext) -> Option<CuratorPropo
         category: Some("co_change_rule".to_string()),
         evidence: CandidateMemoryEvidence {
             event_ids: Vec::new(),
+            memory_ids: Vec::new(),
             validation_checks: Vec::new(),
             co_change_lineages: related.into_iter().map(|record| record.lineage).collect(),
         },
@@ -219,7 +226,62 @@ fn semantic_outcome_summary(job: &CuratorJob, ctx: &CuratorContext) -> Option<Cu
         category: Some("risk_summary".to_string()),
         evidence: CandidateMemoryEvidence {
             event_ids: recent.iter().map(|event| event.meta.id.clone()).collect(),
+            memory_ids: Vec::new(),
             validation_checks: failure_check_labels(&recent),
+            co_change_lineages: Vec::new(),
+        },
+    }))
+}
+
+fn episodic_promotion_rules(job: &CuratorJob, ctx: &CuratorContext) -> Vec<CuratorProposal> {
+    let mut promotable = ctx
+        .memories
+        .iter()
+        .filter(|memory| is_promotable_episodic(memory))
+        .cloned()
+        .collect::<Vec<_>>();
+    promotable.sort_by(|left, right| {
+        right
+            .trust
+            .total_cmp(&left.trust)
+            .then_with(|| right.created_at.cmp(&left.created_at))
+            .then_with(|| left.id.0.cmp(&right.id.0))
+    });
+
+    promotable
+        .into_iter()
+        .filter_map(|memory| episodic_promotion_rule(job, ctx, memory))
+        .take(2)
+        .collect()
+}
+
+fn episodic_promotion_rule(
+    job: &CuratorJob,
+    ctx: &CuratorContext,
+    memory: MemoryEntry,
+) -> Option<CuratorProposal> {
+    let content = memory.content.trim().to_string();
+    if content.is_empty() || has_matching_memory(ctx, MemoryKind::Structural, &content) {
+        return None;
+    }
+
+    Some(CuratorProposal::StructuralMemory(CandidateMemory {
+        anchors: if memory.anchors.is_empty() {
+            job.focus.clone()
+        } else {
+            memory.anchors.clone()
+        },
+        kind: MemoryKind::Structural,
+        content,
+        trust: (memory.trust + 0.08).clamp(0.74, 0.96),
+        rationale:
+            "A high-trust episodic memory in this focus looks durable enough to review as structural knowledge."
+                .to_string(),
+        category: Some("episodic_promotion".to_string()),
+        evidence: CandidateMemoryEvidence {
+            event_ids: Vec::new(),
+            memory_ids: vec![memory.id],
+            validation_checks: Vec::new(),
             co_change_lineages: Vec::new(),
         },
     }))
@@ -280,6 +342,30 @@ fn failure_check_labels(events: &[OutcomeEvent]) -> Vec<String> {
     }
     sort_dedup_strings(&mut checks);
     checks
+}
+
+fn is_promotable_episodic(memory: &MemoryEntry) -> bool {
+    memory.kind == MemoryKind::Episodic
+        && memory.trust >= 0.72
+        && !memory.content.trim().is_empty()
+        && !memory.anchors.is_empty()
+        && !is_task_summary_memory(memory)
+}
+
+fn is_task_summary_memory(memory: &MemoryEntry) -> bool {
+    let provenance = memory.metadata.get("provenance");
+    metadata_string(provenance.and_then(|value| value.get("origin"))) == Some("task_journal")
+        || metadata_string(provenance.and_then(|value| value.get("kind"))) == Some("task_summary")
+        || memory
+            .metadata
+            .get("taskLifecycle")
+            .and_then(|value| value.get("closed"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+}
+
+fn metadata_string(value: Option<&Value>) -> Option<&str> {
+    value.and_then(Value::as_str)
 }
 
 fn has_matching_memory(ctx: &CuratorContext, kind: MemoryKind, content: &str) -> bool {

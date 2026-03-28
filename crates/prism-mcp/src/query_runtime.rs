@@ -43,17 +43,18 @@ use crate::{
     tool_schema_view, validation_context_view_cached, validation_recipe_view_with,
     weak_search_match_diagnostic_data, weak_search_match_reason, where_used, AnchorListArgs,
     CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs, CoordinationTaskTargetArgs,
-    CuratorJobArgs, CuratorJobsArgs, DiffForArgs, DiscoveryTargetArgs, EditSliceArgs,
-    FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs, MemoryEventArgs,
-    MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs, PendingReviewsArgs,
-    PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun,
-    QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchAmbiguityContext,
-    SearchArgs, SearchTextArgs, SemanticContextCache, SessionState, SimulateClaimArgs,
-    SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs,
-    TaskScopeMode, TaskTargetArgs, ToolNameArgs, ValidationFeedbackArgs, WhereUsedArgs,
-    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER,
-    QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
+    CuratorJobArgs, CuratorJobsArgs, CuratorProposalsArgs, DiffForArgs, DiscoveryTargetArgs,
+    EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs,
+    MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
+    PendingReviewsArgs, PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage,
+    QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs,
+    SearchAmbiguityContext, SearchArgs, SearchTextArgs, SemanticContextCache, SessionState,
+    SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs,
+    TaskJournalArgs, TaskScopeMode, TaskTargetArgs, ToolNameArgs, ValidationFeedbackArgs,
+    WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
+    QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER,
+    USER_SNIPPET_MARKER,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -1257,6 +1258,10 @@ impl QueryExecution {
             "curatorJobs" => {
                 let args: CuratorJobsArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.host.curator_jobs(args)?)?)
+            }
+            "curatorProposals" => {
+                let args: CuratorProposalsArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.host.curator_proposals(args)?)?)
             }
             "curatorJob" => {
                 let args: CuratorJobArgs = serde_json::from_value(args)?;

@@ -1,6 +1,12 @@
+use prism_js::AgentSuggestedActionView;
+
 use super::open::{
     compact_open_result_from_excerpt, compact_preview_for_symbol_view,
     compact_preview_for_text_target,
+};
+use super::suggested_actions::{
+    dedupe_suggested_actions, strongest_semantic_related_handle, suggested_expand_action,
+    suggested_open_action, suggested_workset_action,
 };
 use super::*;
 use crate::compact_followups::workspace_scoped_path;
@@ -657,13 +663,17 @@ pub(super) fn compact_open_text_fragment(
         }
     };
     let related_handles = compact_text_fragment_related_handles(host, session, target)?;
+    let promoted_handle = strongest_semantic_related_handle(related_handles.as_deref());
+    let suggested_actions = text_fragment_suggested_actions(handle, promoted_handle.as_ref());
     compact_open_result_from_excerpt(
         handle,
         &file_path,
         excerpt,
         remapped,
         &text_fragment_staged_next_action(related_handles.as_deref()),
+        promoted_handle,
         related_handles,
+        suggested_actions,
     )
 }
 
@@ -687,27 +697,48 @@ fn compact_gather_match_result(
     )?;
     let related_handles =
         compact_text_fragment_supporting_reads(host, session, target, OPEN_RELATED_HANDLE_LIMIT)?;
+    let promoted_handle = strongest_semantic_related_handle(Some(&related_handles));
     let next_action = text_fragment_staged_next_action(Some(&related_handles));
+    let suggested_actions = text_fragment_suggested_actions(handle, promoted_handle.as_ref());
     compact_open_result_from_excerpt(
         handle,
         &file_path,
         excerpt,
         false,
         &next_action,
+        promoted_handle,
         (!related_handles.is_empty()).then_some(related_handles),
+        suggested_actions,
     )
 }
 
 fn text_fragment_staged_next_action(related_handles: Option<&[AgentTargetHandleView]>) -> String {
-    if related_handles.is_some_and(|handles| {
-        handles
-            .iter()
-            .any(|handle| !matches!(handle.kind, NodeKind::Document))
-    }) {
+    if strongest_semantic_related_handle(related_handles).is_some() {
         "Use prism_workset on the strongest semantic related handle, or prism_open on it for local context.".to_string()
     } else {
         "Use prism_workset here, or prism_gather for tighter slices.".to_string()
     }
+}
+
+fn text_fragment_suggested_actions(
+    current_handle: &str,
+    promoted_handle: Option<&AgentTargetHandleView>,
+) -> Vec<AgentSuggestedActionView> {
+    let mut actions = Vec::new();
+    if let Some(promoted_handle) = promoted_handle {
+        actions.push(suggested_workset_action(promoted_handle.handle.clone()));
+        actions.push(suggested_open_action(
+            promoted_handle.handle.clone(),
+            AgentOpenMode::Focus,
+        ));
+    } else {
+        actions.push(suggested_workset_action(current_handle));
+        actions.push(suggested_expand_action(
+            current_handle,
+            AgentExpandKind::Neighbors,
+        ));
+    }
+    dedupe_suggested_actions(actions)
 }
 
 pub(super) fn compact_text_fragment_related_handles(

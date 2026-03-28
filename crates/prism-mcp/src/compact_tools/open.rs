@@ -1,4 +1,10 @@
+use prism_js::AgentSuggestedActionView;
+
 use super::expand::source_slice_view;
+use super::suggested_actions::{
+    dedupe_suggested_actions, suggested_expand_action, suggested_open_action,
+    suggested_workset_action,
+};
 use super::text_fragments::{
     compact_open_text_fragment, compact_text_fragment_related_handles, read_text_fragment,
 };
@@ -48,6 +54,11 @@ impl QueryHost {
                         prism.as_ref(),
                         &target,
                     )?;
+                    let suggested_actions = compact_open_suggested_actions(
+                        &args.handle,
+                        &target,
+                        related_handles.as_deref(),
+                    );
                     let next_action = compact_open_next_action(&target);
 
                     match mode {
@@ -71,7 +82,9 @@ impl QueryHost {
                                         },
                                         remapped,
                                         &next_action,
+                                        None,
                                         related_handles.clone(),
+                                        suggested_actions.clone(),
                                     )?
                                 } else {
                                     let block = focused_block_for_symbol(
@@ -86,7 +99,9 @@ impl QueryHost {
                                         block.excerpt,
                                         remapped,
                                         &next_action,
+                                        None,
                                         related_handles.clone(),
+                                        suggested_actions.clone(),
                                     )?
                                 }
                             } else {
@@ -102,7 +117,9 @@ impl QueryHost {
                                     block.excerpt,
                                     remapped,
                                     &next_action,
+                                    None,
                                     related_handles.clone(),
+                                    suggested_actions.clone(),
                                 )?
                             }
                         }
@@ -122,7 +139,9 @@ impl QueryHost {
                                 slice,
                                 remapped,
                                 &next_action,
+                                None,
                                 related_handles.clone(),
+                                suggested_actions.clone(),
                             )?
                         }
                         AgentOpenMode::Raw => {
@@ -162,7 +181,9 @@ impl QueryHost {
                                 excerpt,
                                 remapped,
                                 &next_action,
+                                None,
                                 related_handles.clone(),
+                                suggested_actions.clone(),
                             )?
                         }
                     }
@@ -180,7 +201,9 @@ pub(super) fn compact_open_result_from_block(
     excerpt: Option<SourceExcerptView>,
     remapped: bool,
     next_action: &str,
+    promoted_handle: Option<AgentTargetHandleView>,
     related_handles: Option<Vec<AgentTargetHandleView>>,
+    suggested_actions: Vec<AgentSuggestedActionView>,
 ) -> Result<AgentOpenResultView> {
     if let Some(slice) = slice {
         return Ok(compact_open_result_from_slice(
@@ -189,7 +212,9 @@ pub(super) fn compact_open_result_from_block(
             slice,
             remapped,
             next_action,
+            promoted_handle,
             related_handles,
+            suggested_actions,
         )?);
     }
     if let Some(excerpt) = excerpt {
@@ -199,7 +224,9 @@ pub(super) fn compact_open_result_from_block(
             excerpt,
             remapped,
             next_action,
+            promoted_handle,
             related_handles,
+            suggested_actions,
         )?);
     }
     Err(anyhow!("target did not produce any bounded source content"))
@@ -211,7 +238,9 @@ pub(super) fn compact_open_result_from_slice(
     slice: SourceSliceView,
     remapped: bool,
     next_action: &str,
+    promoted_handle: Option<AgentTargetHandleView>,
     related_handles: Option<Vec<AgentTargetHandleView>>,
+    suggested_actions: Vec<AgentSuggestedActionView>,
 ) -> Result<AgentOpenResultView> {
     budgeted_open_result(AgentOpenResultView {
         handle: handle.to_string(),
@@ -222,7 +251,9 @@ pub(super) fn compact_open_result_from_slice(
         truncated: slice.truncated,
         remapped,
         next_action: Some(next_action.to_string()),
+        promoted_handle,
         related_handles,
+        suggested_actions,
     })
 }
 
@@ -232,7 +263,9 @@ pub(super) fn compact_open_result_from_excerpt(
     excerpt: SourceExcerptView,
     remapped: bool,
     next_action: &str,
+    promoted_handle: Option<AgentTargetHandleView>,
     related_handles: Option<Vec<AgentTargetHandleView>>,
+    suggested_actions: Vec<AgentSuggestedActionView>,
 ) -> Result<AgentOpenResultView> {
     budgeted_open_result(AgentOpenResultView {
         handle: handle.to_string(),
@@ -243,7 +276,9 @@ pub(super) fn compact_open_result_from_excerpt(
         truncated: excerpt.truncated,
         remapped,
         next_action: Some(next_action.to_string()),
+        promoted_handle,
         related_handles,
+        suggested_actions,
     })
 }
 
@@ -262,6 +297,9 @@ fn compact_open_next_action(target: &SessionHandleTarget) -> String {
 }
 
 pub(super) fn budgeted_open_result(mut result: AgentOpenResultView) -> Result<AgentOpenResultView> {
+    if let Some(promoted_handle) = result.promoted_handle.as_mut() {
+        promoted_handle.file_path = None;
+    }
     if let Some(related_handles) = result.related_handles.as_mut() {
         strip_file_paths(related_handles);
         if related_handles.len() > OPEN_RELATED_HANDLE_LIMIT {
@@ -269,15 +307,101 @@ pub(super) fn budgeted_open_result(mut result: AgentOpenResultView) -> Result<Ag
         }
     }
     while open_json_bytes(&result)? > OPEN_MAX_JSON_BYTES {
-        let Some(related_handles) = result.related_handles.as_mut() else {
-            break;
-        };
-        related_handles.pop();
-        if related_handles.is_empty() {
-            result.related_handles = None;
+        if let Some(related_handles) = result.related_handles.as_mut() {
+            related_handles.pop();
+            if related_handles.is_empty() {
+                result.related_handles = None;
+            }
+            continue;
         }
+        if result.promoted_handle.is_some() {
+            result.promoted_handle = None;
+            continue;
+        }
+        if result.suggested_actions.len() > 1 {
+            result.suggested_actions.pop();
+            continue;
+        }
+        break;
     }
     Ok(result)
+}
+
+fn compact_open_suggested_actions(
+    current_handle: &str,
+    target: &SessionHandleTarget,
+    related_handles: Option<&[AgentTargetHandleView]>,
+) -> Vec<AgentSuggestedActionView> {
+    let first_related = related_handles.and_then(|handles| handles.first());
+    let mut actions = Vec::new();
+
+    if is_text_fragment_target(target) {
+        if let Some(promoted) =
+            super::suggested_actions::strongest_semantic_related_handle(related_handles)
+        {
+            actions.push(suggested_workset_action(promoted.handle.clone()));
+            actions.push(suggested_open_action(promoted.handle, AgentOpenMode::Focus));
+        } else {
+            actions.push(suggested_workset_action(current_handle));
+            actions.push(suggested_expand_action(
+                current_handle,
+                AgentExpandKind::Neighbors,
+            ));
+        }
+        return dedupe_suggested_actions(actions);
+    }
+
+    match (
+        is_structured_config_target(target.kind),
+        is_spec_like_kind(target.kind) || target.file_path.as_deref().is_some_and(is_docs_path),
+    ) {
+        (true, _) => {
+            actions.push(suggested_expand_action(
+                current_handle,
+                AgentExpandKind::Validation,
+            ));
+            if let Some(handle) = first_related {
+                actions.push(suggested_open_action(
+                    handle.handle.clone(),
+                    AgentOpenMode::Focus,
+                ));
+            } else {
+                actions.push(suggested_expand_action(
+                    current_handle,
+                    AgentExpandKind::Neighbors,
+                ));
+            }
+        }
+        (_, true) => {
+            actions.push(suggested_workset_action(current_handle));
+            actions.push(suggested_expand_action(
+                current_handle,
+                AgentExpandKind::Drift,
+            ));
+            if let Some(handle) = first_related {
+                actions.push(suggested_open_action(
+                    handle.handle.clone(),
+                    AgentOpenMode::Focus,
+                ));
+            }
+        }
+        _ => {
+            actions.push(suggested_workset_action(current_handle));
+            if let Some(handle) = first_related {
+                actions.push(suggested_open_action(
+                    handle.handle.clone(),
+                    AgentOpenMode::Focus,
+                ));
+            } else {
+                actions.push(suggested_expand_action(
+                    current_handle,
+                    AgentExpandKind::Neighbors,
+                ));
+            }
+        }
+    }
+
+    dedupe_suggested_actions(actions)
 }
 
 fn compact_open_related_handles(

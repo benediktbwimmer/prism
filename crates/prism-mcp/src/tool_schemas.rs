@@ -8,7 +8,8 @@ use crate::{
     schema_resource_view_link, session_resource_view_link, tool_input_example,
     tool_schema_resource_uri, tool_schema_resource_view_link, tool_schemas_resource_view_link,
     PrismExpandArgs, PrismGatherArgs, PrismLocateArgs, PrismMutationArgs, PrismOpenArgs,
-    PrismQueryArgs, PrismSessionArgs, PrismWorksetArgs, ResourceLinkView, TOOL_SCHEMAS_URI,
+    PrismQueryArgs, PrismSessionArgs, PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView,
+    TOOL_SCHEMAS_URI,
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
@@ -64,6 +65,12 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
             schema_uri: tool_schema_resource_uri("prism_expand"),
             description: "Input schema for explicit depth-on-demand handle expansion.".to_string(),
             example_input: tool_input_example("prism_expand").expect("tool example"),
+        },
+        ToolSchemaCatalogEntry {
+            tool_name: "prism_task_brief".to_string(),
+            schema_uri: tool_schema_resource_uri("prism_task_brief"),
+            description: "Input schema for the compact coordination task brief tool.".to_string(),
+            example_input: tool_input_example("prism_task_brief").expect("tool example"),
         },
         ToolSchemaCatalogEntry {
             tool_name: "prism_query".to_string(),
@@ -165,6 +172,11 @@ pub(crate) fn tool_schema_resource_contents(
             "prism_expand",
             "JSON Schema for the `prism_expand` tool input payload.",
         ),
+        "prism_task_brief" => tool_input_schema_contents::<PrismTaskBriefArgs>(
+            uri,
+            "prism_task_brief",
+            "JSON Schema for the `prism_task_brief` tool input payload.",
+        ),
         "prism_query" => tool_input_schema_contents::<PrismQueryArgs>(
             uri,
             "prism_query",
@@ -208,6 +220,10 @@ pub(crate) fn tool_input_schema_value(tool_name: &str) -> Option<Value> {
         "prism_expand" => Some(tool_input_schema_value_for::<PrismExpandArgs>(
             "prism_expand",
             "JSON Schema for the `prism_expand` tool input payload.",
+        )),
+        "prism_task_brief" => Some(tool_input_schema_value_for::<PrismTaskBriefArgs>(
+            "prism_task_brief",
+            "JSON Schema for the `prism_task_brief` tool input payload.",
         )),
         "prism_query" => Some(tool_input_schema_value_for::<PrismQueryArgs>(
             "prism_query",

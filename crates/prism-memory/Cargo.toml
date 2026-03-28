@@ -4,9 +4,15 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+default = []
+openai-embeddings = ["dep:reqwest"]
+
 [dependencies]
 anyhow.workspace = true
 prism-ir = { path = "../prism-ir" }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"], optional = true }
 schemars = "1.2.1"
 serde.workspace = true
 serde_json.workspace = true
+tracing.workspace = true

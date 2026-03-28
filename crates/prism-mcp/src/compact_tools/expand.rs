@@ -1,6 +1,13 @@
 use prism_js::{EvidenceSourceKind, OwnerCandidateView};
+use prism_memory::{MemoryModule, OutcomeEvent, OutcomeKind, RecallQuery};
 
 use super::open::{compact_preview_for_structured_target, compact_preview_for_symbol_view};
+use prism_js::AgentSuggestedActionView;
+
+use super::suggested_actions::{
+    dedupe_suggested_actions, suggested_expand_action, suggested_open_action,
+    suggested_workset_action,
+};
 use super::text_fragments::{
     compact_text_fragment_diagnostics, compact_text_fragment_neighbors,
     compact_text_fragment_validation,
@@ -137,15 +144,15 @@ impl QueryHost {
                         }
                     }
                     AgentExpandKind::Validation => {
-                        if is_text_fragment_target(&target) {
-                            compact_text_fragment_validation(host, session.as_ref(), &target)?
-                        } else if is_structured_config_target(target.kind) {
+                        if is_structured_config_target(target.kind) {
                             compact_structured_config_validation_result(
                                 host,
                                 session.as_ref(),
                                 prism.as_ref(),
                                 &target,
                             )?
+                        } else if is_text_fragment_target(&target) {
+                            compact_text_fragment_validation(host, session.as_ref(), &target)?
                         } else {
                             let mut cache = crate::SemanticContextCache::default();
                             let validation = validation_context_view_cached(
@@ -195,7 +202,43 @@ impl QueryHost {
                             )?
                         }
                     }
+                    AgentExpandKind::Impact => {
+                        if is_text_fragment_target(&target) {
+                            json!({
+                                "note": "Impact expansion is only available for semantic symbol handles. Rerun prism_locate on a symbol target if you need blast-radius detail.",
+                                "filePath": target.file_path,
+                            })
+                        } else {
+                            compact_impact_expand_result(
+                                session.as_ref(),
+                                prism.as_ref(),
+                                &target,
+                            )?
+                        }
+                    }
+                    AgentExpandKind::Timeline => {
+                        if is_text_fragment_target(&target) {
+                            json!({
+                                "note": "Timeline expansion is only available for semantic symbol handles. Rerun prism_locate on a symbol target if you need recent change history.",
+                                "filePath": target.file_path,
+                            })
+                        } else {
+                            compact_timeline_expand_result(prism.as_ref(), &target)?
+                        }
+                    }
+                    AgentExpandKind::Memory => {
+                        if is_text_fragment_target(&target) {
+                            json!({
+                                "note": "Memory expansion is only available for semantic symbol handles. Rerun prism_locate on a symbol target if you need anchored memory recall.",
+                                "filePath": target.file_path,
+                            })
+                        } else {
+                            compact_memory_expand_result(session.as_ref(), &target)?
+                        }
+                    }
                 };
+                let suggested_actions =
+                    compact_expand_suggested_actions(kind, &args.handle, &target, &result);
 
                 Ok((
                     AgentExpandResultView {
@@ -205,6 +248,7 @@ impl QueryHost {
                         remapped,
                         top_preview,
                         next_action: Some(compact_expand_next_action(kind, &target)),
+                        suggested_actions,
                     },
                     Vec::new(),
                 ))
@@ -272,7 +316,120 @@ fn compact_expand_next_action(kind: AgentExpandKind, target: &SessionHandleTarge
             "Use prism_open on a nextRead, or prism_workset for the full owner/test bundle."
                 .to_string()
         }
+        AgentExpandKind::Impact => {
+            "Use prism_open on a likely touch target, or prism_expand `timeline` for recent changes."
+                .to_string()
+        }
+        AgentExpandKind::Timeline => {
+            "Use prism_open for local source, or prism_expand `memory` for recalled context."
+                .to_string()
+        }
+        AgentExpandKind::Memory => {
+            "Use prism_open on a matching code path, or prism_workset for the staged bundle."
+                .to_string()
+        }
     }
+}
+
+fn compact_expand_suggested_actions(
+    kind: AgentExpandKind,
+    current_handle: &str,
+    target: &SessionHandleTarget,
+    result: &Value,
+) -> Vec<AgentSuggestedActionView> {
+    let mut actions = Vec::new();
+    let followup = match kind {
+        AgentExpandKind::Neighbors => first_handle_in_result(result, "neighbors"),
+        AgentExpandKind::Validation => first_handle_in_result(result, "nextReads")
+            .or_else(|| first_handle_in_result(result, "likelyTests")),
+        AgentExpandKind::Drift => first_handle_in_result(result, "nextReads"),
+        _ => None,
+    };
+
+    if let Some(handle) = followup.clone() {
+        actions.push(suggested_open_action(handle.handle, AgentOpenMode::Focus));
+    }
+
+    match kind {
+        AgentExpandKind::Diagnostics => {
+            actions.push(suggested_workset_action(current_handle));
+            if !is_text_fragment_target(target) {
+                actions.push(suggested_open_action(current_handle, AgentOpenMode::Focus));
+            }
+        }
+        AgentExpandKind::Lineage | AgentExpandKind::Diff => {
+            actions.push(suggested_open_action(current_handle, AgentOpenMode::Focus));
+            actions.push(suggested_workset_action(current_handle));
+        }
+        AgentExpandKind::Neighbors => {
+            if is_structured_config_target(target.kind) {
+                actions.push(suggested_expand_action(
+                    current_handle,
+                    AgentExpandKind::Validation,
+                ));
+            } else if is_text_fragment_target(target) {
+                actions.push(suggested_workset_action(current_handle));
+            } else if is_spec_like_kind(target.kind)
+                || target.file_path.as_deref().is_some_and(is_docs_path)
+            {
+                actions.push(suggested_expand_action(
+                    current_handle,
+                    AgentExpandKind::Drift,
+                ));
+            } else {
+                actions.push(suggested_expand_action(
+                    current_handle,
+                    AgentExpandKind::Validation,
+                ));
+            }
+        }
+        AgentExpandKind::Validation => {
+            if is_structured_config_target(target.kind) {
+                actions.push(suggested_expand_action(
+                    current_handle,
+                    AgentExpandKind::Neighbors,
+                ));
+            } else if is_text_fragment_target(target) {
+                actions.push(suggested_workset_action(current_handle));
+            } else {
+                actions.push(suggested_expand_action(
+                    current_handle,
+                    AgentExpandKind::Neighbors,
+                ));
+            }
+        }
+        AgentExpandKind::Drift => {
+            actions.push(suggested_workset_action(current_handle));
+        }
+        AgentExpandKind::Impact => {
+            actions.push(suggested_expand_action(
+                current_handle,
+                AgentExpandKind::Timeline,
+            ));
+            if let Some(handle) = followup {
+                actions.push(suggested_open_action(handle.handle, AgentOpenMode::Focus));
+            }
+        }
+        AgentExpandKind::Timeline => {
+            actions.push(suggested_expand_action(
+                current_handle,
+                AgentExpandKind::Memory,
+            ));
+            actions.push(suggested_open_action(current_handle, AgentOpenMode::Focus));
+        }
+        AgentExpandKind::Memory => {
+            actions.push(suggested_workset_action(current_handle));
+            actions.push(suggested_open_action(current_handle, AgentOpenMode::Focus));
+        }
+    }
+
+    dedupe_suggested_actions(actions)
+}
+
+fn first_handle_in_result(result: &Value, field: &str) -> Option<AgentTargetHandleView> {
+    serde_json::from_value::<Vec<AgentTargetHandleView>>(result.get(field)?.clone())
+        .ok()
+        .and_then(|items| items.into_iter().next())
 }
 
 fn compact_lineage_expand_result(prism: &Prism, target: &SessionHandleTarget) -> Result<Value> {
@@ -434,16 +591,20 @@ fn compact_structured_config_validation_result(
 ) -> Result<Value> {
     let next_reads =
         structured_symbol_followups(host, session, prism, target, WORKSET_SUPPORTING_LIMIT)?;
-    let likely_tests = structured_config_likely_tests(
-        session,
-        target,
-        owner_views_for_target(
-            prism,
-            target_symbol_id(target)?,
-            Some("test"),
-            WORKSET_TEST_LIMIT.saturating_mul(4),
-        )?,
-    );
+    let likely_tests = if is_text_fragment_target(target) {
+        Vec::new()
+    } else {
+        structured_config_likely_tests(
+            session,
+            target,
+            owner_views_for_target(
+                prism,
+                target_symbol_id(target)?,
+                Some("test"),
+                WORKSET_TEST_LIMIT.saturating_mul(4),
+            )?,
+        )
+    };
     Ok(json!({
         "checks": structured_config_validation_checks(),
         "nextReads": next_reads,
@@ -568,6 +729,270 @@ fn compact_drift_expand_result(
     }
 
     Ok(result)
+}
+
+fn compact_impact_expand_result(
+    session: &SessionState,
+    prism: &Prism,
+    target: &SessionHandleTarget,
+) -> Result<Value> {
+    let impact = crate::blast_radius_view(prism, session, target_symbol_id(target)?);
+    let mut likely_touch = compact_touch_targets(
+        session,
+        prism,
+        target,
+        &impact.direct_nodes,
+        EXPAND_IMPACT_TOUCH_LIMIT,
+    )?;
+    let mut cache = crate::SemanticContextCache::default();
+    let validation =
+        validation_context_view_cached(prism, session, &mut cache, target_symbol_id(target)?)?;
+    let mut likely_tests = validation
+        .tests
+        .into_iter()
+        .take(EXPAND_IMPACT_TEST_LIMIT)
+        .map(|candidate| {
+            compact_target_view(
+                session,
+                &candidate.symbol,
+                target.query.as_deref(),
+                Some(candidate.why),
+            )
+        })
+        .collect::<Vec<_>>();
+    let mut recent_failures = impact
+        .risk_events
+        .iter()
+        .take(EXPAND_IMPACT_FAILURE_LIMIT)
+        .map(|event| compact_outcome_summary_value(event, EXPAND_IMPACT_TEXT_MAX_CHARS))
+        .collect::<Vec<_>>();
+    let mut result = json!({
+        "likelyTouch": likely_touch,
+        "likelyTests": likely_tests,
+        "recentFailures": recent_failures,
+        "riskHint": compact_impact_risk_hint(&impact),
+    });
+
+    while expand_json_bytes(&result)? > EXPAND_IMPACT_MAX_JSON_BYTES {
+        if strip_file_paths(&mut likely_touch) {
+            result["likelyTouch"] = serde_json::to_value(&likely_touch)?;
+            continue;
+        }
+        if strip_file_paths(&mut likely_tests) {
+            result["likelyTests"] = serde_json::to_value(&likely_tests)?;
+            continue;
+        }
+        if likely_touch.pop().is_some() {
+            result["likelyTouch"] = serde_json::to_value(&likely_touch)?;
+            continue;
+        }
+        if likely_tests.pop().is_some() {
+            result["likelyTests"] = serde_json::to_value(&likely_tests)?;
+            continue;
+        }
+        if recent_failures.pop().is_some() {
+            result["recentFailures"] = Value::Array(recent_failures.clone());
+            continue;
+        }
+        break;
+    }
+
+    Ok(result)
+}
+
+fn compact_touch_targets(
+    session: &SessionState,
+    prism: &Prism,
+    target: &SessionHandleTarget,
+    direct_nodes: &[prism_js::NodeIdView],
+    limit: usize,
+) -> Result<Vec<AgentTargetHandleView>> {
+    let mut seen = HashSet::<String>::new();
+    let mut targets = Vec::new();
+    for node in direct_nodes {
+        let node_id = NodeId::new(node.crate_name.clone(), node.path.clone(), node.kind);
+        if node_id == target.id {
+            continue;
+        }
+        let symbol = match symbol_for(prism, &node_id) {
+            Ok(symbol) => symbol,
+            Err(_) => continue,
+        };
+        let symbol = symbol_view(prism, &symbol)?;
+        if is_test_like_symbol(&symbol) || !seen.insert(symbol.id.path.clone()) {
+            continue;
+        }
+        targets.push(compact_target_view(
+            session,
+            &symbol,
+            target.query.as_deref(),
+            Some("Likely blast-radius follow-up.".to_string()),
+        ));
+        if targets.len() >= limit {
+            break;
+        }
+    }
+    Ok(targets)
+}
+
+fn compact_impact_risk_hint(impact: &prism_js::ChangeImpactView) -> String {
+    let hint = if let Some(summary) = impact.promoted_summaries.first() {
+        summary.clone()
+    } else if !impact.risk_events.is_empty() {
+        "Recent failures and recorded outcomes raise regression risk for this target.".to_string()
+    } else if !impact.co_change_neighbors.is_empty() {
+        "Co-change neighbors suggest this target tends to move with nearby lineages.".to_string()
+    } else if !impact.likely_validations.is_empty() {
+        format!(
+            "Likely validations: {}.",
+            impact
+                .likely_validations
+                .iter()
+                .take(2)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    } else {
+        "Blast radius currently looks narrow and mostly local.".to_string()
+    };
+    clamp_string(&hint, EXPAND_IMPACT_TEXT_MAX_CHARS)
+}
+
+fn compact_timeline_expand_result(prism: &Prism, target: &SessionHandleTarget) -> Result<Value> {
+    let anchors = compact_symbol_history_anchors(target);
+    let mut recent_events = prism
+        .outcomes_for(&anchors, EXPAND_TIMELINE_EVENT_LIMIT)
+        .into_iter()
+        .map(|event| compact_outcome_summary_value(&event, EXPAND_TIMELINE_TEXT_MAX_CHARS))
+        .collect::<Vec<_>>();
+    let lineage = target
+        .lineage_id
+        .as_ref()
+        .map(|value| LineageId::new(value.clone()));
+    let mut recent_patches = diff_for(
+        prism,
+        Some(target_symbol_id(target)?),
+        lineage.as_ref(),
+        None,
+        None,
+        EXPAND_TIMELINE_PATCH_LIMIT,
+    )?
+    .into_iter()
+    .map(|diff| compact_diff_hunk_value(&diff))
+    .collect::<Vec<_>>();
+    let events = prism.outcomes_for(&anchors, 20);
+    let mut result = json!({
+        "recentEvents": recent_events,
+        "recentPatches": recent_patches,
+        "lastFailure": compact_last_outcome(&events, |event| {
+            matches!(event.kind, OutcomeKind::FailureObserved | OutcomeKind::RegressionObserved)
+        }, EXPAND_TIMELINE_TEXT_MAX_CHARS),
+        "lastValidation": compact_last_outcome(&events, |event| {
+            matches!(
+                event.kind,
+                OutcomeKind::BuildRan | OutcomeKind::TestRan | OutcomeKind::FixValidated
+            )
+        }, EXPAND_TIMELINE_TEXT_MAX_CHARS),
+    });
+
+    while expand_json_bytes(&result)? > EXPAND_TIMELINE_MAX_JSON_BYTES {
+        if recent_patches.pop().is_some() {
+            result["recentPatches"] = Value::Array(recent_patches.clone());
+            continue;
+        }
+        if recent_events.pop().is_some() {
+            result["recentEvents"] = Value::Array(recent_events.clone());
+            continue;
+        }
+        if result
+            .get("lastValidation")
+            .is_some_and(|value| !value.is_null())
+        {
+            result["lastValidation"] = Value::Null;
+            continue;
+        }
+        break;
+    }
+
+    Ok(result)
+}
+
+fn compact_memory_expand_result(
+    session: &SessionState,
+    target: &SessionHandleTarget,
+) -> Result<Value> {
+    let recalled = session.notes.recall(&RecallQuery {
+        focus: compact_symbol_history_anchors(target),
+        text: target.query.clone().or_else(|| Some(target.name.clone())),
+        limit: EXPAND_MEMORY_LIMIT,
+        kinds: None,
+        since: None,
+    })?;
+    let mut memories = recalled
+        .into_iter()
+        .map(|memory| {
+            json!({
+                "summary": clamp_string(&memory.entry.content, EXPAND_MEMORY_TEXT_MAX_CHARS),
+                "kind": memory.entry.kind,
+                "source": memory.entry.source,
+                "trust": memory.entry.trust,
+                "whyMatched": clamp_string(
+                    memory
+                        .explanation
+                        .as_deref()
+                        .unwrap_or("Matched on shared anchors and nearby task context."),
+                    EXPAND_MEMORY_MATCH_MAX_CHARS,
+                ),
+            })
+        })
+        .collect::<Vec<_>>();
+    let mut result = json!({ "memories": memories });
+    while expand_json_bytes(&result)? > EXPAND_MEMORY_MAX_JSON_BYTES {
+        if memories.pop().is_some() {
+            result["memories"] = Value::Array(memories.clone());
+            continue;
+        }
+        break;
+    }
+    Ok(result)
+}
+
+fn compact_symbol_history_anchors(target: &SessionHandleTarget) -> Vec<prism_ir::AnchorRef> {
+    let mut anchors = vec![prism_ir::AnchorRef::Node(target.id.clone())];
+    if let Some(lineage_id) = target.lineage_id.as_ref() {
+        anchors.push(prism_ir::AnchorRef::Lineage(LineageId::new(
+            lineage_id.clone(),
+        )));
+    }
+    anchors
+}
+
+fn compact_last_outcome<F>(events: &[OutcomeEvent], predicate: F, max_chars: usize) -> Value
+where
+    F: Fn(&OutcomeEvent) -> bool,
+{
+    events
+        .iter()
+        .find(|event| predicate(event))
+        .map(|event| compact_outcome_summary_value(event, max_chars))
+        .unwrap_or(Value::Null)
+}
+
+fn compact_outcome_summary_value(event: &OutcomeEvent, max_chars: usize) -> Value {
+    json!({
+        "ts": event.meta.ts,
+        "kind": event.kind,
+        "result": event.result,
+        "summary": clamp_string(&event.summary, max_chars),
+    })
+}
+
+pub(super) fn enum_label<T: serde::Serialize>(value: &T) -> String {
+    serde_json::to_string(value)
+        .unwrap_or_else(|_| "\"unknown\"".to_string())
+        .trim_matches('"')
+        .to_string()
 }
 
 #[cfg(test)]

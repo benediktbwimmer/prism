@@ -8,6 +8,7 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("prism_open"));
     assert!(docs.contains("prism_workset"));
     assert!(docs.contains("prism_expand"));
+    assert!(docs.contains("prism_task_brief"));
     assert!(docs.contains("prism_query"));
     assert!(docs.contains("type PrismApi"));
     assert!(docs.contains("### 12. Pull prior failures without reconstructing anchors manually"));

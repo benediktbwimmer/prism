@@ -6,8 +6,10 @@ use prism_memory::{OutcomeEvent, OutcomeMemorySnapshot};
 
 use crate::common::event_weight;
 use crate::common::validation_labels;
+use crate::concepts::{concept_by_handle, derive_concept_packets, rank_concepts};
 use crate::types::{
-    CoChangeDelta, CoChangeRecord, ProjectionSnapshot, ValidationCheck, ValidationDelta,
+    CoChangeDelta, CoChangeRecord, ConceptPacket, ProjectionSnapshot, ValidationCheck,
+    ValidationDelta,
 };
 
 pub const MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE: usize = 32;
@@ -16,6 +18,8 @@ pub const MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE: usize = 32;
 pub struct ProjectionIndex {
     co_change_by_lineage: HashMap<LineageId, Vec<CoChangeRecord>>,
     validation_by_lineage: HashMap<LineageId, Vec<ValidationCheck>>,
+    node_to_lineage: HashMap<NodeId, LineageId>,
+    concept_packets: Vec<ConceptPacket>,
 }
 
 impl ProjectionIndex {
@@ -29,9 +33,18 @@ impl ProjectionIndex {
             .into_iter()
             .collect::<HashMap<_, _>>();
         normalize_co_change_by_lineage(&mut co_change_by_lineage);
+        let node_to_lineage = HashMap::new();
+        let validation_by_lineage = snapshot.validation_by_lineage.into_iter().collect();
+        let concept_packets = derive_concept_packets(
+            &node_to_lineage,
+            &validation_by_lineage,
+            &co_change_by_lineage,
+        );
         Self {
             co_change_by_lineage,
-            validation_by_lineage: snapshot.validation_by_lineage.into_iter().collect(),
+            validation_by_lineage,
+            node_to_lineage,
+            concept_packets,
         }
     }
 
@@ -110,14 +123,41 @@ impl ProjectionIndex {
             })
             .collect();
 
+        let concept_packets = derive_concept_packets(
+            &node_to_lineage,
+            &validation_by_lineage,
+            &co_change_by_lineage,
+        );
+
         Self {
             co_change_by_lineage,
             validation_by_lineage,
+            node_to_lineage,
+            concept_packets,
         }
+    }
+
+    pub fn reseed_from_history(&mut self, history: &HistorySnapshot) {
+        self.node_to_lineage = history
+            .node_to_lineage
+            .iter()
+            .cloned()
+            .collect::<HashMap<_, _>>();
+        self.rebuild_concepts();
     }
 
     pub fn apply_lineage_events(&mut self, events: &[LineageEvent]) {
         self.apply_co_change_deltas(&co_change_deltas_for_events(events));
+        for event in events {
+            for before in &event.before {
+                self.node_to_lineage.remove(before);
+            }
+            for after in &event.after {
+                self.node_to_lineage
+                    .insert(after.clone(), event.lineage.clone());
+            }
+        }
+        self.rebuild_concepts();
     }
 
     pub fn apply_outcome_event<F>(&mut self, event: &OutcomeEvent, mut lineage_of: F)
@@ -125,6 +165,7 @@ impl ProjectionIndex {
         F: FnMut(&NodeId) -> Option<LineageId>,
     {
         self.apply_validation_deltas(&validation_deltas_for_event(event, &mut lineage_of));
+        self.rebuild_concepts();
     }
 
     pub fn apply_co_change_deltas(&mut self, deltas: &[CoChangeDelta]) {
@@ -233,6 +274,26 @@ impl ProjectionIndex {
             checks.truncate(limit);
         }
         checks
+    }
+
+    pub fn concepts(&self, query: &str, limit: usize) -> Vec<ConceptPacket> {
+        rank_concepts(&self.concept_packets, query, limit)
+    }
+
+    pub fn concept_by_handle(&self, handle: &str) -> Option<ConceptPacket> {
+        concept_by_handle(&self.concept_packets, handle)
+    }
+
+    pub fn concept_packets(&self) -> &[ConceptPacket] {
+        &self.concept_packets
+    }
+
+    fn rebuild_concepts(&mut self) {
+        self.concept_packets = derive_concept_packets(
+            &self.node_to_lineage,
+            &self.validation_by_lineage,
+            &self.co_change_by_lineage,
+        );
     }
 }
 

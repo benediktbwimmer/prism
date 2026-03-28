@@ -21,6 +21,7 @@ const COMPACT_QUERY_KINDS: &[&str] = &[
     "prism_open",
     "prism_workset",
     "prism_expand",
+    "prism_task_brief",
 ];
 const MAX_QUERY_TEXT_CHARS: usize = 4096;
 const MAX_SUMMARY_CHARS: usize = 160;

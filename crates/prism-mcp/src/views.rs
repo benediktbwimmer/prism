@@ -5,15 +5,16 @@ use prism_curator::{
 use prism_ir::{AnchorRef, Edge, NodeId, WorkspaceRevision};
 use prism_js::{
     ArtifactRiskView, ArtifactView, BlockerView, ChangeImpactView, ClaimView, CoChangeView,
-    ConflictView, CoordinationTaskView, CuratorJobView, CuratorProposalView, DriftCandidateView,
-    EdgeView, MemoryEntryView, MemoryEventView, NodeIdView, PlanView, PolicyViolationRecordView,
+    ConceptDecodeLensView, ConceptPacketView, ConflictView, CoordinationTaskView, CuratorJobView,
+    CuratorProposalRecordView, CuratorProposalView, DriftCandidateView, EdgeView,
+    MemoryEntryView, MemoryEventView, NodeIdView, PlanView, PolicyViolationRecordView,
     PolicyViolationView, QueryDiagnostic, ScoredMemoryView, TaskIntentView, TaskRiskView,
     TaskValidationRecipeView, ValidationCheckView, ValidationRecipeView, WorkspaceRevisionView,
 };
 use prism_memory::{MemoryEntry, MemoryEvent, MemorySource, ScoredMemory};
 use prism_query::{
-    ArtifactRisk, ChangeImpact, CoChange, DriftCandidate, Prism, TaskIntent, TaskRisk,
-    TaskValidationRecipe, ValidationCheck, ValidationRecipe,
+    ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens, ConceptPacket, DriftCandidate,
+    Prism, TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 use serde_json::Value;
 
@@ -90,6 +91,33 @@ pub(crate) fn curator_proposal_view(
         task_id: state.task.map(|task| task.0.to_string()),
         note: state.note,
         output: state.output,
+    })
+}
+
+pub(crate) fn curator_proposal_record_view(
+    record: &CuratorJobRecord,
+    index: usize,
+    proposal: CuratorProposal,
+    state: prism_curator::CuratorProposalState,
+) -> Result<CuratorProposalRecordView> {
+    let proposal = curator_proposal_view(index, proposal, state)?;
+    Ok(CuratorProposalRecordView {
+        job_id: record.id.0.clone(),
+        job_trigger: curator_trigger_label(&record.job.trigger).to_owned(),
+        job_status: curator_job_status_label(record).to_owned(),
+        job_task_id: record.job.task.as_ref().map(|task| task.0.to_string()),
+        focus: record.job.focus.clone(),
+        job_created_at: record.created_at,
+        job_started_at: record.started_at,
+        job_finished_at: record.finished_at,
+        index: proposal.index,
+        kind: proposal.kind,
+        disposition: proposal.disposition,
+        payload: proposal.payload,
+        decided_at: proposal.decided_at,
+        proposal_task_id: proposal.task_id,
+        note: proposal.note,
+        output: proposal.output,
     })
 }
 
@@ -192,6 +220,40 @@ pub(crate) fn validation_recipe_view(recipe: ValidationRecipe) -> ValidationReci
             .map(co_change_view)
             .collect(),
         recent_failures: recipe.recent_failures,
+    }
+}
+
+pub(crate) fn concept_decode_lens_view(lens: ConceptDecodeLens) -> ConceptDecodeLensView {
+    match lens {
+        ConceptDecodeLens::Open => ConceptDecodeLensView::Open,
+        ConceptDecodeLens::Workset => ConceptDecodeLensView::Workset,
+        ConceptDecodeLens::Validation => ConceptDecodeLensView::Validation,
+        ConceptDecodeLens::Timeline => ConceptDecodeLensView::Timeline,
+        ConceptDecodeLens::Memory => ConceptDecodeLensView::Memory,
+    }
+}
+
+pub(crate) fn concept_packet_view(packet: ConceptPacket) -> ConceptPacketView {
+    ConceptPacketView {
+        handle: packet.handle,
+        canonical_name: packet.canonical_name,
+        summary: packet.summary,
+        aliases: packet.aliases,
+        confidence: packet.confidence,
+        core_members: packet.core_members.into_iter().map(node_id_view).collect(),
+        supporting_members: packet
+            .supporting_members
+            .into_iter()
+            .map(node_id_view)
+            .collect(),
+        likely_tests: packet.likely_tests.into_iter().map(node_id_view).collect(),
+        evidence: packet.evidence,
+        risk_hint: packet.risk_hint,
+        decode_lenses: packet
+            .decode_lenses
+            .into_iter()
+            .map(concept_decode_lens_view)
+            .collect(),
     }
 }
 

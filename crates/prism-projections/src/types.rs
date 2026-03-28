@@ -1,6 +1,31 @@
 use prism_ir::{LineageId, NodeId};
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConceptDecodeLens {
+    Open,
+    Workset,
+    Validation,
+    Timeline,
+    Memory,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ConceptPacket {
+    pub handle: String,
+    pub canonical_name: String,
+    pub summary: String,
+    pub aliases: Vec<String>,
+    pub confidence: f32,
+    pub core_members: Vec<NodeId>,
+    pub supporting_members: Vec<NodeId>,
+    pub likely_tests: Vec<NodeId>,
+    pub evidence: Vec<String>,
+    pub risk_hint: Option<String>,
+    pub decode_lenses: Vec<ConceptDecodeLens>,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ValidationCheck {
     pub label: String,

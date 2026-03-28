@@ -1,7 +1,7 @@
 use anyhow::Result;
 use prism_agent::InferredEdgeScope;
 use prism_ir::{AnchorRef, Edge, EventId, LineageEvent, LineageId, Node, NodeId, TaskId};
-use prism_memory::{MemoryEntry, MemoryKind, OutcomeEvent};
+use prism_memory::{MemoryEntry, MemoryId, MemoryKind, OutcomeEvent};
 use prism_projections::{CoChangeRecord, ValidationCheck};
 use serde::{
     de::{self, MapAccess, Visitor},
@@ -92,6 +92,8 @@ pub struct CandidateMemoryEvidence {
     #[serde(default)]
     pub event_ids: Vec<EventId>,
     #[serde(default)]
+    pub memory_ids: Vec<MemoryId>,
+    #[serde(default)]
     pub validation_checks: Vec<String>,
     #[serde(default)]
     pub co_change_lineages: Vec<LineageId>,
@@ -101,6 +103,7 @@ impl Default for CandidateMemoryEvidence {
     fn default() -> Self {
         Self {
             event_ids: Vec::new(),
+            memory_ids: Vec::new(),
             validation_checks: Vec::new(),
             co_change_lineages: Vec::new(),
         }
