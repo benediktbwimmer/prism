@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
@@ -37,6 +38,8 @@ const EDIT_OPEN_OPTIONS: EditSliceOptions = EditSliceOptions {
     max_lines: 8,
     max_chars: 360,
 };
+const OPEN_RELATED_HANDLE_LIMIT: usize = 2;
+const OPEN_MAX_JSON_BYTES: usize = 1400;
 const RAW_OPEN_MAX_CHARS: usize = 720;
 const WORKSET_SUPPORTING_LIMIT: usize = 3;
 const WORKSET_TEST_LIMIT: usize = 2;
@@ -62,6 +65,7 @@ struct RankedLocateCandidate {
 struct LocateIntentProfile {
     code_bias: i32,
     docs_bias: i32,
+    test_penalty: i32,
 }
 
 impl QueryHost {
@@ -91,7 +95,10 @@ impl QueryHost {
                 )?;
 
                 let applied = compact_locate_limit(args.limit);
-                let candidates = rerank_locate_results(results, &args, applied)
+                let ranked = rerank_locate_results(results, &args, applied);
+                let diagnostics = execution.diagnostics();
+                let resolved_confidently = locate_resolved_confidently(&ranked, &diagnostics);
+                let candidates = ranked
                     .into_iter()
                     .map(|candidate| {
                         compact_target_view(
@@ -102,9 +109,8 @@ impl QueryHost {
                         )
                     })
                     .collect::<Vec<_>>();
-                let diagnostics = execution.diagnostics();
                 Ok((
-                    build_locate_result(candidates, diagnostics.clone()),
+                    build_locate_result(candidates, diagnostics.clone(), resolved_confidently),
                     diagnostics,
                 ))
             },
@@ -132,6 +138,8 @@ impl QueryHost {
                     .file_path
                     .clone()
                     .ok_or_else(|| anyhow!("target `{}` has no workspace file path", target.id.path))?;
+                let related_handles =
+                    compact_open_related_handles(session.as_ref(), prism.as_ref(), &target)?;
 
                 let result = match mode {
                     AgentOpenMode::Focus => {
@@ -143,6 +151,7 @@ impl QueryHost {
                             block.excerpt,
                             remapped,
                             "Rerun prism_open with mode `raw` if you need the exact file window.",
+                            related_handles.clone(),
                         )?
                     }
                     AgentOpenMode::Edit => {
@@ -156,7 +165,8 @@ impl QueryHost {
                             slice,
                             remapped,
                             "Rerun prism_open with mode `raw` if you need the exact file window.",
-                        )
+                            related_handles.clone(),
+                        )?
                     }
                     AgentOpenMode::Raw => {
                         let location = symbol
@@ -177,7 +187,8 @@ impl QueryHost {
                             excerpt,
                             remapped,
                             "Rerun prism_open with a narrower target if you need a smaller raw window.",
-                        )
+                            related_handles.clone(),
+                        )?
                     }
                 };
                 Ok((result, Vec::new()))
@@ -467,15 +478,18 @@ fn locate_intent_defaults(
 fn build_locate_result(
     candidates: Vec<AgentTargetHandleView>,
     diagnostics: Vec<QueryDiagnostic>,
+    resolved_confidently: bool,
 ) -> AgentLocateResultView {
     let status = if candidates.is_empty() {
         AgentLocateStatus::Empty
-    } else if diagnostics.iter().any(|diagnostic| {
-        matches!(
-            diagnostic.code.as_str(),
-            "ambiguous_search" | "weak_search_match"
-        )
-    }) {
+    } else if !resolved_confidently
+        && diagnostics.iter().any(|diagnostic| {
+            matches!(
+                diagnostic.code.as_str(),
+                "ambiguous_search" | "weak_search_match"
+            )
+        })
+    {
         AgentLocateStatus::Ambiguous
     } else {
         AgentLocateStatus::Ok
@@ -486,7 +500,9 @@ fn build_locate_result(
         truncated: diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "result_truncated"),
-        narrowing_hint: diagnostics.iter().find_map(next_action_hint),
+        narrowing_hint: matches!(status, AgentLocateStatus::Ambiguous)
+            .then(|| diagnostics.iter().find_map(next_action_hint))
+            .flatten(),
     }
 }
 
@@ -585,12 +601,22 @@ fn rerank_locate_results(
 ) -> Vec<RankedLocateCandidate> {
     let query_normalized = normalize_locate_text(&args.query);
     let tokens = locate_query_tokens(&query_normalized);
+    let identifier_terms = locate_identifier_terms(&args.query);
+    let path_scope = args.path.as_deref().map(str::to_ascii_lowercase);
     let profile = locate_intent_profile(args);
     let mut ranked = results
         .into_iter()
         .enumerate()
         .map(|(index, symbol)| {
-            rank_locate_candidate(index, symbol, &query_normalized, &tokens, profile)
+            rank_locate_candidate(
+                index,
+                symbol,
+                &query_normalized,
+                &tokens,
+                &identifier_terms,
+                path_scope.as_deref(),
+                profile,
+            )
         })
         .collect::<Vec<_>>();
     ranked.sort_by(|left, right| {
@@ -607,13 +633,49 @@ fn rank_locate_candidate(
     symbol: SymbolView,
     query_normalized: &str,
     tokens: &[String],
+    identifier_terms: &[String],
+    path_scope: Option<&str>,
     profile: LocateIntentProfile,
 ) -> RankedLocateCandidate {
+    let query_uses_identifiers = !identifier_terms.is_empty();
+    let name_raw = symbol.name.trim().to_ascii_lowercase();
+    let path_raw = symbol.id.path.trim().to_ascii_lowercase();
+    let final_segment_raw = path_raw.split("::").last().unwrap_or(path_raw.as_str());
+    let file_raw = symbol
+        .file_path
+        .as_deref()
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase();
     let name_normalized = normalize_locate_text(&symbol.name);
     let path_normalized = normalize_locate_text(&symbol.id.path);
     let file_normalized = normalize_locate_text(symbol.file_path.as_deref().unwrap_or_default());
     let mut score = 0_i32;
     let mut reasons = Vec::<String>::new();
+
+    for term in identifier_terms {
+        if name_raw == *term {
+            score += 420;
+            reasons.push(format!(
+                "Exact identifier `{term}` matched the candidate name."
+            ));
+        } else if final_segment_raw == term {
+            score += 360;
+            reasons.push(format!(
+                "Exact identifier `{term}` matched the candidate path tail."
+            ));
+        } else if path_raw.contains(term) {
+            score += 110;
+            reasons.push(format!(
+                "Identifier-like query term `{term}` matched the candidate path."
+            ));
+        } else if file_raw.contains(term) {
+            score += 84;
+            reasons.push(format!(
+                "Identifier-like query term `{term}` matched the candidate file path."
+            ));
+        }
+    }
 
     if !query_normalized.is_empty() {
         if name_normalized == *query_normalized {
@@ -623,13 +685,13 @@ fn rank_locate_candidate(
             score += 210;
             reasons.push("Exact query matched the candidate path tail.".to_string());
         } else if name_normalized.contains(query_normalized) {
-            score += 170;
+            score += if query_uses_identifiers { 60 } else { 170 };
             reasons.push("Exact query phrase matched the candidate name.".to_string());
         } else if path_normalized.contains(query_normalized) {
-            score += 150;
+            score += if query_uses_identifiers { 48 } else { 150 };
             reasons.push("Exact query phrase matched the candidate path.".to_string());
         } else if file_normalized.contains(query_normalized) {
-            score += 110;
+            score += if query_uses_identifiers { 24 } else { 110 };
             reasons.push("Exact query phrase matched the candidate file path.".to_string());
         }
     }
@@ -640,18 +702,18 @@ fn rank_locate_candidate(
             continue;
         }
         if name_normalized.contains(token) {
-            score += 34;
+            score += if query_uses_identifiers { 20 } else { 34 };
             matched_tokens += 1;
         } else if path_normalized.contains(token) {
-            score += 26;
+            score += if query_uses_identifiers { 14 } else { 26 };
             matched_tokens += 1;
         } else if file_normalized.contains(token) {
-            score += 16;
+            score += if query_uses_identifiers { 8 } else { 16 };
             matched_tokens += 1;
         }
     }
     if !tokens.is_empty() && matched_tokens == tokens.len() {
-        score += 72;
+        score += if query_uses_identifiers { 24 } else { 72 };
         reasons.push(format!(
             "Matched all {} significant query terms.",
             tokens.len()
@@ -677,6 +739,14 @@ fn rank_locate_candidate(
     }
     if symbol.file_path.as_deref().is_some_and(is_docs_path) {
         score += profile.docs_bias / 2;
+    }
+    if path_scope.is_some_and(|scope| locate_path_scope_matches(scope, symbol.file_path.as_deref()))
+    {
+        score += 150;
+        reasons.push("Matched the requested path scope.".to_string());
+    }
+    if profile.test_penalty > 0 && is_test_like_symbol(&symbol) {
+        score -= profile.test_penalty;
     }
     if matches!(symbol.kind, NodeKind::Module) {
         score -= 18;
@@ -713,6 +783,30 @@ fn select_locate_candidates(
         selected.push(ranked.remove(best_index));
     }
     selected
+}
+
+fn locate_resolved_confidently(
+    ranked: &[RankedLocateCandidate],
+    diagnostics: &[QueryDiagnostic],
+) -> bool {
+    if ranked.is_empty() {
+        return false;
+    }
+    if !diagnostics.iter().any(|diagnostic| {
+        matches!(
+            diagnostic.code.as_str(),
+            "ambiguous_search" | "weak_search_match"
+        )
+    }) {
+        return true;
+    }
+    let top = &ranked[0];
+    let runner_up = ranked.get(1).map(|candidate| candidate.score).unwrap_or(0);
+    let score_gap = top.score - runner_up;
+    score_gap >= 60
+        && (top.why.starts_with("Exact identifier")
+            || top.why.starts_with("Exact query matched")
+            || top.why.starts_with("Matched the requested path scope"))
 }
 
 fn locate_diversity_bonus(
@@ -754,20 +848,24 @@ fn locate_intent_profile(args: &PrismLocateArgs) -> LocateIntentProfile {
         PrismLocateTaskIntentInput::Edit => LocateIntentProfile {
             code_bias: 95,
             docs_bias: if docs_path_bias { 20 } else { -80 },
+            test_penalty: 110,
         },
         PrismLocateTaskIntentInput::Validate | PrismLocateTaskIntentInput::Test => {
             LocateIntentProfile {
                 code_bias: 72,
                 docs_bias: if docs_path_bias { 16 } else { -48 },
+                test_penalty: 0,
             }
         }
         PrismLocateTaskIntentInput::Explain => LocateIntentProfile {
             code_bias: 18,
             docs_bias: if docs_path_bias { 110 } else { 58 },
+            test_penalty: 72,
         },
         PrismLocateTaskIntentInput::Inspect => LocateIntentProfile {
             code_bias: 32,
             docs_bias: if docs_path_bias { 80 } else { 20 },
+            test_penalty: 64,
         },
     }
 }
@@ -783,6 +881,23 @@ fn locate_query_tokens(query_normalized: &str) -> Vec<String> {
         }
     }
     tokens
+}
+
+fn locate_identifier_terms(query: &str) -> Vec<String> {
+    let mut terms = Vec::<String>::new();
+    for token in query.split_whitespace() {
+        let token = token
+            .trim_matches(|ch: char| matches!(ch, '`' | '"' | '\''))
+            .trim()
+            .to_ascii_lowercase();
+        if token.len() < 2 || !is_identifier_like_term(&token) {
+            continue;
+        }
+        if !terms.iter().any(|existing| existing == &token) {
+            terms.push(token);
+        }
+    }
+    terms
 }
 
 fn normalize_locate_text(value: &str) -> String {
@@ -805,11 +920,45 @@ fn final_segment_normalized(path: &str) -> String {
     normalize_locate_text(path.split("::").last().unwrap_or(path))
 }
 
+fn locate_path_scope_matches(path_scope: &str, file_path: Option<&str>) -> bool {
+    let Some(file_path) = file_path else {
+        return false;
+    };
+    let file_path = file_path.to_ascii_lowercase();
+    file_path.contains(path_scope)
+        || Path::new(&file_path)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name == path_scope)
+}
+
 fn is_locate_stopword(token: &str) -> bool {
     matches!(
         token,
         "a" | "an" | "and" | "for" | "in" | "of" | "or" | "the" | "to" | "with"
     )
+}
+
+fn is_identifier_like_term(token: &str) -> bool {
+    token.contains('_')
+        || token.contains("::")
+        || token.contains('/')
+        || token.contains('.')
+        || token.contains('-')
+}
+
+fn is_test_like_symbol(symbol: &SymbolView) -> bool {
+    symbol.file_path.as_deref().is_some_and(is_test_like_path)
+        || symbol.id.path.to_ascii_lowercase().contains("::tests::")
+}
+
+fn is_test_like_path(path: &str) -> bool {
+    let path = path.to_ascii_lowercase();
+    path.contains("/tests/")
+        || path.ends_with("/test.rs")
+        || path.ends_with("/tests.rs")
+        || path.ends_with("_test.rs")
+        || path.ends_with("_tests.rs")
 }
 
 fn is_code_like_kind(kind: NodeKind) -> bool {
@@ -888,6 +1037,25 @@ fn budgeted_workset_result(
     if trimmed {
         result.truncated = true;
         result.next_action = Some(WORKSET_TRUNCATED_NEXT_ACTION.to_string());
+    }
+    Ok(result)
+}
+
+fn budgeted_open_result(mut result: AgentOpenResultView) -> Result<AgentOpenResultView> {
+    if let Some(related_handles) = result.related_handles.as_mut() {
+        strip_file_paths(related_handles);
+        if related_handles.len() > OPEN_RELATED_HANDLE_LIMIT {
+            related_handles.truncate(OPEN_RELATED_HANDLE_LIMIT);
+        }
+    }
+    while open_json_bytes(&result)? > OPEN_MAX_JSON_BYTES {
+        let Some(related_handles) = result.related_handles.as_mut() else {
+            break;
+        };
+        related_handles.pop();
+        if related_handles.is_empty() {
+            result.related_handles = None;
+        }
     }
     Ok(result)
 }
@@ -1051,6 +1219,7 @@ fn compact_open_result_from_block(
     excerpt: Option<SourceExcerptView>,
     remapped: bool,
     next_action: &str,
+    related_handles: Option<Vec<AgentTargetHandleView>>,
 ) -> Result<AgentOpenResultView> {
     if let Some(slice) = slice {
         return Ok(compact_open_result_from_slice(
@@ -1059,7 +1228,8 @@ fn compact_open_result_from_block(
             slice,
             remapped,
             next_action,
-        ));
+            related_handles,
+        )?);
     }
     if let Some(excerpt) = excerpt {
         return Ok(compact_open_result_from_excerpt(
@@ -1068,7 +1238,8 @@ fn compact_open_result_from_block(
             excerpt,
             remapped,
             next_action,
-        ));
+            related_handles,
+        )?);
     }
     Err(anyhow!("target did not produce any bounded source content"))
 }
@@ -1079,8 +1250,9 @@ fn compact_open_result_from_slice(
     slice: SourceSliceView,
     remapped: bool,
     next_action: &str,
-) -> AgentOpenResultView {
-    AgentOpenResultView {
+    related_handles: Option<Vec<AgentTargetHandleView>>,
+) -> Result<AgentOpenResultView> {
+    budgeted_open_result(AgentOpenResultView {
         handle: handle.to_string(),
         file_path: file_path.to_string(),
         start_line: slice.start_line,
@@ -1089,8 +1261,8 @@ fn compact_open_result_from_slice(
         truncated: slice.truncated,
         remapped,
         next_action: slice.truncated.then(|| next_action.to_string()),
-        related_handles: None,
-    }
+        related_handles,
+    })
 }
 
 fn compact_open_result_from_excerpt(
@@ -1099,8 +1271,9 @@ fn compact_open_result_from_excerpt(
     excerpt: SourceExcerptView,
     remapped: bool,
     next_action: &str,
-) -> AgentOpenResultView {
-    AgentOpenResultView {
+    related_handles: Option<Vec<AgentTargetHandleView>>,
+) -> Result<AgentOpenResultView> {
+    budgeted_open_result(AgentOpenResultView {
         handle: handle.to_string(),
         file_path: file_path.to_string(),
         start_line: excerpt.start_line,
@@ -1109,8 +1282,40 @@ fn compact_open_result_from_excerpt(
         truncated: excerpt.truncated,
         remapped,
         next_action: excerpt.truncated.then(|| next_action.to_string()),
-        related_handles: None,
+        related_handles,
+    })
+}
+
+fn compact_open_related_handles(
+    session: &SessionState,
+    prism: &Prism,
+    target: &SessionHandleTarget,
+) -> Result<Option<Vec<AgentTargetHandleView>>> {
+    let mut seen = HashSet::<String>::new();
+    let mut related_handles = Vec::new();
+    for candidate in next_reads(prism, &target.id, OPEN_RELATED_HANDLE_LIMIT + 1)? {
+        if candidate.symbol.id.crate_name == target.id.crate_name
+            && candidate.symbol.id.path == target.id.path
+            && candidate.symbol.kind == target.id.kind
+        {
+            continue;
+        }
+        if !seen.insert(candidate.symbol.id.path.clone()) {
+            continue;
+        }
+        let mut handle = compact_target_view(
+            session,
+            &candidate.symbol,
+            target.query.as_deref(),
+            Some(candidate.why),
+        );
+        handle.file_path = None;
+        related_handles.push(handle);
+        if related_handles.len() >= OPEN_RELATED_HANDLE_LIMIT {
+            break;
+        }
     }
+    Ok((!related_handles.is_empty()).then_some(related_handles))
 }
 
 fn source_slice_view(slice: prism_query::EditSlice) -> SourceSliceView {
@@ -1174,6 +1379,10 @@ fn workset_json_bytes(result: &AgentWorksetResultView) -> Result<usize> {
     Ok(serde_json::to_vec(result)?.len())
 }
 
+fn open_json_bytes(result: &AgentOpenResultView) -> Result<usize> {
+    Ok(serde_json::to_vec(result)?.len())
+}
+
 #[cfg(test)]
 mod tests {
     use prism_ir::NodeKind;
@@ -1188,6 +1397,23 @@ mod tests {
             name: format!("very_long_function_name_for_budget_tests_{index}"),
             why_short: "Matched ranking hint from a compact budget regression test.".to_string(),
             file_path: file_path.map(ToString::to_string),
+        }
+    }
+
+    fn open_result(
+        related_handles: Option<Vec<AgentTargetHandleView>>,
+        text_len: usize,
+    ) -> AgentOpenResultView {
+        AgentOpenResultView {
+            handle: "handle:primary".to_string(),
+            file_path: "src/main.rs".to_string(),
+            start_line: 1,
+            end_line: 12,
+            text: "x".repeat(text_len),
+            truncated: false,
+            remapped: false,
+            next_action: None,
+            related_handles,
         }
     }
 
@@ -1238,5 +1464,30 @@ mod tests {
                     .iter()
                     .all(|target| target.file_path.is_none())
         );
+    }
+
+    #[test]
+    fn open_budget_keeps_related_handles_small_and_compact() {
+        let long_path =
+            "src/really/deeply/nested/module/with/a/very/long/path/for/compact/open/tests.rs";
+        let result = budgeted_open_result(open_result(
+            Some(vec![
+                handle_view(1, Some(long_path)),
+                handle_view(2, Some(long_path)),
+                handle_view(3, Some(long_path)),
+            ]),
+            RAW_OPEN_MAX_CHARS,
+        ))
+        .expect("budgeted open should serialize");
+
+        assert!(open_json_bytes(&result).expect("json bytes") <= OPEN_MAX_JSON_BYTES);
+        assert!(result
+            .related_handles
+            .as_ref()
+            .is_none_or(|targets| targets.len() <= OPEN_RELATED_HANDLE_LIMIT));
+        assert!(result
+            .related_handles
+            .as_ref()
+            .is_none_or(|targets| { targets.iter().all(|target| target.file_path.is_none()) }));
     }
 }

@@ -3788,6 +3788,125 @@ This section explains the event journal flow.
         .is_some_and(|path| path.ends_with("docs/SPEC.md")));
 }
 
+#[test]
+fn compact_locate_prefers_identifier_matches_over_test_helpers() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod compact_tools;
+pub mod helpers;
+pub mod tests;
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/compact_tools.rs"),
+        r#"
+pub fn compact_open() {}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/helpers.rs"),
+        r#"
+pub fn cached_related_memory() {}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/tests.rs"),
+        r#"
+pub fn compact_open_returns_compact_related_handles() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "compact_open related_handles".to_string(),
+                path: None,
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                limit: Some(3),
+            },
+        )
+        .expect("locate should succeed");
+
+    assert_eq!(locate.status, prism_js::AgentLocateStatus::Ok);
+    assert_eq!(locate.candidates[0].kind, NodeKind::Function);
+    assert_eq!(
+        locate.candidates[0].path,
+        "demo::compact_tools::compact_open"
+    );
+}
+
+#[test]
+fn compact_open_returns_compact_related_handles() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn event_journal_snapshot() {
+    persist_event_journal();
+}
+
+fn persist_event_journal() {}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("docs/SPEC.md"),
+        r#"
+## Event Journal
+
+The event journal snapshot should persist journal entries.
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "event journal".to_string(),
+                path: None,
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                limit: Some(3),
+            },
+        )
+        .expect("locate should succeed");
+    assert_eq!(locate.status, prism_js::AgentLocateStatus::Ok);
+    assert_eq!(locate.candidates[0].kind, NodeKind::MarkdownHeading);
+
+    let open = host
+        .compact_open(
+            Arc::clone(&session),
+            PrismOpenArgs {
+                handle: locate.candidates[0].handle.clone(),
+                mode: Some(PrismOpenModeInput::Focus),
+            },
+        )
+        .expect("open should succeed");
+    let related = open
+        .related_handles
+        .expect("open should surface compact related handles");
+    assert!(!related.is_empty());
+    assert!(related.len() <= 2);
+    assert!(related.iter().all(|target| target.file_path.is_none()));
+    assert!(related
+        .iter()
+        .any(|target| target.kind == NodeKind::Function));
+}
+
 #[tokio::test]
 async fn mcp_server_executes_compact_agent_tool_round_trip() {
     let root = temp_workspace();
