@@ -15,6 +15,9 @@ use prism_js::{
 use prism_query::{EditSliceOptions, Prism};
 use serde_json::{json, Value};
 
+use crate::compact_followups::{
+    compact_validation_checks, same_workspace_file, spec_body_identifier_terms,
+};
 use crate::file_queries::file_read;
 use crate::session_state::SessionHandleTarget;
 use crate::text_search::search_text;
@@ -65,6 +68,11 @@ const EXPAND_DRIFT_NEXT_READ_LIMIT: usize = 3;
 const EXPAND_DRIFT_LIST_LIMIT: usize = 3;
 const EXPAND_DRIFT_TEXT_MAX_CHARS: usize = 120;
 const EXPAND_DRIFT_MAX_JSON_BYTES: usize = 1400;
+const COMPACT_VALIDATION_CHECK_LIMIT: usize = 2;
+const COMPACT_VALIDATION_CHECK_MAX_CHARS: usize = 96;
+const SPEC_BODY_IDENTIFIER_LIMIT: usize = 8;
+const SPEC_IDENTIFIER_SEARCH_LIMIT: usize = 6;
+const SPEC_IDENTIFIER_TEXT_LIMIT: usize = 2;
 const MAX_WHY_SHORT_CHARS: usize = 120;
 const LOCATE_SECONDARY_FILE_DIVERSITY_BONUS: i32 = 18;
 const LOCATE_SECONDARY_KIND_DIVERSITY_BONUS: i32 = 7;
@@ -485,8 +493,14 @@ impl QueryHost {
                                     )
                                 })
                                 .collect::<Vec<_>>();
+                            let checks = compact_validation_checks(
+                                &validation.validation_recipe.checks,
+                                &validation.validation_recipe.scored_checks,
+                                COMPACT_VALIDATION_CHECK_LIMIT,
+                                COMPACT_VALIDATION_CHECK_MAX_CHARS,
+                            );
                             json!({
-                                "checks": validation.validation_recipe.checks,
+                                "checks": checks,
                                 "likelyTests": likely_tests,
                                 "why": validation.why,
                             })
@@ -499,7 +513,12 @@ impl QueryHost {
                                 "filePath": target.file_path,
                             })
                         } else {
-                            compact_drift_expand_result(session.as_ref(), prism.as_ref(), &target)?
+                            compact_drift_expand_result(
+                                host,
+                                session.as_ref(),
+                                prism.as_ref(),
+                                &target,
+                            )?
                         }
                     }
                 };
@@ -670,8 +689,30 @@ fn semantic_symbols_for_text_target(
     let prism = host.current_prism();
     let mut promoted =
         semantic_symbols_from_text_candidates(prism.as_ref(), &[pseudo_candidate], limit)?;
-    promoted.retain(|symbol| symbol.file_path.as_deref() == Some(file_path));
+    let query_segments = target
+        .query
+        .as_deref()
+        .map(semantic_query_segments)
+        .unwrap_or_default();
+    promoted.retain(|symbol| {
+        symbol.file_path.as_deref().is_some_and(|symbol_path| {
+            same_workspace_file(file_path, symbol_path)
+                && semantic_symbol_matches_text_query(symbol, &query_segments)
+        })
+    });
     Ok(promoted)
+}
+
+fn semantic_symbol_matches_text_query(symbol: &SymbolView, query_segments: &[String]) -> bool {
+    if query_segments.is_empty() {
+        return true;
+    }
+    let name = normalize_locate_text(symbol.name.as_str());
+    let path = normalize_locate_text(symbol.id.path.as_str());
+    query_segments.iter().all(|segment| {
+        let normalized = normalize_locate_text(segment);
+        name.contains(normalized.as_str()) || path.contains(normalized.as_str())
+    })
 }
 
 fn dedupe_locate_symbols(results: &mut Vec<SymbolView>) {
@@ -787,6 +828,7 @@ fn compact_target_view(
     why_override: Option<String>,
 ) -> AgentTargetHandleView {
     let why_short = compact_why_short(symbol, why_override.as_deref(), query);
+    let location = symbol.location.as_ref();
     let handle = session.intern_target_handle(SessionHandleTarget {
         id: NodeId::new(
             symbol.id.crate_name.clone(),
@@ -799,10 +841,10 @@ fn compact_target_view(
         file_path: symbol.file_path.clone(),
         query: query.map(ToString::to_string),
         why_short: why_short.clone(),
-        start_line: None,
-        end_line: None,
-        start_column: None,
-        end_column: None,
+        start_line: location.map(|location| location.start_line),
+        end_line: location.map(|location| location.end_line),
+        start_column: location.map(|location| location.start_column),
+        end_column: location.map(|location| location.end_column),
     });
     AgentTargetHandleView {
         handle,
@@ -1761,7 +1803,7 @@ fn workset_context_for_target(
         return compact_text_fragment_workset_context(host, session, target);
     }
     if is_docs_like_kind(target.kind) || target.file_path.as_deref().is_some_and(is_docs_path) {
-        return compact_spec_workset_context(session, prism, target);
+        return compact_spec_workset_context(host, session, prism, target);
     }
     Ok(WorksetContext {
         supporting_reads: next_reads(prism, target_symbol_id(target)?, WORKSET_SUPPORTING_LIMIT)?
@@ -1817,13 +1859,20 @@ fn compact_text_fragment_workset_context(
 }
 
 fn compact_spec_workset_context(
+    host: &QueryHost,
     session: &SessionState,
     prism: &Prism,
     target: &SessionHandleTarget,
 ) -> Result<WorksetContext> {
     let drift = spec_drift_explanation_view(prism, &target.id)?;
-    let supporting_reads =
-        prioritized_spec_supporting_reads(session, target, &drift, WORKSET_SUPPORTING_LIMIT);
+    let supporting_reads = prioritized_spec_supporting_reads(
+        host,
+        session,
+        prism,
+        target,
+        &drift,
+        WORKSET_SUPPORTING_LIMIT,
+    )?;
     let likely_tests = prioritized_spec_test_reads(session, target, &drift, WORKSET_TEST_LIMIT);
     Ok(WorksetContext {
         supporting_reads,
@@ -1837,6 +1886,14 @@ struct RankedCompactFollowup {
     symbol: SymbolView,
     why: String,
     score: i32,
+    keep_without_overlap: bool,
+}
+
+#[derive(Debug, Clone)]
+struct SpecIdentifierFollowup {
+    symbol: SymbolView,
+    term: String,
+    exact_match: bool,
 }
 
 fn compact_text_fragment_supporting_reads(
@@ -1921,12 +1978,14 @@ fn text_fragment_semantic_why(symbol: &SymbolView) -> String {
 }
 
 fn prioritized_spec_supporting_reads(
+    host: &QueryHost,
     session: &SessionState,
+    prism: &Prism,
     target: &SessionHandleTarget,
     drift: &prism_js::SpecDriftExplanationView,
     limit: usize,
-) -> Vec<AgentTargetHandleView> {
-    ranked_spec_followups(target, drift)
+) -> Result<Vec<AgentTargetHandleView>> {
+    Ok(ranked_spec_followups(host, prism, target, drift)?
         .into_iter()
         .take(limit)
         .map(|candidate| {
@@ -1937,7 +1996,7 @@ fn prioritized_spec_supporting_reads(
                 Some(candidate.why),
             )
         })
-        .collect()
+        .collect())
 }
 
 fn prioritized_spec_test_reads(
@@ -1962,10 +2021,173 @@ fn prioritized_spec_test_reads(
         .collect()
 }
 
+fn spec_identifier_followups(
+    host: &QueryHost,
+    prism: &Prism,
+    target: &SessionHandleTarget,
+) -> Result<Vec<SpecIdentifierFollowup>> {
+    let symbol = symbol_for(prism, &target.id)?;
+    let mut followups = Vec::<SpecIdentifierFollowup>::new();
+    let mut seen = HashSet::<String>::new();
+    for term in spec_body_identifier_terms(
+        &spec_identifier_source_text(host, target, &symbol.full())?,
+        SPEC_BODY_IDENTIFIER_LIMIT,
+    ) {
+        let normalized_term = normalize_locate_text(&term);
+        let mut matched_any = false;
+        for view in spec_identifier_symbol_matches(prism, &term, Some("src/"))?
+            .into_iter()
+            .chain(spec_identifier_symbol_matches(prism, &term, None)?)
+        {
+            if !seen.insert(view.id.path.clone()) {
+                continue;
+            }
+            matched_any = true;
+            let exact_match = spec_identifier_exact_match(&view, &normalized_term);
+            followups.push(SpecIdentifierFollowup {
+                symbol: view,
+                term: term.clone(),
+                exact_match,
+            });
+        }
+        if matched_any {
+            continue;
+        }
+        let outcome = search_text(
+            host,
+            SearchTextArgs {
+                query: term.clone(),
+                regex: Some(false),
+                case_sensitive: Some(false),
+                path: Some("src/".to_string()),
+                glob: Some("**/*.rs".to_string()),
+                limit: Some(SPEC_IDENTIFIER_TEXT_LIMIT),
+                context_lines: Some(0),
+            },
+            SPEC_IDENTIFIER_SEARCH_LIMIT,
+        )?;
+        for matched in outcome.results {
+            for view in spec_identifier_symbol_matches(prism, &term, Some(matched.path.as_str()))? {
+                if !seen.insert(view.id.path.clone()) {
+                    continue;
+                }
+                let exact_match = spec_identifier_exact_match(&view, &normalized_term);
+                followups.push(SpecIdentifierFollowup {
+                    symbol: view,
+                    term: term.clone(),
+                    exact_match,
+                });
+            }
+        }
+    }
+    followups.sort_by(|left, right| {
+        right
+            .exact_match
+            .cmp(&left.exact_match)
+            .then_with(|| left.symbol.id.path.cmp(&right.symbol.id.path))
+    });
+    Ok(followups)
+}
+
+fn spec_identifier_symbol_matches(
+    prism: &Prism,
+    term: &str,
+    path: Option<&str>,
+) -> Result<Vec<SymbolView>> {
+    let mut matches = Vec::<SymbolView>::new();
+    let mut seen = HashSet::<String>::new();
+    for kind in [
+        NodeKind::Function,
+        NodeKind::Method,
+        NodeKind::Struct,
+        NodeKind::Enum,
+        NodeKind::Trait,
+        NodeKind::Field,
+        NodeKind::TypeAlias,
+    ] {
+        for symbol in prism.search(term, SPEC_IDENTIFIER_SEARCH_LIMIT, Some(kind), path) {
+            let view = symbol_view(prism, &symbol)?;
+            if !is_code_like_kind(view.kind) || is_test_like_symbol(&view) {
+                continue;
+            }
+            if !seen.insert(view.id.path.clone()) {
+                continue;
+            }
+            matches.push(view);
+        }
+    }
+    Ok(matches)
+}
+
+fn spec_identifier_source_text(
+    host: &QueryHost,
+    target: &SessionHandleTarget,
+    full: &str,
+) -> Result<String> {
+    if spec_body_identifier_terms(&full, 1).is_empty() {
+        if let Some(file_path) = target.file_path.as_deref() {
+            let excerpt = file_read(
+                host,
+                FileReadArgs {
+                    path: file_path.to_string(),
+                    start_line: None,
+                    end_line: None,
+                    max_chars: None,
+                },
+            )?;
+            let start_line = target.start_line.or_else(|| {
+                target
+                    .query
+                    .as_deref()
+                    .and_then(|query| excerpt_start_line_for_query(excerpt.text.as_str(), query))
+            });
+            if let Some(start_line) = start_line {
+                let end_line = target.end_line.unwrap_or(start_line).saturating_add(12);
+                let excerpt =
+                    read_text_fragment(host, target, start_line, end_line, RAW_OPEN_MAX_CHARS)?;
+                if !excerpt.text.trim().is_empty() {
+                    return Ok(excerpt.text);
+                }
+            }
+            if let Some(query) = target.query.as_deref() {
+                if let Some(section) = excerpt_section_for_query(excerpt.text.as_str(), query) {
+                    return Ok(section);
+                }
+            }
+            if !excerpt.text.trim().is_empty() {
+                return Ok(excerpt.text);
+            }
+        }
+    }
+    Ok(full.to_string())
+}
+
+fn excerpt_start_line_for_query(text: &str, query: &str) -> Option<usize> {
+    let query = normalize_locate_text(query);
+    text.lines().enumerate().find_map(|(index, line)| {
+        normalize_locate_text(line)
+            .contains(query.as_str())
+            .then_some(index + 1)
+    })
+}
+
+fn excerpt_section_for_query(text: &str, query: &str) -> Option<String> {
+    let start_line = excerpt_start_line_for_query(text, query)?;
+    let section = text
+        .lines()
+        .skip(start_line.saturating_sub(1))
+        .take(16)
+        .collect::<Vec<_>>()
+        .join("\n");
+    (!section.trim().is_empty()).then_some(section)
+}
+
 fn ranked_spec_followups(
+    host: &QueryHost,
+    prism: &Prism,
     target: &SessionHandleTarget,
     drift: &prism_js::SpecDriftExplanationView,
-) -> Vec<RankedCompactFollowup> {
+) -> Result<Vec<RankedCompactFollowup>> {
     let query_tokens = target
         .query
         .as_deref()
@@ -1975,6 +2197,13 @@ fn ranked_spec_followups(
     let mut candidates = Vec::<RankedCompactFollowup>::new();
     let mut seen = HashSet::<String>::new();
 
+    push_ranked_spec_identifier_followups(
+        &mut candidates,
+        &mut seen,
+        spec_identifier_followups(host, prism, target)?.iter(),
+        132,
+        &query_tokens,
+    );
     push_ranked_spec_symbols(
         &mut candidates,
         &mut seen,
@@ -1982,6 +2211,7 @@ fn ranked_spec_followups(
         "Implementation linked from the spec cluster.",
         140,
         &query_tokens,
+        false,
     );
     push_ranked_spec_owners(
         &mut candidates,
@@ -1989,6 +2219,7 @@ fn ranked_spec_followups(
         drift.cluster.write_path.iter(),
         120,
         &query_tokens,
+        false,
     );
     push_ranked_spec_owners(
         &mut candidates,
@@ -1996,6 +2227,7 @@ fn ranked_spec_followups(
         drift.cluster.read_path.iter(),
         110,
         &query_tokens,
+        false,
     );
     push_ranked_spec_owners(
         &mut candidates,
@@ -2003,6 +2235,7 @@ fn ranked_spec_followups(
         drift.cluster.persistence_path.iter(),
         100,
         &query_tokens,
+        false,
     );
     push_ranked_spec_owners(
         &mut candidates,
@@ -2010,14 +2243,23 @@ fn ranked_spec_followups(
         drift.next_reads.iter(),
         80,
         &query_tokens,
+        false,
     );
 
     let has_token_overlap = candidates
         .iter()
         .any(|candidate| spec_followup_token_overlap(&candidate.symbol, &query_tokens) > 0);
     if has_token_overlap {
-        candidates
-            .retain(|candidate| spec_followup_token_overlap(&candidate.symbol, &query_tokens) > 0);
+        candidates.retain(|candidate| {
+            candidate.keep_without_overlap
+                || spec_followup_token_overlap(&candidate.symbol, &query_tokens) > 0
+        });
+    }
+    let has_non_test = candidates
+        .iter()
+        .any(|candidate| !is_test_like_symbol(&candidate.symbol));
+    if has_non_test {
+        candidates.retain(|candidate| !is_test_like_symbol(&candidate.symbol));
     }
 
     candidates.sort_by(|left, right| {
@@ -2026,7 +2268,7 @@ fn ranked_spec_followups(
             .cmp(&left.score)
             .then_with(|| left.symbol.id.path.cmp(&right.symbol.id.path))
     });
-    candidates
+    Ok(candidates)
 }
 
 fn push_ranked_spec_symbols<'a>(
@@ -2036,6 +2278,7 @@ fn push_ranked_spec_symbols<'a>(
     why: &str,
     source_weight: i32,
     query_tokens: &[String],
+    keep_without_overlap: bool,
 ) {
     for symbol in symbols {
         if !seen.insert(symbol.id.path.clone()) {
@@ -2045,6 +2288,37 @@ fn push_ranked_spec_symbols<'a>(
             symbol: symbol.clone(),
             why: why.to_string(),
             score: spec_followup_score(symbol, source_weight, query_tokens),
+            keep_without_overlap,
+        });
+    }
+}
+
+fn push_ranked_spec_identifier_followups<'a>(
+    out: &mut Vec<RankedCompactFollowup>,
+    seen: &mut HashSet<String>,
+    candidates: impl Iterator<Item = &'a SpecIdentifierFollowup>,
+    source_weight: i32,
+    query_tokens: &[String],
+) {
+    for candidate in candidates {
+        if !seen.insert(candidate.symbol.id.path.clone()) {
+            continue;
+        }
+        let mut score = spec_followup_score(&candidate.symbol, source_weight, query_tokens);
+        if candidate.exact_match {
+            score += 48;
+        }
+        if matches!(candidate.symbol.kind, NodeKind::Function | NodeKind::Method) {
+            score += 12;
+        }
+        out.push(RankedCompactFollowup {
+            symbol: candidate.symbol.clone(),
+            why: format!(
+                "Identifier `{}` lifted from the spec body matched this implementation owner.",
+                candidate.term
+            ),
+            score,
+            keep_without_overlap: true,
         });
     }
 }
@@ -2055,6 +2329,7 @@ fn push_ranked_spec_owners<'a>(
     owners: impl Iterator<Item = &'a prism_js::OwnerCandidateView>,
     source_weight: i32,
     query_tokens: &[String],
+    keep_without_overlap: bool,
 ) {
     for candidate in owners {
         if !seen.insert(candidate.symbol.id.path.clone()) {
@@ -2064,6 +2339,7 @@ fn push_ranked_spec_owners<'a>(
             symbol: candidate.symbol.clone(),
             why: candidate.why.clone(),
             score: spec_followup_score(&candidate.symbol, source_weight, query_tokens),
+            keep_without_overlap,
         });
     }
 }
@@ -2074,6 +2350,9 @@ fn spec_followup_score(symbol: &SymbolView, source_weight: i32, query_tokens: &[
     score += overlap * 26;
     if is_code_like_kind(symbol.kind) {
         score += 18;
+    }
+    if is_test_like_symbol(symbol) {
+        score -= 80;
     }
     if matches!(symbol.kind, NodeKind::Module | NodeKind::Document) {
         score -= 20;
@@ -2086,6 +2365,14 @@ fn spec_followup_score(symbol: &SymbolView, source_weight: i32, query_tokens: &[
         score -= 16;
     }
     score
+}
+
+fn spec_identifier_exact_match(symbol: &SymbolView, normalized_term: &str) -> bool {
+    let name = normalize_locate_text(symbol.name.as_str());
+    let path = normalize_locate_text(symbol.id.path.as_str());
+    name == normalized_term
+        || final_segment_normalized(symbol.id.path.as_str()) == normalized_term
+        || path.ends_with(normalized_term)
 }
 
 fn spec_followup_token_overlap(symbol: &SymbolView, query_tokens: &[String]) -> usize {
@@ -2203,6 +2490,22 @@ fn resolve_handle_target(
     target.kind = symbol_view.kind;
     target.file_path = symbol_view.file_path;
     target.lineage_id = symbol_view.lineage_id.or(target.lineage_id);
+    target.start_line = symbol_view
+        .location
+        .as_ref()
+        .map(|location| location.start_line);
+    target.end_line = symbol_view
+        .location
+        .as_ref()
+        .map(|location| location.end_line);
+    target.start_column = symbol_view
+        .location
+        .as_ref()
+        .map(|location| location.start_column);
+    target.end_column = symbol_view
+        .location
+        .as_ref()
+        .map(|location| location.end_column);
     session.refresh_target_handle(handle, target.clone());
     Ok((target, remapped))
 }
@@ -2351,6 +2654,18 @@ fn compact_open_related_handles(
 ) -> Result<Option<Vec<AgentTargetHandleView>>> {
     if is_text_fragment_target(target) {
         return compact_text_fragment_related_handles(host, session, target);
+    }
+    if is_docs_like_kind(target.kind) || target.file_path.as_deref().is_some_and(is_docs_path) {
+        let drift = spec_drift_explanation_view(prism, &target.id)?;
+        let related = prioritized_spec_supporting_reads(
+            host,
+            session,
+            prism,
+            target,
+            &drift,
+            OPEN_RELATED_HANDLE_LIMIT,
+        )?;
+        return Ok((!related.is_empty()).then_some(related));
     }
     let mut seen = HashSet::<String>::new();
     let mut related_handles = Vec::new();
@@ -2501,6 +2816,36 @@ fn compact_open_text_fragment(
     )
 }
 
+fn compact_gather_match_result(
+    host: &QueryHost,
+    session: &SessionState,
+    handle: &str,
+    target: &SessionHandleTarget,
+) -> Result<AgentOpenResultView> {
+    let file_path = target
+        .file_path
+        .clone()
+        .ok_or_else(|| anyhow!("text-fragment handle `{handle}` is missing a file path"))?;
+    let (start_line, end_line) = text_fragment_line_span(target);
+    let excerpt = read_text_fragment(
+        host,
+        target,
+        start_line.saturating_sub(1).max(1),
+        end_line + 1,
+        FOCUS_OPEN_OPTIONS.max_chars,
+    )?;
+    let related_handles =
+        compact_text_fragment_supporting_reads(host, session, target, OPEN_RELATED_HANDLE_LIMIT)?;
+    compact_open_result_from_excerpt(
+        handle,
+        &file_path,
+        excerpt,
+        false,
+        "Rerun prism_gather with a narrower `path` or `glob` if you need a smaller exact-text window.",
+        (!related_handles.is_empty()).then_some(related_handles),
+    )
+}
+
 fn compact_text_fragment_related_handles(
     host: &QueryHost,
     session: &SessionState,
@@ -2543,6 +2888,9 @@ fn compact_text_fragment_related_handles(
             session.limits().max_result_nodes,
         )?;
         for matched in outcome.results {
+            if !same_workspace_file(file_path, &matched.path) {
+                continue;
+            }
             if Some(matched.location.start_line) == target.start_line
                 && Some(matched.location.end_line) == target.end_line
             {
@@ -2593,6 +2941,9 @@ fn compact_text_fragment_neighbors(
             session.limits().max_result_nodes,
         )?;
         for matched in outcome.results {
+            if !same_workspace_file(file_path, &matched.path) {
+                continue;
+            }
             if Some(matched.location.start_line) == target.start_line
                 && Some(matched.location.end_line) == target.end_line
             {
@@ -2721,7 +3072,7 @@ fn gather_text_matches(
         .map(|matched| {
             let target = text_candidate_from_match(session, &args.query, matched).target;
             let handle = session.intern_target_handle(target.clone());
-            compact_open_text_fragment(host, session, &handle, AgentOpenMode::Focus, &target, false)
+            compact_gather_match_result(host, session, &handle, &target)
         })
         .collect::<Result<Vec<_>>>()?;
     Ok((matches, truncated))
@@ -2765,6 +3116,7 @@ fn compact_gather_limit(limit: Option<usize>) -> usize {
 }
 
 fn compact_drift_expand_result(
+    host: &QueryHost,
     session: &SessionState,
     prism: &Prism,
     target: &SessionHandleTarget,
@@ -2791,8 +3143,14 @@ fn compact_drift_expand_result(
             EXPAND_DRIFT_TEXT_MAX_CHARS,
         )
     };
-    let mut next_reads =
-        prioritized_spec_supporting_reads(session, target, &drift, EXPAND_DRIFT_NEXT_READ_LIMIT);
+    let mut next_reads = prioritized_spec_supporting_reads(
+        host,
+        session,
+        prism,
+        target,
+        &drift,
+        EXPAND_DRIFT_NEXT_READ_LIMIT,
+    )?;
     strip_file_paths(&mut next_reads);
     let mut result = json!({
         "driftReasons": drift_reasons,

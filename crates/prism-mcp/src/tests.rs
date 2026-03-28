@@ -378,6 +378,37 @@ fn write_dashboard_validation_workspace(root: &Path) {
     .unwrap();
 }
 
+fn write_compact_default_tools_workspace(root: &Path) {
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::create_dir_all(root.join("tests")).unwrap();
+    fs::write(
+        root.join("docs/SPEC.md"),
+        "# MCP\n\n## 11.2 Compact Default Tools\n\nThe target default agent tools are `prism_locate`, `prism_open`, `prism_workset`, and `prism_expand`.\nThese should stay compact and chain through handles.\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "mod server_surface;\nmod compact_tools;\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/server_surface.rs"),
+        "pub fn prism_locate() {}\npub fn prism_open() {}\npub fn prism_workset() {}\npub fn prism_expand() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/compact_tools.rs"),
+        "pub fn compact_target_view() {}\npub fn resolve_handle_target() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("tests/compact_tools.rs"),
+        "#[test]\nfn compact_locate_promotes_numbered_markdown_headings_to_semantic_handles() {}\n",
+    )
+    .unwrap();
+}
+
 fn write_long_excerpt_workspace(root: &Path) {
     fs::create_dir_all(root.join("docs")).unwrap();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -4311,11 +4342,23 @@ fn compact_locate_promotes_numbered_markdown_headings_to_semantic_handles() {
 #[test]
 fn compact_fragment_followups_surface_semantic_config_targets() {
     let root = temp_workspace();
+    fs::create_dir_all(root.join("crates/member-a")).unwrap();
+    fs::create_dir_all(root.join("crates/member-b")).unwrap();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(root.join("src/lib.rs"), "pub fn helper() {}\n").unwrap();
     fs::write(
         root.join("Cargo.toml"),
         "[workspace]\nmembers = [\"crates/prism\"]\n\n[workspace.dependencies]\nanyhow = \"1.0\"\nserde = \"1.0\"\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("crates/member-a/Cargo.toml"),
+        "[package]\nname = \"member-a\"\nversion = \"0.1.0\"\n\n[dependencies]\nserde = \"1.0\"\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("crates/member-b/Cargo.toml"),
+        "[package]\nname = \"member-b\"\nversion = \"0.1.0\"\n\n[dependencies]\nanyhow = \"1.0\"\n",
     )
     .unwrap();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
@@ -4332,6 +4375,23 @@ fn compact_fragment_followups_surface_semantic_config_targets() {
             },
         )
         .expect("gather should succeed");
+    assert!(gather.matches[0]
+        .related_handles
+        .as_ref()
+        .is_some_and(|targets| !targets.is_empty()));
+    assert!(gather.matches[0]
+        .related_handles
+        .as_ref()
+        .is_some_and(|targets| targets.iter().all(|target| {
+            target.kind == NodeKind::TomlKey
+                && !target.path.contains("member_a")
+                && !target.path.contains("member_b")
+                && !target.path.contains("crates/")
+                && target
+                    .file_path
+                    .as_deref()
+                    .is_none_or(|path| path.ends_with("Cargo.toml"))
+        })));
     let handle = gather.matches[0].handle.clone();
 
     let workset = host
@@ -4348,6 +4408,15 @@ fn compact_fragment_followups_surface_semantic_config_targets() {
         .supporting_reads
         .iter()
         .any(|target| target.kind == NodeKind::TomlKey));
+    assert!(workset.supporting_reads.iter().all(|target| {
+        !target.path.contains("member_a")
+            && !target.path.contains("member_b")
+            && !target.path.contains("crates/")
+            && target
+                .file_path
+                .as_deref()
+                .is_none_or(|path| path.ends_with("Cargo.toml"))
+    }));
 
     let neighbors = host
         .compact_expand(
@@ -4362,6 +4431,9 @@ fn compact_fragment_followups_surface_semantic_config_targets() {
     assert!(neighbors.result["neighbors"]
         .as_array()
         .is_some_and(|items| items.iter().any(|item| item["kind"] == "TomlKey")));
+    assert!(neighbors.result["neighbors"]
+        .as_array()
+        .is_some_and(|items| items.iter().all(|item| item["filePath"] == "Cargo.toml")));
     assert!(neighbors.top_preview.is_some());
 
     let validation = host
@@ -4576,6 +4648,114 @@ fn compact_workset_for_spec_targets_prefers_owner_paths_over_text_adjacent_helpe
                 .unwrap_or_default()
                 .contains("strip_internal_developer_api_reference")
         })));
+}
+
+#[test]
+fn compact_workset_for_product_surface_spec_headings_lifts_body_identifiers() {
+    let root = temp_workspace();
+    write_compact_default_tools_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "Compact Default Tools".to_string(),
+                path: Some("docs/SPEC.md".to_string()),
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                limit: Some(3),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+    assert_eq!(locate.candidates[0].kind, NodeKind::MarkdownHeading);
+
+    let workset = host
+        .compact_workset(
+            Arc::clone(&session),
+            PrismWorksetArgs {
+                handle: Some(locate.candidates[0].handle.clone()),
+                query: None,
+            },
+        )
+        .expect("workset should succeed");
+    assert!(workset.supporting_reads.iter().any(|target| {
+        target.path.contains("prism_locate")
+            || target.path.contains("prism_open")
+            || target.path.contains("prism_workset")
+            || target.path.contains("prism_expand")
+    }));
+    assert!(workset
+        .supporting_reads
+        .iter()
+        .all(|target| !target.path.contains("tests::")));
+
+    let drift = host
+        .compact_expand(
+            Arc::clone(&session),
+            PrismExpandArgs {
+                handle: locate.candidates[0].handle.clone(),
+                kind: PrismExpandKindInput::Drift,
+                include_top_preview: None,
+            },
+        )
+        .expect("drift should succeed");
+    assert!(drift.result["nextReads"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| {
+            let path = item["path"].as_str().unwrap_or_default();
+            path.contains("prism_locate")
+                || path.contains("prism_open")
+                || path.contains("prism_workset")
+                || path.contains("prism_expand")
+        })));
+}
+
+#[test]
+fn compact_open_for_product_surface_spec_headings_prefers_identifier_owners() {
+    let root = temp_workspace();
+    write_compact_default_tools_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "Compact Default Tools".to_string(),
+                path: Some("docs/SPEC.md".to_string()),
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                limit: Some(3),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+
+    let open = host
+        .compact_open(
+            Arc::clone(&session),
+            PrismOpenArgs {
+                handle: locate.candidates[0].handle.clone(),
+                mode: Some(PrismOpenModeInput::Focus),
+            },
+        )
+        .expect("open should succeed");
+
+    assert!(open
+        .related_handles
+        .as_ref()
+        .is_some_and(|targets| targets.iter().any(|target| {
+            target.path.contains("prism_locate")
+                || target.path.contains("prism_open")
+                || target.path.contains("prism_workset")
+                || target.path.contains("prism_expand")
+        })));
+    assert!(open.related_handles.as_ref().is_some_and(|targets| targets
+        .iter()
+        .all(|target| !target.path.contains("tests::"))));
 }
 
 #[tokio::test]

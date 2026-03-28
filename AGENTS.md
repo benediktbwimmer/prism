@@ -32,13 +32,15 @@ When the PRISM MCP server is available for this repo, use it as the primary repo
 - Start with `prism://api-reference` and `prism://session` to confirm the available query surface, active task, and session limits.
 - The default agent path is compact and staged:
   - `prism_locate`
+  - `prism_gather`
   - `prism_open`
   - `prism_workset`
   - `prism_expand`
   - `prism_query` only when the compact surface cannot express the needed read
+- Use `prism_gather` for bounded exact-text slices, especially config/schema/script work or when you know the literal text to inspect and a symbol handle is not the right first hop.
 - Treat `prism_query` as the rich semantic escape hatch, not the default first hop.
 - Prefer the compact top-level tools over ad hoc query snippets whenever they can express the task.
-- Prefer PRISM-native file inspection and search when they can replace multiple shell reads with one bounded call, especially `prism_open`, `prism_locate`, `prism_workset`, `prism_expand`, `prism.file(path).read(...)`, `prism.file(path).around(...)`, and `prism.searchText(...)`.
+- Prefer PRISM-native file inspection and search when they can replace multiple shell reads with one bounded call, especially `prism_locate`, `prism_gather`, `prism_open`, `prism_workset`, `prism_expand`, `prism.file(path).read(...)`, `prism.file(path).around(...)`, and `prism.searchText(...)`.
 - Prefer the compact PRISM tools and bounded PRISM-native reads over `sed`, `cat`, and `rg` when the work can be expressed in one staged PRISM flow.
 - Keep shell reads as a fallback for raw bytes, command output, or cases where PRISM cannot yet express the needed inspection precisely.
 - Keep `prism_query` read-only. Do not try to encode writes or side effects inside query snippets.
