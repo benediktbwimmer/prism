@@ -181,6 +181,7 @@ pub(crate) enum PrismExpandKindInput {
     Neighbors,
     Diff,
     Validation,
+    Drift,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

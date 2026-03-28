@@ -133,6 +133,7 @@ Input:
 - `neighbors`
 - `diff`
 - `validation`
+- `drift`
 
 Output:
 - only the requested expansion

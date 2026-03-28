@@ -121,6 +121,7 @@ pub enum AgentExpandKind {
     Neighbors,
     Diff,
     Validation,
+    Drift,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

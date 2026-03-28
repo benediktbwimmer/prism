@@ -17,10 +17,11 @@ use serde_json::{json, Value};
 use crate::file_queries::file_read;
 use crate::session_state::SessionHandleTarget;
 use crate::{
-    diff_for, focused_block_for_symbol, next_reads, owner_views_for_target, symbol_for,
-    symbol_view, validation_context_view_cached, FileReadArgs, PrismExpandArgs,
-    PrismExpandKindInput, PrismLocateArgs, PrismLocateTaskIntentInput, PrismOpenArgs,
-    PrismOpenModeInput, PrismWorksetArgs, QueryHost, QueryRun, SearchArgs, SessionState,
+    diff_for, focused_block_for_symbol, next_reads, owner_views_for_target,
+    spec_drift_explanation_view, symbol_for, symbol_view, validation_context_view_cached,
+    FileReadArgs, PrismExpandArgs, PrismExpandKindInput, PrismLocateArgs,
+    PrismLocateTaskIntentInput, PrismOpenArgs, PrismOpenModeInput, PrismWorksetArgs, QueryHost,
+    QueryRun, SearchArgs, SessionState,
 };
 
 const DEFAULT_LOCATE_LIMIT: usize = 3;
@@ -50,6 +51,10 @@ const WORKSET_TRUNCATED_NEXT_ACTION: &str =
     "Rerun prism_expand with kind `neighbors` or `validation` for more context.";
 const EXPAND_NEIGHBOR_LIMIT: usize = 6;
 const EXPAND_DIFF_LIMIT: usize = 5;
+const EXPAND_DRIFT_NEXT_READ_LIMIT: usize = 3;
+const EXPAND_DRIFT_LIST_LIMIT: usize = 3;
+const EXPAND_DRIFT_TEXT_MAX_CHARS: usize = 120;
+const EXPAND_DRIFT_MAX_JSON_BYTES: usize = 1400;
 const MAX_WHY_SHORT_CHARS: usize = 120;
 const LOCATE_SECONDARY_FILE_DIVERSITY_BONUS: i32 = 18;
 const LOCATE_SECONDARY_KIND_DIVERSITY_BONUS: i32 = 7;
@@ -352,6 +357,9 @@ impl QueryHost {
                             "likelyTests": likely_tests,
                             "why": validation.why,
                         })
+                    }
+                    AgentExpandKind::Drift => {
+                        compact_drift_expand_result(session.as_ref(), prism.as_ref(), &target)?
                     }
                 };
 
@@ -1060,6 +1068,25 @@ fn budgeted_open_result(mut result: AgentOpenResultView) -> Result<AgentOpenResu
     Ok(result)
 }
 
+fn compact_string_list(items: &[String], limit: usize, max_chars: usize) -> Vec<String> {
+    let mut compact = Vec::<String>::new();
+    for item in items {
+        let item = item.trim();
+        if item.is_empty() {
+            continue;
+        }
+        let item = clamp_string(item, max_chars);
+        if compact.iter().any(|existing| existing == &item) {
+            continue;
+        }
+        compact.push(item);
+        if compact.len() >= limit {
+            break;
+        }
+    }
+    compact
+}
+
 fn compact_why_short(
     symbol: &SymbolView,
     why_override: Option<&str>,
@@ -1318,6 +1345,92 @@ fn compact_open_related_handles(
     Ok((!related_handles.is_empty()).then_some(related_handles))
 }
 
+fn compact_drift_expand_result(
+    session: &SessionState,
+    prism: &Prism,
+    target: &SessionHandleTarget,
+) -> Result<Value> {
+    let drift = spec_drift_explanation_view(prism, &target.id)?;
+    let drift_reasons = if drift.drift_reasons.is_empty() {
+        if drift.gaps.is_empty() {
+            compact_string_list(
+                &drift.notes,
+                EXPAND_DRIFT_LIST_LIMIT,
+                EXPAND_DRIFT_TEXT_MAX_CHARS,
+            )
+        } else {
+            compact_string_list(
+                &drift.gaps,
+                EXPAND_DRIFT_LIST_LIMIT,
+                EXPAND_DRIFT_TEXT_MAX_CHARS,
+            )
+        }
+    } else {
+        compact_string_list(
+            &drift.drift_reasons,
+            EXPAND_DRIFT_LIST_LIMIT,
+            EXPAND_DRIFT_TEXT_MAX_CHARS,
+        )
+    };
+    let mut next_reads = drift
+        .next_reads
+        .into_iter()
+        .take(EXPAND_DRIFT_NEXT_READ_LIMIT)
+        .map(|candidate| {
+            let mut handle = compact_target_view(
+                session,
+                &candidate.symbol,
+                target.query.as_deref(),
+                Some(candidate.why),
+            );
+            handle.file_path = None;
+            handle
+        })
+        .collect::<Vec<_>>();
+    let mut result = json!({
+        "driftReasons": drift_reasons,
+        "expectations": compact_string_list(
+            &drift.expectations,
+            EXPAND_DRIFT_LIST_LIMIT,
+            EXPAND_DRIFT_TEXT_MAX_CHARS,
+        ),
+        "gaps": compact_string_list(
+            &drift.gaps,
+            EXPAND_DRIFT_LIST_LIMIT,
+            EXPAND_DRIFT_TEXT_MAX_CHARS,
+        ),
+        "nextReads": next_reads,
+        "confidence": drift.trust_signals.confidence_label,
+        "evidenceSources": drift.trust_signals.evidence_sources,
+    });
+
+    while drift_json_bytes(&result)? > EXPAND_DRIFT_MAX_JSON_BYTES {
+        if next_reads.pop().is_some() {
+            result["nextReads"] = serde_json::to_value(&next_reads)?;
+            continue;
+        }
+        if let Some(expectations) = result
+            .get_mut("expectations")
+            .and_then(Value::as_array_mut)
+            .filter(|items| !items.is_empty())
+        {
+            expectations.pop();
+            continue;
+        }
+        if let Some(evidence_sources) = result
+            .get_mut("evidenceSources")
+            .and_then(Value::as_array_mut)
+            .filter(|items| !items.is_empty())
+        {
+            evidence_sources.pop();
+            continue;
+        }
+        break;
+    }
+
+    Ok(result)
+}
+
 fn source_slice_view(slice: prism_query::EditSlice) -> SourceSliceView {
     SourceSliceView {
         text: slice.text,
@@ -1354,6 +1467,7 @@ fn agent_expand_kind(kind: &PrismExpandKindInput) -> AgentExpandKind {
         PrismExpandKindInput::Neighbors => AgentExpandKind::Neighbors,
         PrismExpandKindInput::Diff => AgentExpandKind::Diff,
         PrismExpandKindInput::Validation => AgentExpandKind::Validation,
+        PrismExpandKindInput::Drift => AgentExpandKind::Drift,
     }
 }
 
@@ -1380,6 +1494,10 @@ fn workset_json_bytes(result: &AgentWorksetResultView) -> Result<usize> {
 }
 
 fn open_json_bytes(result: &AgentOpenResultView) -> Result<usize> {
+    Ok(serde_json::to_vec(result)?.len())
+}
+
+fn drift_json_bytes(result: &Value) -> Result<usize> {
     Ok(serde_json::to_vec(result)?.len())
 }
 
@@ -1415,6 +1533,12 @@ mod tests {
             next_action: None,
             related_handles,
         }
+    }
+
+    fn string_list(prefix: &str, count: usize) -> Vec<String> {
+        (0..count)
+            .map(|index| format!("{prefix} {index} with extra compact drift budget text"))
+            .collect()
     }
 
     #[test]
@@ -1489,5 +1613,68 @@ mod tests {
             .related_handles
             .as_ref()
             .is_none_or(|targets| { targets.iter().all(|target| target.file_path.is_none()) }));
+    }
+
+    #[test]
+    fn compact_string_list_dedupes_and_clamps() {
+        let compact = compact_string_list(
+            &[
+                "same repeated item that is too long for the compact list".to_string(),
+                "same repeated item that is too long for the compact list".to_string(),
+                "different item".to_string(),
+            ],
+            3,
+            18,
+        );
+
+        assert_eq!(compact.len(), 2);
+        assert!(compact[0].chars().count() <= 18);
+    }
+
+    #[test]
+    fn drift_budget_trims_optional_context_before_exceeding_budget() {
+        let mut next_reads = vec![
+            handle_view(1, Some("src/one.rs")),
+            handle_view(2, Some("src/two.rs")),
+            handle_view(3, Some("src/three.rs")),
+        ];
+        strip_file_paths(&mut next_reads);
+        let mut result = json!({
+            "driftReasons": string_list("drift reason", 4),
+            "expectations": string_list("expectation", 4),
+            "gaps": string_list("gap", 4),
+            "nextReads": next_reads,
+            "confidence": "high",
+            "evidenceSources": ["inferred", "memory", "direct_graph"],
+        });
+
+        assert!(drift_json_bytes(&result).expect("json bytes") > EXPAND_DRIFT_MAX_JSON_BYTES);
+
+        while drift_json_bytes(&result).expect("json bytes") > EXPAND_DRIFT_MAX_JSON_BYTES {
+            if let Some(next_reads) = result["nextReads"]
+                .as_array_mut()
+                .filter(|items| !items.is_empty())
+            {
+                next_reads.pop();
+                continue;
+            }
+            if let Some(expectations) = result["expectations"]
+                .as_array_mut()
+                .filter(|items| !items.is_empty())
+            {
+                expectations.pop();
+                continue;
+            }
+            if let Some(evidence_sources) = result["evidenceSources"]
+                .as_array_mut()
+                .filter(|items| !items.is_empty())
+            {
+                evidence_sources.pop();
+                continue;
+            }
+            break;
+        }
+
+        assert!(drift_json_bytes(&result).expect("json bytes") <= EXPAND_DRIFT_MAX_JSON_BYTES);
     }
 }

@@ -3907,6 +3907,54 @@ The event journal snapshot should persist journal entries.
         .any(|target| target.kind == NodeKind::Function));
 }
 
+#[test]
+fn compact_expand_drift_surfaces_spec_gap_summary() {
+    let root = temp_workspace();
+    write_memory_insight_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "Integration Points".to_string(),
+                path: Some("docs/SPEC.md".to_string()),
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                limit: Some(3),
+            },
+        )
+        .expect("locate should succeed");
+    assert_eq!(locate.status, prism_js::AgentLocateStatus::Ok);
+    assert_eq!(locate.candidates[0].kind, NodeKind::MarkdownHeading);
+
+    let expand = host
+        .compact_expand(
+            Arc::clone(&session),
+            PrismExpandArgs {
+                handle: locate.candidates[0].handle.clone(),
+                kind: PrismExpandKindInput::Drift,
+            },
+        )
+        .expect("expand should succeed");
+
+    assert_eq!(expand.kind, prism_js::AgentExpandKind::Drift);
+    let drift_reasons = expand.result["driftReasons"]
+        .as_array()
+        .expect("driftReasons should be an array");
+    assert!(!drift_reasons.is_empty());
+    let next_reads = expand.result["nextReads"]
+        .as_array()
+        .expect("nextReads should be an array");
+    assert!(!next_reads.is_empty());
+    assert!(next_reads.iter().all(|item| item["filePath"].is_null()));
+    assert!(matches!(
+        expand.result["confidence"].as_str(),
+        Some("medium" | "high")
+    ));
+}
+
 #[tokio::test]
 async fn mcp_server_executes_compact_agent_tool_round_trip() {
     let root = temp_workspace();
