@@ -1,3 +1,5 @@
+use prism_js::{EvidenceSourceKind, OwnerCandidateView};
+
 use super::open::compact_preview_for_symbol_view;
 use super::text_fragments::{
     compact_text_fragment_diagnostics, compact_text_fragment_neighbors,
@@ -350,10 +352,20 @@ fn compact_structured_config_validation_result(
 ) -> Result<Value> {
     let next_reads =
         structured_symbol_followups(host, session, prism, target, WORKSET_SUPPORTING_LIMIT)?;
+    let likely_tests = structured_config_likely_tests(
+        session,
+        target,
+        owner_views_for_target(
+            prism,
+            target_symbol_id(target)?,
+            Some("test"),
+            WORKSET_TEST_LIMIT.saturating_mul(4),
+        )?,
+    );
     Ok(json!({
         "checks": structured_config_validation_checks(),
         "nextReads": next_reads,
-        "likelyTests": [],
+        "likelyTests": likely_tests,
         "why": [
             "Structured config validation prioritizes same-file semantic relatives before heuristic tests.",
             "Use the parent key and adjacent entries to confirm the edit preserves local config invariants.",
@@ -367,6 +379,32 @@ fn structured_config_validation_checks() -> Vec<String> {
         "Review adjacent same-file keys before falling back to parser or integration tests."
             .to_string(),
     ]
+}
+
+fn structured_config_likely_tests(
+    session: &SessionState,
+    target: &SessionHandleTarget,
+    owners: Vec<OwnerCandidateView>,
+) -> Vec<AgentTargetHandleView> {
+    owners
+        .into_iter()
+        .filter(|candidate| {
+            candidate
+                .trust_signals
+                .evidence_sources
+                .iter()
+                .any(|source| matches!(source, EvidenceSourceKind::DirectGraph))
+        })
+        .take(WORKSET_TEST_LIMIT)
+        .map(|candidate| {
+            compact_target_view(
+                session,
+                &candidate.symbol,
+                target.query.as_deref(),
+                Some(candidate.why),
+            )
+        })
+        .collect()
 }
 
 fn compact_drift_expand_result(
@@ -448,6 +486,88 @@ fn compact_drift_expand_result(
     }
 
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use prism_js::{ConfidenceLabel, NodeIdView, SourceExcerptView, SymbolView, TrustSignalsView};
+
+    use super::*;
+
+    #[test]
+    fn structured_config_likely_tests_keeps_only_direct_graph_candidates() {
+        let session = SessionState::new(
+            Arc::new(prism_memory::SessionMemory::default()),
+            Arc::new(prism_agent::InferenceStore::default()),
+            Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            prism_query::QueryLimits::default(),
+        );
+        let target = SessionHandleTarget {
+            id: NodeId::new(
+                "demo",
+                "demo::document::Cargo_toml::workspace::dependencies",
+                NodeKind::TomlKey,
+            ),
+            lineage_id: None,
+            name: "dependencies".to_string(),
+            kind: NodeKind::TomlKey,
+            file_path: Some("Cargo.toml".to_string()),
+            query: Some("workspace.dependencies".to_string()),
+            why_short: "Structured key aligned with the exact text hit.".to_string(),
+            start_line: None,
+            end_line: None,
+            start_column: None,
+            end_column: None,
+        };
+        let direct = owner_candidate("demo::tests::direct", vec![EvidenceSourceKind::DirectGraph]);
+        let inferred = owner_candidate("demo::tests::inferred", vec![EvidenceSourceKind::Inferred]);
+
+        let likely_tests =
+            structured_config_likely_tests(&session, &target, vec![inferred, direct.clone()]);
+
+        assert_eq!(likely_tests.len(), 1);
+        assert_eq!(likely_tests[0].path, direct.symbol.id.path);
+    }
+
+    fn owner_candidate(
+        path: &str,
+        evidence_sources: Vec<EvidenceSourceKind>,
+    ) -> OwnerCandidateView {
+        OwnerCandidateView {
+            symbol: SymbolView {
+                id: NodeIdView {
+                    crate_name: "demo".to_string(),
+                    path: path.to_string(),
+                    kind: NodeKind::Function,
+                },
+                name: path.rsplit("::").next().unwrap_or(path).to_string(),
+                kind: NodeKind::Function,
+                signature: format!("function {path}"),
+                file_path: Some("/workspace/src/tests.rs".to_string()),
+                span: prism_ir::Span { start: 0, end: 0 },
+                location: None,
+                language: prism_ir::Language::Rust,
+                lineage_id: None,
+                source_excerpt: Some(SourceExcerptView {
+                    text: "#[test] fn direct() {}".to_string(),
+                    start_line: 1,
+                    end_line: 1,
+                    truncated: false,
+                }),
+                owner_hint: None,
+            },
+            kind: "test".to_string(),
+            score: 10,
+            matched_terms: vec!["dependencies".to_string()],
+            why: "Test owner surfaced by PRISM.".to_string(),
+            trust_signals: TrustSignalsView {
+                confidence_label: ConfidenceLabel::High,
+                evidence_sources,
+                why: vec!["synthetic test".to_string()],
+            },
+        }
+    }
 }
 
 pub(super) fn source_slice_view(slice: prism_query::EditSlice) -> SourceSliceView {
