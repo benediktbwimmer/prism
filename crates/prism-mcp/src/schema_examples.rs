@@ -2,8 +2,9 @@ use serde_json::{json, Value};
 
 use crate::{
     capabilities_resource_uri, edge_resource_uri, event_resource_uri, memory_resource_uri,
-    schema_resource_uri, session_resource_uri, symbol_resource_uri_from_node_id, task_resource_uri,
-    tool_schema_resource_uri, API_REFERENCE_URI,
+    plans_resource_uri, schema_resource_uri, session_resource_uri,
+    symbol_resource_uri_from_node_id, task_resource_uri, tool_schema_resource_uri,
+    API_REFERENCE_URI,
 };
 use prism_ir::{EdgeKind, NodeId};
 
@@ -20,6 +21,7 @@ pub(crate) fn resource_example_uri(resource_kind: &str) -> Option<String> {
         "schemas" => Some("prism://schemas".to_string()),
         "session" => Some(session_resource_uri()),
         "tool-schemas" => Some("prism://tool-schemas".to_string()),
+        "plans" => Some("prism://plans?contains=persistence&limit=5".to_string()),
         "entrypoints" => Some("prism://entrypoints?limit=5".to_string()),
         "search" => Some(
             "prism://search/read%20context?strategy=behavioral&ownerKind=read&kind=function&path=src&pathMode=exact&structuredPath=workspace&topLevelOnly=true&includeInferred=true".to_string(),
@@ -392,6 +394,7 @@ fn resource_payload_example(resource_kind: &str) -> Option<Value> {
         "schemas" => Some(resource_schema_catalog_payload_example()),
         "session" => Some(session_payload_example()),
         "tool-schemas" => Some(tool_schema_catalog_payload_example()),
+        "plans" => Some(plans_payload_example()),
         "entrypoints" => Some(entrypoints_payload_example()),
         "search" => Some(search_payload_example()),
         "symbol" => Some(symbol_payload_example()),
@@ -488,6 +491,57 @@ fn entrypoints_payload_example() -> Value {
         "truncated": false,
         "diagnostics": [],
         "relatedResources": sample_related_resources(),
+    })
+}
+
+fn plans_payload_example() -> Value {
+    json!({
+        "uri": resource_example_uri("plans"),
+        "schemaUri": schema_resource_uri("plans"),
+        "workspaceRevision": {
+            "graphVersion": 42,
+            "gitCommit": "abc123def456"
+        },
+        "status": null,
+        "scope": null,
+        "contains": "persistence",
+        "plans": [{
+            "planId": "plan:1",
+            "title": "Migrate persistence to DB-native runtime storage",
+            "goal": "Move persistence away from snapshot-authoritative writes.",
+            "status": "active",
+            "scope": "repo",
+            "kind": "migration",
+            "rootTaskIds": ["coord-task:1"],
+            "summary": {
+                "planId": "plan:1",
+                "totalNodes": 6,
+                "completedNodes": 0,
+                "runningNodes": 0,
+                "readyNodes": 1,
+                "blockedNodes": 0,
+                "pendingNodes": 5,
+                "actionableNodes": 1,
+                "executionBlockedNodes": 0,
+                "completionGatedNodes": 0,
+                "validationGatedNodes": 0,
+                "staleNodes": 0,
+                "reviewRequiredNodes": 0,
+                "claimBlockedNodes": 0,
+            }
+        }],
+        "page": sample_page(),
+        "truncated": false,
+        "diagnostics": [],
+        "relatedResources": [{
+            "uri": plans_resource_uri(),
+            "name": "PRISM Plans",
+            "description": "Browse published and runtime-hydrated plans with compact progress summaries"
+        }, {
+            "uri": session_resource_uri(),
+            "name": "PRISM Session",
+            "description": "Active workspace root, current task context, and runtime query limits"
+        }],
     })
 }
 

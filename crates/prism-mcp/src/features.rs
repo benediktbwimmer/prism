@@ -112,7 +112,8 @@ impl PrismMcpFeatures {
             {
                 Some("internal_developer")
             }
-            "plan"
+            "plans"
+            | "plan"
             | "planGraph"
             | "planExecution"
             | "planReadyNodes"

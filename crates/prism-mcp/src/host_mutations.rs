@@ -17,9 +17,9 @@ use prism_memory::{
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult,
 };
 use prism_query::{
-    canonical_concept_handle, ConceptEvent, ConceptEventAction, ConceptPacket, ConceptProvenance,
-    ConceptPublication, ConceptPublicationStatus, ConceptRelation, ConceptRelationEvent,
-    ConceptRelationEventAction, ConceptRelationKind, ConceptScope, Prism,
+    canonical_concept_handle, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptPacket,
+    ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptRelation,
+    ConceptRelationEvent, ConceptRelationEventAction, ConceptRelationKind, ConceptScope, Prism,
 };
 use serde_json::{json, Value};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -28,19 +28,19 @@ use crate::{
     artifact_view, claim_view, concept_packet_view, concept_relation_view, conflict_view,
     convert_acceptance, convert_anchors, convert_completion_context, convert_inferred_scope,
     convert_memory_kind, convert_memory_scope, convert_memory_source, convert_node_id,
-    convert_outcome_evidence, convert_outcome_kind, convert_outcome_result, convert_plan_acceptance,
-    convert_plan_binding, convert_policy, coordination_task_view, curator_disposition_label,
-    curator_job_status_label, curator_memory_metadata, curator_proposal, curator_proposal_state,
-    curator_trigger_label, current_timestamp, ensure_repo_publication_metadata,
-    manual_memory_metadata, parse_capability, parse_claim_mode, parse_coordination_task_status,
-    parse_edge_kind, parse_plan_edge_kind, parse_plan_node_kind, parse_plan_node_status,
-    parse_plan_status, parse_review_verdict, plan_edge_view, plan_node_view, plan_view,
-    task_journal_memory_metadata, task_journal_view, ArtifactActionInput, ArtifactMutationResult,
-    ArtifactProposePayload, ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload,
-    ClaimActionInput, ClaimMutationResult, ClaimReleasePayload, ClaimRenewPayload,
-    ConceptMutationOperationInput, ConceptMutationResult, ConceptRelationKindInput,
-    ConceptRelationMutationOperationInput, ConceptRelationMutationResult, ConceptScopeInput,
-    CoordinationMutationKindInput, CoordinationMutationResult, CuratorJobView,
+    convert_outcome_evidence, convert_outcome_kind, convert_outcome_result,
+    convert_plan_acceptance, convert_plan_binding, convert_policy, convert_validation_refs,
+    coordination_task_view, curator_disposition_label, curator_job_status_label,
+    curator_memory_metadata, curator_proposal, curator_proposal_state, curator_trigger_label,
+    current_timestamp, ensure_repo_publication_metadata, manual_memory_metadata, parse_capability,
+    parse_claim_mode, parse_coordination_task_status, parse_edge_kind, parse_plan_edge_kind,
+    parse_plan_node_kind, parse_plan_node_status, parse_plan_status, parse_review_verdict,
+    plan_edge_view, plan_node_view, plan_view, task_journal_memory_metadata, task_journal_view,
+    ArtifactActionInput, ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
+    ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput, ClaimMutationResult,
+    ClaimReleasePayload, ClaimRenewPayload, ConceptMutationOperationInput, ConceptMutationResult,
+    ConceptRelationKindInput, ConceptRelationMutationOperationInput, ConceptRelationMutationResult,
+    ConceptScopeInput, CoordinationMutationKindInput, CoordinationMutationResult, CuratorJobView,
     CuratorProposalCreatedResources, CuratorProposalDecision, CuratorProposalDecisionResult,
     EdgeMutationResult, EventMutationResult, HandoffAcceptPayload, MemoryMutationActionInput,
     MemoryMutationResult, MemoryStorePayload, MutationViolationView, NodeIdInput,
@@ -50,9 +50,10 @@ use crate::{
     PrismCuratorApplyProposalArgs, PrismCuratorPromoteConceptArgs, PrismCuratorPromoteEdgeArgs,
     PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs, PrismFinishTaskArgs,
     PrismInferEdgeArgs, PrismMemoryArgs, PrismOutcomeArgs, PrismValidationFeedbackArgs, QueryHost,
-    SessionState, TaskCreatePayload, TaskUpdatePayload, ValidationFeedbackCategoryInput,
-    ValidationFeedbackMutationResult, ValidationFeedbackVerdictInput,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
+    SessionState, SparsePatch, SparsePatchInput, TaskCreatePayload, TaskUpdatePayload,
+    ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
+    ValidationFeedbackVerdictInput, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
 
 #[derive(Default)]
@@ -591,15 +592,16 @@ impl QueryHost {
         let recorded_at = current_timestamp();
         let packet = match operation {
             ConceptMutationOperationInput::Promote => {
-                build_promoted_concept_packet(prism.as_ref(), &task_id, recorded_at, args)?
+                build_promoted_concept_packet(prism.as_ref(), &task_id, recorded_at, args.clone())?
             }
             ConceptMutationOperationInput::Update => {
-                build_updated_concept_packet(prism.as_ref(), &task_id, recorded_at, args)?
+                build_updated_concept_packet(prism.as_ref(), &task_id, recorded_at, args.clone())?
             }
             ConceptMutationOperationInput::Retire => {
-                build_retired_concept_packet(prism.as_ref(), &task_id, recorded_at, args)?
+                build_retired_concept_packet(prism.as_ref(), &task_id, recorded_at, args.clone())?
             }
         };
+        let patch = concept_event_patch(&args, &operation, &packet)?;
         let event = ConceptEvent {
             id: next_concept_event_id(),
             recorded_at,
@@ -609,6 +611,7 @@ impl QueryHost {
                 ConceptMutationOperationInput::Update => ConceptEventAction::Update,
                 ConceptMutationOperationInput::Retire => ConceptEventAction::Retire,
             },
+            patch,
             concept: packet.clone(),
         };
         workspace.append_concept_event(event.clone())?;
@@ -1026,6 +1029,11 @@ impl QueryHost {
                     .as_deref()
                     .map(parse_coordination_task_status)
                     .transpose()?;
+                let assignee = match parse_sparse_patch(payload.assignee, "assignee")? {
+                    SparsePatch::Keep => None,
+                    SparsePatch::Set(value) => Some(Some(AgentId::new(value))),
+                    SparsePatch::Clear => Some(None),
+                };
                 let completion_context = convert_completion_context(payload.completion_context)
                     .or_else(|| {
                         status
@@ -1041,7 +1049,7 @@ impl QueryHost {
                     TaskUpdateInput {
                         task_id,
                         status,
-                        assignee: payload.assignee.map(|value| Some(AgentId::new(value))),
+                        assignee,
                         session: None,
                         title: payload.title,
                         anchors: payload.anchors.map(convert_anchors).transpose()?,
@@ -1091,6 +1099,7 @@ impl QueryHost {
                     convert_plan_binding(payload.anchors, payload.bindings)?.unwrap_or_default(),
                     payload.depends_on.unwrap_or_default(),
                     convert_plan_acceptance(payload.acceptance)?,
+                    convert_validation_refs(payload.validation_refs),
                     prism.workspace_revision(),
                     payload.priority,
                     payload.tags.unwrap_or_default(),
@@ -1109,23 +1118,45 @@ impl QueryHost {
                     .as_deref()
                     .map(parse_plan_node_status)
                     .transpose()?;
+                let assignee = match parse_sparse_patch(payload.assignee, "assignee")? {
+                    SparsePatch::Keep => None,
+                    SparsePatch::Set(value) => Some(Some(AgentId::new(value))),
+                    SparsePatch::Clear => Some(None),
+                };
+                let (summary, clear_summary) = match parse_sparse_patch(payload.summary, "summary")?
+                {
+                    SparsePatch::Keep => (None, false),
+                    SparsePatch::Set(value) => (Some(value), false),
+                    SparsePatch::Clear => (None, true),
+                };
+                let (priority, clear_priority) =
+                    match parse_sparse_patch(payload.priority, "priority")? {
+                        SparsePatch::Keep => (None, false),
+                        SparsePatch::Set(value) => (Some(value), false),
+                        SparsePatch::Clear => (None, true),
+                    };
                 let node_id = PlanNodeId::new(payload.node_id.clone());
                 let plan_id = prism.update_native_plan_node(
                     &node_id,
                     kind,
                     status,
-                    payload.assignee.map(|value| Some(AgentId::new(value))),
+                    assignee,
                     payload.is_abstract,
                     payload.title,
-                    payload.summary,
+                    summary,
+                    clear_summary,
                     convert_plan_binding(payload.anchors, payload.bindings)?,
                     payload.depends_on,
                     payload
                         .acceptance
                         .map(|acceptance| convert_plan_acceptance(Some(acceptance)))
                         .transpose()?,
+                    payload
+                        .validation_refs
+                        .map(|refs| convert_validation_refs(Some(refs))),
                     Some(prism.workspace_revision()),
-                    payload.priority,
+                    priority,
+                    clear_priority,
                     payload.tags,
                 )?;
                 current_plan_node_state(prism, &plan_id, &node_id.0)
@@ -1553,6 +1584,7 @@ impl QueryHost {
             recorded_at,
             task_id: Some(task_id.0.to_string()),
             action: ConceptEventAction::Promote,
+            patch: None,
             concept: packet.clone(),
         };
         workspace.append_concept_event(event)?;
@@ -2101,6 +2133,16 @@ fn build_promoted_concept_packet(
     let supporting_members =
         convert_optional_concept_nodes(prism, args.supporting_members, "supportingMembers")?;
     let likely_tests = convert_optional_concept_nodes(prism, args.likely_tests, "likelyTests")?;
+    let risk_hint = match parse_sparse_patch(args.risk_hint, "riskHint")? {
+        SparsePatch::Keep | SparsePatch::Clear => None,
+        SparsePatch::Set(value) => {
+            let risk_hint = value.trim().to_string();
+            if risk_hint.is_empty() {
+                return Err(anyhow!("concept riskHint cannot be empty"));
+            }
+            Some(risk_hint)
+        }
+    };
 
     let packet = ConceptPacket {
         handle: normalize_concept_handle(args.handle.as_deref(), &canonical_name),
@@ -2117,10 +2159,7 @@ fn build_promoted_concept_packet(
         evidence: sanitize_strings(args.evidence.unwrap_or_else(|| {
             vec!["Promoted from live repo work through prism_mutate.".to_string()]
         })),
-        risk_hint: args
-            .risk_hint
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty()),
+        risk_hint,
         decode_lenses: convert_concept_lenses(args.decode_lenses),
         scope,
         provenance: ConceptProvenance {
@@ -2261,6 +2300,105 @@ fn node_id_input(id: prism_ir::NodeId) -> NodeIdInput {
     }
 }
 
+fn parse_sparse_patch<T>(
+    value: Option<SparsePatchInput<T>>,
+    field: &str,
+) -> Result<SparsePatch<T>> {
+    value
+        .map(|patch| patch.into_patch(field))
+        .transpose()
+        .map_err(|error| anyhow!(error))?
+        .map_or(Ok(SparsePatch::Keep), Ok)
+}
+
+fn concept_event_patch(
+    args: &PrismConceptMutationArgs,
+    operation: &ConceptMutationOperationInput,
+    packet: &ConceptPacket,
+) -> Result<Option<ConceptEventPatch>> {
+    let mut patch = ConceptEventPatch::default();
+    match operation {
+        ConceptMutationOperationInput::Promote => return Ok(None),
+        ConceptMutationOperationInput::Update => {
+            if args.canonical_name.is_some() {
+                patch.set_fields.push("canonicalName".to_string());
+                patch.canonical_name = Some(packet.canonical_name.clone());
+            }
+            if args.summary.is_some() {
+                patch.set_fields.push("summary".to_string());
+                patch.summary = Some(packet.summary.clone());
+            }
+            if args.aliases.is_some() {
+                patch.set_fields.push("aliases".to_string());
+                patch.aliases = Some(packet.aliases.clone());
+            }
+            if args.core_members.is_some() {
+                patch.set_fields.push("coreMembers".to_string());
+                patch.core_members = Some(packet.core_members.clone());
+                patch.core_member_lineages = Some(packet.core_member_lineages.clone());
+            }
+            if args.supporting_members.is_some() {
+                patch.set_fields.push("supportingMembers".to_string());
+                patch.supporting_members = Some(packet.supporting_members.clone());
+                patch.supporting_member_lineages = Some(packet.supporting_member_lineages.clone());
+            }
+            if args.likely_tests.is_some() {
+                patch.set_fields.push("likelyTests".to_string());
+                patch.likely_tests = Some(packet.likely_tests.clone());
+                patch.likely_test_lineages = Some(packet.likely_test_lineages.clone());
+            }
+            if args.evidence.is_some() {
+                patch.set_fields.push("evidence".to_string());
+                patch.evidence = Some(packet.evidence.clone());
+            }
+            match parse_sparse_patch(args.risk_hint.clone(), "riskHint")? {
+                SparsePatch::Keep => {}
+                SparsePatch::Set(_) => {
+                    patch.set_fields.push("riskHint".to_string());
+                    patch.risk_hint = packet.risk_hint.clone();
+                }
+                SparsePatch::Clear => patch.cleared_fields.push("riskHint".to_string()),
+            }
+            if args.confidence.is_some() {
+                patch.set_fields.push("confidence".to_string());
+                patch.confidence = Some(packet.confidence);
+            }
+            if args.decode_lenses.is_some() {
+                patch.set_fields.push("decodeLenses".to_string());
+                patch.decode_lenses = Some(packet.decode_lenses.clone());
+            }
+            if args.scope.is_some() {
+                patch.set_fields.push("scope".to_string());
+                patch.scope = Some(packet.scope);
+            }
+            if args.supersedes.is_some() {
+                patch.set_fields.push("supersedes".to_string());
+                patch.supersedes = Some(
+                    packet
+                        .publication
+                        .as_ref()
+                        .map(|publication| publication.supersedes.clone())
+                        .unwrap_or_default(),
+                );
+            }
+        }
+        ConceptMutationOperationInput::Retire => {
+            if args.retirement_reason.is_some() {
+                patch.set_fields.push("retirementReason".to_string());
+                patch.retirement_reason = packet
+                    .publication
+                    .as_ref()
+                    .and_then(|publication| publication.retirement_reason.clone());
+            }
+        }
+    }
+    if patch.set_fields.is_empty() && patch.cleared_fields.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(patch))
+    }
+}
+
 fn build_updated_concept_packet(
     prism: &Prism,
     task_id: &TaskId,
@@ -2321,13 +2459,20 @@ fn build_updated_concept_packet(
         packet.evidence = sanitize_strings(evidence);
         changed = true;
     }
-    if let Some(risk_hint) = args
-        .risk_hint
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-    {
-        packet.risk_hint = Some(risk_hint);
-        changed = true;
+    match parse_sparse_patch(args.risk_hint, "riskHint")? {
+        SparsePatch::Keep => {}
+        SparsePatch::Set(value) => {
+            let risk_hint = value.trim().to_string();
+            if risk_hint.is_empty() {
+                return Err(anyhow!("concept riskHint cannot be empty"));
+            }
+            packet.risk_hint = Some(risk_hint);
+            changed = true;
+        }
+        SparsePatch::Clear => {
+            packet.risk_hint = None;
+            changed = true;
+        }
     }
     if let Some(confidence) = args.confidence {
         packet.confidence = confidence.clamp(0.0, 1.0);

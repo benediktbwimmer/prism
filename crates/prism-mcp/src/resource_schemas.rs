@@ -1,8 +1,8 @@
 use prism_js::{
     ChangeImpactView, CoChangeView, DiscoveryBundleView, EdgeView, EditContextView,
     LineageEventView, LineageStatus, LineageView, MemoryEntryView, MemoryEventView,
-    OwnerCandidateView, QueryDiagnostic, ReadContextView, RelationsView, SuggestedQueryView,
-    SymbolView, TaskJournalView, ValidationRecipeView, WorkspaceRevisionView,
+    OwnerCandidateView, PlanListEntryView, QueryDiagnostic, ReadContextView, RelationsView,
+    SuggestedQueryView, SymbolView, TaskJournalView, ValidationRecipeView, WorkspaceRevisionView,
 };
 use rmcp::schemars::JsonSchema;
 use serde_json::Value;
@@ -164,6 +164,22 @@ pub(crate) struct EntrypointsResourcePayload {
     pub(crate) uri: String,
     pub(crate) schema_uri: String,
     pub(crate) entrypoints: Vec<SymbolView>,
+    pub(crate) page: ResourcePageView,
+    pub(crate) truncated: bool,
+    pub(crate) diagnostics: Vec<QueryDiagnostic>,
+    pub(crate) related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PlansResourcePayload {
+    pub(crate) uri: String,
+    pub(crate) schema_uri: String,
+    pub(crate) workspace_revision: WorkspaceRevisionView,
+    pub(crate) status: Option<String>,
+    pub(crate) scope: Option<String>,
+    pub(crate) contains: Option<String>,
+    pub(crate) plans: Vec<PlanListEntryView>,
     pub(crate) page: ResourcePageView,
     pub(crate) truncated: bool,
     pub(crate) diagnostics: Vec<QueryDiagnostic>,

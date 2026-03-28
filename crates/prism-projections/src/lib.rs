@@ -8,7 +8,9 @@ mod tests;
 mod types;
 
 pub use crate::concept_relations::concept_relations_from_events;
-pub use crate::concepts::{canonical_concept_handle, curated_concepts_from_events};
+pub use crate::concepts::{
+    canonical_concept_handle, concept_from_event, curated_concepts_from_events,
+};
 pub use crate::intent::IntentIndex;
 pub use crate::projections::{
     co_change_deltas_for_events, validation_deltas_for_event, ProjectionIndex,
@@ -16,8 +18,9 @@ pub use crate::projections::{
 };
 pub use crate::types::{
     CoChangeDelta, CoChangeRecord, ConceptDecodeLens, ConceptEvent, ConceptEventAction,
-    ConceptHealth, ConceptHealthSignals, ConceptHealthStatus, ConceptPacket, ConceptProvenance,
-    ConceptPublication, ConceptPublicationStatus, ConceptRelation, ConceptRelationEvent,
-    ConceptRelationEventAction, ConceptRelationKind, ConceptResolution, ConceptScope,
-    IntentDriftRecord, IntentSpecProjection, ProjectionSnapshot, ValidationCheck, ValidationDelta,
+    ConceptEventPatch, ConceptHealth, ConceptHealthSignals, ConceptHealthStatus, ConceptPacket,
+    ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptRelation,
+    ConceptRelationEvent, ConceptRelationEventAction, ConceptRelationKind, ConceptResolution,
+    ConceptScope, IntentDriftRecord, IntentSpecProjection, ProjectionSnapshot, ValidationCheck,
+    ValidationDelta,
 };

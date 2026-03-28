@@ -259,6 +259,13 @@ type TargetBundleOptions = DiffForOptions & {
   suggestedReadLimit?: number;
 };
 
+type PlanListOptions = {
+  status?: string;
+  scope?: string;
+  contains?: string;
+  limit?: number;
+};
+
 type PrismApi = {
   symbol(query: string): SymbolView | null;
   symbolBundle(query: string, options?: SymbolBundleOptions): SymbolBundleView;
@@ -275,6 +282,7 @@ type PrismApi = {
   tool(name: string): ToolSchemaView | null;
   entrypoints(): SymbolView[];
   file(path: string): FileView;
+  plans(options?: PlanListOptions): PlanListEntryView[];
   plan(planId: string): PlanView | null;
   planGraph(planId: string): PlanGraphView | null;
   planExecution(planId: string): PlanExecutionOverlayView[];
@@ -1187,9 +1195,19 @@ type PlanView = {
   rootTaskIds: string[];
 };
 
-type ValidationRefView = {
+type PlanListEntryView = {
+  planId: string;
+  title: string;
+  goal: string;
+  status: string;
+  scope: string;
   kind: string;
-  value: string;
+  rootTaskIds: string[];
+  summary: PlanSummaryView;
+};
+
+type ValidationRefView = {
+  id: string;
 };
 
 type PlanBindingView = {
@@ -1216,6 +1234,7 @@ type PlanNodeView = {
   status: string;
   bindings: PlanBindingView;
   acceptance: PlanAcceptanceCriterionView[];
+  validationRefs: ValidationRefView[];
   isAbstract: boolean;
   assignee?: string;
   baseRevision: WorkspaceRevisionView;
@@ -1254,6 +1273,8 @@ type PlanExecutionOverlayView = {
   nodeId: string;
   pendingHandoffTo?: string;
   session?: string;
+  effectiveAssignee?: string;
+  awaitingHandoffFrom?: string;
 };
 
 type PlanNodeBlockerView = {
@@ -1284,6 +1305,7 @@ type PlanSummaryView = {
 type PlanNodeRecommendationView = {
   node: PlanNodeView;
   actionable: boolean;
+  effectiveAssignee?: string;
   score: number;
   reasons: string[];
   blockers: PlanNodeBlockerView[];
@@ -1417,12 +1439,14 @@ Beyond `prism_query`, the MCP server exposes navigable `prism://...` resources.
   - `prism://api-reference`
   - `prism://capabilities`
   - `prism://session`
+  - `prism://plans`
   - `prism://entrypoints`
   - `prism://schemas`
   - `prism://tool-schemas`
 - Parameterized resources:
   - `prism://schema/{resourceKind}`
   - `prism://schema/tool/{toolName}`
+  - `prism://plans?status={status}&scope={scope}&contains={contains}&limit={limit}&cursor={cursor}`
   - `prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&preferCallableCode={preferCallableCode}&preferEditableTargets={preferEditableTargets}&preferBehavioralOwners={preferBehavioralOwners}&includeInferred={includeInferred}`
   - `prism://symbol/{crateName}/{kind}/{path}`
   - `prism://lineage/{lineageId}?limit={limit}&cursor={cursor}`
@@ -1931,6 +1955,15 @@ return prism.simulateClaim({
   anchors: sym ? [sym] : [],
   capability: "Edit",
   mode: "SoftExclusive",
+});
+```
+
+### 33a. Discover plans by keyword before opening one
+
+```ts
+return prism.plans({
+  contains: "persistence",
+  limit: 5,
 });
 ```
 

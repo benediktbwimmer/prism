@@ -307,6 +307,50 @@ pub(crate) enum ConceptRelationMutationOperationInput {
     Retire,
 }
 
+#[derive(Debug, Clone, Copy, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum SparsePatchOpInput {
+    Keep,
+    Set,
+    Clear,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SparsePatchObjectInput<T> {
+    pub(crate) op: SparsePatchOpInput,
+    pub(crate) value: Option<T>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub(crate) enum SparsePatchInput<T> {
+    Value(T),
+    Patch(SparsePatchObjectInput<T>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SparsePatch<T> {
+    Keep,
+    Set(T),
+    Clear,
+}
+
+impl<T> SparsePatchInput<T> {
+    pub(crate) fn into_patch(self, field: &str) -> Result<SparsePatch<T>, String> {
+        match self {
+            Self::Value(value) => Ok(SparsePatch::Set(value)),
+            Self::Patch(SparsePatchObjectInput { op, value }) => match op {
+                SparsePatchOpInput::Keep => Ok(SparsePatch::Keep),
+                SparsePatchOpInput::Set => value
+                    .map(SparsePatch::Set)
+                    .ok_or_else(|| format!("`{field}` patch with op `set` requires `value`")),
+                SparsePatchOpInput::Clear => Ok(SparsePatch::Clear),
+            },
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismConceptMutationArgs {
@@ -335,7 +379,7 @@ pub(crate) struct PrismConceptMutationArgs {
     #[schemars(description = "Optional evidence lines explaining why this concept exists.")]
     pub(crate) evidence: Option<Vec<String>>,
     #[schemars(description = "Optional risk hint for the concept packet.")]
-    pub(crate) risk_hint: Option<String>,
+    pub(crate) risk_hint: Option<SparsePatchInput<String>>,
     #[schemars(description = "Optional confidence score from 0.0 to 1.0.")]
     pub(crate) confidence: Option<f32>,
     #[schemars(description = "Optional decode lenses Prism should expose for this concept.")]
@@ -959,6 +1003,15 @@ pub(crate) struct PrismArtifactArgs {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct PlansQueryArgs {
+    pub(crate) status: Option<String>,
+    pub(crate) scope: Option<String>,
+    pub(crate) contains: Option<String>,
+    pub(crate) limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct PlanTargetArgs {
     #[serde(alias = "plan_id")]
     pub(crate) plan_id: String,
@@ -1097,7 +1150,7 @@ pub(crate) struct TaskCreatePayload {
 pub(crate) struct TaskUpdatePayload {
     pub(crate) task_id: String,
     pub(crate) status: Option<String>,
-    pub(crate) assignee: Option<String>,
+    pub(crate) assignee: Option<SparsePatchInput<String>>,
     pub(crate) title: Option<String>,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
     pub(crate) depends_on: Option<Vec<String>>,
@@ -1119,6 +1172,7 @@ pub(crate) struct PlanNodeCreatePayload {
     pub(crate) bindings: Option<PlanBindingPayload>,
     pub(crate) depends_on: Option<Vec<String>>,
     pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
+    pub(crate) validation_refs: Option<Vec<ValidationRefPayload>>,
     pub(crate) priority: Option<u8>,
     pub(crate) tags: Option<Vec<String>>,
 }
@@ -1129,15 +1183,16 @@ pub(crate) struct PlanNodeUpdatePayload {
     pub(crate) node_id: String,
     pub(crate) kind: Option<String>,
     pub(crate) status: Option<String>,
-    pub(crate) assignee: Option<String>,
+    pub(crate) assignee: Option<SparsePatchInput<String>>,
     pub(crate) is_abstract: Option<bool>,
     pub(crate) title: Option<String>,
-    pub(crate) summary: Option<String>,
+    pub(crate) summary: Option<SparsePatchInput<String>>,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
     pub(crate) bindings: Option<PlanBindingPayload>,
     pub(crate) depends_on: Option<Vec<String>>,
     pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
-    pub(crate) priority: Option<u8>,
+    pub(crate) validation_refs: Option<Vec<ValidationRefPayload>>,
+    pub(crate) priority: Option<SparsePatchInput<u8>>,
     pub(crate) tags: Option<Vec<String>>,
     #[allow(dead_code)]
     pub(crate) completion_context: Option<TaskCompletionContextPayload>,

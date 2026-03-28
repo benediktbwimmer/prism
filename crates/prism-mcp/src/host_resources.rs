@@ -11,9 +11,10 @@ use crate::{
     edge_resource_view_link, event_resource_view_link, inferred_edge_record_view,
     lineage_event_view, lineage_resource_view_link, lineage_status, memory_entry_view,
     memory_event_view, memory_resource_uri, memory_resource_view_link, owner_views_for_query,
-    paginate_items, parse_resource_page, parse_resource_query_param, resource_link_view,
-    resource_schema_catalog_entries, schema_resource_uri, schema_resource_view_link,
-    schemas_resource_uri, schemas_resource_view_link, search_ambiguity_from_diagnostics,
+    paginate_items, parse_resource_page, parse_resource_query_param, plans_resource_view_link,
+    plans_resource_view_link_with_options, resource_link_view, resource_schema_catalog_entries,
+    schema_resource_uri, schema_resource_view_link, schemas_resource_uri,
+    schemas_resource_view_link, search_ambiguity_from_diagnostics,
     search_resource_view_link_with_options, session_resource_uri, session_resource_view_link,
     symbol_for, symbol_resource_uri, symbol_resource_view_link, symbol_resource_view_link_for_id,
     symbol_view, symbol_views_for_ids, task_journal_view, task_resource_view_link,
@@ -21,10 +22,10 @@ use crate::{
     tool_schemas_resource_view_link, workspace_revision_view, CapabilitiesResourcePayload,
     CoordinationFeaturesView, EdgeResourcePayload, EntrypointsResourcePayload,
     EventResourcePayload, FeatureFlagsView, InferredEdgeRecordView, LineageResourcePayload,
-    MemoryResourcePayload, QueryExecution, QueryHost, ResourceSchemaCatalogPayload, SearchArgs,
-    SearchResourcePayload, SessionLimitsView, SessionResourcePayload, SessionState,
-    SessionTaskView, SessionView, SymbolResourcePayload, TaskResourcePayload,
-    DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    MemoryResourcePayload, PlansQueryArgs, PlansResourcePayload, QueryExecution, QueryHost,
+    ResourceSchemaCatalogPayload, SearchArgs, SearchResourcePayload, SessionLimitsView,
+    SessionResourcePayload, SessionState, SessionTaskView, SessionView, SymbolResourcePayload,
+    TaskResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
     DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
 };
 
@@ -181,6 +182,73 @@ impl QueryHost {
             uri: uri.to_string(),
             schema_uri,
             entrypoints: paged.items,
+            page: paged.page,
+            truncated: paged.truncated,
+            diagnostics: execution.diagnostics(),
+            related_resources: dedupe_resource_link_views(related_resources),
+        })
+    }
+
+    pub(crate) fn plans_resource_value(
+        &self,
+        session: Arc<SessionState>,
+        uri: &str,
+    ) -> Result<PlansResourcePayload> {
+        self.refresh_workspace_for_query()?;
+        let schema_uri = schema_resource_uri("plans");
+        let prism = self.current_prism();
+        let execution = QueryExecution::new(
+            self.clone(),
+            Arc::clone(&session),
+            prism.clone(),
+            self.begin_query_run(session.as_ref(), "resource", "prism://plans"),
+        );
+        let status = parse_resource_query_param(uri, "status").filter(|value| !value.is_empty());
+        let scope = parse_resource_query_param(uri, "scope").filter(|value| !value.is_empty());
+        let contains =
+            parse_resource_query_param(uri, "contains").filter(|value| !value.is_empty());
+        let paged = paginate_items(
+            execution.plans(PlansQueryArgs {
+                status: status.clone(),
+                scope: scope.clone(),
+                contains: contains.clone(),
+                limit: Some(session.limits().max_result_nodes),
+            })?,
+            parse_resource_page(
+                uri,
+                DEFAULT_RESOURCE_PAGE_LIMIT,
+                session.limits().max_result_nodes,
+            )?,
+        );
+        let mut related_resources = vec![
+            session_resource_view_link(),
+            schema_resource_view_link("plans"),
+            schemas_resource_view_link(),
+            if status.is_none() && scope.is_none() && contains.is_none() {
+                plans_resource_view_link()
+            } else {
+                plans_resource_view_link_with_options(
+                    status.as_deref(),
+                    scope.as_deref(),
+                    contains.as_deref(),
+                )
+            },
+        ];
+        related_resources.extend(
+            paged
+                .items
+                .iter()
+                .flat_map(|plan| plan.root_task_ids.iter().take(4))
+                .map(|task_id| task_resource_view_link(task_id)),
+        );
+        Ok(PlansResourcePayload {
+            uri: uri.to_string(),
+            schema_uri,
+            workspace_revision: workspace_revision_view(prism.workspace_revision()),
+            status,
+            scope,
+            contains,
+            plans: paged.items,
             page: paged.page,
             truncated: paged.truncated,
             diagnostics: execution.diagnostics(),

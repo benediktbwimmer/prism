@@ -13,8 +13,9 @@ use crate::{
     parse_node_kind, resource_example_uri, schema_examples, ResourceLinkView, ResourcePageView,
     ResourceSchemaCatalogEntry, CAPABILITIES_URI, EDGE_RESOURCE_TEMPLATE_URI,
     ENTRYPOINTS_RESOURCE_TEMPLATE_URI, EVENT_RESOURCE_TEMPLATE_URI, LINEAGE_RESOURCE_TEMPLATE_URI,
-    MEMORY_RESOURCE_TEMPLATE_URI, SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI,
-    SYMBOL_RESOURCE_TEMPLATE_URI, TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI,
+    MEMORY_RESOURCE_TEMPLATE_URI, PLANS_RESOURCE_TEMPLATE_URI, PLANS_URI, SCHEMAS_URI,
+    SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI, SYMBOL_RESOURCE_TEMPLATE_URI,
+    TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -299,6 +300,10 @@ pub(crate) fn capabilities_resource_uri() -> String {
     CAPABILITIES_URI.to_string()
 }
 
+pub(crate) fn plans_resource_uri() -> String {
+    PLANS_URI.to_string()
+}
+
 pub(crate) fn schemas_resource_uri() -> String {
     SCHEMAS_URI.to_string()
 }
@@ -309,6 +314,29 @@ pub(crate) fn tool_schemas_resource_uri() -> String {
 
 pub(crate) fn schema_resource_uri(resource_kind: &str) -> String {
     format!("prism://schema/{}", percent_encode_component(resource_kind))
+}
+
+pub(crate) fn plans_resource_uri_with_options(
+    status: Option<&str>,
+    scope: Option<&str>,
+    contains: Option<&str>,
+) -> String {
+    let mut uri = plans_resource_uri();
+    let mut params = Vec::new();
+    if let Some(status) = status.filter(|value| !value.is_empty()) {
+        params.push(format!("status={}", percent_encode_component(status)));
+    }
+    if let Some(scope) = scope.filter(|value| !value.is_empty()) {
+        params.push(format!("scope={}", percent_encode_component(scope)));
+    }
+    if let Some(contains) = contains.filter(|value| !value.is_empty()) {
+        params.push(format!("contains={}", percent_encode_component(contains)));
+    }
+    if !params.is_empty() {
+        uri.push('?');
+        uri.push_str(&params.join("&"));
+    }
+    uri
 }
 
 pub(crate) fn tool_schema_resource_uri(tool_name: &str) -> String {
@@ -460,6 +488,19 @@ pub(crate) fn capabilities_resource_link() -> RawResource {
         ))
 }
 
+pub(crate) fn plans_resource_link() -> RawResource {
+    RawResource::new(plans_resource_uri(), "PRISM Plans")
+        .with_description(
+            "Browse published and runtime-hydrated plans with compact progress summaries",
+        )
+        .with_mime_type("application/json")
+        .with_meta(resource_meta(
+            "plans",
+            Some(schema_resource_uri("plans")),
+            None,
+        ))
+}
+
 pub(crate) fn task_resource_link(task_id: &str) -> RawResource {
     RawResource::new(task_resource_uri(task_id), "PRISM Task Replay")
         .with_description("Task-scoped outcome timeline and correlated events")
@@ -529,6 +570,14 @@ pub(crate) fn capabilities_resource_view_link() -> ResourceLinkView {
     )
 }
 
+pub(crate) fn plans_resource_view_link() -> ResourceLinkView {
+    resource_link_view(
+        plans_resource_uri(),
+        "PRISM Plans",
+        "Browse published and runtime-hydrated plans with compact progress summaries",
+    )
+}
+
 pub(crate) fn tool_schemas_resource_view_link() -> ResourceLinkView {
     resource_link_view(
         tool_schemas_resource_uri(),
@@ -558,6 +607,18 @@ pub(crate) fn session_resource_view_link() -> ResourceLinkView {
         session_resource_uri(),
         "PRISM Session",
         "Active workspace root, current task context, and runtime query limits",
+    )
+}
+
+pub(crate) fn plans_resource_view_link_with_options(
+    status: Option<&str>,
+    scope: Option<&str>,
+    contains: Option<&str>,
+) -> ResourceLinkView {
+    resource_link_view(
+        plans_resource_uri_with_options(status, scope, contains),
+        "PRISM Plans",
+        "Browse published and runtime-hydrated plans with compact progress summaries",
     )
 }
 
@@ -705,6 +766,15 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             resource_uri: Some(TOOL_SCHEMAS_URI.to_string()),
             example_uri: resource_example_uri("tool-schemas"),
             description: "Schema for the tool-schema catalog resource.".to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "plans".to_string(),
+            schema_uri: schema_resource_uri("plans"),
+            resource_uri: Some(PLANS_RESOURCE_TEMPLATE_URI.to_string()),
+            example_uri: resource_example_uri("plans"),
+            description:
+                "Schema for compact plan discovery results, filters, and pagination metadata."
+                    .to_string(),
         },
         ResourceSchemaCatalogEntry {
             resource_kind: "entrypoints".to_string(),

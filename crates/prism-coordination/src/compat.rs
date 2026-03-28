@@ -69,6 +69,8 @@ pub fn execution_overlays_from_tasks(tasks: &[CoordinationTask]) -> Vec<PlanExec
             node_id: plan_node_id_from_task_id(task.id.clone()),
             pending_handoff_to: task.pending_handoff_to.clone(),
             session: task.session.clone(),
+            effective_assignee: None,
+            awaiting_handoff_from: None,
         })
         .collect::<Vec<_>>();
     overlays.sort_by(|left, right| left.node_id.0.cmp(&right.node_id.0));
@@ -162,6 +164,7 @@ fn plan_node_from_task(task: CoordinationTask) -> PlanNode {
             .into_iter()
             .map(map_acceptance)
             .collect::<Vec<_>>(),
+        validation_refs: Vec::new(),
         is_abstract: false,
         assignee: task.assignee,
         base_revision: task.base_revision,

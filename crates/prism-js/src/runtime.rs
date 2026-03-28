@@ -630,6 +630,14 @@ globalThis.prism = Object.freeze({
   file(path) {
     return __prismFile(path);
   },
+  plans(options = {}) {
+    return __prismHost("plans", {
+      status: options?.status,
+      scope: options?.scope,
+      contains: options?.contains,
+      limit: options?.limit,
+    });
+  },
   plan(planId) {
     return __prismHost("plan", { planId });
   },

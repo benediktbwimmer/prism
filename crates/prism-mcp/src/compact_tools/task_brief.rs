@@ -360,6 +360,18 @@ fn compact_task_brief_next_action(
     {
         return "Use prism_open on a nextRead to work this plan node, or prism_query for full coordination detail.".to_string();
     }
+    if let Some(recommendation) = plan_next
+        .iter()
+        .find(|recommendation| recommendation.node.id.0 != task.id.0)
+    {
+        return clamp_string(
+            &format!(
+                "Use prism_open on the recommended plan node `{}` to inspect blocking work, or prism_query for full coordination detail.",
+                recommendation.node.title
+            ),
+            TASK_BRIEF_TEXT_MAX_CHARS,
+        );
+    }
     if let Some(summary) = plan_summary {
         if summary.actionable_nodes == 0 && summary.execution_blocked_nodes > 0 {
             return "Use prism_query to inspect blockers across the plan before continuing."
@@ -377,11 +389,11 @@ fn budgeted_task_brief_result(
         if strip_file_paths(&mut result.next_reads) {
             continue;
         }
-        if result.next_action.take().is_some() {
-            continue;
-        }
         if !result.suggested_actions.is_empty() {
             result.suggested_actions.clear();
+            continue;
+        }
+        if result.next_action.take().is_some() {
             continue;
         }
         if result.next_reads.pop().is_some() {
@@ -403,6 +415,9 @@ fn budgeted_task_brief_result(
             continue;
         }
         if result.risk_hint.take().is_some() {
+            continue;
+        }
+        if result.next_action.take().is_some() {
             continue;
         }
         break;

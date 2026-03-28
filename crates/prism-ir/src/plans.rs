@@ -132,6 +132,8 @@ pub struct PlanNode {
     pub status: PlanNodeStatus,
     pub bindings: PlanBinding,
     pub acceptance: Vec<PlanAcceptanceCriterion>,
+    #[serde(default)]
+    pub validation_refs: Vec<ValidationRef>,
     pub is_abstract: bool,
     pub assignee: Option<AgentId>,
     pub base_revision: WorkspaceRevision,
@@ -156,6 +158,10 @@ pub struct PlanExecutionOverlay {
     pub node_id: PlanNodeId,
     pub pending_handoff_to: Option<AgentId>,
     pub session: Option<SessionId>,
+    #[serde(default)]
+    pub effective_assignee: Option<AgentId>,
+    #[serde(default)]
+    pub awaiting_handoff_from: Option<PlanNodeId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

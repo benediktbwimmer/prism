@@ -848,6 +848,19 @@ pub struct PlanView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct PlanListEntryView {
+    pub plan_id: String,
+    pub title: String,
+    pub goal: String,
+    pub status: PlanStatus,
+    pub scope: PlanScope,
+    pub kind: PlanKind,
+    pub root_task_ids: Vec<String>,
+    pub summary: PlanSummaryView,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ValidationRefView {
     pub id: String,
 }
@@ -882,6 +895,7 @@ pub struct PlanNodeView {
     pub status: PlanNodeStatus,
     pub bindings: PlanBindingView,
     pub acceptance: Vec<PlanAcceptanceCriterionView>,
+    pub validation_refs: Vec<ValidationRefView>,
     pub is_abstract: bool,
     pub assignee: Option<String>,
     pub base_revision: WorkspaceRevisionView,
@@ -926,6 +940,8 @@ pub struct PlanExecutionOverlayView {
     pub node_id: String,
     pub pending_handoff_to: Option<String>,
     pub session: Option<String>,
+    pub effective_assignee: Option<String>,
+    pub awaiting_handoff_from: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -962,6 +978,7 @@ pub struct PlanSummaryView {
 pub struct PlanNodeRecommendationView {
     pub node: PlanNodeView,
     pub actionable: bool,
+    pub effective_assignee: Option<String>,
     pub score: f32,
     pub reasons: Vec<String>,
     pub blockers: Vec<PlanNodeBlockerView>,

@@ -1,7 +1,3 @@
-use std::env;
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
 use anyhow::{anyhow, Result};
 use clap::{ArgAction, ValueEnum};
 use prism_agent::InferenceStore;
@@ -11,6 +7,10 @@ use prism_js::{api_reference_markdown, CuratorJobView, API_REFERENCE_URI};
 use prism_memory::{OutcomeEvent, SessionMemory};
 use prism_query::{Prism, QueryLimits};
 use rmcp::{handler::server::router::tool::ToolRouter, transport::stdio, ServiceExt};
+use std::env;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use tracing::{debug, info};
 
 mod ambiguity;
@@ -102,6 +102,7 @@ const DEFAULT_RESOURCE_PAGE_LIMIT: usize = 50;
 const ENTRYPOINTS_URI: &str = "prism://entrypoints";
 const CAPABILITIES_URI: &str = "prism://capabilities";
 const SESSION_URI: &str = "prism://session";
+const PLANS_URI: &str = "prism://plans";
 const SCHEMAS_URI: &str = "prism://schemas";
 const TOOL_SCHEMAS_URI: &str = "prism://tool-schemas";
 const ENTRYPOINTS_RESOURCE_TEMPLATE_URI: &str = "prism://entrypoints?limit={limit}&cursor={cursor}";
@@ -111,6 +112,8 @@ const SEARCH_RESOURCE_TEMPLATE_URI: &str =
 const LINEAGE_RESOURCE_TEMPLATE_URI: &str =
     "prism://lineage/{lineageId}?limit={limit}&cursor={cursor}";
 const TASK_RESOURCE_TEMPLATE_URI: &str = "prism://task/{taskId}?limit={limit}&cursor={cursor}";
+const PLANS_RESOURCE_TEMPLATE_URI: &str =
+    "prism://plans?status={status}&scope={scope}&contains={contains}&limit={limit}&cursor={cursor}";
 const EVENT_RESOURCE_TEMPLATE_URI: &str = "prism://event/{eventId}";
 const MEMORY_RESOURCE_TEMPLATE_URI: &str = "prism://memory/{memoryId}";
 const EDGE_RESOURCE_TEMPLATE_URI: &str = "prism://edge/{edgeId}";
@@ -492,19 +495,19 @@ impl QueryHost {
         let revisions = workspace.snapshot_revisions().unwrap_or_default();
         let notes = Arc::new(
             workspace
-            .load_episodic_snapshot()
-            .ok()
-            .flatten()
-            .map(SessionMemory::from_snapshot)
-            .unwrap_or_else(SessionMemory::new),
+                .load_episodic_snapshot()
+                .ok()
+                .flatten()
+                .map(SessionMemory::from_snapshot)
+                .unwrap_or_else(SessionMemory::new),
         );
         let inferred_edges = Arc::new(
             workspace
-            .load_inference_snapshot()
-            .ok()
-            .flatten()
-            .map(InferenceStore::from_snapshot)
-            .unwrap_or_else(InferenceStore::new),
+                .load_inference_snapshot()
+                .ok()
+                .flatten()
+                .map(InferenceStore::from_snapshot)
+                .unwrap_or_else(InferenceStore::new),
         );
         let query_log_store = Arc::new(QueryLogStore::default());
         let dashboard_state = Arc::new(DashboardState::default());
@@ -512,18 +515,16 @@ impl QueryHost {
         let loaded_episodic_revision = Arc::new(AtomicU64::new(revisions.episodic));
         let loaded_inference_revision = Arc::new(AtomicU64::new(revisions.inference));
         let loaded_coordination_revision = Arc::new(AtomicU64::new(revisions.coordination));
-        let workspace_runtime = Some(Arc::new(WorkspaceRuntime::spawn(
-            WorkspaceRuntimeConfig {
-                workspace: Arc::clone(&workspace),
-                notes: Arc::clone(&notes),
-                inferred_edges: Arc::clone(&inferred_edges),
-                dashboard_state: Arc::clone(&dashboard_state),
-                loaded_workspace_revision: Arc::clone(&loaded_workspace_revision),
-                loaded_episodic_revision: Arc::clone(&loaded_episodic_revision),
-                loaded_inference_revision: Arc::clone(&loaded_inference_revision),
-                loaded_coordination_revision: Arc::clone(&loaded_coordination_revision),
-            },
-        )));
+        let workspace_runtime = Some(Arc::new(WorkspaceRuntime::spawn(WorkspaceRuntimeConfig {
+            workspace: Arc::clone(&workspace),
+            notes: Arc::clone(&notes),
+            inferred_edges: Arc::clone(&inferred_edges),
+            dashboard_state: Arc::clone(&dashboard_state),
+            loaded_workspace_revision: Arc::clone(&loaded_workspace_revision),
+            loaded_episodic_revision: Arc::clone(&loaded_episodic_revision),
+            loaded_inference_revision: Arc::clone(&loaded_inference_revision),
+            loaded_coordination_revision: Arc::clone(&loaded_coordination_revision),
+        })));
         Self {
             prism: Arc::clone(&prism),
             notes,

@@ -150,12 +150,55 @@ pub enum ConceptEventAction {
     Retire,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConceptEventPatch {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub set_fields: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cleared_fields: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub canonical_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aliases: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub core_members: Option<Vec<NodeId>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub core_member_lineages: Option<Vec<Option<LineageId>>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supporting_members: Option<Vec<NodeId>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supporting_member_lineages: Option<Vec<Option<LineageId>>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub likely_tests: Option<Vec<NodeId>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub likely_test_lineages: Option<Vec<Option<LineageId>>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evidence: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub risk_hint: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decode_lenses: Option<Vec<ConceptDecodeLens>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope: Option<ConceptScope>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supersedes: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retirement_reason: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ConceptEvent {
     pub id: String,
     pub recorded_at: u64,
     pub task_id: Option<String>,
     pub action: ConceptEventAction,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub patch: Option<ConceptEventPatch>,
     pub concept: ConceptPacket,
 }
 

@@ -1,16 +1,16 @@
 use prism_ir::{
-    ArtifactId, CoordinationTaskId, LineageId, NodeId, PlanId, PlanNode, PlanNodeBlocker,
-    PlanNodeId, PlanStatus,
+    AgentId, ArtifactId, CoordinationTaskId, LineageId, NodeId, PlanId, PlanKind, PlanNode,
+    PlanNodeBlocker, PlanNodeId, PlanScope, PlanStatus,
 };
 use prism_memory::OutcomeEvent;
 use serde::{Deserialize, Serialize};
 
 pub use prism_projections::ValidationCheck;
 pub use prism_projections::{
-    canonical_concept_handle, ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptHealth,
-    ConceptHealthSignals, ConceptHealthStatus, ConceptPacket, ConceptProvenance,
-    ConceptPublication, ConceptPublicationStatus, ConceptRelation, ConceptRelationEvent,
-    ConceptRelationEventAction, ConceptRelationKind, ConceptScope,
+    canonical_concept_handle, ConceptDecodeLens, ConceptEvent, ConceptEventAction,
+    ConceptEventPatch, ConceptHealth, ConceptHealthSignals, ConceptHealthStatus, ConceptPacket,
+    ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptRelation,
+    ConceptRelationEvent, ConceptRelationEventAction, ConceptRelationKind, ConceptScope,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -115,9 +115,22 @@ pub struct PlanSummary {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlanListEntry {
+    pub plan_id: PlanId,
+    pub title: String,
+    pub goal: String,
+    pub status: PlanStatus,
+    pub scope: PlanScope,
+    pub kind: PlanKind,
+    pub root_task_ids: Vec<CoordinationTaskId>,
+    pub summary: PlanSummary,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PlanNodeRecommendation {
     pub node: PlanNode,
     pub actionable: bool,
+    pub effective_assignee: Option<AgentId>,
     pub score: f32,
     pub reasons: Vec<String>,
     pub blockers: Vec<PlanNodeBlocker>,

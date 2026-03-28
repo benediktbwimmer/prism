@@ -82,7 +82,7 @@ pub fn curated_concepts_from_events(events: &[ConceptEvent]) -> Vec<ConceptPacke
     for event in events {
         let key = normalize_handle(&event.concept.handle);
         let previous = concepts.get(&key).cloned();
-        let concept = normalize_curated_concept(event, previous.as_ref());
+        let concept = concept_from_event(previous.as_ref(), event);
         if concept
             .publication
             .as_ref()
@@ -98,6 +98,11 @@ pub fn curated_concepts_from_events(events: &[ConceptEvent]) -> Vec<ConceptPacke
     concepts
 }
 
+pub fn concept_from_event(previous: Option<&ConceptPacket>, event: &ConceptEvent) -> ConceptPacket {
+    let concept = concept_event_post_image(previous, event);
+    normalize_curated_concept(event, previous, concept)
+}
+
 pub fn canonical_concept_handle(name: &str) -> String {
     let slug = normalize_slug(name);
     if slug.is_empty() {
@@ -110,8 +115,8 @@ pub fn canonical_concept_handle(name: &str) -> String {
 fn normalize_curated_concept(
     event: &ConceptEvent,
     previous: Option<&ConceptPacket>,
+    mut concept: ConceptPacket,
 ) -> ConceptPacket {
-    let mut concept = event.concept.clone();
     if concept.provenance == ConceptProvenance::default() {
         concept.provenance = ConceptProvenance {
             origin: "repo_mutation".to_string(),
@@ -161,6 +166,132 @@ fn normalize_curated_concept(
         concept.publication = None;
     }
     concept
+}
+
+fn concept_event_post_image(
+    previous: Option<&ConceptPacket>,
+    event: &ConceptEvent,
+) -> ConceptPacket {
+    let Some(previous) = previous else {
+        return event.concept.clone();
+    };
+    let Some(patch) = event.patch.as_ref() else {
+        return event.concept.clone();
+    };
+    let mut concept = previous.clone();
+    if has_patch_field(&patch.set_fields, "canonicalName") {
+        concept.canonical_name = patch
+            .canonical_name
+            .clone()
+            .unwrap_or_else(|| event.concept.canonical_name.clone());
+    }
+    if has_patch_field(&patch.set_fields, "summary") {
+        concept.summary = patch
+            .summary
+            .clone()
+            .unwrap_or_else(|| event.concept.summary.clone());
+    }
+    if has_patch_field(&patch.set_fields, "aliases") {
+        concept.aliases = patch
+            .aliases
+            .clone()
+            .unwrap_or_else(|| event.concept.aliases.clone());
+    }
+    if has_patch_field(&patch.set_fields, "coreMembers") {
+        concept.core_members = patch
+            .core_members
+            .clone()
+            .unwrap_or_else(|| event.concept.core_members.clone());
+        concept.core_member_lineages = patch
+            .core_member_lineages
+            .clone()
+            .unwrap_or_else(|| event.concept.core_member_lineages.clone());
+    }
+    if has_patch_field(&patch.set_fields, "supportingMembers") {
+        concept.supporting_members = patch
+            .supporting_members
+            .clone()
+            .unwrap_or_else(|| event.concept.supporting_members.clone());
+        concept.supporting_member_lineages = patch
+            .supporting_member_lineages
+            .clone()
+            .unwrap_or_else(|| event.concept.supporting_member_lineages.clone());
+    }
+    if has_patch_field(&patch.set_fields, "likelyTests") {
+        concept.likely_tests = patch
+            .likely_tests
+            .clone()
+            .unwrap_or_else(|| event.concept.likely_tests.clone());
+        concept.likely_test_lineages = patch
+            .likely_test_lineages
+            .clone()
+            .unwrap_or_else(|| event.concept.likely_test_lineages.clone());
+    }
+    if has_patch_field(&patch.set_fields, "evidence") {
+        concept.evidence = patch
+            .evidence
+            .clone()
+            .unwrap_or_else(|| event.concept.evidence.clone());
+    }
+    if has_patch_field(&patch.cleared_fields, "riskHint") {
+        concept.risk_hint = None;
+    } else if has_patch_field(&patch.set_fields, "riskHint") {
+        concept.risk_hint = Some(
+            patch
+                .risk_hint
+                .clone()
+                .or_else(|| event.concept.risk_hint.clone())
+                .unwrap_or_default(),
+        );
+    }
+    if has_patch_field(&patch.set_fields, "confidence") {
+        concept.confidence = patch.confidence.unwrap_or(event.concept.confidence);
+    }
+    if has_patch_field(&patch.set_fields, "decodeLenses") {
+        concept.decode_lenses = patch
+            .decode_lenses
+            .clone()
+            .unwrap_or_else(|| event.concept.decode_lenses.clone());
+    }
+    if has_patch_field(&patch.set_fields, "scope") {
+        concept.scope = patch.scope.unwrap_or(event.concept.scope);
+    }
+    if has_patch_field(&patch.set_fields, "supersedes") {
+        let mut publication = concept
+            .publication
+            .clone()
+            .or_else(|| event.concept.publication.clone())
+            .unwrap_or_default();
+        publication.supersedes = patch.supersedes.clone().unwrap_or_else(|| {
+            event
+                .concept
+                .publication
+                .as_ref()
+                .map(|publication| publication.supersedes.clone())
+                .unwrap_or_default()
+        });
+        concept.publication = Some(publication);
+    }
+    if has_patch_field(&patch.set_fields, "retirementReason") {
+        let mut publication = concept
+            .publication
+            .clone()
+            .or_else(|| event.concept.publication.clone())
+            .unwrap_or_default();
+        publication.retirement_reason = patch.retirement_reason.clone().or_else(|| {
+            event
+                .concept
+                .publication
+                .as_ref()
+                .and_then(|publication| publication.retirement_reason.clone())
+        });
+        concept.publication = Some(publication);
+    }
+    concept
+}
+
+fn has_patch_field(fields: &[String], target: &str) -> bool {
+    fields.iter().any(|field| field == target)
 }
 
 fn previous_publication(previous: Option<&ConceptPacket>, recorded_at: u64) -> ConceptPublication {

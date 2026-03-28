@@ -4,6 +4,7 @@ mod impact;
 mod intent;
 mod outcomes;
 mod plan_completion;
+mod plan_discovery;
 mod plan_insights;
 mod plan_runtime;
 mod source;
@@ -47,11 +48,12 @@ pub use crate::source::{
 pub use crate::symbol::{Relations, Symbol};
 pub use crate::types::{
     canonical_concept_handle, ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens,
-    ConceptEvent, ConceptEventAction, ConceptHealth, ConceptHealthSignals, ConceptHealthStatus,
-    ConceptPacket, ConceptProvenance, ConceptPublication, ConceptPublicationStatus,
-    ConceptRelation, ConceptRelationEvent, ConceptRelationEventAction, ConceptRelationKind,
-    ConceptScope, DriftCandidate, PlanNodeRecommendation, PlanSummary, QueryLimits, TaskIntent,
-    TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
+    ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptHealth, ConceptHealthSignals,
+    ConceptHealthStatus, ConceptPacket, ConceptProvenance, ConceptPublication,
+    ConceptPublicationStatus, ConceptRelation, ConceptRelationEvent, ConceptRelationEventAction,
+    ConceptRelationKind, ConceptScope, DriftCandidate, PlanListEntry, PlanNodeRecommendation,
+    PlanSummary, QueryLimits, TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck,
+    ValidationRecipe,
 };
 
 pub struct Prism {
@@ -499,6 +501,7 @@ impl Prism {
         bindings: prism_ir::PlanBinding,
         depends_on: Vec<String>,
         acceptance: Vec<prism_ir::PlanAcceptanceCriterion>,
+        validation_refs: Vec<prism_ir::ValidationRef>,
         base_revision: WorkspaceRevision,
         priority: Option<u8>,
         tags: Vec<String>,
@@ -515,6 +518,7 @@ impl Prism {
                 bindings,
                 depends_on,
                 acceptance,
+                validation_refs,
                 base_revision,
                 priority,
                 tags,
@@ -592,11 +596,14 @@ impl Prism {
         is_abstract: Option<bool>,
         title: Option<String>,
         summary: Option<String>,
+        clear_summary: bool,
         bindings: Option<prism_ir::PlanBinding>,
         depends_on: Option<Vec<String>>,
         acceptance: Option<Vec<prism_ir::PlanAcceptanceCriterion>>,
+        validation_refs: Option<Vec<prism_ir::ValidationRef>>,
         base_revision: Option<WorkspaceRevision>,
         priority: Option<u8>,
+        clear_priority: bool,
         tags: Option<Vec<String>>,
     ) -> Result<PlanId> {
         if matches!(status, Some(PlanNodeStatus::Completed)) {
@@ -613,11 +620,14 @@ impl Prism {
                 is_abstract,
                 title.clone(),
                 summary.clone(),
+                clear_summary,
                 bindings.clone(),
                 depends_on.clone(),
                 acceptance.clone(),
+                validation_refs.clone(),
                 base_revision.clone(),
                 priority,
+                clear_priority,
                 tags.clone(),
             )?;
             self.validate_native_plan_node_completion_preview(&preview, &plan_id, node_id)?;
@@ -631,11 +641,14 @@ impl Prism {
                 is_abstract,
                 title,
                 summary,
+                clear_summary,
                 bindings,
                 depends_on,
                 acceptance,
+                validation_refs,
                 base_revision,
                 priority,
+                clear_priority,
                 tags,
             )
         })

@@ -9,9 +9,9 @@ use prism_memory::{
 
 use crate::projections::{ProjectionIndex, MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE};
 use crate::{
-    ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptPacket, ConceptProvenance,
-    ConceptPublication, ConceptPublicationStatus, ConceptRelation, ConceptRelationKind,
-    ConceptScope,
+    ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptPacket,
+    ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptRelation,
+    ConceptRelationKind, ConceptScope,
 };
 
 #[test]
@@ -329,6 +329,7 @@ fn curated_concept_events_resolve_by_handle_and_query() {
         recorded_at: 7,
         task_id: Some("task:concept".to_string()),
         action: ConceptEventAction::Promote,
+        patch: None,
         concept: ConceptPacket {
             handle: "concept://validation_pipeline".to_string(),
             canonical_name: "validation_pipeline".to_string(),
@@ -397,6 +398,7 @@ fn concept_resolution_handles_typo_tolerant_alias_queries() {
         recorded_at: 9,
         task_id: Some("task:fuzzy".to_string()),
         action: ConceptEventAction::Promote,
+        patch: None,
         concept: ConceptPacket {
             handle: "concept://validation_pipeline".to_string(),
             canonical_name: "validation_pipeline".to_string(),
@@ -460,6 +462,11 @@ fn concept_health_reports_drift_for_unvalidated_test_heavy_concepts() {
         recorded_at: 11,
         task_id: Some("task:health".to_string()),
         action: ConceptEventAction::Promote,
+        patch: Some(ConceptEventPatch {
+            set_fields: vec!["riskHint".to_string()],
+            cleared_fields: Vec::new(),
+            ..ConceptEventPatch::default()
+        }),
         concept: ConceptPacket {
             handle: "concept://validation_pipeline".to_string(),
             canonical_name: "validation_pipeline".to_string(),
@@ -492,6 +499,104 @@ fn concept_health_reports_drift_for_unvalidated_test_heavy_concepts() {
     assert_eq!(health.status, crate::ConceptHealthStatus::Drifted);
     assert!(health.signals.stale_validation_links);
     assert_eq!(health.signals.live_core_member_ratio, 1.0);
+}
+
+#[test]
+fn concept_updates_replay_from_typed_patch_payload() {
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
+    let history = HistorySnapshot {
+        node_to_lineage: vec![
+            (alpha.clone(), LineageId::new("lineage:alpha")),
+            (beta.clone(), LineageId::new("lineage:beta")),
+        ],
+        events: Vec::new(),
+        co_change_counts: Vec::new(),
+        tombstones: Vec::new(),
+        next_lineage: 1,
+        next_event: 0,
+    };
+    let mut index =
+        ProjectionIndex::derive(&history, &OutcomeMemorySnapshot { events: Vec::new() });
+    index.replace_curated_concepts_from_events(&[
+        ConceptEvent {
+            id: "concept-event:base".to_string(),
+            recorded_at: 13,
+            task_id: Some("task:concept-base".to_string()),
+            action: ConceptEventAction::Promote,
+            patch: None,
+            concept: ConceptPacket {
+                handle: "concept://validation_pipeline".to_string(),
+                canonical_name: "validation_pipeline".to_string(),
+                summary: "Original validation concept summary.".to_string(),
+                aliases: vec!["validation".to_string()],
+                confidence: 0.9,
+                core_members: vec![alpha.clone(), beta.clone()],
+                core_member_lineages: vec![
+                    Some(LineageId::new("lineage:alpha")),
+                    Some(LineageId::new("lineage:beta")),
+                ],
+                supporting_members: Vec::new(),
+                supporting_member_lineages: Vec::new(),
+                likely_tests: Vec::new(),
+                likely_test_lineages: Vec::new(),
+                evidence: vec!["Curated in test.".to_string()],
+                risk_hint: Some("Old risk hint".to_string()),
+                decode_lenses: vec![ConceptDecodeLens::Validation],
+                scope: ConceptScope::Session,
+                provenance: ConceptProvenance {
+                    origin: "test".to_string(),
+                    kind: "curated".to_string(),
+                    task_id: Some("task:concept-base".to_string()),
+                },
+                publication: None,
+            },
+        },
+        ConceptEvent {
+            id: "concept-event:update".to_string(),
+            recorded_at: 14,
+            task_id: Some("task:concept-update".to_string()),
+            action: ConceptEventAction::Update,
+            patch: Some(ConceptEventPatch {
+                set_fields: vec!["summary".to_string()],
+                cleared_fields: vec!["riskHint".to_string()],
+                summary: Some("Patched validation concept summary.".to_string()),
+                ..ConceptEventPatch::default()
+            }),
+            concept: ConceptPacket {
+                handle: "concept://validation_pipeline".to_string(),
+                canonical_name: "validation_pipeline".to_string(),
+                summary: "Stale full post image should be ignored.".to_string(),
+                aliases: vec!["validation".to_string()],
+                confidence: 0.9,
+                core_members: vec![alpha, beta],
+                core_member_lineages: vec![
+                    Some(LineageId::new("lineage:alpha")),
+                    Some(LineageId::new("lineage:beta")),
+                ],
+                supporting_members: Vec::new(),
+                supporting_member_lineages: Vec::new(),
+                likely_tests: Vec::new(),
+                likely_test_lineages: Vec::new(),
+                evidence: vec!["Curated in test.".to_string()],
+                risk_hint: Some("Stale risk hint should be ignored".to_string()),
+                decode_lenses: vec![ConceptDecodeLens::Validation],
+                scope: ConceptScope::Session,
+                provenance: ConceptProvenance {
+                    origin: "test".to_string(),
+                    kind: "curated".to_string(),
+                    task_id: Some("task:concept-update".to_string()),
+                },
+                publication: None,
+            },
+        },
+    ]);
+
+    let concept = index
+        .concept_by_handle("concept://validation_pipeline")
+        .expect("curated concept should resolve");
+    assert_eq!(concept.summary, "Patched validation concept summary.");
+    assert_eq!(concept.risk_hint, None);
 }
 
 #[test]

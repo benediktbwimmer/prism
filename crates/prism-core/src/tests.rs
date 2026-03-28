@@ -20,8 +20,8 @@ use prism_memory::{
     OutcomeKind, OutcomeResult, SessionMemory,
 };
 use prism_query::{
-    ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptPacket, ConceptProvenance,
-    ConceptPublication, ConceptPublicationStatus, ConceptScope,
+    ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptPacket,
+    ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptScope,
 };
 use prism_store::{MemoryStore, Store};
 use serde_json::json;
@@ -178,7 +178,7 @@ fn reloads_graph_from_disk_cache() {
         "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
     )
     .unwrap();
-    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\nfn beta() {}\n").unwrap();
 
     let mut first = WorkspaceIndexer::new(&root).unwrap();
     first.index().unwrap();
@@ -924,7 +924,7 @@ fn repo_memory_events_round_trip_through_committed_jsonl_and_reload() {
         "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
     )
     .unwrap();
-    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\nfn beta() {}\n").unwrap();
 
     let session = index_workspace_session(&root).unwrap();
     let alpha = session
@@ -1023,7 +1023,7 @@ fn repo_concept_events_round_trip_through_committed_jsonl_and_reload() {
         .prism()
         .symbol("beta")
         .into_iter()
-        .next()
+        .find(|symbol| symbol.id().path == "demo::beta")
         .expect("beta should be indexed")
         .id()
         .clone();
@@ -1033,6 +1033,7 @@ fn repo_concept_events_round_trip_through_committed_jsonl_and_reload() {
             recorded_at: 17,
             task_id: Some("task:repo-concept".to_string()),
             action: ConceptEventAction::Promote,
+            patch: None,
             concept: ConceptPacket {
                 handle: "concept://alpha_flow".to_string(),
                 canonical_name: "alpha_flow".to_string(),
@@ -1090,6 +1091,99 @@ fn repo_concept_events_round_trip_through_committed_jsonl_and_reload() {
 }
 
 #[test]
+fn repo_concept_event_patch_trace_round_trips_through_jsonl() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\nfn beta() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+    let beta = session
+        .prism()
+        .symbol("beta")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::beta")
+        .expect("beta should be indexed")
+        .id()
+        .clone();
+    session
+        .append_concept_event(ConceptEvent {
+            id: "concept-event:repo-patch".to_string(),
+            recorded_at: 19,
+            task_id: Some("task:repo-concept-patch".to_string()),
+            action: ConceptEventAction::Update,
+            patch: Some(ConceptEventPatch {
+                set_fields: vec!["summary".to_string()],
+                cleared_fields: vec!["riskHint".to_string()],
+                summary: Some("Updated alpha concept with cleared risk guidance.".to_string()),
+                ..ConceptEventPatch::default()
+            }),
+            concept: ConceptPacket {
+                handle: "concept://alpha_flow".to_string(),
+                canonical_name: "alpha_flow".to_string(),
+                summary: "Updated alpha concept with cleared risk guidance.".to_string(),
+                aliases: vec!["alpha".to_string()],
+                confidence: 0.91,
+                core_members: vec![alpha.clone(), beta.clone()],
+                core_member_lineages: vec![
+                    session.prism().lineage_of(&alpha),
+                    session.prism().lineage_of(&beta),
+                ],
+                supporting_members: Vec::new(),
+                supporting_member_lineages: Vec::new(),
+                likely_tests: Vec::new(),
+                likely_test_lineages: Vec::new(),
+                evidence: vec!["Updated from repo task work.".to_string()],
+                risk_hint: None,
+                decode_lenses: vec![ConceptDecodeLens::Open],
+                scope: ConceptScope::Repo,
+                provenance: ConceptProvenance {
+                    origin: "test".to_string(),
+                    kind: "repo_concept_patch_round_trip".to_string(),
+                    task_id: Some("task:repo-concept-patch".to_string()),
+                },
+                publication: Some(ConceptPublication {
+                    published_at: 19,
+                    last_reviewed_at: Some(19),
+                    status: ConceptPublicationStatus::Active,
+                    supersedes: Vec::new(),
+                    retired_at: None,
+                    retirement_reason: None,
+                }),
+            },
+        })
+        .unwrap();
+
+    let events = crate::concept_events::load_repo_concept_events(&root).unwrap();
+    assert_eq!(events.len(), 1);
+    let patch = events[0]
+        .patch
+        .as_ref()
+        .expect("patch trace should persist");
+    assert_eq!(patch.set_fields, vec!["summary".to_string()]);
+    assert_eq!(patch.cleared_fields, vec!["riskHint".to_string()]);
+    assert_eq!(
+        patch.summary.as_deref(),
+        Some("Updated alpha concept with cleared risk guidance.")
+    );
+    assert_eq!(patch.risk_hint, None);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn repo_concepts_rebind_members_through_lineage_after_rename_and_reload() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -1130,6 +1224,7 @@ fn repo_concepts_rebind_members_through_lineage_after_rename_and_reload() {
             recorded_at: 21,
             task_id: Some("task:repo-concept-rebind".to_string()),
             action: ConceptEventAction::Promote,
+            patch: None,
             concept: ConceptPacket {
                 handle: "concept://alpha_flow".to_string(),
                 canonical_name: "alpha_flow".to_string(),

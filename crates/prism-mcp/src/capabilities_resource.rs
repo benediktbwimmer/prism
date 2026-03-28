@@ -10,8 +10,9 @@ use crate::{
     ResourceCapabilityView, ResourceTemplateCapabilityView, ToolCapabilityView, API_REFERENCE_URI,
     CAPABILITIES_URI, EDGE_RESOURCE_TEMPLATE_URI, ENTRYPOINTS_RESOURCE_TEMPLATE_URI,
     EVENT_RESOURCE_TEMPLATE_URI, LINEAGE_RESOURCE_TEMPLATE_URI, MEMORY_RESOURCE_TEMPLATE_URI,
-    SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI, SYMBOL_RESOURCE_TEMPLATE_URI,
-    TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI, TOOL_SCHEMA_RESOURCE_TEMPLATE_URI,
+    PLANS_RESOURCE_TEMPLATE_URI, PLANS_URI, SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI,
+    SYMBOL_RESOURCE_TEMPLATE_URI, TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI,
+    TOOL_SCHEMA_RESOURCE_TEMPLATE_URI,
 };
 
 pub(crate) fn capabilities_resource_value(
@@ -313,6 +314,12 @@ fn query_method_specs() -> Vec<(
         ),
         ("curatorJob", "curator", None, "Inspect one curator job."),
         (
+            "plans",
+            "coordination",
+            Some("workflow"),
+            "Discover plans with compact status, scope, and progress filters.",
+        ),
+        (
             "plan",
             "coordination",
             Some("workflow"),
@@ -556,6 +563,16 @@ fn resource_capabilities() -> Vec<ResourceCapabilityView> {
             example_uri: resource_example_uri("session"),
         },
         ResourceCapabilityView {
+            name: "PRISM Plans".to_string(),
+            uri: PLANS_URI.to_string(),
+            mime_type: "application/json".to_string(),
+            description:
+                "Browse plans with compact progress summaries and optional coordination filters."
+                    .to_string(),
+            schema_uri: Some(schema_resource_uri("plans")),
+            example_uri: resource_example_uri("plans"),
+        },
+        ResourceCapabilityView {
             name: "PRISM Resource Schemas".to_string(),
             uri: SCHEMAS_URI.to_string(),
             mime_type: "application/json".to_string(),
@@ -583,6 +600,15 @@ fn resource_template_capabilities() -> Vec<ResourceTemplateCapabilityView> {
             mime_type: "application/json".to_string(),
             description: "Read workspace entrypoints with optional pagination.".to_string(),
             example_uri: resource_example_uri("entrypoints"),
+        },
+        ResourceTemplateCapabilityView {
+            name: "PRISM Plans Page".to_string(),
+            uri_template: PLANS_RESOURCE_TEMPLATE_URI.to_string(),
+            mime_type: "application/json".to_string(),
+            description:
+                "Read plan discovery results with optional status, scope, text, and pagination filters."
+                    .to_string(),
+            example_uri: resource_example_uri("plans"),
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Resource Schema".to_string(),

@@ -553,6 +553,8 @@ fn apply_legacy_event(
                         node_id: PlanNodeId::new(node_id.0.to_string()),
                         pending_handoff_to: execution.pending_handoff_to.clone(),
                         session: None,
+                        effective_assignee: None,
+                        awaiting_handoff_from: None,
                     },
                 );
             } else {
@@ -784,6 +786,8 @@ fn append_plan_delta_events(
                     node_id: PlanNodeId::new(node_id),
                     pending_handoff_to: None,
                     session: None,
+                    effective_assignee: None,
+                    awaiting_handoff_from: None,
                 }),
             },
         });
@@ -799,6 +803,8 @@ fn normalize_execution_overlays(overlays: Vec<PlanExecutionOverlay>) -> Vec<Plan
             node_id: overlay.node_id,
             pending_handoff_to: overlay.pending_handoff_to,
             session: None,
+            effective_assignee: None,
+            awaiting_handoff_from: None,
         })
         .filter(|overlay| overlay.pending_handoff_to.is_some() || overlay.session.is_some())
         .collect::<Vec<_>>();
@@ -904,6 +910,7 @@ fn legacy_node_from_task(task: &LegacyPublishedPlanNode) -> PlanNode {
                 evidence_policy: prism_ir::AcceptanceEvidencePolicy::Any,
             })
             .collect(),
+        validation_refs: Vec::new(),
         is_abstract: false,
         assignee: task.assignee.clone(),
         base_revision: task.base_revision.clone(),

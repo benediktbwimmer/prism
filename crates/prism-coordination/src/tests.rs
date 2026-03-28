@@ -1064,6 +1064,41 @@ fn closed_plan_rejects_new_task_and_records_violation() {
 }
 
 #[test]
+fn plan_update_events_record_patch_metadata() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                goal: "Original goal".to_string(),
+                status: Some(prism_ir::PlanStatus::Draft),
+                policy: None,
+            },
+        )
+        .unwrap();
+
+    store
+        .update_plan(
+            meta("event:2", 2),
+            PlanUpdateInput {
+                plan_id,
+                status: Some(prism_ir::PlanStatus::Active),
+                goal: Some("Refined goal".to_string()),
+                policy: None,
+            },
+        )
+        .unwrap();
+
+    let event = store.events().last().unwrap().clone();
+    assert_eq!(event.kind, prism_ir::CoordinationEventKind::PlanUpdated);
+    assert_eq!(event.metadata["status"], "Active");
+    assert_eq!(event.metadata["previousStatus"], "Draft");
+    assert_eq!(event.metadata["patch"]["status"], "set");
+    assert_eq!(event.metadata["patch"]["goal"], "set");
+    assert!(event.metadata["patch"].get("policy").is_none());
+}
+
+#[test]
 fn draft_plan_hides_ready_work_until_activation() {
     let store = CoordinationStore::new();
     let (plan_id, plan) = store
@@ -1134,6 +1169,77 @@ fn draft_plan_hides_ready_work_until_activation() {
             .len(),
         1
     );
+}
+
+#[test]
+fn task_update_events_record_sparse_patch_metadata() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                goal: "Track task patches".to_string(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            meta("event:2", 2),
+            TaskCreateInput {
+                plan_id,
+                title: "Investigate".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: Some(prism_ir::AgentId::new("agent:a")),
+                session: Some(prism_ir::SessionId::new("session:a")),
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+
+    store
+        .update_task(
+            meta("event:3", 3),
+            TaskUpdateInput {
+                task_id,
+                status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                assignee: Some(None),
+                session: Some(None),
+                title: Some("Investigate deeply".to_string()),
+                anchors: None,
+                depends_on: None,
+                acceptance: None,
+                base_revision: Some(prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                }),
+                completion_context: None,
+            },
+            prism_ir::WorkspaceRevision {
+                graph_version: 1,
+                git_commit: None,
+            },
+            3,
+        )
+        .unwrap();
+
+    let event = store.events().last().unwrap().clone();
+    assert_eq!(event.kind, prism_ir::CoordinationEventKind::TaskAssigned);
+    assert_eq!(event.metadata["status"], "InProgress");
+    assert_eq!(event.metadata["previousStatus"], "Ready");
+    assert!(event.metadata["assignee"].is_null());
+    assert_eq!(event.metadata["patch"]["status"], "set");
+    assert_eq!(event.metadata["patch"]["assignee"], "clear");
+    assert_eq!(event.metadata["patch"]["session"], "clear");
+    assert_eq!(event.metadata["patch"]["title"], "set");
+    assert_eq!(event.metadata["patch"]["baseRevision"], "set");
 }
 
 #[test]

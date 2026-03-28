@@ -117,17 +117,19 @@ fn sync_workspace_runtime(config: &WorkspaceRuntimeConfig) -> Result<WorkspaceRe
         config.loaded_workspace_revision.as_ref(),
         revisions.workspace,
     )? {
-        WorkspaceSnapshotReloadStatus::Unchanged => match config.workspace.refresh_fs_nonblocking()? {
-            FsRefreshStatus::Clean => false,
-            FsRefreshStatus::Refreshed => {
-                refresh_path = "full";
-                false
+        WorkspaceSnapshotReloadStatus::Unchanged => {
+            match config.workspace.refresh_fs_nonblocking()? {
+                FsRefreshStatus::Clean => false,
+                FsRefreshStatus::Refreshed => {
+                    refresh_path = "full";
+                    false
+                }
+                FsRefreshStatus::DeferredBusy => {
+                    refresh_path = "deferred";
+                    true
+                }
             }
-            FsRefreshStatus::DeferredBusy => {
-                refresh_path = "deferred";
-                true
-            }
-        },
+        }
         WorkspaceSnapshotReloadStatus::Reloaded => {
             refresh_path = "persisted";
             false
@@ -208,10 +210,7 @@ fn sync_persisted_workspace_state(
     };
     let refresh_path = if deferred {
         "deferred"
-    } else if workspace_reloaded
-        || episodic_reloaded
-        || inference_reloaded
-        || coordination_reloaded
+    } else if workspace_reloaded || episodic_reloaded || inference_reloaded || coordination_reloaded
     {
         "persisted"
     } else {
@@ -295,7 +294,10 @@ fn reload_inference_snapshot_if_needed(
         return Ok(false);
     }
 
-    let snapshot = config.workspace.load_inference_snapshot()?.unwrap_or_default();
+    let snapshot = config
+        .workspace
+        .load_inference_snapshot()?
+        .unwrap_or_default();
     config.inferred_edges.replace_from_snapshot(snapshot);
     config
         .loaded_inference_revision

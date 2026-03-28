@@ -23,6 +23,14 @@ use crate::types::{
     TaskUpdateInput, WorkClaim,
 };
 
+fn push_patch_op(patch: &mut serde_json::Map<String, Value>, field: &str, op: &str) {
+    patch.insert(field.to_string(), Value::String(op.to_string()));
+}
+
+fn patch_metadata(patch: serde_json::Map<String, Value>) -> Option<Value> {
+    (!patch.is_empty()).then_some(Value::Object(patch))
+}
+
 fn rejection_error(
     state: &mut CoordinationState,
     meta: &EventMeta,
@@ -764,6 +772,17 @@ pub(crate) fn update_plan_mutation(
     meta: EventMeta,
     input: PlanUpdateInput,
 ) -> Result<Plan> {
+    let mut patch = serde_json::Map::new();
+    if input.status.is_some() {
+        push_patch_op(&mut patch, "status", "set");
+    }
+    if input.goal.is_some() {
+        push_patch_op(&mut patch, "goal", "set");
+    }
+    if input.policy.is_some() {
+        push_patch_op(&mut patch, "policy", "set");
+    }
+    let patch = patch_metadata(patch);
     let previous = state
         .plans
         .get(&input.plan_id)
@@ -901,6 +920,18 @@ pub(crate) fn update_plan_mutation(
         plan.policy = policy;
     }
     let plan = plan.clone();
+    let mut metadata = serde_json::Map::new();
+    metadata.insert(
+        "status".to_string(),
+        Value::String(format!("{:?}", plan.status)),
+    );
+    metadata.insert(
+        "previousStatus".to_string(),
+        Value::String(format!("{:?}", previous.status)),
+    );
+    if let Some(patch) = patch {
+        metadata.insert("patch".to_string(), patch);
+    }
     state.events.push(CoordinationEvent {
         meta,
         kind: CoordinationEventKind::PlanUpdated,
@@ -910,9 +941,7 @@ pub(crate) fn update_plan_mutation(
         claim: None,
         artifact: None,
         review: None,
-        metadata: json!({
-            "status": format!("{:?}", plan.status),
-        }),
+        metadata: Value::Object(metadata),
     });
     Ok(plan)
 }
@@ -1045,6 +1074,40 @@ pub(crate) fn update_task_mutation(
     current_revision: WorkspaceRevision,
     now: Timestamp,
 ) -> Result<CoordinationTask> {
+    let mut patch = serde_json::Map::new();
+    if input.status.is_some() {
+        push_patch_op(&mut patch, "status", "set");
+    }
+    if let Some(assignee) = input.assignee.as_ref() {
+        push_patch_op(
+            &mut patch,
+            "assignee",
+            if assignee.is_some() { "set" } else { "clear" },
+        );
+    }
+    if let Some(session) = input.session.as_ref() {
+        push_patch_op(
+            &mut patch,
+            "session",
+            if session.is_some() { "set" } else { "clear" },
+        );
+    }
+    if input.title.is_some() {
+        push_patch_op(&mut patch, "title", "set");
+    }
+    if input.anchors.is_some() {
+        push_patch_op(&mut patch, "anchors", "set");
+    }
+    if input.depends_on.is_some() {
+        push_patch_op(&mut patch, "dependsOn", "set");
+    }
+    if input.acceptance.is_some() {
+        push_patch_op(&mut patch, "acceptance", "set");
+    }
+    if input.base_revision.is_some() {
+        push_patch_op(&mut patch, "baseRevision", "set");
+    }
+    let patch = patch_metadata(patch);
     let completion_context = input.completion_context.clone();
     let next_dependencies = input.depends_on.clone().map(dedupe_ids);
     let next_acceptance = input.acceptance.clone().map(normalize_acceptance);
@@ -1342,6 +1405,25 @@ pub(crate) fn update_task_mutation(
     } else {
         CoordinationEventKind::TaskStatusChanged
     };
+    let mut metadata = serde_json::Map::new();
+    metadata.insert(
+        "status".to_string(),
+        Value::String(format!("{:?}", task.status)),
+    );
+    metadata.insert(
+        "previousStatus".to_string(),
+        Value::String(format!("{:?}", previous.status)),
+    );
+    metadata.insert(
+        "assignee".to_string(),
+        task.assignee
+            .as_ref()
+            .map(|agent| Value::String(agent.0.to_string()))
+            .unwrap_or(Value::Null),
+    );
+    if let Some(patch) = patch {
+        metadata.insert("patch".to_string(), patch);
+    }
     state.events.push(CoordinationEvent {
         meta,
         kind,
@@ -1351,11 +1433,7 @@ pub(crate) fn update_task_mutation(
         claim: None,
         artifact: None,
         review: None,
-        metadata: json!({
-            "status": format!("{:?}", task.status),
-            "previousStatus": format!("{:?}", previous.status),
-            "assignee": task.assignee.as_ref().map(|agent| agent.0.to_string()),
-        }),
+        metadata: Value::Object(metadata),
     });
     Ok(task)
 }

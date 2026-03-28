@@ -36,8 +36,8 @@ use crate::{
     merge_promoted_checks, missing_return_hint, next_reads, owner_symbol_views_for_query,
     owner_symbol_views_for_target, owner_views_for_target, parse_capability, parse_claim_mode,
     parse_event_actor, parse_memory_event_action, parse_memory_kind, parse_memory_scope,
-    parse_node_kind, parse_outcome_kind, parse_outcome_result, parse_typescript_error,
-    plan_execution_overlay_view, plan_graph_view, plan_node_blocker_view,
+    parse_node_kind, parse_outcome_kind, parse_outcome_result, parse_plan_scope, parse_plan_status,
+    parse_typescript_error, plan_execution_overlay_view, plan_graph_view, plan_node_blocker_view,
     plan_node_recommendation_view, plan_node_view, plan_summary_view, plan_view,
     policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
     promoted_validation_checks, query_diagnostic, rank_search_results, read_context_view_cached,
@@ -53,12 +53,12 @@ use crate::{
     CuratorJobsArgs, CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs, DiscoveryTargetArgs,
     EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs,
     MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
-    PendingReviewsArgs, PlanNextArgs, PlanNodeTargetArgs, PlanTargetArgs, PolicyViolationQueryArgs,
-    QueryHost, QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs,
-    RuntimeLogArgs, RuntimeTimelineArgs, SearchAmbiguityContext, SearchArgs, SearchTextArgs,
-    SemanticContextCache, SessionState, SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs,
-    SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode, TaskTargetArgs,
-    ToolNameArgs, ValidationFeedbackArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH,
+    PendingReviewsArgs, PlanNextArgs, PlanNodeTargetArgs, PlanTargetArgs, PlansQueryArgs,
+    PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs,
+    RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchAmbiguityContext, SearchArgs,
+    SearchTextArgs, SemanticContextCache, SessionState, SimulateClaimArgs, SourceExcerptArgs,
+    SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode,
+    TaskTargetArgs, ToolNameArgs, ValidationFeedbackArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH,
     DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
     INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER,
     USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
@@ -683,6 +683,10 @@ impl QueryExecution {
                 Ok(serde_json::to_value(self.decode_concept(args)?)?)
             }
             "entrypoints" => Ok(serde_json::to_value(self.entrypoints()?)?),
+            "plans" => {
+                let args: PlansQueryArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.plans(args)?)?)
+            }
             "plan" => {
                 let args: PlanTargetArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(
@@ -1477,6 +1481,50 @@ impl QueryExecution {
 
     fn tool(&self, name: &str) -> Result<Option<ToolSchemaView>> {
         Ok(tool_schema_view(name))
+    }
+
+    pub(crate) fn plans(&self, args: PlansQueryArgs) -> Result<Vec<prism_js::PlanListEntryView>> {
+        let status = args.status.as_deref().map(parse_plan_status).transpose()?;
+        let scope = args.scope.as_deref().map(parse_plan_scope).transpose()?;
+        let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
+        let applied = requested.min(self.session.limits().max_result_nodes);
+        let mut results = self
+            .prism
+            .plans(status, scope, args.contains.as_deref())
+            .into_iter()
+            .map(crate::plan_list_entry_view)
+            .collect::<Vec<_>>();
+        if requested > applied {
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Plan-list limit was capped at {} instead of {requested}. Next action: narrow with `status`, `scope`, or `contains` before raising the limit.",
+                    applied
+                ),
+                Some(json!({
+                    "requested": requested,
+                    "applied": applied,
+                    "nextAction": "Use prism.plans({ status: ..., scope: ..., contains: ..., limit: ... }) to narrow the result set.",
+                })),
+            );
+        }
+        if results.len() > applied {
+            let total = results.len();
+            results.truncate(applied);
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Plan discovery results were truncated at {} entries. Next action: narrow with `status`, `scope`, or `contains`, then inspect one plan with `prism.plan(...)` or `prism.planSummary(...)`.",
+                    applied
+                ),
+                Some(json!({
+                    "count": total,
+                    "applied": applied,
+                    "nextAction": "Use prism.plan(planId) or prism.planSummary(planId) after narrowing prism.plans(...).",
+                })),
+            );
+        }
+        Ok(results)
     }
 
     pub(crate) fn search(&self, args: SearchArgs) -> Result<Vec<SymbolView>> {

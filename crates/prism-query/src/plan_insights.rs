@@ -1,12 +1,42 @@
 use std::collections::BTreeSet;
 
-use prism_ir::{PlanEdgeKind, PlanId, PlanNode, PlanNodeBlockerKind, PlanNodeId, PlanNodeStatus};
+use prism_ir::{
+    PlanEdgeKind, PlanId, PlanNode, PlanNodeBlockerKind, PlanNodeId, PlanNodeStatus, PlanStatus,
+    Timestamp,
+};
 
 use crate::plan_completion::current_timestamp;
 use crate::plan_runtime::NativePlanRuntimeState;
 use crate::{PlanNodeRecommendation, PlanSummary, Prism};
 
 impl Prism {
+    pub(crate) fn actionable_plan_nodes_for_runtime(
+        &self,
+        runtime: &NativePlanRuntimeState,
+        plan_id: &PlanId,
+        now: Timestamp,
+    ) -> Vec<PlanNode> {
+        let Some(graph) = runtime.plan_graph(plan_id) else {
+            return Vec::new();
+        };
+        if graph.status != PlanStatus::Active {
+            return Vec::new();
+        }
+
+        let mut nodes = graph
+            .nodes
+            .iter()
+            .filter(|node| is_actionable_candidate(node))
+            .filter(|node| {
+                self.plan_node_blockers_for_runtime(runtime, &graph.id, &node.id, now)
+                    .is_empty()
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        nodes.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+        nodes
+    }
+
     pub fn plan_summary(&self, plan_id: &PlanId) -> Option<PlanSummary> {
         let runtime = self
             .plan_runtime
@@ -25,18 +55,18 @@ impl Prism {
         self.plan_next_for_runtime(&runtime, plan_id, limit)
     }
 
-    fn plan_summary_for_runtime(
+    pub(crate) fn plan_summary_for_runtime(
         &self,
         runtime: &NativePlanRuntimeState,
         plan_id: &PlanId,
     ) -> Option<PlanSummary> {
         let graph = runtime.plan_graph(plan_id)?;
-        let ready_ids = runtime
-            .ready_nodes(plan_id)
+        let now = current_timestamp();
+        let actionable_ids = self
+            .actionable_plan_nodes_for_runtime(runtime, plan_id, now)
             .into_iter()
             .map(|node| node.id)
             .collect::<BTreeSet<_>>();
-        let now = current_timestamp();
 
         let mut summary = PlanSummary {
             plan_id: graph.id.clone(),
@@ -69,14 +99,11 @@ impl Prism {
             }
 
             let blockers = self.plan_node_blockers_for_runtime(runtime, &graph.id, &node.id, now);
-            let has_execution_blockers = blockers
-                .iter()
-                .any(|blocker| is_execution_blocker(blocker.kind));
             let has_completion_gates = blockers
                 .iter()
                 .any(|blocker| is_completion_gate(blocker.kind));
 
-            if ready_ids.contains(&node.id) && !has_execution_blockers {
+            if actionable_ids.contains(&node.id) {
                 summary.actionable_nodes += 1;
             } else {
                 summary.execution_blocked_nodes += 1;
@@ -117,11 +144,7 @@ impl Prism {
         let Some(graph) = runtime.plan_graph(plan_id) else {
             return Vec::new();
         };
-        let ready_ids = runtime
-            .ready_nodes(plan_id)
-            .into_iter()
-            .map(|node| node.id)
-            .collect::<BTreeSet<_>>();
+        let execution = runtime.plan_execution(plan_id);
         let now = current_timestamp();
 
         let mut recommendations = graph
@@ -129,18 +152,27 @@ impl Prism {
             .iter()
             .filter(|node| !node.is_abstract && !is_terminal(node))
             .map(|node| {
+                let effective_assignee = execution
+                    .iter()
+                    .find(|overlay| overlay.node_id == node.id)
+                    .and_then(|overlay| overlay.effective_assignee.clone())
+                    .or_else(|| node.assignee.clone());
                 let blockers =
                     self.plan_node_blockers_for_runtime(runtime, &graph.id, &node.id, now);
-                let actionable = ready_ids.contains(&node.id)
-                    && !blockers
-                        .iter()
-                        .any(|blocker| is_execution_blocker(blocker.kind));
+                let actionable = is_actionable_candidate(node) && blockers.is_empty();
                 let unblocks = unlocked_neighbors(&graph, &node.id);
-                let reasons = recommendation_reasons(node, actionable, &blockers, &unblocks);
+                let reasons = recommendation_reasons(
+                    node,
+                    actionable,
+                    effective_assignee.as_ref().map(|agent| agent.0.as_str()),
+                    &blockers,
+                    &unblocks,
+                );
                 let score = recommendation_score(node, actionable, &blockers, unblocks.len());
                 PlanNodeRecommendation {
                     node: node.clone(),
                     actionable,
+                    effective_assignee,
                     score,
                     reasons,
                     blockers,
@@ -172,6 +204,14 @@ fn is_terminal(node: &PlanNode) -> bool {
         node.status,
         PlanNodeStatus::Completed | PlanNodeStatus::Abandoned
     )
+}
+
+fn is_actionable_candidate(node: &PlanNode) -> bool {
+    !node.is_abstract
+        && matches!(
+            node.status,
+            PlanNodeStatus::Ready | PlanNodeStatus::InProgress
+        )
 }
 
 fn is_execution_blocker(kind: PlanNodeBlockerKind) -> bool {
@@ -233,6 +273,7 @@ fn unlocked_neighbors(graph: &prism_ir::PlanGraph, node_id: &PlanNodeId) -> Vec<
 fn recommendation_reasons(
     node: &PlanNode,
     actionable: bool,
+    effective_assignee: Option<&str>,
     blockers: &[prism_ir::PlanNodeBlocker],
     unblocks: &[PlanNodeId],
 ) -> Vec<String> {
@@ -255,6 +296,9 @@ fn recommendation_reasons(
             "Completion would unblock {} node(s).",
             unblocks.len()
         ));
+    }
+    if let Some(assignee) = effective_assignee {
+        reasons.push(format!("Suggested owner: `{assignee}`."));
     }
     let completion_gates = blockers
         .iter()

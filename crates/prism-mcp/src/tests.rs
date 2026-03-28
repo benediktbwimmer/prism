@@ -669,6 +669,7 @@ fn plan_node_mutations_return_graph_native_views() {
                     "kind": "validate",
                     "title": "Edit main",
                     "summary": "Gather validation evidence",
+                    "validationRefs": [{ "id": "validation:demo-main" }],
                     "isAbstract": true,
                     "bindings": {
                         "conceptHandles": ["concept://native_plan_runtime"],
@@ -704,6 +705,10 @@ fn plan_node_mutations_return_graph_native_views() {
         "validation:demo-main"
     );
     assert_eq!(
+        node.state["validationRefs"][0]["id"],
+        "validation:demo-main"
+    );
+    assert_eq!(
         node.state["acceptance"][0]["evidencePolicy"],
         "ReviewAndValidation"
     );
@@ -719,6 +724,7 @@ fn plan_node_mutations_return_graph_native_views() {
                     "title": "Edit main safely",
                     "summary": "Review the validation evidence",
                     "status": "in-progress",
+                    "assignee": "agent:reviewer",
                     "isAbstract": false,
                     "anchors": [{
                         "type": "node",
@@ -749,6 +755,7 @@ fn plan_node_mutations_return_graph_native_views() {
     assert_eq!(updated.state["kind"], "Review");
     assert_eq!(updated.state["summary"], "Review the validation evidence");
     assert_eq!(updated.state["status"], "InProgress");
+    assert_eq!(updated.state["assignee"], "agent:reviewer");
     assert_eq!(updated.state["acceptance"].as_array().unwrap().len(), 1);
     assert_eq!(updated.state["isAbstract"], false);
     assert_eq!(updated.state["priority"], 7);
@@ -788,13 +795,35 @@ fn plan_node_mutations_return_graph_native_views() {
         .find(|node| node.id.0 == node_id)
         .expect("graph node");
     assert_eq!(graph_node.kind, prism_ir::PlanNodeKind::Review);
-    assert_eq!(graph_node.summary.as_deref(), Some("Review the validation evidence"));
+    assert_eq!(
+        graph_node.summary.as_deref(),
+        Some("Review the validation evidence")
+    );
     assert_eq!(graph_node.priority, Some(7));
     assert_eq!(graph_node.tags, vec!["review", "validation"]);
     assert_eq!(
         graph_node.bindings.concept_handles,
         vec!["concept://native_plan_runtime"]
     );
+
+    let cleared = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeUpdate,
+                payload: json!({
+                    "nodeId": node_id,
+                    "assignee": { "op": "clear" },
+                    "summary": { "op": "clear" },
+                    "priority": { "op": "clear" }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(cleared.state["summary"], Value::Null);
+    assert_eq!(cleared.state["priority"], Value::Null);
+    assert_eq!(cleared.state["assignee"], Value::Null);
 }
 
 #[test]
@@ -1019,7 +1048,8 @@ fn plan_edge_mutations_support_non_dependency_edge_kinds() {
                 payload: json!({
                     "planId": plan_id.clone(),
                     "kind": "validate",
-                    "title": "Validate change"
+                    "title": "Validate change",
+                    "validationRefs": [{ "id": "validation:change" }]
                 }),
                 task_id: None,
             },
@@ -1248,7 +1278,8 @@ fn plan_query_reads_surface_native_ready_nodes_and_blockers() {
                 payload: json!({
                     "planId": plan_id.clone(),
                     "title": "Validator",
-                    "kind": "Validate"
+                    "kind": "Validate",
+                    "validationRefs": [{ "id": "validation:validator" }]
                 }),
                 task_id: None,
             },
@@ -1348,8 +1379,17 @@ fn plan_query_reads_surface_native_ready_nodes_and_blockers() {
             &format!(r#"{{ "planId": "{plan_id}", "nodeId": "{handoff_target_id}" }}"#),
         )
         .unwrap();
+    let execution_overlays = execution
+        .dispatch("planExecution", &format!(r#"{{ "planId": "{plan_id}" }}"#))
+        .unwrap();
     let summary = execution
         .dispatch("planSummary", &format!(r#"{{ "planId": "{plan_id}" }}"#))
+        .unwrap();
+    let plans = execution
+        .dispatch(
+            "plans",
+            r#"{ "contains": "native plan runtime", "limit": 5 }"#,
+        )
         .unwrap();
     let next = execution
         .dispatch(
@@ -1382,17 +1422,48 @@ fn plan_query_reads_surface_native_ready_nodes_and_blockers() {
         .collect::<Vec<_>>();
     assert_eq!(
         blocked_kinds,
-        vec!["Dependency".to_string(), "ValidationGate".to_string()]
+        vec![
+            "Dependency".to_string(),
+            "ValidationGate".to_string(),
+            "ValidationRequired".to_string()
+        ]
     );
+    assert!(blocked_node_blockers
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|blocker| {
+            blocker["kind"] == Value::String("ValidationGate".to_string())
+                && blocker["validationChecks"] == json!(["validation:validator"])
+        }));
+    assert!(blocked_node_blockers
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|blocker| {
+            blocker["kind"] == Value::String("ValidationRequired".to_string())
+                && blocker["validationChecks"] == json!(["validation:validator"])
+        }));
     assert_eq!(
         handoff_target_blockers[0]["kind"],
         Value::String("Handoff".to_string())
     );
+    assert!(execution_overlays
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|overlay| {
+            overlay["nodeId"] == Value::String(handoff_target_id.clone())
+                && overlay["awaitingHandoffFrom"] == Value::String(handoff_source_id.clone())
+        }));
     assert_eq!(summary["totalNodes"], Value::from(6));
     assert_eq!(summary["actionableNodes"], Value::from(4));
     assert_eq!(summary["executionBlockedNodes"], Value::from(2));
     assert_eq!(summary["completionGatedNodes"], Value::from(1));
     assert_eq!(summary["validationGatedNodes"], Value::from(1));
+    assert_eq!(plans.as_array().unwrap().len(), 1);
+    assert_eq!(plans[0]["planId"], Value::String(plan_id.clone()));
+    assert_eq!(plans[0]["summary"]["actionableNodes"], Value::from(4));
     let next_id = next[0]["node"]["id"].as_str().unwrap();
     assert!(matches!(
         next_id,
@@ -1470,7 +1541,11 @@ fn plan_query_reads_surface_child_hierarchy_completion_gates() {
         host.clone(),
         test_session(&host),
         host.current_prism(),
-        host.begin_query_run(test_session(&host).as_ref(), "test", "child hierarchy semantics"),
+        host.begin_query_run(
+            test_session(&host).as_ref(),
+            "test",
+            "child hierarchy semantics",
+        ),
     );
     let parent_blockers = execution
         .dispatch(
@@ -1745,7 +1820,8 @@ fn plan_edge_mutations_reject_invalid_scheduling_graphs() {
                 payload: json!({
                     "planId": plan_id.clone(),
                     "title": "Validate change",
-                    "kind": "Validate"
+                    "kind": "Validate",
+                    "validationRefs": [{ "id": "validation:change" }]
                 }),
                 task_id: None,
             },
@@ -6994,7 +7070,7 @@ pub fn start_task() {}
                 supporting_members: None,
                 likely_tests: None,
                 evidence: Some(vec!["Promoted from live repo work.".to_string()]),
-                risk_hint: Some("Keep checks aligned.".to_string()),
+                risk_hint: Some(SparsePatchInput::Value("Keep checks aligned.".to_string())),
                 confidence: Some(0.91),
                 decode_lenses: Some(vec![
                     PrismConceptLensInput::Validation,
@@ -7045,7 +7121,9 @@ pub fn start_task() {}
                 supporting_members: None,
                 likely_tests: None,
                 evidence: Some(vec!["Updated after more repo work.".to_string()]),
-                risk_hint: Some("Config drift is common.".to_string()),
+                risk_hint: Some(SparsePatchInput::Value(
+                    "Config drift is common.".to_string(),
+                )),
                 confidence: Some(0.95),
                 decode_lenses: Some(vec![
                     PrismConceptLensInput::Open,
@@ -7072,6 +7150,34 @@ pub fn start_task() {}
             .map(|value| value.supersedes.clone()),
         Some(vec!["concept://older_validation_flow".to_string()])
     );
+
+    let cleared = host
+        .store_concept(
+            session.as_ref(),
+            PrismConceptMutationArgs {
+                operation: ConceptMutationOperationInput::Update,
+                handle: Some("concept://custom_validation".to_string()),
+                canonical_name: None,
+                summary: None,
+                aliases: None,
+                core_members: None,
+                supporting_members: None,
+                likely_tests: None,
+                evidence: None,
+                risk_hint: Some(SparsePatchInput::Patch(SparsePatchObjectInput {
+                    op: SparsePatchOpInput::Clear,
+                    value: None,
+                })),
+                confidence: None,
+                decode_lenses: None,
+                scope: None,
+                supersedes: None,
+                retirement_reason: None,
+                task_id: Some("task:concept-clear-risk-hint".to_string()),
+            },
+        )
+        .expect("concept riskHint clear should succeed");
+    assert_eq!(cleared.packet.risk_hint, None);
 
     let retired = host
         .store_concept(
@@ -14539,6 +14645,53 @@ pub mod beta;
         .suggested_queries
         .iter()
         .any(|query| query.label == "Focused Block"));
+}
+
+#[test]
+fn plans_resource_payload_surfaces_filters_and_related_tasks() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Migrate persistence storage semantics" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        test_session(&host).as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanNodeCreate,
+            payload: json!({ "planId": plan_id, "title": "Classify authoritative tables" }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let payload = host
+        .plans_resource_value(
+            test_session(&host),
+            "prism://plans?contains=persistence&limit=1",
+        )
+        .expect("plans resource should succeed");
+
+    assert_eq!(payload.contains.as_deref(), Some("persistence"));
+    assert_eq!(payload.page.returned, 1);
+    assert_eq!(payload.plans.len(), 1);
+    assert_eq!(payload.plans[0].summary.actionable_nodes, 1);
+    assert!(payload
+        .related_resources
+        .iter()
+        .any(|link| link.uri == "prism://plans?contains=persistence"));
+    assert!(payload
+        .related_resources
+        .iter()
+        .any(|link| link.uri.starts_with("prism://task/")));
 }
 
 #[test]

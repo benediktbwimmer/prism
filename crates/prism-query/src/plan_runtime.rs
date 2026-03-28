@@ -8,7 +8,7 @@ use prism_coordination::{
 use prism_ir::{
     AgentId, AnchorRef, CoordinationTaskId, PlanAcceptanceCriterion, PlanBinding, PlanEdge,
     PlanEdgeId, PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanNode, PlanNodeBlocker,
-    PlanNodeBlockerKind, PlanNodeId, PlanNodeKind, PlanNodeStatus, PlanStatus, ValidationRef,
+    PlanNodeBlockerKind, PlanNodeId, PlanNodeKind, PlanNodeStatus, ValidationRef,
     WorkspaceRevision,
 };
 use serde_json::Value;
@@ -72,38 +72,24 @@ impl NativePlanRuntimeState {
         self.graphs.get(plan_id.0.as_str()).cloned()
     }
 
+    pub(crate) fn plan_graphs(&self) -> Vec<PlanGraph> {
+        self.graphs.values().cloned().collect()
+    }
+
     pub(crate) fn plan_execution(&self, plan_id: &PlanId) -> Vec<PlanExecutionOverlay> {
-        self.execution_overlays
-            .get(plan_id.0.as_str())
-            .cloned()
-            .unwrap_or_default()
-    }
-
-    pub(crate) fn policy(&self, plan_id: &PlanId) -> Option<CoordinationPolicy> {
-        self.policies.get(plan_id.0.as_str()).cloned()
-    }
-
-    pub(crate) fn ready_nodes(&self, plan_id: &PlanId) -> Vec<PlanNode> {
         let Some(graph) = self.graphs.get(plan_id.0.as_str()) else {
             return Vec::new();
         };
-        if graph.status != PlanStatus::Active {
-            return Vec::new();
-        }
         let overlays = self
             .execution_overlays
             .get(plan_id.0.as_str())
             .map(Vec::as_slice)
             .unwrap_or(&[]);
-        let mut nodes = graph
-            .nodes
-            .iter()
-            .filter(|node| is_ready_candidate(node))
-            .filter(|node| readiness_blockers_for_node(graph, overlays, node).is_empty())
-            .cloned()
-            .collect::<Vec<_>>();
-        nodes.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-        nodes
+        derive_execution_overlays(graph, overlays)
+    }
+
+    pub(crate) fn policy(&self, plan_id: &PlanId) -> Option<CoordinationPolicy> {
+        self.policies.get(plan_id.0.as_str()).cloned()
     }
 
     pub(crate) fn apply_to_coordination_snapshot(
@@ -193,6 +179,7 @@ impl NativePlanRuntimeState {
         bindings: PlanBinding,
         depends_on: Vec<String>,
         acceptance: Vec<PlanAcceptanceCriterion>,
+        validation_refs: Vec<ValidationRef>,
         base_revision: WorkspaceRevision,
         priority: Option<u8>,
         tags: Vec<String>,
@@ -214,6 +201,7 @@ impl NativePlanRuntimeState {
             status: status.unwrap_or(PlanNodeStatus::Ready),
             bindings: normalize_plan_binding(bindings),
             acceptance: normalize_plan_acceptance(acceptance),
+            validation_refs: normalize_validation_refs(validation_refs),
             is_abstract,
             assignee,
             base_revision,
@@ -245,11 +233,14 @@ impl NativePlanRuntimeState {
         is_abstract: Option<bool>,
         title: Option<String>,
         summary: Option<String>,
+        clear_summary: bool,
         bindings: Option<PlanBinding>,
         depends_on: Option<Vec<String>>,
         acceptance: Option<Vec<PlanAcceptanceCriterion>>,
+        validation_refs: Option<Vec<ValidationRef>>,
         base_revision: Option<WorkspaceRevision>,
         priority: Option<u8>,
+        clear_priority: bool,
         tags: Option<Vec<String>>,
     ) -> Result<PlanId> {
         let (plan_key, node_index) = self
@@ -283,6 +274,8 @@ impl NativePlanRuntimeState {
         }
         if let Some(summary) = summary {
             node.summary = Some(summary);
+        } else if clear_summary {
+            node.summary = None;
         }
         if let Some(bindings) = bindings {
             node.bindings = normalize_plan_binding(bindings);
@@ -290,11 +283,16 @@ impl NativePlanRuntimeState {
         if let Some(acceptance) = acceptance {
             node.acceptance = normalize_plan_acceptance(acceptance);
         }
+        if let Some(validation_refs) = validation_refs {
+            node.validation_refs = normalize_validation_refs(validation_refs);
+        }
         if let Some(base_revision) = base_revision {
             node.base_revision = base_revision;
         }
         if let Some(priority) = priority {
             node.priority = Some(priority);
+        } else if clear_priority {
+            node.priority = None;
         }
         if let Some(tags) = tags {
             node.tags = normalize_string_refs(tags);
@@ -469,6 +467,8 @@ impl NativePlanRuntimeState {
                 node_id,
                 pending_handoff_to: task.pending_handoff_to.clone(),
                 session: task.session.clone(),
+                effective_assignee: None,
+                awaiting_handoff_from: None,
             });
             *overlays = sort_execution_overlays(std::mem::take(overlays));
         }
@@ -478,6 +478,34 @@ impl NativePlanRuntimeState {
 fn sort_execution_overlays(mut overlays: Vec<PlanExecutionOverlay>) -> Vec<PlanExecutionOverlay> {
     overlays.sort_by(|left, right| left.node_id.0.cmp(&right.node_id.0));
     overlays
+}
+
+fn derive_execution_overlays(
+    graph: &PlanGraph,
+    overlays: &[PlanExecutionOverlay],
+) -> Vec<PlanExecutionOverlay> {
+    let mut derived = Vec::new();
+    for node in &graph.nodes {
+        let stored = overlay_for_node(overlays, &node.id);
+        let pending_handoff_to = stored.and_then(|overlay| overlay.pending_handoff_to.clone());
+        let session = stored.and_then(|overlay| overlay.session.clone());
+        let effective_assignee = effective_assignee_for_node(graph, overlays, node);
+        let awaiting_handoff_from = awaiting_handoff_from_node(graph, node);
+        if pending_handoff_to.is_some()
+            || session.is_some()
+            || effective_assignee.is_some()
+            || awaiting_handoff_from.is_some()
+        {
+            derived.push(PlanExecutionOverlay {
+                node_id: node.id.clone(),
+                pending_handoff_to,
+                session,
+                effective_assignee,
+                awaiting_handoff_from,
+            });
+        }
+    }
+    sort_execution_overlays(derived)
 }
 
 fn sort_and_dedupe_plan_node_blockers(blockers: &mut Vec<PlanNodeBlocker>) {
@@ -601,14 +629,6 @@ fn plan_node_blocker_kind_key(kind: PlanNodeBlockerKind) -> u8 {
         PlanNodeBlockerKind::StaleRevision => 9,
         PlanNodeBlockerKind::ArtifactStale => 10,
     }
-}
-
-fn is_ready_candidate(node: &PlanNode) -> bool {
-    !node.is_abstract
-        && matches!(
-            node.status,
-            PlanNodeStatus::Ready | PlanNodeStatus::InProgress
-        )
 }
 
 fn is_completed_status(status: PlanNodeStatus) -> bool {
@@ -742,20 +762,19 @@ fn completion_blockers_for_node(graph: &PlanGraph, node: &PlanNode) -> Vec<PlanN
         }
         blockers.push(PlanNodeBlocker {
             kind: PlanNodeBlockerKind::ValidationGate,
-            summary: format!("validation gate `{}` is not completed", target.title),
+            summary: if declared_validation_checks(target).is_empty() {
+                format!("validation gate `{}` is not completed", target.title)
+            } else {
+                format!(
+                    "validation gate `{}` is not completed for checks: {}",
+                    target.title,
+                    declared_validation_checks(target).join(", ")
+                )
+            },
             related_node_id: Some(target.id.clone()),
             related_artifact_id: None,
             risk_score: None,
-            validation_checks: target
-                .acceptance
-                .iter()
-                .flat_map(|criterion| {
-                    criterion
-                        .required_checks
-                        .iter()
-                        .map(|check| check.id.clone())
-                })
-                .collect(),
+            validation_checks: declared_validation_checks(target),
         });
     }
     sort_and_dedupe_plan_node_blockers(&mut blockers);
@@ -789,6 +808,46 @@ fn normalize_plan_acceptance(
         .collect()
 }
 
+fn normalize_validation_refs(validation_refs: Vec<ValidationRef>) -> Vec<ValidationRef> {
+    let mut normalized = validation_refs;
+    normalized.sort_by(|left, right| left.id.cmp(&right.id));
+    normalized.dedup_by(|left, right| left.id == right.id);
+    normalized
+}
+
+pub(crate) fn declared_validation_checks(node: &PlanNode) -> Vec<String> {
+    let mut checks = node
+        .validation_refs
+        .iter()
+        .map(|check| check.id.clone())
+        .collect::<Vec<_>>();
+    checks.extend(node.acceptance.iter().flat_map(|criterion| {
+        criterion
+            .required_checks
+            .iter()
+            .map(|check| check.id.clone())
+            .collect::<Vec<_>>()
+    }));
+    dedupe_string_ids(checks)
+}
+
+pub(crate) fn required_validation_checks_for_node(
+    graph: &PlanGraph,
+    node: &PlanNode,
+) -> Vec<String> {
+    let mut checks = Vec::new();
+    for edge in graph.edges.iter().filter(|edge| edge.from == node.id) {
+        if edge.kind != PlanEdgeKind::Validates {
+            continue;
+        }
+        let Some(target) = graph_node_by_id(graph, &edge.to) else {
+            continue;
+        };
+        checks.extend(declared_validation_checks(target));
+    }
+    dedupe_string_ids(checks)
+}
+
 fn plan_node_from_coordination_task(task: &CoordinationTask) -> PlanNode {
     let mut node = PlanNode {
         id: plan_node_id_from_task_id(task.id.clone()),
@@ -799,6 +858,7 @@ fn plan_node_from_coordination_task(task: &CoordinationTask) -> PlanNode {
         status: map_coordination_task_status(task.status),
         bindings: prism_ir::PlanBinding::default(),
         acceptance: Vec::new(),
+        validation_refs: Vec::new(),
         is_abstract: false,
         assignee: None,
         base_revision: task.base_revision.clone(),
@@ -949,12 +1009,21 @@ fn validate_edge_insertion(
         ));
     }
     match kind {
-        PlanEdgeKind::Validates if to_node.kind != PlanNodeKind::Validate => {
-            return Err(anyhow!(
-                "plan edge `{}` -> `{}` (Validates) must target a Validate node",
-                from_node_id.0,
-                to_node_id.0
-            ));
+        PlanEdgeKind::Validates => {
+            if to_node.kind != PlanNodeKind::Validate {
+                return Err(anyhow!(
+                    "plan edge `{}` -> `{}` (Validates) must target a Validate node",
+                    from_node_id.0,
+                    to_node_id.0
+                ));
+            }
+            if declared_validation_checks(to_node).is_empty() {
+                return Err(anyhow!(
+                    "plan edge `{}` -> `{}` (Validates) must target a validation node with stable validation refs",
+                    from_node_id.0,
+                    to_node_id.0
+                ));
+            }
         }
         PlanEdgeKind::HandoffTo if from_node.is_abstract || to_node.is_abstract => {
             return Err(anyhow!(
@@ -976,6 +1045,57 @@ fn validate_edge_insertion(
         ));
     }
     Ok(())
+}
+
+fn effective_assignee_for_node(
+    graph: &PlanGraph,
+    overlays: &[PlanExecutionOverlay],
+    node: &PlanNode,
+) -> Option<AgentId> {
+    if let Some(overlay) = overlay_for_node(overlays, &node.id) {
+        if let Some(agent) = overlay.pending_handoff_to.clone() {
+            return Some(agent);
+        }
+    }
+    if let Some(agent) = node.assignee.clone() {
+        return Some(agent);
+    }
+    let mut handoff_sources = graph
+        .edges
+        .iter()
+        .filter(|edge| edge.kind == PlanEdgeKind::HandoffTo && edge.to == node.id)
+        .filter_map(|edge| graph_node_by_id(graph, &edge.from))
+        .collect::<Vec<_>>();
+    handoff_sources.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    for source in handoff_sources {
+        if !is_completed_status(source.status) {
+            continue;
+        }
+        if let Some(overlay) = overlay_for_node(overlays, &source.id) {
+            if let Some(agent) = overlay.pending_handoff_to.clone() {
+                return Some(agent);
+            }
+        }
+        if let Some(agent) = source.assignee.clone() {
+            return Some(agent);
+        }
+    }
+    None
+}
+
+fn awaiting_handoff_from_node(graph: &PlanGraph, node: &PlanNode) -> Option<PlanNodeId> {
+    let mut sources = graph
+        .edges
+        .iter()
+        .filter(|edge| edge.kind == PlanEdgeKind::HandoffTo && edge.to == node.id)
+        .filter_map(|edge| {
+            graph_node_by_id(graph, &edge.from)
+                .filter(|source| !is_completed_status(source.status))
+                .map(|_| edge.from.clone())
+        })
+        .collect::<Vec<_>>();
+    sources.sort_by(|left, right| left.0.cmp(&right.0));
+    sources.into_iter().next()
 }
 
 fn edge_kind_requires_acyclic_graph(kind: PlanEdgeKind) -> bool {

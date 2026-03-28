@@ -7,6 +7,7 @@ use prism_ir::{
 };
 
 use crate::common::{anchor_sort_key, sort_node_ids};
+use crate::plan_completion::current_timestamp;
 use crate::Prism;
 
 impl Prism {
@@ -53,10 +54,12 @@ impl Prism {
     }
 
     pub fn plan_ready_nodes(&self, plan_id: &PlanId) -> Vec<PlanNode> {
-        self.plan_runtime
+        let runtime = self
+            .plan_runtime
             .read()
             .expect("plan runtime lock poisoned")
-            .ready_nodes(plan_id)
+            .clone();
+        self.actionable_plan_nodes_for_runtime(&runtime, plan_id, current_timestamp())
     }
 
     pub fn ready_tasks(&self, plan_id: &PlanId, now: Timestamp) -> Vec<CoordinationTask> {

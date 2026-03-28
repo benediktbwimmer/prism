@@ -4,13 +4,14 @@ use prism_coordination::{AcceptanceCriterion, CoordinationPolicy};
 use prism_ir::{
     AcceptanceEvidencePolicy, AnchorRef, Capability, ClaimMode, CoordinationTaskStatus, EdgeKind,
     EventActor, NodeId, NodeKind, PlanAcceptanceCriterion, PlanBinding, PlanEdgeKind, PlanNodeKind,
-    PlanNodeStatus, PlanStatus, ReviewVerdict, ValidationRef,
+    PlanNodeStatus, PlanScope, PlanStatus, ReviewVerdict, ValidationRef,
 };
 use prism_memory::{
     MemoryEventKind, MemoryKind, MemoryScope, OutcomeEvidence, OutcomeKind, OutcomeResult,
 };
 use serde::Deserialize;
 
+use crate::tool_args::ValidationRefPayload;
 use crate::{
     AcceptanceCriterionPayload, AnchorRefInput, CoordinationPolicyPayload, InferredEdgeScopeInput,
     MemoryKindInput, MemorySourceInput, NodeIdInput, OutcomeEvidenceInput, OutcomeKindInput,
@@ -585,6 +586,16 @@ pub(crate) fn parse_plan_status(value: &str) -> Result<PlanStatus> {
     }
 }
 
+pub(crate) fn parse_plan_scope(value: &str) -> Result<PlanScope> {
+    let normalized = value.trim().to_ascii_lowercase();
+    match normalized.as_str() {
+        "local" => Ok(PlanScope::Local),
+        "session" => Ok(PlanScope::Session),
+        "repo" => Ok(PlanScope::Repo),
+        other => Err(anyhow!("unknown plan scope `{other}`")),
+    }
+}
+
 pub(crate) fn parse_plan_node_status(value: &str) -> Result<PlanNodeStatus> {
     let normalized = value.trim().to_ascii_lowercase();
     match normalized.as_str() {
@@ -710,6 +721,16 @@ pub(crate) fn convert_plan_acceptance(
                     .unwrap_or(AcceptanceEvidencePolicy::Any),
             })
         })
+        .collect()
+}
+
+pub(crate) fn convert_validation_refs(
+    payload: Option<Vec<ValidationRefPayload>>,
+) -> Vec<ValidationRef> {
+    payload
+        .unwrap_or_default()
+        .into_iter()
+        .map(|check| ValidationRef { id: check.id })
         .collect()
 }
 

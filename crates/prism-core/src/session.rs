@@ -17,8 +17,8 @@ use prism_ir::{
 use prism_memory::OutcomeMemory;
 use prism_memory::{EpisodicMemorySnapshot, MemoryEvent, MemoryEventQuery, OutcomeEvent};
 use prism_projections::{
-    validation_deltas_for_event, ConceptEvent, ConceptRelationEvent, ConceptRelationEventAction,
-    ProjectionIndex,
+    concept_from_event, validation_deltas_for_event, ConceptEvent, ConceptRelationEvent,
+    ConceptRelationEventAction, ProjectionIndex,
 };
 use prism_query::Prism;
 use prism_store::{AuxiliaryPersistBatch, SqliteStore, Store};
@@ -420,7 +420,9 @@ impl WorkspaceSession {
             append_repo_concept_event(&self.root, &event)?;
         }
         let prism = self.prism_arc();
-        prism.upsert_curated_concept(event.concept);
+        let previous = prism.concept_by_handle(&event.concept.handle);
+        let concept = concept_from_event(previous.as_ref(), &event);
+        prism.upsert_curated_concept(concept);
         self.store
             .lock()
             .expect("workspace store lock poisoned")

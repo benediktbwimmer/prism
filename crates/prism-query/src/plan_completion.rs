@@ -9,7 +9,9 @@ use prism_ir::{
 };
 
 use crate::impact::score_change_impact;
-use crate::plan_runtime::{node_blockers_for_graph, NativePlanRuntimeState};
+use crate::plan_runtime::{
+    node_blockers_for_graph, required_validation_checks_for_node, NativePlanRuntimeState,
+};
 use crate::Prism;
 
 impl Prism {
@@ -196,11 +198,13 @@ impl Prism {
             }
         }
 
-        let baseline_required_validations = if policy.require_validation_for_completion {
+        let mut baseline_required_validations = if policy.require_validation_for_completion {
             impact.likely_validations.clone()
         } else {
             Vec::new()
         };
+        baseline_required_validations.extend(required_validation_checks_for_node(graph, node));
+        let baseline_required_validations = dedupe_strings(baseline_required_validations);
         if !baseline_required_validations.is_empty() {
             let missing = baseline_required_validations
                 .iter()
@@ -210,10 +214,14 @@ impl Prism {
             if !missing.is_empty() {
                 blockers.push(PlanNodeBlocker {
                     kind: PlanNodeBlockerKind::ValidationRequired,
-                    summary: format!(
-                        "node is missing required validations: {}",
-                        missing.join(", ")
-                    ),
+                    summary: if required_validation_checks_for_node(graph, node).is_empty() {
+                        format!("node is missing required validations: {}", missing.join(", "))
+                    } else {
+                        format!(
+                            "node is missing required validations, including graph-authored checks: {}",
+                            missing.join(", ")
+                        )
+                    },
                     related_node_id: Some(node.id.clone()),
                     related_artifact_id: approved_artifacts
                         .first()

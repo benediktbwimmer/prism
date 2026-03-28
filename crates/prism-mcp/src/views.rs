@@ -11,17 +11,19 @@ use prism_js::{
     ConflictView, CoordinationTaskView, CuratorJobView, CuratorProposalRecordView,
     CuratorProposalView, DriftCandidateView, EdgeView, MemoryEntryView, MemoryEventView,
     NodeIdView, PlanAcceptanceCriterionView, PlanBindingView, PlanEdgeView,
-    PlanExecutionOverlayView, PlanGraphView, PlanNodeBlockerView, PlanNodeRecommendationView,
-    PlanNodeView, PlanSummaryView, PlanView, PolicyViolationRecordView, PolicyViolationView,
-    QueryDiagnostic, ScoredMemoryView, TaskIntentView, TaskRiskView, TaskValidationRecipeView,
-    ValidationCheckView, ValidationRecipeView, ValidationRefView, WorkspaceRevisionView,
+    PlanExecutionOverlayView, PlanGraphView, PlanListEntryView, PlanNodeBlockerView,
+    PlanNodeRecommendationView, PlanNodeView, PlanSummaryView, PlanView, PolicyViolationRecordView,
+    PolicyViolationView, QueryDiagnostic, ScoredMemoryView, TaskIntentView, TaskRiskView,
+    TaskValidationRecipeView, ValidationCheckView, ValidationRecipeView, ValidationRefView,
+    WorkspaceRevisionView,
 };
 use prism_memory::{MemoryEntry, MemoryEvent, MemorySource, ScoredMemory};
 use prism_query::{
     ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens, ConceptPacket, ConceptProvenance,
     ConceptPublication, ConceptPublicationStatus, ConceptRelation, ConceptRelationKind,
-    ConceptResolution, ConceptScope, DriftCandidate, PlanNodeRecommendation, PlanSummary, Prism,
-    TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
+    ConceptResolution, ConceptScope, DriftCandidate, PlanListEntry, PlanNodeRecommendation,
+    PlanSummary, Prism, TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck,
+    ValidationRecipe,
 };
 use serde_json::Value;
 
@@ -683,6 +685,23 @@ pub(crate) fn plan_view(value: prism_coordination::Plan) -> PlanView {
     }
 }
 
+pub(crate) fn plan_list_entry_view(value: PlanListEntry) -> PlanListEntryView {
+    PlanListEntryView {
+        plan_id: value.plan_id.0.to_string(),
+        title: value.title,
+        goal: value.goal,
+        status: value.status,
+        scope: value.scope,
+        kind: value.kind,
+        root_task_ids: value
+            .root_task_ids
+            .into_iter()
+            .map(|task_id| task_id.0.to_string())
+            .collect(),
+        summary: plan_summary_view(value.summary),
+    }
+}
+
 pub(crate) fn plan_graph_view(value: prism_ir::PlanGraph) -> PlanGraphView {
     PlanGraphView {
         id: value.id.0.to_string(),
@@ -712,6 +731,8 @@ pub(crate) fn plan_execution_overlay_view(
         node_id: value.node_id.0.to_string(),
         pending_handoff_to: value.pending_handoff_to.map(|agent| agent.0.to_string()),
         session: value.session.map(|session| session.0.to_string()),
+        effective_assignee: value.effective_assignee.map(|agent| agent.0.to_string()),
+        awaiting_handoff_from: value.awaiting_handoff_from.map(|node| node.0.to_string()),
     }
 }
 
@@ -752,6 +773,7 @@ pub(crate) fn plan_node_recommendation_view(
     PlanNodeRecommendationView {
         node: plan_node_view(value.node),
         actionable: value.actionable,
+        effective_assignee: value.effective_assignee.map(|agent| agent.0.to_string()),
         score: value.score,
         reasons: value.reasons,
         blockers: value
@@ -780,6 +802,11 @@ pub(crate) fn plan_node_view(value: prism_ir::PlanNode) -> PlanNodeView {
             .acceptance
             .into_iter()
             .map(plan_acceptance_criterion_view)
+            .collect(),
+        validation_refs: value
+            .validation_refs
+            .into_iter()
+            .map(|check| ValidationRefView { id: check.id })
             .collect(),
         is_abstract: value.is_abstract,
         assignee: value.assignee.map(|agent| agent.0.to_string()),
