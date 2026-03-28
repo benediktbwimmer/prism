@@ -1536,7 +1536,7 @@ Repo semantic codec:
 * each packet carries a canonical name, short summary, aliases, core members, supporting members, likely tests, evidence, confidence, and decode lenses
 * the codec stays lightweight and inspectable rather than trying to model a giant ontology
 * decoding a concept packet reuses ordinary Prism context such as symbols, validations, recent failures, patches, and memory recall
-* repo-promoted concept packets are append-only exported through `.prism/concepts/events.jsonl`, then overlaid onto the derived concept layer during workspace load and refresh
+* repo-promoted concept packets are append-only exported through `.prism/concepts/events.jsonl`, then hydrated into the live concept layer during workspace load and refresh
 * explicit mutations promote and update concept packets through `prism_mutate` instead of hiding concept curation inside ad hoc memory writes
 
 Expected query shape:

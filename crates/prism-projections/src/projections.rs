@@ -6,8 +6,8 @@ use prism_memory::{OutcomeEvent, OutcomeMemorySnapshot};
 
 use crate::common::{event_weight, validation_labels};
 use crate::concepts::{
-    concept_by_handle, curated_concepts_from_events, derive_concept_packets,
-    hydrate_curated_concepts, merge_concept_packets, rank_concepts, resolve_curated_concepts,
+    concept_by_handle, curated_concepts_from_events, hydrate_curated_concepts,
+    merge_concept_packets, rank_concepts, resolve_curated_concepts,
 };
 use crate::types::{
     CoChangeDelta, CoChangeRecord, ConceptEvent, ConceptPacket, ConceptScope, ProjectionSnapshot,
@@ -39,14 +39,10 @@ impl ProjectionIndex {
         let node_to_lineage = HashMap::new();
         let validation_by_lineage = snapshot.validation_by_lineage.into_iter().collect();
         let curated_concepts = snapshot.curated_concepts;
-        let concept_packets = merge_concept_packets(
-            derive_concept_packets(
-                &node_to_lineage,
-                &validation_by_lineage,
-                &co_change_by_lineage,
-            ),
-            &resolve_curated_concepts(&curated_concepts, &node_to_lineage),
-        );
+        let concept_packets = merge_concept_packets(&resolve_curated_concepts(
+            &curated_concepts,
+            &node_to_lineage,
+        ));
         Self {
             co_change_by_lineage,
             validation_by_lineage,
@@ -141,14 +137,7 @@ impl ProjectionIndex {
 
         let curated_concepts =
             hydrate_curated_concepts(curated_concepts, &node_to_lineage, &history.events);
-        let concept_packets = merge_concept_packets(
-            derive_concept_packets(
-                &node_to_lineage,
-                &validation_by_lineage,
-                &co_change_by_lineage,
-            ),
-            &curated_concepts,
-        );
+        let concept_packets = merge_concept_packets(&curated_concepts);
 
         Self {
             co_change_by_lineage,
@@ -350,14 +339,10 @@ impl ProjectionIndex {
     }
 
     fn rebuild_concepts(&mut self) {
-        self.concept_packets = merge_concept_packets(
-            derive_concept_packets(
-                &self.node_to_lineage,
-                &self.validation_by_lineage,
-                &self.co_change_by_lineage,
-            ),
-            &resolve_curated_concepts(&self.curated_concepts, &self.node_to_lineage),
-        );
+        self.concept_packets = merge_concept_packets(&resolve_curated_concepts(
+            &self.curated_concepts,
+            &self.node_to_lineage,
+        ));
     }
 }
 

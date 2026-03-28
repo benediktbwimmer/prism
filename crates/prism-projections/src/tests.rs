@@ -181,72 +181,36 @@ fn co_change_neighbors_are_pruned_to_top_k() {
 }
 
 #[test]
-fn derives_seeded_repo_concepts_from_nodes_and_signals() {
+fn projection_has_no_concepts_without_curated_packets() {
     let validation = NodeId::new(
         "demo",
         "demo::impact::Prism::validation_recipe",
         NodeKind::Method,
     );
-    let session = NodeId::new(
-        "demo",
-        "demo::session_state::SessionState::start_task",
-        NodeKind::Method,
-    );
     let runtime = NodeId::new("demo", "demo::runtime::runtime_status", NodeKind::Function);
-    let validation_lineage = LineageId::new("lineage:validation");
-    let session_lineage = LineageId::new("lineage:session");
-    let runtime_lineage = LineageId::new("lineage:runtime");
     let history = HistorySnapshot {
         node_to_lineage: vec![
-            (validation.clone(), validation_lineage.clone()),
-            (session.clone(), session_lineage.clone()),
-            (runtime.clone(), runtime_lineage.clone()),
+            (validation, LineageId::new("lineage:validation")),
+            (runtime, LineageId::new("lineage:runtime")),
         ],
         events: Vec::new(),
-        co_change_counts: vec![(validation_lineage.clone(), session_lineage, 2)],
+        co_change_counts: Vec::new(),
         tombstones: Vec::new(),
-        next_lineage: 3,
+        next_lineage: 2,
         next_event: 0,
     };
-    let outcomes = OutcomeMemorySnapshot {
-        events: vec![OutcomeEvent {
-            meta: EventMeta {
-                id: EventId::new("outcome:concept"),
-                ts: 42,
-                actor: EventActor::Agent,
-                correlation: Some(TaskId::new("task:concept")),
-                causation: None,
-            },
-            anchors: vec![AnchorRef::Node(validation.clone())],
-            kind: OutcomeKind::FailureObserved,
-            result: OutcomeResult::Failure,
-            summary: "validation failed".into(),
-            evidence: vec![OutcomeEvidence::Test {
-                name: "validation_concept".into(),
-                passed: false,
-            }],
-            metadata: serde_json::Value::Null,
-        }],
-    };
+    let outcomes = OutcomeMemorySnapshot { events: Vec::new() };
 
     let index = ProjectionIndex::derive(&history, &outcomes);
-    let concepts = index.concepts("validation", 3);
 
-    assert_eq!(concepts[0].handle, "concept://validation_pipeline");
-    assert!(concepts[0]
-        .core_members
-        .iter()
-        .any(|node| node.path == validation.path));
+    assert!(index.concepts("validation", 3).is_empty());
     assert!(index
-        .concept_by_handle("concept://session_lifecycle")
-        .is_some());
-    assert!(index
-        .concept_by_handle("concept://runtime_surface")
-        .is_some());
+        .concept_by_handle("concept://validation_pipeline")
+        .is_none());
 }
 
 #[test]
-fn curated_concept_events_override_seeded_packets_by_handle() {
+fn curated_concept_events_resolve_by_handle_and_query() {
     let validation = NodeId::new(
         "demo",
         "demo::impact::Prism::validation_recipe",

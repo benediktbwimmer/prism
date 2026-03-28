@@ -4652,6 +4652,43 @@ pub fn start_task() {}
     .unwrap();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
     let session = test_session(&host);
+    host.store_concept(
+        session.as_ref(),
+        PrismConceptMutationArgs {
+            operation: ConceptMutationOperationInput::Promote,
+            handle: Some("concept://custom_validation".to_string()),
+            canonical_name: Some("custom_validation".to_string()),
+            summary: Some("Custom curated validation concept.".to_string()),
+            aliases: Some(vec!["validation".to_string(), "checks".to_string()]),
+            core_members: Some(vec![
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::validation_recipe".to_string(),
+                    kind: "function".to_string(),
+                },
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::runtime_status".to_string(),
+                    kind: "function".to_string(),
+                },
+            ]),
+            supporting_members: Some(vec![NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::start_task".to_string(),
+                kind: "function".to_string(),
+            }]),
+            likely_tests: None,
+            evidence: Some(vec!["Curated in test.".to_string()]),
+            risk_hint: None,
+            confidence: Some(0.91),
+            decode_lenses: Some(vec![PrismConceptLensInput::Validation]),
+            scope: Some(ConceptScopeInput::Session),
+            supersedes: None,
+            retirement_reason: None,
+            task_id: Some("task:compact-concept".to_string()),
+        },
+    )
+    .expect("concept setup should succeed");
 
     let concept = host
         .compact_concept(
@@ -4665,7 +4702,7 @@ pub fn start_task() {}
         )
         .expect("concept tool should succeed");
 
-    assert_eq!(concept.packet.handle, "concept://validation_pipeline");
+    assert_eq!(concept.packet.handle, "concept://custom_validation");
     assert!(!concept.packet.core_members.is_empty());
     assert!(concept.packet.binding_metadata.is_some());
     assert!(concept
@@ -4688,13 +4725,50 @@ pub fn start_task() {}
     )
     .unwrap();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    host.store_concept(
+        test_session(&host).as_ref(),
+        PrismConceptMutationArgs {
+            operation: ConceptMutationOperationInput::Promote,
+            handle: Some("concept://custom_validation".to_string()),
+            canonical_name: Some("custom_validation".to_string()),
+            summary: Some("Custom curated validation concept.".to_string()),
+            aliases: Some(vec!["validation".to_string(), "checks".to_string()]),
+            core_members: Some(vec![
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::validation_recipe".to_string(),
+                    kind: "function".to_string(),
+                },
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::runtime_status".to_string(),
+                    kind: "function".to_string(),
+                },
+            ]),
+            supporting_members: Some(vec![NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::start_task".to_string(),
+                kind: "function".to_string(),
+            }]),
+            likely_tests: None,
+            evidence: Some(vec!["Curated in test.".to_string()]),
+            risk_hint: None,
+            confidence: Some(0.91),
+            decode_lenses: Some(vec![PrismConceptLensInput::Validation]),
+            scope: Some(ConceptScopeInput::Session),
+            supersedes: None,
+            retirement_reason: None,
+            task_id: Some("task:query-concept".to_string()),
+        },
+    )
+    .expect("concept setup should succeed");
     let envelope = host
         .execute(
             test_session(&host),
             r#"
 return {
   concept: prism.concept("validation", { includeBindingMetadata: true }),
-  byHandle: prism.conceptByHandle("concept://validation_pipeline", { includeBindingMetadata: true }),
+  byHandle: prism.conceptByHandle("concept://custom_validation", { includeBindingMetadata: true }),
   decoded: prism.decodeConcept({ query: "validation", lens: "validation", includeBindingMetadata: true }),
 };
 "#,
@@ -4704,7 +4778,7 @@ return {
 
     assert_eq!(
         envelope.result["concept"]["handle"],
-        Value::String("concept://validation_pipeline".to_string())
+        Value::String("concept://custom_validation".to_string())
     );
     assert!(envelope.result["concept"]["bindingMetadata"].is_object());
     assert!(envelope.result["byHandle"]["bindingMetadata"].is_object());

@@ -11,7 +11,9 @@ use prism_ir::{
 use prism_memory::{
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeRecallQuery, OutcomeResult,
 };
-use prism_projections::ProjectionIndex;
+use prism_projections::{
+    ConceptDecodeLens, ConceptPacket, ConceptProvenance, ConceptScope, ProjectionIndex,
+};
 use prism_store::Graph;
 
 use super::Prism;
@@ -193,7 +195,7 @@ fn search_can_filter_by_kind_and_path() {
 }
 
 #[test]
-fn concept_lookup_returns_seeded_validation_packet() {
+fn concept_lookup_returns_curated_validation_packet() {
     let mut graph = Graph::new();
     graph.add_node(Node {
         id: NodeId::new(
@@ -229,6 +231,66 @@ fn concept_lookup_returns_seeded_validation_packet() {
     });
 
     let prism = Prism::new(graph);
+    prism.replace_curated_concepts(vec![
+        ConceptPacket {
+            handle: "concept://validation_pipeline".to_string(),
+            canonical_name: "validation_pipeline".to_string(),
+            summary: "Curated validation concept.".to_string(),
+            aliases: vec!["validation".to_string(), "checks".to_string()],
+            confidence: 0.95,
+            core_members: vec![NodeId::new(
+                "demo",
+                "demo::impact::Prism::validation_recipe",
+                NodeKind::Method,
+            )],
+            core_member_lineages: Vec::new(),
+            supporting_members: vec![NodeId::new(
+                "demo",
+                "demo::runtime::runtime_status",
+                NodeKind::Function,
+            )],
+            supporting_member_lineages: Vec::new(),
+            likely_tests: Vec::new(),
+            likely_test_lineages: Vec::new(),
+            evidence: vec!["Curated in test.".to_string()],
+            risk_hint: None,
+            decode_lenses: vec![ConceptDecodeLens::Validation],
+            scope: ConceptScope::Session,
+            provenance: ConceptProvenance {
+                origin: "test".to_string(),
+                kind: "curated_concept".to_string(),
+                task_id: None,
+            },
+            publication: None,
+        },
+        ConceptPacket {
+            handle: "concept://session_lifecycle".to_string(),
+            canonical_name: "session_lifecycle".to_string(),
+            summary: "Curated session concept.".to_string(),
+            aliases: vec!["session".to_string()],
+            confidence: 0.9,
+            core_members: vec![NodeId::new(
+                "demo",
+                "demo::session_state::SessionState::start_task",
+                NodeKind::Method,
+            )],
+            core_member_lineages: Vec::new(),
+            supporting_members: Vec::new(),
+            supporting_member_lineages: Vec::new(),
+            likely_tests: Vec::new(),
+            likely_test_lineages: Vec::new(),
+            evidence: vec!["Curated in test.".to_string()],
+            risk_hint: None,
+            decode_lenses: vec![ConceptDecodeLens::Open],
+            scope: ConceptScope::Session,
+            provenance: ConceptProvenance {
+                origin: "test".to_string(),
+                kind: "curated_concept".to_string(),
+                task_id: None,
+            },
+            publication: None,
+        },
+    ]);
     let concept = prism.concept("validation").expect("concept should resolve");
 
     assert_eq!(concept.handle, "concept://validation_pipeline");
