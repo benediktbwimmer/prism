@@ -36,6 +36,22 @@ pub(crate) fn resource_example_uri(resource_kind: &str) -> Option<String> {
 
 pub(crate) fn tool_input_example(tool_name: &str) -> Option<Value> {
     match tool_name {
+        "prism_locate" => Some(json!({
+            "query": "session",
+            "taskIntent": "edit",
+            "limit": 3,
+        })),
+        "prism_open" => Some(json!({
+            "handle": "handle:1",
+            "mode": "focus",
+        })),
+        "prism_workset" => Some(json!({
+            "handle": "handle:1",
+        })),
+        "prism_expand" => Some(json!({
+            "handle": "handle:1",
+            "kind": "validation",
+        })),
         "prism_query" => Some(json!({
             "code": "return prism.search(\"read context\", { limit: 5, strategy: \"behavioral\", ownerKind: \"read\" });",
             "language": "ts",
@@ -147,6 +163,11 @@ fn capabilities_payload_example() -> Value {
             "exampleUri": resource_example_uri("search"),
         }],
         "tools": [{
+            "name": "prism_locate",
+            "description": "Input schema for the compact first-hop target locator.",
+            "schemaUri": tool_schema_resource_uri("prism_locate"),
+            "exampleInput": tool_input_example("prism_locate"),
+        }, {
             "name": "prism_query",
             "description": "Input schema for programmable read-only TypeScript PRISM queries.",
             "schemaUri": tool_schema_resource_uri("prism_query"),
@@ -361,6 +382,26 @@ fn tool_schema_catalog_payload_example() -> Value {
         "uri": "prism://tool-schemas",
         "schemaUri": schema_resource_uri("tool-schemas"),
         "tools": [{
+            "toolName": "prism_locate",
+            "schemaUri": tool_schema_resource_uri("prism_locate"),
+            "description": "Input schema for the compact first-hop target locator.",
+            "exampleInput": tool_input_example("prism_locate"),
+        }, {
+            "toolName": "prism_open",
+            "schemaUri": tool_schema_resource_uri("prism_open"),
+            "description": "Input schema for opening one compact handle as a bounded code slice.",
+            "exampleInput": tool_input_example("prism_open"),
+        }, {
+            "toolName": "prism_workset",
+            "schemaUri": tool_schema_resource_uri("prism_workset"),
+            "description": "Input schema for building a compact implementation workset.",
+            "exampleInput": tool_input_example("prism_workset"),
+        }, {
+            "toolName": "prism_expand",
+            "schemaUri": tool_schema_resource_uri("prism_expand"),
+            "description": "Input schema for explicit depth-on-demand handle expansion.",
+            "exampleInput": tool_input_example("prism_expand"),
+        }, {
             "toolName": "prism_query",
             "schemaUri": tool_schema_resource_uri("prism_query"),
             "description": "Input schema for programmable read-only TypeScript PRISM queries.",

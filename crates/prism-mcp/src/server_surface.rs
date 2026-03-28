@@ -4,6 +4,9 @@ use rmcp::{
     service::RequestContext,
     tool, tool_router, ErrorData as McpError, RoleServer, ServerHandler,
 };
+use prism_js::{
+    AgentExpandResultView, AgentLocateResultView, AgentOpenResultView, AgentWorksetResultView,
+};
 use serde::Serialize;
 use serde_json::json;
 use std::sync::Arc;
@@ -388,6 +391,118 @@ impl PrismMcpServer {
                 )
             }
         }
+    }
+
+    #[tool(
+        description = "Locate the top 1-3 likely edit or inspection targets for an agent query using a compact result contract.",
+        annotations(title = "Locate PRISM Target", read_only_hint = true),
+        output_schema =
+            rmcp::handler::server::tool::schema_for_output::<AgentLocateResultView>().unwrap()
+    )]
+    fn prism_locate(
+        &self,
+        Parameters(args): Parameters<PrismLocateArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        if args.query.trim().is_empty() {
+            return Err(McpError::invalid_params(
+                "locate query cannot be empty",
+                Some(json!({ "field": "query" })),
+            ));
+        }
+
+        let result = self
+            .host
+            .compact_locate(Arc::clone(&self.session), args)
+            .map_err(map_query_error)?;
+        structured_tool_result(result)
+    }
+
+    #[tool(
+        description = "Open one previously located handle as a bounded focus, edit, or raw slice.",
+        annotations(title = "Open PRISM Handle", read_only_hint = true),
+        output_schema =
+            rmcp::handler::server::tool::schema_for_output::<AgentOpenResultView>().unwrap()
+    )]
+    fn prism_open(
+        &self,
+        Parameters(args): Parameters<PrismOpenArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        if args.handle.trim().is_empty() {
+            return Err(McpError::invalid_params(
+                "handle cannot be empty",
+                Some(json!({ "field": "handle" })),
+            ));
+        }
+
+        let result = self
+            .host
+            .compact_open(Arc::clone(&self.session), args)
+            .map_err(map_query_error)?;
+        structured_tool_result(result)
+    }
+
+    #[tool(
+        description = "Build a compact workset around one handle or query: primary target, supporting reads, likely tests, and one short why.",
+        annotations(title = "PRISM Compact Workset", read_only_hint = true),
+        output_schema =
+            rmcp::handler::server::tool::schema_for_output::<AgentWorksetResultView>().unwrap()
+    )]
+    fn prism_workset(
+        &self,
+        Parameters(args): Parameters<PrismWorksetArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        if args
+            .handle
+            .as_ref()
+            .is_some_and(|handle| handle.trim().is_empty())
+        {
+            return Err(McpError::invalid_params(
+                "handle cannot be empty",
+                Some(json!({ "field": "handle" })),
+            ));
+        }
+        if args.query.as_ref().is_some_and(|query| query.trim().is_empty()) {
+            return Err(McpError::invalid_params(
+                "query cannot be empty",
+                Some(json!({ "field": "query" })),
+            ));
+        }
+        if args.handle.is_none() && args.query.is_none() {
+            return Err(McpError::invalid_params(
+                "prism_workset requires `handle` or `query`",
+                Some(json!({ "fields": ["handle", "query"] })),
+            ));
+        }
+
+        let result = self
+            .host
+            .compact_workset(Arc::clone(&self.session), args)
+            .map_err(map_query_error)?;
+        structured_tool_result(result)
+    }
+
+    #[tool(
+        description = "Expand one compact handle on demand with diagnostics, lineage, neighbors, diff, or validation detail.",
+        annotations(title = "Expand PRISM Handle", read_only_hint = true),
+        output_schema =
+            rmcp::handler::server::tool::schema_for_output::<AgentExpandResultView>().unwrap()
+    )]
+    fn prism_expand(
+        &self,
+        Parameters(args): Parameters<PrismExpandArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        if args.handle.trim().is_empty() {
+            return Err(McpError::invalid_params(
+                "handle cannot be empty",
+                Some(json!({ "field": "handle" })),
+            ));
+        }
+
+        let result = self
+            .host
+            .compact_expand(Arc::clone(&self.session), args)
+            .map_err(map_query_error)?;
+        structured_tool_result(result)
     }
 
     #[tool(
@@ -1256,7 +1371,7 @@ impl ServerHandler for PrismMcpServer {
 impl PrismMcpServer {
     fn server_instructions(&self) -> String {
         let mut instructions = String::from(
-            "Start with prism://capabilities for the canonical map of query methods, resources, feature gates, and build info, then use prism://api-reference for the typed query contract and prism://schemas for the JSON Schema catalog. Use prism://tool-schemas and prism://schema/tool/{toolName} when you need exact MCP tool input shapes. Use prism://session to inspect the active workspace, task, runtime limits, and active feature flags, prism_session to change task context or limits, prism_query for programmable read-only graph queries, prism://entrypoints for a quick workspace overview, prism://search/{query} for browseable search results, prism://symbol/{crateName}/{kind}/{path} for exact symbol snapshots, prism://lineage/{lineageId} for symbol history, prism://task/{taskId} for recorded task outcomes, and prism://event/{eventId}, prism://memory/{memoryId}, and prism://edge/{edgeId} for mutation outputs. Follow each resource payload's schemaUri and relatedResources fields instead of reconstructing URIs by convention. Use prism_mutate for outcomes, anchored memory, validation feedback, inferred edges, coordination state, claims, artifacts, and curator proposal decisions.",
+            "Start with prism://capabilities for the canonical map of tools, query methods, resources, feature gates, and build info, then use prism://api-reference for the typed query contract and prism://schemas for the JSON Schema catalog. Use prism://tool-schemas and prism://schema/tool/{toolName} when you need exact MCP tool input shapes. Prefer the compact staged path for default agent work: prism_locate to pick a target, prism_open to inspect a bounded slice, prism_workset for compact surrounding context, prism_expand for explicit depth, and prism_query only when the compact path cannot express the needed read. Use prism://session to inspect the active workspace, task, runtime limits, and active feature flags, prism_session to change task context or limits, prism://entrypoints for a quick workspace overview, prism://search/{query} for browseable search results, prism://symbol/{crateName}/{kind}/{path} for exact symbol snapshots, prism://lineage/{lineageId} for symbol history, prism://task/{taskId} for recorded task outcomes, and prism://event/{eventId}, prism://memory/{memoryId}, and prism://edge/{edgeId} for mutation outputs. Follow each resource payload's schemaUri and relatedResources fields instead of reconstructing URIs by convention. Use prism_mutate for outcomes, anchored memory, validation feedback, inferred edges, coordination state, claims, artifacts, and curator proposal decisions.",
         );
 
         if self.host.features.mode_label() != "full" {

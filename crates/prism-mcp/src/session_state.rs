@@ -1,8 +1,9 @@
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use prism_agent::{InferenceStore, InferredEdgeRecord, InferredEdgeScope};
-use prism_ir::{AgentId, EventId, SessionId, TaskId};
+use prism_ir::{AgentId, EventId, NodeId, NodeKind, SessionId, TaskId};
 use prism_memory::SessionMemory;
 use prism_query::QueryLimits;
 
@@ -15,6 +16,17 @@ pub(crate) struct SessionTaskState {
     pub(crate) tags: Vec<String>,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct SessionHandleTarget {
+    pub(crate) id: NodeId,
+    pub(crate) lineage_id: Option<String>,
+    pub(crate) name: String,
+    pub(crate) kind: NodeKind,
+    pub(crate) file_path: Option<String>,
+    pub(crate) query: Option<String>,
+    pub(crate) why_short: String,
+}
+
 pub(crate) struct SessionState {
     session_id: SessionId,
     pub(crate) notes: Arc<SessionMemory>,
@@ -23,6 +35,9 @@ pub(crate) struct SessionState {
     current_agent: Mutex<Option<AgentId>>,
     next_event: Arc<AtomicU64>,
     next_task: Arc<AtomicU64>,
+    next_handle: AtomicU64,
+    handle_targets: Mutex<HashMap<String, SessionHandleTarget>>,
+    handle_keys: Mutex<HashMap<String, String>>,
     limits: Mutex<QueryLimits>,
 }
 
@@ -45,6 +60,9 @@ impl SessionState {
             current_agent: Mutex::new(None),
             next_event,
             next_task,
+            next_handle: AtomicU64::new(1),
+            handle_targets: Mutex::new(HashMap::new()),
+            handle_keys: Mutex::new(HashMap::new()),
             limits: Mutex::new(limits),
         }
     }
@@ -175,6 +193,68 @@ impl SessionState {
 
     pub(crate) fn set_limits(&self, limits: QueryLimits) {
         *self.limits.lock().expect("session limits lock poisoned") = limits;
+    }
+
+    pub(crate) fn intern_target_handle(&self, target: SessionHandleTarget) -> String {
+        let key = session_handle_key(&target);
+        if let Some(existing) = self
+            .handle_keys
+            .lock()
+            .expect("session handle keys lock poisoned")
+            .get(&key)
+            .cloned()
+        {
+            self.handle_targets
+                .lock()
+                .expect("session handle targets lock poisoned")
+                .insert(existing.clone(), target);
+            return existing;
+        }
+
+        let sequence = self.next_handle.fetch_add(1, Ordering::Relaxed);
+        let handle = format!("handle:{sequence}");
+        self.handle_targets
+            .lock()
+            .expect("session handle targets lock poisoned")
+            .insert(handle.clone(), target);
+        self.handle_keys
+            .lock()
+            .expect("session handle keys lock poisoned")
+            .insert(key, handle.clone());
+        handle
+    }
+
+    pub(crate) fn handle_target(&self, handle: &str) -> Option<SessionHandleTarget> {
+        self.handle_targets
+            .lock()
+            .expect("session handle targets lock poisoned")
+            .get(handle)
+            .cloned()
+    }
+
+    pub(crate) fn refresh_target_handle(&self, handle: &str, target: SessionHandleTarget) {
+        let key = session_handle_key(&target);
+        self.handle_targets
+            .lock()
+            .expect("session handle targets lock poisoned")
+            .insert(handle.to_string(), target);
+        self.handle_keys
+            .lock()
+            .expect("session handle keys lock poisoned")
+            .insert(key, handle.to_string());
+    }
+}
+
+fn session_handle_key(target: &SessionHandleTarget) -> String {
+    if let Some(lineage_id) = target.lineage_id.as_ref().filter(|value| !value.is_empty()) {
+        format!("lineage:{lineage_id}")
+    } else {
+        format!(
+            "node:{}:{}:{}",
+            target.id.crate_name,
+            target.id.path,
+            target.id.kind
+        )
     }
 }
 

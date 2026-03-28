@@ -88,6 +88,9 @@ PRISM telemetry includes:
 
 - total tool calls
 - PRISM query count
+- PRISM compact-tool count
+- PRISM `prism_query` fallback count
+- returned PRISM payload bytes
 - shell command count
 - shell read count
 - repeated read count

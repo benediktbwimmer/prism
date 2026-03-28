@@ -30,8 +30,14 @@ When touching code that violates this policy, move it toward the target architec
 When the PRISM MCP server is available for this repo, use it as the primary repo-awareness surface.
 
 - Start with `prism://api-reference` and `prism://session` to confirm the available query surface, active task, and session limits.
-- Use `prism_query` as the default tool for all read access into PRISM state.
-- Prefer `prism_query` over bespoke lookups for code structure, lineage, memory, coordination state, blockers, claims, artifacts, and review queues.
+- The target default agent path is compact and staged:
+  - `prism_locate`
+  - `prism_open`
+  - `prism_workset`
+  - `prism_expand`
+  - `prism_query` only when the compact surface cannot express the needed read
+- Until that compact surface is fully implemented, prefer the current PRISM-native reads that most closely match the target workflow: exact search, bounded file inspection, and focused semantic reads.
+- Treat `prism_query` as the rich semantic escape hatch, not the long-term default first hop.
 - Prefer PRISM-native file inspection and search when they can replace multiple shell reads with one bounded query, especially `prism.file(path).read(...)`, `prism.file(path).around(...)`, and `prism.searchText(...)`.
 - Prefer `prism.file(...)` and `prism.searchText(...)` over `sed`, `cat`, and `rg` when the work can be composed into a single PRISM query call that returns the exact slice, match, or surrounding context you need.
 - Keep shell reads as a fallback for raw bytes, command output, or cases where PRISM cannot yet express the needed inspection precisely.
@@ -43,6 +49,12 @@ When the PRISM MCP server is available for this repo, use it as the primary repo
   - `./target/release/prism-cli mcp status`
   - `./target/release/prism-cli mcp health`
 - Prefer the release binaries for restart and verification instead of `cargo run`, so the daemon and CLI are both using the freshly rebuilt release executables.
+
+Compression-layer guidance:
+
+- Return the minimum sufficient answer for the next likely agent action.
+- Prefer carrying forward compact server-side state such as handles once the compact tool layer lands; avoid rediscovering the same target by text.
+- Treat first-hop ranking quality as core product behavior, not as a secondary polish pass.
 
 When mutations make sense, use the explicit PRISM mutation tools instead of leaving the state implicit.
 

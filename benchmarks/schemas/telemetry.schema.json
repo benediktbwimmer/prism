@@ -11,6 +11,9 @@
         "completion_tokens",
         "tool_calls",
         "prism_queries",
+        "prism_query_calls",
+        "prism_compact_tool_calls",
+        "prism_payload_bytes",
         "shell_commands",
         "shell_read_commands",
         "repeated_reads",
@@ -31,6 +34,18 @@
           "minimum": 0
         },
         "prism_queries": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "prism_query_calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "prism_compact_tool_calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "prism_payload_bytes": {
           "type": "integer",
           "minimum": 0
         },
@@ -129,6 +144,9 @@
                 "completion_tokens",
                 "tool_calls",
                 "prism_queries",
+                "prism_query_calls",
+                "prism_compact_tool_calls",
+                "prism_payload_bytes",
                 "shell_commands",
                 "shell_read_commands",
                 "repeated_reads",
@@ -155,6 +173,18 @@
                   "minimum": 0
                 },
                 "prism_queries": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "prism_query_calls": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "prism_compact_tool_calls": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "prism_payload_bytes": {
                   "type": "integer",
                   "minimum": 0
                 },

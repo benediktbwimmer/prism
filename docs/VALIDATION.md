@@ -699,7 +699,9 @@ Simulate:
 - handoffs and blockers
 
 ### E. Query Fixtures
-Run representative `prism_query` snippets and verify:
+Run representative compact-tool flows plus targeted `prism_query` escape-hatch snippets and verify:
+- compact locate/open flows
+- handle stability and stale-handle recovery
 - results
 - diagnostics
 - truncation

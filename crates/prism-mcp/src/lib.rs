@@ -23,6 +23,7 @@ mod ambiguity;
 mod capabilities_resource;
 mod change_views;
 mod common;
+mod compact_tools;
 mod daemon_mode;
 mod dashboard_assets;
 mod dashboard_events;

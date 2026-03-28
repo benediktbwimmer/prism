@@ -48,6 +48,89 @@ pub struct SourceSliceView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct AgentTargetHandleView {
+    pub handle: String,
+    pub kind: NodeKind,
+    pub path: String,
+    pub name: String,
+    pub why_short: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentLocateStatus {
+    Ok,
+    Empty,
+    Ambiguous,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentLocateResultView {
+    pub candidates: Vec<AgentTargetHandleView>,
+    pub status: AgentLocateStatus,
+    pub truncated: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub narrowing_hint: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum AgentOpenMode {
+    Focus,
+    Edit,
+    Raw,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentOpenResultView {
+    pub handle: String,
+    pub file_path: String,
+    pub start_line: usize,
+    pub end_line: usize,
+    pub text: String,
+    pub truncated: bool,
+    pub remapped: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_action: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub related_handles: Option<Vec<AgentTargetHandleView>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentWorksetResultView {
+    pub primary: AgentTargetHandleView,
+    pub supporting_reads: Vec<AgentTargetHandleView>,
+    pub likely_tests: Vec<AgentTargetHandleView>,
+    pub why: String,
+    pub remapped: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentExpandKind {
+    Diagnostics,
+    Lineage,
+    Neighbors,
+    Diff,
+    Validation,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentExpandResultView {
+    pub handle: String,
+    pub kind: AgentExpandKind,
+    pub result: Value,
+    pub remapped: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct FocusedBlockView {
     pub symbol: SymbolView,
     pub slice: Option<SourceSliceView>,

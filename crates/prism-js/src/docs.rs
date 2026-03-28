@@ -1,19 +1,34 @@
 pub const API_REFERENCE_URI: &str = "prism://api-reference";
 
 pub fn api_reference_markdown() -> &'static str {
-    r#"# PRISM Query API
+    r#"# PRISM Agent API
 
-`prism_query` executes a TypeScript snippet against a live in-memory PRISM graph.
+PRISM exposes a compact staged agent ABI over the existing semantic/query engine.
 
-The MCP transport surface is intentionally narrow:
+Target default agent path:
 
-- `prism_query` for all reads
+- `prism_locate`
+- `prism_open`
+- `prism_workset`
+- `prism_expand`
+- `prism_query` only when the compact surface cannot express the need
+
+Compact-tool note:
+
+- the compact staged tools are available as top-level MCP tools
+- the rich semantic escape hatch is still `prism_query`
+- this reference documents that rich query surface honestly so agents still have the escape hatch when they need it
+
+The MCP transport surface currently includes:
+
+- `prism_query` as the rich semantic read surface and escape hatch
 - `prism_session` for task and session-context mutations
 - `prism_mutate` for all other state changes
 
 ## Mental model
 
-Treat this like a repo-specific read-only query shell.
+Treat the current query surface as the rich semantic escape hatch, not the long-term default first
+hop.
 
 - TypeScript is for composition.
 - Prism is where semantic meaning should live.
@@ -22,6 +37,10 @@ Treat this like a repo-specific read-only query shell.
 - The returned value must be JSON-serializable.
 - `language` currently supports only `"ts"`.
 - `prism_query` is read-only in this implementation.
+
+Design principle for the future compact ABI:
+
+- return the minimum sufficient answer for the next likely agent action
 
 ## Result shape
 
@@ -1205,6 +1224,9 @@ Clients should follow `schemaUri` and `relatedResources` instead of reconstructi
 
 ## Recipes
 
+These recipes document the currently implemented rich query surface. They are useful when the
+compact staged ABI is not available yet or when an agent genuinely needs the semantic escape hatch.
+
 ### 1. Find a symbol and show call graph plus lineage
 
 ```ts
@@ -1667,6 +1689,8 @@ return prism.taskContext("coord-task:12");
 
 ### 36. Collapse target discovery into one helper
 
+This is currently available, but it is not the long-term default agent path.
+
 ```ts
 const search = prism.searchBundle("handle_request", { limit: 1 });
 return prism.targetBundle(search);
@@ -1674,17 +1698,23 @@ return prism.targetBundle(search);
 
 ### 37. Collapse direct symbol lookup into one consistent envelope
 
+This is currently available, but it is not the long-term default agent path.
+
 ```ts
 return prism.symbolBundle("handle_request", { includeDiscovery: true });
 ```
 
 ### 38. Collapse search plus top-target context into one helper
 
+This is currently available, but it is not the long-term default agent path.
+
 ```ts
 return prism.searchBundle("helper", { limit: 5 });
 ```
 
 ### 39. Opt into the slower full discovery bundle only when you need it
+
+This is currently available, but it is not the long-term default agent path.
 
 ```ts
 const search = prism.searchBundle("helper", {
@@ -1695,6 +1725,8 @@ return prism.targetBundle(search, { includeDiscovery: true, limit: 3 });
 ```
 
 ### 40. Collapse text search, raw file context, and semantic owner lookup into one helper
+
+This is currently available, but it is not the long-term default agent path.
 
 ```ts
 return prism.textSearchBundle("query_return_missing", {
@@ -1707,6 +1739,8 @@ return prism.textSearchBundle("query_return_missing", {
 
 ### 41. Use regex text search but still ask for semantic context with a separate query string
 
+This is currently available, but it is not the long-term default agent path.
+
 ```ts
 return prism.textSearchBundle("query_[a-z_]+", {
   regex: true,
@@ -1717,6 +1751,8 @@ return prism.textSearchBundle("query_[a-z_]+", {
 ```
 
 ### 42. Inspect the bundle summary flags directly
+
+This is currently available, but it is not the long-term default agent path.
 
 ```ts
 const bundle = prism.searchBundle("helper", { limit: 5 });
@@ -1741,9 +1777,12 @@ return prism.claimPreview({
 
 ## Current implementation surface
 
+- Target direction: a compact staged default agent ABI built around `prism_locate`, `prism_open`,
+  `prism_workset`, and `prism_expand`, with `prism_query` retained as the semantic IR and escape
+  hatch.
 - Available now: symbol lookup, search, entrypoints, line-aware symbol locations, bounded source excerpts, focused local block retrieval, source extraction, relations, call graphs, lineage history, related failures, blast radius, and task replay by id.
 - Available now: owner-biased discovery helpers through `prism.owners(...)`, `prism.nextReads(...)`, `prism.whereUsed(...)`, `prism.entrypointsFor(...)`, behavioral `prism.search(...)`, `prism.readContext(...)`, `prism.editContext(...)`, `prism.validationContext(...)`, `prism.recentChangeContext(...)`, and `implementationFor(..., { mode: "owners" })` without changing the direct primitive semantics.
-- Available now: consistent eager bundle helpers through `prism.symbolBundle(...)`, `prism.searchBundle(...)`, `prism.textSearchBundle(...)`, and `prism.targetBundle(...)` with stable `summary`, `diagnostics`, and `suggestedReads` fields.
+- Available now: consistent eager bundle helpers through `prism.symbolBundle(...)`, `prism.searchBundle(...)`, `prism.textSearchBundle(...)`, and `prism.targetBundle(...)` with stable `summary`, `diagnostics`, and `suggestedReads` fields. These remain useful, but they are no longer the intended long-term default first hop for agent work.
 - Available now: bounded workspace file reads through `prism.file(path).read(...)` and `prism.file(path).around(...)` for exact line-range and around-line inspection without leaving the PRISM query surface.
 - Available now: bounded workspace text search through `prism.searchText(...)` with regex support, path/glob filters, exact match locations, and capped snippets, plus `prism.textSearchBundle(...)` to collapse text matches, one raw file window, and nearby semantic context into one helper.
 - Available now: semantic recent-change inspection through `prism.changedFiles(...)`, `prism.changedSymbols(path, ...)`, `prism.recentPatches(...)`, `prism.diffFor(target, ...)`, and `prism.taskChanges(taskId, ...)` backed by recorded patch outcomes instead of raw diff dumps.

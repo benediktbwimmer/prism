@@ -31,6 +31,13 @@ READ_COMMAND_PREFIXES = (
     "git show",
 )
 
+COMPACT_PRISM_TOOLS = {
+    "prism_locate",
+    "prism_open",
+    "prism_workset",
+    "prism_expand",
+}
+
 
 def _artifact_path(template: str, run_id: str, arm_name: str, instance_name: str) -> Path:
     path = Path(template.format(run_id=run_id, arm=arm_name, instance_id=instance_name))
@@ -75,11 +82,11 @@ def _compose_prompt(
         f"Working directory: `{workspace_dir}`\n\n"
         "PRISM workspace guidance:\n"
         f"- The benchmark repo for this run lives under `{workspace_dir}`.\n"
-        f"- When using PRISM text search, constrain results to this repo with `path: \"{workspace_dir}\"` or `glob: \"{workspace_glob}\"`.\n"
-        f"- When using `prism.file(...)`, prefer absolute paths rooted at `{workspace_dir}`.\n"
-        f"- Prefer `prism.textSearchBundle(...)` or one scoped `prism.searchText(...)` call before any shell-based code inspection.\n"
-        "- Valid file APIs are `prism.file(path).read({ startLine, endLine, maxChars })` and `prism.file(path).around({ line, before, after, maxChars })`.\n"
-        "- After a successful PRISM search or PRISM file read, do not reread the same file or rerun the same search with shell tools unless you specifically need raw command output.\n\n"
+        "- Preferred staged PRISM path: `prism_locate`, then `prism_open`, then `prism_workset`, and `prism_expand` only if needed.\n"
+        "- Treat `prism_query` as an explicit fallback only when the compact staged tools cannot express the need.\n"
+        f"- Constrain PRISM searches to this repo with `path: \"{workspace_dir}\"` or `glob: \"{workspace_glob}\"` when the tool supports it.\n"
+        "- Carry forward compact PRISM handles instead of rediscovering the same target by text.\n"
+        "- After a successful compact PRISM locate/open/workset call, do not reread that same target through shell tools unless you specifically need raw command output.\n\n"
         "Task:\n"
         f"{body}\n\n"
         "Requirements:\n"
@@ -225,10 +232,13 @@ def _parse_exec_jsonl(stdout: str) -> dict[str, Any]:
     shell_commands = 0
     shell_read_commands = 0
     prism_queries = 0
+    prism_query_calls = 0
+    prism_compact_tool_calls = 0
     tool_calls = 0
     repeated_reads = 0
     seen_read_commands: dict[str, int] = {}
     usage = {"input_tokens": 0, "output_tokens": 0}
+    prism_payload_bytes = 0
 
     for event in events:
         event_type = event.get("type")
@@ -247,8 +257,20 @@ def _parse_exec_jsonl(stdout: str) -> dict[str, Any]:
                         repeated_reads += 1
             elif item_type in {"mcp_tool_call", "mcp_call"}:
                 tool_calls += 1
-                if "prism" in json.dumps(item):
+                if item.get("server") == "prism":
                     prism_queries += 1
+                    tool_name = str(item.get("tool", ""))
+                    if tool_name == "prism_query":
+                        prism_query_calls += 1
+                    elif tool_name in COMPACT_PRISM_TOOLS:
+                        prism_compact_tool_calls += 1
+                    result = item.get("result")
+                    if result is not None:
+                        prism_payload_bytes += len(
+                            json.dumps(result, sort_keys=True, separators=(",", ":")).encode(
+                                "utf-8"
+                            )
+                        )
         elif event_type == "turn.completed":
             usage = event.get("usage", usage)
 
@@ -258,6 +280,9 @@ def _parse_exec_jsonl(stdout: str) -> dict[str, Any]:
         "completion_tokens": int(usage.get("output_tokens", 0)),
         "tool_calls": tool_calls,
         "prism_queries": prism_queries,
+        "prism_query_calls": prism_query_calls,
+        "prism_compact_tool_calls": prism_compact_tool_calls,
+        "prism_payload_bytes": prism_payload_bytes,
         "shell_commands": shell_commands,
         "shell_read_commands": shell_read_commands,
         "repeated_reads": repeated_reads,
@@ -332,6 +357,9 @@ def run_codex_instance(
         completion_tokens=parsed["completion_tokens"],
         tool_calls=parsed["tool_calls"],
         prism_queries=parsed["prism_queries"],
+        prism_query_calls=parsed["prism_query_calls"],
+        prism_compact_tool_calls=parsed["prism_compact_tool_calls"],
+        prism_payload_bytes=parsed["prism_payload_bytes"],
         shell_commands=parsed["shell_commands"],
         shell_read_commands=parsed["shell_read_commands"],
         repeated_reads=parsed["repeated_reads"],
@@ -355,6 +383,9 @@ def run_codex_instance(
         "completion_tokens": parsed["completion_tokens"],
         "tool_calls": parsed["tool_calls"],
         "prism_queries": parsed["prism_queries"],
+        "prism_query_calls": parsed["prism_query_calls"],
+        "prism_compact_tool_calls": parsed["prism_compact_tool_calls"],
+        "prism_payload_bytes": parsed["prism_payload_bytes"],
         "shell_commands": parsed["shell_commands"],
         "shell_read_commands": parsed["shell_read_commands"],
         "repeated_reads": parsed["repeated_reads"],

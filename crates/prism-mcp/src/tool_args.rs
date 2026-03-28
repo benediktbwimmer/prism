@@ -132,6 +132,65 @@ pub(crate) struct PrismQueryArgs {
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum PrismLocateTaskIntentInput {
+    Inspect,
+    Edit,
+    Validate,
+    Test,
+    Explain,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismLocateArgs {
+    pub(crate) query: String,
+    pub(crate) path: Option<String>,
+    pub(crate) glob: Option<String>,
+    pub(crate) task_intent: Option<PrismLocateTaskIntentInput>,
+    pub(crate) limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum PrismOpenModeInput {
+    Focus,
+    Edit,
+    Raw,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismOpenArgs {
+    pub(crate) handle: String,
+    pub(crate) mode: Option<PrismOpenModeInput>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismWorksetArgs {
+    pub(crate) handle: Option<String>,
+    pub(crate) query: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum PrismExpandKindInput {
+    Diagnostics,
+    Lineage,
+    Neighbors,
+    Diff,
+    Validation,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismExpandArgs {
+    pub(crate) handle: String,
+    pub(crate) kind: PrismExpandKindInput,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct NodeIdInput {
     #[serde(alias = "crate_name")]

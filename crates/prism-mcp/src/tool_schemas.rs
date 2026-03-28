@@ -7,7 +7,8 @@ use crate::{
     schema_resource_contents, schema_resource_uri, schema_resource_value,
     schema_resource_view_link, session_resource_view_link, tool_input_example,
     tool_schema_resource_uri, tool_schema_resource_view_link, tool_schemas_resource_view_link,
-    PrismMutationArgs, PrismQueryArgs, PrismSessionArgs, ResourceLinkView, TOOL_SCHEMAS_URI,
+    PrismExpandArgs, PrismLocateArgs, PrismMutationArgs, PrismOpenArgs, PrismQueryArgs,
+    PrismSessionArgs, PrismWorksetArgs, ResourceLinkView, TOOL_SCHEMAS_URI,
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
@@ -33,6 +34,33 @@ pub(crate) struct ToolSchemaCatalogPayload {
 
 pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
     vec![
+        ToolSchemaCatalogEntry {
+            tool_name: "prism_locate".to_string(),
+            schema_uri: tool_schema_resource_uri("prism_locate"),
+            description: "Input schema for the compact first-hop target locator.".to_string(),
+            example_input: tool_input_example("prism_locate").expect("tool example"),
+        },
+        ToolSchemaCatalogEntry {
+            tool_name: "prism_open".to_string(),
+            schema_uri: tool_schema_resource_uri("prism_open"),
+            description: "Input schema for opening one compact handle as a bounded code slice."
+                .to_string(),
+            example_input: tool_input_example("prism_open").expect("tool example"),
+        },
+        ToolSchemaCatalogEntry {
+            tool_name: "prism_workset".to_string(),
+            schema_uri: tool_schema_resource_uri("prism_workset"),
+            description: "Input schema for building a compact implementation workset."
+                .to_string(),
+            example_input: tool_input_example("prism_workset").expect("tool example"),
+        },
+        ToolSchemaCatalogEntry {
+            tool_name: "prism_expand".to_string(),
+            schema_uri: tool_schema_resource_uri("prism_expand"),
+            description: "Input schema for explicit depth-on-demand handle expansion."
+                .to_string(),
+            example_input: tool_input_example("prism_expand").expect("tool example"),
+        },
         ToolSchemaCatalogEntry {
             tool_name: "prism_query".to_string(),
             schema_uri: tool_schema_resource_uri("prism_query"),
@@ -108,6 +136,26 @@ pub(crate) fn tool_schema_resource_contents(
     uri: &str,
 ) -> Result<ResourceContents, McpError> {
     match tool_name {
+        "prism_locate" => tool_input_schema_contents::<PrismLocateArgs>(
+            uri,
+            "prism_locate",
+            "JSON Schema for the `prism_locate` tool input payload.",
+        ),
+        "prism_open" => tool_input_schema_contents::<PrismOpenArgs>(
+            uri,
+            "prism_open",
+            "JSON Schema for the `prism_open` tool input payload.",
+        ),
+        "prism_workset" => tool_input_schema_contents::<PrismWorksetArgs>(
+            uri,
+            "prism_workset",
+            "JSON Schema for the `prism_workset` tool input payload.",
+        ),
+        "prism_expand" => tool_input_schema_contents::<PrismExpandArgs>(
+            uri,
+            "prism_expand",
+            "JSON Schema for the `prism_expand` tool input payload.",
+        ),
         "prism_query" => tool_input_schema_contents::<PrismQueryArgs>(
             uri,
             "prism_query",
@@ -132,6 +180,22 @@ pub(crate) fn tool_schema_resource_contents(
 
 pub(crate) fn tool_input_schema_value(tool_name: &str) -> Option<Value> {
     match tool_name {
+        "prism_locate" => Some(tool_input_schema_value_for::<PrismLocateArgs>(
+            "prism_locate",
+            "JSON Schema for the `prism_locate` tool input payload.",
+        )),
+        "prism_open" => Some(tool_input_schema_value_for::<PrismOpenArgs>(
+            "prism_open",
+            "JSON Schema for the `prism_open` tool input payload.",
+        )),
+        "prism_workset" => Some(tool_input_schema_value_for::<PrismWorksetArgs>(
+            "prism_workset",
+            "JSON Schema for the `prism_workset` tool input payload.",
+        )),
+        "prism_expand" => Some(tool_input_schema_value_for::<PrismExpandArgs>(
+            "prism_expand",
+            "JSON Schema for the `prism_expand` tool input payload.",
+        )),
         "prism_query" => Some(tool_input_schema_value_for::<PrismQueryArgs>(
             "prism_query",
             "JSON Schema for the `prism_query` tool input payload.",

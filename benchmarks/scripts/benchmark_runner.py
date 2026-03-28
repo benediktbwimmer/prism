@@ -15,6 +15,9 @@ def _zero_telemetry_summary() -> dict[str, Any]:
         "completion_tokens": 0,
         "tool_calls": 0,
         "prism_queries": 0,
+        "prism_query_calls": 0,
+        "prism_compact_tool_calls": 0,
+        "prism_payload_bytes": 0,
         "shell_commands": 0,
         "shell_read_commands": 0,
         "repeated_reads": 0,
@@ -195,6 +198,9 @@ def _recompute_telemetry_summary(telemetry_arm: dict[str, Any]) -> None:
         summary["completion_tokens"] += item["completion_tokens"]
         summary["tool_calls"] += item["tool_calls"]
         summary["prism_queries"] += item["prism_queries"]
+        summary["prism_query_calls"] += item["prism_query_calls"]
+        summary["prism_compact_tool_calls"] += item["prism_compact_tool_calls"]
+        summary["prism_payload_bytes"] += item["prism_payload_bytes"]
         summary["shell_commands"] += item["shell_commands"]
         summary["shell_read_commands"] += item["shell_read_commands"]
         summary["repeated_reads"] += item["repeated_reads"]
@@ -213,6 +219,9 @@ def record_telemetry_instance(
     completion_tokens: int,
     tool_calls: int,
     prism_queries: int,
+    prism_query_calls: int,
+    prism_compact_tool_calls: int,
+    prism_payload_bytes: int,
     shell_commands: int,
     shell_read_commands: int,
     repeated_reads: int,
@@ -231,6 +240,9 @@ def record_telemetry_instance(
             "completion_tokens": completion_tokens,
             "tool_calls": tool_calls,
             "prism_queries": prism_queries,
+            "prism_query_calls": prism_query_calls,
+            "prism_compact_tool_calls": prism_compact_tool_calls,
+            "prism_payload_bytes": prism_payload_bytes,
             "shell_commands": shell_commands,
             "shell_read_commands": shell_read_commands,
             "repeated_reads": repeated_reads,

@@ -1182,7 +1182,7 @@ Agents do not need direct chat to collaborate. They coordinate through shared pl
 
 Core principles:
 
-* reads stay query-centric: most coordination inspection happens through `prism_query`
+* reads stay semantic, but the default agent ABI should be compact and staged rather than query-first
 * mutations stay explicit: shared coordination state changes must be validated and audited
 * coordination state is shared across sessions connected to the same PRISM server
 * speculative inference remains session-scoped unless explicitly promoted
@@ -1423,9 +1423,21 @@ Rules:
 * replay must answer why a task is blocked, why a claim was denied, and what review state gated completion
 * coordination events use the same attribution discipline as other PRISM mutations: timestamped, actor-attributed, and task-correlated when possible
 
-## 10.7 Read Model Through `prism_query`
+## 10.7 Read Model Through The Compact Agent ABI
 
-Coordination reads should primarily happen through `prism_query`, not through a growing list of bespoke MCP tools.
+Coordination reads should primarily happen through a compact staged agent ABI, not through a
+growing list of bespoke one-off MCP tools and not through `prism_query` as the default first hop.
+
+Target default read path:
+
+1. `prism_locate`
+2. `prism_open`
+3. `prism_workset`
+4. `prism_expand` when needed
+5. `prism_query` only when the compact surface cannot express the need
+
+`prism_query` still matters. It remains the semantic IR and programmable escape hatch for reads
+that do not fit the compact path cleanly.
 
 The query surface should expose first-class coordination views such as:
 
@@ -1439,7 +1451,8 @@ The query surface should expose first-class coordination views such as:
 * `prism.artifacts(taskId)`
 * `prism.simulateClaim(input)`
 
-This keeps multi-agent reasoning programmable in one round-trip while preserving an explicit audit boundary for mutations.
+This keeps multi-agent reasoning semantically rich while making the default agent interaction model
+much more token-efficient.
 
 ---
 
@@ -1449,13 +1462,17 @@ This keeps multi-agent reasoning programmable in one round-trip while preserving
 
 `prism-mcp` is the primary agent-facing integration surface.
 
-The design goal is not a large catalog of narrowly typed tools. The design goal is one programmable query surface over a live in-memory `Prism` instance.
+The design goal is a two-layer system:
+
+* a rich semantic core over a live in-memory `Prism` instance
+* a compact staged default ABI optimized for the next likely agent action
 
 That means:
 
 * the MCP server loads and retains the graph for the session
-* queries compose in one round-trip instead of chaining many tool calls
-* API discovery happens through an MCP resource, not repeated system prompt text
+* compact agent tools should handle the common `find -> open -> patch` path
+* `prism_query` remains available as the semantic IR and escape hatch
+* API discovery happens through MCP resources, not repeated system prompt text
 
 Session and task model:
 
@@ -1467,7 +1484,32 @@ Session and task model:
 * mutation tools inherit the active session `TaskId` when `task_id` is omitted
 * mutation tools may override attribution with an explicit `task_id`, so unrelated work can coexist in one session without opening a second MCP connection
 
-## 11.2 Primary Tool
+## 11.2 Compact Default Tools
+
+The target default agent tools are:
+
+```text
+prism_locate { query: string, ... } -> LocateResult
+prism_open { handle: string, mode: "focus" | "edit" | "raw", ... } -> OpenResult
+prism_workset { handle?: string, query?: string, ... } -> WorksetResult
+prism_expand { handle: string, kind: "diagnostics" | "lineage" | "neighbors" | "diff" | "validation" } -> ExpandResult
+```
+
+Rules:
+
+* these tools are compact by default
+* they return the minimum sufficient answer for the next likely agent action
+* they use session-local opaque handles as the main cross-call state carrier
+* they omit rich metadata unless the caller explicitly expands it
+
+`prism_workset` should stay tightly bounded:
+
+* one `primary`
+* up to 3 `supporting_reads`
+* up to 2 `likely_tests`
+* one short `why`
+
+## 11.3 Semantic Escape Hatch
 
 ```text
 prism_query { code: string, language?: "ts" } -> QueryResult
@@ -1481,6 +1523,7 @@ Rules:
 * the final value returned by the snippet must be JSON-serializable
 * execution happens against the already-loaded in-memory graph for the active MCP session
 * `prism_query` is read-only
+* `prism_query` is not the default first-hop agent interface
 * mutations such as memory writes, outcome logging, inference persistence, plan updates, and claim acquisition are handled through explicit MCP mutation tools, not through the query runtime
 
 Expected query shape:
@@ -1516,9 +1559,10 @@ interface QueryDiagnostic {
 }
 ```
 
-The goal is that agents can repair and narrow queries from machine-readable diagnostics instead of guessing from free-form error text.
+The goal is that agents can repair and narrow queries from machine-readable diagnostics instead of
+guessing from free-form error text when they do need the escape hatch.
 
-## 11.3 Discovery Resource
+## 11.4 Discovery Resource
 
 The MCP server must expose at least one resource:
 
@@ -1540,7 +1584,7 @@ The resource is the canonical discovery path for agents. The tool description sh
 
 The resource should feel more like a tiny SDK README plus type definition file than a dry protocol appendix.
 
-## 11.4 Runtime Model
+## 11.5 Runtime Model
 
 The runtime has three layers:
 
@@ -1577,7 +1621,7 @@ Default v1 safety limits:
 * max serialized JSON result size: `256 KiB`
 * limits should be configurable per session, but the defaults must exist even when the client provides no overrides
 
-## 11.5 Binding Layer (prism-js)
+## 11.6 Binding Layer (prism-js)
 
 `prism-js` is the language-facing facade over `prism-query`.
 
@@ -1588,6 +1632,13 @@ Responsibilities:
 * publish the API reference resource text
 * keep the JS-visible contract stable even as Rust internals evolve
 * present plain structured views rather than leaking Rust internals or opaque runtime handles
+
+Agent-surface direction:
+
+* the compact staged ABI is the default product surface
+* `prism-js` still exposes the richer semantic/query surface for the escape hatch and internal IR
+* high-frequency agent flows should migrate to compact tool calls instead of teaching every agent to
+  compose JS snippets for first-hop discovery
 
 Representative surface:
 
@@ -1799,7 +1850,7 @@ Examples of good semantic methods to expose over time:
 * `prism.conflicts(anchor)`
 * `prism.simulateClaim(input)`
 
-## 11.6 Recipes And Examples
+## 11.7 Recipes And Examples
 
 The API reference should ship with concrete copy-pastable recipes such as:
 
@@ -1814,7 +1865,7 @@ The API reference should ship with concrete copy-pastable recipes such as:
 
 Agents learn these surfaces best from examples. Recipes are not auxiliary documentation; they are part of the product surface.
 
-## 11.7 Mutation Tools
+## 11.8 Mutation Tools
 
 The MCP server exposes explicit mutation tools alongside the read-only `prism_query`:
 
@@ -1838,7 +1889,7 @@ Patch observation is not exposed as a mutation tool. PRISM detects file changes 
 
 Rules:
 
-* mutation tools are separate from `prism_query` to keep the query surface pure and predictable
+* mutation tools are separate from `prism_query` to keep the semantic escape hatch pure and predictable
 * all mutations produce structured confirmation and the resulting authoritative state for the mutated object
 * `prism_session { action: "start_task" }` creates a task record and makes it the active session task
 * if the session has no active task, the first mutation auto-creates one before the mutation is recorded
@@ -1849,17 +1900,19 @@ Rules:
 * `prism_mutate` owns shared plan, task, handoff, claim, artifact, outcome, memory, inference, and curator decision changes via tagged actions
 * coordination actions inside `prism_mutate` must attribute mutations to the current `SessionId` and current or explicit `TaskId`
 * coordination mutations must validate policy, dependency state, and base revision before they commit
-* `prism_query` remains the primary read surface for plans, claims, blockers, conflicts, artifacts, and review queues
+* the compact staged ABI is the default read surface for plans, claims, blockers, conflicts, artifacts, and review queues
+* `prism_query` remains available when the compact surface cannot express the needed read
 * the MCP server must support a `--no-coordination` mode where coordination is disabled end to end
 * when coordination is entirely disabled for a workspace session, coordination state should not be loaded or persisted for that session
 * coordination feature flags should gate both mutation tools and coordination read helpers so the advertised MCP surface matches what the server actually allows
 * workflow, claim, and artifact capabilities should be independently enableable for gradual rollout
 
-## 11.8 Convenience Query Tools
+## 11.9 Convenience Query Tools
 
 Optional convenience tools may exist later for high-frequency lookups:
 
-But they are secondary and are not part of the preferred public surface. The programmable `prism_query` tool is the primary interface.
+But they are secondary to the compact staged ABI, and the programmable `prism_query` tool remains
+the escape hatch rather than the preferred first-hop interface.
 
 ---
 
@@ -1929,10 +1982,11 @@ Recommended sequence:
 5. expose `lineage_of`, `related_failures`, `blast_radius`, and `resume_task` in `prism-query`
 6. land `prism-js` as the stable JS/TS binding contract over `prism-query`
 7. add `prism-mcp` with `prism_query` and `prism://api-reference`
-8. land coordination identities, plan, task, claim, and artifact event types, and `WorkspaceRevision`
-9. expose coordination reads and claim simulation through `prism-query` and `prism-js`
-10. add coarse mutation actions under `prism_mutate` for coordination, claims, and artifacts
-11. add derived projections such as co-change, hotspot, validation recipes, and drift detection
+8. add the compact staged agent ABI over that semantic core
+9. land coordination identities, plan, task, claim, and artifact event types, and `WorkspaceRevision`
+10. expose coordination reads and claim simulation through the compact ABI plus `prism-query` and `prism-js`
+11. add coarse mutation actions under `prism_mutate` for coordination, claims, and artifacts
+12. add derived projections such as co-change, hotspot, validation recipes, and drift detection
 
 ---
 

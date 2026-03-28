@@ -856,7 +856,11 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .iter()
         .filter_map(|tool| tool["name"].as_str())
         .collect::<Vec<_>>();
-    assert_eq!(tool_names.len(), 3);
+    assert_eq!(tool_names.len(), 7);
+    assert!(tool_names.contains(&"prism_locate"));
+    assert!(tool_names.contains(&"prism_open"));
+    assert!(tool_names.contains(&"prism_workset"));
+    assert!(tool_names.contains(&"prism_expand"));
     assert!(tool_names.contains(&"prism_query"));
     assert!(tool_names.contains(&"prism_session"));
     assert!(tool_names.contains(&"prism_mutate"));
@@ -888,7 +892,9 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
     let api_reference = resource["result"]["contents"][0]["text"]
         .as_str()
         .expect("api reference should be text");
-    assert!(api_reference.contains("PRISM Query API"));
+    assert!(api_reference.contains("PRISM Agent API"));
+    assert!(api_reference.contains("prism_locate"));
+    assert!(api_reference.contains("prism_open"));
     assert!(api_reference.contains("prism_query"));
     assert!(!api_reference.contains("runtimeStatus(): RuntimeStatusView;"));
     assert!(!api_reference.contains("queryLog(options?: QueryLogOptions): QueryLogEntryView[];"));
@@ -1156,6 +1162,11 @@ async fn schema_catalog_and_capabilities_surface_stable_examples() {
         .as_array()
         .unwrap()
         .iter()
+        .any(|tool| tool["name"] == "prism_locate" && tool["exampleInput"]["query"] == "session"));
+    assert!(capabilities_payload["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
         .any(|tool| tool["name"] == "prism_query" && tool["exampleInput"]["language"] == "ts"));
 
     running.cancel().await.unwrap();
@@ -1216,6 +1227,7 @@ async fn stdio_proxy_forwards_to_streamable_http_upstream() {
         .list_all_tools()
         .await
         .expect("proxy should forward tools/list");
+    assert!(tools.iter().any(|tool| tool.name == "prism_locate"));
     assert!(tools.iter().any(|tool| tool.name == "prism_query"));
 
     let session = client
@@ -1380,7 +1392,11 @@ async fn mcp_server_simple_mode_keeps_minimal_surface_and_reports_features() {
         .iter()
         .filter_map(|tool| tool["name"].as_str())
         .collect::<Vec<_>>();
-    assert_eq!(tool_names.len(), 3);
+    assert_eq!(tool_names.len(), 7);
+    assert!(tool_names.contains(&"prism_locate"));
+    assert!(tool_names.contains(&"prism_open"));
+    assert!(tool_names.contains(&"prism_workset"));
+    assert!(tool_names.contains(&"prism_expand"));
     assert!(tool_names.contains(&"prism_query"));
     assert!(tool_names.contains(&"prism_session"));
     assert!(tool_names.contains(&"prism_mutate"));
@@ -3596,7 +3612,8 @@ return {
         .expect("tool schema query should succeed");
 
     let tools = result.result["tools"].as_array().expect("tool catalog");
-    assert_eq!(tools.len(), 3);
+    assert_eq!(tools.len(), 7);
+    assert!(tools.iter().any(|tool| tool["toolName"] == "prism_locate"));
     assert!(tools.iter().any(|tool| tool["toolName"] == "prism_mutate"));
     assert!(tools
         .iter()
@@ -3672,6 +3689,143 @@ return {
         .contains("\"properties\""));
 
     assert!(result.result["missing"].is_null());
+}
+
+#[test]
+fn compact_agent_tools_keep_handles_stable_within_one_session() {
+    let host = host_with_node(demo_node());
+    let session = test_session(&host);
+
+    let first = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "main".to_string(),
+                path: None,
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                limit: Some(3),
+            },
+        )
+        .expect("first locate should succeed");
+    let second = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "main".to_string(),
+                path: None,
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                limit: Some(3),
+            },
+        )
+        .expect("second locate should succeed");
+
+    assert_eq!(first.status, prism_js::AgentLocateStatus::Ok);
+    assert_eq!(first.candidates.len(), 1);
+    assert_eq!(second.candidates.len(), 1);
+    assert_eq!(first.candidates[0].handle, second.candidates[0].handle);
+}
+
+#[tokio::test]
+async fn mcp_server_executes_compact_agent_tool_round_trip() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn main() {
+    println!("hello");
+}
+"#,
+    )
+    .unwrap();
+    let server = PrismMcpServer::with_session(index_workspace_session(&root).unwrap());
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_locate",
+            json!({
+                "query": "main",
+                "taskIntent": "edit",
+                "limit": 3,
+            })
+            .as_object()
+            .expect("tool args should be an object")
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let locate = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(locate["status"], "ok");
+
+    client
+        .send(call_tool_request(
+            3,
+            "prism_open",
+            json!({
+                "handle": locate["candidates"][0]["handle"],
+                "mode": "focus",
+            })
+            .as_object()
+            .expect("tool args should be an object")
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let open = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(open["handle"], locate["candidates"][0]["handle"]);
+    assert!(open["text"]
+        .as_str()
+        .expect("open text should be a string")
+        .contains("fn main"));
+
+    client
+        .send(call_tool_request(
+            4,
+            "prism_workset",
+            json!({
+                "handle": locate["candidates"][0]["handle"],
+            })
+            .as_object()
+            .expect("tool args should be an object")
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let workset = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(workset["primary"]["handle"], locate["candidates"][0]["handle"]);
+    assert!(workset["why"].as_str().is_some_and(|value| !value.is_empty()));
+
+    client
+        .send(call_tool_request(
+            5,
+            "prism_expand",
+            json!({
+                "handle": locate["candidates"][0]["handle"],
+                "kind": "diagnostics",
+            })
+            .as_object()
+            .expect("tool args should be an object")
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let expand = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(expand["kind"], "diagnostics");
+    assert_eq!(expand["result"]["whyShort"], locate["candidates"][0]["whyShort"]);
+
+    running.cancel().await.unwrap();
 }
 
 #[test]

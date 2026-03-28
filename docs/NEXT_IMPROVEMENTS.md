@@ -2,21 +2,22 @@
 
 ## Goal
 
-The previous improvement round closed the biggest gaps in exact targeting, semantic change views,
+The previous improvement round closed major gaps in exact targeting, semantic change views,
 runtime introspection, query logging, focused block retrieval, and basic ambiguity handling.
 
 The next round should optimize for one thing above all else:
 
-* `prism_query` should be reliable enough for normal multi-step TypeScript snippets that the agent
-  rarely needs retry queries, fallback shell reads, or syntax-guessing.
+* PRISM should become a compact context compressor for agents, not a query-first interface that
+  burns tokens through exploratory composition.
 
 The product target is now:
 
-* one expressive `prism_query` should usually work on the first try
-* one `prism_query` should often replace several narrower PRISM calls
-* ambiguity should still be explained well, but the agent should need fewer refinement steps
-* shell fallback should be for raw bytes, builds, and command output, not for working around query
-  fragility
+* a compact staged default ABI for agent work
+* a rich semantic core that still exists underneath it
+* first-hop success and payload size as explicit product goals
+* `prism_query` preserved as the semantic IR and escape hatch, not the default surface
+
+The detailed target state lives in [AGENT_COMPRESSION_LAYER.md](/Users/bene/code/prism/docs/AGENT_COMPRESSION_LAYER.md).
 
 ## What We Observed
 
@@ -29,160 +30,143 @@ The live system is in a much better place than before:
 
 The main remaining pain points are:
 
-* richer `prism_query` snippets can still fail unexpectedly
-* the query authoring contract is too brittle for normal TypeScript composition
-* broad noun queries are better, but still not intent-aware enough in some repos
-* the agent still sometimes needs several PRISM calls where one higher-level read should suffice
+* the default `prism_query`-first interaction model is still too expensive in agent loops
+* repeated target rediscovery and repeated option blobs waste prompt tokens
+* rich result payloads often return more than the next likely action needs
+* broad noun queries are better, but first-hop ranking still decides whether the compact path will
+  actually save tokens
 
 ## Priority List
 
-## 0. Make `prism_query` Multi-Statement Snippets Reliable
+## 0. Add Session-Local Handles And Compact Response Contracts
 
 This is the top priority.
 
-Normal query snippets should support the patterns an agent naturally writes:
-
-* `const` and `let` bindings
-* multiple statements
-* `await`
-* `return { ... }`
-* intermediate arrays and maps
-* conditional branches
-* object literals with nested method calls
-
-Current failure mode:
-
-* snippets that look like ordinary TypeScript can still fail with parser errors such as
-  `expecting ';'`, which forces trial and error
-
 Needed improvements:
 
-* make the parser and evaluator accept normal statement-oriented snippets consistently
-* remove surprising differences between expression-only and block-style queries
-* clearly define whether top-level `await`, implicit returns, and semicolon insertion are supported
-* add golden tests for the real snippets that failed during live usage
-* harden the wrapper/eval path so valid-looking snippets do not depend on incidental formatting
+* store first-class session-local handles in the MCP layer
+* keep handle resolution cheap and stable within a session
+* return compact handles instead of large repeated symbol objects
+* standardize compact status handling for empty, ambiguous, truncated, and stale-handle cases
+* avoid repeated repo-root and target metadata across follow-up calls
 
 Success condition:
 
-* the agent can write ordinary multi-step query snippets without having to simplify them into
-  single-expression form
+* state moves from prompt tokens into server-side handles without losing determinism
 
-## 1. Improve Query Error Messages And Repair Hints
+## 1. Implement `prism_locate` And `prism_open` As The New Default Path
 
-When `prism_query` fails, the current errors are too low-signal.
-
-Needed improvements:
-
-* exact line and column reporting that matches the submitted snippet
-* clearer separation between parse failure, type/runtime failure, output serialization failure, and
-  PRISM diagnostic output
-* repair hints for common mistakes:
-  * missing `return`
-  * non-JSON-serializable output
-  * unsupported syntax shape
-  * query output too large
-* include the rewritten or wrapped query shape when that helps explain the failure
-* add examples of valid multi-statement snippets directly in the error help path
-
-Success condition:
-
-* when a query fails, the next attempt is obvious instead of guesswork
-
-## 2. Add Higher-Level Single-Call Query Helpers
-
-Even when `prism_query` works, the agent still sometimes needs several PRISM round-trips to gather
-one practical working set.
-
-PRISM should expose more composite helpers so the agent asks for intent, not orchestration.
-
-High-value candidates:
-
-* a search result bundle that includes ambiguity, focused block, and nearby validations in one call
-* a target bundle that combines:
-  * `focusedBlock`
-  * `diffFor`
-  * `editContext`
-  * likely tests
-* a file/search bundle that combines text matches with semantic neighbors
-* a query helper that returns both primary result data and diagnostics in one stable envelope
-
-Success condition:
-
-* common agent workflows need fewer sequential `prism_query` calls
-
-## 3. Make Broad Search More Intent-Aware
-
-Broad noun queries are improved, but still lean too heavily on lexical matching.
-
-Observed gap:
-
-* queries like `helper` still return module-heavy results when the likely user intent is
-  editable implementation code
+These should be thin compact wrappers over the existing search and file-read machinery.
 
 Needed improvements:
 
-* stronger preference for concrete implementation targets when the user likely wants code to inspect
-  or edit
-* better separation between container/module names and actionable symbols
-* lower default weight for test-only results unless the query implies tests
-* optional explicit modes such as:
-  * prefer callable code
-  * prefer editable targets
-  * prefer behavioral owners over lexical collisions
+* `prism_locate` returns the top 1 to 3 compact candidates only
+* `prism_open` returns a bounded `focus`, `edit`, or `raw` slice only
+* `edit` stays narrow and does not drift into a mini-bundle
+* default first hop prefers editable implementation targets
 
 Success condition:
 
-* broad searches more often land on the thing an agent would actually inspect next
+* common `find -> open` flows no longer require `prism_query` as the first step
 
-## 4. Build A Replay Corpus For Real Query Failures
+## 2. Add Payload And Tool-Count Telemetry Before Prompt Migration
 
-The next hardening pass should be driven by real usage, not invented examples.
+Before changing benchmark prompts, PRISM should measure the compression layer directly.
 
 Needed improvements:
 
-* capture failing `prism_query` snippets from live sessions
-* store the expected result or expected error class
-* replay them in tests across parser, wrapper, and runtime layers
-* include ambiguity-ranking cases from real repo queries such as:
-  * `search`
+* track dedicated compact-tool calls separately from `prism_query`
+* track shell read calls and repeated shell reads
+* record returned payload bytes by tool type
+* make `prism_query` fallback usage visible in benchmark telemetry
+
+Success condition:
+
+* prompt and benchmark changes can be evaluated against real payload and usage data
+
+## 3. Add `prism_workset` With A Hard Compactness Budget
+
+`prism_workset` is high-value, but it is also the highest-risk compact tool.
+
+Rules:
+
+* keep it to:
+  * `primary`
+  * up to 3 `supporting_reads`
+  * up to 2 `likely_tests`
+  * one short `why`
+* do not return nested diagnostics, rich discovery payloads, or helpful extras by default
+* split the tool if pressure builds to add more
+
+Success condition:
+
+* one post-locate workset call replaces multiple exploratory follow-ups without becoming the new
+  verbose bundle surface
+
+## 4. Add `prism_expand` For Explicit Depth-On-Demand
+
+The compact path needs an explicit place for optional depth so the default path stays small.
+
+Needed improvements:
+
+* add narrow expansions for:
+  * diagnostics
+  * lineage
+  * neighbors
+  * diff
+  * validation
+* ensure each expansion returns only its requested class of detail
+
+Success condition:
+
+* rich detail exists without inflating the default response contract
+
+## 5. Keep Pushing First-Hop Ranking
+
+Success condition:
+
+* broad searches land on the thing an agent would actually inspect next often enough that repeated
+  `locate` calls are rare
+
+Needed improvements:
+
+* broad nouns prefer implementation targets by default
+* modules, containers, tests, examples, and docs are demoted unless requested
+* behavioral-owner evidence is merged before ranking
+* top-1 and top-3 quality become tracked quality targets
+
+## 6. Keep `prism_query` Rich, But Make It Secondary
+
+`prism_query` still matters, but its role changes.
+
+Needed improvements:
+
+* keep `prism_query` as the semantic IR and escape hatch
+* stop teaching it as the default first hop in prompts, docs, and recipes
+* keep bundle/query helpers available temporarily without presenting them as the preferred path
+
+Success condition:
+
+* PRISM preserves its expressive core without forcing the agent to pay for that expressiveness on
+  most turns
+
+## 7. Build Compression-Focused Replay And Benchmark Coverage
+
+Needed improvements:
+
+* add contract tests for compact tool outputs and handle stability
+* add payload-size assertions for representative compact responses
+* keep a fixed dogfood ranking set such as:
+  * `session`
   * `helper`
   * `status`
   * `runtime`
+  * `validation`
+* measure whether the new path lowers prompt tokens, completion tokens, and payload size
 
 Success condition:
 
-* regressions in real agent workflows are caught before release
-
-## 5. Tighten Query Result Ergonomics
-
-The returned query shape should be easier to use without defensive probing.
-
-Needed improvements:
-
-* keep result and diagnostics behavior consistent across success, ambiguity, truncation, and empty
-  matches
-* make structured next actions easy to consume programmatically
-* avoid surprising `null` result shapes when the real issue is ambiguity or truncation
-* standardize how query summaries, touched targets, and truncation metadata are surfaced
-
-Success condition:
-
-* the agent can treat query output as a predictable interface instead of a special case per method
-
-## 6. Continue Reducing Shell Fallbacks For Raw Inspection
-
-PRISM should keep replacing multi-tool read workflows where the semantic context is already known.
-
-High-value follow-ups:
-
-* better composition between `prism.file(...)`, `prism.searchText(...)`, and semantic targets
-* exact jump-to-file-slice follow-ups from ambiguity diagnostics
-* easier “show me this target and the nearby raw file context” helpers
-
-Success condition:
-
-* once PRISM identifies the right target, the agent rarely needs more than one extra raw read
+* the compact path wins on both first-hop quality and token cost in representative agent tasks
 
 ## Explicit Non-Goals
 
@@ -190,21 +174,22 @@ The next round is not about:
 
 * rebuilding a general shell inside PRISM
 * adding unbounded dump surfaces
-* growing more features before the `prism_query` authoring experience is dependable
+* deleting the semantic query model
+* optimizing for conceptual elegance at the expense of agent token efficiency
 
-The reliability and composability of the existing surface matter more than adding another large
-feature bucket right now.
+The semantic core should remain rich. The agent-facing ABI should become smaller and more staged.
 
 ## Practical Win Condition
 
 This round is successful when the common workflow becomes:
 
-1. write one ordinary multi-step `prism_query`
-2. get the intended result on the first try
-3. use one composite PRISM response instead of several narrower follow-ups
-4. fall back to shell only for raw bytes, builds, or command output
+1. call `prism_locate`
+2. call `prism_open`
+3. optionally call `prism_workset`
+4. call `prism_expand` only if deeper context is still needed
+5. use `prism_query` only when the compact path cannot express the task
 
 Short version:
 
-**The next PRISM milestone is not more surface area. It is making `prism_query` dependable enough
-that agents can compose richer repo reads in one shot with much less trial and error.**
+**The next PRISM milestone is not a more expressive default query shell. It is a compact staged
+agent ABI that preserves PRISM's rich mind while making its first words short.**
