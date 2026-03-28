@@ -76,20 +76,18 @@ pub(crate) fn tool_input_example(tool_name: &str) -> Option<Value> {
             }
         })),
         "prism_mutate" => Some(json!({
-            "action": "validation_feedback",
+            "action": "concept",
             "input": {
-                "context": "Search resource example slice",
-                "anchors": [{
-                    "type": "node",
+                "operation": "promote",
+                "canonicalName": "validation_pipeline",
+                "summary": "Checks, likely tests, and recent failures behind a change.",
+                "coreMembers": [{
                     "crateName": "demo",
-                    "path": "demo::main",
+                    "path": "demo::validation_recipe",
                     "kind": "function"
                 }],
-                "prismSaid": "Search result ordering was helpful.",
-                "actuallyTrue": "The top candidate matched the intended read path.",
-                "category": "projection",
-                "verdict": "helpful",
-                "correctedManually": false
+                "aliases": ["validation", "checks"],
+                "evidence": ["Promoted from repeated validation worksets."]
             }
         })),
         _ => None,

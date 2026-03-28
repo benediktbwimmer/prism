@@ -30,8 +30,9 @@ pub use crate::source::{
 };
 pub use crate::symbol::{Relations, Symbol};
 pub use crate::types::{
-    ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens, ConceptPacket, DriftCandidate,
-    QueryLimits, TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
+    ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens, ConceptEvent, ConceptEventAction,
+    ConceptPacket, DriftCandidate, QueryLimits, TaskIntent, TaskRisk, TaskValidationRecipe,
+    ValidationCheck, ValidationRecipe, canonical_concept_handle,
 };
 
 pub struct Prism {
@@ -172,8 +173,32 @@ impl Prism {
     }
 
     pub fn refresh_projections(&self) {
-        let next = ProjectionIndex::derive(&self.history.snapshot(), &self.outcomes.snapshot());
+        let curated = self
+            .projections
+            .read()
+            .expect("projection lock poisoned")
+            .curated_concepts()
+            .to_vec();
+        let next = ProjectionIndex::derive_with_curated(
+            &self.history.snapshot(),
+            &self.outcomes.snapshot(),
+            curated,
+        );
         *self.projections.write().expect("projection lock poisoned") = next;
+    }
+
+    pub fn replace_curated_concepts(&self, concepts: Vec<ConceptPacket>) {
+        self.projections
+            .write()
+            .expect("projection lock poisoned")
+            .replace_curated_concepts(concepts);
+    }
+
+    pub fn upsert_curated_concept(&self, concept: ConceptPacket) {
+        self.projections
+            .write()
+            .expect("projection lock poisoned")
+            .upsert_curated_concept(concept);
     }
 
     pub fn apply_outcome_event_to_projections(&self, event: &OutcomeEvent) {

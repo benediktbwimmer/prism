@@ -4074,6 +4074,26 @@ fn compact_gather_schema_surfaces_exact_text_knobs() {
 }
 
 #[test]
+fn prism_mutate_schema_surfaces_concept_action() {
+    let schema = crate::tool_schema_view("prism_mutate").expect("mutate schema should exist");
+    let concept = schema
+        .actions
+        .iter()
+        .find(|action| action.action == "concept")
+        .expect("concept action should exist");
+
+    assert!(concept.required_fields.contains(&"operation".to_string()));
+    assert!(concept
+        .fields
+        .iter()
+        .any(|field| field.name == "canonicalName"));
+    assert!(concept
+        .fields
+        .iter()
+        .any(|field| field.name == "coreMembers"));
+}
+
+#[test]
 fn compact_locate_uses_intent_to_choose_between_code_and_docs() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("docs")).unwrap();
@@ -4684,6 +4704,113 @@ return {
         Value::String("concept://validation_pipeline".to_string())
     );
     assert!(envelope.result["decoded"]["validationRecipe"].is_object());
+}
+
+#[test]
+fn concept_mutation_promotes_updates_and_reloads_repo_concepts() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn validation_recipe() {}
+pub fn runtime_status() {}
+pub fn start_task() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let promoted = host
+        .store_concept(
+            session.as_ref(),
+            PrismConceptMutationArgs {
+                operation: ConceptMutationOperationInput::Promote,
+                handle: Some("concept://custom_validation".to_string()),
+                canonical_name: Some("custom_validation".to_string()),
+                summary: Some("Custom curated validation concept.".to_string()),
+                aliases: Some(vec!["validation".to_string(), "custom checks".to_string()]),
+                core_members: Some(vec![NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::validation_recipe".to_string(),
+                    kind: "function".to_string(),
+                }]),
+                supporting_members: None,
+                likely_tests: None,
+                evidence: Some(vec!["Promoted from live repo work.".to_string()]),
+                risk_hint: Some("Keep checks aligned.".to_string()),
+                confidence: Some(0.91),
+                decode_lenses: Some(vec![
+                    PrismConceptLensInput::Validation,
+                    PrismConceptLensInput::Memory,
+                ]),
+                task_id: Some("task:concept-promote".to_string()),
+            },
+        )
+        .expect("concept promote should succeed");
+
+    assert!(promoted.event_id.starts_with("concept-event:"));
+    assert_eq!(promoted.concept_handle, "concept://custom_validation");
+    assert_eq!(promoted.packet.summary, "Custom curated validation concept.");
+
+    let updated = host
+        .store_concept(
+            session.as_ref(),
+            PrismConceptMutationArgs {
+                operation: ConceptMutationOperationInput::Update,
+                handle: Some("concept://custom_validation".to_string()),
+                canonical_name: None,
+                summary: Some("Updated curated validation concept.".to_string()),
+                aliases: Some(vec!["validation".to_string(), "updated checks".to_string()]),
+                core_members: None,
+                supporting_members: None,
+                likely_tests: None,
+                evidence: Some(vec!["Updated after more repo work.".to_string()]),
+                risk_hint: Some("Config drift is common.".to_string()),
+                confidence: Some(0.95),
+                decode_lenses: Some(vec![
+                    PrismConceptLensInput::Open,
+                    PrismConceptLensInput::Validation,
+                ]),
+                task_id: Some("task:concept-update".to_string()),
+            },
+        )
+        .expect("concept update should succeed");
+
+    assert_eq!(
+        updated.packet.summary,
+        "Updated curated validation concept."
+    );
+    assert_eq!(updated.packet.aliases[1], "updated checks");
+
+    let queried = host
+        .execute(
+            test_session(&host),
+            r#"
+return prism.conceptByHandle("concept://custom_validation");
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("concept query should succeed");
+    assert_eq!(
+        queried.result["summary"],
+        Value::String("Updated curated validation concept.".to_string())
+    );
+
+    let reloaded = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let persisted = reloaded
+        .execute(
+            test_session(&reloaded),
+            r#"
+return prism.conceptByHandle("concept://custom_validation");
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("reloaded concept query should succeed");
+    assert_eq!(
+        persisted.result["summary"],
+        Value::String("Updated curated validation concept.".to_string())
+    );
 }
 
 #[test]

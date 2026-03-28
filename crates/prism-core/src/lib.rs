@@ -1,3 +1,4 @@
+mod concept_events;
 mod curator;
 mod curator_support;
 mod indexer;

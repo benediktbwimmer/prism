@@ -270,6 +270,7 @@ fn memory_store_round_trips_auxiliary_snapshots() {
                 last_seen: 42,
             }],
         )],
+        curated_concepts: Vec::new(),
     };
 
     store.save_history_snapshot(&history).unwrap();
@@ -357,6 +358,7 @@ fn sqlite_store_persists_projections_in_dedicated_tables() {
                 last_seen: 99,
             }],
         )],
+        curated_concepts: Vec::new(),
     };
 
     let mut store = SqliteStore::open(&path).unwrap();
@@ -467,6 +469,7 @@ fn sqlite_store_prunes_co_change_neighbors_to_top_k() {
                 .collect(),
         )],
         validation_by_lineage: Vec::new(),
+        curated_concepts: Vec::new(),
     };
 
     let mut store = SqliteStore::open(&path).unwrap();
@@ -614,6 +617,7 @@ fn sqlite_store_commits_auxiliary_snapshots_with_projection_deltas() {
                     last_seen: 99,
                 }],
             )],
+            curated_concepts: Vec::new(),
         })
     );
 
@@ -710,6 +714,7 @@ fn sqlite_store_commits_auxiliary_batches_atomically() {
                     last_seen: 11,
                 }],
             )],
+            curated_concepts: Vec::new(),
         })
     );
 
@@ -924,6 +929,7 @@ fn sqlite_store_commits_index_batches_atomically() {
                     last_seen: 7,
                 }],
             )],
+            curated_concepts: Vec::new(),
         })
     );
 

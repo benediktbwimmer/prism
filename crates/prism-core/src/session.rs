@@ -14,13 +14,13 @@ use prism_history::HistoryStore;
 use prism_ir::{ChangeTrigger, EventId, ObservedChangeSet, TaskId};
 use prism_memory::OutcomeMemory;
 use prism_memory::{EpisodicMemorySnapshot, MemoryEvent, MemoryEventQuery, OutcomeEvent};
-use prism_projections::validation_deltas_for_event;
-use prism_projections::ProjectionIndex;
+use prism_projections::{ConceptEvent, ProjectionIndex, validation_deltas_for_event};
 use prism_query::Prism;
 use prism_store::{AuxiliaryPersistBatch, SqliteStore, Store};
 
 pub use prism_store::SnapshotRevisions as WorkspaceSnapshotRevisions;
 
+use crate::concept_events::{append_repo_concept_event, load_repo_curated_concepts};
 use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorHandleRef};
 use crate::memory_events::{
     append_repo_memory_event, filter_memory_events, load_repo_memory_events,
@@ -293,6 +293,8 @@ impl WorkspaceSession {
             .load_projection_snapshot()?
             .map(ProjectionIndex::from_snapshot)
             .unwrap_or_else(|| ProjectionIndex::derive(&history.snapshot(), &outcomes.snapshot()));
+        let mut projections = projections;
+        projections.replace_curated_concepts(load_repo_curated_concepts(&self.root)?);
         drop(store);
 
         let prism = Arc::new(Prism::with_history_outcomes_coordination_and_projections(
@@ -365,6 +367,21 @@ impl WorkspaceSession {
         self.sync_repo_memory_events_locked(&mut store)?;
         let events = store.load_memory_events()?;
         Ok(filter_memory_events(events, query))
+    }
+
+    pub fn append_concept_event(&self, event: ConceptEvent) -> Result<()> {
+        let _guard = self
+            .refresh_lock
+            .lock()
+            .expect("workspace refresh lock poisoned");
+        append_repo_concept_event(&self.root, &event)?;
+        let prism = self.prism_arc();
+        prism.upsert_curated_concept(event.concept);
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .save_projection_snapshot(&prism.projection_snapshot())?;
+        Ok(())
     }
 
     pub fn load_inference_snapshot(&self) -> Result<Option<InferenceSnapshot>> {

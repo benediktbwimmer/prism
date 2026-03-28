@@ -33,6 +33,7 @@ High-level framing:
 * the next phase is reliable temporal perception: what happened here before, what survived change, what failed, what worked, and what durable lessons should shape the next action
 * memory is the missing bridge from repo exploration to accumulated repo experience
 * a repo semantic codec compresses recurring repo meaning into stable concept packets that can be decoded back into exact supporting context
+* promoted repo concepts should be exportable and cloneable, not trapped in one local cache
 
 ---
 
@@ -70,6 +71,7 @@ Additional current crates:
 
 * `prism-projections` owns derived read models such as co-change and validation signals
 * `prism-projections` also derives concept packets for recurring repo concepts such as validation, runtime, memory, compact tools, and task continuity
+* `prism-core` persists repo-exported concept events so curated concept packets travel with the repo and hydrate the live projection layer on reload
 * `prism-coordination` owns shared plans, tasks, claims, artifacts, and coordination event state
 * `prism-curator` owns background enrichment and proposal-oriented curation triggers
 
@@ -1534,6 +1536,8 @@ Repo semantic codec:
 * each packet carries a canonical name, short summary, aliases, core members, supporting members, likely tests, evidence, confidence, and decode lenses
 * the codec stays lightweight and inspectable rather than trying to model a giant ontology
 * decoding a concept packet reuses ordinary Prism context such as symbols, validations, recent failures, patches, and memory recall
+* repo-promoted concept packets are append-only exported through `.prism/concepts/events.jsonl`, then overlaid onto the derived concept layer during workspace load and refresh
+* explicit mutations promote and update concept packets through `prism_mutate` instead of hiding concept curation inside ad hoc memory writes
 
 Expected query shape:
 

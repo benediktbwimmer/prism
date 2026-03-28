@@ -14,11 +14,15 @@ use prism_memory::{
     MemoryEntry, MemoryEvent, MemoryEventKind, MemoryKind, MemoryModule, MemoryScope, MemorySource,
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult,
 };
-use prism_query::Prism;
+use prism_query::{
+    ConceptEvent, ConceptEventAction, ConceptPacket, Prism, canonical_concept_handle,
+};
 use serde_json::{json, Value};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::{
-    artifact_view, claim_view, conflict_view, convert_acceptance, convert_anchors,
+    artifact_view, claim_view, concept_packet_view, conflict_view, convert_acceptance,
+    convert_anchors,
     convert_completion_context, convert_inferred_scope, convert_memory_kind, convert_memory_scope,
     convert_memory_source, convert_node_id, convert_outcome_evidence, convert_outcome_kind,
     convert_outcome_result, convert_policy, coordination_task_view, curator_disposition_label,
@@ -28,11 +32,12 @@ use crate::{
     parse_review_verdict, plan_view, task_journal_memory_metadata, task_journal_view,
     ArtifactActionInput, ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
     ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput, ClaimMutationResult,
-    ClaimReleasePayload, ClaimRenewPayload, CoordinationMutationKindInput,
-    CoordinationMutationResult, CuratorJobView, CuratorProposalDecisionResult, EdgeMutationResult,
-    EventMutationResult, HandoffAcceptPayload, MemoryMutationActionInput, MemoryMutationResult,
-    MemoryStorePayload, MutationViolationView, PlanUpdatePayload, PrismArtifactArgs,
-    PrismClaimArgs, PrismCoordinationArgs, PrismCuratorPromoteEdgeArgs,
+    ClaimReleasePayload, ClaimRenewPayload, ConceptMutationOperationInput,
+    ConceptMutationResult, CoordinationMutationKindInput, CoordinationMutationResult,
+    CuratorJobView, CuratorProposalDecisionResult, EdgeMutationResult, EventMutationResult,
+    HandoffAcceptPayload, MemoryMutationActionInput, MemoryMutationResult, MemoryStorePayload,
+    MutationViolationView, PlanUpdatePayload, PrismArtifactArgs, PrismClaimArgs,
+    PrismConceptLensInput, PrismConceptMutationArgs, PrismCoordinationArgs, PrismCuratorPromoteEdgeArgs,
     PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs, PrismFinishTaskArgs,
     PrismInferEdgeArgs, PrismMemoryArgs, PrismOutcomeArgs, PrismValidationFeedbackArgs, QueryHost,
     SessionState, TaskCreatePayload, TaskUpdatePayload, ValidationFeedbackCategoryInput,
@@ -470,6 +475,56 @@ impl QueryHost {
         Ok(MemoryMutationResult {
             memory_id: memory_id.0,
             task_id: task_id.0.to_string(),
+        })
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn store_concept(
+        &self,
+        session: &SessionState,
+        args: PrismConceptMutationArgs,
+    ) -> Result<ConceptMutationResult> {
+        self.refresh_workspace()?;
+        self.store_concept_without_refresh(session, args)
+    }
+
+    pub(crate) fn store_concept_without_refresh(
+        &self,
+        session: &SessionState,
+        args: PrismConceptMutationArgs,
+    ) -> Result<ConceptMutationResult> {
+        let workspace = self
+            .workspace
+            .as_ref()
+            .ok_or_else(|| anyhow!("concept promotion requires a workspace-backed PRISM session"))?;
+        let prism = self.current_prism();
+        let task_id = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
+        let operation = args.operation.clone();
+        let packet = match operation {
+            ConceptMutationOperationInput::Promote => {
+                build_promoted_concept_packet(prism.as_ref(), args)?
+            }
+            ConceptMutationOperationInput::Update => {
+                build_updated_concept_packet(prism.as_ref(), args)?
+            }
+        };
+        let event = ConceptEvent {
+            id: next_concept_event_id(),
+            recorded_at: current_timestamp(),
+            task_id: Some(task_id.0.to_string()),
+            action: match operation {
+                ConceptMutationOperationInput::Promote => ConceptEventAction::Promote,
+                ConceptMutationOperationInput::Update => ConceptEventAction::Update,
+            },
+            concept: packet.clone(),
+        };
+        workspace.append_concept_event(event.clone())?;
+        self.sync_workspace_revision(workspace)?;
+        Ok(ConceptMutationResult {
+            event_id: event.id,
+            concept_handle: packet.handle.clone(),
+            task_id: task_id.0.to_string(),
+            packet: concept_packet_view(packet),
         })
     }
 
@@ -1576,6 +1631,231 @@ impl QueryHost {
             .map(crate::curator_job_view)
             .transpose()
     }
+}
+
+fn build_promoted_concept_packet(
+    prism: &Prism,
+    args: PrismConceptMutationArgs,
+) -> Result<ConceptPacket> {
+    let canonical_name = args
+        .canonical_name
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| anyhow!("concept promote requires canonicalName"))?;
+    let summary = args
+        .summary
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| anyhow!("concept promote requires summary"))?;
+    let core_members = args
+        .core_members
+        .ok_or_else(|| anyhow!("concept promote requires coreMembers"))?;
+
+    let packet = ConceptPacket {
+        handle: normalize_concept_handle(args.handle.as_deref(), &canonical_name),
+        canonical_name,
+        summary,
+        aliases: sanitize_strings(args.aliases.unwrap_or_default()),
+        confidence: args.confidence.unwrap_or(0.88).clamp(0.0, 1.0),
+        core_members: convert_concept_nodes(prism, core_members, "coreMembers")?,
+        supporting_members: convert_optional_concept_nodes(
+            prism,
+            args.supporting_members,
+            "supportingMembers",
+        )?,
+        likely_tests: convert_optional_concept_nodes(prism, args.likely_tests, "likelyTests")?,
+        evidence: sanitize_strings(args.evidence.unwrap_or_else(|| {
+            vec!["Promoted from live repo work through prism_mutate.".to_string()]
+        })),
+        risk_hint: args
+            .risk_hint
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty()),
+        decode_lenses: convert_concept_lenses(args.decode_lenses),
+    };
+    validate_concept_packet(&packet)?;
+    Ok(packet)
+}
+
+fn build_updated_concept_packet(
+    prism: &Prism,
+    args: PrismConceptMutationArgs,
+) -> Result<ConceptPacket> {
+    let handle = args
+        .handle
+        .as_deref()
+        .map(|value| normalize_concept_handle(Some(value), value))
+        .ok_or_else(|| anyhow!("concept update requires handle"))?;
+    let mut packet = prism
+        .concept_by_handle(&handle)
+        .ok_or_else(|| anyhow!("no concept packet matched `{handle}`"))?;
+
+    let mut changed = false;
+    if let Some(canonical_name) = args
+        .canonical_name
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    {
+        packet.canonical_name = canonical_name;
+        changed = true;
+    }
+    if let Some(summary) = args
+        .summary
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    {
+        packet.summary = summary;
+        changed = true;
+    }
+    if let Some(aliases) = args.aliases {
+        packet.aliases = sanitize_strings(aliases);
+        changed = true;
+    }
+    if let Some(core_members) = args.core_members {
+        packet.core_members = convert_concept_nodes(prism, core_members, "coreMembers")?;
+        changed = true;
+    }
+    if let Some(supporting_members) = args.supporting_members {
+        packet.supporting_members =
+            convert_concept_nodes(prism, supporting_members, "supportingMembers")?;
+        changed = true;
+    }
+    if let Some(likely_tests) = args.likely_tests {
+        packet.likely_tests = convert_concept_nodes(prism, likely_tests, "likelyTests")?;
+        changed = true;
+    }
+    if let Some(evidence) = args.evidence {
+        packet.evidence = sanitize_strings(evidence);
+        changed = true;
+    }
+    if let Some(risk_hint) = args
+        .risk_hint
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    {
+        packet.risk_hint = Some(risk_hint);
+        changed = true;
+    }
+    if let Some(confidence) = args.confidence {
+        packet.confidence = confidence.clamp(0.0, 1.0);
+        changed = true;
+    }
+    if let Some(decode_lenses) = args.decode_lenses {
+        packet.decode_lenses = convert_concept_lenses(Some(decode_lenses));
+        changed = true;
+    }
+    if !changed {
+        return Err(anyhow!("concept update requires at least one field to change"));
+    }
+    validate_concept_packet(&packet)?;
+    Ok(packet)
+}
+
+fn convert_optional_concept_nodes(
+    prism: &Prism,
+    value: Option<Vec<crate::NodeIdInput>>,
+    field: &str,
+) -> Result<Vec<prism_ir::NodeId>> {
+    value
+        .map(|nodes| convert_concept_nodes(prism, nodes, field))
+        .transpose()
+        .map(Option::unwrap_or_default)
+}
+
+fn convert_concept_nodes(
+    prism: &Prism,
+    nodes: Vec<crate::NodeIdInput>,
+    field: &str,
+) -> Result<Vec<prism_ir::NodeId>> {
+    let mut converted = Vec::new();
+    for node in nodes {
+        let node_id = convert_node_id(node)?;
+        if prism.graph().node(&node_id).is_none() {
+            return Err(anyhow!(
+                "concept `{field}` references unknown node `{}`",
+                node_id.path
+            ));
+        }
+        if !converted.iter().any(|candidate| candidate == &node_id) {
+            converted.push(node_id);
+        }
+    }
+    Ok(converted)
+}
+
+fn convert_concept_lenses(
+    value: Option<Vec<PrismConceptLensInput>>,
+) -> Vec<prism_query::ConceptDecodeLens> {
+    value
+        .unwrap_or_else(|| {
+            vec![
+                PrismConceptLensInput::Open,
+                PrismConceptLensInput::Workset,
+                PrismConceptLensInput::Validation,
+                PrismConceptLensInput::Timeline,
+                PrismConceptLensInput::Memory,
+            ]
+        })
+        .into_iter()
+        .map(|lens| match lens {
+            PrismConceptLensInput::Open => prism_query::ConceptDecodeLens::Open,
+            PrismConceptLensInput::Workset => prism_query::ConceptDecodeLens::Workset,
+            PrismConceptLensInput::Validation => prism_query::ConceptDecodeLens::Validation,
+            PrismConceptLensInput::Timeline => prism_query::ConceptDecodeLens::Timeline,
+            PrismConceptLensInput::Memory => prism_query::ConceptDecodeLens::Memory,
+        })
+        .collect()
+}
+
+fn sanitize_strings(values: Vec<String>) -> Vec<String> {
+    let mut sanitized = Vec::new();
+    for value in values {
+        let value = value.trim();
+        if value.is_empty() {
+            continue;
+        }
+        if !sanitized.iter().any(|candidate: &String| candidate == value) {
+            sanitized.push(value.to_string());
+        }
+    }
+    sanitized
+}
+
+fn normalize_concept_handle(handle: Option<&str>, canonical_name: &str) -> String {
+    match handle.map(str::trim).filter(|value| !value.is_empty()) {
+        Some(value) => canonical_concept_handle(value.trim_start_matches("concept://")),
+        None => canonical_concept_handle(canonical_name),
+    }
+}
+
+fn validate_concept_packet(packet: &ConceptPacket) -> Result<()> {
+    if packet.handle.trim().is_empty() {
+        return Err(anyhow!("concept handle cannot be empty"));
+    }
+    if packet.canonical_name.trim().is_empty() {
+        return Err(anyhow!("concept canonical name cannot be empty"));
+    }
+    if packet.summary.trim().is_empty() {
+        return Err(anyhow!("concept summary cannot be empty"));
+    }
+    if packet.core_members.is_empty() {
+        return Err(anyhow!("concept coreMembers cannot be empty"));
+    }
+    if packet.evidence.is_empty() {
+        return Err(anyhow!("concept evidence cannot be empty"));
+    }
+    if packet.decode_lenses.is_empty() {
+        return Err(anyhow!("concept decodeLenses cannot be empty"));
+    }
+    Ok(())
+}
+
+fn next_concept_event_id() -> String {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock should be after unix epoch")
+        .as_nanos();
+    format!("concept-event:{nanos}")
 }
 
 fn convert_validation_feedback_category(

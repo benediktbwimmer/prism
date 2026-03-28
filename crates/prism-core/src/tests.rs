@@ -19,6 +19,7 @@ use prism_memory::{
     MemoryKind, MemoryModule, MemoryScope, MemorySource, OutcomeEvent, OutcomeEvidence,
     OutcomeKind, OutcomeResult, SessionMemory,
 };
+use prism_query::{ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptPacket};
 use prism_store::{MemoryStore, Store};
 
 use super::{
@@ -978,6 +979,65 @@ fn repo_memory_events_round_trip_through_committed_jsonl_and_reload() {
         events[0].promoted_from,
         vec![MemoryId("memory:source".to_string())]
     );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_concept_events_round_trip_through_committed_jsonl_and_reload() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+    session
+        .append_concept_event(ConceptEvent {
+            id: "concept-event:repo-test".to_string(),
+            recorded_at: 17,
+            task_id: Some("task:repo-concept".to_string()),
+            action: ConceptEventAction::Promote,
+            concept: ConceptPacket {
+                handle: "concept://alpha_flow".to_string(),
+                canonical_name: "alpha_flow".to_string(),
+                summary: "Curated alpha concept shared through the repo.".to_string(),
+                aliases: vec!["alpha".to_string(), "alpha flow".to_string()],
+                confidence: 0.93,
+                core_members: vec![alpha],
+                supporting_members: Vec::new(),
+                likely_tests: Vec::new(),
+                evidence: vec!["Promoted from repo task work.".to_string()],
+                risk_hint: Some("Alpha changes tend to need a quick smoke test.".to_string()),
+                decode_lenses: vec![ConceptDecodeLens::Open, ConceptDecodeLens::Workset],
+            },
+        })
+        .unwrap();
+
+    let repo_log = root.join(".prism").join("concepts").join("events.jsonl");
+    assert!(repo_log.exists());
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let concept = reloaded
+        .prism()
+        .concept_by_handle("concept://alpha_flow")
+        .expect("repo concept should reload");
+    assert_eq!(
+        concept.summary,
+        "Curated alpha concept shared through the repo."
+    );
+    assert_eq!(concept.aliases, vec!["alpha".to_string(), "alpha flow".to_string()]);
 
     let _ = fs::remove_dir_all(root);
 }

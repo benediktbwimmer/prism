@@ -8,6 +8,7 @@ use prism_memory::{
 };
 
 use crate::projections::{ProjectionIndex, MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE};
+use crate::{ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptPacket};
 
 #[test]
 fn derives_validation_and_co_change_indexes() {
@@ -243,4 +244,52 @@ fn derives_seeded_repo_concepts_from_nodes_and_signals() {
     assert!(index
         .concept_by_handle("concept://runtime_surface")
         .is_some());
+}
+
+#[test]
+fn curated_concept_events_override_seeded_packets_by_handle() {
+    let validation = NodeId::new(
+        "demo",
+        "demo::impact::Prism::validation_recipe",
+        NodeKind::Method,
+    );
+    let validation_lineage = LineageId::new("lineage:validation");
+    let history = HistorySnapshot {
+        node_to_lineage: vec![(validation.clone(), validation_lineage)],
+        events: Vec::new(),
+        co_change_counts: Vec::new(),
+        tombstones: Vec::new(),
+        next_lineage: 1,
+        next_event: 0,
+    };
+    let mut index = ProjectionIndex::derive(&history, &OutcomeMemorySnapshot { events: Vec::new() });
+    index.replace_curated_concepts_from_events(&[ConceptEvent {
+        id: "concept-event:1".to_string(),
+        recorded_at: 7,
+        task_id: Some("task:concept".to_string()),
+        action: ConceptEventAction::Promote,
+        concept: ConceptPacket {
+            handle: "concept://validation_pipeline".to_string(),
+            canonical_name: "validation_pipeline".to_string(),
+            summary: "Curated validation concept".to_string(),
+            aliases: vec!["validation".to_string(), "checks".to_string()],
+            confidence: 0.97,
+            core_members: vec![validation.clone()],
+            supporting_members: Vec::new(),
+            likely_tests: Vec::new(),
+            evidence: vec!["Curated from repo work.".to_string()],
+            risk_hint: Some("Config drift common".to_string()),
+            decode_lenses: vec![ConceptDecodeLens::Validation, ConceptDecodeLens::Memory],
+        },
+    }]);
+
+    let concept = index
+        .concept_by_handle("concept://validation_pipeline")
+        .expect("curated concept should resolve");
+    assert_eq!(concept.summary, "Curated validation concept");
+    assert_eq!(concept.confidence, 0.97);
+    assert_eq!(
+        index.concepts("validation", 1)[0].summary,
+        "Curated validation concept"
+    );
 }

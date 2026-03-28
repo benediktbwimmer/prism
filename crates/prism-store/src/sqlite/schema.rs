@@ -192,6 +192,11 @@ fn current_schema_sql() -> &'static str {
             PRIMARY KEY (lineage, label)
         );
 
+        CREATE TABLE IF NOT EXISTS projection_curated_concept (
+            handle TEXT PRIMARY KEY,
+            payload TEXT NOT NULL
+        );
+
         CREATE INDEX IF NOT EXISTS idx_edges_file_path_kind
             ON edges(file_path, kind);
 
@@ -243,6 +248,7 @@ fn reset_schema(conn: &Connection) -> Result<()> {
         DROP TABLE IF EXISTS history_tombstones;
         DROP TABLE IF EXISTS projection_co_change;
         DROP TABLE IF EXISTS projection_validation;
+        DROP TABLE IF EXISTS projection_curated_concept;
         "#,
     )?;
     Ok(())

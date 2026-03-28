@@ -1942,6 +1942,7 @@ likely validations, and 1 to 2 `nextReads`.
 - Available now: ambiguity-aware search narrowing through `path`, `module`, `taskId`, behavioral owner hints, and exact focused-block follow-ups surfaced directly from diagnostics and search resources.
 - Available now: a first-class query log through `prism.queryLog(...)`, `prism.slowQueries(...)`, and `prism.queryTrace(id)` with duration, diagnostics, truncation metadata, and phase breakdowns.
 - Available now: spec-to-code clustering and drift explanations that group direct links with read/write/persistence/test owners for spec-like symbols.
+- Available now: repo-exported curated concept packets that overlay the derived concept layer and travel with the repo through `.prism/concepts/events.jsonl`.
 - Available now: session/workspace memory recall for anchored memory entries, filtered outcome history, and promoted curator memories.
 - Available now: workspace-backed curator job inspection through `prism.curator.jobs()`, flat proposal inspection through `prism.curator.proposals()`, and job detail through `prism.curator.job()`.
 - Available now: a canonical capabilities resource at `prism://capabilities` plus tool input schema resources through `prism://tool-schemas` and `prism://schema/tool/{toolName}` for direct MCP introspection.
@@ -1959,6 +1960,7 @@ The query runtime is read-only. State changes happen through two coarse MCP muta
 - `prism_mutate`
   - action `outcome`
   - action `memory`
+  - action `concept`
   - action `infer_edge`
   - action `coordination`
   - action `claim`

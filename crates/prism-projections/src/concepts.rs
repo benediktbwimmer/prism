@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use prism_ir::{LineageId, NodeId, NodeKind};
 
-use crate::types::{CoChangeRecord, ConceptDecodeLens, ConceptPacket, ValidationCheck};
+use crate::types::{
+    CoChangeRecord, ConceptDecodeLens, ConceptEvent, ConceptPacket, ValidationCheck,
+};
 
 const CORE_MEMBER_LIMIT: usize = 4;
 const SUPPORTING_MEMBER_LIMIT: usize = 4;
@@ -152,6 +154,41 @@ pub(crate) fn concept_by_handle(concepts: &[ConceptPacket], handle: &str) -> Opt
         .iter()
         .find(|concept| normalize_handle(&concept.handle) == normalized)
         .cloned()
+}
+
+pub(crate) fn merge_concept_packets(
+    derived: Vec<ConceptPacket>,
+    curated: &[ConceptPacket],
+) -> Vec<ConceptPacket> {
+    let mut merged = derived
+        .into_iter()
+        .map(|concept| (normalize_handle(&concept.handle), concept))
+        .collect::<HashMap<_, _>>();
+    for concept in curated {
+        merged.insert(normalize_handle(&concept.handle), concept.clone());
+    }
+    let mut packets = merged.into_values().collect::<Vec<_>>();
+    packets.sort_by(|left, right| left.handle.cmp(&right.handle));
+    packets
+}
+
+pub fn curated_concepts_from_events(events: &[ConceptEvent]) -> Vec<ConceptPacket> {
+    let mut concepts = HashMap::<String, ConceptPacket>::new();
+    for event in events {
+        concepts.insert(normalize_handle(&event.concept.handle), event.concept.clone());
+    }
+    let mut concepts = concepts.into_values().collect::<Vec<_>>();
+    concepts.sort_by(|left, right| left.handle.cmp(&right.handle));
+    concepts
+}
+
+pub fn canonical_concept_handle(name: &str) -> String {
+    let slug = normalize_slug(name);
+    if slug.is_empty() {
+        "concept://concept".to_string()
+    } else {
+        format!("concept://{slug}")
+    }
 }
 
 fn derive_packet(
@@ -385,4 +422,19 @@ fn normalize_text(value: &str) -> String {
 
 fn normalize_handle(handle: &str) -> String {
     normalize_text(handle.trim_start_matches("concept://"))
+}
+
+fn normalize_slug(value: &str) -> String {
+    let mut slug = String::new();
+    let mut previous_was_separator = false;
+    for ch in value.chars() {
+        if ch.is_ascii_alphanumeric() {
+            slug.push(ch.to_ascii_lowercase());
+            previous_was_separator = false;
+        } else if !previous_was_separator && !slug.is_empty() {
+            slug.push('_');
+            previous_was_separator = true;
+        }
+    }
+    slug.trim_matches('_').to_string()
 }

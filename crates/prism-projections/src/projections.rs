@@ -4,12 +4,14 @@ use prism_history::HistorySnapshot;
 use prism_ir::{AnchorRef, LineageEvent, LineageId, NodeId};
 use prism_memory::{OutcomeEvent, OutcomeMemorySnapshot};
 
-use crate::common::event_weight;
-use crate::common::validation_labels;
-use crate::concepts::{concept_by_handle, derive_concept_packets, rank_concepts};
+use crate::common::{event_weight, validation_labels};
+use crate::concepts::{
+    concept_by_handle, curated_concepts_from_events, derive_concept_packets, merge_concept_packets,
+    rank_concepts,
+};
 use crate::types::{
-    CoChangeDelta, CoChangeRecord, ConceptPacket, ProjectionSnapshot, ValidationCheck,
-    ValidationDelta,
+    CoChangeDelta, CoChangeRecord, ConceptEvent, ConceptPacket, ProjectionSnapshot,
+    ValidationCheck, ValidationDelta,
 };
 
 pub const MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE: usize = 32;
@@ -19,6 +21,7 @@ pub struct ProjectionIndex {
     co_change_by_lineage: HashMap<LineageId, Vec<CoChangeRecord>>,
     validation_by_lineage: HashMap<LineageId, Vec<ValidationCheck>>,
     node_to_lineage: HashMap<NodeId, LineageId>,
+    curated_concepts: Vec<ConceptPacket>,
     concept_packets: Vec<ConceptPacket>,
 }
 
@@ -35,20 +38,33 @@ impl ProjectionIndex {
         normalize_co_change_by_lineage(&mut co_change_by_lineage);
         let node_to_lineage = HashMap::new();
         let validation_by_lineage = snapshot.validation_by_lineage.into_iter().collect();
-        let concept_packets = derive_concept_packets(
-            &node_to_lineage,
-            &validation_by_lineage,
-            &co_change_by_lineage,
+        let curated_concepts = snapshot.curated_concepts;
+        let concept_packets = merge_concept_packets(
+            derive_concept_packets(
+                &node_to_lineage,
+                &validation_by_lineage,
+                &co_change_by_lineage,
+            ),
+            &curated_concepts,
         );
         Self {
             co_change_by_lineage,
             validation_by_lineage,
             node_to_lineage,
+            curated_concepts,
             concept_packets,
         }
     }
 
     pub fn derive(history: &HistorySnapshot, outcomes: &OutcomeMemorySnapshot) -> Self {
+        Self::derive_with_curated(history, outcomes, Vec::new())
+    }
+
+    pub fn derive_with_curated(
+        history: &HistorySnapshot,
+        outcomes: &OutcomeMemorySnapshot,
+        curated_concepts: Vec<ConceptPacket>,
+    ) -> Self {
         let node_to_lineage = history
             .node_to_lineage
             .iter()
@@ -123,18 +139,45 @@ impl ProjectionIndex {
             })
             .collect();
 
-        let concept_packets = derive_concept_packets(
-            &node_to_lineage,
-            &validation_by_lineage,
-            &co_change_by_lineage,
+        let concept_packets = merge_concept_packets(
+            derive_concept_packets(
+                &node_to_lineage,
+                &validation_by_lineage,
+                &co_change_by_lineage,
+            ),
+            &curated_concepts,
         );
 
         Self {
             co_change_by_lineage,
             validation_by_lineage,
             node_to_lineage,
+            curated_concepts,
             concept_packets,
         }
+    }
+
+    pub fn replace_curated_concepts(&mut self, curated_concepts: Vec<ConceptPacket>) {
+        self.curated_concepts = curated_concepts;
+        self.rebuild_concepts();
+    }
+
+    pub fn replace_curated_concepts_from_events(&mut self, events: &[ConceptEvent]) {
+        self.replace_curated_concepts(curated_concepts_from_events(events));
+    }
+
+    pub fn upsert_curated_concept(&mut self, concept: ConceptPacket) {
+        let normalized = concept.handle.to_ascii_lowercase();
+        self.curated_concepts
+            .retain(|candidate| candidate.handle.to_ascii_lowercase() != normalized);
+        self.curated_concepts.push(concept);
+        self.curated_concepts
+            .sort_by(|left, right| left.handle.cmp(&right.handle));
+        self.rebuild_concepts();
+    }
+
+    pub fn curated_concepts(&self) -> &[ConceptPacket] {
+        &self.curated_concepts
     }
 
     pub fn reseed_from_history(&mut self, history: &HistorySnapshot) {
@@ -223,6 +266,7 @@ impl ProjectionIndex {
         ProjectionSnapshot {
             co_change_by_lineage,
             validation_by_lineage,
+            curated_concepts: self.curated_concepts.clone(),
         }
     }
 
@@ -289,10 +333,13 @@ impl ProjectionIndex {
     }
 
     fn rebuild_concepts(&mut self) {
-        self.concept_packets = derive_concept_packets(
-            &self.node_to_lineage,
-            &self.validation_by_lineage,
-            &self.co_change_by_lineage,
+        self.concept_packets = merge_concept_packets(
+            derive_concept_packets(
+                &self.node_to_lineage,
+                &self.validation_by_lineage,
+                &self.co_change_by_lineage,
+            ),
+            &self.curated_concepts,
         );
     }
 }

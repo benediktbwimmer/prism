@@ -68,7 +68,20 @@ pub(super) fn load_projection_snapshot_rows(
         }
     }
 
-    if co_change_by_lineage.is_empty() && validation_by_lineage.is_empty() {
+    let mut curated_concepts = Vec::<prism_projections::ConceptPacket>::new();
+    {
+        let mut stmt = conn.prepare(
+            "SELECT payload
+             FROM projection_curated_concept
+             ORDER BY handle",
+        )?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        for row in rows {
+            curated_concepts.push(serde_json::from_str(&row?)?);
+        }
+    }
+
+    if co_change_by_lineage.is_empty() && validation_by_lineage.is_empty() && curated_concepts.is_empty() {
         info!(
             total_ms = started.elapsed().as_millis(),
             "loaded prism projection snapshot: none"
@@ -80,17 +93,20 @@ pub(super) fn load_projection_snapshot_rows(
     let co_change_records = co_change_by_lineage.values().map(Vec::len).sum::<usize>();
     let validation_lineages = validation_by_lineage.len();
     let validation_records = validation_by_lineage.values().map(Vec::len).sum::<usize>();
+    let curated_count = curated_concepts.len();
 
     let mut co_change_by_lineage = co_change_by_lineage.into_iter().collect::<Vec<_>>();
     co_change_by_lineage.sort_by(|left, right| left.0 .0.cmp(&right.0 .0));
     let mut validation_by_lineage = validation_by_lineage.into_iter().collect::<Vec<_>>();
     validation_by_lineage.sort_by(|left, right| left.0 .0.cmp(&right.0 .0));
+    curated_concepts.sort_by(|left, right| left.handle.cmp(&right.handle));
 
     info!(
         co_change_lineages,
         co_change_records,
         validation_lineages,
         validation_records,
+        curated_count,
         total_ms = started.elapsed().as_millis(),
         "loaded prism projection snapshot"
     );
@@ -98,6 +114,7 @@ pub(super) fn load_projection_snapshot_rows(
     Ok(Some(prism_projections::ProjectionSnapshot {
         co_change_by_lineage,
         validation_by_lineage,
+        curated_concepts,
     }))
 }
 
@@ -107,6 +124,7 @@ pub(super) fn save_projection_snapshot_tx(
 ) -> Result<()> {
     tx.execute("DELETE FROM projection_co_change", [])?;
     tx.execute("DELETE FROM projection_validation", [])?;
+    tx.execute("DELETE FROM projection_curated_concept", [])?;
 
     {
         let mut stmt = tx.prepare_cached(
@@ -136,6 +154,16 @@ pub(super) fn save_projection_snapshot_tx(
                     check.last_seen as i64
                 ])?;
             }
+        }
+    }
+
+    {
+        let mut stmt = tx.prepare_cached(
+            "INSERT INTO projection_curated_concept(handle, payload)
+             VALUES (?1, ?2)",
+        )?;
+        for concept in &snapshot.curated_concepts {
+            stmt.execute(params![concept.handle.as_str(), serde_json::to_string(concept)?])?;
         }
     }
 

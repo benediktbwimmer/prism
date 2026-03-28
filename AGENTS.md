@@ -36,8 +36,11 @@ When the PRISM MCP server is available for this repo, use it as the primary repo
   - `prism_open`
   - `prism_workset`
   - `prism_expand`
+  - `prism_concept`
   - `prism_query` only when the compact surface cannot express the needed read
 - Use `prism_gather` for bounded exact-text slices, especially config/schema/script work or when you know the literal text to inspect and a symbol handle is not the right first hop.
+- Use `prism_concept` when the user asks about a broad repo-native term or subsystem concept such as `validation`, `runtime`, `session`, `memory`, `status`, `compact tools`, or `task continuity`.
+- Prefer concept retrieval before symbol or text search when the likely unit is a multi-artifact repo concept rather than one file, symbol, or exact text match.
 - Treat `prism_query` as the rich semantic escape hatch, not the default first hop.
 - Prefer the compact top-level tools over ad hoc query snippets whenever they can express the task.
 - Prefer PRISM-native file inspection and search when they can replace multiple shell reads with one bounded call, especially `prism_locate`, `prism_gather`, `prism_open`, `prism_workset`, `prism_expand`, `prism.file(path).read(...)`, `prism.file(path).around(...)`, and `prism.searchText(...)`.
@@ -75,6 +78,23 @@ Mutation guidance:
 - Do not wait for a perfect generalized rule before recording memory; capture the useful episodic fact while it is fresh, then promote or consolidate later if the pattern repeats.
 - Record outcomes for meaningful tests, failures, validations, and task milestones, not for trivial intermediate noise.
 - Prefer explicit anchored PRISM state over ad hoc scratch notes when the information should survive the current session.
+
+## Concept Pack Guidance
+
+Concept packs are repo-native concept objects. They capture what belongs together across files, symbols, tests, config, docs, outcomes, and history so future agents do not have to rebuild that meaning from scratch.
+
+- Treat concept packs as a reusable repo vocabulary layer, not as a taxonomy exercise.
+- Prefer carrying forward an existing concept handle when it matches the task instead of rediscovering the same cluster through repeated search, locate, or open calls.
+- Promote a concept candidate when you resolved a broad or fuzzy repo term into a stable multi-artifact cluster that a future agent would likely want to reuse.
+- Favor concept candidates that emerged from real task work: successful worksets, repeated broad-query resolution, repeated reuse of the same handles, meaningful outcome clusters, or handoffs that need compact repo-native shorthand.
+- Record the concept in a compact shape: canonical name, common aliases, a short summary, 2 to 5 core handles, optional supporting handles, and optional likely tests or risks when they are already clear from the task.
+- Prefer concepts that reflect how a future agent would naturally think or speak about the repo, such as `validation pipeline`, `runtime surface`, `session lifecycle`, `memory system`, `compact tools`, or `task continuity`.
+- Do not promote one-off local details, temporary debugging clusters, arbitrary file groups, unstable intermediate hypotheses, or vague labels with no clear repo-native meaning.
+- If a concept drifts, splits, or stops matching the real center of gravity, refresh or narrow it instead of continuing to accrete unrelated members.
+- Use `prism_mutate` with action `concept` and operation `promote` to create a repo-exported concept packet once the cluster is stable enough to share across future clones and sessions.
+- Use `prism_mutate` with action `concept` and operation `update` when the concept’s summary, aliases, members, tests, evidence, or risk hint have materially changed.
+- Repo concept mutations are append-only and export to `.prism/concepts/events.jsonl`, so promoted concepts become part of the repo’s shared language rather than staying local to one machine.
+- Record concept candidates as episodic memory first when the cluster is still tentative, incomplete, or not yet worth committing to the repo-wide concept vocabulary.
 
 ## Dogfooding Feedback Loop
 

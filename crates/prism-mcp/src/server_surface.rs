@@ -704,6 +704,35 @@ impl PrismMcpServer {
                     ],
                 )
             }
+            PrismMutationArgs::Concept(args) => {
+                let result = self.execute_logged_mutation(
+                    "mutate.concept",
+                    MutationRefreshPolicy::PersistedOnly,
+                    || {
+                        self.host
+                            .store_concept_without_refresh(self.session.as_ref(), args)
+                    },
+                    |result| {
+                        MutationDashboardMeta::task(
+                            Some(result.task_id.clone()),
+                            vec![
+                                result.task_id.clone(),
+                                result.event_id.clone(),
+                                result.concept_handle.clone(),
+                            ],
+                            0,
+                        )
+                    },
+                )?;
+                structured_tool_result_with_links(
+                    PrismMutationResult {
+                        action: PrismMutationActionSchema::Concept,
+                        result: serde_json::to_value(result.clone())
+                            .map_err(|err| map_query_error(err.into()))?,
+                    },
+                    vec![task_resource_link(&result.task_id)],
+                )
+            }
             PrismMutationArgs::ValidationFeedback(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.validation_feedback",

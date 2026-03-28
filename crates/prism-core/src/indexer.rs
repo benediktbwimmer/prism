@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
+use crate::concept_events::load_repo_curated_concepts;
 use crate::indexer_support::{
     build_workspace_session, collect_pending_file_parses, path_matches_refresh_scope,
     resolve_graph_edges,
@@ -140,6 +141,8 @@ impl<S: Store> WorkspaceIndexer<S> {
         let projections = stored_projection_snapshot
             .map(ProjectionIndex::from_snapshot)
             .unwrap_or_else(|| ProjectionIndex::derive(&history.snapshot(), &outcomes.snapshot()));
+        let mut projections = projections;
+        projections.replace_curated_concepts(load_repo_curated_concepts(&root)?);
         let derive_or_restore_projection_ms = derive_projection_started.elapsed().as_millis();
 
         info!(

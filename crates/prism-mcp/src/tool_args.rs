@@ -1,4 +1,4 @@
-use prism_js::TaskJournalView;
+use prism_js::{ConceptPacketView, TaskJournalView};
 use rmcp::schemars::{JsonSchema, Schema};
 use serde::{Deserialize, Deserializer};
 use serde_json::Value;
@@ -267,6 +267,44 @@ pub(crate) struct PrismConceptArgs {
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ConceptMutationOperationInput {
+    Promote,
+    Update,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismConceptMutationArgs {
+    #[schemars(description = "Whether to promote a new repo concept packet or update an existing one.")]
+    pub(crate) operation: ConceptMutationOperationInput,
+    #[schemars(description = "Stable concept handle like `concept://validation_pipeline`. Required for `update`. Optional for `promote`; Prism derives one from `canonicalName` when omitted.")]
+    pub(crate) handle: Option<String>,
+    #[schemars(description = "Canonical repo-native concept name. Required for `promote`.")]
+    pub(crate) canonical_name: Option<String>,
+    #[schemars(description = "Short repo-native summary. Required for `promote`.")]
+    pub(crate) summary: Option<String>,
+    #[schemars(description = "Common aliases for the concept.")]
+    pub(crate) aliases: Option<Vec<String>>,
+    #[schemars(description = "2 to 5 central member nodes for the concept. Required for `promote`.")]
+    pub(crate) core_members: Option<Vec<NodeIdInput>>,
+    #[schemars(description = "Optional supporting member nodes.")]
+    pub(crate) supporting_members: Option<Vec<NodeIdInput>>,
+    #[schemars(description = "Optional likely test nodes.")]
+    pub(crate) likely_tests: Option<Vec<NodeIdInput>>,
+    #[schemars(description = "Optional evidence lines explaining why this concept exists.")]
+    pub(crate) evidence: Option<Vec<String>>,
+    #[schemars(description = "Optional risk hint for the concept packet.")]
+    pub(crate) risk_hint: Option<String>,
+    #[schemars(description = "Optional confidence score from 0.0 to 1.0.")]
+    pub(crate) confidence: Option<f32>,
+    #[schemars(description = "Optional decode lenses Prism should expose for this concept.")]
+    pub(crate) decode_lenses: Option<Vec<PrismConceptLensInput>>,
+    #[serde(alias = "task_id")]
+    pub(crate) task_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct NodeIdInput {
     #[serde(alias = "crate_name")]
@@ -490,6 +528,15 @@ pub(crate) struct ValidationFeedbackMutationResult {
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct ConceptMutationResult {
+    pub(crate) event_id: String,
+    pub(crate) concept_handle: String,
+    pub(crate) task_id: String,
+    pub(crate) packet: ConceptPacketView,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct EdgeMutationResult {
     pub(crate) edge_id: String,
     pub(crate) task_id: String,
@@ -622,6 +669,7 @@ pub(crate) struct PrismInferEdgeArgs {
 pub(crate) enum PrismMutationArgs {
     Outcome(PrismOutcomeArgs),
     Memory(PrismMemoryArgs),
+    Concept(PrismConceptMutationArgs),
     ValidationFeedback(PrismValidationFeedbackArgs),
     InferEdge(PrismInferEdgeArgs),
     Coordination(PrismCoordinationArgs),
@@ -640,6 +688,7 @@ pub(crate) enum PrismMutationArgs {
 enum PrismMutationArgsWire {
     Outcome(PrismOutcomeArgs),
     Memory(PrismMemoryArgs),
+    Concept(PrismConceptMutationArgs),
     ValidationFeedback(PrismValidationFeedbackArgs),
     InferEdge(PrismInferEdgeArgs),
     Coordination(PrismCoordinationArgs),
@@ -658,6 +707,7 @@ impl From<PrismMutationArgsWire> for PrismMutationArgs {
         match value {
             PrismMutationArgsWire::Outcome(args) => Self::Outcome(args),
             PrismMutationArgsWire::Memory(args) => Self::Memory(args),
+            PrismMutationArgsWire::Concept(args) => Self::Concept(args),
             PrismMutationArgsWire::ValidationFeedback(args) => Self::ValidationFeedback(args),
             PrismMutationArgsWire::InferEdge(args) => Self::InferEdge(args),
             PrismMutationArgsWire::Coordination(args) => Self::Coordination(args),
@@ -690,6 +740,7 @@ impl<'de> Deserialize<'de> for PrismMutationArgs {
 pub(crate) enum PrismMutationActionSchema {
     Outcome,
     Memory,
+    Concept,
     ValidationFeedback,
     InferEdge,
     Coordination,

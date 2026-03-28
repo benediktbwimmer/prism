@@ -26,6 +26,22 @@ pub struct ConceptPacket {
     pub decode_lenses: Vec<ConceptDecodeLens>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConceptEventAction {
+    Promote,
+    Update,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ConceptEvent {
+    pub id: String,
+    pub recorded_at: u64,
+    pub task_id: Option<String>,
+    pub action: ConceptEventAction,
+    pub concept: ConceptPacket,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ValidationCheck {
     pub label: String,
@@ -58,6 +74,8 @@ pub struct ValidationDelta {
 pub struct ProjectionSnapshot {
     pub co_change_by_lineage: Vec<(LineageId, Vec<CoChangeRecord>)>,
     pub validation_by_lineage: Vec<(LineageId, Vec<ValidationCheck>)>,
+    #[serde(default)]
+    pub curated_concepts: Vec<ConceptPacket>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
