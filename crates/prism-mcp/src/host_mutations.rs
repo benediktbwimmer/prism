@@ -911,6 +911,7 @@ impl QueryHost {
                         policy: convert_policy(payload.policy)?,
                     },
                 )?;
+                prism.refresh_plan_runtime_from_coordination();
                 Ok(serde_json::to_value(plan_view(plan))?)
             }
             CoordinationMutationKindInput::PlanUpdate => {
@@ -928,6 +929,7 @@ impl QueryHost {
                         policy: convert_policy(payload.policy)?,
                     },
                 )?;
+                prism.refresh_plan_runtime_from_coordination();
                 Ok(serde_json::to_value(plan_view(plan))?)
             }
             CoordinationMutationKindInput::TaskCreate => {
@@ -958,6 +960,7 @@ impl QueryHost {
                         base_revision: prism.workspace_revision(),
                     },
                 )?;
+                prism.refresh_plan_runtime_from_coordination();
                 Ok(serde_json::to_value(coordination_task_view(task))?)
             }
             CoordinationMutationKindInput::TaskUpdate => {
@@ -1005,6 +1008,7 @@ impl QueryHost {
                     prism.workspace_revision(),
                     current_timestamp(),
                 )?;
+                prism.refresh_plan_runtime_from_coordination();
                 Ok(serde_json::to_value(coordination_task_view(task))?)
             }
             CoordinationMutationKindInput::PlanNodeCreate => {
@@ -1038,6 +1042,7 @@ impl QueryHost {
                         base_revision: prism.workspace_revision(),
                     },
                 )?;
+                prism.refresh_plan_runtime_from_coordination();
                 current_plan_node_state(prism, &task.plan, &task.id.0)
             }
             CoordinationMutationKindInput::PlanNodeUpdate => {
@@ -1087,6 +1092,7 @@ impl QueryHost {
                     prism.workspace_revision(),
                     current_timestamp(),
                 )?;
+                prism.refresh_plan_runtime_from_coordination();
                 current_plan_node_state(prism, &task.plan, &task.id.0)
             }
             CoordinationMutationKindInput::PlanEdgeCreate => {
@@ -1123,6 +1129,7 @@ impl QueryHost {
                     prism.workspace_revision(),
                     current_timestamp(),
                 )?;
+                prism.refresh_plan_runtime_from_coordination();
                 current_plan_edge_state(
                     prism,
                     &PlanId::new(payload.plan_id),
@@ -1173,6 +1180,7 @@ impl QueryHost {
                     prism.workspace_revision(),
                     current_timestamp(),
                 )?;
+                prism.refresh_plan_runtime_from_coordination();
                 deleted_plan_edge_state(
                     &PlanId::new(payload.plan_id),
                     &payload.from_node_id,
@@ -1191,6 +1199,7 @@ impl QueryHost {
                     },
                     prism.workspace_revision(),
                 )?;
+                prism.refresh_plan_runtime_from_coordination();
                 Ok(serde_json::to_value(coordination_task_view(task))?)
             }
             CoordinationMutationKindInput::HandoffAccept => {
@@ -1213,6 +1222,7 @@ impl QueryHost {
                         agent: session_agent,
                     },
                 )?;
+                prism.refresh_plan_runtime_from_coordination();
                 Ok(serde_json::to_value(coordination_task_view(task))?)
             }
         }

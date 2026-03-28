@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
@@ -12,7 +12,7 @@ use crate::layout::{discover_layout, sync_root_nodes, PackageInfo, WorkspaceLayo
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 use crate::parse_pipeline::{parse_jobs_in_parallel, PreparedParseJob};
 use crate::patch_outcomes::default_outcome_meta;
-use crate::published_plans::load_hydrated_coordination_snapshot;
+use crate::published_plans::load_hydrated_coordination_plan_state;
 use crate::reanchor::{detect_moved_files, infer_reanchors};
 use crate::session::WorkspaceSession;
 use crate::util::{cache_path, cleanup_legacy_cache, default_adapters};
@@ -21,7 +21,10 @@ use anyhow::Result;
 use prism_coordination::CoordinationStore;
 use prism_curator::CuratorBackend;
 use prism_history::HistoryStore;
-use prism_ir::{ChangeTrigger, Edge, EdgeKind, EdgeOrigin, LineageEvent, ObservedChangeSet};
+use prism_ir::{
+    ChangeTrigger, Edge, EdgeKind, EdgeOrigin, LineageEvent, ObservedChangeSet,
+    PlanExecutionOverlay, PlanGraph,
+};
 use prism_memory::OutcomeMemory;
 use prism_parser::{LanguageAdapter, ParseResult};
 use prism_projections::{
@@ -40,6 +43,8 @@ pub struct WorkspaceIndexer<S: Store> {
     pub(crate) history: HistoryStore,
     pub(crate) outcomes: OutcomeMemory,
     pub(crate) coordination: CoordinationStore,
+    pub(crate) plan_graphs: Vec<PlanGraph>,
+    pub(crate) plan_execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     pub(crate) projections: ProjectionIndex,
     pub(crate) had_prior_snapshot: bool,
     pub(crate) had_projection_snapshot: bool,
@@ -83,6 +88,8 @@ impl WorkspaceIndexer<SqliteStore> {
             self.history,
             self.outcomes,
             self.coordination,
+            self.plan_graphs,
+            self.plan_execution_overlays,
             self.projections,
             self.coordination_enabled,
             backend,
@@ -125,13 +132,15 @@ impl<S: Store> WorkspaceIndexer<S> {
             .unwrap_or_else(OutcomeMemory::new);
         let load_outcomes_ms = load_outcomes_started.elapsed().as_millis();
         let load_coordination_started = Instant::now();
-        let coordination = if options.coordination {
-            load_hydrated_coordination_snapshot(&root, store.load_coordination_snapshot()?)?
-                .map(CoordinationStore::from_snapshot)
-                .unwrap_or_else(CoordinationStore::new)
+        let plan_state = if options.coordination {
+            load_hydrated_coordination_plan_state(&root, store.load_coordination_snapshot()?)?
         } else {
-            CoordinationStore::new()
+            None
         };
+        let coordination = plan_state
+            .as_ref()
+            .map(|state| CoordinationStore::from_snapshot(state.snapshot.clone()))
+            .unwrap_or_else(CoordinationStore::new);
         let load_coordination_ms = load_coordination_started.elapsed().as_millis();
         let load_projection_started = Instant::now();
         let stored_projection_snapshot = store.load_projection_snapshot()?;
@@ -176,6 +185,13 @@ impl<S: Store> WorkspaceIndexer<S> {
             history,
             outcomes,
             coordination,
+            plan_graphs: plan_state
+                .as_ref()
+                .map(|state| state.plan_graphs.clone())
+                .unwrap_or_default(),
+            plan_execution_overlays: plan_state
+                .map(|state| state.execution_overlays)
+                .unwrap_or_default(),
             projections,
             had_prior_snapshot,
             had_projection_snapshot,
@@ -686,12 +702,14 @@ impl<S: Store> WorkspaceIndexer<S> {
     }
 
     pub fn into_prism(self) -> Prism {
-        Prism::with_history_outcomes_coordination_and_projections(
+        Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
             self.graph,
             self.history,
             self.outcomes,
             self.coordination,
             self.projections,
+            self.plan_graphs,
+            self.plan_execution_overlays,
         )
     }
 

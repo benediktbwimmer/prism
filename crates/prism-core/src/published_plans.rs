@@ -169,6 +169,13 @@ impl PublishedPlanProjection {
     }
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct HydratedCoordinationPlanState {
+    pub(crate) snapshot: CoordinationSnapshot,
+    pub(crate) plan_graphs: Vec<PlanGraph>,
+    pub(crate) execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+}
+
 pub(crate) fn sync_repo_published_plans(
     root: &Path,
     snapshot: &CoordinationSnapshot,
@@ -277,17 +284,29 @@ pub(crate) fn load_hydrated_coordination_snapshot(
     root: &Path,
     snapshot: Option<CoordinationSnapshot>,
 ) -> Result<Option<CoordinationSnapshot>> {
+    Ok(load_hydrated_coordination_plan_state(root, snapshot)?.map(|state| state.snapshot))
+}
+
+pub(crate) fn load_hydrated_coordination_plan_state(
+    root: &Path,
+    snapshot: Option<CoordinationSnapshot>,
+) -> Result<Option<HydratedCoordinationPlanState>> {
     let Some(published) = load_repo_published_plan_projection(root)? else {
-        return Ok(snapshot);
+        return Ok(snapshot.map(|snapshot| HydratedCoordinationPlanState {
+            plan_graphs: snapshot_plan_graphs(&snapshot),
+            execution_overlays: execution_overlays_by_plan(&snapshot.tasks),
+            snapshot,
+        }));
     };
 
-    let graphs = published
+    let mut graphs = published
         .records
         .iter()
         .map(|record| record.graph.clone())
         .collect::<Vec<_>>();
+    let mut execution_overlays = published.execution_overlays.clone();
     let mut published_snapshot =
-        coordination_snapshot_from_plan_graphs(&graphs, &published.execution_overlays);
+        coordination_snapshot_from_plan_graphs(&graphs, &execution_overlays);
     let policies = published
         .records
         .into_iter()
@@ -300,11 +319,53 @@ pub(crate) fn load_hydrated_coordination_snapshot(
     }
 
     let mut snapshot = snapshot.unwrap_or_default();
+    let snapshot_graphs = snapshot_plan_graphs(&snapshot);
+    let snapshot_execution = execution_overlays_by_plan(&snapshot.tasks);
+    let existing_published_plan_ids = graphs
+        .iter()
+        .map(|graph| graph.id.0.to_string())
+        .collect::<BTreeSet<_>>();
+    for graph in snapshot_graphs {
+        if existing_published_plan_ids.contains(graph.id.0.as_str()) {
+            continue;
+        }
+        execution_overlays
+            .entry(graph.id.0.to_string())
+            .or_insert_with(|| {
+                snapshot_execution
+                    .get(graph.id.0.as_str())
+                    .cloned()
+                    .unwrap_or_default()
+            });
+        graphs.push(graph);
+    }
+
+    let extra_plans = snapshot
+        .plans
+        .iter()
+        .filter(|plan| !existing_published_plan_ids.contains(plan.id.0.as_str()))
+        .cloned()
+        .collect::<Vec<_>>();
+    let extra_tasks = snapshot
+        .tasks
+        .iter()
+        .filter(|task| !existing_published_plan_ids.contains(task.plan.0.as_str()))
+        .cloned()
+        .collect::<Vec<_>>();
     snapshot.plans = published_snapshot.plans;
     snapshot.tasks = published_snapshot.tasks;
+    snapshot.plans.extend(extra_plans);
+    snapshot.tasks.extend(extra_tasks);
+    snapshot.plans.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    snapshot.tasks.sort_by(|left, right| left.id.0.cmp(&right.id.0));
     snapshot.next_plan = snapshot.next_plan.max(published.next_plan);
     snapshot.next_task = snapshot.next_task.max(published.next_task);
-    Ok(Some(snapshot))
+    graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    Ok(Some(HydratedCoordinationPlanState {
+        snapshot,
+        plan_graphs: graphs,
+        execution_overlays,
+    }))
 }
 
 fn load_repo_published_plan_projection(root: &Path) -> Result<Option<PublishedPlanProjection>> {
@@ -707,6 +768,25 @@ fn normalize_execution_overlays(overlays: Vec<PlanExecutionOverlay>) -> Vec<Plan
         .collect::<Vec<_>>();
     overlays.sort_by(|left, right| left.node_id.0.cmp(&right.node_id.0));
     overlays
+}
+
+fn execution_overlays_by_plan(
+    tasks: &[CoordinationTask],
+) -> BTreeMap<String, Vec<PlanExecutionOverlay>> {
+    tasks.iter()
+        .cloned()
+        .fold(BTreeMap::<String, Vec<CoordinationTask>>::new(), |mut map, task| {
+            map.entry(task.plan.0.to_string()).or_default().push(task);
+            map
+        })
+        .into_iter()
+        .map(|(plan_id, tasks)| {
+            (
+                plan_id,
+                normalize_execution_overlays(execution_overlays_from_tasks(&tasks)),
+            )
+        })
+        .collect()
 }
 
 fn sorted_nodes(nodes: &[PlanNode]) -> Vec<PlanNode> {

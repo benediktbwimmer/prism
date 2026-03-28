@@ -3,6 +3,7 @@ mod coordination;
 mod impact;
 mod intent;
 mod outcomes;
+mod plan_runtime;
 mod source;
 mod symbol;
 mod types;
@@ -10,12 +11,13 @@ mod types;
 #[cfg(test)]
 mod tests;
 
+use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
 use prism_coordination::{CoordinationSnapshot, CoordinationStore};
 use prism_history::{HistorySnapshot, HistoryStore};
-use prism_ir::{AnchorRef, LineageEvent, LineageId, NodeId};
+use prism_ir::{AnchorRef, LineageEvent, LineageId, NodeId, PlanExecutionOverlay, PlanGraph};
 use prism_memory::{OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot};
 pub use prism_projections::ConceptResolution;
 use prism_projections::{IntentIndex, ProjectionIndex, ProjectionSnapshot};
@@ -23,6 +25,7 @@ use prism_store::Graph;
 use tracing::info;
 
 use crate::common::{anchor_sort_key, dedupe_node_ids, sort_node_ids};
+use crate::plan_runtime::NativePlanRuntimeState;
 
 pub use crate::source::{
     source_excerpt_for_line_range, source_excerpt_for_span, source_location_for_span,
@@ -42,6 +45,7 @@ pub struct Prism {
     history: Arc<HistoryStore>,
     outcomes: Arc<OutcomeMemory>,
     coordination: Arc<CoordinationStore>,
+    plan_runtime: RwLock<NativePlanRuntimeState>,
     projections: RwLock<ProjectionIndex>,
     intent: RwLock<IntentIndex>,
 }
@@ -92,7 +96,45 @@ impl Prism {
         history: HistoryStore,
         outcomes: OutcomeMemory,
         coordination: CoordinationStore,
+        projections: ProjectionIndex,
+    ) -> Self {
+        let native_plans = NativePlanRuntimeState::from_coordination_snapshot(&coordination.snapshot());
+        Self::with_history_outcomes_coordination_projections_and_native_plans(
+            graph,
+            history,
+            outcomes,
+            coordination,
+            projections,
+            native_plans,
+        )
+    }
+
+    pub fn with_history_outcomes_coordination_projections_and_plan_graphs(
+        graph: Graph,
+        history: HistoryStore,
+        outcomes: OutcomeMemory,
+        coordination: CoordinationStore,
+        projections: ProjectionIndex,
+        plan_graphs: Vec<PlanGraph>,
+        execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    ) -> Self {
+        Self::with_history_outcomes_coordination_projections_and_native_plans(
+            graph,
+            history,
+            outcomes,
+            coordination,
+            projections,
+            NativePlanRuntimeState::from_graphs_and_overlays(plan_graphs, execution_overlays),
+        )
+    }
+
+    fn with_history_outcomes_coordination_projections_and_native_plans(
+        graph: Graph,
+        history: HistoryStore,
+        outcomes: OutcomeMemory,
+        coordination: CoordinationStore,
         mut projections: ProjectionIndex,
+        native_plans: NativePlanRuntimeState,
     ) -> Self {
         projections.reseed_from_history(&history.snapshot());
         let started = Instant::now();
@@ -118,6 +160,7 @@ impl Prism {
             history: Arc::new(history),
             outcomes: Arc::new(outcomes),
             coordination: Arc::new(coordination),
+            plan_runtime: RwLock::new(native_plans),
             projections: RwLock::new(projections),
             intent: RwLock::new(intent),
         }
@@ -164,7 +207,35 @@ impl Prism {
     }
 
     pub fn replace_coordination_snapshot(&self, snapshot: CoordinationSnapshot) {
+        let native_plans = NativePlanRuntimeState::from_coordination_snapshot(&snapshot);
         self.coordination.replace_from_snapshot(snapshot);
+        *self
+            .plan_runtime
+            .write()
+            .expect("plan runtime lock poisoned") = native_plans;
+    }
+
+    pub fn replace_coordination_snapshot_and_plan_graphs(
+        &self,
+        snapshot: CoordinationSnapshot,
+        plan_graphs: Vec<PlanGraph>,
+        execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    ) {
+        self.coordination.replace_from_snapshot(snapshot);
+        *self
+            .plan_runtime
+            .write()
+            .expect("plan runtime lock poisoned") =
+            NativePlanRuntimeState::from_graphs_and_overlays(plan_graphs, execution_overlays);
+    }
+
+    pub fn refresh_plan_runtime_from_coordination(&self) {
+        let snapshot = self.coordination.snapshot();
+        *self
+            .plan_runtime
+            .write()
+            .expect("plan runtime lock poisoned") =
+            NativePlanRuntimeState::from_coordination_snapshot(&snapshot);
     }
 
     pub fn projection_snapshot(&self) -> ProjectionSnapshot {

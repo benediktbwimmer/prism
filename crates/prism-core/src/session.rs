@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
@@ -11,7 +11,9 @@ use prism_curator::{
     CuratorJobId, CuratorProposalDisposition, CuratorProposalState, CuratorSnapshot,
 };
 use prism_history::HistoryStore;
-use prism_ir::{ChangeTrigger, EventId, ObservedChangeSet, TaskId};
+use prism_ir::{
+    ChangeTrigger, EventId, ObservedChangeSet, PlanExecutionOverlay, PlanGraph, TaskId,
+};
 use prism_memory::OutcomeMemory;
 use prism_memory::{EpisodicMemorySnapshot, MemoryEvent, MemoryEventQuery, OutcomeEvent};
 use prism_projections::{validation_deltas_for_event, ConceptEvent, ProjectionIndex};
@@ -26,7 +28,10 @@ use crate::memory_events::{
     append_repo_memory_event, filter_memory_events, load_repo_memory_events,
 };
 use crate::published_knowledge::{validate_repo_concept_event, validate_repo_memory_event};
-use crate::published_plans::{load_hydrated_coordination_snapshot, sync_repo_published_plans};
+use crate::published_plans::{
+    load_hydrated_coordination_plan_state, load_hydrated_coordination_snapshot,
+    sync_repo_published_plans,
+};
 use crate::util::{
     current_timestamp, current_timestamp_millis, workspace_fingerprint, WorkspaceFingerprint,
 };
@@ -41,6 +46,13 @@ pub enum FsRefreshStatus {
     Clean,
     Refreshed,
     DeferredBusy,
+}
+
+#[derive(Debug, Clone)]
+pub struct CoordinationPlanState {
+    pub snapshot: CoordinationSnapshot,
+    pub plan_graphs: Vec<PlanGraph>,
+    pub execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
 }
 
 pub(crate) struct WorkspaceRefreshState {
@@ -283,13 +295,15 @@ impl WorkspaceSession {
             .load_outcome_snapshot()?
             .map(OutcomeMemory::from_snapshot)
             .unwrap_or_else(OutcomeMemory::new);
-        let coordination = if self.coordination_enabled {
-            load_hydrated_coordination_snapshot(&self.root, store.load_coordination_snapshot()?)?
-                .map(CoordinationStore::from_snapshot)
-                .unwrap_or_else(CoordinationStore::new)
+        let plan_state = if self.coordination_enabled {
+            load_hydrated_coordination_plan_state(&self.root, store.load_coordination_snapshot()?)?
         } else {
-            CoordinationStore::new()
+            None
         };
+        let coordination = plan_state
+            .as_ref()
+            .map(|state| CoordinationStore::from_snapshot(state.snapshot.clone()))
+            .unwrap_or_else(CoordinationStore::new);
         let projections = store
             .load_projection_snapshot()?
             .map(ProjectionIndex::from_snapshot)
@@ -302,12 +316,19 @@ impl WorkspaceSession {
         projections.reseed_from_history(&history.snapshot());
         drop(store);
 
-        let prism = Arc::new(Prism::with_history_outcomes_coordination_and_projections(
+        let prism = Arc::new(Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
             graph,
             history,
             outcomes,
             coordination,
             projections,
+            plan_state
+                .as_ref()
+                .map(|state| state.plan_graphs.clone())
+                .unwrap_or_default(),
+            plan_state
+                .map(|state| state.execution_overlays)
+                .unwrap_or_default(),
         ));
         *self.prism.write().expect("workspace prism lock poisoned") = prism;
         self.loaded_workspace_revision
@@ -437,6 +458,24 @@ impl WorkspaceSession {
             .expect("workspace store lock poisoned")
             .load_coordination_snapshot()?;
         load_hydrated_coordination_snapshot(&self.root, snapshot)
+    }
+
+    pub fn load_coordination_plan_state(&self) -> Result<Option<CoordinationPlanState>> {
+        if !self.coordination_enabled {
+            return Ok(None);
+        }
+        let snapshot = self
+            .store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .load_coordination_snapshot()?;
+        Ok(load_hydrated_coordination_plan_state(&self.root, snapshot)?.map(|state| {
+            CoordinationPlanState {
+                snapshot: state.snapshot,
+                plan_graphs: state.plan_graphs,
+                execution_overlays: state.execution_overlays,
+            }
+        }))
     }
 
     pub fn persist_coordination(&self, snapshot: &CoordinationSnapshot) -> Result<()> {

@@ -26,11 +26,17 @@ impl Prism {
     }
 
     pub fn plan_graph(&self, plan_id: &PlanId) -> Option<PlanGraph> {
-        self.coordination.plan_graph(plan_id)
+        self.plan_runtime
+            .read()
+            .expect("plan runtime lock poisoned")
+            .plan_graph(plan_id)
     }
 
     pub fn plan_execution(&self, plan_id: &PlanId) -> Vec<PlanExecutionOverlay> {
-        self.coordination.plan_execution_overlays(plan_id)
+        self.plan_runtime
+            .read()
+            .expect("plan runtime lock poisoned")
+            .plan_execution(plan_id)
     }
 
     pub fn ready_tasks(&self, plan_id: &PlanId, now: Timestamp) -> Vec<CoordinationTask> {

@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use prism_coordination::{
     ArtifactProposeInput, CoordinationPolicy, CoordinationStore, PlanCreateInput,
     TaskCompletionContext, TaskCreateInput, TaskUpdateInput,
@@ -5,8 +7,9 @@ use prism_coordination::{
 use prism_history::HistoryStore;
 use prism_ir::{
     AnchorRef, ChangeTrigger, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId, Language,
-    Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, SessionId, Span, TaskId,
-    WorkspaceRevision,
+    Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, PlanEdge, PlanEdgeId,
+    PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanKind, PlanNode, PlanNodeId, PlanNodeKind,
+    PlanNodeStatus, PlanScope, PlanStatus, SessionId, Span, TaskId, WorkspaceRevision,
 };
 use prism_memory::{
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeRecallQuery, OutcomeResult,
@@ -963,6 +966,163 @@ fn coordination_queries_expand_into_neighboring_symbols() {
             )
         })
     }));
+}
+
+#[test]
+fn plan_graph_reads_native_runtime_state_before_coordination_projection() {
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:native"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Native plan graph".into(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_a, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:native:a"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Task A".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let (task_b, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:native:b"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Task B".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+
+    let node_a = PlanNodeId::new(task_a.0.clone());
+    let node_b = PlanNodeId::new(task_b.0.clone());
+    let native_graph = PlanGraph {
+        id: plan_id.clone(),
+        scope: PlanScope::Repo,
+        kind: PlanKind::TaskExecution,
+        title: "Native graph".into(),
+        goal: "Native graph".into(),
+        status: PlanStatus::Active,
+        revision: 7,
+        root_nodes: vec![node_a.clone()],
+        tags: vec!["native".into()],
+        created_from: None,
+        metadata: serde_json::Value::Null,
+        nodes: vec![
+            PlanNode {
+                id: node_a.clone(),
+                plan_id: plan_id.clone(),
+                kind: PlanNodeKind::Edit,
+                title: "Native Task A".into(),
+                summary: None,
+                status: PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+            PlanNode {
+                id: node_b.clone(),
+                plan_id: plan_id.clone(),
+                kind: PlanNodeKind::Validate,
+                title: "Native Task B".into(),
+                summary: None,
+                status: PlanNodeStatus::Waiting,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+        ],
+        edges: vec![PlanEdge {
+            id: PlanEdgeId::new("plan-edge:native:validates"),
+            plan_id: plan_id.clone(),
+            from: node_b.clone(),
+            to: node_a.clone(),
+            kind: PlanEdgeKind::Validates,
+            summary: None,
+            metadata: serde_json::Value::Null,
+        }],
+    };
+    let mut native_overlays = BTreeMap::new();
+    native_overlays.insert(
+        plan_id.0.to_string(),
+        vec![PlanExecutionOverlay {
+            node_id: node_b.clone(),
+            pending_handoff_to: None,
+            session: Some(SessionId::new("session:native")),
+        }],
+    );
+
+    let prism = Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
+        graph,
+        history,
+        outcomes,
+        coordination,
+        ProjectionIndex::default(),
+        vec![native_graph],
+        native_overlays,
+    );
+
+    let runtime_graph = prism.plan_graph(&plan_id).unwrap();
+    assert_eq!(runtime_graph.title, "Native graph");
+    assert_eq!(runtime_graph.edges.len(), 1);
+    assert_eq!(runtime_graph.edges[0].kind, PlanEdgeKind::Validates);
+    let runtime_execution = prism.plan_execution(&plan_id);
+    assert_eq!(runtime_execution.len(), 1);
+    assert_eq!(
+        runtime_execution[0].session,
+        Some(SessionId::new("session:native"))
+    );
 }
 
 #[test]

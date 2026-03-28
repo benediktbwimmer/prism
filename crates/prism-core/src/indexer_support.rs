@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicU64;
@@ -9,7 +9,7 @@ use anyhow::Result;
 use prism_coordination::CoordinationStore;
 use prism_curator::CuratorBackend;
 use prism_history::HistoryStore;
-use prism_ir::EdgeKind;
+use prism_ir::{EdgeKind, PlanExecutionOverlay, PlanGraph};
 use prism_memory::OutcomeMemory;
 use prism_parser::LanguageAdapter;
 use prism_projections::ProjectionIndex;
@@ -31,6 +31,8 @@ pub(crate) fn build_workspace_session(
     history: HistoryStore,
     outcomes: OutcomeMemory,
     coordination: CoordinationStore,
+    plan_graphs: Vec<PlanGraph>,
+    plan_execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     projections: ProjectionIndex,
     coordination_enabled: bool,
     backend: Option<Arc<dyn CuratorBackend>>,
@@ -38,12 +40,14 @@ pub(crate) fn build_workspace_session(
     let started = Instant::now();
     let store = store;
     let loaded_workspace_revision = Arc::new(AtomicU64::new(store.workspace_revision()?));
-    let prism = Arc::new(Prism::with_history_outcomes_coordination_and_projections(
+    let prism = Arc::new(Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
         graph,
         history,
         outcomes,
         coordination,
         projections,
+        plan_graphs,
+        plan_execution_overlays,
     ));
     let prism = Arc::new(RwLock::new(prism));
     let store = Arc::new(Mutex::new(store));

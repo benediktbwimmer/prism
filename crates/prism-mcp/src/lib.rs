@@ -945,10 +945,23 @@ impl QueryHost {
             return Ok(false);
         }
 
-        let snapshot = workspace.load_coordination_snapshot()?.unwrap_or_default();
+        let plan_state = workspace.load_coordination_plan_state()?;
+        let snapshot = plan_state
+            .as_ref()
+            .map(|state| state.snapshot.clone())
+            .unwrap_or_default();
         workspace
             .prism_arc()
-            .replace_coordination_snapshot(snapshot);
+            .replace_coordination_snapshot_and_plan_graphs(
+                snapshot,
+                plan_state
+                    .as_ref()
+                    .map(|state| state.plan_graphs.clone())
+                    .unwrap_or_default(),
+                plan_state
+                    .map(|state| state.execution_overlays)
+                    .unwrap_or_default(),
+            );
         self.sync_coordination_revision_value(revision);
         Ok(true)
     }
