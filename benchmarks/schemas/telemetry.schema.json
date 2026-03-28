@@ -13,6 +13,16 @@
         "prism_queries",
         "prism_query_calls",
         "prism_compact_tool_calls",
+        "locate_preview_requests",
+        "locate_preview_hits",
+        "locate_preview_bytes",
+        "locate_preview_direct_opens",
+        "locate_preview_direct_progressions",
+        "expand_preview_requests",
+        "expand_preview_hits",
+        "expand_preview_bytes",
+        "expand_preview_direct_opens",
+        "expand_preview_direct_progressions",
         "prism_payload_bytes",
         "shell_commands",
         "shell_read_commands",
@@ -42,6 +52,46 @@
           "minimum": 0
         },
         "prism_compact_tool_calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "locate_preview_requests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "locate_preview_hits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "locate_preview_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "locate_preview_direct_opens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "locate_preview_direct_progressions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expand_preview_requests": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expand_preview_hits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expand_preview_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expand_preview_direct_opens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expand_preview_direct_progressions": {
           "type": "integer",
           "minimum": 0
         },
@@ -129,6 +179,10 @@
           "prism_enabled": {
             "type": "boolean"
           },
+          "compact_preview_policy": {
+            "type": "string",
+            "enum": ["off", "adaptive"]
+          },
           "summary": {
             "$ref": "#/$defs/telemetrySummary"
           },
@@ -146,6 +200,16 @@
                 "prism_queries",
                 "prism_query_calls",
                 "prism_compact_tool_calls",
+                "locate_preview_requests",
+                "locate_preview_hits",
+                "locate_preview_bytes",
+                "locate_preview_direct_opens",
+                "locate_preview_direct_progressions",
+                "expand_preview_requests",
+                "expand_preview_hits",
+                "expand_preview_bytes",
+                "expand_preview_direct_opens",
+                "expand_preview_direct_progressions",
                 "prism_payload_bytes",
                 "shell_commands",
                 "shell_read_commands",
@@ -181,6 +245,46 @@
                   "minimum": 0
                 },
                 "prism_compact_tool_calls": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "locate_preview_requests": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "locate_preview_hits": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "locate_preview_bytes": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "locate_preview_direct_opens": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "locate_preview_direct_progressions": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "expand_preview_requests": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "expand_preview_hits": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "expand_preview_bytes": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "expand_preview_direct_opens": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "expand_preview_direct_progressions": {
                   "type": "integer",
                   "minimum": 0
                 },

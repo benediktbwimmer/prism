@@ -1,5 +1,6 @@
 use prism_js::{
-    AgentExpandResultView, AgentLocateResultView, AgentOpenResultView, AgentWorksetResultView,
+    AgentExpandResultView, AgentGatherResultView, AgentLocateResultView, AgentOpenResultView,
+    AgentWorksetResultView,
 };
 use rmcp::{
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
@@ -413,6 +414,30 @@ impl PrismMcpServer {
         let result = self
             .host
             .compact_locate(Arc::clone(&self.session), args)
+            .map_err(map_query_error)?;
+        structured_tool_result(result)
+    }
+
+    #[tool(
+        description = "Gather up to 3 bounded exact-text slices for config, schema, or script work without leaving the compact tool surface.",
+        annotations(title = "Gather PRISM Slices", read_only_hint = true),
+        output_schema =
+            rmcp::handler::server::tool::schema_for_output::<AgentGatherResultView>().unwrap()
+    )]
+    fn prism_gather(
+        &self,
+        Parameters(args): Parameters<PrismGatherArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        if args.query.trim().is_empty() {
+            return Err(McpError::invalid_params(
+                "gather query cannot be empty",
+                Some(json!({ "field": "query" })),
+            ));
+        }
+
+        let result = self
+            .host
+            .compact_gather(Arc::clone(&self.session), args)
             .map_err(map_query_error)?;
         structured_tool_result(result)
     }

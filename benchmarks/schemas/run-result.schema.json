@@ -49,14 +49,15 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "name",
-          "prism_enabled",
-          "model",
-          "reasoning_effort",
-          "instance_outcomes",
-          "benchmark_outcome",
-          "telemetry_summary"
+          "required": [
+            "name",
+            "prism_enabled",
+            "compact_preview_policy",
+            "model",
+            "reasoning_effort",
+            "instance_outcomes",
+            "benchmark_outcome",
+            "telemetry_summary"
         ],
         "properties": {
           "name": {
@@ -64,6 +65,10 @@
           },
           "prism_enabled": {
             "type": "boolean"
+          },
+          "compact_preview_policy": {
+            "type": "string",
+            "enum": ["off", "adaptive"]
           },
           "model": {
             "type": "string"

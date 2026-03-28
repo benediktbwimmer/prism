@@ -74,6 +74,28 @@ pub struct AgentLocateResultView {
     pub truncated: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub narrowing_hint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub top_preview: Option<AgentTextPreviewView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentTextPreviewView {
+    pub handle: String,
+    pub file_path: String,
+    pub start_line: usize,
+    pub end_line: usize,
+    pub text: String,
+    pub truncated: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentGatherResultView {
+    pub matches: Vec<AgentOpenResultView>,
+    pub truncated: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub narrowing_hint: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -131,6 +153,8 @@ pub struct AgentExpandResultView {
     pub kind: AgentExpandKind,
     pub result: Value,
     pub remapped: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub top_preview: Option<AgentTextPreviewView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

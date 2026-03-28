@@ -27,6 +27,11 @@ def _validate_arm(arm: dict[str, Any], path: Path, errors: list[str]) -> None:
     prompt_path = ROOT / arm.get("prompt_path", "")
     if "prompt_path" in arm and not prompt_path.exists():
         errors.append(f"{path}: prompt path does not exist: {arm['prompt_path']}")
+    preview_policy = arm.get("compact_preview_policy", "off")
+    if preview_policy not in {"off", "adaptive"}:
+        errors.append(
+            f"{path}: unsupported compact_preview_policy `{preview_policy}`; expected `off` or `adaptive`"
+        )
 
 
 def _validate_execution(execution: dict[str, Any], path: Path, errors: list[str]) -> None:
@@ -151,6 +156,7 @@ def load_normalized_config(path: Path, require_instances: bool = False) -> dict[
     normalized["instance_ids"] = [instance_id(item) for item in instances]
     normalized["arms"] = [dict(arm) for arm in config["arms"]]
     for arm in normalized["arms"]:
+        arm["compact_preview_policy"] = arm.get("compact_preview_policy", "off")
         arm["prompt_abspath"] = str((ROOT / arm["prompt_path"]).resolve())
     normalized["output"] = dict(config["output"])
     normalized["output"]["result_abspath"] = str((ROOT / config["output"]["result_path"]).resolve())

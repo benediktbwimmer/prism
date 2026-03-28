@@ -8,6 +8,7 @@ PRISM exposes a compact staged agent ABI over the existing semantic/query engine
 Target default agent path:
 
 - `prism_locate`
+- `prism_gather` for exact text/config/schema slices when a symbol handle is not the right first hop
 - `prism_open`
 - `prism_workset`
 - `prism_expand`
@@ -1778,7 +1779,7 @@ return prism.claimPreview({
 ## Current implementation surface
 
 - Target direction: a compact staged default agent ABI built around `prism_locate`, `prism_open`,
-  `prism_workset`, and `prism_expand`, with `prism_query` retained as the semantic IR and escape
+  `prism_gather`, `prism_workset`, and `prism_expand`, with `prism_query` retained as the semantic IR and escape
   hatch.
 - Available now: symbol lookup, search, entrypoints, line-aware symbol locations, bounded source excerpts, focused local block retrieval, source extraction, relations, call graphs, lineage history, related failures, blast radius, and task replay by id.
 - Available now: owner-biased discovery helpers through `prism.owners(...)`, `prism.nextReads(...)`, `prism.whereUsed(...)`, `prism.entrypointsFor(...)`, behavioral `prism.search(...)`, `prism.readContext(...)`, `prism.editContext(...)`, `prism.validationContext(...)`, `prism.recentChangeContext(...)`, and `implementationFor(..., { mode: "owners" })` without changing the direct primitive semantics.

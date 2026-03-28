@@ -144,10 +144,42 @@ pub(crate) enum PrismLocateTaskIntentInput {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismLocateArgs {
+    #[schemars(description = "Search text for the compact target lookup.")]
     pub(crate) query: String,
+    #[schemars(
+        description = "Optional file path fragment to narrow compact locate results before ranking, for example `docs/SPEC.md` or `crates/prism-mcp/src/compact_tools.rs`."
+    )]
     pub(crate) path: Option<String>,
+    #[schemars(
+        description = "Optional glob to narrow compact locate results before ranking, for example `docs/**` or `crates/prism-mcp/src/**`."
+    )]
     pub(crate) glob: Option<String>,
+    #[schemars(
+        description = "Optional task intent that biases ranking toward code, docs, tests, or explanation targets."
+    )]
     pub(crate) task_intent: Option<PrismLocateTaskIntentInput>,
+    #[schemars(description = "Optional compact candidate count from 1 to 3.")]
+    pub(crate) limit: Option<usize>,
+    #[schemars(
+        description = "When true, also include one bounded preview for the top-ranked candidate."
+    )]
+    pub(crate) include_top_preview: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismGatherArgs {
+    #[schemars(description = "Exact text to gather as 1 to 3 bounded slices.")]
+    pub(crate) query: String,
+    #[schemars(
+        description = "Optional file path fragment to narrow exact-text gather results, for example `benchmark_codex.py` or `docs/SPEC.md`."
+    )]
+    pub(crate) path: Option<String>,
+    #[schemars(
+        description = "Optional glob to narrow exact-text gather results, for example `benchmarks/**` or `docs/**`."
+    )]
+    pub(crate) glob: Option<String>,
+    #[schemars(description = "Optional compact slice count from 1 to 3.")]
     pub(crate) limit: Option<usize>,
 }
 
@@ -187,8 +219,14 @@ pub(crate) enum PrismExpandKindInput {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismExpandArgs {
+    #[schemars(description = "Opaque handle returned by compact locate/open/workset.")]
     pub(crate) handle: String,
+    #[schemars(description = "Requested compact expansion kind.")]
     pub(crate) kind: PrismExpandKindInput,
+    #[schemars(
+        description = "When true and kind is `neighbors`, also include one bounded preview for the top neighbor."
+    )]
+    pub(crate) include_top_preview: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]

@@ -41,6 +41,11 @@ pub(crate) fn tool_input_example(tool_name: &str) -> Option<Value> {
             "taskIntent": "edit",
             "limit": 3,
         })),
+        "prism_gather" => Some(json!({
+            "query": "prism_compact_tool_calls",
+            "path": "benchmarks/scripts/benchmark_codex.py",
+            "limit": 3,
+        })),
         "prism_open" => Some(json!({
             "handle": "handle:1",
             "mode": "focus",

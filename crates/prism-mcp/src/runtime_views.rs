@@ -22,9 +22,6 @@ const DEFAULT_RUNTIME_LOG_LIMIT: usize = 50;
 const DEFAULT_RUNTIME_TIMELINE_LIMIT: usize = 20;
 const DEFAULT_LOG_SCAN_LINES: usize = 400;
 const MAX_LOG_SCAN_LINES: usize = 4_000;
-const BRIDGE_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
-const STALE_BRIDGE_GRACE: Duration = Duration::from_secs(90);
-
 #[derive(Debug, Clone)]
 struct RuntimePaths {
     uri_file: PathBuf,
@@ -53,16 +50,12 @@ struct McpProcess {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BridgeState {
     Connected,
-    Idle,
-    Stale,
     Orphaned,
 }
 
 #[derive(Debug, Clone, Default)]
 struct BridgeCounts {
     connected: usize,
-    idle: usize,
-    stale: usize,
     orphaned: usize,
 }
 
@@ -115,8 +108,6 @@ pub(crate) fn runtime_status(host: &QueryHost) -> Result<RuntimeStatusView> {
         daemon_count: daemons.len(),
         bridge_count: bridges.len(),
         connected_bridge_count: bridge_counts.connected,
-        idle_bridge_count: bridge_counts.idle,
-        stale_bridge_count: bridge_counts.stale,
         orphan_bridge_count: bridge_counts.orphaned,
         processes: processes
             .into_iter()
@@ -460,10 +451,8 @@ fn bridge_state(
         Some(BridgeState::Connected)
     } else if process.ppid == 1 {
         Some(BridgeState::Orphaned)
-    } else if bridge_is_stale(process) {
-        Some(BridgeState::Stale)
     } else {
-        Some(BridgeState::Idle)
+        None
     }
 }
 
@@ -519,8 +508,6 @@ fn normalize_route_path(path: &str) -> String {
 fn bridge_state_label(state: BridgeState) -> String {
     match state {
         BridgeState::Connected => "connected",
-        BridgeState::Idle => "idle",
-        BridgeState::Stale => "stale",
         BridgeState::Orphaned => "orphaned",
     }
     .to_string()
@@ -531,8 +518,6 @@ fn classify_bridges(bridges: &[McpProcess], connected_bridge_pids: &BTreeSet<u32
     for process in bridges {
         match bridge_state(process, connected_bridge_pids) {
             Some(BridgeState::Connected) => counts.connected += 1,
-            Some(BridgeState::Idle) => counts.idle += 1,
-            Some(BridgeState::Stale) => counts.stale += 1,
             Some(BridgeState::Orphaned) => counts.orphaned += 1,
             None => {}
         }
@@ -612,42 +597,6 @@ fn matches_prism_process_command(pid: u32, command: &str, root: &Path, kind: &st
     command.contains("prism-mcp")
         && command.contains(&format!("--root {}", root.display()))
         && command_option_value(command, "--mode").as_deref() == Some(kind)
-}
-
-fn bridge_is_stale(process: &McpProcess) -> bool {
-    parse_elapsed_duration(&process.elapsed)
-        .map(|elapsed| elapsed >= BRIDGE_IDLE_TIMEOUT + STALE_BRIDGE_GRACE)
-        .unwrap_or(false)
-}
-
-fn parse_elapsed_duration(elapsed: &str) -> Option<Duration> {
-    let mut parts = elapsed.split(':').collect::<Vec<_>>();
-    if parts.is_empty() {
-        return None;
-    }
-    let mut day_seconds = 0_u64;
-    if let Some((days, hours)) = parts.first().and_then(|part| part.split_once('-')) {
-        day_seconds = days.parse::<u64>().ok()?.saturating_mul(86_400);
-        parts[0] = hours;
-    }
-    let parts = parts
-        .into_iter()
-        .map(|part| part.parse::<u64>().ok())
-        .collect::<Option<Vec<_>>>()?;
-    let seconds = match parts.as_slice() {
-        [minutes, seconds] => minutes.saturating_mul(60).saturating_add(*seconds),
-        [hours, minutes, seconds] => hours
-            .saturating_mul(3600)
-            .saturating_add(minutes.saturating_mul(60))
-            .saturating_add(*seconds),
-        [days, hours, minutes, seconds] => days
-            .saturating_mul(86_400)
-            .saturating_add(hours.saturating_mul(3600))
-            .saturating_add(minutes.saturating_mul(60))
-            .saturating_add(*seconds),
-        _ => return None,
-    };
-    Some(Duration::from_secs(day_seconds.saturating_add(seconds)))
 }
 
 fn command_option_value(command: &str, option: &str) -> Option<String> {

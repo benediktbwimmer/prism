@@ -7,8 +7,8 @@ use crate::{
     schema_resource_contents, schema_resource_uri, schema_resource_value,
     schema_resource_view_link, session_resource_view_link, tool_input_example,
     tool_schema_resource_uri, tool_schema_resource_view_link, tool_schemas_resource_view_link,
-    PrismExpandArgs, PrismLocateArgs, PrismMutationArgs, PrismOpenArgs, PrismQueryArgs,
-    PrismSessionArgs, PrismWorksetArgs, ResourceLinkView, TOOL_SCHEMAS_URI,
+    PrismExpandArgs, PrismGatherArgs, PrismLocateArgs, PrismMutationArgs, PrismOpenArgs,
+    PrismQueryArgs, PrismSessionArgs, PrismWorksetArgs, ResourceLinkView, TOOL_SCHEMAS_URI,
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
@@ -39,6 +39,13 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
             schema_uri: tool_schema_resource_uri("prism_locate"),
             description: "Input schema for the compact first-hop target locator.".to_string(),
             example_input: tool_input_example("prism_locate").expect("tool example"),
+        },
+        ToolSchemaCatalogEntry {
+            tool_name: "prism_gather".to_string(),
+            schema_uri: tool_schema_resource_uri("prism_gather"),
+            description: "Input schema for gathering 1 to 3 bounded exact-text slices."
+                .to_string(),
+            example_input: tool_input_example("prism_gather").expect("tool example"),
         },
         ToolSchemaCatalogEntry {
             tool_name: "prism_open".to_string(),
@@ -139,6 +146,11 @@ pub(crate) fn tool_schema_resource_contents(
             "prism_locate",
             "JSON Schema for the `prism_locate` tool input payload.",
         ),
+        "prism_gather" => tool_input_schema_contents::<PrismGatherArgs>(
+            uri,
+            "prism_gather",
+            "JSON Schema for the `prism_gather` tool input payload.",
+        ),
         "prism_open" => tool_input_schema_contents::<PrismOpenArgs>(
             uri,
             "prism_open",
@@ -181,6 +193,10 @@ pub(crate) fn tool_input_schema_value(tool_name: &str) -> Option<Value> {
         "prism_locate" => Some(tool_input_schema_value_for::<PrismLocateArgs>(
             "prism_locate",
             "JSON Schema for the `prism_locate` tool input payload.",
+        )),
+        "prism_gather" => Some(tool_input_schema_value_for::<PrismGatherArgs>(
+            "prism_gather",
+            "JSON Schema for the `prism_gather` tool input payload.",
         )),
         "prism_open" => Some(tool_input_schema_value_for::<PrismOpenArgs>(
             "prism_open",

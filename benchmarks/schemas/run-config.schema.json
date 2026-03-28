@@ -208,6 +208,10 @@
           "tool_profile": {
             "type": "string"
           },
+          "compact_preview_policy": {
+            "type": "string",
+            "enum": ["off", "adaptive"]
+          },
           "codex_config_overrides": {
             "type": "array",
             "items": {

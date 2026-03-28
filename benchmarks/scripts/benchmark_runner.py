@@ -17,6 +17,16 @@ def _zero_telemetry_summary() -> dict[str, Any]:
         "prism_queries": 0,
         "prism_query_calls": 0,
         "prism_compact_tool_calls": 0,
+        "locate_preview_requests": 0,
+        "locate_preview_hits": 0,
+        "locate_preview_bytes": 0,
+        "locate_preview_direct_opens": 0,
+        "locate_preview_direct_progressions": 0,
+        "expand_preview_requests": 0,
+        "expand_preview_hits": 0,
+        "expand_preview_bytes": 0,
+        "expand_preview_direct_opens": 0,
+        "expand_preview_direct_progressions": 0,
         "prism_payload_bytes": 0,
         "shell_commands": 0,
         "shell_read_commands": 0,
@@ -80,6 +90,7 @@ def build_plan(config_path: Path) -> dict[str, Any]:
                 "prompt_path": arm["prompt_path"],
                 "prompt_sha256": file_sha256(Path(arm["prompt_abspath"])),
                 "tool_profile": arm["tool_profile"],
+                "compact_preview_policy": arm["compact_preview_policy"],
             }
             for arm in config["arms"]
         ],
@@ -117,6 +128,7 @@ def materialize_run(config_path: Path, force: bool = False) -> dict[str, Any]:
             {
                 "name": arm["name"],
                 "prism_enabled": arm["prism_enabled"],
+                "compact_preview_policy": arm["compact_preview_policy"],
                 "model": config["agent"]["model"],
                 "reasoning_effort": config["agent"]["reasoning_effort"],
                 "instance_outcomes": [],
@@ -140,6 +152,7 @@ def materialize_run(config_path: Path, force: bool = False) -> dict[str, Any]:
             {
                 "name": arm["name"],
                 "prism_enabled": arm["prism_enabled"],
+                "compact_preview_policy": arm["compact_preview_policy"],
                 "summary": _zero_telemetry_summary(),
                 "instances": [],
             }
@@ -200,6 +213,16 @@ def _recompute_telemetry_summary(telemetry_arm: dict[str, Any]) -> None:
         summary["prism_queries"] += item["prism_queries"]
         summary["prism_query_calls"] += item["prism_query_calls"]
         summary["prism_compact_tool_calls"] += item["prism_compact_tool_calls"]
+        summary["locate_preview_requests"] += item["locate_preview_requests"]
+        summary["locate_preview_hits"] += item["locate_preview_hits"]
+        summary["locate_preview_bytes"] += item["locate_preview_bytes"]
+        summary["locate_preview_direct_opens"] += item["locate_preview_direct_opens"]
+        summary["locate_preview_direct_progressions"] += item["locate_preview_direct_progressions"]
+        summary["expand_preview_requests"] += item["expand_preview_requests"]
+        summary["expand_preview_hits"] += item["expand_preview_hits"]
+        summary["expand_preview_bytes"] += item["expand_preview_bytes"]
+        summary["expand_preview_direct_opens"] += item["expand_preview_direct_opens"]
+        summary["expand_preview_direct_progressions"] += item["expand_preview_direct_progressions"]
         summary["prism_payload_bytes"] += item["prism_payload_bytes"]
         summary["shell_commands"] += item["shell_commands"]
         summary["shell_read_commands"] += item["shell_read_commands"]
@@ -221,6 +244,16 @@ def record_telemetry_instance(
     prism_queries: int,
     prism_query_calls: int,
     prism_compact_tool_calls: int,
+    locate_preview_requests: int,
+    locate_preview_hits: int,
+    locate_preview_bytes: int,
+    locate_preview_direct_opens: int,
+    locate_preview_direct_progressions: int,
+    expand_preview_requests: int,
+    expand_preview_hits: int,
+    expand_preview_bytes: int,
+    expand_preview_direct_opens: int,
+    expand_preview_direct_progressions: int,
     prism_payload_bytes: int,
     shell_commands: int,
     shell_read_commands: int,
@@ -242,6 +275,16 @@ def record_telemetry_instance(
             "prism_queries": prism_queries,
             "prism_query_calls": prism_query_calls,
             "prism_compact_tool_calls": prism_compact_tool_calls,
+            "locate_preview_requests": locate_preview_requests,
+            "locate_preview_hits": locate_preview_hits,
+            "locate_preview_bytes": locate_preview_bytes,
+            "locate_preview_direct_opens": locate_preview_direct_opens,
+            "locate_preview_direct_progressions": locate_preview_direct_progressions,
+            "expand_preview_requests": expand_preview_requests,
+            "expand_preview_hits": expand_preview_hits,
+            "expand_preview_bytes": expand_preview_bytes,
+            "expand_preview_direct_opens": expand_preview_direct_opens,
+            "expand_preview_direct_progressions": expand_preview_direct_progressions,
             "prism_payload_bytes": prism_payload_bytes,
             "shell_commands": shell_commands,
             "shell_read_commands": shell_read_commands,
@@ -272,11 +315,23 @@ def record_instance(
     completion_tokens: int,
     tool_calls: int,
     prism_queries: int,
-    shell_commands: int,
-    shell_read_commands: int,
-    repeated_reads: int,
-    patch_attempts: int,
-    wall_time_seconds: float,
+    prism_query_calls: int = 0,
+    prism_compact_tool_calls: int = 0,
+    locate_preview_requests: int = 0,
+    locate_preview_hits: int = 0,
+    locate_preview_bytes: int = 0,
+    locate_preview_direct_opens: int = 0,
+    locate_preview_direct_progressions: int = 0,
+    expand_preview_requests: int = 0,
+    expand_preview_hits: int = 0,
+    expand_preview_bytes: int = 0,
+    expand_preview_direct_opens: int = 0,
+    expand_preview_direct_progressions: int = 0,
+    shell_commands: int = 0,
+    shell_read_commands: int = 0,
+    repeated_reads: int = 0,
+    patch_attempts: int = 0,
+    wall_time_seconds: float = 0.0,
 ) -> None:
     result_payload = load_json(result_path)
     telemetry_payload = load_json(telemetry_path)
@@ -308,6 +363,19 @@ def record_instance(
             "completion_tokens": completion_tokens,
             "tool_calls": tool_calls,
             "prism_queries": prism_queries,
+            "prism_query_calls": prism_query_calls,
+            "prism_compact_tool_calls": prism_compact_tool_calls,
+            "locate_preview_requests": locate_preview_requests,
+            "locate_preview_hits": locate_preview_hits,
+            "locate_preview_bytes": locate_preview_bytes,
+            "locate_preview_direct_opens": locate_preview_direct_opens,
+            "locate_preview_direct_progressions": locate_preview_direct_progressions,
+            "expand_preview_requests": expand_preview_requests,
+            "expand_preview_hits": expand_preview_hits,
+            "expand_preview_bytes": expand_preview_bytes,
+            "expand_preview_direct_opens": expand_preview_direct_opens,
+            "expand_preview_direct_progressions": expand_preview_direct_progressions,
+            "prism_payload_bytes": 0,
             "shell_commands": shell_commands,
             "shell_read_commands": shell_read_commands,
             "repeated_reads": repeated_reads,

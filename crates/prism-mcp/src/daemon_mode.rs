@@ -133,6 +133,7 @@ async fn bind_listener(cli: &PrismMcpCli, root: &Path) -> Result<TcpListener> {
 async fn run_bridge(cli: &PrismMcpCli, root: &Path) -> Result<()> {
     let resolution_started = Instant::now();
     let upstream = resolve_upstream_uri(cli, root).await?;
+    let upstream_source = BridgeUpstreamSource::from_cli(cli, root);
     info!(
         mode = "bridge",
         root = %root.display(),
@@ -154,7 +155,7 @@ async fn run_bridge(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         );
     }
     let connect_started = Instant::now();
-    let proxy = ProxyMcpServer::connect(upstream.uri.clone()).await?;
+    let proxy = ProxyMcpServer::connect_with_source(upstream.uri.clone(), upstream_source).await?;
     if let Err(error) = runtime_state::record_bridge_connected_with_latency(
         root,
         &upstream.uri,
@@ -174,6 +175,33 @@ struct UpstreamResolution {
     source: &'static str,
     daemon_wait_ms: u128,
     spawned_daemon: bool,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) enum BridgeUpstreamSource {
+    Fixed(String),
+    HttpUriFile(PathBuf),
+}
+
+impl BridgeUpstreamSource {
+    pub(crate) fn from_cli(cli: &PrismMcpCli, root: &Path) -> Self {
+        match &cli.upstream_uri {
+            Some(uri) => Self::Fixed(uri.clone()),
+            None => Self::HttpUriFile(cli.http_uri_file_path(root)),
+        }
+    }
+
+    pub(crate) fn read_uri(&self) -> Result<String> {
+        match self {
+            Self::Fixed(uri) => Ok(uri.clone()),
+            Self::HttpUriFile(path) => read_http_uri_file(path)?.ok_or_else(|| {
+                anyhow!(
+                    "PRISM MCP upstream URI file {} is not ready",
+                    path.display()
+                )
+            }),
+        }
+    }
 }
 
 async fn resolve_upstream_uri(cli: &PrismMcpCli, root: &Path) -> Result<UpstreamResolution> {

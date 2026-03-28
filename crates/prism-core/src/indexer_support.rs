@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
 
@@ -35,6 +36,8 @@ pub(crate) fn build_workspace_session(
     backend: Option<Arc<dyn CuratorBackend>>,
 ) -> Result<WorkspaceSession> {
     let started = Instant::now();
+    let store = store;
+    let loaded_workspace_revision = Arc::new(AtomicU64::new(store.workspace_revision()?));
     let prism = Arc::new(Prism::with_history_outcomes_coordination_and_projections(
         graph,
         history,
@@ -68,6 +71,7 @@ pub(crate) fn build_workspace_session(
         Arc::clone(&store),
         Arc::clone(&refresh_lock),
         Arc::clone(&refresh_state),
+        Arc::clone(&loaded_workspace_revision),
         Arc::clone(&fs_snapshot),
         coordination_enabled,
         Some(CuratorHandleRef::from(&curator)),
@@ -96,6 +100,7 @@ pub(crate) fn build_workspace_session(
         store,
         refresh_lock,
         refresh_state,
+        loaded_workspace_revision,
         fs_snapshot,
         watch,
         curator: Some(curator),

@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 use std::thread;
@@ -27,6 +28,7 @@ pub(crate) fn spawn_fs_watch(
     store: Arc<Mutex<SqliteStore>>,
     refresh_lock: Arc<Mutex<()>>,
     refresh_state: Arc<WorkspaceRefreshState>,
+    loaded_workspace_revision: Arc<AtomicU64>,
     fs_snapshot: Arc<Mutex<WorkspaceFingerprint>>,
     coordination_enabled: bool,
     curator: Option<CuratorHandleRef>,
@@ -93,6 +95,7 @@ pub(crate) fn spawn_fs_watch(
                 &store,
                 &refresh_lock,
                 &refresh_state,
+                &loaded_workspace_revision,
                 &fs_snapshot,
                 coordination_enabled,
                 curator.as_ref(),
@@ -125,6 +128,7 @@ pub(crate) fn refresh_prism_snapshot(
     store: &Arc<Mutex<SqliteStore>>,
     refresh_lock: &Arc<Mutex<()>>,
     refresh_state: &Arc<WorkspaceRefreshState>,
+    loaded_workspace_revision: &Arc<AtomicU64>,
     fs_snapshot: &Arc<Mutex<WorkspaceFingerprint>>,
     coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
@@ -139,6 +143,7 @@ pub(crate) fn refresh_prism_snapshot(
         prism,
         store,
         refresh_state,
+        loaded_workspace_revision,
         fs_snapshot,
         coordination_enabled,
         curator,
@@ -154,6 +159,7 @@ pub(crate) fn try_refresh_prism_snapshot(
     store: &Arc<Mutex<SqliteStore>>,
     refresh_lock: &Arc<Mutex<()>>,
     refresh_state: &Arc<WorkspaceRefreshState>,
+    loaded_workspace_revision: &Arc<AtomicU64>,
     fs_snapshot: &Arc<Mutex<WorkspaceFingerprint>>,
     coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
@@ -168,6 +174,7 @@ pub(crate) fn try_refresh_prism_snapshot(
         prism,
         store,
         refresh_state,
+        loaded_workspace_revision,
         fs_snapshot,
         coordination_enabled,
         curator,
@@ -183,6 +190,7 @@ fn refresh_prism_snapshot_with_guard(
     prism: &Arc<RwLock<Arc<Prism>>>,
     store: &Arc<Mutex<SqliteStore>>,
     refresh_state: &Arc<WorkspaceRefreshState>,
+    loaded_workspace_revision: &Arc<AtomicU64>,
     fs_snapshot: &Arc<Mutex<WorkspaceFingerprint>>,
     coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
@@ -222,8 +230,10 @@ fn refresh_prism_snapshot_with_guard(
     } else {
         indexer.index_with_scope(trigger, dirty_paths.iter().cloned())?
     };
+    let workspace_revision = indexer.store.workspace_revision()?;
     let next = Arc::new(indexer.into_prism());
     *prism.write().expect("workspace prism lock poisoned") = Arc::clone(&next);
+    loaded_workspace_revision.store(workspace_revision, Ordering::Relaxed);
     *fs_snapshot
         .lock()
         .expect("workspace fingerprint lock poisoned") = next_fingerprint;

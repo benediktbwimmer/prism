@@ -1,55 +1,42 @@
 use std::collections::HashMap;
-use std::error::Error;
+use std::future::Future;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use anyhow::{anyhow, Context, Result};
 use rmcp::{
     model::*,
     service::{RequestContext, RoleClient, RunningService, ServiceError},
-    transport::{stdio, IntoTransport, StreamableHttpClientTransport},
+    transport::{stdio, StreamableHttpClientTransport},
     ErrorData as McpError, RoleServer, ServerHandler, ServiceExt,
 };
+use tokio::sync::Mutex as AsyncMutex;
 use tracing::{info, warn};
 
-const DEFAULT_BRIDGE_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
-const DEFAULT_BRIDGE_IDLE_POLL_INTERVAL: Duration = Duration::from_secs(5);
-const BRIDGE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(3);
+use crate::daemon_mode::BridgeUpstreamSource;
+
+const DEFAULT_BRIDGE_RECONNECT_BASE_DELAY: Duration = Duration::from_millis(100);
+const DEFAULT_BRIDGE_RECONNECT_MAX_DELAY: Duration = Duration::from_secs(2);
+const DEFAULT_BRIDGE_RECONNECT_ATTEMPTS: usize = 6;
 
 #[derive(Debug)]
 struct ProxyActivityTracker {
-    last_activity: Mutex<Instant>,
     in_flight: AtomicUsize,
 }
 
 impl ProxyActivityTracker {
     fn new() -> Self {
         Self {
-            last_activity: Mutex::new(Instant::now()),
             in_flight: AtomicUsize::new(0),
         }
     }
 
-    fn touch(&self) {
-        if let Ok(mut last_activity) = self.last_activity.lock() {
-            *last_activity = Instant::now();
-        }
-    }
-
     fn begin_request(self: &Arc<Self>) -> ProxyRequestGuard {
-        self.touch();
         self.in_flight.fetch_add(1, Ordering::Relaxed);
         ProxyRequestGuard {
             tracker: Arc::clone(self),
         }
-    }
-
-    fn idle_elapsed(&self) -> Option<Duration> {
-        if self.in_flight.load(Ordering::Relaxed) > 0 {
-            return None;
-        }
-        self.last_activity.lock().ok().map(|last| last.elapsed())
     }
 }
 
@@ -59,24 +46,60 @@ struct ProxyRequestGuard {
 
 impl Drop for ProxyRequestGuard {
     fn drop(&mut self) {
-        self.tracker.touch();
         self.tracker.in_flight.fetch_sub(1, Ordering::Relaxed);
     }
 }
 
-pub(crate) struct ProxyMcpServer {
-    upstream: Mutex<Option<RunningService<RoleClient, ()>>>,
+struct UpstreamConnection {
+    _client: RunningService<RoleClient, ()>,
     peer: rmcp::service::Peer<RoleClient>,
-    server_info: ServerInfo,
+}
+
+pub(crate) struct ProxyMcpServer {
+    upstream: AsyncMutex<UpstreamConnection>,
+    upstream_source: BridgeUpstreamSource,
+    reconnect_lock: AsyncMutex<()>,
+    server_info: Mutex<ServerInfo>,
     tool_cache: RwLock<HashMap<String, Tool>>,
     activity: Arc<ProxyActivityTracker>,
 }
 
 impl ProxyMcpServer {
-    pub(crate) async fn connect(upstream_uri: String) -> Result<Self> {
+    pub(crate) async fn connect_with_source(
+        upstream_uri: String,
+        upstream_source: BridgeUpstreamSource,
+    ) -> Result<Self> {
+        let (connection, server_info, tools) = Self::open_upstream(&upstream_uri).await?;
+        Ok(Self {
+            upstream: AsyncMutex::new(connection),
+            upstream_source,
+            reconnect_lock: AsyncMutex::new(()),
+            server_info: Mutex::new(server_info),
+            tool_cache: RwLock::new(
+                tools
+                    .into_iter()
+                    .map(|tool| (tool.name.to_string(), tool))
+                    .collect(),
+            ),
+            activity: Arc::new(ProxyActivityTracker::new()),
+        })
+    }
+
+    pub(crate) async fn serve_stdio(self) -> Result<()> {
+        let running = self.serve(stdio()).await?;
+        running
+            .waiting()
+            .await
+            .map(|_| ())
+            .context("PRISM MCP bridge transport exited unexpectedly")
+    }
+
+    async fn open_upstream(
+        upstream_uri: &str,
+    ) -> Result<(UpstreamConnection, ServerInfo, Vec<Tool>)> {
         let client = ()
             .serve(StreamableHttpClientTransport::from_uri(
-                upstream_uri.clone(),
+                upstream_uri.to_string(),
             ))
             .await
             .with_context(|| {
@@ -91,28 +114,14 @@ impl ProxyMcpServer {
             .list_all_tools()
             .await
             .context("failed to list upstream PRISM MCP tools")?;
-
-        Ok(Self {
-            upstream: Mutex::new(Some(client)),
-            peer,
+        Ok((
+            UpstreamConnection {
+                _client: client,
+                peer,
+            },
             server_info,
-            tool_cache: RwLock::new(
-                tools
-                    .into_iter()
-                    .map(|tool| (tool.name.to_string(), tool))
-                    .collect(),
-            ),
-            activity: Arc::new(ProxyActivityTracker::new()),
-        })
-    }
-
-    pub(crate) async fn serve_stdio(self) -> Result<()> {
-        self.serve_transport_with_idle_timeout(
-            stdio(),
-            DEFAULT_BRIDGE_IDLE_TIMEOUT,
-            DEFAULT_BRIDGE_IDLE_POLL_INTERVAL,
-        )
-        .await
+            tools,
+        ))
     }
 
     fn update_tool_cache(&self, tools: &[Tool]) {
@@ -127,48 +136,154 @@ impl ProxyMcpServer {
         }
     }
 
-    pub(crate) async fn serve_transport_with_idle_timeout<T, E, A>(
-        self,
-        transport: T,
-        idle_timeout: Duration,
-        poll_interval: Duration,
-    ) -> Result<()>
-    where
-        T: IntoTransport<RoleServer, E, A>,
-        E: Error + Send + Sync + 'static,
-    {
-        let mut service = self.serve(transport).await?;
-        let activity = Arc::clone(&service.service().activity);
+    fn update_server_info(&self, server_info: &ServerInfo) {
+        match self.server_info.lock() {
+            Ok(mut current) => *current = server_info.clone(),
+            Err(poisoned) => *poisoned.into_inner() = server_info.clone(),
+        }
+    }
 
-        loop {
-            tokio::time::sleep(poll_interval).await;
-            if service.is_closed() || service.peer().is_transport_closed() {
-                exit_if_close_stalls(&mut service, "bridge transport closed").await?;
+    async fn active_peer(&self) -> Result<rmcp::service::Peer<RoleClient>> {
+        let peer = {
+            let upstream = self.upstream.lock().await;
+            upstream.peer.clone()
+        };
+        if !peer.is_transport_closed() {
+            return Ok(peer);
+        }
+        self.reconnect_with_backoff("upstream transport closed before request", false)
+            .await?;
+        let upstream = self.upstream.lock().await;
+        Ok(upstream.peer.clone())
+    }
+
+    async fn reconnect_with_backoff(&self, reason: &str, force: bool) -> Result<()> {
+        let _reconnect = self.reconnect_lock.lock().await;
+        if !force {
+            let upstream = self.upstream.lock().await;
+            if !upstream.peer.is_transport_closed() {
                 return Ok(());
             }
-
-            let Some(idle_for) = activity.idle_elapsed() else {
-                continue;
-            };
-            if idle_for < idle_timeout {
-                continue;
-            }
-
-            info!(
-                idle_ms = idle_for.as_millis(),
-                idle_timeout_ms = idle_timeout.as_millis(),
-                "prism-mcp bridge idle timeout expired"
-            );
-            handle_idle_timeout(&mut service).await?;
-            return Ok(());
         }
+
+        let mut delay = DEFAULT_BRIDGE_RECONNECT_BASE_DELAY;
+        let mut last_error = None;
+        for attempt in 1..=DEFAULT_BRIDGE_RECONNECT_ATTEMPTS {
+            let upstream_uri = match self.upstream_source.read_uri() {
+                Ok(uri) => uri,
+                Err(error) => {
+                    last_error = Some(error);
+                    warn!(
+                        attempt,
+                        reason,
+                        delay_ms = delay.as_millis(),
+                        "prism-mcp bridge failed to resolve reconnect upstream; retrying"
+                    );
+                    tokio::time::sleep(delay).await;
+                    delay = delay
+                        .saturating_mul(2)
+                        .min(DEFAULT_BRIDGE_RECONNECT_MAX_DELAY);
+                    continue;
+                }
+            };
+
+            match Self::open_upstream(&upstream_uri).await {
+                Ok((connection, server_info, tools)) => {
+                    {
+                        let mut upstream = self.upstream.lock().await;
+                        *upstream = connection;
+                    }
+                    self.update_server_info(&server_info);
+                    self.update_tool_cache(&tools);
+                    info!(
+                        attempt,
+                        reason,
+                        upstream_uri = %upstream_uri,
+                        "prism-mcp bridge reconnected to upstream"
+                    );
+                    return Ok(());
+                }
+                Err(error) => {
+                    last_error = Some(error);
+                    warn!(
+                        attempt,
+                        reason,
+                        upstream_uri = %upstream_uri,
+                        delay_ms = delay.as_millis(),
+                        "prism-mcp bridge failed to reconnect to upstream; retrying"
+                    );
+                    tokio::time::sleep(delay).await;
+                    delay = delay
+                        .saturating_mul(2)
+                        .min(DEFAULT_BRIDGE_RECONNECT_MAX_DELAY);
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| anyhow!("failed to reconnect PRISM MCP bridge upstream")))
+    }
+
+    fn should_reconnect(error: &ServiceError) -> bool {
+        matches!(
+            error,
+            ServiceError::TransportClosed
+                | ServiceError::TransportSend(_)
+                | ServiceError::Timeout { .. }
+        )
+    }
+
+    async fn call_upstream<Request, Output, Op, Fut>(
+        &self,
+        request: Request,
+        op_name: &'static str,
+        op: Op,
+    ) -> Result<Output, McpError>
+    where
+        Request: Clone + Send,
+        Output: Send,
+        Op: Fn(rmcp::service::Peer<RoleClient>, Request) -> Fut + Copy + Send,
+        Fut: Future<Output = Result<Output, ServiceError>> + Send,
+    {
+        let peer = self.active_peer().await.map_err(map_connect_error)?;
+        match op(peer, request.clone()).await {
+            Ok(result) => Ok(result),
+            Err(error) if Self::should_reconnect(&error) => {
+                warn!(
+                    operation = op_name,
+                    error = %error,
+                    "prism-mcp bridge request failed because the upstream transport was unavailable; reconnecting"
+                );
+                self.reconnect_with_backoff(op_name, true)
+                    .await
+                    .map_err(map_connect_error)?;
+                let peer = self.active_peer().await.map_err(map_connect_error)?;
+                op(peer, request).await.map_err(map_proxy_error)
+            }
+            Err(error) => Err(map_proxy_error(error)),
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn serve_transport<T, E, A>(self, transport: T) -> Result<()>
+    where
+        T: rmcp::transport::IntoTransport<RoleServer, E, A>,
+        E: std::error::Error + Send + Sync + 'static,
+    {
+        let running = self.serve(transport).await?;
+        running
+            .waiting()
+            .await
+            .map(|_| ())
+            .context("PRISM MCP bridge transport exited unexpectedly")
     }
 }
 
 impl ServerHandler for ProxyMcpServer {
     fn get_info(&self) -> ServerInfo {
-        self.activity.touch();
-        self.server_info.clone()
+        match self.server_info.lock() {
+            Ok(info) => info.clone(),
+            Err(poisoned) => poisoned.into_inner().clone(),
+        }
     }
 
     async fn list_resources(
@@ -177,10 +292,10 @@ impl ServerHandler for ProxyMcpServer {
         _: RequestContext<RoleServer>,
     ) -> Result<ListResourcesResult, McpError> {
         let _request = self.activity.begin_request();
-        self.peer
-            .list_resources(request)
-            .await
-            .map_err(map_proxy_error)
+        self.call_upstream(request, "resources/list", |peer, request| async move {
+            peer.list_resources(request).await
+        })
+        .await
     }
 
     async fn list_resource_templates(
@@ -189,10 +304,12 @@ impl ServerHandler for ProxyMcpServer {
         _: RequestContext<RoleServer>,
     ) -> Result<ListResourceTemplatesResult, McpError> {
         let _request = self.activity.begin_request();
-        self.peer
-            .list_resource_templates(request)
-            .await
-            .map_err(map_proxy_error)
+        self.call_upstream(
+            request,
+            "resources/templates/list",
+            |peer, request| async move { peer.list_resource_templates(request).await },
+        )
+        .await
     }
 
     async fn read_resource(
@@ -201,10 +318,10 @@ impl ServerHandler for ProxyMcpServer {
         _: RequestContext<RoleServer>,
     ) -> Result<ReadResourceResult, McpError> {
         let _request = self.activity.begin_request();
-        self.peer
-            .read_resource(request)
-            .await
-            .map_err(map_proxy_error)
+        self.call_upstream(request, "resources/read", |peer, request| async move {
+            peer.read_resource(request).await
+        })
+        .await
     }
 
     async fn call_tool(
@@ -213,7 +330,10 @@ impl ServerHandler for ProxyMcpServer {
         _: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, McpError> {
         let _request = self.activity.begin_request();
-        self.peer.call_tool(request).await.map_err(map_proxy_error)
+        self.call_upstream(request, "tools/call", |peer, request| async move {
+            peer.call_tool(request).await
+        })
+        .await
     }
 
     async fn list_tools(
@@ -223,16 +343,15 @@ impl ServerHandler for ProxyMcpServer {
     ) -> Result<ListToolsResult, McpError> {
         let _request = self.activity.begin_request();
         let result = self
-            .peer
-            .list_tools(request)
-            .await
-            .map_err(map_proxy_error)?;
+            .call_upstream(request, "tools/list", |peer, request| async move {
+                peer.list_tools(request).await
+            })
+            .await?;
         self.update_tool_cache(&result.tools);
         Ok(result)
     }
 
     fn get_tool(&self, name: &str) -> Option<Tool> {
-        self.activity.touch();
         self.tool_cache
             .read()
             .ok()
@@ -247,40 +366,6 @@ fn map_proxy_error(error: ServiceError) -> McpError {
     }
 }
 
-async fn exit_if_close_stalls(
-    service: &mut RunningService<RoleServer, ProxyMcpServer>,
-    reason: &str,
-) -> Result<()> {
-    let closed = service.close_with_timeout(BRIDGE_SHUTDOWN_TIMEOUT).await?;
-    if closed.is_none() {
-        warn!(
-            reason = reason,
-            shutdown_timeout_ms = BRIDGE_SHUTDOWN_TIMEOUT.as_millis(),
-            "prism-mcp bridge did not close within the shutdown timeout; forcing process exit"
-        );
-        std::process::exit(0);
-    }
-    Ok(())
-}
-
-#[cfg(test)]
-async fn handle_idle_timeout(
-    service: &mut RunningService<RoleServer, ProxyMcpServer>,
-) -> Result<()> {
-    exit_if_close_stalls(service, "bridge idle timeout expired").await
-}
-
-#[cfg(not(test))]
-async fn handle_idle_timeout(
-    _service: &mut RunningService<RoleServer, ProxyMcpServer>,
-) -> Result<()> {
-    std::process::exit(0);
-}
-
-impl Drop for ProxyMcpServer {
-    fn drop(&mut self) {
-        if let Ok(mut upstream) = self.upstream.lock() {
-            upstream.take();
-        }
-    }
+fn map_connect_error(error: anyhow::Error) -> McpError {
+    McpError::internal_error(error.to_string(), None)
 }

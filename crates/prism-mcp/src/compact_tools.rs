@@ -7,26 +7,30 @@ use anyhow::{anyhow, Result};
 use globset::{GlobBuilder, GlobMatcher};
 use prism_ir::{LineageId, NodeId, NodeKind};
 use prism_js::{
-    AgentExpandKind, AgentExpandResultView, AgentLocateResultView, AgentLocateStatus,
-    AgentOpenMode, AgentOpenResultView, AgentTargetHandleView, AgentWorksetResultView,
-    QueryDiagnostic, SourceExcerptView, SourceLocationView, SourceSliceView, SymbolView,
+    AgentExpandKind, AgentExpandResultView, AgentGatherResultView, AgentLocateResultView,
+    AgentLocateStatus, AgentOpenMode, AgentOpenResultView, AgentTargetHandleView,
+    AgentTextPreviewView, AgentWorksetResultView, QueryDiagnostic, SourceExcerptView,
+    SourceLocationView, SourceSliceView, SymbolView, TextSearchMatchView,
 };
 use prism_query::{EditSliceOptions, Prism};
 use serde_json::{json, Value};
 
 use crate::file_queries::file_read;
 use crate::session_state::SessionHandleTarget;
+use crate::text_search::search_text;
 use crate::{
     diff_for, focused_block_for_symbol, next_reads, owner_views_for_target,
     spec_drift_explanation_view, symbol_for, symbol_view, validation_context_view_cached,
-    FileReadArgs, PrismExpandArgs, PrismExpandKindInput, PrismLocateArgs,
+    FileReadArgs, PrismExpandArgs, PrismExpandKindInput, PrismGatherArgs, PrismLocateArgs,
     PrismLocateTaskIntentInput, PrismOpenArgs, PrismOpenModeInput, PrismWorksetArgs, QueryHost,
-    QueryRun, SearchArgs, SessionState,
+    QueryRun, SearchArgs, SearchTextArgs, SessionState,
 };
 
 const DEFAULT_LOCATE_LIMIT: usize = 3;
 const MAX_LOCATE_LIMIT: usize = 3;
 const LOCATE_BACKEND_MULTIPLIER: usize = 6;
+const DEFAULT_GATHER_LIMIT: usize = 3;
+const MAX_GATHER_LIMIT: usize = 3;
 const FOCUS_OPEN_OPTIONS: EditSliceOptions = EditSliceOptions {
     before_lines: 1,
     after_lines: 1,
@@ -38,6 +42,12 @@ const EDIT_OPEN_OPTIONS: EditSliceOptions = EditSliceOptions {
     after_lines: 1,
     max_lines: 8,
     max_chars: 360,
+};
+const PREVIEW_OPEN_OPTIONS: EditSliceOptions = EditSliceOptions {
+    before_lines: 0,
+    after_lines: 0,
+    max_lines: 5,
+    max_chars: 220,
 };
 const OPEN_RELATED_HANDLE_LIMIT: usize = 2;
 const OPEN_MAX_JSON_BYTES: usize = 1400;
@@ -58,12 +68,21 @@ const EXPAND_DRIFT_MAX_JSON_BYTES: usize = 1400;
 const MAX_WHY_SHORT_CHARS: usize = 120;
 const LOCATE_SECONDARY_FILE_DIVERSITY_BONUS: i32 = 18;
 const LOCATE_SECONDARY_KIND_DIVERSITY_BONUS: i32 = 7;
+const TEXT_FRAGMENT_CRATE_NAME: &str = "__prism_text__";
+const TEXT_LOCATE_LIMIT_MULTIPLIER: usize = 4;
+const TEXT_FRAGMENT_RELATED_LIMIT: usize = 3;
 
 #[derive(Debug, Clone)]
 struct RankedLocateCandidate {
-    symbol: SymbolView,
+    target: RankedLocateTarget,
     score: i32,
     why: String,
+}
+
+#[derive(Debug, Clone)]
+enum RankedLocateTarget {
+    Symbol(SymbolView),
+    Text(SessionHandleTarget),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -71,6 +90,19 @@ struct LocateIntentProfile {
     code_bias: i32,
     docs_bias: i32,
     test_penalty: i32,
+}
+
+#[derive(Debug)]
+struct WorksetContext {
+    supporting_reads: Vec<AgentTargetHandleView>,
+    likely_tests: Vec<AgentTargetHandleView>,
+    why: String,
+}
+
+#[derive(Debug)]
+struct TextSearchCandidate {
+    target: SessionHandleTarget,
+    matched_text: String,
 }
 
 impl QueryHost {
@@ -100,23 +132,81 @@ impl QueryHost {
                 )?;
 
                 let applied = compact_locate_limit(args.limit);
-                let ranked = rerank_locate_results(results, &args, applied);
-                let diagnostics = execution.diagnostics();
+                let text_candidates = locate_text_candidates(
+                    host,
+                    session.as_ref(),
+                    &args,
+                    applied.saturating_mul(TEXT_LOCATE_LIMIT_MULTIPLIER),
+                )?;
+                let ranked = rerank_locate_results(results, text_candidates, &args, applied);
+                let mut diagnostics = execution.diagnostics();
+                diagnostics.extend(locate_text_diagnostics(&ranked, applied));
                 let resolved_confidently = locate_resolved_confidently(&ranked, &diagnostics);
+                let top_preview = if args.include_top_preview.unwrap_or(false) {
+                    if let Some(candidate) = ranked.first() {
+                        let preview_handle = compact_ranked_target_view(
+                            &session,
+                            &candidate.target,
+                            Some(args.query.as_str()),
+                            Some(candidate.why.clone()),
+                        );
+                        compact_preview_for_ranked_target(
+                            host,
+                            prism.as_ref(),
+                            &preview_handle.handle,
+                            &candidate.target,
+                        )?
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
                 let candidates = ranked
                     .into_iter()
                     .map(|candidate| {
-                        compact_target_view(
+                        compact_ranked_target_view(
                             &session,
-                            &candidate.symbol,
+                            &candidate.target,
                             Some(args.query.as_str()),
                             Some(candidate.why),
                         )
                     })
                     .collect::<Vec<_>>();
                 Ok((
-                    build_locate_result(candidates, diagnostics.clone(), resolved_confidently),
+                    build_locate_result(
+                        candidates,
+                        diagnostics.clone(),
+                        resolved_confidently,
+                        top_preview,
+                    ),
                     diagnostics,
+                ))
+            },
+        )
+    }
+
+    pub(crate) fn compact_gather(
+        &self,
+        session: Arc<SessionState>,
+        args: PrismGatherArgs,
+    ) -> Result<AgentGatherResultView> {
+        let query_text = format!("prism_gather({})", args.query);
+        self.execute_compact_tool(
+            Arc::clone(&session),
+            "prism_gather",
+            query_text,
+            move |host, _query_run| {
+                let (matches, truncated) = gather_text_matches(host, session.as_ref(), &args)?;
+                Ok((
+                    AgentGatherResultView {
+                        matches,
+                        truncated,
+                        narrowing_hint: truncated.then_some(
+                            "Narrow prism_gather with `path` or `glob`, or select one handle and continue with prism_open.".to_string(),
+                        ),
+                    },
+                    Vec::new(),
                 ))
             },
         )
@@ -137,63 +227,75 @@ impl QueryHost {
                 let prism = host.current_prism();
                 let (target, remapped) =
                     resolve_handle_target(session.as_ref(), prism.as_ref(), &args.handle)?;
-                let symbol = symbol_for(prism.as_ref(), &target.id)?;
-                let symbol_view = symbol_view(prism.as_ref(), &symbol)?;
-                let file_path = symbol_view
-                    .file_path
-                    .clone()
-                    .ok_or_else(|| anyhow!("target `{}` has no workspace file path", target.id.path))?;
-                let related_handles =
-                    compact_open_related_handles(session.as_ref(), prism.as_ref(), &target)?;
+                let result = if is_text_fragment_target(&target) {
+                    compact_open_text_fragment(
+                        host,
+                        session.as_ref(),
+                        &args.handle,
+                        mode,
+                        &target,
+                        remapped,
+                    )?
+                } else {
+                    let symbol_id = target_symbol_id(&target)?;
+                    let symbol = symbol_for(prism.as_ref(), symbol_id)?;
+                    let symbol_view = symbol_view(prism.as_ref(), &symbol)?;
+                    let file_path = symbol_view
+                        .file_path
+                        .clone()
+                        .ok_or_else(|| anyhow!("target `{}` has no workspace file path", target.id.path))?;
+                    let related_handles =
+                        compact_open_related_handles(host, session.as_ref(), prism.as_ref(), &target)?;
 
-                let result = match mode {
-                    AgentOpenMode::Focus => {
-                        let block = focused_block_for_symbol(prism.as_ref(), &symbol, FOCUS_OPEN_OPTIONS)?;
-                        compact_open_result_from_block(
-                            &args.handle,
-                            &file_path,
-                            block.slice,
-                            block.excerpt,
-                            remapped,
-                            "Rerun prism_open with mode `raw` if you need the exact file window.",
-                            related_handles.clone(),
-                        )?
-                    }
-                    AgentOpenMode::Edit => {
-                        let slice = symbol
-                            .edit_slice(EDIT_OPEN_OPTIONS)
-                            .map(source_slice_view)
-                            .ok_or_else(|| anyhow!("target `{}` did not produce an edit slice", target.id.path))?;
-                        compact_open_result_from_slice(
-                            &args.handle,
-                            &file_path,
-                            slice,
-                            remapped,
-                            "Rerun prism_open with mode `raw` if you need the exact file window.",
-                            related_handles.clone(),
-                        )?
-                    }
-                    AgentOpenMode::Raw => {
-                        let location = symbol
-                            .location()
-                            .ok_or_else(|| anyhow!("target `{}` has no line-addressable source location", target.id.path))?;
-                        let excerpt = file_read(
-                            host,
-                            FileReadArgs {
-                                path: file_path.clone(),
-                                start_line: Some(location.start_line),
-                                end_line: Some(location.end_line),
-                                max_chars: Some(RAW_OPEN_MAX_CHARS),
-                            },
-                        )?;
-                        compact_open_result_from_excerpt(
-                            &args.handle,
-                            &file_path,
-                            excerpt,
-                            remapped,
-                            "Rerun prism_open with a narrower target if you need a smaller raw window.",
-                            related_handles.clone(),
-                        )?
+                    match mode {
+                        AgentOpenMode::Focus => {
+                            let block = focused_block_for_symbol(prism.as_ref(), &symbol, FOCUS_OPEN_OPTIONS)?;
+                            compact_open_result_from_block(
+                                &args.handle,
+                                &file_path,
+                                block.slice,
+                                block.excerpt,
+                                remapped,
+                                "Rerun prism_open with mode `raw` if you need the exact file window.",
+                                related_handles.clone(),
+                            )?
+                        }
+                        AgentOpenMode::Edit => {
+                            let slice = symbol
+                                .edit_slice(EDIT_OPEN_OPTIONS)
+                                .map(source_slice_view)
+                                .ok_or_else(|| anyhow!("target `{}` did not produce an edit slice", target.id.path))?;
+                            compact_open_result_from_slice(
+                                &args.handle,
+                                &file_path,
+                                slice,
+                                remapped,
+                                "Rerun prism_open with mode `raw` if you need the exact file window.",
+                                related_handles.clone(),
+                            )?
+                        }
+                        AgentOpenMode::Raw => {
+                            let location = symbol
+                                .location()
+                                .ok_or_else(|| anyhow!("target `{}` has no line-addressable source location", target.id.path))?;
+                            let excerpt = file_read(
+                                host,
+                                FileReadArgs {
+                                    path: file_path.clone(),
+                                    start_line: Some(location.start_line),
+                                    end_line: Some(location.end_line),
+                                    max_chars: Some(RAW_OPEN_MAX_CHARS),
+                                },
+                            )?;
+                            compact_open_result_from_excerpt(
+                                &args.handle,
+                                &file_path,
+                                excerpt,
+                                remapped,
+                                "Rerun prism_open with a narrower target if you need a smaller raw window.",
+                                related_handles.clone(),
+                            )?
+                        }
                     }
                 };
                 Ok((result, Vec::new()))
@@ -227,43 +329,14 @@ impl QueryHost {
                     query_run,
                 )?;
                 let target_view = compact_target_from_session_target(session.as_ref(), &target);
-                let supporting_reads =
-                    next_reads(prism.as_ref(), &target.id, WORKSET_SUPPORTING_LIMIT)?
-                        .into_iter()
-                        .take(WORKSET_SUPPORTING_LIMIT)
-                        .map(|candidate| {
-                            compact_target_view(
-                                &session,
-                                &candidate.symbol,
-                                target.query.as_deref(),
-                                Some(candidate.why),
-                            )
-                        })
-                        .collect::<Vec<_>>();
-                let likely_tests = owner_views_for_target(
-                    prism.as_ref(),
-                    &target.id,
-                    Some("test"),
-                    WORKSET_TEST_LIMIT,
-                )?
-                .into_iter()
-                .take(WORKSET_TEST_LIMIT)
-                .map(|candidate| {
-                    compact_target_view(
-                        &session,
-                        &candidate.symbol,
-                        target.query.as_deref(),
-                        Some(candidate.why),
-                    )
-                })
-                .collect::<Vec<_>>();
-                let why = workset_why(&target);
+                let workset =
+                    workset_context_for_target(host, session.as_ref(), prism.as_ref(), &target)?;
                 Ok((
                     budgeted_workset_result(
                         target_view,
-                        supporting_reads,
-                        likely_tests,
-                        why,
+                        workset.supporting_reads,
+                        workset.likely_tests,
+                        workset.why,
                         remapped,
                     )?,
                     Vec::new(),
@@ -287,23 +360,66 @@ impl QueryHost {
                 let prism = host.current_prism();
                 let (target, remapped) =
                     resolve_handle_target(session.as_ref(), prism.as_ref(), &args.handle)?;
+                let mut top_preview = None;
                 let result = match kind {
                     AgentExpandKind::Diagnostics => {
-                        let symbol = symbol_for(prism.as_ref(), &target.id)?;
-                        let symbol = symbol_view(prism.as_ref(), &symbol)?;
-                        json!({
-                            "query": target.query,
-                            "whyShort": target.why_short,
-                            "filePath": target.file_path,
-                            "ownerHint": symbol.owner_hint,
-                        })
+                        if is_text_fragment_target(&target) {
+                            compact_text_fragment_diagnostics(&target)
+                        } else {
+                            let symbol = symbol_for(prism.as_ref(), target_symbol_id(&target)?)?;
+                            let symbol = symbol_view(prism.as_ref(), &symbol)?;
+                            json!({
+                                "query": target.query,
+                                "whyShort": target.why_short,
+                                "filePath": target.file_path,
+                                "ownerHint": symbol.owner_hint,
+                            })
+                        }
                     }
                     AgentExpandKind::Lineage => {
-                        serde_json::to_value(crate::lineage_view(prism.as_ref(), &target.id)?)?
+                        if is_text_fragment_target(&target) {
+                            json!({
+                                "note": "Lineage is only available for semantic symbol handles. Rerun prism_locate on a symbol target if you need lineage.",
+                                "filePath": target.file_path,
+                            })
+                        } else {
+                            serde_json::to_value(crate::lineage_view(
+                                prism.as_ref(),
+                                target_symbol_id(&target)?,
+                            )?)?
+                        }
                     }
                     AgentExpandKind::Neighbors => {
-                        let neighbors =
-                            next_reads(prism.as_ref(), &target.id, EXPAND_NEIGHBOR_LIMIT)?
+                        if is_text_fragment_target(&target) {
+                            let (neighbors, preview) = compact_text_fragment_neighbors(
+                                host,
+                                session.as_ref(),
+                                &target,
+                                args.include_top_preview.unwrap_or(false),
+                            )?;
+                            top_preview = preview;
+                            json!({ "neighbors": neighbors })
+                        } else {
+                            let next_read_candidates =
+                                next_reads(prism.as_ref(), target_symbol_id(&target)?, EXPAND_NEIGHBOR_LIMIT)?;
+                            if args.include_top_preview.unwrap_or(false) {
+                                top_preview = if let Some(candidate) = next_read_candidates.first() {
+                                    let preview_handle = compact_target_view(
+                                        &session,
+                                        &candidate.symbol,
+                                        target.query.as_deref(),
+                                        Some(candidate.why.clone()),
+                                    );
+                                    compact_preview_for_symbol_view(
+                                        prism.as_ref(),
+                                        &preview_handle.handle,
+                                        &candidate.symbol,
+                                    )?
+                                } else {
+                                    None
+                                };
+                            }
+                            let neighbors = next_read_candidates
                                 .into_iter()
                                 .take(EXPAND_NEIGHBOR_LIMIT)
                                 .map(|candidate| {
@@ -315,51 +431,70 @@ impl QueryHost {
                                     )
                                 })
                                 .collect::<Vec<_>>();
-                        json!({ "neighbors": neighbors })
+                            json!({ "neighbors": neighbors })
+                        }
                     }
                     AgentExpandKind::Diff => {
-                        let lineage = target
-                            .lineage_id
-                            .as_ref()
-                            .map(|value| LineageId::new(value.clone()));
-                        serde_json::to_value(diff_for(
-                            prism.as_ref(),
-                            Some(&target.id),
-                            lineage.as_ref(),
-                            None,
-                            None,
-                            EXPAND_DIFF_LIMIT,
-                        )?)?
+                        if is_text_fragment_target(&target) {
+                            json!({
+                                "note": "Diff expansion is only available for semantic symbol handles. Rerun prism_locate on a symbol target if you need a semantic diff.",
+                                "filePath": target.file_path,
+                            })
+                        } else {
+                            let lineage = target
+                                .lineage_id
+                                .as_ref()
+                                .map(|value| LineageId::new(value.clone()));
+                            serde_json::to_value(diff_for(
+                                prism.as_ref(),
+                                Some(target_symbol_id(&target)?),
+                                lineage.as_ref(),
+                                None,
+                                None,
+                                EXPAND_DIFF_LIMIT,
+                            )?)?
+                        }
                     }
                     AgentExpandKind::Validation => {
-                        let mut cache = crate::SemanticContextCache::default();
-                        let validation = validation_context_view_cached(
-                            prism.as_ref(),
-                            session.as_ref(),
-                            &mut cache,
-                            &target.id,
-                        )?;
-                        let likely_tests = validation
-                            .tests
-                            .into_iter()
-                            .take(WORKSET_TEST_LIMIT)
-                            .map(|candidate| {
-                                compact_target_view(
-                                    &session,
-                                    &candidate.symbol,
-                                    target.query.as_deref(),
-                                    Some(candidate.why),
-                                )
+                        if is_text_fragment_target(&target) {
+                            compact_text_fragment_validation(host, session.as_ref(), &target)?
+                        } else {
+                            let mut cache = crate::SemanticContextCache::default();
+                            let validation = validation_context_view_cached(
+                                prism.as_ref(),
+                                session.as_ref(),
+                                &mut cache,
+                                target_symbol_id(&target)?,
+                            )?;
+                            let likely_tests = validation
+                                .tests
+                                .into_iter()
+                                .take(WORKSET_TEST_LIMIT)
+                                .map(|candidate| {
+                                    compact_target_view(
+                                        &session,
+                                        &candidate.symbol,
+                                        target.query.as_deref(),
+                                        Some(candidate.why),
+                                    )
+                                })
+                                .collect::<Vec<_>>();
+                            json!({
+                                "checks": validation.validation_recipe.checks,
+                                "likelyTests": likely_tests,
+                                "why": validation.why,
                             })
-                            .collect::<Vec<_>>();
-                        json!({
-                            "checks": validation.validation_recipe.checks,
-                            "likelyTests": likely_tests,
-                            "why": validation.why,
-                        })
+                        }
                     }
                     AgentExpandKind::Drift => {
-                        compact_drift_expand_result(session.as_ref(), prism.as_ref(), &target)?
+                        if is_text_fragment_target(&target) {
+                            json!({
+                                "note": "Drift expansion needs a semantic spec/doc handle. Rerun prism_locate on a heading or symbol target if you need drift details.",
+                                "filePath": target.file_path,
+                            })
+                        } else {
+                            compact_drift_expand_result(session.as_ref(), prism.as_ref(), &target)?
+                        }
                     }
                 };
 
@@ -369,6 +504,7 @@ impl QueryHost {
                         kind,
                         result,
                         remapped,
+                        top_preview,
                     },
                     Vec::new(),
                 ))
@@ -487,6 +623,7 @@ fn build_locate_result(
     candidates: Vec<AgentTargetHandleView>,
     diagnostics: Vec<QueryDiagnostic>,
     resolved_confidently: bool,
+    top_preview: Option<AgentTextPreviewView>,
 ) -> AgentLocateResultView {
     let status = if candidates.is_empty() {
         AgentLocateStatus::Empty
@@ -511,6 +648,7 @@ fn build_locate_result(
         narrowing_hint: matches!(status, AgentLocateStatus::Ambiguous)
             .then(|| diagnostics.iter().find_map(next_action_hint))
             .flatten(),
+        top_preview,
     }
 }
 
@@ -576,6 +714,10 @@ fn compact_target_view(
         file_path: symbol.file_path.clone(),
         query: query.map(ToString::to_string),
         why_short: why_short.clone(),
+        start_line: None,
+        end_line: None,
+        start_column: None,
+        end_column: None,
     });
     AgentTargetHandleView {
         handle,
@@ -602,8 +744,29 @@ fn compact_target_from_session_target(
     }
 }
 
+fn compact_ranked_target_view(
+    session: &SessionState,
+    target: &RankedLocateTarget,
+    query: Option<&str>,
+    why_override: Option<String>,
+) -> AgentTargetHandleView {
+    match target {
+        RankedLocateTarget::Symbol(symbol) => {
+            compact_target_view(session, symbol, query, why_override)
+        }
+        RankedLocateTarget::Text(text_target) => {
+            let mut target = text_target.clone();
+            if let Some(why_short) = why_override {
+                target.why_short = clamp_string(&why_short, MAX_WHY_SHORT_CHARS);
+            }
+            compact_target_from_session_target(session, &target)
+        }
+    }
+}
+
 fn rerank_locate_results(
     results: Vec<SymbolView>,
+    text_candidates: Vec<TextSearchCandidate>,
     args: &PrismLocateArgs,
     limit: usize,
 ) -> Vec<RankedLocateCandidate> {
@@ -627,11 +790,27 @@ fn rerank_locate_results(
             )
         })
         .collect::<Vec<_>>();
+    ranked.extend(
+        text_candidates
+            .into_iter()
+            .enumerate()
+            .map(|(index, candidate)| {
+                rank_text_locate_candidate(
+                    index,
+                    candidate,
+                    &query_normalized,
+                    &tokens,
+                    &identifier_terms,
+                    path_scope.as_deref(),
+                    profile,
+                )
+            }),
+    );
     ranked.sort_by(|left, right| {
         right
             .score
             .cmp(&left.score)
-            .then_with(|| left.symbol.id.path.cmp(&right.symbol.id.path))
+            .then_with(|| ranked_target_path(&left.target).cmp(ranked_target_path(&right.target)))
     });
     select_locate_candidates(ranked, limit)
 }
@@ -762,13 +941,102 @@ fn rank_locate_candidate(
 
     score -= index as i32;
     RankedLocateCandidate {
-        symbol,
+        target: RankedLocateTarget::Symbol(symbol),
         score,
         why: clamp_string(
             &reasons
                 .into_iter()
                 .next()
                 .unwrap_or_else(|| "Locate ranked this as a strong first-hop target.".to_string()),
+            MAX_WHY_SHORT_CHARS,
+        ),
+    }
+}
+
+fn rank_text_locate_candidate(
+    index: usize,
+    candidate: TextSearchCandidate,
+    query_normalized: &str,
+    tokens: &[String],
+    identifier_terms: &[String],
+    path_scope: Option<&str>,
+    profile: LocateIntentProfile,
+) -> RankedLocateCandidate {
+    let query_uses_identifiers = !identifier_terms.is_empty();
+    let file_raw = candidate
+        .target
+        .file_path
+        .as_deref()
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let file_normalized = normalize_locate_text(&file_raw);
+    let matched_text_normalized = normalize_locate_text(&candidate.matched_text);
+    let mut score = if query_uses_identifiers { 245 } else { 208 };
+    let mut reasons = vec![format!(
+        "Exact text hit in {} near line {}.",
+        candidate.target.file_path.as_deref().unwrap_or_default(),
+        candidate.target.start_line.unwrap_or_default()
+    )];
+
+    for term in identifier_terms {
+        if matched_text_normalized == *term {
+            score += 120;
+            reasons.insert(0, format!("Exact identifier `{term}` matched file text."));
+            break;
+        }
+        if file_raw.contains(term) {
+            score += 42;
+        }
+    }
+    if !query_normalized.is_empty() && matched_text_normalized.contains(query_normalized) {
+        score += if query_uses_identifiers { 84 } else { 96 };
+    }
+    let matched_tokens = tokens
+        .iter()
+        .filter(|token| {
+            matched_text_normalized.contains(token.as_str())
+                || file_normalized.contains(token.as_str())
+        })
+        .count();
+    if !tokens.is_empty() && matched_tokens == tokens.len() {
+        score += 38;
+    } else if matched_tokens > 0 {
+        score += (matched_tokens as i32) * 10;
+    }
+    if path_scope.is_some_and(|scope| {
+        locate_path_scope_matches(scope, candidate.target.file_path.as_deref())
+    }) {
+        score += 150;
+        reasons.insert(0, "Matched the requested path scope.".to_string());
+    }
+    if is_docs_like_kind(candidate.target.kind) {
+        score += profile.docs_bias.max(0);
+    } else if matches!(
+        candidate.target.kind,
+        NodeKind::JsonKey | NodeKind::TomlKey | NodeKind::YamlKey
+    ) {
+        score += profile.docs_bias.max(0) / 2;
+    } else {
+        score += profile.code_bias / 2;
+    }
+    if profile.test_penalty > 0
+        && candidate
+            .target
+            .file_path
+            .as_deref()
+            .is_some_and(is_test_like_path)
+    {
+        score -= profile.test_penalty / 2;
+    }
+
+    score -= index as i32;
+    RankedLocateCandidate {
+        target: RankedLocateTarget::Text(candidate.target),
+        score,
+        why: clamp_string(
+            &reasons.into_iter().next().unwrap_or_else(|| {
+                "Exact text hit looked like the best first-hop read.".to_string()
+            }),
             MAX_WHY_SHORT_CHARS,
         ),
     }
@@ -825,21 +1093,42 @@ fn locate_diversity_bonus(
         return 0;
     }
     let mut bonus = 0;
-    let candidate_file = candidate.symbol.file_path.as_deref();
+    let candidate_file = ranked_target_file_path(&candidate.target);
     if candidate_file.is_some()
         && selected
             .iter()
-            .all(|item| item.symbol.file_path.as_deref() != candidate_file)
+            .all(|item| ranked_target_file_path(&item.target) != candidate_file)
     {
         bonus += LOCATE_SECONDARY_FILE_DIVERSITY_BONUS;
     }
     if selected
         .iter()
-        .all(|item| item.symbol.kind != candidate.symbol.kind)
+        .all(|item| ranked_target_kind(&item.target) != ranked_target_kind(&candidate.target))
     {
         bonus += LOCATE_SECONDARY_KIND_DIVERSITY_BONUS;
     }
     bonus
+}
+
+fn ranked_target_path(target: &RankedLocateTarget) -> &str {
+    match target {
+        RankedLocateTarget::Symbol(symbol) => symbol.id.path.as_str(),
+        RankedLocateTarget::Text(target) => target.id.path.as_str(),
+    }
+}
+
+fn ranked_target_file_path(target: &RankedLocateTarget) -> Option<&str> {
+    match target {
+        RankedLocateTarget::Symbol(symbol) => symbol.file_path.as_deref(),
+        RankedLocateTarget::Text(target) => target.file_path.as_deref(),
+    }
+}
+
+fn ranked_target_kind(target: &RankedLocateTarget) -> NodeKind {
+    match target {
+        RankedLocateTarget::Symbol(symbol) => symbol.kind,
+        RankedLocateTarget::Text(target) => target.kind,
+    }
 }
 
 fn locate_intent_profile(args: &PrismLocateArgs) -> LocateIntentProfile {
@@ -875,6 +1164,118 @@ fn locate_intent_profile(args: &PrismLocateArgs) -> LocateIntentProfile {
             docs_bias: if docs_path_bias { 80 } else { 20 },
             test_penalty: 64,
         },
+    }
+}
+
+fn locate_text_candidates(
+    host: &QueryHost,
+    session: &SessionState,
+    args: &PrismLocateArgs,
+    limit: usize,
+) -> Result<Vec<TextSearchCandidate>> {
+    if !should_include_text_hits(args) {
+        return Ok(Vec::new());
+    }
+    let outcome = search_text(
+        host,
+        SearchTextArgs {
+            query: args.query.clone(),
+            regex: Some(false),
+            case_sensitive: Some(false),
+            path: args.path.clone(),
+            glob: args.glob.clone(),
+            limit: Some(limit.max(1)),
+            context_lines: Some(0),
+        },
+        session.limits().max_result_nodes,
+    )?;
+    Ok(outcome
+        .results
+        .into_iter()
+        .map(|matched| text_candidate_from_match(session, &args.query, matched))
+        .collect())
+}
+
+fn should_include_text_hits(args: &PrismLocateArgs) -> bool {
+    if args.path.is_some() || args.glob.is_some() {
+        return true;
+    }
+    let query = args.query.trim();
+    if query.is_empty() {
+        return false;
+    }
+    query.contains('_')
+        || query.contains('.')
+        || query.contains('/')
+        || query.contains(':')
+        || query.contains('"')
+        || query.contains('`')
+        || query.contains('[')
+        || query.contains(']')
+        || locate_identifier_terms(query).len() == 1
+}
+
+fn locate_text_diagnostics(ranked: &[RankedLocateCandidate], limit: usize) -> Vec<QueryDiagnostic> {
+    let mut diagnostics = Vec::new();
+    if ranked.len() > limit {
+        diagnostics.push(QueryDiagnostic {
+            code: "result_truncated".to_string(),
+            message: format!(
+                "Locate results were compacted to {limit} targets. Narrow with `path` or `glob` if you need a smaller exact-text set."
+            ),
+            data: Some(json!({
+                "applied": limit,
+                "nextAction": "Use prism_locate with `path` or `glob`, or use prism_gather to inspect 2 to 3 exact slices directly.",
+            })),
+        });
+    }
+    diagnostics
+}
+
+fn text_candidate_from_match(
+    session: &SessionState,
+    query: &str,
+    matched: TextSearchMatchView,
+) -> TextSearchCandidate {
+    let kind = text_hit_kind(&matched.path);
+    let display_path = format!("{}:{}", matched.path, matched.location.start_line);
+    let basename = Path::new(&matched.path)
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or(matched.path.as_str())
+        .to_string();
+    let target = SessionHandleTarget {
+        id: NodeId::new(TEXT_FRAGMENT_CRATE_NAME, display_path.clone(), kind),
+        lineage_id: None,
+        name: format!("{basename}:{}", matched.location.start_line),
+        kind,
+        file_path: Some(matched.path),
+        query: Some(query.to_string()),
+        why_short: clamp_string(
+            &format!("Exact text hit for `{query}`."),
+            MAX_WHY_SHORT_CHARS,
+        ),
+        start_line: Some(matched.location.start_line),
+        end_line: Some(matched.location.end_line),
+        start_column: Some(matched.location.start_column),
+        end_column: Some(matched.location.end_column),
+    };
+    let _ = session.intern_target_handle(target.clone());
+    TextSearchCandidate {
+        target,
+        matched_text: matched.excerpt.text,
+    }
+}
+
+fn text_hit_kind(path: &str) -> NodeKind {
+    if path.ends_with(".json") {
+        NodeKind::JsonKey
+    } else if path.ends_with(".toml") {
+        NodeKind::TomlKey
+    } else if path.ends_with(".yaml") || path.ends_with(".yml") {
+        NodeKind::YamlKey
+    } else {
+        NodeKind::Document
     }
 }
 
@@ -1087,6 +1488,109 @@ fn compact_string_list(items: &[String], limit: usize, max_chars: usize) -> Vec<
     compact
 }
 
+fn workset_context_for_target(
+    host: &QueryHost,
+    session: &SessionState,
+    prism: &Prism,
+    target: &SessionHandleTarget,
+) -> Result<WorksetContext> {
+    if is_text_fragment_target(target) {
+        return compact_text_fragment_workset_context(host, session, target);
+    }
+    if is_docs_like_kind(target.kind) || target.file_path.as_deref().is_some_and(is_docs_path) {
+        return compact_spec_workset_context(session, prism, target);
+    }
+    Ok(WorksetContext {
+        supporting_reads: next_reads(prism, target_symbol_id(target)?, WORKSET_SUPPORTING_LIMIT)?
+            .into_iter()
+            .take(WORKSET_SUPPORTING_LIMIT)
+            .map(|candidate| {
+                compact_target_view(
+                    session,
+                    &candidate.symbol,
+                    target.query.as_deref(),
+                    Some(candidate.why),
+                )
+            })
+            .collect(),
+        likely_tests: owner_views_for_target(
+            prism,
+            target_symbol_id(target)?,
+            Some("test"),
+            WORKSET_TEST_LIMIT,
+        )?
+        .into_iter()
+        .take(WORKSET_TEST_LIMIT)
+        .map(|candidate| {
+            compact_target_view(
+                session,
+                &candidate.symbol,
+                target.query.as_deref(),
+                Some(candidate.why),
+            )
+        })
+        .collect(),
+        why: workset_why(target),
+    })
+}
+
+fn compact_text_fragment_workset_context(
+    host: &QueryHost,
+    session: &SessionState,
+    target: &SessionHandleTarget,
+) -> Result<WorksetContext> {
+    let supporting_reads = compact_text_fragment_related_handles(host, session, target)?
+        .unwrap_or_default()
+        .into_iter()
+        .take(WORKSET_SUPPORTING_LIMIT)
+        .collect::<Vec<_>>();
+    Ok(WorksetContext {
+        supporting_reads,
+        likely_tests: Vec::new(),
+        why: workset_why(target),
+    })
+}
+
+fn compact_spec_workset_context(
+    session: &SessionState,
+    prism: &Prism,
+    target: &SessionHandleTarget,
+) -> Result<WorksetContext> {
+    let drift = spec_drift_explanation_view(prism, &target.id)?;
+    let supporting_reads = drift
+        .next_reads
+        .into_iter()
+        .take(WORKSET_SUPPORTING_LIMIT)
+        .map(|candidate| {
+            compact_target_view(
+                session,
+                &candidate.symbol,
+                target.query.as_deref(),
+                Some(candidate.why),
+            )
+        })
+        .collect::<Vec<_>>();
+    let likely_tests = drift
+        .cluster
+        .tests
+        .into_iter()
+        .take(WORKSET_TEST_LIMIT)
+        .map(|candidate| {
+            compact_target_view(
+                session,
+                &candidate.symbol,
+                target.query.as_deref(),
+                Some(candidate.why),
+            )
+        })
+        .collect::<Vec<_>>();
+    Ok(WorksetContext {
+        supporting_reads,
+        likely_tests,
+        why: spec_workset_why(target, &drift.gaps, &drift.drift_reasons),
+    })
+}
+
 fn compact_why_short(
     symbol: &SymbolView,
     why_override: Option<&str>,
@@ -1170,6 +1674,9 @@ fn resolve_handle_target(
         anyhow!("unknown handle `{handle}`; rerun prism_locate to select a target")
     })?;
     let mut remapped = false;
+    if is_text_fragment_target(&target) {
+        return Ok((target, false));
+    }
     if symbol_for(prism, &target.id).is_err() {
         let lineage_id = target.lineage_id.clone().ok_or_else(|| {
             anyhow!(
@@ -1192,6 +1699,23 @@ fn resolve_handle_target(
     target.lineage_id = symbol_view.lineage_id.or(target.lineage_id);
     session.refresh_target_handle(handle, target.clone());
     Ok((target, remapped))
+}
+
+fn is_text_fragment_target(target: &SessionHandleTarget) -> bool {
+    target.id.crate_name.as_str() == TEXT_FRAGMENT_CRATE_NAME
+        && target.start_line.is_some()
+        && target.end_line.is_some()
+        && target.file_path.is_some()
+}
+
+fn target_symbol_id(target: &SessionHandleTarget) -> Result<&NodeId> {
+    if is_text_fragment_target(target) {
+        return Err(anyhow!(
+            "target `{}` is a text-fragment handle; rerun prism_locate on a semantic symbol if you need symbol-only behavior",
+            target.id.path
+        ));
+    }
+    Ok(&target.id)
 }
 
 fn resolve_lineage_target(
@@ -1314,16 +1838,24 @@ fn compact_open_result_from_excerpt(
 }
 
 fn compact_open_related_handles(
+    host: &QueryHost,
     session: &SessionState,
     prism: &Prism,
     target: &SessionHandleTarget,
 ) -> Result<Option<Vec<AgentTargetHandleView>>> {
+    if is_text_fragment_target(target) {
+        return compact_text_fragment_related_handles(host, session, target);
+    }
     let mut seen = HashSet::<String>::new();
     let mut related_handles = Vec::new();
-    for candidate in next_reads(prism, &target.id, OPEN_RELATED_HANDLE_LIMIT + 1)? {
+    for candidate in next_reads(
+        prism,
+        target_symbol_id(target)?,
+        OPEN_RELATED_HANDLE_LIMIT + 1,
+    )? {
         if candidate.symbol.id.crate_name == target.id.crate_name
             && candidate.symbol.id.path == target.id.path
-            && candidate.symbol.kind == target.id.kind
+            && candidate.symbol.kind == target.kind
         {
             continue;
         }
@@ -1343,6 +1875,335 @@ fn compact_open_related_handles(
         }
     }
     Ok((!related_handles.is_empty()).then_some(related_handles))
+}
+
+fn compact_preview_for_symbol_view(
+    prism: &Prism,
+    handle: &str,
+    symbol: &SymbolView,
+) -> Result<Option<AgentTextPreviewView>> {
+    let id = NodeId::new(
+        symbol.id.crate_name.clone(),
+        symbol.id.path.clone(),
+        symbol.kind,
+    );
+    let symbol = symbol_for(prism, &id)?;
+    let file_path = symbol_view(prism, &symbol)?
+        .file_path
+        .as_deref()
+        .ok_or_else(|| anyhow!("target `{}` has no workspace file path", id.path))?
+        .to_string();
+    let block = focused_block_for_symbol(prism, &symbol, PREVIEW_OPEN_OPTIONS)?;
+    Ok(match (block.slice, block.excerpt) {
+        (Some(slice), _) => Some(AgentTextPreviewView {
+            handle: handle.to_string(),
+            file_path,
+            start_line: slice.start_line,
+            end_line: slice.end_line,
+            text: slice.text,
+            truncated: slice.truncated,
+        }),
+        (None, Some(excerpt)) => Some(AgentTextPreviewView {
+            handle: handle.to_string(),
+            file_path,
+            start_line: excerpt.start_line,
+            end_line: excerpt.end_line,
+            text: excerpt.text,
+            truncated: excerpt.truncated,
+        }),
+        (None, None) => None,
+    })
+}
+
+fn compact_preview_for_ranked_target(
+    host: &QueryHost,
+    prism: &Prism,
+    handle: &str,
+    target: &RankedLocateTarget,
+) -> Result<Option<AgentTextPreviewView>> {
+    match target {
+        RankedLocateTarget::Symbol(symbol) => {
+            compact_preview_for_symbol_view(prism, handle, symbol)
+        }
+        RankedLocateTarget::Text(text_target) => {
+            compact_preview_for_text_target(host, handle, text_target)
+        }
+    }
+}
+
+fn compact_preview_for_text_target(
+    host: &QueryHost,
+    handle: &str,
+    target: &SessionHandleTarget,
+) -> Result<Option<AgentTextPreviewView>> {
+    let excerpt = read_text_fragment(
+        host,
+        target,
+        target.start_line.unwrap_or(1),
+        target.end_line.unwrap_or(1),
+        PREVIEW_OPEN_OPTIONS.max_chars,
+    )?;
+    Ok(Some(AgentTextPreviewView {
+        handle: handle.to_string(),
+        file_path: target.file_path.clone().unwrap_or_default(),
+        start_line: excerpt.start_line,
+        end_line: excerpt.end_line,
+        text: excerpt.text,
+        truncated: excerpt.truncated,
+    }))
+}
+
+fn compact_open_text_fragment(
+    host: &QueryHost,
+    session: &SessionState,
+    handle: &str,
+    mode: AgentOpenMode,
+    target: &SessionHandleTarget,
+    remapped: bool,
+) -> Result<AgentOpenResultView> {
+    let file_path = target
+        .file_path
+        .clone()
+        .ok_or_else(|| anyhow!("text-fragment handle `{handle}` is missing a file path"))?;
+    let (start_line, end_line) = text_fragment_line_span(target);
+    let excerpt = match mode {
+        AgentOpenMode::Focus => read_text_fragment(
+            host,
+            target,
+            start_line.saturating_sub(1).max(1),
+            end_line + 1,
+            FOCUS_OPEN_OPTIONS.max_chars,
+        )?,
+        AgentOpenMode::Edit => read_text_fragment(
+            host,
+            target,
+            start_line.saturating_sub(1).max(1),
+            end_line + 1,
+            EDIT_OPEN_OPTIONS.max_chars,
+        )?,
+        AgentOpenMode::Raw => {
+            read_text_fragment(host, target, start_line, end_line, RAW_OPEN_MAX_CHARS)?
+        }
+    };
+    compact_open_result_from_excerpt(
+        handle,
+        &file_path,
+        excerpt,
+        remapped,
+        "Rerun prism_gather with a narrower `path` or `glob` if you need a smaller exact-text window.",
+        compact_text_fragment_related_handles(host, session, target)?,
+    )
+}
+
+fn compact_text_fragment_related_handles(
+    host: &QueryHost,
+    session: &SessionState,
+    target: &SessionHandleTarget,
+) -> Result<Option<Vec<AgentTargetHandleView>>> {
+    let Some(query) = target.query.as_deref() else {
+        return Ok(None);
+    };
+    let Some(file_path) = target.file_path.as_deref() else {
+        return Ok(None);
+    };
+    let outcome = search_text(
+        host,
+        SearchTextArgs {
+            query: query.to_string(),
+            regex: Some(false),
+            case_sensitive: Some(false),
+            path: Some(file_path.to_string()),
+            glob: None,
+            limit: Some(TEXT_FRAGMENT_RELATED_LIMIT + 1),
+            context_lines: Some(0),
+        },
+        session.limits().max_result_nodes,
+    )?;
+    let mut related = Vec::new();
+    for matched in outcome.results {
+        if Some(matched.location.start_line) == target.start_line
+            && Some(matched.location.end_line) == target.end_line
+        {
+            continue;
+        }
+        related.push(compact_target_from_session_target(
+            session,
+            &text_candidate_from_match(session, query, matched).target,
+        ));
+        if related.len() >= OPEN_RELATED_HANDLE_LIMIT {
+            break;
+        }
+    }
+    Ok((!related.is_empty()).then_some(related))
+}
+
+fn compact_text_fragment_neighbors(
+    host: &QueryHost,
+    session: &SessionState,
+    target: &SessionHandleTarget,
+    include_top_preview: bool,
+) -> Result<(Vec<AgentTargetHandleView>, Option<AgentTextPreviewView>)> {
+    let Some(query) = target.query.as_deref() else {
+        return Ok((Vec::new(), None));
+    };
+    let Some(file_path) = target.file_path.as_deref() else {
+        return Ok((Vec::new(), None));
+    };
+    let outcome = search_text(
+        host,
+        SearchTextArgs {
+            query: query.to_string(),
+            regex: Some(false),
+            case_sensitive: Some(false),
+            path: Some(file_path.to_string()),
+            glob: None,
+            limit: Some(EXPAND_NEIGHBOR_LIMIT + 1),
+            context_lines: Some(0),
+        },
+        session.limits().max_result_nodes,
+    )?;
+    let mut neighbors = Vec::new();
+    let mut top_preview = None;
+    for matched in outcome.results {
+        if Some(matched.location.start_line) == target.start_line
+            && Some(matched.location.end_line) == target.end_line
+        {
+            continue;
+        }
+        let handle_target = text_candidate_from_match(session, query, matched).target;
+        let view = compact_target_from_session_target(session, &handle_target);
+        if include_top_preview && top_preview.is_none() {
+            top_preview = compact_preview_for_text_target(host, &view.handle, &handle_target)?;
+        }
+        neighbors.push(view);
+        if neighbors.len() >= EXPAND_NEIGHBOR_LIMIT {
+            break;
+        }
+    }
+    Ok((neighbors, top_preview))
+}
+
+fn compact_text_fragment_diagnostics(target: &SessionHandleTarget) -> Value {
+    json!({
+        "query": target.query,
+        "whyShort": target.why_short,
+        "filePath": target.file_path,
+        "range": {
+            "startLine": target.start_line,
+            "endLine": target.end_line,
+            "startColumn": target.start_column,
+            "endColumn": target.end_column,
+        },
+    })
+}
+
+fn compact_text_fragment_validation(
+    host: &QueryHost,
+    session: &SessionState,
+    target: &SessionHandleTarget,
+) -> Result<Value> {
+    let likely_tests = if let Some(query) = target.query.as_deref() {
+        search_text(
+            host,
+            SearchTextArgs {
+                query: query.to_string(),
+                regex: Some(false),
+                case_sensitive: Some(false),
+                path: None,
+                glob: Some("**/*test*".to_string()),
+                limit: Some(WORKSET_TEST_LIMIT),
+                context_lines: Some(0),
+            },
+            session.limits().max_result_nodes,
+        )?
+        .results
+        .into_iter()
+        .map(|matched| {
+            compact_target_from_session_target(
+                session,
+                &text_candidate_from_match(session, query, matched).target,
+            )
+        })
+        .take(WORKSET_TEST_LIMIT)
+        .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
+    Ok(json!({
+        "checks": ["Confirm the adjacent config/script updates stay consistent with the exact text hit."],
+        "likelyTests": likely_tests,
+        "why": workset_why(target),
+    }))
+}
+
+fn gather_text_matches(
+    host: &QueryHost,
+    session: &SessionState,
+    args: &PrismGatherArgs,
+) -> Result<(Vec<AgentOpenResultView>, bool)> {
+    let requested = compact_gather_limit(args.limit);
+    let outcome = search_text(
+        host,
+        SearchTextArgs {
+            query: args.query.clone(),
+            regex: Some(false),
+            case_sensitive: Some(false),
+            path: args.path.clone(),
+            glob: args.glob.clone(),
+            limit: Some(requested.saturating_add(1)),
+            context_lines: Some(0),
+        },
+        session.limits().max_result_nodes,
+    )?;
+    let truncated = outcome.results.len() > requested;
+    let matches = outcome
+        .results
+        .into_iter()
+        .take(requested)
+        .map(|matched| {
+            let target = text_candidate_from_match(session, &args.query, matched).target;
+            let handle = session.intern_target_handle(target.clone());
+            compact_open_text_fragment(host, session, &handle, AgentOpenMode::Focus, &target, false)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok((matches, truncated))
+}
+
+fn text_fragment_line_span(target: &SessionHandleTarget) -> (usize, usize) {
+    (
+        target.start_line.unwrap_or(1),
+        target.end_line.unwrap_or(target.start_line.unwrap_or(1)),
+    )
+}
+
+fn read_text_fragment(
+    host: &QueryHost,
+    target: &SessionHandleTarget,
+    start_line: usize,
+    end_line: usize,
+    max_chars: usize,
+) -> Result<SourceExcerptView> {
+    let file_path = target.file_path.clone().ok_or_else(|| {
+        anyhow!(
+            "text-fragment target `{}` is missing a file path",
+            target.id.path
+        )
+    })?;
+    file_read(
+        host,
+        FileReadArgs {
+            path: file_path,
+            start_line: Some(start_line),
+            end_line: Some(end_line),
+            max_chars: Some(max_chars),
+        },
+    )
+}
+
+fn compact_gather_limit(limit: Option<usize>) -> usize {
+    limit
+        .unwrap_or(DEFAULT_GATHER_LIMIT)
+        .clamp(1, MAX_GATHER_LIMIT)
 }
 
 fn compact_drift_expand_result(
@@ -1472,11 +2333,42 @@ fn agent_expand_kind(kind: &PrismExpandKindInput) -> AgentExpandKind {
 }
 
 fn workset_why(target: &SessionHandleTarget) -> String {
-    let why = match target.query.as_deref() {
+    let why = if is_text_fragment_target(target) {
+        match (target.query.as_deref(), target.file_path.as_deref(), target.start_line) {
+            (Some(query), Some(file_path), Some(start_line)) => format!(
+                "Exact text hit for `{query}` in {file_path}:{start_line}. {}",
+                target.why_short
+            ),
+            (Some(query), _, _) => format!("Exact text hit for `{query}`. {}", target.why_short),
+            _ => target.why_short.clone(),
+        }
+    } else {
+        match target.query.as_deref() {
         Some(query) => format!("Primary target from `{query}`. {}", target.why_short),
         None => target.why_short.clone(),
+        }
     };
     clamp_string(&why, WORKSET_WHY_MAX_CHARS)
+}
+
+fn spec_workset_why(
+    target: &SessionHandleTarget,
+    gaps: &[String],
+    drift_reasons: &[String],
+) -> String {
+    let base = workset_why(target);
+    let gap = gaps
+        .iter()
+        .chain(drift_reasons.iter())
+        .find(|value| !value.trim().is_empty())
+        .map(|value| clamp_string(value, 72));
+    match gap {
+        Some(gap) => clamp_string(
+            &format!("{base} Gap summary: {gap}."),
+            WORKSET_WHY_MAX_CHARS,
+        ),
+        None => base,
+    }
 }
 
 fn strip_file_paths(targets: &mut [AgentTargetHandleView]) -> bool {

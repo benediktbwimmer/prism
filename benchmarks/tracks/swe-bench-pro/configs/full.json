@@ -75,6 +75,7 @@
       "name": "prism",
       "prism_enabled": true,
       "prompt_path": "benchmarks/prompts/codex/prism.md",
+      "compact_preview_policy": "adaptive",
       "tool_profile": "codex-prism",
       "codex_config_overrides": [
         "mcp_servers.prism.enabled=true"

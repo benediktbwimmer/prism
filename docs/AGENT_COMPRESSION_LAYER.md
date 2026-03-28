@@ -40,10 +40,11 @@ using it as the default mouth.
 The default agent path becomes:
 
 1. `prism_locate`
-2. `prism_open`
-3. `prism_workset`
-4. `prism_expand` only when needed
-5. `prism_query` only when the compact surface cannot express the task
+2. `prism_gather` when the need is exact text/config/schema slices rather than a semantic symbol
+3. `prism_open`
+4. `prism_workset`
+5. `prism_expand` only when needed
+6. `prism_query` only when the compact surface cannot express the task
 
 `prism_query` remains the semantic IR and escape hatch.
 
@@ -60,6 +61,7 @@ Input:
 - optional `glob`
 - optional `task_intent`
 - optional `limit`
+- optional `include_top_preview`
 
 Output:
 - `handle`
@@ -68,6 +70,7 @@ Output:
 - `name`
 - `why_short`
 - optional `file_path`
+- optional `top_preview`
 
 Default behavior:
 - biased toward editable implementation targets
@@ -99,6 +102,25 @@ Rules:
 - `edit` is narrow and returns the edit slice only
 - it does not silently become a mini-bundle
 
+### `prism_gather`
+
+Purpose:
+- gather 1 to 3 exact text/file-fragment slices in one hop
+
+Input:
+- `query`
+- optional `path`
+- optional `glob`
+- optional `limit`
+
+Output:
+- `matches`
+- optional `narrowing_hint`
+
+Rules:
+- use this for config keys, schema fields, telemetry counters, and other exact text anchors
+- gathered matches still return stable handles so the next move can stay on `prism_open` or `prism_workset`
+
 ### `prism_workset`
 
 Purpose:
@@ -116,6 +138,7 @@ Output:
 Rules:
 - keep a hard compactness budget
 - do not return nested diagnostics, discovery payloads, or rich extras
+- for spec/doc targets, bias `supporting_reads` toward drift follow-ups and let `why` summarize the leading gap
 - if it starts to bloat, split it instead of expanding it
 
 ### `prism_expand`
@@ -126,6 +149,7 @@ Purpose:
 Input:
 - `handle`
 - `kind`
+- optional `include_top_preview` for `neighbors`
 
 `kind` values:
 - `diagnostics`
@@ -137,6 +161,7 @@ Input:
 
 Output:
 - only the requested expansion
+- optional `top_preview` when a bounded neighbor preview is requested
 
 ## Handles
 
@@ -148,6 +173,7 @@ Requirements:
 - handles remain stable within a session
 - handle resolution is cheap
 - stale handles return a compact remap or one short recovery hint, not a large error envelope
+- handles may refer to semantic symbols or lightweight exact text/file fragments
 
 Implementation target:
 - handle storage should live in session-local MCP state
@@ -199,10 +225,11 @@ Defaults:
 The benchmark and agent guidance should prefer:
 
 1. `prism_locate`
-2. `prism_open`
-3. `prism_workset`
-4. `prism_expand` only when needed
-5. `prism_query` only as an explicit fallback
+2. `prism_gather` for exact text/config/schema reads
+3. `prism_open`
+4. `prism_workset`
+5. `prism_expand` only when needed
+6. `prism_query` only as an explicit fallback
 
 Guidance changes:
 - carry handles forward
@@ -229,6 +256,7 @@ Milestone success criteria:
 ### Contract tests
 
 - `prism_locate` returns compact fields and stable handles
+- `prism_gather` returns 1 to 3 bounded exact-text slices with reusable handles
 - `prism_open` returns bounded slices only
 - `prism_workset` stays compact and task-shaped
 - `prism_expand` returns only the requested expansion

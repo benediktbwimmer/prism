@@ -116,6 +116,18 @@ def _parse_args() -> argparse.Namespace:
     record_parser.add_argument("--completion-tokens", type=int, default=0)
     record_parser.add_argument("--tool-calls", type=int, default=0)
     record_parser.add_argument("--prism-queries", type=int, default=0)
+    record_parser.add_argument("--prism-query-calls", type=int, default=0)
+    record_parser.add_argument("--prism-compact-tool-calls", type=int, default=0)
+    record_parser.add_argument("--locate-preview-requests", type=int, default=0)
+    record_parser.add_argument("--locate-preview-hits", type=int, default=0)
+    record_parser.add_argument("--locate-preview-bytes", type=int, default=0)
+    record_parser.add_argument("--locate-preview-direct-opens", type=int, default=0)
+    record_parser.add_argument("--locate-preview-direct-progressions", type=int, default=0)
+    record_parser.add_argument("--expand-preview-requests", type=int, default=0)
+    record_parser.add_argument("--expand-preview-hits", type=int, default=0)
+    record_parser.add_argument("--expand-preview-bytes", type=int, default=0)
+    record_parser.add_argument("--expand-preview-direct-opens", type=int, default=0)
+    record_parser.add_argument("--expand-preview-direct-progressions", type=int, default=0)
     record_parser.add_argument("--shell-commands", type=int, default=0)
     record_parser.add_argument("--shell-read-commands", type=int, default=0)
     record_parser.add_argument("--repeated-reads", type=int, default=0)
@@ -228,6 +240,18 @@ def main() -> int:
             completion_tokens=args.completion_tokens,
             tool_calls=args.tool_calls,
             prism_queries=args.prism_queries,
+            prism_query_calls=args.prism_query_calls,
+            prism_compact_tool_calls=args.prism_compact_tool_calls,
+            locate_preview_requests=args.locate_preview_requests,
+            locate_preview_hits=args.locate_preview_hits,
+            locate_preview_bytes=args.locate_preview_bytes,
+            locate_preview_direct_opens=args.locate_preview_direct_opens,
+            locate_preview_direct_progressions=args.locate_preview_direct_progressions,
+            expand_preview_requests=args.expand_preview_requests,
+            expand_preview_hits=args.expand_preview_hits,
+            expand_preview_bytes=args.expand_preview_bytes,
+            expand_preview_direct_opens=args.expand_preview_direct_opens,
+            expand_preview_direct_progressions=args.expand_preview_direct_progressions,
             shell_commands=args.shell_commands,
             shell_read_commands=args.shell_read_commands,
             repeated_reads=args.repeated_reads,

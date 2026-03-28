@@ -39,6 +39,22 @@ COMPACT_PRISM_TOOLS = {
 }
 
 
+def _compact_preview_policy(config: dict[str, Any], arm_name: str) -> str:
+    arm = _arm(config, arm_name)
+    return str(arm.get("compact_preview_policy", "off"))
+
+
+def _preview_guidance(config: dict[str, Any], arm_name: str) -> str:
+    if _compact_preview_policy(config, arm_name) != "adaptive":
+        return ""
+    return (
+        "- Adaptive preview policy: on `prism_locate`, request `includeTopPreview: true` when you mainly need to confirm the top candidate or glance at a likely signature/heading before opening it.\n"
+        "- On `prism_expand` with `kind: \"neighbors\"`, request `includeTopPreview: true` only when the top neighbor is likely the next read and a short teaser may save a full `prism_open`.\n"
+        "- If a preview already answers the immediate question, skip `prism_open` and continue with the handle you have.\n"
+        "- If the preview is truncated or clearly insufficient, escalate once with `prism_open` instead of repeating more preview requests.\n"
+    )
+
+
 def _artifact_path(template: str, run_id: str, arm_name: str, instance_name: str) -> Path:
     path = Path(template.format(run_id=run_id, arm=arm_name, instance_id=instance_name))
     return path if path.is_absolute() else ROOT / path
@@ -76,6 +92,7 @@ def _compose_prompt(
     arm_prompt = Path(arm["prompt_abspath"]).read_text(encoding="utf-8").strip()
     body = _instance_prompt(instance).strip()
     workspace_glob = f"{workspace_dir}/**/*"
+    preview_guidance = _preview_guidance(config, arm_name)
     return (
         f"{arm_prompt}\n\n"
         f"Benchmark instance: `{instance_id(instance)}`\n"
@@ -87,6 +104,7 @@ def _compose_prompt(
         f"- Constrain PRISM searches to this repo with `path: \"{workspace_dir}\"` or `glob: \"{workspace_glob}\"` when the tool supports it.\n"
         "- Carry forward compact PRISM handles instead of rediscovering the same target by text.\n"
         "- After a successful compact PRISM locate/open/workset call, do not reread that same target through shell tools unless you specifically need raw command output.\n\n"
+        f"{preview_guidance}"
         "Task:\n"
         f"{body}\n\n"
         "Requirements:\n"
@@ -234,11 +252,86 @@ def _parse_exec_jsonl(stdout: str) -> dict[str, Any]:
     prism_queries = 0
     prism_query_calls = 0
     prism_compact_tool_calls = 0
+    locate_preview_requests = 0
+    locate_preview_hits = 0
+    locate_preview_bytes = 0
+    locate_preview_direct_opens = 0
+    locate_preview_direct_progressions = 0
+    expand_preview_requests = 0
+    expand_preview_hits = 0
+    expand_preview_bytes = 0
+    expand_preview_direct_opens = 0
+    expand_preview_direct_progressions = 0
     tool_calls = 0
     repeated_reads = 0
     seen_read_commands: dict[str, int] = {}
     usage = {"input_tokens": 0, "output_tokens": 0}
     prism_payload_bytes = 0
+    pending_preview: dict[str, str] | None = None
+
+    def _unwrap_tool_result(result: Any) -> Any:
+        if not isinstance(result, dict):
+            return result
+        structured = result.get("structured_content")
+        if structured is not None:
+            return structured
+        content = result.get("content")
+        if isinstance(content, list):
+            for item in content:
+                if not isinstance(item, dict):
+                    continue
+                text = item.get("text")
+                if not isinstance(text, str):
+                    continue
+                try:
+                    return json.loads(text)
+                except json.JSONDecodeError:
+                    continue
+        return result
+
+    def _serialized_len(value: Any) -> int:
+        return len(json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8"))
+
+    def _preview_requested(tool_name: str, arguments: Any) -> bool:
+        if not isinstance(arguments, dict):
+            return False
+        include_top_preview = arguments.get("includeTopPreview")
+        if include_top_preview is None:
+            include_top_preview = arguments.get("include_top_preview")
+        if tool_name == "prism_expand":
+            return bool(include_top_preview) and arguments.get("kind") == "neighbors"
+        return tool_name == "prism_locate" and bool(include_top_preview)
+
+    def _preview_source(tool_name: str) -> str | None:
+        if tool_name == "prism_locate":
+            return "locate"
+        if tool_name == "prism_expand":
+            return "expand"
+        return None
+
+    def _extract_preview_handle(payload: Any) -> str | None:
+        if not isinstance(payload, dict):
+            return None
+        top_preview = payload.get("topPreview")
+        if not isinstance(top_preview, dict):
+            return None
+        handle = top_preview.get("handle")
+        if isinstance(handle, str) and handle:
+            return handle
+        return None
+
+    def _extract_preview_value(payload: Any) -> Any:
+        if not isinstance(payload, dict):
+            return None
+        return payload.get("topPreview")
+
+    def _followup_handle(tool_name: str, arguments: Any) -> str | None:
+        if tool_name not in COMPACT_PRISM_TOOLS or not isinstance(arguments, dict):
+            return None
+        handle = arguments.get("handle")
+        if isinstance(handle, str) and handle:
+            return handle
+        return None
 
     for event in events:
         event_type = event.get("type")
@@ -248,6 +341,7 @@ def _parse_exec_jsonl(stdout: str) -> dict[str, Any]:
             if item_type == "command_execution":
                 tool_calls += 1
                 shell_commands += 1
+                pending_preview = None
                 command = str(item.get("command", ""))
                 normalized = command.strip()
                 if any(normalized.startswith(prefix) or prefix in normalized for prefix in READ_COMMAND_PREFIXES):
@@ -257,20 +351,53 @@ def _parse_exec_jsonl(stdout: str) -> dict[str, Any]:
                         repeated_reads += 1
             elif item_type in {"mcp_tool_call", "mcp_call"}:
                 tool_calls += 1
+                tool_name = str(item.get("tool", ""))
+                arguments = item.get("arguments")
                 if item.get("server") == "prism":
                     prism_queries += 1
-                    tool_name = str(item.get("tool", ""))
                     if tool_name == "prism_query":
                         prism_query_calls += 1
+                        pending_preview = None
                     elif tool_name in COMPACT_PRISM_TOOLS:
                         prism_compact_tool_calls += 1
+                        followup_handle = _followup_handle(tool_name, arguments)
+                        if pending_preview is not None:
+                            if followup_handle == pending_preview["handle"]:
+                                if pending_preview["source"] == "locate":
+                                    if tool_name == "prism_open":
+                                        locate_preview_direct_opens += 1
+                                    elif tool_name in {"prism_workset", "prism_expand"}:
+                                        locate_preview_direct_progressions += 1
+                                elif pending_preview["source"] == "expand":
+                                    if tool_name == "prism_open":
+                                        expand_preview_direct_opens += 1
+                                    elif tool_name in {"prism_workset", "prism_expand"}:
+                                        expand_preview_direct_progressions += 1
+                            pending_preview = None
+                    else:
+                        pending_preview = None
+                    result_payload = _unwrap_tool_result(item.get("result"))
+                    if _preview_requested(tool_name, arguments):
+                        preview_source = _preview_source(tool_name)
+                        preview_handle = _extract_preview_handle(result_payload)
+                        preview_value = _extract_preview_value(result_payload)
+                        if preview_source == "locate":
+                            locate_preview_requests += 1
+                            if preview_handle is not None and preview_value is not None:
+                                locate_preview_hits += 1
+                                locate_preview_bytes += _serialized_len(preview_value)
+                                pending_preview = {"source": "locate", "handle": preview_handle}
+                        elif preview_source == "expand":
+                            expand_preview_requests += 1
+                            if preview_handle is not None and preview_value is not None:
+                                expand_preview_hits += 1
+                                expand_preview_bytes += _serialized_len(preview_value)
+                                pending_preview = {"source": "expand", "handle": preview_handle}
                     result = item.get("result")
                     if result is not None:
-                        prism_payload_bytes += len(
-                            json.dumps(result, sort_keys=True, separators=(",", ":")).encode(
-                                "utf-8"
-                            )
-                        )
+                        prism_payload_bytes += _serialized_len(result)
+                else:
+                    pending_preview = None
         elif event_type == "turn.completed":
             usage = event.get("usage", usage)
 
@@ -282,6 +409,16 @@ def _parse_exec_jsonl(stdout: str) -> dict[str, Any]:
         "prism_queries": prism_queries,
         "prism_query_calls": prism_query_calls,
         "prism_compact_tool_calls": prism_compact_tool_calls,
+        "locate_preview_requests": locate_preview_requests,
+        "locate_preview_hits": locate_preview_hits,
+        "locate_preview_bytes": locate_preview_bytes,
+        "locate_preview_direct_opens": locate_preview_direct_opens,
+        "locate_preview_direct_progressions": locate_preview_direct_progressions,
+        "expand_preview_requests": expand_preview_requests,
+        "expand_preview_hits": expand_preview_hits,
+        "expand_preview_bytes": expand_preview_bytes,
+        "expand_preview_direct_opens": expand_preview_direct_opens,
+        "expand_preview_direct_progressions": expand_preview_direct_progressions,
         "prism_payload_bytes": prism_payload_bytes,
         "shell_commands": shell_commands,
         "shell_read_commands": shell_read_commands,
@@ -359,6 +496,16 @@ def run_codex_instance(
         prism_queries=parsed["prism_queries"],
         prism_query_calls=parsed["prism_query_calls"],
         prism_compact_tool_calls=parsed["prism_compact_tool_calls"],
+        locate_preview_requests=parsed["locate_preview_requests"],
+        locate_preview_hits=parsed["locate_preview_hits"],
+        locate_preview_bytes=parsed["locate_preview_bytes"],
+        locate_preview_direct_opens=parsed["locate_preview_direct_opens"],
+        locate_preview_direct_progressions=parsed["locate_preview_direct_progressions"],
+        expand_preview_requests=parsed["expand_preview_requests"],
+        expand_preview_hits=parsed["expand_preview_hits"],
+        expand_preview_bytes=parsed["expand_preview_bytes"],
+        expand_preview_direct_opens=parsed["expand_preview_direct_opens"],
+        expand_preview_direct_progressions=parsed["expand_preview_direct_progressions"],
         prism_payload_bytes=parsed["prism_payload_bytes"],
         shell_commands=parsed["shell_commands"],
         shell_read_commands=parsed["shell_read_commands"],
@@ -385,6 +532,16 @@ def run_codex_instance(
         "prism_queries": parsed["prism_queries"],
         "prism_query_calls": parsed["prism_query_calls"],
         "prism_compact_tool_calls": parsed["prism_compact_tool_calls"],
+        "locate_preview_requests": parsed["locate_preview_requests"],
+        "locate_preview_hits": parsed["locate_preview_hits"],
+        "locate_preview_bytes": parsed["locate_preview_bytes"],
+        "locate_preview_direct_opens": parsed["locate_preview_direct_opens"],
+        "locate_preview_direct_progressions": parsed["locate_preview_direct_progressions"],
+        "expand_preview_requests": parsed["expand_preview_requests"],
+        "expand_preview_hits": parsed["expand_preview_hits"],
+        "expand_preview_bytes": parsed["expand_preview_bytes"],
+        "expand_preview_direct_opens": parsed["expand_preview_direct_opens"],
+        "expand_preview_direct_progressions": parsed["expand_preview_direct_progressions"],
         "prism_payload_bytes": parsed["prism_payload_bytes"],
         "shell_commands": parsed["shell_commands"],
         "shell_read_commands": parsed["shell_read_commands"],

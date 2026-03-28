@@ -136,6 +136,7 @@ pub struct WorkspaceSession {
     pub(crate) store: Arc<Mutex<SqliteStore>>,
     pub(crate) refresh_lock: Arc<Mutex<()>>,
     pub(crate) refresh_state: Arc<WorkspaceRefreshState>,
+    pub(crate) loaded_workspace_revision: Arc<AtomicU64>,
     pub(crate) fs_snapshot: Arc<Mutex<WorkspaceFingerprint>>,
     pub(crate) watch: Option<WatchHandle>,
     pub(crate) curator: Option<CuratorHandle>,
@@ -266,6 +267,7 @@ impl WorkspaceSession {
 
     fn reload_persisted_prism_with_guard(&self, _guard: MutexGuard<'_, ()>) -> Result<()> {
         let mut store = self.store.lock().expect("workspace store lock poisoned");
+        let workspace_revision = store.workspace_revision()?;
         let graph = store.load_graph()?.unwrap_or_default();
         let mut history = store
             .load_history_snapshot()?
@@ -298,6 +300,8 @@ impl WorkspaceSession {
             projections,
         ));
         *self.prism.write().expect("workspace prism lock poisoned") = prism;
+        self.loaded_workspace_revision
+            .store(workspace_revision, Ordering::Relaxed);
         Ok(())
     }
 
@@ -306,6 +310,14 @@ impl WorkspaceSession {
             .lock()
             .expect("workspace store lock poisoned")
             .workspace_revision()
+    }
+
+    pub fn loaded_workspace_revision(&self) -> u64 {
+        self.loaded_workspace_revision.load(Ordering::Relaxed)
+    }
+
+    pub fn loaded_workspace_revision_handle(&self) -> Arc<AtomicU64> {
+        Arc::clone(&self.loaded_workspace_revision)
     }
 
     pub fn snapshot_revisions(&self) -> Result<WorkspaceSnapshotRevisions> {
@@ -585,6 +597,7 @@ impl WorkspaceSession {
             &self.store,
             &self.refresh_lock,
             &self.refresh_state,
+            &self.loaded_workspace_revision,
             &self.fs_snapshot,
             self.coordination_enabled,
             curator.as_ref(),
@@ -605,6 +618,7 @@ impl WorkspaceSession {
             &self.store,
             &self.refresh_lock,
             &self.refresh_state,
+            &self.loaded_workspace_revision,
             &self.fs_snapshot,
             self.coordination_enabled,
             self.curator.as_ref().map(CuratorHandleRef::from).as_ref(),

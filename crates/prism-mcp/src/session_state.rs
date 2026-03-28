@@ -25,6 +25,10 @@ pub(crate) struct SessionHandleTarget {
     pub(crate) file_path: Option<String>,
     pub(crate) query: Option<String>,
     pub(crate) why_short: String,
+    pub(crate) start_line: Option<usize>,
+    pub(crate) end_line: Option<usize>,
+    pub(crate) start_column: Option<usize>,
+    pub(crate) end_column: Option<usize>,
 }
 
 pub(crate) struct SessionState {
@@ -246,6 +250,18 @@ impl SessionState {
 }
 
 fn session_handle_key(target: &SessionHandleTarget) -> String {
+    if let (Some(file_path), Some(start_line), Some(end_line)) = (
+        target.file_path.as_ref(),
+        target.start_line,
+        target.end_line,
+    ) {
+        return format!(
+            "fragment:{file_path}:{start_line}:{}:{end_line}:{}:{}",
+            target.start_column.unwrap_or(1),
+            target.end_column.unwrap_or(1),
+            target.query.as_deref().unwrap_or_default()
+        );
+    }
     if let Some(lineage_id) = target.lineage_id.as_ref().filter(|value| !value.is_empty()) {
         format!("lineage:{lineage_id}")
     } else {

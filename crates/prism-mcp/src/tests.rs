@@ -178,6 +178,27 @@ fn server_with_node_and_features(node: Node, features: PrismMcpFeatures) -> Pris
     PrismMcpServer::new_with_features(Prism::new(graph), features)
 }
 
+async fn spawn_http_upstream(server: PrismMcpServer) -> (String, tokio::task::JoinHandle<()>) {
+    let service: StreamableHttpService<PrismMcpServer, LocalSessionManager> =
+        StreamableHttpService::new(
+            move || Ok(server.clone()),
+            Default::default(),
+            StreamableHttpServerConfig {
+                sse_keep_alive: None,
+                ..Default::default()
+            },
+        );
+    let router = Router::new().nest_service("/mcp", service);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("listener should bind");
+    let addr = listener.local_addr().expect("listener should expose addr");
+    let task = tokio::spawn(async move {
+        let _ = axum::serve(listener, router).await;
+    });
+    (format!("http://{addr}/mcp"), task)
+}
+
 fn client_message(raw: &str) -> ClientJsonRpcMessage {
     serde_json::from_str(raw).expect("invalid client json-rpc message")
 }
@@ -856,8 +877,9 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .iter()
         .filter_map(|tool| tool["name"].as_str())
         .collect::<Vec<_>>();
-    assert_eq!(tool_names.len(), 7);
+    assert_eq!(tool_names.len(), 8);
     assert!(tool_names.contains(&"prism_locate"));
+    assert!(tool_names.contains(&"prism_gather"));
     assert!(tool_names.contains(&"prism_open"));
     assert!(tool_names.contains(&"prism_workset"));
     assert!(tool_names.contains(&"prism_expand"));
@@ -894,6 +916,7 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .expect("api reference should be text");
     assert!(api_reference.contains("PRISM Agent API"));
     assert!(api_reference.contains("prism_locate"));
+    assert!(api_reference.contains("prism_gather"));
     assert!(api_reference.contains("prism_open"));
     assert!(api_reference.contains("prism_query"));
     assert!(!api_reference.contains("runtimeStatus(): RuntimeStatusView;"));
@@ -1174,28 +1197,13 @@ async fn schema_catalog_and_capabilities_surface_stable_examples() {
 
 #[tokio::test]
 async fn stdio_proxy_forwards_to_streamable_http_upstream() {
-    let upstream = server_with_node(demo_node());
-    let service: StreamableHttpService<PrismMcpServer, LocalSessionManager> =
-        StreamableHttpService::new(
-            move || Ok(upstream.clone()),
-            Default::default(),
-            StreamableHttpServerConfig {
-                sse_keep_alive: None,
-                ..Default::default()
-            },
-        );
-    let router = Router::new().nest_service("/mcp", service);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("listener should bind");
-    let addr = listener.local_addr().expect("listener should expose addr");
-    let upstream_task = tokio::spawn(async move {
-        let _ = axum::serve(listener, router).await;
-    });
-
-    let proxy = crate::proxy_server::ProxyMcpServer::connect(format!("http://{addr}/mcp"))
-        .await
-        .expect("proxy should connect to upstream");
+    let (upstream_uri, upstream_task) = spawn_http_upstream(server_with_node(demo_node())).await;
+    let proxy = crate::proxy_server::ProxyMcpServer::connect_with_source(
+        upstream_uri.clone(),
+        crate::daemon_mode::BridgeUpstreamSource::Fixed(upstream_uri),
+    )
+    .await
+    .expect("proxy should connect to upstream");
     let (client_transport, server_transport) = tokio::io::duplex(64 * 1024);
     let proxy_task = tokio::spawn(async move {
         let running = proxy
@@ -1228,6 +1236,7 @@ async fn stdio_proxy_forwards_to_streamable_http_upstream() {
         .await
         .expect("proxy should forward tools/list");
     assert!(tools.iter().any(|tool| tool.name == "prism_locate"));
+    assert!(tools.iter().any(|tool| tool.name == "prism_gather"));
     assert!(tools.iter().any(|tool| tool.name == "prism_query"));
 
     let session = client
@@ -1261,39 +1270,20 @@ async fn stdio_proxy_forwards_to_streamable_http_upstream() {
 }
 
 #[tokio::test]
-async fn stdio_proxy_exits_after_idle_timeout() {
-    let upstream = server_with_node(demo_node());
-    let service: StreamableHttpService<PrismMcpServer, LocalSessionManager> =
-        StreamableHttpService::new(
-            move || Ok(upstream.clone()),
-            Default::default(),
-            StreamableHttpServerConfig {
-                sse_keep_alive: None,
-                ..Default::default()
-            },
-        );
-    let router = Router::new().nest_service("/mcp", service);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("listener should bind");
-    let addr = listener.local_addr().expect("listener should expose addr");
-    let upstream_task = tokio::spawn(async move {
-        let _ = axum::serve(listener, router).await;
-    });
-
-    let proxy = crate::proxy_server::ProxyMcpServer::connect(format!("http://{addr}/mcp"))
-        .await
-        .expect("proxy should connect to upstream");
+async fn stdio_proxy_stays_alive_while_idle_until_client_disconnects() {
+    let (upstream_uri, upstream_task) = spawn_http_upstream(server_with_node(demo_node())).await;
+    let proxy = crate::proxy_server::ProxyMcpServer::connect_with_source(
+        upstream_uri.clone(),
+        crate::daemon_mode::BridgeUpstreamSource::Fixed(upstream_uri),
+    )
+    .await
+    .expect("proxy should connect to upstream");
     let (client_transport, server_transport) = tokio::io::duplex(64 * 1024);
     let proxy_task = tokio::spawn(async move {
         proxy
-            .serve_transport_with_idle_timeout(
-                server_transport,
-                Duration::from_millis(150),
-                Duration::from_millis(20),
-            )
+            .serve_transport(server_transport)
             .await
-            .expect("proxy should exit cleanly after idle timeout");
+            .expect("proxy should stay alive until the client disconnects");
     });
 
     let client = ().serve(client_transport).await.expect("client should connect through proxy");
@@ -1304,14 +1294,102 @@ async fn stdio_proxy_exits_after_idle_timeout() {
         .expect("proxy should forward tools/list before becoming idle");
     assert!(tools.iter().any(|tool| tool.name == "prism_query"));
 
+    tokio::time::sleep(Duration::from_millis(250)).await;
+    assert!(
+        !proxy_task.is_finished(),
+        "idle bridge should not exit just because it has been inactive"
+    );
+
+    let resources = client
+        .list_all_resources()
+        .await
+        .expect("proxy should still be alive after an idle period");
+    assert!(resources
+        .iter()
+        .any(|resource| resource.uri == API_REFERENCE_URI));
+
+    client.cancel().await.unwrap();
+
     tokio::time::timeout(Duration::from_secs(2), proxy_task)
         .await
-        .expect("idle proxy should exit within the timeout")
+        .expect("proxy should exit after the client disconnects")
         .expect("proxy task should complete cleanly");
-
-    drop(client);
     upstream_task.abort();
     let _ = upstream_task.await;
+}
+
+#[tokio::test]
+async fn stdio_proxy_reconnects_after_upstream_restart_from_uri_file() {
+    let uri_file = temp_workspace().join("bridge-uri.txt");
+    let (first_uri, first_upstream_task) = spawn_http_upstream(server_with_node(demo_node())).await;
+    fs::write(&uri_file, format!("{first_uri}\n")).expect("uri file should be written");
+
+    let proxy = crate::proxy_server::ProxyMcpServer::connect_with_source(
+        first_uri.clone(),
+        crate::daemon_mode::BridgeUpstreamSource::HttpUriFile(uri_file.clone()),
+    )
+    .await
+    .expect("proxy should connect to upstream");
+    let (client_transport, server_transport) = tokio::io::duplex(64 * 1024);
+    let proxy_task = tokio::spawn(async move {
+        proxy
+            .serve_transport(server_transport)
+            .await
+            .expect("proxy should initialize on stdio transport");
+    });
+
+    let client = ().serve(client_transport).await.expect("client should connect through proxy");
+    let first_query = client
+        .call_tool(CallToolRequestParams::new("prism_query").with_arguments(
+            serde_json::Map::from_iter([(
+                String::from("code"),
+                json!(r#"return prism.symbol("main")?.id.path ?? null;"#),
+            )]),
+        ))
+        .await
+        .expect("proxy should forward the first query");
+    let first_payload = first_query
+        .structured_content
+        .expect("query result should be structured");
+    assert_eq!(first_payload["result"], "demo::main");
+
+    first_upstream_task.abort();
+    let _ = first_upstream_task.await;
+
+    let replacement_node = Node {
+        id: NodeId::new("demo", "demo::replacement", NodeKind::Function),
+        name: "replacement".into(),
+        kind: NodeKind::Function,
+        file: prism_ir::FileId(2),
+        span: Span::new(1, 1),
+        language: Language::Rust,
+    };
+    let (second_uri, second_upstream_task) =
+        spawn_http_upstream(server_with_node(replacement_node)).await;
+    fs::write(&uri_file, format!("{second_uri}\n")).expect("uri file should be updated");
+
+    let second_query = tokio::time::timeout(
+        Duration::from_secs(10),
+        client.call_tool(CallToolRequestParams::new("prism_query").with_arguments(
+            serde_json::Map::from_iter([(
+                String::from("code"),
+                json!(r#"return prism.symbol("replacement")?.id.path ?? null;"#),
+            )]),
+        )),
+    )
+    .await
+    .expect("reconnect query should complete before the timeout")
+    .expect("proxy should reconnect and forward the second query");
+    let second_payload = second_query
+        .structured_content
+        .expect("query result should be structured after reconnect");
+    assert_eq!(second_payload["result"], "demo::replacement");
+
+    client.cancel().await.unwrap();
+    proxy_task.abort();
+    let _ = proxy_task.await;
+    second_upstream_task.abort();
+    let _ = second_upstream_task.await;
 }
 
 #[test]
@@ -1392,8 +1470,9 @@ async fn mcp_server_simple_mode_keeps_minimal_surface_and_reports_features() {
         .iter()
         .filter_map(|tool| tool["name"].as_str())
         .collect::<Vec<_>>();
-    assert_eq!(tool_names.len(), 7);
+    assert_eq!(tool_names.len(), 8);
     assert!(tool_names.contains(&"prism_locate"));
+    assert!(tool_names.contains(&"prism_gather"));
     assert!(tool_names.contains(&"prism_open"));
     assert!(tool_names.contains(&"prism_workset"));
     assert!(tool_names.contains(&"prism_expand"));
@@ -3705,6 +3784,7 @@ fn compact_agent_tools_keep_handles_stable_within_one_session() {
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Edit),
                 limit: Some(3),
+                include_top_preview: None,
             },
         )
         .expect("first locate should succeed");
@@ -3717,6 +3797,7 @@ fn compact_agent_tools_keep_handles_stable_within_one_session() {
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Edit),
                 limit: Some(3),
+                include_top_preview: None,
             },
         )
         .expect("second locate should succeed");
@@ -3725,6 +3806,42 @@ fn compact_agent_tools_keep_handles_stable_within_one_session() {
     assert_eq!(first.candidates.len(), 1);
     assert_eq!(second.candidates.len(), 1);
     assert_eq!(first.candidates[0].handle, second.candidates[0].handle);
+}
+
+#[test]
+fn compact_locate_schema_surfaces_filters_and_preview_knobs() {
+    let schema = crate::tool_schema_view("prism_locate").expect("locate schema should exist");
+    let properties = schema.input_schema["properties"]
+        .as_object()
+        .expect("locate schema should expose object properties");
+
+    assert!(properties["path"]["description"]
+        .as_str()
+        .is_some_and(|value| value.contains("file path fragment")));
+    assert!(properties["glob"]["description"]
+        .as_str()
+        .is_some_and(|value| value.contains("glob")));
+    assert!(properties["includeTopPreview"]["description"]
+        .as_str()
+        .is_some_and(|value| value.contains("top-ranked candidate")));
+}
+
+#[test]
+fn compact_gather_schema_surfaces_exact_text_knobs() {
+    let schema = crate::tool_schema_view("prism_gather").expect("gather schema should exist");
+    let properties = schema.input_schema["properties"]
+        .as_object()
+        .expect("gather schema should expose object properties");
+
+    assert!(properties["query"]["description"]
+        .as_str()
+        .is_some_and(|value| value.contains("Exact text")));
+    assert!(properties["path"]["description"]
+        .as_str()
+        .is_some_and(|value| value.contains("file path fragment")));
+    assert!(properties["glob"]["description"]
+        .as_str()
+        .is_some_and(|value| value.contains("glob")));
 }
 
 #[test]
@@ -3761,6 +3878,7 @@ This section explains the event journal flow.
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Edit),
                 limit: Some(3),
+                include_top_preview: None,
             },
         )
         .expect("edit locate should succeed");
@@ -3777,6 +3895,7 @@ This section explains the event journal flow.
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Explain),
                 limit: Some(3),
+                include_top_preview: None,
             },
         )
         .expect("explain locate should succeed");
@@ -3833,6 +3952,7 @@ pub fn compact_open_returns_compact_related_handles() {}
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Edit),
                 limit: Some(3),
+                include_top_preview: None,
             },
         )
         .expect("locate should succeed");
@@ -3846,6 +3966,111 @@ pub fn compact_open_returns_compact_related_handles() {}
 }
 
 #[test]
+fn compact_locate_can_include_top_preview() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod compact_tools;
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/compact_tools.rs"),
+        r#"
+pub fn compact_open() {
+    println!("preview");
+}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "compact_open".to_string(),
+                path: Some("src/compact_tools.rs".to_string()),
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                limit: Some(3),
+                include_top_preview: Some(true),
+            },
+        )
+        .expect("locate should succeed");
+
+    let preview = locate
+        .top_preview
+        .expect("locate should include a top preview");
+    assert_eq!(preview.handle, locate.candidates[0].handle);
+    assert!(preview.text.contains("pub fn compact_open"));
+}
+
+#[test]
+fn compact_locate_can_return_text_fragment_handles_for_exact_script_metrics() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("benchmarks/scripts")).unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn helper() {}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("benchmarks/scripts/benchmark_codex.py"),
+        r#"
+def helper():
+    prism_query_calls = 0
+    prism_compact_tool_calls = 0
+    payload = {"prism_compact_tool_calls": prism_compact_tool_calls}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "prism_compact_tool_calls".to_string(),
+                path: Some("benchmarks/scripts/benchmark_codex.py".to_string()),
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                limit: Some(3),
+                include_top_preview: Some(true),
+            },
+        )
+        .expect("locate should succeed");
+
+    assert_eq!(locate.status, prism_js::AgentLocateStatus::Ok);
+    assert_eq!(locate.candidates[0].kind, NodeKind::Document);
+    assert!(locate.candidates[0].path.contains("benchmark_codex.py:"));
+    assert!(locate.candidates[0]
+        .file_path
+        .as_deref()
+        .is_some_and(|path| path.ends_with("benchmark_codex.py")));
+    let preview = locate
+        .top_preview
+        .expect("text-fragment locate should include a preview");
+    assert!(preview.text.contains("prism_compact_tool_calls"));
+
+    let open = host
+        .compact_open(
+            Arc::clone(&session),
+            PrismOpenArgs {
+                handle: locate.candidates[0].handle.clone(),
+                mode: Some(PrismOpenModeInput::Focus),
+            },
+        )
+        .expect("open should succeed");
+    assert!(open.text.contains("prism_compact_tool_calls"));
+}
+
+#[test]
 fn compact_open_returns_compact_related_handles() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("docs")).unwrap();
@@ -3855,7 +4080,6 @@ fn compact_open_returns_compact_related_handles() {
 pub fn event_journal_snapshot() {
     persist_event_journal();
 }
-
 fn persist_event_journal() {}
 "#,
     )
@@ -3881,6 +4105,7 @@ The event journal snapshot should persist journal entries.
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Explain),
                 limit: Some(3),
+                include_top_preview: None,
             },
         )
         .expect("locate should succeed");
@@ -3908,6 +4133,108 @@ The event journal snapshot should persist journal entries.
 }
 
 #[test]
+fn compact_workset_for_text_fragment_handles_surfaces_related_slices() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("benchmarks/scripts")).unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn helper() {}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("benchmarks/scripts/benchmark_codex.py"),
+        r#"
+def helper():
+    prism_compact_tool_calls = 0
+    payload = {"prism_compact_tool_calls": 1}
+    print("prism_compact_tool_calls")
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "prism_compact_tool_calls".to_string(),
+                path: Some("benchmarks/scripts/benchmark_codex.py".to_string()),
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                limit: Some(3),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+
+    let workset = host
+        .compact_workset(
+            Arc::clone(&session),
+            PrismWorksetArgs {
+                handle: Some(locate.candidates[0].handle.clone()),
+                query: None,
+            },
+        )
+        .expect("workset should succeed");
+
+    assert!(!workset.supporting_reads.is_empty());
+    assert!(workset.why.contains("Exact text hit"));
+    assert!(workset.supporting_reads.iter().all(|target| {
+        target
+            .file_path
+            .as_deref()
+            .is_some_and(|path| path.ends_with("benchmark_codex.py"))
+    }));
+}
+
+#[test]
+fn compact_gather_returns_multiple_exact_slices() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("benchmarks/scripts")).unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn helper() {}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("benchmarks/scripts/benchmark_codex.py"),
+        r#"
+def helper():
+    prism_compact_tool_calls = 0
+    payload = {"prism_compact_tool_calls": 1}
+    print("prism_compact_tool_calls")
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let gather = host
+        .compact_gather(
+            Arc::clone(&session),
+            PrismGatherArgs {
+                query: "prism_compact_tool_calls".to_string(),
+                path: Some("benchmarks/scripts/benchmark_codex.py".to_string()),
+                glob: None,
+                limit: Some(3),
+            },
+        )
+        .expect("gather should succeed");
+
+    assert_eq!(gather.matches.len(), 3);
+    assert!(!gather.truncated);
+    assert!(gather
+        .matches
+        .iter()
+        .all(|matched| matched.text.contains("prism_compact_tool_calls")));
+}
+
+#[test]
 fn compact_expand_drift_surfaces_spec_gap_summary() {
     let root = temp_workspace();
     write_memory_insight_workspace(&root);
@@ -3923,6 +4250,7 @@ fn compact_expand_drift_surfaces_spec_gap_summary() {
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Explain),
                 limit: Some(3),
+                include_top_preview: None,
             },
         )
         .expect("locate should succeed");
@@ -3935,6 +4263,7 @@ fn compact_expand_drift_surfaces_spec_gap_summary() {
             PrismExpandArgs {
                 handle: locate.candidates[0].handle.clone(),
                 kind: PrismExpandKindInput::Drift,
+                include_top_preview: None,
             },
         )
         .expect("expand should succeed");
@@ -3953,6 +4282,93 @@ fn compact_expand_drift_surfaces_spec_gap_summary() {
         expand.result["confidence"].as_str(),
         Some("medium" | "high")
     ));
+}
+
+#[test]
+fn compact_expand_neighbors_can_include_top_preview() {
+    let root = temp_workspace();
+    write_memory_insight_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "Integration Points".to_string(),
+                path: Some("docs/SPEC.md".to_string()),
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                limit: Some(3),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+
+    let expand = host
+        .compact_expand(
+            Arc::clone(&session),
+            PrismExpandArgs {
+                handle: locate.candidates[0].handle.clone(),
+                kind: PrismExpandKindInput::Neighbors,
+                include_top_preview: Some(true),
+            },
+        )
+        .expect("expand should succeed");
+
+    assert_eq!(expand.kind, prism_js::AgentExpandKind::Neighbors);
+    let neighbors = expand.result["neighbors"]
+        .as_array()
+        .expect("neighbors should be an array");
+    assert!(!neighbors.is_empty());
+    let preview = expand
+        .top_preview
+        .expect("neighbors expand should include top preview");
+    assert_eq!(
+        preview.handle,
+        neighbors[0]["handle"].as_str().unwrap_or_default()
+    );
+    assert!(!preview.text.is_empty());
+}
+
+#[test]
+fn compact_workset_for_spec_targets_surfaces_drift_reads_and_gap_summary() {
+    let root = temp_workspace();
+    write_memory_insight_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "Integration Points".to_string(),
+                path: Some("docs/SPEC.md".to_string()),
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                limit: Some(3),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+    assert_eq!(locate.status, prism_js::AgentLocateStatus::Ok);
+
+    let workset = host
+        .compact_workset(
+            Arc::clone(&session),
+            PrismWorksetArgs {
+                handle: Some(locate.candidates[0].handle.clone()),
+                query: None,
+            },
+        )
+        .expect("workset should succeed");
+
+    assert!(!workset.supporting_reads.is_empty());
+    assert!(workset.supporting_reads.iter().any(|target| {
+        target.path.contains("memory_recall")
+            || target.path.contains("reanchor_persisted_memory_snapshot")
+    }));
+    assert!(workset.why.contains("Gap summary:") || workset.why.contains("gap summary"));
 }
 
 #[tokio::test]
@@ -4062,6 +4478,29 @@ pub fn main() {
         expand["result"]["whyShort"],
         locate["candidates"][0]["whyShort"]
     );
+
+    client
+        .send(call_tool_request(
+            6,
+            "prism_gather",
+            json!({
+                "query": "println!(\"hello\")",
+                "path": "src/lib.rs",
+                "limit": 2,
+            })
+            .as_object()
+            .expect("tool args should be an object")
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let gather = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(gather["truncated"], false);
+    assert_eq!(gather["matches"].as_array().map(Vec::len), Some(1));
+    assert_eq!(gather["matches"][0]["filePath"], "src/lib.rs");
+    assert!(gather["matches"][0]["text"]
+        .as_str()
+        .is_some_and(|value| value.contains("println!(\"hello\")")));
 
     running.cancel().await.unwrap();
 }
@@ -4960,6 +5399,85 @@ return recent[0] ? prism.queryTrace(recent[0].id) : null;
     assert_eq!(args.get("episodicReloaded"), Some(&Value::Bool(false)));
     assert_eq!(args.get("inferenceReloaded"), Some(&Value::Bool(false)));
     assert_eq!(args.get("coordinationReloaded"), Some(&Value::Bool(false)));
+}
+
+#[test]
+fn first_mutation_after_workspace_refresh_skips_persisted_reload() {
+    let root = temp_workspace();
+    let session = index_workspace_session(&root).unwrap();
+    let server = PrismMcpServer::with_session_and_features(
+        session,
+        PrismMcpFeatures::full().with_internal_developer(true),
+    );
+
+    std::fs::write(
+        root.join("src/lib.rs"),
+        "pub fn gamma() { delta(); }\npub fn delta() {}\n",
+    )
+    .expect("workspace edit should succeed");
+    server
+        .host
+        .workspace
+        .as_ref()
+        .expect("workspace session")
+        .refresh_fs()
+        .expect("workspace refresh should succeed");
+
+    let result = server
+        .execute_logged_mutation(
+            "mutate.outcome",
+            MutationRefreshPolicy::PersistedOnly,
+            || {
+                server.host.store_outcome_without_refresh(
+                    test_session(&server.host).as_ref(),
+                    PrismOutcomeArgs {
+                        kind: OutcomeKindInput::FixValidated,
+                        anchors: vec![AnchorRefInput::Node {
+                            crate_name: "demo".to_string(),
+                            path: "demo::gamma".to_string(),
+                            kind: "function".to_string(),
+                        }],
+                        summary: "validated gamma".to_string(),
+                        result: Some(OutcomeResultInput::Success),
+                        evidence: None,
+                        task_id: None,
+                    },
+                )
+            },
+            |result| {
+                MutationDashboardMeta::task(
+                    Some(result.task_id.clone()),
+                    vec![result.task_id.clone(), result.event_id.clone()],
+                    0,
+                )
+            },
+        )
+        .expect("mutation should succeed");
+
+    assert!(result.event_id.starts_with("outcome:"));
+
+    let detail = server
+        .host
+        .dashboard_operation_detail("mutation:1")
+        .expect("mutation detail should exist");
+    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+        panic!("expected mutation trace");
+    };
+    let refresh_phase = trace
+        .phases
+        .iter()
+        .find(|phase| phase.operation == "mutation.refreshWorkspace")
+        .expect("refresh phase should exist");
+    let args = refresh_phase
+        .args_summary
+        .as_ref()
+        .and_then(Value::as_object)
+        .expect("refresh args");
+    assert_eq!(
+        args.get("refreshPath"),
+        Some(&Value::String("none".to_string()))
+    );
+    assert_eq!(args.get("deferred"), Some(&Value::Bool(false)));
 }
 
 #[test]
