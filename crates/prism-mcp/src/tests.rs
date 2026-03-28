@@ -4886,6 +4886,12 @@ fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
     assert!(validation.result["nextReads"]
         .as_array()
         .is_some_and(|items| !items.is_empty()));
+    assert!(validation.result["likelyTests"]
+        .as_array()
+        .is_some_and(|items| items.is_empty()));
+    assert!(validation.result["checks"]
+        .as_array()
+        .is_some_and(|items| items.len() >= 2));
     assert!(validation.result["nextReads"]
         .as_array()
         .is_some_and(|items| items.iter().all(|item| {
@@ -4994,6 +5000,238 @@ fn compact_expand_neighbors_can_include_top_preview() {
         neighbors[0]["handle"].as_str().unwrap_or_default()
     );
     assert!(!preview.text.is_empty());
+}
+
+#[test]
+fn compact_expand_lineage_returns_compact_recent_history() {
+    let root = temp_workspace();
+    let source_path = root.join("src/lib.rs");
+    fs::write(&source_path, "pub fn latest_name() {}\n").unwrap();
+
+    let mut graph = Graph::new();
+    let file_id = graph.ensure_file(&source_path);
+    let current_id = NodeId::new("demo", "demo::latest_name", NodeKind::Function);
+    graph.add_node(Node {
+        id: current_id.clone(),
+        name: "latest_name".into(),
+        kind: NodeKind::Function,
+        file: file_id,
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+
+    let mut history = HistoryStore::new();
+    let rename_chain = [
+        "demo::old_name",
+        "demo::legacy_name",
+        "demo::older_name",
+        "demo::previous_name",
+        "demo::latest_name",
+    ];
+    history.seed_nodes([NodeId::new("demo", rename_chain[0], NodeKind::Function)]);
+    for (index, names) in rename_chain.windows(2).enumerate() {
+        history.apply(&ObservedChangeSet {
+            meta: EventMeta {
+                id: EventId::new(format!("change:rename:{index}")),
+                ts: (index + 1) as u64,
+                actor: EventActor::System,
+                correlation: None,
+                causation: None,
+            },
+            trigger: ChangeTrigger::ManualReindex,
+            files: vec![file_id],
+            previous_path: Some(source_path.to_string_lossy().into_owned().into()),
+            current_path: Some(source_path.to_string_lossy().into_owned().into()),
+            added: vec![ObservedNode {
+                node: Node {
+                    id: NodeId::new("demo", names[1], NodeKind::Function),
+                    name: names[1].rsplit("::").next().unwrap().into(),
+                    kind: NodeKind::Function,
+                    file: file_id,
+                    span: Span::line(1),
+                    language: Language::Rust,
+                },
+                fingerprint: SymbolFingerprint::with_parts(10, Some(20), Some(20), None),
+            }],
+            removed: vec![ObservedNode {
+                node: Node {
+                    id: NodeId::new("demo", names[0], NodeKind::Function),
+                    name: names[0].rsplit("::").next().unwrap().into(),
+                    kind: NodeKind::Function,
+                    file: file_id,
+                    span: Span::line(1),
+                    language: Language::Rust,
+                },
+                fingerprint: SymbolFingerprint::with_parts(10, Some(20), Some(20), None),
+            }],
+            updated: Vec::new(),
+            edge_added: Vec::new(),
+            edge_removed: Vec::new(),
+        });
+    }
+
+    let host = host_with_prism(Prism::with_history(graph, history));
+    let session = test_session(&host);
+    let handle = session.intern_target_handle(crate::session_state::SessionHandleTarget {
+        id: current_id.clone(),
+        lineage_id: host
+            .current_prism()
+            .lineage_of(&current_id)
+            .map(|lineage| lineage.0.to_string()),
+        name: "latest_name".into(),
+        kind: NodeKind::Function,
+        file_path: Some(source_path.to_string_lossy().into_owned()),
+        query: Some("latest_name".into()),
+        why_short: "exact symbol".into(),
+        start_line: Some(1),
+        end_line: Some(1),
+        start_column: None,
+        end_column: None,
+    });
+
+    let expand = host
+        .compact_expand(
+            Arc::clone(&session),
+            PrismExpandArgs {
+                handle,
+                kind: PrismExpandKindInput::Lineage,
+                include_top_preview: None,
+            },
+        )
+        .expect("lineage expand should succeed");
+
+    assert_eq!(expand.kind, prism_js::AgentExpandKind::Lineage);
+    assert_eq!(expand.result["currentPath"], "demo::latest_name");
+    assert_eq!(expand.result["status"], "active");
+    assert!(expand.result.get("history").is_none());
+    let recent_history = expand.result["recentHistory"]
+        .as_array()
+        .expect("recentHistory should be an array");
+    assert_eq!(recent_history.len(), 3);
+    assert!(expand.result["truncated"].as_bool().unwrap_or(false));
+    assert!(expand.result["nextAction"]
+        .as_str()
+        .is_some_and(|text| text.contains("prism_query")));
+    assert!(recent_history.iter().all(|event| {
+        event.get("before").is_none()
+            && event.get("after").is_none()
+            && event.get("evidenceDetails").is_none()
+            && event["summary"].as_str().is_some()
+            && event["evidence"]
+                .as_array()
+                .is_some_and(|evidence| evidence.len() <= 2)
+    }));
+}
+
+#[test]
+fn compact_expand_diff_returns_compact_recent_patch_summaries() {
+    let root = temp_workspace();
+    let source_path = root.join("src/lib.rs");
+    let source = "pub fn alpha() {}\n";
+    fs::write(&source_path, source).unwrap();
+    let alpha_span = {
+        let start = source.find("alpha").expect("alpha span");
+        Span::new(start, start + "alpha".len())
+    };
+
+    let mut graph = Graph::new();
+    let file_id = graph.ensure_file(&source_path);
+    let alpha_id = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha_id.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: file_id,
+        span: alpha_span,
+        language: Language::Rust,
+    });
+
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha_id.clone()]);
+
+    let outcomes = OutcomeMemory::new();
+    for index in 0..4 {
+        outcomes
+            .store_event(OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new(format!("outcome:patch:{index}")),
+                    ts: (index + 1) as u64,
+                    actor: EventActor::System,
+                    correlation: None,
+                    causation: None,
+                },
+                anchors: vec![AnchorRef::File(file_id), AnchorRef::Node(alpha_id.clone())],
+                kind: OutcomeKind::PatchApplied,
+                result: OutcomeResult::Success,
+                summary: format!("patched alpha {index}"),
+                evidence: Vec::new(),
+                metadata: json!({
+                    "trigger": "ManualReindex",
+                    "filePaths": [source_path.to_string_lossy().into_owned()],
+                    "changedSymbols": [
+                        {
+                            "status": "updated_after",
+                            "id": alpha_id,
+                            "name": "alpha",
+                            "kind": NodeKind::Function,
+                            "filePath": source_path.to_string_lossy().into_owned(),
+                            "span": alpha_span,
+                        }
+                    ],
+                }),
+            })
+            .unwrap();
+    }
+
+    let host = host_with_prism(Prism::with_history_and_outcomes(graph, history, outcomes));
+    let session = test_session(&host);
+    let handle = session.intern_target_handle(crate::session_state::SessionHandleTarget {
+        id: alpha_id.clone(),
+        lineage_id: host
+            .current_prism()
+            .lineage_of(&alpha_id)
+            .map(|lineage| lineage.0.to_string()),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file_path: Some(source_path.to_string_lossy().into_owned()),
+        query: Some("alpha".into()),
+        why_short: "exact symbol".into(),
+        start_line: Some(1),
+        end_line: Some(1),
+        start_column: None,
+        end_column: None,
+    });
+
+    let expand = host
+        .compact_expand(
+            Arc::clone(&session),
+            PrismExpandArgs {
+                handle,
+                kind: PrismExpandKindInput::Diff,
+                include_top_preview: None,
+            },
+        )
+        .expect("diff expand should succeed");
+
+    assert_eq!(expand.kind, prism_js::AgentExpandKind::Diff);
+    assert!(expand.result.get("diff").is_none());
+    let recent_diffs = expand.result["recentDiffs"]
+        .as_array()
+        .expect("recentDiffs should be an array");
+    assert_eq!(recent_diffs.len(), 3);
+    assert!(expand.result["truncated"].as_bool().unwrap_or(false));
+    assert!(expand.result["nextAction"]
+        .as_str()
+        .is_some_and(|text| text.contains("prism_query")));
+    assert!(recent_diffs.iter().all(|diff| {
+        diff["symbolPath"] == "demo::alpha"
+            && diff["summary"]
+                .as_str()
+                .is_some_and(|summary| summary.contains("patched alpha"))
+            && diff["filePath"]
+                .as_str()
+                .is_some_and(|path| path.ends_with("src/lib.rs"))
+    }));
 }
 
 #[test]

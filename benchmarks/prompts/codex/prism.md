@@ -9,11 +9,11 @@ Rules:
 - Prefer PRISM radically over shell reads for repo awareness and code inspection.
 - The target default PRISM path is compact and staged:
   - `prism_locate`
+  - `prism_gather` for exact-text/config/schema/script slices when semantic locate is not the cheapest truthful move
   - `prism_open`
   - `prism_workset`
   - `prism_expand`
   - `prism_query` only as an explicit fallback
-- Until that compact surface is available in the benchmark arm, default to the closest current equivalents: targeted PRISM search, bounded PRISM file inspection, and focused semantic reads before using shell reads.
 - Treat `rg`, `sed`, `cat`, repeated `ls`, and repeated `find` as fallback tools only for cases where PRISM genuinely cannot express the needed inspection or where raw command output is required.
 - Do not substitute shell grep/read loops for a PRISM query when PRISM can answer the question in one bounded call.
 - Do not repeat a successful PRISM search or file read with `rg`, `sed`, or `cat`. If PRISM already gave you the needed file path or code slice, continue with patching or validation instead of rereading it through the shell.

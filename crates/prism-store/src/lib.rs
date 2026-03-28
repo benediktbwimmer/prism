@@ -1,4 +1,5 @@
 mod graph;
+mod memory_projection;
 mod memory_store;
 mod sqlite;
 mod store;

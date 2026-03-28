@@ -1,6 +1,7 @@
 use prism_projections::ProjectionIndex;
 
 use crate::graph::{Graph, GraphSnapshot};
+use crate::memory_projection::merge_snapshot;
 use crate::store::{AuxiliaryPersistBatch, IndexPersistBatch, Store};
 
 #[derive(Debug, Default)]
@@ -90,7 +91,7 @@ impl Store for MemoryStore {
         &mut self,
         snapshot: &prism_memory::EpisodicMemorySnapshot,
     ) -> anyhow::Result<()> {
-        self.episodic_snapshot = Some(snapshot.clone());
+        self.episodic_snapshot = merge_snapshot(self.episodic_snapshot.clone(), snapshot);
         Ok(())
     }
 
@@ -156,7 +157,7 @@ impl Store for MemoryStore {
             self.outcome_snapshot = Some(snapshot.clone());
         }
         if let Some(snapshot) = &batch.episodic_snapshot {
-            self.episodic_snapshot = Some(snapshot.clone());
+            self.episodic_snapshot = merge_snapshot(self.episodic_snapshot.clone(), snapshot);
         }
         if let Some(snapshot) = &batch.inference_snapshot {
             self.inference_snapshot = Some(snapshot.clone());

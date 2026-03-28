@@ -1,36 +1,26 @@
 use anyhow::Result;
 use rusqlite::Connection;
 
-const SCHEMA_VERSION: i64 = 11;
+const SCHEMA_VERSION: i64 = 12;
 
 pub(super) fn init_schema(conn: &Connection) -> Result<()> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
-    if version != SCHEMA_VERSION {
-        conn.execute_batch(
-            r#"
-            DROP TABLE IF EXISTS metadata;
-            DROP TABLE IF EXISTS nodes;
-            DROP TABLE IF EXISTS edges;
-            DROP TABLE IF EXISTS file_records;
-            DROP TABLE IF EXISTS file_nodes;
-            DROP TABLE IF EXISTS node_fingerprints;
-            DROP TABLE IF EXISTS unresolved_calls;
-            DROP TABLE IF EXISTS unresolved_imports;
-            DROP TABLE IF EXISTS unresolved_impls;
-            DROP TABLE IF EXISTS unresolved_intents;
-            DROP TABLE IF EXISTS snapshots;
-            DROP TABLE IF EXISTS history_node_lineages;
-            DROP TABLE IF EXISTS history_events;
-            DROP TABLE IF EXISTS history_co_change;
-            DROP TABLE IF EXISTS history_tombstones;
-            DROP TABLE IF EXISTS projection_co_change;
-            DROP TABLE IF EXISTS projection_validation;
-            "#,
-        )?;
+    match version {
+        0 | SCHEMA_VERSION => {}
+        11 => {}
+        _ => reset_schema(conn)?,
     }
 
-    conn.execute_batch(
-        r#"
+    conn.execute_batch(current_schema_sql())?;
+    if version == 11 {
+        super::memory_entries::backfill_from_snapshot_if_needed(conn)?;
+    }
+    conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+    Ok(())
+}
+
+fn current_schema_sql() -> &'static str {
+    r#"
         CREATE TABLE IF NOT EXISTS metadata (
             key TEXT PRIMARY KEY,
             value INTEGER NOT NULL
@@ -132,6 +122,15 @@ pub(super) fn init_schema(conn: &Connection) -> Result<()> {
             value TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS memory_entry_log (
+            sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+            memory_id TEXT NOT NULL,
+            payload TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_memory_entry_log_memory_id_sequence
+            ON memory_entry_log(memory_id, sequence DESC);
+
         CREATE TABLE IF NOT EXISTS history_node_lineages (
             node_crate_name TEXT NOT NULL,
             node_path TEXT NOT NULL,
@@ -203,8 +202,31 @@ pub(super) fn init_schema(conn: &Connection) -> Result<()> {
 
         CREATE INDEX IF NOT EXISTS idx_history_events_lineage
             ON history_events(lineage, ts, event_id);
+    "#
+}
+
+fn reset_schema(conn: &Connection) -> Result<()> {
+    conn.execute_batch(
+        r#"
+        DROP TABLE IF EXISTS metadata;
+        DROP TABLE IF EXISTS nodes;
+        DROP TABLE IF EXISTS edges;
+        DROP TABLE IF EXISTS file_records;
+        DROP TABLE IF EXISTS file_nodes;
+        DROP TABLE IF EXISTS node_fingerprints;
+        DROP TABLE IF EXISTS unresolved_calls;
+        DROP TABLE IF EXISTS unresolved_imports;
+        DROP TABLE IF EXISTS unresolved_impls;
+        DROP TABLE IF EXISTS unresolved_intents;
+        DROP TABLE IF EXISTS snapshots;
+        DROP TABLE IF EXISTS memory_entry_log;
+        DROP TABLE IF EXISTS history_node_lineages;
+        DROP TABLE IF EXISTS history_events;
+        DROP TABLE IF EXISTS history_co_change;
+        DROP TABLE IF EXISTS history_tombstones;
+        DROP TABLE IF EXISTS projection_co_change;
+        DROP TABLE IF EXISTS projection_validation;
         "#,
     )?;
-    conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     Ok(())
 }

@@ -15,6 +15,7 @@ use prism_projections::{
     CoChangeDelta, CoChangeRecord, ProjectionSnapshot, ValidationCheck, ValidationDelta,
     MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE,
 };
+use rusqlite::Connection;
 
 use crate::{AuxiliaryPersistBatch, Graph, IndexPersistBatch, MemoryStore, SqliteStore, Store};
 
@@ -286,6 +287,49 @@ fn memory_store_round_trips_auxiliary_snapshots() {
 }
 
 #[test]
+fn memory_store_merges_episodic_snapshots_append_only() {
+    let mut store = MemoryStore::default();
+    let alpha = MemoryEntry {
+        id: MemoryId("episodic:1".to_string()),
+        anchors: Vec::new(),
+        kind: MemoryKind::Episodic,
+        content: "remember alpha".to_string(),
+        metadata: serde_json::Value::Null,
+        created_at: 1,
+        source: MemorySource::Agent,
+        trust: 0.7,
+    };
+    let beta = MemoryEntry {
+        id: MemoryId("episodic:2".to_string()),
+        anchors: Vec::new(),
+        kind: MemoryKind::Episodic,
+        content: "remember beta".to_string(),
+        metadata: serde_json::Value::Null,
+        created_at: 2,
+        source: MemorySource::Agent,
+        trust: 0.8,
+    };
+
+    store
+        .save_episodic_snapshot(&EpisodicMemorySnapshot {
+            entries: vec![alpha.clone()],
+        })
+        .unwrap();
+    store
+        .save_episodic_snapshot(&EpisodicMemorySnapshot {
+            entries: vec![beta.clone()],
+        })
+        .unwrap();
+
+    assert_eq!(
+        store.load_episodic_snapshot().unwrap(),
+        Some(EpisodicMemorySnapshot {
+            entries: vec![alpha, beta],
+        })
+    );
+}
+
+#[test]
 fn sqlite_store_persists_projections_in_dedicated_tables() {
     let path = std::env::temp_dir().join(format!(
         "prism-store-test-{}.db",
@@ -390,7 +434,7 @@ fn sqlite_store_configures_connection_pragmas() {
     assert_eq!(synchronous, 1);
     assert_eq!(temp_store, 2);
     assert_eq!(wal_autocheckpoint, 1000);
-    assert_eq!(user_version, 10);
+    assert_eq!(user_version, 12);
     assert!(indexed_tables.into_iter().all(|count| count == 1));
 
     drop(store);
@@ -667,6 +711,137 @@ fn sqlite_store_commits_auxiliary_batches_atomically() {
 
     drop(store);
     let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn sqlite_store_merges_episodic_snapshots_append_only() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-episodic-append-only-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let alpha = MemoryEntry {
+        id: MemoryId("episodic:1".to_string()),
+        anchors: Vec::new(),
+        kind: MemoryKind::Episodic,
+        content: "remember alpha".to_string(),
+        metadata: serde_json::Value::Null,
+        created_at: 1,
+        source: MemorySource::Agent,
+        trust: 0.7,
+    };
+    let beta = MemoryEntry {
+        id: MemoryId("episodic:2".to_string()),
+        anchors: Vec::new(),
+        kind: MemoryKind::Episodic,
+        content: "remember beta".to_string(),
+        metadata: serde_json::Value::Null,
+        created_at: 2,
+        source: MemorySource::Agent,
+        trust: 0.8,
+    };
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    store
+        .save_episodic_snapshot(&EpisodicMemorySnapshot {
+            entries: vec![alpha.clone()],
+        })
+        .unwrap();
+    store
+        .save_episodic_snapshot(&EpisodicMemorySnapshot {
+            entries: vec![beta.clone()],
+        })
+        .unwrap();
+
+    assert_eq!(
+        store.load_episodic_snapshot().unwrap(),
+        Some(EpisodicMemorySnapshot {
+            entries: vec![alpha.clone(), beta.clone()],
+        })
+    );
+
+    let logged_rows: i64 = store
+        .conn
+        .query_row("SELECT COUNT(*) FROM memory_entry_log", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(logged_rows, 2);
+
+    drop(store);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(path.with_extension("db-shm"));
+}
+
+#[test]
+fn sqlite_store_migrates_snapshot_backed_episodic_memory_to_append_only_log() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-episodic-migration-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let episodic = EpisodicMemorySnapshot {
+        entries: vec![MemoryEntry {
+            id: MemoryId("episodic:7".to_string()),
+            anchors: Vec::new(),
+            kind: MemoryKind::Episodic,
+            content: "remember alpha".to_string(),
+            metadata: serde_json::Value::Null,
+            created_at: 7,
+            source: MemorySource::Agent,
+            trust: 0.7,
+        }],
+    };
+
+    {
+        let conn = Connection::open(&path).unwrap();
+        conn.execute_batch(
+            r#"
+            CREATE TABLE metadata (
+                key TEXT PRIMARY KEY,
+                value INTEGER NOT NULL
+            );
+            CREATE TABLE snapshots (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            PRAGMA user_version = 11;
+            "#,
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO snapshots(key, value) VALUES (?1, ?2)",
+            ("episodic", serde_json::to_string(&episodic).unwrap()),
+        )
+        .unwrap();
+    }
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    assert_eq!(store.load_episodic_snapshot().unwrap(), Some(episodic));
+
+    let user_version: i64 = store
+        .conn
+        .pragma_query_value(None, "user_version", |row| row.get(0))
+        .unwrap();
+    assert_eq!(user_version, 12);
+
+    let logged_rows: i64 = store
+        .conn
+        .query_row("SELECT COUNT(*) FROM memory_entry_log", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(logged_rows, 1);
+
+    drop(store);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(path.with_extension("db-shm"));
 }
 
 #[test]

@@ -48,10 +48,7 @@ impl QueryHost {
                                 "filePath": target.file_path,
                             })
                         } else {
-                            serde_json::to_value(crate::lineage_view(
-                                prism.as_ref(),
-                                target_symbol_id(&target)?,
-                            )?)?
+                            compact_lineage_expand_result(prism.as_ref(), &target)?
                         }
                     }
                     AgentExpandKind::Neighbors => {
@@ -115,23 +112,19 @@ impl QueryHost {
                                 "filePath": target.file_path,
                             })
                         } else {
-                            let lineage = target
-                                .lineage_id
-                                .as_ref()
-                                .map(|value| LineageId::new(value.clone()));
-                            serde_json::to_value(diff_for(
-                                prism.as_ref(),
-                                Some(target_symbol_id(&target)?),
-                                lineage.as_ref(),
-                                None,
-                                None,
-                                EXPAND_DIFF_LIMIT,
-                            )?)?
+                            compact_diff_expand_result(prism.as_ref(), &target)?
                         }
                     }
                     AgentExpandKind::Validation => {
                         if is_text_fragment_target(&target) {
                             compact_text_fragment_validation(host, session.as_ref(), &target)?
+                        } else if is_structured_config_target(target.kind) {
+                            compact_structured_config_validation_result(
+                                host,
+                                session.as_ref(),
+                                prism.as_ref(),
+                                &target,
+                            )?
                         } else {
                             let mut cache = crate::SemanticContextCache::default();
                             let validation = validation_context_view_cached(
@@ -140,17 +133,6 @@ impl QueryHost {
                                 &mut cache,
                                 target_symbol_id(&target)?,
                             )?;
-                            let next_reads = if is_structured_config_target(target.kind) {
-                                structured_symbol_followups(
-                                    host,
-                                    session.as_ref(),
-                                    prism.as_ref(),
-                                    &target,
-                                    WORKSET_SUPPORTING_LIMIT,
-                                )?
-                            } else {
-                                Vec::new()
-                            };
                             let likely_tests = validation
                                 .tests
                                 .into_iter()
@@ -164,23 +146,14 @@ impl QueryHost {
                                     )
                                 })
                                 .collect::<Vec<_>>();
-                            let mut checks = compact_validation_checks(
+                            let checks = compact_validation_checks(
                                 &validation.validation_recipe.checks,
                                 &validation.validation_recipe.scored_checks,
                                 COMPACT_VALIDATION_CHECK_LIMIT,
                                 COMPACT_VALIDATION_CHECK_MAX_CHARS,
                             );
-                            if !next_reads.is_empty() {
-                                checks.insert(
-                                    0,
-                                    "Confirm parent and sibling structured keys still agree with this entry."
-                                        .to_string(),
-                                );
-                                checks.truncate(COMPACT_VALIDATION_CHECK_LIMIT);
-                            }
                             json!({
                                 "checks": checks,
-                                "nextReads": next_reads,
                                 "likelyTests": likely_tests,
                                 "why": validation.why,
                             })
@@ -216,6 +189,184 @@ impl QueryHost {
             },
         )
     }
+}
+
+fn compact_lineage_expand_result(prism: &Prism, target: &SessionHandleTarget) -> Result<Value> {
+    let Some(lineage) = crate::lineage_view(prism, target_symbol_id(target)?)? else {
+        return Ok(json!({
+            "summary": "No lineage history is currently recorded for this symbol.",
+            "recentHistory": [],
+            "uncertainty": [],
+            "truncated": false,
+        }));
+    };
+    let mut uncertainty = compact_string_list(
+        &lineage.uncertainty,
+        EXPAND_LINEAGE_UNCERTAINTY_LIMIT,
+        EXPAND_LINEAGE_TEXT_MAX_CHARS,
+    );
+    let mut recent_history = lineage
+        .history
+        .iter()
+        .rev()
+        .take(EXPAND_LINEAGE_HISTORY_LIMIT)
+        .cloned()
+        .collect::<Vec<_>>();
+    recent_history.reverse();
+    let mut truncated = lineage.history.len() > recent_history.len()
+        || lineage.uncertainty.len() > uncertainty.len();
+
+    let mut result = compact_lineage_value(&lineage, &recent_history, &uncertainty, truncated);
+    while expand_json_bytes(&result)? > EXPAND_LINEAGE_MAX_JSON_BYTES {
+        if !recent_history.is_empty() {
+            recent_history.remove(0);
+            truncated = true;
+            result = compact_lineage_value(&lineage, &recent_history, &uncertainty, truncated);
+            continue;
+        }
+        if !uncertainty.is_empty() {
+            uncertainty.pop();
+            truncated = true;
+            result = compact_lineage_value(&lineage, &recent_history, &uncertainty, truncated);
+            continue;
+        }
+        break;
+    }
+    Ok(result)
+}
+
+fn compact_lineage_value(
+    lineage: &prism_js::LineageView,
+    recent_history: &[prism_js::LineageEventView],
+    uncertainty: &[String],
+    truncated: bool,
+) -> Value {
+    let recent_history = recent_history
+        .iter()
+        .map(compact_lineage_event_value)
+        .collect::<Vec<_>>();
+    json!({
+        "lineageId": lineage.lineage_id,
+        "currentPath": lineage.current.id.path,
+        "currentKind": lineage.current.kind,
+        "status": lineage.status,
+        "summary": clamp_string(&lineage.summary, EXPAND_LINEAGE_TEXT_MAX_CHARS),
+        "uncertainty": uncertainty,
+        "recentHistory": recent_history,
+        "truncated": truncated,
+        "nextAction": truncated.then_some(
+            "Use prism_query if you need the full lineage history or evidence details."
+        ),
+    })
+}
+
+fn compact_lineage_event_value(event: &prism_js::LineageEventView) -> Value {
+    json!({
+        "kind": event.kind,
+        "summary": clamp_string(&event.summary, EXPAND_LINEAGE_TEXT_MAX_CHARS),
+        "confidence": event.confidence,
+        "evidence": compact_string_list(&event.evidence, EXPAND_LINEAGE_EVIDENCE_LIMIT, 32),
+    })
+}
+
+fn compact_diff_expand_result(prism: &Prism, target: &SessionHandleTarget) -> Result<Value> {
+    let lineage = target
+        .lineage_id
+        .as_ref()
+        .map(|value| LineageId::new(value.clone()));
+    let diff_result = diff_for(
+        prism,
+        Some(target_symbol_id(target)?),
+        lineage.as_ref(),
+        None,
+        None,
+        EXPAND_DIFF_LIMIT,
+    )?;
+    let total_diffs = diff_result.len();
+    let mut recent_diffs = diff_result
+        .into_iter()
+        .take(EXPAND_COMPACT_DIFF_LIMIT)
+        .collect::<Vec<_>>();
+    let mut truncated = total_diffs > recent_diffs.len();
+    let mut result = compact_diff_value(&recent_diffs, truncated);
+    while expand_json_bytes(&result)? > EXPAND_DIFF_MAX_JSON_BYTES {
+        if !recent_diffs.is_empty() {
+            recent_diffs.pop();
+            truncated = true;
+            result = compact_diff_value(&recent_diffs, truncated);
+            continue;
+        }
+        break;
+    }
+    Ok(result)
+}
+
+fn compact_diff_value(diffs: &[prism_js::DiffHunkView], truncated: bool) -> Value {
+    let summary = if diffs.is_empty() {
+        "No recent patch events are recorded for this symbol.".to_string()
+    } else {
+        format!(
+            "{} recent patch event(s) touched this symbol or lineage.",
+            diffs.len()
+        )
+    };
+    let recent_diffs = diffs
+        .iter()
+        .map(compact_diff_hunk_value)
+        .collect::<Vec<_>>();
+    json!({
+        "summary": summary,
+        "recentDiffs": recent_diffs,
+        "truncated": truncated,
+        "nextAction": truncated.then_some(
+            "Use prism_query if you need the full patch history or rich diff hunks."
+        ),
+    })
+}
+
+fn compact_diff_hunk_value(diff: &prism_js::DiffHunkView) -> Value {
+    let symbol_path = diff
+        .symbol
+        .id
+        .as_ref()
+        .map(|id| id.path.clone())
+        .unwrap_or_else(|| diff.symbol.name.clone());
+    json!({
+        "eventId": diff.event_id,
+        "summary": clamp_string(&diff.summary, EXPAND_DIFF_TEXT_MAX_CHARS),
+        "trigger": diff.trigger,
+        "symbolPath": symbol_path,
+        "symbolKind": diff.symbol.kind,
+        "status": diff.symbol.status,
+        "filePath": diff.symbol.file_path,
+    })
+}
+
+fn compact_structured_config_validation_result(
+    host: &QueryHost,
+    session: &SessionState,
+    prism: &Prism,
+    target: &SessionHandleTarget,
+) -> Result<Value> {
+    let next_reads =
+        structured_symbol_followups(host, session, prism, target, WORKSET_SUPPORTING_LIMIT)?;
+    Ok(json!({
+        "checks": structured_config_validation_checks(),
+        "nextReads": next_reads,
+        "likelyTests": [],
+        "why": [
+            "Structured config validation prioritizes same-file semantic relatives before heuristic tests.",
+            "Use the parent key and adjacent entries to confirm the edit preserves local config invariants.",
+        ],
+    }))
+}
+
+fn structured_config_validation_checks() -> Vec<String> {
+    vec![
+        "Confirm parent and sibling structured keys still agree with this entry.".to_string(),
+        "Review adjacent same-file keys before falling back to parser or integration tests."
+            .to_string(),
+    ]
 }
 
 fn compact_drift_expand_result(
@@ -318,4 +469,8 @@ pub(super) fn source_slice_view(slice: prism_query::EditSlice) -> SourceSliceVie
         },
         truncated: slice.truncated,
     }
+}
+
+fn expand_json_bytes(result: &Value) -> Result<usize> {
+    Ok(serde_json::to_vec(result)?.len())
 }

@@ -71,6 +71,14 @@ const WORKSET_TRUNCATED_NEXT_ACTION: &str =
     "Rerun prism_expand with kind `neighbors` or `validation` for more context.";
 const EXPAND_NEIGHBOR_LIMIT: usize = 6;
 const EXPAND_DIFF_LIMIT: usize = 5;
+const EXPAND_COMPACT_DIFF_LIMIT: usize = 3;
+const EXPAND_LINEAGE_HISTORY_LIMIT: usize = 3;
+const EXPAND_LINEAGE_EVIDENCE_LIMIT: usize = 2;
+const EXPAND_LINEAGE_UNCERTAINTY_LIMIT: usize = 2;
+const EXPAND_LINEAGE_TEXT_MAX_CHARS: usize = 120;
+const EXPAND_LINEAGE_MAX_JSON_BYTES: usize = 1400;
+const EXPAND_DIFF_TEXT_MAX_CHARS: usize = 120;
+const EXPAND_DIFF_MAX_JSON_BYTES: usize = 1400;
 const EXPAND_DRIFT_NEXT_READ_LIMIT: usize = 3;
 const EXPAND_DRIFT_LIST_LIMIT: usize = 3;
 const EXPAND_DRIFT_TEXT_MAX_CHARS: usize = 120;

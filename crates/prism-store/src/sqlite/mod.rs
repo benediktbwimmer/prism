@@ -1,6 +1,7 @@
 mod codecs;
 mod graph_io;
 mod history_io;
+mod memory_entries;
 mod projections;
 mod schema;
 mod snapshots;
@@ -186,7 +187,7 @@ impl Store for SqliteStore {
     }
 
     fn load_episodic_snapshot(&mut self) -> Result<Option<prism_memory::EpisodicMemorySnapshot>> {
-        snapshots::load_snapshot_row(&self.conn, "episodic")
+        memory_entries::load_snapshot(&self.conn)
     }
 
     fn save_episodic_snapshot(
@@ -194,8 +195,9 @@ impl Store for SqliteStore {
         snapshot: &prism_memory::EpisodicMemorySnapshot,
     ) -> Result<()> {
         let tx = self.conn.transaction()?;
-        snapshots::save_snapshot_row_tx(&tx, "episodic", snapshot)?;
-        bump_metadata_value_tx(&tx, EPISODIC_REVISION_KEY)?;
+        if memory_entries::save_snapshot_tx(&tx, snapshot)? {
+            bump_metadata_value_tx(&tx, EPISODIC_REVISION_KEY)?;
+        }
         tx.commit()?;
         Ok(())
     }
@@ -262,8 +264,9 @@ impl Store for SqliteStore {
             workspace_changed = true;
         }
         if let Some(snapshot) = &batch.episodic_snapshot {
-            snapshots::save_snapshot_row_tx(&tx, "episodic", snapshot)?;
-            bump_metadata_value_tx(&tx, EPISODIC_REVISION_KEY)?;
+            if memory_entries::save_snapshot_tx(&tx, snapshot)? {
+                bump_metadata_value_tx(&tx, EPISODIC_REVISION_KEY)?;
+            }
         }
         if let Some(snapshot) = &batch.inference_snapshot {
             snapshots::save_snapshot_row_tx(&tx, "inference", snapshot)?;
