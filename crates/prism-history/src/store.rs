@@ -246,6 +246,7 @@ impl HistoryStore {
         evidence: Vec<prism_ir::LineageEvidence>,
     ) -> LineageEvent {
         self.next_event += 1;
+        let evidence = sanitize_lineage_evidence(kind.clone(), evidence);
         LineageEvent {
             meta: EventMeta {
                 id: EventId::new(format!(
@@ -298,6 +299,16 @@ impl HistoryStore {
                 fingerprint: removed.fingerprint.clone(),
             },
         );
+    }
+}
+
+fn sanitize_lineage_evidence(
+    kind: prism_ir::LineageEventKind,
+    evidence: Vec<prism_ir::LineageEvidence>,
+) -> Vec<prism_ir::LineageEvidence> {
+    match kind {
+        prism_ir::LineageEventKind::Born | prism_ir::LineageEventKind::Died => Vec::new(),
+        _ => evidence,
     }
 }
 

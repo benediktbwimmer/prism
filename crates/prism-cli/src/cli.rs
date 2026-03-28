@@ -155,6 +155,30 @@ pub enum MemoryCommand {
         content: String,
         #[arg(long, default_value = "episodic")]
         kind: String,
+        #[arg(long, default_value = "local")]
+        scope: String,
+        #[arg(long = "promoted-from")]
+        promoted_from: Vec<String>,
+        #[arg(long = "supersedes")]
+        supersedes: Vec<String>,
+    },
+    Events {
+        #[arg(long)]
+        name: Option<String>,
+        #[arg(long)]
+        text: Option<String>,
+        #[arg(long, default_value_t = 10)]
+        limit: usize,
+        #[arg(long = "kind")]
+        kinds: Vec<String>,
+        #[arg(long = "action")]
+        actions: Vec<String>,
+        #[arg(long)]
+        scope: Option<String>,
+        #[arg(long = "task-id")]
+        task_id: Option<String>,
+        #[arg(long)]
+        since: Option<u64>,
     },
 }
 

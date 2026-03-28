@@ -13,7 +13,7 @@ use prism_curator::{
 use prism_history::HistoryStore;
 use prism_ir::{ChangeTrigger, EventId, ObservedChangeSet, TaskId};
 use prism_memory::OutcomeMemory;
-use prism_memory::{EpisodicMemorySnapshot, OutcomeEvent};
+use prism_memory::{EpisodicMemorySnapshot, MemoryEvent, MemoryEventQuery, OutcomeEvent};
 use prism_projections::validation_deltas_for_event;
 use prism_projections::ProjectionIndex;
 use prism_query::Prism;
@@ -22,6 +22,9 @@ use prism_store::{AuxiliaryPersistBatch, SqliteStore, Store};
 pub use prism_store::SnapshotRevisions as WorkspaceSnapshotRevisions;
 
 use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorHandleRef};
+use crate::memory_events::{
+    append_repo_memory_event, filter_memory_events, load_repo_memory_events,
+};
 use crate::util::{
     current_timestamp, current_timestamp_millis, workspace_fingerprint, WorkspaceFingerprint,
 };
@@ -243,10 +246,9 @@ impl WorkspaceSession {
     }
 
     pub fn load_episodic_snapshot(&self) -> Result<Option<EpisodicMemorySnapshot>> {
-        self.store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .load_episodic_snapshot()
+        let mut store = self.store.lock().expect("workspace store lock poisoned");
+        self.sync_repo_memory_events_locked(&mut store)?;
+        store.load_episodic_snapshot()
     }
 
     pub fn reload_persisted_prism(&self) -> Result<()> {
@@ -267,6 +269,7 @@ impl WorkspaceSession {
 
     fn reload_persisted_prism_with_guard(&self, _guard: MutexGuard<'_, ()>) -> Result<()> {
         let mut store = self.store.lock().expect("workspace store lock poisoned");
+        self.sync_repo_memory_events_locked(&mut store)?;
         let workspace_revision = store.workspace_revision()?;
         let graph = store.load_graph()?.unwrap_or_default();
         let mut history = store
@@ -321,11 +324,9 @@ impl WorkspaceSession {
     }
 
     pub fn snapshot_revisions(&self) -> Result<WorkspaceSnapshotRevisions> {
-        let mut revisions = self
-            .store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .snapshot_revisions()?;
+        let mut store = self.store.lock().expect("workspace store lock poisoned");
+        self.sync_repo_memory_events_locked(&mut store)?;
+        let mut revisions = store.snapshot_revisions()?;
         if !self.coordination_enabled {
             revisions.coordination = 0;
         }
@@ -333,10 +334,9 @@ impl WorkspaceSession {
     }
 
     pub fn episodic_revision(&self) -> Result<u64> {
-        self.store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .episodic_revision()
+        let mut store = self.store.lock().expect("workspace store lock poisoned");
+        self.sync_repo_memory_events_locked(&mut store)?;
+        store.episodic_revision()
     }
 
     pub fn persist_episodic(&self, snapshot: &EpisodicMemorySnapshot) -> Result<()> {
@@ -347,6 +347,24 @@ impl WorkspaceSession {
                 episodic_snapshot: Some(snapshot.clone()),
                 ..AuxiliaryPersistBatch::default()
             })
+    }
+
+    pub fn append_memory_event(&self, event: MemoryEvent) -> Result<()> {
+        if event.scope == prism_memory::MemoryScope::Repo {
+            append_repo_memory_event(&self.root, &event)?;
+        }
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .append_memory_events(&[event])?;
+        Ok(())
+    }
+
+    pub fn memory_events(&self, query: &MemoryEventQuery) -> Result<Vec<MemoryEvent>> {
+        let mut store = self.store.lock().expect("workspace store lock poisoned");
+        self.sync_repo_memory_events_locked(&mut store)?;
+        let events = store.load_memory_events()?;
+        Ok(filter_memory_events(events, query))
     }
 
     pub fn load_inference_snapshot(&self) -> Result<Option<InferenceSnapshot>> {
@@ -626,6 +644,14 @@ impl WorkspaceSession {
             known_fingerprint,
         )?;
         Ok(observed.is_some())
+    }
+
+    fn sync_repo_memory_events_locked(&self, store: &mut SqliteStore) -> Result<bool> {
+        let events = load_repo_memory_events(&self.root)?;
+        if events.is_empty() {
+            return Ok(false);
+        }
+        Ok(store.append_memory_events(&events)? > 0)
     }
 }
 

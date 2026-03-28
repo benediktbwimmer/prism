@@ -6,13 +6,13 @@ use anyhow::{anyhow, Context, Result};
 use prism_ir::{AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, LineageId, NodeId, PlanId};
 use prism_js::{
     ChangedFileView, ChangedSymbolView, ConnectionInfoView, DiffHunkView, DiscoveryBundleView,
-    EditContextView, FocusedBlockView, PatchEventView, QueryDiagnostic, QueryEnvelope,
-    ReadContextView, RecentChangeContextView, RuntimeLogEventView, RuntimeStatusView,
-    ScoredMemoryView, SourceExcerptView, SourceSliceView, SubgraphView, SymbolView,
-    TextSearchMatchView, ToolCatalogEntryView, ToolSchemaView, ValidationContextView,
+    EditContextView, FocusedBlockView, MemoryEventView, PatchEventView, QueryDiagnostic,
+    QueryEnvelope, ReadContextView, RecentChangeContextView, RuntimeLogEventView,
+    RuntimeStatusView, ScoredMemoryView, SourceExcerptView, SourceSliceView, SubgraphView,
+    SymbolView, TextSearchMatchView, ToolCatalogEntryView, ToolSchemaView, ValidationContextView,
     ValidationFeedbackView,
 };
-use prism_memory::{MemoryModule, OutcomeRecallQuery, RecallQuery};
+use prism_memory::{MemoryEventQuery, MemoryModule, OutcomeRecallQuery, RecallQuery};
 use prism_query::{EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
 use serde_json::{json, Value};
 
@@ -29,21 +29,22 @@ use crate::{
     conflict_view, convert_anchors, convert_node_id, coordination_task_view, current_timestamp,
     diff_for, drift_candidate_view, edge_kind_label, edge_view, edit_slice_for_symbol,
     entrypoints_for, focused_block_for_symbol, is_query_parse_error, js_runtime, lineage_view,
-    merge_node_ids, merge_promoted_checks, missing_return_hint, next_reads,
+    memory_event_view, merge_node_ids, merge_promoted_checks, missing_return_hint, next_reads,
     owner_symbol_views_for_query, owner_symbol_views_for_target, owner_views_for_target,
-    parse_capability, parse_claim_mode, parse_event_actor, parse_memory_kind, parse_node_kind,
-    parse_outcome_kind, parse_outcome_result, parse_typescript_error, plan_view,
-    policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
-    promoted_validation_checks, query_diagnostic, rank_search_results, read_context_view_cached,
-    recent_change_context_view_cached, recent_patches, relations_view, result_decode_error,
-    runtime_or_serialization_error, scored_memory_view, search_queries, source_excerpt_for_symbol,
-    spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
-    task_intent_view, task_journal_view, task_risk_view, task_validation_recipe_view,
-    tool_catalog_views, tool_schema_view, validation_context_view_cached,
-    validation_recipe_view_with, weak_search_match_diagnostic_data, weak_search_match_reason,
-    where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs,
-    CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs, DiffForArgs, DiscoveryTargetArgs,
-    EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs,
+    parse_capability, parse_claim_mode, parse_event_actor, parse_memory_event_action,
+    parse_memory_kind, parse_memory_scope, parse_node_kind, parse_outcome_kind,
+    parse_outcome_result, parse_typescript_error, plan_view, policy_violation_record_view,
+    promoted_memory_entries, promoted_summary_texts, promoted_validation_checks, query_diagnostic,
+    rank_search_results, read_context_view_cached, recent_change_context_view_cached,
+    recent_patches, relations_view, result_decode_error, runtime_or_serialization_error,
+    scored_memory_view, search_queries, source_excerpt_for_symbol, spec_cluster_view,
+    spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids, task_intent_view,
+    task_journal_view, task_risk_view, task_validation_recipe_view, tool_catalog_views,
+    tool_schema_view, validation_context_view_cached, validation_recipe_view_with,
+    weak_search_match_diagnostic_data, weak_search_match_reason, where_used, AnchorListArgs,
+    CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs, CoordinationTaskTargetArgs,
+    CuratorJobArgs, CuratorJobsArgs, DiffForArgs, DiscoveryTargetArgs, EditSliceArgs,
+    FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs, MemoryEventArgs,
     MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs, PendingReviewsArgs,
     PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun,
     QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchAmbiguityContext,
@@ -1249,6 +1250,10 @@ impl QueryExecution {
                 let args: MemoryOutcomeArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.memory_outcomes(args)?)?)
             }
+            "memoryEvents" => {
+                let args: MemoryEventArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.memory_events(args)?)?)
+            }
             "curatorJobs" => {
                 let args: CuratorJobsArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.host.curator_jobs(args)?)?)
@@ -2164,6 +2169,70 @@ impl QueryExecution {
             .map(scored_memory_view)
             .collect();
         Ok(results)
+    }
+
+    fn memory_events(&self, args: MemoryEventArgs) -> Result<Vec<MemoryEventView>> {
+        let requested = args.limit.unwrap_or(10);
+        let limits = self.session.limits();
+        let applied = requested.min(limits.max_result_nodes);
+        if requested > limits.max_result_nodes {
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Memory event limit was capped at {} instead of {requested}.",
+                    limits.max_result_nodes
+                ),
+                Some(json!({
+                    "requested": requested,
+                    "applied": applied,
+                })),
+            );
+        }
+        let workspace = self.host.workspace.as_ref().ok_or_else(|| {
+            anyhow!("memory event inspection requires a workspace-backed PRISM session")
+        })?;
+
+        let mut focus = Vec::new();
+        if let Some(ids) = args.focus {
+            for id in ids {
+                focus.push(AnchorRef::Node(convert_node_id(id)?));
+            }
+        }
+        let focus = self.prism.anchors_for(&focus);
+        let kinds = args
+            .kinds
+            .map(|kinds| {
+                kinds
+                    .into_iter()
+                    .map(|kind| parse_memory_kind(&kind))
+                    .collect::<Result<Vec<_>>>()
+            })
+            .transpose()?;
+        let actions = args
+            .actions
+            .map(|actions| {
+                actions
+                    .into_iter()
+                    .map(|action| parse_memory_event_action(&action))
+                    .collect::<Result<Vec<_>>>()
+            })
+            .transpose()?;
+        let scope = args
+            .scope
+            .map(|value| parse_memory_scope(&value))
+            .transpose()?;
+        let events = workspace.memory_events(&MemoryEventQuery {
+            memory_id: args.memory_id.map(prism_memory::MemoryId),
+            focus,
+            text: args.text,
+            limit: applied,
+            kinds,
+            actions,
+            scope,
+            task_id: args.task_id,
+            since: args.since,
+        })?;
+        Ok(events.into_iter().map(memory_event_view).collect())
     }
 
     fn task_journal(&self, args: TaskJournalArgs) -> Result<prism_js::TaskJournalView> {

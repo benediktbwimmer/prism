@@ -35,6 +35,7 @@ impl QueryHost {
                     workset_context_for_target(host, session.as_ref(), prism.as_ref(), &target)?;
                 Ok((
                     budgeted_workset_result(
+                        &target,
                         target_view,
                         workset.supporting_reads,
                         workset.likely_tests,
@@ -49,6 +50,7 @@ impl QueryHost {
 }
 
 pub(super) fn budgeted_workset_result(
+    target: &SessionHandleTarget,
     primary: AgentTargetHandleView,
     supporting_reads: Vec<AgentTargetHandleView>,
     likely_tests: Vec<AgentTargetHandleView>,
@@ -62,7 +64,7 @@ pub(super) fn budgeted_workset_result(
         why: clamp_string(&why, WORKSET_WHY_MAX_CHARS),
         truncated: false,
         remapped,
-        next_action: None,
+        next_action: Some(compact_workset_next_action(target)),
     };
     let mut trimmed = false;
 
@@ -94,9 +96,22 @@ pub(super) fn budgeted_workset_result(
 
     if trimmed {
         result.truncated = true;
-        result.next_action = Some(WORKSET_TRUNCATED_NEXT_ACTION.to_string());
     }
     Ok(result)
+}
+
+fn compact_workset_next_action(target: &SessionHandleTarget) -> String {
+    if is_text_fragment_target(target) {
+        "Use prism_open on a supporting slice, or prism_expand `neighbors`.".to_string()
+    } else if is_structured_config_target(target.kind) {
+        "Use prism_open on a same-file key, or prism_expand `validation`.".to_string()
+    } else if is_spec_like_kind(target.kind)
+        || target.file_path.as_deref().is_some_and(is_docs_path)
+    {
+        "Use prism_open on an owner, or prism_expand `drift`.".to_string()
+    } else {
+        "Use prism_open on a supporting read, or prism_expand `validation`.".to_string()
+    }
 }
 
 pub(super) fn compact_string_list(items: &[String], limit: usize, max_chars: usize) -> Vec<String> {

@@ -5,7 +5,9 @@ use prism_ir::{
     AnchorRef, Capability, ClaimMode, CoordinationTaskStatus, EdgeKind, EventActor, NodeId,
     NodeKind, PlanStatus, ReviewVerdict,
 };
-use prism_memory::{MemoryKind, OutcomeEvidence, OutcomeKind, OutcomeResult};
+use prism_memory::{
+    MemoryEventKind, MemoryKind, MemoryScope, OutcomeEvidence, OutcomeKind, OutcomeResult,
+};
 use serde::Deserialize;
 
 use crate::{
@@ -278,12 +280,43 @@ pub(crate) struct MemoryOutcomeArgs {
     pub(crate) limit: Option<usize>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct MemoryEventArgs {
+    pub(crate) memory_id: Option<String>,
+    pub(crate) focus: Option<Vec<NodeIdInput>>,
+    pub(crate) text: Option<String>,
+    pub(crate) limit: Option<usize>,
+    pub(crate) kinds: Option<Vec<String>>,
+    pub(crate) actions: Option<Vec<String>>,
+    pub(crate) scope: Option<String>,
+    pub(crate) task_id: Option<String>,
+    pub(crate) since: Option<u64>,
+}
+
 pub(crate) fn parse_memory_kind(value: &str) -> Result<MemoryKind> {
     match value.to_ascii_lowercase().as_str() {
         "episodic" | "note" | "notes" => Ok(MemoryKind::Episodic),
         "structural" | "rule" | "invariant" => Ok(MemoryKind::Structural),
         "semantic" | "summary" => Ok(MemoryKind::Semantic),
         other => Err(anyhow!("unknown memory kind `{other}`")),
+    }
+}
+
+pub(crate) fn parse_memory_scope(value: &str) -> Result<MemoryScope> {
+    match value.to_ascii_lowercase().as_str() {
+        "local" | "private" | "machine" => Ok(MemoryScope::Local),
+        "repo" | "shared" => Ok(MemoryScope::Repo),
+        other => Err(anyhow!("unknown memory scope `{other}`")),
+    }
+}
+
+pub(crate) fn parse_memory_event_action(value: &str) -> Result<MemoryEventKind> {
+    match value.to_ascii_lowercase().as_str() {
+        "stored" | "store" => Ok(MemoryEventKind::Stored),
+        "promoted" | "promote" => Ok(MemoryEventKind::Promoted),
+        "superseded" | "supersede" => Ok(MemoryEventKind::Superseded),
+        other => Err(anyhow!("unknown memory event action `{other}`")),
     }
 }
 
@@ -433,6 +466,13 @@ pub(crate) fn convert_memory_source(source: MemorySourceInput) -> prism_memory::
         MemorySourceInput::Agent => prism_memory::MemorySource::Agent,
         MemorySourceInput::User => prism_memory::MemorySource::User,
         MemorySourceInput::System => prism_memory::MemorySource::System,
+    }
+}
+
+pub(crate) fn convert_memory_scope(scope: crate::MemoryScopeInput) -> MemoryScope {
+    match scope {
+        crate::MemoryScopeInput::Local => MemoryScope::Local,
+        crate::MemoryScopeInput::Repo => MemoryScope::Repo,
     }
 }
 

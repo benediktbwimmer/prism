@@ -90,7 +90,11 @@ impl Store for MemoryStore {
     fn append_memory_events(&mut self, events: &[MemoryEvent]) -> anyhow::Result<usize> {
         let mut inserted = 0;
         for event in events {
-            if self.memory_events.iter().any(|existing| existing.id == event.id) {
+            if self
+                .memory_events
+                .iter()
+                .any(|existing| existing.id == event.id)
+            {
                 continue;
             }
             self.memory_events.push(event.clone());

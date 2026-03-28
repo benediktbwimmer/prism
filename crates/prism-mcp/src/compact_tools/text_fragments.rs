@@ -661,7 +661,7 @@ pub(super) fn compact_open_text_fragment(
         &file_path,
         excerpt,
         remapped,
-        "Rerun prism_gather with a narrower `path` or `glob` if you need a smaller exact-text window.",
+        "Use prism_workset here, or prism_gather for tighter slices.",
         compact_text_fragment_related_handles(host, session, target)?,
     )
 }
@@ -691,7 +691,7 @@ fn compact_gather_match_result(
         &file_path,
         excerpt,
         false,
-        "Rerun prism_gather with a narrower `path` or `glob` if you need a smaller exact-text window.",
+        "Use prism_workset here, or prism_gather for tighter slices.",
         (!related_handles.is_empty()).then_some(related_handles),
     )
 }

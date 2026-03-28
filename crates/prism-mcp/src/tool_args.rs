@@ -346,16 +346,26 @@ pub(crate) struct PrismOutcomeArgs {
 pub(crate) struct MemoryStorePayload {
     pub(crate) anchors: Vec<AnchorRefInput>,
     pub(crate) kind: MemoryKindInput,
+    pub(crate) scope: Option<MemoryScopeInput>,
     pub(crate) content: String,
     pub(crate) trust: Option<f32>,
     pub(crate) source: Option<MemorySourceInput>,
     pub(crate) metadata: Option<Value>,
+    pub(crate) promoted_from: Option<Vec<String>>,
+    pub(crate) supersedes: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum MemoryMutationActionInput {
     Store,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum MemoryScopeInput {
+    Local,
+    Repo,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]

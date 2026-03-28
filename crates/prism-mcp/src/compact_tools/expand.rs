@@ -204,11 +204,74 @@ impl QueryHost {
                         result,
                         remapped,
                         top_preview,
+                        next_action: Some(compact_expand_next_action(kind, &target)),
                     },
                     Vec::new(),
                 ))
             },
         )
+    }
+}
+
+fn compact_expand_next_action(kind: AgentExpandKind, target: &SessionHandleTarget) -> String {
+    match kind {
+        AgentExpandKind::Diagnostics => {
+            if is_text_fragment_target(target) {
+                "Use prism_open for the exact slice, or prism_workset for the staged bundle."
+                    .to_string()
+            } else if is_spec_like_kind(target.kind)
+                || target.file_path.as_deref().is_some_and(is_docs_path)
+            {
+                "Use prism_workset for owners, or prism_open for the local section.".to_string()
+            } else if is_structured_config_target(target.kind) {
+                "Use prism_expand `validation` or `neighbors`.".to_string()
+            } else {
+                "Use prism_workset for reads/tests, or prism_open for local source.".to_string()
+            }
+        }
+        AgentExpandKind::Lineage => {
+            if is_text_fragment_target(target) {
+                "Use prism_locate for a semantic symbol, or prism_workset to reach one.".to_string()
+            } else {
+                "Use prism_open for local source, or prism_query for full lineage detail."
+                    .to_string()
+            }
+        }
+        AgentExpandKind::Neighbors => {
+            if is_text_fragment_target(target) {
+                "Use prism_open on a neighbor, or prism_workset for the staged bundle.".to_string()
+            } else if is_structured_config_target(target.kind) {
+                "Use prism_open on a same-file key, or prism_expand `validation`.".to_string()
+            } else if is_spec_like_kind(target.kind)
+                || target.file_path.as_deref().is_some_and(is_docs_path)
+            {
+                "Use prism_open on an owner, or prism_expand `drift`.".to_string()
+            } else {
+                "Use prism_open on a neighbor, or prism_expand `validation`.".to_string()
+            }
+        }
+        AgentExpandKind::Diff => {
+            if is_text_fragment_target(target) {
+                "Use prism_locate for a semantic symbol, or prism_open on this slice.".to_string()
+            } else {
+                "Use prism_open for local source, or prism_query for full diff history.".to_string()
+            }
+        }
+        AgentExpandKind::Validation => {
+            if is_text_fragment_target(target) {
+                "Use prism_open on a supporting slice, or prism_workset for the staged bundle."
+                    .to_string()
+            } else if is_structured_config_target(target.kind) {
+                "Use prism_open on a nextRead, or prism_expand `neighbors`.".to_string()
+            } else {
+                "Use prism_open on a likely test/read, or prism_workset for the staged bundle."
+                    .to_string()
+            }
+        }
+        AgentExpandKind::Drift => {
+            "Use prism_open on a nextRead, or prism_workset for the full owner/test bundle."
+                .to_string()
+        }
     }
 }
 

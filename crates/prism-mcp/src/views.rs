@@ -6,11 +6,11 @@ use prism_ir::{AnchorRef, Edge, NodeId, WorkspaceRevision};
 use prism_js::{
     ArtifactRiskView, ArtifactView, BlockerView, ChangeImpactView, ClaimView, CoChangeView,
     ConflictView, CoordinationTaskView, CuratorJobView, CuratorProposalView, DriftCandidateView,
-    EdgeView, MemoryEntryView, NodeIdView, PlanView, PolicyViolationRecordView,
+    EdgeView, MemoryEntryView, MemoryEventView, NodeIdView, PlanView, PolicyViolationRecordView,
     PolicyViolationView, QueryDiagnostic, ScoredMemoryView, TaskIntentView, TaskRiskView,
     TaskValidationRecipeView, ValidationCheckView, ValidationRecipeView, WorkspaceRevisionView,
 };
-use prism_memory::{MemoryEntry, MemorySource, ScoredMemory};
+use prism_memory::{MemoryEntry, MemoryEvent, MemorySource, ScoredMemory};
 use prism_query::{
     ArtifactRisk, ChangeImpact, CoChange, DriftCandidate, Prism, TaskIntent, TaskRisk,
     TaskValidationRecipe, ValidationCheck, ValidationRecipe,
@@ -436,11 +436,26 @@ pub(crate) fn memory_entry_view(entry: MemoryEntry) -> MemoryEntryView {
         id: entry.id.0,
         anchors: entry.anchors,
         kind: format!("{:?}", entry.kind),
+        scope: format!("{:?}", entry.scope),
         content: entry.content,
         metadata: entry.metadata,
         created_at: entry.created_at,
         source: format!("{:?}", entry.source),
         trust: entry.trust,
+    }
+}
+
+pub(crate) fn memory_event_view(event: MemoryEvent) -> MemoryEventView {
+    MemoryEventView {
+        id: event.id,
+        action: format!("{:?}", event.action),
+        memory_id: event.memory_id.0,
+        scope: format!("{:?}", event.scope),
+        entry: event.entry.map(memory_entry_view),
+        recorded_at: event.recorded_at,
+        task_id: event.task_id,
+        promoted_from: event.promoted_from.into_iter().map(|id| id.0).collect(),
+        supersedes: event.supersedes.into_iter().map(|id| id.0).collect(),
     }
 }
 

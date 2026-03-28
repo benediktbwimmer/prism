@@ -39,12 +39,16 @@ impl QueryHost {
                     let symbol_id = target_symbol_id(&target)?;
                     let symbol = symbol_for(prism.as_ref(), symbol_id)?;
                     let symbol_view = symbol_view(prism.as_ref(), &symbol)?;
-                    let file_path = symbol_view
-                        .file_path
-                        .clone()
-                        .ok_or_else(|| anyhow!("target `{}` has no workspace file path", target.id.path))?;
-                    let related_handles =
-                        compact_open_related_handles(host, session.as_ref(), prism.as_ref(), &target)?;
+                    let file_path = symbol_view.file_path.clone().ok_or_else(|| {
+                        anyhow!("target `{}` has no workspace file path", target.id.path)
+                    })?;
+                    let related_handles = compact_open_related_handles(
+                        host,
+                        session.as_ref(),
+                        prism.as_ref(),
+                        &target,
+                    )?;
+                    let next_action = compact_open_next_action(&target);
 
                     match mode {
                         AgentOpenMode::Focus => {
@@ -66,7 +70,7 @@ impl QueryHost {
                                             truncated: preview.truncated,
                                         },
                                         remapped,
-                                        "Rerun prism_open with mode `raw` if you need the exact file window.",
+                                        &next_action,
                                         related_handles.clone(),
                                     )?
                                 } else {
@@ -81,7 +85,7 @@ impl QueryHost {
                                         block.slice,
                                         block.excerpt,
                                         remapped,
-                                        "Rerun prism_open with mode `raw` if you need the exact file window.",
+                                        &next_action,
                                         related_handles.clone(),
                                     )?
                                 }
@@ -97,7 +101,7 @@ impl QueryHost {
                                     block.slice,
                                     block.excerpt,
                                     remapped,
-                                    "Rerun prism_open with mode `raw` if you need the exact file window.",
+                                    &next_action,
                                     related_handles.clone(),
                                 )?
                             }
@@ -106,13 +110,18 @@ impl QueryHost {
                             let slice = symbol
                                 .edit_slice(EDIT_OPEN_OPTIONS)
                                 .map(source_slice_view)
-                                .ok_or_else(|| anyhow!("target `{}` did not produce an edit slice", target.id.path))?;
+                                .ok_or_else(|| {
+                                    anyhow!(
+                                        "target `{}` did not produce an edit slice",
+                                        target.id.path
+                                    )
+                                })?;
                             compact_open_result_from_slice(
                                 &args.handle,
                                 &file_path,
                                 slice,
                                 remapped,
-                                "Rerun prism_open with mode `raw` if you need the exact file window.",
+                                &next_action,
                                 related_handles.clone(),
                             )?
                         }
@@ -128,13 +137,15 @@ impl QueryHost {
                                     start_line: excerpt.start_line,
                                     end_line: excerpt.end_line,
                                     truncated: excerpt.truncated,
-                                })
-                            {
+                                }) {
                                 excerpt
                             } else {
-                                let location = symbol
-                                    .location()
-                                    .ok_or_else(|| anyhow!("target `{}` has no line-addressable source location", target.id.path))?;
+                                let location = symbol.location().ok_or_else(|| {
+                                    anyhow!(
+                                        "target `{}` has no line-addressable source location",
+                                        target.id.path
+                                    )
+                                })?;
                                 file_read(
                                     host,
                                     FileReadArgs {
@@ -150,7 +161,7 @@ impl QueryHost {
                                 &file_path,
                                 excerpt,
                                 remapped,
-                                "Rerun prism_open with mode `focus` for a bounded local block or `edit` for an edit-oriented slice.",
+                                &next_action,
                                 related_handles.clone(),
                             )?
                         }
@@ -210,7 +221,7 @@ pub(super) fn compact_open_result_from_slice(
         text: slice.text,
         truncated: slice.truncated,
         remapped,
-        next_action: slice.truncated.then(|| next_action.to_string()),
+        next_action: Some(next_action.to_string()),
         related_handles,
     })
 }
@@ -231,9 +242,23 @@ pub(super) fn compact_open_result_from_excerpt(
         text: excerpt.text,
         truncated: excerpt.truncated,
         remapped,
-        next_action: excerpt.truncated.then(|| next_action.to_string()),
+        next_action: Some(next_action.to_string()),
         related_handles,
     })
+}
+
+fn compact_open_next_action(target: &SessionHandleTarget) -> String {
+    if is_text_fragment_target(target) {
+        "Use prism_workset here, or prism_gather for tighter slices.".to_string()
+    } else if is_structured_config_target(target.kind) {
+        "Use prism_expand `validation` or `neighbors`.".to_string()
+    } else if is_spec_like_kind(target.kind)
+        || target.file_path.as_deref().is_some_and(is_docs_path)
+    {
+        "Use prism_workset for owners, or prism_expand `drift`.".to_string()
+    } else {
+        "Use prism_workset for reads/tests, or prism_expand `neighbors`.".to_string()
+    }
 }
 
 pub(super) fn budgeted_open_result(mut result: AgentOpenResultView) -> Result<AgentOpenResultView> {

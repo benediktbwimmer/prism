@@ -2922,6 +2922,14 @@ return {{
         proposal.result["memory"][0]["entry"]["metadata"]["rationale"],
         "Repeated successful fixes anchored on alpha"
     );
+    assert_eq!(
+        proposal.result["memory"][0]["entry"]["metadata"]["structuralRule"]["kind"],
+        "ownership_rule"
+    );
+    assert_eq!(
+        proposal.result["memory"][0]["entry"]["metadata"]["structuralRule"]["promoted"],
+        true
+    );
 }
 
 #[test]
@@ -4490,7 +4498,11 @@ def helper():
 
     assert!(!workset.supporting_reads.is_empty());
     assert!(workset.why.contains("Exact text hit"));
-    assert!(workset.supporting_reads.iter().all(|target| {
+    assert!(workset
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("prism_open")));
+    assert!(workset.supporting_reads.iter().any(|target| {
         target
             .file_path
             .as_deref()
@@ -4825,6 +4837,10 @@ fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
         .supporting_reads
         .iter()
         .any(|target| target.path.contains("::workspace")));
+    assert!(workset
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("prism_open") && text.contains("validation")));
 
     let open = host
         .compact_open(
@@ -4854,6 +4870,10 @@ fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
     assert!(open.text.contains("[workspace.dependencies]"));
     assert!(open.text.contains("anyhow = \"1.0\""));
     assert!(open.text.contains("serde = \"1.0\""));
+    assert!(open
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("validation") && text.contains("neighbors")));
 
     let neighbors = host
         .compact_expand(
@@ -4889,6 +4909,10 @@ fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
     );
     assert!(preview.text.contains("[workspace]"));
     assert!(preview.text.contains("[workspace.dependencies]"));
+    assert!(neighbors
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("prism_open") && text.contains("validation")));
 
     let validation = host
         .compact_expand(
@@ -4920,6 +4944,10 @@ fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
                     .as_str()
                     .is_some_and(|path| path.ends_with("Cargo.toml"))
         })));
+    assert!(validation
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("prism_open") && text.contains("neighbors")));
 }
 
 #[test]
@@ -5338,6 +5366,10 @@ fn compact_workset_for_spec_targets_surfaces_drift_reads_and_gap_summary() {
             || target.path.contains("reanchor_persisted_memory_snapshot")
     }));
     assert!(workset.why.contains("Gap summary:") || workset.why.contains("gap summary"));
+    assert!(workset
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("prism_open") && text.contains("drift")));
 }
 
 #[test]
@@ -5400,6 +5432,10 @@ fn compact_workset_for_spec_targets_prefers_owner_paths_over_text_adjacent_helpe
                 .unwrap_or_default()
                 .contains("strip_internal_developer_api_reference")
         })));
+    assert!(drift
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("prism_open") && text.contains("prism_workset")));
 }
 
 #[test]
@@ -5508,6 +5544,10 @@ fn compact_open_for_product_surface_spec_headings_prefers_identifier_owners() {
     assert!(open.related_handles.as_ref().is_some_and(|targets| targets
         .iter()
         .all(|target| !target.path.contains("tests::"))));
+    assert!(open
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("prism_workset") && text.contains("drift")));
 }
 
 #[tokio::test]
@@ -5595,7 +5635,9 @@ pub fn main() {
         .as_str()
         .is_some_and(|value| !value.is_empty()));
     assert_eq!(workset["truncated"], false);
-    assert!(workset["nextAction"].is_null());
+    assert!(workset["nextAction"]
+        .as_str()
+        .is_some_and(|value| value.contains("prism_open")));
 
     client
         .send(call_tool_request(
@@ -8783,6 +8825,65 @@ fn persisted_notes_reload_with_workspace_session() {
         .expect("recall should succeed");
     assert_eq!(recalled.len(), 1);
     assert_eq!(recalled[0].entry.content, "alpha previously regressed");
+}
+
+#[test]
+fn repo_memory_events_are_queryable_and_visible_in_memory_resource_history() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .store_memory(
+            test_session(&host).as_ref(),
+            PrismMemoryArgs {
+                action: MemoryMutationActionInput::Store,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }],
+                    "kind": "structural",
+                    "scope": "repo",
+                    "content": "alpha ownership belongs in committed shared memory",
+                    "promotedFrom": ["memory:seed"],
+                    "trust": 0.9
+                }),
+                task_id: Some("task:repo-memory".to_string()),
+            },
+        )
+        .expect("repo memory should persist");
+
+    let queried = host
+        .execute(
+            test_session(&host),
+            r#"
+const sym = prism.symbol("alpha");
+return prism.memory.events({
+  focus: sym ? [sym] : [],
+  scope: "repo",
+  actions: ["promoted"],
+  limit: 5,
+});
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("memory events query should succeed");
+
+    assert_eq!(queried.result[0]["scope"], "Repo");
+    assert_eq!(queried.result[0]["action"], "Promoted");
+    assert_eq!(queried.result[0]["promotedFrom"][0], "memory:seed");
+
+    let payload = host
+        .memory_resource_value(
+            test_session(&host).as_ref(),
+            &MemoryId(result.memory_id.clone()),
+        )
+        .expect("memory resource should load");
+    assert_eq!(payload.memory.scope, "Repo");
+    assert_eq!(payload.history.len(), 1);
+    assert_eq!(payload.history[0].memory_id, result.memory_id);
 }
 
 #[test]

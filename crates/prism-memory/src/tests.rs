@@ -153,6 +153,67 @@ fn structural_memory_recalls_rule_like_knowledge_by_tags() {
 }
 
 #[test]
+fn structural_memory_prefers_promoted_rules_over_generic_notes() {
+    let memory = StructuralMemory::new();
+
+    let mut note = MemoryEntry::new(
+        MemoryKind::Structural,
+        "Alpha routing needed another follow-up after a failed rollout.",
+    );
+    note.anchors = vec![anchor_node("alpha")];
+    memory.store(note).unwrap();
+
+    let mut promoted = MemoryEntry::new(
+        MemoryKind::Structural,
+        "Changes in this area should run validation: test:alpha_regression",
+    );
+    promoted.anchors = vec![anchor_node("alpha")];
+    promoted.trust = 0.82;
+    promoted.metadata = json!({
+        "category": "validation_rule",
+        "provenance": {
+            "origin": "curator",
+            "kind": "structural_memory",
+        },
+        "evidence": {
+            "eventIds": ["outcome:1", "outcome:2"],
+            "validationChecks": ["test:alpha_regression"],
+            "coChangeLineages": [],
+        },
+        "structuralRule": {
+            "kind": "validation_rule",
+            "promoted": true,
+            "signalCount": 3,
+        }
+    });
+    memory.store(promoted).unwrap();
+
+    let results = memory
+        .recall(&RecallQuery {
+            focus: vec![anchor_node("alpha")],
+            text: Some("what validation should run for alpha routing".into()),
+            limit: 5,
+            kinds: Some(vec![MemoryKind::Structural]),
+            since: None,
+        })
+        .unwrap();
+
+    assert!(!results.is_empty());
+    assert!(results[0]
+        .entry
+        .content
+        .contains("should run validation: test:alpha_regression"));
+    assert_eq!(
+        results[0].entry.metadata["structuralRule"]["kind"],
+        "validation_rule"
+    );
+    assert!(results[0]
+        .explanation
+        .as_deref()
+        .is_some_and(|text| text.contains("rule kinds") && text.contains("promoted rule")));
+}
+
+#[test]
 fn semantic_memory_recalls_metadata_backed_context() {
     let memory = SemanticMemory::new();
 

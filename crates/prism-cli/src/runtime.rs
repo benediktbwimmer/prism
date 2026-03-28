@@ -5,8 +5,9 @@ use anyhow::{bail, Result};
 use prism_core::WorkspaceSession;
 use prism_ir::{AnchorRef, EventActor, EventId, EventMeta, TaskId};
 use prism_memory::{
-    EpisodicMemorySnapshot, MemoryEntry, MemoryKind, MemorySource, OutcomeEvent, OutcomeEvidence,
-    OutcomeKind, OutcomeResult, RecallQuery, SessionMemory,
+    EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind, MemoryId, MemoryKind,
+    MemoryScope, MemorySource, OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult,
+    RecallQuery, SessionMemory,
 };
 use prism_query::Symbol;
 
@@ -59,12 +60,28 @@ pub fn build_memory_entry(
     prism: &prism_query::Prism,
     symbol: Symbol<'_>,
     kind: MemoryKind,
+    scope: MemoryScope,
     content: String,
 ) -> MemoryEntry {
     let mut entry = MemoryEntry::new(kind, content);
     entry.anchors = prism.anchors_for(&[AnchorRef::Node(symbol.id().clone())]);
+    entry.scope = scope;
     entry.source = MemorySource::User;
     entry
+}
+
+pub fn build_memory_event(
+    entry: MemoryEntry,
+    task_id: Option<String>,
+    promoted_from: Vec<MemoryId>,
+    supersedes: Vec<MemoryId>,
+) -> MemoryEvent {
+    let action = if promoted_from.is_empty() && supersedes.is_empty() {
+        MemoryEventKind::Stored
+    } else {
+        MemoryEventKind::Promoted
+    };
+    MemoryEvent::from_entry(action, entry, task_id, promoted_from, supersedes)
 }
 
 pub fn build_task_event(

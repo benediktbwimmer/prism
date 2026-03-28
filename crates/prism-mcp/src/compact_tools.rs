@@ -67,8 +67,6 @@ const WORKSET_TEST_LIMIT: usize = 2;
 pub(crate) const WORKSET_MAX_JSON_BYTES: usize = 1024;
 const WORKSET_WHY_MAX_CHARS: usize = 160;
 const WORKSET_WHY_TIGHT_MAX_CHARS: usize = 72;
-const WORKSET_TRUNCATED_NEXT_ACTION: &str =
-    "Rerun prism_expand with kind `neighbors` or `validation` for more context.";
 const EXPAND_NEIGHBOR_LIMIT: usize = 6;
 const EXPAND_DIFF_LIMIT: usize = 5;
 const EXPAND_COMPACT_DIFF_LIMIT: usize = 3;
@@ -667,6 +665,26 @@ mod tests {
         }
     }
 
+    fn handle_target(index: usize, file_path: Option<&str>) -> SessionHandleTarget {
+        SessionHandleTarget {
+            id: NodeId::new(
+                "demo",
+                format!("demo::module_{index}::very_long_function_name_for_budget_tests"),
+                NodeKind::Function,
+            ),
+            lineage_id: None,
+            name: format!("very_long_function_name_for_budget_tests_{index}"),
+            kind: NodeKind::Function,
+            file_path: file_path.map(ToString::to_string),
+            query: None,
+            why_short: "Matched ranking hint from a compact budget regression test.".to_string(),
+            start_line: None,
+            end_line: None,
+            start_column: None,
+            end_column: None,
+        }
+    }
+
     fn open_result(
         related_handles: Option<Vec<AgentTargetHandleView>>,
         text_len: usize,
@@ -693,6 +711,7 @@ mod tests {
     #[test]
     fn workset_budget_leaves_small_results_untrimmed() {
         let result = budgeted_workset_result(
+            &handle_target(1, Some("src/main.rs")),
             handle_view(1, Some("src/main.rs")),
             vec![handle_view(2, Some("src/helper.rs"))],
             vec![],
@@ -702,7 +721,10 @@ mod tests {
         .expect("budgeted workset should serialize");
 
         assert!(!result.truncated);
-        assert!(result.next_action.is_none());
+        assert!(result
+            .next_action
+            .as_deref()
+            .is_some_and(|value| value.contains("prism_open")));
         assert!(workset_json_bytes(&result).expect("json bytes") <= WORKSET_MAX_JSON_BYTES);
     }
 
@@ -711,6 +733,7 @@ mod tests {
         let long_path =
             "src/really/deeply/nested/module/with/a/very/long/path/for/compact/workset/tests.rs";
         let result = budgeted_workset_result(
+            &handle_target(1, Some(long_path)),
             handle_view(1, Some(long_path)),
             vec![
                 handle_view(2, Some(long_path)),
@@ -724,10 +747,10 @@ mod tests {
         .expect("budgeted workset should serialize");
 
         assert!(result.truncated);
-        assert_eq!(
-            result.next_action.as_deref(),
-            Some(WORKSET_TRUNCATED_NEXT_ACTION)
-        );
+        assert!(result
+            .next_action
+            .as_deref()
+            .is_some_and(|value| value.contains("prism_open")));
         assert!(workset_json_bytes(&result).expect("json bytes") <= WORKSET_MAX_JSON_BYTES);
         assert_eq!(result.primary.handle, "handle:1");
         assert!(

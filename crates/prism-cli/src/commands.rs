@@ -1,22 +1,27 @@
 use anyhow::Result;
 use prism_core::{index_workspace_session, ValidationFeedbackRecord, WorkspaceSession};
 use prism_ir::{AnchorRef, EventActor, EventMeta, TaskId};
-use prism_memory::{MemoryModule, OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult};
+use prism_memory::{
+    MemoryEventQuery, MemoryId, MemoryModule, OutcomeEvent, OutcomeEvidence, OutcomeKind,
+    OutcomeResult,
+};
 
 use crate::cli::{Cli, Command, FeedbackCommand, MemoryCommand, OutcomeCommand, TaskCommand};
 use crate::display::{
-    print_lineage, print_relation_section, print_relations, print_scored_memory, print_symbol,
-    print_validation_feedback,
+    print_lineage, print_memory_event, print_relation_section, print_relations,
+    print_scored_memory, print_symbol, print_validation_feedback,
 };
 use crate::mcp;
 use crate::parsing::{
-    build_evidence, parse_memory_kind, parse_node_kind_filter, parse_outcome_kind,
-    parse_outcome_result, parse_validation_feedback_category, parse_validation_feedback_verdict,
+    build_evidence, parse_memory_event_action, parse_memory_kind, parse_memory_scope,
+    parse_node_kind_filter, parse_outcome_kind, parse_outcome_result,
+    parse_validation_feedback_category, parse_validation_feedback_verdict,
 };
 use crate::runtime::{
-    build_memory_entry, build_recall_query, build_task_event, current_event_id, current_timestamp,
-    git_diff_summary, load_session_memory, record_outcome_event, record_validation_outcome,
-    resolve_optional_anchors, resolve_single_symbol, run_validation_command,
+    build_memory_entry, build_memory_event, build_recall_query, build_task_event, current_event_id,
+    current_timestamp, git_diff_summary, load_session_memory, record_outcome_event,
+    record_validation_outcome, resolve_optional_anchors, resolve_single_symbol,
+    run_validation_command,
 };
 
 pub fn run(cli: Cli) -> Result<()> {
@@ -260,17 +265,87 @@ fn handle_memory_command(
             name,
             content,
             kind,
+            scope,
+            promoted_from,
+            supersedes,
         } => {
             let symbol = resolve_single_symbol(prism, &name)?;
             let memory = load_session_memory(session)?;
-            let id = memory.store(build_memory_entry(
+            let entry = build_memory_entry(
                 prism,
                 symbol,
                 parse_memory_kind(&kind)?,
+                parse_memory_scope(&scope)?,
                 content,
-            ))?;
+            );
+            let id = memory.store(entry)?;
+            let stored_entry = memory
+                .entry(&id)
+                .expect("stored memory entry should be available");
+            if stored_entry.scope == prism_memory::MemoryScope::Repo {
+                session.append_memory_event(build_memory_event(
+                    stored_entry,
+                    None,
+                    promoted_from.into_iter().map(MemoryId).collect(),
+                    supersedes.into_iter().map(MemoryId).collect(),
+                ))?;
+            }
             session.persist_episodic(&memory.snapshot())?;
             println!("stored memory {}", id.0);
+        }
+        MemoryCommand::Events {
+            name,
+            text,
+            limit,
+            kinds,
+            actions,
+            scope,
+            task_id,
+            since,
+        } => {
+            let focus = match name {
+                Some(name) => {
+                    let symbol = resolve_single_symbol(prism, &name)?;
+                    prism.anchors_for(&[AnchorRef::Node(symbol.id().clone())])
+                }
+                None => Vec::new(),
+            };
+            let events = session.memory_events(&MemoryEventQuery {
+                memory_id: None,
+                focus,
+                text,
+                limit,
+                kinds: if kinds.is_empty() {
+                    None
+                } else {
+                    Some(
+                        kinds
+                            .iter()
+                            .map(|kind| parse_memory_kind(kind))
+                            .collect::<Result<Vec<_>>>()?,
+                    )
+                },
+                actions: if actions.is_empty() {
+                    None
+                } else {
+                    Some(
+                        actions
+                            .iter()
+                            .map(|action| parse_memory_event_action(action))
+                            .collect::<Result<Vec<_>>>()?,
+                    )
+                },
+                scope: scope.as_deref().map(parse_memory_scope).transpose()?,
+                task_id,
+                since,
+            })?;
+            if events.is_empty() {
+                eprintln!("no memory events matched");
+            } else {
+                for event in events {
+                    print_memory_event(event);
+                }
+            }
         }
     }
 

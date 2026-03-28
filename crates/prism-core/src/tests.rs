@@ -15,7 +15,8 @@ use prism_ir::{
     LineageEventKind, LineageEvidence, LineageId, NodeId, NodeKind, TaskId,
 };
 use prism_memory::{
-    EpisodicMemorySnapshot, MemoryEntry, MemoryKind, MemoryModule, OutcomeEvent, OutcomeEvidence,
+    EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind, MemoryEventQuery, MemoryId,
+    MemoryKind, MemoryModule, MemoryScope, MemorySource, OutcomeEvent, OutcomeEvidence,
     OutcomeKind, OutcomeResult, SessionMemory,
 };
 use prism_store::{MemoryStore, Store};
@@ -905,6 +906,78 @@ fn reload_preserves_lineage_patch_outcomes_memory_and_projections_after_rename()
         .scored_checks
         .iter()
         .any(|check| check.label == "test:renamed_alpha_integration" && check.score > 0.0));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_memory_events_round_trip_through_committed_jsonl_and_reload() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    let mut entry = MemoryEntry::new(MemoryKind::Structural, "alpha ownership is shared memory");
+    entry.id = MemoryId("structural:repo-test".to_string());
+    entry.anchors = vec![AnchorRef::Node(alpha)];
+    entry.scope = MemoryScope::Repo;
+    entry.source = MemorySource::User;
+    session
+        .append_memory_event(MemoryEvent::from_entry(
+            MemoryEventKind::Promoted,
+            entry.clone(),
+            Some("task:repo-memory".to_string()),
+            vec![MemoryId("memory:source".to_string())],
+            Vec::new(),
+        ))
+        .unwrap();
+
+    let repo_log = root.join(".prism").join("memory").join("events.jsonl");
+    assert!(repo_log.exists());
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let snapshot = reloaded
+        .load_episodic_snapshot()
+        .unwrap()
+        .expect("repo memory should reload");
+    assert!(snapshot.entries.iter().any(|candidate| {
+        candidate.id == entry.id
+            && candidate.scope == MemoryScope::Repo
+            && candidate.content == "alpha ownership is shared memory"
+    }));
+
+    let events = reloaded
+        .memory_events(&MemoryEventQuery {
+            memory_id: Some(MemoryId("structural:repo-test".to_string())),
+            focus: Vec::new(),
+            text: None,
+            limit: 5,
+            kinds: None,
+            actions: Some(vec![MemoryEventKind::Promoted]),
+            scope: Some(MemoryScope::Repo),
+            task_id: Some("task:repo-memory".to_string()),
+            since: None,
+        })
+        .unwrap();
+    assert_eq!(events.len(), 1);
+    assert_eq!(
+        events[0].promoted_from,
+        vec![MemoryId("memory:source".to_string())]
+    );
 
     let _ = fs::remove_dir_all(root);
 }

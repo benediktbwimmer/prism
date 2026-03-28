@@ -90,6 +90,21 @@ fn allocates_born_events_without_false_fingerprint_evidence() {
 }
 
 #[test]
+fn allocates_died_events_without_false_fingerprint_evidence() {
+    let mut history = HistoryStore::new();
+    history.seed_nodes([NodeId::new("demo", "demo::old_name", NodeKind::Function)]);
+
+    let events = history.apply(&change_set(
+        Vec::new(),
+        vec![observed(function("demo::old_name", 1), 10, 20)],
+    ));
+
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].kind, prism_ir::LineageEventKind::Died);
+    assert!(events[0].evidence.is_empty());
+}
+
+#[test]
 fn records_split_when_one_symbol_matches_many_new_symbols() {
     let mut history = HistoryStore::new();
     history.seed_nodes([NodeId::new("demo", "demo::alpha", NodeKind::Function)]);

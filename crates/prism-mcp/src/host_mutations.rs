@@ -11,22 +11,22 @@ use prism_ir::{
 };
 use prism_js::TaskJournalView;
 use prism_memory::{
-    MemoryEntry, MemoryKind, MemoryModule, MemorySource, OutcomeEvent, OutcomeEvidence,
-    OutcomeKind, OutcomeResult,
+    MemoryEntry, MemoryEvent, MemoryEventKind, MemoryKind, MemoryModule, MemoryScope, MemorySource,
+    OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult,
 };
 use prism_query::Prism;
 use serde_json::{json, Value};
 
 use crate::{
     artifact_view, claim_view, conflict_view, convert_acceptance, convert_anchors,
-    convert_completion_context, convert_inferred_scope, convert_memory_kind, convert_memory_source,
-    convert_node_id, convert_outcome_evidence, convert_outcome_kind, convert_outcome_result,
-    convert_policy, coordination_task_view, curator_disposition_label, curator_job_status_label,
-    curator_memory_metadata, curator_proposal, curator_proposal_state, curator_trigger_label,
-    current_timestamp, manual_memory_metadata, parse_capability, parse_claim_mode,
-    parse_coordination_task_status, parse_edge_kind, parse_plan_status, parse_review_verdict,
-    plan_view, task_journal_memory_metadata, task_journal_view, ArtifactActionInput,
-    ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
+    convert_completion_context, convert_inferred_scope, convert_memory_kind, convert_memory_scope,
+    convert_memory_source, convert_node_id, convert_outcome_evidence, convert_outcome_kind,
+    convert_outcome_result, convert_policy, coordination_task_view, curator_disposition_label,
+    curator_job_status_label, curator_memory_metadata, curator_proposal, curator_proposal_state,
+    curator_trigger_label, current_timestamp, manual_memory_metadata, parse_capability,
+    parse_claim_mode, parse_coordination_task_status, parse_edge_kind, parse_plan_status,
+    parse_review_verdict, plan_view, task_journal_memory_metadata, task_journal_view,
+    ArtifactActionInput, ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
     ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput, ClaimMutationResult,
     ClaimReleasePayload, ClaimRenewPayload, CoordinationMutationKindInput,
     CoordinationMutationResult, CuratorJobView, CuratorProposalDecisionResult, EdgeMutationResult,
@@ -382,15 +382,58 @@ impl QueryHost {
         let kind = convert_memory_kind(payload.kind);
         let mut entry = MemoryEntry::new(kind, payload.content);
         entry.anchors = anchors;
+        entry.scope = payload
+            .scope
+            .map(convert_memory_scope)
+            .unwrap_or(MemoryScope::Local);
         entry.source = payload
             .source
             .map(convert_memory_source)
             .unwrap_or(MemorySource::Agent);
         entry.trust = payload.trust.unwrap_or(0.5).clamp(0.0, 1.0);
         entry.metadata = manual_memory_metadata(payload.metadata.unwrap_or(Value::Null), &task_id);
-        let note_anchors = entry.anchors.clone();
-        let note_content = entry.content.clone();
         let memory_id = session.notes.store(entry)?;
+        let stored_entry = session
+            .notes
+            .entry(&memory_id)
+            .ok_or_else(|| anyhow!("stored memory `{}` could not be reloaded", memory_id.0))?;
+        if stored_entry.scope == MemoryScope::Repo {
+            let workspace = self.workspace.as_ref().ok_or_else(|| {
+                anyhow!("repo-scoped memory requires a workspace-backed PRISM session")
+            })?;
+            let action = if payload
+                .promoted_from
+                .as_ref()
+                .is_some_and(|values| !values.is_empty())
+                || payload
+                    .supersedes
+                    .as_ref()
+                    .is_some_and(|values| !values.is_empty())
+            {
+                MemoryEventKind::Promoted
+            } else {
+                MemoryEventKind::Stored
+            };
+            workspace.append_memory_event(MemoryEvent::from_entry(
+                action,
+                stored_entry.clone(),
+                Some(task_id.0.to_string()),
+                payload
+                    .promoted_from
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(prism_memory::MemoryId)
+                    .collect(),
+                payload
+                    .supersedes
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(prism_memory::MemoryId)
+                    .collect(),
+            ))?;
+        }
+        let note_anchors = stored_entry.anchors.clone();
+        let note_content = stored_entry.content.clone();
         if kind == MemoryKind::Episodic {
             let note_event = OutcomeEvent {
                 meta: EventMeta {
@@ -1189,6 +1232,7 @@ impl QueryHost {
             CuratorProposal::StructuralMemory(candidate) => {
                 let mut entry = MemoryEntry::new(candidate.kind, candidate.content.clone());
                 entry.anchors = prism.anchors_for(&candidate.anchors);
+                entry.scope = MemoryScope::Repo;
                 entry.source = MemorySource::System;
                 entry.trust = args.trust.unwrap_or(candidate.trust).clamp(0.0, 1.0);
                 entry.metadata = curator_memory_metadata(
@@ -1204,6 +1248,7 @@ impl QueryHost {
             CuratorProposal::SemanticMemory(candidate) => {
                 let mut entry = MemoryEntry::new(candidate.kind, candidate.content.clone());
                 entry.anchors = prism.anchors_for(&candidate.anchors);
+                entry.scope = MemoryScope::Repo;
                 entry.source = MemorySource::System;
                 entry.trust = args.trust.unwrap_or(candidate.trust).clamp(0.0, 1.0);
                 entry.metadata = curator_memory_metadata(
@@ -1238,6 +1283,7 @@ impl QueryHost {
                 let mut entry =
                     MemoryEntry::new(MemoryKind::Semantic, candidate_memory.content.clone());
                 entry.anchors = prism.anchors_for(&candidate.anchors);
+                entry.scope = MemoryScope::Repo;
                 entry.source = MemorySource::System;
                 entry.trust = args.trust.unwrap_or(candidate_memory.trust).clamp(0.0, 1.0);
                 entry.metadata = curator_memory_metadata(
@@ -1278,6 +1324,7 @@ impl QueryHost {
                 let mut entry =
                     MemoryEntry::new(MemoryKind::Structural, candidate_memory.content.clone());
                 entry.anchors = prism.anchors_for(&[AnchorRef::Node(candidate.target.clone())]);
+                entry.scope = MemoryScope::Repo;
                 entry.source = MemorySource::System;
                 entry.trust = args.trust.unwrap_or(0.8).clamp(0.0, 1.0);
                 entry.metadata = curator_memory_metadata(
@@ -1305,6 +1352,17 @@ impl QueryHost {
         let memory_summary = entry.content.clone();
         let memory_anchors = entry.anchors.clone();
         let memory_id = session.notes.store(entry)?;
+        let stored_entry = session
+            .notes
+            .entry(&memory_id)
+            .ok_or_else(|| anyhow!("promoted memory `{}` could not be reloaded", memory_id.0))?;
+        workspace.append_memory_event(MemoryEvent::from_entry(
+            MemoryEventKind::Promoted,
+            stored_entry.clone(),
+            Some(task.0.to_string()),
+            Vec::new(),
+            Vec::new(),
+        ))?;
         let note_event = OutcomeEvent {
             meta: EventMeta {
                 id: session.next_event_id("outcome"),

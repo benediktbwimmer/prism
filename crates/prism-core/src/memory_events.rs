@@ -71,15 +71,20 @@ pub(crate) fn filter_memory_events(
                 && scope.is_none_or(|value| event.scope == value)
                 && since.is_none_or(|value| event.recorded_at >= value)
                 && task_id.is_none_or(|value| event.task_id.as_deref() == Some(value))
-                && actions
-                    .is_none_or(|values| values.iter().any(|action| *action == event.action))
+                && actions.is_none_or(|values| values.iter().any(|action| *action == event.action))
                 && kinds.is_none_or(|values| {
-                    event.entry
+                    event
+                        .entry
                         .as_ref()
                         .is_some_and(|entry| values.iter().any(|kind| *kind == entry.kind))
                 })
-                && query.focus.iter().all(|anchor| event_matches_anchor(event, anchor))
-                && text.as_ref().is_none_or(|needle| event_matches_text(event, needle))
+                && query
+                    .focus
+                    .iter()
+                    .all(|anchor| event_matches_anchor(event, anchor))
+                && text
+                    .as_ref()
+                    .is_none_or(|needle| event_matches_text(event, needle))
         })
         .collect::<Vec<_>>();
     filtered.sort_by(|left, right| {
@@ -98,7 +103,8 @@ pub(crate) fn filter_memory_events(
 }
 
 fn event_matches_anchor(event: &MemoryEvent, anchor: &AnchorRef) -> bool {
-    event.entry
+    event
+        .entry
         .as_ref()
         .is_some_and(|entry| entry.anchors.iter().any(|candidate| candidate == anchor))
 }

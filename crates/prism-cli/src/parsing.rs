@@ -1,7 +1,9 @@
 use anyhow::{bail, Result};
 use prism_core::{ValidationFeedbackCategory, ValidationFeedbackVerdict};
 use prism_ir::NodeKind;
-use prism_memory::{MemoryKind, OutcomeEvidence, OutcomeKind, OutcomeResult};
+use prism_memory::{
+    MemoryEventKind, MemoryKind, MemoryScope, OutcomeEvidence, OutcomeKind, OutcomeResult,
+};
 
 pub fn parse_memory_kind(value: &str) -> Result<MemoryKind> {
     match value.to_ascii_lowercase().as_str() {
@@ -9,6 +11,23 @@ pub fn parse_memory_kind(value: &str) -> Result<MemoryKind> {
         "structural" | "rule" | "invariant" => Ok(MemoryKind::Structural),
         "semantic" | "summary" => Ok(MemoryKind::Semantic),
         other => bail!("unknown memory kind `{other}`"),
+    }
+}
+
+pub fn parse_memory_scope(value: &str) -> Result<MemoryScope> {
+    match value.to_ascii_lowercase().as_str() {
+        "local" | "private" | "machine" => Ok(MemoryScope::Local),
+        "repo" | "shared" => Ok(MemoryScope::Repo),
+        other => bail!("unknown memory scope `{other}`"),
+    }
+}
+
+pub fn parse_memory_event_action(value: &str) -> Result<MemoryEventKind> {
+    match value.to_ascii_lowercase().as_str() {
+        "stored" | "store" => Ok(MemoryEventKind::Stored),
+        "promoted" | "promote" => Ok(MemoryEventKind::Promoted),
+        "superseded" | "supersede" => Ok(MemoryEventKind::Superseded),
+        other => bail!("unknown memory event action `{other}`"),
     }
 }
 

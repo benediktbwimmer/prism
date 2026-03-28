@@ -133,6 +133,18 @@ type MemoryOutcomeOptions = {
   limit?: number;
 };
 
+type MemoryEventOptions = {
+  memoryId?: string;
+  focus?: Array<SymbolView | NodeId>;
+  text?: string;
+  limit?: number;
+  kinds?: string[];
+  actions?: string[];
+  scope?: string;
+  taskId?: string;
+  since?: number;
+};
+
 type TaskJournalOptions = {
   eventLimit?: number;
   memoryLimit?: number;
@@ -312,6 +324,7 @@ type PrismApi = {
   memory: {
     recall(options?: MemoryRecallOptions): ScoredMemoryView[];
     outcomes(options?: MemoryOutcomeOptions): OutcomeEvent[];
+    events(options?: MemoryEventOptions): MemoryEventView[];
   };
   curator: {
     jobs(options?: CuratorJobQueryOptions): CuratorJobView[];
@@ -1029,11 +1042,24 @@ type MemoryEntryView = {
   id: string;
   anchors: AnchorRef[];
   kind: string;
+  scope: string;
   content: string;
   metadata: unknown;
   createdAt: number;
   source: string;
   trust: number;
+};
+
+type MemoryEventView = {
+  id: string;
+  action: string;
+  memoryId: string;
+  scope: string;
+  entry?: MemoryEntryView;
+  recordedAt: number;
+  taskId?: string;
+  promotedFrom: string[];
+  supersedes: string[];
 };
 
 type AnchorRef =

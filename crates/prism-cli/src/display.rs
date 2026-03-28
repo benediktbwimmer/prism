@@ -1,6 +1,6 @@
 use prism_core::ValidationFeedbackEntry;
 use prism_ir::NodeId;
-use prism_memory::ScoredMemory;
+use prism_memory::{MemoryEvent, ScoredMemory};
 use prism_query::{Relations, Symbol};
 
 pub fn print_symbol(symbol: Symbol<'_>) {
@@ -68,9 +68,10 @@ pub fn print_relation_section(label: &str, values: &[NodeId]) {
 
 pub fn print_scored_memory(memory: ScoredMemory) {
     println!(
-        "  [{}] score={:.2} source={} trust={:.2} created_at={}",
+        "  [{}] score={:.2} scope={} source={} trust={:.2} created_at={}",
         memory.id.0,
         memory.score,
+        format!("{:?}", memory.entry.scope),
         format!("{:?}", memory.entry.source),
         memory.entry.trust,
         memory.entry.created_at
@@ -101,5 +102,44 @@ pub fn print_validation_feedback(entry: ValidationFeedbackEntry) {
     println!("  corrected manually: {}", entry.corrected_manually);
     if let Some(correction) = entry.correction {
         println!("  correction: {correction}");
+    }
+}
+
+pub fn print_memory_event(event: MemoryEvent) {
+    println!(
+        "[{}] action={:?} memory={} scope={:?} recorded_at={}",
+        event.id, event.action, event.memory_id.0, event.scope, event.recorded_at
+    );
+    if let Some(task_id) = event.task_id {
+        println!("  task: {task_id}");
+    }
+    if !event.promoted_from.is_empty() {
+        println!(
+            "  promoted_from: {}",
+            event
+                .promoted_from
+                .iter()
+                .map(|id| id.0.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
+    if !event.supersedes.is_empty() {
+        println!(
+            "  supersedes: {}",
+            event
+                .supersedes
+                .iter()
+                .map(|id| id.0.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
+    if let Some(entry) = event.entry {
+        println!(
+            "  entry: kind={:?} scope={:?} source={:?} trust={:.2}",
+            entry.kind, entry.scope, entry.source, entry.trust
+        );
+        println!("  content: {}", entry.content);
     }
 }

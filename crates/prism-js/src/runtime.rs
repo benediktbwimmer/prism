@@ -1110,6 +1110,19 @@ globalThis.prism = Object.freeze({
         limit: options.limit,
       });
     },
+    events(options = {}) {
+      return __prismHost("memoryEvents", {
+        memoryId: options.memoryId,
+        focus: __prismNormalizeFocus(options.focus),
+        text: options.text,
+        limit: options.limit,
+        kinds: options.kinds,
+        actions: options.actions,
+        scope: options.scope,
+        taskId: options.taskId,
+        since: options.since,
+      });
+    },
   }),
   curator: Object.freeze({
     jobs(options = {}) {

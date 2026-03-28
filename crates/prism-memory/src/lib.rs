@@ -23,8 +23,7 @@ pub use crate::semantic::SemanticMemory;
 pub use crate::session::SessionMemory;
 pub use crate::structural::StructuralMemory;
 pub use crate::types::{
-    EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind, MemoryEventQuery,
-    MemoryId, MemoryKind, MemoryModule, MemoryScope, MemorySource, OutcomeEvent,
-    OutcomeEvidence, OutcomeKind, OutcomeMemorySnapshot, OutcomeResult, RecallQuery,
-    ScoredMemory, TaskReplay,
+    EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind, MemoryEventQuery, MemoryId,
+    MemoryKind, MemoryModule, MemoryScope, MemorySource, OutcomeEvent, OutcomeEvidence,
+    OutcomeKind, OutcomeMemorySnapshot, OutcomeResult, RecallQuery, ScoredMemory, TaskReplay,
 };

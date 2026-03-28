@@ -1,8 +1,8 @@
 use prism_js::{
     ChangeImpactView, CoChangeView, DiscoveryBundleView, EdgeView, EditContextView,
-    LineageEventView, LineageStatus, LineageView, MemoryEntryView, OwnerCandidateView,
-    QueryDiagnostic, ReadContextView, RelationsView, SuggestedQueryView, SymbolView,
-    TaskJournalView, ValidationRecipeView, WorkspaceRevisionView,
+    LineageEventView, LineageStatus, LineageView, MemoryEntryView, MemoryEventView,
+    OwnerCandidateView, QueryDiagnostic, ReadContextView, RelationsView, SuggestedQueryView,
+    SymbolView, TaskJournalView, ValidationRecipeView, WorkspaceRevisionView,
 };
 use rmcp::schemars::JsonSchema;
 use serde_json::Value;
@@ -272,6 +272,7 @@ pub(crate) struct MemoryResourcePayload {
     pub(crate) schema_uri: String,
     pub(crate) memory: MemoryEntryView,
     pub(crate) task_id: Option<String>,
+    pub(crate) history: Vec<MemoryEventView>,
     pub(crate) related_resources: Vec<ResourceLinkView>,
 }
 

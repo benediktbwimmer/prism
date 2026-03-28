@@ -231,6 +231,7 @@ fn memory_store_round_trips_auxiliary_snapshots() {
             id: MemoryId("episodic:7".to_string()),
             anchors: Vec::new(),
             kind: MemoryKind::Episodic,
+            scope: prism_memory::MemoryScope::Local,
             content: "remember alpha".to_string(),
             metadata: serde_json::Value::Null,
             created_at: 7,
@@ -293,6 +294,7 @@ fn memory_store_merges_episodic_snapshots_append_only() {
         id: MemoryId("episodic:1".to_string()),
         anchors: Vec::new(),
         kind: MemoryKind::Episodic,
+        scope: prism_memory::MemoryScope::Local,
         content: "remember alpha".to_string(),
         metadata: serde_json::Value::Null,
         created_at: 1,
@@ -303,6 +305,7 @@ fn memory_store_merges_episodic_snapshots_append_only() {
         id: MemoryId("episodic:2".to_string()),
         anchors: Vec::new(),
         kind: MemoryKind::Episodic,
+        scope: prism_memory::MemoryScope::Local,
         content: "remember beta".to_string(),
         metadata: serde_json::Value::Null,
         created_at: 2,
@@ -434,7 +437,7 @@ fn sqlite_store_configures_connection_pragmas() {
     assert_eq!(synchronous, 1);
     assert_eq!(temp_store, 2);
     assert_eq!(wal_autocheckpoint, 1000);
-    assert_eq!(user_version, 12);
+    assert_eq!(user_version, 13);
     assert!(indexed_tables.into_iter().all(|count| count == 1));
 
     drop(store);
@@ -632,6 +635,7 @@ fn sqlite_store_commits_auxiliary_batches_atomically() {
             id: MemoryId("episodic:9".to_string()),
             anchors: Vec::new(),
             kind: MemoryKind::Episodic,
+            scope: prism_memory::MemoryScope::Local,
             content: "remember this".to_string(),
             metadata: serde_json::Value::Null,
             created_at: 9,
@@ -726,6 +730,7 @@ fn sqlite_store_merges_episodic_snapshots_append_only() {
         id: MemoryId("episodic:1".to_string()),
         anchors: Vec::new(),
         kind: MemoryKind::Episodic,
+        scope: prism_memory::MemoryScope::Local,
         content: "remember alpha".to_string(),
         metadata: serde_json::Value::Null,
         created_at: 1,
@@ -736,6 +741,7 @@ fn sqlite_store_merges_episodic_snapshots_append_only() {
         id: MemoryId("episodic:2".to_string()),
         anchors: Vec::new(),
         kind: MemoryKind::Episodic,
+        scope: prism_memory::MemoryScope::Local,
         content: "remember beta".to_string(),
         metadata: serde_json::Value::Null,
         created_at: 2,
@@ -764,7 +770,7 @@ fn sqlite_store_merges_episodic_snapshots_append_only() {
 
     let logged_rows: i64 = store
         .conn
-        .query_row("SELECT COUNT(*) FROM memory_entry_log", [], |row| {
+        .query_row("SELECT COUNT(*) FROM memory_event_log", [], |row| {
             row.get(0)
         })
         .unwrap();
@@ -790,6 +796,7 @@ fn sqlite_store_migrates_snapshot_backed_episodic_memory_to_append_only_log() {
             id: MemoryId("episodic:7".to_string()),
             anchors: Vec::new(),
             kind: MemoryKind::Episodic,
+            scope: prism_memory::MemoryScope::Local,
             content: "remember alpha".to_string(),
             metadata: serde_json::Value::Null,
             created_at: 7,
@@ -828,11 +835,11 @@ fn sqlite_store_migrates_snapshot_backed_episodic_memory_to_append_only_log() {
         .conn
         .pragma_query_value(None, "user_version", |row| row.get(0))
         .unwrap();
-    assert_eq!(user_version, 12);
+    assert_eq!(user_version, 13);
 
     let logged_rows: i64 = store
         .conn
-        .query_row("SELECT COUNT(*) FROM memory_entry_log", [], |row| {
+        .query_row("SELECT COUNT(*) FROM memory_event_log", [], |row| {
             row.get(0)
         })
         .unwrap();

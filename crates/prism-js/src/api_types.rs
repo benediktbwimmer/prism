@@ -155,6 +155,8 @@ pub struct AgentExpandResultView {
     pub remapped: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_preview: Option<AgentTextPreviewView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_action: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -690,6 +692,7 @@ pub struct MemoryEntryView {
     pub id: String,
     pub anchors: Vec<AnchorRef>,
     pub kind: String,
+    pub scope: String,
     pub content: String,
     pub metadata: Value,
     pub created_at: u64,
@@ -705,6 +708,20 @@ pub struct ScoredMemoryView {
     pub score: f32,
     pub source_module: String,
     pub explanation: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct MemoryEventView {
+    pub id: String,
+    pub action: String,
+    pub memory_id: String,
+    pub scope: String,
+    pub entry: Option<MemoryEntryView>,
+    pub recorded_at: u64,
+    pub task_id: Option<String>,
+    pub promoted_from: Vec<String>,
+    pub supersedes: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

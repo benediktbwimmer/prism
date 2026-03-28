@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use prism_agent::EdgeId;
 use prism_ir::{AnchorRef, EventId, LineageId, NodeId, TaskId};
-use prism_memory::MemoryId;
+use prism_memory::{MemoryEventQuery, MemoryId};
 use std::sync::Arc;
 
 use crate::{
@@ -10,8 +10,8 @@ use crate::{
     dedupe_resource_link_views, derive_task_metadata, discovery_bundle_view, edge_resource_uri,
     edge_resource_view_link, event_resource_view_link, inferred_edge_record_view,
     lineage_event_view, lineage_resource_view_link, lineage_status, memory_entry_view,
-    memory_resource_uri, memory_resource_view_link, owner_views_for_query, paginate_items,
-    parse_resource_page, parse_resource_query_param, resource_link_view,
+    memory_event_view, memory_resource_uri, memory_resource_view_link, owner_views_for_query,
+    paginate_items, parse_resource_page, parse_resource_query_param, resource_link_view,
     resource_schema_catalog_entries, schema_resource_uri, schema_resource_view_link,
     schemas_resource_uri, schemas_resource_view_link, search_ambiguity_from_diagnostics,
     search_resource_view_link_with_options, session_resource_uri, session_resource_view_link,
@@ -624,6 +624,27 @@ impl QueryHost {
             .get("task_id")
             .and_then(|value| value.as_str())
             .map(ToOwned::to_owned);
+        let history = self
+            .workspace
+            .as_ref()
+            .map(|workspace| {
+                workspace.memory_events(&MemoryEventQuery {
+                    memory_id: Some(memory_id.clone()),
+                    focus: Vec::new(),
+                    text: None,
+                    limit: 20,
+                    kinds: None,
+                    actions: None,
+                    scope: None,
+                    task_id: None,
+                    since: None,
+                })
+            })
+            .transpose()?
+            .unwrap_or_default()
+            .into_iter()
+            .map(memory_event_view)
+            .collect();
         let mut related_resources = vec![
             session_resource_view_link(),
             memory_resource_view_link(&memory_id.0),
@@ -639,6 +660,7 @@ impl QueryHost {
             schema_uri,
             memory: memory_entry_view(entry),
             task_id,
+            history,
             related_resources: dedupe_resource_link_views(related_resources),
         })
     }

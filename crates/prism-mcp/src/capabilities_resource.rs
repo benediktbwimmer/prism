@@ -294,6 +294,12 @@ fn query_method_specs() -> Vec<(
             "Query outcome history with filters.",
         ),
         (
+            "memoryEvents",
+            "memory",
+            None,
+            "Inspect raw memory event history with scope and provenance filters.",
+        ),
+        (
             "curatorJobs",
             "curator",
             None,

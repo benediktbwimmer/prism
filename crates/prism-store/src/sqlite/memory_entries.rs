@@ -4,9 +4,7 @@ use prism_memory::{
 };
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 
-use crate::memory_projection::{
-    append_only_delta, latest_snapshot, merge_snapshot, snapshot_from_events,
-};
+use crate::memory_projection::{append_only_delta, latest_snapshot, snapshot_from_events};
 
 use super::snapshots;
 
@@ -70,6 +68,8 @@ pub(super) fn save_snapshot_tx(
 pub(super) fn append_events_tx(tx: &Transaction<'_>, events: &[MemoryEvent]) -> Result<usize> {
     let mut inserted = 0;
     for event in events {
+        let recorded_at = i64::try_from(event.recorded_at)
+            .with_context(|| "memory event recorded_at exceeds sqlite integer range")?;
         inserted += tx.execute(
             "INSERT OR IGNORE INTO memory_event_log(event_id, memory_id, scope, action, recorded_at, payload)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -78,7 +78,7 @@ pub(super) fn append_events_tx(tx: &Transaction<'_>, events: &[MemoryEvent]) -> 
                 event.memory_id.0,
                 memory_scope_label(event.scope),
                 memory_event_action_label(event.action),
-                event.recorded_at,
+                recorded_at,
                 serde_json::to_string(event)?,
             ],
         )?;

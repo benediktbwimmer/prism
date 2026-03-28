@@ -96,6 +96,25 @@ pub(crate) fn curator_memory_metadata(
     if let Some(category) = &candidate.category {
         metadata.insert("category".to_string(), Value::String(category.clone()));
     }
+    if matches!(
+        proposal,
+        CuratorProposal::StructuralMemory(_) | CuratorProposal::ValidationRecipe(_)
+    ) {
+        let signal_count = candidate.evidence.event_ids.len()
+            + candidate.evidence.validation_checks.len()
+            + candidate.evidence.co_change_lineages.len();
+        metadata.insert(
+            "structuralRule".to_string(),
+            json!({
+                "kind": candidate
+                    .category
+                    .clone()
+                    .unwrap_or_else(|| "structural_rule".to_string()),
+                "promoted": true,
+                "signalCount": signal_count,
+            }),
+        );
+    }
     Value::Object(metadata)
 }
 

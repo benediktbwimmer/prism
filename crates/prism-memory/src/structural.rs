@@ -81,29 +81,56 @@ impl MemoryModule for StructuralMemory {
                     .as_ref()
                     .map(|query| token_overlap(&features.terms, &query.terms))
                     .unwrap_or(0.0);
-                if query.text.is_some() && tag_score == 0.0 && term_score == 0.0 {
+                let rule_kind_score = query_features
+                    .as_ref()
+                    .map(|query| token_overlap(&features.rule_kinds, &query.rule_kinds))
+                    .unwrap_or(0.0);
+                if query.text.is_some()
+                    && tag_score == 0.0
+                    && term_score == 0.0
+                    && rule_kind_score == 0.0
+                {
                     return None;
                 }
+                let promoted_bonus = if features.promoted_rule {
+                    0.6 + 0.4 * features.evidence_strength
+                } else {
+                    0.0
+                };
 
                 let score = if query.text.is_some() {
                     0.40 * signals.overlap.max(0.25)
-                        + 0.25 * tag_score
-                        + 0.20 * term_score
+                        + 0.18 * tag_score
+                        + 0.16 * term_score
+                        + 0.11 * rule_kind_score
                         + 0.05 * signals.recency
                         + 0.10 * signals.trust
+                        + 0.10 * promoted_bonus
                 } else if query.focus.is_empty() {
-                    0.40 * tag_score + 0.20 * signals.recency + 0.40 * signals.trust
+                    0.30 * tag_score
+                        + 0.10 * rule_kind_score
+                        + 0.10 * promoted_bonus
+                        + 0.15 * signals.recency
+                        + 0.35 * signals.trust
                 } else {
                     0.50 * signals.overlap
-                        + 0.20 * tag_score
-                        + 0.10 * term_score
+                        + 0.15 * tag_score
+                        + 0.08 * term_score
+                        + 0.08 * rule_kind_score
                         + 0.05 * signals.recency
-                        + 0.15 * signals.trust
+                        + 0.10 * signals.trust
+                        + 0.04 * promoted_bonus
                 };
 
                 let explanation = Some(format!(
-                    "anchor overlap {:.2}, structural tags {:.2}, term overlap {:.2}, recency {:.2}, trust {:.2}",
-                    signals.overlap, tag_score, term_score, signals.recency, signals.trust
+                    "anchor overlap {:.2}, structural tags {:.2}, rule kinds {:.2}, term overlap {:.2}, promoted rule {:.2}, recency {:.2}, trust {:.2}",
+                    signals.overlap,
+                    tag_score,
+                    rule_kind_score,
+                    term_score,
+                    promoted_bonus,
+                    signals.recency,
+                    signals.trust
                 ));
 
                 Some(score_entry(self.name(), entry, score, explanation))
