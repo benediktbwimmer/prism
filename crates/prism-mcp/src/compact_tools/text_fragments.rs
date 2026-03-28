@@ -656,13 +656,14 @@ pub(super) fn compact_open_text_fragment(
             read_text_fragment(host, target, start_line, end_line, RAW_OPEN_MAX_CHARS)?
         }
     };
+    let related_handles = compact_text_fragment_related_handles(host, session, target)?;
     compact_open_result_from_excerpt(
         handle,
         &file_path,
         excerpt,
         remapped,
-        "Use prism_workset here, or prism_gather for tighter slices.",
-        compact_text_fragment_related_handles(host, session, target)?,
+        &text_fragment_staged_next_action(related_handles.as_deref()),
+        related_handles,
     )
 }
 
@@ -686,14 +687,27 @@ fn compact_gather_match_result(
     )?;
     let related_handles =
         compact_text_fragment_supporting_reads(host, session, target, OPEN_RELATED_HANDLE_LIMIT)?;
+    let next_action = text_fragment_staged_next_action(Some(&related_handles));
     compact_open_result_from_excerpt(
         handle,
         &file_path,
         excerpt,
         false,
-        "Use prism_workset here, or prism_gather for tighter slices.",
+        &next_action,
         (!related_handles.is_empty()).then_some(related_handles),
     )
+}
+
+fn text_fragment_staged_next_action(related_handles: Option<&[AgentTargetHandleView]>) -> String {
+    if related_handles.is_some_and(|handles| {
+        handles
+            .iter()
+            .any(|handle| !matches!(handle.kind, NodeKind::Document))
+    }) {
+        "Use prism_workset on the strongest semantic related handle, or prism_open on it for local context.".to_string()
+    } else {
+        "Use prism_workset here, or prism_gather for tighter slices.".to_string()
+    }
 }
 
 pub(super) fn compact_text_fragment_related_handles(

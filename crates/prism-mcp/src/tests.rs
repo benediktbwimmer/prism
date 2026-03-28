@@ -4552,6 +4552,10 @@ def helper():
         .matches
         .iter()
         .all(|matched| matched.text.contains("prism_compact_tool_calls")));
+    assert!(gather.matches.iter().all(|matched| matched
+        .next_action
+        .as_deref()
+        .is_some_and(|next| next.contains("prism_gather"))));
 }
 
 #[test]
@@ -4651,6 +4655,14 @@ fn compact_fragment_followups_surface_semantic_config_targets() {
         .is_some_and(|targets| targets
             .iter()
             .any(|target| target.path.contains("::workspace"))));
+    assert!(gather.matches[0]
+        .next_action
+        .as_deref()
+        .is_some_and(|next| next.contains("strongest semantic related handle")));
+    assert!(gather.matches[0]
+        .next_action
+        .as_deref()
+        .is_some_and(|next| next.contains("prism_open on it")));
     let handle = gather.matches[0].handle.clone();
 
     let workset = host
