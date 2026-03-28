@@ -138,6 +138,12 @@ impl QueryHost {
                     &args,
                     applied.saturating_mul(TEXT_LOCATE_LIMIT_MULTIPLIER),
                 )?;
+                results.extend(semantic_symbols_from_text_candidates(
+                    prism.as_ref(),
+                    &text_candidates,
+                    applied.saturating_mul(TEXT_LOCATE_LIMIT_MULTIPLIER),
+                )?);
+                dedupe_locate_symbols(&mut results);
                 let ranked = rerank_locate_results(results, text_candidates, &args, applied);
                 let mut diagnostics = execution.diagnostics();
                 diagnostics.extend(locate_text_diagnostics(&ranked, applied));
@@ -599,6 +605,85 @@ fn compact_search_args(session: &SessionState, args: &PrismLocateArgs) -> Search
     }
 }
 
+fn semantic_search_symbols(
+    prism: &Prism,
+    query: &str,
+    kind: NodeKind,
+    path: Option<&str>,
+    limit: usize,
+) -> Result<Vec<SymbolView>> {
+    prism
+        .search(query, limit, Some(kind), path)
+        .into_iter()
+        .map(|symbol| symbol_view(prism, &symbol))
+        .collect()
+}
+
+fn semantic_symbols_from_text_candidates(
+    prism: &Prism,
+    candidates: &[TextSearchCandidate],
+    limit: usize,
+) -> Result<Vec<SymbolView>> {
+    let mut promoted = Vec::new();
+    let mut seen = HashSet::<String>::new();
+    for candidate in candidates {
+        let Some(file_path) = candidate.target.file_path.as_deref() else {
+            continue;
+        };
+        let Some(kind) = semantic_search_kind_for_path(file_path) else {
+            continue;
+        };
+        for query in semantic_queries_for_text_candidate(candidate) {
+            for symbol in semantic_search_symbols(prism, &query, kind, Some(file_path), limit)? {
+                if seen.insert(symbol.id.path.clone()) {
+                    promoted.push(symbol);
+                }
+                if promoted.len() >= limit {
+                    return Ok(promoted);
+                }
+            }
+        }
+    }
+    Ok(promoted)
+}
+
+fn semantic_symbols_for_text_target(
+    host: &QueryHost,
+    target: &SessionHandleTarget,
+    limit: usize,
+) -> Result<Vec<SymbolView>> {
+    let Some(file_path) = target.file_path.as_deref() else {
+        return Ok(Vec::new());
+    };
+    let matched_text = read_text_fragment(
+        host,
+        target,
+        target.start_line.unwrap_or(1),
+        target.end_line.unwrap_or(target.start_line.unwrap_or(1)),
+        PREVIEW_OPEN_OPTIONS.max_chars,
+    )?
+    .text;
+    let pseudo_candidate = TextSearchCandidate {
+        target: target.clone(),
+        matched_text,
+    };
+    let prism = host.current_prism();
+    let mut promoted =
+        semantic_symbols_from_text_candidates(prism.as_ref(), &[pseudo_candidate], limit)?;
+    promoted.retain(|symbol| symbol.file_path.as_deref() == Some(file_path));
+    Ok(promoted)
+}
+
+fn dedupe_locate_symbols(results: &mut Vec<SymbolView>) {
+    let mut seen = HashSet::<String>::new();
+    results.retain(|symbol| {
+        seen.insert(format!(
+            "{}::{}::{:?}",
+            symbol.id.crate_name, symbol.id.path, symbol.kind
+        ))
+    });
+}
+
 fn compact_locate_limit(requested: Option<usize>) -> usize {
     requested
         .unwrap_or(DEFAULT_LOCATE_LIMIT)
@@ -775,6 +860,7 @@ fn rerank_locate_results(
     let identifier_terms = locate_identifier_terms(&args.query);
     let path_scope = args.path.as_deref().map(str::to_ascii_lowercase);
     let profile = locate_intent_profile(args);
+    let semantic_results = results.clone();
     let mut ranked = results
         .into_iter()
         .enumerate()
@@ -798,6 +884,7 @@ fn rerank_locate_results(
                 rank_text_locate_candidate(
                     index,
                     candidate,
+                    &semantic_results,
                     &query_normalized,
                     &tokens,
                     &identifier_terms,
@@ -837,6 +924,7 @@ fn rank_locate_candidate(
     let name_normalized = normalize_locate_text(&symbol.name);
     let path_normalized = normalize_locate_text(&symbol.id.path);
     let file_normalized = normalize_locate_text(symbol.file_path.as_deref().unwrap_or_default());
+    let semantic_label_normalized = normalize_locate_text(semantic_match_label(&symbol));
     let mut score = 0_i32;
     let mut reasons = Vec::<String>::new();
 
@@ -868,18 +956,27 @@ fn rank_locate_candidate(
         if name_normalized == *query_normalized {
             score += 240;
             reasons.push("Exact query matched the candidate name.".to_string());
+        } else if semantic_label_normalized == *query_normalized {
+            score += 240;
+            reasons.push("Normalized semantic label matched the query.".to_string());
         } else if final_segment_normalized(&symbol.id.path) == query_normalized {
             score += 210;
             reasons.push("Exact query matched the candidate path tail.".to_string());
         } else if name_normalized.contains(query_normalized) {
             score += if query_uses_identifiers { 60 } else { 170 };
             reasons.push("Exact query phrase matched the candidate name.".to_string());
+        } else if semantic_label_normalized.contains(query_normalized) {
+            score += if query_uses_identifiers { 60 } else { 170 };
+            reasons.push("Normalized semantic label matched the query phrase.".to_string());
         } else if path_normalized.contains(query_normalized) {
             score += if query_uses_identifiers { 48 } else { 150 };
             reasons.push("Exact query phrase matched the candidate path.".to_string());
         } else if file_normalized.contains(query_normalized) {
             score += if query_uses_identifiers { 24 } else { 110 };
             reasons.push("Exact query phrase matched the candidate file path.".to_string());
+        } else if query_normalized.ends_with(semantic_label_normalized.as_str()) {
+            score += 128;
+            reasons.push("Query tail matched the semantic label.".to_string());
         }
     }
 
@@ -889,6 +986,9 @@ fn rank_locate_candidate(
             continue;
         }
         if name_normalized.contains(token) {
+            score += if query_uses_identifiers { 20 } else { 34 };
+            matched_tokens += 1;
+        } else if semantic_label_normalized.contains(token) {
             score += if query_uses_identifiers { 20 } else { 34 };
             matched_tokens += 1;
         } else if path_normalized.contains(token) {
@@ -956,6 +1056,7 @@ fn rank_locate_candidate(
 fn rank_text_locate_candidate(
     index: usize,
     candidate: TextSearchCandidate,
+    semantic_results: &[SymbolView],
     query_normalized: &str,
     tokens: &[String],
     identifier_terms: &[String],
@@ -1028,6 +1129,9 @@ fn rank_text_locate_candidate(
     {
         score -= profile.test_penalty / 2;
     }
+    if text_candidate_shadowed_by_semantic_result(semantic_results, &candidate, query_normalized) {
+        score -= 220;
+    }
 
     score -= index as i32;
     RankedLocateCandidate {
@@ -1040,6 +1144,40 @@ fn rank_text_locate_candidate(
             MAX_WHY_SHORT_CHARS,
         ),
     }
+}
+
+fn semantic_match_label(symbol: &SymbolView) -> &str {
+    if matches!(symbol.kind, NodeKind::MarkdownHeading) {
+        trim_leading_section_ordinal(symbol.name.as_str())
+    } else {
+        symbol.name.as_str()
+    }
+}
+
+fn text_candidate_shadowed_by_semantic_result(
+    semantic_results: &[SymbolView],
+    candidate: &TextSearchCandidate,
+    query_normalized: &str,
+) -> bool {
+    let Some(file_path) = candidate.target.file_path.as_deref() else {
+        return false;
+    };
+    let candidate_text = normalize_locate_text(candidate.matched_text.as_str());
+    semantic_results.iter().any(|symbol| {
+        symbol.file_path.as_deref() == Some(file_path)
+            && is_docs_like_kind(symbol.kind)
+            && semantic_result_matches_text_query(symbol, query_normalized)
+            && candidate_text.contains(query_normalized)
+    })
+}
+
+fn semantic_result_matches_text_query(symbol: &SymbolView, query_normalized: &str) -> bool {
+    let label = normalize_locate_text(semantic_match_label(symbol));
+    let path_tail = final_segment_normalized(&symbol.id.path);
+    label == *query_normalized
+        || label.contains(query_normalized)
+        || query_normalized.ends_with(label.as_str())
+        || path_tail == *query_normalized
 }
 
 fn select_locate_candidates(
@@ -1277,6 +1415,131 @@ fn text_hit_kind(path: &str) -> NodeKind {
     } else {
         NodeKind::Document
     }
+}
+
+fn semantic_search_kind_for_path(path: &str) -> Option<NodeKind> {
+    if path.ends_with(".md") {
+        Some(NodeKind::MarkdownHeading)
+    } else if path.ends_with(".json") {
+        Some(NodeKind::JsonKey)
+    } else if path.ends_with(".toml") {
+        Some(NodeKind::TomlKey)
+    } else if path.ends_with(".yaml") || path.ends_with(".yml") {
+        Some(NodeKind::YamlKey)
+    } else {
+        None
+    }
+}
+
+fn semantic_queries_for_text_candidate(candidate: &TextSearchCandidate) -> Vec<String> {
+    let mut queries = Vec::<String>::new();
+    push_unique_query(&mut queries, candidate.target.query.as_deref());
+    let Some(file_path) = candidate.target.file_path.as_deref() else {
+        return queries;
+    };
+    if file_path.ends_with(".md") {
+        for query in markdown_heading_queries(candidate.matched_text.as_str()) {
+            push_unique_query(&mut queries, Some(query.as_str()));
+        }
+    } else {
+        for query in structured_key_queries(candidate.matched_text.as_str()) {
+            push_unique_query(&mut queries, Some(query.as_str()));
+        }
+    }
+    if let Some(raw_query) = candidate.target.query.as_deref() {
+        for query in semantic_query_segments(raw_query) {
+            push_unique_query(&mut queries, Some(query.as_str()));
+        }
+    }
+    queries
+}
+
+fn push_unique_query(queries: &mut Vec<String>, query: Option<&str>) {
+    let Some(query) = query.map(str::trim).filter(|value| !value.is_empty()) else {
+        return;
+    };
+    if !queries.iter().any(|existing| existing == query) {
+        queries.push(query.to_string());
+    }
+}
+
+fn markdown_heading_queries(text: &str) -> Vec<String> {
+    let Some(line) = first_non_empty_line(text) else {
+        return Vec::new();
+    };
+    let stripped = line.trim_start().trim_start_matches('#').trim();
+    let without_ordinal = trim_leading_section_ordinal(stripped);
+    let mut queries = Vec::new();
+    push_unique_query(&mut queries, Some(stripped));
+    push_unique_query(&mut queries, Some(without_ordinal));
+    queries
+}
+
+fn structured_key_queries(text: &str) -> Vec<String> {
+    let Some(line) = first_non_empty_line(text).map(str::trim) else {
+        return Vec::new();
+    };
+    let raw = if line.starts_with('[') && line.ends_with(']') {
+        line.trim_start_matches('[').trim_end_matches(']').trim()
+    } else if let Some((left, _)) = line.split_once('=') {
+        left.trim()
+    } else if let Some((left, _)) = line.split_once(':') {
+        left.trim()
+    } else {
+        line
+    };
+    let cleaned = raw.trim_matches(|ch: char| ch == '"' || ch == '\'' || ch == '`');
+    let mut queries = Vec::new();
+    push_unique_query(&mut queries, Some(cleaned));
+    for segment in semantic_query_segments(cleaned) {
+        push_unique_query(&mut queries, Some(segment.as_str()));
+    }
+    queries
+}
+
+fn semantic_query_segments(query: &str) -> Vec<String> {
+    let mut segments = Vec::<String>::new();
+    for segment in query
+        .split(|ch: char| !ch.is_ascii_alphanumeric() && ch != '_')
+        .filter(|segment| segment.len() >= 2 && !is_locate_stopword(segment))
+    {
+        if !segments.iter().any(|existing| existing == segment) {
+            segments.push(segment.to_string());
+        }
+    }
+    segments.reverse();
+    segments
+}
+
+fn text_fragment_query_variants(target: &SessionHandleTarget) -> Vec<String> {
+    let mut queries = Vec::<String>::new();
+    push_unique_query(&mut queries, target.query.as_deref());
+    if let Some(query) = target.query.as_deref() {
+        for segment in semantic_query_segments(query) {
+            push_unique_query(&mut queries, Some(segment.as_str()));
+        }
+    }
+    queries
+}
+
+fn first_non_empty_line(text: &str) -> Option<&str> {
+    text.lines().map(str::trim).find(|line| !line.is_empty())
+}
+
+fn trim_leading_section_ordinal(text: &str) -> &str {
+    let trimmed = text.trim();
+    let Some(first_alpha) = trimmed.find(|ch: char| ch.is_ascii_alphabetic()) else {
+        return trimmed;
+    };
+    let prefix = &trimmed[..first_alpha];
+    if prefix.is_empty()
+        || !prefix
+            .chars()
+            .all(|ch| ch.is_ascii_digit() || matches!(ch, '.' | ')' | '(' | '-' | ' '))
+    {
+        return trimmed;
+    }
+    trimmed[first_alpha..].trim_start()
 }
 
 fn locate_query_tokens(query_normalized: &str) -> Vec<String> {
@@ -1539,14 +1802,16 @@ fn compact_text_fragment_workset_context(
     session: &SessionState,
     target: &SessionHandleTarget,
 ) -> Result<WorksetContext> {
-    let supporting_reads = compact_text_fragment_related_handles(host, session, target)?
-        .unwrap_or_default()
-        .into_iter()
-        .take(WORKSET_SUPPORTING_LIMIT)
-        .collect::<Vec<_>>();
+    let supporting_reads =
+        compact_text_fragment_supporting_reads(host, session, target, WORKSET_SUPPORTING_LIMIT)?;
     Ok(WorksetContext {
         supporting_reads,
-        likely_tests: Vec::new(),
+        likely_tests: compact_text_fragment_likely_tests(
+            host,
+            session,
+            target,
+            WORKSET_TEST_LIMIT,
+        )?,
         why: workset_why(target),
     })
 }
@@ -1557,38 +1822,279 @@ fn compact_spec_workset_context(
     target: &SessionHandleTarget,
 ) -> Result<WorksetContext> {
     let drift = spec_drift_explanation_view(prism, &target.id)?;
-    let supporting_reads = drift
-        .next_reads
-        .into_iter()
-        .take(WORKSET_SUPPORTING_LIMIT)
-        .map(|candidate| {
-            compact_target_view(
-                session,
-                &candidate.symbol,
-                target.query.as_deref(),
-                Some(candidate.why),
-            )
-        })
-        .collect::<Vec<_>>();
-    let likely_tests = drift
-        .cluster
-        .tests
-        .into_iter()
-        .take(WORKSET_TEST_LIMIT)
-        .map(|candidate| {
-            compact_target_view(
-                session,
-                &candidate.symbol,
-                target.query.as_deref(),
-                Some(candidate.why),
-            )
-        })
-        .collect::<Vec<_>>();
+    let supporting_reads =
+        prioritized_spec_supporting_reads(session, target, &drift, WORKSET_SUPPORTING_LIMIT);
+    let likely_tests = prioritized_spec_test_reads(session, target, &drift, WORKSET_TEST_LIMIT);
     Ok(WorksetContext {
         supporting_reads,
         likely_tests,
         why: spec_workset_why(target, &drift.gaps, &drift.drift_reasons),
     })
+}
+
+#[derive(Debug, Clone)]
+struct RankedCompactFollowup {
+    symbol: SymbolView,
+    why: String,
+    score: i32,
+}
+
+fn compact_text_fragment_supporting_reads(
+    host: &QueryHost,
+    session: &SessionState,
+    target: &SessionHandleTarget,
+    limit: usize,
+) -> Result<Vec<AgentTargetHandleView>> {
+    let mut supporting_reads = Vec::new();
+    let mut seen = HashSet::<String>::new();
+    for symbol in semantic_symbols_for_text_target(host, target, limit)? {
+        if !seen.insert(symbol.id.path.clone()) {
+            continue;
+        }
+        supporting_reads.push(compact_target_view(
+            session,
+            &symbol,
+            target.query.as_deref(),
+            Some(text_fragment_semantic_why(&symbol)),
+        ));
+        if supporting_reads.len() >= limit {
+            return Ok(supporting_reads);
+        }
+    }
+    if let Some(related) = compact_text_fragment_related_handles(host, session, target)? {
+        for handle in related {
+            if !seen.insert(handle.path.clone()) {
+                continue;
+            }
+            supporting_reads.push(handle);
+            if supporting_reads.len() >= limit {
+                break;
+            }
+        }
+    }
+    Ok(supporting_reads)
+}
+
+fn compact_text_fragment_likely_tests(
+    host: &QueryHost,
+    session: &SessionState,
+    target: &SessionHandleTarget,
+    limit: usize,
+) -> Result<Vec<AgentTargetHandleView>> {
+    let prism = host.current_prism();
+    let mut likely_tests = Vec::new();
+    let mut seen = HashSet::<String>::new();
+    for symbol in semantic_symbols_for_text_target(host, target, limit)? {
+        let symbol_id = NodeId::new(
+            symbol.id.crate_name.clone(),
+            symbol.id.path.clone(),
+            symbol.kind,
+        );
+        for candidate in owner_views_for_target(prism.as_ref(), &symbol_id, Some("test"), limit)? {
+            if !seen.insert(candidate.symbol.id.path.clone()) {
+                continue;
+            }
+            likely_tests.push(compact_target_view(
+                session,
+                &candidate.symbol,
+                target.query.as_deref(),
+                Some(candidate.why),
+            ));
+            if likely_tests.len() >= limit {
+                return Ok(likely_tests);
+            }
+        }
+    }
+    Ok(likely_tests)
+}
+
+fn text_fragment_semantic_why(symbol: &SymbolView) -> String {
+    match symbol.kind {
+        NodeKind::MarkdownHeading => {
+            "Semantic heading aligned with the exact text hit.".to_string()
+        }
+        NodeKind::JsonKey | NodeKind::TomlKey | NodeKind::YamlKey => {
+            "Structured key aligned with the exact text hit.".to_string()
+        }
+        _ => "Semantic owner aligned with the exact text hit.".to_string(),
+    }
+}
+
+fn prioritized_spec_supporting_reads(
+    session: &SessionState,
+    target: &SessionHandleTarget,
+    drift: &prism_js::SpecDriftExplanationView,
+    limit: usize,
+) -> Vec<AgentTargetHandleView> {
+    ranked_spec_followups(target, drift)
+        .into_iter()
+        .take(limit)
+        .map(|candidate| {
+            compact_target_view(
+                session,
+                &candidate.symbol,
+                target.query.as_deref(),
+                Some(candidate.why),
+            )
+        })
+        .collect()
+}
+
+fn prioritized_spec_test_reads(
+    session: &SessionState,
+    target: &SessionHandleTarget,
+    drift: &prism_js::SpecDriftExplanationView,
+    limit: usize,
+) -> Vec<AgentTargetHandleView> {
+    drift
+        .cluster
+        .tests
+        .iter()
+        .take(limit)
+        .map(|candidate| {
+            compact_target_view(
+                session,
+                &candidate.symbol,
+                target.query.as_deref(),
+                Some(candidate.why.clone()),
+            )
+        })
+        .collect()
+}
+
+fn ranked_spec_followups(
+    target: &SessionHandleTarget,
+    drift: &prism_js::SpecDriftExplanationView,
+) -> Vec<RankedCompactFollowup> {
+    let query_tokens = target
+        .query
+        .as_deref()
+        .map(normalize_locate_text)
+        .map(|query| locate_query_tokens(&query))
+        .unwrap_or_default();
+    let mut candidates = Vec::<RankedCompactFollowup>::new();
+    let mut seen = HashSet::<String>::new();
+
+    push_ranked_spec_symbols(
+        &mut candidates,
+        &mut seen,
+        drift.cluster.implementations.iter(),
+        "Implementation linked from the spec cluster.",
+        140,
+        &query_tokens,
+    );
+    push_ranked_spec_owners(
+        &mut candidates,
+        &mut seen,
+        drift.cluster.write_path.iter(),
+        120,
+        &query_tokens,
+    );
+    push_ranked_spec_owners(
+        &mut candidates,
+        &mut seen,
+        drift.cluster.read_path.iter(),
+        110,
+        &query_tokens,
+    );
+    push_ranked_spec_owners(
+        &mut candidates,
+        &mut seen,
+        drift.cluster.persistence_path.iter(),
+        100,
+        &query_tokens,
+    );
+    push_ranked_spec_owners(
+        &mut candidates,
+        &mut seen,
+        drift.next_reads.iter(),
+        80,
+        &query_tokens,
+    );
+
+    let has_token_overlap = candidates
+        .iter()
+        .any(|candidate| spec_followup_token_overlap(&candidate.symbol, &query_tokens) > 0);
+    if has_token_overlap {
+        candidates
+            .retain(|candidate| spec_followup_token_overlap(&candidate.symbol, &query_tokens) > 0);
+    }
+
+    candidates.sort_by(|left, right| {
+        right
+            .score
+            .cmp(&left.score)
+            .then_with(|| left.symbol.id.path.cmp(&right.symbol.id.path))
+    });
+    candidates
+}
+
+fn push_ranked_spec_symbols<'a>(
+    out: &mut Vec<RankedCompactFollowup>,
+    seen: &mut HashSet<String>,
+    symbols: impl Iterator<Item = &'a SymbolView>,
+    why: &str,
+    source_weight: i32,
+    query_tokens: &[String],
+) {
+    for symbol in symbols {
+        if !seen.insert(symbol.id.path.clone()) {
+            continue;
+        }
+        out.push(RankedCompactFollowup {
+            symbol: symbol.clone(),
+            why: why.to_string(),
+            score: spec_followup_score(symbol, source_weight, query_tokens),
+        });
+    }
+}
+
+fn push_ranked_spec_owners<'a>(
+    out: &mut Vec<RankedCompactFollowup>,
+    seen: &mut HashSet<String>,
+    owners: impl Iterator<Item = &'a prism_js::OwnerCandidateView>,
+    source_weight: i32,
+    query_tokens: &[String],
+) {
+    for candidate in owners {
+        if !seen.insert(candidate.symbol.id.path.clone()) {
+            continue;
+        }
+        out.push(RankedCompactFollowup {
+            symbol: candidate.symbol.clone(),
+            why: candidate.why.clone(),
+            score: spec_followup_score(&candidate.symbol, source_weight, query_tokens),
+        });
+    }
+}
+
+fn spec_followup_score(symbol: &SymbolView, source_weight: i32, query_tokens: &[String]) -> i32 {
+    let mut score = source_weight;
+    let overlap = spec_followup_token_overlap(symbol, query_tokens) as i32;
+    score += overlap * 26;
+    if is_code_like_kind(symbol.kind) {
+        score += 18;
+    }
+    if matches!(symbol.kind, NodeKind::Module | NodeKind::Document) {
+        score -= 20;
+    }
+    if symbol
+        .file_path
+        .as_deref()
+        .is_some_and(|path| path.ends_with("/lib.rs"))
+    {
+        score -= 16;
+    }
+    score
+}
+
+fn spec_followup_token_overlap(symbol: &SymbolView, query_tokens: &[String]) -> usize {
+    let name = normalize_locate_text(symbol.name.as_str());
+    let path = normalize_locate_text(symbol.id.path.as_str());
+    query_tokens
+        .iter()
+        .filter(|token| name.contains(token.as_str()) || path.contains(token.as_str()))
+        .count()
 }
 
 fn compact_why_short(
@@ -2000,38 +2506,59 @@ fn compact_text_fragment_related_handles(
     session: &SessionState,
     target: &SessionHandleTarget,
 ) -> Result<Option<Vec<AgentTargetHandleView>>> {
-    let Some(query) = target.query.as_deref() else {
+    let Some(_query) = target.query.as_deref() else {
         return Ok(None);
     };
     let Some(file_path) = target.file_path.as_deref() else {
         return Ok(None);
     };
-    let outcome = search_text(
-        host,
-        SearchTextArgs {
-            query: query.to_string(),
-            regex: Some(false),
-            case_sensitive: Some(false),
-            path: Some(file_path.to_string()),
-            glob: None,
-            limit: Some(TEXT_FRAGMENT_RELATED_LIMIT + 1),
-            context_lines: Some(0),
-        },
-        session.limits().max_result_nodes,
-    )?;
     let mut related = Vec::new();
-    for matched in outcome.results {
-        if Some(matched.location.start_line) == target.start_line
-            && Some(matched.location.end_line) == target.end_line
-        {
+    let mut seen = HashSet::<String>::new();
+    for symbol in semantic_symbols_for_text_target(host, target, OPEN_RELATED_HANDLE_LIMIT)? {
+        if !seen.insert(symbol.id.path.clone()) {
             continue;
         }
-        related.push(compact_target_from_session_target(
+        related.push(compact_target_view(
             session,
-            &text_candidate_from_match(session, query, matched).target,
+            &symbol,
+            target.query.as_deref(),
+            Some(text_fragment_semantic_why(&symbol)),
         ));
         if related.len() >= OPEN_RELATED_HANDLE_LIMIT {
-            break;
+            return Ok(Some(related));
+        }
+    }
+    for query in text_fragment_query_variants(target) {
+        let outcome = search_text(
+            host,
+            SearchTextArgs {
+                query: query.to_string(),
+                regex: Some(false),
+                case_sensitive: Some(false),
+                path: Some(file_path.to_string()),
+                glob: None,
+                limit: Some(TEXT_FRAGMENT_RELATED_LIMIT + 1),
+                context_lines: Some(0),
+            },
+            session.limits().max_result_nodes,
+        )?;
+        for matched in outcome.results {
+            if Some(matched.location.start_line) == target.start_line
+                && Some(matched.location.end_line) == target.end_line
+            {
+                continue;
+            }
+            let handle = compact_target_from_session_target(
+                session,
+                &text_candidate_from_match(session, query.as_str(), matched).target,
+            );
+            if !seen.insert(handle.path.clone()) {
+                continue;
+            }
+            related.push(handle);
+            if related.len() >= OPEN_RELATED_HANDLE_LIMIT {
+                return Ok(Some(related));
+            }
         }
     }
     Ok((!related.is_empty()).then_some(related))
@@ -2043,41 +2570,62 @@ fn compact_text_fragment_neighbors(
     target: &SessionHandleTarget,
     include_top_preview: bool,
 ) -> Result<(Vec<AgentTargetHandleView>, Option<AgentTextPreviewView>)> {
-    let Some(query) = target.query.as_deref() else {
+    let Some(_query) = target.query.as_deref() else {
         return Ok((Vec::new(), None));
     };
     let Some(file_path) = target.file_path.as_deref() else {
         return Ok((Vec::new(), None));
     };
-    let outcome = search_text(
-        host,
-        SearchTextArgs {
-            query: query.to_string(),
-            regex: Some(false),
-            case_sensitive: Some(false),
-            path: Some(file_path.to_string()),
-            glob: None,
-            limit: Some(EXPAND_NEIGHBOR_LIMIT + 1),
-            context_lines: Some(0),
-        },
-        session.limits().max_result_nodes,
-    )?;
     let mut neighbors = Vec::new();
     let mut top_preview = None;
-    for matched in outcome.results {
-        if Some(matched.location.start_line) == target.start_line
-            && Some(matched.location.end_line) == target.end_line
-        {
-            continue;
+    for query in text_fragment_query_variants(target) {
+        let outcome = search_text(
+            host,
+            SearchTextArgs {
+                query: query.to_string(),
+                regex: Some(false),
+                case_sensitive: Some(false),
+                path: Some(file_path.to_string()),
+                glob: None,
+                limit: Some(EXPAND_NEIGHBOR_LIMIT + 1),
+                context_lines: Some(0),
+            },
+            session.limits().max_result_nodes,
+        )?;
+        for matched in outcome.results {
+            if Some(matched.location.start_line) == target.start_line
+                && Some(matched.location.end_line) == target.end_line
+            {
+                continue;
+            }
+            let handle_target = text_candidate_from_match(session, query.as_str(), matched).target;
+            let view = compact_target_from_session_target(session, &handle_target);
+            if include_top_preview && top_preview.is_none() {
+                top_preview = compact_preview_for_text_target(host, &view.handle, &handle_target)?;
+            }
+            neighbors.push(view);
+            if neighbors.len() >= EXPAND_NEIGHBOR_LIMIT {
+                return Ok((neighbors, top_preview));
+            }
         }
-        let handle_target = text_candidate_from_match(session, query, matched).target;
-        let view = compact_target_from_session_target(session, &handle_target);
-        if include_top_preview && top_preview.is_none() {
-            top_preview = compact_preview_for_text_target(host, &view.handle, &handle_target)?;
-        }
-        neighbors.push(view);
-        if neighbors.len() >= EXPAND_NEIGHBOR_LIMIT {
-            break;
+    }
+    if neighbors.is_empty() {
+        let prism = host.current_prism();
+        for symbol in semantic_symbols_for_text_target(host, target, EXPAND_NEIGHBOR_LIMIT)? {
+            let view = compact_target_view(
+                session,
+                &symbol,
+                target.query.as_deref(),
+                Some(text_fragment_semantic_why(&symbol)),
+            );
+            if include_top_preview && top_preview.is_none() {
+                top_preview =
+                    compact_preview_for_symbol_view(prism.as_ref(), &view.handle, &symbol)?;
+            }
+            neighbors.push(view);
+            if neighbors.len() >= EXPAND_NEIGHBOR_LIMIT {
+                break;
+            }
         }
     }
     Ok((neighbors, top_preview))
@@ -2102,35 +2650,45 @@ fn compact_text_fragment_validation(
     session: &SessionState,
     target: &SessionHandleTarget,
 ) -> Result<Value> {
-    let likely_tests = if let Some(query) = target.query.as_deref() {
-        search_text(
-            host,
-            SearchTextArgs {
-                query: query.to_string(),
-                regex: Some(false),
-                case_sensitive: Some(false),
-                path: None,
-                glob: Some("**/*test*".to_string()),
-                limit: Some(WORKSET_TEST_LIMIT),
-                context_lines: Some(0),
-            },
-            session.limits().max_result_nodes,
-        )?
-        .results
-        .into_iter()
-        .map(|matched| {
-            compact_target_from_session_target(
-                session,
-                &text_candidate_from_match(session, query, matched).target,
-            )
-        })
-        .take(WORKSET_TEST_LIMIT)
-        .collect::<Vec<_>>()
+    let mut likely_tests =
+        compact_text_fragment_likely_tests(host, session, target, WORKSET_TEST_LIMIT)?;
+    if likely_tests.is_empty() {
+        if let Some(query) = target.query.as_deref() {
+            likely_tests = search_text(
+                host,
+                SearchTextArgs {
+                    query: query.to_string(),
+                    regex: Some(false),
+                    case_sensitive: Some(false),
+                    path: None,
+                    glob: Some("**/*test*".to_string()),
+                    limit: Some(WORKSET_TEST_LIMIT),
+                    context_lines: Some(0),
+                },
+                session.limits().max_result_nodes,
+            )?
+            .results
+            .into_iter()
+            .map(|matched| {
+                compact_target_from_session_target(
+                    session,
+                    &text_candidate_from_match(session, query, matched).target,
+                )
+            })
+            .take(WORKSET_TEST_LIMIT)
+            .collect::<Vec<_>>();
+        }
+    }
+    let checks = if likely_tests.is_empty() {
+        vec![
+            "Confirm the adjacent config/script updates stay consistent with the exact text hit."
+                .to_string(),
+        ]
     } else {
-        Vec::new()
+        vec!["Confirm the linked semantic owner and its likely tests still agree with the exact text hit.".to_string()]
     };
     Ok(json!({
-        "checks": ["Confirm the adjacent config/script updates stay consistent with the exact text hit."],
+        "checks": checks,
         "likelyTests": likely_tests,
         "why": workset_why(target),
     }))
@@ -2233,21 +2791,9 @@ fn compact_drift_expand_result(
             EXPAND_DRIFT_TEXT_MAX_CHARS,
         )
     };
-    let mut next_reads = drift
-        .next_reads
-        .into_iter()
-        .take(EXPAND_DRIFT_NEXT_READ_LIMIT)
-        .map(|candidate| {
-            let mut handle = compact_target_view(
-                session,
-                &candidate.symbol,
-                target.query.as_deref(),
-                Some(candidate.why),
-            );
-            handle.file_path = None;
-            handle
-        })
-        .collect::<Vec<_>>();
+    let mut next_reads =
+        prioritized_spec_supporting_reads(session, target, &drift, EXPAND_DRIFT_NEXT_READ_LIMIT);
+    strip_file_paths(&mut next_reads);
     let mut result = json!({
         "driftReasons": drift_reasons,
         "expectations": compact_string_list(
@@ -2334,7 +2880,11 @@ fn agent_expand_kind(kind: &PrismExpandKindInput) -> AgentExpandKind {
 
 fn workset_why(target: &SessionHandleTarget) -> String {
     let why = if is_text_fragment_target(target) {
-        match (target.query.as_deref(), target.file_path.as_deref(), target.start_line) {
+        match (
+            target.query.as_deref(),
+            target.file_path.as_deref(),
+            target.start_line,
+        ) {
             (Some(query), Some(file_path), Some(start_line)) => format!(
                 "Exact text hit for `{query}` in {file_path}:{start_line}. {}",
                 target.why_short
@@ -2344,8 +2894,8 @@ fn workset_why(target: &SessionHandleTarget) -> String {
         }
     } else {
         match target.query.as_deref() {
-        Some(query) => format!("Primary target from `{query}`. {}", target.why_short),
-        None => target.why_short.clone(),
+            Some(query) => format!("Primary target from `{query}`. {}", target.why_short),
+            None => target.why_short.clone(),
         }
     };
     clamp_string(&why, WORKSET_WHY_MAX_CHARS)

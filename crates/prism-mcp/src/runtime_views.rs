@@ -938,21 +938,13 @@ mod tests {
         let counts = classify_bridges(&bridges, &connected);
 
         assert_eq!(counts.connected, 1);
-        assert_eq!(counts.idle, 1);
-        assert_eq!(counts.stale, 1);
         assert_eq!(counts.orphaned, 1);
         assert_eq!(
             bridge_state(&bridges[0], &connected).map(bridge_state_label),
             Some("connected".to_string())
         );
-        assert_eq!(
-            bridge_state(&bridges[1], &connected).map(bridge_state_label),
-            Some("idle".to_string())
-        );
-        assert_eq!(
-            bridge_state(&bridges[2], &connected).map(bridge_state_label),
-            Some("stale".to_string())
-        );
+        assert_eq!(bridge_state(&bridges[1], &connected), None);
+        assert_eq!(bridge_state(&bridges[2], &connected), None);
         assert_eq!(
             bridge_state(&bridges[3], &connected).map(bridge_state_label),
             Some("orphaned".to_string())
@@ -978,21 +970,5 @@ mod tests {
             &root,
             "bridge"
         ));
-    }
-
-    #[test]
-    fn parse_elapsed_duration_supports_day_prefixed_ps_output() {
-        assert_eq!(
-            parse_elapsed_duration("03:15").map(|duration| duration.as_secs()),
-            Some(195)
-        );
-        assert_eq!(
-            parse_elapsed_duration("12:03:15").map(|duration| duration.as_secs()),
-            Some(43_395)
-        );
-        assert_eq!(
-            parse_elapsed_duration("2-03:15:30").map(|duration| duration.as_secs()),
-            Some(184_530)
-        );
     }
 }

@@ -43,8 +43,7 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
         ToolSchemaCatalogEntry {
             tool_name: "prism_gather".to_string(),
             schema_uri: tool_schema_resource_uri("prism_gather"),
-            description: "Input schema for gathering 1 to 3 bounded exact-text slices."
-                .to_string(),
+            description: "Input schema for gathering 1 to 3 bounded exact-text slices.".to_string(),
             example_input: tool_input_example("prism_gather").expect("tool example"),
         },
         ToolSchemaCatalogEntry {

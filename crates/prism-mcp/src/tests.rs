@@ -342,6 +342,42 @@ fn write_memory_insight_workspace(root: &Path) {
     .unwrap();
 }
 
+fn write_dashboard_validation_workspace(root: &Path) {
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::create_dir_all(root.join("tests")).unwrap();
+    fs::write(
+        root.join("docs/DASHBOARD_IMPLEMENTATION_SPEC.md"),
+        "# Dashboard\n\n## Validation view\n\nThe validation view should surface validation feedback counts and trends.\nIt should read validation feedback and trust metrics from the MCP layer.\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "mod query_runtime;\nmod host_mutations;\nmod helpers;\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/query_runtime.rs"),
+        "pub fn validation_feedback_view() {}\n\npub fn validation_feedback_contains() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/host_mutations.rs"),
+        "pub struct QueryHost;\n\nimpl QueryHost {\n    pub fn store_validation_feedback(&self) {}\n}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/helpers.rs"),
+        "pub fn strip_internal_developer_api_reference() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("tests/validation_feedback.rs"),
+        "#[test]\nfn validation_feedback_view_stays_connected() {}\n",
+    )
+    .unwrap();
+}
+
 fn write_long_excerpt_workspace(root: &Path) {
     fs::create_dir_all(root.join("docs")).unwrap();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -4235,6 +4271,115 @@ def helper():
 }
 
 #[test]
+fn compact_locate_promotes_numbered_markdown_headings_to_semantic_handles() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::write(
+        root.join("docs/SPEC.md"),
+        "# Memory\n\n## 9.10 Integration Points\n\nPRISM should enrich memory recall with lineage and prior outcomes.\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn memory_recall() {}\n").unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "Integration Points".to_string(),
+                path: Some("docs/SPEC.md".to_string()),
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                limit: Some(3),
+                include_top_preview: Some(true),
+            },
+        )
+        .expect("locate should succeed");
+
+    assert_eq!(locate.status, prism_js::AgentLocateStatus::Ok);
+    assert_eq!(locate.candidates[0].kind, NodeKind::MarkdownHeading);
+    assert_eq!(
+        locate
+            .top_preview
+            .as_ref()
+            .map(|preview| preview.start_line),
+        Some(3)
+    );
+}
+
+#[test]
+fn compact_fragment_followups_surface_semantic_config_targets() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn helper() {}\n").unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[workspace]\nmembers = [\"crates/prism\"]\n\n[workspace.dependencies]\nanyhow = \"1.0\"\nserde = \"1.0\"\n",
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let gather = host
+        .compact_gather(
+            Arc::clone(&session),
+            PrismGatherArgs {
+                query: "workspace.dependencies".to_string(),
+                path: Some("Cargo.toml".to_string()),
+                glob: None,
+                limit: Some(1),
+            },
+        )
+        .expect("gather should succeed");
+    let handle = gather.matches[0].handle.clone();
+
+    let workset = host
+        .compact_workset(
+            Arc::clone(&session),
+            PrismWorksetArgs {
+                handle: Some(handle.clone()),
+                query: None,
+            },
+        )
+        .expect("workset should succeed");
+    assert!(!workset.supporting_reads.is_empty());
+    assert!(workset
+        .supporting_reads
+        .iter()
+        .any(|target| target.kind == NodeKind::TomlKey));
+
+    let neighbors = host
+        .compact_expand(
+            Arc::clone(&session),
+            PrismExpandArgs {
+                handle: handle.clone(),
+                kind: PrismExpandKindInput::Neighbors,
+                include_top_preview: Some(true),
+            },
+        )
+        .expect("neighbors should succeed");
+    assert!(neighbors.result["neighbors"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item["kind"] == "TomlKey")));
+    assert!(neighbors.top_preview.is_some());
+
+    let validation = host
+        .compact_expand(
+            Arc::clone(&session),
+            PrismExpandArgs {
+                handle,
+                kind: PrismExpandKindInput::Validation,
+                include_top_preview: None,
+            },
+        )
+        .expect("validation should succeed");
+    assert!(validation.result["checks"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+}
+
+#[test]
 fn compact_expand_drift_surfaces_spec_gap_summary() {
     let root = temp_workspace();
     write_memory_insight_workspace(&root);
@@ -4371,6 +4516,68 @@ fn compact_workset_for_spec_targets_surfaces_drift_reads_and_gap_summary() {
     assert!(workset.why.contains("Gap summary:") || workset.why.contains("gap summary"));
 }
 
+#[test]
+fn compact_workset_for_spec_targets_prefers_owner_paths_over_text_adjacent_helpers() {
+    let root = temp_workspace();
+    write_dashboard_validation_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "Validation view".to_string(),
+                path: Some("docs/DASHBOARD_IMPLEMENTATION_SPEC.md".to_string()),
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                limit: Some(3),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+    assert_eq!(locate.candidates[0].kind, NodeKind::MarkdownHeading);
+
+    let workset = host
+        .compact_workset(
+            Arc::clone(&session),
+            PrismWorksetArgs {
+                handle: Some(locate.candidates[0].handle.clone()),
+                query: None,
+            },
+        )
+        .expect("workset should succeed");
+
+    assert!(!workset.supporting_reads.is_empty());
+    assert!(workset
+        .supporting_reads
+        .iter()
+        .any(|target| target.path.contains("validation_feedback_view")
+            || target.path.contains("store_validation_feedback")));
+    assert!(workset.supporting_reads.iter().all(|target| !target
+        .path
+        .contains("strip_internal_developer_api_reference")));
+
+    let drift = host
+        .compact_expand(
+            Arc::clone(&session),
+            PrismExpandArgs {
+                handle: locate.candidates[0].handle.clone(),
+                kind: PrismExpandKindInput::Drift,
+                include_top_preview: None,
+            },
+        )
+        .expect("drift should succeed");
+    assert!(drift.result["nextReads"]
+        .as_array()
+        .is_some_and(|items| items.iter().all(|item| {
+            !item["path"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("strip_internal_developer_api_reference")
+        })));
+}
+
 #[tokio::test]
 async fn mcp_server_executes_compact_agent_tool_round_trip() {
     let root = temp_workspace();
@@ -4501,6 +4708,96 @@ pub fn main() {
     assert!(gather["matches"][0]["text"]
         .as_str()
         .is_some_and(|value| value.contains("println!(\"hello\")")));
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_keeps_compact_handles_stable_across_parallel_follow_up_calls() {
+    let root = temp_workspace();
+    write_memory_insight_workspace(&root);
+    let server = PrismMcpServer::with_session(index_workspace_session(&root).unwrap());
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_locate",
+            json!({
+                "query": "Integration Points",
+                "path": "docs/SPEC.md",
+                "taskIntent": "explain",
+                "limit": 3,
+            })
+            .as_object()
+            .expect("tool args should be an object")
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let locate = first_tool_content_json(client.receive().await.unwrap());
+    let handle = locate["candidates"][0]["handle"].clone();
+
+    for (id, tool, args) in [
+        (
+            3,
+            "prism_open",
+            json!({
+                "handle": handle,
+                "mode": "focus",
+            }),
+        ),
+        (
+            4,
+            "prism_workset",
+            json!({
+                "handle": locate["candidates"][0]["handle"],
+            }),
+        ),
+        (
+            5,
+            "prism_expand",
+            json!({
+                "handle": locate["candidates"][0]["handle"],
+                "kind": "drift",
+            }),
+        ),
+    ] {
+        client
+            .send(call_tool_request(
+                id,
+                tool,
+                args.as_object()
+                    .expect("tool args should be an object")
+                    .clone(),
+            ))
+            .await
+            .unwrap();
+    }
+
+    let first = first_tool_content_json(client.receive().await.unwrap());
+    let second = first_tool_content_json(client.receive().await.unwrap());
+    let third = first_tool_content_json(client.receive().await.unwrap());
+    let payloads = [first, second, third];
+
+    assert!(payloads
+        .iter()
+        .any(|payload| payload["handle"] == locate["candidates"][0]["handle"]));
+    assert!(payloads
+        .iter()
+        .any(|payload| payload["primary"]["handle"] == locate["candidates"][0]["handle"]));
+    assert!(payloads
+        .iter()
+        .any(|payload| payload["kind"] == "drift" && payload["result"]["nextReads"].is_array()));
 
     running.cancel().await.unwrap();
 }

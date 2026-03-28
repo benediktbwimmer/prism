@@ -553,8 +553,6 @@ type RuntimeStatusView = {
   daemonCount: number;
   bridgeCount: number;
   connectedBridgeCount: number;
-  idleBridgeCount: number;
-  staleBridgeCount: number;
   orphanBridgeCount: number;
   processes: RuntimeProcessView[];
   processError?: string;

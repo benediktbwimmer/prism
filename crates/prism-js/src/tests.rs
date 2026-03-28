@@ -121,8 +121,6 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("parentPid: number;"));
     assert!(docs.contains("bridgeState?: string;"));
     assert!(docs.contains("connectedBridgeCount: number;"));
-    assert!(docs.contains("idleBridgeCount: number;"));
-    assert!(docs.contains("staleBridgeCount: number;"));
     assert!(docs.contains("orphanBridgeCount: number;"));
     assert!(docs.contains("type RuntimeLogEventView = {"));
     assert!(docs.contains("type QueryLogEntryView = {"));

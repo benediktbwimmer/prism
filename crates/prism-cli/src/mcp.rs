@@ -16,8 +16,6 @@ const START_TIMEOUT: Duration = Duration::from_secs(180);
 const STOP_TIMEOUT: Duration = Duration::from_secs(10);
 const POLL_INTERVAL: Duration = Duration::from_millis(100);
 const DEFAULT_HEALTH_PATH: &str = "/healthz";
-const BRIDGE_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
-const STALE_BRIDGE_GRACE: Duration = Duration::from_secs(90);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum McpProcessKind {
@@ -39,16 +37,12 @@ struct McpProcess {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BridgeState {
     Connected,
-    Idle,
-    Stale,
     Orphaned,
 }
 
 #[derive(Debug, Clone, Default)]
 struct BridgeCounts {
     connected: usize,
-    idle: usize,
-    stale: usize,
     orphaned: usize,
 }
 
@@ -121,8 +115,6 @@ fn status(root: &Path) -> Result<()> {
     }
     println!("bridge_count: {}", bridges.len());
     println!("connected_bridge_count: {}", bridge_counts.connected);
-    println!("idle_bridge_count: {}", bridge_counts.idle);
-    println!("stale_bridge_count: {}", bridge_counts.stale);
     println!("orphan_bridge_count: {}", bridge_counts.orphaned);
     println!("preferred_connection_mode: {}", connection.mode);
     println!("preferred_transport: {}", connection.transport);
@@ -155,9 +147,9 @@ fn status(root: &Path) -> Result<()> {
     if daemons.len() > 1 {
         println!("warning: multiple daemon processes are running for this workspace");
     }
-    if bridge_counts.stale > 0 || bridge_counts.orphaned > 0 {
-        println!("warning: stale bridge processes are running for this workspace");
-        println!("hint: run `prism mcp cleanup` to reap stale or orphaned bridges");
+    if bridge_counts.orphaned > 0 {
+        println!("warning: orphaned bridge processes are running for this workspace");
+        println!("hint: run `prism mcp cleanup` to reap orphaned bridges");
     }
     if daemons.is_empty() && !bridges.is_empty() {
         println!("warning: bridge processes exist without a daemon");
@@ -191,11 +183,11 @@ fn cleanup(root: &Path) -> Result<()> {
         .unwrap_or_default();
     let stale = cleanup_candidate_bridges(&bridges, &connected_bridge_pids);
     if stale.is_empty() {
-        println!("no stale or orphaned bridge processes found");
+        println!("no orphaned bridge processes found");
         return Ok(());
     }
     reap_processes(root, &stale)?;
-    println!("reaped {} stale bridge process(es)", stale.len());
+    println!("reaped {} orphaned bridge process(es)", stale.len());
     Ok(())
 }
 
@@ -355,10 +347,8 @@ fn bridge_state(
         Some(BridgeState::Connected)
     } else if process.ppid == 1 {
         Some(BridgeState::Orphaned)
-    } else if bridge_is_stale(process) {
-        Some(BridgeState::Stale)
     } else {
-        Some(BridgeState::Idle)
+        None
     }
 }
 
@@ -367,8 +357,6 @@ fn classify_bridges(bridges: &[McpProcess], connected_bridge_pids: &BTreeSet<u32
     for process in bridges {
         match bridge_state(process, connected_bridge_pids) {
             Some(BridgeState::Connected) => counts.connected += 1,
-            Some(BridgeState::Idle) => counts.idle += 1,
-            Some(BridgeState::Stale) => counts.stale += 1,
             Some(BridgeState::Orphaned) => counts.orphaned += 1,
             None => {}
         }
@@ -393,7 +381,7 @@ fn cleanup_candidate_bridges(
         .filter(|process| {
             matches!(
                 bridge_state(process, connected_bridge_pids),
-                Some(BridgeState::Stale | BridgeState::Orphaned)
+                Some(BridgeState::Orphaned)
             )
         })
         .cloned()
@@ -446,42 +434,6 @@ fn command_option_value(command: &str, option: &str) -> Option<String> {
     tokens
         .windows(2)
         .find_map(|window| (window[0] == option).then(|| window[1].to_string()))
-}
-
-fn bridge_is_stale(process: &McpProcess) -> bool {
-    parse_elapsed_duration(&process.elapsed)
-        .map(|elapsed| elapsed >= BRIDGE_IDLE_TIMEOUT + STALE_BRIDGE_GRACE)
-        .unwrap_or(false)
-}
-
-fn parse_elapsed_duration(elapsed: &str) -> Option<Duration> {
-    let mut parts = elapsed.split(':').collect::<Vec<_>>();
-    if parts.is_empty() {
-        return None;
-    }
-    let mut day_seconds = 0_u64;
-    if let Some((days, hours)) = parts.first().and_then(|part| part.split_once('-')) {
-        day_seconds = days.parse::<u64>().ok()?.saturating_mul(86_400);
-        parts[0] = hours;
-    }
-    let parts = parts
-        .into_iter()
-        .map(|part| part.parse::<u64>().ok())
-        .collect::<Option<Vec<_>>>()?;
-    let seconds = match parts.as_slice() {
-        [minutes, seconds] => minutes.saturating_mul(60).saturating_add(*seconds),
-        [hours, minutes, seconds] => hours
-            .saturating_mul(3600)
-            .saturating_add(minutes.saturating_mul(60))
-            .saturating_add(*seconds),
-        [days, hours, minutes, seconds] => days
-            .saturating_mul(86_400)
-            .saturating_add(hours.saturating_mul(3600))
-            .saturating_add(minutes.saturating_mul(60))
-            .saturating_add(*seconds),
-        _ => return None,
-    };
-    Some(Duration::from_secs(day_seconds.saturating_add(seconds)))
 }
 
 fn prism_mcp_binary() -> Result<PathBuf> {
@@ -915,13 +867,11 @@ mod tests {
         let counts = classify_bridges(&bridges, &connected);
 
         assert_eq!(counts.connected, 1);
-        assert_eq!(counts.idle, 1);
-        assert_eq!(counts.stale, 1);
         assert_eq!(counts.orphaned, 1);
     }
 
     #[test]
-    fn cleanup_candidates_include_stale_and_orphaned_bridges_only() {
+    fn cleanup_candidates_include_orphaned_bridges_only() {
         let bridges = vec![
             McpProcess {
                 pid: 10,
@@ -954,8 +904,7 @@ mod tests {
 
         let candidates = cleanup_candidate_bridges(&bridges, &BTreeSet::new());
 
-        assert_eq!(candidates.len(), 2);
-        assert!(candidates.iter().any(|process| process.pid == 11));
+        assert_eq!(candidates.len(), 1);
         assert!(candidates.iter().any(|process| process.pid == 12));
     }
 
@@ -1035,22 +984,6 @@ mod tests {
             Some("/tmp/uri")
         );
         assert_eq!(command_option_value(command, "--missing"), None);
-    }
-
-    #[test]
-    fn parse_elapsed_duration_supports_day_prefixed_ps_output() {
-        assert_eq!(
-            parse_elapsed_duration("03:15").map(|duration| duration.as_secs()),
-            Some(195)
-        );
-        assert_eq!(
-            parse_elapsed_duration("12:03:15").map(|duration| duration.as_secs()),
-            Some(43_395)
-        );
-        assert_eq!(
-            parse_elapsed_duration("2-03:15:30").map(|duration| duration.as_secs()),
-            Some(184_530)
-        );
     }
 
     #[test]
