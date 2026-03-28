@@ -15,7 +15,8 @@ use prism_memory::{
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult,
 };
 use prism_query::{
-    ConceptEvent, ConceptEventAction, ConceptPacket, Prism, canonical_concept_handle,
+    ConceptEvent, ConceptEventAction, ConceptPacket, ConceptProvenance, ConceptPublication,
+    ConceptPublicationStatus, Prism, canonical_concept_handle,
 };
 use serde_json::{json, Value};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -27,9 +28,10 @@ use crate::{
     convert_memory_source, convert_node_id, convert_outcome_evidence, convert_outcome_kind,
     convert_outcome_result, convert_policy, coordination_task_view, curator_disposition_label,
     curator_job_status_label, curator_memory_metadata, curator_proposal, curator_proposal_state,
-    curator_trigger_label, current_timestamp, manual_memory_metadata, parse_capability,
-    parse_claim_mode, parse_coordination_task_status, parse_edge_kind, parse_plan_status,
-    parse_review_verdict, plan_view, task_journal_memory_metadata, task_journal_view,
+    curator_trigger_label, current_timestamp, ensure_repo_publication_metadata,
+    manual_memory_metadata, parse_capability, parse_claim_mode, parse_coordination_task_status,
+    parse_edge_kind, parse_plan_status, parse_review_verdict, plan_view,
+    task_journal_memory_metadata, task_journal_view,
     ArtifactActionInput, ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
     ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput, ClaimMutationResult,
     ClaimReleasePayload, ClaimRenewPayload, ConceptMutationOperationInput,
@@ -397,6 +399,9 @@ impl QueryHost {
             .unwrap_or(MemorySource::Agent);
         entry.trust = payload.trust.unwrap_or(0.5).clamp(0.0, 1.0);
         entry.metadata = manual_memory_metadata(payload.metadata.unwrap_or(Value::Null), &task_id);
+        if entry.scope == MemoryScope::Repo {
+            entry.metadata = ensure_repo_publication_metadata(entry.metadata, current_timestamp());
+        }
         let memory_id = session.notes.store(entry)?;
         let stored_entry = session
             .notes
@@ -500,21 +505,26 @@ impl QueryHost {
         let prism = self.current_prism();
         let task_id = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
         let operation = args.operation.clone();
+        let recorded_at = current_timestamp();
         let packet = match operation {
             ConceptMutationOperationInput::Promote => {
-                build_promoted_concept_packet(prism.as_ref(), args)?
+                build_promoted_concept_packet(prism.as_ref(), &task_id, recorded_at, args)?
             }
             ConceptMutationOperationInput::Update => {
-                build_updated_concept_packet(prism.as_ref(), args)?
+                build_updated_concept_packet(prism.as_ref(), &task_id, recorded_at, args)?
+            }
+            ConceptMutationOperationInput::Retire => {
+                build_retired_concept_packet(prism.as_ref(), &task_id, recorded_at, args)?
             }
         };
         let event = ConceptEvent {
             id: next_concept_event_id(),
-            recorded_at: current_timestamp(),
+            recorded_at,
             task_id: Some(task_id.0.to_string()),
             action: match operation {
                 ConceptMutationOperationInput::Promote => ConceptEventAction::Promote,
                 ConceptMutationOperationInput::Update => ConceptEventAction::Update,
+                ConceptMutationOperationInput::Retire => ConceptEventAction::Retire,
             },
             concept: packet.clone(),
         };
@@ -1298,6 +1308,7 @@ impl QueryHost {
                     args.proposal_index,
                     Value::Null,
                 );
+                entry.metadata = ensure_repo_publication_metadata(entry.metadata, current_timestamp());
                 (entry, candidate.evidence.memory_ids.clone())
             }
             CuratorProposal::SemanticMemory(candidate) => {
@@ -1314,6 +1325,7 @@ impl QueryHost {
                     args.proposal_index,
                     Value::Null,
                 );
+                entry.metadata = ensure_repo_publication_metadata(entry.metadata, current_timestamp());
                 (entry, candidate.evidence.memory_ids.clone())
             }
             CuratorProposal::RiskSummary(candidate) => {
@@ -1357,6 +1369,7 @@ impl QueryHost {
                             .collect::<Vec<_>>(),
                     }),
                 );
+                entry.metadata = ensure_repo_publication_metadata(entry.metadata, current_timestamp());
                 (entry, candidate_memory.evidence.memory_ids.clone())
             }
             CuratorProposal::ValidationRecipe(candidate) => {
@@ -1396,6 +1409,7 @@ impl QueryHost {
                         "evidence": candidate.evidence,
                     }),
                 );
+                entry.metadata = ensure_repo_publication_metadata(entry.metadata, current_timestamp());
                 (entry, candidate_memory.evidence.memory_ids.clone())
             }
             CuratorProposal::InferredEdge(_) => {
@@ -1635,6 +1649,8 @@ impl QueryHost {
 
 fn build_promoted_concept_packet(
     prism: &Prism,
+    task_id: &TaskId,
+    recorded_at: u64,
     args: PrismConceptMutationArgs,
 ) -> Result<ConceptPacket> {
     let canonical_name = args
@@ -1672,6 +1688,19 @@ fn build_promoted_concept_packet(
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty()),
         decode_lenses: convert_concept_lenses(args.decode_lenses),
+        provenance: ConceptProvenance {
+            origin: "repo_mutation".to_string(),
+            kind: "manual_concept_promote".to_string(),
+            task_id: Some(task_id.0.to_string()),
+        },
+        publication: Some(ConceptPublication {
+            published_at: recorded_at,
+            last_reviewed_at: Some(recorded_at),
+            status: ConceptPublicationStatus::Active,
+            supersedes: normalize_concept_handles(args.supersedes.unwrap_or_default()),
+            retired_at: None,
+            retirement_reason: None,
+        }),
     };
     validate_concept_packet(&packet)?;
     Ok(packet)
@@ -1679,6 +1708,8 @@ fn build_promoted_concept_packet(
 
 fn build_updated_concept_packet(
     prism: &Prism,
+    task_id: &TaskId,
+    recorded_at: u64,
     args: PrismConceptMutationArgs,
 ) -> Result<ConceptPacket> {
     let handle = args
@@ -1744,9 +1775,79 @@ fn build_updated_concept_packet(
         packet.decode_lenses = convert_concept_lenses(Some(decode_lenses));
         changed = true;
     }
+    if let Some(supersedes) = args.supersedes {
+        let publication = packet.publication.get_or_insert_with(|| ConceptPublication {
+            published_at: recorded_at,
+            ..ConceptPublication::default()
+        });
+        publication.supersedes = normalize_concept_handles(supersedes);
+        changed = true;
+    }
     if !changed {
         return Err(anyhow!("concept update requires at least one field to change"));
     }
+    if packet.provenance == ConceptProvenance::default() {
+        packet.provenance = ConceptProvenance {
+            origin: "repo_mutation".to_string(),
+            kind: "manual_concept_update".to_string(),
+            task_id: Some(task_id.0.to_string()),
+        };
+    }
+    let publication = packet.publication.get_or_insert_with(|| ConceptPublication {
+        published_at: recorded_at,
+        ..ConceptPublication::default()
+    });
+    if publication.published_at == 0 {
+        publication.published_at = recorded_at;
+    }
+    publication.last_reviewed_at = Some(recorded_at);
+    publication.status = ConceptPublicationStatus::Active;
+    publication.retired_at = None;
+    publication.retirement_reason = None;
+    validate_concept_packet(&packet)?;
+    Ok(packet)
+}
+
+fn build_retired_concept_packet(
+    prism: &Prism,
+    task_id: &TaskId,
+    recorded_at: u64,
+    args: PrismConceptMutationArgs,
+) -> Result<ConceptPacket> {
+    let handle = args
+        .handle
+        .as_deref()
+        .map(|value| normalize_concept_handle(Some(value), value))
+        .ok_or_else(|| anyhow!("concept retire requires handle"))?;
+    let retirement_reason = args
+        .retirement_reason
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| anyhow!("concept retire requires retirementReason"))?;
+    let mut packet = prism
+        .concept_by_handle(&handle)
+        .ok_or_else(|| anyhow!("no concept packet matched `{handle}`"))?;
+    if packet.provenance == ConceptProvenance::default() {
+        packet.provenance = ConceptProvenance {
+            origin: "repo_mutation".to_string(),
+            kind: "manual_concept_retire".to_string(),
+            task_id: Some(task_id.0.to_string()),
+        };
+    }
+    let publication = packet.publication.get_or_insert_with(|| ConceptPublication {
+        published_at: recorded_at,
+        ..ConceptPublication::default()
+    });
+    if publication.published_at == 0 {
+        publication.published_at = recorded_at;
+    }
+    if let Some(supersedes) = args.supersedes {
+        publication.supersedes = normalize_concept_handles(supersedes);
+    }
+    publication.last_reviewed_at = Some(recorded_at);
+    publication.status = ConceptPublicationStatus::Retired;
+    publication.retired_at = Some(recorded_at);
+    publication.retirement_reason = Some(retirement_reason);
     validate_concept_packet(&packet)?;
     Ok(packet)
 }
@@ -1821,6 +1922,13 @@ fn sanitize_strings(values: Vec<String>) -> Vec<String> {
     sanitized
 }
 
+fn normalize_concept_handles(values: Vec<String>) -> Vec<String> {
+    sanitize_strings(values)
+        .into_iter()
+        .map(|value| canonical_concept_handle(value.trim_start_matches("concept://")))
+        .collect()
+}
+
 fn normalize_concept_handle(handle: Option<&str>, canonical_name: &str) -> String {
     match handle.map(str::trim).filter(|value| !value.is_empty()) {
         Some(value) => canonical_concept_handle(value.trim_start_matches("concept://")),
@@ -1838,14 +1946,48 @@ fn validate_concept_packet(packet: &ConceptPacket) -> Result<()> {
     if packet.summary.trim().is_empty() {
         return Err(anyhow!("concept summary cannot be empty"));
     }
-    if packet.core_members.is_empty() {
-        return Err(anyhow!("concept coreMembers cannot be empty"));
+    if packet.core_members.len() < 2 {
+        return Err(anyhow!(
+            "repo-published concept coreMembers must contain at least 2 central members"
+        ));
+    }
+    if packet.core_members.len() > 5 {
+        return Err(anyhow!(
+            "repo-published concept coreMembers cannot contain more than 5 members"
+        ));
     }
     if packet.evidence.is_empty() {
         return Err(anyhow!("concept evidence cannot be empty"));
     }
+    if packet.confidence < 0.7 {
+        return Err(anyhow!(
+            "repo-published concept confidence must be at least 0.7"
+        ));
+    }
     if packet.decode_lenses.is_empty() {
         return Err(anyhow!("concept decodeLenses cannot be empty"));
+    }
+    let Some(publication) = packet.publication.as_ref() else {
+        return Err(anyhow!(
+            "repo-published concept packet must include publication metadata"
+        ));
+    };
+    if publication.published_at == 0 {
+        return Err(anyhow!(
+            "repo-published concept publication metadata must include publishedAt"
+        ));
+    }
+    if publication.status == ConceptPublicationStatus::Retired
+        && publication.retirement_reason.as_deref().unwrap_or("").trim().is_empty()
+    {
+        return Err(anyhow!(
+            "retired concept publication metadata must include retirementReason"
+        ));
+    }
+    if packet.provenance == ConceptProvenance::default() {
+        return Err(anyhow!(
+            "repo-published concept packet must include provenance metadata"
+        ));
     }
     Ok(())
 }

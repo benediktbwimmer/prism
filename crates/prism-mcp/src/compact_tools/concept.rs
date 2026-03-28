@@ -3,9 +3,10 @@ use std::collections::HashSet;
 use prism_ir::AnchorRef;
 use prism_js::{
     AgentConceptPacketView, AgentConceptResultView, AgentSuggestedActionView, ConceptDecodeView,
+    ConceptProvenanceView, ConceptPublicationStatusView, ConceptPublicationView,
 };
 use prism_memory::{MemoryModule, OutcomeKind, OutcomeRecallQuery, RecallQuery};
-use prism_query::{ConceptDecodeLens, ConceptPacket};
+use prism_query::{ConceptDecodeLens, ConceptPacket, ConceptPublicationStatus};
 
 use super::suggested_actions::{
     dedupe_suggested_actions, suggested_expand_action, suggested_open_action,
@@ -87,6 +88,22 @@ fn agent_concept_packet_view(
             .copied()
             .map(concept_decode_lens_view)
             .collect(),
+        provenance: ConceptProvenanceView {
+            origin: packet.provenance.origin.clone(),
+            kind: packet.provenance.kind.clone(),
+            task_id: packet.provenance.task_id.clone(),
+        },
+        publication: packet.publication.clone().map(|publication| ConceptPublicationView {
+            published_at: publication.published_at,
+            last_reviewed_at: publication.last_reviewed_at,
+            status: match publication.status {
+                ConceptPublicationStatus::Active => ConceptPublicationStatusView::Active,
+                ConceptPublicationStatus::Retired => ConceptPublicationStatusView::Retired,
+            },
+            supersedes: publication.supersedes,
+            retired_at: publication.retired_at,
+            retirement_reason: publication.retirement_reason,
+        }),
         next_action: Some("Open the strongest core member or decode the concept with a lens.".to_string()),
         suggested_actions,
     })

@@ -14,6 +14,7 @@ pub use crate::projections::{
 };
 pub use crate::types::{
     CoChangeDelta, CoChangeRecord, ConceptDecodeLens, ConceptEvent, ConceptEventAction,
-    ConceptPacket, IntentDriftRecord, IntentSpecProjection, ProjectionSnapshot,
-    ValidationCheck, ValidationDelta,
+    ConceptPacket, ConceptProvenance, ConceptPublication, ConceptPublicationStatus,
+    IntentDriftRecord, IntentSpecProjection, ProjectionSnapshot, ValidationCheck,
+    ValidationDelta,
 };

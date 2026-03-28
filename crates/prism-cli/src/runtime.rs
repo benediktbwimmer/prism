@@ -10,6 +10,7 @@ use prism_memory::{
     RecallQuery, SessionMemory,
 };
 use prism_query::Symbol;
+use serde_json::json;
 
 pub struct ValidationRun {
     pub kind: OutcomeKind,
@@ -67,6 +68,27 @@ pub fn build_memory_entry(
     entry.anchors = prism.anchors_for(&[AnchorRef::Node(symbol.id().clone())]);
     entry.scope = scope;
     entry.source = MemorySource::User;
+    if scope == MemoryScope::Repo {
+        let now = current_timestamp();
+        entry.metadata = json!({
+            "provenance": {
+                "origin": "cli_store",
+                "kind": "manual_memory",
+            },
+            "evidence": {
+                "eventIds": [],
+                "memoryIds": [],
+                "validationChecks": [],
+                "coChangeLineages": [],
+            },
+            "publication": {
+                "publishedAt": now,
+                "lastReviewedAt": now,
+                "status": "active",
+            }
+        });
+        entry.trust = 0.85;
+    }
     entry
 }
 

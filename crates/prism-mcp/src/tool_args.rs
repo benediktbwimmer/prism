@@ -271,6 +271,7 @@ pub(crate) struct PrismConceptArgs {
 pub(crate) enum ConceptMutationOperationInput {
     Promote,
     Update,
+    Retire,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -300,6 +301,10 @@ pub(crate) struct PrismConceptMutationArgs {
     pub(crate) confidence: Option<f32>,
     #[schemars(description = "Optional decode lenses Prism should expose for this concept.")]
     pub(crate) decode_lenses: Option<Vec<PrismConceptLensInput>>,
+    #[schemars(description = "Optional concept handles this published concept supersedes.")]
+    pub(crate) supersedes: Option<Vec<String>>,
+    #[schemars(description = "Reason for retiring a concept. Required for `retire`.")]
+    pub(crate) retirement_reason: Option<String>,
     #[serde(alias = "task_id")]
     pub(crate) task_id: Option<String>,
 }

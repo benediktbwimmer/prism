@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use prism_ir::{LineageId, NodeId, NodeKind};
 
 use crate::types::{
-    CoChangeRecord, ConceptDecodeLens, ConceptEvent, ConceptPacket, ValidationCheck,
+    CoChangeRecord, ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptPacket,
+    ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ValidationCheck,
 };
 
 const CORE_MEMBER_LIMIT: usize = 4;
@@ -175,7 +176,18 @@ pub(crate) fn merge_concept_packets(
 pub fn curated_concepts_from_events(events: &[ConceptEvent]) -> Vec<ConceptPacket> {
     let mut concepts = HashMap::<String, ConceptPacket>::new();
     for event in events {
-        concepts.insert(normalize_handle(&event.concept.handle), event.concept.clone());
+        let key = normalize_handle(&event.concept.handle);
+        let previous = concepts.get(&key).cloned();
+        let concept = normalize_curated_concept(event, previous.as_ref());
+        if concept
+            .publication
+            .as_ref()
+            .is_some_and(|publication| publication.status == ConceptPublicationStatus::Retired)
+        {
+            concepts.remove(&key);
+        } else {
+            concepts.insert(key, concept);
+        }
     }
     let mut concepts = concepts.into_values().collect::<Vec<_>>();
     concepts.sort_by(|left, right| left.handle.cmp(&right.handle));
@@ -189,6 +201,68 @@ pub fn canonical_concept_handle(name: &str) -> String {
     } else {
         format!("concept://{slug}")
     }
+}
+
+fn normalize_curated_concept(
+    event: &ConceptEvent,
+    previous: Option<&ConceptPacket>,
+) -> ConceptPacket {
+    let mut concept = event.concept.clone();
+    if concept.provenance == ConceptProvenance::default() {
+        concept.provenance = ConceptProvenance {
+            origin: "repo_mutation".to_string(),
+            kind: match event.action {
+                ConceptEventAction::Promote => "manual_concept_promote".to_string(),
+                ConceptEventAction::Update => "manual_concept_update".to_string(),
+                ConceptEventAction::Retire => "manual_concept_retire".to_string(),
+            },
+            task_id: event.task_id.clone(),
+        };
+    } else if concept.provenance.task_id.is_none() {
+        concept.provenance.task_id = event.task_id.clone();
+    }
+
+    let mut publication = concept
+        .publication
+        .clone()
+        .unwrap_or_else(|| previous_publication(previous, event.recorded_at));
+    if publication.published_at == 0 {
+        publication.published_at = previous
+            .and_then(|packet| packet.publication.as_ref())
+            .map(|value| value.published_at)
+            .filter(|value| *value > 0)
+            .unwrap_or(event.recorded_at);
+    }
+    publication.last_reviewed_at = Some(event.recorded_at);
+    if publication.supersedes.is_empty() {
+        publication.supersedes = previous
+            .and_then(|packet| packet.publication.as_ref())
+            .map(|value| value.supersedes.clone())
+            .unwrap_or_default();
+    }
+    match event.action {
+        ConceptEventAction::Promote | ConceptEventAction::Update => {
+            publication.status = ConceptPublicationStatus::Active;
+            publication.retired_at = None;
+            publication.retirement_reason = None;
+        }
+        ConceptEventAction::Retire => {
+            publication.status = ConceptPublicationStatus::Retired;
+            publication.retired_at = Some(event.recorded_at);
+        }
+    }
+    concept.publication = Some(publication);
+    concept
+}
+
+fn previous_publication(previous: Option<&ConceptPacket>, recorded_at: u64) -> ConceptPublication {
+    let mut publication = previous
+        .and_then(|packet| packet.publication.clone())
+        .unwrap_or_default();
+    if publication.published_at == 0 {
+        publication.published_at = recorded_at;
+    }
+    publication
 }
 
 fn derive_packet(
@@ -309,6 +383,12 @@ fn derive_packet(
         evidence,
         risk_hint: definition.risk_hint.map(str::to_string),
         decode_lenses: definition.decode_lenses.to_vec(),
+        provenance: ConceptProvenance {
+            origin: "derived_seed".to_string(),
+            kind: "seeded_concept".to_string(),
+            task_id: None,
+        },
+        publication: None,
     })
 }
 

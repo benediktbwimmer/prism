@@ -204,6 +204,9 @@ fn refresh_prism_snapshot_with_guard(
     } else {
         Vec::new()
     };
+    let scoped_watch_refresh = trigger == ChangeTrigger::FsWatch
+        && !dirty_paths.is_empty()
+        && can_scope_watch_refresh(root, &dirty_paths);
     let cached_snapshot = fs_snapshot
         .lock()
         .expect("workspace fingerprint lock poisoned")
@@ -225,10 +228,10 @@ fn refresh_prism_snapshot_with_guard(
             coordination: coordination_enabled,
         },
     )?;
-    let observed = if dirty_paths.is_empty() {
-        indexer.index_with_trigger(trigger)?
-    } else {
+    let observed = if scoped_watch_refresh {
         indexer.index_with_scope(trigger, dirty_paths.iter().cloned())?
+    } else {
+        indexer.index_with_trigger(trigger)?
     };
     let workspace_revision = indexer.store.workspace_revision()?;
     let next = Arc::new(indexer.into_prism());
@@ -243,6 +246,10 @@ fn refresh_prism_snapshot_with_guard(
     }
     refresh_state.mark_refreshed_revision(observed_revision, &dirty_paths);
     Ok(observed)
+}
+
+fn can_scope_watch_refresh(root: &Path, dirty_paths: &[PathBuf]) -> bool {
+    dirty_paths.iter().all(|path| path.starts_with(root))
 }
 
 fn relevant_watch_paths(root: &Path, event: &Event) -> Vec<PathBuf> {
@@ -294,7 +301,7 @@ fn format_error_chain(error: &anyhow::Error) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_ignored_watch_relative_path, relevant_watch_paths};
+    use super::{can_scope_watch_refresh, is_ignored_watch_relative_path, relevant_watch_paths};
     use notify::{
         event::{EventAttributes, ModifyKind},
         Event, EventKind,
@@ -349,5 +356,21 @@ mod tests {
         let event = modify_event(outside.clone());
         let paths = relevant_watch_paths(&root, &event);
         assert_eq!(paths, vec![outside]);
+    }
+
+    #[test]
+    fn scoped_watch_refresh_requires_in_root_paths() {
+        let root = PathBuf::from("/workspace/prism");
+        assert!(can_scope_watch_refresh(
+            &root,
+            &[root.join("docs/guide.md"), root.join("src/lib.rs")]
+        ));
+        assert!(!can_scope_watch_refresh(
+            &root,
+            &[
+                root.join("docs/guide.md"),
+                PathBuf::from("/tmp/editor-copy.md")
+            ]
+        ));
     }
 }

@@ -14,7 +14,7 @@ use prism_history::HistoryStore;
 use prism_ir::{ChangeTrigger, EventId, ObservedChangeSet, TaskId};
 use prism_memory::OutcomeMemory;
 use prism_memory::{EpisodicMemorySnapshot, MemoryEvent, MemoryEventQuery, OutcomeEvent};
-use prism_projections::{ConceptEvent, ProjectionIndex, validation_deltas_for_event};
+use prism_projections::{validation_deltas_for_event, ConceptEvent, ProjectionIndex};
 use prism_query::Prism;
 use prism_store::{AuxiliaryPersistBatch, SqliteStore, Store};
 
@@ -25,6 +25,7 @@ use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorH
 use crate::memory_events::{
     append_repo_memory_event, filter_memory_events, load_repo_memory_events,
 };
+use crate::published_knowledge::{validate_repo_concept_event, validate_repo_memory_event};
 use crate::util::{
     current_timestamp, current_timestamp_millis, workspace_fingerprint, WorkspaceFingerprint,
 };
@@ -353,6 +354,7 @@ impl WorkspaceSession {
 
     pub fn append_memory_event(&self, event: MemoryEvent) -> Result<()> {
         if event.scope == prism_memory::MemoryScope::Repo {
+            validate_repo_memory_event(&event)?;
             append_repo_memory_event(&self.root, &event)?;
         }
         self.store
@@ -374,6 +376,7 @@ impl WorkspaceSession {
             .refresh_lock
             .lock()
             .expect("workspace refresh lock poisoned");
+        validate_repo_concept_event(&event)?;
         append_repo_concept_event(&self.root, &event)?;
         let prism = self.prism_arc();
         prism.upsert_curated_concept(event.concept);

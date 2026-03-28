@@ -3,7 +3,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use prism_projections::{ConceptEvent, ConceptPacket, curated_concepts_from_events};
+use prism_projections::{curated_concepts_from_events, ConceptEvent, ConceptPacket};
 
 use crate::util::repo_concept_events_path;
 
@@ -45,5 +45,7 @@ pub(crate) fn load_repo_concept_events(root: &Path) -> Result<Vec<ConceptEvent>>
 }
 
 pub(crate) fn load_repo_curated_concepts(root: &Path) -> Result<Vec<ConceptPacket>> {
-    Ok(curated_concepts_from_events(&load_repo_concept_events(root)?))
+    Ok(curated_concepts_from_events(&load_repo_concept_events(
+        root,
+    )?))
 }

@@ -35,6 +35,19 @@ pub(crate) fn manual_memory_metadata(existing: Value, task_id: &TaskId) -> Value
     Value::Object(metadata)
 }
 
+pub(crate) fn ensure_repo_publication_metadata(existing: Value, published_at: u64) -> Value {
+    let mut metadata = ensure_object(existing);
+    let publication = metadata.remove("publication").unwrap_or(Value::Null);
+    let mut publication = ensure_object(publication);
+    publication
+        .entry("publishedAt".to_string())
+        .or_insert_with(|| Value::from(published_at));
+    publication.insert("lastReviewedAt".to_string(), Value::from(published_at));
+    publication.insert("status".to_string(), Value::String("active".to_string()));
+    metadata.insert("publication".to_string(), Value::Object(publication));
+    Value::Object(metadata)
+}
+
 pub(crate) fn curator_memory_metadata(
     proposal: &CuratorProposal,
     candidate: &CandidateMemory,

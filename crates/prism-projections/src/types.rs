@@ -24,6 +24,62 @@ pub struct ConceptPacket {
     pub evidence: Vec<String>,
     pub risk_hint: Option<String>,
     pub decode_lenses: Vec<ConceptDecodeLens>,
+    #[serde(default)]
+    pub provenance: ConceptProvenance,
+    #[serde(default)]
+    pub publication: Option<ConceptPublication>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ConceptPublicationStatus {
+    #[default]
+    Active,
+    Retired,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConceptProvenance {
+    pub origin: String,
+    pub kind: String,
+    pub task_id: Option<String>,
+}
+
+impl Default for ConceptProvenance {
+    fn default() -> Self {
+        Self {
+            origin: "unknown".to_string(),
+            kind: "unknown".to_string(),
+            task_id: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConceptPublication {
+    pub published_at: u64,
+    pub last_reviewed_at: Option<u64>,
+    #[serde(default)]
+    pub status: ConceptPublicationStatus,
+    #[serde(default)]
+    pub supersedes: Vec<String>,
+    pub retired_at: Option<u64>,
+    pub retirement_reason: Option<String>,
+}
+
+impl Default for ConceptPublication {
+    fn default() -> Self {
+        Self {
+            published_at: 0,
+            last_reviewed_at: None,
+            status: ConceptPublicationStatus::Active,
+            supersedes: Vec::new(),
+            retired_at: None,
+            retirement_reason: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -31,6 +87,7 @@ pub struct ConceptPacket {
 pub enum ConceptEventAction {
     Promote,
     Update,
+    Retire,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

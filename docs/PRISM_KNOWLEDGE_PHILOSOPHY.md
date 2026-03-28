@@ -59,6 +59,8 @@ This is durable learned knowledge that the repository should carry forward:
 
 This knowledge is exported from the state database into versioned JSONL files inside the workspace repository and hydrated back into state on startup.
 
+Published JSONL is the repository's operational knowledge substrate. Prose documents explain the philosophy, norms, and review expectations around that substrate, but they are not themselves the canonical store of durable repo knowledge.
+
 ## Why publish durable knowledge into the repo
 
 Publishing durable repo knowledge into the repository has several benefits.
@@ -88,6 +90,8 @@ A piece of knowledge belongs in the repository only if it is all of the followin
 - **Evidence-backed**: grounded in actual work, outcomes, or repeated use
 - **Stable enough**: not likely to rot immediately
 - **Safe to publish**: appropriate to commit into the repository
+- **Traceable**: carries enough provenance to understand where it came from
+- **Manageable over time**: can be superseded, refreshed, or retired cleanly
 
 Examples:
 - a durable memory about a recurring validation pitfall
@@ -95,6 +99,13 @@ Examples:
 - a negative lesson from repeated failed attempts
 - a recurring risk note that is not obvious from code structure alone
 - a stable handoff-worthy understanding of how a broad repo concept actually resolves in practice
+
+Published knowledge should not be a free-form blob. From the start, each durable artifact should carry the metadata needed to keep the layer trustworthy over time, including:
+
+- provenance about how the knowledge was learned or promoted
+- timestamps or equivalent recency signals
+- confidence or quality indicators
+- supersession, retirement, or staleness hooks where applicable
 
 ## What does not belong in published repo knowledge
 
@@ -129,6 +140,14 @@ Useful during one session or task, but not yet trusted enough to publish.
 Durable enough to become part of the repository's published knowledge layer.
 
 Only the **repo** level should be exported into committed JSONL.
+
+Promotion should stay strict. Interesting knowledge is not automatically repo knowledge. The default path is:
+
+1. local when the idea is tentative or task-shaped
+2. session when it is useful but not yet trusted enough to publish
+3. repo only when it has clearly crossed the durability, reuse, and publication bar
+
+Skipping directly to repo should be rare and should require unusually strong evidence.
 
 ## Memories and concepts
 
@@ -175,6 +194,8 @@ The preferred pattern is:
 
 This keeps the knowledge layer grounded in actual task flow.
 
+Lazy maintenance does not mean weak lifecycle rules. Published knowledge should be easy to promote, but it should also be easy to challenge, supersede, tombstone, or downgrade when the repo changes around it.
+
 ## Quality bar
 
 A memory or concept should only become published repo knowledge when it would save future agents from rediscovering something important.
@@ -191,6 +212,7 @@ Published knowledge is durable, not immutable.
 
 PRISM should support:
 - confidence and quality levels
+- provenance and publication metadata
 - staleness signals
 - supersession
 - retirement or tombstoning

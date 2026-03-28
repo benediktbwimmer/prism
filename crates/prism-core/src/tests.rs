@@ -1037,7 +1037,10 @@ fn repo_concept_events_round_trip_through_committed_jsonl_and_reload() {
         concept.summary,
         "Curated alpha concept shared through the repo."
     );
-    assert_eq!(concept.aliases, vec!["alpha".to_string(), "alpha flow".to_string()]);
+    assert_eq!(
+        concept.aliases,
+        vec!["alpha".to_string(), "alpha flow".to_string()]
+    );
 
     let _ = fs::remove_dir_all(root);
 }
@@ -1324,6 +1327,40 @@ fn refresh_state_keeps_later_dirty_path_revisions_pending() {
     state.mark_refreshed_revision(second_revision, std::slice::from_ref(&path));
     assert!(!state.needs_refresh());
     assert!(state.dirty_paths_snapshot().is_empty());
+}
+
+#[test]
+fn refresh_fs_falls_back_to_full_reindex_for_out_of_root_watch_paths() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::write(
+        root.join("docs/created.md"),
+        "# Watcher Created Doc\n\nThis document was added after startup.\n",
+    )
+    .unwrap();
+    session
+        .refresh_state
+        .mark_fs_dirty_paths([PathBuf::from("/tmp/editor-copy-created.md")]);
+
+    let observed = session.refresh_fs().unwrap();
+
+    assert!(!observed.is_empty());
+    assert!(session
+        .prism()
+        .symbol("Watcher Created Doc")
+        .iter()
+        .any(|symbol| symbol.id().kind == NodeKind::MarkdownHeading));
+
+    let _ = fs::remove_dir_all(root);
 }
 
 #[test]

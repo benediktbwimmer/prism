@@ -5,16 +5,18 @@ use prism_curator::{
 use prism_ir::{AnchorRef, Edge, NodeId, WorkspaceRevision};
 use prism_js::{
     ArtifactRiskView, ArtifactView, BlockerView, ChangeImpactView, ClaimView, CoChangeView,
-    ConceptDecodeLensView, ConceptPacketView, ConflictView, CoordinationTaskView, CuratorJobView,
-    CuratorProposalRecordView, CuratorProposalView, DriftCandidateView, EdgeView,
+    ConceptDecodeLensView, ConceptPacketView, ConceptProvenanceView,
+    ConceptPublicationStatusView, ConceptPublicationView, ConflictView, CoordinationTaskView,
+    CuratorJobView, CuratorProposalRecordView, CuratorProposalView, DriftCandidateView, EdgeView,
     MemoryEntryView, MemoryEventView, NodeIdView, PlanView, PolicyViolationRecordView,
     PolicyViolationView, QueryDiagnostic, ScoredMemoryView, TaskIntentView, TaskRiskView,
     TaskValidationRecipeView, ValidationCheckView, ValidationRecipeView, WorkspaceRevisionView,
 };
 use prism_memory::{MemoryEntry, MemoryEvent, MemorySource, ScoredMemory};
 use prism_query::{
-    ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens, ConceptPacket, DriftCandidate,
-    Prism, TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
+    ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens, ConceptPacket, ConceptProvenance,
+    ConceptPublication, ConceptPublicationStatus, DriftCandidate, Prism, TaskIntent, TaskRisk,
+    TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 use serde_json::Value;
 
@@ -254,6 +256,34 @@ pub(crate) fn concept_packet_view(packet: ConceptPacket) -> ConceptPacketView {
             .into_iter()
             .map(concept_decode_lens_view)
             .collect(),
+        provenance: concept_provenance_view(packet.provenance),
+        publication: packet.publication.map(concept_publication_view),
+    }
+}
+
+fn concept_provenance_view(provenance: ConceptProvenance) -> ConceptProvenanceView {
+    ConceptProvenanceView {
+        origin: provenance.origin,
+        kind: provenance.kind,
+        task_id: provenance.task_id,
+    }
+}
+
+fn concept_publication_status_view(status: ConceptPublicationStatus) -> ConceptPublicationStatusView {
+    match status {
+        ConceptPublicationStatus::Active => ConceptPublicationStatusView::Active,
+        ConceptPublicationStatus::Retired => ConceptPublicationStatusView::Retired,
+    }
+}
+
+fn concept_publication_view(publication: ConceptPublication) -> ConceptPublicationView {
+    ConceptPublicationView {
+        published_at: publication.published_at,
+        last_reviewed_at: publication.last_reviewed_at,
+        status: concept_publication_status_view(publication.status),
+        supersedes: publication.supersedes,
+        retired_at: publication.retired_at,
+        retirement_reason: publication.retirement_reason,
     }
 }
 
