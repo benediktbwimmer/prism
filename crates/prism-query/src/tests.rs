@@ -1703,6 +1703,108 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
 }
 
 #[test]
+fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:native-node-metadata"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Preserve authored node semantics".into(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        history,
+        outcomes,
+        coordination,
+        ProjectionIndex::default(),
+    );
+
+    let node_id = prism
+        .create_native_plan_node(
+            &plan_id,
+            PlanNodeKind::Validate,
+            "Validate main".into(),
+            Some("Collect validation evidence".into()),
+            Some(PlanNodeStatus::Ready),
+            None,
+            false,
+            prism_ir::PlanBinding {
+                anchors: vec![AnchorRef::Kind(NodeKind::Function)],
+                concept_handles: vec![
+                    "concept://validation_pipeline".into(),
+                    "concept://validation_pipeline".into(),
+                ],
+                artifact_refs: vec!["artifact:demo-main".into()],
+                memory_refs: vec!["memory:validation-note".into()],
+                outcome_refs: vec!["outcome:validation-plan".into()],
+            },
+            Vec::new(),
+            Vec::new(),
+            WorkspaceRevision::default(),
+            Some(3),
+            vec!["release".into(), "validation".into(), "release".into()],
+        )
+        .unwrap();
+
+    let plan_id = prism
+        .update_native_plan_node(
+            &node_id,
+            Some(PlanNodeKind::Review),
+            Some(PlanNodeStatus::InReview),
+            None,
+            Some(true),
+            Some("Review validation evidence".into()),
+            Some("Review the collected checks".into()),
+            Some(prism_ir::PlanBinding {
+                anchors: vec![AnchorRef::Kind(NodeKind::Method)],
+                concept_handles: vec!["concept://validation_pipeline".into()],
+                artifact_refs: vec!["artifact:review-main".into()],
+                memory_refs: vec!["memory:review-note".into()],
+                outcome_refs: vec!["outcome:review-plan".into()],
+            }),
+            None,
+            None,
+            Some(WorkspaceRevision::default()),
+            Some(7),
+            Some(vec!["review".into(), "validation".into(), "review".into()]),
+        )
+        .unwrap();
+
+    let graph = prism.plan_graph(&plan_id).expect("plan graph");
+    let node = graph
+        .nodes
+        .into_iter()
+        .find(|node| node.id == node_id)
+        .expect("native node");
+    assert_eq!(node.kind, PlanNodeKind::Review);
+    assert_eq!(node.summary.as_deref(), Some("Review the collected checks"));
+    assert!(node.is_abstract);
+    assert_eq!(node.priority, Some(7));
+    assert_eq!(node.tags, vec!["review", "validation"]);
+    assert_eq!(node.bindings.anchors, vec![AnchorRef::Kind(NodeKind::Method)]);
+    assert_eq!(
+        node.bindings.concept_handles,
+        vec!["concept://validation_pipeline"]
+    );
+    assert_eq!(node.bindings.artifact_refs, vec!["artifact:review-main"]);
+    assert_eq!(node.bindings.memory_refs, vec!["memory:review-note"]);
+    assert_eq!(node.bindings.outcome_refs, vec!["outcome:review-plan"]);
+}
+
+#[test]
 fn native_plan_updates_validate_completion_and_preserve_non_dependency_edges() {
     let graph = Graph::new();
     let history = HistoryStore::new();
@@ -2283,6 +2385,105 @@ fn native_plan_ready_nodes_and_blockers_follow_edge_semantics() {
 }
 
 #[test]
+fn native_plan_next_prefers_actionable_nodes_that_unblock_more_follow_up_work() {
+    fn node(
+        plan_id: &PlanId,
+        node_id: &PlanNodeId,
+        title: &str,
+        status: PlanNodeStatus,
+    ) -> PlanNode {
+        PlanNode {
+            id: node_id.clone(),
+            plan_id: plan_id.clone(),
+            kind: PlanNodeKind::Edit,
+            title: title.into(),
+            summary: None,
+            status,
+            bindings: prism_ir::PlanBinding::default(),
+            acceptance: Vec::new(),
+            is_abstract: false,
+            assignee: None,
+            base_revision: WorkspaceRevision::default(),
+            priority: None,
+            tags: Vec::new(),
+            metadata: serde_json::Value::Null,
+        }
+    }
+
+    fn edge(plan_id: &PlanId, from: &PlanNodeId, to: &PlanNodeId, kind: PlanEdgeKind) -> PlanEdge {
+        PlanEdge {
+            id: PlanEdgeId::new(format!("{}:{:?}:{}", from.0, kind, to.0)),
+            plan_id: plan_id.clone(),
+            from: from.clone(),
+            to: to.clone(),
+            kind,
+            summary: None,
+            metadata: serde_json::Value::Null,
+        }
+    }
+
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let plan_id = PlanId::new("plan:native-next");
+    let hub = PlanNodeId::new("plan-node:hub");
+    let solo = PlanNodeId::new("plan-node:solo");
+    let dependent_a = PlanNodeId::new("plan-node:dependent-a");
+    let dependent_b = PlanNodeId::new("plan-node:dependent-b");
+
+    let native_graph = PlanGraph {
+        id: plan_id.clone(),
+        scope: PlanScope::Repo,
+        kind: PlanKind::TaskExecution,
+        title: "Native plan next".into(),
+        goal: "Prefer actionable nodes that unlock more work".into(),
+        status: PlanStatus::Active,
+        revision: 1,
+        root_nodes: vec![
+            hub.clone(),
+            solo.clone(),
+            dependent_a.clone(),
+            dependent_b.clone(),
+        ],
+        tags: Vec::new(),
+        created_from: None,
+        metadata: serde_json::Value::Null,
+        nodes: vec![
+            node(&plan_id, &hub, "Hub", PlanNodeStatus::Ready),
+            node(&plan_id, &solo, "Solo", PlanNodeStatus::Ready),
+            node(&plan_id, &dependent_a, "Dependent A", PlanNodeStatus::Ready),
+            node(&plan_id, &dependent_b, "Dependent B", PlanNodeStatus::Ready),
+        ],
+        edges: vec![
+            edge(&plan_id, &dependent_a, &hub, PlanEdgeKind::DependsOn),
+            edge(&plan_id, &dependent_b, &hub, PlanEdgeKind::DependsOn),
+        ],
+    };
+
+    let prism = Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
+        graph,
+        history,
+        outcomes,
+        coordination,
+        ProjectionIndex::default(),
+        vec![native_graph],
+        BTreeMap::new(),
+    );
+
+    let next = prism.plan_next(&plan_id, 3);
+    assert_eq!(next.len(), 3);
+    assert_eq!(next[0].node.id, hub);
+    assert!(next[0].actionable);
+    assert_eq!(next[0].unblocks.len(), 2);
+    assert!(next[0]
+        .reasons
+        .iter()
+        .any(|reason| reason.contains("unblock 2 node")));
+    assert_eq!(next[1].node.id, solo);
+}
+
+#[test]
 fn native_plan_node_completion_rejects_missing_review_and_acceptance_validation() {
     let graph = Graph::new();
     let history = HistoryStore::new();
@@ -2318,11 +2519,13 @@ fn native_plan_node_completion_rejects_missing_review_and_acceptance_validation(
     let node_id = prism
         .create_native_plan_node(
             &plan_id,
+            PlanNodeKind::Edit,
             "Ship main".into(),
+            None,
             Some(PlanNodeStatus::Ready),
             None,
             false,
-            Vec::new(),
+            prism_ir::PlanBinding::default(),
             Vec::new(),
             vec![prism_ir::PlanAcceptanceCriterion {
                 label: "main is validated".into(),
@@ -2336,10 +2539,21 @@ fn native_plan_node_completion_rejects_missing_review_and_acceptance_validation(
                 graph_version: 1,
                 git_commit: None,
             },
+            None,
+            Vec::new(),
         )
         .unwrap();
 
     let blockers = prism.plan_node_blockers(&plan_id, &node_id);
+    let summary = prism
+        .plan_summary(&plan_id)
+        .expect("plan summary should exist");
+    assert_eq!(summary.total_nodes, 1);
+    assert_eq!(summary.actionable_nodes, 1);
+    assert_eq!(summary.execution_blocked_nodes, 0);
+    assert_eq!(summary.completion_gated_nodes, 1);
+    assert_eq!(summary.review_gated_nodes, 1);
+    assert_eq!(summary.validation_gated_nodes, 1);
     assert!(blockers
         .iter()
         .any(|blocker| blocker.kind == PlanNodeBlockerKind::ReviewRequired));
@@ -2350,7 +2564,10 @@ fn native_plan_node_completion_rejects_missing_review_and_acceptance_validation(
     let error = prism
         .update_native_plan_node(
             &node_id,
+            None,
             Some(PlanNodeStatus::Completed),
+            None,
+            None,
             None,
             None,
             None,
@@ -2430,7 +2647,10 @@ fn task_backed_native_plan_node_completion_uses_continuity_review_state() {
     assert!(prism
         .update_native_plan_node(
             &node_id,
+            None,
             Some(PlanNodeStatus::Completed),
+            None,
+            None,
             None,
             None,
             None,
@@ -2500,7 +2720,10 @@ fn task_backed_native_plan_node_completion_uses_continuity_review_state() {
     prism
         .update_native_plan_node(
             &node_id,
+            None,
             Some(PlanNodeStatus::Completed),
+            None,
+            None,
             None,
             None,
             None,

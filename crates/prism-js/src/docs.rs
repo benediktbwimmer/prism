@@ -280,6 +280,8 @@ type PrismApi = {
   planExecution(planId: string): PlanExecutionOverlayView[];
   planReadyNodes(planId: string): PlanNodeView[];
   planNodeBlockers(planId: string, nodeId: string): PlanNodeBlockerView[];
+  planSummary(planId: string): PlanSummaryView | null;
+  planNext(planId: string, limit?: number): PlanNodeRecommendationView[];
   task(taskId: string): CoordinationTaskView | null;
   readyTasks(planId: string): CoordinationTaskView[];
   claims(target: SymbolView | NodeId | AnchorRef | Array<SymbolView | NodeId | AnchorRef>): ClaimView[];
@@ -1074,6 +1076,8 @@ type CoordinationInboxView = {
   plan: PlanView | null;
   planGraph: PlanGraphView | null;
   planExecution: PlanExecutionOverlayView[];
+  planSummary: PlanSummaryView | null;
+  planNext: PlanNodeRecommendationView[];
   readyTasks: CoordinationTaskView[];
   pendingReviews: ArtifactView[];
 };
@@ -1083,6 +1087,8 @@ type TaskContextView = {
   taskNode: PlanNodeView | null;
   taskExecution: PlanExecutionOverlayView | null;
   planGraph: PlanGraphView | null;
+  planSummary: PlanSummaryView | null;
+  planNext: PlanNodeRecommendationView[];
   blockers: BlockerView[];
   artifacts: ArtifactView[];
   claims: ClaimView[];
@@ -1257,6 +1263,31 @@ type PlanNodeBlockerView = {
   relatedArtifactId?: string;
   riskScore?: number;
   validationChecks: string[];
+};
+
+type PlanSummaryView = {
+  planId: string;
+  status: string;
+  totalNodes: number;
+  completedNodes: number;
+  abandonedNodes: number;
+  inProgressNodes: number;
+  actionableNodes: number;
+  executionBlockedNodes: number;
+  completionGatedNodes: number;
+  reviewGatedNodes: number;
+  validationGatedNodes: number;
+  staleNodes: number;
+  claimConflictedNodes: number;
+};
+
+type PlanNodeRecommendationView = {
+  node: PlanNodeView;
+  actionable: boolean;
+  score: number;
+  reasons: string[];
+  blockers: PlanNodeBlockerView[];
+  unblocks: string[];
 };
 
 type CoordinationTaskView = {

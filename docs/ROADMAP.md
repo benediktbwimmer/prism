@@ -62,7 +62,7 @@ PRISM's docs should describe the system that exists today, not the smaller syste
 Work:
 
 * keep the documented workspace layout in sync with the actual crate set, including `prism-projections`, `prism-coordination`, and `prism-curator`
-* document the current implemented memory scope honestly: outcome memory and episodic memory are real; structural and semantic memory remain future-facing
+* keep the memory docs aligned with the current implementation: `SessionMemory` composes episodic, structural, and semantic recall, while `OutcomeMemory` remains a separate event-history store
 * document the current automatic patch-outcome flow so it is clear how `ObservedChangeSet` and `PatchApplied` fit together
 * reconcile manual CLI patch-recording commands with the newer automatic patch-outcome pipeline
 * keep roadmap and spec updates coupled so implementation drift is visible quickly

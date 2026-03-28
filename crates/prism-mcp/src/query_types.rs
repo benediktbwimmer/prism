@@ -3,8 +3,8 @@ use prism_agent::InferredEdgeScope;
 use prism_coordination::{AcceptanceCriterion, CoordinationPolicy};
 use prism_ir::{
     AcceptanceEvidencePolicy, AnchorRef, Capability, ClaimMode, CoordinationTaskStatus, EdgeKind,
-    EventActor, NodeId, NodeKind, PlanAcceptanceCriterion, PlanEdgeKind, PlanNodeStatus,
-    PlanStatus, ReviewVerdict, ValidationRef,
+    EventActor, NodeId, NodeKind, PlanAcceptanceCriterion, PlanBinding, PlanEdgeKind, PlanNodeKind,
+    PlanNodeStatus, PlanStatus, ReviewVerdict, ValidationRef,
 };
 use prism_memory::{
     MemoryEventKind, MemoryKind, MemoryScope, OutcomeEvidence, OutcomeKind, OutcomeResult,
@@ -14,7 +14,7 @@ use serde::Deserialize;
 use crate::{
     AcceptanceCriterionPayload, AnchorRefInput, CoordinationPolicyPayload, InferredEdgeScopeInput,
     MemoryKindInput, MemorySourceInput, NodeIdInput, OutcomeEvidenceInput, OutcomeKindInput,
-    OutcomeResultInput, TaskCompletionContextPayload,
+    OutcomeResultInput, PlanBindingPayload, TaskCompletionContextPayload,
 };
 
 #[derive(Debug, Clone, Deserialize)]
@@ -601,6 +601,22 @@ pub(crate) fn parse_plan_node_status(value: &str) -> Result<PlanNodeStatus> {
     }
 }
 
+pub(crate) fn parse_plan_node_kind(value: &str) -> Result<PlanNodeKind> {
+    let normalized = value.trim().to_ascii_lowercase();
+    match normalized.as_str() {
+        "investigate" => Ok(PlanNodeKind::Investigate),
+        "decide" => Ok(PlanNodeKind::Decide),
+        "edit" => Ok(PlanNodeKind::Edit),
+        "validate" => Ok(PlanNodeKind::Validate),
+        "review" => Ok(PlanNodeKind::Review),
+        "handoff" => Ok(PlanNodeKind::Handoff),
+        "merge" => Ok(PlanNodeKind::Merge),
+        "release" => Ok(PlanNodeKind::Release),
+        "note" => Ok(PlanNodeKind::Note),
+        other => Err(anyhow!("unknown plan node kind `{other}`")),
+    }
+}
+
 pub(crate) fn parse_plan_edge_kind(value: &str) -> Result<PlanEdgeKind> {
     let normalized = value.trim().to_ascii_lowercase();
     match normalized.as_str() {
@@ -695,6 +711,27 @@ pub(crate) fn convert_plan_acceptance(
             })
         })
         .collect()
+}
+
+pub(crate) fn convert_plan_binding(
+    explicit_anchors: Option<Vec<AnchorRefInput>>,
+    payload: Option<PlanBindingPayload>,
+) -> Result<Option<PlanBinding>> {
+    if explicit_anchors.is_none() && payload.is_none() {
+        return Ok(None);
+    }
+    let mut binding = PlanBinding::default();
+    if let Some(payload) = payload {
+        binding.anchors = convert_anchors(payload.anchors.unwrap_or_default())?;
+        binding.concept_handles = payload.concept_handles.unwrap_or_default();
+        binding.artifact_refs = payload.artifact_refs.unwrap_or_default();
+        binding.memory_refs = payload.memory_refs.unwrap_or_default();
+        binding.outcome_refs = payload.outcome_refs.unwrap_or_default();
+    }
+    if let Some(explicit) = explicit_anchors {
+        binding.anchors.extend(convert_anchors(explicit)?);
+    }
+    Ok(Some(binding))
 }
 
 pub(crate) fn convert_completion_context(

@@ -752,7 +752,7 @@ pub struct ConceptDecodeView {
     pub evidence: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskValidationRecipeView {
     pub task_id: String,
@@ -763,7 +763,7 @@ pub struct TaskValidationRecipeView {
     pub recent_failures: Vec<OutcomeEvent>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskRiskView {
     pub task_id: String,
@@ -941,6 +941,35 @@ pub struct PlanNodeBlockerView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct PlanSummaryView {
+    pub plan_id: String,
+    pub status: PlanStatus,
+    pub total_nodes: usize,
+    pub completed_nodes: usize,
+    pub abandoned_nodes: usize,
+    pub in_progress_nodes: usize,
+    pub actionable_nodes: usize,
+    pub execution_blocked_nodes: usize,
+    pub completion_gated_nodes: usize,
+    pub review_gated_nodes: usize,
+    pub validation_gated_nodes: usize,
+    pub stale_nodes: usize,
+    pub claim_conflicted_nodes: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanNodeRecommendationView {
+    pub node: PlanNodeView,
+    pub actionable: bool,
+    pub score: f32,
+    pub reasons: Vec<String>,
+    pub blockers: Vec<PlanNodeBlockerView>,
+    pub unblocks: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct CoordinationTaskView {
     pub id: String,
     pub plan_id: String,
@@ -975,6 +1004,36 @@ pub struct ConflictView {
     pub anchors: Vec<AnchorRef>,
     pub overlap_kinds: Vec<ConflictOverlapKind>,
     pub blocking_claim_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CoordinationInboxView {
+    pub plan: Option<PlanView>,
+    pub plan_graph: Option<PlanGraphView>,
+    pub plan_execution: Vec<PlanExecutionOverlayView>,
+    pub plan_summary: Option<PlanSummaryView>,
+    pub plan_next: Vec<PlanNodeRecommendationView>,
+    pub ready_tasks: Vec<CoordinationTaskView>,
+    pub pending_reviews: Vec<ArtifactView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskContextView {
+    pub task: Option<CoordinationTaskView>,
+    pub task_node: Option<PlanNodeView>,
+    pub task_execution: Option<PlanExecutionOverlayView>,
+    pub plan_graph: Option<PlanGraphView>,
+    pub plan_summary: Option<PlanSummaryView>,
+    pub plan_next: Vec<PlanNodeRecommendationView>,
+    pub blockers: Vec<BlockerView>,
+    pub artifacts: Vec<ArtifactView>,
+    pub claims: Vec<ClaimView>,
+    pub conflicts: Vec<ConflictView>,
+    pub blast_radius: Option<ChangeImpactView>,
+    pub validation_recipe: Option<TaskValidationRecipeView>,
+    pub risk: Option<TaskRiskView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

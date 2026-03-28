@@ -656,13 +656,23 @@ fn plan_node_mutations_return_graph_native_views() {
                 kind: CoordinationMutationKindInput::PlanNodeCreate,
                 payload: json!({
                     "planId": plan_id.clone(),
+                    "kind": "validate",
                     "title": "Edit main",
+                    "summary": "Gather validation evidence",
                     "isAbstract": true,
+                    "bindings": {
+                        "conceptHandles": ["concept://native_plan_runtime"],
+                        "artifactRefs": ["artifact:demo-main"],
+                        "memoryRefs": ["memory:demo-main"],
+                        "outcomeRefs": ["outcome:demo-main"]
+                    },
                     "acceptance": [{
                         "label": "main is updated",
                         "requiredChecks": [{ "id": "validation:demo-main" }],
                         "evidencePolicy": "review-and-validation"
-                    }]
+                    }],
+                    "priority": 3,
+                    "tags": ["plans", "validation", "plans"]
                 }),
                 task_id: None,
             },
@@ -670,8 +680,15 @@ fn plan_node_mutations_return_graph_native_views() {
         .unwrap();
     let node_id = node.state["id"].as_str().unwrap().to_string();
     assert_eq!(node.state["title"], "Edit main");
-    assert_eq!(node.state["kind"], "Edit");
+    assert_eq!(node.state["kind"], "Validate");
+    assert_eq!(node.state["summary"], "Gather validation evidence");
     assert_eq!(node.state["isAbstract"], true);
+    assert_eq!(node.state["priority"], 3);
+    assert_eq!(node.state["tags"], json!(["plans", "validation"]));
+    assert_eq!(
+        node.state["bindings"]["conceptHandles"][0],
+        "concept://native_plan_runtime"
+    );
     assert_eq!(
         node.state["acceptance"][0]["requiredChecks"][0]["id"],
         "validation:demo-main"
@@ -688,7 +705,9 @@ fn plan_node_mutations_return_graph_native_views() {
                 kind: CoordinationMutationKindInput::PlanNodeUpdate,
                 payload: json!({
                     "nodeId": node_id.clone(),
+                    "kind": "review",
                     "title": "Edit main safely",
+                    "summary": "Review the validation evidence",
                     "status": "in-progress",
                     "isAbstract": false,
                     "anchors": [{
@@ -697,27 +716,43 @@ fn plan_node_mutations_return_graph_native_views() {
                         "path": "demo::main",
                         "kind": "function"
                     }],
+                    "bindings": {
+                        "conceptHandles": ["concept://native_plan_runtime"],
+                        "artifactRefs": ["artifact:review-main"],
+                        "memoryRefs": ["memory:review-main"],
+                        "outcomeRefs": ["outcome:review-main"]
+                    },
                     "dependsOn": [dependency_id.clone()],
                     "acceptance": [{
                         "label": "main still compiles",
                         "requiredChecks": [{ "id": "validation:cargo-test" }],
                         "evidencePolicy": "validation-only"
-                    }]
+                    }],
+                    "priority": 7,
+                    "tags": ["review", "validation", "review"]
                 }),
                 task_id: None,
             },
         )
         .unwrap();
     assert_eq!(updated.state["title"], "Edit main safely");
+    assert_eq!(updated.state["kind"], "Review");
+    assert_eq!(updated.state["summary"], "Review the validation evidence");
     assert_eq!(updated.state["status"], "InProgress");
     assert_eq!(updated.state["acceptance"].as_array().unwrap().len(), 1);
     assert_eq!(updated.state["isAbstract"], false);
+    assert_eq!(updated.state["priority"], 7);
+    assert_eq!(updated.state["tags"], json!(["review", "validation"]));
     assert_eq!(
         updated.state["bindings"]["anchors"]
             .as_array()
             .unwrap()
             .len(),
         1
+    );
+    assert_eq!(
+        updated.state["bindings"]["artifactRefs"][0],
+        "artifact:review-main"
     );
     assert_eq!(
         updated.state["acceptance"][0]["requiredChecks"][0]["id"],
@@ -737,6 +772,19 @@ fn plan_node_mutations_return_graph_native_views() {
         && edge.kind == PlanEdgeKind::DependsOn));
     assert!(graph.root_nodes.iter().any(|root| root.0 == dependency_id));
     assert!(!graph.root_nodes.iter().any(|root| root.0 == node_id));
+    let graph_node = graph
+        .nodes
+        .iter()
+        .find(|node| node.id.0 == node_id)
+        .expect("graph node");
+    assert_eq!(graph_node.kind, prism_ir::PlanNodeKind::Review);
+    assert_eq!(graph_node.summary.as_deref(), Some("Review the validation evidence"));
+    assert_eq!(graph_node.priority, Some(7));
+    assert_eq!(graph_node.tags, vec!["review", "validation"]);
+    assert_eq!(
+        graph_node.bindings.concept_handles,
+        vec!["concept://native_plan_runtime"]
+    );
 }
 
 #[test]
@@ -782,7 +830,11 @@ fn native_plan_node_completion_rejects_missing_review_and_validation() {
         host.clone(),
         test_session(&host),
         host.current_prism(),
-        host.begin_query_run(test_session(&host).as_ref(), "test", "native completion blockers"),
+        host.begin_query_run(
+            test_session(&host).as_ref(),
+            "test",
+            "native completion blockers",
+        ),
     );
     let blockers = execution
         .dispatch(
@@ -1159,6 +1211,15 @@ fn plan_query_reads_surface_native_ready_nodes_and_blockers() {
             &format!(r#"{{ "planId": "{plan_id}", "nodeId": "{handoff_target_id}" }}"#),
         )
         .unwrap();
+    let summary = execution
+        .dispatch("planSummary", &format!(r#"{{ "planId": "{plan_id}" }}"#))
+        .unwrap();
+    let next = execution
+        .dispatch(
+            "planNext",
+            &format!(r#"{{ "planId": "{plan_id}", "limit": 3 }}"#),
+        )
+        .unwrap();
 
     let ready_ids = ready_nodes
         .as_array()
@@ -1190,6 +1251,18 @@ fn plan_query_reads_surface_native_ready_nodes_and_blockers() {
         handoff_target_blockers[0]["kind"],
         Value::String("Handoff".to_string())
     );
+    assert_eq!(summary["totalNodes"], Value::from(6));
+    assert_eq!(summary["actionableNodes"], Value::from(4));
+    assert_eq!(summary["executionBlockedNodes"], Value::from(2));
+    assert_eq!(summary["completionGatedNodes"], Value::from(1));
+    assert_eq!(summary["validationGatedNodes"], Value::from(1));
+    let next_id = next[0]["node"]["id"].as_str().unwrap();
+    assert!(matches!(
+        next_id,
+        id if id == dependency_id || id == validator_id || id == handoff_source_id
+    ));
+    assert_eq!(next[0]["actionable"], Value::Bool(true));
+    assert_eq!(next[0]["unblocks"].as_array().unwrap().len(), 1);
 }
 
 #[test]
@@ -2459,6 +2532,32 @@ async fn mcp_server_accepts_flat_prism_session_shorthand_input() {
     running.cancel().await.unwrap();
 }
 
+#[test]
+fn prism_mutate_validation_feedback_accepts_flat_snake_case_fields() {
+    let args = serde_json::from_value::<PrismMutationArgs>(json!({
+        "action": "validation_feedback",
+        "context": "Dogfooding broad subsystem workset queries.",
+        "prism_said": "Concept routing and recall were helpful.",
+        "actually_true": "The concept path found the right subsystem, but the workset route needed improvement.",
+        "category": "memory",
+        "verdict": "helpful",
+        "corrected_manually": true,
+        "task_id": "task:dogfood-memory"
+    }))
+    .expect("snake_case shorthand should deserialize");
+
+    let PrismMutationArgs::ValidationFeedback(args) = args else {
+        panic!("expected validation feedback mutation");
+    };
+    assert_eq!(args.prism_said, "Concept routing and recall were helpful.");
+    assert_eq!(
+        args.actually_true,
+        "The concept path found the right subsystem, but the workset route needed improvement."
+    );
+    assert_eq!(args.corrected_manually, Some(true));
+    assert_eq!(args.task_id.as_deref(), Some("task:dogfood-memory"));
+}
+
 #[tokio::test]
 async fn mcp_server_accepts_prism_session_start_task_aliases() {
     let server = server_with_node(demo_node());
@@ -3099,10 +3198,20 @@ return {{
             .len(),
         1
     );
+    assert_eq!(result.result["inbox"]["planSummary"]["planId"], plan_id);
+    assert_eq!(
+        result.result["inbox"]["planNext"][0]["node"]["id"],
+        Value::String(task_id.clone())
+    );
     assert_eq!(result.result["context"]["task"]["id"], task_id);
     assert_eq!(result.result["context"]["taskNode"]["id"], task_id);
     assert!(result.result["context"]["taskExecution"].is_null());
     assert_eq!(result.result["context"]["planGraph"]["id"], plan_id);
+    assert_eq!(result.result["context"]["planSummary"]["planId"], plan_id);
+    assert_eq!(
+        result.result["context"]["planNext"][0]["node"]["id"],
+        Value::String(task_id.clone())
+    );
     assert_eq!(
         result.result["context"]["claims"].as_array().unwrap().len(),
         1
@@ -7582,6 +7691,88 @@ fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
 }
 
 #[test]
+fn compact_workset_query_prefers_strong_concept_resolution_for_broad_subsystems() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn session_memory() {}
+pub fn outcome_memory() {}
+pub fn memory_system_test() {}
+"#,
+    )
+    .unwrap();
+
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+    host.store_concept(
+        session.as_ref(),
+        PrismConceptMutationArgs {
+            operation: ConceptMutationOperationInput::Promote,
+            handle: Some("concept://memory_system".to_string()),
+            canonical_name: Some("memory system".to_string()),
+            summary: Some(
+                "Session memory recall and outcome history form the repo memory subsystem."
+                    .to_string(),
+            ),
+            aliases: Some(vec![
+                "memory layer".to_string(),
+                "recall system".to_string(),
+            ]),
+            core_members: Some(vec![
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::session_memory".to_string(),
+                    kind: "function".to_string(),
+                },
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::outcome_memory".to_string(),
+                    kind: "function".to_string(),
+                },
+            ]),
+            supporting_members: None,
+            likely_tests: Some(vec![NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::memory_system_test".to_string(),
+                kind: "function".to_string(),
+            }]),
+            evidence: Some(vec![
+                "Promoted from repeated memory-system dogfooding.".to_string()
+            ]),
+            risk_hint: None,
+            decode_lenses: None,
+            scope: None,
+            confidence: Some(0.94),
+            task_id: None,
+            supersedes: None,
+            retirement_reason: None,
+        },
+    )
+    .expect("concept store should succeed");
+
+    let workset = host
+        .compact_workset(
+            Arc::clone(&session),
+            PrismWorksetArgs {
+                handle: None,
+                query: Some("memory system".to_string()),
+            },
+        )
+        .expect("workset should succeed");
+
+    assert_eq!(workset.primary.path, "demo::session_memory");
+    assert!(workset
+        .supporting_reads
+        .iter()
+        .any(|target| target.path == "demo::outcome_memory"));
+    assert!(workset.remapped);
+    assert!(workset
+        .why
+        .contains("Session memory recall and outcome history"));
+}
+
+#[test]
 fn compact_expand_drift_surfaces_spec_gap_summary() {
     let root = temp_workspace();
     write_memory_insight_workspace(&root);
@@ -8374,10 +8565,11 @@ fn compact_task_brief_summarizes_coordination_outcomes_and_next_reads() {
         .next_reads
         .iter()
         .any(|target| target.path == "demo::gamma"));
+    assert_eq!(brief.next_reads[0].path, "demo::gamma");
     assert!(brief
         .next_action
         .as_deref()
-        .is_some_and(|value| value.contains("prism_open")));
+        .is_some_and(|value| value.contains("prism_open") && value.contains("blocking work")));
 }
 
 #[test]

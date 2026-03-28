@@ -9,6 +9,9 @@ use super::text_fragments::{
 };
 use super::*;
 use crate::compact_followups::workspace_scoped_path;
+use crate::{
+    concept_resolution_is_ambiguous, resolve_concepts_for_session, weak_concept_match_reason,
+};
 
 impl QueryHost {
     pub(crate) fn compact_workset(
@@ -37,6 +40,21 @@ impl QueryHost {
                     let result =
                         compact_concept_workset_result(session.as_ref(), prism.as_ref(), handle)?;
                     return Ok((result, Vec::new()));
+                }
+                if let Some(query) = args.query.as_deref() {
+                    if let Some(handle) = resolve_workset_query_concept_handle(
+                        prism.as_ref(),
+                        session.as_ref(),
+                        query,
+                    ) {
+                        let mut result = compact_concept_workset_result(
+                            session.as_ref(),
+                            prism.as_ref(),
+                            &handle,
+                        )?;
+                        result.remapped = true;
+                        return Ok((result, Vec::new()));
+                    }
                 }
                 let (target, remapped) = resolve_or_select_workset_target(
                     host,
@@ -997,4 +1015,44 @@ pub(super) fn resolve_or_select_workset_target(
         &handle_view.handle,
         Some("workset"),
     )
+}
+
+fn resolve_workset_query_concept_handle(
+    prism: &Prism,
+    session: &SessionState,
+    query: &str,
+) -> Option<String> {
+    if !query_prefers_concept_resolution(query) {
+        return None;
+    }
+    let resolutions = resolve_concepts_for_session(prism, session, query, 2);
+    let top = resolutions.first()?;
+    if concept_resolution_is_ambiguous(&resolutions) {
+        return None;
+    }
+    if weak_concept_match_reason(top.score).is_some() {
+        return None;
+    }
+    Some(top.packet.handle.clone())
+}
+
+fn query_prefers_concept_resolution(query: &str) -> bool {
+    let mut token_count = 0usize;
+    let mut chars = query.chars().peekable();
+    while chars.peek().is_some() {
+        while chars.peek().is_some_and(|ch| !ch.is_ascii_alphanumeric()) {
+            chars.next();
+        }
+        if chars.peek().is_none() {
+            break;
+        }
+        token_count += 1;
+        while chars.peek().is_some_and(|ch| ch.is_ascii_alphanumeric()) {
+            chars.next();
+        }
+        if token_count >= 2 {
+            return true;
+        }
+    }
+    false
 }

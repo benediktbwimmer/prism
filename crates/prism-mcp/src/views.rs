@@ -11,17 +11,17 @@ use prism_js::{
     ConflictView, CoordinationTaskView, CuratorJobView, CuratorProposalRecordView,
     CuratorProposalView, DriftCandidateView, EdgeView, MemoryEntryView, MemoryEventView,
     NodeIdView, PlanAcceptanceCriterionView, PlanBindingView, PlanEdgeView,
-    PlanExecutionOverlayView, PlanGraphView, PlanNodeBlockerView, PlanNodeView, PlanView,
-    PolicyViolationRecordView, PolicyViolationView, QueryDiagnostic, ScoredMemoryView,
-    TaskIntentView, TaskRiskView, TaskValidationRecipeView, ValidationCheckView,
-    ValidationRecipeView, ValidationRefView, WorkspaceRevisionView,
+    PlanExecutionOverlayView, PlanGraphView, PlanNodeBlockerView, PlanNodeRecommendationView,
+    PlanNodeView, PlanSummaryView, PlanView, PolicyViolationRecordView, PolicyViolationView,
+    QueryDiagnostic, ScoredMemoryView, TaskIntentView, TaskRiskView, TaskValidationRecipeView,
+    ValidationCheckView, ValidationRecipeView, ValidationRefView, WorkspaceRevisionView,
 };
 use prism_memory::{MemoryEntry, MemoryEvent, MemorySource, ScoredMemory};
 use prism_query::{
     ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens, ConceptPacket, ConceptProvenance,
     ConceptPublication, ConceptPublicationStatus, ConceptRelation, ConceptRelationKind,
-    ConceptResolution, ConceptScope, DriftCandidate, Prism, TaskIntent, TaskRisk,
-    TaskValidationRecipe, ValidationCheck, ValidationRecipe,
+    ConceptResolution, ConceptScope, DriftCandidate, PlanNodeRecommendation, PlanSummary, Prism,
+    TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 use serde_json::Value;
 
@@ -725,6 +725,45 @@ pub(crate) fn plan_node_blocker_view(value: prism_ir::PlanNodeBlocker) -> PlanNo
             .map(|artifact_id| artifact_id.0.to_string()),
         risk_score: value.risk_score,
         validation_checks: value.validation_checks,
+    }
+}
+
+pub(crate) fn plan_summary_view(value: PlanSummary) -> PlanSummaryView {
+    PlanSummaryView {
+        plan_id: value.plan_id.0.to_string(),
+        status: value.status,
+        total_nodes: value.total_nodes,
+        completed_nodes: value.completed_nodes,
+        abandoned_nodes: value.abandoned_nodes,
+        in_progress_nodes: value.in_progress_nodes,
+        actionable_nodes: value.actionable_nodes,
+        execution_blocked_nodes: value.execution_blocked_nodes,
+        completion_gated_nodes: value.completion_gated_nodes,
+        review_gated_nodes: value.review_gated_nodes,
+        validation_gated_nodes: value.validation_gated_nodes,
+        stale_nodes: value.stale_nodes,
+        claim_conflicted_nodes: value.claim_conflicted_nodes,
+    }
+}
+
+pub(crate) fn plan_node_recommendation_view(
+    value: PlanNodeRecommendation,
+) -> PlanNodeRecommendationView {
+    PlanNodeRecommendationView {
+        node: plan_node_view(value.node),
+        actionable: value.actionable,
+        score: value.score,
+        reasons: value.reasons,
+        blockers: value
+            .blockers
+            .into_iter()
+            .map(plan_node_blocker_view)
+            .collect(),
+        unblocks: value
+            .unblocks
+            .into_iter()
+            .map(|id| id.0.to_string())
+            .collect(),
     }
 }
 

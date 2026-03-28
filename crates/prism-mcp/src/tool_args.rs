@@ -541,10 +541,13 @@ pub(crate) struct PrismValidationFeedbackArgs {
     )]
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
     pub(crate) context: String,
+    #[serde(alias = "prism_said")]
     pub(crate) prism_said: String,
+    #[serde(alias = "actually_true")]
     pub(crate) actually_true: String,
     pub(crate) category: ValidationFeedbackCategoryInput,
     pub(crate) verdict: ValidationFeedbackVerdictInput,
+    #[serde(alias = "corrected_manually")]
     pub(crate) corrected_manually: Option<bool>,
     pub(crate) correction: Option<String>,
     pub(crate) metadata: Option<Value>,
@@ -963,6 +966,14 @@ pub(crate) struct PlanTargetArgs {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct PlanNextArgs {
+    #[serde(alias = "plan_id")]
+    pub(crate) plan_id: String,
+    pub(crate) limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct PlanNodeTargetArgs {
     #[serde(alias = "plan_id")]
     pub(crate) plan_id: String,
@@ -1052,6 +1063,16 @@ pub(crate) struct ValidationRefPayload {
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct PlanBindingPayload {
+    pub(crate) anchors: Option<Vec<AnchorRefInput>>,
+    pub(crate) concept_handles: Option<Vec<String>>,
+    pub(crate) artifact_refs: Option<Vec<String>>,
+    pub(crate) memory_refs: Option<Vec<String>>,
+    pub(crate) outcome_refs: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct AcceptanceCriterionPayload {
     pub(crate) label: String,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
@@ -1088,26 +1109,36 @@ pub(crate) struct TaskUpdatePayload {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PlanNodeCreatePayload {
     pub(crate) plan_id: String,
+    pub(crate) kind: Option<String>,
     pub(crate) title: String,
+    pub(crate) summary: Option<String>,
     pub(crate) status: Option<String>,
     pub(crate) assignee: Option<String>,
     pub(crate) is_abstract: Option<bool>,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
+    pub(crate) bindings: Option<PlanBindingPayload>,
     pub(crate) depends_on: Option<Vec<String>>,
     pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
+    pub(crate) priority: Option<u8>,
+    pub(crate) tags: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PlanNodeUpdatePayload {
     pub(crate) node_id: String,
+    pub(crate) kind: Option<String>,
     pub(crate) status: Option<String>,
     pub(crate) assignee: Option<String>,
     pub(crate) is_abstract: Option<bool>,
     pub(crate) title: Option<String>,
+    pub(crate) summary: Option<String>,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
+    pub(crate) bindings: Option<PlanBindingPayload>,
     pub(crate) depends_on: Option<Vec<String>>,
     pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
+    pub(crate) priority: Option<u8>,
+    pub(crate) tags: Option<Vec<String>>,
     #[allow(dead_code)]
     pub(crate) completion_context: Option<TaskCompletionContextPayload>,
 }

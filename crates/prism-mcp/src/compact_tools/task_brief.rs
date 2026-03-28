@@ -4,7 +4,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Result};
 use prism_ir::{AnchorRef, CoordinationTaskId, NodeId, PlanGraph, TaskId};
 use prism_js::{AgentOutcomeSummaryView, AgentTaskBlockerView, AgentTaskBriefResultView};
-use prism_query::Prism;
+use prism_query::{PlanNodeRecommendation, PlanSummary, Prism};
 
 use super::suggested_actions::{dedupe_suggested_actions, suggested_open_action};
 use super::*;
@@ -30,6 +30,9 @@ impl QueryHost {
                     .coordination_task(&coordination_task_id)
                     .ok_or_else(|| anyhow!("unknown coordination task `{task_id}`"))?;
                 let plan_graph = prism.plan_graph(&task.plan);
+                let plan_summary = prism.plan_summary(&task.plan);
+                let plan_next =
+                    prism.plan_next(&task.plan, TASK_BRIEF_NEXT_READ_LIMIT.saturating_mul(3));
                 let task_execution = prism
                     .plan_execution(&task.plan)
                     .into_iter()
@@ -77,18 +80,21 @@ impl QueryHost {
                     prism.as_ref(),
                     &task,
                     plan_graph.as_ref(),
+                    plan_next.as_slice(),
                 )?;
-                let risk_hint =
-                    compact_task_risk_hint(prism.task_risk(&coordination_task_id, now).as_ref());
+                let risk_hint = compact_task_risk_hint(
+                    prism.task_risk(&coordination_task_id, now).as_ref(),
+                    plan_summary.as_ref(),
+                );
 
                 let mut result = AgentTaskBriefResultView {
                     task_id: task.id.0.to_string(),
                     title: clamp_string(&task.title, TASK_BRIEF_TEXT_MAX_CHARS),
                     status: task.status,
-                    assignee: task.assignee.map(|agent| agent.0.to_string()),
+                    assignee: task.assignee.clone().map(|agent| agent.0.to_string()),
                     pending_handoff_to: task_execution
                         .and_then(|overlay| overlay.pending_handoff_to)
-                        .or(task.pending_handoff_to)
+                        .or(task.pending_handoff_to.clone())
                         .map(|agent| agent.0.to_string()),
                     blockers,
                     claim_holders: compact_claim_holders(claims.as_slice()),
@@ -106,7 +112,11 @@ impl QueryHost {
                     next_reads,
                     risk_hint,
                     truncated: false,
-                    next_action: Some(compact_task_brief_next_action()),
+                    next_action: Some(compact_task_brief_next_action(
+                        &task,
+                        plan_summary.as_ref(),
+                        plan_next.as_slice(),
+                    )),
                     suggested_actions: Vec::new(),
                 };
                 if let Some(next_read) = result.next_reads.first() {
@@ -137,6 +147,7 @@ fn compact_task_next_reads(
     prism: &Prism,
     task: &prism_coordination::CoordinationTask,
     plan_graph: Option<&PlanGraph>,
+    plan_next: &[PlanNodeRecommendation],
 ) -> Result<Vec<AgentTargetHandleView>> {
     let seed_nodes = task
         .anchors
@@ -148,6 +159,33 @@ fn compact_task_next_reads(
         .collect::<Vec<_>>();
     let mut seen = HashSet::<NodeId>::new();
     let mut candidates = Vec::<(NodeId, String)>::new();
+
+    for recommendation in plan_next {
+        if recommendation.node.id.0 == task.id.0 {
+            continue;
+        }
+        let why = clamp_string(
+            &recommendation.reasons.first().cloned().unwrap_or_else(|| {
+                format!("Plan recommends `{}` next.", recommendation.node.title)
+            }),
+            TASK_BRIEF_TEXT_MAX_CHARS,
+        );
+        for anchor in &recommendation.node.bindings.anchors {
+            let AnchorRef::Node(node_id) = anchor else {
+                continue;
+            };
+            if seed_nodes.iter().any(|seed| seed == node_id) || !seen.insert(node_id.clone()) {
+                continue;
+            }
+            candidates.push((node_id.clone(), why.clone()));
+            if candidates.len() >= TASK_BRIEF_NEXT_READ_LIMIT.saturating_mul(4) {
+                break;
+            }
+        }
+        if candidates.len() >= TASK_BRIEF_NEXT_READ_LIMIT.saturating_mul(4) {
+            break;
+        }
+    }
 
     if let Some(plan_graph) = plan_graph {
         for edge in plan_graph
@@ -227,42 +265,62 @@ fn node_id_from_view(id: &prism_js::NodeIdView) -> NodeId {
     NodeId::new(id.crate_name.clone(), id.path.clone(), id.kind)
 }
 
-fn compact_task_risk_hint(risk: Option<&prism_query::TaskRisk>) -> Option<String> {
-    let risk = risk?;
-    let hint = if risk.review_required && !risk.has_approved_artifact {
-        format!(
-            "Risk {:.2} requires review before completion.",
-            risk.risk_score
-        )
-    } else if !risk.missing_validations.is_empty() {
-        format!(
-            "Missing validations: {}.",
-            risk.missing_validations
-                .iter()
-                .take(2)
-                .cloned()
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
-    } else if risk.stale_task {
-        "Task base revision is stale against the current graph.".to_string()
-    } else if !risk.risk_events.is_empty() {
-        "Recent failures still contribute to task risk.".to_string()
-    } else if !risk.likely_validations.is_empty() {
-        format!(
-            "Likely validations: {}.",
-            risk.likely_validations
-                .iter()
-                .take(2)
-                .cloned()
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
+fn compact_task_risk_hint(
+    risk: Option<&prism_query::TaskRisk>,
+    plan_summary: Option<&PlanSummary>,
+) -> Option<String> {
+    let hint = if let Some(risk) = risk {
+        if risk.review_required && !risk.has_approved_artifact {
+            format!(
+                "Risk {:.2} requires review before completion.",
+                risk.risk_score
+            )
+        } else if !risk.missing_validations.is_empty() {
+            format!(
+                "Missing validations: {}.",
+                risk.missing_validations
+                    .iter()
+                    .take(2)
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        } else if risk.stale_task {
+            "Task base revision is stale against the current graph.".to_string()
+        } else if !risk.risk_events.is_empty() {
+            "Recent failures still contribute to task risk.".to_string()
+        } else if !risk.likely_validations.is_empty() {
+            format!(
+                "Likely validations: {}.",
+                risk.likely_validations
+                    .iter()
+                    .take(2)
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        } else {
+            format!(
+                "Risk score {:.2} with no specific validations inferred yet.",
+                risk.risk_score
+            )
+        }
+    } else if let Some(summary) = plan_summary {
+        if summary.completion_gated_nodes > 0 {
+            format!(
+                "{} plan node(s) are execution-ready but still gated on completion evidence.",
+                summary.completion_gated_nodes
+            )
+        } else if summary.execution_blocked_nodes > 0 && summary.actionable_nodes == 0 {
+            format!(
+                "No actionable plan nodes right now; {} node(s) remain execution-blocked.",
+                summary.execution_blocked_nodes
+            )
+        } else {
+            return None;
+        }
     } else {
-        format!(
-            "Risk score {:.2} with no specific validations inferred yet.",
-            risk.risk_score
-        )
+        return None;
     };
     Some(clamp_string(&hint, TASK_BRIEF_TEXT_MAX_CHARS))
 }
@@ -279,7 +337,35 @@ fn compact_outcome_summary_view(
     }
 }
 
-fn compact_task_brief_next_action() -> String {
+fn compact_task_brief_next_action(
+    task: &prism_coordination::CoordinationTask,
+    plan_summary: Option<&PlanSummary>,
+    plan_next: &[PlanNodeRecommendation],
+) -> String {
+    if let Some(recommendation) = plan_next
+        .iter()
+        .find(|recommendation| recommendation.actionable && recommendation.node.id.0 != task.id.0)
+    {
+        return clamp_string(
+            &format!(
+                "Use prism_open on the recommended plan node `{}` to advance blocking work, or prism_query for full coordination detail.",
+                recommendation.node.title
+            ),
+            TASK_BRIEF_TEXT_MAX_CHARS,
+        );
+    }
+    if plan_next
+        .iter()
+        .any(|recommendation| recommendation.actionable && recommendation.node.id.0 == task.id.0)
+    {
+        return "Use prism_open on a nextRead to work this plan node, or prism_query for full coordination detail.".to_string();
+    }
+    if let Some(summary) = plan_summary {
+        if summary.actionable_nodes == 0 && summary.execution_blocked_nodes > 0 {
+            return "Use prism_query to inspect blockers across the plan before continuing."
+                .to_string();
+        }
+    }
     "Use prism_open on a nextRead, or prism_query for full coordination detail.".to_string()
 }
 
@@ -398,7 +484,10 @@ mod tests {
             ],
             risk_hint: Some("This risk hint is intentionally verbose for budget trimming.".into()),
             truncated: false,
-            next_action: Some(compact_task_brief_next_action()),
+            next_action: Some(
+                "Use prism_open on a nextRead, or prism_query for full coordination detail."
+                    .to_string(),
+            ),
             suggested_actions: vec![suggested_open_action(
                 "handle:1",
                 prism_js::AgentOpenMode::Focus,

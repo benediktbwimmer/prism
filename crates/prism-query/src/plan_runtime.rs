@@ -6,8 +6,8 @@ use prism_coordination::{
     AcceptanceCriterion, CoordinationPolicy, CoordinationSnapshot, CoordinationTask, Plan,
 };
 use prism_ir::{
-    AgentId, AnchorRef, CoordinationTaskId, PlanAcceptanceCriterion, PlanEdge, PlanEdgeId,
-    PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanNode, PlanNodeBlocker,
+    AgentId, AnchorRef, CoordinationTaskId, PlanAcceptanceCriterion, PlanBinding, PlanEdge,
+    PlanEdgeId, PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanNode, PlanNodeBlocker,
     PlanNodeBlockerKind, PlanNodeId, PlanNodeKind, PlanNodeStatus, PlanStatus, ValidationRef,
     WorkspaceRevision,
 };
@@ -184,14 +184,18 @@ impl NativePlanRuntimeState {
     pub(crate) fn create_node(
         &mut self,
         plan_id: &PlanId,
+        kind: PlanNodeKind,
         title: String,
+        summary: Option<String>,
         status: Option<PlanNodeStatus>,
         assignee: Option<AgentId>,
         is_abstract: bool,
-        anchors: Vec<AnchorRef>,
+        bindings: PlanBinding,
         depends_on: Vec<String>,
         acceptance: Vec<PlanAcceptanceCriterion>,
         base_revision: WorkspaceRevision,
+        priority: Option<u8>,
+        tags: Vec<String>,
     ) -> Result<PlanNodeId> {
         let depends_on = dedupe_string_ids(depends_on);
         self.validate_dependency_targets(plan_id, &depends_on)?;
@@ -204,23 +208,17 @@ impl NativePlanRuntimeState {
         graph.nodes.push(PlanNode {
             id: node_id.clone(),
             plan_id: plan_id.clone(),
-            kind: PlanNodeKind::Edit,
+            kind,
             title,
-            summary: None,
+            summary,
             status: status.unwrap_or(PlanNodeStatus::Ready),
-            bindings: prism_ir::PlanBinding {
-                anchors: dedupe_anchors(anchors),
-                concept_handles: Vec::new(),
-                artifact_refs: Vec::new(),
-                memory_refs: Vec::new(),
-                outcome_refs: Vec::new(),
-            },
+            bindings: normalize_plan_binding(bindings),
             acceptance: normalize_plan_acceptance(acceptance),
             is_abstract,
             assignee,
             base_revision,
-            priority: None,
-            tags: Vec::new(),
+            priority,
+            tags: normalize_string_refs(tags),
             metadata: Value::Null,
         });
         for dependency_id in depends_on {
@@ -241,14 +239,18 @@ impl NativePlanRuntimeState {
     pub(crate) fn update_node(
         &mut self,
         node_id: &PlanNodeId,
+        kind: Option<PlanNodeKind>,
         status: Option<PlanNodeStatus>,
         assignee: Option<Option<AgentId>>,
         is_abstract: Option<bool>,
         title: Option<String>,
-        anchors: Option<Vec<AnchorRef>>,
+        summary: Option<String>,
+        bindings: Option<PlanBinding>,
         depends_on: Option<Vec<String>>,
         acceptance: Option<Vec<PlanAcceptanceCriterion>>,
         base_revision: Option<WorkspaceRevision>,
+        priority: Option<u8>,
+        tags: Option<Vec<String>>,
     ) -> Result<PlanId> {
         let (plan_key, node_index) = self
             .find_node(node_id)
@@ -264,6 +266,9 @@ impl NativePlanRuntimeState {
             .nodes
             .get_mut(node_index)
             .expect("node index validated above");
+        if let Some(kind) = kind {
+            node.kind = kind;
+        }
         if let Some(status) = status {
             node.status = status;
         }
@@ -276,14 +281,23 @@ impl NativePlanRuntimeState {
         if let Some(title) = title {
             node.title = title;
         }
-        if let Some(anchors) = anchors {
-            node.bindings.anchors = dedupe_anchors(anchors);
+        if let Some(summary) = summary {
+            node.summary = Some(summary);
+        }
+        if let Some(bindings) = bindings {
+            node.bindings = normalize_plan_binding(bindings);
         }
         if let Some(acceptance) = acceptance {
             node.acceptance = normalize_plan_acceptance(acceptance);
         }
         if let Some(base_revision) = base_revision {
             node.base_revision = base_revision;
+        }
+        if let Some(priority) = priority {
+            node.priority = Some(priority);
+        }
+        if let Some(tags) = tags {
+            node.tags = normalize_string_refs(tags);
         }
         if let Some(depends_on) = depends_on {
             let dependency_targets = dedupe_string_ids(depends_on);
@@ -547,17 +561,30 @@ fn dedupe_anchors(anchors: Vec<AnchorRef>) -> Vec<AnchorRef> {
     anchors
 }
 
-fn dedupe_string_ids(ids: Vec<String>) -> Vec<String> {
+fn normalize_string_refs(ids: Vec<String>) -> Vec<String> {
     let mut ids = ids;
     ids.sort();
     ids.dedup();
     ids
 }
 
+fn dedupe_string_ids(ids: Vec<String>) -> Vec<String> {
+    normalize_string_refs(ids)
+}
+
 fn dedupe_validation_refs(mut refs: Vec<ValidationRef>) -> Vec<ValidationRef> {
     refs.sort_by(|left, right| left.id.cmp(&right.id));
     refs.dedup_by(|left, right| left.id == right.id);
     refs
+}
+
+fn normalize_plan_binding(mut binding: PlanBinding) -> PlanBinding {
+    binding.anchors = dedupe_anchors(binding.anchors);
+    binding.concept_handles = normalize_string_refs(binding.concept_handles);
+    binding.artifact_refs = normalize_string_refs(binding.artifact_refs);
+    binding.memory_refs = normalize_string_refs(binding.memory_refs);
+    binding.outcome_refs = normalize_string_refs(binding.outcome_refs);
+    binding
 }
 
 fn plan_node_blocker_kind_key(kind: PlanNodeBlockerKind) -> u8 {

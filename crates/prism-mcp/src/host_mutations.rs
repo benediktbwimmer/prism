@@ -28,31 +28,31 @@ use crate::{
     artifact_view, claim_view, concept_packet_view, concept_relation_view, conflict_view,
     convert_acceptance, convert_anchors, convert_completion_context, convert_inferred_scope,
     convert_memory_kind, convert_memory_scope, convert_memory_source, convert_node_id,
-    convert_outcome_evidence, convert_outcome_kind, convert_outcome_result,
-    convert_plan_acceptance, convert_policy, coordination_task_view, curator_disposition_label,
+    convert_outcome_evidence, convert_outcome_kind, convert_outcome_result, convert_plan_acceptance,
+    convert_plan_binding, convert_policy, coordination_task_view, curator_disposition_label,
     curator_job_status_label, curator_memory_metadata, curator_proposal, curator_proposal_state,
     curator_trigger_label, current_timestamp, ensure_repo_publication_metadata,
     manual_memory_metadata, parse_capability, parse_claim_mode, parse_coordination_task_status,
-    parse_edge_kind, parse_plan_edge_kind, parse_plan_node_status, parse_plan_status,
-    parse_review_verdict, plan_edge_view, plan_node_view, plan_view, task_journal_memory_metadata,
-    task_journal_view, ArtifactActionInput, ArtifactMutationResult, ArtifactProposePayload,
-    ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput,
-    ClaimMutationResult, ClaimReleasePayload, ClaimRenewPayload, ConceptMutationOperationInput,
-    ConceptMutationResult, ConceptRelationKindInput, ConceptRelationMutationOperationInput,
-    ConceptRelationMutationResult, ConceptScopeInput, CoordinationMutationKindInput,
-    CoordinationMutationResult, CuratorJobView, CuratorProposalCreatedResources,
-    CuratorProposalDecision, CuratorProposalDecisionResult, EdgeMutationResult,
-    EventMutationResult, HandoffAcceptPayload, MemoryMutationActionInput, MemoryMutationResult,
-    MemoryStorePayload, MutationViolationView, NodeIdInput, PlanEdgeCreatePayload,
-    PlanEdgeDeletePayload, PlanNodeCreatePayload, PlanNodeUpdatePayload, PlanUpdatePayload,
-    PrismArtifactArgs, PrismClaimArgs, PrismConceptLensInput, PrismConceptMutationArgs,
-    PrismConceptRelationMutationArgs, PrismCoordinationArgs, PrismCuratorApplyProposalArgs,
-    PrismCuratorPromoteConceptArgs, PrismCuratorPromoteEdgeArgs, PrismCuratorPromoteMemoryArgs,
-    PrismCuratorRejectProposalArgs, PrismFinishTaskArgs, PrismInferEdgeArgs, PrismMemoryArgs,
-    PrismOutcomeArgs, PrismValidationFeedbackArgs, QueryHost, SessionState, TaskCreatePayload,
-    TaskUpdatePayload, ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
-    ValidationFeedbackVerdictInput, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
+    parse_edge_kind, parse_plan_edge_kind, parse_plan_node_kind, parse_plan_node_status,
+    parse_plan_status, parse_review_verdict, plan_edge_view, plan_node_view, plan_view,
+    task_journal_memory_metadata, task_journal_view, ArtifactActionInput, ArtifactMutationResult,
+    ArtifactProposePayload, ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload,
+    ClaimActionInput, ClaimMutationResult, ClaimReleasePayload, ClaimRenewPayload,
+    ConceptMutationOperationInput, ConceptMutationResult, ConceptRelationKindInput,
+    ConceptRelationMutationOperationInput, ConceptRelationMutationResult, ConceptScopeInput,
+    CoordinationMutationKindInput, CoordinationMutationResult, CuratorJobView,
+    CuratorProposalCreatedResources, CuratorProposalDecision, CuratorProposalDecisionResult,
+    EdgeMutationResult, EventMutationResult, HandoffAcceptPayload, MemoryMutationActionInput,
+    MemoryMutationResult, MemoryStorePayload, MutationViolationView, NodeIdInput,
+    PlanEdgeCreatePayload, PlanEdgeDeletePayload, PlanNodeCreatePayload, PlanNodeUpdatePayload,
+    PlanUpdatePayload, PrismArtifactArgs, PrismClaimArgs, PrismConceptLensInput,
+    PrismConceptMutationArgs, PrismConceptRelationMutationArgs, PrismCoordinationArgs,
+    PrismCuratorApplyProposalArgs, PrismCuratorPromoteConceptArgs, PrismCuratorPromoteEdgeArgs,
+    PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs, PrismFinishTaskArgs,
+    PrismInferEdgeArgs, PrismMemoryArgs, PrismOutcomeArgs, PrismValidationFeedbackArgs, QueryHost,
+    SessionState, TaskCreatePayload, TaskUpdatePayload, ValidationFeedbackCategoryInput,
+    ValidationFeedbackMutationResult, ValidationFeedbackVerdictInput,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
 
 #[derive(Default)]
@@ -1065,6 +1065,12 @@ impl QueryHost {
             }
             CoordinationMutationKindInput::PlanNodeCreate => {
                 let payload: PlanNodeCreatePayload = serde_json::from_value(args.payload)?;
+                let kind = payload
+                    .kind
+                    .as_deref()
+                    .map(parse_plan_node_kind)
+                    .transpose()?
+                    .unwrap_or(prism_ir::PlanNodeKind::Edit);
                 let status = payload
                     .status
                     .as_deref()
@@ -1073,22 +1079,31 @@ impl QueryHost {
                 let plan_id = PlanId::new(payload.plan_id.clone());
                 let node_id = prism.create_native_plan_node(
                     &plan_id,
+                    kind,
                     payload.title,
+                    payload.summary,
                     status,
                     payload
                         .assignee
                         .map(AgentId::new)
                         .or_else(|| session.current_agent()),
                     payload.is_abstract.unwrap_or(false),
-                    convert_anchors(payload.anchors.unwrap_or_default())?,
+                    convert_plan_binding(payload.anchors, payload.bindings)?.unwrap_or_default(),
                     payload.depends_on.unwrap_or_default(),
                     convert_plan_acceptance(payload.acceptance)?,
                     prism.workspace_revision(),
+                    payload.priority,
+                    payload.tags.unwrap_or_default(),
                 )?;
                 current_plan_node_state(prism, &plan_id, &node_id.0)
             }
             CoordinationMutationKindInput::PlanNodeUpdate => {
                 let payload: PlanNodeUpdatePayload = serde_json::from_value(args.payload)?;
+                let kind = payload
+                    .kind
+                    .as_deref()
+                    .map(parse_plan_node_kind)
+                    .transpose()?;
                 let status = payload
                     .status
                     .as_deref()
@@ -1097,17 +1112,21 @@ impl QueryHost {
                 let node_id = PlanNodeId::new(payload.node_id.clone());
                 let plan_id = prism.update_native_plan_node(
                     &node_id,
+                    kind,
                     status,
                     payload.assignee.map(|value| Some(AgentId::new(value))),
                     payload.is_abstract,
                     payload.title,
-                    payload.anchors.map(convert_anchors).transpose()?,
+                    payload.summary,
+                    convert_plan_binding(payload.anchors, payload.bindings)?,
                     payload.depends_on,
                     payload
                         .acceptance
                         .map(|acceptance| convert_plan_acceptance(Some(acceptance)))
                         .transpose()?,
                     Some(prism.workspace_revision()),
+                    payload.priority,
+                    payload.tags,
                 )?;
                 current_plan_node_state(prism, &plan_id, &node_id.0)
             }

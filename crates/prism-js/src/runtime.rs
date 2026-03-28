@@ -645,6 +645,12 @@ globalThis.prism = Object.freeze({
   planNodeBlockers(planId, nodeId) {
     return __prismHost("planNodeBlockers", { planId, nodeId });
   },
+  planSummary(planId) {
+    return __prismHost("planSummary", { planId });
+  },
+  planNext(planId, limit) {
+    return __prismHost("planNext", limit == null ? { planId } : { planId, limit });
+  },
   task(taskId) {
     return __prismHost("coordinationTask", { taskId });
   },
@@ -695,6 +701,8 @@ globalThis.prism = Object.freeze({
       plan,
       planGraph,
       planExecution: prism.planExecution(planId),
+      planSummary: prism.planSummary(planId),
+      planNext: prism.planNext(planId),
       readyTasks: prism.readyTasks(planId),
       pendingReviews: prism.pendingReviews(planId),
     };
@@ -713,6 +721,8 @@ globalThis.prism = Object.freeze({
       taskNode,
       taskExecution,
       planGraph,
+      planSummary: task ? prism.planSummary(task.planId) : null,
+      planNext: task ? prism.planNext(task.planId) : [],
       blockers: prism.blockers(taskId),
       artifacts: prism.artifacts(taskId),
       claims: target.length > 0 ? prism.claims(target) : [],

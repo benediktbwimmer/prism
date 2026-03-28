@@ -4,6 +4,7 @@ mod impact;
 mod intent;
 mod outcomes;
 mod plan_completion;
+mod plan_insights;
 mod plan_runtime;
 mod source;
 mod symbol;
@@ -49,8 +50,8 @@ pub use crate::types::{
     ConceptEvent, ConceptEventAction, ConceptHealth, ConceptHealthSignals, ConceptHealthStatus,
     ConceptPacket, ConceptProvenance, ConceptPublication, ConceptPublicationStatus,
     ConceptRelation, ConceptRelationEvent, ConceptRelationEventAction, ConceptRelationKind,
-    ConceptScope, DriftCandidate, QueryLimits, TaskIntent, TaskRisk, TaskValidationRecipe,
-    ValidationCheck, ValidationRecipe,
+    ConceptScope, DriftCandidate, PlanNodeRecommendation, PlanSummary, QueryLimits, TaskIntent,
+    TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 
 pub struct Prism {
@@ -489,26 +490,34 @@ impl Prism {
     pub fn create_native_plan_node(
         &self,
         plan_id: &PlanId,
+        kind: PlanNodeKind,
         title: String,
+        summary: Option<String>,
         status: Option<PlanNodeStatus>,
         assignee: Option<AgentId>,
         is_abstract: bool,
-        anchors: Vec<AnchorRef>,
+        bindings: prism_ir::PlanBinding,
         depends_on: Vec<String>,
         acceptance: Vec<prism_ir::PlanAcceptanceCriterion>,
         base_revision: WorkspaceRevision,
+        priority: Option<u8>,
+        tags: Vec<String>,
     ) -> Result<PlanNodeId> {
         self.mutate_native_plan_runtime(|runtime| {
             runtime.create_node(
                 plan_id,
+                kind,
                 title,
+                summary,
                 status,
                 assignee,
                 is_abstract,
-                anchors,
+                bindings,
                 depends_on,
                 acceptance,
                 base_revision,
+                priority,
+                tags,
             )
         })
     }
@@ -577,14 +586,18 @@ impl Prism {
     pub fn update_native_plan_node(
         &self,
         node_id: &PlanNodeId,
+        kind: Option<PlanNodeKind>,
         status: Option<PlanNodeStatus>,
         assignee: Option<Option<AgentId>>,
         is_abstract: Option<bool>,
         title: Option<String>,
-        anchors: Option<Vec<AnchorRef>>,
+        summary: Option<String>,
+        bindings: Option<prism_ir::PlanBinding>,
         depends_on: Option<Vec<String>>,
         acceptance: Option<Vec<prism_ir::PlanAcceptanceCriterion>>,
         base_revision: Option<WorkspaceRevision>,
+        priority: Option<u8>,
+        tags: Option<Vec<String>>,
     ) -> Result<PlanId> {
         if matches!(status, Some(PlanNodeStatus::Completed)) {
             let mut preview = self
@@ -594,28 +607,36 @@ impl Prism {
                 .clone();
             let plan_id = preview.update_node(
                 node_id,
+                kind,
                 status,
                 assignee.clone(),
                 is_abstract,
                 title.clone(),
-                anchors.clone(),
+                summary.clone(),
+                bindings.clone(),
                 depends_on.clone(),
                 acceptance.clone(),
                 base_revision.clone(),
+                priority,
+                tags.clone(),
             )?;
             self.validate_native_plan_node_completion_preview(&preview, &plan_id, node_id)?;
         }
         self.mutate_native_plan_runtime(|runtime| {
             runtime.update_node(
                 node_id,
+                kind,
                 status,
                 assignee,
                 is_abstract,
                 title,
-                anchors,
+                summary,
+                bindings,
                 depends_on,
                 acceptance,
                 base_revision,
+                priority,
+                tags,
             )
         })
     }

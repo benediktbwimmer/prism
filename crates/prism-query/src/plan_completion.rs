@@ -4,8 +4,8 @@ use anyhow::{anyhow, Result};
 use prism_coordination::{Artifact, CoordinationPolicy};
 use prism_ir::{
     ArtifactId, ArtifactStatus, ConflictSeverity, CoordinationTaskId, PlanExecutionOverlay,
-    PlanGraph, PlanId, PlanNode, PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId,
-    PlanNodeStatus, Timestamp,
+    PlanGraph, PlanId, PlanNode, PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId, PlanNodeStatus,
+    Timestamp,
 };
 
 use crate::impact::score_change_impact;
@@ -13,7 +13,11 @@ use crate::plan_runtime::{node_blockers_for_graph, NativePlanRuntimeState};
 use crate::Prism;
 
 impl Prism {
-    pub fn plan_node_blockers(&self, plan_id: &PlanId, node_id: &PlanNodeId) -> Vec<PlanNodeBlocker> {
+    pub fn plan_node_blockers(
+        &self,
+        plan_id: &PlanId,
+        node_id: &PlanNodeId,
+    ) -> Vec<PlanNodeBlocker> {
         let runtime = self
             .plan_runtime
             .read()
@@ -28,7 +32,8 @@ impl Prism {
         plan_id: &PlanId,
         node_id: &PlanNodeId,
     ) -> Result<()> {
-        let blockers = self.plan_node_blockers_for_runtime(runtime, plan_id, node_id, current_timestamp());
+        let blockers =
+            self.plan_node_blockers_for_runtime(runtime, plan_id, node_id, current_timestamp());
         if blockers.is_empty() {
             return Ok(());
         }
@@ -43,7 +48,7 @@ impl Prism {
         ))
     }
 
-    fn plan_node_blockers_for_runtime(
+    pub(crate) fn plan_node_blockers_for_runtime(
         &self,
         runtime: &NativePlanRuntimeState,
         plan_id: &PlanId,
@@ -103,7 +108,9 @@ impl Prism {
         let validated_checks = dedupe_strings(validated_checks);
         let stale_artifact_ids = approved_artifacts
             .iter()
-            .filter(|artifact| artifact.base_revision.graph_version < workspace_revision.graph_version)
+            .filter(|artifact| {
+                artifact.base_revision.graph_version < workspace_revision.graph_version
+            })
             .map(|artifact| artifact.id.clone())
             .collect::<Vec<_>>();
 
@@ -208,7 +215,9 @@ impl Prism {
                         missing.join(", ")
                     ),
                     related_node_id: Some(node.id.clone()),
-                    related_artifact_id: approved_artifacts.first().map(|artifact| artifact.id.clone()),
+                    related_artifact_id: approved_artifacts
+                        .first()
+                        .map(|artifact| artifact.id.clone()),
                     risk_score: Some(risk_score),
                     validation_checks: missing,
                 });
@@ -282,7 +291,9 @@ fn acceptance_blockers(
                             required_checks.join(", ")
                         ),
                         related_node_id: Some(node.id.clone()),
-                        related_artifact_id: approved_artifacts.first().map(|artifact| artifact.id.clone()),
+                        related_artifact_id: approved_artifacts
+                            .first()
+                            .map(|artifact| artifact.id.clone()),
                         risk_score: Some(risk_score),
                         validation_checks: required_checks,
                     });
@@ -297,7 +308,9 @@ fn acceptance_blockers(
                             criterion.label
                         ),
                         related_node_id: Some(node.id.clone()),
-                        related_artifact_id: approved_artifacts.first().map(|artifact| artifact.id.clone()),
+                        related_artifact_id: approved_artifacts
+                            .first()
+                            .map(|artifact| artifact.id.clone()),
                         risk_score: Some(risk_score),
                         validation_checks: Vec::new(),
                     });
@@ -313,7 +326,9 @@ fn acceptance_blockers(
                             missing_checks.join(", ")
                         ),
                         related_node_id: Some(node.id.clone()),
-                        related_artifact_id: approved_artifacts.first().map(|artifact| artifact.id.clone()),
+                        related_artifact_id: approved_artifacts
+                            .first()
+                            .map(|artifact| artifact.id.clone()),
                         risk_score: Some(risk_score),
                         validation_checks: missing_checks,
                     });
@@ -329,7 +344,9 @@ fn acceptance_blockers(
                             criterion.label
                         ),
                         related_node_id: Some(node.id.clone()),
-                        related_artifact_id: approved_artifacts.first().map(|artifact| artifact.id.clone()),
+                        related_artifact_id: approved_artifacts
+                            .first()
+                            .map(|artifact| artifact.id.clone()),
                         risk_score: Some(risk_score),
                         validation_checks: Vec::new(),
                     });
@@ -343,7 +360,9 @@ fn acceptance_blockers(
                             missing_checks.join(", ")
                         ),
                         related_node_id: Some(node.id.clone()),
-                        related_artifact_id: approved_artifacts.first().map(|artifact| artifact.id.clone()),
+                        related_artifact_id: approved_artifacts
+                            .first()
+                            .map(|artifact| artifact.id.clone()),
                         risk_score: Some(risk_score),
                         validation_checks: missing_checks,
                     });
@@ -403,7 +422,7 @@ fn dedupe_strings(mut values: Vec<String>) -> Vec<String> {
     values
 }
 
-fn current_timestamp() -> Timestamp {
+pub(crate) fn current_timestamp() -> Timestamp {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()

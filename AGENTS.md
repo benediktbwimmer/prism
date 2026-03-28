@@ -91,6 +91,7 @@ Mutation guidance:
 Concept packs are repo-native concept objects. They capture what belongs together across files, symbols, tests, config, docs, outcomes, and history so future agents do not have to rebuild that meaning from scratch.
 
 - Treat concept packs as a reusable repo vocabulary layer, not as a taxonomy exercise.
+- Use semantic pathfinding to navigate the codebase from high-level abstractions down to specific implementations. Instead of guessing file locations or repeatedly searching for terms, start by querying a broad concept (like `prism_architecture` or `memory_system`) using `prism_concept` and follow its `relations` (e.g., `part_of`, `depends_on`) down to more concrete sub-concepts until you hit actual code handles.
 - Prefer carrying forward an existing concept handle when it matches the task instead of rediscovering the same cluster through repeated search, locate, or open calls.
 - When a concept packet needs inspection or curation help, request binding detail explicitly rather than assuming from prose alone. Use `includeBindingMetadata` on concept reads when you need to inspect lineage-backed member bindings, drift, or rebinding behavior.
 - Promote a concept candidate when you resolved a broad or fuzzy repo term into a stable multi-artifact cluster that a future agent would likely want to reuse.

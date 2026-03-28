@@ -343,6 +343,18 @@ fn query_method_specs() -> Vec<(
             "Explain graph-native blockers for one plan node.",
         ),
         (
+            "planSummary",
+            "coordination",
+            Some("workflow"),
+            "Summarize native plan progress, execution blockers, and completion gates.",
+        ),
+        (
+            "planNext",
+            "coordination",
+            Some("workflow"),
+            "Recommend the next plan nodes to advance based on the native plan runtime.",
+        ),
+        (
             "coordinationTask",
             "coordination",
             Some("workflow"),

@@ -1,4 +1,7 @@
-use prism_ir::{ArtifactId, CoordinationTaskId, LineageId, NodeId};
+use prism_ir::{
+    ArtifactId, CoordinationTaskId, LineageId, NodeId, PlanId, PlanNode, PlanNodeBlocker,
+    PlanNodeId, PlanStatus,
+};
 use prism_memory::OutcomeEvent;
 use serde::{Deserialize, Serialize};
 
@@ -92,6 +95,33 @@ pub struct ArtifactRisk {
     pub missing_validations: Vec<String>,
     pub co_change_neighbors: Vec<CoChange>,
     pub risk_events: Vec<OutcomeEvent>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlanSummary {
+    pub plan_id: PlanId,
+    pub status: PlanStatus,
+    pub total_nodes: usize,
+    pub completed_nodes: usize,
+    pub abandoned_nodes: usize,
+    pub in_progress_nodes: usize,
+    pub actionable_nodes: usize,
+    pub execution_blocked_nodes: usize,
+    pub completion_gated_nodes: usize,
+    pub review_gated_nodes: usize,
+    pub validation_gated_nodes: usize,
+    pub stale_nodes: usize,
+    pub claim_conflicted_nodes: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlanNodeRecommendation {
+    pub node: PlanNode,
+    pub actionable: bool,
+    pub score: f32,
+    pub reasons: Vec<String>,
+    pub blockers: Vec<PlanNodeBlocker>,
+    pub unblocks: Vec<PlanNodeId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -966,17 +966,27 @@ The long-term anchor model is `AnchorRef`, not raw `NodeId`.
 
 ```text
 ┌──────────────────────────────────────────────────────┐
-│                   MemoryComposite                    │
-│    merges and deduplicates results from modules      │
+│                    SessionMemory                     │
+│      current recall surface exposed to agents        │
+├──────────────────────────────────────────────────────┤
+│                 MemoryComposite                      │
+│    merges and deduplicates recall-module results     │
 ├────────────────┬─────────────────┬───────────────────┤
-│ OutcomeMemory  │ StructuralMemory│   SemanticMemory  │
-│  (events)      │   (patterns)    │   (vectors/text)  │
+│ EpisodicMemory │ StructuralMemory│   SemanticMemory  │
+│    (notes)     │   (patterns)    │   (vectors/text)  │
 └────────────────┴─────────────────┴───────────────────┘
-                         │
-                     anchored to
-                         │
-                     AnchorRef
+
+┌──────────────────────────────────────────────────────┐
+│                   OutcomeMemory                      │
+│ append-only task / validation / patch event history  │
+└──────────────────────────────────────────────────────┘
 ```
+
+Current implementation note:
+
+* `SessionMemory` composes episodic, structural, and semantic recall modules
+* `OutcomeMemory` is adjacent, not a child of `MemoryComposite`
+* both layers anchor to `AnchorRef` and participate in MCP/query recall surfaces
 
 ## 9.3 Core Trait
 
@@ -991,8 +1001,8 @@ pub trait MemoryModule: Send + Sync {
 
 Rules:
 
-* v1 modules may only use `AnchorRef::Node`
-* the trait still accepts `AnchorRef` so later re-anchoring does not require a breaking redesign
+* writes typically start from node-derived anchors, then PRISM expands and re-anchors them through lineage over time
+* the trait accepts full `AnchorRef` values so stored memory can survive rename, move, split, and merge events without redesigning the API
 
 ## 9.4 MemoryEntry
 
@@ -1001,6 +1011,7 @@ pub struct MemoryEntry {
     pub id: MemoryId,
     pub anchors: Vec<AnchorRef>,
     pub kind: MemoryKind,
+    pub scope: MemoryScope,
     pub content: String,
     pub metadata: serde_json::Value,
     pub created_at: Timestamp,
@@ -1014,6 +1025,12 @@ pub enum MemoryKind {
     Semantic,
 }
 
+pub enum MemoryScope {
+    Local,
+    Session,
+    Repo,
+}
+
 pub enum MemorySource {
     Agent,
     User,
@@ -1024,9 +1041,35 @@ pub enum MemorySource {
 Rules:
 
 * `MemoryId` is store-generated in v1
+* `scope` controls durability: `Local` stays in-process, `Session` persists in workspace state, `Repo` publishes durable repo knowledge
 * `source` is provenance, not ranking by itself
 * `trust` is explicit so fuzzy or speculative memory can be down-ranked
 * at equal score, prefer higher trust, then `User`, then `System`, then `Agent`
+* repo-scoped entries require publication/provenance metadata and stricter validation than local or session memory
+
+Current implementation also records non-local memory writes as `MemoryEvent`s:
+
+```rust
+pub enum MemoryEventKind {
+    Stored,
+    Promoted,
+    Superseded,
+}
+
+pub struct MemoryEvent {
+    pub id: String,
+    pub action: MemoryEventKind,
+    pub memory_id: MemoryId,
+    pub scope: MemoryScope,
+    pub entry: Option<MemoryEntry>,
+    pub recorded_at: Timestamp,
+    pub task_id: Option<String>,
+    pub promoted_from: Vec<MemoryId>,
+    pub supersedes: Vec<MemoryId>,
+}
+```
+
+These are the durable mutation-history records surfaced by `prism.memory.events(...)`.
 
 ## 9.5 RecallQuery
 
@@ -1071,10 +1114,11 @@ Normalization rules:
 * each module returns scores normalized into `[0.0, 1.0]`
 * composite weighting clamps and reweights module-local scores
 * deduplication happens on `MemoryId`
+* current `SessionMemory` wires episodic, structural, and semantic modules into one recall surface
 
 ## 9.8 Outcome Memory
 
-Outcome memory is the first specialized structured memory worth building. It records what happened when code was touched.
+Outcome memory is the implemented append-only event store for what happened when code was touched.
 
 ```rust
 pub struct OutcomeEvent {
@@ -1139,7 +1183,22 @@ Index outcome events by:
 * result
 * actor
 
+Current implementation note:
+
+* `OutcomeMemory` is queried separately from `SessionMemory`
+* episodic note writes from MCP currently also emit `OutcomeKind::NoteAdded` events so task replay can see them
+
 ## 9.9 Module Types
+
+### SessionMemory
+
+* current top-level recall surface used by MCP and CLI
+* composes episodic, structural, and semantic memory with weighted merge-and-deduplicate recall
+
+### EpisodicMemory
+
+* stores note-like anchored memories
+* scores by anchor overlap, optional text match, recency, and trust
 
 ### OutcomeMemory
 
@@ -1151,11 +1210,13 @@ Index outcome events by:
 
 * stores rules, invariants, and policy-like knowledge
 * examples: "changes here require migration", "these modules evolve together"
+* implemented today as a recall module inside `SessionMemory`
 
 ### SemanticMemory
 
 * stores embedded text for fuzzy recall
 * escape hatch for unstructured knowledge, not the authoritative model
+* implemented today as a recall module inside `SessionMemory`
 
 ## 9.10 Integration Points
 
@@ -1887,7 +1948,7 @@ prism_session { action: "start_task", input: { description: string, tags?: strin
 prism_session { action: "configure", input: { ... } } -> { action: "configure", task_id?: string, session: SessionView }
 
 prism_mutate { action: "outcome", input: { kind: OutcomeKind, anchors: AnchorRef[], summary: string, result?: OutcomeResult, evidence?: OutcomeEvidence[], task_id?: string } } -> EventMutationResult
-prism_mutate { action: "memory", input: { action: "store", payload: { anchors: AnchorRef[], kind: MemoryKind, content: string, trust?: float, source?: MemorySource, metadata?: object }, task_id?: string } } -> MemoryMutationResult
+prism_mutate { action: "memory", input: { action: "store", payload: { anchors: AnchorRef[], kind: MemoryKind, scope?: MemoryScope, content: string, trust?: float, source?: MemorySource, metadata?: object, promoted_from?: MemoryId[], supersedes?: MemoryId[] }, task_id?: string } } -> MemoryMutationResult
 prism_mutate { action: "infer_edge", input: { source: NodeId, target: NodeId, kind: EdgeKind, confidence: float, scope?: InferredEdgeScope, task_id?: string } } -> EdgeMutationResult
 prism_mutate { action: "coordination", input: { kind: "plan_create" | "plan_update" | "task_create" | "task_update" | "handoff", payload: object, task_id?: string } } -> CoordinationMutationResult
 prism_mutate { action: "claim", input: { action: "acquire" | "renew" | "release", payload: object, task_id?: string } } -> ClaimMutationResult
