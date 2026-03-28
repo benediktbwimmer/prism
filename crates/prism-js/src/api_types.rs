@@ -2,7 +2,8 @@ use prism_coordination::BlockerKind;
 use prism_ir::{
     AnchorRef, ArtifactStatus, Capability, ClaimMode, ClaimStatus, ConflictOverlapKind,
     ConflictSeverity, CoordinationTaskStatus, EdgeKind, EdgeOrigin, Language, NodeKind,
-    PlanEdgeKind, PlanKind, PlanNodeKind, PlanNodeStatus, PlanScope, PlanStatus, Span,
+    PlanEdgeKind, PlanKind, PlanNodeBlockerKind, PlanNodeKind, PlanNodeStatus, PlanScope,
+    PlanStatus, Span,
 };
 use prism_memory::OutcomeEvent;
 use schemars::JsonSchema;
@@ -925,6 +926,17 @@ pub struct PlanExecutionOverlayView {
     pub node_id: String,
     pub pending_handoff_to: Option<String>,
     pub session: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanNodeBlockerView {
+    pub kind: PlanNodeBlockerKind,
+    pub summary: String,
+    pub related_node_id: Option<String>,
+    pub related_artifact_id: Option<String>,
+    pub risk_score: Option<f32>,
+    pub validation_checks: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

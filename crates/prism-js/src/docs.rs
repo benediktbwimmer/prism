@@ -278,6 +278,8 @@ type PrismApi = {
   plan(planId: string): PlanView | null;
   planGraph(planId: string): PlanGraphView | null;
   planExecution(planId: string): PlanExecutionOverlayView[];
+  planReadyNodes(planId: string): PlanNodeView[];
+  planNodeBlockers(planId: string, nodeId: string): PlanNodeBlockerView[];
   task(taskId: string): CoordinationTaskView | null;
   readyTasks(planId: string): CoordinationTaskView[];
   claims(target: SymbolView | NodeId | AnchorRef | Array<SymbolView | NodeId | AnchorRef>): ClaimView[];
@@ -1248,6 +1250,15 @@ type PlanExecutionOverlayView = {
   session?: string;
 };
 
+type PlanNodeBlockerView = {
+  kind: string;
+  summary: string;
+  relatedNodeId?: string;
+  relatedArtifactId?: string;
+  riskScore?: number;
+  validationChecks: string[];
+};
+
 type CoordinationTaskView = {
   id: string;
   planId: string;
@@ -2092,6 +2103,7 @@ The query runtime is read-only. State changes happen through two coarse MCP muta
   - action `test_ran`
   - action `failure_observed`
   - action `fix_validated`
+  - action `curator_apply_proposal`
   - action `curator_promote_edge`
   - action `curator_promote_concept`
   - action `curator_promote_memory`

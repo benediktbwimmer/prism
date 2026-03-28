@@ -7,8 +7,9 @@ use prism_coordination::{
 };
 use prism_ir::{
     AgentId, AnchorRef, CoordinationTaskId, PlanAcceptanceCriterion, PlanEdge, PlanEdgeId,
-    PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanNode, PlanNodeId, PlanNodeKind,
-    PlanNodeStatus, ValidationRef, WorkspaceRevision,
+    PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanNode, PlanNodeBlocker,
+    PlanNodeBlockerKind, PlanNodeId, PlanNodeKind, PlanNodeStatus, PlanStatus, ValidationRef,
+    WorkspaceRevision,
 };
 use serde_json::Value;
 
@@ -76,6 +77,51 @@ impl NativePlanRuntimeState {
             .get(plan_id.0.as_str())
             .cloned()
             .unwrap_or_default()
+    }
+
+    pub(crate) fn ready_nodes(&self, plan_id: &PlanId) -> Vec<PlanNode> {
+        let Some(graph) = self.graphs.get(plan_id.0.as_str()) else {
+            return Vec::new();
+        };
+        if graph.status != PlanStatus::Active {
+            return Vec::new();
+        }
+        let overlays = self
+            .execution_overlays
+            .get(plan_id.0.as_str())
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
+        let mut nodes = graph
+            .nodes
+            .iter()
+            .filter(|node| is_ready_candidate(node))
+            .filter(|node| readiness_blockers_for_node(graph, overlays, node).is_empty())
+            .cloned()
+            .collect::<Vec<_>>();
+        nodes.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+        nodes
+    }
+
+    pub(crate) fn node_blockers(
+        &self,
+        plan_id: &PlanId,
+        node_id: &PlanNodeId,
+    ) -> Vec<PlanNodeBlocker> {
+        let Some(graph) = self.graphs.get(plan_id.0.as_str()) else {
+            return Vec::new();
+        };
+        let Some(node) = graph.nodes.iter().find(|node| node.id == *node_id) else {
+            return Vec::new();
+        };
+        let overlays = self
+            .execution_overlays
+            .get(plan_id.0.as_str())
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
+        let mut blockers = readiness_blockers_for_node(graph, overlays, node);
+        blockers.extend(completion_blockers_for_node(graph, node));
+        sort_and_dedupe_plan_node_blockers(&mut blockers);
+        blockers
     }
 
     pub(crate) fn apply_to_coordination_snapshot(
@@ -438,6 +484,27 @@ fn sort_execution_overlays(mut overlays: Vec<PlanExecutionOverlay>) -> Vec<PlanE
     overlays
 }
 
+fn sort_and_dedupe_plan_node_blockers(blockers: &mut Vec<PlanNodeBlocker>) {
+    blockers.sort_by(|left, right| {
+        plan_node_blocker_kind_key(left.kind)
+            .cmp(&plan_node_blocker_kind_key(right.kind))
+            .then_with(|| left.summary.cmp(&right.summary))
+            .then_with(|| {
+                left.related_node_id
+                    .as_ref()
+                    .map(|id| id.0.as_str())
+                    .cmp(&right.related_node_id.as_ref().map(|id| id.0.as_str()))
+            })
+    });
+    blockers.dedup_by(|left, right| {
+        left.kind == right.kind
+            && left.summary == right.summary
+            && left.related_node_id == right.related_node_id
+            && left.related_artifact_id == right.related_artifact_id
+            && left.validation_checks == right.validation_checks
+    });
+}
+
 fn execution_overlays_by_plan(
     snapshot: &CoordinationSnapshot,
 ) -> BTreeMap<String, Vec<PlanExecutionOverlay>> {
@@ -509,6 +576,149 @@ fn dedupe_validation_refs(mut refs: Vec<ValidationRef>) -> Vec<ValidationRef> {
     refs.sort_by(|left, right| left.id.cmp(&right.id));
     refs.dedup_by(|left, right| left.id == right.id);
     refs
+}
+
+fn plan_node_blocker_kind_key(kind: PlanNodeBlockerKind) -> u8 {
+    match kind {
+        PlanNodeBlockerKind::Dependency => 0,
+        PlanNodeBlockerKind::BlockingNode => 1,
+        PlanNodeBlockerKind::ValidationGate => 2,
+        PlanNodeBlockerKind::Handoff => 3,
+    }
+}
+
+fn is_ready_candidate(node: &PlanNode) -> bool {
+    !node.is_abstract
+        && matches!(
+            node.status,
+            PlanNodeStatus::Ready | PlanNodeStatus::InProgress
+        )
+}
+
+fn is_completed_status(status: PlanNodeStatus) -> bool {
+    matches!(status, PlanNodeStatus::Completed)
+}
+
+fn overlay_for_node<'a>(
+    overlays: &'a [PlanExecutionOverlay],
+    node_id: &PlanNodeId,
+) -> Option<&'a PlanExecutionOverlay> {
+    overlays.iter().find(|overlay| overlay.node_id == *node_id)
+}
+
+fn graph_node_by_id<'a>(graph: &'a PlanGraph, node_id: &PlanNodeId) -> Option<&'a PlanNode> {
+    graph.nodes.iter().find(|node| node.id == *node_id)
+}
+
+fn readiness_blockers_for_node(
+    graph: &PlanGraph,
+    overlays: &[PlanExecutionOverlay],
+    node: &PlanNode,
+) -> Vec<PlanNodeBlocker> {
+    let mut blockers = Vec::new();
+    if let Some(overlay) = overlay_for_node(overlays, &node.id) {
+        if let Some(target) = overlay.pending_handoff_to.as_ref() {
+            blockers.push(PlanNodeBlocker {
+                kind: PlanNodeBlockerKind::Handoff,
+                summary: format!(
+                    "pending handoff to `{}` must be resolved before execution can continue",
+                    target.0
+                ),
+                related_node_id: None,
+                related_artifact_id: None,
+                risk_score: None,
+                validation_checks: Vec::new(),
+            });
+        }
+    }
+    for edge in graph.edges.iter().filter(|edge| edge.from == node.id) {
+        let Some(target) = graph_node_by_id(graph, &edge.to) else {
+            continue;
+        };
+        if is_completed_status(target.status) {
+            continue;
+        }
+        match edge.kind {
+            PlanEdgeKind::DependsOn => blockers.push(PlanNodeBlocker {
+                kind: PlanNodeBlockerKind::Dependency,
+                summary: format!(
+                    "depends on `{}` completing before this node can proceed",
+                    target.title
+                ),
+                related_node_id: Some(target.id.clone()),
+                related_artifact_id: None,
+                risk_score: None,
+                validation_checks: Vec::new(),
+            }),
+            PlanEdgeKind::Blocks => blockers.push(PlanNodeBlocker {
+                kind: PlanNodeBlockerKind::BlockingNode,
+                summary: format!("authored blocking node `{}` is not completed", target.title),
+                related_node_id: Some(target.id.clone()),
+                related_artifact_id: None,
+                risk_score: None,
+                validation_checks: Vec::new(),
+            }),
+            _ => {}
+        }
+    }
+    for edge in graph.edges.iter().filter(|edge| edge.to == node.id) {
+        if edge.kind != PlanEdgeKind::HandoffTo {
+            continue;
+        }
+        let Some(source) = graph_node_by_id(graph, &edge.from) else {
+            continue;
+        };
+        if is_completed_status(source.status) {
+            continue;
+        }
+        blockers.push(PlanNodeBlocker {
+            kind: PlanNodeBlockerKind::Handoff,
+            summary: format!(
+                "awaiting handoff from `{}` before this node should proceed",
+                source.title
+            ),
+            related_node_id: Some(source.id.clone()),
+            related_artifact_id: None,
+            risk_score: None,
+            validation_checks: Vec::new(),
+        });
+    }
+    sort_and_dedupe_plan_node_blockers(&mut blockers);
+    blockers
+}
+
+fn completion_blockers_for_node(graph: &PlanGraph, node: &PlanNode) -> Vec<PlanNodeBlocker> {
+    let mut blockers = Vec::new();
+    for edge in graph.edges.iter().filter(|edge| edge.from == node.id) {
+        if edge.kind != PlanEdgeKind::Validates {
+            continue;
+        }
+        let Some(target) = graph_node_by_id(graph, &edge.to) else {
+            continue;
+        };
+        if is_completed_status(target.status) {
+            continue;
+        }
+        blockers.push(PlanNodeBlocker {
+            kind: PlanNodeBlockerKind::ValidationGate,
+            summary: format!("validation gate `{}` is not completed", target.title),
+            related_node_id: Some(target.id.clone()),
+            related_artifact_id: None,
+            risk_score: None,
+            validation_checks: target
+                .acceptance
+                .iter()
+                .flat_map(|criterion| {
+                    criterion
+                        .required_checks
+                        .iter()
+                        .map(|check| check.id.clone())
+                })
+                .collect(),
+        });
+    }
+    sort_and_dedupe_plan_node_blockers(&mut blockers);
+    blockers
 }
 
 fn normalize_plan_acceptance(

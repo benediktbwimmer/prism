@@ -115,6 +115,8 @@ impl PrismMcpFeatures {
             "plan"
             | "planGraph"
             | "planExecution"
+            | "planReadyNodes"
+            | "planNodeBlockers"
             | "coordinationTask"
             | "readyTasks"
             | "blockers"

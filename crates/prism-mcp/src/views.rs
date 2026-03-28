@@ -11,10 +11,10 @@ use prism_js::{
     ConflictView, CoordinationTaskView, CuratorJobView, CuratorProposalRecordView,
     CuratorProposalView, DriftCandidateView, EdgeView, MemoryEntryView, MemoryEventView,
     NodeIdView, PlanAcceptanceCriterionView, PlanBindingView, PlanEdgeView,
-    PlanExecutionOverlayView, PlanGraphView, PlanNodeView, PlanView, PolicyViolationRecordView,
-    PolicyViolationView, QueryDiagnostic, ScoredMemoryView, TaskIntentView, TaskRiskView,
-    TaskValidationRecipeView, ValidationCheckView, ValidationRecipeView, ValidationRefView,
-    WorkspaceRevisionView,
+    PlanExecutionOverlayView, PlanGraphView, PlanNodeBlockerView, PlanNodeView, PlanView,
+    PolicyViolationRecordView, PolicyViolationView, QueryDiagnostic, ScoredMemoryView,
+    TaskIntentView, TaskRiskView, TaskValidationRecipeView, ValidationCheckView,
+    ValidationRecipeView, ValidationRefView, WorkspaceRevisionView,
 };
 use prism_memory::{MemoryEntry, MemoryEvent, MemorySource, ScoredMemory};
 use prism_query::{
@@ -712,6 +712,19 @@ pub(crate) fn plan_execution_overlay_view(
         node_id: value.node_id.0.to_string(),
         pending_handoff_to: value.pending_handoff_to.map(|agent| agent.0.to_string()),
         session: value.session.map(|session| session.0.to_string()),
+    }
+}
+
+pub(crate) fn plan_node_blocker_view(value: prism_ir::PlanNodeBlocker) -> PlanNodeBlockerView {
+    PlanNodeBlockerView {
+        kind: value.kind,
+        summary: value.summary,
+        related_node_id: value.related_node_id.map(|node_id| node_id.0.to_string()),
+        related_artifact_id: value
+            .related_artifact_id
+            .map(|artifact_id| artifact_id.0.to_string()),
+        risk_score: value.risk_score,
+        validation_checks: value.validation_checks,
     }
 }
 

@@ -161,6 +161,7 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("prism.curator.jobs"));
     assert!(docs.contains("prism_session"));
     assert!(docs.contains("prism_mutate"));
+    assert!(docs.contains("curator_apply_proposal"));
     assert!(docs.contains("curator_promote_edge"));
     assert!(docs.contains("curator_promote_memory"));
 }

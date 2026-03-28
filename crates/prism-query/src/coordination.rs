@@ -3,7 +3,8 @@ use prism_coordination::{
 };
 use prism_ir::{
     AnchorRef, ArtifactId, Capability, ClaimMode, CoordinationTaskId, PlanExecutionOverlay,
-    PlanGraph, PlanId, SessionId, Timestamp, WorkspaceRevision,
+    PlanGraph, PlanId, PlanNode, PlanNodeBlocker, PlanNodeId, SessionId, Timestamp,
+    WorkspaceRevision,
 };
 
 use crate::common::{anchor_sort_key, sort_node_ids};
@@ -50,6 +51,24 @@ impl Prism {
             .read()
             .expect("plan runtime lock poisoned")
             .plan_execution(plan_id)
+    }
+
+    pub fn plan_ready_nodes(&self, plan_id: &PlanId) -> Vec<PlanNode> {
+        self.plan_runtime
+            .read()
+            .expect("plan runtime lock poisoned")
+            .ready_nodes(plan_id)
+    }
+
+    pub fn plan_node_blockers(
+        &self,
+        plan_id: &PlanId,
+        node_id: &PlanNodeId,
+    ) -> Vec<PlanNodeBlocker> {
+        self.plan_runtime
+            .read()
+            .expect("plan runtime lock poisoned")
+            .node_blockers(plan_id, node_id)
     }
 
     pub fn ready_tasks(&self, plan_id: &PlanId, now: Timestamp) -> Vec<CoordinationTask> {

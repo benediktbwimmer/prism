@@ -1,7 +1,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{AgentId, AnchorRef, PlanEdgeId, PlanId, PlanNodeId, SessionId, WorkspaceRevision};
+use crate::{
+    AgentId, AnchorRef, ArtifactId, PlanEdgeId, PlanId, PlanNodeId, SessionId, WorkspaceRevision,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub enum PlanScope {
@@ -93,6 +95,24 @@ pub enum AcceptanceEvidencePolicy {
     ReviewOnly,
     ValidationOnly,
     ReviewAndValidation,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub enum PlanNodeBlockerKind {
+    Dependency,
+    BlockingNode,
+    ValidationGate,
+    Handoff,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct PlanNodeBlocker {
+    pub kind: PlanNodeBlockerKind,
+    pub summary: String,
+    pub related_node_id: Option<PlanNodeId>,
+    pub related_artifact_id: Option<ArtifactId>,
+    pub risk_score: Option<f32>,
+    pub validation_checks: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

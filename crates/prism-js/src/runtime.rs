@@ -639,6 +639,12 @@ globalThis.prism = Object.freeze({
   planExecution(planId) {
     return __prismHost("planExecution", { planId });
   },
+  planReadyNodes(planId) {
+    return __prismHost("planReadyNodes", { planId });
+  },
+  planNodeBlockers(planId, nodeId) {
+    return __prismHost("planNodeBlockers", { planId, nodeId });
+  },
   task(taskId) {
     return __prismHost("coordinationTask", { taskId });
   },

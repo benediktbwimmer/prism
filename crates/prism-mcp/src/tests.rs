@@ -940,6 +940,183 @@ fn plan_edge_mutations_support_non_dependency_edge_kinds() {
 }
 
 #[test]
+fn plan_query_reads_surface_native_ready_nodes_and_blockers() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Read native plan runtime semantics" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let blocked = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({ "planId": plan_id.clone(), "title": "Blocked" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let blocked_id = blocked.state["id"].as_str().unwrap().to_string();
+
+    let dependency = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({ "planId": plan_id.clone(), "title": "Dependency" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let dependency_id = dependency.state["id"].as_str().unwrap().to_string();
+
+    let validator = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({ "planId": plan_id.clone(), "title": "Validator" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let validator_id = validator.state["id"].as_str().unwrap().to_string();
+
+    let handoff_source = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Handoff source",
+                    "status": "InProgress"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let handoff_source_id = handoff_source.state["id"].as_str().unwrap().to_string();
+
+    let handoff_target = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({ "planId": plan_id.clone(), "title": "Handoff target" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let handoff_target_id = handoff_target.state["id"].as_str().unwrap().to_string();
+
+    let free = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({ "planId": plan_id.clone(), "title": "Free" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let free_id = free.state["id"].as_str().unwrap().to_string();
+
+    for payload in [
+        json!({
+            "planId": plan_id.clone(),
+            "fromNodeId": blocked_id.clone(),
+            "toNodeId": dependency_id.clone(),
+            "kind": "depends_on"
+        }),
+        json!({
+            "planId": plan_id.clone(),
+            "fromNodeId": blocked_id.clone(),
+            "toNodeId": validator_id.clone(),
+            "kind": "validates"
+        }),
+        json!({
+            "planId": plan_id.clone(),
+            "fromNodeId": handoff_source_id.clone(),
+            "toNodeId": handoff_target_id.clone(),
+            "kind": "handoff_to"
+        }),
+    ] {
+        host.store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanEdgeCreate,
+                payload,
+                task_id: None,
+            },
+        )
+        .unwrap();
+    }
+
+    let execution = QueryExecution::new(
+        host.clone(),
+        test_session(&host),
+        host.current_prism(),
+        host.begin_query_run(test_session(&host).as_ref(), "test", "plan query reads"),
+    );
+    let ready_nodes = execution
+        .dispatch("planReadyNodes", &format!(r#"{{ "planId": "{plan_id}" }}"#))
+        .unwrap();
+    let blocked_node_blockers = execution
+        .dispatch(
+            "planNodeBlockers",
+            &format!(r#"{{ "planId": "{plan_id}", "nodeId": "{blocked_id}" }}"#),
+        )
+        .unwrap();
+    let handoff_target_blockers = execution
+        .dispatch(
+            "planNodeBlockers",
+            &format!(r#"{{ "planId": "{plan_id}", "nodeId": "{handoff_target_id}" }}"#),
+        )
+        .unwrap();
+
+    let ready_ids = ready_nodes
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|node| node["id"].as_str().unwrap().to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        ready_ids,
+        vec![
+            dependency_id.clone(),
+            validator_id.clone(),
+            handoff_source_id.clone(),
+            free_id,
+        ]
+    );
+
+    let blocked_kinds = blocked_node_blockers
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|blocker| blocker["kind"].as_str().unwrap().to_string())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        blocked_kinds,
+        vec!["Dependency".to_string(), "ValidationGate".to_string()]
+    );
+    assert_eq!(
+        handoff_target_blockers[0]["kind"],
+        Value::String("Handoff".to_string())
+    );
+}
+
+#[test]
 fn mcp_returns_structured_coordination_rejections_and_persists_them() {
     let root = temp_workspace();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
@@ -3482,6 +3659,7 @@ pub fn beta_route() {}
             PrismCuratorPromoteConceptArgs {
                 job_id: job_id.clone(),
                 proposal_index: 0,
+                scope: None,
                 note: Some("accept hotspot concept".into()),
                 task_id: Some("task:curator-concept".into()),
             },
@@ -3526,6 +3704,249 @@ return {{
         proposal.result["concept"]["provenance"]["kind"],
         Value::String("curator_concept_candidate".to_string())
     );
+}
+
+#[test]
+fn curator_apply_proposal_promotes_repo_scoped_concept_with_override() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn alpha_route() {}
+pub fn beta_route() {}
+"#,
+    )
+    .unwrap();
+
+    #[derive(Default)]
+    struct FakeCurator;
+
+    impl CuratorBackend for FakeCurator {
+        fn run(&self, _job: &CuratorJob, _ctx: &CuratorContext) -> anyhow::Result<CuratorRun> {
+            Ok(CuratorRun {
+                proposals: vec![CuratorProposal::ConceptCandidate(CandidateConcept {
+                    recommended_operation: CandidateConceptOperation::Promote,
+                    canonical_name: "route_cluster".to_string(),
+                    summary: "Routing hotspot cluster.".to_string(),
+                    aliases: vec!["routing".to_string()],
+                    core_members: vec![
+                        NodeId::new("demo", "demo::alpha_route", NodeKind::Function),
+                        NodeId::new("demo", "demo::beta_route", NodeKind::Function),
+                    ],
+                    supporting_members: Vec::new(),
+                    likely_tests: Vec::new(),
+                    evidence: vec!["Hotspot edit kept touching the same routing pair.".to_string()],
+                    confidence: 0.79,
+                    rationale: "Repeated co-change and hotspot edits justify a reusable concept."
+                        .to_string(),
+                })],
+                diagnostics: Vec::new(),
+            })
+        }
+    }
+
+    let session = index_workspace_session_with_curator(&root, Arc::new(FakeCurator)).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha_route")
+        .into_iter()
+        .next()
+        .unwrap()
+        .id()
+        .clone();
+    session
+        .append_outcome(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:route-apply"),
+                ts: 50,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:curator-apply-concept")),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(alpha)],
+            kind: OutcomeKind::FixValidated,
+            result: OutcomeResult::Success,
+            summary: "validated routing follow-up".into(),
+            evidence: Vec::new(),
+            metadata: Value::Null,
+        })
+        .unwrap();
+    let job_id = wait_for_completed_curator_job(&session);
+    let host = QueryHost::with_session(session);
+
+    let applied = host
+        .apply_curator_proposal(
+            test_session(&host).as_ref(),
+            PrismCuratorApplyProposalArgs {
+                job_id: job_id.clone(),
+                proposal_index: 0,
+                note: Some("accept hotspot concept as published knowledge".into()),
+                options: Some(PrismCuratorApplyProposalOptionsArgs {
+                    edge_scope: None,
+                    concept_scope: Some(ConceptScopeInput::Repo),
+                    memory_trust: None,
+                }),
+                task_id: Some("task:curator-apply-concept".into()),
+            },
+        )
+        .expect("generic curator apply should promote concept");
+    assert_eq!(applied.kind, "concept_candidate");
+    assert_eq!(applied.decision, CuratorProposalDecision::Applied);
+    assert_eq!(
+        applied.created.concept_handle.as_deref(),
+        Some("concept://route_cluster")
+    );
+    assert_eq!(
+        applied.concept_handle.as_deref(),
+        Some("concept://route_cluster")
+    );
+
+    let proposal = host
+        .execute(
+            test_session(&host),
+            &format!(
+                r#"
+return {{
+  proposal: prism.curator.job("{job_id}")?.proposals[0],
+  concept: prism.conceptByHandle("concept://route_cluster", {{ includeBindingMetadata: true }}),
+}};
+"#
+            ),
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed");
+    assert_eq!(proposal.result["proposal"]["disposition"], "applied");
+    assert_eq!(proposal.result["concept"]["scope"], "repo");
+    assert_eq!(
+        proposal.result["concept"]["publication"]["status"],
+        "active"
+    );
+}
+
+#[test]
+fn curator_apply_proposal_routes_risk_summary_through_memory_promotion() {
+    let root = temp_workspace();
+
+    #[derive(Default)]
+    struct FakeCurator;
+
+    impl CuratorBackend for FakeCurator {
+        fn run(&self, _job: &CuratorJob, _ctx: &CuratorContext) -> anyhow::Result<CuratorRun> {
+            Ok(CuratorRun {
+                proposals: vec![CuratorProposal::RiskSummary(CandidateRiskSummary {
+                    anchors: vec![AnchorRef::Node(NodeId::new(
+                        "demo",
+                        "demo::alpha",
+                        NodeKind::Function,
+                    ))],
+                    summary: "alpha is a risky coordination hotspot".to_string(),
+                    severity: "high".to_string(),
+                    evidence_events: Vec::new(),
+                })],
+                diagnostics: Vec::new(),
+            })
+        }
+    }
+
+    let session = index_workspace_session_with_curator(&root, Arc::new(FakeCurator)).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .unwrap()
+        .id()
+        .clone();
+    session
+        .append_outcome(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:alpha-risk-generic"),
+                ts: 50,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:alpha-risk-generic")),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(alpha)],
+            kind: OutcomeKind::FailureObserved,
+            result: OutcomeResult::Failure,
+            summary: "alpha failed under routing load".into(),
+            evidence: Vec::new(),
+            metadata: Value::Null,
+        })
+        .unwrap();
+    session
+        .append_outcome(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:alpha-risk-generic-fix"),
+                ts: 51,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:alpha-risk-generic")),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(NodeId::new(
+                "demo",
+                "demo::alpha",
+                NodeKind::Function,
+            ))],
+            kind: OutcomeKind::FixValidated,
+            result: OutcomeResult::Success,
+            summary: "validated alpha routing follow-up".into(),
+            evidence: Vec::new(),
+            metadata: Value::Null,
+        })
+        .unwrap();
+    session
+        .append_outcome(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:alpha-risk-generic-repeat"),
+                ts: 52,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:alpha-risk-generic")),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(NodeId::new(
+                "demo",
+                "demo::alpha",
+                NodeKind::Function,
+            ))],
+            kind: OutcomeKind::FailureObserved,
+            result: OutcomeResult::Failure,
+            summary: "alpha failed again under routing load".into(),
+            evidence: Vec::new(),
+            metadata: Value::Null,
+        })
+        .unwrap();
+    let job_id = wait_for_completed_curator_job(&session);
+    let host = QueryHost::with_session(session);
+
+    let applied = host
+        .apply_curator_proposal(
+            test_session(&host).as_ref(),
+            PrismCuratorApplyProposalArgs {
+                job_id,
+                proposal_index: 0,
+                note: Some("promote risk summary after review".into()),
+                options: Some(PrismCuratorApplyProposalOptionsArgs {
+                    edge_scope: None,
+                    concept_scope: None,
+                    memory_trust: Some(0.93),
+                }),
+                task_id: Some("task:alpha-risk-generic".into()),
+            },
+        )
+        .expect("generic curator apply should route risk summary to memory promotion");
+    assert_eq!(applied.kind, "risk_summary");
+    assert_eq!(applied.decision, CuratorProposalDecision::Applied);
+    assert_eq!(applied.edge_id, None);
+    assert!(applied.memory_id.is_some());
+    assert_eq!(applied.created.memory_id, applied.memory_id);
+
+    let stored = test_session(&host)
+        .notes
+        .entry(&MemoryId(applied.memory_id.clone().unwrap()))
+        .expect("promoted memory should exist");
+    assert_eq!(stored.trust, 0.93);
+    assert_eq!(stored.content, "alpha is a risky coordination hotspot");
 }
 
 #[test]
@@ -4662,7 +5083,7 @@ return {
     assert_eq!(mutate["toolName"], "prism_mutate");
     assert_eq!(
         mutate["actions"].as_array().map(|items| items.len()),
-        Some(15)
+        Some(17)
     );
     assert_eq!(
         mutate["exampleInput"]["input"]["prismSaid"],
@@ -4899,6 +5320,7 @@ fn prism_mutate_schema_surfaces_action_specific_examples() {
         "test_ran",
         "failure_observed",
         "fix_validated",
+        "curator_apply_proposal",
         "curator_promote_edge",
         "curator_promote_concept",
         "curator_promote_memory",

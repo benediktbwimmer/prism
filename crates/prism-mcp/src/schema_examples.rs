@@ -147,6 +147,7 @@ fn prism_mutate_examples() -> Vec<Value> {
         "test_ran",
         "failure_observed",
         "fix_validated",
+        "curator_apply_proposal",
         "curator_promote_edge",
         "curator_promote_concept",
         "curator_promote_memory",
@@ -235,6 +236,7 @@ fn prism_mutate_action_example(action: &str) -> Option<Value> {
             "input": {
                 "jobId": "curator-job:demo",
                 "proposalIndex": 0,
+                "scope": "session",
                 "note": "Accept the hotspot concept proposal after review.",
                 "taskId": "task:demo-main"
             }
@@ -317,6 +319,20 @@ fn prism_mutate_action_example(action: &str) -> Option<Value> {
             "input": {
                 "anchors": [sample_node_anchor("demo", "demo::validation_recipe", "function")],
                 "summary": "Mutation schema now exposes concrete payload shapes and examples.",
+                "taskId": "task:demo-main"
+            }
+        })),
+        "curator_apply_proposal" => Some(json!({
+            "action": "curator_apply_proposal",
+            "input": {
+                "jobId": "curator:1",
+                "proposalIndex": 0,
+                "note": "Apply the reviewed proposal.",
+                "options": {
+                    "conceptScope": "repo",
+                    "memoryTrust": 0.86,
+                    "edgeScope": "persisted"
+                },
                 "taskId": "task:demo-main"
             }
         })),

@@ -1029,6 +1029,44 @@ impl PrismMcpServer {
                     links,
                 )
             }
+            PrismMutationArgs::CuratorApplyProposal(args) => {
+                let result = self.execute_logged_mutation(
+                    "mutate.curator_apply_proposal",
+                    MutationRefreshPolicy::None,
+                    || {
+                        self.host
+                            .apply_curator_proposal(self.session.as_ref(), args)
+                    },
+                    |result| {
+                        let mut result_ids = vec![result.job_id.clone()];
+                        if let Some(memory_id) = &result.memory_id {
+                            result_ids.push(memory_id.clone());
+                        }
+                        if let Some(edge_id) = &result.edge_id {
+                            result_ids.push(edge_id.clone());
+                        }
+                        if let Some(concept_handle) = &result.concept_handle {
+                            result_ids.push(concept_handle.clone());
+                        }
+                        MutationDashboardMeta::coordination(result_ids, 0)
+                    },
+                )?;
+                let mut links = vec![session_resource_link()];
+                if let Some(memory_id) = &result.memory_id {
+                    links.push(memory_resource_link(memory_id));
+                }
+                if let Some(edge_id) = &result.edge_id {
+                    links.push(edge_resource_link(edge_id));
+                }
+                structured_tool_result_with_links(
+                    PrismMutationResult {
+                        action: PrismMutationActionSchema::CuratorApplyProposal,
+                        result: serde_json::to_value(result)
+                            .map_err(|err| map_query_error(err.into()))?,
+                    },
+                    links,
+                )
+            }
             PrismMutationArgs::CuratorPromoteConcept(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.curator_promote_concept",

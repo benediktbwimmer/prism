@@ -331,6 +331,18 @@ fn query_method_specs() -> Vec<(
             "Read runtime execution overlays for plan nodes.",
         ),
         (
+            "planReadyNodes",
+            "coordination",
+            Some("workflow"),
+            "List graph-native plan nodes that can safely proceed now.",
+        ),
+        (
+            "planNodeBlockers",
+            "coordination",
+            Some("workflow"),
+            "Explain graph-native blockers for one plan node.",
+        ),
+        (
             "coordinationTask",
             "coordination",
             Some("workflow"),

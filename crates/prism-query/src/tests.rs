@@ -9,8 +9,9 @@ use prism_history::HistoryStore;
 use prism_ir::{
     AnchorRef, ChangeTrigger, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId, Language,
     Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, PlanEdge, PlanEdgeId, PlanEdgeKind,
-    PlanExecutionOverlay, PlanGraph, PlanKind, PlanNode, PlanNodeId, PlanNodeKind, PlanNodeStatus,
-    PlanScope, PlanStatus, SessionId, Span, TaskId, WorkspaceRevision,
+    PlanExecutionOverlay, PlanGraph, PlanId, PlanKind, PlanNode, PlanNodeBlockerKind, PlanNodeId,
+    PlanNodeKind, PlanNodeStatus, PlanScope, PlanStatus, SessionId, Span, TaskId,
+    WorkspaceRevision,
 };
 use prism_memory::{
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeRecallQuery, OutcomeResult,
@@ -2050,6 +2051,235 @@ fn native_plan_edge_validation_rejects_self_cycles_and_multiple_child_parents() 
     assert!(parent_error
         .to_string()
         .contains("already has an authored parent"));
+}
+
+#[test]
+fn native_plan_ready_nodes_and_blockers_follow_edge_semantics() {
+    fn node(
+        plan_id: &PlanId,
+        node_id: &PlanNodeId,
+        title: &str,
+        status: PlanNodeStatus,
+    ) -> PlanNode {
+        PlanNode {
+            id: node_id.clone(),
+            plan_id: plan_id.clone(),
+            kind: PlanNodeKind::Edit,
+            title: title.into(),
+            summary: None,
+            status,
+            bindings: prism_ir::PlanBinding::default(),
+            acceptance: Vec::new(),
+            is_abstract: false,
+            assignee: None,
+            base_revision: WorkspaceRevision::default(),
+            priority: None,
+            tags: Vec::new(),
+            metadata: serde_json::Value::Null,
+        }
+    }
+
+    fn edge(plan_id: &PlanId, from: &PlanNodeId, to: &PlanNodeId, kind: PlanEdgeKind) -> PlanEdge {
+        PlanEdge {
+            id: PlanEdgeId::new(format!("{}:{:?}:{}", from.0, kind, to.0)),
+            plan_id: plan_id.clone(),
+            from: from.clone(),
+            to: to.clone(),
+            kind,
+            summary: None,
+            metadata: serde_json::Value::Null,
+        }
+    }
+
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let plan_id = PlanId::new("plan:native-semantics");
+    let blocked_by_dependency = PlanNodeId::new("plan-node:blocked-by-dependency");
+    let dependency = PlanNodeId::new("plan-node:dependency");
+    let blocked_by_authored_block = PlanNodeId::new("plan-node:blocked-by-authored-block");
+    let authored_blocker = PlanNodeId::new("plan-node:authored-blocker");
+    let blocked_by_validation = PlanNodeId::new("plan-node:blocked-by-validation");
+    let validator = PlanNodeId::new("plan-node:validator");
+    let handoff_source = PlanNodeId::new("plan-node:handoff-source");
+    let handoff_target = PlanNodeId::new("plan-node:handoff-target");
+    let free = PlanNodeId::new("plan-node:free");
+    let pending_handoff = PlanNodeId::new("plan-node:pending-handoff");
+
+    let native_graph = PlanGraph {
+        id: plan_id.clone(),
+        scope: PlanScope::Repo,
+        kind: PlanKind::TaskExecution,
+        title: "Native plan semantics".into(),
+        goal: "Enforce graph-native blocker rules".into(),
+        status: PlanStatus::Active,
+        revision: 1,
+        root_nodes: vec![
+            blocked_by_dependency.clone(),
+            blocked_by_authored_block.clone(),
+            blocked_by_validation.clone(),
+            handoff_source.clone(),
+            handoff_target.clone(),
+            free.clone(),
+            pending_handoff.clone(),
+        ],
+        tags: Vec::new(),
+        created_from: None,
+        metadata: serde_json::Value::Null,
+        nodes: vec![
+            node(
+                &plan_id,
+                &blocked_by_dependency,
+                "Blocked by dependency",
+                PlanNodeStatus::Ready,
+            ),
+            node(&plan_id, &dependency, "Dependency", PlanNodeStatus::Ready),
+            node(
+                &plan_id,
+                &blocked_by_authored_block,
+                "Blocked by authored block",
+                PlanNodeStatus::Ready,
+            ),
+            node(
+                &plan_id,
+                &authored_blocker,
+                "Authored blocker",
+                PlanNodeStatus::Ready,
+            ),
+            node(
+                &plan_id,
+                &blocked_by_validation,
+                "Blocked by validation",
+                PlanNodeStatus::Ready,
+            ),
+            node(&plan_id, &validator, "Validator", PlanNodeStatus::Ready),
+            node(
+                &plan_id,
+                &handoff_source,
+                "Handoff source",
+                PlanNodeStatus::InProgress,
+            ),
+            node(
+                &plan_id,
+                &handoff_target,
+                "Handoff target",
+                PlanNodeStatus::Ready,
+            ),
+            node(&plan_id, &free, "Free", PlanNodeStatus::Ready),
+            node(
+                &plan_id,
+                &pending_handoff,
+                "Pending handoff",
+                PlanNodeStatus::Ready,
+            ),
+        ],
+        edges: vec![
+            edge(
+                &plan_id,
+                &blocked_by_dependency,
+                &dependency,
+                PlanEdgeKind::DependsOn,
+            ),
+            edge(
+                &plan_id,
+                &blocked_by_authored_block,
+                &authored_blocker,
+                PlanEdgeKind::Blocks,
+            ),
+            edge(
+                &plan_id,
+                &blocked_by_validation,
+                &validator,
+                PlanEdgeKind::Validates,
+            ),
+            edge(
+                &plan_id,
+                &handoff_source,
+                &handoff_target,
+                PlanEdgeKind::HandoffTo,
+            ),
+        ],
+    };
+
+    let prism = Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
+        graph,
+        history,
+        outcomes,
+        coordination,
+        ProjectionIndex::default(),
+        vec![native_graph],
+        BTreeMap::from([(
+            plan_id.0.to_string(),
+            vec![PlanExecutionOverlay {
+                node_id: pending_handoff.clone(),
+                pending_handoff_to: Some(prism_ir::AgentId::new("agent-b")),
+                session: None,
+            }],
+        )]),
+    );
+
+    let ready_ids = prism
+        .plan_ready_nodes(&plan_id)
+        .into_iter()
+        .map(|node| node.id.0)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        ready_ids,
+        vec![
+            authored_blocker.0.clone(),
+            blocked_by_validation.0.clone(),
+            dependency.0.clone(),
+            free.0.clone(),
+            handoff_source.0.clone(),
+            validator.0.clone(),
+        ]
+    );
+
+    let dependency_blockers = prism.plan_node_blockers(&plan_id, &blocked_by_dependency);
+    assert_eq!(dependency_blockers.len(), 1);
+    assert_eq!(dependency_blockers[0].kind, PlanNodeBlockerKind::Dependency);
+    assert_eq!(
+        dependency_blockers[0].related_node_id,
+        Some(dependency.clone())
+    );
+
+    let authored_blockers = prism.plan_node_blockers(&plan_id, &blocked_by_authored_block);
+    assert_eq!(authored_blockers.len(), 1);
+    assert_eq!(authored_blockers[0].kind, PlanNodeBlockerKind::BlockingNode);
+    assert_eq!(
+        authored_blockers[0].related_node_id,
+        Some(authored_blocker.clone())
+    );
+
+    let validation_blockers = prism.plan_node_blockers(&plan_id, &blocked_by_validation);
+    assert_eq!(validation_blockers.len(), 1);
+    assert_eq!(
+        validation_blockers[0].kind,
+        PlanNodeBlockerKind::ValidationGate
+    );
+    assert_eq!(
+        validation_blockers[0].related_node_id,
+        Some(validator.clone())
+    );
+
+    let handoff_path_blockers = prism.plan_node_blockers(&plan_id, &handoff_target);
+    assert_eq!(handoff_path_blockers.len(), 1);
+    assert_eq!(handoff_path_blockers[0].kind, PlanNodeBlockerKind::Handoff);
+    assert_eq!(
+        handoff_path_blockers[0].related_node_id,
+        Some(handoff_source.clone())
+    );
+
+    let pending_handoff_blockers = prism.plan_node_blockers(&plan_id, &pending_handoff);
+    assert_eq!(pending_handoff_blockers.len(), 1);
+    assert_eq!(
+        pending_handoff_blockers[0].kind,
+        PlanNodeBlockerKind::Handoff
+    );
+    assert!(pending_handoff_blockers[0]
+        .summary
+        .contains("pending handoff"));
 }
 
 #[test]

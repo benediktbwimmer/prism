@@ -40,16 +40,17 @@ use crate::{
     ClaimMutationResult, ClaimReleasePayload, ClaimRenewPayload, ConceptMutationOperationInput,
     ConceptMutationResult, ConceptRelationKindInput, ConceptRelationMutationOperationInput,
     ConceptRelationMutationResult, ConceptScopeInput, CoordinationMutationKindInput,
-    CoordinationMutationResult, CuratorJobView, CuratorProposalDecisionResult, EdgeMutationResult,
+    CoordinationMutationResult, CuratorJobView, CuratorProposalCreatedResources,
+    CuratorProposalDecision, CuratorProposalDecisionResult, EdgeMutationResult,
     EventMutationResult, HandoffAcceptPayload, MemoryMutationActionInput, MemoryMutationResult,
     MemoryStorePayload, MutationViolationView, NodeIdInput, PlanEdgeCreatePayload,
     PlanEdgeDeletePayload, PlanNodeCreatePayload, PlanNodeUpdatePayload, PlanUpdatePayload,
     PrismArtifactArgs, PrismClaimArgs, PrismConceptLensInput, PrismConceptMutationArgs,
-    PrismConceptRelationMutationArgs, PrismCoordinationArgs, PrismCuratorPromoteConceptArgs,
-    PrismCuratorPromoteEdgeArgs, PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs,
-    PrismFinishTaskArgs, PrismInferEdgeArgs, PrismMemoryArgs, PrismOutcomeArgs,
-    PrismValidationFeedbackArgs, QueryHost, SessionState, TaskCreatePayload, TaskUpdatePayload,
-    ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
+    PrismConceptRelationMutationArgs, PrismCoordinationArgs, PrismCuratorApplyProposalArgs,
+    PrismCuratorPromoteConceptArgs, PrismCuratorPromoteEdgeArgs, PrismCuratorPromoteMemoryArgs,
+    PrismCuratorRejectProposalArgs, PrismFinishTaskArgs, PrismInferEdgeArgs, PrismMemoryArgs,
+    PrismOutcomeArgs, PrismValidationFeedbackArgs, QueryHost, SessionState, TaskCreatePayload,
+    TaskUpdatePayload, ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
     ValidationFeedbackVerdictInput, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
     DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
@@ -1444,12 +1445,13 @@ impl QueryHost {
         if scope != prism_agent::InferredEdgeScope::SessionOnly {
             self.persist_inferred_edges()?;
         }
+        let detail = args.note.clone();
         workspace.set_curator_proposal_state(
             &job_id,
             args.proposal_index,
             CuratorProposalDisposition::Applied,
             Some(task),
-            args.note,
+            detail.clone(),
             Some(edge_id.0.clone()),
         )?;
         let proposal = self
@@ -1462,7 +1464,16 @@ impl QueryHost {
             .ok_or_else(|| anyhow!("applied curator proposal could not be reloaded"))?;
         Ok(CuratorProposalDecisionResult {
             job_id: args.job_id,
+            proposal_index: args.proposal_index,
+            kind: proposal.kind.clone(),
+            decision: CuratorProposalDecision::Applied,
             proposal: serde_json::to_value(proposal)?,
+            created: CuratorProposalCreatedResources {
+                memory_id: None,
+                edge_id: Some(edge_id.0.clone()),
+                concept_handle: None,
+            },
+            detail,
             memory_id: None,
             edge_id: Some(edge_id.0),
             concept_handle: None,
@@ -1511,7 +1522,7 @@ impl QueryHost {
             prism.as_ref(),
             &task_id,
             recorded_at,
-            concept_args_from_curator_candidate(candidate, &task_id),
+            concept_args_from_curator_candidate(candidate, &task_id, args.scope.clone()),
         )?;
         packet.provenance = ConceptProvenance {
             origin: "curator".to_string(),
@@ -1527,12 +1538,13 @@ impl QueryHost {
         };
         workspace.append_concept_event(event)?;
         self.sync_workspace_revision(workspace)?;
+        let detail = args.note.clone();
         workspace.set_curator_proposal_state(
             &job_id,
             args.proposal_index,
             CuratorProposalDisposition::Applied,
             Some(task_id),
-            args.note,
+            detail.clone(),
             Some(packet.handle.clone()),
         )?;
         let proposal = self
@@ -1545,11 +1557,91 @@ impl QueryHost {
             .ok_or_else(|| anyhow!("applied curator proposal could not be reloaded"))?;
         Ok(CuratorProposalDecisionResult {
             job_id: args.job_id,
+            proposal_index: args.proposal_index,
+            kind: proposal.kind.clone(),
+            decision: CuratorProposalDecision::Applied,
             proposal: serde_json::to_value(proposal)?,
+            created: CuratorProposalCreatedResources {
+                memory_id: None,
+                edge_id: None,
+                concept_handle: Some(packet.handle.clone()),
+            },
+            detail,
             memory_id: None,
             edge_id: None,
             concept_handle: Some(packet.handle),
         })
+    }
+
+    pub(crate) fn apply_curator_proposal(
+        &self,
+        session: &SessionState,
+        args: PrismCuratorApplyProposalArgs,
+    ) -> Result<CuratorProposalDecisionResult> {
+        self.refresh_workspace()?;
+        let workspace = self
+            .workspace
+            .as_ref()
+            .ok_or_else(|| anyhow!("curator mutations require a workspace-backed session"))?;
+        let job_id = CuratorJobId(args.job_id.clone());
+        let snapshot = workspace.curator_snapshot();
+        let record = snapshot
+            .records
+            .iter()
+            .find(|record| record.id == job_id)
+            .ok_or_else(|| anyhow!("unknown curator job `{}`", args.job_id))?;
+        let proposal_state = curator_proposal_state(record, args.proposal_index)?;
+        if proposal_state.disposition != CuratorProposalDisposition::Pending {
+            return Err(anyhow!(
+                "curator proposal {} for job `{}` is already {}",
+                args.proposal_index,
+                args.job_id,
+                curator_disposition_label(proposal_state.disposition)
+            ));
+        }
+
+        let proposal = curator_proposal(record, args.proposal_index)?;
+        let options = args.options;
+
+        match proposal {
+            CuratorProposal::InferredEdge(_) => self.promote_curator_edge(
+                session,
+                PrismCuratorPromoteEdgeArgs {
+                    job_id: args.job_id,
+                    proposal_index: args.proposal_index,
+                    scope: options
+                        .as_ref()
+                        .and_then(|options| options.edge_scope.clone()),
+                    note: args.note,
+                    task_id: args.task_id,
+                },
+            ),
+            CuratorProposal::ConceptCandidate(_) => self.promote_curator_concept(
+                session,
+                PrismCuratorPromoteConceptArgs {
+                    job_id: args.job_id,
+                    proposal_index: args.proposal_index,
+                    scope: options
+                        .as_ref()
+                        .and_then(|options| options.concept_scope.clone()),
+                    note: args.note,
+                    task_id: args.task_id,
+                },
+            ),
+            CuratorProposal::StructuralMemory(_)
+            | CuratorProposal::SemanticMemory(_)
+            | CuratorProposal::RiskSummary(_)
+            | CuratorProposal::ValidationRecipe(_) => self.promote_curator_memory(
+                session,
+                PrismCuratorPromoteMemoryArgs {
+                    job_id: args.job_id,
+                    proposal_index: args.proposal_index,
+                    trust: options.as_ref().and_then(|options| options.memory_trust),
+                    note: args.note,
+                    task_id: args.task_id,
+                },
+            ),
+        }
     }
 
     pub(crate) fn promote_curator_memory(
@@ -1764,12 +1856,13 @@ impl QueryHost {
             self.persist_outcomes()?;
             self.persist_notes()?;
         }
+        let detail = args.note.clone();
         workspace.set_curator_proposal_state(
             &job_id,
             args.proposal_index,
             CuratorProposalDisposition::Applied,
             Some(task),
-            args.note,
+            detail.clone(),
             Some(memory_id.0.clone()),
         )?;
         let proposal = self
@@ -1782,7 +1875,16 @@ impl QueryHost {
             .ok_or_else(|| anyhow!("applied curator proposal could not be reloaded"))?;
         Ok(CuratorProposalDecisionResult {
             job_id: args.job_id,
+            proposal_index: args.proposal_index,
+            kind: proposal.kind.clone(),
+            decision: CuratorProposalDecision::Applied,
             proposal: serde_json::to_value(proposal)?,
+            created: CuratorProposalCreatedResources {
+                memory_id: Some(memory_id.0.clone()),
+                edge_id: None,
+                concept_handle: None,
+            },
+            detail,
             memory_id: Some(memory_id.0),
             edge_id: None,
             concept_handle: None,
@@ -1817,12 +1919,13 @@ impl QueryHost {
         }
 
         let task = session.task_for_mutation(args.task_id.map(TaskId::new));
+        let detail = args.reason.clone();
         workspace.set_curator_proposal_state(
             &job_id,
             args.proposal_index,
             CuratorProposalDisposition::Rejected,
             Some(task),
-            args.reason,
+            detail.clone(),
             None,
         )?;
         let proposal = self
@@ -1835,7 +1938,12 @@ impl QueryHost {
             .ok_or_else(|| anyhow!("rejected curator proposal could not be reloaded"))?;
         Ok(CuratorProposalDecisionResult {
             job_id: args.job_id,
+            proposal_index: args.proposal_index,
+            kind: proposal.kind.clone(),
+            decision: CuratorProposalDecision::Rejected,
             proposal: serde_json::to_value(proposal)?,
+            created: CuratorProposalCreatedResources::default(),
+            detail,
             memory_id: None,
             edge_id: None,
             concept_handle: None,
@@ -2021,6 +2129,7 @@ fn build_promoted_concept_packet(
 fn concept_args_from_curator_candidate(
     candidate: &CandidateConcept,
     task_id: &TaskId,
+    scope: Option<ConceptScopeInput>,
 ) -> PrismConceptMutationArgs {
     PrismConceptMutationArgs {
         operation: match candidate.recommended_operation {
@@ -2062,7 +2171,7 @@ fn concept_args_from_curator_candidate(
             PrismConceptLensInput::Workset,
             PrismConceptLensInput::Validation,
         ]),
-        scope: Some(ConceptScopeInput::Session),
+        scope: Some(scope.unwrap_or(ConceptScopeInput::Session)),
         supersedes: None,
         retirement_reason: None,
         task_id: Some(task_id.0.to_string()),
