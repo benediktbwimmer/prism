@@ -237,12 +237,23 @@ pub struct AgentConceptPacketView {
     pub evidence: Vec<String>,
     pub risk_hint: Option<String>,
     pub decode_lenses: Vec<ConceptDecodeLensView>,
+    pub scope: ConceptScopeView,
     pub provenance: ConceptProvenanceView,
     pub publication: Option<ConceptPublicationView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub binding_metadata: Option<ConceptBindingMetadataView>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_action: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub suggested_actions: Vec<AgentSuggestedActionView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum ConceptScopeView {
+    Local,
+    Session,
+    Repo,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -636,6 +647,14 @@ pub struct ConceptPublicationView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct ConceptBindingMetadataView {
+    pub core_member_lineages: Vec<Option<String>>,
+    pub supporting_member_lineages: Vec<Option<String>>,
+    pub likely_test_lineages: Vec<Option<String>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ConceptPacketView {
     pub handle: String,
     pub canonical_name: String,
@@ -648,8 +667,11 @@ pub struct ConceptPacketView {
     pub evidence: Vec<String>,
     pub risk_hint: Option<String>,
     pub decode_lenses: Vec<ConceptDecodeLensView>,
+    pub scope: ConceptScopeView,
     pub provenance: ConceptProvenanceView,
     pub publication: Option<ConceptPublicationView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub binding_metadata: Option<ConceptBindingMetadataView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

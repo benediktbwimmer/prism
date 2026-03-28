@@ -2,11 +2,12 @@ use std::collections::HashSet;
 
 use prism_ir::AnchorRef;
 use prism_js::{
-    AgentConceptPacketView, AgentConceptResultView, AgentSuggestedActionView, ConceptDecodeView,
-    ConceptProvenanceView, ConceptPublicationStatusView, ConceptPublicationView,
+    AgentConceptPacketView, AgentConceptResultView, AgentSuggestedActionView,
+    ConceptBindingMetadataView, ConceptDecodeView, ConceptProvenanceView,
+    ConceptPublicationStatusView, ConceptPublicationView, ConceptScopeView,
 };
 use prism_memory::{MemoryModule, OutcomeKind, OutcomeRecallQuery, RecallQuery};
-use prism_query::{ConceptDecodeLens, ConceptPacket, ConceptPublicationStatus};
+use prism_query::{ConceptDecodeLens, ConceptPacket, ConceptPublicationStatus, ConceptScope};
 
 use super::suggested_actions::{
     dedupe_suggested_actions, suggested_expand_action, suggested_open_action,
@@ -35,17 +36,33 @@ impl QueryHost {
         } else {
             "prism_concept".to_string()
         };
-        self.execute_compact_tool(Arc::clone(&session), "prism_concept", query_text, move |host, _| {
-            let prism = host.current_prism();
-            let packet = resolve_concept_packet(prism.as_ref(), &args)?;
-            let packet_view = agent_concept_packet_view(session.as_ref(), prism.as_ref(), &packet)?;
-            let decode = args
-                .lens
-                .as_ref()
-                .map(|lens| decode_concept(session.as_ref(), prism.as_ref(), &packet, lens))
-                .transpose()?;
-            Ok((AgentConceptResultView { packet: packet_view, decode }, Vec::new()))
-        })
+        self.execute_compact_tool(
+            Arc::clone(&session),
+            "prism_concept",
+            query_text,
+            move |host, _| {
+                let prism = host.current_prism();
+                let packet = resolve_concept_packet(prism.as_ref(), &args)?;
+                let packet_view = agent_concept_packet_view(
+                    session.as_ref(),
+                    prism.as_ref(),
+                    &packet,
+                    args.include_binding_metadata.unwrap_or(false),
+                )?;
+                let decode = args
+                    .lens
+                    .as_ref()
+                    .map(|lens| decode_concept(session.as_ref(), prism.as_ref(), &packet, lens))
+                    .transpose()?;
+                Ok((
+                    AgentConceptResultView {
+                        packet: packet_view,
+                        decode,
+                    },
+                    Vec::new(),
+                ))
+            },
+        )
     }
 }
 
@@ -65,6 +82,7 @@ fn agent_concept_packet_view(
     session: &SessionState,
     prism: &Prism,
     packet: &ConceptPacket,
+    include_binding_metadata: bool,
 ) -> Result<AgentConceptPacketView> {
     let core_members = compact_handles_for_ids(session, prism, &packet.core_members)?;
     let supporting_members = compact_handles_for_ids(session, prism, &packet.supporting_members)?;
@@ -88,23 +106,53 @@ fn agent_concept_packet_view(
             .copied()
             .map(concept_decode_lens_view)
             .collect(),
+        scope: match packet.scope {
+            ConceptScope::Local => ConceptScopeView::Local,
+            ConceptScope::Session => ConceptScopeView::Session,
+            ConceptScope::Repo => ConceptScopeView::Repo,
+        },
         provenance: ConceptProvenanceView {
             origin: packet.provenance.origin.clone(),
             kind: packet.provenance.kind.clone(),
             task_id: packet.provenance.task_id.clone(),
         },
-        publication: packet.publication.clone().map(|publication| ConceptPublicationView {
-            published_at: publication.published_at,
-            last_reviewed_at: publication.last_reviewed_at,
-            status: match publication.status {
-                ConceptPublicationStatus::Active => ConceptPublicationStatusView::Active,
-                ConceptPublicationStatus::Retired => ConceptPublicationStatusView::Retired,
-            },
-            supersedes: publication.supersedes,
-            retired_at: publication.retired_at,
-            retirement_reason: publication.retirement_reason,
+        publication: packet
+            .publication
+            .clone()
+            .map(|publication| ConceptPublicationView {
+                published_at: publication.published_at,
+                last_reviewed_at: publication.last_reviewed_at,
+                status: match publication.status {
+                    ConceptPublicationStatus::Active => ConceptPublicationStatusView::Active,
+                    ConceptPublicationStatus::Retired => ConceptPublicationStatusView::Retired,
+                },
+                supersedes: publication.supersedes,
+                retired_at: publication.retired_at,
+                retirement_reason: publication.retirement_reason,
+            }),
+        binding_metadata: include_binding_metadata.then(|| ConceptBindingMetadataView {
+            core_member_lineages: packet
+                .core_member_lineages
+                .iter()
+                .cloned()
+                .map(|lineage| lineage.map(|lineage| lineage.0.to_string()))
+                .collect(),
+            supporting_member_lineages: packet
+                .supporting_member_lineages
+                .iter()
+                .cloned()
+                .map(|lineage| lineage.map(|lineage| lineage.0.to_string()))
+                .collect(),
+            likely_test_lineages: packet
+                .likely_test_lineages
+                .iter()
+                .cloned()
+                .map(|lineage| lineage.map(|lineage| lineage.0.to_string()))
+                .collect(),
         }),
-        next_action: Some("Open the strongest core member or decode the concept with a lens.".to_string()),
+        next_action: Some(
+            "Open the strongest core member or decode the concept with a lens.".to_string(),
+        ),
         suggested_actions,
     })
 }
@@ -171,7 +219,7 @@ fn decode_concept(
     packet: &ConceptPacket,
     lens: &crate::PrismConceptLensInput,
 ) -> Result<ConceptDecodeView> {
-    let concept = concept_packet_view(packet.clone());
+    let concept = concept_packet_view(packet.clone(), false);
     let members = symbol_views_for_ids(prism, packet.core_members.clone())?;
     let primary = members.first().cloned();
     let supporting_reads = symbol_views_for_ids(prism, packet.supporting_members.clone())?;
@@ -226,7 +274,10 @@ fn decode_concept(
     })
 }
 
-fn concept_recent_patches(prism: &Prism, members: &[NodeId]) -> Result<Vec<prism_js::PatchEventView>> {
+fn concept_recent_patches(
+    prism: &Prism,
+    members: &[NodeId],
+) -> Result<Vec<prism_js::PatchEventView>> {
     let mut patches = Vec::new();
     let mut seen = HashSet::<String>::new();
     for member in members {

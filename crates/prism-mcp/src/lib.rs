@@ -963,7 +963,7 @@ impl QueryHost {
         let Some(workspace) = &self.workspace else {
             return Ok(());
         };
-        workspace.persist_episodic(&self.notes.snapshot())?;
+        workspace.persist_episodic(&self.notes.persisted_snapshot())?;
         self.sync_episodic_revision(workspace)
     }
 

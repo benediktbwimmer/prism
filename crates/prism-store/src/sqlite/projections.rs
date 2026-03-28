@@ -81,7 +81,10 @@ pub(super) fn load_projection_snapshot_rows(
         }
     }
 
-    if co_change_by_lineage.is_empty() && validation_by_lineage.is_empty() && curated_concepts.is_empty() {
+    if co_change_by_lineage.is_empty()
+        && validation_by_lineage.is_empty()
+        && curated_concepts.is_empty()
+    {
         info!(
             total_ms = started.elapsed().as_millis(),
             "loaded prism projection snapshot: none"
@@ -163,7 +166,10 @@ pub(super) fn save_projection_snapshot_tx(
              VALUES (?1, ?2)",
         )?;
         for concept in &snapshot.curated_concepts {
-            stmt.execute(params![concept.handle.as_str(), serde_json::to_string(concept)?])?;
+            stmt.execute(params![
+                concept.handle.as_str(),
+                serde_json::to_string(concept)?
+            ])?;
         }
     }
 

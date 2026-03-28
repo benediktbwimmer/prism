@@ -17,6 +17,7 @@ pub fn parse_memory_kind(value: &str) -> Result<MemoryKind> {
 pub fn parse_memory_scope(value: &str) -> Result<MemoryScope> {
     match value.to_ascii_lowercase().as_str() {
         "local" | "private" | "machine" => Ok(MemoryScope::Local),
+        "session" | "workspace" => Ok(MemoryScope::Session),
         "repo" | "shared" => Ok(MemoryScope::Repo),
         other => bail!("unknown memory scope `{other}`"),
     }

@@ -142,7 +142,11 @@ impl<S: Store> WorkspaceIndexer<S> {
             .map(ProjectionIndex::from_snapshot)
             .unwrap_or_else(|| ProjectionIndex::derive(&history.snapshot(), &outcomes.snapshot()));
         let mut projections = projections;
-        projections.replace_curated_concepts(load_repo_curated_concepts(&root)?);
+        let session_curated = projections.curated_concepts().to_vec();
+        let mut combined = load_repo_curated_concepts(&root)?;
+        combined.extend(session_curated);
+        projections.replace_curated_concepts(combined);
+        projections.reseed_from_history(&history.snapshot());
         let derive_or_restore_projection_ms = derive_projection_started.elapsed().as_millis();
 
         info!(

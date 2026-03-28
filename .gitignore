@@ -1,5 +1,11 @@
 /target
-/.prism
+/.prism/*
+!/.prism/memory/
+/.prism/memory/*
+!/.prism/memory/events.jsonl
+!/.prism/concepts/
+/.prism/concepts/*
+!/.prism/concepts/events.jsonl
 .DS_Store
 /.venv-sb-cli
 /.venv-swebench

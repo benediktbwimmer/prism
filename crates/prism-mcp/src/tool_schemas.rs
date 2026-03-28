@@ -75,7 +75,9 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
         ToolSchemaCatalogEntry {
             tool_name: "prism_concept".to_string(),
             schema_uri: tool_schema_resource_uri("prism_concept"),
-            description: "Input schema for resolving a broad repo concept into a compact concept packet.".to_string(),
+            description:
+                "Input schema for resolving a broad repo concept into a compact concept packet."
+                    .to_string(),
             example_input: tool_input_example("prism_concept").expect("tool example"),
         },
         ToolSchemaCatalogEntry {

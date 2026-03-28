@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 pub use prism_projections::ValidationCheck;
 pub use prism_projections::{
-    ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptPacket, ConceptProvenance,
-    ConceptPublication, ConceptPublicationStatus, canonical_concept_handle,
+    canonical_concept_handle, ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptPacket,
+    ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptScope,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

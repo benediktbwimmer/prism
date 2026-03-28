@@ -25,8 +25,8 @@ use crate::text_search::search_text;
 use crate::{
     ambiguity::is_broad_identifier_query, ambiguity_diagnostic_data, apply_module_filter,
     artifact_risk_view, artifact_view, blast_radius_view, blocker_view, change_impact_view,
-    changed_files, changed_symbols, claim_view, co_change_view, concept_decode_lens_view,
-    concept_packet_view, combined_parse_typescript_error, conflict_view, convert_anchors, convert_node_id,
+    changed_files, changed_symbols, claim_view, co_change_view, combined_parse_typescript_error,
+    concept_decode_lens_view, concept_packet_view, conflict_view, convert_anchors, convert_node_id,
     coordination_task_view, current_timestamp, diff_for, drift_candidate_view, edge_kind_label,
     edge_view, edit_slice_for_symbol, entrypoints_for, focused_block_for_symbol,
     is_query_parse_error, js_runtime, lineage_view, memory_event_view, merge_node_ids,
@@ -666,7 +666,7 @@ impl QueryExecution {
             }
             "conceptByHandle" => {
                 let args: ConceptHandleArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.concept_by_handle(&args.handle)?)?)
+                Ok(serde_json::to_value(self.concept_by_handle(args)?)?)
             }
             "decodeConcept" => {
                 let args: DecodeConceptArgs = serde_json::from_value(args)?;
@@ -2389,7 +2389,9 @@ impl QueryExecution {
             .prism
             .concepts(&args.query, applied)
             .into_iter()
-            .map(concept_packet_view)
+            .map(|packet| {
+                concept_packet_view(packet, args.include_binding_metadata.unwrap_or(false))
+            })
             .collect::<Vec<_>>();
         if concepts.is_empty() {
             self.push_diagnostic(
@@ -2402,7 +2404,9 @@ impl QueryExecution {
     }
 
     fn concept(&self, args: ConceptQueryArgs) -> Result<Option<ConceptPacketView>> {
-        let concept = self.prism.concept(&args.query).map(concept_packet_view);
+        let concept = self.prism.concept(&args.query).map(|packet| {
+            concept_packet_view(packet, args.include_binding_metadata.unwrap_or(false))
+        });
         if concept.is_none() {
             self.push_diagnostic(
                 "anchor_unresolved",
@@ -2413,13 +2417,15 @@ impl QueryExecution {
         Ok(concept)
     }
 
-    fn concept_by_handle(&self, handle: &str) -> Result<Option<ConceptPacketView>> {
-        let concept = self.prism.concept_by_handle(handle).map(concept_packet_view);
+    fn concept_by_handle(&self, args: ConceptHandleArgs) -> Result<Option<ConceptPacketView>> {
+        let concept = self.prism.concept_by_handle(&args.handle).map(|packet| {
+            concept_packet_view(packet, args.include_binding_metadata.unwrap_or(false))
+        });
         if concept.is_none() {
             self.push_diagnostic(
                 "anchor_unresolved",
-                format!("No concept packet matched `{handle}`."),
-                Some(json!({ "handle": handle })),
+                format!("No concept packet matched `{}`.", args.handle),
+                Some(json!({ "handle": args.handle })),
             );
         }
         Ok(concept)
@@ -2431,9 +2437,7 @@ impl QueryExecution {
             (Some(handle), _) => self.prism.concept_by_handle(handle),
             (None, Some(query)) => self.prism.concept(query),
             (None, None) => {
-                return Err(anyhow!(
-                    "decodeConcept requires either `handle` or `query`"
-                ))
+                return Err(anyhow!("decodeConcept requires either `handle` or `query`"))
             }
         };
         let Some(packet) = packet else {
@@ -2449,7 +2453,10 @@ impl QueryExecution {
             return Ok(None);
         };
 
-        let concept_view = concept_packet_view(packet.clone());
+        let concept_view = concept_packet_view(
+            packet.clone(),
+            args.include_binding_metadata.unwrap_or(false),
+        );
         let members = symbol_views_for_ids(self.prism.as_ref(), packet.core_members.clone())?;
         let supporting_reads =
             symbol_views_for_ids(self.prism.as_ref(), packet.supporting_members.clone())?;
@@ -2481,12 +2488,9 @@ impl QueryExecution {
             .map(scored_memory_view)
             .collect::<Vec<_>>();
         let recent_patches = collect_concept_patches(self.prism.as_ref(), &packet.core_members, 4)?;
-        let validation_recipe = packet
-            .core_members
-            .first()
-            .map(|primary_id| {
-                validation_recipe_view_with(self.prism.as_ref(), self.session.as_ref(), primary_id)
-            });
+        let validation_recipe = packet.core_members.first().map(|primary_id| {
+            validation_recipe_view_with(self.prism.as_ref(), self.session.as_ref(), primary_id)
+        });
 
         Ok(Some(ConceptDecodeView {
             concept: concept_view,

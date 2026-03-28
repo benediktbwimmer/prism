@@ -6,11 +6,11 @@ use prism_memory::{OutcomeEvent, OutcomeMemorySnapshot};
 
 use crate::common::{event_weight, validation_labels};
 use crate::concepts::{
-    concept_by_handle, curated_concepts_from_events, derive_concept_packets, merge_concept_packets,
-    rank_concepts,
+    concept_by_handle, curated_concepts_from_events, derive_concept_packets,
+    hydrate_curated_concepts, merge_concept_packets, rank_concepts, resolve_curated_concepts,
 };
 use crate::types::{
-    CoChangeDelta, CoChangeRecord, ConceptEvent, ConceptPacket, ProjectionSnapshot,
+    CoChangeDelta, CoChangeRecord, ConceptEvent, ConceptPacket, ConceptScope, ProjectionSnapshot,
     ValidationCheck, ValidationDelta,
 };
 
@@ -45,7 +45,7 @@ impl ProjectionIndex {
                 &validation_by_lineage,
                 &co_change_by_lineage,
             ),
-            &curated_concepts,
+            &resolve_curated_concepts(&curated_concepts, &node_to_lineage),
         );
         Self {
             co_change_by_lineage,
@@ -139,6 +139,8 @@ impl ProjectionIndex {
             })
             .collect();
 
+        let curated_concepts =
+            hydrate_curated_concepts(curated_concepts, &node_to_lineage, &history.events);
         let concept_packets = merge_concept_packets(
             derive_concept_packets(
                 &node_to_lineage,
@@ -170,7 +172,12 @@ impl ProjectionIndex {
         let normalized = concept.handle.to_ascii_lowercase();
         self.curated_concepts
             .retain(|candidate| candidate.handle.to_ascii_lowercase() != normalized);
-        self.curated_concepts.push(concept);
+        let retired = concept.publication.as_ref().is_some_and(|publication| {
+            publication.status == crate::ConceptPublicationStatus::Retired
+        });
+        if !retired {
+            self.curated_concepts.push(concept);
+        }
         self.curated_concepts
             .sort_by(|left, right| left.handle.cmp(&right.handle));
         self.rebuild_concepts();
@@ -186,6 +193,11 @@ impl ProjectionIndex {
             .iter()
             .cloned()
             .collect::<HashMap<_, _>>();
+        self.curated_concepts = hydrate_curated_concepts(
+            std::mem::take(&mut self.curated_concepts),
+            &self.node_to_lineage,
+            &history.events,
+        );
         self.rebuild_concepts();
     }
 
@@ -266,7 +278,12 @@ impl ProjectionIndex {
         ProjectionSnapshot {
             co_change_by_lineage,
             validation_by_lineage,
-            curated_concepts: self.curated_concepts.clone(),
+            curated_concepts: self
+                .curated_concepts
+                .iter()
+                .filter(|concept| concept.scope == ConceptScope::Session)
+                .cloned()
+                .collect(),
         }
     }
 
@@ -339,7 +356,7 @@ impl ProjectionIndex {
                 &self.validation_by_lineage,
                 &self.co_change_by_lineage,
             ),
-            &self.curated_concepts,
+            &resolve_curated_concepts(&self.curated_concepts, &self.node_to_lineage),
         );
     }
 }

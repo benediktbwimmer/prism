@@ -295,7 +295,11 @@ impl WorkspaceSession {
             .map(ProjectionIndex::from_snapshot)
             .unwrap_or_else(|| ProjectionIndex::derive(&history.snapshot(), &outcomes.snapshot()));
         let mut projections = projections;
-        projections.replace_curated_concepts(load_repo_curated_concepts(&self.root)?);
+        let session_curated = projections.curated_concepts().to_vec();
+        let mut combined = load_repo_curated_concepts(&self.root)?;
+        combined.extend(session_curated);
+        projections.replace_curated_concepts(combined);
+        projections.reseed_from_history(&history.snapshot());
         drop(store);
 
         let prism = Arc::new(Prism::with_history_outcomes_coordination_and_projections(
@@ -376,8 +380,10 @@ impl WorkspaceSession {
             .refresh_lock
             .lock()
             .expect("workspace refresh lock poisoned");
-        validate_repo_concept_event(&event)?;
-        append_repo_concept_event(&self.root, &event)?;
+        if event.concept.scope == prism_projections::ConceptScope::Repo {
+            validate_repo_concept_event(&event)?;
+            append_repo_concept_event(&self.root, &event)?;
+        }
         let prism = self.prism_arc();
         prism.upsert_curated_concept(event.concept);
         self.store

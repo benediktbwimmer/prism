@@ -41,6 +41,9 @@ pub(crate) fn validate_repo_memory_event(event: &MemoryEvent) -> Result<()> {
 }
 
 pub(crate) fn validate_repo_concept_event(event: &ConceptEvent) -> Result<()> {
+    if event.concept.scope != prism_projections::ConceptScope::Repo {
+        return Ok(());
+    }
     validate_repo_concept_packet(&event.concept)
 }
 

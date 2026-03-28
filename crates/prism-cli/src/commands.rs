@@ -282,7 +282,7 @@ fn handle_memory_command(
             let stored_entry = memory
                 .entry(&id)
                 .expect("stored memory entry should be available");
-            if stored_entry.scope == prism_memory::MemoryScope::Repo {
+            if stored_entry.scope != prism_memory::MemoryScope::Local {
                 session.append_memory_event(build_memory_event(
                     stored_entry,
                     None,
@@ -290,7 +290,6 @@ fn handle_memory_command(
                     supersedes.into_iter().map(MemoryId).collect(),
                 ))?;
             }
-            session.persist_episodic(&memory.snapshot())?;
             println!("stored memory {}", id.0);
         }
         MemoryCommand::Events {

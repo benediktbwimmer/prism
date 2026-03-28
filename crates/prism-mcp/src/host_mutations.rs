@@ -15,31 +15,30 @@ use prism_memory::{
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult,
 };
 use prism_query::{
-    ConceptEvent, ConceptEventAction, ConceptPacket, ConceptProvenance, ConceptPublication,
-    ConceptPublicationStatus, Prism, canonical_concept_handle,
+    canonical_concept_handle, ConceptEvent, ConceptEventAction, ConceptPacket, ConceptProvenance,
+    ConceptPublication, ConceptPublicationStatus, ConceptScope, Prism,
 };
 use serde_json::{json, Value};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::{
     artifact_view, claim_view, concept_packet_view, conflict_view, convert_acceptance,
-    convert_anchors,
-    convert_completion_context, convert_inferred_scope, convert_memory_kind, convert_memory_scope,
-    convert_memory_source, convert_node_id, convert_outcome_evidence, convert_outcome_kind,
-    convert_outcome_result, convert_policy, coordination_task_view, curator_disposition_label,
-    curator_job_status_label, curator_memory_metadata, curator_proposal, curator_proposal_state,
-    curator_trigger_label, current_timestamp, ensure_repo_publication_metadata,
-    manual_memory_metadata, parse_capability, parse_claim_mode, parse_coordination_task_status,
-    parse_edge_kind, parse_plan_status, parse_review_verdict, plan_view,
-    task_journal_memory_metadata, task_journal_view,
-    ArtifactActionInput, ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
+    convert_anchors, convert_completion_context, convert_inferred_scope, convert_memory_kind,
+    convert_memory_scope, convert_memory_source, convert_node_id, convert_outcome_evidence,
+    convert_outcome_kind, convert_outcome_result, convert_policy, coordination_task_view,
+    curator_disposition_label, curator_job_status_label, curator_memory_metadata, curator_proposal,
+    curator_proposal_state, curator_trigger_label, current_timestamp,
+    ensure_repo_publication_metadata, manual_memory_metadata, parse_capability, parse_claim_mode,
+    parse_coordination_task_status, parse_edge_kind, parse_plan_status, parse_review_verdict,
+    plan_view, task_journal_memory_metadata, task_journal_view, ArtifactActionInput,
+    ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
     ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput, ClaimMutationResult,
-    ClaimReleasePayload, ClaimRenewPayload, ConceptMutationOperationInput,
-    ConceptMutationResult, CoordinationMutationKindInput, CoordinationMutationResult,
-    CuratorJobView, CuratorProposalDecisionResult, EdgeMutationResult, EventMutationResult,
-    HandoffAcceptPayload, MemoryMutationActionInput, MemoryMutationResult, MemoryStorePayload,
-    MutationViolationView, PlanUpdatePayload, PrismArtifactArgs, PrismClaimArgs,
-    PrismConceptLensInput, PrismConceptMutationArgs, PrismCoordinationArgs, PrismCuratorPromoteEdgeArgs,
+    ClaimReleasePayload, ClaimRenewPayload, ConceptMutationOperationInput, ConceptMutationResult,
+    CoordinationMutationKindInput, CoordinationMutationResult, CuratorJobView,
+    CuratorProposalDecisionResult, EdgeMutationResult, EventMutationResult, HandoffAcceptPayload,
+    MemoryMutationActionInput, MemoryMutationResult, MemoryStorePayload, MutationViolationView,
+    PlanUpdatePayload, PrismArtifactArgs, PrismClaimArgs, PrismConceptLensInput,
+    PrismConceptMutationArgs, PrismCoordinationArgs, PrismCuratorPromoteEdgeArgs,
     PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs, PrismFinishTaskArgs,
     PrismInferEdgeArgs, PrismMemoryArgs, PrismOutcomeArgs, PrismValidationFeedbackArgs, QueryHost,
     SessionState, TaskCreatePayload, TaskUpdatePayload, ValidationFeedbackCategoryInput,
@@ -407,9 +406,9 @@ impl QueryHost {
             .notes
             .entry(&memory_id)
             .ok_or_else(|| anyhow!("stored memory `{}` could not be reloaded", memory_id.0))?;
-        if stored_entry.scope == MemoryScope::Repo {
+        if stored_entry.scope != MemoryScope::Local {
             let workspace = self.workspace.as_ref().ok_or_else(|| {
-                anyhow!("repo-scoped memory requires a workspace-backed PRISM session")
+                anyhow!("persisted memory requires a workspace-backed PRISM session")
             })?;
             let action = if payload
                 .promoted_from
@@ -441,10 +440,17 @@ impl QueryHost {
                     .map(prism_memory::MemoryId)
                     .collect(),
             ))?;
+            self.sync_episodic_revision(workspace)?;
         }
         let note_anchors = stored_entry.anchors.clone();
         let note_content = stored_entry.content.clone();
         if kind == MemoryKind::Episodic {
+            if stored_entry.scope == MemoryScope::Local {
+                return Ok(MemoryMutationResult {
+                    memory_id: memory_id.0,
+                    task_id: task_id.0.to_string(),
+                });
+            }
             let note_event = OutcomeEvent {
                 meta: EventMeta {
                     id: session.next_event_id("outcome"),
@@ -461,20 +467,15 @@ impl QueryHost {
                 metadata: Value::Null,
             };
             if let Some(workspace) = &self.workspace {
-                let _ = workspace.append_outcome_with_auxiliary(
-                    note_event,
-                    Some(session.notes.snapshot()),
-                    None,
-                )?;
+                let _ = workspace.append_outcome(note_event)?;
                 self.sync_workspace_revision(workspace)?;
-                self.sync_episodic_revision(workspace)?;
             } else {
                 prism.apply_outcome_event_to_projections(&note_event);
                 let _ = prism.outcome_memory().store_event(note_event)?;
                 self.persist_outcomes()?;
                 self.persist_notes()?;
             }
-        } else {
+        } else if self.workspace.is_none() && stored_entry.scope != MemoryScope::Local {
             self.persist_notes()?;
         }
         Ok(MemoryMutationResult {
@@ -498,10 +499,9 @@ impl QueryHost {
         session: &SessionState,
         args: PrismConceptMutationArgs,
     ) -> Result<ConceptMutationResult> {
-        let workspace = self
-            .workspace
-            .as_ref()
-            .ok_or_else(|| anyhow!("concept promotion requires a workspace-backed PRISM session"))?;
+        let workspace = self.workspace.as_ref().ok_or_else(|| {
+            anyhow!("concept promotion requires a workspace-backed PRISM session")
+        })?;
         let prism = self.current_prism();
         let task_id = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
         let operation = args.operation.clone();
@@ -534,7 +534,7 @@ impl QueryHost {
             event_id: event.id,
             concept_handle: packet.handle.clone(),
             task_id: task_id.0.to_string(),
-            packet: concept_packet_view(packet),
+            packet: concept_packet_view(packet, true),
         })
     }
 
@@ -1308,7 +1308,8 @@ impl QueryHost {
                     args.proposal_index,
                     Value::Null,
                 );
-                entry.metadata = ensure_repo_publication_metadata(entry.metadata, current_timestamp());
+                entry.metadata =
+                    ensure_repo_publication_metadata(entry.metadata, current_timestamp());
                 (entry, candidate.evidence.memory_ids.clone())
             }
             CuratorProposal::SemanticMemory(candidate) => {
@@ -1325,7 +1326,8 @@ impl QueryHost {
                     args.proposal_index,
                     Value::Null,
                 );
-                entry.metadata = ensure_repo_publication_metadata(entry.metadata, current_timestamp());
+                entry.metadata =
+                    ensure_repo_publication_metadata(entry.metadata, current_timestamp());
                 (entry, candidate.evidence.memory_ids.clone())
             }
             CuratorProposal::RiskSummary(candidate) => {
@@ -1369,7 +1371,8 @@ impl QueryHost {
                             .collect::<Vec<_>>(),
                     }),
                 );
-                entry.metadata = ensure_repo_publication_metadata(entry.metadata, current_timestamp());
+                entry.metadata =
+                    ensure_repo_publication_metadata(entry.metadata, current_timestamp());
                 (entry, candidate_memory.evidence.memory_ids.clone())
             }
             CuratorProposal::ValidationRecipe(candidate) => {
@@ -1409,7 +1412,8 @@ impl QueryHost {
                         "evidence": candidate.evidence,
                     }),
                 );
-                entry.metadata = ensure_repo_publication_metadata(entry.metadata, current_timestamp());
+                entry.metadata =
+                    ensure_repo_publication_metadata(entry.metadata, current_timestamp());
                 (entry, candidate_memory.evidence.memory_ids.clone())
             }
             CuratorProposal::InferredEdge(_) => {
@@ -1434,6 +1438,7 @@ impl QueryHost {
             promoted_from,
             Vec::new(),
         ))?;
+        self.sync_episodic_revision(workspace)?;
         let note_event = OutcomeEvent {
             meta: EventMeta {
                 id: session.next_event_id("outcome"),
@@ -1455,13 +1460,8 @@ impl QueryHost {
             }),
         };
         if let Some(workspace) = &self.workspace {
-            let _ = workspace.append_outcome_with_auxiliary(
-                note_event,
-                Some(session.notes.snapshot()),
-                None,
-            )?;
+            let _ = workspace.append_outcome(note_event)?;
             self.sync_workspace_revision(workspace)?;
-            self.sync_episodic_revision(workspace)?;
         } else {
             prism.apply_outcome_event_to_projections(&note_event);
             let _ = prism.outcome_memory().store_event(note_event)?;
@@ -1653,6 +1653,11 @@ fn build_promoted_concept_packet(
     recorded_at: u64,
     args: PrismConceptMutationArgs,
 ) -> Result<ConceptPacket> {
+    let scope = args
+        .scope
+        .clone()
+        .map(convert_concept_scope)
+        .unwrap_or(ConceptScope::Session);
     let canonical_name = args
         .canonical_name
         .map(|value| value.trim().to_string())
@@ -1667,19 +1672,23 @@ fn build_promoted_concept_packet(
         .core_members
         .ok_or_else(|| anyhow!("concept promote requires coreMembers"))?;
 
+    let core_members = convert_concept_nodes(prism, core_members, "coreMembers")?;
+    let supporting_members =
+        convert_optional_concept_nodes(prism, args.supporting_members, "supportingMembers")?;
+    let likely_tests = convert_optional_concept_nodes(prism, args.likely_tests, "likelyTests")?;
+
     let packet = ConceptPacket {
         handle: normalize_concept_handle(args.handle.as_deref(), &canonical_name),
         canonical_name,
         summary,
         aliases: sanitize_strings(args.aliases.unwrap_or_default()),
         confidence: args.confidence.unwrap_or(0.88).clamp(0.0, 1.0),
-        core_members: convert_concept_nodes(prism, core_members, "coreMembers")?,
-        supporting_members: convert_optional_concept_nodes(
-            prism,
-            args.supporting_members,
-            "supportingMembers",
-        )?,
-        likely_tests: convert_optional_concept_nodes(prism, args.likely_tests, "likelyTests")?,
+        core_members: core_members.clone(),
+        core_member_lineages: concept_member_lineages(prism, &core_members),
+        supporting_members: supporting_members.clone(),
+        supporting_member_lineages: concept_member_lineages(prism, &supporting_members),
+        likely_tests: likely_tests.clone(),
+        likely_test_lineages: concept_member_lineages(prism, &likely_tests),
         evidence: sanitize_strings(args.evidence.unwrap_or_else(|| {
             vec!["Promoted from live repo work through prism_mutate.".to_string()]
         })),
@@ -1688,12 +1697,17 @@ fn build_promoted_concept_packet(
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty()),
         decode_lenses: convert_concept_lenses(args.decode_lenses),
+        scope,
         provenance: ConceptProvenance {
-            origin: "repo_mutation".to_string(),
+            origin: match scope {
+                ConceptScope::Local => "local_mutation".to_string(),
+                ConceptScope::Session => "session_mutation".to_string(),
+                ConceptScope::Repo => "repo_mutation".to_string(),
+            },
             kind: "manual_concept_promote".to_string(),
             task_id: Some(task_id.0.to_string()),
         },
-        publication: Some(ConceptPublication {
+        publication: (scope == ConceptScope::Repo).then_some(ConceptPublication {
             published_at: recorded_at,
             last_reviewed_at: Some(recorded_at),
             status: ConceptPublicationStatus::Active,
@@ -1720,8 +1734,11 @@ fn build_updated_concept_packet(
     let mut packet = prism
         .concept_by_handle(&handle)
         .ok_or_else(|| anyhow!("no concept packet matched `{handle}`"))?;
-
     let mut changed = false;
+    if let Some(scope) = args.scope.clone().map(convert_concept_scope) {
+        packet.scope = scope;
+        changed = true;
+    }
     if let Some(canonical_name) = args
         .canonical_name
         .map(|value| value.trim().to_string())
@@ -1744,15 +1761,19 @@ fn build_updated_concept_packet(
     }
     if let Some(core_members) = args.core_members {
         packet.core_members = convert_concept_nodes(prism, core_members, "coreMembers")?;
+        packet.core_member_lineages = concept_member_lineages(prism, &packet.core_members);
         changed = true;
     }
     if let Some(supporting_members) = args.supporting_members {
         packet.supporting_members =
             convert_concept_nodes(prism, supporting_members, "supportingMembers")?;
+        packet.supporting_member_lineages =
+            concept_member_lineages(prism, &packet.supporting_members);
         changed = true;
     }
     if let Some(likely_tests) = args.likely_tests {
         packet.likely_tests = convert_concept_nodes(prism, likely_tests, "likelyTests")?;
+        packet.likely_test_lineages = concept_member_lineages(prism, &packet.likely_tests);
         changed = true;
     }
     if let Some(evidence) = args.evidence {
@@ -1776,34 +1797,48 @@ fn build_updated_concept_packet(
         changed = true;
     }
     if let Some(supersedes) = args.supersedes {
-        let publication = packet.publication.get_or_insert_with(|| ConceptPublication {
-            published_at: recorded_at,
-            ..ConceptPublication::default()
-        });
+        let publication = packet
+            .publication
+            .get_or_insert_with(|| ConceptPublication {
+                published_at: recorded_at,
+                ..ConceptPublication::default()
+            });
         publication.supersedes = normalize_concept_handles(supersedes);
         changed = true;
     }
     if !changed {
-        return Err(anyhow!("concept update requires at least one field to change"));
+        return Err(anyhow!(
+            "concept update requires at least one field to change"
+        ));
     }
     if packet.provenance == ConceptProvenance::default() {
         packet.provenance = ConceptProvenance {
-            origin: "repo_mutation".to_string(),
+            origin: match packet.scope {
+                ConceptScope::Local => "local_mutation".to_string(),
+                ConceptScope::Session => "session_mutation".to_string(),
+                ConceptScope::Repo => "repo_mutation".to_string(),
+            },
             kind: "manual_concept_update".to_string(),
             task_id: Some(task_id.0.to_string()),
         };
     }
-    let publication = packet.publication.get_or_insert_with(|| ConceptPublication {
-        published_at: recorded_at,
-        ..ConceptPublication::default()
-    });
-    if publication.published_at == 0 {
-        publication.published_at = recorded_at;
+    if packet.scope == ConceptScope::Repo {
+        let publication = packet
+            .publication
+            .get_or_insert_with(|| ConceptPublication {
+                published_at: recorded_at,
+                ..ConceptPublication::default()
+            });
+        if publication.published_at == 0 {
+            publication.published_at = recorded_at;
+        }
+        publication.last_reviewed_at = Some(recorded_at);
+        publication.status = ConceptPublicationStatus::Active;
+        publication.retired_at = None;
+        publication.retirement_reason = None;
+    } else {
+        packet.publication = None;
     }
-    publication.last_reviewed_at = Some(recorded_at);
-    publication.status = ConceptPublicationStatus::Active;
-    publication.retired_at = None;
-    publication.retirement_reason = None;
     validate_concept_packet(&packet)?;
     Ok(packet)
 }
@@ -1827,17 +1862,26 @@ fn build_retired_concept_packet(
     let mut packet = prism
         .concept_by_handle(&handle)
         .ok_or_else(|| anyhow!("no concept packet matched `{handle}`"))?;
+    if let Some(scope) = args.scope.clone().map(convert_concept_scope) {
+        packet.scope = scope;
+    }
     if packet.provenance == ConceptProvenance::default() {
         packet.provenance = ConceptProvenance {
-            origin: "repo_mutation".to_string(),
+            origin: match packet.scope {
+                ConceptScope::Local => "local_mutation".to_string(),
+                ConceptScope::Session => "session_mutation".to_string(),
+                ConceptScope::Repo => "repo_mutation".to_string(),
+            },
             kind: "manual_concept_retire".to_string(),
             task_id: Some(task_id.0.to_string()),
         };
     }
-    let publication = packet.publication.get_or_insert_with(|| ConceptPublication {
-        published_at: recorded_at,
-        ..ConceptPublication::default()
-    });
+    let publication = packet
+        .publication
+        .get_or_insert_with(|| ConceptPublication {
+            published_at: recorded_at,
+            ..ConceptPublication::default()
+        });
     if publication.published_at == 0 {
         publication.published_at = recorded_at;
     }
@@ -1915,7 +1959,10 @@ fn sanitize_strings(values: Vec<String>) -> Vec<String> {
         if value.is_empty() {
             continue;
         }
-        if !sanitized.iter().any(|candidate: &String| candidate == value) {
+        if !sanitized
+            .iter()
+            .any(|candidate: &String| candidate == value)
+        {
             sanitized.push(value.to_string());
         }
     }
@@ -1936,6 +1983,16 @@ fn normalize_concept_handle(handle: Option<&str>, canonical_name: &str) -> Strin
     }
 }
 
+fn concept_member_lineages(
+    prism: &Prism,
+    members: &[prism_ir::NodeId],
+) -> Vec<Option<prism_ir::LineageId>> {
+    members
+        .iter()
+        .map(|member| prism.lineage_of(member))
+        .collect()
+}
+
 fn validate_concept_packet(packet: &ConceptPacket) -> Result<()> {
     if packet.handle.trim().is_empty() {
         return Err(anyhow!("concept handle cannot be empty"));
@@ -1946,50 +2003,88 @@ fn validate_concept_packet(packet: &ConceptPacket) -> Result<()> {
     if packet.summary.trim().is_empty() {
         return Err(anyhow!("concept summary cannot be empty"));
     }
-    if packet.core_members.len() < 2 {
+    let min_core_members = if packet.scope == ConceptScope::Repo {
+        2
+    } else {
+        1
+    };
+    if packet.core_members.len() < min_core_members {
         return Err(anyhow!(
-            "repo-published concept coreMembers must contain at least 2 central members"
+            "concept coreMembers must contain at least {min_core_members} central member(s)"
         ));
     }
     if packet.core_members.len() > 5 {
         return Err(anyhow!(
-            "repo-published concept coreMembers cannot contain more than 5 members"
+            "concept coreMembers cannot contain more than 5 members"
         ));
     }
     if packet.evidence.is_empty() {
         return Err(anyhow!("concept evidence cannot be empty"));
     }
-    if packet.confidence < 0.7 {
+    let min_confidence = if packet.scope == ConceptScope::Repo {
+        0.7
+    } else {
+        0.5
+    };
+    if packet.confidence < min_confidence {
         return Err(anyhow!(
-            "repo-published concept confidence must be at least 0.7"
+            "concept confidence must be at least {min_confidence}"
         ));
     }
     if packet.decode_lenses.is_empty() {
         return Err(anyhow!("concept decodeLenses cannot be empty"));
     }
-    let Some(publication) = packet.publication.as_ref() else {
-        return Err(anyhow!(
-            "repo-published concept packet must include publication metadata"
-        ));
-    };
-    if publication.published_at == 0 {
-        return Err(anyhow!(
-            "repo-published concept publication metadata must include publishedAt"
-        ));
-    }
-    if publication.status == ConceptPublicationStatus::Retired
-        && publication.retirement_reason.as_deref().unwrap_or("").trim().is_empty()
+    if packet.scope == ConceptScope::Repo {
+        let Some(publication) = packet.publication.as_ref() else {
+            return Err(anyhow!(
+                "repo-published concept packet must include publication metadata"
+            ));
+        };
+        if publication.published_at == 0 {
+            return Err(anyhow!(
+                "repo-published concept publication metadata must include publishedAt"
+            ));
+        }
+        if publication.status == ConceptPublicationStatus::Retired
+            && publication
+                .retirement_reason
+                .as_deref()
+                .unwrap_or("")
+                .trim()
+                .is_empty()
+        {
+            return Err(anyhow!(
+                "retired concept publication metadata must include retirementReason"
+            ));
+        }
+    } else if packet
+        .publication
+        .as_ref()
+        .is_some_and(|publication| publication.status == ConceptPublicationStatus::Retired)
+        && packet
+            .publication
+            .as_ref()
+            .and_then(|publication| publication.retirement_reason.as_deref())
+            .unwrap_or("")
+            .trim()
+            .is_empty()
     {
         return Err(anyhow!(
             "retired concept publication metadata must include retirementReason"
         ));
     }
     if packet.provenance == ConceptProvenance::default() {
-        return Err(anyhow!(
-            "repo-published concept packet must include provenance metadata"
-        ));
+        return Err(anyhow!("concept packet must include provenance metadata"));
     }
     Ok(())
+}
+
+fn convert_concept_scope(scope: crate::ConceptScopeInput) -> ConceptScope {
+    match scope {
+        crate::ConceptScopeInput::Local => ConceptScope::Local,
+        crate::ConceptScopeInput::Session => ConceptScope::Session,
+        crate::ConceptScopeInput::Repo => ConceptScope::Repo,
+    }
 }
 
 fn next_concept_event_id() -> String {

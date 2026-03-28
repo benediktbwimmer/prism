@@ -11,6 +11,15 @@ pub enum ConceptDecodeLens {
     Memory,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ConceptScope {
+    Local,
+    #[default]
+    Session,
+    Repo,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ConceptPacket {
     pub handle: String,
@@ -19,11 +28,19 @@ pub struct ConceptPacket {
     pub aliases: Vec<String>,
     pub confidence: f32,
     pub core_members: Vec<NodeId>,
+    #[serde(default)]
+    pub core_member_lineages: Vec<Option<LineageId>>,
     pub supporting_members: Vec<NodeId>,
+    #[serde(default)]
+    pub supporting_member_lineages: Vec<Option<LineageId>>,
     pub likely_tests: Vec<NodeId>,
+    #[serde(default)]
+    pub likely_test_lineages: Vec<Option<LineageId>>,
     pub evidence: Vec<String>,
     pub risk_hint: Option<String>,
     pub decode_lenses: Vec<ConceptDecodeLens>,
+    #[serde(default)]
+    pub scope: ConceptScope,
     #[serde(default)]
     pub provenance: ConceptProvenance,
     #[serde(default)]

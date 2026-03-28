@@ -8,7 +8,10 @@ use prism_memory::{
 };
 
 use crate::projections::{ProjectionIndex, MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE};
-use crate::{ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptPacket};
+use crate::{
+    ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptPacket, ConceptProvenance,
+    ConceptPublication, ConceptPublicationStatus, ConceptScope,
+};
 
 #[test]
 fn derives_validation_and_co_change_indexes() {
@@ -189,11 +192,7 @@ fn derives_seeded_repo_concepts_from_nodes_and_signals() {
         "demo::session_state::SessionState::start_task",
         NodeKind::Method,
     );
-    let runtime = NodeId::new(
-        "demo",
-        "demo::runtime::runtime_status",
-        NodeKind::Function,
-    );
+    let runtime = NodeId::new("demo", "demo::runtime::runtime_status", NodeKind::Function);
     let validation_lineage = LineageId::new("lineage:validation");
     let session_lineage = LineageId::new("lineage:session");
     let runtime_lineage = LineageId::new("lineage:runtime");
@@ -253,16 +252,22 @@ fn curated_concept_events_override_seeded_packets_by_handle() {
         "demo::impact::Prism::validation_recipe",
         NodeKind::Method,
     );
+    let runtime = NodeId::new("demo", "demo::runtime_status", NodeKind::Function);
     let validation_lineage = LineageId::new("lineage:validation");
+    let runtime_lineage = LineageId::new("lineage:runtime");
     let history = HistorySnapshot {
-        node_to_lineage: vec![(validation.clone(), validation_lineage)],
+        node_to_lineage: vec![
+            (validation.clone(), validation_lineage),
+            (runtime.clone(), runtime_lineage),
+        ],
         events: Vec::new(),
         co_change_counts: Vec::new(),
         tombstones: Vec::new(),
         next_lineage: 1,
         next_event: 0,
     };
-    let mut index = ProjectionIndex::derive(&history, &OutcomeMemorySnapshot { events: Vec::new() });
+    let mut index =
+        ProjectionIndex::derive(&history, &OutcomeMemorySnapshot { events: Vec::new() });
     index.replace_curated_concepts_from_events(&[ConceptEvent {
         id: "concept-event:1".to_string(),
         recorded_at: 7,
@@ -274,12 +279,32 @@ fn curated_concept_events_override_seeded_packets_by_handle() {
             summary: "Curated validation concept".to_string(),
             aliases: vec!["validation".to_string(), "checks".to_string()],
             confidence: 0.97,
-            core_members: vec![validation.clone()],
+            core_members: vec![validation.clone(), runtime.clone()],
+            core_member_lineages: vec![
+                Some(LineageId::new("lineage:validation")),
+                Some(LineageId::new("lineage:runtime")),
+            ],
             supporting_members: Vec::new(),
+            supporting_member_lineages: Vec::new(),
             likely_tests: Vec::new(),
+            likely_test_lineages: Vec::new(),
             evidence: vec!["Curated from repo work.".to_string()],
             risk_hint: Some("Config drift common".to_string()),
             decode_lenses: vec![ConceptDecodeLens::Validation, ConceptDecodeLens::Memory],
+            scope: ConceptScope::Repo,
+            provenance: ConceptProvenance {
+                origin: "test".to_string(),
+                kind: "curated_concept_event".to_string(),
+                task_id: Some("task:concept".to_string()),
+            },
+            publication: Some(ConceptPublication {
+                published_at: 7,
+                last_reviewed_at: Some(7),
+                status: ConceptPublicationStatus::Active,
+                supersedes: Vec::new(),
+                retired_at: None,
+                retirement_reason: None,
+            }),
         },
     }]);
 
@@ -291,5 +316,92 @@ fn curated_concept_events_override_seeded_packets_by_handle() {
     assert_eq!(
         index.concepts("validation", 1)[0].summary,
         "Curated validation concept"
+    );
+}
+
+#[test]
+fn curated_concepts_rebind_members_from_lineage_after_rename() {
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    let renamed_alpha = NodeId::new("demo", "demo::renamed_alpha", NodeKind::Function);
+    let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
+    let alpha_lineage = LineageId::new("lineage:alpha");
+    let beta_lineage = LineageId::new("lineage:beta");
+    let rename_event = LineageEvent {
+        meta: EventMeta {
+            id: EventId::new("lineage:rename-alpha"),
+            ts: 12,
+            actor: EventActor::System,
+            correlation: None,
+            causation: None,
+        },
+        lineage: alpha_lineage.clone(),
+        kind: LineageEventKind::Renamed,
+        before: vec![alpha.clone()],
+        after: vec![renamed_alpha.clone()],
+        confidence: 1.0,
+        evidence: Vec::new(),
+    };
+    let history = HistorySnapshot {
+        node_to_lineage: vec![
+            (renamed_alpha.clone(), alpha_lineage.clone()),
+            (beta.clone(), beta_lineage.clone()),
+        ],
+        events: vec![rename_event],
+        co_change_counts: Vec::new(),
+        tombstones: Vec::new(),
+        next_lineage: 2,
+        next_event: 1,
+    };
+    let concept = ConceptPacket {
+        handle: "concept://alpha_flow".to_string(),
+        canonical_name: "alpha_flow".to_string(),
+        summary: "Curated alpha concept".to_string(),
+        aliases: vec!["alpha".to_string()],
+        confidence: 0.94,
+        core_members: vec![alpha.clone(), beta.clone()],
+        core_member_lineages: Vec::new(),
+        supporting_members: Vec::new(),
+        supporting_member_lineages: Vec::new(),
+        likely_tests: Vec::new(),
+        likely_test_lineages: Vec::new(),
+        evidence: vec!["Observed in repo work.".to_string()],
+        risk_hint: None,
+        decode_lenses: vec![ConceptDecodeLens::Open, ConceptDecodeLens::Workset],
+        scope: ConceptScope::Repo,
+        provenance: ConceptProvenance {
+            origin: "test".to_string(),
+            kind: "curated_concept_event".to_string(),
+            task_id: Some("task:concept".to_string()),
+        },
+        publication: Some(ConceptPublication {
+            published_at: 12,
+            last_reviewed_at: Some(12),
+            status: ConceptPublicationStatus::Active,
+            supersedes: Vec::new(),
+            retired_at: None,
+            retirement_reason: None,
+        }),
+    };
+
+    let index = ProjectionIndex::derive_with_curated(
+        &history,
+        &OutcomeMemorySnapshot { events: Vec::new() },
+        vec![concept],
+    );
+    let rebound = index
+        .concept_by_handle("concept://alpha_flow")
+        .expect("curated concept should resolve");
+
+    assert!(rebound
+        .core_members
+        .iter()
+        .any(|node| node.path == renamed_alpha.path));
+    assert!(!rebound
+        .core_members
+        .iter()
+        .any(|node| node.path == alpha.path));
+    assert_eq!(
+        rebound.core_member_lineages.first().cloned().flatten(),
+        Some(alpha_lineage)
     );
 }

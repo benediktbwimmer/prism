@@ -28,6 +28,7 @@ pub enum MemoryKind {
 pub enum MemoryScope {
     #[default]
     Local,
+    Session,
     Repo,
 }
 

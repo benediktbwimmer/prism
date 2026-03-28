@@ -5,18 +5,19 @@ use prism_curator::{
 use prism_ir::{AnchorRef, Edge, NodeId, WorkspaceRevision};
 use prism_js::{
     ArtifactRiskView, ArtifactView, BlockerView, ChangeImpactView, ClaimView, CoChangeView,
-    ConceptDecodeLensView, ConceptPacketView, ConceptProvenanceView,
-    ConceptPublicationStatusView, ConceptPublicationView, ConflictView, CoordinationTaskView,
-    CuratorJobView, CuratorProposalRecordView, CuratorProposalView, DriftCandidateView, EdgeView,
-    MemoryEntryView, MemoryEventView, NodeIdView, PlanView, PolicyViolationRecordView,
-    PolicyViolationView, QueryDiagnostic, ScoredMemoryView, TaskIntentView, TaskRiskView,
-    TaskValidationRecipeView, ValidationCheckView, ValidationRecipeView, WorkspaceRevisionView,
+    ConceptBindingMetadataView, ConceptDecodeLensView, ConceptPacketView, ConceptProvenanceView,
+    ConceptPublicationStatusView, ConceptPublicationView, ConceptScopeView, ConflictView,
+    CoordinationTaskView, CuratorJobView, CuratorProposalRecordView, CuratorProposalView,
+    DriftCandidateView, EdgeView, MemoryEntryView, MemoryEventView, NodeIdView, PlanView,
+    PolicyViolationRecordView, PolicyViolationView, QueryDiagnostic, ScoredMemoryView,
+    TaskIntentView, TaskRiskView, TaskValidationRecipeView, ValidationCheckView,
+    ValidationRecipeView, WorkspaceRevisionView,
 };
 use prism_memory::{MemoryEntry, MemoryEvent, MemorySource, ScoredMemory};
 use prism_query::{
     ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens, ConceptPacket, ConceptProvenance,
-    ConceptPublication, ConceptPublicationStatus, DriftCandidate, Prism, TaskIntent, TaskRisk,
-    TaskValidationRecipe, ValidationCheck, ValidationRecipe,
+    ConceptPublication, ConceptPublicationStatus, ConceptScope, DriftCandidate, Prism, TaskIntent,
+    TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 use serde_json::Value;
 
@@ -235,7 +236,10 @@ pub(crate) fn concept_decode_lens_view(lens: ConceptDecodeLens) -> ConceptDecode
     }
 }
 
-pub(crate) fn concept_packet_view(packet: ConceptPacket) -> ConceptPacketView {
+pub(crate) fn concept_packet_view(
+    packet: ConceptPacket,
+    include_binding_metadata: bool,
+) -> ConceptPacketView {
     ConceptPacketView {
         handle: packet.handle,
         canonical_name: packet.canonical_name,
@@ -256,8 +260,34 @@ pub(crate) fn concept_packet_view(packet: ConceptPacket) -> ConceptPacketView {
             .into_iter()
             .map(concept_decode_lens_view)
             .collect(),
+        scope: concept_scope_view(packet.scope),
         provenance: concept_provenance_view(packet.provenance),
         publication: packet.publication.map(concept_publication_view),
+        binding_metadata: include_binding_metadata.then(|| ConceptBindingMetadataView {
+            core_member_lineages: packet
+                .core_member_lineages
+                .into_iter()
+                .map(|lineage| lineage.map(|lineage| lineage.0.to_string()))
+                .collect(),
+            supporting_member_lineages: packet
+                .supporting_member_lineages
+                .into_iter()
+                .map(|lineage| lineage.map(|lineage| lineage.0.to_string()))
+                .collect(),
+            likely_test_lineages: packet
+                .likely_test_lineages
+                .into_iter()
+                .map(|lineage| lineage.map(|lineage| lineage.0.to_string()))
+                .collect(),
+        }),
+    }
+}
+
+fn concept_scope_view(scope: ConceptScope) -> ConceptScopeView {
+    match scope {
+        ConceptScope::Local => ConceptScopeView::Local,
+        ConceptScope::Session => ConceptScopeView::Session,
+        ConceptScope::Repo => ConceptScopeView::Repo,
     }
 }
 
@@ -269,7 +299,9 @@ fn concept_provenance_view(provenance: ConceptProvenance) -> ConceptProvenanceVi
     }
 }
 
-fn concept_publication_status_view(status: ConceptPublicationStatus) -> ConceptPublicationStatusView {
+fn concept_publication_status_view(
+    status: ConceptPublicationStatus,
+) -> ConceptPublicationStatusView {
     match status {
         ConceptPublicationStatus::Active => ConceptPublicationStatusView::Active,
         ConceptPublicationStatus::Retired => ConceptPublicationStatusView::Retired,

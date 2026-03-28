@@ -4660,12 +4660,14 @@ pub fn start_task() {}
                 handle: None,
                 query: Some("validation".to_string()),
                 lens: Some(PrismConceptLensInput::Validation),
+                include_binding_metadata: Some(true),
             },
         )
         .expect("concept tool should succeed");
 
     assert_eq!(concept.packet.handle, "concept://validation_pipeline");
     assert!(!concept.packet.core_members.is_empty());
+    assert!(concept.packet.binding_metadata.is_some());
     assert!(concept
         .decode
         .as_ref()
@@ -4691,8 +4693,9 @@ pub fn start_task() {}
             test_session(&host),
             r#"
 return {
-  concept: prism.concept("validation"),
-  decoded: prism.decodeConcept({ query: "validation", lens: "validation" }),
+  concept: prism.concept("validation", { includeBindingMetadata: true }),
+  byHandle: prism.conceptByHandle("concept://validation_pipeline", { includeBindingMetadata: true }),
+  decoded: prism.decodeConcept({ query: "validation", lens: "validation", includeBindingMetadata: true }),
 };
 "#,
             QueryLanguage::Ts,
@@ -4703,6 +4706,9 @@ return {
         envelope.result["concept"]["handle"],
         Value::String("concept://validation_pipeline".to_string())
     );
+    assert!(envelope.result["concept"]["bindingMetadata"].is_object());
+    assert!(envelope.result["byHandle"]["bindingMetadata"].is_object());
+    assert!(envelope.result["decoded"]["concept"]["bindingMetadata"].is_object());
     assert!(envelope.result["decoded"]["validationRecipe"].is_object());
 }
 
@@ -4730,11 +4736,18 @@ pub fn start_task() {}
                 canonical_name: Some("custom_validation".to_string()),
                 summary: Some("Custom curated validation concept.".to_string()),
                 aliases: Some(vec!["validation".to_string(), "custom checks".to_string()]),
-                core_members: Some(vec![NodeIdInput {
-                    crate_name: "demo".to_string(),
-                    path: "demo::validation_recipe".to_string(),
-                    kind: "function".to_string(),
-                }]),
+                core_members: Some(vec![
+                    NodeIdInput {
+                        crate_name: "demo".to_string(),
+                        path: "demo::validation_recipe".to_string(),
+                        kind: "function".to_string(),
+                    },
+                    NodeIdInput {
+                        crate_name: "demo".to_string(),
+                        path: "demo::runtime_status".to_string(),
+                        kind: "function".to_string(),
+                    },
+                ]),
                 supporting_members: None,
                 likely_tests: None,
                 evidence: Some(vec!["Promoted from live repo work.".to_string()]),
@@ -4744,6 +4757,9 @@ pub fn start_task() {}
                     PrismConceptLensInput::Validation,
                     PrismConceptLensInput::Memory,
                 ]),
+                scope: Some(ConceptScopeInput::Repo),
+                supersedes: Some(vec!["concept://legacy_validation".to_string()]),
+                retirement_reason: None,
                 task_id: Some("task:concept-promote".to_string()),
             },
         )
@@ -4751,7 +4767,27 @@ pub fn start_task() {}
 
     assert!(promoted.event_id.starts_with("concept-event:"));
     assert_eq!(promoted.concept_handle, "concept://custom_validation");
-    assert_eq!(promoted.packet.summary, "Custom curated validation concept.");
+    assert_eq!(
+        promoted.packet.summary,
+        "Custom curated validation concept."
+    );
+    assert_eq!(promoted.packet.provenance.origin, "repo_mutation");
+    assert_eq!(
+        promoted
+            .packet
+            .publication
+            .as_ref()
+            .map(|value| value.status),
+        Some(prism_js::ConceptPublicationStatusView::Active)
+    );
+    assert_eq!(
+        promoted
+            .packet
+            .publication
+            .as_ref()
+            .map(|value| value.supersedes.clone()),
+        Some(vec!["concept://legacy_validation".to_string()])
+    );
 
     let updated = host
         .store_concept(
@@ -4772,6 +4808,9 @@ pub fn start_task() {}
                     PrismConceptLensInput::Open,
                     PrismConceptLensInput::Validation,
                 ]),
+                scope: Some(ConceptScopeInput::Repo),
+                supersedes: Some(vec!["concept://older_validation_flow".to_string()]),
+                retirement_reason: None,
                 task_id: Some("task:concept-update".to_string()),
             },
         )
@@ -4782,6 +4821,48 @@ pub fn start_task() {}
         "Updated curated validation concept."
     );
     assert_eq!(updated.packet.aliases[1], "updated checks");
+    assert_eq!(
+        updated
+            .packet
+            .publication
+            .as_ref()
+            .map(|value| value.supersedes.clone()),
+        Some(vec!["concept://older_validation_flow".to_string()])
+    );
+
+    let retired = host
+        .store_concept(
+            session.as_ref(),
+            PrismConceptMutationArgs {
+                operation: ConceptMutationOperationInput::Retire,
+                handle: Some("concept://custom_validation".to_string()),
+                canonical_name: None,
+                summary: None,
+                aliases: None,
+                core_members: None,
+                supporting_members: None,
+                likely_tests: None,
+                evidence: None,
+                risk_hint: None,
+                confidence: None,
+                decode_lenses: None,
+                scope: Some(ConceptScopeInput::Repo),
+                supersedes: Some(vec!["concept://validation_pipeline".to_string()]),
+                retirement_reason: Some(
+                    "Replaced by the canonical validation pipeline concept.".to_string(),
+                ),
+                task_id: Some("task:concept-retire".to_string()),
+            },
+        )
+        .expect("concept retire should succeed");
+    assert_eq!(
+        retired
+            .packet
+            .publication
+            .as_ref()
+            .map(|value| value.status),
+        Some(prism_js::ConceptPublicationStatusView::Retired)
+    );
 
     let queried = host
         .execute(
@@ -4792,10 +4873,7 @@ return prism.conceptByHandle("concept://custom_validation");
             QueryLanguage::Ts,
         )
         .expect("concept query should succeed");
-    assert_eq!(
-        queried.result["summary"],
-        Value::String("Updated curated validation concept.".to_string())
-    );
+    assert_eq!(queried.result, Value::Null);
 
     let reloaded = QueryHost::with_session(index_workspace_session(&root).unwrap());
     let persisted = reloaded
@@ -4807,10 +4885,261 @@ return prism.conceptByHandle("concept://custom_validation");
             QueryLanguage::Ts,
         )
         .expect("reloaded concept query should succeed");
+    assert_eq!(persisted.result, Value::Null);
+}
+
+#[test]
+fn concept_mutation_rejects_weak_repo_concepts() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn validation_recipe() {}
+pub fn runtime_status() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let error = host
+        .store_concept(
+            session.as_ref(),
+            PrismConceptMutationArgs {
+                operation: ConceptMutationOperationInput::Promote,
+                handle: Some("concept://weak_validation".to_string()),
+                canonical_name: Some("weak_validation".to_string()),
+                summary: Some("Too weak".to_string()),
+                aliases: Some(vec!["validation".to_string()]),
+                core_members: Some(vec![NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::validation_recipe".to_string(),
+                    kind: "function".to_string(),
+                }]),
+                supporting_members: None,
+                likely_tests: None,
+                evidence: Some(vec!["thin".to_string()]),
+                risk_hint: None,
+                confidence: Some(0.55),
+                decode_lenses: Some(vec![PrismConceptLensInput::Validation]),
+                scope: Some(ConceptScopeInput::Repo),
+                supersedes: None,
+                retirement_reason: None,
+                task_id: Some("task:weak-concept".to_string()),
+            },
+        )
+        .expect_err("weak repo concept should be rejected");
+
+    assert!(error
+        .to_string()
+        .contains("concept coreMembers must contain at least 2"));
+}
+
+#[test]
+fn concept_mutation_persists_session_scope_but_not_local_scope() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn validation_recipe() {}
+pub fn runtime_status() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let session_concept = host
+        .store_concept(
+            session.as_ref(),
+            PrismConceptMutationArgs {
+                operation: ConceptMutationOperationInput::Promote,
+                handle: Some("concept://workspace_validation".to_string()),
+                canonical_name: Some("workspace_validation".to_string()),
+                summary: Some("Workspace-scoped validation concept for local reuse.".to_string()),
+                aliases: Some(vec![
+                    "validation".to_string(),
+                    "workspace checks".to_string(),
+                ]),
+                core_members: Some(vec![
+                    NodeIdInput {
+                        crate_name: "demo".to_string(),
+                        path: "demo::validation_recipe".to_string(),
+                        kind: "function".to_string(),
+                    },
+                    NodeIdInput {
+                        crate_name: "demo".to_string(),
+                        path: "demo::runtime_status".to_string(),
+                        kind: "function".to_string(),
+                    },
+                ]),
+                supporting_members: None,
+                likely_tests: None,
+                evidence: Some(vec!["Promoted for workspace reuse.".to_string()]),
+                risk_hint: None,
+                confidence: Some(0.86),
+                decode_lenses: Some(vec![PrismConceptLensInput::Validation]),
+                scope: Some(ConceptScopeInput::Session),
+                supersedes: None,
+                retirement_reason: None,
+                task_id: Some("task:session-concept".to_string()),
+            },
+        )
+        .expect("session concept should store");
     assert_eq!(
-        persisted.result["summary"],
-        Value::String("Updated curated validation concept.".to_string())
+        session_concept.packet.scope,
+        prism_js::ConceptScopeView::Session
     );
+    assert!(session_concept.packet.publication.is_none());
+
+    let local_concept = host
+        .store_concept(
+            session.as_ref(),
+            PrismConceptMutationArgs {
+                operation: ConceptMutationOperationInput::Promote,
+                handle: Some("concept://local_validation_probe".to_string()),
+                canonical_name: Some("local_validation_probe".to_string()),
+                summary: Some(
+                    "Runtime-only validation cluster for the current debugging pass.".to_string(),
+                ),
+                aliases: Some(vec!["validation probe".to_string()]),
+                core_members: Some(vec![NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::validation_recipe".to_string(),
+                    kind: "function".to_string(),
+                }]),
+                supporting_members: None,
+                likely_tests: None,
+                evidence: Some(vec!["Temporary local concept.".to_string()]),
+                risk_hint: None,
+                confidence: Some(0.6),
+                decode_lenses: Some(vec![PrismConceptLensInput::Open]),
+                scope: Some(ConceptScopeInput::Local),
+                supersedes: None,
+                retirement_reason: None,
+                task_id: Some("task:local-concept".to_string()),
+            },
+        )
+        .expect("local concept should store");
+    assert_eq!(
+        local_concept.packet.scope,
+        prism_js::ConceptScopeView::Local
+    );
+
+    let visible_now = host
+        .execute(
+            test_session(&host),
+            r#"
+return {
+  session: prism.conceptByHandle("concept://workspace_validation"),
+  local: prism.conceptByHandle("concept://local_validation_probe"),
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("concept query should succeed");
+    assert_eq!(visible_now.result["session"]["scope"], "session");
+    assert_eq!(visible_now.result["local"]["scope"], "local");
+
+    let reloaded = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let persisted = reloaded
+        .execute(
+            test_session(&reloaded),
+            r#"
+return {
+  session: prism.conceptByHandle("concept://workspace_validation"),
+  local: prism.conceptByHandle("concept://local_validation_probe"),
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("reloaded concept query should succeed");
+    assert_eq!(persisted.result["session"]["scope"], "session");
+    assert_eq!(persisted.result["local"], Value::Null);
+}
+
+#[test]
+fn session_memory_persists_locally_while_local_memory_does_not_reload() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    host.store_memory(
+        test_session(&host).as_ref(),
+        PrismMemoryArgs {
+            action: MemoryMutationActionInput::Store,
+            payload: json!({
+                "anchors": [{
+                    "type": "node",
+                    "crateName": "demo",
+                    "path": "demo::alpha",
+                    "kind": "function"
+                }],
+                "kind": "semantic",
+                "scope": "session",
+                "content": "alpha keeps a workspace-scoped validation hint",
+                "trust": 0.8
+            }),
+            task_id: Some("task:session-memory".to_string()),
+        },
+    )
+    .expect("session memory should persist");
+
+    host.store_memory(
+        test_session(&host).as_ref(),
+        PrismMemoryArgs {
+            action: MemoryMutationActionInput::Store,
+            payload: json!({
+                "anchors": [{
+                    "type": "node",
+                    "crateName": "demo",
+                    "path": "demo::alpha",
+                    "kind": "function"
+                }],
+                "kind": "episodic",
+                "scope": "local",
+                "content": "temporary alpha debugging note that should stay runtime-only",
+                "trust": 0.6
+            }),
+            task_id: Some("task:local-memory".to_string()),
+        },
+    )
+    .expect("local memory should store");
+
+    let reloaded = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let recalled = reloaded
+        .execute(
+            test_session(&reloaded),
+            r#"
+const sym = prism.symbol("alpha");
+return prism.memory.recall({
+  focus: sym ? [sym] : [],
+  limit: 10,
+});
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("memory recall should succeed");
+
+    let rendered = recalled.result.to_string();
+    assert!(rendered.contains("workspace-scoped validation hint"));
+    assert!(!rendered.contains("runtime-only"));
+
+    let events = reloaded
+        .execute(
+            test_session(&reloaded),
+            r#"
+const sym = prism.symbol("alpha");
+return prism.memory.events({
+  focus: sym ? [sym] : [],
+  limit: 10,
+});
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("memory events query should succeed");
+    let event_json = events.result.to_string();
+    assert!(event_json.contains("\"scope\":\"Session\""));
+    assert!(!event_json.contains("\"scope\":\"Local\""));
 }
 
 #[test]
@@ -9769,8 +10098,38 @@ return prism.memory.events({
         )
         .expect("memory resource should load");
     assert_eq!(payload.memory.scope, "Repo");
+    assert_eq!(
+        payload.memory.metadata["provenance"]["origin"],
+        "manual_store"
+    );
+    assert_eq!(payload.memory.metadata["publication"]["status"], "active");
     assert_eq!(payload.history.len(), 1);
     assert_eq!(payload.history[0].memory_id, result.memory_id);
+}
+
+#[test]
+fn repo_memory_store_rejects_weak_published_memory() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let error = host
+        .store_memory(
+            test_session(&host).as_ref(),
+            PrismMemoryArgs {
+                action: MemoryMutationActionInput::Store,
+                payload: json!({
+                    "anchors": [],
+                    "kind": "episodic",
+                    "scope": "repo",
+                    "content": "short memory",
+                    "trust": 0.5
+                }),
+                task_id: Some("task:weak-memory".to_string()),
+            },
+        )
+        .expect_err("weak repo memory should be rejected");
+
+    assert!(error.to_string().contains("repo-published memory"));
 }
 
 #[test]

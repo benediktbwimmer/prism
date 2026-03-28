@@ -30,10 +30,10 @@ pub use crate::source::{
 };
 pub use crate::symbol::{Relations, Symbol};
 pub use crate::types::{
-    ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens, ConceptEvent, ConceptEventAction,
-    ConceptPacket, ConceptProvenance, ConceptPublication, ConceptPublicationStatus,
-    DriftCandidate, QueryLimits, TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck,
-    ValidationRecipe, canonical_concept_handle,
+    canonical_concept_handle, ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens,
+    ConceptEvent, ConceptEventAction, ConceptPacket, ConceptProvenance, ConceptPublication,
+    ConceptPublicationStatus, ConceptScope, DriftCandidate, QueryLimits, TaskIntent, TaskRisk,
+    TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 
 pub struct Prism {

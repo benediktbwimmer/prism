@@ -88,6 +88,20 @@ pub fn build_memory_entry(
             }
         });
         entry.trust = 0.85;
+    } else if scope == MemoryScope::Session {
+        entry.metadata = json!({
+            "provenance": {
+                "origin": "cli_store",
+                "kind": "manual_memory",
+            },
+            "evidence": {
+                "eventIds": [],
+                "memoryIds": [],
+                "validationChecks": [],
+                "coChangeLineages": [],
+            }
+        });
+        entry.trust = 0.75;
     }
     entry
 }

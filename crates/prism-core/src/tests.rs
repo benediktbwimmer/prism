@@ -19,8 +19,12 @@ use prism_memory::{
     MemoryKind, MemoryModule, MemoryScope, MemorySource, OutcomeEvent, OutcomeEvidence,
     OutcomeKind, OutcomeResult, SessionMemory,
 };
-use prism_query::{ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptPacket};
+use prism_query::{
+    ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptPacket, ConceptProvenance,
+    ConceptPublication, ConceptPublicationStatus, ConceptScope,
+};
 use prism_store::{MemoryStore, Store};
+use serde_json::json;
 
 use super::{
     index_workspace, index_workspace_session, index_workspace_session_with_curator,
@@ -937,6 +941,18 @@ fn repo_memory_events_round_trip_through_committed_jsonl_and_reload() {
     entry.anchors = vec![AnchorRef::Node(alpha)];
     entry.scope = MemoryScope::Repo;
     entry.source = MemorySource::User;
+    entry.trust = 0.9;
+    entry.metadata = json!({
+        "provenance": {
+            "origin": "test",
+            "kind": "repo_memory_round_trip",
+        },
+        "publication": {
+            "publishedAt": 17,
+            "lastReviewedAt": 17,
+            "status": "active",
+        }
+    });
     session
         .append_memory_event(MemoryEvent::from_entry(
             MemoryEventKind::Promoted,
@@ -992,7 +1008,7 @@ fn repo_concept_events_round_trip_through_committed_jsonl_and_reload() {
         "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
     )
     .unwrap();
-    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\nfn beta() {}\n").unwrap();
 
     let session = index_workspace_session(&root).unwrap();
     let alpha = session
@@ -1001,6 +1017,14 @@ fn repo_concept_events_round_trip_through_committed_jsonl_and_reload() {
         .into_iter()
         .next()
         .expect("alpha should be indexed")
+        .id()
+        .clone();
+    let beta = session
+        .prism()
+        .symbol("beta")
+        .into_iter()
+        .next()
+        .expect("beta should be indexed")
         .id()
         .clone();
     session
@@ -1015,12 +1039,32 @@ fn repo_concept_events_round_trip_through_committed_jsonl_and_reload() {
                 summary: "Curated alpha concept shared through the repo.".to_string(),
                 aliases: vec!["alpha".to_string(), "alpha flow".to_string()],
                 confidence: 0.93,
-                core_members: vec![alpha],
+                core_members: vec![alpha.clone(), beta.clone()],
+                core_member_lineages: vec![
+                    session.prism().lineage_of(&alpha),
+                    session.prism().lineage_of(&beta),
+                ],
                 supporting_members: Vec::new(),
+                supporting_member_lineages: Vec::new(),
                 likely_tests: Vec::new(),
+                likely_test_lineages: Vec::new(),
                 evidence: vec!["Promoted from repo task work.".to_string()],
                 risk_hint: Some("Alpha changes tend to need a quick smoke test.".to_string()),
                 decode_lenses: vec![ConceptDecodeLens::Open, ConceptDecodeLens::Workset],
+                scope: ConceptScope::Repo,
+                provenance: ConceptProvenance {
+                    origin: "test".to_string(),
+                    kind: "repo_concept_round_trip".to_string(),
+                    task_id: Some("task:repo-concept".to_string()),
+                },
+                publication: Some(ConceptPublication {
+                    published_at: 17,
+                    last_reviewed_at: Some(17),
+                    status: ConceptPublicationStatus::Active,
+                    supersedes: Vec::new(),
+                    retired_at: None,
+                    retirement_reason: None,
+                }),
             },
         })
         .unwrap();
@@ -1040,6 +1084,140 @@ fn repo_concept_events_round_trip_through_committed_jsonl_and_reload() {
     assert_eq!(
         concept.aliases,
         vec!["alpha".to_string(), "alpha flow".to_string()]
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_concepts_rebind_members_through_lineage_after_rename_and_reload() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\nfn beta() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let prism = session.prism();
+    let alpha = prism
+        .symbol("alpha")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::alpha")
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+    let beta = prism
+        .symbol("beta")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::beta")
+        .expect("beta should be indexed")
+        .id()
+        .clone();
+    let alpha_lineage = prism
+        .lineage_of(&alpha)
+        .expect("alpha should have a lineage before rename");
+    let beta_lineage = prism
+        .lineage_of(&beta)
+        .expect("beta should have a lineage before rename");
+    drop(prism);
+
+    session
+        .append_concept_event(ConceptEvent {
+            id: "concept-event:repo-rebind".to_string(),
+            recorded_at: 21,
+            task_id: Some("task:repo-concept-rebind".to_string()),
+            action: ConceptEventAction::Promote,
+            concept: ConceptPacket {
+                handle: "concept://alpha_flow".to_string(),
+                canonical_name: "alpha_flow".to_string(),
+                summary: "Curated alpha concept shared through the repo.".to_string(),
+                aliases: vec!["alpha".to_string(), "alpha flow".to_string()],
+                confidence: 0.93,
+                core_members: vec![alpha.clone(), beta.clone()],
+                core_member_lineages: vec![Some(alpha_lineage.clone()), Some(beta_lineage.clone())],
+                supporting_members: Vec::new(),
+                supporting_member_lineages: Vec::new(),
+                likely_tests: Vec::new(),
+                likely_test_lineages: Vec::new(),
+                evidence: vec!["Promoted from repo task work.".to_string()],
+                risk_hint: Some("Alpha changes tend to need a quick smoke test.".to_string()),
+                decode_lenses: vec![ConceptDecodeLens::Open, ConceptDecodeLens::Workset],
+                scope: ConceptScope::Repo,
+                provenance: ConceptProvenance {
+                    origin: "test".to_string(),
+                    kind: "repo_concept_rebind".to_string(),
+                    task_id: Some("task:repo-concept-rebind".to_string()),
+                },
+                publication: Some(ConceptPublication {
+                    published_at: 21,
+                    last_reviewed_at: Some(21),
+                    status: ConceptPublicationStatus::Active,
+                    supersedes: Vec::new(),
+                    retired_at: None,
+                    retirement_reason: None,
+                }),
+            },
+        })
+        .unwrap();
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "fn renamed_alpha() {}\nfn beta() {}\n",
+    )
+    .unwrap();
+
+    let observed = session.refresh_fs().unwrap();
+    assert!(observed.iter().any(|change| {
+        let saw_updated_rename = change.updated.iter().any(|(before, after)| {
+            before.node.id.path == "demo::alpha" && after.node.id.path == "demo::renamed_alpha"
+        });
+        let saw_split_add_remove = change
+            .removed
+            .iter()
+            .any(|node| node.node.id.path == "demo::alpha")
+            && change
+                .added
+                .iter()
+                .any(|node| node.node.id.path == "demo::renamed_alpha");
+        saw_updated_rename || saw_split_add_remove
+    }));
+
+    let concept_after_refresh = session
+        .prism()
+        .concept_by_handle("concept://alpha_flow")
+        .expect("repo concept should stay available after refresh");
+    assert!(concept_after_refresh
+        .core_members
+        .iter()
+        .any(|node| node.path == "demo::renamed_alpha"));
+    assert!(!concept_after_refresh
+        .core_members
+        .iter()
+        .any(|node| node.path == "demo::alpha"));
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let reloaded_concept = reloaded
+        .prism()
+        .concept_by_handle("concept://alpha_flow")
+        .expect("repo concept should reload after rename");
+    assert!(reloaded_concept
+        .core_members
+        .iter()
+        .any(|node| node.path == "demo::renamed_alpha"));
+    assert!(!reloaded_concept
+        .core_members
+        .iter()
+        .any(|node| node.path == "demo::alpha"));
+    assert_eq!(
+        reloaded_concept
+            .core_member_lineages
+            .first()
+            .cloned()
+            .flatten(),
+        Some(alpha_lineage)
     );
 
     let _ = fs::remove_dir_all(root);

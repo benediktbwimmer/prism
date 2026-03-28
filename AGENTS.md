@@ -66,6 +66,10 @@ When mutations make sense, use the explicit PRISM mutation tools instead of leav
 - Use `prism_session` with action `start_task` when beginning a meaningful unit of work and no suitable active task already exists.
 - Use `prism_mutate` with actions `outcome`, `test_ran`, `failure_observed`, and `fix_validated` to record task outcomes that matter for future reasoning.
 - Use `prism_mutate` with action `memory` to store anchored memory when you learn something worth preserving, especially repo-specific constraints, invariants, migration rules, repeated failure patterns, or other durable lessons.
+- Use the explicit persistence ladder for both memories and concepts:
+  - `local`: runtime-only working state for tentative observations, scratch understanding, or hypotheses that should not survive reload.
+  - `session`: persisted workspace state that should survive reload and help later work in the same clone, but is not yet strong enough to publish into repo knowledge.
+  - `repo`: published repo knowledge that exports to committed JSONL, hydrates on clone/reload, and should be safe, reusable, and durable enough for future agents.
 - Prefer storing new durable lessons as episodic memory first when they come from live repo work, concrete debugging, or dogfooding. Promote to structural memory later only after the lesson looks stable, repeated, or broadly invariant.
 - During meaningful PRISM work, look for chances to capture 1 to 3 high-signal episodic memories instead of ending the task with no reusable memory at all.
 - Use `prism_mutate` with action `infer_edge` when a new inferred relationship should be captured explicitly rather than only described in prose.
@@ -78,6 +82,9 @@ Mutation guidance:
 - Do not wait for a perfect generalized rule before recording memory; capture the useful episodic fact while it is fresh, then promote or consolidate later if the pattern repeats.
 - Record outcomes for meaningful tests, failures, validations, and task milestones, not for trivial intermediate noise.
 - Prefer explicit anchored PRISM state over ad hoc scratch notes when the information should survive the current session.
+- Prefer `local` memory for tentative or per-attempt findings, `session` memory for lessons likely to matter again in the current clone, and `repo` memory only for durable learned knowledge that a fresh clone should inherit.
+- Treat repo-scoped memory as published repo knowledge. It should be evidence-backed, anchored, reusable, non-trivial to re-derive from raw code/history, and safe to commit.
+- Do not publish repo memory for ephemeral task chatter, one-off debugging notes, rebuildable projections, or anything sensitive that should not live in the repo.
 
 ## Concept Pack Guidance
 
@@ -85,16 +92,28 @@ Concept packs are repo-native concept objects. They capture what belongs togethe
 
 - Treat concept packs as a reusable repo vocabulary layer, not as a taxonomy exercise.
 - Prefer carrying forward an existing concept handle when it matches the task instead of rediscovering the same cluster through repeated search, locate, or open calls.
+- When a concept packet needs inspection or curation help, request binding detail explicitly rather than assuming from prose alone. Use `includeBindingMetadata` on concept reads when you need to inspect lineage-backed member bindings, drift, or rebinding behavior.
 - Promote a concept candidate when you resolved a broad or fuzzy repo term into a stable multi-artifact cluster that a future agent would likely want to reuse.
 - Favor concept candidates that emerged from real task work: successful worksets, repeated broad-query resolution, repeated reuse of the same handles, meaningful outcome clusters, or handoffs that need compact repo-native shorthand.
 - Record the concept in a compact shape: canonical name, common aliases, a short summary, 2 to 5 core handles, optional supporting handles, and optional likely tests or risks when they are already clear from the task.
 - Prefer concepts that reflect how a future agent would naturally think or speak about the repo, such as `validation pipeline`, `runtime surface`, `session lifecycle`, `memory system`, `compact tools`, or `task continuity`.
 - Do not promote one-off local details, temporary debugging clusters, arbitrary file groups, unstable intermediate hypotheses, or vague labels with no clear repo-native meaning.
 - If a concept drifts, splits, or stops matching the real center of gravity, refresh or narrow it instead of continuing to accrete unrelated members.
-- Use `prism_mutate` with action `concept` and operation `promote` to create a repo-exported concept packet once the cluster is stable enough to share across future clones and sessions.
-- Use `prism_mutate` with action `concept` and operation `update` when the concept’s summary, aliases, members, tests, evidence, or risk hint have materially changed.
-- Repo concept mutations are append-only and export to `.prism/concepts/events.jsonl`, so promoted concepts become part of the repo’s shared language rather than staying local to one machine.
-- Record concept candidates as episodic memory first when the cluster is still tentative, incomplete, or not yet worth committing to the repo-wide concept vocabulary.
+- Use the same `local -> session -> repo` promotion ladder for concepts:
+  - `local` concept: tentative working cluster for the current runtime only.
+  - `session` concept: reusable within the current clone and persisted in workspace state, but not yet published to the repo.
+  - `repo` concept: published repo knowledge that exports to `.prism/concepts/events.jsonl` and should be useful to future clones and sessions.
+- Use `prism_mutate` with action `concept` and operation `promote` when you are creating a new concept packet at the right scope.
+- Use `prism_mutate` with action `concept` and operation `update` when the concept’s summary, aliases, members, tests, evidence, risk hint, or scope have materially changed.
+- Use `prism_mutate` with action `concept` and operation `retire` when a concept is misleading, obsolete, superseded, split into multiple concepts, or no longer matches the repo’s actual structure.
+- Prefer `session` scope for concepts that are useful but still maturing. Promote to `repo` only after the concept has proven durable through repeated use, successful task flow, stable handoffs, or repeated broad-query convergence.
+- Record concept candidates as episodic memory first when the cluster is still tentative, incomplete, or not yet worth even a session-scoped concept packet.
+- Treat repo-scoped concepts as published repo knowledge, not convenient scratch bundles. They should be compact, evidence-backed, inspectable, and stable enough that a future agent would actually want to think and speak in that unit.
+- Maintain concepts lazily but explicitly:
+  - create when a real task has already discovered a reusable cluster
+  - update after refactors, member drift, changed validation surfaces, repeated new risks, or better summaries/aliases
+  - retire when the concept became too broad, stale, misleading, or superseded
+- Do not let concepts silently rot. If you notice that a concept’s members no longer represent the live subsystem, update or retire it during the task instead of leaving stale published knowledge behind.
 
 ## Dogfooding Feedback Loop
 

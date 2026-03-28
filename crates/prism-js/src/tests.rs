@@ -36,10 +36,17 @@ fn api_reference_mentions_primary_tool() {
     ));
     assert!(docs.contains("validationContext(target"));
     assert!(docs.contains("recentChangeContext(target"));
-    assert!(docs.contains("concept(query: string): ConceptPacketView | null;"));
-    assert!(docs.contains("concepts(query: string, options?: ConceptQueryOptions): ConceptPacketView[];"));
-    assert!(docs.contains("conceptByHandle(handle: string): ConceptPacketView | null;"));
+    assert!(docs.contains(
+        "concept(query: string, options?: ConceptQueryOptions): ConceptPacketView | null;"
+    ));
+    assert!(docs
+        .contains("concepts(query: string, options?: ConceptQueryOptions): ConceptPacketView[];"));
+    assert!(docs.contains(
+        "conceptByHandle(handle: string, options?: { includeBindingMetadata?: boolean }): ConceptPacketView | null;"
+    ));
     assert!(docs.contains("decodeConcept(input:"));
+    assert!(docs.contains("includeBindingMetadata?: boolean;"));
+    assert!(docs.contains("bindingMetadata?: {"));
     assert!(docs.contains("discovery(target: QueryTarget): DiscoveryBundleView | null;"));
     assert!(docs
         .contains("searchBundle(query: string, options?: SearchBundleOptions): SearchBundleView;"));
@@ -180,8 +187,8 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("targetBundle(target, options = {})"));
     assert!(prelude.contains("searchText(query, options = {})"));
     assert!(prelude.contains("concepts(query, options = {})"));
-    assert!(prelude.contains("concept(query)"));
-    assert!(prelude.contains("conceptByHandle(handle)"));
+    assert!(prelude.contains("concept(query, options = {})"));
+    assert!(prelude.contains("conceptByHandle(handle, options = {})"));
     assert!(prelude.contains("decodeConcept(input)"));
     assert!(prelude.contains("__prismBundleSummary("));
     assert!(prelude.contains("__prismWithLocalDiagnostics("));

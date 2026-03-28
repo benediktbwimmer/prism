@@ -569,13 +569,24 @@ globalThis.prism = Object.freeze({
     return __prismHost("concepts", {
       query,
       limit: options?.limit,
+      includeBindingMetadata:
+        options?.includeBindingMetadata ?? options?.include_binding_metadata,
     });
   },
-  concept(query) {
-    return __prismHost("concept", { query, limit: 1 });
+  concept(query, options = {}) {
+    return __prismHost("concept", {
+      query,
+      limit: 1,
+      includeBindingMetadata:
+        options?.includeBindingMetadata ?? options?.include_binding_metadata,
+    });
   },
-  conceptByHandle(handle) {
-    return __prismHost("conceptByHandle", { handle });
+  conceptByHandle(handle, options = {}) {
+    return __prismHost("conceptByHandle", {
+      handle,
+      includeBindingMetadata:
+        options?.includeBindingMetadata ?? options?.include_binding_metadata,
+    });
   },
   decodeConcept(input) {
     if (typeof input === "string") {
@@ -588,6 +599,8 @@ globalThis.prism = Object.freeze({
         handle: input?.handle,
         query: input?.query,
         lens: input?.lens ?? "open",
+        includeBindingMetadata:
+          input?.includeBindingMetadata ?? input?.include_binding_metadata,
       })
     );
   },

@@ -77,6 +77,21 @@ impl SessionMemory {
         EpisodicMemorySnapshot { entries }
     }
 
+    pub fn persisted_snapshot(&self) -> EpisodicMemorySnapshot {
+        let mut entries = self
+            .snapshot()
+            .entries
+            .into_iter()
+            .filter(|entry| entry.scope == crate::types::MemoryScope::Session)
+            .collect::<Vec<_>>();
+        entries.sort_by(|left, right| {
+            left.created_at
+                .cmp(&right.created_at)
+                .then_with(|| left.id.0.cmp(&right.id.0))
+        });
+        EpisodicMemorySnapshot { entries }
+    }
+
     pub fn replace_from_snapshot(&self, snapshot: EpisodicMemorySnapshot) {
         let mut episodic_entries = Vec::new();
         let mut structural_entries = Vec::new();

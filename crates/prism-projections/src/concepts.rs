@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use prism_ir::{LineageId, NodeId, NodeKind};
+use prism_ir::{LineageEvent, LineageId, NodeId, NodeKind};
 
 use crate::types::{
     CoChangeRecord, ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptPacket,
-    ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ValidationCheck,
+    ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptScope, ValidationCheck,
 };
 
 const CORE_MEMBER_LIMIT: usize = 4;
@@ -173,6 +173,28 @@ pub(crate) fn merge_concept_packets(
     packets
 }
 
+pub(crate) fn hydrate_curated_concepts(
+    concepts: Vec<ConceptPacket>,
+    node_to_lineage: &HashMap<NodeId, LineageId>,
+    history_events: &[LineageEvent],
+) -> Vec<ConceptPacket> {
+    concepts
+        .into_iter()
+        .map(|concept| hydrate_curated_concept(concept, node_to_lineage, history_events))
+        .collect()
+}
+
+pub(crate) fn resolve_curated_concepts(
+    concepts: &[ConceptPacket],
+    node_to_lineage: &HashMap<NodeId, LineageId>,
+) -> Vec<ConceptPacket> {
+    concepts
+        .iter()
+        .cloned()
+        .map(|concept| resolve_curated_concept_members(concept, node_to_lineage))
+        .collect()
+}
+
 pub fn curated_concepts_from_events(events: &[ConceptEvent]) -> Vec<ConceptPacket> {
     let mut concepts = HashMap::<String, ConceptPacket>::new();
     for event in events {
@@ -222,36 +244,40 @@ fn normalize_curated_concept(
         concept.provenance.task_id = event.task_id.clone();
     }
 
-    let mut publication = concept
-        .publication
-        .clone()
-        .unwrap_or_else(|| previous_publication(previous, event.recorded_at));
-    if publication.published_at == 0 {
-        publication.published_at = previous
-            .and_then(|packet| packet.publication.as_ref())
-            .map(|value| value.published_at)
-            .filter(|value| *value > 0)
-            .unwrap_or(event.recorded_at);
-    }
-    publication.last_reviewed_at = Some(event.recorded_at);
-    if publication.supersedes.is_empty() {
-        publication.supersedes = previous
-            .and_then(|packet| packet.publication.as_ref())
-            .map(|value| value.supersedes.clone())
-            .unwrap_or_default();
-    }
-    match event.action {
-        ConceptEventAction::Promote | ConceptEventAction::Update => {
-            publication.status = ConceptPublicationStatus::Active;
-            publication.retired_at = None;
-            publication.retirement_reason = None;
+    if concept.scope == ConceptScope::Repo || matches!(event.action, ConceptEventAction::Retire) {
+        let mut publication = concept
+            .publication
+            .clone()
+            .unwrap_or_else(|| previous_publication(previous, event.recorded_at));
+        if publication.published_at == 0 && concept.scope == ConceptScope::Repo {
+            publication.published_at = previous
+                .and_then(|packet| packet.publication.as_ref())
+                .map(|value| value.published_at)
+                .filter(|value| *value > 0)
+                .unwrap_or(event.recorded_at);
         }
-        ConceptEventAction::Retire => {
-            publication.status = ConceptPublicationStatus::Retired;
-            publication.retired_at = Some(event.recorded_at);
+        publication.last_reviewed_at = Some(event.recorded_at);
+        if publication.supersedes.is_empty() {
+            publication.supersedes = previous
+                .and_then(|packet| packet.publication.as_ref())
+                .map(|value| value.supersedes.clone())
+                .unwrap_or_default();
         }
+        match event.action {
+            ConceptEventAction::Promote | ConceptEventAction::Update => {
+                publication.status = ConceptPublicationStatus::Active;
+                publication.retired_at = None;
+                publication.retirement_reason = None;
+            }
+            ConceptEventAction::Retire => {
+                publication.status = ConceptPublicationStatus::Retired;
+                publication.retired_at = Some(event.recorded_at);
+            }
+        }
+        concept.publication = Some(publication);
+    } else {
+        concept.publication = None;
     }
-    concept.publication = Some(publication);
     concept
 }
 
@@ -263,6 +289,162 @@ fn previous_publication(previous: Option<&ConceptPacket>, recorded_at: u64) -> C
         publication.published_at = recorded_at;
     }
     publication
+}
+
+fn hydrate_curated_concept(
+    mut concept: ConceptPacket,
+    node_to_lineage: &HashMap<NodeId, LineageId>,
+    history_events: &[LineageEvent],
+) -> ConceptPacket {
+    concept.core_member_lineages = normalize_member_lineages(
+        &concept.core_members,
+        &concept.core_member_lineages,
+        node_to_lineage,
+        history_events,
+    );
+    concept.supporting_member_lineages = normalize_member_lineages(
+        &concept.supporting_members,
+        &concept.supporting_member_lineages,
+        node_to_lineage,
+        history_events,
+    );
+    concept.likely_test_lineages = normalize_member_lineages(
+        &concept.likely_tests,
+        &concept.likely_test_lineages,
+        node_to_lineage,
+        history_events,
+    );
+    resolve_curated_concept_members(concept, node_to_lineage)
+}
+
+fn resolve_curated_concept_members(
+    mut concept: ConceptPacket,
+    node_to_lineage: &HashMap<NodeId, LineageId>,
+) -> ConceptPacket {
+    let (core_members, core_member_lineages) = resolve_member_bindings(
+        &concept.core_members,
+        &concept.core_member_lineages,
+        node_to_lineage,
+    );
+    let (supporting_members, supporting_member_lineages) = resolve_member_bindings(
+        &concept.supporting_members,
+        &concept.supporting_member_lineages,
+        node_to_lineage,
+    );
+    let (likely_tests, likely_test_lineages) = resolve_member_bindings(
+        &concept.likely_tests,
+        &concept.likely_test_lineages,
+        node_to_lineage,
+    );
+    concept.core_members = core_members;
+    concept.core_member_lineages = core_member_lineages;
+    concept.supporting_members = supporting_members;
+    concept.supporting_member_lineages = supporting_member_lineages;
+    concept.likely_tests = likely_tests;
+    concept.likely_test_lineages = likely_test_lineages;
+    concept
+}
+
+fn normalize_member_lineages(
+    members: &[NodeId],
+    lineages: &[Option<LineageId>],
+    node_to_lineage: &HashMap<NodeId, LineageId>,
+    history_events: &[LineageEvent],
+) -> Vec<Option<LineageId>> {
+    members
+        .iter()
+        .enumerate()
+        .map(|(index, member)| {
+            lineages
+                .get(index)
+                .cloned()
+                .flatten()
+                .or_else(|| node_to_lineage.get(member).cloned())
+                .or_else(|| lineage_hint_from_history(member, history_events))
+        })
+        .collect()
+}
+
+fn resolve_member_bindings(
+    members: &[NodeId],
+    lineages: &[Option<LineageId>],
+    node_to_lineage: &HashMap<NodeId, LineageId>,
+) -> (Vec<NodeId>, Vec<Option<LineageId>>) {
+    let mut resolved_members = Vec::new();
+    let mut resolved_lineages = Vec::new();
+
+    for (index, member) in members.iter().enumerate() {
+        let lineage = lineages
+            .get(index)
+            .cloned()
+            .flatten()
+            .or_else(|| node_to_lineage.get(member).cloned());
+        let resolved = match lineage.as_ref() {
+            Some(lineage) => resolve_current_member(member, lineage, node_to_lineage),
+            None if node_to_lineage.contains_key(member) => Some(member.clone()),
+            None => None,
+        };
+        let Some(resolved) = resolved else {
+            continue;
+        };
+        if resolved_members
+            .iter()
+            .any(|candidate| candidate == &resolved)
+        {
+            continue;
+        }
+        resolved_lineages.push(lineage);
+        resolved_members.push(resolved);
+    }
+
+    (resolved_members, resolved_lineages)
+}
+
+fn resolve_current_member(
+    original: &NodeId,
+    lineage: &LineageId,
+    node_to_lineage: &HashMap<NodeId, LineageId>,
+) -> Option<NodeId> {
+    if node_to_lineage.get(original) == Some(lineage) {
+        return Some(original.clone());
+    }
+
+    current_nodes_for_lineage(node_to_lineage, lineage)
+        .into_iter()
+        .min_by(|left, right| candidate_rank(left, original).cmp(&candidate_rank(right, original)))
+}
+
+fn current_nodes_for_lineage(
+    node_to_lineage: &HashMap<NodeId, LineageId>,
+    lineage: &LineageId,
+) -> Vec<NodeId> {
+    let mut nodes = node_to_lineage
+        .iter()
+        .filter_map(|(node, candidate)| (candidate == lineage).then_some(node.clone()))
+        .collect::<Vec<_>>();
+    nodes.sort_by(|left, right| {
+        left.path
+            .cmp(&right.path)
+            .then_with(|| left.crate_name.cmp(&right.crate_name))
+    });
+    nodes
+}
+
+fn candidate_rank(candidate: &NodeId, original: &NodeId) -> (u8, u8, String, String) {
+    (
+        u8::from(candidate.kind != original.kind),
+        u8::from(candidate.crate_name != original.crate_name),
+        candidate.path.to_string(),
+        candidate.crate_name.to_string(),
+    )
+}
+
+fn lineage_hint_from_history(node: &NodeId, history_events: &[LineageEvent]) -> Option<LineageId> {
+    history_events.iter().rev().find_map(|event| {
+        (event.before.iter().any(|candidate| candidate == node)
+            || event.after.iter().any(|candidate| candidate == node))
+        .then(|| event.lineage.clone())
+    })
 }
 
 fn derive_packet(
@@ -367,6 +549,10 @@ fn derive_packet(
         ));
     }
 
+    let core_member_lineages = member_lineages(&core_members, node_to_lineage);
+    let supporting_member_lineages = member_lineages(&supporting_members, node_to_lineage);
+    let likely_test_lineages = member_lineages(&likely_tests, node_to_lineage);
+
     Some(ConceptPacket {
         handle: format!("concept://{}", definition.handle_slug),
         canonical_name: definition.canonical_name.to_string(),
@@ -378,11 +564,15 @@ fn derive_packet(
             .collect(),
         confidence,
         core_members,
+        core_member_lineages,
         supporting_members,
+        supporting_member_lineages,
         likely_tests,
+        likely_test_lineages,
         evidence,
         risk_hint: definition.risk_hint.map(str::to_string),
         decode_lenses: definition.decode_lenses.to_vec(),
+        scope: ConceptScope::Session,
         provenance: ConceptProvenance {
             origin: "derived_seed".to_string(),
             kind: "seeded_concept".to_string(),
@@ -390,6 +580,16 @@ fn derive_packet(
         },
         publication: None,
     })
+}
+
+fn member_lineages(
+    members: &[NodeId],
+    node_to_lineage: &HashMap<NodeId, LineageId>,
+) -> Vec<Option<LineageId>> {
+    members
+        .iter()
+        .map(|member| node_to_lineage.get(member).cloned())
+        .collect()
 }
 
 fn node_score(

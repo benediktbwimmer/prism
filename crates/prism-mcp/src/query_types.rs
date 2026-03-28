@@ -55,14 +55,18 @@ pub(crate) struct SearchArgs {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ConceptQueryArgs {
     pub(crate) query: String,
     pub(crate) limit: Option<usize>,
+    pub(crate) include_binding_metadata: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ConceptHandleArgs {
     pub(crate) handle: String,
+    pub(crate) include_binding_metadata: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -71,6 +75,7 @@ pub(crate) struct DecodeConceptArgs {
     pub(crate) handle: Option<String>,
     pub(crate) query: Option<String>,
     pub(crate) lens: String,
+    pub(crate) include_binding_metadata: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -325,6 +330,7 @@ pub(crate) fn parse_memory_kind(value: &str) -> Result<MemoryKind> {
 pub(crate) fn parse_memory_scope(value: &str) -> Result<MemoryScope> {
     match value.to_ascii_lowercase().as_str() {
         "local" | "private" | "machine" => Ok(MemoryScope::Local),
+        "session" | "workspace" => Ok(MemoryScope::Session),
         "repo" | "shared" => Ok(MemoryScope::Repo),
         other => Err(anyhow!("unknown memory scope `{other}`")),
     }
@@ -503,6 +509,7 @@ pub(crate) fn convert_memory_source(source: MemorySourceInput) -> prism_memory::
 pub(crate) fn convert_memory_scope(scope: crate::MemoryScopeInput) -> MemoryScope {
     match scope {
         crate::MemoryScopeInput::Local => MemoryScope::Local,
+        crate::MemoryScopeInput::Session => MemoryScope::Session,
         crate::MemoryScopeInput::Repo => MemoryScope::Repo,
     }
 }

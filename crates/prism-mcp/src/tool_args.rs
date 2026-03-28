@@ -264,6 +264,10 @@ pub(crate) struct PrismConceptArgs {
         description = "Optional decode lens. When provided, also decode the concept into supporting context."
     )]
     pub(crate) lens: Option<PrismConceptLensInput>,
+    #[schemars(
+        description = "When true, include lineage-backed binding metadata aligned with the concept member lists."
+    )]
+    pub(crate) include_binding_metadata: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -275,11 +279,23 @@ pub(crate) enum ConceptMutationOperationInput {
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ConceptScopeInput {
+    Local,
+    Session,
+    Repo,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismConceptMutationArgs {
-    #[schemars(description = "Whether to promote a new repo concept packet or update an existing one.")]
+    #[schemars(
+        description = "Whether to promote a new repo concept packet or update an existing one."
+    )]
     pub(crate) operation: ConceptMutationOperationInput,
-    #[schemars(description = "Stable concept handle like `concept://validation_pipeline`. Required for `update`. Optional for `promote`; Prism derives one from `canonicalName` when omitted.")]
+    #[schemars(
+        description = "Stable concept handle like `concept://validation_pipeline`. Required for `update`. Optional for `promote`; Prism derives one from `canonicalName` when omitted."
+    )]
     pub(crate) handle: Option<String>,
     #[schemars(description = "Canonical repo-native concept name. Required for `promote`.")]
     pub(crate) canonical_name: Option<String>,
@@ -287,7 +303,9 @@ pub(crate) struct PrismConceptMutationArgs {
     pub(crate) summary: Option<String>,
     #[schemars(description = "Common aliases for the concept.")]
     pub(crate) aliases: Option<Vec<String>>,
-    #[schemars(description = "2 to 5 central member nodes for the concept. Required for `promote`.")]
+    #[schemars(
+        description = "2 to 5 central member nodes for the concept. Required for `promote`."
+    )]
     pub(crate) core_members: Option<Vec<NodeIdInput>>,
     #[schemars(description = "Optional supporting member nodes.")]
     pub(crate) supporting_members: Option<Vec<NodeIdInput>>,
@@ -301,6 +319,10 @@ pub(crate) struct PrismConceptMutationArgs {
     pub(crate) confidence: Option<f32>,
     #[schemars(description = "Optional decode lenses Prism should expose for this concept.")]
     pub(crate) decode_lenses: Option<Vec<PrismConceptLensInput>>,
+    #[schemars(
+        description = "Concept persistence scope. `local` stays runtime-only, `session` persists in the workspace store, and `repo` exports to committed repo knowledge."
+    )]
+    pub(crate) scope: Option<ConceptScopeInput>,
     #[schemars(description = "Optional concept handles this published concept supersedes.")]
     pub(crate) supersedes: Option<Vec<String>>,
     #[schemars(description = "Reason for retiring a concept. Required for `retire`.")]
@@ -441,6 +463,7 @@ pub(crate) enum MemoryMutationActionInput {
 #[serde(rename_all = "snake_case")]
 pub(crate) enum MemoryScopeInput {
     Local,
+    Session,
     Repo,
 }
 

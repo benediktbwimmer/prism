@@ -101,6 +101,7 @@ type SearchOptions = {
 
 type ConceptQueryOptions = {
   limit?: number;
+  includeBindingMetadata?: boolean;
 };
 
 type ImplementationOptions = {
@@ -259,9 +260,9 @@ type PrismApi = {
   symbols(query: string): SymbolView[];
   search(query: string, options?: SearchOptions): SymbolView[];
   concepts(query: string, options?: ConceptQueryOptions): ConceptPacketView[];
-  concept(query: string): ConceptPacketView | null;
-  conceptByHandle(handle: string): ConceptPacketView | null;
-  decodeConcept(input: { handle?: string; query?: string; lens?: "open" | "workset" | "validation" | "timeline" | "memory" }): ConceptDecodeView | null;
+  concept(query: string, options?: ConceptQueryOptions): ConceptPacketView | null;
+  conceptByHandle(handle: string, options?: { includeBindingMetadata?: boolean }): ConceptPacketView | null;
+  decodeConcept(input: { handle?: string; query?: string; lens?: "open" | "workset" | "validation" | "timeline" | "memory"; includeBindingMetadata?: boolean }): ConceptDecodeView | null;
   searchText(query: string, options?: SearchTextOptions): TextSearchMatchView[];
   textSearchBundle(query: string, options?: TextSearchBundleOptions): TextSearchBundleView;
   tools(): ToolCatalogEntryView[];
@@ -680,6 +681,25 @@ type ValidationRecipeView = {
 
 type ConceptDecodeLensView = "open" | "workset" | "validation" | "timeline" | "memory";
 
+type ConceptScopeView = "local" | "session" | "repo";
+
+type ConceptPublicationStatusView = "active" | "retired";
+
+type ConceptProvenanceView = {
+  origin: string;
+  kind: string;
+  taskId?: string;
+};
+
+type ConceptPublicationView = {
+  publishedAt: number;
+  lastReviewedAt?: number;
+  status: ConceptPublicationStatusView;
+  supersedes: string[];
+  retiredAt?: number;
+  retirementReason?: string;
+};
+
 type ConceptPacketView = {
   handle: string;
   canonicalName: string;
@@ -692,6 +712,14 @@ type ConceptPacketView = {
   evidence: string[];
   riskHint?: string;
   decodeLenses: ConceptDecodeLensView[];
+  scope: ConceptScopeView;
+  provenance: ConceptProvenanceView;
+  publication?: ConceptPublicationView;
+  bindingMetadata?: {
+    coreMemberLineages: Array<string | null>;
+    supportingMemberLineages: Array<string | null>;
+    likelyTestLineages: Array<string | null>;
+  };
 };
 
 type ConceptDecodeView = {

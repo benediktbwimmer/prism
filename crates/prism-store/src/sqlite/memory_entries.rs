@@ -253,6 +253,7 @@ fn extract_task_id_from_entry(entry: &MemoryEntry) -> Option<String> {
 fn memory_scope_label(scope: MemoryScope) -> &'static str {
     match scope {
         MemoryScope::Local => "local",
+        MemoryScope::Session => "session",
         MemoryScope::Repo => "repo",
     }
 }
