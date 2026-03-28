@@ -34,20 +34,21 @@ use crate::{
     owner_symbol_views_for_query, owner_symbol_views_for_target, owner_views_for_target,
     parse_capability, parse_claim_mode, parse_event_actor, parse_memory_event_action,
     parse_memory_kind, parse_memory_scope, parse_node_kind, parse_outcome_kind,
-    parse_outcome_result, parse_typescript_error, plan_view, policy_violation_record_view,
-    promoted_memory_entries, promoted_summary_texts, promoted_validation_checks, query_diagnostic,
-    rank_search_results, read_context_view_cached, recent_change_context_view_cached,
-    recent_patches, relations_view, resolve_concepts_for_session, result_decode_error,
-    runtime_or_serialization_error, scored_memory_view, search_queries, source_excerpt_for_symbol,
-    spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
-    task_intent_view, task_journal_view, task_risk_view, task_validation_recipe_view,
-    tool_catalog_views, tool_schema_view, validation_context_view_cached,
-    validation_recipe_view_with, weak_concept_match_reason, weak_search_match_diagnostic_data,
-    weak_search_match_reason, where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs,
-    ChangedSymbolsArgs, ConceptHandleArgs, ConceptQueryArgs, CoordinationTaskTargetArgs,
-    CuratorJobArgs, CuratorJobsArgs, CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs,
-    DiscoveryTargetArgs, EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs,
-    LimitArgs, MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
+    parse_outcome_result, parse_typescript_error, plan_execution_overlay_view, plan_graph_view,
+    plan_view, policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
+    promoted_validation_checks, query_diagnostic, rank_search_results, read_context_view_cached,
+    recent_change_context_view_cached, recent_patches, relations_view,
+    resolve_concepts_for_session, result_decode_error, runtime_or_serialization_error,
+    scored_memory_view, search_queries, source_excerpt_for_symbol, spec_cluster_view,
+    spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids, task_intent_view,
+    task_journal_view, task_risk_view, task_validation_recipe_view, tool_catalog_views,
+    tool_schema_view, validation_context_view_cached, validation_recipe_view_with,
+    weak_concept_match_reason, weak_search_match_diagnostic_data, weak_search_match_reason,
+    where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs,
+    ConceptHandleArgs, ConceptQueryArgs, CoordinationTaskTargetArgs, CuratorJobArgs,
+    CuratorJobsArgs, CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs, DiscoveryTargetArgs,
+    EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs,
+    MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
     PendingReviewsArgs, PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage,
     QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs,
     SearchAmbiguityContext, SearchArgs, SearchTextArgs, SemanticContextCache, SessionState,
@@ -680,6 +681,24 @@ impl QueryExecution {
                     self.prism
                         .coordination_plan(&PlanId::new(args.plan_id))
                         .map(plan_view),
+                )?)
+            }
+            "planGraph" => {
+                let args: PlanTargetArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(
+                    self.prism
+                        .plan_graph(&PlanId::new(args.plan_id))
+                        .map(plan_graph_view),
+                )?)
+            }
+            "planExecution" => {
+                let args: PlanTargetArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(
+                    self.prism
+                        .plan_execution(&PlanId::new(args.plan_id))
+                        .into_iter()
+                        .map(plan_execution_overlay_view)
+                        .collect::<Vec<_>>(),
                 )?)
             }
             "coordinationTask" => {

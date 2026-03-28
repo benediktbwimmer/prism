@@ -113,6 +113,8 @@ impl PrismMcpFeatures {
                 Some("internal_developer")
             }
             "plan"
+            | "planGraph"
+            | "planExecution"
             | "coordinationTask"
             | "readyTasks"
             | "blockers"

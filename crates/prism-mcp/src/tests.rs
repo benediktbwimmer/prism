@@ -1981,6 +1981,8 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
 const sym = prism.symbol("main");
 return {{
   plan: prism.plan("{plan_id}"),
+  planGraph: prism.planGraph("{plan_id}"),
+  planExecution: prism.planExecution("{plan_id}"),
   ready: prism.readyTasks("{plan_id}"),
   claims: sym ? prism.claims(sym) : [],
   artifacts: prism.artifacts("{task_id}"),
@@ -2004,6 +2006,26 @@ return {{
         envelope["result"]["plan"]["goal"],
         "Coordinate the main edit"
     );
+    assert_eq!(envelope["result"]["planGraph"]["id"], plan_id);
+    assert_eq!(
+        envelope["result"]["planGraph"]["nodes"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        envelope["result"]["planGraph"]["edges"]
+            .as_array()
+            .unwrap()
+            .len(),
+        0
+    );
+    let execution = envelope["result"]["planExecution"].as_array().unwrap();
+    assert_eq!(execution.len(), 1);
+    assert_eq!(execution[0]["nodeId"], task_id);
+    assert!(execution[0]["session"].as_str().is_some());
+    assert!(execution[0]["pendingHandoffTo"].is_null());
     assert_eq!(envelope["result"]["ready"].as_array().unwrap().len(), 1);
     assert_eq!(envelope["result"]["claims"].as_array().unwrap().len(), 1);
     assert_eq!(envelope["result"]["artifacts"].as_array().unwrap().len(), 1);

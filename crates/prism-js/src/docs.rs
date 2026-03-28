@@ -275,6 +275,8 @@ type PrismApi = {
   entrypoints(): SymbolView[];
   file(path: string): FileView;
   plan(planId: string): PlanView | null;
+  planGraph(planId: string): PlanGraphView | null;
+  planExecution(planId: string): PlanExecutionOverlayView[];
   task(taskId: string): CoordinationTaskView | null;
   readyTasks(planId: string): CoordinationTaskView[];
   claims(target: SymbolView | NodeId | AnchorRef | Array<SymbolView | NodeId | AnchorRef>): ClaimView[];
@@ -1168,6 +1170,75 @@ type PlanView = {
   goal: string;
   status: string;
   rootTaskIds: string[];
+};
+
+type ValidationRefView = {
+  kind: string;
+  value: string;
+};
+
+type PlanBindingView = {
+  anchors: AnchorRef[];
+  conceptHandles: string[];
+  artifactRefs: string[];
+  memoryRefs: string[];
+  outcomeRefs: string[];
+};
+
+type PlanAcceptanceCriterionView = {
+  label: string;
+  anchors: AnchorRef[];
+  requiredChecks: ValidationRefView[];
+  evidencePolicy: string;
+};
+
+type PlanNodeView = {
+  id: string;
+  planId: string;
+  kind: string;
+  title: string;
+  summary?: string;
+  status: string;
+  bindings: PlanBindingView;
+  acceptance: PlanAcceptanceCriterionView[];
+  isAbstract: boolean;
+  assignee?: string;
+  baseRevision: WorkspaceRevisionView;
+  priority?: number;
+  tags: string[];
+  metadata: Record<string, unknown>;
+};
+
+type PlanEdgeView = {
+  id: string;
+  planId: string;
+  from: string;
+  to: string;
+  kind: string;
+  summary?: string;
+  metadata: Record<string, unknown>;
+};
+
+type PlanGraphView = {
+  id: string;
+  scope: string;
+  kind: string;
+  title: string;
+  goal: string;
+  status: string;
+  revision: number;
+  rootNodeIds: string[];
+  tags: string[];
+  createdFrom?: string;
+  metadata: Record<string, unknown>;
+  nodes: PlanNodeView[];
+  edges: PlanEdgeView[];
+};
+
+type PlanExecutionOverlayView = {
+  nodeId: string;
+  pendingHandoffTo?: string;
+  session?: string;
 };
 
 type CoordinationTaskView = {

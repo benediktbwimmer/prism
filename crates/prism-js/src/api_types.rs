@@ -1,8 +1,8 @@
 use prism_coordination::BlockerKind;
 use prism_ir::{
     AnchorRef, ArtifactStatus, Capability, ClaimMode, ClaimStatus, ConflictOverlapKind,
-    ConflictSeverity, CoordinationTaskStatus, EdgeKind, EdgeOrigin, Language, NodeKind, PlanStatus,
-    Span,
+    ConflictSeverity, CoordinationTaskStatus, EdgeKind, EdgeOrigin, Language, NodeKind,
+    PlanEdgeKind, PlanKind, PlanNodeKind, PlanNodeStatus, PlanScope, PlanStatus, Span,
 };
 use prism_memory::OutcomeEvent;
 use schemars::JsonSchema;
@@ -806,6 +806,88 @@ pub struct PlanView {
     pub goal: String,
     pub status: PlanStatus,
     pub root_task_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidationRefView {
+    pub id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanBindingView {
+    pub anchors: Vec<AnchorRef>,
+    pub concept_handles: Vec<String>,
+    pub artifact_refs: Vec<String>,
+    pub memory_refs: Vec<String>,
+    pub outcome_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanAcceptanceCriterionView {
+    pub label: String,
+    pub anchors: Vec<AnchorRef>,
+    pub required_checks: Vec<ValidationRefView>,
+    pub evidence_policy: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanNodeView {
+    pub id: String,
+    pub plan_id: String,
+    pub kind: PlanNodeKind,
+    pub title: String,
+    pub summary: Option<String>,
+    pub status: PlanNodeStatus,
+    pub bindings: PlanBindingView,
+    pub acceptance: Vec<PlanAcceptanceCriterionView>,
+    pub is_abstract: bool,
+    pub assignee: Option<String>,
+    pub base_revision: WorkspaceRevisionView,
+    pub priority: Option<u8>,
+    pub tags: Vec<String>,
+    pub metadata: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanEdgeView {
+    pub id: String,
+    pub plan_id: String,
+    pub from: String,
+    pub to: String,
+    pub kind: PlanEdgeKind,
+    pub summary: Option<String>,
+    pub metadata: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanGraphView {
+    pub id: String,
+    pub scope: PlanScope,
+    pub kind: PlanKind,
+    pub title: String,
+    pub goal: String,
+    pub status: PlanStatus,
+    pub revision: u64,
+    pub root_node_ids: Vec<String>,
+    pub tags: Vec<String>,
+    pub created_from: Option<String>,
+    pub metadata: Value,
+    pub nodes: Vec<PlanNodeView>,
+    pub edges: Vec<PlanEdgeView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanExecutionOverlayView {
+    pub node_id: String,
+    pub pending_handoff_to: Option<String>,
+    pub session: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

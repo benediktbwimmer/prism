@@ -319,6 +319,18 @@ fn query_method_specs() -> Vec<(
             "Read a coordination plan.",
         ),
         (
+            "planGraph",
+            "coordination",
+            Some("workflow"),
+            "Read the first-class plan graph projection for a coordination plan.",
+        ),
+        (
+            "planExecution",
+            "coordination",
+            Some("workflow"),
+            "Read runtime execution overlays for plan nodes.",
+        ),
+        (
             "coordinationTask",
             "coordination",
             Some("workflow"),

@@ -630,6 +630,12 @@ globalThis.prism = Object.freeze({
   plan(planId) {
     return __prismHost("plan", { planId });
   },
+  planGraph(planId) {
+    return __prismHost("planGraph", { planId });
+  },
+  planExecution(planId) {
+    return __prismHost("planExecution", { planId });
+  },
   task(taskId) {
     return __prismHost("coordinationTask", { taskId });
   },

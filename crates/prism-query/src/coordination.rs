@@ -2,8 +2,8 @@ use prism_coordination::{
     Artifact, CoordinationConflict, CoordinationTask, Plan, TaskBlocker, WorkClaim,
 };
 use prism_ir::{
-    AnchorRef, ArtifactId, Capability, ClaimMode, CoordinationTaskId, PlanId, SessionId, Timestamp,
-    WorkspaceRevision,
+    AnchorRef, ArtifactId, Capability, ClaimMode, CoordinationTaskId, PlanExecutionOverlay,
+    PlanGraph, PlanId, SessionId, Timestamp, WorkspaceRevision,
 };
 
 use crate::common::{anchor_sort_key, sort_node_ids};
@@ -23,6 +23,14 @@ impl Prism {
 
     pub fn coordination_task(&self, task_id: &CoordinationTaskId) -> Option<CoordinationTask> {
         self.coordination.task(task_id)
+    }
+
+    pub fn plan_graph(&self, plan_id: &PlanId) -> Option<PlanGraph> {
+        self.coordination.plan_graph(plan_id)
+    }
+
+    pub fn plan_execution(&self, plan_id: &PlanId) -> Vec<PlanExecutionOverlay> {
+        self.coordination.plan_execution_overlays(plan_id)
     }
 
     pub fn ready_tasks(&self, plan_id: &PlanId, now: Timestamp) -> Vec<CoordinationTask> {

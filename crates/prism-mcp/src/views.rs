@@ -9,9 +9,11 @@ use prism_js::{
     ConceptPublicationStatusView, ConceptPublicationView, ConceptResolutionView, ConceptScopeView,
     ConflictView, CoordinationTaskView, CuratorJobView, CuratorProposalRecordView,
     CuratorProposalView, DriftCandidateView, EdgeView, MemoryEntryView, MemoryEventView,
-    NodeIdView, PlanView, PolicyViolationRecordView, PolicyViolationView, QueryDiagnostic,
-    ScoredMemoryView, TaskIntentView, TaskRiskView, TaskValidationRecipeView, ValidationCheckView,
-    ValidationRecipeView, WorkspaceRevisionView,
+    NodeIdView, PlanAcceptanceCriterionView, PlanBindingView, PlanEdgeView,
+    PlanExecutionOverlayView, PlanGraphView, PlanNodeView, PlanView, PolicyViolationRecordView,
+    PolicyViolationView, QueryDiagnostic, ScoredMemoryView, TaskIntentView, TaskRiskView,
+    TaskValidationRecipeView, ValidationCheckView, ValidationRecipeView, ValidationRefView,
+    WorkspaceRevisionView,
 };
 use prism_memory::{MemoryEntry, MemoryEvent, MemorySource, ScoredMemory};
 use prism_query::{
@@ -625,6 +627,98 @@ pub(crate) fn plan_view(value: prism_coordination::Plan) -> PlanView {
             .into_iter()
             .map(|task_id| task_id.0.to_string())
             .collect(),
+    }
+}
+
+pub(crate) fn plan_graph_view(value: prism_ir::PlanGraph) -> PlanGraphView {
+    PlanGraphView {
+        id: value.id.0.to_string(),
+        scope: value.scope,
+        kind: value.kind,
+        title: value.title,
+        goal: value.goal,
+        status: value.status,
+        revision: value.revision,
+        root_node_ids: value
+            .root_nodes
+            .into_iter()
+            .map(|node_id| node_id.0.to_string())
+            .collect(),
+        tags: value.tags,
+        created_from: value.created_from,
+        metadata: value.metadata,
+        nodes: value.nodes.into_iter().map(plan_node_view).collect(),
+        edges: value.edges.into_iter().map(plan_edge_view).collect(),
+    }
+}
+
+pub(crate) fn plan_execution_overlay_view(
+    value: prism_ir::PlanExecutionOverlay,
+) -> PlanExecutionOverlayView {
+    PlanExecutionOverlayView {
+        node_id: value.node_id.0.to_string(),
+        pending_handoff_to: value.pending_handoff_to.map(|agent| agent.0.to_string()),
+        session: value.session.map(|session| session.0.to_string()),
+    }
+}
+
+fn plan_node_view(value: prism_ir::PlanNode) -> PlanNodeView {
+    PlanNodeView {
+        id: value.id.0.to_string(),
+        plan_id: value.plan_id.0.to_string(),
+        kind: value.kind,
+        title: value.title,
+        summary: value.summary,
+        status: value.status,
+        bindings: plan_binding_view(value.bindings),
+        acceptance: value
+            .acceptance
+            .into_iter()
+            .map(plan_acceptance_criterion_view)
+            .collect(),
+        is_abstract: value.is_abstract,
+        assignee: value.assignee.map(|agent| agent.0.to_string()),
+        base_revision: workspace_revision_view(value.base_revision),
+        priority: value.priority,
+        tags: value.tags,
+        metadata: value.metadata,
+    }
+}
+
+fn plan_binding_view(value: prism_ir::PlanBinding) -> PlanBindingView {
+    PlanBindingView {
+        anchors: value.anchors,
+        concept_handles: value.concept_handles,
+        artifact_refs: value.artifact_refs,
+        memory_refs: value.memory_refs,
+        outcome_refs: value.outcome_refs,
+    }
+}
+
+fn plan_acceptance_criterion_view(
+    value: prism_ir::PlanAcceptanceCriterion,
+) -> PlanAcceptanceCriterionView {
+    PlanAcceptanceCriterionView {
+        label: value.label,
+        anchors: value.anchors,
+        required_checks: value
+            .required_checks
+            .into_iter()
+            .map(|check| ValidationRefView { id: check.id })
+            .collect(),
+        evidence_policy: format!("{:?}", value.evidence_policy),
+    }
+}
+
+fn plan_edge_view(value: prism_ir::PlanEdge) -> PlanEdgeView {
+    PlanEdgeView {
+        id: value.id.0.to_string(),
+        plan_id: value.plan_id.0.to_string(),
+        from: value.from.0.to_string(),
+        to: value.to.0.to_string(),
+        kind: value.kind,
+        summary: value.summary,
+        metadata: value.metadata,
     }
 }
 
