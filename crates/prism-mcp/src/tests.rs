@@ -3727,6 +3727,67 @@ fn compact_agent_tools_keep_handles_stable_within_one_session() {
     assert_eq!(first.candidates[0].handle, second.candidates[0].handle);
 }
 
+#[test]
+fn compact_locate_uses_intent_to_choose_between_code_and_docs() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn event_journal_snapshot() {}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("docs/SPEC.md"),
+        r#"
+# Demo
+
+## Event Journal
+
+This section explains the event journal flow.
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let edit = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "event journal".to_string(),
+                path: None,
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                limit: Some(3),
+            },
+        )
+        .expect("edit locate should succeed");
+    assert_eq!(edit.status, prism_js::AgentLocateStatus::Ok);
+    assert_eq!(edit.candidates[0].kind, NodeKind::Function);
+    assert_eq!(edit.candidates[0].path, "demo::event_journal_snapshot");
+
+    let explain = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "event journal".to_string(),
+                path: None,
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                limit: Some(3),
+            },
+        )
+        .expect("explain locate should succeed");
+    assert_eq!(explain.status, prism_js::AgentLocateStatus::Ok);
+    assert_eq!(explain.candidates[0].kind, NodeKind::MarkdownHeading);
+    assert!(explain.candidates[0]
+        .file_path
+        .as_deref()
+        .is_some_and(|path| path.ends_with("docs/SPEC.md")));
+}
+
 #[tokio::test]
 async fn mcp_server_executes_compact_agent_tool_round_trip() {
     let root = temp_workspace();

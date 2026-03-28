@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use anyhow::{anyhow, Result};
 use globset::{GlobBuilder, GlobMatcher};
-use prism_ir::{LineageId, NodeId};
+use prism_ir::{LineageId, NodeId, NodeKind};
 use prism_js::{
     AgentExpandKind, AgentExpandResultView, AgentLocateResultView, AgentLocateStatus,
     AgentOpenMode, AgentOpenResultView, AgentTargetHandleView, AgentWorksetResultView,
@@ -48,6 +48,21 @@ const WORKSET_TRUNCATED_NEXT_ACTION: &str =
 const EXPAND_NEIGHBOR_LIMIT: usize = 6;
 const EXPAND_DIFF_LIMIT: usize = 5;
 const MAX_WHY_SHORT_CHARS: usize = 120;
+const LOCATE_SECONDARY_FILE_DIVERSITY_BONUS: i32 = 18;
+const LOCATE_SECONDARY_KIND_DIVERSITY_BONUS: i32 = 7;
+
+#[derive(Debug, Clone)]
+struct RankedLocateCandidate {
+    symbol: SymbolView,
+    score: i32,
+    why: String,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct LocateIntentProfile {
+    code_bias: i32,
+    docs_bias: i32,
+}
 
 impl QueryHost {
     pub(crate) fn compact_locate(
@@ -76,11 +91,15 @@ impl QueryHost {
                 )?;
 
                 let applied = compact_locate_limit(args.limit);
-                let candidates = results
+                let candidates = rerank_locate_results(results, &args, applied)
                     .into_iter()
-                    .take(applied)
-                    .map(|symbol| {
-                        compact_target_view(&session, &symbol, Some(args.query.as_str()), None)
+                    .map(|candidate| {
+                        compact_target_view(
+                            &session,
+                            &candidate.symbol,
+                            Some(args.query.as_str()),
+                            Some(candidate.why),
+                        )
                     })
                     .collect::<Vec<_>>();
                 let diagnostics = execution.diagnostics();
@@ -441,7 +460,7 @@ fn locate_intent_defaults(
         PrismLocateTaskIntentInput::Validate | PrismLocateTaskIntentInput::Test => {
             ("behavioral", Some("test"), true, false, true)
         }
-        PrismLocateTaskIntentInput::Explain => ("behavioral", Some("read"), false, false, true),
+        PrismLocateTaskIntentInput::Explain => ("direct", Some("read"), false, false, true),
     }
 }
 
@@ -557,6 +576,269 @@ fn compact_target_from_session_target(
         why_short: target.why_short.clone(),
         file_path: target.file_path.clone(),
     }
+}
+
+fn rerank_locate_results(
+    results: Vec<SymbolView>,
+    args: &PrismLocateArgs,
+    limit: usize,
+) -> Vec<RankedLocateCandidate> {
+    let query_normalized = normalize_locate_text(&args.query);
+    let tokens = locate_query_tokens(&query_normalized);
+    let profile = locate_intent_profile(args);
+    let mut ranked = results
+        .into_iter()
+        .enumerate()
+        .map(|(index, symbol)| {
+            rank_locate_candidate(index, symbol, &query_normalized, &tokens, profile)
+        })
+        .collect::<Vec<_>>();
+    ranked.sort_by(|left, right| {
+        right
+            .score
+            .cmp(&left.score)
+            .then_with(|| left.symbol.id.path.cmp(&right.symbol.id.path))
+    });
+    select_locate_candidates(ranked, limit)
+}
+
+fn rank_locate_candidate(
+    index: usize,
+    symbol: SymbolView,
+    query_normalized: &str,
+    tokens: &[String],
+    profile: LocateIntentProfile,
+) -> RankedLocateCandidate {
+    let name_normalized = normalize_locate_text(&symbol.name);
+    let path_normalized = normalize_locate_text(&symbol.id.path);
+    let file_normalized = normalize_locate_text(symbol.file_path.as_deref().unwrap_or_default());
+    let mut score = 0_i32;
+    let mut reasons = Vec::<String>::new();
+
+    if !query_normalized.is_empty() {
+        if name_normalized == *query_normalized {
+            score += 240;
+            reasons.push("Exact query matched the candidate name.".to_string());
+        } else if final_segment_normalized(&symbol.id.path) == query_normalized {
+            score += 210;
+            reasons.push("Exact query matched the candidate path tail.".to_string());
+        } else if name_normalized.contains(query_normalized) {
+            score += 170;
+            reasons.push("Exact query phrase matched the candidate name.".to_string());
+        } else if path_normalized.contains(query_normalized) {
+            score += 150;
+            reasons.push("Exact query phrase matched the candidate path.".to_string());
+        } else if file_normalized.contains(query_normalized) {
+            score += 110;
+            reasons.push("Exact query phrase matched the candidate file path.".to_string());
+        }
+    }
+
+    let mut matched_tokens = 0;
+    for token in tokens {
+        if token.is_empty() {
+            continue;
+        }
+        if name_normalized.contains(token) {
+            score += 34;
+            matched_tokens += 1;
+        } else if path_normalized.contains(token) {
+            score += 26;
+            matched_tokens += 1;
+        } else if file_normalized.contains(token) {
+            score += 16;
+            matched_tokens += 1;
+        }
+    }
+    if !tokens.is_empty() && matched_tokens == tokens.len() {
+        score += 72;
+        reasons.push(format!(
+            "Matched all {} significant query terms.",
+            tokens.len()
+        ));
+    } else if matched_tokens > 0 {
+        reasons.push(format!(
+            "Matched {matched_tokens}/{} significant query terms.",
+            tokens.len()
+        ));
+    }
+
+    if is_code_like_kind(symbol.kind) {
+        score += profile.code_bias;
+        if profile.code_bias > 0 {
+            reasons.push("Locate intent favored callable or editable code.".to_string());
+        }
+    }
+    if is_docs_like_kind(symbol.kind) {
+        score += profile.docs_bias;
+        if profile.docs_bias > 0 {
+            reasons.push("Locate intent favored docs or structured spec surfaces.".to_string());
+        }
+    }
+    if symbol.file_path.as_deref().is_some_and(is_docs_path) {
+        score += profile.docs_bias / 2;
+    }
+    if matches!(symbol.kind, NodeKind::Module) {
+        score -= 18;
+    }
+
+    score -= index as i32;
+    RankedLocateCandidate {
+        symbol,
+        score,
+        why: clamp_string(
+            &reasons
+                .into_iter()
+                .next()
+                .unwrap_or_else(|| "Locate ranked this as a strong first-hop target.".to_string()),
+            MAX_WHY_SHORT_CHARS,
+        ),
+    }
+}
+
+fn select_locate_candidates(
+    mut ranked: Vec<RankedLocateCandidate>,
+    limit: usize,
+) -> Vec<RankedLocateCandidate> {
+    let mut selected = Vec::<RankedLocateCandidate>::new();
+    while selected.len() < limit && !ranked.is_empty() {
+        let best_index = ranked
+            .iter()
+            .enumerate()
+            .max_by_key(|(_, candidate)| {
+                candidate.score + locate_diversity_bonus(candidate, &selected)
+            })
+            .map(|(index, _)| index)
+            .expect("ranked candidates should not be empty");
+        selected.push(ranked.remove(best_index));
+    }
+    selected
+}
+
+fn locate_diversity_bonus(
+    candidate: &RankedLocateCandidate,
+    selected: &[RankedLocateCandidate],
+) -> i32 {
+    if selected.is_empty() {
+        return 0;
+    }
+    let mut bonus = 0;
+    let candidate_file = candidate.symbol.file_path.as_deref();
+    if candidate_file.is_some()
+        && selected
+            .iter()
+            .all(|item| item.symbol.file_path.as_deref() != candidate_file)
+    {
+        bonus += LOCATE_SECONDARY_FILE_DIVERSITY_BONUS;
+    }
+    if selected
+        .iter()
+        .all(|item| item.symbol.kind != candidate.symbol.kind)
+    {
+        bonus += LOCATE_SECONDARY_KIND_DIVERSITY_BONUS;
+    }
+    bonus
+}
+
+fn locate_intent_profile(args: &PrismLocateArgs) -> LocateIntentProfile {
+    let docs_path_bias = args.path.as_deref().is_some_and(is_docs_path)
+        || args
+            .glob
+            .as_deref()
+            .is_some_and(|glob| glob.contains("docs/") || glob.ends_with(".md"));
+    match args
+        .task_intent
+        .as_ref()
+        .unwrap_or(&PrismLocateTaskIntentInput::Edit)
+    {
+        PrismLocateTaskIntentInput::Edit => LocateIntentProfile {
+            code_bias: 95,
+            docs_bias: if docs_path_bias { 20 } else { -80 },
+        },
+        PrismLocateTaskIntentInput::Validate | PrismLocateTaskIntentInput::Test => {
+            LocateIntentProfile {
+                code_bias: 72,
+                docs_bias: if docs_path_bias { 16 } else { -48 },
+            }
+        }
+        PrismLocateTaskIntentInput::Explain => LocateIntentProfile {
+            code_bias: 18,
+            docs_bias: if docs_path_bias { 110 } else { 58 },
+        },
+        PrismLocateTaskIntentInput::Inspect => LocateIntentProfile {
+            code_bias: 32,
+            docs_bias: if docs_path_bias { 80 } else { 20 },
+        },
+    }
+}
+
+fn locate_query_tokens(query_normalized: &str) -> Vec<String> {
+    let mut tokens = Vec::<String>::new();
+    for token in query_normalized.split_whitespace() {
+        if token.len() < 2 || is_locate_stopword(token) {
+            continue;
+        }
+        if !tokens.iter().any(|existing| existing == token) {
+            tokens.push(token.to_string());
+        }
+    }
+    tokens
+}
+
+fn normalize_locate_text(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                ' '
+            }
+        })
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn final_segment_normalized(path: &str) -> String {
+    normalize_locate_text(path.split("::").last().unwrap_or(path))
+}
+
+fn is_locate_stopword(token: &str) -> bool {
+    matches!(
+        token,
+        "a" | "an" | "and" | "for" | "in" | "of" | "or" | "the" | "to" | "with"
+    )
+}
+
+fn is_code_like_kind(kind: NodeKind) -> bool {
+    matches!(
+        kind,
+        NodeKind::Function
+            | NodeKind::Method
+            | NodeKind::Struct
+            | NodeKind::Enum
+            | NodeKind::Trait
+            | NodeKind::Impl
+            | NodeKind::Field
+            | NodeKind::TypeAlias
+    )
+}
+
+fn is_docs_like_kind(kind: NodeKind) -> bool {
+    matches!(
+        kind,
+        NodeKind::Document
+            | NodeKind::MarkdownHeading
+            | NodeKind::JsonKey
+            | NodeKind::TomlKey
+            | NodeKind::YamlKey
+    )
+}
+
+fn is_docs_path(path: &str) -> bool {
+    path.contains("/docs/") || path.starts_with("docs/") || path.ends_with(".md")
 }
 
 fn budgeted_workset_result(
