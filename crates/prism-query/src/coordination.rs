@@ -31,6 +31,13 @@ impl Prism {
             .task(task_id)
     }
 
+    pub fn coordination_artifact(&self, artifact_id: &ArtifactId) -> Option<Artifact> {
+        self.continuity_runtime
+            .read()
+            .expect("continuity runtime lock poisoned")
+            .artifact(artifact_id)
+    }
+
     pub fn plan_graph(&self, plan_id: &PlanId) -> Option<PlanGraph> {
         self.plan_runtime
             .read()
@@ -209,10 +216,7 @@ impl Prism {
     }
 
     pub(crate) fn coordinating_artifact(&self, artifact_id: &ArtifactId) -> Option<Artifact> {
-        self.continuity_runtime
-            .read()
-            .expect("continuity runtime lock poisoned")
-            .artifact(artifact_id)
+        self.coordination_artifact(artifact_id)
     }
 }
 

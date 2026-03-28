@@ -1256,6 +1256,13 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
         .any(|blocker| blocker.kind == prism_coordination::BlockerKind::Dependency));
     assert_eq!(prism.claims(&[AnchorRef::Node(alpha.clone())], 10).len(), 1);
     assert_eq!(prism.artifacts(&task_id).len(), 1);
+    assert_eq!(
+        prism
+            .coordination_artifact(&prism_ir::ArtifactId::new("artifact:runtime"))
+            .expect("runtime artifact should exist")
+            .task,
+        task_id
+    );
 }
 
 #[test]

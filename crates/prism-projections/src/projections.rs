@@ -10,8 +10,9 @@ use crate::concepts::{
     merge_concept_packets, rank_concepts, resolve_concepts, resolve_curated_concepts,
 };
 use crate::types::{
-    CoChangeDelta, CoChangeRecord, ConceptEvent, ConceptPacket, ConceptResolution, ConceptScope,
-    ProjectionSnapshot, ValidationCheck, ValidationDelta,
+    CoChangeDelta, CoChangeRecord, ConceptEvent, ConceptHealth, ConceptHealthSignals,
+    ConceptHealthStatus, ConceptPacket, ConceptResolution, ConceptScope, ProjectionSnapshot,
+    ValidationCheck, ValidationDelta,
 };
 
 pub const MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE: usize = 32;
@@ -338,6 +339,13 @@ impl ProjectionIndex {
         concept_by_handle(&self.concept_packets, handle)
     }
 
+    pub fn concept_health(&self, handle: &str) -> Option<ConceptHealth> {
+        let resolved = concept_by_handle(&self.concept_packets, handle)?;
+        let original =
+            concept_by_handle(&self.curated_concepts, handle).unwrap_or_else(|| resolved.clone());
+        Some(self.compute_concept_health(&original, &resolved))
+    }
+
     pub fn concept_packets(&self) -> &[ConceptPacket] {
         &self.concept_packets
     }
@@ -348,6 +356,263 @@ impl ProjectionIndex {
             &self.node_to_lineage,
         ));
     }
+
+    fn compute_concept_health(
+        &self,
+        original: &ConceptPacket,
+        resolved: &ConceptPacket,
+    ) -> ConceptHealth {
+        let original_core_count = original.core_members.len().max(1);
+        let original_slots = collect_member_slots(original);
+        let slot_count = original_slots.len().max(1);
+        let live_core_member_ratio = (resolved.core_members.len() as f32 / original_core_count as f32)
+            .clamp(0.0, 1.0);
+
+        let lineage_coverage_count = original_slots
+            .iter()
+            .filter(|slot| slot.lineage.is_some())
+            .count();
+        let lineage_coverage_ratio =
+            (lineage_coverage_count as f32 / slot_count as f32).clamp(0.0, 1.0);
+
+        let mut changed_slots = 0usize;
+        let mut rebound_slots = 0usize;
+        for slot in &original_slots {
+            let current = resolve_member_for_health(&slot.member, slot.lineage.as_ref(), &self.node_to_lineage);
+            if current.as_ref() != Some(&slot.member) {
+                changed_slots += 1;
+                if current.is_some() {
+                    rebound_slots += 1;
+                }
+            }
+        }
+        let member_churn_ratio = (changed_slots as f32 / slot_count as f32).clamp(0.0, 1.0);
+        let rebind_success_ratio = if changed_slots == 0 {
+            1.0
+        } else {
+            (rebound_slots as f32 / changed_slots as f32).clamp(0.0, 1.0)
+        };
+
+        let concept_lineages = current_concept_lineages(resolved);
+        let validated_lineages = concept_lineages
+            .iter()
+            .filter(|lineage| {
+                self.validation_by_lineage
+                    .get(*lineage)
+                    .is_some_and(|checks| !checks.is_empty())
+            })
+            .count();
+        let validation_coverage_ratio = if concept_lineages.is_empty() {
+            0.0
+        } else {
+            (validated_lineages as f32 / concept_lineages.len() as f32).clamp(0.0, 1.0)
+        };
+
+        let ambiguity_ratio = self.concept_ambiguity_ratio(resolved);
+        let stale_validation_links =
+            !resolved.likely_tests.is_empty() && validation_coverage_ratio == 0.0;
+        let stale_risk_hint = resolved.risk_hint.is_some()
+            && (member_churn_ratio > 0.0 || live_core_member_ratio < 1.0 || ambiguity_ratio >= 0.7);
+        let superseded_by = self.active_superseders(&resolved.handle);
+
+        let mut reasons = Vec::new();
+        if live_core_member_ratio < 1.0 {
+            reasons.push(format!(
+                "Only {} of {} core members still resolve cleanly.",
+                resolved.core_members.len(),
+                original.core_members.len()
+            ));
+        }
+        if changed_slots > 0 {
+            reasons.push(format!(
+                "{} member binding(s) moved; {} rebounded through lineage.",
+                changed_slots, rebound_slots
+            ));
+        }
+        if ambiguity_ratio >= 0.6 {
+            reasons.push("Concept retrieval is ambiguous against nearby concepts.".to_string());
+        }
+        if stale_validation_links {
+            reasons.push(
+                "Concept has likely tests but no validation checks on current member lineages."
+                    .to_string(),
+            );
+        }
+        if stale_risk_hint {
+            reasons.push("Risk hint may be stale relative to the current concept bindings.".to_string());
+        }
+        if !superseded_by.is_empty() {
+            reasons.push(format!(
+                "Superseded by active concept(s): {}.",
+                superseded_by.join(", ")
+            ));
+        }
+        if reasons.is_empty() {
+            reasons.push("Concept members, retrieval, and validations look stable.".to_string());
+        }
+
+        let signals = ConceptHealthSignals {
+            live_core_member_ratio,
+            lineage_coverage_ratio,
+            rebind_success_ratio,
+            member_churn_ratio,
+            validation_coverage_ratio,
+            ambiguity_ratio,
+            stale_validation_links,
+            stale_risk_hint,
+        };
+        let score = (
+            0.35 * live_core_member_ratio
+                + 0.15 * lineage_coverage_ratio
+                + 0.15 * rebind_success_ratio
+                + 0.15 * (1.0 - member_churn_ratio)
+                + 0.10 * validation_coverage_ratio
+                + 0.10 * (1.0 - ambiguity_ratio)
+                - if stale_validation_links { 0.1 } else { 0.0 }
+                - if stale_risk_hint { 0.05 } else { 0.0 }
+        )
+        .clamp(0.0, 1.0);
+
+        let status = if !superseded_by.is_empty() {
+            ConceptHealthStatus::SupersededCandidate
+        } else if live_core_member_ratio < 0.5 || rebind_success_ratio < 0.5 {
+            ConceptHealthStatus::NeedsRepair
+        } else if ambiguity_ratio >= 0.9 && member_churn_ratio >= 0.25 {
+            ConceptHealthStatus::SplitCandidate
+        } else if live_core_member_ratio < 1.0
+            || member_churn_ratio > 0.0
+            || stale_validation_links
+            || stale_risk_hint
+            || ambiguity_ratio >= 0.6
+        {
+            ConceptHealthStatus::Drifted
+        } else {
+            ConceptHealthStatus::Healthy
+        };
+
+        ConceptHealth {
+            handle: resolved.handle.clone(),
+            status,
+            score,
+            reasons,
+            signals,
+            superseded_by,
+        }
+    }
+
+    fn concept_ambiguity_ratio(&self, concept: &ConceptPacket) -> f32 {
+        let mut queries = vec![concept.canonical_name.clone()];
+        queries.extend(concept.aliases.iter().cloned());
+        queries.sort();
+        queries.dedup();
+
+        let mut max_ratio = 0.0;
+        for query in queries {
+            let resolutions = resolve_concepts(&self.concept_packets, &query, 2);
+            let Some(primary) = resolutions.first() else {
+                continue;
+            };
+            if !primary.packet.handle.eq_ignore_ascii_case(&concept.handle) {
+                return 1.0;
+            }
+            if let Some(second) = resolutions.get(1) {
+                let top_score = primary.score.max(1) as f32;
+                max_ratio = max_ratio.max((second.score as f32 / top_score).clamp(0.0, 1.0));
+            }
+        }
+        max_ratio
+    }
+
+    fn active_superseders(&self, handle: &str) -> Vec<String> {
+        let mut handles = self
+            .concept_packets
+            .iter()
+            .filter(|concept| {
+                concept.handle != handle
+                    && concept.publication.as_ref().is_some_and(|publication| {
+                        publication.status == crate::ConceptPublicationStatus::Active
+                            && publication
+                                .supersedes
+                                .iter()
+                                .any(|candidate| candidate.eq_ignore_ascii_case(handle))
+                    })
+            })
+            .map(|concept| concept.handle.clone())
+            .collect::<Vec<_>>();
+        handles.sort();
+        handles
+    }
+}
+
+#[derive(Clone)]
+struct MemberSlot {
+    member: NodeId,
+    lineage: Option<LineageId>,
+}
+
+fn collect_member_slots(packet: &ConceptPacket) -> Vec<MemberSlot> {
+    let mut slots = member_slots(&packet.core_members, &packet.core_member_lineages);
+    slots.extend(member_slots(
+        &packet.supporting_members,
+        &packet.supporting_member_lineages,
+    ));
+    slots.extend(member_slots(&packet.likely_tests, &packet.likely_test_lineages));
+    slots
+}
+
+fn member_slots(members: &[NodeId], lineages: &[Option<LineageId>]) -> Vec<MemberSlot> {
+    members
+        .iter()
+        .enumerate()
+        .map(|(index, member)| MemberSlot {
+            member: member.clone(),
+            lineage: lineages.get(index).cloned().flatten(),
+        })
+        .collect()
+}
+
+fn current_concept_lineages(packet: &ConceptPacket) -> Vec<LineageId> {
+    let mut lineages = packet
+        .core_member_lineages
+        .iter()
+        .chain(packet.supporting_member_lineages.iter())
+        .chain(packet.likely_test_lineages.iter())
+        .filter_map(|lineage| lineage.clone())
+        .collect::<Vec<_>>();
+    lineages.sort_by(|left, right| left.0.cmp(&right.0));
+    lineages.dedup();
+    lineages
+}
+
+fn resolve_member_for_health(
+    original: &NodeId,
+    lineage: Option<&LineageId>,
+    node_to_lineage: &HashMap<NodeId, LineageId>,
+) -> Option<NodeId> {
+    match lineage {
+        Some(lineage) => {
+            if node_to_lineage.get(original) == Some(lineage) {
+                return Some(original.clone());
+            }
+            node_to_lineage
+                .iter()
+                .filter_map(|(candidate, current)| (current == lineage).then_some(candidate.clone()))
+                .min_by(|left, right| {
+                    candidate_rank_for_health(left, original).cmp(&candidate_rank_for_health(right, original))
+                })
+        }
+        None if node_to_lineage.contains_key(original) => Some(original.clone()),
+        None => None,
+    }
+}
+
+fn candidate_rank_for_health(candidate: &NodeId, original: &NodeId) -> (u8, u8, String, String) {
+    (
+        u8::from(candidate.kind != original.kind),
+        u8::from(candidate.crate_name != original.crate_name),
+        candidate.path.to_string(),
+        candidate.crate_name.to_string(),
+    )
 }
 
 pub fn co_change_deltas_for_events(events: &[LineageEvent]) -> Vec<CoChangeDelta> {

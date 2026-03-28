@@ -55,6 +55,41 @@ pub struct ConceptResolution {
     pub reasons: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConceptHealthStatus {
+    Healthy,
+    Drifted,
+    NeedsRepair,
+    SplitCandidate,
+    SupersededCandidate,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConceptHealthSignals {
+    pub live_core_member_ratio: f32,
+    pub lineage_coverage_ratio: f32,
+    pub rebind_success_ratio: f32,
+    pub member_churn_ratio: f32,
+    pub validation_coverage_ratio: f32,
+    pub ambiguity_ratio: f32,
+    pub stale_validation_links: bool,
+    pub stale_risk_hint: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConceptHealth {
+    pub handle: String,
+    pub status: ConceptHealthStatus,
+    pub score: f32,
+    pub reasons: Vec<String>,
+    pub signals: ConceptHealthSignals,
+    #[serde(default)]
+    pub superseded_by: Vec<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ConceptPublicationStatus {

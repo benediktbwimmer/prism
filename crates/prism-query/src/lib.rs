@@ -45,9 +45,10 @@ pub use crate::source::{
 pub use crate::symbol::{Relations, Symbol};
 pub use crate::types::{
     canonical_concept_handle, ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens,
-    ConceptEvent, ConceptEventAction, ConceptPacket, ConceptProvenance, ConceptPublication,
-    ConceptPublicationStatus, ConceptScope, DriftCandidate, QueryLimits, TaskIntent, TaskRisk,
-    TaskValidationRecipe, ValidationCheck, ValidationRecipe,
+    ConceptEvent, ConceptEventAction, ConceptHealth, ConceptHealthSignals, ConceptHealthStatus,
+    ConceptPacket, ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptScope,
+    DriftCandidate, QueryLimits, TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck,
+    ValidationRecipe,
 };
 
 pub struct Prism {
@@ -335,17 +336,17 @@ impl Prism {
         meta: EventMeta,
         input: TaskCreateInput,
     ) -> Result<CoordinationTask> {
-        let store = CoordinationStore::from_snapshot(self.coordination.snapshot());
-        match store.create_task(meta, input) {
+        let mut runtime = CoordinationRuntimeState::from_snapshot(self.coordination.snapshot());
+        match runtime.create_task(meta, input) {
             Ok((_, task)) => {
-                let snapshot = store.snapshot();
-                self.mutate_native_plan_runtime_from_snapshot(snapshot, |runtime| {
-                    runtime.create_task_from_coordination(&task)?;
+                let snapshot = runtime.snapshot();
+                self.mutate_native_plan_runtime_from_snapshot(snapshot, |plan_runtime| {
+                    plan_runtime.create_task_from_coordination(&task)?;
                     Ok(task.clone())
                 })
             }
             Err(error) => {
-                self.persist_native_plan_runtime_against_snapshot(store.snapshot())?;
+                self.persist_native_plan_runtime_against_snapshot(runtime.snapshot())?;
                 Err(error)
             }
         }
@@ -358,17 +359,17 @@ impl Prism {
         current_revision: WorkspaceRevision,
         now: u64,
     ) -> Result<CoordinationTask> {
-        let store = CoordinationStore::from_snapshot(self.coordination.snapshot());
-        match store.update_task(meta, input, current_revision, now) {
+        let mut runtime = CoordinationRuntimeState::from_snapshot(self.coordination.snapshot());
+        match runtime.update_task(meta, input, current_revision, now) {
             Ok(task) => {
-                let snapshot = store.snapshot();
-                self.mutate_native_plan_runtime_from_snapshot(snapshot, |runtime| {
-                    runtime.update_task_from_coordination(&task)?;
+                let snapshot = runtime.snapshot();
+                self.mutate_native_plan_runtime_from_snapshot(snapshot, |plan_runtime| {
+                    plan_runtime.update_task_from_coordination(&task)?;
                     Ok(task.clone())
                 })
             }
             Err(error) => {
-                self.persist_native_plan_runtime_against_snapshot(store.snapshot())?;
+                self.persist_native_plan_runtime_against_snapshot(runtime.snapshot())?;
                 Err(error)
             }
         }
@@ -380,17 +381,17 @@ impl Prism {
         input: HandoffInput,
         current_revision: WorkspaceRevision,
     ) -> Result<CoordinationTask> {
-        let store = CoordinationStore::from_snapshot(self.coordination.snapshot());
-        match store.handoff(meta, input, current_revision) {
+        let mut runtime = CoordinationRuntimeState::from_snapshot(self.coordination.snapshot());
+        match runtime.handoff(meta, input, current_revision) {
             Ok(task) => {
-                let snapshot = store.snapshot();
-                self.mutate_native_plan_runtime_from_snapshot(snapshot, |runtime| {
-                    runtime.update_task_from_coordination(&task)?;
+                let snapshot = runtime.snapshot();
+                self.mutate_native_plan_runtime_from_snapshot(snapshot, |plan_runtime| {
+                    plan_runtime.update_task_from_coordination(&task)?;
                     Ok(task.clone())
                 })
             }
             Err(error) => {
-                self.persist_native_plan_runtime_against_snapshot(store.snapshot())?;
+                self.persist_native_plan_runtime_against_snapshot(runtime.snapshot())?;
                 Err(error)
             }
         }
@@ -401,17 +402,17 @@ impl Prism {
         meta: EventMeta,
         input: HandoffAcceptInput,
     ) -> Result<CoordinationTask> {
-        let store = CoordinationStore::from_snapshot(self.coordination.snapshot());
-        match store.accept_handoff(meta, input) {
+        let mut runtime = CoordinationRuntimeState::from_snapshot(self.coordination.snapshot());
+        match runtime.accept_handoff(meta, input) {
             Ok(task) => {
-                let snapshot = store.snapshot();
-                self.mutate_native_plan_runtime_from_snapshot(snapshot, |runtime| {
-                    runtime.update_task_from_coordination(&task)?;
+                let snapshot = runtime.snapshot();
+                self.mutate_native_plan_runtime_from_snapshot(snapshot, |plan_runtime| {
+                    plan_runtime.update_task_from_coordination(&task)?;
                     Ok(task.clone())
                 })
             }
             Err(error) => {
-                self.persist_native_plan_runtime_against_snapshot(store.snapshot())?;
+                self.persist_native_plan_runtime_against_snapshot(runtime.snapshot())?;
                 Err(error)
             }
         }
@@ -714,5 +715,17 @@ impl Prism {
             .read()
             .expect("projection lock poisoned")
             .concept_by_handle(handle)
+    }
+
+    pub fn concept_health(&self, query: &str) -> Option<ConceptHealth> {
+        let handle = self.resolve_concept(query)?.packet.handle;
+        self.concept_health_by_handle(&handle)
+    }
+
+    pub fn concept_health_by_handle(&self, handle: &str) -> Option<ConceptHealth> {
+        self.projections
+            .read()
+            .expect("projection lock poisoned")
+            .concept_health(handle)
     }
 }

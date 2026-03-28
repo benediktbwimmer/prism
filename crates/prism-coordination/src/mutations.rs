@@ -6,6 +6,7 @@ use prism_ir::{
 };
 use serde_json::{json, Value};
 
+use crate::blockers::{completion_blockers, completion_policy_blockers};
 use crate::helpers::{
     claim_is_active, dedupe_anchors, dedupe_conflicts, dedupe_event_ids, dedupe_ids,
     dedupe_strings, derived_event_meta, editor_capacity_conflicts, expire_claims_locked,
@@ -18,8 +19,8 @@ use crate::state::CoordinationStore;
 use crate::types::{
     Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
     ClaimAcquireInput, CoordinationEvent, CoordinationTask, HandoffAcceptInput, HandoffInput, Plan,
-    PlanCreateInput, PlanUpdateInput, PolicyViolation, PolicyViolationCode, TaskUpdateInput,
-    WorkClaim,
+    PlanCreateInput, PlanUpdateInput, PolicyViolation, PolicyViolationCode, TaskCreateInput,
+    TaskUpdateInput, WorkClaim,
 };
 
 fn rejection_error(
@@ -730,65 +731,87 @@ pub(crate) fn review_artifact_mutation(
     Ok((review_id, review, artifact))
 }
 
-impl CoordinationStore {
-    pub fn create_plan(&self, meta: EventMeta, input: PlanCreateInput) -> Result<(PlanId, Plan)> {
-        let mut state = self
-            .state
-            .write()
-            .expect("coordination store lock poisoned");
-        state.next_plan += 1;
-        let id = PlanId::new(format!("plan:{}", state.next_plan));
-        let plan = Plan {
-            id: id.clone(),
-            goal: input.goal.clone(),
-            status: input.status.unwrap_or(PlanStatus::Active),
-            policy: input.policy.unwrap_or_default(),
-            root_tasks: Vec::new(),
-        };
-        state.plans.insert(id.clone(), plan.clone());
-        state.events.push(CoordinationEvent {
-            meta,
-            kind: CoordinationEventKind::PlanCreated,
-            summary: input.goal,
-            plan: Some(id.clone()),
-            task: None,
-            claim: None,
-            artifact: None,
-            review: None,
-            metadata: Value::Null,
-        });
-        Ok((id, plan))
-    }
+pub(crate) fn create_plan_mutation(
+    state: &mut CoordinationState,
+    meta: EventMeta,
+    input: PlanCreateInput,
+) -> Result<(PlanId, Plan)> {
+    state.next_plan += 1;
+    let id = PlanId::new(format!("plan:{}", state.next_plan));
+    let plan = Plan {
+        id: id.clone(),
+        goal: input.goal.clone(),
+        status: input.status.unwrap_or(PlanStatus::Active),
+        policy: input.policy.unwrap_or_default(),
+        root_tasks: Vec::new(),
+    };
+    state.plans.insert(id.clone(), plan.clone());
+    state.events.push(CoordinationEvent {
+        meta,
+        kind: CoordinationEventKind::PlanCreated,
+        summary: input.goal,
+        plan: Some(id.clone()),
+        task: None,
+        claim: None,
+        artifact: None,
+        review: None,
+        metadata: Value::Null,
+    });
+    Ok((id, plan))
+}
 
-    pub fn update_plan(&self, meta: EventMeta, input: PlanUpdateInput) -> Result<Plan> {
-        let mut state = self
-            .state
-            .write()
-            .expect("coordination store lock poisoned");
-        let previous = state
-            .plans
-            .get(&input.plan_id)
-            .cloned()
-            .ok_or_else(|| anyhow!("unknown plan `{}`", input.plan_id.0))?;
-        if matches!(
-            previous.status,
-            PlanStatus::Completed | PlanStatus::Abandoned
-        ) && (input.goal.is_some() || input.policy.is_some())
-        {
+pub(crate) fn update_plan_mutation(
+    state: &mut CoordinationState,
+    meta: EventMeta,
+    input: PlanUpdateInput,
+) -> Result<Plan> {
+    let previous = state
+        .plans
+        .get(&input.plan_id)
+        .cloned()
+        .ok_or_else(|| anyhow!("unknown plan `{}`", input.plan_id.0))?;
+    if matches!(previous.status, PlanStatus::Completed | PlanStatus::Abandoned)
+        && (input.goal.is_some() || input.policy.is_some())
+    {
+        let violations = vec![policy_violation(
+            PolicyViolationCode::TerminalPlanEdit,
+            format!(
+                "terminal coordination plan `{}` cannot be edited",
+                previous.id.0
+            ),
+            Some(previous.id.clone()),
+            None,
+            None,
+            None,
+            Value::Null,
+        )];
+        return Err(rejection_error(
+            state,
+            &meta,
+            "coordination plan update rejected",
+            Some(previous.id),
+            None,
+            None,
+            None,
+            violations,
+        ));
+    }
+    if let Some(next_status) = input.status {
+        if let Err(error) = validate_plan_transition(previous.status, next_status) {
             let violations = vec![policy_violation(
-                PolicyViolationCode::TerminalPlanEdit,
-                format!(
-                    "terminal coordination plan `{}` cannot be edited",
-                    previous.id.0
-                ),
+                PolicyViolationCode::InvalidPlanTransition,
+                error.to_string(),
                 Some(previous.id.clone()),
                 None,
                 None,
                 None,
-                Value::Null,
+                json!({
+                    "from": format!("{:?}", previous.status),
+                    "to": format!("{:?}", next_status),
+                }),
             )];
             return Err(rejection_error(
-                &mut state,
+                state,
                 &meta,
                 "coordination plan update rejected",
                 Some(previous.id),
@@ -798,124 +821,828 @@ impl CoordinationStore {
                 violations,
             ));
         }
-        if let Some(next_status) = input.status {
-            if let Err(error) = validate_plan_transition(previous.status, next_status) {
-                let violations = vec![policy_violation(
-                    PolicyViolationCode::InvalidPlanTransition,
-                    error.to_string(),
-                    Some(previous.id.clone()),
+    }
+    if matches!(input.status, Some(PlanStatus::Completed)) {
+        let mut violations = state
+            .tasks
+            .values()
+            .filter(|task| task.plan == input.plan_id)
+            .filter(|task| {
+                !matches!(
+                    task.status,
+                    CoordinationTaskStatus::Completed | CoordinationTaskStatus::Abandoned
+                )
+            })
+            .map(|task| {
+                policy_violation(
+                    PolicyViolationCode::IncompletePlanTasks,
+                    format!("coordination task `{}` is still {:?}", task.id.0, task.status),
+                    Some(input.plan_id.clone()),
+                    Some(task.id.clone()),
                     None,
                     None,
+                    Value::Null,
+                )
+            })
+            .collect::<Vec<_>>();
+        let active_claim_violations = state
+            .claims
+            .values()
+            .filter(|claim| claim_is_active(claim, meta.ts))
+            .filter(|claim| {
+                claim
+                    .task
+                    .as_ref()
+                    .and_then(|task_id| state.tasks.get(task_id))
+                    .map(|task| task.plan == input.plan_id)
+                    .unwrap_or(false)
+            })
+            .map(|claim| {
+                policy_violation(
+                    PolicyViolationCode::ActivePlanClaims,
+                    format!("claim `{}` is still active for this plan", claim.id.0),
+                    Some(input.plan_id.clone()),
+                    claim.task.clone(),
+                    Some(claim.id.clone()),
                     None,
-                    json!({
-                        "from": format!("{:?}", previous.status),
-                        "to": format!("{:?}", next_status),
-                    }),
-                )];
-                return Err(rejection_error(
-                    &mut state,
-                    &meta,
-                    "coordination plan update rejected",
-                    Some(previous.id),
-                    None,
-                    None,
-                    None,
-                    violations,
-                ));
-            }
+                    Value::Null,
+                )
+            })
+            .collect::<Vec<_>>();
+        violations.extend(active_claim_violations);
+        if !violations.is_empty() {
+            return Err(rejection_error(
+                state,
+                &meta,
+                "coordination plan cannot be completed",
+                Some(input.plan_id),
+                None,
+                None,
+                None,
+                violations,
+            ));
         }
-        if matches!(input.status, Some(PlanStatus::Completed)) {
-            let mut violations = state
-                .tasks
-                .values()
-                .filter(|task| task.plan == input.plan_id)
-                .filter(|task| {
-                    !matches!(
-                        task.status,
-                        CoordinationTaskStatus::Completed | CoordinationTaskStatus::Abandoned
-                    )
-                })
-                .map(|task| {
-                    policy_violation(
-                        PolicyViolationCode::IncompletePlanTasks,
-                        format!(
-                            "coordination task `{}` is still {:?}",
-                            task.id.0, task.status
-                        ),
-                        Some(input.plan_id.clone()),
-                        Some(task.id.clone()),
-                        None,
-                        None,
-                        Value::Null,
-                    )
-                })
-                .collect::<Vec<_>>();
-            let active_claim_violations = state
-                .claims
-                .values()
-                .filter(|claim| claim_is_active(claim, meta.ts))
-                .filter(|claim| {
-                    claim
-                        .task
-                        .as_ref()
-                        .and_then(|task_id| state.tasks.get(task_id))
-                        .map(|task| task.plan == input.plan_id)
-                        .unwrap_or(false)
-                })
-                .map(|claim| {
-                    policy_violation(
-                        PolicyViolationCode::ActivePlanClaims,
-                        format!("claim `{}` is still active for this plan", claim.id.0),
-                        Some(input.plan_id.clone()),
-                        claim.task.clone(),
-                        Some(claim.id.clone()),
-                        None,
-                        Value::Null,
-                    )
-                })
-                .collect::<Vec<_>>();
-            violations.extend(active_claim_violations);
-            if !violations.is_empty() {
-                return Err(rejection_error(
-                    &mut state,
-                    &meta,
-                    "coordination plan cannot be completed",
-                    Some(input.plan_id),
-                    None,
-                    None,
-                    None,
-                    violations,
-                ));
-            }
+    }
+    let plan = state
+        .plans
+        .get_mut(&input.plan_id)
+        .expect("plan validated above");
+    if let Some(goal) = input.goal {
+        plan.goal = goal;
+    }
+    if let Some(status) = input.status {
+        plan.status = status;
+    }
+    if let Some(policy) = input.policy {
+        plan.policy = policy;
+    }
+    let plan = plan.clone();
+    state.events.push(CoordinationEvent {
+        meta,
+        kind: CoordinationEventKind::PlanUpdated,
+        summary: plan.goal.clone(),
+        plan: Some(plan.id.clone()),
+        task: None,
+        claim: None,
+        artifact: None,
+        review: None,
+        metadata: json!({
+            "status": format!("{:?}", plan.status),
+        }),
+    });
+    Ok(plan)
+}
+
+pub(crate) fn create_task_mutation(
+    state: &mut CoordinationState,
+    meta: EventMeta,
+    input: TaskCreateInput,
+) -> Result<(CoordinationTaskId, CoordinationTask)> {
+    let Some(plan) = state.plans.get(&input.plan_id).cloned() else {
+        return Err(anyhow!("unknown plan `{}`", input.plan_id.0));
+    };
+    if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
+        let violations = vec![policy_violation(
+            PolicyViolationCode::PlanClosed,
+            format!(
+                "coordination plan `{}` is {:?} and cannot accept new tasks",
+                plan.id.0, plan.status
+            ),
+            Some(plan.id.clone()),
+            None,
+            None,
+            None,
+            Value::Null,
+        )];
+        return Err(rejection_error(
+            state,
+            &meta,
+            "coordination task creation rejected",
+            Some(plan.id),
+            None,
+            None,
+            None,
+            violations,
+        ));
+    }
+    for dependency in &input.depends_on {
+        let Some(task) = state.tasks.get(dependency) else {
+            let violations = vec![policy_violation(
+                PolicyViolationCode::MissingDependency,
+                format!("unknown dependency task `{}`", dependency.0),
+                Some(input.plan_id.clone()),
+                None,
+                None,
+                None,
+                json!({ "dependencyTaskId": dependency.0 }),
+            )];
+            return Err(rejection_error(
+                state,
+                &meta,
+                "coordination task creation rejected",
+                Some(input.plan_id.clone()),
+                None,
+                None,
+                None,
+                violations,
+            ));
+        };
+        if task.plan != input.plan_id {
+            let violations = vec![policy_violation(
+                PolicyViolationCode::CrossPlanDependency,
+                format!(
+                    "dependency task `{}` belongs to a different plan",
+                    dependency.0
+                ),
+                Some(input.plan_id.clone()),
+                None,
+                None,
+                None,
+                json!({
+                    "dependencyTaskId": dependency.0,
+                    "dependencyPlanId": task.plan.0,
+                }),
+            )];
+            return Err(rejection_error(
+                state,
+                &meta,
+                "coordination task creation rejected",
+                Some(input.plan_id.clone()),
+                None,
+                None,
+                None,
+                violations,
+            ));
         }
+    }
+    state.next_task += 1;
+    let id = CoordinationTaskId::new(format!("coord-task:{}", state.next_task));
+    let is_root = input.depends_on.is_empty();
+    let task = CoordinationTask {
+        id: id.clone(),
+        plan: input.plan_id.clone(),
+        title: input.title.clone(),
+        status: input.status.unwrap_or(CoordinationTaskStatus::Ready),
+        assignee: input.assignee,
+        pending_handoff_to: None,
+        session: input.session,
+        anchors: dedupe_anchors(input.anchors),
+        depends_on: dedupe_ids(input.depends_on),
+        acceptance: normalize_acceptance(input.acceptance),
+        base_revision: input.base_revision,
+    };
+    if is_root {
         let plan = state
             .plans
             .get_mut(&input.plan_id)
             .expect("plan validated above");
-        if let Some(goal) = input.goal {
-            plan.goal = goal;
+        plan.root_tasks.push(id.clone());
+        plan.root_tasks = dedupe_ids(plan.root_tasks.clone());
+    }
+    state.tasks.insert(id.clone(), task.clone());
+    state.events.push(CoordinationEvent {
+        meta,
+        kind: CoordinationEventKind::TaskCreated,
+        summary: input.title,
+        plan: Some(input.plan_id),
+        task: Some(id.clone()),
+        claim: None,
+        artifact: None,
+        review: None,
+        metadata: Value::Null,
+    });
+    Ok((id, task))
+}
+
+pub(crate) fn update_task_mutation(
+    state: &mut CoordinationState,
+    meta: EventMeta,
+    input: TaskUpdateInput,
+    current_revision: WorkspaceRevision,
+    now: Timestamp,
+) -> Result<CoordinationTask> {
+    let completion_context = input.completion_context.clone();
+    let next_dependencies = input.depends_on.clone().map(dedupe_ids);
+    let next_acceptance = input.acceptance.clone().map(normalize_acceptance);
+    let previous = state
+        .tasks
+        .get(&input.task_id)
+        .cloned()
+        .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
+    let Some(plan) = state.plans.get(&previous.plan).cloned() else {
+        return Err(anyhow!("unknown plan `{}`", previous.plan.0));
+    };
+    if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
+        let violations = vec![policy_violation(
+            PolicyViolationCode::PlanClosed,
+            format!(
+                "coordination plan `{}` is {:?} and cannot mutate task `{}`",
+                plan.id.0, plan.status, previous.id.0
+            ),
+            Some(plan.id.clone()),
+            Some(previous.id.clone()),
+            None,
+            None,
+            Value::Null,
+        )];
+        return Err(rejection_error(
+            state,
+            &meta,
+            "coordination task update rejected",
+            Some(plan.id),
+            Some(previous.id),
+            None,
+            None,
+            violations,
+        ));
+    }
+    let stale_writes_enforced = state
+        .plans
+        .get(&previous.plan)
+        .map(|plan| plan.policy.stale_after_graph_change)
+        .unwrap_or(false);
+    if let Some(dependencies) = next_dependencies.as_ref() {
+        validate_task_dependencies(state, &previous.plan, &previous.id, dependencies, &meta)?;
+    }
+    let task_snapshot;
+    let status_changed;
+    let mut root_membership_change = None;
+    {
+        let task = state
+            .tasks
+            .get_mut(&input.task_id)
+            .expect("task validated above");
+        if stale_writes_enforced
+            && previous.base_revision.graph_version < current_revision.graph_version
+            && input.base_revision.is_none()
+        {
+            let violations = vec![policy_violation(
+                PolicyViolationCode::StaleRevision,
+                format!(
+                    "coordination task `{}` is stale against graph version {}; provide an updated base revision before mutating it",
+                    previous.id.0, current_revision.graph_version
+                ),
+                Some(previous.plan.clone()),
+                Some(previous.id.clone()),
+                None,
+                None,
+                json!({
+                    "taskBaseGraphVersion": previous.base_revision.graph_version,
+                    "currentGraphVersion": current_revision.graph_version,
+                }),
+            )];
+            return Err(rejection_error(
+                state,
+                &meta,
+                "coordination task update rejected",
+                Some(previous.plan.clone()),
+                Some(previous.id.clone()),
+                None,
+                None,
+                violations,
+            ));
+        }
+        if let Some(base_revision) = &input.base_revision {
+            if stale_writes_enforced && base_revision.graph_version < current_revision.graph_version
+            {
+                let violations = vec![policy_violation(
+                    PolicyViolationCode::StaleRevision,
+                    format!(
+                        "coordination task `{}` cannot use stale base revision {} when current revision is {}",
+                        previous.id.0, base_revision.graph_version, current_revision.graph_version
+                    ),
+                    Some(previous.plan.clone()),
+                    Some(previous.id.clone()),
+                    None,
+                    None,
+                    json!({
+                        "baseGraphVersion": base_revision.graph_version,
+                        "currentGraphVersion": current_revision.graph_version,
+                    }),
+                )];
+                return Err(rejection_error(
+                    state,
+                    &meta,
+                    "coordination task update rejected",
+                    Some(previous.plan.clone()),
+                    Some(previous.id.clone()),
+                    None,
+                    None,
+                    violations,
+                ));
+            }
+        }
+        status_changed = input
+            .status
+            .map(|status| status != previous.status)
+            .unwrap_or(false);
+        if let Some(status) = input.status {
+            if let Err(error) = validate_task_transition(previous.status, status) {
+                let violations = vec![policy_violation(
+                    PolicyViolationCode::InvalidTaskTransition,
+                    error.to_string(),
+                    Some(previous.plan.clone()),
+                    Some(previous.id.clone()),
+                    None,
+                    None,
+                    json!({
+                        "from": format!("{:?}", previous.status),
+                        "to": format!("{:?}", status),
+                    }),
+                )];
+                return Err(rejection_error(
+                    state,
+                    &meta,
+                    "coordination task update rejected",
+                    Some(previous.plan.clone()),
+                    Some(previous.id.clone()),
+                    None,
+                    None,
+                    violations,
+                ));
+            }
+        }
+        if matches!(
+            previous.status,
+            CoordinationTaskStatus::Completed | CoordinationTaskStatus::Abandoned
+        ) && (input.title.is_some()
+            || input.anchors.is_some()
+            || input.depends_on.is_some()
+            || input.acceptance.is_some()
+            || input.assignee.is_some()
+            || input.session.is_some())
+        {
+            let violations = vec![policy_violation(
+                PolicyViolationCode::TerminalTaskEdit,
+                format!(
+                    "terminal coordination task `{}` cannot be edited",
+                    previous.id.0
+                ),
+                Some(previous.plan.clone()),
+                Some(previous.id.clone()),
+                None,
+                None,
+                Value::Null,
+            )];
+            return Err(rejection_error(
+                state,
+                &meta,
+                "coordination task update rejected",
+                Some(previous.plan.clone()),
+                Some(previous.id.clone()),
+                None,
+                None,
+                violations,
+            ));
+        }
+        if previous.pending_handoff_to.is_some()
+            && (input.title.is_some()
+                || input.anchors.is_some()
+                || input.depends_on.is_some()
+                || input.acceptance.is_some()
+                || input.assignee.is_some()
+                || input.session.is_some()
+                || input.status.is_some())
+        {
+            let violations = vec![policy_violation(
+                PolicyViolationCode::HandoffPending,
+                format!(
+                    "coordination task `{}` has a pending handoff and cannot be updated until it is accepted",
+                    previous.id.0
+                ),
+                Some(previous.plan.clone()),
+                Some(previous.id.clone()),
+                None,
+                None,
+                Value::Null,
+            )];
+            return Err(rejection_error(
+                state,
+                &meta,
+                "coordination task update rejected",
+                Some(previous.plan.clone()),
+                Some(previous.id.clone()),
+                None,
+                None,
+                violations,
+            ));
+        }
+        if let Some(title) = input.title {
+            task.title = title;
         }
         if let Some(status) = input.status {
-            plan.status = status;
+            task.status = status;
         }
-        if let Some(policy) = input.policy {
-            plan.policy = policy;
+        if let Some(assignee) = input.assignee {
+            task.assignee = assignee;
         }
-        let plan = plan.clone();
-        state.events.push(CoordinationEvent {
-            meta,
-            kind: CoordinationEventKind::PlanUpdated,
-            summary: plan.goal.clone(),
-            plan: Some(plan.id.clone()),
-            task: None,
-            claim: None,
-            artifact: None,
-            review: None,
-            metadata: json!({
-                "status": format!("{:?}", plan.status),
+        if let Some(session) = input.session {
+            task.session = session;
+        }
+        if let Some(anchors) = input.anchors {
+            task.anchors = dedupe_anchors(anchors);
+        }
+        if let Some(depends_on) = next_dependencies.clone() {
+            let previous_root = task.depends_on.is_empty();
+            let next_root = depends_on.is_empty();
+            task.depends_on = depends_on;
+            if previous_root != next_root {
+                root_membership_change = Some(next_root);
+            }
+        }
+        if let Some(acceptance) = next_acceptance.clone() {
+            task.acceptance = acceptance;
+        }
+        if let Some(base_revision) = input.base_revision {
+            task.base_revision = base_revision;
+        }
+        task_snapshot = task.clone();
+    }
+    if let Some(next_root) = root_membership_change {
+        let plan = state
+            .plans
+            .get_mut(&previous.plan)
+            .expect("task plan validated above");
+        if next_root {
+            plan.root_tasks.push(previous.id.clone());
+            plan.root_tasks = dedupe_ids(plan.root_tasks.clone());
+        } else {
+            plan.root_tasks.retain(|task_id| task_id != &previous.id);
+        }
+    }
+    let completion_blockers =
+        completion_blockers(state, &task_snapshot, current_revision.clone(), now);
+    let mut policy_blockers = if task_snapshot.status == CoordinationTaskStatus::Completed {
+        completion_policy_blockers(
+            state,
+            &task_snapshot,
+            current_revision,
+            completion_context.as_ref(),
+        )
+    } else {
+        Vec::new()
+    };
+    if task_snapshot.status == CoordinationTaskStatus::Completed
+        && (!completion_blockers.is_empty() || !policy_blockers.is_empty())
+    {
+        let mut blockers = completion_blockers;
+        blockers.append(&mut policy_blockers);
+        let violations = blockers
+            .iter()
+            .map(|blocker| {
+                policy_violation_from_blocker(
+                    blocker,
+                    task_snapshot.plan.clone(),
+                    task_snapshot.id.clone(),
+                )
+            })
+            .collect::<Vec<_>>();
+        return Err(rejection_error(
+            state,
+            &meta,
+            format!("coordination task `{}` cannot complete", task_snapshot.id.0),
+            Some(task_snapshot.plan.clone()),
+            Some(task_snapshot.id.clone()),
+            None,
+            None,
+            violations,
+        ));
+    }
+    let task = task_snapshot;
+    let kind = if previous.assignee != task.assignee {
+        CoordinationEventKind::TaskAssigned
+    } else if status_changed && task.status == CoordinationTaskStatus::Blocked {
+        CoordinationEventKind::TaskBlocked
+    } else if previous.status == CoordinationTaskStatus::Blocked && status_changed {
+        CoordinationEventKind::TaskUnblocked
+    } else {
+        CoordinationEventKind::TaskStatusChanged
+    };
+    state.events.push(CoordinationEvent {
+        meta,
+        kind,
+        summary: task.title.clone(),
+        plan: Some(task.plan.clone()),
+        task: Some(task.id.clone()),
+        claim: None,
+        artifact: None,
+        review: None,
+        metadata: json!({
+            "status": format!("{:?}", task.status),
+            "previousStatus": format!("{:?}", previous.status),
+            "assignee": task.assignee.as_ref().map(|agent| agent.0.to_string()),
+        }),
+    });
+    Ok(task)
+}
+
+pub(crate) fn handoff_mutation(
+    state: &mut CoordinationState,
+    meta: EventMeta,
+    input: HandoffInput,
+    current_revision: WorkspaceRevision,
+) -> Result<CoordinationTask> {
+    let plan = {
+        let task = state
+            .tasks
+            .get(&input.task_id)
+            .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
+        state.plans.get(&task.plan).cloned()
+    };
+    if let Some(plan) = plan.as_ref() {
+        if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
+            let violations = vec![policy_violation(
+                PolicyViolationCode::PlanClosed,
+                format!(
+                    "coordination plan `{}` is {:?} and cannot hand off task `{}`",
+                    plan.id.0, plan.status, input.task_id.0
+                ),
+                Some(plan.id.clone()),
+                Some(input.task_id.clone()),
+                None,
+                None,
+                Value::Null,
+            )];
+            return Err(rejection_error(
+                state,
+                &meta,
+                "coordination handoff rejected",
+                Some(plan.id.clone()),
+                Some(input.task_id.clone()),
+                None,
+                None,
+                violations,
+            ));
+        }
+    }
+    if input.base_revision.graph_version < current_revision.graph_version {
+        let violations = vec![policy_violation(
+            PolicyViolationCode::StaleRevision,
+            format!(
+                "coordination task `{}` cannot hand off from stale base revision {} when current revision is {}",
+                input.task_id.0, input.base_revision.graph_version, current_revision.graph_version
+            ),
+            plan.as_ref().map(|plan| plan.id.clone()),
+            Some(input.task_id.clone()),
+            None,
+            None,
+            json!({
+                "baseGraphVersion": input.base_revision.graph_version,
+                "currentGraphVersion": current_revision.graph_version,
             }),
-        });
-        Ok(plan)
+        )];
+        return Err(rejection_error(
+            state,
+            &meta,
+            "coordination handoff rejected",
+            plan.as_ref().map(|plan| plan.id.clone()),
+            Some(input.task_id.clone()),
+            None,
+            None,
+            violations,
+        ));
+    }
+    if plan
+        .as_ref()
+        .map(|plan| plan.policy.stale_after_graph_change)
+        .unwrap_or(false)
+    {
+        let task = state
+            .tasks
+            .get(&input.task_id)
+            .expect("task validated above");
+        if task.base_revision.graph_version < current_revision.graph_version {
+            let violations = vec![policy_violation(
+                PolicyViolationCode::StaleRevision,
+                format!(
+                    "coordination task `{}` is stale against graph version {} and cannot be handed off until refreshed",
+                    input.task_id.0, current_revision.graph_version
+                ),
+                plan.as_ref().map(|plan| plan.id.clone()),
+                Some(input.task_id.clone()),
+                None,
+                None,
+                json!({
+                    "taskBaseGraphVersion": task.base_revision.graph_version,
+                    "currentGraphVersion": current_revision.graph_version,
+                }),
+            )];
+            return Err(rejection_error(
+                state,
+                &meta,
+                "coordination handoff rejected",
+                plan.as_ref().map(|plan| plan.id.clone()),
+                Some(input.task_id.clone()),
+                None,
+                None,
+                violations,
+            ));
+        }
+    }
+    let task = state
+        .tasks
+        .get_mut(&input.task_id)
+        .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
+    let target_agent = input.to_agent.clone();
+    if let Some(agent) = target_agent.clone() {
+        task.pending_handoff_to = Some(agent.clone());
+        task.status = CoordinationTaskStatus::Blocked;
+    } else {
+        task.assignee = None;
+        task.session = None;
+        task.status = CoordinationTaskStatus::Ready;
+        task.pending_handoff_to = None;
+    }
+    task.base_revision = input.base_revision.clone();
+    let task = task.clone();
+    state.events.push(CoordinationEvent {
+        meta: meta.clone(),
+        kind: CoordinationEventKind::HandoffRequested,
+        summary: input.summary.clone(),
+        plan: Some(task.plan.clone()),
+        task: Some(task.id.clone()),
+        claim: None,
+        artifact: None,
+        review: None,
+        metadata: json!({
+            "to_agent": target_agent.map(|agent| agent.0.to_string())
+        }),
+    });
+    Ok(task)
+}
+
+pub(crate) fn accept_handoff_mutation(
+    state: &mut CoordinationState,
+    meta: EventMeta,
+    input: HandoffAcceptInput,
+) -> Result<CoordinationTask> {
+    let previous = state
+        .tasks
+        .get(&input.task_id)
+        .cloned()
+        .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
+    let Some(plan) = state.plans.get(&previous.plan).cloned() else {
+        return Err(anyhow!("unknown plan `{}`", previous.plan.0));
+    };
+    if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
+        let violations = vec![policy_violation(
+            PolicyViolationCode::PlanClosed,
+            format!(
+                "coordination plan `{}` is {:?} and cannot accept handoffs",
+                plan.id.0, plan.status
+            ),
+            Some(plan.id.clone()),
+            Some(previous.id.clone()),
+            None,
+            None,
+            Value::Null,
+        )];
+        return Err(rejection_error(
+            state,
+            &meta,
+            "handoff acceptance rejected",
+            Some(plan.id),
+            Some(previous.id),
+            None,
+            None,
+            violations,
+        ));
+    }
+    let Some(target) = previous.pending_handoff_to.clone() else {
+        let violations = vec![policy_violation(
+            PolicyViolationCode::HandoffPending,
+            format!(
+                "coordination task `{}` does not have a pending handoff",
+                previous.id.0
+            ),
+            Some(previous.plan.clone()),
+            Some(previous.id.clone()),
+            None,
+            None,
+            Value::Null,
+        )];
+        return Err(rejection_error(
+            state,
+            &meta,
+            "handoff acceptance rejected",
+            Some(previous.plan),
+            Some(previous.id),
+            None,
+            None,
+            violations,
+        ));
+    };
+    let Some(actor) = input.agent.clone() else {
+        let violations = vec![policy_violation(
+            PolicyViolationCode::AgentIdentityRequired,
+            format!(
+                "coordination task `{}` requires an acting agent identity to accept a handoff",
+                previous.id.0
+            ),
+            Some(previous.plan.clone()),
+            Some(previous.id.clone()),
+            None,
+            None,
+            Value::Null,
+        )];
+        return Err(rejection_error(
+            state,
+            &meta,
+            "handoff acceptance rejected",
+            Some(previous.plan),
+            Some(previous.id),
+            None,
+            None,
+            violations,
+        ));
+    };
+    if actor != target {
+        let violations = vec![policy_violation(
+            PolicyViolationCode::HandoffTargetMismatch,
+            format!(
+                "handoff for task `{}` is assigned to `{}` and cannot be accepted by `{}`",
+                previous.id.0, target.0, actor.0
+            ),
+            Some(previous.plan.clone()),
+            Some(previous.id.clone()),
+            None,
+            None,
+            json!({
+                "expectedAgent": target.0,
+                "providedAgent": actor.0.to_string(),
+            }),
+        )];
+        return Err(rejection_error(
+            state,
+            &meta,
+            "handoff acceptance rejected",
+            Some(previous.plan),
+            Some(previous.id),
+            None,
+            None,
+            violations,
+        ));
+    }
+    let task = state
+        .tasks
+        .get_mut(&input.task_id)
+        .expect("task validated above");
+    task.assignee = Some(target.clone());
+    task.pending_handoff_to = None;
+    task.session = None;
+    task.status = CoordinationTaskStatus::Ready;
+    let task = task.clone();
+    state.events.push(CoordinationEvent {
+        meta: derived_event_meta(&meta, "accepted"),
+        kind: CoordinationEventKind::HandoffAccepted,
+        summary: format!("handoff accepted by `{}`", target.0),
+        plan: Some(task.plan.clone()),
+        task: Some(task.id.clone()),
+        claim: None,
+        artifact: None,
+        review: None,
+        metadata: json!({
+            "agent": target.0.to_string(),
+        }),
+    });
+    Ok(task)
+}
+
+impl CoordinationStore {
+    pub fn create_plan(&self, meta: EventMeta, input: PlanCreateInput) -> Result<(PlanId, Plan)> {
+        let mut state = self
+            .state
+            .write()
+            .expect("coordination store lock poisoned");
+        create_plan_mutation(&mut state, meta, input)
+    }
+
+    pub fn update_plan(&self, meta: EventMeta, input: PlanUpdateInput) -> Result<Plan> {
+        let mut state = self
+            .state
+            .write()
+            .expect("coordination store lock poisoned");
+        update_plan_mutation(&mut state, meta, input)
     }
 
     pub fn create_task(
@@ -927,120 +1654,7 @@ impl CoordinationStore {
             .state
             .write()
             .expect("coordination store lock poisoned");
-        let Some(plan) = state.plans.get(&input.plan_id).cloned() else {
-            return Err(anyhow!("unknown plan `{}`", input.plan_id.0));
-        };
-        if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
-            let violations = vec![policy_violation(
-                PolicyViolationCode::PlanClosed,
-                format!(
-                    "coordination plan `{}` is {:?} and cannot accept new tasks",
-                    plan.id.0, plan.status
-                ),
-                Some(plan.id.clone()),
-                None,
-                None,
-                None,
-                Value::Null,
-            )];
-            return Err(rejection_error(
-                &mut state,
-                &meta,
-                "coordination task creation rejected",
-                Some(plan.id),
-                None,
-                None,
-                None,
-                violations,
-            ));
-        }
-        for dependency in &input.depends_on {
-            let Some(task) = state.tasks.get(dependency) else {
-                let violations = vec![policy_violation(
-                    PolicyViolationCode::MissingDependency,
-                    format!("unknown dependency task `{}`", dependency.0),
-                    Some(input.plan_id.clone()),
-                    None,
-                    None,
-                    None,
-                    json!({ "dependencyTaskId": dependency.0 }),
-                )];
-                return Err(rejection_error(
-                    &mut state,
-                    &meta,
-                    "coordination task creation rejected",
-                    Some(input.plan_id.clone()),
-                    None,
-                    None,
-                    None,
-                    violations,
-                ));
-            };
-            if task.plan != input.plan_id {
-                let violations = vec![policy_violation(
-                    PolicyViolationCode::CrossPlanDependency,
-                    format!(
-                        "dependency task `{}` belongs to a different plan",
-                        dependency.0
-                    ),
-                    Some(input.plan_id.clone()),
-                    None,
-                    None,
-                    None,
-                    json!({
-                        "dependencyTaskId": dependency.0,
-                        "dependencyPlanId": task.plan.0,
-                    }),
-                )];
-                return Err(rejection_error(
-                    &mut state,
-                    &meta,
-                    "coordination task creation rejected",
-                    Some(input.plan_id.clone()),
-                    None,
-                    None,
-                    None,
-                    violations,
-                ));
-            }
-        }
-        state.next_task += 1;
-        let id = CoordinationTaskId::new(format!("coord-task:{}", state.next_task));
-        let is_root = input.depends_on.is_empty();
-        let task = CoordinationTask {
-            id: id.clone(),
-            plan: input.plan_id.clone(),
-            title: input.title.clone(),
-            status: input.status.unwrap_or(CoordinationTaskStatus::Ready),
-            assignee: input.assignee,
-            pending_handoff_to: None,
-            session: input.session,
-            anchors: dedupe_anchors(input.anchors),
-            depends_on: dedupe_ids(input.depends_on),
-            acceptance: normalize_acceptance(input.acceptance),
-            base_revision: input.base_revision,
-        };
-        if is_root {
-            let plan = state
-                .plans
-                .get_mut(&input.plan_id)
-                .expect("plan validated above");
-            plan.root_tasks.push(id.clone());
-            plan.root_tasks = dedupe_ids(plan.root_tasks.clone());
-        }
-        state.tasks.insert(id.clone(), task.clone());
-        state.events.push(CoordinationEvent {
-            meta,
-            kind: CoordinationEventKind::TaskCreated,
-            summary: input.title,
-            plan: Some(input.plan_id),
-            task: Some(id.clone()),
-            claim: None,
-            artifact: None,
-            review: None,
-            metadata: Value::Null,
-        });
-        Ok((id, task))
+        create_task_mutation(&mut state, meta, input)
     }
 
     pub fn update_task(
@@ -1050,324 +1664,11 @@ impl CoordinationStore {
         current_revision: WorkspaceRevision,
         now: Timestamp,
     ) -> Result<CoordinationTask> {
-        let completion_context = input.completion_context.clone();
-        let next_dependencies = input.depends_on.clone().map(dedupe_ids);
-        let next_acceptance = input.acceptance.clone().map(normalize_acceptance);
         let mut state = self
             .state
             .write()
             .expect("coordination store lock poisoned");
-        let previous = state
-            .tasks
-            .get(&input.task_id)
-            .cloned()
-            .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
-        let Some(plan) = state.plans.get(&previous.plan).cloned() else {
-            return Err(anyhow!("unknown plan `{}`", previous.plan.0));
-        };
-        if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
-            let violations = vec![policy_violation(
-                PolicyViolationCode::PlanClosed,
-                format!(
-                    "coordination plan `{}` is {:?} and cannot mutate task `{}`",
-                    plan.id.0, plan.status, previous.id.0
-                ),
-                Some(plan.id.clone()),
-                Some(previous.id.clone()),
-                None,
-                None,
-                Value::Null,
-            )];
-            return Err(rejection_error(
-                &mut state,
-                &meta,
-                "coordination task update rejected",
-                Some(plan.id),
-                Some(previous.id),
-                None,
-                None,
-                violations,
-            ));
-        }
-        let stale_writes_enforced = state
-            .plans
-            .get(&previous.plan)
-            .map(|plan| plan.policy.stale_after_graph_change)
-            .unwrap_or(false);
-        if let Some(dependencies) = next_dependencies.as_ref() {
-            validate_task_dependencies(&mut state, &previous.plan, &previous.id, dependencies, &meta)?;
-        }
-        let task_snapshot;
-        let status_changed;
-        let mut root_membership_change = None;
-        {
-            let task = state
-                .tasks
-                .get_mut(&input.task_id)
-                .expect("task validated above");
-            if stale_writes_enforced
-                && previous.base_revision.graph_version < current_revision.graph_version
-                && input.base_revision.is_none()
-            {
-                let violations = vec![policy_violation(
-                    PolicyViolationCode::StaleRevision,
-                    format!(
-                        "coordination task `{}` is stale against graph version {}; provide an updated base revision before mutating it",
-                        previous.id.0, current_revision.graph_version
-                    ),
-                    Some(previous.plan.clone()),
-                    Some(previous.id.clone()),
-                    None,
-                    None,
-                    json!({
-                        "taskBaseGraphVersion": previous.base_revision.graph_version,
-                        "currentGraphVersion": current_revision.graph_version,
-                    }),
-                )];
-                return Err(rejection_error(
-                    &mut state,
-                    &meta,
-                    "coordination task update rejected",
-                    Some(previous.plan.clone()),
-                    Some(previous.id.clone()),
-                    None,
-                    None,
-                    violations,
-                ));
-            }
-            if let Some(base_revision) = &input.base_revision {
-                if stale_writes_enforced
-                    && base_revision.graph_version < current_revision.graph_version
-                {
-                    let violations = vec![policy_violation(
-                        PolicyViolationCode::StaleRevision,
-                        format!(
-                            "coordination task `{}` cannot use stale base revision {} when current revision is {}",
-                            previous.id.0, base_revision.graph_version, current_revision.graph_version
-                        ),
-                        Some(previous.plan.clone()),
-                        Some(previous.id.clone()),
-                        None,
-                        None,
-                        json!({
-                            "baseGraphVersion": base_revision.graph_version,
-                            "currentGraphVersion": current_revision.graph_version,
-                        }),
-                    )];
-                    return Err(rejection_error(
-                        &mut state,
-                        &meta,
-                        "coordination task update rejected",
-                        Some(previous.plan.clone()),
-                        Some(previous.id.clone()),
-                        None,
-                        None,
-                        violations,
-                    ));
-                }
-            }
-            status_changed = input
-                .status
-                .map(|status| status != previous.status)
-                .unwrap_or(false);
-            if let Some(status) = input.status {
-                if let Err(error) = validate_task_transition(previous.status, status) {
-                    let violations = vec![policy_violation(
-                        PolicyViolationCode::InvalidTaskTransition,
-                        error.to_string(),
-                        Some(previous.plan.clone()),
-                        Some(previous.id.clone()),
-                        None,
-                        None,
-                        json!({
-                            "from": format!("{:?}", previous.status),
-                            "to": format!("{:?}", status),
-                        }),
-                    )];
-                    return Err(rejection_error(
-                        &mut state,
-                        &meta,
-                        "coordination task update rejected",
-                        Some(previous.plan.clone()),
-                        Some(previous.id.clone()),
-                        None,
-                        None,
-                        violations,
-                    ));
-                }
-            }
-            if matches!(
-                previous.status,
-                CoordinationTaskStatus::Completed | CoordinationTaskStatus::Abandoned
-            ) && (input.title.is_some()
-                || input.anchors.is_some()
-                || input.depends_on.is_some()
-                || input.acceptance.is_some()
-                || input.assignee.is_some()
-                || input.session.is_some())
-            {
-                let violations = vec![policy_violation(
-                    PolicyViolationCode::TerminalTaskEdit,
-                    format!(
-                        "terminal coordination task `{}` cannot be edited",
-                        previous.id.0
-                    ),
-                    Some(previous.plan.clone()),
-                    Some(previous.id.clone()),
-                    None,
-                    None,
-                    Value::Null,
-                )];
-                return Err(rejection_error(
-                    &mut state,
-                    &meta,
-                    "coordination task update rejected",
-                    Some(previous.plan.clone()),
-                    Some(previous.id.clone()),
-                    None,
-                    None,
-                    violations,
-                ));
-            }
-            if previous.pending_handoff_to.is_some()
-                && (input.title.is_some()
-                    || input.anchors.is_some()
-                    || input.depends_on.is_some()
-                    || input.acceptance.is_some()
-                    || input.assignee.is_some()
-                    || input.session.is_some()
-                    || input.status.is_some())
-            {
-                let violations = vec![policy_violation(
-                    PolicyViolationCode::HandoffPending,
-                    format!(
-                        "coordination task `{}` has a pending handoff and cannot be updated until it is accepted",
-                        previous.id.0
-                    ),
-                    Some(previous.plan.clone()),
-                    Some(previous.id.clone()),
-                    None,
-                    None,
-                    Value::Null,
-                )];
-                return Err(rejection_error(
-                    &mut state,
-                    &meta,
-                    "coordination task update rejected",
-                    Some(previous.plan.clone()),
-                    Some(previous.id.clone()),
-                    None,
-                    None,
-                    violations,
-                ));
-            }
-            if let Some(title) = input.title {
-                task.title = title;
-            }
-            if let Some(status) = input.status {
-                task.status = status;
-            }
-            if let Some(assignee) = input.assignee {
-                task.assignee = assignee;
-            }
-            if let Some(session) = input.session {
-                task.session = session;
-            }
-            if let Some(anchors) = input.anchors {
-                task.anchors = dedupe_anchors(anchors);
-            }
-            if let Some(depends_on) = next_dependencies.clone() {
-                let previous_root = task.depends_on.is_empty();
-                let next_root = depends_on.is_empty();
-                task.depends_on = depends_on;
-                if previous_root != next_root {
-                    root_membership_change = Some(next_root);
-                }
-            }
-            if let Some(acceptance) = next_acceptance.clone() {
-                task.acceptance = acceptance;
-            }
-            if let Some(base_revision) = input.base_revision {
-                task.base_revision = base_revision;
-            }
-            task_snapshot = task.clone();
-        }
-        if let Some(next_root) = root_membership_change {
-            let plan = state
-                .plans
-                .get_mut(&previous.plan)
-                .expect("task plan validated above");
-            if next_root {
-                plan.root_tasks.push(previous.id.clone());
-                plan.root_tasks = dedupe_ids(plan.root_tasks.clone());
-            } else {
-                plan.root_tasks.retain(|task_id| task_id != &previous.id);
-            }
-        }
-        let completion_blockers =
-            self.completion_blockers_locked(&state, &task_snapshot, current_revision.clone(), now);
-        let mut policy_blockers = if task_snapshot.status == CoordinationTaskStatus::Completed {
-            self.completion_policy_blockers_locked(
-                &state,
-                &task_snapshot,
-                current_revision,
-                completion_context.as_ref(),
-            )
-        } else {
-            Vec::new()
-        };
-        if task_snapshot.status == CoordinationTaskStatus::Completed
-            && (!completion_blockers.is_empty() || !policy_blockers.is_empty())
-        {
-            let mut blockers = completion_blockers;
-            blockers.append(&mut policy_blockers);
-            let violations = blockers
-                .iter()
-                .map(|blocker| {
-                    policy_violation_from_blocker(
-                        blocker,
-                        task_snapshot.plan.clone(),
-                        task_snapshot.id.clone(),
-                    )
-                })
-                .collect::<Vec<_>>();
-            return Err(rejection_error(
-                &mut state,
-                &meta,
-                format!("coordination task `{}` cannot complete", task_snapshot.id.0),
-                Some(task_snapshot.plan.clone()),
-                Some(task_snapshot.id.clone()),
-                None,
-                None,
-                violations,
-            ));
-        }
-        let task = task_snapshot;
-        let kind = if previous.assignee != task.assignee {
-            CoordinationEventKind::TaskAssigned
-        } else if status_changed && task.status == CoordinationTaskStatus::Blocked {
-            CoordinationEventKind::TaskBlocked
-        } else if previous.status == CoordinationTaskStatus::Blocked && status_changed {
-            CoordinationEventKind::TaskUnblocked
-        } else {
-            CoordinationEventKind::TaskStatusChanged
-        };
-        state.events.push(CoordinationEvent {
-            meta,
-            kind,
-            summary: task.title.clone(),
-            plan: Some(task.plan.clone()),
-            task: Some(task.id.clone()),
-            claim: None,
-            artifact: None,
-            review: None,
-            metadata: json!({
-                "status": format!("{:?}", task.status),
-                "previousStatus": format!("{:?}", previous.status),
-                "assignee": task.assignee.as_ref().map(|agent| agent.0.to_string()),
-            }),
-        });
-        Ok(task)
+        update_task_mutation(&mut state, meta, input, current_revision, now)
     }
 
     pub fn handoff(
@@ -1380,133 +1681,7 @@ impl CoordinationStore {
             .state
             .write()
             .expect("coordination store lock poisoned");
-        let plan = {
-            let task = state
-                .tasks
-                .get(&input.task_id)
-                .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
-            state.plans.get(&task.plan).cloned()
-        };
-        if let Some(plan) = plan.as_ref() {
-            if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
-                let violations = vec![policy_violation(
-                    PolicyViolationCode::PlanClosed,
-                    format!(
-                        "coordination plan `{}` is {:?} and cannot hand off task `{}`",
-                        plan.id.0, plan.status, input.task_id.0
-                    ),
-                    Some(plan.id.clone()),
-                    Some(input.task_id.clone()),
-                    None,
-                    None,
-                    Value::Null,
-                )];
-                return Err(rejection_error(
-                    &mut state,
-                    &meta,
-                    "coordination handoff rejected",
-                    Some(plan.id.clone()),
-                    Some(input.task_id.clone()),
-                    None,
-                    None,
-                    violations,
-                ));
-            }
-        }
-        if input.base_revision.graph_version < current_revision.graph_version {
-            let violations = vec![policy_violation(
-                PolicyViolationCode::StaleRevision,
-                format!(
-                    "coordination task `{}` cannot hand off from stale base revision {} when current revision is {}",
-                    input.task_id.0, input.base_revision.graph_version, current_revision.graph_version
-                ),
-                plan.as_ref().map(|plan| plan.id.clone()),
-                Some(input.task_id.clone()),
-                None,
-                None,
-                json!({
-                    "baseGraphVersion": input.base_revision.graph_version,
-                    "currentGraphVersion": current_revision.graph_version,
-                }),
-            )];
-            return Err(rejection_error(
-                &mut state,
-                &meta,
-                "coordination handoff rejected",
-                plan.as_ref().map(|plan| plan.id.clone()),
-                Some(input.task_id.clone()),
-                None,
-                None,
-                violations,
-            ));
-        }
-        if plan
-            .as_ref()
-            .map(|plan| plan.policy.stale_after_graph_change)
-            .unwrap_or(false)
-        {
-            let task = state
-                .tasks
-                .get(&input.task_id)
-                .expect("task validated above");
-            if task.base_revision.graph_version < current_revision.graph_version {
-                let violations = vec![policy_violation(
-                    PolicyViolationCode::StaleRevision,
-                    format!(
-                        "coordination task `{}` is stale against graph version {} and cannot be handed off until refreshed",
-                        input.task_id.0, current_revision.graph_version
-                    ),
-                    plan.as_ref().map(|plan| plan.id.clone()),
-                    Some(input.task_id.clone()),
-                    None,
-                    None,
-                    json!({
-                        "taskBaseGraphVersion": task.base_revision.graph_version,
-                        "currentGraphVersion": current_revision.graph_version,
-                    }),
-                )];
-                return Err(rejection_error(
-                    &mut state,
-                    &meta,
-                    "coordination handoff rejected",
-                    plan.as_ref().map(|plan| plan.id.clone()),
-                    Some(input.task_id.clone()),
-                    None,
-                    None,
-                    violations,
-                ));
-            }
-        }
-        let task = state
-            .tasks
-            .get_mut(&input.task_id)
-            .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
-        let target_agent = input.to_agent.clone();
-        if let Some(agent) = target_agent.clone() {
-            task.pending_handoff_to = Some(agent.clone());
-            task.status = CoordinationTaskStatus::Blocked;
-        } else {
-            task.assignee = None;
-            task.session = None;
-            task.status = CoordinationTaskStatus::Ready;
-            task.pending_handoff_to = None;
-        }
-        task.base_revision = input.base_revision.clone();
-        let task = task.clone();
-        state.events.push(CoordinationEvent {
-            meta: meta.clone(),
-            kind: CoordinationEventKind::HandoffRequested,
-            summary: input.summary.clone(),
-            plan: Some(task.plan.clone()),
-            task: Some(task.id.clone()),
-            claim: None,
-            artifact: None,
-            review: None,
-            metadata: serde_json::json!({
-                "to_agent": target_agent.map(|agent| agent.0.to_string())
-            }),
-        });
-        Ok(task)
+        handoff_mutation(&mut state, meta, input, current_revision)
     }
 
     pub fn accept_handoff(
@@ -1518,136 +1693,7 @@ impl CoordinationStore {
             .state
             .write()
             .expect("coordination store lock poisoned");
-        let previous = state
-            .tasks
-            .get(&input.task_id)
-            .cloned()
-            .ok_or_else(|| anyhow!("unknown coordination task `{}`", input.task_id.0))?;
-        let Some(plan) = state.plans.get(&previous.plan).cloned() else {
-            return Err(anyhow!("unknown plan `{}`", previous.plan.0));
-        };
-        if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
-            let violations = vec![policy_violation(
-                PolicyViolationCode::PlanClosed,
-                format!(
-                    "coordination plan `{}` is {:?} and cannot accept handoffs",
-                    plan.id.0, plan.status
-                ),
-                Some(plan.id.clone()),
-                Some(previous.id.clone()),
-                None,
-                None,
-                Value::Null,
-            )];
-            return Err(rejection_error(
-                &mut state,
-                &meta,
-                "handoff acceptance rejected",
-                Some(plan.id),
-                Some(previous.id),
-                None,
-                None,
-                violations,
-            ));
-        }
-        let Some(target) = previous.pending_handoff_to.clone() else {
-            let violations = vec![policy_violation(
-                PolicyViolationCode::HandoffPending,
-                format!(
-                    "coordination task `{}` does not have a pending handoff",
-                    previous.id.0
-                ),
-                Some(previous.plan.clone()),
-                Some(previous.id.clone()),
-                None,
-                None,
-                Value::Null,
-            )];
-            return Err(rejection_error(
-                &mut state,
-                &meta,
-                "handoff acceptance rejected",
-                Some(previous.plan),
-                Some(previous.id),
-                None,
-                None,
-                violations,
-            ));
-        };
-        let Some(actor) = input.agent.clone() else {
-            let violations = vec![policy_violation(
-                PolicyViolationCode::AgentIdentityRequired,
-                format!(
-                    "coordination task `{}` requires an acting agent identity to accept a handoff",
-                    previous.id.0
-                ),
-                Some(previous.plan.clone()),
-                Some(previous.id.clone()),
-                None,
-                None,
-                Value::Null,
-            )];
-            return Err(rejection_error(
-                &mut state,
-                &meta,
-                "handoff acceptance rejected",
-                Some(previous.plan),
-                Some(previous.id),
-                None,
-                None,
-                violations,
-            ));
-        };
-        if actor != target {
-            let violations = vec![policy_violation(
-                PolicyViolationCode::HandoffTargetMismatch,
-                format!(
-                    "handoff for task `{}` is assigned to `{}` and cannot be accepted by `{}`",
-                    previous.id.0, target.0, actor.0
-                ),
-                Some(previous.plan.clone()),
-                Some(previous.id.clone()),
-                None,
-                None,
-                json!({
-                    "expectedAgent": target.0,
-                    "providedAgent": actor.0.to_string(),
-                }),
-            )];
-            return Err(rejection_error(
-                &mut state,
-                &meta,
-                "handoff acceptance rejected",
-                Some(previous.plan),
-                Some(previous.id),
-                None,
-                None,
-                violations,
-            ));
-        }
-        let task = state
-            .tasks
-            .get_mut(&input.task_id)
-            .expect("task validated above");
-        task.assignee = Some(target.clone());
-        task.pending_handoff_to = None;
-        task.session = None;
-        task.status = CoordinationTaskStatus::Ready;
-        let task = task.clone();
-        state.events.push(CoordinationEvent {
-            meta: derived_event_meta(&meta, "accepted"),
-            kind: CoordinationEventKind::HandoffAccepted,
-            summary: format!("handoff accepted by `{}`", target.0),
-            plan: Some(task.plan.clone()),
-            task: Some(task.id.clone()),
-            claim: None,
-            artifact: None,
-            review: None,
-            metadata: json!({
-                "agent": target.0.to_string(),
-            }),
-        });
-        Ok(task)
+        accept_handoff_mutation(&mut state, meta, input)
     }
 
     pub fn acquire_claim(

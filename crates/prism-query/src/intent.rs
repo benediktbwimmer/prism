@@ -29,7 +29,7 @@ impl Prism {
     }
 
     pub fn task_intent(&self, task_id: &CoordinationTaskId) -> Option<TaskIntent> {
-        let task = self.coordination.task(task_id)?;
+        let task = self.coordination_task(task_id)?;
         let intent = self.intent.read().expect("intent lock poisoned");
         let task_nodes = self.resolve_anchor_nodes(&task.anchors);
         let mut specs = task_nodes

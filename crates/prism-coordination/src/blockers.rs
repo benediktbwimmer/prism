@@ -269,13 +269,4 @@ impl CoordinationStore {
         completion_blockers(state, task, current_revision, now)
     }
 
-    pub(crate) fn completion_policy_blockers_locked(
-        &self,
-        state: &CoordinationState,
-        task: &CoordinationTask,
-        current_revision: WorkspaceRevision,
-        context: Option<&TaskCompletionContext>,
-    ) -> Vec<TaskBlocker> {
-        completion_policy_blockers(state, task, current_revision, context)
-    }
 }

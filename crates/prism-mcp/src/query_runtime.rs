@@ -951,10 +951,7 @@ impl QueryExecution {
                         .map(|risk| {
                             let anchors = self
                                 .prism
-                                .coordination_snapshot()
-                                .artifacts
-                                .into_iter()
-                                .find(|artifact| artifact.id == artifact_id)
+                                .coordination_artifact(&artifact_id)
                                 .map(|artifact| artifact.anchors)
                                 .unwrap_or_default();
                             let promoted_summaries = promoted_summary_texts(

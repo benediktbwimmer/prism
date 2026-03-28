@@ -7,8 +7,9 @@ use serde_json::Value;
 
 use crate::blockers::{completion_blockers, readiness_blockers};
 use crate::mutations::{
-    acquire_claim_mutation, propose_artifact_mutation, release_claim_mutation,
-    renew_claim_mutation, review_artifact_mutation, supersede_artifact_mutation,
+    accept_handoff_mutation, acquire_claim_mutation, create_task_mutation, handoff_mutation,
+    propose_artifact_mutation, release_claim_mutation, renew_claim_mutation,
+    review_artifact_mutation, supersede_artifact_mutation, update_task_mutation,
 };
 use crate::helpers::{
     anchors_overlap, claim_is_active, conflict_between, dedupe_conflicts,
@@ -18,7 +19,8 @@ use crate::state::CoordinationState;
 use crate::types::{
     Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
     ClaimAcquireInput, CoordinationConflict, CoordinationEvent, CoordinationSnapshot,
-    CoordinationTask, Plan, PolicyViolation, PolicyViolationRecord, TaskBlocker, WorkClaim,
+    CoordinationTask, HandoffAcceptInput, HandoffInput, Plan, PolicyViolation,
+    PolicyViolationRecord, TaskBlocker, TaskCreateInput, TaskUpdateInput, WorkClaim,
 };
 
 pub struct CoordinationRuntimeState {
@@ -42,6 +44,41 @@ impl CoordinationRuntimeState {
 
     pub fn task(&self, id: &prism_ir::CoordinationTaskId) -> Option<CoordinationTask> {
         self.state.tasks.get(id).cloned()
+    }
+
+    pub fn create_task(
+        &mut self,
+        meta: EventMeta,
+        input: TaskCreateInput,
+    ) -> Result<(prism_ir::CoordinationTaskId, CoordinationTask)> {
+        create_task_mutation(&mut self.state, meta, input)
+    }
+
+    pub fn update_task(
+        &mut self,
+        meta: EventMeta,
+        input: TaskUpdateInput,
+        current_revision: WorkspaceRevision,
+        now: Timestamp,
+    ) -> Result<CoordinationTask> {
+        update_task_mutation(&mut self.state, meta, input, current_revision, now)
+    }
+
+    pub fn handoff(
+        &mut self,
+        meta: EventMeta,
+        input: HandoffInput,
+        current_revision: WorkspaceRevision,
+    ) -> Result<CoordinationTask> {
+        handoff_mutation(&mut self.state, meta, input, current_revision)
+    }
+
+    pub fn accept_handoff(
+        &mut self,
+        meta: EventMeta,
+        input: HandoffAcceptInput,
+    ) -> Result<CoordinationTask> {
+        accept_handoff_mutation(&mut self.state, meta, input)
     }
 
     pub fn acquire_claim(
