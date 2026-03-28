@@ -36,7 +36,7 @@ impl Prism {
     }
 
     pub fn task_blast_radius(&self, task_id: &CoordinationTaskId) -> Option<ChangeImpact> {
-        let task = self.coordination.task(task_id)?;
+        let task = self.coordination_task(task_id)?;
         Some(self.impact_for_anchors(&task.anchors))
     }
 
@@ -56,10 +56,9 @@ impl Prism {
     }
 
     pub fn task_risk(&self, task_id: &CoordinationTaskId, _now: Timestamp) -> Option<TaskRisk> {
-        let task = self.coordination.task(task_id)?;
+        let task = self.coordination_task(task_id)?;
         let impact = self.impact_for_anchors(&task.anchors);
         let approved_artifacts = self
-            .coordination
             .artifacts(task_id)
             .into_iter()
             .filter(|artifact| {
@@ -95,8 +94,7 @@ impl Prism {
         let stale_task = task.base_revision.graph_version < self.workspace_revision().graph_version;
         let risk_score = score_change_impact(&impact, stale_task || !stale_artifact_ids.is_empty());
         let review_required = self
-            .coordination
-            .plan(&task.plan)
+            .coordination_plan(&task.plan)
             .and_then(|plan| plan.policy.review_required_above_risk_score)
             .map(|threshold| risk_score >= threshold)
             .unwrap_or(false);

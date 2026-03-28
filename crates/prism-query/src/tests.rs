@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
 
 use prism_coordination::{
-    ArtifactProposeInput, CoordinationPolicy, CoordinationStore, HandoffInput, PlanCreateInput,
-    TaskCompletionContext, TaskCreateInput, TaskUpdateInput,
+    Artifact, ArtifactProposeInput, CoordinationPolicy, CoordinationRuntimeState,
+    CoordinationStore, HandoffInput, PlanCreateInput, TaskCompletionContext, TaskCreateInput,
+    TaskUpdateInput, WorkClaim,
 };
 use prism_history::HistoryStore;
 use prism_ir::{
@@ -1123,6 +1124,138 @@ fn plan_graph_reads_native_runtime_state_before_coordination_projection() {
         runtime_execution[0].session,
         Some(SessionId::new("session:native"))
     );
+}
+
+#[test]
+fn continuity_reads_native_runtime_state_before_coordination_projection() {
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    let mut graph = Graph::new();
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha.clone()]);
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:runtime"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Continuity runtime".into(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:runtime"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Task A".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                anchors: vec![AnchorRef::Node(alpha.clone())],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        history,
+        OutcomeMemory::new(),
+        coordination,
+        ProjectionIndex::default(),
+    );
+
+    let mut runtime_snapshot = prism.coordination_snapshot();
+    runtime_snapshot
+        .tasks
+        .iter_mut()
+        .find(|task| task.id == task_id)
+        .expect("runtime task should exist")
+        .title = "Task A runtime".into();
+    runtime_snapshot
+        .tasks
+        .iter_mut()
+        .find(|task| task.id == task_id)
+        .expect("runtime task should exist")
+        .depends_on = vec![prism_ir::CoordinationTaskId::new("coord-task:missing")];
+    runtime_snapshot.claims.push(WorkClaim {
+        id: prism_ir::ClaimId::new("claim:runtime"),
+        holder: SessionId::new("session:runtime"),
+        agent: Some(prism_ir::AgentId::new("agent-runtime")),
+        task: Some(task_id.clone()),
+        anchors: vec![AnchorRef::Node(alpha.clone())],
+        capability: prism_ir::Capability::Edit,
+        mode: prism_ir::ClaimMode::SoftExclusive,
+        since: 3,
+        expires_at: 30,
+        status: prism_ir::ClaimStatus::Active,
+        base_revision: WorkspaceRevision::default(),
+    });
+    runtime_snapshot.artifacts.push(Artifact {
+        id: prism_ir::ArtifactId::new("artifact:runtime"),
+        task: task_id.clone(),
+        anchors: vec![AnchorRef::Node(alpha.clone())],
+        base_revision: WorkspaceRevision::default(),
+        diff_ref: None,
+        status: prism_ir::ArtifactStatus::Proposed,
+        evidence: Vec::new(),
+        reviews: Vec::new(),
+        required_validations: Vec::new(),
+        validated_checks: Vec::new(),
+        risk_score: None,
+    });
+    *prism
+        .continuity_runtime
+        .write()
+        .expect("continuity runtime lock poisoned") =
+        CoordinationRuntimeState::from_snapshot(runtime_snapshot);
+
+    assert!(prism.coordination_snapshot().claims.is_empty());
+    assert!(prism.coordination_snapshot().artifacts.is_empty());
+    assert_eq!(
+        prism
+            .coordination_snapshot()
+            .tasks
+            .into_iter()
+            .find(|task| task.id == task_id)
+            .expect("projected task should exist")
+            .title,
+        "Task A"
+    );
+    assert_eq!(
+        prism.coordination_task(&task_id).expect("runtime task should exist").title,
+        "Task A runtime"
+    );
+    assert!(prism.ready_tasks(&plan_id, 10).is_empty());
+    assert!(prism
+        .blockers(&task_id, 10)
+        .iter()
+        .any(|blocker| blocker.kind == prism_coordination::BlockerKind::Dependency));
+    assert_eq!(prism.claims(&[AnchorRef::Node(alpha.clone())], 10).len(), 1);
+    assert_eq!(prism.artifacts(&task_id).len(), 1);
 }
 
 #[test]

@@ -56,6 +56,7 @@ pub struct Prism {
     outcomes: Arc<OutcomeMemory>,
     coordination: Arc<CoordinationStore>,
     plan_runtime: RwLock<NativePlanRuntimeState>,
+    continuity_runtime: RwLock<CoordinationRuntimeState>,
     projections: RwLock<ProjectionIndex>,
     intent: RwLock<IntentIndex>,
 }
@@ -108,7 +109,9 @@ impl Prism {
         coordination: CoordinationStore,
         projections: ProjectionIndex,
     ) -> Self {
-        let native_plans = NativePlanRuntimeState::from_coordination_snapshot(&coordination.snapshot());
+        let coordination_snapshot = coordination.snapshot();
+        let native_plans = NativePlanRuntimeState::from_coordination_snapshot(&coordination_snapshot);
+        let continuity_runtime = CoordinationRuntimeState::from_snapshot(coordination_snapshot);
         Self::with_history_outcomes_coordination_projections_and_native_plans(
             graph,
             history,
@@ -116,6 +119,7 @@ impl Prism {
             coordination,
             projections,
             native_plans,
+            continuity_runtime,
         )
     }
 
@@ -140,6 +144,7 @@ impl Prism {
                 plan_graphs,
                 execution_overlays,
             ),
+            CoordinationRuntimeState::from_snapshot(coordination_snapshot),
         )
     }
 
@@ -150,6 +155,7 @@ impl Prism {
         coordination: CoordinationStore,
         mut projections: ProjectionIndex,
         native_plans: NativePlanRuntimeState,
+        continuity_runtime: CoordinationRuntimeState,
     ) -> Self {
         projections.reseed_from_history(&history.snapshot());
         let started = Instant::now();
@@ -176,6 +182,7 @@ impl Prism {
             outcomes: Arc::new(outcomes),
             coordination: Arc::new(coordination),
             plan_runtime: RwLock::new(native_plans),
+            continuity_runtime: RwLock::new(continuity_runtime),
             projections: RwLock::new(projections),
             intent: RwLock::new(intent),
         }
@@ -223,11 +230,16 @@ impl Prism {
 
     pub fn replace_coordination_snapshot(&self, snapshot: CoordinationSnapshot) {
         let native_plans = NativePlanRuntimeState::from_coordination_snapshot(&snapshot);
+        let continuity_runtime = CoordinationRuntimeState::from_snapshot(snapshot.clone());
         self.coordination.replace_from_snapshot(snapshot);
         *self
             .plan_runtime
             .write()
             .expect("plan runtime lock poisoned") = native_plans;
+        *self
+            .continuity_runtime
+            .write()
+            .expect("continuity runtime lock poisoned") = continuity_runtime;
     }
 
     pub fn replace_coordination_snapshot_and_plan_graphs(
@@ -236,12 +248,17 @@ impl Prism {
         plan_graphs: Vec<PlanGraph>,
         execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     ) {
+        let continuity_runtime = CoordinationRuntimeState::from_snapshot(snapshot.clone());
         self.coordination.replace_from_snapshot(snapshot);
         *self
             .plan_runtime
             .write()
             .expect("plan runtime lock poisoned") =
             NativePlanRuntimeState::from_graphs_and_overlays(plan_graphs, execution_overlays);
+        *self
+            .continuity_runtime
+            .write()
+            .expect("continuity runtime lock poisoned") = continuity_runtime;
     }
 
     pub fn refresh_plan_runtime_from_coordination(&self) {
@@ -251,6 +268,11 @@ impl Prism {
             .write()
             .expect("plan runtime lock poisoned") =
             NativePlanRuntimeState::from_coordination_snapshot(&snapshot);
+        *self
+            .continuity_runtime
+            .write()
+            .expect("continuity runtime lock poisoned") =
+            CoordinationRuntimeState::from_snapshot(snapshot);
     }
 
     fn mutate_native_plan_runtime<T, F>(&self, mutate: F) -> Result<T>
@@ -276,6 +298,11 @@ impl Prism {
         let result = mutate(&mut runtime)?;
         let snapshot = runtime.apply_to_coordination_snapshot(base_snapshot);
         self.coordination.replace_from_snapshot(snapshot);
+        *self
+            .continuity_runtime
+            .write()
+            .expect("continuity runtime lock poisoned") =
+            CoordinationRuntimeState::from_snapshot(self.coordination.snapshot());
         Ok(result)
     }
 

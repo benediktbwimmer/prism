@@ -18,11 +18,17 @@ impl Prism {
     }
 
     pub fn coordination_plan(&self, plan_id: &PlanId) -> Option<Plan> {
-        self.coordination.plan(plan_id)
+        self.continuity_runtime
+            .read()
+            .expect("continuity runtime lock poisoned")
+            .plan(plan_id)
     }
 
     pub fn coordination_task(&self, task_id: &CoordinationTaskId) -> Option<CoordinationTask> {
-        self.coordination.task(task_id)
+        self.continuity_runtime
+            .read()
+            .expect("continuity runtime lock poisoned")
+            .task(task_id)
     }
 
     pub fn plan_graph(&self, plan_id: &PlanId) -> Option<PlanGraph> {
@@ -40,23 +46,33 @@ impl Prism {
     }
 
     pub fn ready_tasks(&self, plan_id: &PlanId, now: Timestamp) -> Vec<CoordinationTask> {
-        self.coordination
+        self.continuity_runtime
+            .read()
+            .expect("continuity runtime lock poisoned")
             .ready_tasks(plan_id, self.workspace_revision(), now)
     }
 
     pub fn claims(&self, anchors: &[AnchorRef], now: Timestamp) -> Vec<WorkClaim> {
         let anchors = self.coordination_scope_anchors(anchors);
-        self.coordination.claims_for_anchor(&anchors, now)
+        self.continuity_runtime
+            .write()
+            .expect("continuity runtime lock poisoned")
+            .claims_for_anchor(&anchors, now)
     }
 
     pub fn conflicts(&self, anchors: &[AnchorRef], now: Timestamp) -> Vec<CoordinationConflict> {
         let anchors = self.coordination_scope_anchors(anchors);
-        self.coordination.conflicts_for_anchor(&anchors, now)
+        self.continuity_runtime
+            .write()
+            .expect("continuity runtime lock poisoned")
+            .conflicts_for_anchor(&anchors, now)
     }
 
     pub fn blockers(&self, task_id: &CoordinationTaskId, now: Timestamp) -> Vec<TaskBlocker> {
         let mut blockers = self
-            .coordination
+            .continuity_runtime
+            .read()
+            .expect("continuity runtime lock poisoned")
             .blockers(task_id, self.workspace_revision(), now);
         if let Some(risk) = self.task_risk(task_id, now) {
             if !risk.stale_artifact_ids.is_empty() {
@@ -104,11 +120,17 @@ impl Prism {
     }
 
     pub fn pending_reviews(&self, plan_id: Option<&PlanId>) -> Vec<Artifact> {
-        self.coordination.pending_reviews(plan_id)
+        self.continuity_runtime
+            .read()
+            .expect("continuity runtime lock poisoned")
+            .pending_reviews(plan_id)
     }
 
     pub fn artifacts(&self, task_id: &CoordinationTaskId) -> Vec<Artifact> {
-        self.coordination.artifacts(task_id)
+        self.continuity_runtime
+            .read()
+            .expect("continuity runtime lock poisoned")
+            .artifacts(task_id)
     }
 
     pub fn policy_violations(
@@ -117,7 +139,10 @@ impl Prism {
         task_id: Option<&CoordinationTaskId>,
         limit: usize,
     ) -> Vec<prism_coordination::PolicyViolationRecord> {
-        self.coordination.policy_violations(plan_id, task_id, limit)
+        self.continuity_runtime
+            .read()
+            .expect("continuity runtime lock poisoned")
+            .policy_violations(plan_id, task_id, limit)
     }
 
     pub fn simulate_claim(
@@ -130,15 +155,18 @@ impl Prism {
         now: Timestamp,
     ) -> Vec<CoordinationConflict> {
         let anchors = self.coordination_scope_anchors(anchors);
-        self.coordination.simulate_claim(
-            session_id,
-            &anchors,
-            capability,
-            mode,
-            task_id,
-            self.workspace_revision(),
-            now,
-        )
+        self.continuity_runtime
+            .write()
+            .expect("continuity runtime lock poisoned")
+            .simulate_claim(
+                session_id,
+                &anchors,
+                capability,
+                mode,
+                task_id,
+                self.workspace_revision(),
+                now,
+            )
     }
 
     pub fn coordination_scope_anchors(&self, anchors: &[AnchorRef]) -> Vec<AnchorRef> {
@@ -181,12 +209,10 @@ impl Prism {
     }
 
     pub(crate) fn coordinating_artifact(&self, artifact_id: &ArtifactId) -> Option<Artifact> {
-        self.coordination.events();
-        self.coordination
-            .snapshot()
-            .artifacts
-            .into_iter()
-            .find(|artifact| &artifact.id == artifact_id)
+        self.continuity_runtime
+            .read()
+            .expect("continuity runtime lock poisoned")
+            .artifact(artifact_id)
     }
 }
 
