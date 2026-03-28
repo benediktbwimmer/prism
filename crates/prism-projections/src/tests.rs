@@ -175,3 +175,72 @@ fn co_change_neighbors_are_pruned_to_top_k() {
     );
     assert_eq!(neighbors.last().unwrap().count, 9);
 }
+
+#[test]
+fn derives_seeded_repo_concepts_from_nodes_and_signals() {
+    let validation = NodeId::new(
+        "demo",
+        "demo::impact::Prism::validation_recipe",
+        NodeKind::Method,
+    );
+    let session = NodeId::new(
+        "demo",
+        "demo::session_state::SessionState::start_task",
+        NodeKind::Method,
+    );
+    let runtime = NodeId::new(
+        "demo",
+        "demo::runtime::runtime_status",
+        NodeKind::Function,
+    );
+    let validation_lineage = LineageId::new("lineage:validation");
+    let session_lineage = LineageId::new("lineage:session");
+    let runtime_lineage = LineageId::new("lineage:runtime");
+    let history = HistorySnapshot {
+        node_to_lineage: vec![
+            (validation.clone(), validation_lineage.clone()),
+            (session.clone(), session_lineage.clone()),
+            (runtime.clone(), runtime_lineage.clone()),
+        ],
+        events: Vec::new(),
+        co_change_counts: vec![(validation_lineage.clone(), session_lineage, 2)],
+        tombstones: Vec::new(),
+        next_lineage: 3,
+        next_event: 0,
+    };
+    let outcomes = OutcomeMemorySnapshot {
+        events: vec![OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:concept"),
+                ts: 42,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:concept")),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(validation.clone())],
+            kind: OutcomeKind::FailureObserved,
+            result: OutcomeResult::Failure,
+            summary: "validation failed".into(),
+            evidence: vec![OutcomeEvidence::Test {
+                name: "validation_concept".into(),
+                passed: false,
+            }],
+            metadata: serde_json::Value::Null,
+        }],
+    };
+
+    let index = ProjectionIndex::derive(&history, &outcomes);
+    let concepts = index.concepts("validation", 3);
+
+    assert_eq!(concepts[0].handle, "concept://validation_pipeline");
+    assert!(concepts[0]
+        .core_members
+        .iter()
+        .any(|node| node.path == validation.path));
+    assert!(index
+        .concept_by_handle("concept://session_lifecycle")
+        .is_some());
+    assert!(index
+        .concept_by_handle("concept://runtime_surface")
+        .is_some());
+}

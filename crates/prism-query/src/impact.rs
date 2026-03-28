@@ -14,6 +14,27 @@ impl Prism {
         self.impact_for_anchors(&[AnchorRef::Node(node.clone())])
     }
 
+    pub fn validation_recipe_for_anchors(
+        &self,
+        target: &NodeId,
+        members: &[NodeId],
+    ) -> ValidationRecipe {
+        let anchors = members
+            .iter()
+            .cloned()
+            .map(AnchorRef::Node)
+            .collect::<Vec<_>>();
+        let impact = self.impact_for_anchors(&anchors);
+        ValidationRecipe {
+            target: target.clone(),
+            checks: impact.likely_validations,
+            scored_checks: impact.validation_checks,
+            related_nodes: impact.direct_nodes,
+            co_change_neighbors: impact.co_change_neighbors,
+            recent_failures: impact.risk_events,
+        }
+    }
+
     pub fn task_blast_radius(&self, task_id: &CoordinationTaskId) -> Option<ChangeImpact> {
         let task = self.coordination.task(task_id)?;
         Some(self.impact_for_anchors(&task.anchors))

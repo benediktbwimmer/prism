@@ -7,9 +7,9 @@ use crate::{
     schema_resource_contents, schema_resource_uri, schema_resource_value,
     schema_resource_view_link, session_resource_view_link, tool_input_example,
     tool_schema_resource_uri, tool_schema_resource_view_link, tool_schemas_resource_view_link,
-    PrismExpandArgs, PrismGatherArgs, PrismLocateArgs, PrismMutationArgs, PrismOpenArgs,
-    PrismQueryArgs, PrismSessionArgs, PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView,
-    TOOL_SCHEMAS_URI,
+    PrismConceptArgs, PrismExpandArgs, PrismGatherArgs, PrismLocateArgs, PrismMutationArgs,
+    PrismOpenArgs, PrismQueryArgs, PrismSessionArgs, PrismTaskBriefArgs, PrismWorksetArgs,
+    ResourceLinkView, TOOL_SCHEMAS_URI,
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
@@ -71,6 +71,12 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
             schema_uri: tool_schema_resource_uri("prism_task_brief"),
             description: "Input schema for the compact coordination task brief tool.".to_string(),
             example_input: tool_input_example("prism_task_brief").expect("tool example"),
+        },
+        ToolSchemaCatalogEntry {
+            tool_name: "prism_concept".to_string(),
+            schema_uri: tool_schema_resource_uri("prism_concept"),
+            description: "Input schema for resolving a broad repo concept into a compact concept packet.".to_string(),
+            example_input: tool_input_example("prism_concept").expect("tool example"),
         },
         ToolSchemaCatalogEntry {
             tool_name: "prism_query".to_string(),
@@ -177,6 +183,11 @@ pub(crate) fn tool_schema_resource_contents(
             "prism_task_brief",
             "JSON Schema for the `prism_task_brief` tool input payload.",
         ),
+        "prism_concept" => tool_input_schema_contents::<PrismConceptArgs>(
+            uri,
+            "prism_concept",
+            "JSON Schema for the `prism_concept` tool input payload.",
+        ),
         "prism_query" => tool_input_schema_contents::<PrismQueryArgs>(
             uri,
             "prism_query",
@@ -224,6 +235,10 @@ pub(crate) fn tool_input_schema_value(tool_name: &str) -> Option<Value> {
         "prism_task_brief" => Some(tool_input_schema_value_for::<PrismTaskBriefArgs>(
             "prism_task_brief",
             "JSON Schema for the `prism_task_brief` tool input payload.",
+        )),
+        "prism_concept" => Some(tool_input_schema_value_for::<PrismConceptArgs>(
+            "prism_concept",
+            "JSON Schema for the `prism_concept` tool input payload.",
         )),
         "prism_query" => Some(tool_input_schema_value_for::<PrismQueryArgs>(
             "prism_query",

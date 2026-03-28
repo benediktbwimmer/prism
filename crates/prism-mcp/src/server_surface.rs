@@ -1,6 +1,6 @@
 use prism_js::{
-    AgentExpandResultView, AgentGatherResultView, AgentLocateResultView, AgentOpenResultView,
-    AgentTaskBriefResultView, AgentWorksetResultView,
+    AgentConceptResultView, AgentExpandResultView, AgentGatherResultView, AgentLocateResultView,
+    AgentOpenResultView, AgentWorksetResultView,
 };
 use rmcp::{
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
@@ -57,6 +57,10 @@ impl MutationDashboardMeta {
 
 impl PrismMcpServer {
     pub(crate) fn build_tool_router() -> ToolRouter<Self> {
+        let _: fn(&Self, Parameters<PrismConceptArgs>) -> Result<CallToolResult, McpError> =
+            Self::prism_concept;
+        let _: fn(&Self, Parameters<PrismTaskBriefArgs>) -> Result<CallToolResult, McpError> =
+            Self::prism_task_brief;
         Self::tool_router()
     }
 
@@ -530,6 +534,74 @@ impl PrismMcpServer {
         let result = self
             .host
             .compact_expand(Arc::clone(&self.session), args)
+            .map_err(map_query_error)?;
+        structured_tool_result(result)
+    }
+
+    #[tool(
+        description = "Summarize one coordination task through the compact task lens: blockers, claim holders, recent outcomes, and suggested next reads.",
+        annotations(title = "PRISM Task Brief", read_only_hint = true),
+        output_schema =
+            rmcp::handler::server::tool::schema_for_output::<prism_js::AgentTaskBriefResultView>().unwrap()
+    )]
+    fn prism_task_brief(
+        &self,
+        Parameters(args): Parameters<PrismTaskBriefArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        if args.task_id.trim().is_empty() {
+            return Err(McpError::invalid_params(
+                "taskId cannot be empty",
+                Some(json!({ "field": "taskId" })),
+            ));
+        }
+
+        let result = self
+            .host
+            .compact_task_brief(Arc::clone(&self.session), args)
+            .map_err(map_query_error)?;
+        structured_tool_result(result)
+    }
+
+    #[tool(
+        description = "Resolve a broad repo concept into a stable concept packet, and optionally decode it through an open, workset, validation, timeline, or memory lens.",
+        annotations(title = "PRISM Concept Packet", read_only_hint = true),
+        output_schema =
+            rmcp::handler::server::tool::schema_for_output::<AgentConceptResultView>().unwrap()
+    )]
+    fn prism_concept(
+        &self,
+        Parameters(args): Parameters<PrismConceptArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        if args
+            .handle
+            .as_ref()
+            .is_some_and(|handle| handle.trim().is_empty())
+        {
+            return Err(McpError::invalid_params(
+                "handle cannot be empty",
+                Some(json!({ "field": "handle" })),
+            ));
+        }
+        if args
+            .query
+            .as_ref()
+            .is_some_and(|query| query.trim().is_empty())
+        {
+            return Err(McpError::invalid_params(
+                "query cannot be empty",
+                Some(json!({ "field": "query" })),
+            ));
+        }
+        if args.handle.is_none() && args.query.is_none() {
+            return Err(McpError::invalid_params(
+                "prism_concept requires `handle` or `query`",
+                Some(json!({ "fields": ["handle", "query"] })),
+            ));
+        }
+
+        let result = self
+            .host
+            .compact_concept(Arc::clone(&self.session), args)
             .map_err(map_query_error)?;
         structured_tool_result(result)
     }

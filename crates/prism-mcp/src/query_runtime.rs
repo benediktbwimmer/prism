@@ -5,15 +5,15 @@ use std::time::Instant;
 use anyhow::{anyhow, Context, Result};
 use prism_ir::{AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, LineageId, NodeId, PlanId};
 use prism_js::{
-    ChangedFileView, ChangedSymbolView, ConnectionInfoView, DiffHunkView, DiscoveryBundleView,
-    EditContextView, FocusedBlockView, MemoryEventView, PatchEventView, QueryDiagnostic,
-    QueryEnvelope, ReadContextView, RecentChangeContextView, RuntimeLogEventView,
-    RuntimeStatusView, ScoredMemoryView, SourceExcerptView, SourceSliceView, SubgraphView,
-    SymbolView, TextSearchMatchView, ToolCatalogEntryView, ToolSchemaView, ValidationContextView,
-    ValidationFeedbackView,
+    ChangedFileView, ChangedSymbolView, ConceptDecodeView, ConceptPacketView, ConnectionInfoView,
+    DiffHunkView, DiscoveryBundleView, EditContextView, FocusedBlockView, MemoryEventView,
+    PatchEventView, QueryDiagnostic, QueryEnvelope, ReadContextView, RecentChangeContextView,
+    RuntimeLogEventView, RuntimeStatusView, ScoredMemoryView, SourceExcerptView, SourceSliceView,
+    SubgraphView, SymbolView, TextSearchMatchView, ToolCatalogEntryView, ToolSchemaView,
+    ValidationContextView, ValidationFeedbackView,
 };
-use prism_memory::{MemoryEventQuery, MemoryModule, OutcomeRecallQuery, RecallQuery};
-use prism_query::{EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
+use prism_memory::{MemoryEventQuery, MemoryModule, OutcomeKind, OutcomeRecallQuery, RecallQuery};
+use prism_query::{ConceptDecodeLens, EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
 use serde_json::{json, Value};
 
 use crate::file_queries::{
@@ -25,25 +25,26 @@ use crate::text_search::search_text;
 use crate::{
     ambiguity::is_broad_identifier_query, ambiguity_diagnostic_data, apply_module_filter,
     artifact_risk_view, artifact_view, blast_radius_view, blocker_view, change_impact_view,
-    changed_files, changed_symbols, claim_view, co_change_view, combined_parse_typescript_error,
-    conflict_view, convert_anchors, convert_node_id, coordination_task_view, current_timestamp,
-    diff_for, drift_candidate_view, edge_kind_label, edge_view, edit_slice_for_symbol,
-    entrypoints_for, focused_block_for_symbol, is_query_parse_error, js_runtime, lineage_view,
-    memory_event_view, merge_node_ids, merge_promoted_checks, missing_return_hint, next_reads,
-    owner_symbol_views_for_query, owner_symbol_views_for_target, owner_views_for_target,
-    parse_capability, parse_claim_mode, parse_event_actor, parse_memory_event_action,
-    parse_memory_kind, parse_memory_scope, parse_node_kind, parse_outcome_kind,
-    parse_outcome_result, parse_typescript_error, plan_view, policy_violation_record_view,
-    promoted_memory_entries, promoted_summary_texts, promoted_validation_checks, query_diagnostic,
-    rank_search_results, read_context_view_cached, recent_change_context_view_cached,
-    recent_patches, relations_view, result_decode_error, runtime_or_serialization_error,
-    scored_memory_view, search_queries, source_excerpt_for_symbol, spec_cluster_view,
-    spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids, task_intent_view,
-    task_journal_view, task_risk_view, task_validation_recipe_view, tool_catalog_views,
-    tool_schema_view, validation_context_view_cached, validation_recipe_view_with,
-    weak_search_match_diagnostic_data, weak_search_match_reason, where_used, AnchorListArgs,
-    CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs, CoordinationTaskTargetArgs,
-    CuratorJobArgs, CuratorJobsArgs, CuratorProposalsArgs, DiffForArgs, DiscoveryTargetArgs,
+    changed_files, changed_symbols, claim_view, co_change_view, concept_decode_lens_view,
+    concept_packet_view, combined_parse_typescript_error, conflict_view, convert_anchors, convert_node_id,
+    coordination_task_view, current_timestamp, diff_for, drift_candidate_view, edge_kind_label,
+    edge_view, edit_slice_for_symbol, entrypoints_for, focused_block_for_symbol,
+    is_query_parse_error, js_runtime, lineage_view, memory_event_view, merge_node_ids,
+    merge_promoted_checks, missing_return_hint, next_reads, owner_symbol_views_for_query,
+    owner_symbol_views_for_target, owner_views_for_target, parse_capability, parse_claim_mode,
+    parse_event_actor, parse_memory_event_action, parse_memory_kind, parse_memory_scope,
+    parse_node_kind, parse_outcome_kind, parse_outcome_result, parse_typescript_error, plan_view,
+    policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
+    promoted_validation_checks, query_diagnostic, rank_search_results, read_context_view_cached,
+    recent_change_context_view_cached, recent_patches, relations_view, result_decode_error,
+    runtime_or_serialization_error, scored_memory_view, search_queries, source_excerpt_for_symbol,
+    spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
+    task_intent_view, task_journal_view, task_risk_view, task_validation_recipe_view,
+    tool_catalog_views, tool_schema_view, validation_context_view_cached,
+    validation_recipe_view_with, weak_search_match_diagnostic_data, weak_search_match_reason,
+    where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs,
+    ConceptHandleArgs, ConceptQueryArgs, CoordinationTaskTargetArgs, CuratorJobArgs,
+    CuratorJobsArgs, CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs, DiscoveryTargetArgs,
     EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs,
     MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
     PendingReviewsArgs, PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage,
@@ -654,6 +655,22 @@ impl QueryExecution {
             "validationFeedback" => {
                 let args: ValidationFeedbackArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.validation_feedback(args)?)?)
+            }
+            "concepts" => {
+                let args: ConceptQueryArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.concepts(args)?)?)
+            }
+            "concept" => {
+                let args: ConceptQueryArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.concept(args)?)?)
+            }
+            "conceptByHandle" => {
+                let args: ConceptHandleArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.concept_by_handle(&args.handle)?)?)
+            }
+            "decodeConcept" => {
+                let args: DecodeConceptArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.decode_concept(args)?)?)
             }
             "entrypoints" => Ok(serde_json::to_value(self.entrypoints()?)?),
             "plan" => {
@@ -2355,6 +2372,137 @@ impl QueryExecution {
         )
     }
 
+    fn concepts(&self, args: ConceptQueryArgs) -> Result<Vec<ConceptPacketView>> {
+        let requested = args.limit.unwrap_or(5);
+        let applied = requested.min(self.session.limits().max_result_nodes);
+        if requested > applied {
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Concept query limit was capped at {} instead of {requested}.",
+                    applied
+                ),
+                Some(json!({ "requested": requested, "applied": applied })),
+            );
+        }
+        let concepts = self
+            .prism
+            .concepts(&args.query, applied)
+            .into_iter()
+            .map(concept_packet_view)
+            .collect::<Vec<_>>();
+        if concepts.is_empty() {
+            self.push_diagnostic(
+                "anchor_unresolved",
+                format!("No concept packet matched `{}`.", args.query),
+                Some(json!({ "query": args.query })),
+            );
+        }
+        Ok(concepts)
+    }
+
+    fn concept(&self, args: ConceptQueryArgs) -> Result<Option<ConceptPacketView>> {
+        let concept = self.prism.concept(&args.query).map(concept_packet_view);
+        if concept.is_none() {
+            self.push_diagnostic(
+                "anchor_unresolved",
+                format!("No concept packet matched `{}`.", args.query),
+                Some(json!({ "query": args.query })),
+            );
+        }
+        Ok(concept)
+    }
+
+    fn concept_by_handle(&self, handle: &str) -> Result<Option<ConceptPacketView>> {
+        let concept = self.prism.concept_by_handle(handle).map(concept_packet_view);
+        if concept.is_none() {
+            self.push_diagnostic(
+                "anchor_unresolved",
+                format!("No concept packet matched `{handle}`."),
+                Some(json!({ "handle": handle })),
+            );
+        }
+        Ok(concept)
+    }
+
+    fn decode_concept(&self, args: DecodeConceptArgs) -> Result<Option<ConceptDecodeView>> {
+        let lens = parse_concept_lens(&args.lens)?;
+        let packet = match (args.handle.as_deref(), args.query.as_deref()) {
+            (Some(handle), _) => self.prism.concept_by_handle(handle),
+            (None, Some(query)) => self.prism.concept(query),
+            (None, None) => {
+                return Err(anyhow!(
+                    "decodeConcept requires either `handle` or `query`"
+                ))
+            }
+        };
+        let Some(packet) = packet else {
+            let subject = args
+                .handle
+                .or(args.query)
+                .unwrap_or_else(|| "concept".to_string());
+            self.push_diagnostic(
+                "anchor_unresolved",
+                format!("No concept packet matched `{subject}`."),
+                Some(json!({ "subject" : subject })),
+            );
+            return Ok(None);
+        };
+
+        let concept_view = concept_packet_view(packet.clone());
+        let members = symbol_views_for_ids(self.prism.as_ref(), packet.core_members.clone())?;
+        let supporting_reads =
+            symbol_views_for_ids(self.prism.as_ref(), packet.supporting_members.clone())?;
+        let likely_tests = symbol_views_for_ids(self.prism.as_ref(), packet.likely_tests.clone())?;
+        let primary = members.first().cloned();
+        let anchors = self.prism.anchors_for(
+            &packet
+                .core_members
+                .iter()
+                .cloned()
+                .map(AnchorRef::Node)
+                .collect::<Vec<_>>(),
+        );
+        let recent_failures = self.prism.query_outcomes(&OutcomeRecallQuery {
+            anchors: anchors.clone(),
+            kinds: Some(vec![OutcomeKind::FailureObserved]),
+            limit: 8,
+            ..OutcomeRecallQuery::default()
+        });
+        let related_memory = self
+            .session
+            .notes
+            .recall(&RecallQuery {
+                focus: anchors,
+                limit: 4,
+                ..RecallQuery::default()
+            })?
+            .into_iter()
+            .map(scored_memory_view)
+            .collect::<Vec<_>>();
+        let recent_patches = collect_concept_patches(self.prism.as_ref(), &packet.core_members, 4)?;
+        let validation_recipe = packet
+            .core_members
+            .first()
+            .map(|primary_id| {
+                validation_recipe_view_with(self.prism.as_ref(), self.session.as_ref(), primary_id)
+            });
+
+        Ok(Some(ConceptDecodeView {
+            concept: concept_view,
+            lens: concept_decode_lens_view(lens),
+            primary,
+            members,
+            supporting_reads,
+            likely_tests,
+            recent_failures,
+            related_memory,
+            recent_patches,
+            validation_recipe,
+            evidence: packet.evidence,
+        }))
+    }
+
     fn memory_outcomes(&self, args: MemoryOutcomeArgs) -> Result<Vec<prism_memory::OutcomeEvent>> {
         let requested = args.limit.unwrap_or(10);
         let limits = self.session.limits();
@@ -2569,6 +2717,40 @@ impl QueryExecution {
             .map(|symbol| symbol_view(self.prism.as_ref(), &symbol))
             .collect()
     }
+}
+
+fn parse_concept_lens(value: &str) -> Result<ConceptDecodeLens> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "open" => Ok(ConceptDecodeLens::Open),
+        "workset" => Ok(ConceptDecodeLens::Workset),
+        "validation" => Ok(ConceptDecodeLens::Validation),
+        "timeline" => Ok(ConceptDecodeLens::Timeline),
+        "memory" => Ok(ConceptDecodeLens::Memory),
+        other => Err(anyhow!("unknown concept lens `{other}`")),
+    }
+}
+
+fn collect_concept_patches(
+    prism: &Prism,
+    members: &[NodeId],
+    limit: usize,
+) -> Result<Vec<PatchEventView>> {
+    let mut patches = Vec::<PatchEventView>::new();
+    for member in members {
+        for patch in recent_patches(prism, Some(member), None, None, None, limit)? {
+            if patches
+                .iter()
+                .any(|existing| existing.event_id == patch.event_id)
+            {
+                continue;
+            }
+            patches.push(patch);
+            if patches.len() >= limit {
+                return Ok(patches);
+            }
+        }
+    }
+    Ok(patches)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

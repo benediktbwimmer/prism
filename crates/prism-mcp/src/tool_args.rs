@@ -244,6 +244,29 @@ pub(crate) struct PrismTaskBriefArgs {
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum PrismConceptLensInput {
+    Open,
+    Workset,
+    Validation,
+    Timeline,
+    Memory,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismConceptArgs {
+    #[schemars(description = "Concept handle like `concept://validation_pipeline`.")]
+    pub(crate) handle: Option<String>,
+    #[schemars(description = "Broad repo noun or phrase to resolve into a concept packet.")]
+    pub(crate) query: Option<String>,
+    #[schemars(
+        description = "Optional decode lens. When provided, also decode the concept into supporting context."
+    )]
+    pub(crate) lens: Option<PrismConceptLensInput>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct NodeIdInput {
     #[serde(alias = "crate_name")]

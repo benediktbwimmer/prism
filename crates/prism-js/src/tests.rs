@@ -9,7 +9,12 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("prism_workset"));
     assert!(docs.contains("prism_expand"));
     assert!(docs.contains("prism_task_brief"));
+    assert!(docs.contains("prism_concept"));
     assert!(docs.contains("prism_query"));
+    assert!(docs.contains("\"kind\": \"impact\""));
+    assert!(docs.contains("\"kind\": \"timeline\""));
+    assert!(docs.contains("\"kind\": \"memory\""));
+    assert!(docs.contains("\"taskId\": \"coord-task:12\""));
     assert!(docs.contains("type PrismApi"));
     assert!(docs.contains("### 12. Pull prior failures without reconstructing anchors manually"));
     assert!(docs.contains("coChangeNeighbors"));
@@ -31,6 +36,10 @@ fn api_reference_mentions_primary_tool() {
     ));
     assert!(docs.contains("validationContext(target"));
     assert!(docs.contains("recentChangeContext(target"));
+    assert!(docs.contains("concept(query: string): ConceptPacketView | null;"));
+    assert!(docs.contains("concepts(query: string, options?: ConceptQueryOptions): ConceptPacketView[];"));
+    assert!(docs.contains("conceptByHandle(handle: string): ConceptPacketView | null;"));
+    assert!(docs.contains("decodeConcept(input:"));
     assert!(docs.contains("discovery(target: QueryTarget): DiscoveryBundleView | null;"));
     assert!(docs
         .contains("searchBundle(query: string, options?: SearchBundleOptions): SearchBundleView;"));
@@ -170,6 +179,10 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("textSearchBundle(query, options = {})"));
     assert!(prelude.contains("targetBundle(target, options = {})"));
     assert!(prelude.contains("searchText(query, options = {})"));
+    assert!(prelude.contains("concepts(query, options = {})"));
+    assert!(prelude.contains("concept(query)"));
+    assert!(prelude.contains("conceptByHandle(handle)"));
+    assert!(prelude.contains("decodeConcept(input)"));
     assert!(prelude.contains("__prismBundleSummary("));
     assert!(prelude.contains("__prismWithLocalDiagnostics("));
     assert!(prelude.contains("__prismResolveSuggestedReads("));

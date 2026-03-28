@@ -225,6 +225,34 @@ pub struct AgentTaskBriefResultView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct AgentConceptPacketView {
+    pub handle: String,
+    pub canonical_name: String,
+    pub summary: String,
+    pub aliases: Vec<String>,
+    pub confidence: f32,
+    pub core_members: Vec<AgentTargetHandleView>,
+    pub supporting_members: Vec<AgentTargetHandleView>,
+    pub likely_tests: Vec<AgentTargetHandleView>,
+    pub evidence: Vec<String>,
+    pub risk_hint: Option<String>,
+    pub decode_lenses: Vec<ConceptDecodeLensView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_action: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub suggested_actions: Vec<AgentSuggestedActionView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentConceptResultView {
+    pub packet: AgentConceptPacketView,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub decode: Option<ConceptDecodeView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct FocusedBlockView {
     pub symbol: SymbolView,
     pub slice: Option<SourceSliceView>,

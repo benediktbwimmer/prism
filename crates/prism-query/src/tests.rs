@@ -193,6 +193,55 @@ fn search_can_filter_by_kind_and_path() {
 }
 
 #[test]
+fn concept_lookup_returns_seeded_validation_packet() {
+    let mut graph = Graph::new();
+    graph.add_node(Node {
+        id: NodeId::new(
+            "demo",
+            "demo::impact::Prism::validation_recipe",
+            NodeKind::Method,
+        ),
+        name: "validation_recipe".into(),
+        kind: NodeKind::Method,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    graph.add_node(Node {
+        id: NodeId::new(
+            "demo",
+            "demo::session_state::SessionState::start_task",
+            NodeKind::Method,
+        ),
+        name: "start_task".into(),
+        kind: NodeKind::Method,
+        file: FileId(2),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    graph.add_node(Node {
+        id: NodeId::new("demo", "demo::runtime::runtime_status", NodeKind::Function),
+        name: "runtime_status".into(),
+        kind: NodeKind::Function,
+        file: FileId(3),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+
+    let prism = Prism::new(graph);
+    let concept = prism.concept("validation").expect("concept should resolve");
+
+    assert_eq!(concept.handle, "concept://validation_pipeline");
+    assert!(concept
+        .core_members
+        .iter()
+        .any(|node| node.path.contains("validation_recipe")));
+    assert!(prism
+        .concept_by_handle("concept://session_lifecycle")
+        .is_some());
+}
+
+#[test]
 fn broad_identifier_search_prefers_code_over_replay_and_lockfile_noise() {
     use std::path::Path;
 

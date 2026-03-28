@@ -104,7 +104,12 @@ pub(crate) fn derive_concept_packets(
     let mut packets = CONCEPT_DEFINITIONS
         .iter()
         .filter_map(|definition| {
-            derive_packet(definition, node_to_lineage, validation_by_lineage, co_change_by_lineage)
+            derive_packet(
+                definition,
+                node_to_lineage,
+                validation_by_lineage,
+                co_change_by_lineage,
+            )
         })
         .collect::<Vec<_>>();
     packets.sort_by(|left, right| left.handle.cmp(&right.handle));
@@ -158,7 +163,13 @@ fn derive_packet(
     let mut ranked = node_to_lineage
         .keys()
         .filter_map(|node| {
-            let score = node_score(definition, node, node_to_lineage, validation_by_lineage, co_change_by_lineage);
+            let score = node_score(
+                definition,
+                node,
+                node_to_lineage,
+                validation_by_lineage,
+                co_change_by_lineage,
+            );
             (score > 0).then(|| RankedNode {
                 id: node.clone(),
                 score,
@@ -189,7 +200,9 @@ fn derive_packet(
         if supporting_members.len() < SUPPORTING_MEMBER_LIMIT {
             supporting_members.push(candidate.id);
         }
-        if core_members.len() >= CORE_MEMBER_LIMIT && supporting_members.len() >= SUPPORTING_MEMBER_LIMIT {
+        if core_members.len() >= CORE_MEMBER_LIMIT
+            && supporting_members.len() >= SUPPORTING_MEMBER_LIMIT
+        {
             break;
         }
     }
@@ -247,7 +260,11 @@ fn derive_packet(
         handle: format!("concept://{}", definition.handle_slug),
         canonical_name: definition.canonical_name.to_string(),
         summary: definition.summary.to_string(),
-        aliases: definition.aliases.iter().map(|alias| (*alias).to_string()).collect(),
+        aliases: definition
+            .aliases
+            .iter()
+            .map(|alias| (*alias).to_string())
+            .collect(),
         confidence,
         core_members,
         supporting_members,
@@ -353,7 +370,13 @@ fn is_test_like(node: &NodeId) -> bool {
 fn normalize_text(value: &str) -> String {
     value
         .chars()
-        .map(|ch| if ch.is_ascii_alphanumeric() { ch.to_ascii_lowercase() } else { ' ' })
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                ' '
+            }
+        })
         .collect::<String>()
         .split_whitespace()
         .collect::<Vec<_>>()

@@ -32,6 +32,7 @@ High-level framing:
 * PRISM already derives a strong spatial perception layer: what exists, where it lives, what relates to what, and what context matters before an edit
 * the next phase is reliable temporal perception: what happened here before, what survived change, what failed, what worked, and what durable lessons should shape the next action
 * memory is the missing bridge from repo exploration to accumulated repo experience
+* a repo semantic codec compresses recurring repo meaning into stable concept packets that can be decoded back into exact supporting context
 
 ---
 
@@ -68,6 +69,7 @@ prism/
 Additional current crates:
 
 * `prism-projections` owns derived read models such as co-change and validation signals
+* `prism-projections` also derives concept packets for recurring repo concepts such as validation, runtime, memory, compact tools, and task continuity
 * `prism-coordination` owns shared plans, tasks, claims, artifacts, and coordination event state
 * `prism-curator` owns background enrichment and proposal-oriented curation triggers
 
@@ -118,7 +120,7 @@ Critical boundaries:
 * `prism-store` owns persistence and raw observed change capture
 * `prism-history` owns lineage assignment and time-aware projection
 * `prism-memory` owns structured memory and outcomes, but not graph construction
-* `prism-projections` owns derived signals built from history and outcomes
+* `prism-projections` owns derived signals built from history and outcomes, including concept packets
 * `prism-query` is the join layer over graph, lineage, and memory
 * `prism-coordination` owns shared multi-session workflow state and policy checks
 * `prism-curator` owns background proposal generation over Prism state
@@ -1525,6 +1527,13 @@ Rules:
 * `prism_query` is read-only
 * `prism_query` is not the default first-hop agent interface
 * mutations such as memory writes, outcome logging, inference persistence, plan updates, and claim acquisition are handled through explicit MCP mutation tools, not through the query runtime
+
+Repo semantic codec:
+
+* concept packets use stable handles such as `concept://validation_pipeline`
+* each packet carries a canonical name, short summary, aliases, core members, supporting members, likely tests, evidence, confidence, and decode lenses
+* the codec stays lightweight and inspectable rather than trying to model a giant ontology
+* decoding a concept packet reuses ordinary Prism context such as symbols, validations, recent failures, patches, and memory recall
 
 Expected query shape:
 

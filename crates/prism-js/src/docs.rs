@@ -12,7 +12,9 @@ Target default agent path:
 - `prism_open`
 - `prism_workset`
 - `prism_expand`
+- `prism_concept` for repo-native concept packets and decode lenses
 - `prism_task_brief` for compact coordination-task reads when you already have a task id
+- `prism_concept` for broad repo concepts when symbol-like first hops are the wrong unit
 - `prism_query` only when the compact surface cannot express the need
 
 Compact-tool note:
@@ -95,6 +97,10 @@ type SearchOptions = {
   preferBehavioralOwners?: boolean;
   ownerKind?: "read" | "write" | "persist" | "test" | "all";
   includeInferred?: boolean;
+};
+
+type ConceptQueryOptions = {
+  limit?: number;
 };
 
 type ImplementationOptions = {
@@ -252,6 +258,10 @@ type PrismApi = {
   symbolBundle(query: string, options?: SymbolBundleOptions): SymbolBundleView;
   symbols(query: string): SymbolView[];
   search(query: string, options?: SearchOptions): SymbolView[];
+  concepts(query: string, options?: ConceptQueryOptions): ConceptPacketView[];
+  concept(query: string): ConceptPacketView | null;
+  conceptByHandle(handle: string): ConceptPacketView | null;
+  decodeConcept(input: { handle?: string; query?: string; lens?: "open" | "workset" | "validation" | "timeline" | "memory" }): ConceptDecodeView | null;
   searchText(query: string, options?: SearchTextOptions): TextSearchMatchView[];
   textSearchBundle(query: string, options?: TextSearchBundleOptions): TextSearchBundleView;
   tools(): ToolCatalogEntryView[];
@@ -666,6 +676,36 @@ type ValidationRecipeView = {
   relatedNodes: NodeId[];
   coChangeNeighbors: CoChangeView[];
   recentFailures: OutcomeEvent[];
+};
+
+type ConceptDecodeLensView = "open" | "workset" | "validation" | "timeline" | "memory";
+
+type ConceptPacketView = {
+  handle: string;
+  canonicalName: string;
+  summary: string;
+  aliases: string[];
+  confidence: number;
+  coreMembers: NodeId[];
+  supportingMembers: NodeId[];
+  likelyTests: NodeId[];
+  evidence: string[];
+  riskHint?: string;
+  decodeLenses: ConceptDecodeLensView[];
+};
+
+type ConceptDecodeView = {
+  concept: ConceptPacketView;
+  lens: ConceptDecodeLensView;
+  primary?: SymbolView;
+  members: SymbolView[];
+  supportingReads: SymbolView[];
+  likelyTests: SymbolView[];
+  recentFailures: OutcomeEvent[];
+  relatedMemory: ScoredMemoryView[];
+  recentPatches: PatchEventView[];
+  validationRecipe?: ValidationRecipeView;
+  evidence: string[];
 };
 
 type SuggestedQueryView = {
@@ -1840,11 +1880,56 @@ return prism.claimPreview({
 });
 ```
 
+### 44. Ask `prism_expand` for a compact impact lens on one handle
+
+```json
+{
+  "handle": "handle:1",
+  "kind": "impact"
+}
+```
+
+Expected shape: `likelyTouch`, `likelyTests`, `recentFailures`, and one short `riskHint`.
+
+### 45. Ask `prism_expand` for a compact timeline lens on one handle
+
+```json
+{
+  "handle": "handle:1",
+  "kind": "timeline"
+}
+```
+
+Expected shape: `recentEvents`, `recentPatches`, `lastFailure`, and `lastValidation`.
+
+### 46. Ask `prism_expand` for compact memory recall on one handle
+
+```json
+{
+  "handle": "handle:1",
+  "kind": "memory"
+}
+```
+
+Expected shape: `memories` with short summaries, memory kind/source/trust, and a one-line
+`whyMatched`.
+
+### 47. Ask `prism_task_brief` for a compact coordination read
+
+```json
+{
+  "taskId": "coord-task:12"
+}
+```
+
+Expected shape: task title/status/assignee, compact blockers and conflicts, recent outcomes,
+likely validations, and 1 to 2 `nextReads`.
+
 ## Current implementation surface
 
 - Target direction: a compact staged default agent ABI built around `prism_locate`, `prism_open`,
-  `prism_gather`, `prism_workset`, `prism_expand`, and `prism_task_brief`, with `prism_query`
-  retained as the semantic IR and escape hatch.
+  `prism_gather`, `prism_workset`, `prism_expand`, `prism_task_brief`, and `prism_concept`, with
+  `prism_query` retained as the semantic IR and escape hatch.
 - Available now: symbol lookup, search, entrypoints, line-aware symbol locations, bounded source excerpts, focused local block retrieval, source extraction, relations, call graphs, lineage history, related failures, blast radius, and task replay by id.
 - Available now: owner-biased discovery helpers through `prism.owners(...)`, `prism.nextReads(...)`, `prism.whereUsed(...)`, `prism.entrypointsFor(...)`, behavioral `prism.search(...)`, `prism.readContext(...)`, `prism.editContext(...)`, `prism.validationContext(...)`, `prism.recentChangeContext(...)`, and `implementationFor(..., { mode: "owners" })` without changing the direct primitive semantics.
 - Available now: consistent eager bundle helpers through `prism.symbolBundle(...)`, `prism.searchBundle(...)`, `prism.textSearchBundle(...)`, and `prism.targetBundle(...)` with stable `summary`, `diagnostics`, and `suggestedReads` fields. These remain useful, but they are no longer the intended long-term default first hop for agent work.

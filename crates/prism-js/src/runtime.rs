@@ -262,6 +262,19 @@ function __prismEnrichSpecCluster(raw) {
   };
 }
 
+function __prismEnrichConceptDecode(raw) {
+  if (raw == null) {
+    return raw;
+  }
+  return {
+    ...raw,
+    primary: __prismEnrichSymbol(raw.primary),
+    members: __prismEnrichSymbols(raw.members),
+    supportingReads: __prismEnrichSymbols(raw.supportingReads),
+    likelyTests: __prismEnrichSymbols(raw.likelyTests),
+  };
+}
+
 function __prismEnrichSpecDrift(raw) {
   if (raw == null) {
     return raw;
@@ -549,6 +562,32 @@ globalThis.prism = Object.freeze({
           options?.preferBehavioralOwners ?? options?.prefer_behavioral_owners,
         ownerKind: options?.ownerKind ?? options?.owner_kind,
         includeInferred: options?.includeInferred ?? options?.include_inferred,
+      })
+    );
+  },
+  concepts(query, options = {}) {
+    return __prismHost("concepts", {
+      query,
+      limit: options?.limit,
+    });
+  },
+  concept(query) {
+    return __prismHost("concept", { query, limit: 1 });
+  },
+  conceptByHandle(handle) {
+    return __prismHost("conceptByHandle", { handle });
+  },
+  decodeConcept(input) {
+    if (typeof input === "string") {
+      return __prismEnrichConceptDecode(
+        __prismHost("decodeConcept", { query: input, lens: "open" })
+      );
+    }
+    return __prismEnrichConceptDecode(
+      __prismHost("decodeConcept", {
+        handle: input?.handle,
+        query: input?.query,
+        lens: input?.lens ?? "open",
       })
     );
   },

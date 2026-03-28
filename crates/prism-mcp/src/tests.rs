@@ -944,12 +944,14 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .iter()
         .filter_map(|tool| tool["name"].as_str())
         .collect::<Vec<_>>();
-    assert_eq!(tool_names.len(), 8);
+    assert_eq!(tool_names.len(), 10);
     assert!(tool_names.contains(&"prism_locate"));
     assert!(tool_names.contains(&"prism_gather"));
     assert!(tool_names.contains(&"prism_open"));
     assert!(tool_names.contains(&"prism_workset"));
     assert!(tool_names.contains(&"prism_expand"));
+    assert!(tool_names.contains(&"prism_task_brief"));
+    assert!(tool_names.contains(&"prism_concept"));
     assert!(tool_names.contains(&"prism_query"));
     assert!(tool_names.contains(&"prism_session"));
     assert!(tool_names.contains(&"prism_mutate"));
@@ -1538,12 +1540,14 @@ async fn mcp_server_simple_mode_keeps_minimal_surface_and_reports_features() {
         .iter()
         .filter_map(|tool| tool["name"].as_str())
         .collect::<Vec<_>>();
-    assert_eq!(tool_names.len(), 8);
+    assert_eq!(tool_names.len(), 10);
     assert!(tool_names.contains(&"prism_locate"));
     assert!(tool_names.contains(&"prism_gather"));
     assert!(tool_names.contains(&"prism_open"));
     assert!(tool_names.contains(&"prism_workset"));
     assert!(tool_names.contains(&"prism_expand"));
+    assert!(tool_names.contains(&"prism_task_brief"));
+    assert!(tool_names.contains(&"prism_concept"));
     assert!(tool_names.contains(&"prism_query"));
     assert!(tool_names.contains(&"prism_session"));
     assert!(tool_names.contains(&"prism_mutate"));
@@ -3913,8 +3917,12 @@ return {
         .expect("tool schema query should succeed");
 
     let tools = result.result["tools"].as_array().expect("tool catalog");
-    assert_eq!(tools.len(), 8);
+    assert_eq!(tools.len(), 10);
     assert!(tools.iter().any(|tool| tool["toolName"] == "prism_locate"));
+    assert!(tools
+        .iter()
+        .any(|tool| tool["toolName"] == "prism_task_brief"));
+    assert!(tools.iter().any(|tool| tool["toolName"] == "prism_concept"));
     assert!(tools.iter().any(|tool| tool["toolName"] == "prism_mutate"));
     assert!(tools
         .iter()
@@ -4608,6 +4616,74 @@ def helper():
         .next_action
         .as_deref()
         .is_some_and(|text| text.contains("prism_open")));
+}
+
+#[test]
+fn compact_concept_returns_validation_packet_and_decode() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn validation_recipe() {}
+pub fn runtime_status() {}
+pub fn start_task() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let concept = host
+        .compact_concept(
+            Arc::clone(&session),
+            PrismConceptArgs {
+                handle: None,
+                query: Some("validation".to_string()),
+                lens: Some(PrismConceptLensInput::Validation),
+            },
+        )
+        .expect("concept tool should succeed");
+
+    assert_eq!(concept.packet.handle, "concept://validation_pipeline");
+    assert!(!concept.packet.core_members.is_empty());
+    assert!(concept
+        .decode
+        .as_ref()
+        .and_then(|decode| decode.validation_recipe.as_ref())
+        .is_some());
+}
+
+#[test]
+fn query_runtime_exposes_concept_packets_and_decode() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn validation_recipe() {}
+pub fn runtime_status() {}
+pub fn start_task() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let envelope = host
+        .execute(
+            test_session(&host),
+            r#"
+return {
+  concept: prism.concept("validation"),
+  decoded: prism.decodeConcept({ query: "validation", lens: "validation" }),
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("concept query should succeed");
+
+    assert_eq!(
+        envelope.result["concept"]["handle"],
+        Value::String("concept://validation_pipeline".to_string())
+    );
+    assert!(envelope.result["decoded"]["validationRecipe"].is_object());
 }
 
 #[test]
@@ -6274,6 +6350,98 @@ pub fn main() {
     assert!(gather["matches"][0]["suggestedActions"]
         .as_array()
         .is_some_and(|items| !items.is_empty()));
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_executes_prism_task_brief_round_trip() {
+    let server = server_with_node(demo_node());
+    let plan = server
+        .host
+        .store_coordination(
+            test_session(&server.host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Coordinate main" }),
+                task_id: None,
+            },
+        )
+        .expect("plan create should succeed");
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+    let task = server
+        .host
+        .store_coordination(
+            test_session(&server.host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id,
+                    "title": "Inspect main",
+                    "status": "Ready",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::main",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .expect("task create should succeed");
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+    server
+        .host
+        .store_outcome(
+            test_session(&server.host).as_ref(),
+            PrismOutcomeArgs {
+                kind: OutcomeKindInput::FixValidated,
+                anchors: vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::main".to_string(),
+                    kind: "function".to_string(),
+                }],
+                summary: "validated main".to_string(),
+                result: Some(OutcomeResultInput::Success),
+                evidence: None,
+                task_id: Some(task_id.clone()),
+            },
+        )
+        .expect("outcome should store");
+
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_task_brief",
+            json!({
+                "taskId": task_id,
+            })
+            .as_object()
+            .expect("tool args should be an object")
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let brief = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(brief["title"], "Inspect main");
+    assert!(brief["recentOutcomes"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item["summary"] == "validated main")));
+    assert!(brief["nextAction"]
+        .as_str()
+        .is_some_and(|value| value.contains("prism_open")));
 
     running.cancel().await.unwrap();
 }
