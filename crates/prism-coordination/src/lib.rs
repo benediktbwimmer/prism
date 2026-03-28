@@ -19,5 +19,6 @@ pub use crate::types::{
     TaskCreateInput, TaskUpdateInput, WorkClaim,
 };
 pub use compat::{
-    execution_overlays_from_tasks, plan_graph_from_coordination, snapshot_plan_graphs,
+    coordination_snapshot_from_plan_graphs, execution_overlays_from_tasks,
+    plan_graph_from_coordination, snapshot_plan_graphs,
 };

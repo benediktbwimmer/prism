@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use prism_ir::{
     AcceptanceEvidencePolicy, PlanAcceptanceCriterion, PlanBinding, PlanEdge, PlanEdgeId,
@@ -75,6 +75,44 @@ pub fn execution_overlays_from_tasks(tasks: &[CoordinationTask]) -> Vec<PlanExec
     overlays
 }
 
+pub fn coordination_snapshot_from_plan_graphs(
+    graphs: &[PlanGraph],
+    execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
+) -> CoordinationSnapshot {
+    let mut snapshot = CoordinationSnapshot::default();
+    for graph in graphs {
+        snapshot.plans.push(plan_from_graph(graph));
+        let overlays = execution_overlays
+            .get(graph.id.0.as_str())
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|overlay| (overlay.node_id.0.to_string(), overlay))
+            .collect::<BTreeMap<_, _>>();
+        let mut dependencies = BTreeMap::<String, Vec<prism_ir::CoordinationTaskId>>::new();
+        for edge in &graph.edges {
+            if edge.kind != PlanEdgeKind::DependsOn {
+                continue;
+            }
+            dependencies
+                .entry(edge.from.0.to_string())
+                .or_default()
+                .push(coordination_task_id_from_plan_node_id(edge.to.clone()));
+        }
+        for node in &graph.nodes {
+            snapshot.tasks.push(task_from_plan_node(
+                graph.id.clone(),
+                node.clone(),
+                dependencies.remove(node.id.0.as_str()).unwrap_or_default(),
+                overlays.get(node.id.0.as_str()).cloned(),
+            ));
+        }
+    }
+    snapshot.plans.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    snapshot.tasks.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    snapshot
+}
+
 impl CoordinationStore {
     pub fn plan_graph(&self, plan_id: &prism_ir::PlanId) -> Option<PlanGraph> {
         let state = self.state.read().expect("coordination store lock poisoned");
@@ -129,6 +167,48 @@ fn plan_node_from_task(task: CoordinationTask) -> PlanNode {
     }
 }
 
+fn plan_from_graph(graph: &PlanGraph) -> Plan {
+    Plan {
+        id: graph.id.clone(),
+        goal: graph.goal.clone(),
+        status: graph.status,
+        policy: crate::types::CoordinationPolicy::default(),
+        root_tasks: graph
+            .root_nodes
+            .iter()
+            .cloned()
+            .map(coordination_task_id_from_plan_node_id)
+            .collect(),
+    }
+}
+
+fn task_from_plan_node(
+    plan_id: prism_ir::PlanId,
+    node: PlanNode,
+    depends_on: Vec<prism_ir::CoordinationTaskId>,
+    execution: Option<PlanExecutionOverlay>,
+) -> CoordinationTask {
+    CoordinationTask {
+        id: coordination_task_id_from_plan_node_id(node.id),
+        plan: plan_id,
+        title: node.title,
+        status: map_plan_node_status(node.status),
+        assignee: node.assignee,
+        pending_handoff_to: execution
+            .as_ref()
+            .and_then(|overlay| overlay.pending_handoff_to.clone()),
+        session: execution.and_then(|overlay| overlay.session),
+        anchors: node.bindings.anchors,
+        depends_on,
+        acceptance: node
+            .acceptance
+            .into_iter()
+            .map(map_plan_acceptance)
+            .collect(),
+        base_revision: node.base_revision,
+    }
+}
+
 fn dependency_edges_for_task(task: &CoordinationTask) -> Vec<PlanEdge> {
     let mut seen = BTreeSet::new();
     let mut edges = Vec::new();
@@ -161,6 +241,13 @@ fn map_acceptance(criterion: AcceptanceCriterion) -> PlanAcceptanceCriterion {
     }
 }
 
+fn map_plan_acceptance(criterion: PlanAcceptanceCriterion) -> AcceptanceCriterion {
+    AcceptanceCriterion {
+        label: criterion.label,
+        anchors: criterion.anchors,
+    }
+}
+
 fn map_task_status(status: prism_ir::CoordinationTaskStatus) -> PlanNodeStatus {
     match status {
         prism_ir::CoordinationTaskStatus::Proposed => PlanNodeStatus::Proposed,
@@ -174,6 +261,23 @@ fn map_task_status(status: prism_ir::CoordinationTaskStatus) -> PlanNodeStatus {
     }
 }
 
+fn map_plan_node_status(status: PlanNodeStatus) -> prism_ir::CoordinationTaskStatus {
+    match status {
+        PlanNodeStatus::Proposed => prism_ir::CoordinationTaskStatus::Proposed,
+        PlanNodeStatus::Ready => prism_ir::CoordinationTaskStatus::Ready,
+        PlanNodeStatus::InProgress => prism_ir::CoordinationTaskStatus::InProgress,
+        PlanNodeStatus::Blocked | PlanNodeStatus::Waiting => prism_ir::CoordinationTaskStatus::Blocked,
+        PlanNodeStatus::InReview => prism_ir::CoordinationTaskStatus::InReview,
+        PlanNodeStatus::Validating => prism_ir::CoordinationTaskStatus::Validating,
+        PlanNodeStatus::Completed => prism_ir::CoordinationTaskStatus::Completed,
+        PlanNodeStatus::Abandoned => prism_ir::CoordinationTaskStatus::Abandoned,
+    }
+}
+
 fn plan_node_id_from_task_id(task_id: prism_ir::CoordinationTaskId) -> PlanNodeId {
     PlanNodeId::new(task_id.0)
+}
+
+fn coordination_task_id_from_plan_node_id(node_id: PlanNodeId) -> prism_ir::CoordinationTaskId {
+    prism_ir::CoordinationTaskId::new(node_id.0)
 }

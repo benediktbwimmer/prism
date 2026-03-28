@@ -1474,6 +1474,14 @@ fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
         !log_contents.contains("session:published-plan"),
         "repo-published plan logs should not persist runtime session ids"
     );
+    assert!(
+        log_contents.contains("\"kind\":\"plan_created\""),
+        "published plan logs should use native plan events"
+    );
+    assert!(
+        log_contents.contains("\"kind\":\"node_added\""),
+        "published plan logs should append native node events"
+    );
 
     drop(session);
     fs::remove_file(root.join(".prism").join("cache.db")).unwrap();
@@ -1493,6 +1501,56 @@ fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
             && task.title == "Hydrate plans from repo state"
             && task.status == prism_ir::CoordinationTaskStatus::Ready
             && task.session.is_none()
+    }));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn legacy_repo_published_plan_logs_still_hydrate() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join(".prism").join("plans").join("active")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    fs::write(
+        root.join(".prism").join("plans").join("index.jsonl"),
+        concat!(
+            "{\"plan_id\":\"plan:1\",\"title\":\"Legacy published plan\",\"status\":\"Active\",\"scope\":\"Repo\",\"kind\":\"TaskExecution\",\"log_path\":\".prism/plans/active/plan:1.jsonl\"}\n"
+        ),
+    )
+    .unwrap();
+    fs::write(
+        root.join(".prism")
+            .join("plans")
+            .join("active")
+            .join("plan:1.jsonl"),
+        concat!(
+            "{\"event_id\":\"published:plan:1:1\",\"kind\":\"plan_updated\",\"plan_id\":\"plan:1\",\"node_id\":null,\"payload\":{\"type\":\"plan\",\"plan\":{\"id\":\"plan:1\",\"goal\":\"Legacy published plan\",\"status\":\"Active\",\"policy\":{\"default_claim_mode\":\"Advisory\",\"max_parallel_editors_per_anchor\":2,\"require_review_for_completion\":false,\"require_validation_for_completion\":false,\"stale_after_graph_change\":true,\"review_required_above_risk_score\":null},\"root_tasks\":[\"coord-task:1\"]}}}\n",
+            "{\"event_id\":\"published:plan:1:2\",\"kind\":\"node_updated\",\"plan_id\":\"plan:1\",\"node_id\":\"coord-task:1\",\"payload\":{\"type\":\"node\",\"task\":{\"id\":\"coord-task:1\",\"plan\":\"plan:1\",\"title\":\"Hydrate legacy task log\",\"status\":\"Ready\",\"assignee\":null,\"anchors\":[],\"depends_on\":[],\"acceptance\":[],\"base_revision\":{\"graph_version\":1,\"git_commit\":null}}}}\n"
+        ),
+    )
+    .unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let snapshot = session
+        .load_coordination_snapshot()
+        .unwrap()
+        .expect("legacy published plans should hydrate a coordination snapshot");
+    assert!(snapshot
+        .plans
+        .iter()
+        .any(|plan| plan.id.0 == "plan:1" && plan.goal == "Legacy published plan"));
+    assert!(snapshot.tasks.iter().any(|task| {
+        task.id.0 == "coord-task:1"
+            && task.plan.0 == "plan:1"
+            && task.title == "Hydrate legacy task log"
+            && task.status == prism_ir::CoordinationTaskStatus::Ready
     }));
 
     let _ = fs::remove_dir_all(root);
