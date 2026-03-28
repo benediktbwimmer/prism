@@ -1,6 +1,7 @@
-use prism_js::{EvidenceSourceKind, OwnerCandidateView};
+use prism_js::{AgentHandleCategoryView, EvidenceSourceKind, OwnerCandidateView};
 use prism_memory::{MemoryModule, OutcomeEvent, OutcomeKind, RecallQuery};
 
+use super::concept::compact_handles_for_ids;
 use super::open::{compact_preview_for_structured_target, compact_preview_for_symbol_view};
 use prism_js::AgentSuggestedActionView;
 
@@ -17,6 +18,7 @@ use super::workset::{
     structured_symbol_followups,
 };
 use super::*;
+use crate::validation_recipe_view_with;
 
 impl QueryHost {
     pub(crate) fn compact_expand(
@@ -32,6 +34,14 @@ impl QueryHost {
             query_text,
             move |host, _query_run| {
                 let prism = host.current_prism();
+                if let Some(result) = compact_concept_expand_result(
+                    session.as_ref(),
+                    prism.as_ref(),
+                    &args.handle,
+                    kind,
+                )? {
+                    return Ok((result, Vec::new()));
+                }
                 let (target, remapped) = resolve_handle_target(
                     host,
                     session.as_ref(),
@@ -264,12 +274,65 @@ impl QueryHost {
     }
 }
 
+fn compact_concept_expand_result(
+    session: &SessionState,
+    prism: &Prism,
+    handle: &str,
+    kind: AgentExpandKind,
+) -> Result<Option<AgentExpandResultView>> {
+    if !handle.starts_with("concept://") {
+        return Ok(None);
+    }
+    let Some(_lens) = concept_lens_for_expand_kind(kind) else {
+        return Ok(None);
+    };
+    let packet = prism
+        .concept_by_handle(handle)
+        .ok_or_else(|| anyhow!("no concept packet matched `{handle}`"))?;
+    let result = match kind {
+        AgentExpandKind::Validation => {
+            compact_concept_validation_expand_result(session, prism, &packet)?
+        }
+        AgentExpandKind::Timeline => compact_concept_timeline_expand_result(prism, &packet)?,
+        AgentExpandKind::Memory => compact_concept_memory_expand_result(session, &packet)?,
+        _ => unreachable!("concept expand path is only enabled for concept-native lenses"),
+    };
+    Ok(Some(AgentExpandResultView {
+        handle: handle.to_string(),
+        handle_category: AgentHandleCategoryView::Concept,
+        kind,
+        result,
+        remapped: false,
+        top_preview: None,
+        next_action: Some(compact_concept_expand_next_action(kind)),
+        suggested_actions: compact_concept_expand_suggested_actions(
+            session, prism, handle, kind, &packet,
+        )?,
+    }))
+}
+
 fn concept_lens_for_expand_kind(kind: AgentExpandKind) -> Option<&'static str> {
     match kind {
         AgentExpandKind::Validation => Some("validation"),
         AgentExpandKind::Timeline => Some("timeline"),
         AgentExpandKind::Memory => Some("memory"),
         _ => None,
+    }
+}
+
+fn compact_concept_expand_next_action(kind: AgentExpandKind) -> String {
+    match kind {
+        AgentExpandKind::Validation => {
+            "Use prism_workset on this concept, or prism_open on a core member.".to_string()
+        }
+        AgentExpandKind::Timeline => {
+            "Use prism_workset on this concept, or prism_expand `memory` for related recall."
+                .to_string()
+        }
+        AgentExpandKind::Memory => {
+            "Use prism_workset on this concept, or prism_open on a core member.".to_string()
+        }
+        _ => "Use prism_workset on this concept for member context.".to_string(),
     }
 }
 
@@ -345,6 +408,52 @@ fn compact_expand_next_action(kind: AgentExpandKind, target: &SessionHandleTarge
                 .to_string()
         }
     }
+}
+
+fn compact_concept_expand_suggested_actions(
+    session: &SessionState,
+    prism: &Prism,
+    handle: &str,
+    kind: AgentExpandKind,
+    packet: &prism_query::ConceptPacket,
+) -> Result<Vec<AgentSuggestedActionView>> {
+    let mut actions = vec![suggested_workset_action(handle)];
+    if let Some(primary) = compact_handles_for_ids(session, prism, &packet.core_members)?
+        .into_iter()
+        .next()
+    {
+        actions.push(suggested_open_action(primary.handle, AgentOpenMode::Focus));
+    }
+    match kind {
+        AgentExpandKind::Validation => {
+            if packet
+                .decode_lenses
+                .iter()
+                .any(|lens| matches!(lens, prism_query::ConceptDecodeLens::Timeline))
+            {
+                actions.push(suggested_expand_action(handle, AgentExpandKind::Timeline));
+            }
+            if packet
+                .decode_lenses
+                .iter()
+                .any(|lens| matches!(lens, prism_query::ConceptDecodeLens::Memory))
+            {
+                actions.push(suggested_expand_action(handle, AgentExpandKind::Memory));
+            }
+        }
+        AgentExpandKind::Timeline => {
+            if packet
+                .decode_lenses
+                .iter()
+                .any(|lens| matches!(lens, prism_query::ConceptDecodeLens::Memory))
+            {
+                actions.push(suggested_expand_action(handle, AgentExpandKind::Memory));
+            }
+        }
+        AgentExpandKind::Memory => {}
+        _ => {}
+    }
+    Ok(dedupe_suggested_actions(actions))
 }
 
 fn compact_expand_suggested_actions(
@@ -446,6 +555,194 @@ fn first_handle_in_result(result: &Value, field: &str) -> Option<AgentTargetHand
     serde_json::from_value::<Vec<AgentTargetHandleView>>(result.get(field)?.clone())
         .ok()
         .and_then(|items| items.into_iter().next())
+}
+
+fn compact_concept_validation_expand_result(
+    session: &SessionState,
+    prism: &Prism,
+    packet: &prism_query::ConceptPacket,
+) -> Result<Value> {
+    let mut likely_tests = compact_handles_for_ids(session, prism, &packet.likely_tests)?;
+    let mut checks = packet
+        .core_members
+        .first()
+        .map(|primary_id| validation_recipe_view_with(prism, session, primary_id))
+        .map(|recipe| {
+            compact_validation_checks(
+                &recipe.checks,
+                &recipe.scored_checks,
+                COMPACT_VALIDATION_CHECK_LIMIT,
+                COMPACT_VALIDATION_CHECK_MAX_CHARS,
+            )
+        })
+        .unwrap_or_default();
+    let mut why = vec![clamp_string(
+        &packet.summary,
+        COMPACT_VALIDATION_CHECK_MAX_CHARS,
+    )];
+    why.extend(compact_string_list(
+        &packet.evidence,
+        2,
+        COMPACT_VALIDATION_CHECK_MAX_CHARS,
+    ));
+    let mut result = json!({
+        "checks": checks,
+        "likelyTests": likely_tests,
+        "why": why,
+    });
+
+    while expand_json_bytes(&result)? > EXPAND_IMPACT_MAX_JSON_BYTES {
+        if strip_file_paths(&mut likely_tests) {
+            result["likelyTests"] = serde_json::to_value(&likely_tests)?;
+            continue;
+        }
+        if likely_tests.pop().is_some() {
+            result["likelyTests"] = serde_json::to_value(&likely_tests)?;
+            continue;
+        }
+        if !checks.is_empty() {
+            checks.pop();
+            result["checks"] = serde_json::to_value(&checks)?;
+            continue;
+        }
+        if !why.is_empty() {
+            why.pop();
+            result["why"] = serde_json::to_value(&why)?;
+            continue;
+        }
+        break;
+    }
+
+    Ok(result)
+}
+
+fn compact_concept_timeline_expand_result(
+    prism: &Prism,
+    packet: &prism_query::ConceptPacket,
+) -> Result<Value> {
+    let anchors = prism.anchors_for(
+        &packet
+            .core_members
+            .iter()
+            .cloned()
+            .map(prism_ir::AnchorRef::Node)
+            .collect::<Vec<_>>(),
+    );
+    let mut recent_events = prism
+        .outcomes_for(&anchors, EXPAND_TIMELINE_EVENT_LIMIT)
+        .into_iter()
+        .map(|event| compact_outcome_summary_value(&event, EXPAND_TIMELINE_TEXT_MAX_CHARS))
+        .collect::<Vec<_>>();
+    let events = prism.outcomes_for(&anchors, 20);
+    let mut recent_patches = compact_concept_recent_diffs(prism, packet)?
+        .into_iter()
+        .map(|diff| compact_diff_hunk_value(&diff))
+        .collect::<Vec<_>>();
+    let mut result = json!({
+        "recentEvents": recent_events,
+        "recentPatches": recent_patches,
+        "lastFailure": compact_last_outcome(&events, |event| {
+            matches!(event.kind, OutcomeKind::FailureObserved | OutcomeKind::RegressionObserved)
+        }, EXPAND_TIMELINE_TEXT_MAX_CHARS),
+        "lastValidation": compact_last_outcome(&events, |event| {
+            matches!(
+                event.kind,
+                OutcomeKind::BuildRan | OutcomeKind::TestRan | OutcomeKind::FixValidated
+            )
+        }, EXPAND_TIMELINE_TEXT_MAX_CHARS),
+    });
+
+    while expand_json_bytes(&result)? > EXPAND_TIMELINE_MAX_JSON_BYTES {
+        if recent_patches.pop().is_some() {
+            result["recentPatches"] = Value::Array(recent_patches.clone());
+            continue;
+        }
+        if recent_events.pop().is_some() {
+            result["recentEvents"] = Value::Array(recent_events.clone());
+            continue;
+        }
+        if result
+            .get("lastValidation")
+            .is_some_and(|value| !value.is_null())
+        {
+            result["lastValidation"] = Value::Null;
+            continue;
+        }
+        break;
+    }
+
+    Ok(result)
+}
+
+fn compact_concept_memory_expand_result(
+    session: &SessionState,
+    packet: &prism_query::ConceptPacket,
+) -> Result<Value> {
+    let recalled = session.notes.recall(&RecallQuery {
+        focus: packet
+            .core_members
+            .iter()
+            .cloned()
+            .map(prism_ir::AnchorRef::Node)
+            .collect::<Vec<_>>(),
+        text: Some(packet.canonical_name.clone()),
+        limit: EXPAND_MEMORY_LIMIT,
+        kinds: None,
+        since: None,
+    })?;
+    let mut memories = recalled
+        .into_iter()
+        .map(|memory| {
+            json!({
+                "summary": clamp_string(&memory.entry.content, EXPAND_MEMORY_TEXT_MAX_CHARS),
+                "kind": memory.entry.kind,
+                "source": memory.entry.source,
+                "trust": memory.entry.trust,
+                "whyMatched": clamp_string(
+                    memory
+                        .explanation
+                        .as_deref()
+                        .unwrap_or("Matched on shared concept anchors and nearby task context."),
+                    EXPAND_MEMORY_MATCH_MAX_CHARS,
+                ),
+            })
+        })
+        .collect::<Vec<_>>();
+    let mut result = json!({ "memories": memories });
+    while expand_json_bytes(&result)? > EXPAND_MEMORY_MAX_JSON_BYTES {
+        if memories.pop().is_some() {
+            result["memories"] = Value::Array(memories.clone());
+            continue;
+        }
+        break;
+    }
+    Ok(result)
+}
+
+fn compact_concept_recent_diffs(
+    prism: &Prism,
+    packet: &prism_query::ConceptPacket,
+) -> Result<Vec<prism_js::DiffHunkView>> {
+    let mut diffs = Vec::new();
+    let mut seen = HashSet::<String>::new();
+    for member in &packet.core_members {
+        for diff in diff_for(
+            prism,
+            Some(member),
+            None,
+            None,
+            None,
+            EXPAND_TIMELINE_PATCH_LIMIT,
+        )? {
+            if seen.insert(diff.event_id.clone()) {
+                diffs.push(diff);
+            }
+            if diffs.len() >= EXPAND_TIMELINE_PATCH_LIMIT {
+                return Ok(diffs);
+            }
+        }
+    }
+    Ok(diffs)
 }
 
 fn compact_lineage_expand_result(prism: &Prism, target: &SessionHandleTarget) -> Result<Value> {
