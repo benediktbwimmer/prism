@@ -1,14 +1,14 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
-use prism_ir::AnchorRef;
+use prism_ir::{AnchorRef, Node, NodeId, NodeKind};
 use prism_memory::{
     MemoryEntry, MemoryKind, OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult,
 };
 use serde_json::Value;
 
 use crate::types::{
-    CandidateMemory, CandidateMemoryEvidence, CuratorContext, CuratorDiagnostic, CuratorJob,
-    CuratorProposal, CuratorRun,
+    CandidateConcept, CandidateConceptOperation, CandidateMemory, CandidateMemoryEvidence,
+    CuratorContext, CuratorDiagnostic, CuratorJob, CuratorProposal, CuratorRun,
 };
 
 pub fn synthesize_curator_run(job: &CuratorJob, ctx: &CuratorContext) -> CuratorRun {
@@ -21,6 +21,9 @@ pub fn synthesize_curator_run(job: &CuratorJob, ctx: &CuratorContext) -> Curator
         proposals.push(proposal);
     }
     if let Some(proposal) = co_change_rule(job, ctx) {
+        proposals.push(proposal);
+    }
+    if let Some(proposal) = hotspot_concept_rule(job, ctx) {
         proposals.push(proposal);
     }
     if let Some(proposal) = semantic_outcome_summary(job, ctx) {
@@ -233,6 +236,100 @@ fn semantic_outcome_summary(job: &CuratorJob, ctx: &CuratorContext) -> Option<Cu
     }))
 }
 
+fn hotspot_concept_rule(job: &CuratorJob, ctx: &CuratorContext) -> Option<CuratorProposal> {
+    if !matches!(job.trigger, crate::CuratorTrigger::HotspotChanged) {
+        return None;
+    }
+
+    let focus_nodes = focus_nodes(job, ctx);
+    if focus_nodes.len() < 2 {
+        return None;
+    }
+
+    let likely_tests = focus_nodes
+        .iter()
+        .filter(|node| is_test_like_node(node))
+        .map(|node| node.id.clone())
+        .collect::<Vec<_>>();
+    let core_members = preferred_concept_members(&focus_nodes, 4);
+    if core_members.len() < 2 {
+        return None;
+    }
+
+    let supporting_members = focus_nodes
+        .iter()
+        .map(|node| node.id.clone())
+        .filter(|id| !core_members.contains(id) && !likely_tests.contains(id))
+        .take(2)
+        .collect::<Vec<_>>();
+    let validation_count = ctx
+        .projections
+        .validation_checks
+        .iter()
+        .filter(|check| check.score >= 0.45)
+        .count();
+    let co_change_count = ctx
+        .projections
+        .co_change
+        .iter()
+        .filter(|record| record.count >= 2)
+        .count();
+    let canonical_name = infer_concept_name(&focus_nodes, &ctx.projections.validation_checks);
+    let summary = if validation_count > 0 {
+        format!(
+            "Hotspot-sized cluster around `{canonical_name}` with recurring validation and co-change signals."
+        )
+    } else {
+        format!(
+            "Hotspot-sized cluster around `{canonical_name}` observed across multiple focus members."
+        )
+    };
+
+    let mut evidence = vec![format!(
+        "Hotspot change touched {} focus members in this cluster.",
+        focus_nodes.len()
+    )];
+    if co_change_count > 0 {
+        evidence.push(format!(
+            "Projection history shows {} repeated co-change neighbor(s) for the affected lineages.",
+            co_change_count
+        ));
+    }
+    if validation_count > 0 {
+        let labels = ctx
+            .projections
+            .validation_checks
+            .iter()
+            .filter(|check| check.score >= 0.45)
+            .take(3)
+            .map(|check| check.label.clone())
+            .collect::<Vec<_>>();
+        evidence.push(format!(
+            "Validation projections repeatedly point at this area: {}.",
+            labels.join(", ")
+        ));
+    }
+
+    let confidence = (0.62
+        + (core_members.len().saturating_sub(2) as f32 * 0.05)
+        + (validation_count.min(2) as f32 * 0.06)
+        + (co_change_count.min(2) as f32 * 0.04))
+        .clamp(0.0, 0.9);
+
+    Some(CuratorProposal::ConceptCandidate(CandidateConcept {
+        recommended_operation: CandidateConceptOperation::Promote,
+        canonical_name: canonical_name.clone(),
+        summary,
+        aliases: concept_aliases(&canonical_name, &focus_nodes),
+        core_members,
+        supporting_members,
+        likely_tests,
+        evidence,
+        confidence,
+        rationale: "A multi-node hotspot repeatedly changed together and accumulated enough projection evidence to justify a reusable concept proposal.".to_string(),
+    }))
+}
+
 fn episodic_promotion_rules(job: &CuratorJob, ctx: &CuratorContext) -> Vec<CuratorProposal> {
     let mut promotable = ctx
         .memories
@@ -374,6 +471,150 @@ fn has_matching_memory(ctx: &CuratorContext, kind: MemoryKind, content: &str) ->
         .any(|memory| memory.kind == kind && memory.content.eq_ignore_ascii_case(content))
 }
 
+fn focus_nodes<'a>(job: &CuratorJob, ctx: &'a CuratorContext) -> Vec<&'a Node> {
+    let by_id = ctx
+        .graph
+        .nodes
+        .iter()
+        .map(|node| (node.id.clone(), node))
+        .collect::<HashMap<_, _>>();
+    job.focus
+        .iter()
+        .filter_map(|anchor| match anchor {
+            AnchorRef::Node(id) => by_id.get(id).copied(),
+            _ => None,
+        })
+        .collect()
+}
+
+fn preferred_concept_members(nodes: &[&Node], limit: usize) -> Vec<NodeId> {
+    let mut preferred = nodes
+        .iter()
+        .filter(|node| is_preferred_concept_kind(node.kind))
+        .map(|node| node.id.clone())
+        .collect::<Vec<_>>();
+    if preferred.len() < 2 {
+        preferred = nodes
+            .iter()
+            .map(|node| node.id.clone())
+            .filter(|id| !matches!(id.kind, NodeKind::Workspace | NodeKind::Package))
+            .collect();
+    }
+    preferred.truncate(limit);
+    preferred
+}
+
+fn is_preferred_concept_kind(kind: NodeKind) -> bool {
+    matches!(
+        kind,
+        NodeKind::Function
+            | NodeKind::Struct
+            | NodeKind::Enum
+            | NodeKind::Trait
+            | NodeKind::Impl
+            | NodeKind::Method
+            | NodeKind::TypeAlias
+            | NodeKind::Module
+    )
+}
+
+fn is_test_like_node(node: &Node) -> bool {
+    let name = node.name.to_ascii_lowercase();
+    let path = node.id.path.to_string().to_ascii_lowercase();
+    name.contains("test")
+        || path.contains("test")
+        || path.contains("spec")
+        || path.contains("bench")
+}
+
+fn infer_concept_name(nodes: &[&Node], checks: &[prism_projections::ValidationCheck]) -> String {
+    let mut counts = HashMap::<String, usize>::new();
+    for node in nodes {
+        for token in path_tokens(node.id.path.as_str()) {
+            *counts.entry(token).or_insert(0) += 1;
+        }
+        for token in path_tokens(&node.name) {
+            *counts.entry(token).or_insert(0) += 1;
+        }
+    }
+    for check in checks {
+        for token in path_tokens(&check.label) {
+            *counts.entry(token).or_insert(0) += 1;
+        }
+    }
+    counts
+        .into_iter()
+        .filter(|(token, _)| !is_generic_concept_token(token))
+        .max_by(|left, right| left.1.cmp(&right.1).then_with(|| right.0.cmp(&left.0)))
+        .map(|(token, _)| token)
+        .unwrap_or_else(|| fallback_concept_name(nodes))
+}
+
+fn fallback_concept_name(nodes: &[&Node]) -> String {
+    nodes
+        .first()
+        .map(|node| sanitize_concept_token(&node.name))
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "hotspot_cluster".to_string())
+}
+
+fn concept_aliases(canonical_name: &str, nodes: &[&Node]) -> Vec<String> {
+    let mut aliases = vec![canonical_name.replace('_', " ")];
+    aliases.extend(
+        nodes
+            .iter()
+            .map(|node| sanitize_concept_token(&node.name))
+            .filter(|value| !value.is_empty() && value != canonical_name)
+            .take(2),
+    );
+    sort_dedup_strings(&mut aliases);
+    aliases.retain(|alias| !alias.is_empty());
+    aliases
+}
+
+fn path_tokens(value: &str) -> Vec<String> {
+    value
+        .split(|ch: char| !ch.is_ascii_alphanumeric())
+        .map(sanitize_concept_token)
+        .filter(|token| token.len() >= 3)
+        .collect()
+}
+
+fn sanitize_concept_token(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('_')
+        .split('_')
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>()
+        .join("_")
+}
+
+fn is_generic_concept_token(token: &str) -> bool {
+    matches!(
+        token,
+        "demo"
+            | "src"
+            | "lib"
+            | "main"
+            | "mod"
+            | "tests"
+            | "test"
+            | "spec"
+            | "function"
+            | "method"
+            | "module"
+    )
+}
+
 fn dedupe_proposals(proposals: Vec<CuratorProposal>) -> Vec<CuratorProposal> {
     let mut seen = HashSet::new();
     let mut deduped = Vec::new();
@@ -413,6 +654,16 @@ fn proposal_key(proposal: &CuratorProposal) -> String {
         CuratorProposal::InferredEdge(candidate) => format!(
             "edge:{:?}:{}:{}",
             candidate.edge.kind, candidate.edge.source.path, candidate.edge.target.path
+        ),
+        CuratorProposal::ConceptCandidate(candidate) => format!(
+            "concept:{}:{}",
+            candidate.canonical_name,
+            candidate
+                .core_members
+                .iter()
+                .map(|member| member.path.as_str())
+                .collect::<Vec<_>>()
+                .join("|")
         ),
     }
 }

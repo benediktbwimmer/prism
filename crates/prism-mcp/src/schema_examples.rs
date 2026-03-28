@@ -147,6 +147,7 @@ fn prism_mutate_examples() -> Vec<Value> {
         "failure_observed",
         "fix_validated",
         "curator_promote_edge",
+        "curator_promote_concept",
         "curator_promote_memory",
         "curator_reject_proposal",
     ]
@@ -213,6 +214,15 @@ fn prism_mutate_action_example(action: &str) -> Option<Value> {
                 ],
                 "aliases": ["validation", "checks"],
                 "evidence": ["Promoted from repeated validation worksets."]
+            }
+        })),
+        "curator_promote_concept" => Some(json!({
+            "action": "curator_promote_concept",
+            "input": {
+                "jobId": "curator-job:demo",
+                "proposalIndex": 0,
+                "note": "Accept the hotspot concept proposal after review.",
+                "taskId": "task:demo-main"
             }
         })),
         "infer_edge" => Some(json!({

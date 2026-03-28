@@ -286,6 +286,81 @@ fn curator_memory_proposals_decode_legacy_duplicate_kind_shape() {
 }
 
 #[test]
+fn curator_concept_candidate_round_trips_with_tagged_kind() {
+    let proposal = CuratorProposal::ConceptCandidate(CandidateConcept {
+        recommended_operation: CandidateConceptOperation::Promote,
+        canonical_name: "routing_cluster".to_string(),
+        summary: "Hotspot-sized routing cluster.".to_string(),
+        aliases: vec!["routing".to_string()],
+        core_members: vec![
+            NodeId::new("demo", "demo::alpha", NodeKind::Function),
+            NodeId::new("demo", "demo::beta", NodeKind::Function),
+        ],
+        supporting_members: Vec::new(),
+        likely_tests: Vec::new(),
+        evidence: vec!["Observed in a hotspot edit.".to_string()],
+        confidence: 0.78,
+        rationale: "Curator saw repeated hotspot evidence.".to_string(),
+    });
+
+    let json = serde_json::to_string(&proposal).expect("proposal should serialize");
+    assert!(json.contains("\"kind\":\"concept_candidate\""));
+    assert!(json.contains("\"recommendedOperation\":\"promote\""));
+
+    let decoded: CuratorProposal = serde_json::from_str(&json).expect("proposal should decode");
+    assert_eq!(decoded, proposal);
+}
+
+#[test]
+fn hotspot_synthesis_emits_concept_candidate_for_multi_node_hotspots() {
+    let job = CuratorJob {
+        trigger: CuratorTrigger::HotspotChanged,
+        focus: vec![
+            AnchorRef::Node(NodeId::new("demo", "demo::alpha_route", NodeKind::Function)),
+            AnchorRef::Node(NodeId::new("demo", "demo::beta_route", NodeKind::Function)),
+        ],
+        ..sample_job()
+    };
+    let mut ctx = sample_context();
+    ctx.graph.nodes = vec![
+        Node {
+            id: NodeId::new("demo", "demo::alpha_route", NodeKind::Function),
+            name: "alpha_route".into(),
+            kind: NodeKind::Function,
+            file: prism_ir::FileId(1),
+            span: Span::line(1),
+            language: Language::Rust,
+        },
+        Node {
+            id: NodeId::new("demo", "demo::beta_route", NodeKind::Function),
+            name: "beta_route".into(),
+            kind: NodeKind::Function,
+            file: prism_ir::FileId(1),
+            span: Span::line(2),
+            language: Language::Rust,
+        },
+    ];
+    ctx.projections.validation_checks = vec![prism_projections::ValidationCheck {
+        label: "test:route_regression".into(),
+        score: 0.88,
+        last_seen: 12,
+    }];
+    ctx.projections.co_change = vec![prism_projections::CoChangeRecord {
+        lineage: prism_ir::LineageId::new("lineage:route"),
+        count: 3,
+    }];
+
+    let run = synthesize_curator_run(&job, &ctx);
+
+    assert!(run.proposals.iter().any(|proposal| matches!(
+        proposal,
+        CuratorProposal::ConceptCandidate(candidate)
+            if candidate.canonical_name.contains("route")
+                && candidate.core_members.len() >= 2
+    )));
+}
+
+#[test]
 fn synthesize_promotes_strong_episodic_memory_with_source_provenance() {
     let job = sample_job();
     let mut ctx = sample_context();

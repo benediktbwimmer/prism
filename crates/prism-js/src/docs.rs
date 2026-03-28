@@ -2091,6 +2091,7 @@ The query runtime is read-only. State changes happen through two coarse MCP muta
   - action `failure_observed`
   - action `fix_validated`
   - action `curator_promote_edge`
+  - action `curator_promote_concept`
   - action `curator_promote_memory`
   - action `curator_reject_proposal`
   - shorthand `{ action, ...fields }` is accepted in addition to the canonical `{ action, input: { ... } }`

@@ -139,6 +139,31 @@ pub struct CandidateValidationRecipe {
     pub evidence: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CandidateConceptOperation {
+    Promote,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CandidateConcept {
+    pub recommended_operation: CandidateConceptOperation,
+    pub canonical_name: String,
+    pub summary: String,
+    #[serde(default)]
+    pub aliases: Vec<String>,
+    pub core_members: Vec<NodeId>,
+    #[serde(default)]
+    pub supporting_members: Vec<NodeId>,
+    #[serde(default)]
+    pub likely_tests: Vec<NodeId>,
+    #[serde(default)]
+    pub evidence: Vec<String>,
+    pub confidence: f32,
+    pub rationale: String,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum CuratorProposal {
     InferredEdge(CandidateEdge),
@@ -146,6 +171,7 @@ pub enum CuratorProposal {
     SemanticMemory(CandidateMemory),
     RiskSummary(CandidateRiskSummary),
     ValidationRecipe(CandidateValidationRecipe),
+    ConceptCandidate(CandidateConcept),
 }
 
 impl Serialize for CuratorProposal {
@@ -167,6 +193,9 @@ impl Serialize for CuratorProposal {
             }
             Self::ValidationRecipe(recipe) => {
                 serialize_tagged_object("validation_recipe", recipe, &mut map)?
+            }
+            Self::ConceptCandidate(candidate) => {
+                serialize_tagged_object("concept_candidate", candidate, &mut map)?
             }
         }
         map.end()
@@ -269,6 +298,7 @@ impl<'de> Visitor<'de> for CuratorProposalVisitor {
             "inferred_edge" => decode_payload(fields).map(CuratorProposal::InferredEdge),
             "risk_summary" => decode_payload(fields).map(CuratorProposal::RiskSummary),
             "validation_recipe" => decode_payload(fields).map(CuratorProposal::ValidationRecipe),
+            "concept_candidate" => decode_payload(fields).map(CuratorProposal::ConceptCandidate),
             "structural_memory" => {
                 decode_memory_payload(fields, memory_kind.unwrap_or(MemoryKind::Structural))
                     .map(CuratorProposal::StructuralMemory)
@@ -285,6 +315,7 @@ impl<'de> Visitor<'de> for CuratorProposalVisitor {
                     "semantic_memory",
                     "risk_summary",
                     "validation_recipe",
+                    "concept_candidate",
                 ],
             )),
         }
@@ -299,6 +330,7 @@ fn is_proposal_kind(value: &str) -> bool {
             | "semantic_memory"
             | "risk_summary"
             | "validation_recipe"
+            | "concept_candidate"
     )
 }
 

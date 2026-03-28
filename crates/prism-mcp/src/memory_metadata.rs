@@ -63,6 +63,7 @@ pub(crate) fn curator_memory_metadata(
         CuratorProposal::RiskSummary(_) => "risk_summary",
         CuratorProposal::ValidationRecipe(_) => "validation_recipe",
         CuratorProposal::InferredEdge(_) => "inferred_edge",
+        CuratorProposal::ConceptCandidate(_) => "concept_candidate",
     };
 
     metadata.insert("task_id".to_string(), Value::String(task_id.0.to_string()));

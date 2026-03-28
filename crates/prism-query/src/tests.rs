@@ -1758,6 +1758,197 @@ fn native_plan_updates_validate_completion_and_preserve_non_dependency_edges() {
 }
 
 #[test]
+fn native_plan_edge_validation_rejects_self_cycles_and_multiple_child_parents() {
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:edge-validate"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Validate native plan edges".into(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_a, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:edge-validate:a"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Task A".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let (task_b, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:edge-validate:b"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Task B".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let (task_c, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:edge-validate:c"),
+                ts: 4,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Task C".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+
+    let node_a = PlanNodeId::new(task_a.0.clone());
+    let node_b = PlanNodeId::new(task_b.0.clone());
+    let node_c = PlanNodeId::new(task_c.0.clone());
+    let native_graph = PlanGraph {
+        id: plan_id.clone(),
+        scope: PlanScope::Repo,
+        kind: PlanKind::TaskExecution,
+        title: "Validate native plan edges".into(),
+        goal: "Validate native plan edges".into(),
+        status: PlanStatus::Active,
+        revision: 1,
+        root_nodes: vec![node_a.clone(), node_b.clone(), node_c.clone()],
+        tags: Vec::new(),
+        created_from: None,
+        metadata: serde_json::Value::Null,
+        nodes: vec![
+            PlanNode {
+                id: node_a.clone(),
+                plan_id: plan_id.clone(),
+                kind: PlanNodeKind::Edit,
+                title: "Task A".into(),
+                summary: None,
+                status: PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+            PlanNode {
+                id: node_b.clone(),
+                plan_id: plan_id.clone(),
+                kind: PlanNodeKind::Edit,
+                title: "Task B".into(),
+                summary: None,
+                status: PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+            PlanNode {
+                id: node_c.clone(),
+                plan_id: plan_id.clone(),
+                kind: PlanNodeKind::Edit,
+                title: "Task C".into(),
+                summary: None,
+                status: PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+        ],
+        edges: Vec::new(),
+    };
+
+    let prism = Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
+        graph,
+        history,
+        outcomes,
+        coordination,
+        ProjectionIndex::default(),
+        vec![native_graph],
+        BTreeMap::new(),
+    );
+
+    prism
+        .create_native_plan_edge(&plan_id, &node_a, &node_b, PlanEdgeKind::Validates)
+        .unwrap();
+    let cycle_error = prism
+        .create_native_plan_edge(&plan_id, &node_b, &node_a, PlanEdgeKind::HandoffTo)
+        .expect_err("mixed constrained edge cycle should be rejected");
+    assert!(cycle_error.to_string().contains("introduce a cycle"));
+
+    let self_error = prism
+        .create_native_plan_edge(&plan_id, &node_a, &node_a, PlanEdgeKind::Blocks)
+        .expect_err("self edges should be rejected");
+    assert!(self_error.to_string().contains("cannot target itself"));
+
+    prism
+        .create_native_plan_edge(&plan_id, &node_c, &node_a, PlanEdgeKind::ChildOf)
+        .unwrap();
+    let parent_error = prism
+        .create_native_plan_edge(&plan_id, &node_c, &node_b, PlanEdgeKind::ChildOf)
+        .expect_err("child node should only have one authored parent");
+    assert!(parent_error
+        .to_string()
+        .contains("already has an authored parent"));
+}
+
+#[test]
 fn native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges() {
     let graph = Graph::new();
     let history = HistoryStore::new();

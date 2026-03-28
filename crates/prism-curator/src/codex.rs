@@ -200,6 +200,7 @@ Allowed proposal kinds:\n\
 - semantic_memory\n\
 - risk_summary\n\
 - validation_recipe\n\
+- concept_candidate\n\
 \n\
 JSON payload:\n\
 {payload}\n"

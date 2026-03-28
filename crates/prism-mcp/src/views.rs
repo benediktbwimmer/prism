@@ -86,6 +86,9 @@ pub(crate) fn curator_proposal_view(
         CuratorProposal::ValidationRecipe(candidate) => {
             ("validation_recipe", serde_json::to_value(candidate)?)
         }
+        CuratorProposal::ConceptCandidate(candidate) => {
+            ("concept_candidate", serde_json::to_value(candidate)?)
+        }
     };
     Ok(CuratorProposalView {
         index,

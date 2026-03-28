@@ -27,7 +27,8 @@ pub(crate) fn curator_run_schema() -> serde_json::Value {
                                 "structural_memory",
                                 "semantic_memory",
                                 "risk_summary",
-                                "validation_recipe"
+                                "validation_recipe",
+                                "concept_candidate"
                             ]
                         }
                     },

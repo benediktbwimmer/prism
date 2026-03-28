@@ -579,6 +579,7 @@ pub(crate) struct CuratorProposalDecisionResult {
     pub(crate) proposal: Value,
     pub(crate) memory_id: Option<String>,
     pub(crate) edge_id: Option<String>,
+    pub(crate) concept_handle: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
@@ -709,6 +710,7 @@ pub(crate) enum PrismMutationArgs {
     FailureObserved(PrismFailureObservedArgs),
     FixValidated(PrismFixValidatedArgs),
     CuratorPromoteEdge(PrismCuratorPromoteEdgeArgs),
+    CuratorPromoteConcept(PrismCuratorPromoteConceptArgs),
     CuratorPromoteMemory(PrismCuratorPromoteMemoryArgs),
     CuratorRejectProposal(PrismCuratorRejectProposalArgs),
 }
@@ -728,6 +730,7 @@ enum PrismMutationArgsWire {
     FailureObserved(PrismFailureObservedArgs),
     FixValidated(PrismFixValidatedArgs),
     CuratorPromoteEdge(PrismCuratorPromoteEdgeArgs),
+    CuratorPromoteConcept(PrismCuratorPromoteConceptArgs),
     CuratorPromoteMemory(PrismCuratorPromoteMemoryArgs),
     CuratorRejectProposal(PrismCuratorRejectProposalArgs),
 }
@@ -747,6 +750,7 @@ impl From<PrismMutationArgsWire> for PrismMutationArgs {
             PrismMutationArgsWire::FailureObserved(args) => Self::FailureObserved(args),
             PrismMutationArgsWire::FixValidated(args) => Self::FixValidated(args),
             PrismMutationArgsWire::CuratorPromoteEdge(args) => Self::CuratorPromoteEdge(args),
+            PrismMutationArgsWire::CuratorPromoteConcept(args) => Self::CuratorPromoteConcept(args),
             PrismMutationArgsWire::CuratorPromoteMemory(args) => Self::CuratorPromoteMemory(args),
             PrismMutationArgsWire::CuratorRejectProposal(args) => Self::CuratorRejectProposal(args),
         }
@@ -780,6 +784,7 @@ pub(crate) enum PrismMutationActionSchema {
     FailureObserved,
     FixValidated,
     CuratorPromoteEdge,
+    CuratorPromoteConcept,
     CuratorPromoteMemory,
     CuratorRejectProposal,
 }
@@ -1175,6 +1180,18 @@ pub(crate) struct PrismCuratorRejectProposalArgs {
     #[serde(alias = "proposal_index")]
     pub(crate) proposal_index: usize,
     pub(crate) reason: Option<String>,
+    #[serde(alias = "task_id")]
+    pub(crate) task_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismCuratorPromoteConceptArgs {
+    #[serde(alias = "job_id")]
+    pub(crate) job_id: String,
+    #[serde(alias = "proposal_index")]
+    pub(crate) proposal_index: usize,
+    pub(crate) note: Option<String>,
     #[serde(alias = "task_id")]
     pub(crate) task_id: Option<String>,
 }

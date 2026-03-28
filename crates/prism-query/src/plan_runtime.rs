@@ -101,7 +101,9 @@ impl NativePlanRuntimeState {
         if self.graphs.contains_key(plan.id.0.as_str()) {
             return Err(anyhow!("plan `{}` already exists", plan.id.0));
         }
-        self.next_plan = self.next_plan.max(counter_suffix(&plan.id.0, "plan:").unwrap_or(0));
+        self.next_plan = self
+            .next_plan
+            .max(counter_suffix(&plan.id.0, "plan:").unwrap_or(0));
         self.graphs.insert(
             plan.id.0.to_string(),
             PlanGraph {
@@ -290,6 +292,7 @@ impl NativePlanRuntimeState {
             .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
         ensure_node_in_graph(graph, from_node_id)?;
         ensure_node_in_graph(graph, to_node_id)?;
+        validate_edge_insertion(graph, from_node_id, to_node_id, kind)?;
         let edge_id = edge_id_for_kind(from_node_id, to_node_id, kind);
         if graph.edges.iter().any(|edge| edge.id == edge_id) {
             return Ok(());
@@ -605,4 +608,75 @@ fn plan_edge_kind_slug(kind: PlanEdgeKind) -> &'static str {
 
 fn counter_suffix(id: &str, prefix: &str) -> Option<u64> {
     id.strip_prefix(prefix)?.parse().ok()
+}
+
+fn validate_edge_insertion(
+    graph: &PlanGraph,
+    from_node_id: &PlanNodeId,
+    to_node_id: &PlanNodeId,
+    kind: PlanEdgeKind,
+) -> Result<()> {
+    if from_node_id == to_node_id {
+        return Err(anyhow!(
+            "plan edge `{}` -> `{}` ({:?}) cannot target itself",
+            from_node_id.0,
+            to_node_id.0,
+            kind
+        ));
+    }
+    if kind == PlanEdgeKind::ChildOf
+        && graph.edges.iter().any(|edge| {
+            edge.kind == PlanEdgeKind::ChildOf
+                && edge.from == *from_node_id
+                && edge.to != *to_node_id
+        })
+    {
+        return Err(anyhow!(
+            "plan node `{}` already has an authored parent",
+            from_node_id.0
+        ));
+    }
+    if edge_kind_requires_acyclic_graph(kind)
+        && constrained_path_exists(graph, to_node_id, from_node_id)
+    {
+        return Err(anyhow!(
+            "plan edge `{}` -> `{}` ({:?}) would introduce a cycle",
+            from_node_id.0,
+            to_node_id.0,
+            kind
+        ));
+    }
+    Ok(())
+}
+
+fn edge_kind_requires_acyclic_graph(kind: PlanEdgeKind) -> bool {
+    matches!(
+        kind,
+        PlanEdgeKind::DependsOn
+            | PlanEdgeKind::Blocks
+            | PlanEdgeKind::Validates
+            | PlanEdgeKind::HandoffTo
+            | PlanEdgeKind::ChildOf
+    )
+}
+
+fn constrained_path_exists(graph: &PlanGraph, start: &PlanNodeId, target: &PlanNodeId) -> bool {
+    let mut pending = vec![start.clone()];
+    let mut visited = BTreeSet::new();
+    while let Some(node_id) = pending.pop() {
+        if !visited.insert(node_id.clone()) {
+            continue;
+        }
+        if node_id == *target {
+            return true;
+        }
+        pending.extend(
+            graph
+                .edges
+                .iter()
+                .filter(|edge| edge_kind_requires_acyclic_graph(edge.kind) && edge.from == node_id)
+                .map(|edge| edge.to.clone()),
+        );
+    }
+    false
 }

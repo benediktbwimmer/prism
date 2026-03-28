@@ -1000,6 +1000,31 @@ impl PrismMcpServer {
                     links,
                 )
             }
+            PrismMutationArgs::CuratorPromoteConcept(args) => {
+                let result = self.execute_logged_mutation(
+                    "mutate.curator_promote_concept",
+                    MutationRefreshPolicy::None,
+                    || {
+                        self.host
+                            .promote_curator_concept(self.session.as_ref(), args)
+                    },
+                    |result| {
+                        let mut result_ids = vec![result.job_id.clone()];
+                        if let Some(concept_handle) = &result.concept_handle {
+                            result_ids.push(concept_handle.clone());
+                        }
+                        MutationDashboardMeta::coordination(result_ids, 0)
+                    },
+                )?;
+                structured_tool_result_with_links(
+                    PrismMutationResult {
+                        action: PrismMutationActionSchema::CuratorPromoteConcept,
+                        result: serde_json::to_value(result)
+                            .map_err(|err| map_query_error(err.into()))?,
+                    },
+                    vec![session_resource_link()],
+                )
+            }
             PrismMutationArgs::CuratorPromoteMemory(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.curator_promote_memory",

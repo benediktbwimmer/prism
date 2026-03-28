@@ -3,7 +3,10 @@ use prism_coordination::{
     HandoffAcceptInput, HandoffInput, PolicyViolation, TaskCreateInput, TaskUpdateInput,
 };
 use prism_core::{ValidationFeedbackCategory, ValidationFeedbackRecord, ValidationFeedbackVerdict};
-use prism_curator::{CuratorJobId, CuratorProposal, CuratorProposalDisposition};
+use prism_curator::{
+    CandidateConcept, CandidateConceptOperation, CuratorJobId, CuratorProposal,
+    CuratorProposalDisposition,
+};
 use prism_ir::{
     AgentId, AnchorRef, ArtifactId, ClaimId, CoordinationTaskId, Edge, EdgeOrigin, EventActor,
     EventId, EventMeta, PlanEdge, PlanEdgeId, PlanEdgeKind, PlanId, PlanNodeId, TaskId,
@@ -33,16 +36,17 @@ use crate::{
     task_journal_memory_metadata, task_journal_view, ArtifactActionInput, ArtifactMutationResult,
     ArtifactProposePayload, ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload,
     ClaimActionInput, ClaimMutationResult, ClaimReleasePayload, ClaimRenewPayload,
-    ConceptMutationOperationInput, ConceptMutationResult, CoordinationMutationKindInput,
-    CoordinationMutationResult, CuratorJobView, CuratorProposalDecisionResult, EdgeMutationResult,
-    EventMutationResult, HandoffAcceptPayload, MemoryMutationActionInput, MemoryMutationResult,
-    MemoryStorePayload, MutationViolationView, PlanEdgeCreatePayload, PlanEdgeDeletePayload,
-    PlanNodeCreatePayload, PlanNodeUpdatePayload, PlanUpdatePayload, PrismArtifactArgs,
-    PrismClaimArgs, PrismConceptLensInput, PrismConceptMutationArgs, PrismCoordinationArgs,
-    PrismCuratorPromoteEdgeArgs, PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs,
-    PrismFinishTaskArgs, PrismInferEdgeArgs, PrismMemoryArgs, PrismOutcomeArgs,
-    PrismValidationFeedbackArgs, QueryHost, SessionState, TaskCreatePayload, TaskUpdatePayload,
-    ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
+    ConceptMutationOperationInput, ConceptMutationResult, ConceptScopeInput,
+    CoordinationMutationKindInput, CoordinationMutationResult, CuratorJobView,
+    CuratorProposalDecisionResult, EdgeMutationResult, EventMutationResult, HandoffAcceptPayload,
+    MemoryMutationActionInput, MemoryMutationResult, MemoryStorePayload, MutationViolationView,
+    NodeIdInput, PlanEdgeCreatePayload, PlanEdgeDeletePayload, PlanNodeCreatePayload,
+    PlanNodeUpdatePayload, PlanUpdatePayload, PrismArtifactArgs, PrismClaimArgs,
+    PrismConceptLensInput, PrismConceptMutationArgs, PrismCoordinationArgs,
+    PrismCuratorPromoteConceptArgs, PrismCuratorPromoteEdgeArgs, PrismCuratorPromoteMemoryArgs,
+    PrismCuratorRejectProposalArgs, PrismFinishTaskArgs, PrismInferEdgeArgs, PrismMemoryArgs,
+    PrismOutcomeArgs, PrismValidationFeedbackArgs, QueryHost, SessionState, TaskCreatePayload,
+    TaskUpdatePayload, ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
     ValidationFeedbackVerdictInput, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
     DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
@@ -1424,6 +1428,90 @@ impl QueryHost {
             proposal: serde_json::to_value(proposal)?,
             memory_id: None,
             edge_id: Some(edge_id.0),
+            concept_handle: None,
+        })
+    }
+
+    pub(crate) fn promote_curator_concept(
+        &self,
+        session: &SessionState,
+        args: PrismCuratorPromoteConceptArgs,
+    ) -> Result<CuratorProposalDecisionResult> {
+        self.refresh_workspace()?;
+        let workspace = self
+            .workspace
+            .as_ref()
+            .ok_or_else(|| anyhow!("curator mutations require a workspace-backed session"))?;
+        let job_id = CuratorJobId(args.job_id.clone());
+        let snapshot = workspace.curator_snapshot();
+        let record = snapshot
+            .records
+            .iter()
+            .find(|record| record.id == job_id)
+            .ok_or_else(|| anyhow!("unknown curator job `{}`", args.job_id))?;
+        let proposal_state = curator_proposal_state(record, args.proposal_index)?;
+        if proposal_state.disposition != CuratorProposalDisposition::Pending {
+            return Err(anyhow!(
+                "curator proposal {} for job `{}` is already {}",
+                args.proposal_index,
+                args.job_id,
+                curator_disposition_label(proposal_state.disposition)
+            ));
+        }
+        let proposal = curator_proposal(record, args.proposal_index)?;
+        let CuratorProposal::ConceptCandidate(candidate) = proposal else {
+            return Err(anyhow!(
+                "curator proposal {} for job `{}` is not a concept candidate",
+                args.proposal_index,
+                args.job_id
+            ));
+        };
+
+        let task_id = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
+        let prism = self.current_prism();
+        let recorded_at = current_timestamp();
+        let mut packet = build_promoted_concept_packet(
+            prism.as_ref(),
+            &task_id,
+            recorded_at,
+            concept_args_from_curator_candidate(candidate, &task_id),
+        )?;
+        packet.provenance = ConceptProvenance {
+            origin: "curator".to_string(),
+            kind: "curator_concept_candidate".to_string(),
+            task_id: Some(task_id.0.to_string()),
+        };
+        let event = ConceptEvent {
+            id: next_concept_event_id(),
+            recorded_at,
+            task_id: Some(task_id.0.to_string()),
+            action: ConceptEventAction::Promote,
+            concept: packet.clone(),
+        };
+        workspace.append_concept_event(event)?;
+        self.sync_workspace_revision(workspace)?;
+        workspace.set_curator_proposal_state(
+            &job_id,
+            args.proposal_index,
+            CuratorProposalDisposition::Applied,
+            Some(task_id),
+            args.note,
+            Some(packet.handle.clone()),
+        )?;
+        let proposal = self
+            .curator_job(&args.job_id)?
+            .and_then(|job| {
+                job.proposals
+                    .into_iter()
+                    .find(|proposal| proposal.index == args.proposal_index)
+            })
+            .ok_or_else(|| anyhow!("applied curator proposal could not be reloaded"))?;
+        Ok(CuratorProposalDecisionResult {
+            job_id: args.job_id,
+            proposal: serde_json::to_value(proposal)?,
+            memory_id: None,
+            edge_id: None,
+            concept_handle: Some(packet.handle),
         })
     }
 
@@ -1587,6 +1675,13 @@ impl QueryHost {
                     args.job_id
                 ));
             }
+            CuratorProposal::ConceptCandidate(_) => {
+                return Err(anyhow!(
+                    "curator proposal {} for job `{}` is a concept candidate; use prism_mutate with action `curator_promote_concept`",
+                    args.proposal_index,
+                    args.job_id
+                ));
+            }
         };
         let memory_summary = entry.content.clone();
         let memory_anchors = entry.anchors.clone();
@@ -1653,6 +1748,7 @@ impl QueryHost {
             proposal: serde_json::to_value(proposal)?,
             memory_id: Some(memory_id.0),
             edge_id: None,
+            concept_handle: None,
         })
     }
 
@@ -1705,6 +1801,7 @@ impl QueryHost {
             proposal: serde_json::to_value(proposal)?,
             memory_id: None,
             edge_id: None,
+            concept_handle: None,
         })
     }
 
@@ -1882,6 +1979,65 @@ fn build_promoted_concept_packet(
     };
     validate_concept_packet(&packet)?;
     Ok(packet)
+}
+
+fn concept_args_from_curator_candidate(
+    candidate: &CandidateConcept,
+    task_id: &TaskId,
+) -> PrismConceptMutationArgs {
+    PrismConceptMutationArgs {
+        operation: match candidate.recommended_operation {
+            CandidateConceptOperation::Promote => ConceptMutationOperationInput::Promote,
+        },
+        handle: None,
+        canonical_name: Some(candidate.canonical_name.clone()),
+        summary: Some(candidate.summary.clone()),
+        aliases: (!candidate.aliases.is_empty()).then_some(candidate.aliases.clone()),
+        core_members: Some(
+            candidate
+                .core_members
+                .iter()
+                .cloned()
+                .map(node_id_input)
+                .collect(),
+        ),
+        supporting_members: (!candidate.supporting_members.is_empty()).then_some(
+            candidate
+                .supporting_members
+                .iter()
+                .cloned()
+                .map(node_id_input)
+                .collect(),
+        ),
+        likely_tests: (!candidate.likely_tests.is_empty()).then_some(
+            candidate
+                .likely_tests
+                .iter()
+                .cloned()
+                .map(node_id_input)
+                .collect(),
+        ),
+        evidence: (!candidate.evidence.is_empty()).then_some(candidate.evidence.clone()),
+        risk_hint: None,
+        confidence: Some(candidate.confidence),
+        decode_lenses: Some(vec![
+            PrismConceptLensInput::Open,
+            PrismConceptLensInput::Workset,
+            PrismConceptLensInput::Validation,
+        ]),
+        scope: Some(ConceptScopeInput::Session),
+        supersedes: None,
+        retirement_reason: None,
+        task_id: Some(task_id.0.to_string()),
+    }
+}
+
+fn node_id_input(id: prism_ir::NodeId) -> NodeIdInput {
+    NodeIdInput {
+        crate_name: id.crate_name.to_string(),
+        path: id.path.to_string(),
+        kind: id.kind.to_string(),
+    }
 }
 
 fn build_updated_concept_packet(

@@ -27,9 +27,9 @@ use prism_core::{
     ValidationFeedbackRecord, ValidationFeedbackVerdict,
 };
 use prism_curator::{
-    CandidateEdge, CandidateMemory, CandidateMemoryEvidence, CandidateRiskSummary,
-    CandidateValidationRecipe, CuratorBackend, CuratorContext, CuratorJob, CuratorProposal,
-    CuratorRun,
+    CandidateConcept, CandidateConceptOperation, CandidateEdge, CandidateMemory,
+    CandidateMemoryEvidence, CandidateRiskSummary, CandidateValidationRecipe, CuratorBackend,
+    CuratorContext, CuratorJob, CuratorProposal, CuratorRun,
 };
 use prism_history::HistoryStore;
 use prism_ir::{
@@ -1114,6 +1114,102 @@ fn configure_session_binds_current_agent_and_task_create_inherits_it() {
 
     let claims = host.current_prism().coordination_snapshot().claims;
     assert!(claims.is_empty());
+}
+
+#[test]
+fn plan_edge_mutations_reject_invalid_scheduling_graphs() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Reject invalid native graph edges" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let source = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Implement change"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let source_id = source.state["id"].as_str().unwrap().to_string();
+
+    let target = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Validate change"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let target_id = target.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        test_session(&host).as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanEdgeCreate,
+            payload: json!({
+                "planId": plan_id.clone(),
+                "fromNodeId": source_id.clone(),
+                "toNodeId": target_id.clone(),
+                "kind": "validates"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let cycle_error = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanEdgeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "fromNodeId": target_id.clone(),
+                    "toNodeId": source_id.clone(),
+                    "kind": "handoff_to"
+                }),
+                task_id: None,
+            },
+        )
+        .expect_err("cross-kind cycle should be rejected");
+    assert!(cycle_error.to_string().contains("introduce a cycle"));
+
+    let self_error = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanEdgeCreate,
+                payload: json!({
+                    "planId": plan_id,
+                    "fromNodeId": source_id.clone(),
+                    "toNodeId": source_id,
+                    "kind": "blocks"
+                }),
+                task_id: None,
+            },
+        )
+        .expect_err("self edge should be rejected");
+    assert!(self_error.to_string().contains("cannot target itself"));
 }
 
 #[test]
@@ -3286,6 +3382,126 @@ return {{
 }
 
 #[test]
+fn curator_concept_promotion_persists_session_concept_and_marks_proposal_applied() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn alpha_route() {}
+pub fn beta_route() {}
+"#,
+    )
+    .unwrap();
+
+    #[derive(Default)]
+    struct FakeCurator;
+
+    impl CuratorBackend for FakeCurator {
+        fn run(&self, _job: &CuratorJob, _ctx: &CuratorContext) -> anyhow::Result<CuratorRun> {
+            Ok(CuratorRun {
+                proposals: vec![CuratorProposal::ConceptCandidate(CandidateConcept {
+                    recommended_operation: CandidateConceptOperation::Promote,
+                    canonical_name: "route_cluster".to_string(),
+                    summary: "Routing hotspot cluster.".to_string(),
+                    aliases: vec!["routing".to_string()],
+                    core_members: vec![
+                        NodeId::new("demo", "demo::alpha_route", NodeKind::Function),
+                        NodeId::new("demo", "demo::beta_route", NodeKind::Function),
+                    ],
+                    supporting_members: Vec::new(),
+                    likely_tests: Vec::new(),
+                    evidence: vec!["Hotspot edit kept touching the same routing pair.".to_string()],
+                    confidence: 0.79,
+                    rationale: "Repeated co-change and hotspot edits justify a reusable concept."
+                        .to_string(),
+                })],
+                diagnostics: Vec::new(),
+            })
+        }
+    }
+
+    let session = index_workspace_session_with_curator(&root, Arc::new(FakeCurator)).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha_route")
+        .into_iter()
+        .next()
+        .unwrap()
+        .id()
+        .clone();
+    session
+        .append_outcome(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:route-fix"),
+                ts: 50,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:curator-concept")),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(alpha)],
+            kind: OutcomeKind::FixValidated,
+            result: OutcomeResult::Success,
+            summary: "validated routing follow-up".into(),
+            evidence: Vec::new(),
+            metadata: Value::Null,
+        })
+        .unwrap();
+    let job_id = wait_for_completed_curator_job(&session);
+    let host = QueryHost::with_session(session);
+
+    let promoted = host
+        .promote_curator_concept(
+            test_session(&host).as_ref(),
+            PrismCuratorPromoteConceptArgs {
+                job_id: job_id.clone(),
+                proposal_index: 0,
+                note: Some("accept hotspot concept".into()),
+                task_id: Some("task:curator-concept".into()),
+            },
+        )
+        .expect("concept promotion should succeed");
+    assert_eq!(promoted.memory_id, None);
+    assert_eq!(promoted.edge_id, None);
+    assert_eq!(
+        promoted.concept_handle.as_deref(),
+        Some("concept://route_cluster")
+    );
+
+    let proposal = host
+        .execute(
+            test_session(&host),
+            &format!(
+                r#"
+return {{
+  proposal: prism.curator.job("{job_id}")?.proposals[0],
+  concept: prism.conceptByHandle("concept://route_cluster", {{ includeBindingMetadata: true }}),
+}};
+"#
+            ),
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed");
+    assert_eq!(proposal.result["proposal"]["kind"], "concept_candidate");
+    assert_eq!(proposal.result["proposal"]["disposition"], "applied");
+    assert_eq!(
+        proposal.result["proposal"]["output"],
+        Value::String("concept://route_cluster".to_string())
+    );
+    assert_eq!(
+        proposal.result["concept"]["canonicalName"],
+        Value::String("route_cluster".to_string())
+    );
+    assert_eq!(
+        proposal.result["concept"]["provenance"]["origin"],
+        Value::String("curator".to_string())
+    );
+    assert_eq!(
+        proposal.result["concept"]["provenance"]["kind"],
+        Value::String("curator_concept_candidate".to_string())
+    );
+}
+
+#[test]
 fn semantic_curator_memory_promotion_persists_and_is_recallable() {
     let root = temp_workspace();
 
@@ -4280,7 +4496,7 @@ return {
     assert_eq!(mutate["toolName"], "prism_mutate");
     assert_eq!(
         mutate["actions"].as_array().map(|items| items.len()),
-        Some(14)
+        Some(15)
     );
     assert_eq!(
         mutate["exampleInput"]["input"]["prismSaid"],
@@ -4517,6 +4733,7 @@ fn prism_mutate_schema_surfaces_action_specific_examples() {
         "failure_observed",
         "fix_validated",
         "curator_promote_edge",
+        "curator_promote_concept",
         "curator_promote_memory",
         "curator_reject_proposal",
     ] {
