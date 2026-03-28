@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PRISM - Cognition Engine for Autonomous Agents</title>
+    <title>PRISM - The Execution Substrate for Autonomous Agents</title>
     <!-- Modern Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,12 +32,12 @@
 
     <main>
       <section class="hero observe-fade">
-        <h1 class="hero-title">The Cognition Engine<br>for <span class="gradient-text">Autonomous Agents</span></h1>
-        <p class="hero-subtitle">Stop guessing what your codebase looks like right now. Provide your coding agents with a structured, temporal memory graph that acts as the single source of truth.</p>
+        <h1 class="hero-title">The Execution Substrate<br>for <span class="gradient-text">Autonomous Agents</span></h1>
+        <p class="hero-subtitle">Turn your repository into a live system of facts, earned knowledge, and actionable intent. Don't just give your agents context—give them a world model.</p>
         
         <div class="hero-cta">
           <a href="https://github.com/benediktbwimmer/prism" class="btn btn-primary" target="_blank">View on GitHub</a>
-          <a href="#features" class="btn btn-secondary">Explore the Graph</a>
+          <a href="#features" class="btn btn-secondary">Explore the Substrate</a>
         </div>
 
         <!-- Terminal Window Mockup -->
@@ -58,13 +58,13 @@
         <div class="comparison-grid">
           <div class="glass-card problem-card">
             <div class="card-icon red-glow">⨯</div>
-            <h3>The Old Way: Fragile Context</h3>
-            <p>Dumping 200k tokens of source code into an agent’s context window is slow and error-prone. Agents lose track of object lineage, suffer from hallucinated structural assumptions, and repeat the same mistakes over and over.</p>
+            <h3>The Old Way: Amnesic Agents</h3>
+            <p>Dumping massive text into a context window guarantees agents start from scratch every session. They repeat historical mistakes, misunderstand local architecture, and collide with each other when working asynchronously without central coordination.</p>
           </div>
           <div class="glass-card solution-card">
             <div class="card-icon cyan-glow">✓</div>
-            <h3>The PRISM Way: Structured Memory</h3>
-            <p>PRISM understands your codebase semantically. Through an MCP connection, it gives your agent exact answers: finding symbol dependencies, assessing module blast radius, and remembering historical failure outcomes linked to explicit nodes.</p>
+            <h3>The PRISM Way: Full Context</h3>
+            <p>A cold-start agent enters a PRISM repo and instantly recovers reality. It sees the code (Facts), hydrates historically learned understanding (Memories & Concepts), and coordinates via the current trajectory (Plans) without stepping on toes.</p>
           </div>
         </div>
       </section>
@@ -74,53 +74,54 @@
           <div class="ts-query-layout">
             <div class="ts-query-text">
               <h2>TypeScript as the Query Language</h2>
-              <p>Forcing agents to string together <code>grep</code>, <code>cat</code>, and <code>sed</code> leads to loop failures. By embedding a JS/TS engine over the graph, PRISM provides an <strong>agent-native interface</strong>. Agents write compositional TS snippets to pull definitions, blast radii, and historical failures in a single round-trip—drastically cutting down token usage and tool calls.</p>
+              <p>Forcing agents to guess intent using <code>grep</code> leads to loop failures. By embedding a JS/TS engine over the graph, PRISM provides an <strong>agent-native interface</strong>. Agents write compositional TS snippets to pull definitions, historical failures, and active execution plans in a single round-trip—closing the coordination gap.</p>
             </div>
             <div class="ts-code-block">
-<pre><code><span class="token-comment">// Replace 10 shell steps with 1 query</span>
-<span class="token-keyword">const</span> sym = <span class="token-function">prism.symbol</span>(<span class="token-string">"handle_auth"</span>);
-<span class="token-keyword">return</span> {
-  target: sym,
-  dependencies: sym?.<span class="token-function">relations</span>().callees,
-  blastRadius: <span class="token-function">prism.blastRadius</span>(sym)
-};</code></pre>
+<pre><code><span class="token-comment">// Discover unblocked work and relevant memory</span>
+<span class="token-keyword">const</span> plan = <span class="token-function">prism.plan</span>(<span class="token-string">"plan:12"</span>);
+<span class="token-keyword">const</span> ready = <span class="token-function">prism.readyTasks</span>(plan.id);
+<span class="token-keyword">const</span> context = <span class="token-function">prism.memory.recall</span>({ 
+  focus: ready[0].anchors 
+});
+
+<span class="token-keyword">return</span> { ready, context };</code></pre>
             </div>
           </div>
         </div>
       </section>
 
       <section id="features" class="features observe-fade">
-        <h2 class="section-title">Built for the Era of AI Engineering</h2>
+        <h2 class="section-title">The Three Pillars of Cognition</h2>
         <div class="feature-grid">
           <div class="glass-card feature-item">
             <div class="feature-icon">🔍</div>
-            <h4>Structural Truth</h4>
-            <p>Every function, struct, and module is mapped dynamically. Agents request explicit `relations()` instead of blindly grepping.</p>
-          </div>
-          <div class="glass-card feature-item">
-            <div class="feature-icon">⏳</div>
-            <h4>Temporal Lineage</h4>
-            <p>A file rename shouldn't break an agent’s memory. PRISM tracks definitions through time via robust `LineageId` anchors.</p>
+            <h4>Spatial Perception (Facts)</h4>
+            <p>Every file, symbol, structure, and git event mapped dynamically. Agents request precise semantic relationships instead of blind shell search to understand exactly what the repo encompasses.</p>
           </div>
           <div class="glass-card feature-item">
             <div class="feature-icon">🧠</div>
-            <h4>Outcome Memory</h4>
-            <p>When an agent discovers a quirk or a test fails, PRISM remembers it. Future agents receive this memory automatically via `readContext` queries.</p>
+            <h4>Temporal Continuity (Knowledge)</h4>
+            <p>Earned episodic and structural memories capture what working on the codebase has taught us. This learned knowledge is published back into <code>.prism</code> and rebound to live handles at runtime.</p>
+          </div>
+          <div class="glass-card feature-item">
+            <div class="feature-icon">🎯</div>
+            <h4>Execution Alignment (Intent)</h4>
+            <p>First-class coordination via Plans. PRISM tells agents exactly what is being worked on, what is blocked, and what must be validated next, turning a smart repo into a full execution substrate.</p>
+          </div>
+          <div class="glass-card feature-item">
+            <div class="feature-icon">📚</div>
+            <h4>Repo-Native Vocabulary</h4>
+            <p>Concept packs let PRISM speak your specific language. Instead of a generic taxonomy, PRISM binds your domain terms directly to their implementations, docs, and validation logic.</p>
+          </div>
+          <div class="glass-card feature-item">
+            <div class="feature-icon">🤝</div>
+            <h4>Conflict Avoidance</h4>
+            <p>With tasks and claims, swarms of agents can work on the same repository asynchronously. They don't overwrite each other's work because PRISM manages the handoffs and blockages.</p>
           </div>
           <div class="glass-card feature-item">
             <div class="feature-icon">🔗</div>
             <h4>MCP Native</h4>
-            <p>PRISM exposes its query logic through the Model Context Protocol. It connects seamlessly to Antigravity, Cursor, and custom agent infrastructure.</p>
-          </div>
-          <div class="glass-card feature-item">
-            <div class="feature-icon">⚡</div>
-            <h4>Zero-Latency API</h4>
-            <p>Written in Rust, PRISM keeps the graph warm and responds practically instantly via its embedded JS host environment.</p>
-          </div>
-          <div class="glass-card feature-item">
-            <div class="feature-icon">⚖️</div>
-            <h4>Extensible Substrate</h4>
-            <p>Built to be the shared foundation for LEDGER (orchestration) and HARBOR (knowledge). PRISM is the primitive that powers the empire.</p>
+            <p>PRISM exposes its entire cognitive graph through the Model Context Protocol. It connects seamlessly to Antigravity, Cursor, Claude Desktop, and your custom agent infrastructure.</p>
           </div>
         </div>
       </section>
@@ -183,7 +184,7 @@
 
       <section class="cta-section observe-fade">
         <h2>Ready to make your agents 10x smarter?</h2>
-        <p>Adopt standard library-grade cognition for your autonomous systems.</p>
+        <p>Transform your repository into a true Execution Substrate.</p>
         <a href="https://github.com/benediktbwimmer/prism" class="btn btn-primary btn-large" target="_blank">Install PRISM via MCP</a>
       </section>
     </main>
@@ -197,7 +198,7 @@
           </div>
           <span class="logo-text">PRISM</span>
         </div>
-        <p class="footer-tagline">The foundational graph substrate for coding agents.</p>
+        <p class="footer-tagline">The foundational execution substrate for autonomous coding agents.</p>
         <div class="footer-links">
           <a href="https://github.com/benediktbwimmer/prism" target="_blank">GitHub</a>
         </div>

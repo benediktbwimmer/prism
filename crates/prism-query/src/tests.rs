@@ -1422,6 +1422,8 @@ fn policy_violations_expose_rejected_coordination_mutations() {
                 session: None,
                 title: None,
                 anchors: None,
+                depends_on: None,
+                acceptance: None,
                 base_revision: None,
                 completion_context: Some(TaskCompletionContext::default()),
             },

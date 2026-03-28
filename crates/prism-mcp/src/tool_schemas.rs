@@ -9,10 +9,11 @@ use crate::{
     tool_schema_resource_uri, tool_schema_resource_view_link, tool_schemas_resource_view_link,
     ArtifactProposePayload, ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload,
     ClaimReleasePayload, ClaimRenewPayload, HandoffAcceptPayload, HandoffPayload,
-    MemoryStorePayload, PlanCreatePayload, PlanUpdatePayload, PrismConceptArgs, PrismExpandArgs,
-    PrismGatherArgs, PrismLocateArgs, PrismMutationArgs, PrismOpenArgs, PrismQueryArgs,
-    PrismSessionArgs, PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView, TaskCreatePayload,
-    TaskUpdatePayload, TOOL_SCHEMAS_URI,
+    MemoryStorePayload, PlanCreatePayload, PlanEdgeCreatePayload, PlanEdgeDeletePayload,
+    PlanNodeCreatePayload, PlanNodeUpdatePayload, PlanUpdatePayload, PrismConceptArgs,
+    PrismExpandArgs, PrismGatherArgs, PrismLocateArgs, PrismMutationArgs, PrismOpenArgs,
+    PrismQueryArgs, PrismSessionArgs, PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView,
+    TaskCreatePayload, TaskUpdatePayload, TOOL_SCHEMAS_URI,
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
@@ -399,6 +400,30 @@ fn action_payload_schema(tool_name: &str, action: &str) -> Option<Value> {
                     "task_update",
                     described_schema::<TaskUpdatePayload>(
                         "Payload when `input.kind` is `task_update`.",
+                    ),
+                ),
+                (
+                    "plan_node_create",
+                    described_schema::<PlanNodeCreatePayload>(
+                        "Payload when `input.kind` is `plan_node_create`.",
+                    ),
+                ),
+                (
+                    "plan_node_update",
+                    described_schema::<PlanNodeUpdatePayload>(
+                        "Payload when `input.kind` is `plan_node_update`.",
+                    ),
+                ),
+                (
+                    "plan_edge_create",
+                    described_schema::<PlanEdgeCreatePayload>(
+                        "Payload when `input.kind` is `plan_edge_create`.",
+                    ),
+                ),
+                (
+                    "plan_edge_delete",
+                    described_schema::<PlanEdgeDeletePayload>(
+                        "Payload when `input.kind` is `plan_edge_delete`.",
                     ),
                 ),
                 (

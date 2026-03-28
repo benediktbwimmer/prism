@@ -826,6 +826,10 @@ pub(crate) enum CoordinationMutationKindInput {
     PlanUpdate,
     TaskCreate,
     TaskUpdate,
+    PlanNodeCreate,
+    PlanNodeUpdate,
+    PlanEdgeCreate,
+    PlanEdgeDelete,
     Handoff,
     HandoffAccept,
 }
@@ -981,7 +985,52 @@ pub(crate) struct TaskUpdatePayload {
     pub(crate) assignee: Option<String>,
     pub(crate) title: Option<String>,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
+    pub(crate) depends_on: Option<Vec<String>>,
+    pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
     pub(crate) completion_context: Option<TaskCompletionContextPayload>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PlanNodeCreatePayload {
+    pub(crate) plan_id: String,
+    pub(crate) title: String,
+    pub(crate) status: Option<String>,
+    pub(crate) assignee: Option<String>,
+    pub(crate) anchors: Option<Vec<AnchorRefInput>>,
+    pub(crate) depends_on: Option<Vec<String>>,
+    pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PlanNodeUpdatePayload {
+    pub(crate) node_id: String,
+    pub(crate) status: Option<String>,
+    pub(crate) assignee: Option<String>,
+    pub(crate) title: Option<String>,
+    pub(crate) anchors: Option<Vec<AnchorRefInput>>,
+    pub(crate) depends_on: Option<Vec<String>>,
+    pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
+    pub(crate) completion_context: Option<TaskCompletionContextPayload>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PlanEdgeCreatePayload {
+    pub(crate) plan_id: String,
+    pub(crate) from_node_id: String,
+    pub(crate) to_node_id: String,
+    pub(crate) kind: String,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PlanEdgeDeletePayload {
+    pub(crate) plan_id: String,
+    pub(crate) from_node_id: String,
+    pub(crate) to_node_id: String,
+    pub(crate) kind: String,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]

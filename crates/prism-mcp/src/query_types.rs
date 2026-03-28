@@ -3,7 +3,7 @@ use prism_agent::InferredEdgeScope;
 use prism_coordination::{AcceptanceCriterion, CoordinationPolicy};
 use prism_ir::{
     AnchorRef, Capability, ClaimMode, CoordinationTaskStatus, EdgeKind, EventActor, NodeId,
-    NodeKind, PlanStatus, ReviewVerdict,
+    NodeKind, PlanEdgeKind, PlanNodeStatus, PlanStatus, ReviewVerdict,
 };
 use prism_memory::{
     MemoryEventKind, MemoryKind, MemoryScope, OutcomeEvidence, OutcomeKind, OutcomeResult,
@@ -581,6 +581,54 @@ pub(crate) fn parse_plan_status(value: &str) -> Result<PlanStatus> {
         "completed" => Ok(PlanStatus::Completed),
         "abandoned" => Ok(PlanStatus::Abandoned),
         other => Err(anyhow!("unknown coordination plan status `{other}`")),
+    }
+}
+
+pub(crate) fn parse_plan_node_status(value: &str) -> Result<PlanNodeStatus> {
+    let normalized = value.trim().to_ascii_lowercase();
+    match normalized.as_str() {
+        "proposed" => Ok(PlanNodeStatus::Proposed),
+        "ready" => Ok(PlanNodeStatus::Ready),
+        "inprogress" | "in-progress" => Ok(PlanNodeStatus::InProgress),
+        "blocked" => Ok(PlanNodeStatus::Blocked),
+        "waiting" => Ok(PlanNodeStatus::Waiting),
+        "inreview" | "in-review" => Ok(PlanNodeStatus::InReview),
+        "validating" => Ok(PlanNodeStatus::Validating),
+        "completed" => Ok(PlanNodeStatus::Completed),
+        "abandoned" => Ok(PlanNodeStatus::Abandoned),
+        other => Err(anyhow!("unknown plan node status `{other}`")),
+    }
+}
+
+pub(crate) fn coordination_task_status_from_plan_node_status(
+    status: PlanNodeStatus,
+) -> Result<CoordinationTaskStatus> {
+    match status {
+        PlanNodeStatus::Proposed => Ok(CoordinationTaskStatus::Proposed),
+        PlanNodeStatus::Ready => Ok(CoordinationTaskStatus::Ready),
+        PlanNodeStatus::InProgress => Ok(CoordinationTaskStatus::InProgress),
+        PlanNodeStatus::Blocked => Ok(CoordinationTaskStatus::Blocked),
+        PlanNodeStatus::Waiting => Err(anyhow!(
+            "plan node status `waiting` is not yet supported by the coordination compatibility store"
+        )),
+        PlanNodeStatus::InReview => Ok(CoordinationTaskStatus::InReview),
+        PlanNodeStatus::Validating => Ok(CoordinationTaskStatus::Validating),
+        PlanNodeStatus::Completed => Ok(CoordinationTaskStatus::Completed),
+        PlanNodeStatus::Abandoned => Ok(CoordinationTaskStatus::Abandoned),
+    }
+}
+
+pub(crate) fn parse_plan_edge_kind(value: &str) -> Result<PlanEdgeKind> {
+    let normalized = value.trim().to_ascii_lowercase();
+    match normalized.as_str() {
+        "dependson" | "depends-on" | "depends_on" => Ok(PlanEdgeKind::DependsOn),
+        "blocks" => Ok(PlanEdgeKind::Blocks),
+        "informs" => Ok(PlanEdgeKind::Informs),
+        "validates" => Ok(PlanEdgeKind::Validates),
+        "handoffto" | "handoff-to" | "handoff_to" => Ok(PlanEdgeKind::HandoffTo),
+        "childof" | "child-of" | "child_of" => Ok(PlanEdgeKind::ChildOf),
+        "relatedto" | "related-to" | "related_to" => Ok(PlanEdgeKind::RelatedTo),
+        other => Err(anyhow!("unknown plan edge kind `{other}`")),
     }
 }
 

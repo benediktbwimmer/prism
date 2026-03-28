@@ -154,6 +154,8 @@ fn review_policy_gates_completion_but_not_ready_work() {
                 session: None,
                 title: None,
                 anchors: None,
+                depends_on: None,
+                acceptance: None,
                 base_revision: None,
                 completion_context: Some(TaskCompletionContext::default()),
             },
@@ -215,6 +217,8 @@ fn review_policy_gates_completion_but_not_ready_work() {
                     session: None,
                     title: None,
                     anchors: None,
+                    depends_on: None,
+                    acceptance: None,
                     base_revision: None,
                     completion_context: Some(TaskCompletionContext::default()),
                 },
@@ -501,6 +505,8 @@ fn validation_policy_requires_approved_artifact_checks() {
                     session: None,
                     title: None,
                     anchors: None,
+                    depends_on: None,
+                    acceptance: None,
                     base_revision: None,
                     completion_context: Some(TaskCompletionContext {
                         risk_score: Some(0.4),
@@ -565,6 +571,8 @@ fn risk_threshold_requires_review_before_completion() {
                 session: None,
                 title: None,
                 anchors: None,
+                depends_on: None,
+                acceptance: None,
                 base_revision: None,
                 completion_context: Some(TaskCompletionContext {
                     risk_score: Some(0.8),
@@ -759,6 +767,8 @@ fn invalid_task_transition_is_rejected() {
                 session: None,
                 title: None,
                 anchors: None,
+                depends_on: None,
+                acceptance: None,
                 base_revision: Some(prism_ir::WorkspaceRevision {
                     graph_version: 1,
                     git_commit: None,
@@ -968,6 +978,8 @@ fn plan_completion_requires_terminal_tasks_and_no_active_claims() {
                 session: None,
                 title: None,
                 anchors: None,
+                depends_on: None,
+                acceptance: None,
                 base_revision: Some(prism_ir::WorkspaceRevision {
                     graph_version: 1,
                     git_commit: None,
@@ -1192,6 +1204,8 @@ fn handoff_acceptance_blocks_updates_until_target_accepts() {
                 session: None,
                 title: None,
                 anchors: None,
+                depends_on: None,
+                acceptance: None,
                 base_revision: Some(prism_ir::WorkspaceRevision {
                     graph_version: 1,
                     git_commit: None,

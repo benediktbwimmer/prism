@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
-use prism_ir::{AnchorRef, CoordinationTaskId, NodeId, TaskId};
+use prism_ir::{AnchorRef, CoordinationTaskId, NodeId, PlanGraph, TaskId};
 use prism_js::{AgentOutcomeSummaryView, AgentTaskBlockerView, AgentTaskBriefResultView};
 use prism_query::Prism;
 
@@ -29,6 +29,11 @@ impl QueryHost {
                 let task = prism
                     .coordination_task(&coordination_task_id)
                     .ok_or_else(|| anyhow!("unknown coordination task `{task_id}`"))?;
+                let plan_graph = prism.plan_graph(&task.plan);
+                let task_execution = prism
+                    .plan_execution(&task.plan)
+                    .into_iter()
+                    .find(|overlay| overlay.node_id.0 == task.id.0);
                 let now = crate::current_timestamp();
                 let blockers = prism
                     .blockers(&coordination_task_id, now)
@@ -67,8 +72,12 @@ impl QueryHost {
                         )
                     })
                     .unwrap_or_default();
-                let next_reads =
-                    compact_task_next_reads(session.as_ref(), prism.as_ref(), &task.anchors)?;
+                let next_reads = compact_task_next_reads(
+                    session.as_ref(),
+                    prism.as_ref(),
+                    &task,
+                    plan_graph.as_ref(),
+                )?;
                 let risk_hint =
                     compact_task_risk_hint(prism.task_risk(&coordination_task_id, now).as_ref());
 
@@ -77,7 +86,10 @@ impl QueryHost {
                     title: clamp_string(&task.title, TASK_BRIEF_TEXT_MAX_CHARS),
                     status: task.status,
                     assignee: task.assignee.map(|agent| agent.0.to_string()),
-                    pending_handoff_to: task.pending_handoff_to.map(|agent| agent.0.to_string()),
+                    pending_handoff_to: task_execution
+                        .and_then(|overlay| overlay.pending_handoff_to)
+                        .or(task.pending_handoff_to)
+                        .map(|agent| agent.0.to_string()),
                     blockers,
                     claim_holders: compact_claim_holders(claims.as_slice()),
                     conflict_summaries: conflicts
@@ -123,9 +135,11 @@ fn compact_claim_holders(claims: &[prism_coordination::WorkClaim]) -> Vec<String
 fn compact_task_next_reads(
     session: &SessionState,
     prism: &Prism,
-    anchors: &[AnchorRef],
+    task: &prism_coordination::CoordinationTask,
+    plan_graph: Option<&PlanGraph>,
 ) -> Result<Vec<AgentTargetHandleView>> {
-    let seed_nodes = anchors
+    let seed_nodes = task
+        .anchors
         .iter()
         .filter_map(|anchor| match anchor {
             AnchorRef::Node(node) => Some(node.clone()),
@@ -134,6 +148,42 @@ fn compact_task_next_reads(
         .collect::<Vec<_>>();
     let mut seen = HashSet::<NodeId>::new();
     let mut candidates = Vec::<(NodeId, String)>::new();
+
+    if let Some(plan_graph) = plan_graph {
+        for edge in plan_graph
+            .edges
+            .iter()
+            .filter(|edge| edge.from.0 == task.id.0 || edge.to.0 == task.id.0)
+        {
+            let adjacent_id = if edge.from.0 == task.id.0 {
+                &edge.to
+            } else {
+                &edge.from
+            };
+            let Some(adjacent_node) = plan_graph.nodes.iter().find(|node| &node.id == adjacent_id)
+            else {
+                continue;
+            };
+            for anchor in &adjacent_node.bindings.anchors {
+                let AnchorRef::Node(node_id) = anchor else {
+                    continue;
+                };
+                if seed_nodes.iter().any(|seed| seed == node_id) || !seen.insert(node_id.clone()) {
+                    continue;
+                }
+                candidates.push((
+                    node_id.clone(),
+                    format!(
+                        "Adjacent plan node `{}` via {:?}.",
+                        adjacent_node.title, edge.kind
+                    ),
+                ));
+                if candidates.len() >= TASK_BRIEF_NEXT_READ_LIMIT.saturating_mul(4) {
+                    break;
+                }
+            }
+        }
+    }
 
     for node in seed_nodes.iter().take(4) {
         for owner in next_reads(prism, node, TASK_BRIEF_NEXT_READ_LIMIT.saturating_mul(3))? {

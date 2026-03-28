@@ -112,33 +112,38 @@ pub(super) fn budgeted_workset_result_with_followups(
         trimmed |= strip_file_paths(&mut result.supporting_reads);
         trimmed |= strip_file_paths(&mut result.likely_tests);
     }
-    while workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES && !result.likely_tests.is_empty() {
-        result.likely_tests.pop();
-        trimmed = true;
-    }
-    while workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES
-        && !result.supporting_reads.is_empty()
-    {
-        result.supporting_reads.pop();
-        trimmed = true;
-    }
     if workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES && result.primary.file_path.is_some() {
         result.primary.file_path = None;
         trimmed = true;
     }
     if workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES {
-        let tightened = clamp_string(&result.why, WORKSET_WHY_TIGHT_MAX_CHARS);
-        if tightened != result.why {
-            result.why = tightened;
-            trimmed = true;
+        let preserves_gap_summary = result.why.contains("Gap summary:");
+        if !preserves_gap_summary {
+            let tightened = clamp_string(&result.why, WORKSET_WHY_TIGHT_MAX_CHARS);
+            if tightened != result.why {
+                result.why = tightened;
+                trimmed = true;
+            }
         }
     }
     if workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES {
-        let tightened = clamp_string(&result.why, WORKSET_WHY_ULTRA_TIGHT_MAX_CHARS);
-        if tightened != result.why {
-            result.why = tightened;
-            trimmed = true;
+        let preserves_gap_summary = result.why.contains("Gap summary:");
+        if !preserves_gap_summary {
+            let tightened = clamp_string(&result.why, WORKSET_WHY_ULTRA_TIGHT_MAX_CHARS);
+            if tightened != result.why {
+                result.why = tightened;
+                trimmed = true;
+            }
         }
+    }
+    while workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES && !result.likely_tests.is_empty() {
+        result.likely_tests.pop();
+        trimmed = true;
+    }
+    while workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES && result.supporting_reads.len() > 1
+    {
+        result.supporting_reads.pop();
+        trimmed = true;
     }
     if workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES && result.next_action.is_some() {
         result.next_action = None;
@@ -148,6 +153,12 @@ pub(super) fn budgeted_workset_result_with_followups(
         && result.suggested_actions.len() > 1
     {
         result.suggested_actions.pop();
+        trimmed = true;
+    }
+    while workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES
+        && !result.supporting_reads.is_empty()
+    {
+        result.supporting_reads.pop();
         trimmed = true;
     }
 

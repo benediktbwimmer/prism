@@ -1068,12 +1068,18 @@ type ArtifactRiskView = {
 };
 
 type CoordinationInboxView = {
+  plan: PlanView | null;
+  planGraph: PlanGraphView | null;
+  planExecution: PlanExecutionOverlayView[];
   readyTasks: CoordinationTaskView[];
   pendingReviews: ArtifactView[];
 };
 
 type TaskContextView = {
   task: CoordinationTaskView | null;
+  taskNode: PlanNodeView | null;
+  taskExecution: PlanExecutionOverlayView | null;
+  planGraph: PlanGraphView | null;
   blockers: BlockerView[];
   artifacts: ArtifactView[];
   claims: ClaimView[];

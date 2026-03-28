@@ -680,16 +680,30 @@ globalThis.prism = Object.freeze({
     return __prismHost("taskIntent", { taskId });
   },
   coordinationInbox(planId) {
+    const plan = prism.plan(planId);
+    const planGraph = prism.planGraph(planId);
     return {
+      plan,
+      planGraph,
+      planExecution: prism.planExecution(planId),
       readyTasks: prism.readyTasks(planId),
       pendingReviews: prism.pendingReviews(planId),
     };
   },
   taskContext(taskId) {
     const task = prism.task(taskId);
+    const planGraph = task ? prism.planGraph(task.planId) : null;
+    const taskNode = planGraph?.nodes.find((node) => node.id === taskId) ?? null;
+    const taskExecution =
+      task && planGraph
+        ? prism.planExecution(task.planId).find((overlay) => overlay.nodeId === taskId) ?? null
+        : null;
     const target = task?.anchors ?? [];
     return {
       task,
+      taskNode,
+      taskExecution,
+      planGraph,
       blockers: prism.blockers(taskId),
       artifacts: prism.artifacts(taskId),
       claims: target.length > 0 ? prism.claims(target) : [],

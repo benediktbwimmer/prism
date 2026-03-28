@@ -375,6 +375,8 @@ impl CoordinationStore {
         now: Timestamp,
     ) -> Result<CoordinationTask> {
         let completion_context = input.completion_context.clone();
+        let next_dependencies = input.depends_on.clone().map(dedupe_ids);
+        let next_acceptance = input.acceptance.clone().map(normalize_acceptance);
         let mut state = self
             .state
             .write()
@@ -416,8 +418,12 @@ impl CoordinationStore {
             .get(&previous.plan)
             .map(|plan| plan.policy.stale_after_graph_change)
             .unwrap_or(false);
+        if let Some(dependencies) = next_dependencies.as_ref() {
+            validate_task_dependencies(&mut state, &previous.plan, &previous.id, dependencies, &meta)?;
+        }
         let task_snapshot;
         let status_changed;
+        let mut root_membership_change = None;
         {
             let task = state
                 .tasks
@@ -519,6 +525,8 @@ impl CoordinationStore {
                 CoordinationTaskStatus::Completed | CoordinationTaskStatus::Abandoned
             ) && (input.title.is_some()
                 || input.anchors.is_some()
+                || input.depends_on.is_some()
+                || input.acceptance.is_some()
                 || input.assignee.is_some()
                 || input.session.is_some())
             {
@@ -548,6 +556,8 @@ impl CoordinationStore {
             if previous.pending_handoff_to.is_some()
                 && (input.title.is_some()
                     || input.anchors.is_some()
+                    || input.depends_on.is_some()
+                    || input.acceptance.is_some()
                     || input.assignee.is_some()
                     || input.session.is_some()
                     || input.status.is_some())
@@ -590,10 +600,33 @@ impl CoordinationStore {
             if let Some(anchors) = input.anchors {
                 task.anchors = dedupe_anchors(anchors);
             }
+            if let Some(depends_on) = next_dependencies.clone() {
+                let previous_root = task.depends_on.is_empty();
+                let next_root = depends_on.is_empty();
+                task.depends_on = depends_on;
+                if previous_root != next_root {
+                    root_membership_change = Some(next_root);
+                }
+            }
+            if let Some(acceptance) = next_acceptance.clone() {
+                task.acceptance = acceptance;
+            }
             if let Some(base_revision) = input.base_revision {
                 task.base_revision = base_revision;
             }
             task_snapshot = task.clone();
+        }
+        if let Some(next_root) = root_membership_change {
+            let plan = state
+                .plans
+                .get_mut(&previous.plan)
+                .expect("task plan validated above");
+            if next_root {
+                plan.root_tasks.push(previous.id.clone());
+                plan.root_tasks = dedupe_ids(plan.root_tasks.clone());
+            } else {
+                plan.root_tasks.retain(|task_id| task_id != &previous.id);
+            }
         }
         let completion_blockers =
             self.completion_blockers_locked(&state, &task_snapshot, current_revision.clone(), now);
@@ -1640,4 +1673,85 @@ impl CoordinationStore {
         });
         Ok((review_id, review, artifact))
     }
+}
+
+fn validate_task_dependencies(
+    state: &mut CoordinationState,
+    plan_id: &PlanId,
+    task_id: &CoordinationTaskId,
+    dependencies: &[CoordinationTaskId],
+    meta: &EventMeta,
+) -> Result<()> {
+    for dependency in dependencies {
+        if dependency == task_id {
+            let violations = vec![policy_violation(
+                PolicyViolationCode::MissingDependency,
+                format!("coordination task `{}` cannot depend on itself", task_id.0),
+                Some(plan_id.clone()),
+                Some(task_id.clone()),
+                None,
+                None,
+                json!({ "dependencyTaskId": dependency.0 }),
+            )];
+            return Err(rejection_error(
+                state,
+                meta,
+                "coordination task update rejected",
+                Some(plan_id.clone()),
+                Some(task_id.clone()),
+                None,
+                None,
+                violations,
+            ));
+        }
+        let Some(task) = state.tasks.get(dependency) else {
+            let violations = vec![policy_violation(
+                PolicyViolationCode::MissingDependency,
+                format!("unknown dependency task `{}`", dependency.0),
+                Some(plan_id.clone()),
+                Some(task_id.clone()),
+                None,
+                None,
+                json!({ "dependencyTaskId": dependency.0 }),
+            )];
+            return Err(rejection_error(
+                state,
+                meta,
+                "coordination task update rejected",
+                Some(plan_id.clone()),
+                Some(task_id.clone()),
+                None,
+                None,
+                violations,
+            ));
+        };
+        if &task.plan != plan_id {
+            let violations = vec![policy_violation(
+                PolicyViolationCode::CrossPlanDependency,
+                format!(
+                    "dependency task `{}` belongs to a different plan",
+                    dependency.0
+                ),
+                Some(plan_id.clone()),
+                Some(task_id.clone()),
+                None,
+                None,
+                json!({
+                    "dependencyTaskId": dependency.0,
+                    "dependencyPlanId": task.plan.0,
+                }),
+            )];
+            return Err(rejection_error(
+                state,
+                meta,
+                "coordination task update rejected",
+                Some(plan_id.clone()),
+                Some(task_id.clone()),
+                None,
+                None,
+                violations,
+            ));
+        }
+    }
+    Ok(())
 }

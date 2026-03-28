@@ -250,6 +250,8 @@ pub struct TaskUpdateInput {
     pub session: Option<Option<SessionId>>,
     pub title: Option<String>,
     pub anchors: Option<Vec<AnchorRef>>,
+    pub depends_on: Option<Vec<CoordinationTaskId>>,
+    pub acceptance: Option<Vec<AcceptanceCriterion>>,
     pub base_revision: Option<WorkspaceRevision>,
     pub completion_context: Option<TaskCompletionContext>,
 }

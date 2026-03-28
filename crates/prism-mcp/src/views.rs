@@ -662,7 +662,7 @@ pub(crate) fn plan_execution_overlay_view(
     }
 }
 
-fn plan_node_view(value: prism_ir::PlanNode) -> PlanNodeView {
+pub(crate) fn plan_node_view(value: prism_ir::PlanNode) -> PlanNodeView {
     PlanNodeView {
         id: value.id.0.to_string(),
         plan_id: value.plan_id.0.to_string(),
@@ -710,7 +710,7 @@ fn plan_acceptance_criterion_view(
     }
 }
 
-fn plan_edge_view(value: prism_ir::PlanEdge) -> PlanEdgeView {
+pub(crate) fn plan_edge_view(value: prism_ir::PlanEdge) -> PlanEdgeView {
     PlanEdgeView {
         id: value.id.0.to_string(),
         plan_id: value.plan_id.0.to_string(),

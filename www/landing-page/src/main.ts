@@ -2,16 +2,16 @@ import './style.css'
 
 // 1. Terminal Typing Effect
 const terminalLines = [
-  '<span class="token-comment">// Agent: "I need to edit handle_auth. What depends on it?"</span>',
-  '<span class="token-keyword">const</span> sym = <span class="token-function">prism.symbol</span>(<span class="token-string">"handle_auth"</span>);',
-  '<span class="token-keyword">const</span> context = <span class="token-function">prism.readContext</span>(sym);',
+  '<span class="token-comment">// 1. Find the next unblocked task (Intent)</span>',
+  '<span class="token-keyword">const</span> task = <span class="token-function">prism.readyTasks</span>(<span class="token-string">"plan:auth"</span>)[0];',
   '',
-  '<span class="token-comment">// PRISM returns:</span>',
-  '<span class="token-keyword">return</span> {',
-  '  <span class="token-string">"lineage"</span>: <span class="token-string">"active"</span>,',
-  '  <span class="token-string">"coChangeNeighbors"</span>: [<span class="token-string">"auth_middleware"</span>, <span class="token-string">"session_store"</span>],',
-  '  <span class="token-string">"recentFailures"</span>: [<span class="token-string">"test_token_expiry"</span>]',
-  '};'
+  '<span class="token-comment">// 2. Hydrate historical lessons (Memory)</span>',
+  '<span class="token-keyword">const</span> context = <span class="token-function">prism.memory.recall</span>({ focus: task.anchors });',
+  '',
+  '<span class="token-comment">// 3. Bind to repo vocabulary (Concepts)</span>',
+  '<span class="token-keyword">const</span> concept = <span class="token-function">prism.concept</span>(<span class="token-string">"Validation Layer"</span>);',
+  '',
+  '<span class="token-keyword">return</span> { task, context, concept };'
 ];
 
 function typeWriter() {

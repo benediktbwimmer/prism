@@ -1576,6 +1576,8 @@ fn repo_published_plan_logs_append_deltas_instead_of_rewriting_full_state() {
                     session: None,
                     title: None,
                     anchors: None,
+                    depends_on: None,
+                    acceptance: None,
                     base_revision: Some(prism.workspace_revision()),
                     completion_context: None,
                 },

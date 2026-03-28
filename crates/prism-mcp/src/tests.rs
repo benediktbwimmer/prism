@@ -34,7 +34,8 @@ use prism_curator::{
 use prism_history::HistoryStore;
 use prism_ir::{
     AnchorRef, ChangeTrigger, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId, Language,
-    Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, Span, SymbolFingerprint, TaskId,
+    Node, NodeId, NodeKind, PlanEdgeKind, PlanId, ObservedChangeSet, ObservedNode, Span,
+    SymbolFingerprint, TaskId,
 };
 use prism_memory::{
     MemoryEntry, MemoryId, MemoryKind, MemoryModule, MemorySource, OutcomeEvent, OutcomeEvidence,
@@ -618,6 +619,203 @@ fn coordination_mutations_flow_through_query_runtime() {
 }
 
 #[test]
+fn plan_node_mutations_return_graph_native_views() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Ship first-class plans" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let dependency = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Review main"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let dependency_id = dependency.state["id"].as_str().unwrap().to_string();
+
+    let node = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Edit main",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::main",
+                        "kind": "function"
+                    }],
+                    "acceptance": [{
+                        "label": "main is updated"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let node_id = node.state["id"].as_str().unwrap().to_string();
+    assert_eq!(node.state["title"], "Edit main");
+    assert_eq!(node.state["kind"], "Edit");
+    assert_eq!(node.state["bindings"]["anchors"].as_array().unwrap().len(), 1);
+
+    let updated = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeUpdate,
+                payload: json!({
+                    "nodeId": node_id.clone(),
+                    "title": "Edit main safely",
+                    "status": "in-progress",
+                    "dependsOn": [dependency_id.clone()],
+                    "acceptance": [{
+                        "label": "main still compiles"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(updated.state["title"], "Edit main safely");
+    assert_eq!(updated.state["status"], "InProgress");
+    assert_eq!(updated.state["acceptance"].as_array().unwrap().len(), 1);
+
+    let graph = host
+        .current_prism()
+        .plan_graph(&PlanId::new(plan_id))
+        .expect("plan graph");
+    assert!(graph
+        .edges
+        .iter()
+        .any(|edge| edge.from.0 == node_id && edge.to.0 == dependency_id && edge.kind == PlanEdgeKind::DependsOn));
+    assert!(graph.root_nodes.iter().any(|root| root.0 == dependency_id));
+    assert!(!graph.root_nodes.iter().any(|root| root.0 == node_id));
+}
+
+#[test]
+fn plan_edge_mutations_update_projected_dependency_graph() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Shape execution edges" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let dependency = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Prepare change"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let dependency_id = dependency.state["id"].as_str().unwrap().to_string();
+
+    let node = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Apply change"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let node_id = node.state["id"].as_str().unwrap().to_string();
+
+    let created = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanEdgeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "fromNodeId": node_id.clone(),
+                    "toNodeId": dependency_id.clone(),
+                    "kind": "depends_on"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(created.state["from"], node_id);
+    assert_eq!(created.state["to"], dependency_id);
+    assert_eq!(created.state["kind"], "DependsOn");
+
+    let graph = host
+        .current_prism()
+        .plan_graph(&PlanId::new(plan_id.clone()))
+        .expect("plan graph");
+    assert!(graph
+        .edges
+        .iter()
+        .any(|edge| edge.from.0 == node_id && edge.to.0 == dependency_id && edge.kind == PlanEdgeKind::DependsOn));
+    assert!(!graph.root_nodes.iter().any(|root| root.0 == node_id));
+
+    let deleted = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanEdgeDelete,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "fromNodeId": node_id.clone(),
+                    "toNodeId": dependency_id.clone(),
+                    "kind": "depends_on"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(deleted.state["from"], node_id);
+    assert_eq!(deleted.state["to"], dependency_id);
+    assert_eq!(deleted.state["kind"], "DependsOn");
+
+    let graph = host
+        .current_prism()
+        .plan_graph(&PlanId::new(plan_id))
+        .expect("plan graph");
+    assert!(!graph
+        .edges
+        .iter()
+        .any(|edge| edge.from.0 == node_id && edge.to.0 == dependency_id && edge.kind == PlanEdgeKind::DependsOn));
+    assert!(graph.root_nodes.iter().any(|root| root.0 == node_id));
+}
+
+#[test]
 fn mcp_returns_structured_coordination_rejections_and_persists_them() {
     let root = temp_workspace();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
@@ -643,7 +841,7 @@ fn mcp_returns_structured_coordination_rejections_and_persists_them() {
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::TaskCreate,
                 payload: json!({
-                    "planId": plan_id,
+                    "planId": plan_id.clone(),
                     "title": "Edit alpha",
                     "anchors": [{
                         "type": "node",
@@ -2110,7 +2308,7 @@ fn drift_candidates_and_task_intent_flow_through_prism_query_reads() {
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::TaskCreate,
                 payload: json!({
-                    "planId": plan_id,
+                    "planId": plan_id.clone(),
                     "title": "Implement request flow",
                     "anchors": [{
                         "type": "node",
@@ -2393,6 +2591,15 @@ return {{
             .len(),
         1
     );
+    assert_eq!(result.result["inbox"]["plan"]["id"], plan_id);
+    assert_eq!(result.result["inbox"]["planGraph"]["id"], plan_id);
+    assert_eq!(
+        result.result["inbox"]["planExecution"]
+            .as_array()
+            .unwrap()
+            .len(),
+        0
+    );
     assert_eq!(
         result.result["inbox"]["pendingReviews"]
             .as_array()
@@ -2401,6 +2608,9 @@ return {{
         1
     );
     assert_eq!(result.result["context"]["task"]["id"], task_id);
+    assert_eq!(result.result["context"]["taskNode"]["id"], task_id);
+    assert!(result.result["context"]["taskExecution"].is_null());
+    assert_eq!(result.result["context"]["planGraph"]["id"], plan_id);
     assert_eq!(
         result.result["context"]["claims"].as_array().unwrap().len(),
         1
@@ -4259,7 +4469,7 @@ fn prism_mutate_schema_expands_payload_shapes_for_structured_actions() {
         coordination_payload.schema["oneOf"]
             .as_array()
             .map(|variants| variants.len()),
-        Some(6)
+        Some(10)
     );
     let coordination_nested = coordination_payload
         .nested_fields
@@ -6951,8 +7161,12 @@ fn compact_task_brief_summarizes_coordination_outcomes_and_next_reads() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     let source_path = root.join("src/lib.rs");
-    let source = "pub fn beta() {}\n\npub fn alpha() { beta(); }\n";
+    let source = "pub fn gamma() {}\n\npub fn beta() {}\n\npub fn alpha() { beta(); }\n";
     fs::write(&source_path, source).unwrap();
+    let gamma_span = {
+        let start = source.find("gamma").expect("gamma span");
+        Span::new(start, start + "gamma".len())
+    };
     let beta_span = {
         let start = source.find("beta").expect("beta span");
         Span::new(start, start + "beta".len())
@@ -6962,8 +7176,17 @@ fn compact_task_brief_summarizes_coordination_outcomes_and_next_reads() {
 
     let mut graph = Graph::new();
     let source_file = graph.ensure_file(&source_path);
+    let gamma_id = NodeId::new("demo", "demo::gamma", NodeKind::Function);
     let alpha_id = NodeId::new("demo", "demo::alpha", NodeKind::Function);
     let beta_id = NodeId::new("demo", "demo::beta", NodeKind::Function);
+    graph.add_node(Node {
+        id: gamma_id.clone(),
+        name: "gamma".into(),
+        kind: NodeKind::Function,
+        file: source_file,
+        span: gamma_span,
+        language: Language::Rust,
+    });
     graph.add_node(Node {
         id: beta_id.clone(),
         name: "beta".into(),
@@ -6989,7 +7212,7 @@ fn compact_task_brief_summarizes_coordination_outcomes_and_next_reads() {
     });
 
     let mut history = HistoryStore::new();
-    history.seed_nodes([alpha_id.clone(), beta_id.clone()]);
+    history.seed_nodes([alpha_id.clone(), beta_id.clone(), gamma_id.clone()]);
     let host = host_with_prism(Prism::with_history(graph, history));
 
     let plan = host
@@ -7006,13 +7229,34 @@ fn compact_task_brief_summarizes_coordination_outcomes_and_next_reads() {
         )
         .unwrap();
     let plan_id = plan.state["id"].as_str().unwrap().to_string();
+    let dependency = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Review gamma",
+                    "status": "Ready",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::gamma",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let dependency_id = dependency.state["id"].as_str().unwrap().to_string();
     let task = host
         .store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::TaskCreate,
                 payload: json!({
-                    "planId": plan_id,
+                    "planId": plan_id.clone(),
                     "title": "Edit alpha",
                     "status": "Ready",
                     "anchors": [{
@@ -7020,7 +7264,8 @@ fn compact_task_brief_summarizes_coordination_outcomes_and_next_reads() {
                         "crateName": "demo",
                         "path": "demo::alpha",
                         "kind": "function"
-                    }]
+                    }],
+                    "dependsOn": [dependency_id]
                 }),
                 task_id: None,
             },
@@ -7097,6 +7342,10 @@ fn compact_task_brief_summarizes_coordination_outcomes_and_next_reads() {
         .next_reads
         .iter()
         .any(|target| target.path == "demo::beta"));
+    assert!(brief
+        .next_reads
+        .iter()
+        .any(|target| target.path == "demo::gamma"));
     assert!(brief
         .next_action
         .as_deref()
