@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -66,10 +68,18 @@ def _compose_prompt(
     arm = _arm(config, arm_name)
     arm_prompt = Path(arm["prompt_abspath"]).read_text(encoding="utf-8").strip()
     body = _instance_prompt(instance).strip()
+    workspace_glob = f"{workspace_dir}/**/*"
     return (
         f"{arm_prompt}\n\n"
         f"Benchmark instance: `{instance_id(instance)}`\n"
         f"Working directory: `{workspace_dir}`\n\n"
+        "PRISM workspace guidance:\n"
+        f"- The benchmark repo for this run lives under `{workspace_dir}`.\n"
+        f"- When using PRISM text search, constrain results to this repo with `path: \"{workspace_dir}\"` or `glob: \"{workspace_glob}\"`.\n"
+        f"- When using `prism.file(...)`, prefer absolute paths rooted at `{workspace_dir}`.\n"
+        f"- Prefer `prism.textSearchBundle(...)` or one scoped `prism.searchText(...)` call before any shell-based code inspection.\n"
+        "- Valid file APIs are `prism.file(path).read({ startLine, endLine, maxChars })` and `prism.file(path).around({ line, before, after, maxChars })`.\n"
+        "- After a successful PRISM search or PRISM file read, do not reread the same file or rerun the same search with shell tools unless you specifically need raw command output.\n\n"
         "Task:\n"
         f"{body}\n\n"
         "Requirements:\n"
@@ -78,6 +88,8 @@ def _compose_prompt(
         "- After finding a plausible fix, run at least one targeted local test or validation command if a relevant one is discoverable within the time budget.\n"
         "- Prefer targeted validation over additional exploratory reading once the likely fix area is identified.\n"
         "- Do not add broad new fixtures, snapshots, or unrelated test coverage.\n"
+        "- In the PRISM arm, do not use shell commands for code inspection before patching unless a concrete PRISM query for that same need has already failed.\n"
+        "- If you fall back from PRISM to shell inspection, do it once for the failed need and then continue; do not bounce back and forth between PRISM and shell reads on the same topic.\n"
         "- Do not commit.\n"
         "- Leave the working tree with the intended patch applied.\n"
         "- End with a short summary of what you changed and what local validation you ran, or why you could not run it.\n"
@@ -116,6 +128,38 @@ def _build_codex_command(
         command.append(arg)
     command.append("-")
     return command
+
+
+def _codex_home_dir(run_id: str, arm_name: str, instance_name: str) -> Path:
+    return (
+        ROOT
+        / "benchmarks"
+        / "results"
+        / "local"
+        / "codex_home"
+        / run_id
+        / arm_name
+        / instance_name
+    )
+
+
+def _prepare_codex_home(run_id: str, arm_name: str, instance_name: str) -> Path:
+    source_home = Path.home() / ".codex"
+    target_home = _codex_home_dir(run_id, arm_name, instance_name)
+    target_home.mkdir(parents=True, exist_ok=True)
+
+    for name in ("config.toml", "auth.json"):
+        source = source_home / name
+        if source.exists():
+            shutil.copy2(source, target_home / name)
+
+    return target_home
+
+
+def _codex_exec_env(run_id: str, arm_name: str, instance_name: str) -> dict[str, str]:
+    env = os.environ.copy()
+    env["CODEX_HOME"] = str(_prepare_codex_home(run_id, arm_name, instance_name))
+    return env
 
 
 def _git_diff(workspace_dir: Path) -> str:
@@ -212,7 +256,7 @@ def _parse_exec_jsonl(stdout: str) -> dict[str, Any]:
         "events": events,
         "prompt_tokens": int(usage.get("input_tokens", 0)),
         "completion_tokens": int(usage.get("output_tokens", 0)),
-        "tool_calls": tool_calls + prism_queries,
+        "tool_calls": tool_calls,
         "prism_queries": prism_queries,
         "shell_commands": shell_commands,
         "shell_read_commands": shell_read_commands,
@@ -259,6 +303,7 @@ def run_codex_instance(
         input=prompt,
         text=True,
         capture_output=True,
+        env=_codex_exec_env(run_id, arm_name, instance_name),
     )
     wall_time_seconds = time.perf_counter() - started
 

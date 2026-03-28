@@ -77,6 +77,8 @@ pub enum Command {
 #[derive(Subcommand)]
 pub enum McpCommand {
     Status,
+    Endpoint,
+    Cleanup,
     Start {
         #[arg(long, default_value_t = false)]
         no_coordination: bool,
@@ -214,6 +216,28 @@ mod tests {
                         internal_developer, ..
                     },
             } => assert!(internal_developer),
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn mcp_cleanup_parses() {
+        let cli = Cli::parse_from(["prism", "mcp", "cleanup"]);
+        match cli.command {
+            Command::Mcp {
+                command: McpCommand::Cleanup,
+            } => {}
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn mcp_endpoint_parses() {
+        let cli = Cli::parse_from(["prism", "mcp", "endpoint"]);
+        match cli.command {
+            Command::Mcp {
+                command: McpCommand::Endpoint,
+            } => {}
             _ => panic!("unexpected command"),
         }
     }

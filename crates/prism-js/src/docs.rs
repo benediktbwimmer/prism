@@ -276,10 +276,14 @@ type PrismApi = {
   recentPatches(options?: RecentPatchesOptions): PatchEventView[];
   diffFor(target: QueryTarget, options?: DiffForOptions): DiffHunkView[];
   taskChanges(taskId: string, options?: ChangedFilesOptions): PatchEventView[];
+  connectionInfo(): ConnectionInfoView;
   runtimeStatus(): RuntimeStatusView;
   runtimeLogs(options?: RuntimeLogOptions): RuntimeLogEventView[];
   runtimeTimeline(options?: RuntimeTimelineOptions): RuntimeLogEventView[];
   validationFeedback(options?: ValidationFeedbackOptions): ValidationFeedbackView[];
+  connection: {
+    info(): ConnectionInfoView;
+  };
   runtime: {
     status(): RuntimeStatusView;
     logs(options?: RuntimeLogOptions): RuntimeLogEventView[];
@@ -504,8 +508,20 @@ type RuntimeProcessView = {
   bridgeState?: string;
 };
 
+type ConnectionInfoView = {
+  root: string;
+  mode: string;
+  transport: string;
+  uri?: string;
+  uriFile: string;
+  healthUri?: string;
+  health: RuntimeHealthView;
+  bridgeRole: string;
+};
+
 type RuntimeStatusView = {
   root: string;
+  connection: ConnectionInfoView;
   uri?: string;
   uriFile: string;
   logPath: string;
@@ -518,6 +534,7 @@ type RuntimeStatusView = {
   bridgeCount: number;
   connectedBridgeCount: number;
   idleBridgeCount: number;
+  staleBridgeCount: number;
   orphanBridgeCount: number;
   processes: RuntimeProcessView[];
   processError?: string;
@@ -1730,7 +1747,7 @@ return prism.claimPreview({
 - Available now: bounded workspace file reads through `prism.file(path).read(...)` and `prism.file(path).around(...)` for exact line-range and around-line inspection without leaving the PRISM query surface.
 - Available now: bounded workspace text search through `prism.searchText(...)` with regex support, path/glob filters, exact match locations, and capped snippets, plus `prism.textSearchBundle(...)` to collapse text matches, one raw file window, and nearby semantic context into one helper.
 - Available now: semantic recent-change inspection through `prism.changedFiles(...)`, `prism.changedSymbols(path, ...)`, `prism.recentPatches(...)`, `prism.diffFor(target, ...)`, and `prism.taskChanges(taskId, ...)` backed by recorded patch outcomes instead of raw diff dumps.
-- Available now: workspace-backed runtime introspection through `prism.runtimeStatus()`, `prism.runtimeLogs(...)`, and `prism.runtimeTimeline(...)` for daemon health, recent structured log events, startup/refresh diagnosis, and bridge upstream-resolution / connect latency without defaulting to shell status checks.
+- Available now: direct daemon connection discovery through `prism.connectionInfo()` plus workspace-backed runtime introspection through `prism.runtimeStatus()`, `prism.runtimeLogs(...)`, and `prism.runtimeTimeline(...)` for daemon health, recent structured log events, startup/refresh diagnosis, and bridge upstream-resolution / connect latency without defaulting to shell status checks.
 - Available now: a namespaced runtime alias through `prism.runtime.status()`, `prism.runtime.logs(...)`, and `prism.runtime.timeline(...)` so query authors do not have to remember only the flat runtime helpers.
 - Available now: non-symbol repo coverage for markdown headings plus structured JSON, YAML, and TOML config keys through the normal PRISM search and relation surface.
 - Available now: ambiguity-aware search narrowing through `path`, `module`, `taskId`, behavioral owner hints, and exact focused-block follow-ups surfaced directly from diagnostics and search resources.

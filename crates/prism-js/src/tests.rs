@@ -56,6 +56,7 @@ fn api_reference_mentions_primary_tool() {
     );
     assert!(docs
         .contains("taskChanges(taskId: string, options?: ChangedFilesOptions): PatchEventView[];"));
+    assert!(docs.contains("connectionInfo(): ConnectionInfoView;"));
     assert!(docs.contains("runtimeStatus(): RuntimeStatusView;"));
     assert!(docs.contains("runtimeLogs(options?: RuntimeLogOptions): RuntimeLogEventView[];"));
     assert!(
@@ -106,10 +107,17 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("type TextSearchBundleView = {"));
     assert!(docs.contains("type TargetBundleView = {"));
     assert!(docs.contains("type RuntimeStatusView = {"));
+    assert!(docs.contains("type ConnectionInfoView = {"));
+    assert!(docs.contains("mode: string;"));
+    assert!(docs.contains("transport: string;"));
+    assert!(docs.contains("healthUri?: string;"));
+    assert!(docs.contains("bridgeRole: string;"));
+    assert!(docs.contains("connection: ConnectionInfoView;"));
     assert!(docs.contains("parentPid: number;"));
     assert!(docs.contains("bridgeState?: string;"));
     assert!(docs.contains("connectedBridgeCount: number;"));
     assert!(docs.contains("idleBridgeCount: number;"));
+    assert!(docs.contains("staleBridgeCount: number;"));
     assert!(docs.contains("orphanBridgeCount: number;"));
     assert!(docs.contains("type RuntimeLogEventView = {"));
     assert!(docs.contains("type QueryLogEntryView = {"));
@@ -186,10 +194,13 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("recentPatches(options = {})"));
     assert!(prelude.contains("diffFor(target, options = {})"));
     assert!(prelude.contains("taskChanges(taskId, options = {})"));
+    assert!(prelude.contains("connectionInfo()"));
     assert!(prelude.contains("runtimeStatus()"));
     assert!(prelude.contains("runtimeLogs(options = {})"));
     assert!(prelude.contains("runtimeTimeline(options = {})"));
     assert!(prelude.contains("runtime: Object.freeze({"));
+    assert!(prelude.contains("connection: Object.freeze({"));
+    assert!(prelude.contains("return prism.connectionInfo();"));
     assert!(prelude.contains("status() {"));
     assert!(prelude.contains("return prism.runtimeStatus();"));
     assert!(prelude.contains("logs(options = {}) {"));

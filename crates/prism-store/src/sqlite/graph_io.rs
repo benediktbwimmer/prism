@@ -60,35 +60,6 @@ pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
     }
     let load_nodes_ms = nodes_started.elapsed().as_millis();
 
-    let edges_started = Instant::now();
-    let mut edges = Vec::<prism_ir::Edge>::new();
-    {
-        let mut stmt = conn.prepare(
-            "SELECT kind, source_crate_name, source_path, source_kind, target_crate_name, target_path, target_kind, origin, confidence FROM edges",
-        )?;
-        let rows = stmt.query_map([], |row| {
-            Ok(prism_ir::Edge {
-                kind: decode_edge_kind(row.get(0)?)?,
-                source: prism_ir::NodeId::new(
-                    row.get::<_, String>(1)?,
-                    row.get::<_, String>(2)?,
-                    decode_node_kind(row.get(3)?)?,
-                ),
-                target: prism_ir::NodeId::new(
-                    row.get::<_, String>(4)?,
-                    row.get::<_, String>(5)?,
-                    decode_node_kind(row.get(6)?)?,
-                ),
-                origin: decode_edge_origin(row.get(7)?)?,
-                confidence: row.get(8)?,
-            })
-        })?;
-        for edge in rows {
-            edges.push(edge?);
-        }
-    }
-    let load_edges_ms = edges_started.elapsed().as_millis();
-
     let file_records_started = Instant::now();
     let mut file_records = HashMap::<PathBuf, FileRecord>::new();
     {
@@ -109,6 +80,7 @@ pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
                     file_id,
                     hash,
                     nodes: Vec::new(),
+                    edges: Vec::new(),
                     fingerprints: HashMap::new(),
                     unresolved_calls: Vec::new(),
                     unresolved_imports: Vec::new(),
@@ -143,6 +115,44 @@ pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
         }
     }
     let load_file_nodes_ms = file_nodes_started.elapsed().as_millis();
+
+    let edges_started = Instant::now();
+    let mut edges = Vec::<prism_ir::Edge>::new();
+    {
+        let mut stmt = conn.prepare(
+            "SELECT file_path, kind, source_crate_name, source_path, source_kind, target_crate_name, target_path, target_kind, origin, confidence FROM edges",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, Option<String>>(0)?,
+                prism_ir::Edge {
+                    kind: decode_edge_kind(row.get(1)?)?,
+                    source: prism_ir::NodeId::new(
+                        row.get::<_, String>(2)?,
+                        row.get::<_, String>(3)?,
+                        decode_node_kind(row.get(4)?)?,
+                    ),
+                    target: prism_ir::NodeId::new(
+                        row.get::<_, String>(5)?,
+                        row.get::<_, String>(6)?,
+                        decode_node_kind(row.get(7)?)?,
+                    ),
+                    origin: decode_edge_origin(row.get(8)?)?,
+                    confidence: row.get(9)?,
+                },
+            ))
+        })?;
+        for row in rows {
+            let (file_path, edge) = row?;
+            if let Some(path) = file_path {
+                if let Some(record) = file_records.get_mut(Path::new(&path)) {
+                    record.edges.push(edge.clone());
+                }
+            }
+            edges.push(edge);
+        }
+    }
+    let load_edges_ms = edges_started.elapsed().as_millis();
 
     let fingerprints_started = Instant::now();
     load_node_fingerprints(conn, &mut file_records)?;

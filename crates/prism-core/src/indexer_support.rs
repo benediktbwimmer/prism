@@ -105,7 +105,7 @@ pub(crate) fn build_workspace_session(
 
 pub(crate) fn collect_pending_file_parses(
     walk_root: &Path,
-    adapters: &[Box<dyn LanguageAdapter>],
+    adapters: &[Box<dyn LanguageAdapter + Send + Sync>],
     refresh_scope: Option<&HashSet<PathBuf>>,
 ) -> Result<(Vec<PendingFileParse>, HashSet<PathBuf>)> {
     let mut pending = Vec::<PendingFileParse>::new();

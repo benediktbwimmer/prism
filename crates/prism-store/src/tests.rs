@@ -124,6 +124,97 @@ fn remove_file_update_emits_observed_removed_nodes() {
 }
 
 #[test]
+fn file_state_retains_file_edges_without_global_edge_scan() {
+    let path = Path::new("src/lib.rs");
+    let mut graph = Graph::new();
+    let alpha = node("alpha");
+    let beta = node("beta");
+    let edge = Edge {
+        kind: EdgeKind::Contains,
+        source: alpha.id.clone(),
+        target: beta.id.clone(),
+        origin: EdgeOrigin::Static,
+        confidence: 1.0,
+    };
+
+    graph.upsert_file(
+        path,
+        1,
+        vec![alpha, beta],
+        vec![edge.clone()],
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+
+    let state = graph.file_state(path).expect("file state exists");
+    assert_eq!(state.edges, vec![edge]);
+    assert_eq!(state.record.edges.len(), 1);
+}
+
+#[test]
+fn deferred_file_updates_rebuild_indexes_once_at_batch_end() {
+    let alpha_path = Path::new("src/alpha.rs");
+    let beta_path = Path::new("src/beta.rs");
+    let mut graph = Graph::new();
+    let meta = EventMeta {
+        id: EventId::new("observed:test".to_string()),
+        ts: 1,
+        actor: EventActor::System,
+        correlation: None,
+        causation: None,
+    };
+
+    graph.upsert_file_from_with_observed_without_rebuild(
+        None,
+        alpha_path,
+        1,
+        vec![node("alpha")],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        &[],
+        meta.clone(),
+        prism_ir::ChangeTrigger::ManualReindex,
+    );
+    graph.upsert_file_from_with_observed_without_rebuild(
+        None,
+        beta_path,
+        2,
+        vec![node("beta")],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        &[],
+        meta.clone(),
+        prism_ir::ChangeTrigger::ManualReindex,
+    );
+    graph.rebuild_indexes();
+
+    assert_eq!(graph.nodes_by_name("alpha").len(), 1);
+    assert_eq!(graph.nodes_by_name("beta").len(), 1);
+
+    let update = graph.remove_file_with_observed_without_rebuild(
+        alpha_path,
+        meta,
+        prism_ir::ChangeTrigger::ManualReindex,
+    );
+    graph.rebuild_indexes();
+
+    assert_eq!(update.observed.removed.len(), 1);
+    assert!(graph.nodes_by_name("alpha").is_empty());
+    assert_eq!(graph.nodes_by_name("beta").len(), 1);
+}
+
+#[test]
 fn memory_store_round_trips_auxiliary_snapshots() {
     let mut store = MemoryStore::default();
     let history = HistorySnapshot {

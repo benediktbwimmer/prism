@@ -9,6 +9,7 @@ use crate::indexer_support::{
 };
 use crate::layout::{discover_layout, sync_root_nodes, PackageInfo, WorkspaceLayout};
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
+use crate::parse_pipeline::{parse_jobs_in_parallel, PreparedParseJob};
 use crate::patch_outcomes::default_outcome_meta;
 use crate::reanchor::{detect_moved_files, infer_reanchors};
 use crate::session::WorkspaceSession;
@@ -17,10 +18,10 @@ use crate::WorkspaceSessionOptions;
 use anyhow::Result;
 use prism_coordination::CoordinationStore;
 use prism_curator::CuratorBackend;
-use prism_history::{HistoryCoChangeDelta, HistoryStore};
+use prism_history::HistoryStore;
 use prism_ir::{ChangeTrigger, Edge, EdgeKind, EdgeOrigin, LineageEvent, ObservedChangeSet};
 use prism_memory::OutcomeMemory;
-use prism_parser::{LanguageAdapter, ParseInput, ParseResult};
+use prism_parser::{LanguageAdapter, ParseResult};
 use prism_projections::{
     co_change_deltas_for_events, CoChangeDelta, ProjectionIndex, ValidationDelta,
 };
@@ -40,7 +41,7 @@ pub struct WorkspaceIndexer<S: Store> {
     pub(crate) projections: ProjectionIndex,
     pub(crate) had_prior_snapshot: bool,
     pub(crate) had_projection_snapshot: bool,
-    pub(crate) adapters: Vec<Box<dyn LanguageAdapter>>,
+    pub(crate) adapters: Vec<Box<dyn LanguageAdapter + Send + Sync>>,
     pub(crate) store: S,
     pub(crate) coordination_enabled: bool,
 }
@@ -269,7 +270,8 @@ impl<S: Store> WorkspaceIndexer<S> {
         let moved_file_count = moved_paths.len();
         let mut skipped_unchanged_count = 0usize;
         let parse_apply_started = Instant::now();
-        let mut parsed_file_count = 0usize;
+        let prepare_parse_started = Instant::now();
+        let mut prepared_jobs = Vec::new();
 
         for pending_file in pending {
             if pending_file.previous_path.is_none()
@@ -283,39 +285,46 @@ impl<S: Store> WorkspaceIndexer<S> {
                 continue;
             }
 
-            let Some(adapter) = self
+            let Some((adapter_index, adapter)) = self
                 .adapters
                 .iter()
-                .find(|adapter| adapter.supports_path(&pending_file.path))
+                .enumerate()
+                .find(|(_, adapter)| adapter.supports_path(&pending_file.path))
             else {
                 continue;
             };
 
-            let file_started = Instant::now();
             let previous_path = pending_file.previous_path.as_deref();
             let file_id = previous_path
                 .and_then(|path| self.graph.file_record(path).map(|record| record.file_id))
                 .unwrap_or_else(|| self.graph.ensure_file(&pending_file.path));
             let package = self.layout.package_for(&pending_file.path).clone();
-            let input = ParseInput {
-                package_name: &package.package_name,
-                crate_name: &package.crate_name,
-                package_root: &package.root,
-                path: &pending_file.path,
+            prepared_jobs.push(PreparedParseJob {
+                pending: pending_file,
                 file_id,
-                source: &pending_file.source,
-            };
-            let language = adapter.language();
-            let parse_started = Instant::now();
-            let parsed = adapter.parse(&input)?;
-            let parse_ms = parse_started.elapsed().as_millis();
+                package,
+                adapter_index,
+                language: adapter.language(),
+            });
+        }
+        let prepare_parse_ms = prepare_parse_started.elapsed().as_millis();
+        let prepared_file_count = prepared_jobs.len();
+        let parallel_parse_started = Instant::now();
+        let parsed_jobs = parse_jobs_in_parallel(&self.adapters, prepared_jobs)?;
+        let parallel_parse_ms = parallel_parse_started.elapsed().as_millis();
+        let parse_worker_count = parsed_jobs.worker_count;
+        let apply_parsed_started = Instant::now();
+        let mut parsed_file_count = 0usize;
+
+        for parsed_job in parsed_jobs.jobs {
+            let previous_path = parsed_job.pending.previous_path.as_deref();
             let upsert_started = Instant::now();
             let update = self.upsert_parsed_file(
                 previous_path,
-                &pending_file.path,
-                pending_file.hash,
-                &package,
-                parsed,
+                &parsed_job.pending.path,
+                parsed_job.pending.hash,
+                &parsed_job.package,
+                parsed_job.parsed,
                 trigger.clone(),
             );
             let upsert_ms = upsert_started.elapsed().as_millis();
@@ -329,10 +338,10 @@ impl<S: Store> WorkspaceIndexer<S> {
             validation_deltas.extend(self.record_patch_outcome(&update.observed));
             observed_changes.push(update.observed.clone());
             changes.extend(update.changes);
-            upserted_paths.push(pending_file.path.clone());
-            let file_total_ms = file_started.elapsed().as_millis();
+            upserted_paths.push(parsed_job.pending.path.clone());
+            let file_total_ms = parsed_job.parse_ms + upsert_ms;
 
-            if parse_ms >= SLOW_FILE_PHASE_THRESHOLD_MS
+            if parsed_job.parse_ms >= SLOW_FILE_PHASE_THRESHOLD_MS
                 || upsert_ms >= SLOW_FILE_PHASE_THRESHOLD_MS
                 || file_total_ms >= SLOW_FILE_PHASE_THRESHOLD_MS
             {
@@ -340,10 +349,10 @@ impl<S: Store> WorkspaceIndexer<S> {
                     root = %self.root.display(),
                     targeted_refresh,
                     expanded_refresh_scope_path_count,
-                    path = %pending_file.path.display(),
-                    language = ?language,
-                    source_bytes = pending_file.source.len(),
-                    parse_ms,
+                    path = %parsed_job.pending.path.display(),
+                    language = ?parsed_job.language,
+                    source_bytes = parsed_job.pending.source.len(),
+                    parse_ms = parsed_job.parse_ms,
                     upsert_ms,
                     file_total_ms,
                     parsed_file_count,
@@ -358,19 +367,26 @@ impl<S: Store> WorkspaceIndexer<S> {
                     targeted_refresh,
                     expanded_refresh_scope_path_count,
                     parsed_file_count,
+                    prepared_file_count,
                     skipped_unchanged_count,
                     elapsed_ms = parse_apply_started.elapsed().as_millis(),
                     "processed prism file parse batch"
                 );
             }
         }
+        let apply_parsed_ms = apply_parsed_started.elapsed().as_millis();
         let parse_apply_ms = parse_apply_started.elapsed().as_millis();
         info!(
             root = %self.root.display(),
             targeted_refresh,
             refresh_scope_path_count,
             expanded_refresh_scope_path_count,
+            prepared_file_count,
             parsed_file_count,
+            parse_worker_count,
+            prepare_parse_ms,
+            parallel_parse_ms,
+            apply_parsed_ms,
             skipped_unchanged_count,
             moved_file_count,
             parse_apply_ms,
@@ -386,7 +402,7 @@ impl<S: Store> WorkspaceIndexer<S> {
                 continue;
             }
             if !seen_files.contains(&tracked) && !moved_paths.contains(&tracked) {
-                let update = self.graph.remove_file_with_observed(
+                let update = self.graph.remove_file_with_observed_without_rebuild(
                     &tracked,
                     default_outcome_meta("observed"),
                     trigger.clone(),
@@ -404,6 +420,9 @@ impl<S: Store> WorkspaceIndexer<S> {
             }
         }
         let remove_missing_ms = remove_missing_started.elapsed().as_millis();
+        let rebuild_graph_indexes_started = Instant::now();
+        self.graph.rebuild_indexes();
+        let rebuild_graph_indexes_ms = rebuild_graph_indexes_started.elapsed().as_millis();
         info!(
             root = %self.root.display(),
             targeted_refresh,
@@ -411,6 +430,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             expanded_refresh_scope_path_count,
             removed_file_count = removed_paths.len(),
             remove_missing_ms,
+            rebuild_graph_indexes_ms,
             "finished prism missing-file removal phase"
         );
 
@@ -448,19 +468,8 @@ impl<S: Store> WorkspaceIndexer<S> {
         let projection_snapshot =
             (!self.had_projection_snapshot).then(|| self.projections.snapshot());
         let history_delta = self.had_prior_snapshot.then(|| {
-            let co_change_history_deltas = co_change_deltas
-                .iter()
-                .map(|delta| HistoryCoChangeDelta {
-                    source_lineage: delta.source_lineage.clone(),
-                    target_lineage: delta.target_lineage.clone(),
-                    count_delta: delta.count_delta,
-                })
-                .collect::<Vec<_>>();
-            self.history.persistence_delta(
-                &all_lineage_events,
-                &seeded_node_lineages,
-                &co_change_history_deltas,
-            )
+            self.history
+                .persistence_delta(&all_lineage_events, &seeded_node_lineages, &[])
         });
         let upserted_file_count = upserted_paths.len();
         let removed_file_count = removed_paths.len();
@@ -469,7 +478,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         let batch = IndexPersistBatch {
             upserted_paths,
             removed_paths,
-            history_snapshot: self.history.snapshot(),
+            history_snapshot: self.history.snapshot_without_co_change_counts(),
             history_delta,
             outcome_snapshot: self.outcomes.snapshot(),
             co_change_deltas,
@@ -717,7 +726,7 @@ impl<S: Store> WorkspaceIndexer<S> {
 
         let mut edges = parsed.edges;
         edges.extend(package_edges);
-        self.graph.upsert_file_from_with_observed(
+        self.graph.upsert_file_from_with_observed_without_rebuild(
             previous_path,
             path,
             hash,

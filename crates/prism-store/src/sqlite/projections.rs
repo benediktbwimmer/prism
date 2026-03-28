@@ -108,29 +108,34 @@ pub(super) fn save_projection_snapshot_tx(
     tx.execute("DELETE FROM projection_co_change", [])?;
     tx.execute("DELETE FROM projection_validation", [])?;
 
-    for (source, neighbors) in &snapshot.co_change_by_lineage {
-        for record in neighbors {
-            tx.execute(
-                "INSERT INTO projection_co_change(source_lineage, target_lineage, count)
-                 VALUES (?1, ?2, ?3)",
-                params![source.0.as_str(), record.lineage.0.as_str(), record.count],
-            )?;
+    {
+        let mut stmt = tx.prepare_cached(
+            "INSERT INTO projection_co_change(source_lineage, target_lineage, count)
+             VALUES (?1, ?2, ?3)",
+        )?;
+        for (source, record) in normalized_co_change_rows(snapshot) {
+            stmt.execute(params![
+                source.0.as_str(),
+                record.lineage.0.as_str(),
+                record.count
+            ])?;
         }
     }
-    prune_projection_co_change_tx(tx)?;
 
-    for (lineage, checks) in &snapshot.validation_by_lineage {
-        for check in checks {
-            tx.execute(
-                "INSERT INTO projection_validation(lineage, label, score, last_seen)
-                 VALUES (?1, ?2, ?3, ?4)",
-                params![
+    {
+        let mut stmt = tx.prepare_cached(
+            "INSERT INTO projection_validation(lineage, label, score, last_seen)
+             VALUES (?1, ?2, ?3, ?4)",
+        )?;
+        for (lineage, checks) in &snapshot.validation_by_lineage {
+            for check in checks {
+                stmt.execute(params![
                     lineage.0.as_str(),
                     check.label.as_str(),
                     check.score,
                     check.last_seen as i64
-                ],
-            )?;
+                ])?;
+            }
         }
     }
 
@@ -208,4 +213,22 @@ pub(super) fn apply_projection_validation_deltas_tx(
         )?;
     }
     Ok(())
+}
+
+fn normalized_co_change_rows(
+    snapshot: &prism_projections::ProjectionSnapshot,
+) -> Vec<(prism_ir::LineageId, prism_projections::CoChangeRecord)> {
+    let mut rows = Vec::new();
+    for (source, neighbors) in &snapshot.co_change_by_lineage {
+        let mut neighbors = neighbors.clone();
+        neighbors.sort_by(|left, right| {
+            right
+                .count
+                .cmp(&left.count)
+                .then_with(|| left.lineage.0.cmp(&right.lineage.0))
+        });
+        neighbors.truncate(MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE);
+        rows.extend(neighbors.into_iter().map(|record| (source.clone(), record)));
+    }
+    rows
 }

@@ -4,6 +4,7 @@ mod indexer;
 mod indexer_support;
 mod layout;
 mod memory_refresh;
+mod parse_pipeline;
 mod patch_outcomes;
 mod reanchor;
 mod resolution;

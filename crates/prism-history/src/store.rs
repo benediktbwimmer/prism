@@ -104,6 +104,14 @@ impl HistoryStore {
     }
 
     pub fn snapshot(&self) -> HistorySnapshot {
+        self.snapshot_with_co_change_counts(true)
+    }
+
+    pub fn snapshot_without_co_change_counts(&self) -> HistorySnapshot {
+        self.snapshot_with_co_change_counts(false)
+    }
+
+    fn snapshot_with_co_change_counts(&self, include_co_change_counts: bool) -> HistorySnapshot {
         HistorySnapshot {
             node_to_lineage: self
                 .node_to_lineage
@@ -111,11 +119,14 @@ impl HistoryStore {
                 .map(|(node, lineage)| (node.clone(), lineage.clone()))
                 .collect(),
             events: self.events.clone(),
-            co_change_counts: self
-                .co_change_counts
-                .iter()
-                .map(|((left, right), count)| (left.clone(), right.clone(), *count))
-                .collect(),
+            co_change_counts: include_co_change_counts
+                .then(|| {
+                    self.co_change_counts
+                        .iter()
+                        .map(|((left, right), count)| (left.clone(), right.clone(), *count))
+                        .collect()
+                })
+                .unwrap_or_default(),
             tombstones: self.tombstones.values().cloned().collect(),
             next_lineage: self.next_lineage,
             next_event: self.next_event,

@@ -65,6 +65,14 @@ fn host_with_session_internal(workspace: WorkspaceSession) -> QueryHost {
     )
 }
 
+fn host_with_session(workspace: WorkspaceSession) -> QueryHost {
+    QueryHost::with_session_and_limits_and_features(
+        workspace,
+        QueryLimits::default(),
+        PrismMcpFeatures::full(),
+    )
+}
+
 fn host_with_session_internal_and_limits(
     workspace: WorkspaceSession,
     limits: QueryLimits,
@@ -4908,6 +4916,18 @@ return {
     assert_eq!(status["daemonCount"], 0);
     assert_eq!(status["bridgeCount"], 0);
     assert_eq!(status["healthPath"], "/healthz");
+    assert_eq!(status["connection"]["mode"], "direct-daemon");
+    assert_eq!(status["connection"]["transport"], "streamable-http");
+    assert_eq!(
+        status["connection"]["bridgeRole"],
+        "stdio-compatibility-only"
+    );
+    assert_eq!(
+        status["connection"]["healthUri"]
+            .as_str()
+            .unwrap_or_default(),
+        format!("http://{addr}/healthz")
+    );
     assert_eq!(
         status["uri"].as_str().unwrap_or_default(),
         format!("http://{addr}/mcp")
@@ -4938,6 +4958,42 @@ return {
     assert_eq!(timeline[2]["message"], "prism-mcp daemon ready");
 
     server.join().expect("health server should exit cleanly");
+}
+
+#[test]
+fn prism_connection_info_surfaces_direct_daemon_endpoint_without_internal_mode() {
+    let root = temp_workspace();
+    let prism_dir = root.join(".prism");
+    fs::create_dir_all(&prism_dir).unwrap();
+    let addr = "127.0.0.1:9";
+
+    fs::write(
+        prism_dir.join("prism-mcp-http-uri"),
+        format!("http://{addr}/mcp\n"),
+    )
+    .unwrap();
+    fs::write(prism_dir.join("prism-mcp-daemon.log"), "").unwrap();
+
+    let host = host_with_session(index_workspace_session(&root).unwrap());
+    let result = host
+        .execute(
+            test_session(&host),
+            "return prism.connectionInfo();",
+            QueryLanguage::Ts,
+        )
+        .expect("connection info query should succeed");
+
+    assert_eq!(result.result["mode"], "direct-daemon");
+    assert_eq!(result.result["transport"], "streamable-http");
+    assert_eq!(result.result["bridgeRole"], "stdio-compatibility-only");
+    assert_eq!(
+        result.result["uri"].as_str().unwrap_or_default(),
+        format!("http://{addr}/mcp")
+    );
+    assert_eq!(
+        result.result["healthUri"].as_str().unwrap_or_default(),
+        format!("http://{addr}/healthz")
+    );
 }
 
 #[test]
@@ -5022,6 +5078,11 @@ return {
     assert_eq!(status["daemonCount"], 1);
     assert_eq!(status["bridgeCount"], 0);
     assert_eq!(status["healthPath"], "/healthz");
+    assert_eq!(status["connection"]["mode"], "direct-daemon");
+    assert_eq!(
+        status["connection"]["uri"].as_str().unwrap_or_default(),
+        format!("http://{addr}/mcp")
+    );
     let processes = status["processes"].as_array().expect("runtime processes");
     assert_eq!(processes.len(), 1);
     assert_eq!(processes[0]["kind"], "daemon");

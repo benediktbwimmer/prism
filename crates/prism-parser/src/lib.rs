@@ -57,7 +57,7 @@ pub struct SymbolTarget<'a> {
     pub target_path: &'a str,
 }
 
-pub trait LanguageAdapter {
+pub trait LanguageAdapter: Send + Sync {
     fn language(&self) -> Language;
     fn supports_path(&self, path: &Path) -> bool;
     fn parse(&self, input: &ParseInput<'_>) -> Result<ParseResult>;

@@ -19,6 +19,7 @@ pub struct FileRecord {
     pub file_id: FileId,
     pub hash: u64,
     pub nodes: Vec<NodeId>,
+    pub edges: Vec<Edge>,
     pub fingerprints: HashMap<NodeId, NodeFingerprint>,
     pub unresolved_calls: Vec<UnresolvedCall>,
     pub unresolved_imports: Vec<UnresolvedImport>,
@@ -227,6 +228,75 @@ impl Graph {
         meta: EventMeta,
         trigger: ChangeTrigger,
     ) -> FileUpdate {
+        self.upsert_file_from_with_observed_internal(
+            previous_path,
+            path,
+            hash,
+            nodes,
+            edges,
+            fingerprints,
+            unresolved_calls,
+            unresolved_imports,
+            unresolved_impls,
+            unresolved_intents,
+            reanchors,
+            meta,
+            trigger,
+            true,
+        )
+    }
+
+    pub fn upsert_file_from_with_observed_without_rebuild(
+        &mut self,
+        previous_path: Option<&Path>,
+        path: &Path,
+        hash: u64,
+        nodes: Vec<Node>,
+        edges: Vec<Edge>,
+        fingerprints: HashMap<NodeId, NodeFingerprint>,
+        unresolved_calls: Vec<UnresolvedCall>,
+        unresolved_imports: Vec<UnresolvedImport>,
+        unresolved_impls: Vec<UnresolvedImpl>,
+        unresolved_intents: Vec<UnresolvedIntent>,
+        reanchors: &[(NodeId, NodeId)],
+        meta: EventMeta,
+        trigger: ChangeTrigger,
+    ) -> FileUpdate {
+        self.upsert_file_from_with_observed_internal(
+            previous_path,
+            path,
+            hash,
+            nodes,
+            edges,
+            fingerprints,
+            unresolved_calls,
+            unresolved_imports,
+            unresolved_impls,
+            unresolved_intents,
+            reanchors,
+            meta,
+            trigger,
+            false,
+        )
+    }
+
+    fn upsert_file_from_with_observed_internal(
+        &mut self,
+        previous_path: Option<&Path>,
+        path: &Path,
+        hash: u64,
+        nodes: Vec<Node>,
+        edges: Vec<Edge>,
+        fingerprints: HashMap<NodeId, NodeFingerprint>,
+        unresolved_calls: Vec<UnresolvedCall>,
+        unresolved_imports: Vec<UnresolvedImport>,
+        unresolved_impls: Vec<UnresolvedImpl>,
+        unresolved_intents: Vec<UnresolvedIntent>,
+        reanchors: &[(NodeId, NodeId)],
+        meta: EventMeta,
+        trigger: ChangeTrigger,
+        rebuild_indexes: bool,
+    ) -> FileUpdate {
         let baseline_path = previous_path.unwrap_or(path);
         let previous = self.file_records.get(baseline_path).cloned();
         let previous_state = self.file_state(baseline_path);
@@ -257,6 +327,7 @@ impl Graph {
         }
 
         let node_ids: Vec<NodeId> = nodes.iter().map(|node| node.id.clone()).collect();
+        let record_edges = edges.clone();
         for node in nodes {
             self.nodes.insert(node.id.clone(), node);
         }
@@ -267,6 +338,7 @@ impl Graph {
                 file_id,
                 hash,
                 nodes: node_ids,
+                edges: record_edges,
                 fingerprints,
                 unresolved_calls,
                 unresolved_imports,
@@ -274,7 +346,9 @@ impl Graph {
                 unresolved_intents,
             },
         );
-        self.rebuild_adjacency();
+        if rebuild_indexes {
+            self.rebuild_adjacency();
+        }
         FileUpdate {
             file_id,
             observed,
@@ -377,19 +451,12 @@ impl Graph {
 
     pub fn file_state(&self, path: &Path) -> Option<FileState> {
         let record = self.file_records.get(path)?.clone();
-        let node_ids: HashSet<NodeId> = record.nodes.iter().cloned().collect();
         let nodes = record
             .nodes
             .iter()
             .filter_map(|id| self.nodes.get(id).cloned())
             .collect::<Vec<_>>();
-        let edges = self
-            .edges
-            .iter()
-            .filter(|edge| !is_derived_kind(edge.kind))
-            .filter(|edge| node_ids.contains(&edge.source) || node_ids.contains(&edge.target))
-            .cloned()
-            .collect::<Vec<_>>();
+        let edges = record.edges.clone();
 
         Some(FileState {
             path: path.to_path_buf(),
@@ -464,6 +531,25 @@ impl Graph {
         meta: EventMeta,
         trigger: ChangeTrigger,
     ) -> FileUpdate {
+        self.remove_file_with_observed_internal(path, meta, trigger, true)
+    }
+
+    pub fn remove_file_with_observed_without_rebuild(
+        &mut self,
+        path: &Path,
+        meta: EventMeta,
+        trigger: ChangeTrigger,
+    ) -> FileUpdate {
+        self.remove_file_with_observed_internal(path, meta, trigger, false)
+    }
+
+    fn remove_file_with_observed_internal(
+        &mut self,
+        path: &Path,
+        meta: EventMeta,
+        trigger: ChangeTrigger,
+        rebuild_indexes: bool,
+    ) -> FileUpdate {
         let previous_state = self.file_state(path);
         let changes = self
             .file_records
@@ -496,12 +582,18 @@ impl Graph {
         if let Some(file_id) = self.path_to_file.remove(path) {
             self.file_paths.remove(&file_id);
         }
-        self.rebuild_adjacency();
+        if rebuild_indexes {
+            self.rebuild_adjacency();
+        }
         FileUpdate {
             file_id,
             observed,
             changes,
         }
+    }
+
+    pub fn rebuild_indexes(&mut self) {
+        self.rebuild_adjacency();
     }
 
     pub fn clear_edges_by_kind(&mut self, kinds: &[EdgeKind]) -> usize {
@@ -715,6 +807,7 @@ impl Graph {
             file_id,
             hash: 0,
             nodes: Vec::new(),
+            edges: Vec::new(),
             fingerprints: HashMap::new(),
             unresolved_calls: Vec::new(),
             unresolved_imports: Vec::new(),

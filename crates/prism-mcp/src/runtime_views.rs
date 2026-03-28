@@ -7,7 +7,10 @@ use std::process::Command;
 use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
-use prism_js::{RuntimeHealthView, RuntimeLogEventView, RuntimeProcessView, RuntimeStatusView};
+use prism_js::{
+    ConnectionInfoView, RuntimeHealthView, RuntimeLogEventView, RuntimeProcessView,
+    RuntimeStatusView,
+};
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
@@ -19,6 +22,8 @@ const DEFAULT_RUNTIME_LOG_LIMIT: usize = 50;
 const DEFAULT_RUNTIME_TIMELINE_LIMIT: usize = 20;
 const DEFAULT_LOG_SCAN_LINES: usize = 400;
 const MAX_LOG_SCAN_LINES: usize = 4_000;
+const BRIDGE_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
+const STALE_BRIDGE_GRACE: Duration = Duration::from_secs(90);
 
 #[derive(Debug, Clone)]
 struct RuntimePaths {
@@ -49,6 +54,7 @@ struct McpProcess {
 enum BridgeState {
     Connected,
     Idle,
+    Stale,
     Orphaned,
 }
 
@@ -56,6 +62,7 @@ enum BridgeState {
 struct BridgeCounts {
     connected: usize,
     idle: usize,
+    stale: usize,
     orphaned: usize,
 }
 
@@ -92,23 +99,24 @@ pub(crate) fn runtime_status(host: &QueryHost) -> Result<RuntimeStatusView> {
         .and_then(|uri| connected_process_ids_for_uri(uri).ok())
         .unwrap_or_default();
     let bridge_counts = classify_bridges(&bridges, &connected_bridge_pids);
-    let health_path = daemon_health_path(&daemons).to_string();
-    let health = health_status(&uri, &daemons, process_error.as_deref());
+    let connection = daemon_connection_info(root, &paths, &daemons, process_error.as_deref())?;
 
     Ok(RuntimeStatusView {
         root: root.display().to_string(),
-        uri,
+        connection: connection.clone(),
+        uri: connection.uri.clone(),
         uri_file: paths.uri_file.display().to_string(),
         log_path: paths.log_path.display().to_string(),
         log_bytes: file_len(&paths.log_path),
         cache_path: paths.cache_path.display().to_string(),
         cache_bytes: file_len(&paths.cache_path),
-        health_path,
-        health,
+        health_path: daemon_health_path(&daemons).to_string(),
+        health: connection.health.clone(),
         daemon_count: daemons.len(),
         bridge_count: bridges.len(),
         connected_bridge_count: bridge_counts.connected,
         idle_bridge_count: bridge_counts.idle,
+        stale_bridge_count: bridge_counts.stale,
         orphan_bridge_count: bridge_counts.orphaned,
         processes: processes
             .into_iter()
@@ -116,6 +124,22 @@ pub(crate) fn runtime_status(host: &QueryHost) -> Result<RuntimeStatusView> {
             .collect(),
         process_error,
     })
+}
+
+pub(crate) fn connection_info(host: &QueryHost) -> Result<ConnectionInfoView> {
+    let root = workspace_root(host)?;
+    let paths = RuntimePaths::for_root(root);
+    let runtime_state = read_runtime_state(root)?;
+    let state_processes = runtime_state
+        .as_ref()
+        .map(|state| state.processes.as_slice())
+        .unwrap_or(&[]);
+    let (processes, process_error) = match list_runtime_processes(root, state_processes) {
+        Ok(processes) => (processes, None),
+        Err(error) => (Vec::new(), Some(error.to_string())),
+    };
+    let daemons = select_kind(&processes, McpProcessKind::Daemon);
+    daemon_connection_info(root, &paths, &daemons, process_error.as_deref())
 }
 
 pub(crate) fn runtime_logs(
@@ -309,7 +333,7 @@ fn list_runtime_processes(
     state_processes: &[RuntimeProcessRecord],
 ) -> Result<Vec<McpProcess>> {
     if !state_processes.is_empty() {
-        let processes = probe_runtime_state_processes(state_processes)?;
+        let processes = probe_runtime_state_processes(root, state_processes)?;
         if !processes.is_empty() {
             return Ok(processes);
         }
@@ -345,6 +369,7 @@ fn list_processes(root: &Path) -> Result<Vec<McpProcess>> {
 }
 
 fn probe_runtime_state_processes(
+    root: &Path,
     state_processes: &[RuntimeProcessRecord],
 ) -> Result<Vec<McpProcess>> {
     let pids = state_processes
@@ -379,6 +404,9 @@ fn probe_runtime_state_processes(
         let Some(record) = records.get(&pid) else {
             continue;
         };
+        if !matches_prism_process_command(pid, &command, root, record.kind.as_str()) {
+            continue;
+        }
         let Some(kind) = process_kind(record.kind.as_str()) else {
             continue;
         };
@@ -432,8 +460,59 @@ fn bridge_state(
         Some(BridgeState::Connected)
     } else if process.ppid == 1 {
         Some(BridgeState::Orphaned)
+    } else if bridge_is_stale(process) {
+        Some(BridgeState::Stale)
     } else {
         Some(BridgeState::Idle)
+    }
+}
+
+fn daemon_connection_info(
+    root: &Path,
+    paths: &RuntimePaths,
+    daemons: &[McpProcess],
+    process_error: Option<&str>,
+) -> Result<ConnectionInfoView> {
+    let uri = read_uri_file(&paths.uri_file)?
+        .or_else(|| daemons.iter().find_map(|process| process.http_uri.clone()));
+    let health_path = daemon_health_path(daemons).to_string();
+    let health_uri = uri.as_ref().map(|uri| join_health_uri(uri, &health_path));
+    let health = health_status(&uri, daemons, process_error);
+    Ok(ConnectionInfoView {
+        root: root.display().to_string(),
+        mode: "direct-daemon".to_string(),
+        transport: "streamable-http".to_string(),
+        uri,
+        uri_file: paths.uri_file.display().to_string(),
+        health_uri,
+        health,
+        bridge_role: "stdio-compatibility-only".to_string(),
+    })
+}
+
+fn join_health_uri(uri: &str, health_path: &str) -> String {
+    let base = uri
+        .split_once("://")
+        .map(|(scheme, rest)| {
+            let authority = rest.split('/').next().unwrap_or(rest);
+            format!("{scheme}://{authority}")
+        })
+        .unwrap_or_else(|| uri.to_string());
+    format!(
+        "{}{}",
+        base.trim_end_matches('/'),
+        normalize_route_path(health_path)
+    )
+}
+
+fn normalize_route_path(path: &str) -> String {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        DEFAULT_HEALTH_PATH.to_string()
+    } else if trimmed.starts_with('/') {
+        trimmed.to_string()
+    } else {
+        format!("/{trimmed}")
     }
 }
 
@@ -441,6 +520,7 @@ fn bridge_state_label(state: BridgeState) -> String {
     match state {
         BridgeState::Connected => "connected",
         BridgeState::Idle => "idle",
+        BridgeState::Stale => "stale",
         BridgeState::Orphaned => "orphaned",
     }
     .to_string()
@@ -452,6 +532,7 @@ fn classify_bridges(bridges: &[McpProcess], connected_bridge_pids: &BTreeSet<u32
         match bridge_state(process, connected_bridge_pids) {
             Some(BridgeState::Connected) => counts.connected += 1,
             Some(BridgeState::Idle) => counts.idle += 1,
+            Some(BridgeState::Stale) => counts.stale += 1,
             Some(BridgeState::Orphaned) => counts.orphaned += 1,
             None => {}
         }
@@ -522,6 +603,51 @@ fn process_kind(kind: &str) -> Option<McpProcessKind> {
         "bridge" => Some(McpProcessKind::Bridge),
         _ => None,
     }
+}
+
+fn matches_prism_process_command(pid: u32, command: &str, root: &Path, kind: &str) -> bool {
+    if pid == std::process::id() && kind == "daemon" {
+        return true;
+    }
+    command.contains("prism-mcp")
+        && command.contains(&format!("--root {}", root.display()))
+        && command_option_value(command, "--mode").as_deref() == Some(kind)
+}
+
+fn bridge_is_stale(process: &McpProcess) -> bool {
+    parse_elapsed_duration(&process.elapsed)
+        .map(|elapsed| elapsed >= BRIDGE_IDLE_TIMEOUT + STALE_BRIDGE_GRACE)
+        .unwrap_or(false)
+}
+
+fn parse_elapsed_duration(elapsed: &str) -> Option<Duration> {
+    let mut parts = elapsed.split(':').collect::<Vec<_>>();
+    if parts.is_empty() {
+        return None;
+    }
+    let mut day_seconds = 0_u64;
+    if let Some((days, hours)) = parts.first().and_then(|part| part.split_once('-')) {
+        day_seconds = days.parse::<u64>().ok()?.saturating_mul(86_400);
+        parts[0] = hours;
+    }
+    let parts = parts
+        .into_iter()
+        .map(|part| part.parse::<u64>().ok())
+        .collect::<Option<Vec<_>>>()?;
+    let seconds = match parts.as_slice() {
+        [minutes, seconds] => minutes.saturating_mul(60).saturating_add(*seconds),
+        [hours, minutes, seconds] => hours
+            .saturating_mul(3600)
+            .saturating_add(minutes.saturating_mul(60))
+            .saturating_add(*seconds),
+        [days, hours, minutes, seconds] => days
+            .saturating_mul(86_400)
+            .saturating_add(hours.saturating_mul(3600))
+            .saturating_add(minutes.saturating_mul(60))
+            .saturating_add(*seconds),
+        _ => return None,
+    };
+    Some(Duration::from_secs(day_seconds.saturating_add(seconds)))
 }
 
 fn command_option_value(command: &str, option: &str) -> Option<String> {
@@ -839,6 +965,16 @@ mod tests {
             },
             McpProcess {
                 pid: 12,
+                ppid: 1002,
+                rss_kb: 1,
+                elapsed: "02:01".to_string(),
+                command: "prism-mcp --mode bridge".to_string(),
+                kind: McpProcessKind::Bridge,
+                health_path: None,
+                http_uri: None,
+            },
+            McpProcess {
+                pid: 13,
                 ppid: 1,
                 rss_kb: 1,
                 elapsed: "00:03".to_string(),
@@ -854,6 +990,7 @@ mod tests {
 
         assert_eq!(counts.connected, 1);
         assert_eq!(counts.idle, 1);
+        assert_eq!(counts.stale, 1);
         assert_eq!(counts.orphaned, 1);
         assert_eq!(
             bridge_state(&bridges[0], &connected).map(bridge_state_label),
@@ -865,7 +1002,48 @@ mod tests {
         );
         assert_eq!(
             bridge_state(&bridges[2], &connected).map(bridge_state_label),
+            Some("stale".to_string())
+        );
+        assert_eq!(
+            bridge_state(&bridges[3], &connected).map(bridge_state_label),
             Some("orphaned".to_string())
+        );
+    }
+
+    #[test]
+    fn runtime_state_process_probe_ignores_pid_reuse_from_non_prism_commands() {
+        let root = std::env::temp_dir();
+        assert!(!matches_prism_process_command(
+            999_999,
+            "/System/Library/Frameworks/Contacts.framework/Support/contactsd",
+            &root,
+            "bridge"
+        ));
+        assert!(matches_prism_process_command(
+            999_999,
+            &format!(
+                "/Users/bene/code/prism/target/release/prism-mcp --mode bridge --root {} --http-uri-file {}/.prism/prism-mcp-http-uri",
+                root.display(),
+                root.display()
+            ),
+            &root,
+            "bridge"
+        ));
+    }
+
+    #[test]
+    fn parse_elapsed_duration_supports_day_prefixed_ps_output() {
+        assert_eq!(
+            parse_elapsed_duration("03:15").map(|duration| duration.as_secs()),
+            Some(195)
+        );
+        assert_eq!(
+            parse_elapsed_duration("12:03:15").map(|duration| duration.as_secs()),
+            Some(43_395)
+        );
+        assert_eq!(
+            parse_elapsed_duration("2-03:15:30").map(|duration| duration.as_secs()),
+            Some(184_530)
         );
     }
 }

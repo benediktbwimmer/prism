@@ -166,6 +166,19 @@ pub struct RuntimeHealthView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct ConnectionInfoView {
+    pub root: String,
+    pub mode: String,
+    pub transport: String,
+    pub uri: Option<String>,
+    pub uri_file: String,
+    pub health_uri: Option<String>,
+    pub health: RuntimeHealthView,
+    pub bridge_role: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct RuntimeProcessView {
     pub pid: u32,
     pub parent_pid: u32,
@@ -182,6 +195,7 @@ pub struct RuntimeProcessView {
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeStatusView {
     pub root: String,
+    pub connection: ConnectionInfoView,
     pub uri: Option<String>,
     pub uri_file: String,
     pub log_path: String,
@@ -194,6 +208,7 @@ pub struct RuntimeStatusView {
     pub bridge_count: usize,
     pub connected_bridge_count: usize,
     pub idle_bridge_count: usize,
+    pub stale_bridge_count: usize,
     pub orphan_bridge_count: usize,
     pub processes: Vec<RuntimeProcessView>,
     pub process_error: Option<String>,

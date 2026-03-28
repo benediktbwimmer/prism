@@ -1041,6 +1041,9 @@ globalThis.prism = Object.freeze({
       path: options?.path,
     });
   },
+  connectionInfo() {
+    return __prismHost("connectionInfo", {});
+  },
   runtimeStatus() {
     return __prismHost("runtimeStatus", {});
   },
@@ -1079,6 +1082,11 @@ globalThis.prism = Object.freeze({
     },
     timeline(options = {}) {
       return prism.runtimeTimeline(options);
+    },
+  }),
+  connection: Object.freeze({
+    info() {
+      return prism.connectionInfo();
     },
   }),
   memory: Object.freeze({

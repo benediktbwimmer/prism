@@ -125,7 +125,7 @@ pub(crate) fn workspace_fingerprint(
     })
 }
 
-pub(crate) fn default_adapters() -> Vec<Box<dyn LanguageAdapter>> {
+pub(crate) fn default_adapters() -> Vec<Box<dyn LanguageAdapter + Send + Sync>> {
     vec![
         Box::new(RustAdapter),
         Box::new(PythonAdapter),

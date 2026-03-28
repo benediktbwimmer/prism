@@ -5,11 +5,12 @@ use std::time::Instant;
 use anyhow::{anyhow, Context, Result};
 use prism_ir::{AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, LineageId, NodeId, PlanId};
 use prism_js::{
-    ChangedFileView, ChangedSymbolView, DiffHunkView, DiscoveryBundleView, EditContextView,
-    FocusedBlockView, PatchEventView, QueryDiagnostic, QueryEnvelope, ReadContextView,
-    RecentChangeContextView, RuntimeLogEventView, RuntimeStatusView, ScoredMemoryView,
-    SourceExcerptView, SourceSliceView, SubgraphView, SymbolView, TextSearchMatchView,
-    ToolCatalogEntryView, ToolSchemaView, ValidationContextView, ValidationFeedbackView,
+    ChangedFileView, ChangedSymbolView, ConnectionInfoView, DiffHunkView, DiscoveryBundleView,
+    EditContextView, FocusedBlockView, PatchEventView, QueryDiagnostic, QueryEnvelope,
+    ReadContextView, RecentChangeContextView, RuntimeLogEventView, RuntimeStatusView,
+    ScoredMemoryView, SourceExcerptView, SourceSliceView, SubgraphView, SymbolView,
+    TextSearchMatchView, ToolCatalogEntryView, ToolSchemaView, ValidationContextView,
+    ValidationFeedbackView,
 };
 use prism_memory::{MemoryModule, OutcomeRecallQuery, RecallQuery};
 use prism_query::{EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
@@ -19,7 +20,7 @@ use crate::file_queries::{
     file_around, file_read, DEFAULT_FILE_AROUND_CONTEXT_LINES, DEFAULT_FILE_AROUND_MAX_CHARS,
     DEFAULT_FILE_READ_MAX_CHARS,
 };
-use crate::runtime_views::{runtime_logs, runtime_status, runtime_timeline};
+use crate::runtime_views::{connection_info, runtime_logs, runtime_status, runtime_timeline};
 use crate::text_search::search_text;
 use crate::{
     ambiguity::is_broad_identifier_query, ambiguity_diagnostic_data, apply_module_filter,
@@ -618,6 +619,7 @@ impl QueryExecution {
                 let args: TaskChangesArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.task_changes(args)?)?)
             }
+            "connectionInfo" => Ok(serde_json::to_value(self.connection_info()?)?),
             "runtimeStatus" => Ok(serde_json::to_value(self.runtime_status()?)?),
             "runtimeLogs" => {
                 let args: RuntimeLogArgs = serde_json::from_value(args)?;
@@ -1804,6 +1806,10 @@ impl QueryExecution {
 
     pub(crate) fn runtime_status(&self) -> Result<RuntimeStatusView> {
         runtime_status(&self.host)
+    }
+
+    pub(crate) fn connection_info(&self) -> Result<ConnectionInfoView> {
+        connection_info(&self.host)
     }
 
     pub(crate) fn runtime_logs(&self, args: RuntimeLogArgs) -> Result<Vec<RuntimeLogEventView>> {
