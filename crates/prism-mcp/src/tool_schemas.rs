@@ -50,15 +50,13 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
         ToolSchemaCatalogEntry {
             tool_name: "prism_workset".to_string(),
             schema_uri: tool_schema_resource_uri("prism_workset"),
-            description: "Input schema for building a compact implementation workset."
-                .to_string(),
+            description: "Input schema for building a compact implementation workset.".to_string(),
             example_input: tool_input_example("prism_workset").expect("tool example"),
         },
         ToolSchemaCatalogEntry {
             tool_name: "prism_expand".to_string(),
             schema_uri: tool_schema_resource_uri("prism_expand"),
-            description: "Input schema for explicit depth-on-demand handle expansion."
-                .to_string(),
+            description: "Input schema for explicit depth-on-demand handle expansion.".to_string(),
             example_input: tool_input_example("prism_expand").expect("tool example"),
         },
         ToolSchemaCatalogEntry {

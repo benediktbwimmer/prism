@@ -251,9 +251,7 @@ fn session_handle_key(target: &SessionHandleTarget) -> String {
     } else {
         format!(
             "node:{}:{}:{}",
-            target.id.crate_name,
-            target.id.path,
-            target.id.kind
+            target.id.crate_name, target.id.path, target.id.kind
         )
     }
 }

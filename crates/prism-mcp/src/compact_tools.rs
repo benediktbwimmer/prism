@@ -13,15 +13,14 @@ use prism_js::{
 use prism_query::{EditSliceOptions, Prism};
 use serde_json::{json, Value};
 
+use crate::file_queries::file_read;
+use crate::session_state::SessionHandleTarget;
 use crate::{
     diff_for, focused_block_for_symbol, next_reads, owner_views_for_target, symbol_for,
     symbol_view, validation_context_view_cached, FileReadArgs, PrismExpandArgs,
-    PrismExpandKindInput, PrismLocateArgs,
-    PrismLocateTaskIntentInput, PrismOpenArgs, PrismOpenModeInput, PrismWorksetArgs, QueryHost,
-    QueryRun, SearchArgs, SessionState,
+    PrismExpandKindInput, PrismLocateArgs, PrismLocateTaskIntentInput, PrismOpenArgs,
+    PrismOpenModeInput, PrismWorksetArgs, QueryHost, QueryRun, SearchArgs, SessionState,
 };
-use crate::file_queries::file_read;
-use crate::session_state::SessionHandleTarget;
 
 const DEFAULT_LOCATE_LIMIT: usize = 3;
 const MAX_LOCATE_LIMIT: usize = 3;
@@ -41,6 +40,11 @@ const EDIT_OPEN_OPTIONS: EditSliceOptions = EditSliceOptions {
 const RAW_OPEN_MAX_CHARS: usize = 720;
 const WORKSET_SUPPORTING_LIMIT: usize = 3;
 const WORKSET_TEST_LIMIT: usize = 2;
+pub(crate) const WORKSET_MAX_JSON_BYTES: usize = 1024;
+const WORKSET_WHY_MAX_CHARS: usize = 160;
+const WORKSET_WHY_TIGHT_MAX_CHARS: usize = 72;
+const WORKSET_TRUNCATED_NEXT_ACTION: &str =
+    "Rerun prism_expand with kind `neighbors` or `validation` for more context.";
 const EXPAND_NEIGHBOR_LIMIT: usize = 6;
 const EXPAND_DIFF_LIMIT: usize = 5;
 const MAX_WHY_SHORT_CHARS: usize = 120;
@@ -75,7 +79,9 @@ impl QueryHost {
                 let candidates = results
                     .into_iter()
                     .take(applied)
-                    .map(|symbol| compact_target_view(&session, &symbol, Some(args.query.as_str()), None))
+                    .map(|symbol| {
+                        compact_target_view(&session, &symbol, Some(args.query.as_str()), None)
+                    })
                     .collect::<Vec<_>>();
                 let diagnostics = execution.diagnostics();
                 Ok((
@@ -186,22 +192,10 @@ impl QueryHost {
                     query_run,
                 )?;
                 let target_view = compact_target_from_session_target(session.as_ref(), &target);
-                let supporting_reads = next_reads(prism.as_ref(), &target.id, WORKSET_SUPPORTING_LIMIT)?
-                    .into_iter()
-                    .take(WORKSET_SUPPORTING_LIMIT)
-                    .map(|candidate| {
-                        compact_target_view(
-                            &session,
-                            &candidate.symbol,
-                            target.query.as_deref(),
-                            Some(candidate.why),
-                        )
-                    })
-                    .collect::<Vec<_>>();
-                let likely_tests =
-                    owner_views_for_target(prism.as_ref(), &target.id, Some("test"), WORKSET_TEST_LIMIT)?
+                let supporting_reads =
+                    next_reads(prism.as_ref(), &target.id, WORKSET_SUPPORTING_LIMIT)?
                         .into_iter()
-                        .take(WORKSET_TEST_LIMIT)
+                        .take(WORKSET_SUPPORTING_LIMIT)
                         .map(|candidate| {
                             compact_target_view(
                                 &session,
@@ -211,15 +205,32 @@ impl QueryHost {
                             )
                         })
                         .collect::<Vec<_>>();
+                let likely_tests = owner_views_for_target(
+                    prism.as_ref(),
+                    &target.id,
+                    Some("test"),
+                    WORKSET_TEST_LIMIT,
+                )?
+                .into_iter()
+                .take(WORKSET_TEST_LIMIT)
+                .map(|candidate| {
+                    compact_target_view(
+                        &session,
+                        &candidate.symbol,
+                        target.query.as_deref(),
+                        Some(candidate.why),
+                    )
+                })
+                .collect::<Vec<_>>();
                 let why = workset_why(&target);
                 Ok((
-                    AgentWorksetResultView {
-                        primary: target_view,
+                    budgeted_workset_result(
+                        target_view,
                         supporting_reads,
                         likely_tests,
                         why,
                         remapped,
-                    },
+                    )?,
                     Vec::new(),
                 ))
             },
@@ -252,23 +263,23 @@ impl QueryHost {
                             "ownerHint": symbol.owner_hint,
                         })
                     }
-                    AgentExpandKind::Lineage => serde_json::to_value(crate::lineage_view(
-                        prism.as_ref(),
-                        &target.id,
-                    )?)?,
+                    AgentExpandKind::Lineage => {
+                        serde_json::to_value(crate::lineage_view(prism.as_ref(), &target.id)?)?
+                    }
                     AgentExpandKind::Neighbors => {
-                        let neighbors = next_reads(prism.as_ref(), &target.id, EXPAND_NEIGHBOR_LIMIT)?
-                            .into_iter()
-                            .take(EXPAND_NEIGHBOR_LIMIT)
-                            .map(|candidate| {
-                                compact_target_view(
-                                    &session,
-                                    &candidate.symbol,
-                                    target.query.as_deref(),
-                                    Some(candidate.why),
-                                )
-                            })
-                            .collect::<Vec<_>>();
+                        let neighbors =
+                            next_reads(prism.as_ref(), &target.id, EXPAND_NEIGHBOR_LIMIT)?
+                                .into_iter()
+                                .take(EXPAND_NEIGHBOR_LIMIT)
+                                .map(|candidate| {
+                                    compact_target_view(
+                                        &session,
+                                        &candidate.symbol,
+                                        target.query.as_deref(),
+                                        Some(candidate.why),
+                                    )
+                                })
+                                .collect::<Vec<_>>();
                         json!({ "neighbors": neighbors })
                     }
                     AgentExpandKind::Diff => {
@@ -388,8 +399,13 @@ fn compact_search_args(session: &SessionState, args: &PrismLocateArgs) -> Search
     let backend_limit = applied
         .saturating_mul(LOCATE_BACKEND_MULTIPLIER)
         .min(session.limits().max_result_nodes);
-    let (strategy, owner_kind, prefer_callable_code, prefer_editable_targets, prefer_behavioral_owners) =
-        locate_intent_defaults(args.task_intent.as_ref());
+    let (
+        strategy,
+        owner_kind,
+        prefer_callable_code,
+        prefer_editable_targets,
+        prefer_behavioral_owners,
+    ) = locate_intent_defaults(args.task_intent.as_ref());
     SearchArgs {
         query: args.query.clone(),
         limit: Some(backend_limit.max(applied)),
@@ -410,7 +426,9 @@ fn compact_search_args(session: &SessionState, args: &PrismLocateArgs) -> Search
 }
 
 fn compact_locate_limit(requested: Option<usize>) -> usize {
-    requested.unwrap_or(DEFAULT_LOCATE_LIMIT).clamp(1, MAX_LOCATE_LIMIT)
+    requested
+        .unwrap_or(DEFAULT_LOCATE_LIMIT)
+        .clamp(1, MAX_LOCATE_LIMIT)
 }
 
 fn locate_intent_defaults(
@@ -433,10 +451,12 @@ fn build_locate_result(
 ) -> AgentLocateResultView {
     let status = if candidates.is_empty() {
         AgentLocateStatus::Empty
-    } else if diagnostics
-        .iter()
-        .any(|diagnostic| matches!(diagnostic.code.as_str(), "ambiguous_search" | "weak_search_match"))
-    {
+    } else if diagnostics.iter().any(|diagnostic| {
+        matches!(
+            diagnostic.code.as_str(),
+            "ambiguous_search" | "weak_search_match"
+        )
+    }) {
         AgentLocateStatus::Ambiguous
     } else {
         AgentLocateStatus::Ok
@@ -539,15 +559,71 @@ fn compact_target_from_session_target(
     }
 }
 
-fn compact_why_short(symbol: &SymbolView, why_override: Option<&str>, query: Option<&str>) -> String {
+fn budgeted_workset_result(
+    primary: AgentTargetHandleView,
+    supporting_reads: Vec<AgentTargetHandleView>,
+    likely_tests: Vec<AgentTargetHandleView>,
+    why: String,
+    remapped: bool,
+) -> Result<AgentWorksetResultView> {
+    let mut result = AgentWorksetResultView {
+        primary,
+        supporting_reads,
+        likely_tests,
+        why: clamp_string(&why, WORKSET_WHY_MAX_CHARS),
+        truncated: false,
+        remapped,
+        next_action: None,
+    };
+    let mut trimmed = false;
+
+    if workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES {
+        trimmed |= strip_file_paths(&mut result.supporting_reads);
+        trimmed |= strip_file_paths(&mut result.likely_tests);
+    }
+    while workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES && !result.likely_tests.is_empty() {
+        result.likely_tests.pop();
+        trimmed = true;
+    }
+    while workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES
+        && !result.supporting_reads.is_empty()
+    {
+        result.supporting_reads.pop();
+        trimmed = true;
+    }
+    if workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES && result.primary.file_path.is_some() {
+        result.primary.file_path = None;
+        trimmed = true;
+    }
+    if workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES {
+        let tightened = clamp_string(&result.why, WORKSET_WHY_TIGHT_MAX_CHARS);
+        if tightened != result.why {
+            result.why = tightened;
+            trimmed = true;
+        }
+    }
+
+    if trimmed {
+        result.truncated = true;
+        result.next_action = Some(WORKSET_TRUNCATED_NEXT_ACTION.to_string());
+    }
+    Ok(result)
+}
+
+fn compact_why_short(
+    symbol: &SymbolView,
+    why_override: Option<&str>,
+    query: Option<&str>,
+) -> String {
     let base = why_override
         .filter(|value| !value.trim().is_empty())
         .or_else(|| symbol.owner_hint.as_ref().map(|hint| hint.why.as_str()))
         .map(ToString::to_string)
         .or_else(|| {
-            symbol.file_path.as_ref().map(|file_path| {
-                format!("{} in {}", symbol.kind, file_path)
-            })
+            symbol
+                .file_path
+                .as_ref()
+                .map(|file_path| format!("{} in {}", symbol.kind, file_path))
         })
         .or_else(|| query.map(|query| format!("Matched `{query}`.")))
         .unwrap_or_else(|| format!("{} target", symbol.kind));
@@ -613,16 +689,18 @@ fn resolve_handle_target(
     prism: &Prism,
     handle: &str,
 ) -> Result<(SessionHandleTarget, bool)> {
-    let mut target = session
-        .handle_target(handle)
-        .ok_or_else(|| anyhow!("unknown handle `{handle}`; rerun prism_locate to select a target"))?;
+    let mut target = session.handle_target(handle).ok_or_else(|| {
+        anyhow!("unknown handle `{handle}`; rerun prism_locate to select a target")
+    })?;
     let mut remapped = false;
     if symbol_for(prism, &target.id).is_err() {
-        let lineage_id = target
-            .lineage_id
-            .clone()
-            .ok_or_else(|| anyhow!("target handle `{handle}` is stale; rerun prism_locate to select a fresh target"))?;
-        let resolved = resolve_lineage_target(prism, &LineageId::new(lineage_id), Some(&target.id))?;
+        let lineage_id = target.lineage_id.clone().ok_or_else(|| {
+            anyhow!(
+                "target handle `{handle}` is stale; rerun prism_locate to select a fresh target"
+            )
+        })?;
+        let resolved =
+            resolve_lineage_target(prism, &LineageId::new(lineage_id), Some(&target.id))?;
         if resolved != target.id {
             target.id = resolved;
             target.kind = target.id.kind;
@@ -694,12 +772,20 @@ fn compact_open_result_from_block(
 ) -> Result<AgentOpenResultView> {
     if let Some(slice) = slice {
         return Ok(compact_open_result_from_slice(
-            handle, file_path, slice, remapped, next_action,
+            handle,
+            file_path,
+            slice,
+            remapped,
+            next_action,
         ));
     }
     if let Some(excerpt) = excerpt {
         return Ok(compact_open_result_from_excerpt(
-            handle, file_path, excerpt, remapped, next_action,
+            handle,
+            file_path,
+            excerpt,
+            remapped,
+            next_action,
         ));
     }
     Err(anyhow!("target did not produce any bounded source content"))
@@ -785,8 +871,90 @@ fn agent_expand_kind(kind: &PrismExpandKindInput) -> AgentExpandKind {
 }
 
 fn workset_why(target: &SessionHandleTarget) -> String {
-    match target.query.as_deref() {
+    let why = match target.query.as_deref() {
         Some(query) => format!("Primary target from `{query}`. {}", target.why_short),
         None => target.why_short.clone(),
+    };
+    clamp_string(&why, WORKSET_WHY_MAX_CHARS)
+}
+
+fn strip_file_paths(targets: &mut [AgentTargetHandleView]) -> bool {
+    let mut changed = false;
+    for target in targets {
+        if target.file_path.take().is_some() {
+            changed = true;
+        }
+    }
+    changed
+}
+
+fn workset_json_bytes(result: &AgentWorksetResultView) -> Result<usize> {
+    Ok(serde_json::to_vec(result)?.len())
+}
+
+#[cfg(test)]
+mod tests {
+    use prism_ir::NodeKind;
+
+    use super::*;
+
+    fn handle_view(index: usize, file_path: Option<&str>) -> AgentTargetHandleView {
+        AgentTargetHandleView {
+            handle: format!("handle:{index}"),
+            kind: NodeKind::Function,
+            path: format!("demo::module_{index}::very_long_function_name_for_budget_tests"),
+            name: format!("very_long_function_name_for_budget_tests_{index}"),
+            why_short: "Matched ranking hint from a compact budget regression test.".to_string(),
+            file_path: file_path.map(ToString::to_string),
+        }
+    }
+
+    #[test]
+    fn workset_budget_leaves_small_results_untrimmed() {
+        let result = budgeted_workset_result(
+            handle_view(1, Some("src/main.rs")),
+            vec![handle_view(2, Some("src/helper.rs"))],
+            vec![],
+            "Primary target from `main`. Function in src/main.rs".to_string(),
+            false,
+        )
+        .expect("budgeted workset should serialize");
+
+        assert!(!result.truncated);
+        assert!(result.next_action.is_none());
+        assert!(workset_json_bytes(&result).expect("json bytes") <= WORKSET_MAX_JSON_BYTES);
+    }
+
+    #[test]
+    fn workset_budget_trims_context_before_exceeding_budget() {
+        let long_path =
+            "src/really/deeply/nested/module/with/a/very/long/path/for/compact/workset/tests.rs";
+        let result = budgeted_workset_result(
+            handle_view(1, Some(long_path)),
+            vec![
+                handle_view(2, Some(long_path)),
+                handle_view(3, Some(long_path)),
+                handle_view(4, Some(long_path)),
+            ],
+            vec![handle_view(5, Some(long_path)), handle_view(6, Some(long_path))],
+            "Primary target from `very_long_function_name_for_budget_tests`. This sentence is deliberately verbose so the workset budgeting logic has to trim optional context instead of returning a bloated compact response.".to_string(),
+            false,
+        )
+        .expect("budgeted workset should serialize");
+
+        assert!(result.truncated);
+        assert_eq!(
+            result.next_action.as_deref(),
+            Some(WORKSET_TRUNCATED_NEXT_ACTION)
+        );
+        assert!(workset_json_bytes(&result).expect("json bytes") <= WORKSET_MAX_JSON_BYTES);
+        assert_eq!(result.primary.handle, "handle:1");
+        assert!(
+            result.supporting_reads.len() < 3
+                || result
+                    .supporting_reads
+                    .iter()
+                    .all(|target| target.file_path.is_none())
+        );
     }
 }

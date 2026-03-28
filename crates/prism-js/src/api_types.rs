@@ -107,7 +107,10 @@ pub struct AgentWorksetResultView {
     pub supporting_reads: Vec<AgentTargetHandleView>,
     pub likely_tests: Vec<AgentTargetHandleView>,
     pub why: String,
+    pub truncated: bool,
     pub remapped: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_action: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

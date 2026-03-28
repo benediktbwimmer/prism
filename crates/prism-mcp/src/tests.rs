@@ -3804,8 +3804,15 @@ pub fn main() {
         .await
         .unwrap();
     let workset = first_tool_content_json(client.receive().await.unwrap());
-    assert_eq!(workset["primary"]["handle"], locate["candidates"][0]["handle"]);
-    assert!(workset["why"].as_str().is_some_and(|value| !value.is_empty()));
+    assert_eq!(
+        workset["primary"]["handle"],
+        locate["candidates"][0]["handle"]
+    );
+    assert!(workset["why"]
+        .as_str()
+        .is_some_and(|value| !value.is_empty()));
+    assert_eq!(workset["truncated"], false);
+    assert!(workset["nextAction"].is_null());
 
     client
         .send(call_tool_request(
@@ -3823,7 +3830,10 @@ pub fn main() {
         .unwrap();
     let expand = first_tool_content_json(client.receive().await.unwrap());
     assert_eq!(expand["kind"], "diagnostics");
-    assert_eq!(expand["result"]["whyShort"], locate["candidates"][0]["whyShort"]);
+    assert_eq!(
+        expand["result"]["whyShort"],
+        locate["candidates"][0]["whyShort"]
+    );
 
     running.cancel().await.unwrap();
 }

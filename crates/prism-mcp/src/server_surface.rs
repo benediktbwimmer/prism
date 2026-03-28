@@ -1,11 +1,11 @@
+use prism_js::{
+    AgentExpandResultView, AgentLocateResultView, AgentOpenResultView, AgentWorksetResultView,
+};
 use rmcp::{
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::*,
     service::RequestContext,
     tool, tool_router, ErrorData as McpError, RoleServer, ServerHandler,
-};
-use prism_js::{
-    AgentExpandResultView, AgentLocateResultView, AgentOpenResultView, AgentWorksetResultView,
 };
 use serde::Serialize;
 use serde_json::json;
@@ -461,7 +461,11 @@ impl PrismMcpServer {
                 Some(json!({ "field": "handle" })),
             ));
         }
-        if args.query.as_ref().is_some_and(|query| query.trim().is_empty()) {
+        if args
+            .query
+            .as_ref()
+            .is_some_and(|query| query.trim().is_empty())
+        {
             return Err(McpError::invalid_params(
                 "query cannot be empty",
                 Some(json!({ "field": "query" })),

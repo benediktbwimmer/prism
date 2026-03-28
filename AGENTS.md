@@ -30,16 +30,16 @@ When touching code that violates this policy, move it toward the target architec
 When the PRISM MCP server is available for this repo, use it as the primary repo-awareness surface.
 
 - Start with `prism://api-reference` and `prism://session` to confirm the available query surface, active task, and session limits.
-- The target default agent path is compact and staged:
+- The default agent path is compact and staged:
   - `prism_locate`
   - `prism_open`
   - `prism_workset`
   - `prism_expand`
   - `prism_query` only when the compact surface cannot express the needed read
-- Until that compact surface is fully implemented, prefer the current PRISM-native reads that most closely match the target workflow: exact search, bounded file inspection, and focused semantic reads.
-- Treat `prism_query` as the rich semantic escape hatch, not the long-term default first hop.
-- Prefer PRISM-native file inspection and search when they can replace multiple shell reads with one bounded query, especially `prism.file(path).read(...)`, `prism.file(path).around(...)`, and `prism.searchText(...)`.
-- Prefer `prism.file(...)` and `prism.searchText(...)` over `sed`, `cat`, and `rg` when the work can be composed into a single PRISM query call that returns the exact slice, match, or surrounding context you need.
+- Treat `prism_query` as the rich semantic escape hatch, not the default first hop.
+- Prefer the compact top-level tools over ad hoc query snippets whenever they can express the task.
+- Prefer PRISM-native file inspection and search when they can replace multiple shell reads with one bounded call, especially `prism_open`, `prism_locate`, `prism_workset`, `prism_expand`, `prism.file(path).read(...)`, `prism.file(path).around(...)`, and `prism.searchText(...)`.
+- Prefer the compact PRISM tools and bounded PRISM-native reads over `sed`, `cat`, and `rg` when the work can be expressed in one staged PRISM flow.
 - Keep shell reads as a fallback for raw bytes, command output, or cases where PRISM cannot yet express the needed inspection precisely.
 - Keep `prism_query` read-only. Do not try to encode writes or side effects inside query snippets.
 - After meaningful changes to PRISM MCP behavior or query/runtime behavior, rebuild the release binaries and restart the MCP daemon so the live PRISM server reflects the current code during the same Codex session.
@@ -53,7 +53,7 @@ When the PRISM MCP server is available for this repo, use it as the primary repo
 Compression-layer guidance:
 
 - Return the minimum sufficient answer for the next likely agent action.
-- Prefer carrying forward compact server-side state such as handles once the compact tool layer lands; avoid rediscovering the same target by text.
+- Prefer carrying forward compact server-side state such as handles; avoid rediscovering the same target by text once a handle exists.
 - Treat first-hop ranking quality as core product behavior, not as a secondary polish pass.
 
 When mutations make sense, use the explicit PRISM mutation tools instead of leaving the state implicit.
