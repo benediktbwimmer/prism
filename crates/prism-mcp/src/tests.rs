@@ -1689,7 +1689,7 @@ async fn mcp_server_reports_actionable_tool_input_errors() {
             json!({
                 "action": "validation_feedback",
                 "input": {
-                    "context": "Missing anchors",
+                    "anchors": [],
                     "prismSaid": "bad",
                     "actuallyTrue": "worse",
                     "category": "projection",
@@ -1708,10 +1708,11 @@ async fn mcp_server_reports_actionable_tool_input_errors() {
     let message = response["error"]["message"].as_str().unwrap_or_default();
     assert!(message.contains("failed to deserialize parameters:"));
     assert!(message.contains(
-        "prism_mutate action `validation_feedback` is missing required field `input.anchors`"
+        "prism_mutate action `validation_feedback` is missing required field `input.context`"
     ));
-    assert!(message
-        .contains("required fields: anchors, context, prismSaid, actuallyTrue, category, verdict"));
+    assert!(
+        message.contains("required fields: context, prismSaid, actuallyTrue, category, verdict")
+    );
     assert!(message.contains(
         "Inspect via prism.tool(\"prism_mutate\")?.actions.find((action) => action.action === \"validation_feedback\")"
     ));
@@ -1758,6 +1759,46 @@ async fn mcp_server_accepts_flat_prism_session_shorthand_input() {
     assert_eq!(
         envelope["session"]["currentTask"]["tags"][0],
         Value::String("mcp".to_string())
+    );
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_accepts_prism_session_start_task_aliases() {
+    let server = server_with_node(demo_node());
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_session",
+            json!({
+                "action": "start_task",
+                "label": "Investigate aliased prism session input",
+                "tags": ["mcp", "ergonomics"]
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let envelope = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(envelope["action"], "start_task");
+    assert_eq!(
+        envelope["session"]["currentTask"]["description"],
+        "Investigate aliased prism session input"
     );
 
     running.cancel().await.unwrap();
@@ -3758,7 +3799,7 @@ return {
         .expect("tool schema query should succeed");
 
     let tools = result.result["tools"].as_array().expect("tool catalog");
-    assert_eq!(tools.len(), 7);
+    assert_eq!(tools.len(), 8);
     assert!(tools.iter().any(|tool| tool["toolName"] == "prism_locate"));
     assert!(tools.iter().any(|tool| tool["toolName"] == "prism_mutate"));
     assert!(tools
@@ -3786,12 +3827,11 @@ return {
             .filter_map(|value| value.as_str())
             .collect::<Vec<_>>(),
         vec![
-            "anchors",
             "context",
             "prismSaid",
             "actuallyTrue",
             "category",
-            "verdict",
+            "verdict"
         ]
     );
     let verdict_field = validation_feedback["fields"]
@@ -3975,6 +4015,63 @@ This section explains the event journal flow.
 }
 
 #[test]
+fn compact_locate_defaults_to_docs_friendly_intent_for_docs_paths() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn event_journal_snapshot() {}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("docs/SPEC.md"),
+        r#"
+# Demo
+
+## Event Journal
+
+This section explains the event journal flow.
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "event journal".to_string(),
+                path: Some("docs/SPEC.md".to_string()),
+                glob: None,
+                task_intent: None,
+                limit: Some(3),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+
+    assert_eq!(locate.status, prism_js::AgentLocateStatus::Ok);
+    assert_eq!(locate.candidates[0].kind, NodeKind::MarkdownHeading);
+}
+
+#[test]
+fn prism_locate_accepts_docs_alias_task_intent() {
+    let args: PrismLocateArgs = serde_json::from_value(json!({
+        "query": "event journal",
+        "taskIntent": "docs",
+    }))
+    .expect("docs alias should deserialize");
+
+    assert!(matches!(
+        args.task_intent,
+        Some(PrismLocateTaskIntentInput::Explain)
+    ));
+}
+
+#[test]
 fn compact_locate_prefers_identifier_matches_over_test_helpers() {
     let root = temp_workspace();
     fs::write(
@@ -4029,6 +4126,55 @@ pub fn compact_open_returns_compact_related_handles() {}
     assert_eq!(
         locate.candidates[0].path,
         "demo::compact_tools::compact_open"
+    );
+}
+
+#[test]
+fn compact_locate_promotes_exact_identifier_candidates_before_fuzzy_matches() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod compact_tools;
+pub mod locate_helpers;
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/compact_tools.rs"),
+        r#"
+pub fn locate_intent_profile() {}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/locate_helpers.rs"),
+        r#"
+pub fn locate_query_tokens() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "locate_intent_profile compact_tools".to_string(),
+                path: None,
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                limit: Some(3),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+
+    assert_eq!(locate.status, prism_js::AgentLocateStatus::Ok);
+    assert_eq!(
+        locate.candidates[0].path,
+        "demo::compact_tools::locate_intent_profile"
     );
 }
 
@@ -4138,6 +4284,56 @@ def helper():
 }
 
 #[test]
+fn compact_open_remaps_stale_text_fragment_handles_after_file_edits() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("benchmarks/scripts")).unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn helper() {}\n").unwrap();
+    fs::write(
+        root.join("benchmarks/scripts/benchmark_codex.py"),
+        "def helper():\n    prism_query_calls = 0\n    prism_compact_tool_calls = 0\n",
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "prism_compact_tool_calls".to_string(),
+                path: Some("benchmarks/scripts/benchmark_codex.py".to_string()),
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                limit: Some(1),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+    assert_eq!(locate.candidates[0].kind, NodeKind::Document);
+
+    fs::write(
+        root.join("benchmarks/scripts/benchmark_codex.py"),
+        "def helper():\n    prism_query_calls = 0\n    helper_value = 1\n    prism_compact_tool_calls = 0\n",
+    )
+    .unwrap();
+
+    let open = host
+        .compact_open(
+            Arc::clone(&session),
+            PrismOpenArgs {
+                handle: locate.candidates[0].handle.clone(),
+                mode: Some(PrismOpenModeInput::Raw),
+            },
+        )
+        .expect("open should remap the stale text-fragment handle");
+
+    assert!(open.remapped);
+    assert_eq!(open.start_line, 4);
+    assert_eq!(open.end_line, 4);
+    assert!(open.text.contains("prism_compact_tool_calls = 0"));
+}
+
+#[test]
 fn compact_open_returns_compact_related_handles() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("docs")).unwrap();
@@ -4197,6 +4393,51 @@ The event journal snapshot should persist journal entries.
     assert!(related
         .iter()
         .any(|target| target.kind == NodeKind::Function));
+}
+
+#[test]
+fn compact_open_raw_reads_the_literal_symbol_span_instead_of_only_the_signature_line() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn compact_open() {
+    let preview = "preview";
+    println!("{preview}");
+}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "compact_open".to_string(),
+                path: Some("src/lib.rs".to_string()),
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                limit: Some(1),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+
+    let open = host
+        .compact_open(
+            Arc::clone(&session),
+            PrismOpenArgs {
+                handle: locate.candidates[0].handle.clone(),
+                mode: Some(PrismOpenModeInput::Raw),
+            },
+        )
+        .expect("raw open should succeed");
+
+    assert!(open.text.contains("let preview = \"preview\";"));
+    assert!(open.text.contains("println!"));
+    assert!(open.end_line > open.start_line);
 }
 
 #[test]
@@ -4392,6 +4633,12 @@ fn compact_fragment_followups_surface_semantic_config_targets() {
                     .as_deref()
                     .is_none_or(|path| path.ends_with("Cargo.toml"))
         })));
+    assert!(gather.matches[0]
+        .related_handles
+        .as_ref()
+        .is_some_and(|targets| targets
+            .iter()
+            .any(|target| target.path.contains("::workspace"))));
     let handle = gather.matches[0].handle.clone();
 
     let workset = host
@@ -4408,6 +4655,10 @@ fn compact_fragment_followups_surface_semantic_config_targets() {
         .supporting_reads
         .iter()
         .any(|target| target.kind == NodeKind::TomlKey));
+    assert!(workset
+        .supporting_reads
+        .iter()
+        .any(|target| target.path.contains("::workspace")));
     assert!(workset.supporting_reads.iter().all(|target| {
         !target.path.contains("member_a")
             && !target.path.contains("member_b")
@@ -4449,6 +4700,203 @@ fn compact_fragment_followups_surface_semantic_config_targets() {
     assert!(validation.result["checks"]
         .as_array()
         .is_some_and(|items| !items.is_empty()));
+}
+
+#[test]
+fn compact_gather_prefers_root_workspace_dependencies_with_many_child_manifests() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn helper() {}\n").unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[workspace]\nmembers = [\"crates/member-0\"]\n\n[workspace.dependencies]\nanyhow = \"1.0\"\nserde = \"1.0\"\n",
+    )
+    .unwrap();
+    for index in 0..12 {
+        let crate_dir = root.join(format!("crates/member-{index}"));
+        fs::create_dir_all(&crate_dir).unwrap();
+        fs::write(
+            crate_dir.join("Cargo.toml"),
+            format!(
+                "[package]\nname = \"member-{index}\"\nversion = \"0.1.0\"\n\n[dependencies]\nserde = \"1.0\"\n"
+            ),
+        )
+        .unwrap();
+    }
+
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+    let gather = host
+        .compact_gather(
+            Arc::clone(&session),
+            PrismGatherArgs {
+                query: "workspace.dependencies".to_string(),
+                path: Some("Cargo.toml".to_string()),
+                glob: None,
+                limit: Some(1),
+            },
+        )
+        .expect("gather should succeed");
+
+    let related = gather.matches[0]
+        .related_handles
+        .as_ref()
+        .expect("related handles");
+    assert!(related.iter().any(|target| {
+        target.kind == NodeKind::TomlKey
+            && target.path.contains("::workspace::dependencies")
+            && target
+                .file_path
+                .as_deref()
+                .is_none_or(|path| path == "Cargo.toml")
+    }));
+    assert!(related.iter().all(|target| {
+        !target.path.contains("member_")
+            && !target.path.contains("member-")
+            && !target.path.contains("crates/")
+    }));
+}
+
+#[test]
+fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn helper() {}\n").unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[workspace]\nmembers = [\"crates/member-0\"]\nresolver = \"2\"\n\n[workspace.package]\nedition = \"2021\"\n\n[workspace.dependencies]\nanyhow = \"1.0\"\nserde = \"1.0\"\n",
+    )
+    .unwrap();
+    for index in 0..4 {
+        let crate_dir = root.join(format!("crates/member-{index}"));
+        fs::create_dir_all(&crate_dir).unwrap();
+        fs::write(
+            crate_dir.join("Cargo.toml"),
+            format!(
+                "[package]\nname = \"member-{index}\"\nversion = \"0.1.0\"\n\n[dependencies]\nserde = \"1.0\"\n"
+            ),
+        )
+        .unwrap();
+    }
+
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+    let gather = host
+        .compact_gather(
+            Arc::clone(&session),
+            PrismGatherArgs {
+                query: "workspace.dependencies".to_string(),
+                path: Some("Cargo.toml".to_string()),
+                glob: None,
+                limit: Some(1),
+            },
+        )
+        .expect("gather should succeed");
+    let semantic_handle = gather.matches[0]
+        .related_handles
+        .as_ref()
+        .and_then(|targets| {
+            targets
+                .iter()
+                .find(|target| target.path.contains("::workspace::dependencies"))
+        })
+        .map(|target| target.handle.clone())
+        .expect("semantic handle");
+
+    let workset = host
+        .compact_workset(
+            Arc::clone(&session),
+            PrismWorksetArgs {
+                handle: Some(semantic_handle.clone()),
+                query: None,
+            },
+        )
+        .expect("workset should succeed");
+    assert!(!workset.supporting_reads.is_empty());
+    assert!(workset.supporting_reads.iter().all(|target| {
+        target.kind == NodeKind::TomlKey
+            && !target.path.contains("tests::")
+            && target
+                .file_path
+                .as_deref()
+                .is_none_or(|path| path.ends_with("Cargo.toml"))
+    }));
+    assert!(workset
+        .supporting_reads
+        .iter()
+        .any(|target| target.path.contains("::workspace")));
+
+    let open = host
+        .compact_open(
+            Arc::clone(&session),
+            PrismOpenArgs {
+                handle: semantic_handle.clone(),
+                mode: Some(PrismOpenModeInput::Focus),
+            },
+        )
+        .expect("open should succeed");
+    assert!(open
+        .related_handles
+        .as_ref()
+        .is_some_and(|targets| !targets.is_empty()));
+    assert!(open
+        .related_handles
+        .as_ref()
+        .is_some_and(|targets| targets.iter().all(|target| {
+            target.kind == NodeKind::TomlKey
+                && !target.path.contains("tests::")
+                && target
+                    .file_path
+                    .as_deref()
+                    .is_none_or(|path| path.ends_with("Cargo.toml"))
+        })));
+
+    let neighbors = host
+        .compact_expand(
+            Arc::clone(&session),
+            PrismExpandArgs {
+                handle: semantic_handle.clone(),
+                kind: PrismExpandKindInput::Neighbors,
+                include_top_preview: None,
+            },
+        )
+        .expect("neighbors should succeed");
+    assert!(neighbors.result["neighbors"]
+        .as_array()
+        .is_some_and(|items| items.iter().all(|item| {
+            item["kind"] == "TomlKey"
+                && item["path"]
+                    .as_str()
+                    .is_some_and(|path| !path.contains("tests::"))
+                && item["filePath"]
+                    .as_str()
+                    .is_some_and(|path| path.ends_with("Cargo.toml"))
+        })));
+
+    let validation = host
+        .compact_expand(
+            Arc::clone(&session),
+            PrismExpandArgs {
+                handle: semantic_handle,
+                kind: PrismExpandKindInput::Validation,
+                include_top_preview: None,
+            },
+        )
+        .expect("validation should succeed");
+    assert!(validation.result["nextReads"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(validation.result["nextReads"]
+        .as_array()
+        .is_some_and(|items| items.iter().all(|item| {
+            item["kind"] == "TomlKey"
+                && item["path"]
+                    .as_str()
+                    .is_some_and(|path| !path.contains("tests::"))
+                && item["filePath"]
+                    .as_str()
+                    .is_some_and(|path| path.ends_with("Cargo.toml"))
+        })));
 }
 
 #[test]
@@ -8042,11 +8490,11 @@ fn validation_feedback_mutation_persists_to_workspace_log() {
         .store_validation_feedback(
             test_session(&host).as_ref(),
             PrismValidationFeedbackArgs {
-                anchors: vec![AnchorRefInput::Node {
+                anchors: Some(vec![AnchorRefInput::Node {
                     crate_name: "demo".to_string(),
                     path: "demo::alpha".to_string(),
                     kind: "function".to_string(),
-                }],
+                }]),
                 context: "blast-radius check for alpha".to_string(),
                 prism_said: "Prism only reported alpha".to_string(),
                 actually_true: "beta was also affected through the call graph".to_string(),
@@ -8070,6 +8518,43 @@ fn validation_feedback_mutation_persists_to_workspace_log() {
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].context, "blast-radius check for alpha");
     assert_eq!(entries[0].metadata["query"], "prism.blastRadius(alpha)");
+}
+
+#[test]
+fn validation_feedback_mutation_allows_workspace_level_feedback_without_anchors() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .store_validation_feedback(
+            test_session(&host).as_ref(),
+            PrismValidationFeedbackArgs {
+                anchors: None,
+                context: "compact locate docs intent dogfood".to_string(),
+                prism_said: "taskIntent `docs` was rejected".to_string(),
+                actually_true:
+                    "docs paths should be easy to inspect without fabricating a symbol anchor"
+                        .to_string(),
+                category: ValidationFeedbackCategoryInput::Projection,
+                verdict: ValidationFeedbackVerdictInput::Mixed,
+                corrected_manually: Some(true),
+                correction: Some("reran locate with inspect semantics".to_string()),
+                metadata: Some(json!({
+                    "tool": "prism_locate",
+                    "scope": "workspace",
+                })),
+                task_id: Some("task:feedback".to_string()),
+            },
+        )
+        .expect("anchorless validation feedback should persist");
+
+    assert!(result.entry_id.starts_with("feedback:"));
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let entries = reloaded.validation_feedback(Some(5)).unwrap();
+    assert_eq!(entries.len(), 1);
+    assert!(entries[0].anchors.is_empty());
+    assert_eq!(entries[0].metadata["tool"], "prism_locate");
 }
 
 #[test]

@@ -1,9 +1,35 @@
+use std::path::Path;
+
 use prism_js::ValidationCheckView;
 
-pub(crate) fn same_workspace_file(expected: &str, actual: &str) -> bool {
+pub(crate) fn same_workspace_file(
+    workspace_root: Option<&Path>,
+    expected: &str,
+    actual: &str,
+) -> bool {
     let expected = normalize_path(expected);
     let actual = normalize_path(actual);
-    actual == expected || (is_absolute_like(&actual) && actual.ends_with(&format!("/{expected}")))
+    if actual == expected {
+        return true;
+    }
+    let expected_has_dirs = expected.contains('/');
+    if let Some(root) = workspace_root {
+        let resolved = normalize_path(root.join(expected.as_str()).to_string_lossy().as_ref());
+        if actual == resolved {
+            return true;
+        }
+    }
+    expected_has_dirs && is_absolute_like(&actual) && actual.ends_with(&format!("/{expected}"))
+}
+
+pub(crate) fn workspace_scoped_path(workspace_root: Option<&Path>, path: &str) -> String {
+    let path = normalize_path(path);
+    if is_absolute_like(&path) {
+        return path;
+    }
+    workspace_root
+        .map(|root| normalize_path(root.join(path.as_str()).to_string_lossy().as_ref()))
+        .unwrap_or(path)
 }
 
 pub(crate) fn spec_body_identifier_terms(text: &str, limit: usize) -> Vec<String> {
@@ -139,15 +165,40 @@ mod tests {
 
     #[test]
     fn same_workspace_file_accepts_relative_and_absolute_matches() {
-        assert!(same_workspace_file("Cargo.toml", "Cargo.toml"));
+        let root = Path::new("/Users/bene/code/prism");
+        assert!(same_workspace_file(Some(root), "Cargo.toml", "Cargo.toml"));
         assert!(same_workspace_file(
+            Some(root),
             "Cargo.toml",
             "/Users/bene/code/prism/Cargo.toml"
         ));
         assert!(!same_workspace_file(
+            Some(root),
             "Cargo.toml",
             "crates/prism-cli/Cargo.toml"
         ));
+        assert!(!same_workspace_file(
+            Some(root),
+            "Cargo.toml",
+            "/Users/bene/code/prism/crates/prism-cli/Cargo.toml"
+        ));
+    }
+
+    #[test]
+    fn workspace_scoped_path_resolves_relative_paths_against_workspace_root() {
+        let root = Path::new("/Users/bene/code/prism");
+        assert_eq!(
+            workspace_scoped_path(Some(root), "Cargo.toml"),
+            "/Users/bene/code/prism/Cargo.toml"
+        );
+        assert_eq!(
+            workspace_scoped_path(Some(root), "crates/prism-cli/Cargo.toml"),
+            "/Users/bene/code/prism/crates/prism-cli/Cargo.toml"
+        );
+        assert_eq!(
+            workspace_scoped_path(Some(root), "/Users/bene/code/prism/Cargo.toml"),
+            "/Users/bene/code/prism/Cargo.toml"
+        );
     }
 
     #[test]

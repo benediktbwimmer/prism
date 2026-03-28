@@ -63,12 +63,16 @@ When mutations make sense, use the explicit PRISM mutation tools instead of leav
 - Use `prism_session` with action `start_task` when beginning a meaningful unit of work and no suitable active task already exists.
 - Use `prism_mutate` with actions `outcome`, `test_ran`, `failure_observed`, and `fix_validated` to record task outcomes that matter for future reasoning.
 - Use `prism_mutate` with action `memory` to store anchored memory when you learn something worth preserving, especially repo-specific constraints, invariants, migration rules, repeated failure patterns, or other durable lessons.
+- Prefer storing new durable lessons as episodic memory first when they come from live repo work, concrete debugging, or dogfooding. Promote to structural memory later only after the lesson looks stable, repeated, or broadly invariant.
+- During meaningful PRISM work, look for chances to capture 1 to 3 high-signal episodic memories instead of ending the task with no reusable memory at all.
 - Use `prism_mutate` with action `infer_edge` when a new inferred relationship should be captured explicitly rather than only described in prose.
 - Use `prism_mutate` with actions `coordination`, `claim`, and `artifact` when the work involves shared planning, task state, claims, handoffs, or reviewable artifacts.
 
 Mutation guidance:
 
 - Record memory only when the information is likely to help later tasks and is specific enough to anchor to code, lineage, files, or kinds.
+- Prefer episodic memory for concrete findings such as "this query path misranked this target", "this workflow required this workaround", "this spec heading mapped to these implementation owners", or "this failure pattern needed this validation recipe".
+- Do not wait for a perfect generalized rule before recording memory; capture the useful episodic fact while it is fresh, then promote or consolidate later if the pattern repeats.
 - Record outcomes for meaningful tests, failures, validations, and task milestones, not for trivial intermediate noise.
 - Prefer explicit anchored PRISM state over ad hoc scratch notes when the information should survive the current session.
 
@@ -78,6 +82,8 @@ When you use PRISM while working on PRISM, record notable validation cases immed
 
 - Record a feedback entry whenever PRISM is materially wrong, stale, noisy, or unusually helpful during real repo work.
 - Include the task or query context, the involved anchors, what PRISM said, what was actually true, the subsystem category (`structural`, `lineage`, `memory`, `projection`, `coordination`, `freshness`, or `other`), and whether you corrected it manually.
+- When a dogfooding session also produces a reusable repo lesson, record both artifacts: validation feedback for PRISM quality and episodic memory for the lesson itself.
+- Favor episodic memories that name the target, the observed behavior, and the practical implication for the next agent, so later promotion to structural memory has concrete source material.
 - Prefer `prism_mutate` with action `validation_feedback` when the PRISM MCP server is available.
 - Otherwise use `prism feedback record ...` from the CLI.
 - The log is append-only and lives at `.prism/validation_feedback.jsonl`; treat it as seed material for the future replay validation harness, not as scratch prose.

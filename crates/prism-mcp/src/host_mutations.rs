@@ -447,7 +447,7 @@ impl QueryHost {
     ) -> Result<ValidationFeedbackMutationResult> {
         let prism = self.current_prism();
         let task_id = session.task_for_mutation(args.task_id.map(TaskId::new));
-        let anchors = prism.anchors_for(&convert_anchors(args.anchors)?);
+        let anchors = prism.anchors_for(&convert_anchors(args.anchors.unwrap_or_default())?);
         let workspace = self.workspace.as_ref().ok_or_else(|| {
             anyhow!("validation feedback logging requires a workspace-backed PRISM session")
         })?;

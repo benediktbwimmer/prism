@@ -138,6 +138,7 @@ pub(crate) enum PrismLocateTaskIntentInput {
     Edit,
     Validate,
     Test,
+    #[serde(alias = "doc", alias = "docs", alias = "documentation", alias = "spec")]
     Explain,
 }
 
@@ -155,7 +156,7 @@ pub(crate) struct PrismLocateArgs {
     )]
     pub(crate) glob: Option<String>,
     #[schemars(
-        description = "Optional task intent that biases ranking toward code, docs, tests, or explanation targets."
+        description = "Optional task intent that biases ranking toward code, docs, tests, or explanation targets. Accepts docs-oriented aliases such as `docs` and `spec`; when omitted, docs-like `path` or `glob` filters automatically bias toward explanation targets."
     )]
     pub(crate) task_intent: Option<PrismLocateTaskIntentInput>,
     #[schemars(description = "Optional compact candidate count from 1 to 3.")]
@@ -195,6 +196,9 @@ pub(crate) enum PrismOpenModeInput {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismOpenArgs {
     pub(crate) handle: String,
+    #[schemars(
+        description = "Open mode: `focus` for a bounded local block, `edit` for an edit-oriented slice, or `raw` for the literal file window covering the target span."
+    )]
     pub(crate) mode: Option<PrismOpenModeInput>,
 }
 
@@ -388,7 +392,10 @@ pub(crate) struct PrismMemoryArgs {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismValidationFeedbackArgs {
-    pub(crate) anchors: Vec<AnchorRefInput>,
+    #[schemars(
+        description = "Optional anchors for the feedback. Leave empty when reporting tool-level or workspace-level feedback that does not map cleanly to a semantic target."
+    )]
+    pub(crate) anchors: Option<Vec<AnchorRefInput>>,
     pub(crate) context: String,
     pub(crate) prism_said: String,
     pub(crate) actually_true: String,
@@ -403,6 +410,7 @@ pub(crate) struct PrismValidationFeedbackArgs {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(crate) struct PrismStartTaskArgs {
+    #[serde(alias = "label", alias = "title", alias = "summary")]
     pub(crate) description: String,
     pub(crate) tags: Option<Vec<String>>,
 }
