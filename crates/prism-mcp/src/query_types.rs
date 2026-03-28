@@ -600,24 +600,6 @@ pub(crate) fn parse_plan_node_status(value: &str) -> Result<PlanNodeStatus> {
     }
 }
 
-pub(crate) fn coordination_task_status_from_plan_node_status(
-    status: PlanNodeStatus,
-) -> Result<CoordinationTaskStatus> {
-    match status {
-        PlanNodeStatus::Proposed => Ok(CoordinationTaskStatus::Proposed),
-        PlanNodeStatus::Ready => Ok(CoordinationTaskStatus::Ready),
-        PlanNodeStatus::InProgress => Ok(CoordinationTaskStatus::InProgress),
-        PlanNodeStatus::Blocked => Ok(CoordinationTaskStatus::Blocked),
-        PlanNodeStatus::Waiting => Err(anyhow!(
-            "plan node status `waiting` is not yet supported by the coordination compatibility store"
-        )),
-        PlanNodeStatus::InReview => Ok(CoordinationTaskStatus::InReview),
-        PlanNodeStatus::Validating => Ok(CoordinationTaskStatus::Validating),
-        PlanNodeStatus::Completed => Ok(CoordinationTaskStatus::Completed),
-        PlanNodeStatus::Abandoned => Ok(CoordinationTaskStatus::Abandoned),
-    }
-}
-
 pub(crate) fn parse_plan_edge_kind(value: &str) -> Result<PlanEdgeKind> {
     let normalized = value.trim().to_ascii_lowercase();
     match normalized.as_str() {

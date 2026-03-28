@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use prism_coordination::{
-    ArtifactProposeInput, CoordinationPolicy, CoordinationStore, PlanCreateInput,
+    ArtifactProposeInput, CoordinationPolicy, CoordinationStore, HandoffInput, PlanCreateInput,
     TaskCompletionContext, TaskCreateInput, TaskUpdateInput,
 };
 use prism_history::HistoryStore;
@@ -1123,6 +1123,223 @@ fn plan_graph_reads_native_runtime_state_before_coordination_projection() {
         runtime_execution[0].session,
         Some(SessionId::new("session:native"))
     );
+}
+
+#[test]
+fn native_task_mutations_preserve_non_dependency_plan_edges() {
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:preserve"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Preserve native edges".into(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_a, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:preserve:a"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Task A".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let (task_b, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:preserve:b"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Task B".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+
+    let node_a = PlanNodeId::new(task_a.0.clone());
+    let node_b = PlanNodeId::new(task_b.0.clone());
+    let native_graph = PlanGraph {
+        id: plan_id.clone(),
+        scope: PlanScope::Repo,
+        kind: PlanKind::TaskExecution,
+        title: "Preserve native edges".into(),
+        goal: "Preserve native edges".into(),
+        status: PlanStatus::Active,
+        revision: 1,
+        root_nodes: vec![node_a.clone(), node_b.clone()],
+        tags: Vec::new(),
+        created_from: None,
+        metadata: serde_json::Value::Null,
+        nodes: vec![
+            PlanNode {
+                id: node_a.clone(),
+                plan_id: plan_id.clone(),
+                kind: PlanNodeKind::Edit,
+                title: "Task A".into(),
+                summary: None,
+                status: PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+            PlanNode {
+                id: node_b.clone(),
+                plan_id: plan_id.clone(),
+                kind: PlanNodeKind::Validate,
+                title: "Task B".into(),
+                summary: None,
+                status: PlanNodeStatus::Waiting,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+        ],
+        edges: vec![PlanEdge {
+            id: PlanEdgeId::new("plan-edge:preserve:validates"),
+            plan_id: plan_id.clone(),
+            from: node_b.clone(),
+            to: node_a.clone(),
+            kind: PlanEdgeKind::Validates,
+            summary: None,
+            metadata: serde_json::Value::Null,
+        }],
+    };
+
+    let prism = Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
+        graph,
+        history,
+        outcomes,
+        coordination,
+        ProjectionIndex::default(),
+        vec![native_graph],
+        BTreeMap::new(),
+    );
+
+    prism
+        .update_native_task(
+            EventMeta {
+                id: EventId::new("coord:task:preserve:update"),
+                ts: 4,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskUpdateInput {
+                task_id: prism_ir::CoordinationTaskId::new(task_a.0.clone()),
+                status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                assignee: None,
+                session: None,
+                title: None,
+                anchors: None,
+                depends_on: None,
+                acceptance: None,
+                base_revision: Some(WorkspaceRevision::default()),
+                completion_context: None,
+            },
+            WorkspaceRevision::default(),
+            4,
+        )
+        .unwrap();
+    prism
+        .request_native_handoff(
+            EventMeta {
+                id: EventId::new("coord:task:preserve:handoff"),
+                ts: 5,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            HandoffInput {
+                task_id: prism_ir::CoordinationTaskId::new(task_a.0.clone()),
+                to_agent: Some(prism_ir::AgentId::new("agent-b")),
+                summary: "handoff".into(),
+                base_revision: WorkspaceRevision::default(),
+            },
+            WorkspaceRevision::default(),
+        )
+        .unwrap();
+    prism
+        .create_native_task(
+            EventMeta {
+                id: EventId::new("coord:task:preserve:create"),
+                ts: 6,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Task C".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(SessionId::new("session:native")),
+                anchors: Vec::new(),
+                depends_on: vec![prism_ir::CoordinationTaskId::new(task_a.0.clone())],
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+
+    let runtime_graph = prism.plan_graph(&plan_id).unwrap();
+    assert!(runtime_graph
+        .edges
+        .iter()
+        .any(|edge| edge.kind == PlanEdgeKind::Validates && edge.from == node_b && edge.to == node_a));
+    assert!(runtime_graph
+        .edges
+        .iter()
+        .any(|edge| edge.kind == PlanEdgeKind::DependsOn && edge.to == node_a));
+    let runtime_execution = prism.plan_execution(&plan_id);
+    assert!(runtime_execution
+        .iter()
+        .any(|overlay| overlay.node_id == node_a && overlay.pending_handoff_to.as_ref().is_some_and(|agent| agent.0 == "agent-b")));
 }
 
 #[test]

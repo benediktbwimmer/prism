@@ -1012,6 +1012,7 @@ pub(crate) struct PlanNodeUpdatePayload {
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
     pub(crate) depends_on: Option<Vec<String>>,
     pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
+    #[allow(dead_code)]
     pub(crate) completion_context: Option<TaskCompletionContextPayload>,
 }
 

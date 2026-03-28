@@ -15,9 +15,16 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
-use prism_coordination::{CoordinationSnapshot, CoordinationStore};
+use anyhow::Result;
+use prism_coordination::{
+    CoordinationSnapshot, CoordinationStore, CoordinationTask, HandoffAcceptInput, HandoffInput,
+    TaskCreateInput, TaskUpdateInput,
+};
 use prism_history::{HistorySnapshot, HistoryStore};
-use prism_ir::{AnchorRef, LineageEvent, LineageId, NodeId, PlanExecutionOverlay, PlanGraph};
+use prism_ir::{
+    AgentId, AnchorRef, EventMeta, LineageEvent, LineageId, NodeId, PlanEdgeKind,
+    PlanExecutionOverlay, PlanGraph, PlanId, PlanNodeId, PlanNodeStatus, WorkspaceRevision,
+};
 use prism_memory::{OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot};
 pub use prism_projections::ConceptResolution;
 use prism_projections::{IntentIndex, ProjectionIndex, ProjectionSnapshot};
@@ -118,13 +125,18 @@ impl Prism {
         plan_graphs: Vec<PlanGraph>,
         execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     ) -> Self {
+        let coordination_snapshot = coordination.snapshot();
         Self::with_history_outcomes_coordination_projections_and_native_plans(
             graph,
             history,
             outcomes,
             coordination,
             projections,
-            NativePlanRuntimeState::from_graphs_and_overlays(plan_graphs, execution_overlays),
+            NativePlanRuntimeState::from_snapshot_with_graphs_and_overlays(
+                &coordination_snapshot,
+                plan_graphs,
+                execution_overlays,
+            ),
         )
     }
 
@@ -236,6 +248,219 @@ impl Prism {
             .write()
             .expect("plan runtime lock poisoned") =
             NativePlanRuntimeState::from_coordination_snapshot(&snapshot);
+    }
+
+    fn mutate_native_plan_runtime<T, F>(&self, mutate: F) -> Result<T>
+    where
+        F: FnOnce(&mut NativePlanRuntimeState) -> Result<T>,
+    {
+        let snapshot = self.coordination.snapshot();
+        self.mutate_native_plan_runtime_from_snapshot(snapshot, mutate)
+    }
+
+    fn mutate_native_plan_runtime_from_snapshot<T, F>(
+        &self,
+        base_snapshot: CoordinationSnapshot,
+        mutate: F,
+    ) -> Result<T>
+    where
+        F: FnOnce(&mut NativePlanRuntimeState) -> Result<T>,
+    {
+        let mut runtime = self
+            .plan_runtime
+            .write()
+            .expect("plan runtime lock poisoned");
+        let result = mutate(&mut runtime)?;
+        let snapshot = runtime.apply_to_coordination_snapshot(base_snapshot);
+        self.coordination.replace_from_snapshot(snapshot);
+        Ok(result)
+    }
+
+    fn persist_native_plan_runtime_against_snapshot(
+        &self,
+        snapshot: CoordinationSnapshot,
+    ) -> Result<()> {
+        self.mutate_native_plan_runtime_from_snapshot(snapshot, |_| Ok(()))
+    }
+
+    pub fn create_native_task(
+        &self,
+        meta: EventMeta,
+        input: TaskCreateInput,
+    ) -> Result<CoordinationTask> {
+        let store = CoordinationStore::from_snapshot(self.coordination.snapshot());
+        match store.create_task(meta, input) {
+            Ok((_, task)) => {
+                let snapshot = store.snapshot();
+                self.mutate_native_plan_runtime_from_snapshot(snapshot, |runtime| {
+                    runtime.create_task_from_coordination(&task)?;
+                    Ok(task.clone())
+                })
+            }
+            Err(error) => {
+                self.persist_native_plan_runtime_against_snapshot(store.snapshot())?;
+                Err(error)
+            }
+        }
+    }
+
+    pub fn update_native_task(
+        &self,
+        meta: EventMeta,
+        input: TaskUpdateInput,
+        current_revision: WorkspaceRevision,
+        now: u64,
+    ) -> Result<CoordinationTask> {
+        let store = CoordinationStore::from_snapshot(self.coordination.snapshot());
+        match store.update_task(meta, input, current_revision, now) {
+            Ok(task) => {
+                let snapshot = store.snapshot();
+                self.mutate_native_plan_runtime_from_snapshot(snapshot, |runtime| {
+                    runtime.update_task_from_coordination(&task)?;
+                    Ok(task.clone())
+                })
+            }
+            Err(error) => {
+                self.persist_native_plan_runtime_against_snapshot(store.snapshot())?;
+                Err(error)
+            }
+        }
+    }
+
+    pub fn request_native_handoff(
+        &self,
+        meta: EventMeta,
+        input: HandoffInput,
+        current_revision: WorkspaceRevision,
+    ) -> Result<CoordinationTask> {
+        let store = CoordinationStore::from_snapshot(self.coordination.snapshot());
+        match store.handoff(meta, input, current_revision) {
+            Ok(task) => {
+                let snapshot = store.snapshot();
+                self.mutate_native_plan_runtime_from_snapshot(snapshot, |runtime| {
+                    runtime.update_task_from_coordination(&task)?;
+                    Ok(task.clone())
+                })
+            }
+            Err(error) => {
+                self.persist_native_plan_runtime_against_snapshot(store.snapshot())?;
+                Err(error)
+            }
+        }
+    }
+
+    pub fn accept_native_handoff(
+        &self,
+        meta: EventMeta,
+        input: HandoffAcceptInput,
+    ) -> Result<CoordinationTask> {
+        let store = CoordinationStore::from_snapshot(self.coordination.snapshot());
+        match store.accept_handoff(meta, input) {
+            Ok(task) => {
+                let snapshot = store.snapshot();
+                self.mutate_native_plan_runtime_from_snapshot(snapshot, |runtime| {
+                    runtime.update_task_from_coordination(&task)?;
+                    Ok(task.clone())
+                })
+            }
+            Err(error) => {
+                self.persist_native_plan_runtime_against_snapshot(store.snapshot())?;
+                Err(error)
+            }
+        }
+    }
+
+    pub fn create_native_plan_node(
+        &self,
+        plan_id: &PlanId,
+        title: String,
+        status: Option<PlanNodeStatus>,
+        assignee: Option<AgentId>,
+        anchors: Vec<AnchorRef>,
+        depends_on: Vec<String>,
+        acceptance: Vec<prism_coordination::AcceptanceCriterion>,
+        base_revision: WorkspaceRevision,
+    ) -> Result<PlanNodeId> {
+        self.mutate_native_plan_runtime(|runtime| {
+            runtime.create_node(
+                plan_id,
+                title,
+                status,
+                assignee,
+                anchors,
+                depends_on,
+                acceptance,
+                base_revision,
+            )
+        })
+    }
+
+    pub fn create_native_plan(
+        &self,
+        goal: String,
+        status: Option<prism_ir::PlanStatus>,
+        policy: Option<prism_coordination::CoordinationPolicy>,
+    ) -> Result<PlanId> {
+        self.mutate_native_plan_runtime(|runtime| Ok(runtime.create_plan(goal, status, policy)))
+    }
+
+    pub fn update_native_plan(
+        &self,
+        plan_id: &PlanId,
+        status: Option<prism_ir::PlanStatus>,
+        goal: Option<String>,
+        policy: Option<prism_coordination::CoordinationPolicy>,
+    ) -> Result<()> {
+        self.mutate_native_plan_runtime(|runtime| runtime.update_plan(plan_id, status, goal, policy))
+    }
+
+    pub fn update_native_plan_node(
+        &self,
+        node_id: &PlanNodeId,
+        status: Option<PlanNodeStatus>,
+        assignee: Option<Option<AgentId>>,
+        title: Option<String>,
+        anchors: Option<Vec<AnchorRef>>,
+        depends_on: Option<Vec<String>>,
+        acceptance: Option<Vec<prism_coordination::AcceptanceCriterion>>,
+        base_revision: Option<WorkspaceRevision>,
+    ) -> Result<PlanId> {
+        self.mutate_native_plan_runtime(|runtime| {
+            runtime.update_node(
+                node_id,
+                status,
+                assignee,
+                title,
+                anchors,
+                depends_on,
+                acceptance,
+                base_revision,
+            )
+        })
+    }
+
+    pub fn create_native_plan_edge(
+        &self,
+        plan_id: &PlanId,
+        from_node_id: &PlanNodeId,
+        to_node_id: &PlanNodeId,
+        kind: PlanEdgeKind,
+    ) -> Result<()> {
+        self.mutate_native_plan_runtime(|runtime| {
+            runtime.create_edge(plan_id, from_node_id, to_node_id, kind)
+        })
+    }
+
+    pub fn delete_native_plan_edge(
+        &self,
+        plan_id: &PlanId,
+        from_node_id: &PlanNodeId,
+        to_node_id: &PlanNodeId,
+        kind: PlanEdgeKind,
+    ) -> Result<()> {
+        self.mutate_native_plan_runtime(|runtime| {
+            runtime.delete_edge(plan_id, from_node_id, to_node_id, kind)
+        })
     }
 
     pub fn projection_snapshot(&self) -> ProjectionSnapshot {

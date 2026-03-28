@@ -816,6 +816,105 @@ fn plan_edge_mutations_update_projected_dependency_graph() {
 }
 
 #[test]
+fn plan_edge_mutations_support_non_dependency_edge_kinds() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Shape native graph edges" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let source = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Implement change"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let source_id = source.state["id"].as_str().unwrap().to_string();
+
+    let target = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Validate change"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let target_id = target.state["id"].as_str().unwrap().to_string();
+
+    let created = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanEdgeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "fromNodeId": source_id.clone(),
+                    "toNodeId": target_id.clone(),
+                    "kind": "validates"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(created.state["kind"], "Validates");
+
+    let graph = host
+        .current_prism()
+        .plan_graph(&PlanId::new(plan_id.clone()))
+        .expect("plan graph");
+    assert!(graph
+        .edges
+        .iter()
+        .any(|edge| edge.from.0 == source_id && edge.to.0 == target_id && edge.kind == PlanEdgeKind::Validates));
+
+    let deleted = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanEdgeDelete,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "fromNodeId": source_id.clone(),
+                    "toNodeId": target_id.clone(),
+                    "kind": "validates"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(deleted.state["kind"], "Validates");
+
+    let graph = host
+        .current_prism()
+        .plan_graph(&PlanId::new(plan_id))
+        .expect("plan graph");
+    assert!(!graph
+        .edges
+        .iter()
+        .any(|edge| edge.from.0 == source_id && edge.to.0 == target_id && edge.kind == PlanEdgeKind::Validates));
+}
+
+#[test]
 fn mcp_returns_structured_coordination_rejections_and_persists_them() {
     let root = temp_workspace();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());

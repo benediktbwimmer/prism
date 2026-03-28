@@ -1,7 +1,6 @@
 use anyhow::{anyhow, Result};
 use prism_coordination::{
-    HandoffAcceptInput, HandoffInput, PlanCreateInput, PlanUpdateInput, PolicyViolation,
-    TaskCreateInput, TaskUpdateInput,
+    HandoffAcceptInput, HandoffInput, PolicyViolation, TaskCreateInput, TaskUpdateInput,
 };
 use prism_core::{ValidationFeedbackCategory, ValidationFeedbackRecord, ValidationFeedbackVerdict};
 use prism_curator::{CuratorJobId, CuratorProposal, CuratorProposalDisposition};
@@ -29,9 +28,9 @@ use crate::{
     curator_disposition_label, curator_job_status_label, curator_memory_metadata, curator_proposal,
     curator_proposal_state, curator_trigger_label, current_timestamp,
     ensure_repo_publication_metadata, manual_memory_metadata, parse_capability, parse_claim_mode,
-    coordination_task_status_from_plan_node_status, parse_coordination_task_status,
-    parse_edge_kind, parse_plan_edge_kind, parse_plan_node_status, parse_plan_status,
-    parse_review_verdict, plan_edge_view, plan_node_view, plan_view,
+    parse_coordination_task_status, parse_edge_kind, parse_plan_edge_kind,
+    parse_plan_node_status, parse_plan_status, parse_review_verdict, plan_edge_view,
+    plan_node_view, plan_view,
     task_journal_memory_metadata, task_journal_view, ArtifactActionInput,
     ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
     ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput, ClaimMutationResult,
@@ -164,19 +163,38 @@ fn current_plan_edge_state(
     Ok(serde_json::to_value(plan_edge_view(edge))?)
 }
 
-fn deleted_plan_edge_state(plan_id: &PlanId, from_node_id: &str, to_node_id: &str) -> Result<Value> {
+fn deleted_plan_edge_state(
+    plan_id: &PlanId,
+    from_node_id: &str,
+    to_node_id: &str,
+    kind: PlanEdgeKind,
+) -> Result<Value> {
     Ok(serde_json::to_value(plan_edge_view(PlanEdge {
         id: PlanEdgeId::new(format!(
-            "plan-edge:{}:depends-on:{}",
-            from_node_id, to_node_id
+            "plan-edge:{}:{}:{}",
+            from_node_id,
+            plan_edge_kind_slug(kind),
+            to_node_id
         )),
         plan_id: plan_id.clone(),
         from: PlanNodeId::new(from_node_id.to_string()),
         to: PlanNodeId::new(to_node_id.to_string()),
-        kind: PlanEdgeKind::DependsOn,
+        kind,
         summary: None,
         metadata: Value::Null,
     }))?)
+}
+
+fn plan_edge_kind_slug(kind: PlanEdgeKind) -> &'static str {
+    match kind {
+        PlanEdgeKind::DependsOn => "depends-on",
+        PlanEdgeKind::Blocks => "blocks",
+        PlanEdgeKind::Informs => "informs",
+        PlanEdgeKind::Validates => "validates",
+        PlanEdgeKind::HandoffTo => "handoff-to",
+        PlanEdgeKind::ChildOf => "child-of",
+        PlanEdgeKind::RelatedTo => "related-to",
+    }
 }
 
 impl QueryHost {
@@ -899,42 +917,41 @@ impl QueryHost {
         match args.kind {
             CoordinationMutationKindInput::PlanCreate => {
                 let payload: crate::PlanCreatePayload = serde_json::from_value(args.payload)?;
-                let (_, plan) = prism.coordination().create_plan(
-                    meta,
-                    PlanCreateInput {
-                        goal: payload.goal,
-                        status: payload
-                            .status
-                            .as_deref()
-                            .map(parse_plan_status)
-                            .transpose()?,
-                        policy: convert_policy(payload.policy)?,
-                    },
+                let plan_id = prism.create_native_plan(
+                    payload.goal,
+                    payload
+                        .status
+                        .as_deref()
+                        .map(parse_plan_status)
+                        .transpose()?,
+                    convert_policy(payload.policy)?,
                 )?;
-                prism.refresh_plan_runtime_from_coordination();
+                let plan = prism
+                    .coordination_plan(&plan_id)
+                    .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
                 Ok(serde_json::to_value(plan_view(plan))?)
             }
             CoordinationMutationKindInput::PlanUpdate => {
                 let payload: PlanUpdatePayload = serde_json::from_value(args.payload)?;
-                let plan = prism.coordination().update_plan(
-                    meta,
-                    PlanUpdateInput {
-                        plan_id: PlanId::new(payload.plan_id),
-                        status: payload
-                            .status
-                            .as_deref()
-                            .map(parse_plan_status)
-                            .transpose()?,
-                        goal: payload.goal,
-                        policy: convert_policy(payload.policy)?,
-                    },
+                let plan_id = PlanId::new(payload.plan_id);
+                prism.update_native_plan(
+                    &plan_id,
+                    payload
+                        .status
+                        .as_deref()
+                        .map(parse_plan_status)
+                        .transpose()?,
+                    payload.goal,
+                    convert_policy(payload.policy)?,
                 )?;
-                prism.refresh_plan_runtime_from_coordination();
+                let plan = prism
+                    .coordination_plan(&plan_id)
+                    .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
                 Ok(serde_json::to_value(plan_view(plan))?)
             }
             CoordinationMutationKindInput::TaskCreate => {
                 let payload: TaskCreatePayload = serde_json::from_value(args.payload)?;
-                let (_, task) = prism.coordination().create_task(
+                let task = prism.create_native_task(
                     meta,
                     TaskCreateInput {
                         plan_id: PlanId::new(payload.plan_id),
@@ -960,7 +977,6 @@ impl QueryHost {
                         base_revision: prism.workspace_revision(),
                     },
                 )?;
-                prism.refresh_plan_runtime_from_coordination();
                 Ok(serde_json::to_value(coordination_task_view(task))?)
             }
             CoordinationMutationKindInput::TaskUpdate => {
@@ -981,7 +997,7 @@ impl QueryHost {
                                 required_validations: risk.likely_validations,
                             })
                     });
-                let task = prism.coordination().update_task(
+                let task = prism.update_native_task(
                     meta,
                     TaskUpdateInput {
                         task_id,
@@ -1008,7 +1024,6 @@ impl QueryHost {
                     prism.workspace_revision(),
                     current_timestamp(),
                 )?;
-                prism.refresh_plan_runtime_from_coordination();
                 Ok(serde_json::to_value(coordination_task_view(task))?)
             }
             CoordinationMutationKindInput::PlanNodeCreate => {
@@ -1018,178 +1033,84 @@ impl QueryHost {
                     .as_deref()
                     .map(parse_plan_node_status)
                     .transpose()?
-                    .map(coordination_task_status_from_plan_node_status)
-                    .transpose()?;
-                let (_, task) = prism.coordination().create_task(
-                    meta,
-                    TaskCreateInput {
-                        plan_id: PlanId::new(payload.plan_id.clone()),
-                        title: payload.title,
-                        status,
-                        assignee: payload
-                            .assignee
-                            .map(AgentId::new)
-                            .or_else(|| session.current_agent()),
-                        session: Some(session.session_id()),
-                        anchors: convert_anchors(payload.anchors.unwrap_or_default())?,
-                        depends_on: payload
-                            .depends_on
-                            .unwrap_or_default()
-                            .into_iter()
-                            .map(CoordinationTaskId::new)
-                            .collect(),
-                        acceptance: convert_acceptance(payload.acceptance)?,
-                        base_revision: prism.workspace_revision(),
-                    },
+                    ;
+                let plan_id = PlanId::new(payload.plan_id.clone());
+                let node_id = prism.create_native_plan_node(
+                    &plan_id,
+                    payload.title,
+                    status,
+                    payload
+                        .assignee
+                        .map(AgentId::new)
+                        .or_else(|| session.current_agent()),
+                    convert_anchors(payload.anchors.unwrap_or_default())?,
+                    payload.depends_on.unwrap_or_default(),
+                    convert_acceptance(payload.acceptance)?,
+                    prism.workspace_revision(),
                 )?;
-                prism.refresh_plan_runtime_from_coordination();
-                current_plan_node_state(prism, &task.plan, &task.id.0)
+                current_plan_node_state(prism, &plan_id, &node_id.0)
             }
             CoordinationMutationKindInput::PlanNodeUpdate => {
                 let payload: PlanNodeUpdatePayload = serde_json::from_value(args.payload)?;
-                let task_id = CoordinationTaskId::new(payload.node_id.clone());
                 let status = payload
                     .status
                     .as_deref()
                     .map(parse_plan_node_status)
-                    .transpose()?
-                    .map(coordination_task_status_from_plan_node_status)
                     .transpose()?;
-                let completion_context = convert_completion_context(payload.completion_context)
-                    .or_else(|| {
-                        status
-                            .filter(|status| *status == prism_ir::CoordinationTaskStatus::Completed)
-                            .and_then(|_| prism.task_risk(&task_id, meta.ts))
-                            .map(|risk| prism_coordination::TaskCompletionContext {
-                                risk_score: Some(risk.risk_score),
-                                required_validations: risk.likely_validations,
-                            })
-                    });
-                let task = prism.coordination().update_task(
-                    meta,
-                    TaskUpdateInput {
-                        task_id,
-                        status,
-                        assignee: payload.assignee.map(|value| Some(AgentId::new(value))),
-                        session: None,
-                        title: payload.title,
-                        anchors: payload.anchors.map(convert_anchors).transpose()?,
-                        depends_on: payload
-                            .depends_on
-                            .map(|depends_on| {
-                                depends_on
-                                    .into_iter()
-                                    .map(CoordinationTaskId::new)
-                                    .collect::<Vec<_>>()
-                            }),
-                        acceptance: payload
-                            .acceptance
-                            .map(|acceptance| convert_acceptance(Some(acceptance)))
-                            .transpose()?,
-                        base_revision: Some(prism.workspace_revision()),
-                        completion_context,
-                    },
-                    prism.workspace_revision(),
-                    current_timestamp(),
+                let node_id = PlanNodeId::new(payload.node_id.clone());
+                let plan_id = prism.update_native_plan_node(
+                    &node_id,
+                    status,
+                    payload.assignee.map(|value| Some(AgentId::new(value))),
+                    payload.title,
+                    payload.anchors.map(convert_anchors).transpose()?,
+                    payload.depends_on,
+                    payload
+                        .acceptance
+                        .map(|acceptance| convert_acceptance(Some(acceptance)))
+                        .transpose()?,
+                    Some(prism.workspace_revision()),
                 )?;
-                prism.refresh_plan_runtime_from_coordination();
-                current_plan_node_state(prism, &task.plan, &task.id.0)
+                current_plan_node_state(prism, &plan_id, &node_id.0)
             }
             CoordinationMutationKindInput::PlanEdgeCreate => {
                 let payload: PlanEdgeCreatePayload = serde_json::from_value(args.payload)?;
                 let kind = parse_plan_edge_kind(&payload.kind)?;
-                if kind != PlanEdgeKind::DependsOn {
-                    return Err(anyhow!(
-                        "plan edge kind `{}` is not yet supported by the coordination compatibility store",
-                        payload.kind
-                    ));
-                }
-                let from_task_id = CoordinationTaskId::new(payload.from_node_id.clone());
-                let to_task_id = CoordinationTaskId::new(payload.to_node_id.clone());
-                let from_task = prism
-                    .coordination()
-                    .task(&from_task_id)
-                    .ok_or_else(|| anyhow!("unknown plan node `{}`", payload.from_node_id))?;
-                let mut depends_on = from_task.depends_on.clone();
-                depends_on.push(to_task_id);
-                prism.coordination().update_task(
-                    meta,
-                    TaskUpdateInput {
-                        task_id: from_task_id,
-                        status: None,
-                        assignee: None,
-                        session: None,
-                        title: None,
-                        anchors: None,
-                        depends_on: Some(depends_on),
-                        acceptance: None,
-                        base_revision: Some(prism.workspace_revision()),
-                        completion_context: None,
-                    },
-                    prism.workspace_revision(),
-                    current_timestamp(),
+                let plan_id = PlanId::new(payload.plan_id.clone());
+                prism.create_native_plan_edge(
+                    &plan_id,
+                    &PlanNodeId::new(payload.from_node_id.clone()),
+                    &PlanNodeId::new(payload.to_node_id.clone()),
+                    kind,
                 )?;
-                prism.refresh_plan_runtime_from_coordination();
                 current_plan_edge_state(
                     prism,
-                    &PlanId::new(payload.plan_id),
+                    &plan_id,
                     &payload.from_node_id,
                     &payload.to_node_id,
-                    PlanEdgeKind::DependsOn,
+                    kind,
                 )
             }
             CoordinationMutationKindInput::PlanEdgeDelete => {
                 let payload: PlanEdgeDeletePayload = serde_json::from_value(args.payload)?;
                 let kind = parse_plan_edge_kind(&payload.kind)?;
-                if kind != PlanEdgeKind::DependsOn {
-                    return Err(anyhow!(
-                        "plan edge kind `{}` is not yet supported by the coordination compatibility store",
-                        payload.kind
-                    ));
-                }
-                let from_task_id = CoordinationTaskId::new(payload.from_node_id.clone());
-                let to_task_id = CoordinationTaskId::new(payload.to_node_id.clone());
-                let from_task = prism
-                    .coordination()
-                    .task(&from_task_id)
-                    .ok_or_else(|| anyhow!("unknown plan node `{}`", payload.from_node_id))?;
-                let mut depends_on = from_task.depends_on.clone();
-                let previous_len = depends_on.len();
-                depends_on.retain(|dependency| dependency != &to_task_id);
-                if depends_on.len() == previous_len {
-                    return Err(anyhow!(
-                        "unknown plan edge `{}` -> `{}` (DependsOn)",
-                        payload.from_node_id,
-                        payload.to_node_id
-                    ));
-                }
-                prism.coordination().update_task(
-                    meta,
-                    TaskUpdateInput {
-                        task_id: from_task_id,
-                        status: None,
-                        assignee: None,
-                        session: None,
-                        title: None,
-                        anchors: None,
-                        depends_on: Some(depends_on),
-                        acceptance: None,
-                        base_revision: Some(prism.workspace_revision()),
-                        completion_context: None,
-                    },
-                    prism.workspace_revision(),
-                    current_timestamp(),
+                let plan_id = PlanId::new(payload.plan_id.clone());
+                prism.delete_native_plan_edge(
+                    &plan_id,
+                    &PlanNodeId::new(payload.from_node_id.clone()),
+                    &PlanNodeId::new(payload.to_node_id.clone()),
+                    kind,
                 )?;
-                prism.refresh_plan_runtime_from_coordination();
                 deleted_plan_edge_state(
-                    &PlanId::new(payload.plan_id),
+                    &plan_id,
                     &payload.from_node_id,
                     &payload.to_node_id,
+                    kind,
                 )
             }
             CoordinationMutationKindInput::Handoff => {
                 let payload: crate::HandoffPayload = serde_json::from_value(args.payload)?;
-                let task = prism.coordination().handoff(
+                let task = prism.request_native_handoff(
                     meta,
                     HandoffInput {
                         task_id: CoordinationTaskId::new(payload.task_id),
@@ -1199,7 +1120,6 @@ impl QueryHost {
                     },
                     prism.workspace_revision(),
                 )?;
-                prism.refresh_plan_runtime_from_coordination();
                 Ok(serde_json::to_value(coordination_task_view(task))?)
             }
             CoordinationMutationKindInput::HandoffAccept => {
@@ -1215,14 +1135,13 @@ impl QueryHost {
                         ));
                     }
                 }
-                let task = prism.coordination().accept_handoff(
+                let task = prism.accept_native_handoff(
                     meta,
                     HandoffAcceptInput {
                         task_id: CoordinationTaskId::new(payload.task_id),
                         agent: session_agent,
                     },
                 )?;
-                prism.refresh_plan_runtime_from_coordination();
                 Ok(serde_json::to_value(coordination_task_view(task))?)
             }
         }
