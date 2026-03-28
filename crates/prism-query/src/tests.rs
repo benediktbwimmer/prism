@@ -1343,6 +1343,208 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
 }
 
 #[test]
+fn native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges() {
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:compat"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Preserve graph under compatibility writes".into(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_a, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:compat:a"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Task A".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let (task_b, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:compat:b"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Task B".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+
+    let node_a = PlanNodeId::new(task_a.0.clone());
+    let node_b = PlanNodeId::new(task_b.0.clone());
+    let native_graph = PlanGraph {
+        id: plan_id.clone(),
+        scope: PlanScope::Repo,
+        kind: PlanKind::TaskExecution,
+        title: "Compatibility writes".into(),
+        goal: "Compatibility writes".into(),
+        status: PlanStatus::Active,
+        revision: 1,
+        root_nodes: vec![node_a.clone(), node_b.clone()],
+        tags: Vec::new(),
+        created_from: None,
+        metadata: serde_json::Value::Null,
+        nodes: vec![
+            PlanNode {
+                id: node_a.clone(),
+                plan_id: plan_id.clone(),
+                kind: PlanNodeKind::Edit,
+                title: "Task A".into(),
+                summary: None,
+                status: PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+            PlanNode {
+                id: node_b.clone(),
+                plan_id: plan_id.clone(),
+                kind: PlanNodeKind::Validate,
+                title: "Task B".into(),
+                summary: None,
+                status: PlanNodeStatus::Waiting,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+        ],
+        edges: vec![PlanEdge {
+            id: PlanEdgeId::new("plan-edge:compat:validates"),
+            plan_id: plan_id.clone(),
+            from: node_b.clone(),
+            to: node_a.clone(),
+            kind: PlanEdgeKind::Validates,
+            summary: None,
+            metadata: serde_json::Value::Null,
+        }],
+    };
+
+    let prism = Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
+        graph,
+        history,
+        outcomes,
+        coordination,
+        ProjectionIndex::default(),
+        vec![native_graph],
+        BTreeMap::new(),
+    );
+
+    let (claim_id, _conflicts, state) = prism
+        .acquire_native_claim(
+            EventMeta {
+                id: EventId::new("coord:claim:compat"),
+                ts: 4,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            SessionId::new("session:compat"),
+            prism_coordination::ClaimAcquireInput {
+                task_id: Some(prism_ir::CoordinationTaskId::new(task_a.0.clone())),
+                anchors: vec![AnchorRef::Node(NodeId::new(
+                    "demo",
+                    "demo::alpha",
+                    NodeKind::Function,
+                ))],
+                capability: prism_ir::Capability::Edit,
+                mode: Some(prism_ir::ClaimMode::SoftExclusive),
+                ttl_seconds: None,
+                base_revision: WorkspaceRevision::default(),
+                current_revision: WorkspaceRevision::default(),
+                agent: Some(prism_ir::AgentId::new("agent-a")),
+            },
+        )
+        .unwrap();
+    assert!(claim_id.is_some());
+    assert!(state.is_some());
+
+    let (_artifact_id, artifact) = prism
+        .propose_native_artifact(
+            EventMeta {
+                id: EventId::new("coord:artifact:compat"),
+                ts: 5,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            prism_coordination::ArtifactProposeInput {
+                task_id: prism_ir::CoordinationTaskId::new(task_a.0.clone()),
+                anchors: Vec::new(),
+                diff_ref: None,
+                evidence: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+                current_revision: WorkspaceRevision::default(),
+                required_validations: Vec::new(),
+                validated_checks: Vec::new(),
+                risk_score: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(artifact.task.0, task_a.0);
+
+    let runtime_graph = prism.plan_graph(&plan_id).unwrap();
+    assert!(runtime_graph
+        .edges
+        .iter()
+        .any(|edge| edge.kind == PlanEdgeKind::Validates && edge.from == node_b && edge.to == node_a));
+    assert_eq!(prism.coordination_snapshot().claims.len(), 1);
+    assert_eq!(
+        prism.artifacts(&prism_ir::CoordinationTaskId::new(task_a.0.clone()))
+            .len(),
+        1
+    );
+}
+
+#[test]
 fn validation_recipe_reuses_blast_radius_signal() {
     let mut graph = Graph::new();
     let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);

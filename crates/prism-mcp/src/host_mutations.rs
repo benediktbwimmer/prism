@@ -1158,7 +1158,7 @@ impl QueryHost {
             ClaimActionInput::Acquire => {
                 let payload: ClaimAcquirePayload = serde_json::from_value(args.payload)?;
                 let anchors = prism.coordination_scope_anchors(&convert_anchors(payload.anchors)?);
-                let (claim_id, conflicts, state) = prism.coordination().acquire_claim(
+                let (claim_id, conflicts, state) = prism.acquire_native_claim(
                     meta,
                     session.session_id(),
                     prism_coordination::ClaimAcquireInput {
@@ -1194,7 +1194,7 @@ impl QueryHost {
             }
             ClaimActionInput::Renew => {
                 let payload: ClaimRenewPayload = serde_json::from_value(args.payload)?;
-                let claim = prism.coordination().renew_claim(
+                let claim = prism.renew_native_claim(
                     meta,
                     &session.session_id(),
                     &ClaimId::new(payload.claim_id.clone()),
@@ -1211,7 +1211,7 @@ impl QueryHost {
             }
             ClaimActionInput::Release => {
                 let payload: ClaimReleasePayload = serde_json::from_value(args.payload)?;
-                let claim = prism.coordination().release_claim(
+                let claim = prism.release_native_claim(
                     meta,
                     &session.session_id(),
                     &ClaimId::new(payload.claim_id.clone()),
@@ -1273,7 +1273,7 @@ impl QueryHost {
                 inferred_validated_checks.dedup();
                 let recipe = prism.task_validation_recipe(&task_id);
                 let risk = prism.task_risk(&task_id, meta.ts);
-                let (artifact_id, artifact) = prism.coordination().propose_artifact(
+                let (artifact_id, artifact) = prism.propose_native_artifact(
                     meta,
                     prism_coordination::ArtifactProposeInput {
                         task_id,
@@ -1302,7 +1302,7 @@ impl QueryHost {
             }
             ArtifactActionInput::Supersede => {
                 let payload: ArtifactSupersedePayload = serde_json::from_value(args.payload)?;
-                let artifact = prism.coordination().supersede_artifact(
+                let artifact = prism.supersede_native_artifact(
                     meta,
                     prism_coordination::ArtifactSupersedeInput {
                         artifact_id: ArtifactId::new(payload.artifact_id.clone()),
@@ -1328,7 +1328,7 @@ impl QueryHost {
                 validated_checks.extend(payload.validated_checks.unwrap_or_default());
                 validated_checks.sort();
                 validated_checks.dedup();
-                let (review_id, _, artifact) = prism.coordination().review_artifact(
+                let (review_id, _, artifact) = prism.review_native_artifact(
                     meta,
                     prism_coordination::ArtifactReviewInput {
                         artifact_id,

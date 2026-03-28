@@ -17,13 +17,16 @@ use std::time::Instant;
 
 use anyhow::Result;
 use prism_coordination::{
-    CoordinationSnapshot, CoordinationStore, CoordinationTask, HandoffAcceptInput, HandoffInput,
-    TaskCreateInput, TaskUpdateInput,
+    Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
+    CoordinationConflict, CoordinationRuntimeState, CoordinationSnapshot, CoordinationStore,
+    CoordinationTask, HandoffAcceptInput, HandoffInput, TaskCreateInput, TaskUpdateInput,
+    WorkClaim,
 };
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
-    AgentId, AnchorRef, EventMeta, LineageEvent, LineageId, NodeId, PlanEdgeKind,
-    PlanExecutionOverlay, PlanGraph, PlanId, PlanNodeId, PlanNodeStatus, WorkspaceRevision,
+    AgentId, ArtifactId, AnchorRef, ClaimId, EventMeta, LineageEvent, LineageId, NodeId,
+    PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanNodeId, PlanNodeStatus, ReviewId,
+    SessionId, WorkspaceRevision,
 };
 use prism_memory::{OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot};
 pub use prism_projections::ConceptResolution;
@@ -283,6 +286,23 @@ impl Prism {
         self.mutate_native_plan_runtime_from_snapshot(snapshot, |_| Ok(()))
     }
 
+    fn mutate_validated_coordination_snapshot<T, F>(&self, mutate: F) -> Result<T>
+    where
+        F: FnOnce(&mut CoordinationRuntimeState) -> Result<T>,
+    {
+        let mut runtime = CoordinationRuntimeState::from_snapshot(self.coordination.snapshot());
+        match mutate(&mut runtime) {
+            Ok(result) => {
+                self.persist_native_plan_runtime_against_snapshot(runtime.snapshot())?;
+                Ok(result)
+            }
+            Err(error) => {
+                self.persist_native_plan_runtime_against_snapshot(runtime.snapshot())?;
+                Err(error)
+            }
+        }
+    }
+
     pub fn create_native_task(
         &self,
         meta: EventMeta,
@@ -368,6 +388,71 @@ impl Prism {
                 Err(error)
             }
         }
+    }
+
+    pub fn acquire_native_claim(
+        &self,
+        meta: EventMeta,
+        session_id: SessionId,
+        input: prism_coordination::ClaimAcquireInput,
+    ) -> Result<(Option<ClaimId>, Vec<CoordinationConflict>, Option<WorkClaim>)> {
+        self.mutate_validated_coordination_snapshot(|store| {
+            store.acquire_claim(meta, session_id, input)
+        })
+    }
+
+    pub fn renew_native_claim(
+        &self,
+        meta: EventMeta,
+        session_id: &SessionId,
+        claim_id: &ClaimId,
+        ttl_seconds: Option<u64>,
+    ) -> Result<WorkClaim> {
+        self.mutate_validated_coordination_snapshot(|store| {
+            store.renew_claim(meta, session_id, claim_id, ttl_seconds)
+        })
+    }
+
+    pub fn release_native_claim(
+        &self,
+        meta: EventMeta,
+        session_id: &SessionId,
+        claim_id: &ClaimId,
+    ) -> Result<WorkClaim> {
+        self.mutate_validated_coordination_snapshot(|store| {
+            store.release_claim(meta, session_id, claim_id)
+        })
+    }
+
+    pub fn propose_native_artifact(
+        &self,
+        meta: EventMeta,
+        input: ArtifactProposeInput,
+    ) -> Result<(ArtifactId, Artifact)> {
+        self.mutate_validated_coordination_snapshot(|store| {
+            store.propose_artifact(meta, input)
+        })
+    }
+
+    pub fn supersede_native_artifact(
+        &self,
+        meta: EventMeta,
+        input: ArtifactSupersedeInput,
+    ) -> Result<Artifact> {
+        self.mutate_validated_coordination_snapshot(|store| {
+            store.supersede_artifact(meta, input)
+        })
+    }
+
+    pub fn review_native_artifact(
+        &self,
+        meta: EventMeta,
+        input: ArtifactReviewInput,
+        current_revision: WorkspaceRevision,
+    ) -> Result<(ReviewId, ArtifactReview, Artifact)> {
+        self.mutate_validated_coordination_snapshot(|store| {
+            store.review_artifact(meta, input, current_revision)
+        })
     }
 
     pub fn create_native_plan_node(

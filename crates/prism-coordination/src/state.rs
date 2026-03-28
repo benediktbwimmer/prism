@@ -28,23 +28,9 @@ pub(crate) struct CoordinationState {
     pub(crate) next_review: u64,
 }
 
-impl CoordinationStore {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn from_snapshot(snapshot: CoordinationSnapshot) -> Self {
-        let store = Self::new();
-        store.replace_from_snapshot(snapshot);
-        store
-    }
-
-    pub fn replace_from_snapshot(&self, snapshot: CoordinationSnapshot) {
-        let mut state = self
-            .state
-            .write()
-            .expect("coordination store lock poisoned");
-        *state = CoordinationState {
+impl CoordinationState {
+    pub(crate) fn from_snapshot(snapshot: CoordinationSnapshot) -> Self {
+        Self {
             plans: snapshot
                 .plans
                 .into_iter()
@@ -76,23 +62,47 @@ impl CoordinationStore {
             next_claim: snapshot.next_claim,
             next_artifact: snapshot.next_artifact,
             next_review: snapshot.next_review,
-        };
+        }
+    }
+
+    pub(crate) fn snapshot(&self) -> CoordinationSnapshot {
+        CoordinationSnapshot {
+            plans: sorted_values(&self.plans, |plan| plan.id.0.to_string()),
+            tasks: sorted_values(&self.tasks, |task| task.id.0.to_string()),
+            claims: sorted_values(&self.claims, |claim| claim.id.0.to_string()),
+            artifacts: sorted_values(&self.artifacts, |artifact| artifact.id.0.to_string()),
+            reviews: sorted_values(&self.reviews, |review| review.id.0.to_string()),
+            events: self.events.clone(),
+            next_plan: self.next_plan,
+            next_task: self.next_task,
+            next_claim: self.next_claim,
+            next_artifact: self.next_artifact,
+            next_review: self.next_review,
+        }
+    }
+}
+
+impl CoordinationStore {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn from_snapshot(snapshot: CoordinationSnapshot) -> Self {
+        let store = Self::new();
+        store.replace_from_snapshot(snapshot);
+        store
+    }
+
+    pub fn replace_from_snapshot(&self, snapshot: CoordinationSnapshot) {
+        let mut state = self
+            .state
+            .write()
+            .expect("coordination store lock poisoned");
+        *state = CoordinationState::from_snapshot(snapshot);
     }
 
     pub fn snapshot(&self) -> CoordinationSnapshot {
         let state = self.state.read().expect("coordination store lock poisoned");
-        CoordinationSnapshot {
-            plans: sorted_values(&state.plans, |plan| plan.id.0.to_string()),
-            tasks: sorted_values(&state.tasks, |task| task.id.0.to_string()),
-            claims: sorted_values(&state.claims, |claim| claim.id.0.to_string()),
-            artifacts: sorted_values(&state.artifacts, |artifact| artifact.id.0.to_string()),
-            reviews: sorted_values(&state.reviews, |review| review.id.0.to_string()),
-            events: state.events.clone(),
-            next_plan: state.next_plan,
-            next_task: state.next_task,
-            next_claim: state.next_claim,
-            next_artifact: state.next_artifact,
-            next_review: state.next_review,
-        }
+        state.snapshot()
     }
 }

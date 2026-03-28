@@ -3,6 +3,7 @@ mod compat;
 mod helpers;
 mod mutations;
 mod queries;
+mod runtime;
 mod state;
 mod types;
 
@@ -22,3 +23,4 @@ pub use compat::{
     coordination_snapshot_from_plan_graphs, execution_overlays_from_tasks,
     plan_graph_from_coordination, snapshot_plan_graphs,
 };
+pub use runtime::CoordinationRuntimeState;
