@@ -27,8 +27,8 @@ use prism_coordination::{
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
     AgentId, AnchorRef, ArtifactId, ClaimId, EventMeta, LineageEvent, LineageId, NodeId,
-    PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanNodeId, PlanNodeStatus, ReviewId,
-    SessionId, WorkspaceRevision,
+    PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanNodeId, PlanNodeKind,
+    PlanNodeStatus, ReviewId, SessionId, WorkspaceRevision,
 };
 use prism_memory::{OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot};
 pub use prism_projections::ConceptResolution;

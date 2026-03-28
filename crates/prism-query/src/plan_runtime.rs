@@ -347,7 +347,7 @@ impl NativePlanRuntimeState {
             summary: None,
             metadata: Value::Null,
         });
-        if kind == PlanEdgeKind::DependsOn {
+        if edge_kind_affects_root_nodes(kind) {
             recompute_root_nodes(graph);
         }
         Ok(())
@@ -376,7 +376,7 @@ impl NativePlanRuntimeState {
                 kind
             ));
         }
-        if kind == PlanEdgeKind::DependsOn {
+        if edge_kind_affects_root_nodes(kind) {
             recompute_root_nodes(graph);
         }
         Ok(())
@@ -845,16 +845,16 @@ fn ensure_node_in_graph(graph: &PlanGraph, node_id: &PlanNodeId) -> Result<()> {
 }
 
 fn recompute_root_nodes(graph: &mut PlanGraph) {
-    let dependency_sources = graph
+    let hidden_from_roots = graph
         .edges
         .iter()
-        .filter(|edge| edge.kind == PlanEdgeKind::DependsOn)
+        .filter(|edge| edge_kind_affects_root_nodes(edge.kind))
         .map(|edge| edge.from.0.to_string())
         .collect::<BTreeSet<_>>();
     graph.root_nodes = graph
         .nodes
         .iter()
-        .filter(|node| !dependency_sources.contains(node.id.0.as_str()))
+        .filter(|node| !hidden_from_roots.contains(node.id.0.as_str()))
         .map(|node| node.id.clone())
         .collect();
 }
@@ -884,6 +884,10 @@ fn plan_edge_kind_slug(kind: PlanEdgeKind) -> &'static str {
     }
 }
 
+fn edge_kind_affects_root_nodes(kind: PlanEdgeKind) -> bool {
+    matches!(kind, PlanEdgeKind::DependsOn | PlanEdgeKind::ChildOf)
+}
+
 fn counter_suffix(id: &str, prefix: &str) -> Option<u64> {
     id.strip_prefix(prefix)?.parse().ok()
 }
@@ -894,6 +898,10 @@ fn validate_edge_insertion(
     to_node_id: &PlanNodeId,
     kind: PlanEdgeKind,
 ) -> Result<()> {
+    let from_node = graph_node_by_id(graph, from_node_id)
+        .ok_or_else(|| anyhow!("unknown plan node `{}`", from_node_id.0))?;
+    let to_node = graph_node_by_id(graph, to_node_id)
+        .ok_or_else(|| anyhow!("unknown plan node `{}`", to_node_id.0))?;
     if from_node_id == to_node_id {
         return Err(anyhow!(
             "plan edge `{}` -> `{}` ({:?}) cannot target itself",
@@ -913,6 +921,23 @@ fn validate_edge_insertion(
             "plan node `{}` already has an authored parent",
             from_node_id.0
         ));
+    }
+    match kind {
+        PlanEdgeKind::Validates if to_node.kind != PlanNodeKind::Validate => {
+            return Err(anyhow!(
+                "plan edge `{}` -> `{}` (Validates) must target a Validate node",
+                from_node_id.0,
+                to_node_id.0
+            ));
+        }
+        PlanEdgeKind::HandoffTo if from_node.is_abstract || to_node.is_abstract => {
+            return Err(anyhow!(
+                "plan edge `{}` -> `{}` (HandoffTo) must connect executable nodes, not abstract structure",
+                from_node_id.0,
+                to_node_id.0
+            ));
+        }
+        _ => {}
     }
     if edge_kind_requires_acyclic_graph(kind)
         && constrained_path_exists(graph, to_node_id, from_node_id)

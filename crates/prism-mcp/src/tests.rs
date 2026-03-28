@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use axum::Router;
 use clap::Parser;
@@ -150,6 +150,16 @@ fn wait_for_completed_curator_job(session: &WorkspaceSession) -> String {
             .map(|record| (record.id.0.clone(), curator_job_status_label(record)))
             .collect::<Vec<_>>()
     );
+}
+
+fn wait_until(description: &str, mut condition: impl FnMut() -> bool) {
+    for _ in 0..200 {
+        if condition() {
+            return;
+        }
+        thread::sleep(Duration::from_millis(25));
+    }
+    panic!("timed out waiting for {description}");
 }
 
 fn demo_node() -> Node {
@@ -1008,6 +1018,7 @@ fn plan_edge_mutations_support_non_dependency_edge_kinds() {
                 kind: CoordinationMutationKindInput::PlanNodeCreate,
                 payload: json!({
                     "planId": plan_id.clone(),
+                    "kind": "validate",
                     "title": "Validate change"
                 }),
                 task_id: None,
@@ -1068,6 +1079,128 @@ fn plan_edge_mutations_support_non_dependency_edge_kinds() {
 }
 
 #[test]
+fn plan_edge_mutations_enforce_native_edge_semantics() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Enforce edge semantics" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let parent = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Parent group",
+                    "isAbstract": true
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let parent_id = parent.state["id"].as_str().unwrap().to_string();
+
+    let child = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Child work"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let child_id = child.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        test_session(&host).as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanEdgeCreate,
+            payload: json!({
+                "planId": plan_id.clone(),
+                "fromNodeId": child_id.clone(),
+                "toNodeId": parent_id.clone(),
+                "kind": "child_of"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+    let graph = host
+        .current_prism()
+        .plan_graph(&PlanId::new(plan_id.clone()))
+        .expect("plan graph");
+    assert!(graph.root_nodes.iter().any(|root| root.0 == parent_id));
+    assert!(!graph.root_nodes.iter().any(|root| root.0 == child_id));
+
+    let invalid_target = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Plain work"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let invalid_target_id = invalid_target.state["id"].as_str().unwrap().to_string();
+
+    let validates_error = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanEdgeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "fromNodeId": child_id.clone(),
+                    "toNodeId": invalid_target_id,
+                    "kind": "validates"
+                }),
+                task_id: None,
+            },
+        )
+        .expect_err("validates should require validate target");
+    assert!(validates_error
+        .to_string()
+        .contains("must target a Validate node"));
+
+    let handoff_error = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanEdgeCreate,
+                payload: json!({
+                    "planId": plan_id,
+                    "fromNodeId": child_id,
+                    "toNodeId": parent_id,
+                    "kind": "handoff_to"
+                }),
+                task_id: None,
+            },
+        )
+        .expect_err("handoff should reject abstract target");
+    assert!(handoff_error
+        .to_string()
+        .contains("must connect executable nodes"));
+}
+
+#[test]
 fn plan_query_reads_surface_native_ready_nodes_and_blockers() {
     let host = host_with_node(demo_node());
 
@@ -1112,7 +1245,11 @@ fn plan_query_reads_surface_native_ready_nodes_and_blockers() {
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanNodeCreate,
-                payload: json!({ "planId": plan_id.clone(), "title": "Validator" }),
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Validator",
+                    "kind": "Validate"
+                }),
                 task_id: None,
             },
         )
@@ -1507,7 +1644,8 @@ fn plan_edge_mutations_reject_invalid_scheduling_graphs() {
                 kind: CoordinationMutationKindInput::PlanNodeCreate,
                 payload: json!({
                     "planId": plan_id.clone(),
-                    "title": "Validate change"
+                    "title": "Validate change",
+                    "kind": "Validate"
                 }),
                 task_id: None,
             },
@@ -10017,7 +10155,7 @@ return recent[0] ? prism.queryTrace(recent[0].id) : null;
         .expect("refresh args");
     assert_eq!(
         args.get("refreshPath"),
-        Some(&Value::String("fast".to_string()))
+        Some(&Value::String("none".to_string()))
     );
     assert_eq!(args.get("episodicReloaded"), Some(&Value::Bool(false)));
     assert_eq!(args.get("inferenceReloaded"), Some(&Value::Bool(false)));
@@ -12419,6 +12557,24 @@ fn auto_refreshes_workspace_and_records_patch_events() {
     )
     .unwrap();
 
+    host.refresh_workspace_for_query().unwrap();
+    wait_until("background workspace refresh after external edit", || {
+        host.execute(
+            test_session(&host),
+            r#"
+const sym = prism.symbol("gamma");
+const alpha = prism.symbol("alpha");
+return {
+  path: sym?.id.path,
+  callers: alpha ? alpha.relations().callees.map((node) => node.id.path) : [],
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .map(|result| result.result["path"] == Value::String("demo::gamma".to_string()))
+        .unwrap_or(false)
+    });
+
     let result = host
         .execute(
             test_session(&host),
@@ -12432,7 +12588,7 @@ return {
 "#,
             QueryLanguage::Ts,
         )
-        .expect("query should succeed after external edit");
+        .expect("query should succeed after background refresh");
 
     assert_eq!(result.result["path"], "demo::gamma");
     assert!(result.result["callers"]
@@ -12486,6 +12642,57 @@ return prism.symbol("alpha")?.id.path ?? null;
 }
 
 #[test]
+fn queries_use_nonblocking_persisted_refresh_phase() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let started = Instant::now();
+    let result = host
+        .execute(
+            test_session(&host),
+            r#"
+return prism.symbol("alpha")?.id.path ?? null;
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed while refresh lock is held");
+
+    assert_eq!(result.result, Value::String("demo::alpha".to_string()));
+    assert!(
+        started.elapsed() < Duration::from_millis(200),
+        "query spent too long in request-path refresh work"
+    );
+
+    let trace = host
+        .query_trace_view(
+            &host.query_log_entries(QueryLogArgs {
+                limit: Some(1),
+                since: None,
+                target: None,
+                operation: Some("typescript.refreshWorkspace".to_string()),
+                task_id: None,
+                min_duration_ms: None,
+            })[0]
+                .id,
+        )
+        .expect("query trace should exist");
+    let refresh_phase = trace
+        .phases
+        .iter()
+        .find(|phase| phase.operation == "typescript.refreshWorkspace")
+        .expect("refresh phase should exist");
+    let args = refresh_phase
+        .args_summary
+        .as_ref()
+        .and_then(Value::as_object)
+        .expect("refresh args");
+    assert_eq!(
+        args.get("refreshPath"),
+        Some(&Value::String("none".to_string()))
+    );
+}
+
+#[test]
 fn refresh_workspace_reloads_updated_persisted_notes() {
     let root = temp_workspace();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
@@ -12529,6 +12736,15 @@ fn refresh_workspace_reloads_updated_persisted_notes() {
         .expect("stored note should be persisted");
     entry.anchors = vec![AnchorRef::Node(beta.clone())];
     workspace.persist_episodic(&snapshot).unwrap();
+
+    host.refresh_workspace().unwrap();
+    wait_until("persisted notes background reload", || {
+        host.refresh_workspace().unwrap();
+        test_session(&host)
+            .notes
+            .entry(&MemoryId(stored.memory_id.clone()))
+            .is_some_and(|entry| entry.anchors.contains(&AnchorRef::Node(beta.clone())))
+    });
 
     let result = host
         .execute(
@@ -12605,6 +12821,28 @@ fn refresh_workspace_reloads_updated_persisted_inference_without_fs_refresh() {
     assert_eq!(snapshot.records.len(), 1);
     snapshot.records[0].edge.target = NodeId::new("demo", "demo::alpha", NodeKind::Function);
     workspace.persist_inference(&snapshot).unwrap();
+
+    host.refresh_workspace().unwrap();
+    wait_until("persisted inference background reload", || {
+        host.refresh_workspace().unwrap();
+        host.execute(
+            test_session(&host),
+            r#"
+const sym = prism.symbol("alpha");
+return sym ? sym.relations().callees.map((node) => node.id.path) : [];
+"#,
+            QueryLanguage::Ts,
+        )
+        .map(|result| {
+            result
+                .result
+                .as_array()
+                .unwrap_or(&Vec::new())
+                .iter()
+                .any(|value| value == "demo::alpha")
+        })
+        .unwrap_or(false)
+    });
 
     let result = host
         .execute(

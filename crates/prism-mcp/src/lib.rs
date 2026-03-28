@@ -2,21 +2,15 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::Instant;
-
 use anyhow::{anyhow, Result};
 use clap::{ArgAction, ValueEnum};
 use prism_agent::InferenceStore;
-use prism_core::{
-    index_workspace_session_with_options, FsRefreshStatus, WorkspaceSession,
-    WorkspaceSessionOptions,
-};
+use prism_core::{index_workspace_session_with_options, WorkspaceSession, WorkspaceSessionOptions};
 use prism_ir::TaskId;
 use prism_js::{api_reference_markdown, CuratorJobView, API_REFERENCE_URI};
-use prism_memory::{EpisodicMemorySnapshot, OutcomeEvent, SessionMemory};
+use prism_memory::{OutcomeEvent, SessionMemory};
 use prism_query::{Prism, QueryLimits};
 use rmcp::{handler::server::router::tool::ToolRouter, transport::stdio, ServiceExt};
-use serde_json::json;
 use tracing::{debug, info};
 
 mod ambiguity;
@@ -65,6 +59,7 @@ mod text_search;
 mod tool_args;
 mod tool_schemas;
 mod views;
+mod workspace_runtime;
 
 use ambiguity::*;
 use capabilities_resource::*;
@@ -99,6 +94,7 @@ use task_journal::*;
 use tool_args::*;
 use tool_schemas::*;
 use views::*;
+use workspace_runtime::*;
 
 const DEFAULT_SEARCH_LIMIT: usize = 20;
 const DEFAULT_CALL_GRAPH_DEPTH: usize = 3;
@@ -395,6 +391,7 @@ struct QueryHost {
     loaded_episodic_revision: Arc<AtomicU64>,
     loaded_inference_revision: Arc<AtomicU64>,
     loaded_coordination_revision: Arc<AtomicU64>,
+    workspace_runtime: Option<Arc<WorkspaceRuntime>>,
     features: PrismMcpFeatures,
 }
 
@@ -405,13 +402,6 @@ struct WorkspaceRefreshReport {
     episodic_reloaded: bool,
     inference_reloaded: bool,
     coordination_reloaded: bool,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum WorkspaceSnapshotReloadStatus {
-    Unchanged,
-    Reloaded,
-    DeferredBusy,
 }
 
 impl QueryHost {
@@ -464,6 +454,7 @@ impl QueryHost {
             loaded_episodic_revision: Arc::new(AtomicU64::new(0)),
             loaded_inference_revision: Arc::new(AtomicU64::new(0)),
             loaded_coordination_revision: Arc::new(AtomicU64::new(0)),
+            workspace_runtime: None,
             features: features.clone(),
         }
     }
@@ -499,33 +490,56 @@ impl QueryHost {
         let workspace = Arc::new(workspace);
         let prism = workspace.prism_arc();
         let revisions = workspace.snapshot_revisions().unwrap_or_default();
-        let notes = workspace
+        let notes = Arc::new(
+            workspace
             .load_episodic_snapshot()
             .ok()
             .flatten()
             .map(SessionMemory::from_snapshot)
-            .unwrap_or_else(SessionMemory::new);
-        let inferred_edges = workspace
+            .unwrap_or_else(SessionMemory::new),
+        );
+        let inferred_edges = Arc::new(
+            workspace
             .load_inference_snapshot()
             .ok()
             .flatten()
             .map(InferenceStore::from_snapshot)
-            .unwrap_or_else(InferenceStore::new);
+            .unwrap_or_else(InferenceStore::new),
+        );
+        let query_log_store = Arc::new(QueryLogStore::default());
+        let dashboard_state = Arc::new(DashboardState::default());
+        let loaded_workspace_revision = workspace.loaded_workspace_revision_handle();
+        let loaded_episodic_revision = Arc::new(AtomicU64::new(revisions.episodic));
+        let loaded_inference_revision = Arc::new(AtomicU64::new(revisions.inference));
+        let loaded_coordination_revision = Arc::new(AtomicU64::new(revisions.coordination));
+        let workspace_runtime = Some(Arc::new(WorkspaceRuntime::spawn(
+            WorkspaceRuntimeConfig {
+                workspace: Arc::clone(&workspace),
+                notes: Arc::clone(&notes),
+                inferred_edges: Arc::clone(&inferred_edges),
+                dashboard_state: Arc::clone(&dashboard_state),
+                loaded_workspace_revision: Arc::clone(&loaded_workspace_revision),
+                loaded_episodic_revision: Arc::clone(&loaded_episodic_revision),
+                loaded_inference_revision: Arc::clone(&loaded_inference_revision),
+                loaded_coordination_revision: Arc::clone(&loaded_coordination_revision),
+            },
+        )));
         Self {
             prism: Arc::clone(&prism),
-            notes: Arc::new(notes),
-            inferred_edges: Arc::new(inferred_edges),
+            notes,
+            inferred_edges,
             next_event: Arc::new(AtomicU64::new(max_event_sequence(prism.as_ref()))),
             next_task: Arc::new(AtomicU64::new(max_task_sequence(prism.as_ref()))),
             default_limits: limits,
             worker_pool: Arc::new(worker_pool),
-            query_log_store: Arc::new(QueryLogStore::default()),
-            dashboard_state: Arc::new(DashboardState::default()),
+            query_log_store,
+            dashboard_state,
             workspace: Some(Arc::clone(&workspace)),
-            loaded_workspace_revision: workspace.loaded_workspace_revision_handle(),
-            loaded_episodic_revision: Arc::new(AtomicU64::new(revisions.episodic)),
-            loaded_inference_revision: Arc::new(AtomicU64::new(revisions.inference)),
-            loaded_coordination_revision: Arc::new(AtomicU64::new(revisions.coordination)),
+            loaded_workspace_revision,
+            loaded_episodic_revision,
+            loaded_inference_revision,
+            loaded_coordination_revision,
+            workspace_runtime,
             features,
         }
     }
@@ -628,233 +642,6 @@ impl QueryHost {
             .unwrap_or_else(|| Arc::clone(&self.prism))
     }
 
-    pub(crate) fn refresh_workspace(&self) -> Result<()> {
-        let Some(workspace) = &self.workspace else {
-            return Ok(());
-        };
-
-        let started = Instant::now();
-        let revisions = workspace.snapshot_revisions()?;
-        let mut refresh_path = "fast";
-        if self.reload_workspace_snapshot_if_needed(workspace, revisions.workspace)? {
-            refresh_path = "full";
-        }
-        let _ = workspace.refresh_fs()?;
-        self.sync_workspace_revision_value(revisions.workspace);
-
-        let episodic_reloaded =
-            self.reload_episodic_snapshot_if_needed(workspace, revisions.episodic)?;
-        let inference_reloaded =
-            self.reload_inference_snapshot_if_needed(workspace, revisions.inference)?;
-        let coordination_reloaded =
-            self.reload_coordination_snapshot_if_needed(workspace, revisions.coordination)?;
-        log_refresh_workspace(
-            refresh_path,
-            workspace,
-            episodic_reloaded,
-            inference_reloaded,
-            coordination_reloaded,
-            started.elapsed().as_millis(),
-        );
-        self.dashboard_state.publish_value(
-            "runtime.refreshed",
-            json!({
-                "refreshPath": refresh_path,
-                "durationMs": started.elapsed().as_millis(),
-                "coordinationReloaded": coordination_reloaded,
-                "episodicReloaded": episodic_reloaded,
-                "inferenceReloaded": inference_reloaded,
-            }),
-        );
-        if coordination_reloaded {
-            let _ = self.publish_dashboard_coordination_update();
-        }
-        Ok(())
-    }
-
-    pub(crate) fn refresh_workspace_for_query(&self) -> Result<WorkspaceRefreshReport> {
-        let Some(workspace) = &self.workspace else {
-            return Ok(WorkspaceRefreshReport {
-                refresh_path: "none",
-                deferred: false,
-                episodic_reloaded: false,
-                inference_reloaded: false,
-                coordination_reloaded: false,
-            });
-        };
-
-        let started = Instant::now();
-        let revisions = workspace.snapshot_revisions()?;
-        let mut refresh_path = "fast";
-        let deferred = match self
-            .try_reload_workspace_snapshot_if_needed(workspace, revisions.workspace)?
-        {
-            WorkspaceSnapshotReloadStatus::Unchanged => match workspace.refresh_fs_nonblocking()? {
-                FsRefreshStatus::Clean => false,
-                FsRefreshStatus::Refreshed => {
-                    refresh_path = "full";
-                    false
-                }
-                FsRefreshStatus::DeferredBusy => {
-                    refresh_path = "deferred";
-                    true
-                }
-            },
-            WorkspaceSnapshotReloadStatus::Reloaded => {
-                refresh_path = "persisted";
-                false
-            }
-            WorkspaceSnapshotReloadStatus::DeferredBusy => {
-                refresh_path = "deferred";
-                true
-            }
-        };
-        let (episodic_reloaded, inference_reloaded, coordination_reloaded) = if deferred {
-            (false, false, false)
-        } else {
-            self.sync_workspace_revision_value(revisions.workspace);
-            (
-                self.reload_episodic_snapshot_if_needed(workspace, revisions.episodic)?,
-                self.reload_inference_snapshot_if_needed(workspace, revisions.inference)?,
-                self.reload_coordination_snapshot_if_needed(workspace, revisions.coordination)?,
-            )
-        };
-        log_refresh_workspace(
-            refresh_path,
-            workspace,
-            episodic_reloaded,
-            inference_reloaded,
-            coordination_reloaded,
-            started.elapsed().as_millis(),
-        );
-        self.dashboard_state.publish_value(
-            "runtime.refreshed",
-            json!({
-                "refreshPath": refresh_path,
-                "durationMs": started.elapsed().as_millis(),
-                "coordinationReloaded": coordination_reloaded,
-                "deferred": deferred,
-                "episodicReloaded": episodic_reloaded,
-                "inferenceReloaded": inference_reloaded,
-            }),
-        );
-        if coordination_reloaded {
-            let _ = self.publish_dashboard_coordination_update();
-        }
-        Ok(WorkspaceRefreshReport {
-            refresh_path,
-            deferred,
-            episodic_reloaded,
-            inference_reloaded,
-            coordination_reloaded,
-        })
-    }
-
-    pub(crate) fn refresh_workspace_for_mutation(&self) -> Result<WorkspaceRefreshReport> {
-        let Some(workspace) = &self.workspace else {
-            return Ok(WorkspaceRefreshReport {
-                refresh_path: "none",
-                deferred: false,
-                episodic_reloaded: false,
-                inference_reloaded: false,
-                coordination_reloaded: false,
-            });
-        };
-
-        let started = Instant::now();
-        let revisions = workspace.snapshot_revisions()?;
-        let (workspace_reloaded, deferred) =
-            match self.try_reload_workspace_snapshot_if_needed(workspace, revisions.workspace)? {
-                WorkspaceSnapshotReloadStatus::Unchanged => (false, false),
-                WorkspaceSnapshotReloadStatus::Reloaded => (true, false),
-                WorkspaceSnapshotReloadStatus::DeferredBusy => (false, true),
-            };
-        if workspace_reloaded {
-            self.sync_workspace_revision_value(revisions.workspace);
-        }
-        let (episodic_reloaded, inference_reloaded, coordination_reloaded) = if deferred {
-            (false, false, false)
-        } else {
-            (
-                self.reload_episodic_snapshot_if_needed(workspace, revisions.episodic)?,
-                self.reload_inference_snapshot_if_needed(workspace, revisions.inference)?,
-                self.reload_coordination_snapshot_if_needed(workspace, revisions.coordination)?,
-            )
-        };
-        let refresh_path = if deferred {
-            "deferred"
-        } else if workspace_reloaded
-            || episodic_reloaded
-            || inference_reloaded
-            || coordination_reloaded
-        {
-            "persisted"
-        } else {
-            "none"
-        };
-        log_refresh_workspace(
-            refresh_path,
-            workspace,
-            episodic_reloaded,
-            inference_reloaded,
-            coordination_reloaded,
-            started.elapsed().as_millis(),
-        );
-        self.dashboard_state.publish_value(
-            "runtime.refreshed",
-            json!({
-                "refreshPath": refresh_path,
-                "durationMs": started.elapsed().as_millis(),
-                "coordinationReloaded": coordination_reloaded,
-                "deferred": deferred,
-                "episodicReloaded": episodic_reloaded,
-                "inferenceReloaded": inference_reloaded,
-                "workspaceReloaded": workspace_reloaded,
-            }),
-        );
-        if coordination_reloaded {
-            let _ = self.publish_dashboard_coordination_update();
-        }
-        Ok(WorkspaceRefreshReport {
-            refresh_path,
-            deferred,
-            episodic_reloaded,
-            inference_reloaded,
-            coordination_reloaded,
-        })
-    }
-
-    fn reload_workspace_snapshot_if_needed(
-        &self,
-        workspace: &WorkspaceSession,
-        revision: u64,
-    ) -> Result<bool> {
-        let loaded = self.loaded_workspace_revision.load(Ordering::Relaxed);
-        if revision == loaded {
-            return Ok(false);
-        }
-
-        workspace.reload_persisted_prism()?;
-        Ok(true)
-    }
-
-    fn try_reload_workspace_snapshot_if_needed(
-        &self,
-        workspace: &WorkspaceSession,
-        revision: u64,
-    ) -> Result<WorkspaceSnapshotReloadStatus> {
-        let loaded = self.loaded_workspace_revision.load(Ordering::Relaxed);
-        if revision == loaded {
-            return Ok(WorkspaceSnapshotReloadStatus::Unchanged);
-        }
-
-        if workspace.try_reload_persisted_prism()? {
-            Ok(WorkspaceSnapshotReloadStatus::Reloaded)
-        } else {
-            Ok(WorkspaceSnapshotReloadStatus::DeferredBusy)
-        }
-    }
-
     fn sync_workspace_revision(&self, workspace: &WorkspaceSession) -> Result<()> {
         let revision = workspace.workspace_revision()?;
         self.sync_workspace_revision_value(revision);
@@ -897,73 +684,6 @@ impl QueryHost {
     fn sync_coordination_revision_value(&self, revision: u64) {
         self.loaded_coordination_revision
             .store(revision, Ordering::Relaxed);
-    }
-
-    fn reload_episodic_snapshot_if_needed(
-        &self,
-        workspace: &WorkspaceSession,
-        revision: u64,
-    ) -> Result<bool> {
-        let loaded = self.loaded_episodic_revision.load(Ordering::Relaxed);
-        if revision == loaded {
-            return Ok(false);
-        }
-
-        let snapshot = workspace
-            .load_episodic_snapshot()?
-            .unwrap_or(EpisodicMemorySnapshot {
-                entries: Vec::new(),
-            });
-        self.notes.replace_from_snapshot(snapshot);
-        self.sync_episodic_revision_value(revision);
-        Ok(true)
-    }
-
-    fn reload_inference_snapshot_if_needed(
-        &self,
-        workspace: &WorkspaceSession,
-        revision: u64,
-    ) -> Result<bool> {
-        let loaded = self.loaded_inference_revision.load(Ordering::Relaxed);
-        if revision == loaded {
-            return Ok(false);
-        }
-
-        let snapshot = workspace.load_inference_snapshot()?.unwrap_or_default();
-        self.inferred_edges.replace_from_snapshot(snapshot);
-        self.sync_inference_revision_value(revision);
-        Ok(true)
-    }
-
-    fn reload_coordination_snapshot_if_needed(
-        &self,
-        workspace: &WorkspaceSession,
-        revision: u64,
-    ) -> Result<bool> {
-        let loaded = self.loaded_coordination_revision.load(Ordering::Relaxed);
-        if revision == loaded {
-            return Ok(false);
-        }
-
-        let plan_state = workspace.load_coordination_plan_state()?;
-        let snapshot = plan_state
-            .as_ref()
-            .map(|state| state.snapshot.clone())
-            .unwrap_or_default();
-        workspace
-            .prism_arc()
-            .replace_coordination_snapshot_and_plan_graphs(
-                snapshot,
-                plan_state
-                    .as_ref()
-                    .map(|state| state.plan_graphs.clone())
-                    .unwrap_or_default(),
-                plan_state
-                    .map(|state| state.execution_overlays)
-                    .unwrap_or_default(),
-            );
-        self.sync_coordination_revision_value(revision);
-        Ok(true)
     }
 
     fn persist_outcomes(&self) -> Result<()> {

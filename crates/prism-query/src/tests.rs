@@ -2088,7 +2088,7 @@ fn native_plan_edge_validation_rejects_self_cycles_and_multiple_child_parents() 
             PlanNode {
                 id: node_b.clone(),
                 plan_id: plan_id.clone(),
-                kind: PlanNodeKind::Edit,
+                kind: PlanNodeKind::Validate,
                 title: "Task B".into(),
                 summary: None,
                 status: PlanNodeStatus::Ready,
@@ -2153,6 +2153,176 @@ fn native_plan_edge_validation_rejects_self_cycles_and_multiple_child_parents() 
     assert!(parent_error
         .to_string()
         .contains("already has an authored parent"));
+}
+
+#[test]
+fn native_plan_edge_validation_enforces_kind_and_hierarchy_semantics() {
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let plan_id = PlanId::new("plan:native-edge-semantics");
+    let parent = PlanNodeId::new("plan-node:parent");
+    let child = PlanNodeId::new("plan-node:child");
+    let work = PlanNodeId::new("plan-node:work");
+    let validator = PlanNodeId::new("plan-node:validator");
+    let non_validator = PlanNodeId::new("plan-node:non-validator");
+    let abstract_target = PlanNodeId::new("plan-node:abstract-target");
+
+    let native_graph = PlanGraph {
+        id: plan_id.clone(),
+        scope: PlanScope::Repo,
+        kind: PlanKind::TaskExecution,
+        title: "Edge semantics".into(),
+        goal: "Enforce edge semantics".into(),
+        status: PlanStatus::Active,
+        revision: 1,
+        root_nodes: vec![
+            parent.clone(),
+            child.clone(),
+            work.clone(),
+            validator.clone(),
+            non_validator.clone(),
+            abstract_target.clone(),
+        ],
+        tags: Vec::new(),
+        created_from: None,
+        metadata: serde_json::Value::Null,
+        nodes: vec![
+            PlanNode {
+                id: parent.clone(),
+                plan_id: plan_id.clone(),
+                kind: PlanNodeKind::Note,
+                title: "Parent".into(),
+                summary: None,
+                status: PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                is_abstract: true,
+                assignee: None,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+            PlanNode {
+                id: child.clone(),
+                plan_id: plan_id.clone(),
+                kind: PlanNodeKind::Edit,
+                title: "Child".into(),
+                summary: None,
+                status: PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+            PlanNode {
+                id: work.clone(),
+                plan_id: plan_id.clone(),
+                kind: PlanNodeKind::Edit,
+                title: "Work".into(),
+                summary: None,
+                status: PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+            PlanNode {
+                id: validator.clone(),
+                plan_id: plan_id.clone(),
+                kind: PlanNodeKind::Validate,
+                title: "Validator".into(),
+                summary: None,
+                status: PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+            PlanNode {
+                id: non_validator.clone(),
+                plan_id: plan_id.clone(),
+                kind: PlanNodeKind::Edit,
+                title: "Not a validator".into(),
+                summary: None,
+                status: PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+            PlanNode {
+                id: abstract_target.clone(),
+                plan_id: plan_id.clone(),
+                kind: PlanNodeKind::Note,
+                title: "Abstract target".into(),
+                summary: None,
+                status: PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                is_abstract: true,
+                assignee: None,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+        ],
+        edges: Vec::new(),
+    };
+
+    let prism = Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
+        graph,
+        history,
+        outcomes,
+        coordination,
+        ProjectionIndex::default(),
+        vec![native_graph],
+        BTreeMap::new(),
+    );
+
+    prism
+        .create_native_plan_edge(&plan_id, &child, &parent, PlanEdgeKind::ChildOf)
+        .expect("child-of should succeed");
+    let graph = prism.plan_graph(&plan_id).expect("plan graph");
+    assert!(graph.root_nodes.iter().any(|node| node == &parent));
+    assert!(!graph.root_nodes.iter().any(|node| node == &child));
+
+    let validates_error = prism
+        .create_native_plan_edge(&plan_id, &work, &non_validator, PlanEdgeKind::Validates)
+        .expect_err("validates should require a validation node target");
+    assert!(validates_error
+        .to_string()
+        .contains("must target a Validate node"));
+
+    prism
+        .create_native_plan_edge(&plan_id, &work, &validator, PlanEdgeKind::Validates)
+        .expect("validate edge to validator should succeed");
+
+    let handoff_error = prism
+        .create_native_plan_edge(&plan_id, &work, &abstract_target, PlanEdgeKind::HandoffTo)
+        .expect_err("handoff should reject abstract structure targets");
+    assert!(handoff_error
+        .to_string()
+        .contains("must connect executable nodes"));
 }
 
 #[test]
@@ -2575,6 +2745,7 @@ fn native_plan_node_completion_rejects_missing_review_and_acceptance_validation(
             None,
             None,
             None,
+            None,
         )
         .expect_err("native node completion should reject missing evidence");
     assert!(error.to_string().contains("cannot complete"));
@@ -2658,6 +2829,7 @@ fn task_backed_native_plan_node_completion_uses_continuity_review_state() {
             None,
             None,
             None,
+            None,
         )
         .is_err());
 
@@ -2722,6 +2894,7 @@ fn task_backed_native_plan_node_completion_uses_continuity_review_state() {
             &node_id,
             None,
             Some(PlanNodeStatus::Completed),
+            None,
             None,
             None,
             None,
