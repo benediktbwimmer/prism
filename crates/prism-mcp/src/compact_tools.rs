@@ -3,17 +3,17 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use globset::{GlobBuilder, GlobMatcher};
 use prism_ir::{LineageId, NodeId, NodeKind};
 use prism_js::{
-    AgentExpandKind, AgentExpandResultView, AgentGatherResultView, AgentLocateResultView,
-    AgentLocateStatus, AgentOpenMode, AgentOpenResultView, AgentTargetHandleView,
-    AgentTextPreviewView, AgentWorksetResultView, QueryDiagnostic, SourceExcerptView,
-    SourceLocationView, SourceSliceView, SymbolView, TextSearchMatchView,
+    AgentExpandKind, AgentExpandResultView, AgentGatherResultView, AgentHandleCategoryView,
+    AgentLocateResultView, AgentLocateStatus, AgentOpenMode, AgentOpenResultView,
+    AgentTargetHandleView, AgentTextPreviewView, AgentWorksetResultView, QueryDiagnostic,
+    SourceExcerptView, SourceLocationView, SourceSliceView, SymbolView, TextSearchMatchView,
 };
 use prism_query::{EditSliceOptions, Prism, SourceExcerptOptions};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 mod concept;
 mod expand;
@@ -29,14 +29,14 @@ use crate::compact_followups::{
     compact_validation_checks, same_workspace_file, spec_body_identifier_terms,
 };
 use crate::file_queries::file_read;
-use crate::session_state::SessionHandleTarget;
+use crate::session_state::{SessionHandleCategory, SessionHandleTarget};
 use crate::text_search::search_text;
 use crate::{
-    diff_for, focused_block_for_symbol, next_reads, owner_views_for_target,
-    spec_drift_explanation_view, symbol_for, symbol_view, validation_context_view_cached,
     FileReadArgs, PrismConceptArgs, PrismExpandArgs, PrismExpandKindInput, PrismGatherArgs,
     PrismLocateArgs, PrismLocateTaskIntentInput, PrismOpenArgs, PrismOpenModeInput,
-    PrismWorksetArgs, QueryHost, QueryRun, SearchArgs, SearchTextArgs, SessionState,
+    PrismWorksetArgs, QueryHost, QueryRun, SearchArgs, SearchTextArgs, SessionState, diff_for,
+    focused_block_for_symbol, next_reads, owner_views_for_target, spec_drift_explanation_view,
+    symbol_for, symbol_view, validation_context_view_cached,
 };
 
 const DEFAULT_LOCATE_LIMIT: usize = 3;
@@ -248,6 +248,7 @@ fn compact_target_view(
             symbol.kind,
         ),
         lineage_id: symbol.lineage_id.clone(),
+        handle_category: SessionHandleCategory::Symbol,
         name: symbol.name.clone(),
         kind: symbol.kind,
         file_path: symbol.file_path.clone(),
@@ -260,6 +261,7 @@ fn compact_target_view(
     });
     AgentTargetHandleView {
         handle,
+        handle_category: agent_handle_category_view(SessionHandleCategory::Symbol),
         kind: symbol.kind,
         path: symbol.id.path.clone(),
         name: symbol.name.clone(),
@@ -275,6 +277,7 @@ fn compact_target_from_session_target(
     let handle = session.intern_target_handle(target.clone());
     AgentTargetHandleView {
         handle,
+        handle_category: agent_handle_category_view(target.handle_category),
         kind: target.kind,
         path: target.id.path.to_string(),
         name: target.name.clone(),
@@ -477,9 +480,12 @@ fn resolve_handle_target(
     session: &SessionState,
     prism: &Prism,
     handle: &str,
+    preferred_concept_lens: Option<&str>,
 ) -> Result<(SessionHandleTarget, bool)> {
     let mut target = session.handle_target(handle).ok_or_else(|| {
-        anyhow!("unknown handle `{handle}`; rerun prism_locate to select a target")
+        concept_handle_followup_error(prism, handle, preferred_concept_lens).unwrap_or_else(|| {
+            anyhow!("unknown handle `{handle}`; rerun prism_locate to select a target")
+        })
     })?;
     let mut remapped = false;
     if is_text_fragment_target(&target) {
@@ -525,11 +531,38 @@ fn resolve_handle_target(
     Ok((target, remapped))
 }
 
+fn concept_handle_followup_error(
+    prism: &Prism,
+    handle: &str,
+    preferred_lens: Option<&str>,
+) -> Option<anyhow::Error> {
+    if !handle.starts_with("concept://") {
+        return None;
+    }
+    let packet = prism.concept_by_handle(handle)?;
+    let followup = preferred_lens.map_or_else(
+        || {
+            format!(
+                "Use prism_concept with `handle`: `{handle}` and an appropriate `lens` (`open`, `workset`, `validation`, `timeline`, or `memory`)."
+            )
+        },
+        |lens| format!("Use prism_concept with `handle`: `{handle}` and `lens`: `{lens}`."),
+    );
+    Some(anyhow!(
+        "handle `{handle}` resolves to concept `{}` rather than a compact session target handle. {followup}",
+        packet.canonical_name
+    ))
+}
+
 fn is_text_fragment_target(target: &SessionHandleTarget) -> bool {
-    target.id.crate_name.as_str() == TEXT_FRAGMENT_CRATE_NAME
-        && target.start_line.is_some()
-        && target.end_line.is_some()
-        && target.file_path.is_some()
+    target.handle_category == SessionHandleCategory::TextFragment
+}
+
+fn agent_handle_category_view(category: SessionHandleCategory) -> AgentHandleCategoryView {
+    match category {
+        SessionHandleCategory::Symbol => AgentHandleCategoryView::Symbol,
+        SessionHandleCategory::TextFragment => AgentHandleCategoryView::TextFragment,
+    }
 }
 
 fn target_symbol_id(target: &SessionHandleTarget) -> Result<&NodeId> {
@@ -685,6 +718,7 @@ mod tests {
     fn handle_view(index: usize, file_path: Option<&str>) -> AgentTargetHandleView {
         AgentTargetHandleView {
             handle: format!("handle:{index}"),
+            handle_category: AgentHandleCategoryView::Symbol,
             kind: NodeKind::Function,
             path: format!("demo::module_{index}::very_long_function_name_for_budget_tests"),
             name: format!("very_long_function_name_for_budget_tests_{index}"),
@@ -701,6 +735,7 @@ mod tests {
                 NodeKind::Function,
             ),
             lineage_id: None,
+            handle_category: SessionHandleCategory::Symbol,
             name: format!("very_long_function_name_for_budget_tests_{index}"),
             kind: NodeKind::Function,
             file_path: file_path.map(ToString::to_string),
@@ -719,6 +754,7 @@ mod tests {
     ) -> AgentOpenResultView {
         AgentOpenResultView {
             handle: "handle:primary".to_string(),
+            handle_category: AgentHandleCategoryView::Symbol,
             file_path: "src/main.rs".to_string(),
             start_line: 1,
             end_line: 12,
@@ -751,10 +787,12 @@ mod tests {
         .expect("budgeted workset should serialize");
 
         assert!(!result.truncated);
-        assert!(result
-            .next_action
-            .as_deref()
-            .is_some_and(|value| value.contains("prism_open")));
+        assert!(
+            result
+                .next_action
+                .as_deref()
+                .is_some_and(|value| value.contains("prism_open"))
+        );
         assert!(workset_json_bytes(&result).expect("json bytes") <= WORKSET_MAX_JSON_BYTES);
     }
 
@@ -777,10 +815,12 @@ mod tests {
         .expect("budgeted workset should serialize");
 
         assert!(result.truncated);
-        assert!(result
-            .next_action
-            .as_deref()
-            .is_some_and(|value| value.contains("prism_open")));
+        assert!(
+            result
+                .next_action
+                .as_deref()
+                .is_some_and(|value| value.contains("prism_open"))
+        );
         assert!(workset_json_bytes(&result).expect("json bytes") <= WORKSET_MAX_JSON_BYTES);
         assert_eq!(result.primary.handle, "handle:1");
         assert!(
@@ -807,14 +847,18 @@ mod tests {
         .expect("budgeted open should serialize");
 
         assert!(open_json_bytes(&result).expect("json bytes") <= OPEN_MAX_JSON_BYTES);
-        assert!(result
-            .related_handles
-            .as_ref()
-            .is_none_or(|targets| targets.len() <= OPEN_RELATED_HANDLE_LIMIT));
-        assert!(result
-            .related_handles
-            .as_ref()
-            .is_none_or(|targets| { targets.iter().all(|target| target.file_path.is_none()) }));
+        assert!(
+            result
+                .related_handles
+                .as_ref()
+                .is_none_or(|targets| targets.len() <= OPEN_RELATED_HANDLE_LIMIT)
+        );
+        assert!(
+            result
+                .related_handles
+                .as_ref()
+                .is_none_or(|targets| { targets.iter().all(|target| target.file_path.is_none()) })
+        );
     }
 
     #[test]

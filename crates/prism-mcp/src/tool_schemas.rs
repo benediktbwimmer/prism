@@ -5,7 +5,7 @@ use serde_json::Value;
 use crate::{
     capabilities_resource_view_link, dedupe_resource_link_views, resource_meta,
     schema_resource_contents, schema_resource_uri, schema_resource_value,
-    schema_resource_view_link, session_resource_view_link, tool_input_example,
+    schema_resource_view_link, session_resource_view_link, tool_action_example, tool_input_example,
     tool_schema_resource_uri, tool_schema_resource_view_link, tool_schemas_resource_view_link,
     PrismConceptArgs, PrismExpandArgs, PrismGatherArgs, PrismLocateArgs, PrismMutationArgs,
     PrismOpenArgs, PrismQueryArgs, PrismSessionArgs, PrismTaskBriefArgs, PrismWorksetArgs,
@@ -145,7 +145,7 @@ pub(crate) fn tool_schema_view(tool_name: &str) -> Option<ToolSchemaView> {
         schema_uri: entry.schema_uri,
         description: entry.description,
         example_input: entry.example_input.clone(),
-        actions: tool_action_views(&input_schema, &entry.example_input),
+        actions: tool_action_views(tool_name, &input_schema, &entry.example_input),
         input_schema,
     })
 }
@@ -284,17 +284,22 @@ fn tool_input_schema_value_for<T: JsonSchema + std::any::Any>(
     )
 }
 
-fn tool_action_views(schema: &Value, example_input: &Value) -> Vec<ToolActionSchemaView> {
+fn tool_action_views(
+    tool_name: &str,
+    schema: &Value,
+    example_input: &Value,
+) -> Vec<ToolActionSchemaView> {
     schema
         .get("oneOf")
         .and_then(Value::as_array)
         .into_iter()
         .flat_map(|variants| variants.iter())
-        .filter_map(|variant| tool_action_view(schema, variant, example_input))
+        .filter_map(|variant| tool_action_view(tool_name, schema, variant, example_input))
         .collect()
 }
 
 fn tool_action_view(
+    tool_name: &str,
     root_schema: &Value,
     variant_schema: &Value,
     example_input: &Value,
@@ -323,11 +328,13 @@ fn tool_action_view(
             tool_field_view(root_schema, name, field_schema, &required_fields)
         })
         .collect::<Vec<_>>();
-    let example = example_input
-        .get("action")
-        .and_then(Value::as_str)
-        .filter(|candidate| *candidate == action)
-        .map(|_| example_input.clone());
+    let example = tool_action_example(tool_name, &action).or_else(|| {
+        example_input
+            .get("action")
+            .and_then(Value::as_str)
+            .filter(|candidate| *candidate == action)
+            .map(|_| example_input.clone())
+    });
     Some(ToolActionSchemaView {
         action,
         required_fields,

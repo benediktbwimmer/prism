@@ -7,11 +7,11 @@ use prism_memory::{OutcomeEvent, OutcomeMemorySnapshot};
 use crate::common::{event_weight, validation_labels};
 use crate::concepts::{
     concept_by_handle, curated_concepts_from_events, hydrate_curated_concepts,
-    merge_concept_packets, rank_concepts, resolve_curated_concepts,
+    merge_concept_packets, rank_concepts, resolve_concepts, resolve_curated_concepts,
 };
 use crate::types::{
-    CoChangeDelta, CoChangeRecord, ConceptEvent, ConceptPacket, ConceptScope, ProjectionSnapshot,
-    ValidationCheck, ValidationDelta,
+    CoChangeDelta, CoChangeRecord, ConceptEvent, ConceptPacket, ConceptResolution, ConceptScope,
+    ProjectionSnapshot, ValidationCheck, ValidationDelta,
 };
 
 pub const MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE: usize = 32;
@@ -328,6 +328,10 @@ impl ProjectionIndex {
 
     pub fn concepts(&self, query: &str, limit: usize) -> Vec<ConceptPacket> {
         rank_concepts(&self.concept_packets, query, limit)
+    }
+
+    pub fn resolve_concepts(&self, query: &str, limit: usize) -> Vec<ConceptResolution> {
+        resolve_concepts(&self.concept_packets, query, limit)
     }
 
     pub fn concept_by_handle(&self, handle: &str) -> Option<ConceptPacket> {

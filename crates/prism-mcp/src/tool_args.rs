@@ -134,6 +134,7 @@ pub(crate) struct PrismQueryArgs {
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum PrismLocateTaskIntentInput {
+    #[serde(alias = "read", alias = "code")]
     Inspect,
     Edit,
     Validate,
@@ -156,7 +157,7 @@ pub(crate) struct PrismLocateArgs {
     )]
     pub(crate) glob: Option<String>,
     #[schemars(
-        description = "Optional task intent that biases ranking toward code, docs, tests, or explanation targets. Accepts docs-oriented aliases such as `docs` and `spec`; when omitted, docs-like `path` or `glob` filters automatically bias toward explanation targets."
+        description = "Optional task intent that biases ranking toward code, docs, tests, or explanation targets. Accepts aliases such as `code` and `read` for `inspect`, plus docs-oriented aliases such as `docs` and `spec`; when omitted, docs-like `path` or `glob` filters automatically bias toward explanation targets."
     )]
     pub(crate) task_intent: Option<PrismLocateTaskIntentInput>,
     #[schemars(description = "Optional compact candidate count from 1 to 3.")]

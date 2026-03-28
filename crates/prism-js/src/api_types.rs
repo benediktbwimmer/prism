@@ -47,9 +47,18 @@ pub struct SourceSliceView {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentHandleCategoryView {
+    Symbol,
+    TextFragment,
+    Concept,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentTargetHandleView {
     pub handle: String,
+    pub handle_category: AgentHandleCategoryView,
     pub kind: NodeKind,
     pub path: String,
     pub name: String,
@@ -122,6 +131,7 @@ pub enum AgentOpenMode {
 #[serde(rename_all = "camelCase")]
 pub struct AgentOpenResultView {
     pub handle: String,
+    pub handle_category: AgentHandleCategoryView,
     pub file_path: String,
     pub start_line: usize,
     pub end_line: usize,
@@ -171,6 +181,7 @@ pub enum AgentExpandKind {
 #[serde(rename_all = "camelCase")]
 pub struct AgentExpandResultView {
     pub handle: String,
+    pub handle_category: AgentHandleCategoryView,
     pub kind: AgentExpandKind,
     pub result: Value,
     pub remapped: bool,
@@ -241,6 +252,8 @@ pub struct AgentConceptPacketView {
     pub provenance: ConceptProvenanceView,
     pub publication: Option<ConceptPublicationView>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolution: Option<ConceptResolutionView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub binding_metadata: Option<ConceptBindingMetadataView>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_action: Option<String>,
@@ -262,6 +275,8 @@ pub struct AgentConceptResultView {
     pub packet: AgentConceptPacketView,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub decode: Option<ConceptDecodeView>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub alternates: Vec<AgentConceptPacketView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -655,6 +670,13 @@ pub struct ConceptBindingMetadataView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct ConceptResolutionView {
+    pub score: i32,
+    pub reasons: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ConceptPacketView {
     pub handle: String,
     pub canonical_name: String,
@@ -670,6 +692,8 @@ pub struct ConceptPacketView {
     pub scope: ConceptScopeView,
     pub provenance: ConceptProvenanceView,
     pub publication: Option<ConceptPublicationView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolution: Option<ConceptResolutionView>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub binding_metadata: Option<ConceptBindingMetadataView>,
 }

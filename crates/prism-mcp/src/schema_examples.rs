@@ -9,7 +9,7 @@ use prism_ir::{EdgeKind, NodeId};
 
 pub(crate) fn schema_examples(target_resource_kind: &str) -> Option<Vec<Value>> {
     if let Some(tool_name) = target_resource_kind.strip_prefix("tool:") {
-        return tool_input_example(tool_name).map(|example| vec![example]);
+        return tool_input_examples(tool_name);
     }
     resource_payload_example(target_resource_kind).map(|example| vec![example])
 }
@@ -76,20 +76,124 @@ pub(crate) fn tool_input_example(tool_name: &str) -> Option<Value> {
             }
         })),
         "prism_mutate" => Some(json!({
-            "action": "concept",
+            "action": "validation_feedback",
             "input": {
-                "operation": "promote",
-                "canonicalName": "validation_pipeline",
-                "summary": "Checks, likely tests, and recent failures behind a change.",
-                "coreMembers": [{
-                    "crateName": "demo",
-                    "path": "demo::validation_recipe",
-                    "kind": "function"
-                }],
-                "aliases": ["validation", "checks"],
-                "evidence": ["Promoted from repeated validation worksets."]
+                "context": "Search for `session` while curating concept packs.",
+                "prismSaid": "Search result ordering was helpful.",
+                "actuallyTrue": "The top result matched the active session-state owner quickly.",
+                "category": "projection",
+                "verdict": "helpful",
+                "correctedManually": false
             }
         })),
+        _ => None,
+    }
+}
+
+pub(crate) fn tool_input_examples(tool_name: &str) -> Option<Vec<Value>> {
+    match tool_name {
+        "prism_session" => Some(vec![
+            tool_input_example("prism_session").expect("session example"),
+            json!({
+                "action": "configure",
+                "input": {
+                    "currentTaskDescription": "Continue compact-tool follow-up cleanup.",
+                    "currentTaskTags": ["prism-mcp", "dogfood"],
+                }
+            }),
+            json!({
+                "action": "finish_task",
+                "input": {
+                    "taskId": "task:demo-main",
+                    "summary": "Recorded the final compact-tool follow-up result.",
+                }
+            }),
+        ]),
+        "prism_mutate" => Some(vec![
+            tool_input_example("prism_mutate").expect("mutate example"),
+            json!({
+                "action": "memory",
+                "input": {
+                    "action": "store",
+                    "payload": {
+                        "kind": "episodic",
+                        "scope": "session",
+                        "content": "Concept handles need concept-aware compact follow-through.",
+                        "anchors": [{
+                            "type": "node",
+                            "crateName": "prism_mcp",
+                            "path": "prism_mcp::compact_tools::concept::QueryHost::compact_concept",
+                            "kind": "Method"
+                        }],
+                        "trust": 0.82,
+                        "metadata": {
+                            "provenance": {
+                                "kind": "manual_memory",
+                                "origin": "schema_example"
+                            }
+                        }
+                    }
+                }
+            }),
+            json!({
+                "action": "concept",
+                "input": {
+                    "operation": "promote",
+                    "canonicalName": "validation_pipeline",
+                    "summary": "Checks, likely tests, and recent failures behind a change.",
+                    "coreMembers": [{
+                        "crateName": "demo",
+                        "path": "demo::validation_recipe",
+                        "kind": "function"
+                    }, {
+                        "crateName": "demo",
+                        "path": "demo::runtime_status",
+                        "kind": "function"
+                    }],
+                    "aliases": ["validation", "checks"],
+                    "evidence": ["Promoted from repeated validation worksets."]
+                }
+            }),
+        ]),
+        _ => tool_input_example(tool_name).map(|example| vec![example]),
+    }
+}
+
+pub(crate) fn tool_action_example(tool_name: &str, action: &str) -> Option<Value> {
+    match (tool_name, action) {
+        ("prism_session", "start_task") => tool_input_example("prism_session"),
+        ("prism_session", "configure") => Some(json!({
+            "action": "configure",
+            "input": {
+                "currentTaskDescription": "Continue compact-tool follow-up cleanup.",
+                "currentTaskTags": ["prism-mcp", "dogfood"],
+            }
+        })),
+        ("prism_session", "finish_task") => Some(json!({
+            "action": "finish_task",
+            "input": {
+                "taskId": "task:demo-main",
+                "summary": "Recorded the final compact-tool follow-up result.",
+            }
+        })),
+        ("prism_session", "abandon_task") => Some(json!({
+            "action": "abandon_task",
+            "input": {
+                "taskId": "task:demo-main",
+                "summary": "Stopping after the compact-tool follow-up was redirected.",
+            }
+        })),
+        ("prism_mutate", "validation_feedback") => tool_input_example("prism_mutate"),
+        ("prism_mutate", "memory") => tool_input_examples("prism_mutate").and_then(|examples| {
+            examples
+                .into_iter()
+                .find(|example| example["action"] == "memory")
+        }),
+        ("prism_mutate", "concept") => tool_input_examples("prism_mutate").and_then(|examples| {
+            examples
+                .into_iter()
+                .find(|example| example["action"] == "concept")
+        }),
         _ => None,
     }
 }

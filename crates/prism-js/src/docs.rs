@@ -104,6 +104,11 @@ type ConceptQueryOptions = {
   includeBindingMetadata?: boolean;
 };
 
+type ConceptResolutionView = {
+  score: number;
+  reasons: string[];
+};
+
 type ImplementationOptions = {
   mode?: "direct" | "owners";
   ownerKind?: "read" | "write" | "persist" | "test" | "all";
@@ -715,6 +720,7 @@ type ConceptPacketView = {
   scope: ConceptScopeView;
   provenance: ConceptProvenanceView;
   publication?: ConceptPublicationView;
+  resolution?: ConceptResolutionView;
   bindingMetadata?: {
     coreMemberLineages: Array<string | null>;
     supportingMemberLineages: Array<string | null>;

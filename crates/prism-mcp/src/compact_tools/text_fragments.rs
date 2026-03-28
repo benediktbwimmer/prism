@@ -287,6 +287,7 @@ fn session_target_from_text_match(
     SessionHandleTarget {
         id: NodeId::new(TEXT_FRAGMENT_CRATE_NAME, display_path, kind),
         lineage_id: None,
+        handle_category: crate::session_state::SessionHandleCategory::TextFragment,
         name: format!("{basename}:{}", matched.location.start_line),
         kind,
         file_path: Some(matched.path.clone()),
@@ -667,6 +668,7 @@ pub(super) fn compact_open_text_fragment(
     let suggested_actions = text_fragment_suggested_actions(handle, promoted_handle.as_ref());
     compact_open_result_from_excerpt(
         handle,
+        target.handle_category,
         &file_path,
         excerpt,
         remapped,
@@ -702,6 +704,7 @@ fn compact_gather_match_result(
     let suggested_actions = text_fragment_suggested_actions(handle, promoted_handle.as_ref());
     compact_open_result_from_excerpt(
         handle,
+        target.handle_category,
         &file_path,
         excerpt,
         false,

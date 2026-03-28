@@ -534,7 +534,7 @@ impl QueryHost {
             event_id: event.id,
             concept_handle: packet.handle.clone(),
             task_id: task_id.0.to_string(),
-            packet: concept_packet_view(packet, true),
+            packet: concept_packet_view(packet, true, None),
         })
     }
 

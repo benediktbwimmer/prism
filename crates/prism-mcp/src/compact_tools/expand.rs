@@ -32,8 +32,13 @@ impl QueryHost {
             query_text,
             move |host, _query_run| {
                 let prism = host.current_prism();
-                let (target, remapped) =
-                    resolve_handle_target(host, session.as_ref(), prism.as_ref(), &args.handle)?;
+                let (target, remapped) = resolve_handle_target(
+                    host,
+                    session.as_ref(),
+                    prism.as_ref(),
+                    &args.handle,
+                    concept_lens_for_expand_kind(kind),
+                )?;
                 let mut top_preview = None;
                 let result = match kind {
                     AgentExpandKind::Diagnostics => {
@@ -85,6 +90,7 @@ impl QueryHost {
                                         session.as_ref(),
                                         prism.as_ref(),
                                         &candidate.handle,
+                                        None,
                                     )?;
                                     compact_preview_for_structured_target(
                                         host,
@@ -243,6 +249,7 @@ impl QueryHost {
                 Ok((
                     AgentExpandResultView {
                         handle: args.handle,
+                        handle_category: agent_handle_category_view(target.handle_category),
                         kind,
                         result,
                         remapped,
@@ -254,6 +261,15 @@ impl QueryHost {
                 ))
             },
         )
+    }
+}
+
+fn concept_lens_for_expand_kind(kind: AgentExpandKind) -> Option<&'static str> {
+    match kind {
+        AgentExpandKind::Validation => Some("validation"),
+        AgentExpandKind::Timeline => Some("timeline"),
+        AgentExpandKind::Memory => Some("memory"),
+        _ => None,
     }
 }
 
@@ -1017,6 +1033,7 @@ mod tests {
                 NodeKind::TomlKey,
             ),
             lineage_id: None,
+            handle_category: crate::session_state::SessionHandleCategory::Symbol,
             name: "dependencies".to_string(),
             kind: NodeKind::TomlKey,
             file_path: Some("Cargo.toml".to_string()),

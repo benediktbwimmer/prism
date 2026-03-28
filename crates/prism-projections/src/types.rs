@@ -47,6 +47,14 @@ pub struct ConceptPacket {
     pub publication: Option<ConceptPublication>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ConceptResolution {
+    pub packet: ConceptPacket,
+    pub score: i32,
+    #[serde(default)]
+    pub reasons: Vec<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ConceptPublicationStatus {

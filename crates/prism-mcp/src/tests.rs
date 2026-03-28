@@ -3932,7 +3932,7 @@ return {
     assert_eq!(mutate["toolName"], "prism_mutate");
     assert_eq!(
         mutate["actions"].as_array().map(|items| items.len()),
-        Some(13)
+        Some(14)
     );
     assert_eq!(
         mutate["exampleInput"]["input"]["prismSaid"],
@@ -4094,6 +4094,63 @@ fn prism_mutate_schema_surfaces_concept_action() {
 }
 
 #[test]
+fn prism_mutate_schema_surfaces_action_specific_examples() {
+    let schema = crate::tool_schema_view("prism_mutate").expect("mutate schema should exist");
+    let validation_feedback = schema
+        .actions
+        .iter()
+        .find(|action| action.action == "validation_feedback")
+        .expect("validation feedback action should exist");
+    let memory = schema
+        .actions
+        .iter()
+        .find(|action| action.action == "memory")
+        .expect("memory action should exist");
+    let concept = schema
+        .actions
+        .iter()
+        .find(|action| action.action == "concept")
+        .expect("concept action should exist");
+
+    assert_eq!(
+        validation_feedback
+            .example_input
+            .as_ref()
+            .and_then(|value| value.get("action"))
+            .and_then(Value::as_str),
+        Some("validation_feedback")
+    );
+    assert_eq!(
+        memory
+            .example_input
+            .as_ref()
+            .and_then(|value| value.get("action"))
+            .and_then(Value::as_str),
+        Some("memory")
+    );
+    assert_eq!(
+        concept
+            .example_input
+            .as_ref()
+            .and_then(|value| value.get("action"))
+            .and_then(Value::as_str),
+        Some("concept")
+    );
+
+    let mutate_schema =
+        crate::tool_input_schema_value("prism_mutate").expect("mutate schema value should exist");
+    let mutate_examples = mutate_schema["examples"]
+        .as_array()
+        .expect("mutate examples should be an array")
+        .iter()
+        .filter_map(|value| value.get("action").and_then(Value::as_str))
+        .collect::<Vec<_>>();
+    assert!(mutate_examples.contains(&"validation_feedback"));
+    assert!(mutate_examples.contains(&"memory"));
+    assert!(mutate_examples.contains(&"concept"));
+}
+
+#[test]
 fn compact_locate_uses_intent_to_choose_between_code_and_docs() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("docs")).unwrap();
@@ -4211,6 +4268,22 @@ fn prism_locate_accepts_docs_alias_task_intent() {
         args.task_intent,
         Some(PrismLocateTaskIntentInput::Explain)
     ));
+}
+
+#[test]
+fn prism_locate_accepts_code_and_read_alias_task_intent() {
+    for alias in ["code", "read"] {
+        let args: PrismLocateArgs = serde_json::from_value(json!({
+            "query": "event journal",
+            "taskIntent": alias,
+        }))
+        .expect("inspect alias should deserialize");
+
+        assert!(matches!(
+            args.task_intent,
+            Some(PrismLocateTaskIntentInput::Inspect)
+        ));
+    }
 }
 
 #[test]
@@ -4706,10 +4779,215 @@ pub fn start_task() {}
     assert!(!concept.packet.core_members.is_empty());
     assert!(concept.packet.binding_metadata.is_some());
     assert!(concept
+        .packet
+        .resolution
+        .as_ref()
+        .is_some_and(|resolution| !resolution.reasons.is_empty()));
+    assert!(concept
         .decode
         .as_ref()
         .and_then(|decode| decode.validation_recipe.as_ref())
         .is_some());
+}
+
+#[test]
+fn compact_concept_returns_alternates_for_ambiguous_queries() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn validation_recipe() {}
+pub fn runtime_status() {}
+pub fn healthcheck_status() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+    host.store_concept(
+        session.as_ref(),
+        PrismConceptMutationArgs {
+            operation: ConceptMutationOperationInput::Promote,
+            handle: Some("concept://validation_pipeline".to_string()),
+            canonical_name: Some("validation_pipeline".to_string()),
+            summary: Some("Validation checks and likely tests.".to_string()),
+            aliases: Some(vec!["validation".to_string(), "checks".to_string()]),
+            core_members: Some(vec![NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::validation_recipe".to_string(),
+                kind: "function".to_string(),
+            }]),
+            supporting_members: Some(vec![NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::runtime_status".to_string(),
+                kind: "function".to_string(),
+            }]),
+            likely_tests: None,
+            evidence: Some(vec!["Curated in test.".to_string()]),
+            risk_hint: None,
+            confidence: Some(0.92),
+            decode_lenses: Some(vec![PrismConceptLensInput::Validation]),
+            scope: Some(ConceptScopeInput::Session),
+            supersedes: None,
+            retirement_reason: None,
+            task_id: Some("task:ambiguous-validation".to_string()),
+        },
+    )
+    .expect("validation concept setup should succeed");
+    host.store_concept(
+        session.as_ref(),
+        PrismConceptMutationArgs {
+            operation: ConceptMutationOperationInput::Promote,
+            handle: Some("concept://validation_health_checks".to_string()),
+            canonical_name: Some("validation_health_checks".to_string()),
+            summary: Some(
+                "Validation-oriented runtime health checks and status probes.".to_string(),
+            ),
+            aliases: Some(vec!["validation".to_string(), "health checks".to_string()]),
+            core_members: Some(vec![NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::healthcheck_status".to_string(),
+                kind: "function".to_string(),
+            }]),
+            supporting_members: Some(vec![NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::runtime_status".to_string(),
+                kind: "function".to_string(),
+            }]),
+            likely_tests: None,
+            evidence: Some(vec!["Curated in test.".to_string()]),
+            risk_hint: None,
+            confidence: Some(0.9),
+            decode_lenses: Some(vec![PrismConceptLensInput::Open]),
+            scope: Some(ConceptScopeInput::Session),
+            supersedes: None,
+            retirement_reason: None,
+            task_id: Some("task:ambiguous-validation".to_string()),
+        },
+    )
+    .expect("runtime concept setup should succeed");
+
+    let concept = host
+        .compact_concept(
+            Arc::clone(&session),
+            PrismConceptArgs {
+                handle: None,
+                query: Some("validation".to_string()),
+                lens: None,
+                include_binding_metadata: Some(false),
+            },
+        )
+        .expect("concept tool should succeed");
+
+    assert!(!concept.alternates.is_empty());
+    assert!(concept
+        .alternates
+        .iter()
+        .any(|alternate| alternate.handle == "concept://validation_health_checks"));
+}
+
+#[test]
+fn compact_tools_route_or_reject_concept_handles_with_clear_followups() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn validation_recipe() {}
+pub fn runtime_status() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+    host.store_concept(
+        session.as_ref(),
+        PrismConceptMutationArgs {
+            operation: ConceptMutationOperationInput::Promote,
+            handle: Some("concept://custom_validation".to_string()),
+            canonical_name: Some("custom_validation".to_string()),
+            summary: Some("Custom curated validation concept.".to_string()),
+            aliases: Some(vec!["validation".to_string(), "checks".to_string()]),
+            core_members: Some(vec![
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::validation_recipe".to_string(),
+                    kind: "function".to_string(),
+                },
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::runtime_status".to_string(),
+                    kind: "function".to_string(),
+                },
+            ]),
+            supporting_members: None,
+            likely_tests: None,
+            evidence: Some(vec!["Curated in test.".to_string()]),
+            risk_hint: None,
+            confidence: Some(0.91),
+            decode_lenses: Some(vec![
+                PrismConceptLensInput::Open,
+                PrismConceptLensInput::Workset,
+                PrismConceptLensInput::Validation,
+            ]),
+            scope: Some(ConceptScopeInput::Session),
+            supersedes: None,
+            retirement_reason: None,
+            task_id: Some("task:concept-followup".to_string()),
+        },
+    )
+    .expect("concept setup should succeed");
+
+    let open = host
+        .compact_open(
+            Arc::clone(&session),
+            PrismOpenArgs {
+                handle: "concept://custom_validation".to_string(),
+                mode: Some(PrismOpenModeInput::Focus),
+            },
+        )
+        .expect_err("open should reject concept handles");
+    assert!(open.to_string().contains("prism_concept"), "{open}");
+    assert!(open.to_string().contains("`lens`: `open`"), "{open}");
+    assert!(!open.to_string().contains("rerun prism_locate"), "{open}");
+
+    let workset = host
+        .compact_workset(
+            Arc::clone(&session),
+            PrismWorksetArgs {
+                handle: Some("concept://custom_validation".to_string()),
+                query: None,
+            },
+        )
+        .expect("workset should accept concept handles");
+    assert_eq!(workset.primary.path, "demo::validation_recipe");
+    assert_eq!(
+        workset.primary.handle_category,
+        prism_js::AgentHandleCategoryView::Symbol
+    );
+    assert!(workset
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("prism_concept")));
+
+    let expand = host
+        .compact_expand(
+            Arc::clone(&session),
+            PrismExpandArgs {
+                handle: "concept://custom_validation".to_string(),
+                kind: PrismExpandKindInput::Validation,
+                include_top_preview: None,
+            },
+        )
+        .expect_err("expand should reject concept handles");
+    assert!(expand.to_string().contains("prism_concept"), "{expand}");
+    assert!(
+        expand.to_string().contains("`lens`: `validation`"),
+        "{expand}"
+    );
+    assert!(
+        !expand.to_string().contains("rerun prism_locate"),
+        "{expand}"
+    );
 }
 
 #[test]
@@ -4780,6 +5058,7 @@ return {
         envelope.result["concept"]["handle"],
         Value::String("concept://custom_validation".to_string())
     );
+    assert!(envelope.result["concept"]["resolution"].is_object());
     assert!(envelope.result["concept"]["bindingMetadata"].is_object());
     assert!(envelope.result["byHandle"]["bindingMetadata"].is_object());
     assert!(envelope.result["decoded"]["concept"]["bindingMetadata"].is_object());
@@ -5258,10 +5537,12 @@ def helper():
         .matches
         .iter()
         .all(|matched| matched.text.contains("prism_compact_tool_calls")));
-    assert!(gather.matches.iter().all(|matched| matched
-        .next_action
-        .as_deref()
-        .is_some_and(|next| next.contains("prism_gather"))));
+    assert!(gather.matches.iter().all(|matched| {
+        matched
+            .next_action
+            .as_deref()
+            .is_some_and(|next| next.contains("prism_gather"))
+    }));
     assert!(gather
         .matches
         .iter()
@@ -5979,6 +6260,7 @@ fn compact_expand_lineage_returns_compact_recent_history() {
             .current_prism()
             .lineage_of(&current_id)
             .map(|lineage| lineage.0.to_string()),
+        handle_category: crate::session_state::SessionHandleCategory::Symbol,
         name: "latest_name".into(),
         kind: NodeKind::Function,
         file_path: Some(source_path.to_string_lossy().into_owned()),
@@ -6092,6 +6374,7 @@ fn compact_expand_diff_returns_compact_recent_patch_summaries() {
             .current_prism()
             .lineage_of(&alpha_id)
             .map(|lineage| lineage.0.to_string()),
+        handle_category: crate::session_state::SessionHandleCategory::Symbol,
         name: "alpha".into(),
         kind: NodeKind::Function,
         file_path: Some(source_path.to_string_lossy().into_owned()),
@@ -6284,6 +6567,7 @@ fn compact_expand_perception_lenses_surface_impact_timeline_and_memory() {
             .current_prism()
             .lineage_of(&alpha_id)
             .map(|lineage| lineage.0.to_string()),
+        handle_category: crate::session_state::SessionHandleCategory::Symbol,
         name: "alpha".into(),
         kind: NodeKind::Function,
         file_path: Some(source_path.to_string_lossy().into_owned()),
@@ -6596,9 +6880,11 @@ fn compact_workset_for_spec_targets_prefers_owner_paths_over_text_adjacent_helpe
         .iter()
         .any(|target| target.path.contains("validation_feedback_view")
             || target.path.contains("store_validation_feedback")));
-    assert!(workset.supporting_reads.iter().all(|target| !target
-        .path
-        .contains("strip_internal_developer_api_reference")));
+    assert!(workset.supporting_reads.iter().all(|target| {
+        !target
+            .path
+            .contains("strip_internal_developer_api_reference")
+    }));
 
     let drift = host
         .compact_expand(
@@ -6727,9 +7013,11 @@ fn compact_open_for_product_surface_spec_headings_prefers_identifier_owners() {
                 || target.path.contains("prism_workset")
                 || target.path.contains("prism_expand")
         })));
-    assert!(open.related_handles.as_ref().is_some_and(|targets| targets
-        .iter()
-        .all(|target| !target.path.contains("tests::"))));
+    assert!(open.related_handles.as_ref().is_some_and(|targets| {
+        targets
+            .iter()
+            .all(|target| !target.path.contains("tests::"))
+    }));
     assert!(open
         .next_action
         .as_deref()
@@ -9175,25 +9463,31 @@ fn search_resource_payload_surfaces_suggested_reads() {
         .discovery
         .as_ref()
         .is_some_and(|bundle| !bundle.suggested_reads.is_empty()));
-    assert!(payload.discovery.as_ref().is_some_and(|bundle| bundle
-        .trust_signals
-        .evidence_sources
-        .iter()
-        .any(|source| matches!(source, prism_js::EvidenceSourceKind::Inferred))));
-    assert!(payload.discovery.as_ref().is_some_and(|bundle| bundle
-        .validation_context
-        .suggested_queries
-        .iter()
-        .any(|query| query.label == "Validation Context")));
+    assert!(payload.discovery.as_ref().is_some_and(|bundle| {
+        bundle
+            .trust_signals
+            .evidence_sources
+            .iter()
+            .any(|source| matches!(source, prism_js::EvidenceSourceKind::Inferred))
+    }));
+    assert!(payload.discovery.as_ref().is_some_and(|bundle| {
+        bundle
+            .validation_context
+            .suggested_queries
+            .iter()
+            .any(|query| query.label == "Validation Context")
+    }));
     assert!(payload
         .discovery
         .as_ref()
         .is_some_and(|bundle| !bundle.why.is_empty()));
-    assert!(payload.discovery.as_ref().is_some_and(|bundle| bundle
-        .recent_change_context
-        .suggested_queries
-        .iter()
-        .any(|query| query.label == "Recent Change Context")));
+    assert!(payload.discovery.as_ref().is_some_and(|bundle| {
+        bundle
+            .recent_change_context
+            .suggested_queries
+            .iter()
+            .any(|query| query.label == "Recent Change Context")
+    }));
     assert!(payload.suggested_reads.iter().any(|candidate| {
         candidate.kind == "read" && candidate.symbol.id.path.contains("memory_recall")
     }));
@@ -9623,8 +9917,13 @@ return prism.diagnostics();
     assert_eq!(result.diagnostics.len(), 1);
     assert_eq!(result.diagnostics[0].code, "result_truncated");
     assert_eq!(
-        result.diagnostics[0].data.as_ref().and_then(|data| data["nextAction"].as_str()),
-        Some("Use prism.search(query, { path: ..., module: ..., kind: ..., taskId: ..., limit: ... }) to narrow the result set.")
+        result.diagnostics[0]
+            .data
+            .as_ref()
+            .and_then(|data| data["nextAction"].as_str()),
+        Some(
+            "Use prism.search(query, { path: ..., module: ..., kind: ..., taskId: ..., limit: ... }) to narrow the result set."
+        )
     );
 }
 
@@ -12524,11 +12823,13 @@ return prism.taskJournal("task:journal", { eventLimit: 10, memoryLimit: 5 });
         .diagnostics
         .iter()
         .any(|diagnostic| diagnostic.code == "missing_validation"));
-    assert!(result.diagnostics.iter().all(|diagnostic| diagnostic
-        .data
-        .as_ref()
-        .and_then(|data| data["nextAction"].as_str())
-        .is_some()));
+    assert!(result.diagnostics.iter().all(|diagnostic| {
+        diagnostic
+            .data
+            .as_ref()
+            .and_then(|data| data["nextAction"].as_str())
+            .is_some()
+    }));
 }
 
 #[test]
@@ -12628,6 +12929,51 @@ fn explicit_start_task_sets_session_default_and_logs_plan() {
     assert_eq!(replay.events[0].kind, OutcomeKind::PlanCreated);
     assert_eq!(replay.events[0].summary, "Investigate main");
     assert_eq!(replay.events[0].metadata["tags"][0], "bug");
+
+    let journal = host
+        .execute(
+            test_session(&host),
+            &format!(
+                "return prism.taskJournal(\"{}\", {{ eventLimit: 10, memoryLimit: 5 }});",
+                task.0
+            ),
+            QueryLanguage::Ts,
+        )
+        .expect("task journal query should succeed");
+    assert!(journal.result["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|diagnostic| diagnostic["code"] != "missing_plan"));
+}
+
+#[test]
+fn task_journal_without_outcome_history_does_not_claim_missing_plan() {
+    let host = host_with_node(demo_node());
+    let task = TaskId::new("task:empty");
+    test_session(&host).set_current_task(
+        task.clone(),
+        Some("Investigate empty task".to_string()),
+        Vec::new(),
+    );
+
+    let journal = host
+        .execute(
+            test_session(&host),
+            r#"
+return prism.taskJournal("task:empty", { eventLimit: 10, memoryLimit: 5 });
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("task journal query should succeed");
+
+    assert_eq!(journal.result["taskId"], "task:empty");
+    assert_eq!(journal.result["disposition"], "active");
+    assert!(journal.result["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|diagnostic| diagnostic["code"] != "missing_plan"));
 }
 
 #[test]

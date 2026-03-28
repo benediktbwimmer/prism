@@ -1,5 +1,6 @@
 use prism_js::AgentSuggestedActionView;
 
+use super::concept::compact_concept_workset_result;
 use super::suggested_actions::{
     dedupe_suggested_actions, suggested_expand_action, suggested_open_action,
 };
@@ -28,6 +29,15 @@ impl QueryHost {
             query_text,
             move |host, query_run| {
                 let prism = host.current_prism();
+                if let Some(handle) = args
+                    .handle
+                    .as_deref()
+                    .filter(|handle| handle.starts_with("concept://"))
+                {
+                    let result =
+                        compact_concept_workset_result(session.as_ref(), prism.as_ref(), handle)?;
+                    return Ok((result, Vec::new()));
+                }
                 let (target, remapped) = resolve_or_select_workset_target(
                     host,
                     Arc::clone(&session),
@@ -66,6 +76,26 @@ pub(super) fn budgeted_workset_result(
         result_primary_followup_handle(&primary, &supporting_reads, &likely_tests);
     let suggested_actions =
         compact_workset_suggested_actions(target, &primary.handle, &followup_handle);
+    budgeted_workset_result_with_followups(
+        primary,
+        supporting_reads,
+        likely_tests,
+        why,
+        remapped,
+        Some(compact_workset_next_action(target)),
+        suggested_actions,
+    )
+}
+
+pub(super) fn budgeted_workset_result_with_followups(
+    primary: AgentTargetHandleView,
+    supporting_reads: Vec<AgentTargetHandleView>,
+    likely_tests: Vec<AgentTargetHandleView>,
+    why: String,
+    remapped: bool,
+    next_action: Option<String>,
+    suggested_actions: Vec<AgentSuggestedActionView>,
+) -> Result<AgentWorksetResultView> {
     let mut result = AgentWorksetResultView {
         primary,
         supporting_reads,
@@ -73,7 +103,7 @@ pub(super) fn budgeted_workset_result(
         why: clamp_string(&why, WORKSET_WHY_MAX_CHARS),
         truncated: false,
         remapped,
-        next_action: Some(compact_workset_next_action(target)),
+        next_action,
         suggested_actions,
     };
     let mut trimmed = false;
@@ -915,7 +945,7 @@ pub(super) fn resolve_or_select_workset_target(
     query_run: QueryRun,
 ) -> Result<(SessionHandleTarget, bool)> {
     if let Some(handle) = args.handle.as_deref() {
-        return resolve_handle_target(host, session.as_ref(), prism, handle);
+        return resolve_handle_target(host, session.as_ref(), prism, handle, Some("workset"));
     }
     let query = args
         .query
@@ -949,5 +979,11 @@ pub(super) fn resolve_or_select_workset_target(
         .next()
         .ok_or_else(|| anyhow!("no target matched `{query}`; rerun prism_locate first"))?;
     let handle_view = compact_target_view(session.as_ref(), &symbol, Some(query), None);
-    resolve_handle_target(host, session.as_ref(), prism, &handle_view.handle)
+    resolve_handle_target(
+        host,
+        session.as_ref(),
+        prism,
+        &handle_view.handle,
+        Some("workset"),
+    )
 }

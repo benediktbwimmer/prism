@@ -17,6 +17,7 @@ use prism_coordination::{CoordinationSnapshot, CoordinationStore};
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{AnchorRef, LineageEvent, LineageId, NodeId};
 use prism_memory::{OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot};
+pub use prism_projections::ConceptResolution;
 use prism_projections::{IntentIndex, ProjectionIndex, ProjectionSnapshot};
 use prism_store::Graph;
 use tracing::info;
@@ -285,8 +286,19 @@ impl Prism {
             .concepts(query, limit)
     }
 
+    pub fn resolve_concepts(&self, query: &str, limit: usize) -> Vec<ConceptResolution> {
+        self.projections
+            .read()
+            .expect("projection lock poisoned")
+            .resolve_concepts(query, limit)
+    }
+
     pub fn concept(&self, query: &str) -> Option<ConceptPacket> {
         self.concepts(query, 1).into_iter().next()
+    }
+
+    pub fn resolve_concept(&self, query: &str) -> Option<ConceptResolution> {
+        self.resolve_concepts(query, 1).into_iter().next()
     }
 
     pub fn concept_by_handle(&self, handle: &str) -> Option<ConceptPacket> {

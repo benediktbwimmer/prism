@@ -1,15 +1,15 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use prism_ir::{AnchorRef, CoordinationTaskId, NodeId, TaskId};
 use prism_js::{AgentOutcomeSummaryView, AgentTaskBlockerView, AgentTaskBriefResultView};
 use prism_query::Prism;
 
 use super::suggested_actions::{dedupe_suggested_actions, suggested_open_action};
 use super::*;
-use crate::task_journal_view;
 use crate::PrismTaskBriefArgs;
+use crate::task_journal_view;
 
 impl QueryHost {
     pub(crate) fn compact_task_brief(
@@ -324,6 +324,7 @@ mod tests {
             next_reads: vec![
                 AgentTargetHandleView {
                     handle: "handle:1".to_string(),
+                    handle_category: prism_js::AgentHandleCategoryView::Symbol,
                     kind: NodeKind::Function,
                     path: "demo::one".to_string(),
                     name: "one".to_string(),
@@ -334,6 +335,7 @@ mod tests {
                 },
                 AgentTargetHandleView {
                     handle: "handle:2".to_string(),
+                    handle_category: prism_js::AgentHandleCategoryView::Symbol,
                     kind: NodeKind::Function,
                     path: "demo::two".to_string(),
                     name: "two".to_string(),

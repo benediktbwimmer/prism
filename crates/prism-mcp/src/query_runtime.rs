@@ -26,27 +26,28 @@ use crate::{
     ambiguity::is_broad_identifier_query, ambiguity_diagnostic_data, apply_module_filter,
     artifact_risk_view, artifact_view, blast_radius_view, blocker_view, change_impact_view,
     changed_files, changed_symbols, claim_view, co_change_view, combined_parse_typescript_error,
-    concept_decode_lens_view, concept_packet_view, conflict_view, convert_anchors, convert_node_id,
-    coordination_task_view, current_timestamp, diff_for, drift_candidate_view, edge_kind_label,
-    edge_view, edit_slice_for_symbol, entrypoints_for, focused_block_for_symbol,
-    is_query_parse_error, js_runtime, lineage_view, memory_event_view, merge_node_ids,
-    merge_promoted_checks, missing_return_hint, next_reads, owner_symbol_views_for_query,
-    owner_symbol_views_for_target, owner_views_for_target, parse_capability, parse_claim_mode,
-    parse_event_actor, parse_memory_event_action, parse_memory_kind, parse_memory_scope,
-    parse_node_kind, parse_outcome_kind, parse_outcome_result, parse_typescript_error, plan_view,
-    policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
-    promoted_validation_checks, query_diagnostic, rank_search_results, read_context_view_cached,
-    recent_change_context_view_cached, recent_patches, relations_view, result_decode_error,
+    concept_decode_lens_view, concept_packet_view, concept_resolution_is_ambiguous, conflict_view,
+    convert_anchors, convert_node_id, coordination_task_view, current_timestamp, diff_for,
+    drift_candidate_view, edge_kind_label, edge_view, edit_slice_for_symbol, entrypoints_for,
+    focused_block_for_symbol, is_query_parse_error, js_runtime, lineage_view, memory_event_view,
+    merge_node_ids, merge_promoted_checks, missing_return_hint, next_reads,
+    owner_symbol_views_for_query, owner_symbol_views_for_target, owner_views_for_target,
+    parse_capability, parse_claim_mode, parse_event_actor, parse_memory_event_action,
+    parse_memory_kind, parse_memory_scope, parse_node_kind, parse_outcome_kind,
+    parse_outcome_result, parse_typescript_error, plan_view, policy_violation_record_view,
+    promoted_memory_entries, promoted_summary_texts, promoted_validation_checks, query_diagnostic,
+    rank_search_results, read_context_view_cached, recent_change_context_view_cached,
+    recent_patches, relations_view, resolve_concepts_for_session, result_decode_error,
     runtime_or_serialization_error, scored_memory_view, search_queries, source_excerpt_for_symbol,
     spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
     task_intent_view, task_journal_view, task_risk_view, task_validation_recipe_view,
     tool_catalog_views, tool_schema_view, validation_context_view_cached,
-    validation_recipe_view_with, weak_search_match_diagnostic_data, weak_search_match_reason,
-    where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs,
-    ConceptHandleArgs, ConceptQueryArgs, CoordinationTaskTargetArgs, CuratorJobArgs,
-    CuratorJobsArgs, CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs, DiscoveryTargetArgs,
-    EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs,
-    MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
+    validation_recipe_view_with, weak_concept_match_reason, weak_search_match_diagnostic_data,
+    weak_search_match_reason, where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs,
+    ChangedSymbolsArgs, ConceptHandleArgs, ConceptQueryArgs, CoordinationTaskTargetArgs,
+    CuratorJobArgs, CuratorJobsArgs, CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs,
+    DiscoveryTargetArgs, EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs,
+    LimitArgs, MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
     PendingReviewsArgs, PlanTargetArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage,
     QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs,
     SearchAmbiguityContext, SearchArgs, SearchTextArgs, SemanticContextCache, SessionState,
@@ -2385,14 +2386,22 @@ impl QueryExecution {
                 Some(json!({ "requested": requested, "applied": applied })),
             );
         }
-        let concepts = self
-            .prism
-            .concepts(&args.query, applied)
-            .into_iter()
-            .map(|packet| {
-                concept_packet_view(packet, args.include_binding_metadata.unwrap_or(false))
-            })
-            .collect::<Vec<_>>();
+        let concepts = resolve_concepts_for_session(
+            self.prism.as_ref(),
+            self.session.as_ref(),
+            &args.query,
+            applied,
+        )
+        .into_iter()
+        .map(|resolution| {
+            let packet = resolution.packet.clone();
+            concept_packet_view(
+                packet,
+                args.include_binding_metadata.unwrap_or(false),
+                Some(resolution),
+            )
+        })
+        .collect::<Vec<_>>();
         if concepts.is_empty() {
             self.push_diagnostic(
                 "anchor_unresolved",
@@ -2404,8 +2413,54 @@ impl QueryExecution {
     }
 
     fn concept(&self, args: ConceptQueryArgs) -> Result<Option<ConceptPacketView>> {
-        let concept = self.prism.concept(&args.query).map(|packet| {
-            concept_packet_view(packet, args.include_binding_metadata.unwrap_or(false))
+        let resolutions = resolve_concepts_for_session(
+            self.prism.as_ref(),
+            self.session.as_ref(),
+            &args.query,
+            3,
+        );
+        if concept_resolution_is_ambiguous(&resolutions) {
+            self.push_diagnostic(
+                "ambiguous_concept",
+                format!(
+                    "Concept query `{}` matched multiple plausible concepts.",
+                    args.query
+                ),
+                Some(json!({
+                    "query": args.query,
+                    "candidates": resolutions
+                        .iter()
+                        .take(3)
+                        .map(|resolution| json!({
+                            "handle": resolution.packet.handle,
+                            "score": resolution.score,
+                            "reasons": resolution.reasons,
+                        }))
+                        .collect::<Vec<_>>(),
+                })),
+            );
+        }
+        if let Some(reason) = resolutions
+            .first()
+            .and_then(|resolution| weak_concept_match_reason(resolution.score))
+        {
+            self.push_diagnostic(
+                "weak_concept_match",
+                format!("Concept query `{}` resolved weakly: {reason}.", args.query),
+                Some(json!({
+                    "query": args.query,
+                    "reason": reason,
+                    "score": resolutions.first().map(|resolution| resolution.score),
+                })),
+            );
+        }
+        let concept = resolutions.into_iter().next().map(|resolution| {
+            let packet = resolution.packet.clone();
+            concept_packet_view(
+                packet,
+                args.include_binding_metadata.unwrap_or(false),
+                Some(resolution),
+            )
         });
         if concept.is_none() {
             self.push_diagnostic(
@@ -2419,7 +2474,7 @@ impl QueryExecution {
 
     fn concept_by_handle(&self, args: ConceptHandleArgs) -> Result<Option<ConceptPacketView>> {
         let concept = self.prism.concept_by_handle(&args.handle).map(|packet| {
-            concept_packet_view(packet, args.include_binding_metadata.unwrap_or(false))
+            concept_packet_view(packet, args.include_binding_metadata.unwrap_or(false), None)
         });
         if concept.is_none() {
             self.push_diagnostic(
@@ -2433,13 +2488,22 @@ impl QueryExecution {
 
     fn decode_concept(&self, args: DecodeConceptArgs) -> Result<Option<ConceptDecodeView>> {
         let lens = parse_concept_lens(&args.lens)?;
-        let packet = match (args.handle.as_deref(), args.query.as_deref()) {
-            (Some(handle), _) => self.prism.concept_by_handle(handle),
-            (None, Some(query)) => self.prism.concept(query),
-            (None, None) => {
-                return Err(anyhow!("decodeConcept requires either `handle` or `query`"))
-            }
-        };
+        let packet: Option<prism_query::ConceptPacket> =
+            match (args.handle.as_deref(), args.query.as_deref()) {
+                (Some(handle), _) => self.prism.concept_by_handle(handle),
+                (None, Some(query)) => resolve_concepts_for_session(
+                    self.prism.as_ref(),
+                    self.session.as_ref(),
+                    query,
+                    1,
+                )
+                .into_iter()
+                .next()
+                .map(|resolution| resolution.packet),
+                (None, None) => {
+                    return Err(anyhow!("decodeConcept requires either `handle` or `query`"))
+                }
+            };
         let Some(packet) = packet else {
             let subject = args
                 .handle
@@ -2456,6 +2520,7 @@ impl QueryExecution {
         let concept_view = concept_packet_view(
             packet.clone(),
             args.include_binding_metadata.unwrap_or(false),
+            None,
         );
         let members = symbol_views_for_ids(self.prism.as_ref(), packet.core_members.clone())?;
         let supporting_reads =

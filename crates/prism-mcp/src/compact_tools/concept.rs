@@ -3,8 +3,9 @@ use std::collections::HashSet;
 use prism_ir::AnchorRef;
 use prism_js::{
     AgentConceptPacketView, AgentConceptResultView, AgentSuggestedActionView,
-    ConceptBindingMetadataView, ConceptDecodeView, ConceptProvenanceView,
-    ConceptPublicationStatusView, ConceptPublicationView, ConceptScopeView,
+    AgentTargetHandleView, AgentWorksetResultView, ConceptBindingMetadataView, ConceptDecodeView,
+    ConceptProvenanceView, ConceptPublicationStatusView, ConceptPublicationView,
+    ConceptResolutionView, ConceptScopeView,
 };
 use prism_memory::{MemoryModule, OutcomeKind, OutcomeRecallQuery, RecallQuery};
 use prism_query::{ConceptDecodeLens, ConceptPacket, ConceptPublicationStatus, ConceptScope};
@@ -13,10 +14,12 @@ use super::suggested_actions::{
     dedupe_suggested_actions, suggested_expand_action, suggested_open_action,
     suggested_workset_action,
 };
+use super::workset::budgeted_workset_result_with_followups;
 use super::*;
 use crate::{
-    concept_decode_lens_view, concept_packet_view, recent_patches, scored_memory_view,
-    symbol_views_for_ids, validation_recipe_view_with,
+    concept_decode_lens_view, concept_packet_view, concept_resolution_is_ambiguous, recent_patches,
+    resolve_concepts_for_session, scored_memory_view, symbol_views_for_ids,
+    validation_recipe_view_with,
 };
 
 const CONCEPT_PATCH_LIMIT: usize = 4;
@@ -42,11 +45,20 @@ impl QueryHost {
             query_text,
             move |host, _| {
                 let prism = host.current_prism();
-                let packet = resolve_concept_packet(prism.as_ref(), &args)?;
+                let resolution = resolve_concept_packet(prism.as_ref(), session.as_ref(), &args)?;
+                let packet = resolution.packet.clone();
                 let packet_view = agent_concept_packet_view(
                     session.as_ref(),
                     prism.as_ref(),
                     &packet,
+                    Some(resolution.clone()),
+                    args.include_binding_metadata.unwrap_or(false),
+                )?;
+                let alternates = resolve_concept_alternates(
+                    prism.as_ref(),
+                    session.as_ref(),
+                    &args,
+                    packet.handle.as_str(),
                     args.include_binding_metadata.unwrap_or(false),
                 )?;
                 let decode = args
@@ -58,6 +70,7 @@ impl QueryHost {
                     AgentConceptResultView {
                         packet: packet_view,
                         decode,
+                        alternates,
                     },
                     Vec::new(),
                 ))
@@ -66,13 +79,23 @@ impl QueryHost {
     }
 }
 
-fn resolve_concept_packet(prism: &Prism, args: &PrismConceptArgs) -> Result<ConceptPacket> {
+fn resolve_concept_packet(
+    prism: &Prism,
+    session: &SessionState,
+    args: &PrismConceptArgs,
+) -> Result<prism_query::ConceptResolution> {
     match (args.handle.as_deref(), args.query.as_deref()) {
         (Some(handle), _) => prism
             .concept_by_handle(handle)
+            .map(|packet| prism_query::ConceptResolution {
+                packet,
+                score: i32::MAX,
+                reasons: vec!["handle exact match".to_string()],
+            })
             .ok_or_else(|| anyhow!("no concept packet matched `{handle}`")),
-        (None, Some(query)) => prism
-            .concept(query)
+        (None, Some(query)) => resolve_concepts_for_session(prism, session, query, 1)
+            .into_iter()
+            .next()
             .ok_or_else(|| anyhow!("no concept packet matched `{query}`")),
         (None, None) => Err(anyhow!("prism_concept requires `handle` or `query`")),
     }
@@ -82,6 +105,7 @@ fn agent_concept_packet_view(
     session: &SessionState,
     prism: &Prism,
     packet: &ConceptPacket,
+    resolution: Option<prism_query::ConceptResolution>,
     include_binding_metadata: bool,
 ) -> Result<AgentConceptPacketView> {
     let core_members = compact_handles_for_ids(session, prism, &packet.core_members)?;
@@ -130,6 +154,10 @@ fn agent_concept_packet_view(
                 retired_at: publication.retired_at,
                 retirement_reason: publication.retirement_reason,
             }),
+        resolution: resolution.map(|resolution| ConceptResolutionView {
+            score: resolution.score,
+            reasons: resolution.reasons,
+        }),
         binding_metadata: include_binding_metadata.then(|| ConceptBindingMetadataView {
             core_member_lineages: packet
                 .core_member_lineages
@@ -157,7 +185,37 @@ fn agent_concept_packet_view(
     })
 }
 
-fn compact_handles_for_ids(
+fn resolve_concept_alternates(
+    prism: &Prism,
+    session: &SessionState,
+    args: &PrismConceptArgs,
+    selected_handle: &str,
+    include_binding_metadata: bool,
+) -> Result<Vec<AgentConceptPacketView>> {
+    let Some(query) = args.query.as_deref() else {
+        return Ok(Vec::new());
+    };
+    let resolutions = resolve_concepts_for_session(prism, session, query, 3);
+    if !concept_resolution_is_ambiguous(&resolutions) {
+        return Ok(Vec::new());
+    }
+    resolutions
+        .into_iter()
+        .filter(|resolution| resolution.packet.handle != selected_handle)
+        .map(|resolution| {
+            let packet = resolution.packet.clone();
+            agent_concept_packet_view(
+                session,
+                prism,
+                &packet,
+                Some(resolution),
+                include_binding_metadata,
+            )
+        })
+        .collect()
+}
+
+pub(super) fn compact_handles_for_ids(
     session: &SessionState,
     prism: &Prism,
     ids: &[NodeId],
@@ -167,6 +225,44 @@ fn compact_handles_for_ids(
         .iter()
         .map(|symbol| compact_target_view(session, symbol, None, None))
         .collect())
+}
+
+pub(super) fn compact_concept_workset_result(
+    session: &SessionState,
+    prism: &Prism,
+    handle: &str,
+) -> Result<AgentWorksetResultView> {
+    let packet = prism
+        .concept_by_handle(handle)
+        .ok_or_else(|| anyhow!("no concept packet matched `{handle}`"))?;
+    let mut core_members = compact_handles_for_ids(session, prism, &packet.core_members)?;
+    let mut supporting_reads = core_members.split_off(core_members.len().min(1));
+    supporting_reads.extend(compact_handles_for_ids(
+        session,
+        prism,
+        &packet.supporting_members,
+    )?);
+    dedupe_handle_views(&mut supporting_reads);
+    let likely_tests = compact_handles_for_ids(session, prism, &packet.likely_tests)?;
+    let primary = core_members
+        .into_iter()
+        .next()
+        .or_else(|| supporting_reads.first().cloned())
+        .or_else(|| likely_tests.first().cloned())
+        .ok_or_else(|| anyhow!("concept `{}` has no reusable members", packet.handle))?;
+    supporting_reads.retain(|candidate| candidate.handle != primary.handle);
+    let mut likely_tests = likely_tests;
+    likely_tests.retain(|candidate| candidate.handle != primary.handle);
+    let suggested_actions = compact_concept_member_followups(&packet, &primary.handle);
+    budgeted_workset_result_with_followups(
+        primary,
+        supporting_reads,
+        likely_tests,
+        packet.summary.clone(),
+        false,
+        Some(compact_concept_workset_next_action(&packet)),
+        suggested_actions,
+    )
 }
 
 fn compact_concept_suggested_actions(
@@ -213,13 +309,71 @@ fn compact_concept_suggested_actions(
     dedupe_suggested_actions(actions)
 }
 
+fn compact_concept_member_followups(
+    packet: &ConceptPacket,
+    primary_handle: &str,
+) -> Vec<AgentSuggestedActionView> {
+    let mut actions = vec![suggested_open_action(
+        primary_handle,
+        prism_js::AgentOpenMode::Focus,
+    )];
+    if packet
+        .decode_lenses
+        .iter()
+        .any(|lens| matches!(lens, ConceptDecodeLens::Validation))
+    {
+        actions.push(suggested_expand_action(
+            primary_handle,
+            prism_js::AgentExpandKind::Validation,
+        ));
+    }
+    if packet
+        .decode_lenses
+        .iter()
+        .any(|lens| matches!(lens, ConceptDecodeLens::Timeline))
+    {
+        actions.push(suggested_expand_action(
+            primary_handle,
+            prism_js::AgentExpandKind::Timeline,
+        ));
+    }
+    if packet
+        .decode_lenses
+        .iter()
+        .any(|lens| matches!(lens, ConceptDecodeLens::Memory))
+    {
+        actions.push(suggested_expand_action(
+            primary_handle,
+            prism_js::AgentExpandKind::Memory,
+        ));
+    }
+    dedupe_suggested_actions(actions)
+}
+
+fn compact_concept_workset_next_action(packet: &ConceptPacket) -> String {
+    if packet
+        .decode_lenses
+        .iter()
+        .any(|lens| matches!(lens, ConceptDecodeLens::Validation))
+    {
+        "Use prism_open on a core member, or prism_concept with `handle` and `lens`: `validation` for the broader concept view.".to_string()
+    } else {
+        "Use prism_open on a core member, or prism_concept with a decode lens for broader concept context.".to_string()
+    }
+}
+
+fn dedupe_handle_views(handles: &mut Vec<AgentTargetHandleView>) {
+    let mut seen = HashSet::<String>::new();
+    handles.retain(|handle| seen.insert(handle.handle.clone()));
+}
+
 fn decode_concept(
     session: &SessionState,
     prism: &Prism,
     packet: &ConceptPacket,
     lens: &crate::PrismConceptLensInput,
 ) -> Result<ConceptDecodeView> {
-    let concept = concept_packet_view(packet.clone(), false);
+    let concept = concept_packet_view(packet.clone(), false, None);
     let members = symbol_views_for_ids(prism, packet.core_members.clone())?;
     let primary = members.first().cloned();
     let supporting_reads = symbol_views_for_ids(prism, packet.supporting_members.clone())?;

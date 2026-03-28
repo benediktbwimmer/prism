@@ -6,18 +6,18 @@ use prism_ir::{AnchorRef, Edge, NodeId, WorkspaceRevision};
 use prism_js::{
     ArtifactRiskView, ArtifactView, BlockerView, ChangeImpactView, ClaimView, CoChangeView,
     ConceptBindingMetadataView, ConceptDecodeLensView, ConceptPacketView, ConceptProvenanceView,
-    ConceptPublicationStatusView, ConceptPublicationView, ConceptScopeView, ConflictView,
-    CoordinationTaskView, CuratorJobView, CuratorProposalRecordView, CuratorProposalView,
-    DriftCandidateView, EdgeView, MemoryEntryView, MemoryEventView, NodeIdView, PlanView,
-    PolicyViolationRecordView, PolicyViolationView, QueryDiagnostic, ScoredMemoryView,
-    TaskIntentView, TaskRiskView, TaskValidationRecipeView, ValidationCheckView,
+    ConceptPublicationStatusView, ConceptPublicationView, ConceptResolutionView, ConceptScopeView,
+    ConflictView, CoordinationTaskView, CuratorJobView, CuratorProposalRecordView,
+    CuratorProposalView, DriftCandidateView, EdgeView, MemoryEntryView, MemoryEventView,
+    NodeIdView, PlanView, PolicyViolationRecordView, PolicyViolationView, QueryDiagnostic,
+    ScoredMemoryView, TaskIntentView, TaskRiskView, TaskValidationRecipeView, ValidationCheckView,
     ValidationRecipeView, WorkspaceRevisionView,
 };
 use prism_memory::{MemoryEntry, MemoryEvent, MemorySource, ScoredMemory};
 use prism_query::{
     ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens, ConceptPacket, ConceptProvenance,
-    ConceptPublication, ConceptPublicationStatus, ConceptScope, DriftCandidate, Prism, TaskIntent,
-    TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
+    ConceptPublication, ConceptPublicationStatus, ConceptResolution, ConceptScope, DriftCandidate,
+    Prism, TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 use serde_json::Value;
 
@@ -239,6 +239,7 @@ pub(crate) fn concept_decode_lens_view(lens: ConceptDecodeLens) -> ConceptDecode
 pub(crate) fn concept_packet_view(
     packet: ConceptPacket,
     include_binding_metadata: bool,
+    resolution: Option<ConceptResolution>,
 ) -> ConceptPacketView {
     ConceptPacketView {
         handle: packet.handle,
@@ -263,6 +264,7 @@ pub(crate) fn concept_packet_view(
         scope: concept_scope_view(packet.scope),
         provenance: concept_provenance_view(packet.provenance),
         publication: packet.publication.map(concept_publication_view),
+        resolution: resolution.map(concept_resolution_view),
         binding_metadata: include_binding_metadata.then(|| ConceptBindingMetadataView {
             core_member_lineages: packet
                 .core_member_lineages
@@ -280,6 +282,13 @@ pub(crate) fn concept_packet_view(
                 .map(|lineage| lineage.map(|lineage| lineage.0.to_string()))
                 .collect(),
         }),
+    }
+}
+
+pub(crate) fn concept_resolution_view(resolution: ConceptResolution) -> ConceptResolutionView {
+    ConceptResolutionView {
+        score: resolution.score,
+        reasons: resolution.reasons,
     }
 }
 

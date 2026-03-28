@@ -185,7 +185,7 @@ fn lifecycle_diagnostics(
 ) -> Vec<QueryDiagnostic> {
     let mut diagnostics = Vec::new();
 
-    if summary.plan_count == 0 {
+    if !events.is_empty() && summary.plan_count == 0 {
         diagnostics.push(query_diagnostic(
             "missing_plan",
             "Task has outcome history but no explicit plan-start record.",

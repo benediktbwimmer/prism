@@ -30,8 +30,13 @@ impl QueryHost {
             query_text,
             move |host, _query_run| {
                 let prism = host.current_prism();
-                let (target, remapped) =
-                    resolve_handle_target(host, session.as_ref(), prism.as_ref(), &args.handle)?;
+                let (target, remapped) = resolve_handle_target(
+                    host,
+                    session.as_ref(),
+                    prism.as_ref(),
+                    &args.handle,
+                    Some("open"),
+                )?;
                 let result = if is_text_fragment_target(&target) {
                     compact_open_text_fragment(
                         host,
@@ -73,6 +78,7 @@ impl QueryHost {
                                 )? {
                                     compact_open_result_from_excerpt(
                                         &args.handle,
+                                        target.handle_category,
                                         &file_path,
                                         SourceExcerptView {
                                             text: preview.text,
@@ -94,6 +100,7 @@ impl QueryHost {
                                     )?;
                                     compact_open_result_from_block(
                                         &args.handle,
+                                        target.handle_category,
                                         &file_path,
                                         block.slice,
                                         block.excerpt,
@@ -112,6 +119,7 @@ impl QueryHost {
                                 )?;
                                 compact_open_result_from_block(
                                     &args.handle,
+                                    target.handle_category,
                                     &file_path,
                                     block.slice,
                                     block.excerpt,
@@ -135,6 +143,7 @@ impl QueryHost {
                                 })?;
                             compact_open_result_from_slice(
                                 &args.handle,
+                                target.handle_category,
                                 &file_path,
                                 slice,
                                 remapped,
@@ -177,6 +186,7 @@ impl QueryHost {
                             };
                             compact_open_result_from_excerpt(
                                 &args.handle,
+                                target.handle_category,
                                 &file_path,
                                 excerpt,
                                 remapped,
@@ -196,6 +206,7 @@ impl QueryHost {
 
 pub(super) fn compact_open_result_from_block(
     handle: &str,
+    handle_category: crate::session_state::SessionHandleCategory,
     file_path: &str,
     slice: Option<SourceSliceView>,
     excerpt: Option<SourceExcerptView>,
@@ -208,6 +219,7 @@ pub(super) fn compact_open_result_from_block(
     if let Some(slice) = slice {
         return Ok(compact_open_result_from_slice(
             handle,
+            handle_category,
             file_path,
             slice,
             remapped,
@@ -220,6 +232,7 @@ pub(super) fn compact_open_result_from_block(
     if let Some(excerpt) = excerpt {
         return Ok(compact_open_result_from_excerpt(
             handle,
+            handle_category,
             file_path,
             excerpt,
             remapped,
@@ -234,6 +247,7 @@ pub(super) fn compact_open_result_from_block(
 
 pub(super) fn compact_open_result_from_slice(
     handle: &str,
+    handle_category: crate::session_state::SessionHandleCategory,
     file_path: &str,
     slice: SourceSliceView,
     remapped: bool,
@@ -244,6 +258,7 @@ pub(super) fn compact_open_result_from_slice(
 ) -> Result<AgentOpenResultView> {
     budgeted_open_result(AgentOpenResultView {
         handle: handle.to_string(),
+        handle_category: agent_handle_category_view(handle_category),
         file_path: file_path.to_string(),
         start_line: slice.start_line,
         end_line: slice.end_line,
@@ -259,6 +274,7 @@ pub(super) fn compact_open_result_from_slice(
 
 pub(super) fn compact_open_result_from_excerpt(
     handle: &str,
+    handle_category: crate::session_state::SessionHandleCategory,
     file_path: &str,
     excerpt: SourceExcerptView,
     remapped: bool,
@@ -269,6 +285,7 @@ pub(super) fn compact_open_result_from_excerpt(
 ) -> Result<AgentOpenResultView> {
     budgeted_open_result(AgentOpenResultView {
         handle: handle.to_string(),
+        handle_category: agent_handle_category_view(handle_category),
         file_path: file_path.to_string(),
         start_line: excerpt.start_line,
         end_line: excerpt.end_line,
@@ -530,7 +547,8 @@ pub(super) fn compact_preview_for_structured_target(
         target,
         STRUCTURED_PREVIEW_FOLLOWUP_LIMIT,
     )? {
-        let (related_target, _) = resolve_handle_target(host, session, prism, &related.handle)?;
+        let (related_target, _) =
+            resolve_handle_target(host, session, prism, &related.handle, None)?;
         let related_symbol_id = target_symbol_id(&related_target)?;
         let related_symbol = symbol_for(prism, related_symbol_id)?;
         if let Some(segment) = structured_preview_segment_for_symbol(

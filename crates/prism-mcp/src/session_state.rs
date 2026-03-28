@@ -16,10 +16,17 @@ pub(crate) struct SessionTaskState {
     pub(crate) tags: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SessionHandleCategory {
+    Symbol,
+    TextFragment,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct SessionHandleTarget {
     pub(crate) id: NodeId,
     pub(crate) lineage_id: Option<String>,
+    pub(crate) handle_category: SessionHandleCategory,
     pub(crate) name: String,
     pub(crate) kind: NodeKind,
     pub(crate) file_path: Option<String>,
