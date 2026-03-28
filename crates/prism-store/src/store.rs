@@ -5,7 +5,7 @@ use prism_agent::InferenceSnapshot;
 use prism_coordination::CoordinationSnapshot;
 use prism_curator::CuratorSnapshot;
 use prism_history::{HistoryPersistDelta, HistorySnapshot};
-use prism_memory::{EpisodicMemorySnapshot, OutcomeMemorySnapshot};
+use prism_memory::{EpisodicMemorySnapshot, MemoryEvent, OutcomeMemorySnapshot};
 use prism_projections::{CoChangeDelta, ProjectionSnapshot, ValidationDelta};
 
 use crate::graph::Graph;
@@ -48,6 +48,8 @@ pub trait Store {
         snapshot: &OutcomeMemorySnapshot,
         deltas: &[ValidationDelta],
     ) -> Result<()>;
+    fn load_memory_events(&mut self) -> Result<Vec<MemoryEvent>>;
+    fn append_memory_events(&mut self, events: &[MemoryEvent]) -> Result<usize>;
     fn load_episodic_snapshot(&mut self) -> Result<Option<EpisodicMemorySnapshot>>;
     fn save_episodic_snapshot(&mut self, snapshot: &EpisodicMemorySnapshot) -> Result<()>;
     fn load_inference_snapshot(&mut self) -> Result<Option<InferenceSnapshot>>;

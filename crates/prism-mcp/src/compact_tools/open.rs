@@ -7,6 +7,9 @@ use super::workset::{
 };
 use super::*;
 
+const STRUCTURED_PREVIEW_FOLLOWUP_LIMIT: usize = 8;
+const STRUCTURED_PREVIEW_MAX_CHARS: usize = 240;
+
 impl QueryHost {
     pub(crate) fn compact_open(
         &self,
@@ -45,16 +48,59 @@ impl QueryHost {
 
                     match mode {
                         AgentOpenMode::Focus => {
-                            let block = focused_block_for_symbol(prism.as_ref(), &symbol, FOCUS_OPEN_OPTIONS)?;
-                            compact_open_result_from_block(
-                                &args.handle,
-                                &file_path,
-                                block.slice,
-                                block.excerpt,
-                                remapped,
-                                "Rerun prism_open with mode `raw` if you need the exact file window.",
-                                related_handles.clone(),
-                            )?
+                            if is_structured_config_target(target.kind) {
+                                if let Some(preview) = compact_preview_for_structured_target(
+                                    host,
+                                    session.as_ref(),
+                                    prism.as_ref(),
+                                    &args.handle,
+                                    &target,
+                                )? {
+                                    compact_open_result_from_excerpt(
+                                        &args.handle,
+                                        &file_path,
+                                        SourceExcerptView {
+                                            text: preview.text,
+                                            start_line: preview.start_line,
+                                            end_line: preview.end_line,
+                                            truncated: preview.truncated,
+                                        },
+                                        remapped,
+                                        "Rerun prism_open with mode `raw` if you need the exact file window.",
+                                        related_handles.clone(),
+                                    )?
+                                } else {
+                                    let block = focused_block_for_symbol(
+                                        prism.as_ref(),
+                                        &symbol,
+                                        FOCUS_OPEN_OPTIONS,
+                                    )?;
+                                    compact_open_result_from_block(
+                                        &args.handle,
+                                        &file_path,
+                                        block.slice,
+                                        block.excerpt,
+                                        remapped,
+                                        "Rerun prism_open with mode `raw` if you need the exact file window.",
+                                        related_handles.clone(),
+                                    )?
+                                }
+                            } else {
+                                let block = focused_block_for_symbol(
+                                    prism.as_ref(),
+                                    &symbol,
+                                    FOCUS_OPEN_OPTIONS,
+                                )?;
+                                compact_open_result_from_block(
+                                    &args.handle,
+                                    &file_path,
+                                    block.slice,
+                                    block.excerpt,
+                                    remapped,
+                                    "Rerun prism_open with mode `raw` if you need the exact file window.",
+                                    related_handles.clone(),
+                                )?
+                            }
                         }
                         AgentOpenMode::Edit => {
                             let slice = symbol
@@ -302,6 +348,145 @@ pub(super) fn compact_preview_for_symbol_view(
         }),
         (None, None) => None,
     })
+}
+
+pub(super) fn compact_preview_for_structured_target(
+    host: &QueryHost,
+    session: &SessionState,
+    prism: &Prism,
+    handle: &str,
+    target: &SessionHandleTarget,
+) -> Result<Option<AgentTextPreviewView>> {
+    if !is_structured_config_target(target.kind) {
+        return Ok(None);
+    }
+    let symbol_id = target_symbol_id(target)?;
+    let symbol = symbol_for(prism, symbol_id)?;
+    let symbol_view = symbol_view(prism, &symbol)?;
+    let file_path = symbol_view
+        .file_path
+        .clone()
+        .or_else(|| target.file_path.clone())
+        .ok_or_else(|| anyhow!("target `{}` has no workspace file path", target.id.path))?;
+    let mut segments = Vec::<StructuredPreviewSegment>::new();
+    if let Some(segment) =
+        structured_preview_segment_for_symbol(host, &file_path, &symbol, target.id.path.as_str())?
+    {
+        segments.push(segment);
+    }
+    for related in structured_symbol_followups(
+        host,
+        session,
+        prism,
+        target,
+        STRUCTURED_PREVIEW_FOLLOWUP_LIMIT,
+    )? {
+        let (related_target, _) = resolve_handle_target(host, session, prism, &related.handle)?;
+        let related_symbol_id = target_symbol_id(&related_target)?;
+        let related_symbol = symbol_for(prism, related_symbol_id)?;
+        if let Some(segment) = structured_preview_segment_for_symbol(
+            host,
+            &file_path,
+            &related_symbol,
+            related_target.id.path.as_str(),
+        )? {
+            segments.push(segment);
+        }
+    }
+    segments.sort_by_key(|segment| (segment.start_line, segment.path.clone()));
+    segments.dedup_by(|left, right| left.start_line == right.start_line && left.path == right.path);
+    if segments.is_empty() {
+        return Ok(None);
+    }
+    let start_line = segments
+        .first()
+        .map(|segment| segment.start_line)
+        .unwrap_or(1);
+    let end_line = segments
+        .last()
+        .map(|segment| segment.end_line)
+        .unwrap_or(start_line);
+    let mut text = String::new();
+    let mut previous_end_line: Option<usize> = None;
+    let mut truncated = false;
+    for segment in segments {
+        if !text.is_empty() {
+            if previous_end_line.is_some_and(|line| segment.start_line > line.saturating_add(1)) {
+                text.push_str("\n...\n");
+                truncated = true;
+            } else {
+                text.push('\n');
+            }
+        }
+        text.push_str(segment.text.trim_end_matches('\n'));
+        truncated |= segment.truncated;
+        previous_end_line = Some(segment.end_line);
+    }
+    Ok(Some(AgentTextPreviewView {
+        handle: handle.to_string(),
+        file_path,
+        start_line,
+        end_line,
+        text,
+        truncated,
+    }))
+}
+
+#[derive(Debug, Clone)]
+struct StructuredPreviewSegment {
+    path: String,
+    start_line: usize,
+    end_line: usize,
+    text: String,
+    truncated: bool,
+}
+
+fn structured_preview_segment_for_symbol(
+    host: &QueryHost,
+    file_path: &str,
+    symbol: &prism_query::Symbol,
+    path: &str,
+) -> Result<Option<StructuredPreviewSegment>> {
+    if let Some(excerpt) = symbol
+        .excerpt(SourceExcerptOptions {
+            context_lines: 0,
+            max_lines: 0,
+            max_chars: STRUCTURED_PREVIEW_MAX_CHARS,
+        })
+        .map(|excerpt| SourceExcerptView {
+            text: excerpt.text,
+            start_line: excerpt.start_line,
+            end_line: excerpt.end_line,
+            truncated: excerpt.truncated,
+        })
+    {
+        return Ok(Some(StructuredPreviewSegment {
+            path: path.to_string(),
+            start_line: excerpt.start_line,
+            end_line: excerpt.end_line,
+            text: excerpt.text,
+            truncated: excerpt.truncated,
+        }));
+    }
+    let Some(location) = symbol.location() else {
+        return Ok(None);
+    };
+    let excerpt = file_read(
+        host,
+        FileReadArgs {
+            path: file_path.to_string(),
+            start_line: Some(location.start_line),
+            end_line: Some(location.end_line),
+            max_chars: Some(STRUCTURED_PREVIEW_MAX_CHARS),
+        },
+    )?;
+    Ok(Some(StructuredPreviewSegment {
+        path: path.to_string(),
+        start_line: excerpt.start_line,
+        end_line: excerpt.end_line,
+        text: excerpt.text,
+        truncated: excerpt.truncated,
+    }))
 }
 
 pub(super) fn compact_preview_for_ranked_target(

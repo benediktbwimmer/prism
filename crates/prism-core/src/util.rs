@@ -162,6 +162,10 @@ pub(crate) fn validation_feedback_path(root: &Path) -> PathBuf {
     root.join(".prism").join("validation_feedback.jsonl")
 }
 
+pub(crate) fn repo_memory_events_path(root: &Path) -> PathBuf {
+    root.join(".prism").join("memory").join("events.jsonl")
+}
+
 pub(crate) fn cleanup_legacy_cache(root: &Path) -> Result<()> {
     let legacy = root.join(".prism").join("cache.bin");
     if legacy.exists() {

@@ -33,6 +33,7 @@ READ_COMMAND_PREFIXES = (
 
 COMPACT_PRISM_TOOLS = {
     "prism_locate",
+    "prism_gather",
     "prism_open",
     "prism_workset",
     "prism_expand",
@@ -99,11 +100,11 @@ def _compose_prompt(
         f"Working directory: `{workspace_dir}`\n\n"
         "PRISM workspace guidance:\n"
         f"- The benchmark repo for this run lives under `{workspace_dir}`.\n"
-        "- Preferred staged PRISM path: `prism_locate`, then `prism_open`, then `prism_workset`, and `prism_expand` only if needed.\n"
+        "- Preferred staged PRISM path: `prism_locate`, then `prism_gather` for exact-text/config/schema/script slices when that is cheaper, then `prism_open`, then `prism_workset`, and `prism_expand` only if needed.\n"
         "- Treat `prism_query` as an explicit fallback only when the compact staged tools cannot express the need.\n"
         f"- Constrain PRISM searches to this repo with `path: \"{workspace_dir}\"` or `glob: \"{workspace_glob}\"` when the tool supports it.\n"
         "- Carry forward compact PRISM handles instead of rediscovering the same target by text.\n"
-        "- After a successful compact PRISM locate/open/workset call, do not reread that same target through shell tools unless you specifically need raw command output.\n\n"
+        "- After a successful compact PRISM locate/gather/open/workset call, do not reread that same target through shell tools unless you specifically need raw command output.\n\n"
         f"{preview_guidance}"
         "Task:\n"
         f"{body}\n\n"
@@ -252,6 +253,7 @@ def _parse_exec_jsonl(stdout: str) -> dict[str, Any]:
     prism_queries = 0
     prism_query_calls = 0
     prism_compact_tool_calls = 0
+    compact_tool_counts = {tool: 0 for tool in COMPACT_PRISM_TOOLS}
     locate_preview_requests = 0
     locate_preview_hits = 0
     locate_preview_bytes = 0
@@ -360,6 +362,7 @@ def _parse_exec_jsonl(stdout: str) -> dict[str, Any]:
                         pending_preview = None
                     elif tool_name in COMPACT_PRISM_TOOLS:
                         prism_compact_tool_calls += 1
+                        compact_tool_counts[tool_name] += 1
                         followup_handle = _followup_handle(tool_name, arguments)
                         if pending_preview is not None:
                             if followup_handle == pending_preview["handle"]:
@@ -409,6 +412,11 @@ def _parse_exec_jsonl(stdout: str) -> dict[str, Any]:
         "prism_queries": prism_queries,
         "prism_query_calls": prism_query_calls,
         "prism_compact_tool_calls": prism_compact_tool_calls,
+        "prism_locate_calls": compact_tool_counts["prism_locate"],
+        "prism_gather_calls": compact_tool_counts["prism_gather"],
+        "prism_open_calls": compact_tool_counts["prism_open"],
+        "prism_workset_calls": compact_tool_counts["prism_workset"],
+        "prism_expand_calls": compact_tool_counts["prism_expand"],
         "locate_preview_requests": locate_preview_requests,
         "locate_preview_hits": locate_preview_hits,
         "locate_preview_bytes": locate_preview_bytes,
@@ -424,6 +432,64 @@ def _parse_exec_jsonl(stdout: str) -> dict[str, Any]:
         "shell_read_commands": shell_read_commands,
         "repeated_reads": repeated_reads,
     }
+
+
+def _daemon_log_path(workspace_dir: Path) -> Path:
+    return workspace_dir / ".prism" / "prism-mcp-daemon.log"
+
+
+def _daemon_log_offset(workspace_dir: Path) -> int:
+    path = _daemon_log_path(workspace_dir)
+    if not path.exists():
+        return 0
+    return path.stat().st_size
+
+
+def _zero_compact_timing_summary() -> dict[str, int]:
+    return {
+        "compact_query_duration_ms": 0,
+        "compact_refresh_duration_ms": 0,
+        "compact_handler_duration_ms": 0,
+        "compact_other_duration_ms": 0,
+        "prism_locate_duration_ms": 0,
+        "prism_gather_duration_ms": 0,
+        "prism_open_duration_ms": 0,
+        "prism_workset_duration_ms": 0,
+        "prism_expand_duration_ms": 0,
+    }
+
+
+def _parse_compact_query_timings(workspace_dir: Path, start_offset: int) -> dict[str, int]:
+    path = _daemon_log_path(workspace_dir)
+    summary = _zero_compact_timing_summary()
+    if not path.exists():
+        return summary
+
+    with path.open("r", encoding="utf-8", errors="replace") as handle:
+        try:
+            handle.seek(start_offset)
+        except OSError:
+            handle.seek(0)
+        for line in handle:
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if event.get("message") != "compact query timing":
+                continue
+            tool = event.get("tool")
+            if tool not in COMPACT_PRISM_TOOLS:
+                continue
+            total_ms = int(event.get("total_ms", 0) or 0)
+            refresh_ms = int(event.get("refresh_ms", 0) or 0)
+            handler_ms = int(event.get("handler_ms", 0) or 0)
+            other_ms = int(event.get("other_ms", 0) or 0)
+            summary["compact_query_duration_ms"] += total_ms
+            summary["compact_refresh_duration_ms"] += refresh_ms
+            summary["compact_handler_duration_ms"] += handler_ms
+            summary["compact_other_duration_ms"] += other_ms
+            summary[f"{tool}_duration_ms"] += total_ms
+    return summary
 
 
 def run_codex_instance(
@@ -454,6 +520,7 @@ def run_codex_instance(
 
     source_workspace = source_workspace_dir(instance)
     isolated_workspace = prepare_isolated_workspace(config, run_id, arm_name, instance)
+    daemon_log_offset = _daemon_log_offset(isolated_workspace)
 
     prompt = _compose_prompt(config, arm_name, instance, isolated_workspace)
     command = _build_codex_command(config, arm_name, isolated_workspace, last_message_path)
@@ -483,6 +550,7 @@ def run_codex_instance(
     )
 
     parsed = _parse_exec_jsonl(proc.stdout)
+    compact_timings = _parse_compact_query_timings(isolated_workspace, daemon_log_offset)
     patch_attempts = 1 if patch.strip() else 0
     telemetry_path = Path(config["output"]["telemetry_abspath"])
     record_telemetry_instance(
@@ -496,6 +564,11 @@ def run_codex_instance(
         prism_queries=parsed["prism_queries"],
         prism_query_calls=parsed["prism_query_calls"],
         prism_compact_tool_calls=parsed["prism_compact_tool_calls"],
+        prism_locate_calls=parsed["prism_locate_calls"],
+        prism_gather_calls=parsed["prism_gather_calls"],
+        prism_open_calls=parsed["prism_open_calls"],
+        prism_workset_calls=parsed["prism_workset_calls"],
+        prism_expand_calls=parsed["prism_expand_calls"],
         locate_preview_requests=parsed["locate_preview_requests"],
         locate_preview_hits=parsed["locate_preview_hits"],
         locate_preview_bytes=parsed["locate_preview_bytes"],
@@ -507,6 +580,15 @@ def run_codex_instance(
         expand_preview_direct_opens=parsed["expand_preview_direct_opens"],
         expand_preview_direct_progressions=parsed["expand_preview_direct_progressions"],
         prism_payload_bytes=parsed["prism_payload_bytes"],
+        compact_query_duration_ms=compact_timings["compact_query_duration_ms"],
+        compact_refresh_duration_ms=compact_timings["compact_refresh_duration_ms"],
+        compact_handler_duration_ms=compact_timings["compact_handler_duration_ms"],
+        compact_other_duration_ms=compact_timings["compact_other_duration_ms"],
+        prism_locate_duration_ms=compact_timings["prism_locate_duration_ms"],
+        prism_gather_duration_ms=compact_timings["prism_gather_duration_ms"],
+        prism_open_duration_ms=compact_timings["prism_open_duration_ms"],
+        prism_workset_duration_ms=compact_timings["prism_workset_duration_ms"],
+        prism_expand_duration_ms=compact_timings["prism_expand_duration_ms"],
         shell_commands=parsed["shell_commands"],
         shell_read_commands=parsed["shell_read_commands"],
         repeated_reads=parsed["repeated_reads"],
@@ -532,6 +614,11 @@ def run_codex_instance(
         "prism_queries": parsed["prism_queries"],
         "prism_query_calls": parsed["prism_query_calls"],
         "prism_compact_tool_calls": parsed["prism_compact_tool_calls"],
+        "prism_locate_calls": parsed["prism_locate_calls"],
+        "prism_gather_calls": parsed["prism_gather_calls"],
+        "prism_open_calls": parsed["prism_open_calls"],
+        "prism_workset_calls": parsed["prism_workset_calls"],
+        "prism_expand_calls": parsed["prism_expand_calls"],
         "locate_preview_requests": parsed["locate_preview_requests"],
         "locate_preview_hits": parsed["locate_preview_hits"],
         "locate_preview_bytes": parsed["locate_preview_bytes"],
@@ -543,6 +630,15 @@ def run_codex_instance(
         "expand_preview_direct_opens": parsed["expand_preview_direct_opens"],
         "expand_preview_direct_progressions": parsed["expand_preview_direct_progressions"],
         "prism_payload_bytes": parsed["prism_payload_bytes"],
+        "compact_query_duration_ms": compact_timings["compact_query_duration_ms"],
+        "compact_refresh_duration_ms": compact_timings["compact_refresh_duration_ms"],
+        "compact_handler_duration_ms": compact_timings["compact_handler_duration_ms"],
+        "compact_other_duration_ms": compact_timings["compact_other_duration_ms"],
+        "prism_locate_duration_ms": compact_timings["prism_locate_duration_ms"],
+        "prism_gather_duration_ms": compact_timings["prism_gather_duration_ms"],
+        "prism_open_duration_ms": compact_timings["prism_open_duration_ms"],
+        "prism_workset_duration_ms": compact_timings["prism_workset_duration_ms"],
+        "prism_expand_duration_ms": compact_timings["prism_expand_duration_ms"],
         "shell_commands": parsed["shell_commands"],
         "shell_read_commands": parsed["shell_read_commands"],
         "repeated_reads": parsed["repeated_reads"],

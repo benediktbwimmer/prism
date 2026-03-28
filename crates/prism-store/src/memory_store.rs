@@ -1,14 +1,16 @@
 use prism_projections::ProjectionIndex;
 
 use crate::graph::{Graph, GraphSnapshot};
-use crate::memory_projection::merge_snapshot;
+use crate::memory_projection::{append_only_delta, merge_snapshot, snapshot_from_events};
 use crate::store::{AuxiliaryPersistBatch, IndexPersistBatch, Store};
+use prism_memory::{MemoryEvent, MemoryEventKind};
 
 #[derive(Debug, Default)]
 pub struct MemoryStore {
     snapshot: Option<GraphSnapshot>,
     history_snapshot: Option<prism_history::HistorySnapshot>,
     outcome_snapshot: Option<prism_memory::OutcomeMemorySnapshot>,
+    memory_events: Vec<MemoryEvent>,
     episodic_snapshot: Option<prism_memory::EpisodicMemorySnapshot>,
     inference_snapshot: Option<prism_agent::InferenceSnapshot>,
     projection_snapshot: Option<prism_projections::ProjectionSnapshot>,
@@ -81,9 +83,31 @@ impl Store for MemoryStore {
         Ok(())
     }
 
+    fn load_memory_events(&mut self) -> anyhow::Result<Vec<MemoryEvent>> {
+        Ok(self.memory_events.clone())
+    }
+
+    fn append_memory_events(&mut self, events: &[MemoryEvent]) -> anyhow::Result<usize> {
+        let mut inserted = 0;
+        for event in events {
+            if self.memory_events.iter().any(|existing| existing.id == event.id) {
+                continue;
+            }
+            self.memory_events.push(event.clone());
+            inserted += 1;
+        }
+        if inserted > 0 {
+            self.episodic_snapshot = snapshot_from_events(self.memory_events.clone());
+        }
+        Ok(inserted)
+    }
+
     fn load_episodic_snapshot(
         &mut self,
     ) -> anyhow::Result<Option<prism_memory::EpisodicMemorySnapshot>> {
+        if !self.memory_events.is_empty() {
+            self.episodic_snapshot = snapshot_from_events(self.memory_events.clone());
+        }
         Ok(self.episodic_snapshot.clone())
     }
 
@@ -91,6 +115,16 @@ impl Store for MemoryStore {
         &mut self,
         snapshot: &prism_memory::EpisodicMemorySnapshot,
     ) -> anyhow::Result<()> {
+        let current = self.episodic_snapshot.as_ref();
+        for entry in append_only_delta(current, snapshot) {
+            self.memory_events.push(MemoryEvent::from_entry(
+                MemoryEventKind::Stored,
+                entry,
+                None,
+                Vec::new(),
+                Vec::new(),
+            ));
+        }
         self.episodic_snapshot = merge_snapshot(self.episodic_snapshot.clone(), snapshot);
         Ok(())
     }
@@ -157,6 +191,15 @@ impl Store for MemoryStore {
             self.outcome_snapshot = Some(snapshot.clone());
         }
         if let Some(snapshot) = &batch.episodic_snapshot {
+            for entry in append_only_delta(self.episodic_snapshot.as_ref(), snapshot) {
+                self.memory_events.push(MemoryEvent::from_entry(
+                    MemoryEventKind::Stored,
+                    entry,
+                    None,
+                    Vec::new(),
+                    Vec::new(),
+                ));
+            }
             self.episodic_snapshot = merge_snapshot(self.episodic_snapshot.clone(), snapshot);
         }
         if let Some(snapshot) = &batch.inference_snapshot {

@@ -4850,6 +4850,10 @@ fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
                     .as_deref()
                     .is_none_or(|path| path.ends_with("Cargo.toml"))
         })));
+    assert!(open.text.contains("[workspace]"));
+    assert!(open.text.contains("[workspace.dependencies]"));
+    assert!(open.text.contains("anyhow = \"1.0\""));
+    assert!(open.text.contains("serde = \"1.0\""));
 
     let neighbors = host
         .compact_expand(
@@ -4857,7 +4861,7 @@ fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
             PrismExpandArgs {
                 handle: semantic_handle.clone(),
                 kind: PrismExpandKindInput::Neighbors,
-                include_top_preview: None,
+                include_top_preview: Some(true),
             },
         )
         .expect("neighbors should succeed");
@@ -4872,6 +4876,19 @@ fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
                     .as_str()
                     .is_some_and(|path| path.ends_with("Cargo.toml"))
         })));
+    let preview = neighbors
+        .top_preview
+        .expect("structured config neighbors should include a top preview");
+    let first_neighbor = neighbors.result["neighbors"]
+        .as_array()
+        .and_then(|items| items.first())
+        .expect("neighbors should contain at least one item");
+    assert_eq!(
+        preview.handle,
+        first_neighbor["handle"].as_str().unwrap_or_default()
+    );
+    assert!(preview.text.contains("[workspace]"));
+    assert!(preview.text.contains("[workspace.dependencies]"));
 
     let validation = host
         .compact_expand(
@@ -5000,6 +5017,55 @@ fn compact_expand_neighbors_can_include_top_preview() {
         neighbors[0]["handle"].as_str().unwrap_or_default()
     );
     assert!(!preview.text.is_empty());
+}
+
+#[test]
+fn compact_tool_query_trace_records_refresh_and_handler_phases() {
+    let root = temp_workspace();
+    write_memory_insight_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    host.compact_locate(
+        Arc::clone(&session),
+        PrismLocateArgs {
+            query: "Integration Points".to_string(),
+            path: Some("docs/SPEC.md".to_string()),
+            glob: None,
+            task_intent: Some(PrismLocateTaskIntentInput::Explain),
+            limit: Some(3),
+            include_top_preview: None,
+        },
+    )
+    .expect("locate should succeed");
+
+    let recent = host.query_log_entries(QueryLogArgs {
+        limit: Some(5),
+        since: None,
+        target: None,
+        operation: None,
+        task_id: None,
+        min_duration_ms: None,
+    });
+    let entry = recent
+        .iter()
+        .find(|entry| entry.kind == "prism_locate")
+        .expect("compact locate query log entry");
+    let trace = host
+        .query_trace_view(&entry.id)
+        .expect("compact locate query trace");
+    let operations = trace
+        .phases
+        .iter()
+        .map(|phase| phase.operation.as_str())
+        .collect::<Vec<_>>();
+    assert!(operations.contains(&"compact.refreshWorkspace"));
+    assert!(operations.contains(&"compact.handler"));
+    assert!(trace
+        .phases
+        .iter()
+        .find(|phase| phase.operation == "compact.handler")
+        .is_some_and(|phase| phase.success));
 }
 
 #[test]

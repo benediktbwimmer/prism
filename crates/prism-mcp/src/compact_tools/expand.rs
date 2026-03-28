@@ -1,6 +1,6 @@
 use prism_js::{EvidenceSourceKind, OwnerCandidateView};
 
-use super::open::compact_preview_for_symbol_view;
+use super::open::{compact_preview_for_structured_target, compact_preview_for_symbol_view};
 use super::text_fragments::{
     compact_text_fragment_diagnostics, compact_text_fragment_neighbors,
     compact_text_fragment_validation,
@@ -71,6 +71,25 @@ impl QueryHost {
                                 &target,
                                 EXPAND_NEIGHBOR_LIMIT,
                             )?;
+                            if args.include_top_preview.unwrap_or(false) {
+                                top_preview = if let Some(candidate) = neighbors.first() {
+                                    let (preview_target, _) = resolve_handle_target(
+                                        host,
+                                        session.as_ref(),
+                                        prism.as_ref(),
+                                        &candidate.handle,
+                                    )?;
+                                    compact_preview_for_structured_target(
+                                        host,
+                                        session.as_ref(),
+                                        prism.as_ref(),
+                                        &candidate.handle,
+                                        &preview_target,
+                                    )?
+                                } else {
+                                    None
+                                };
+                            }
                             json!({ "neighbors": neighbors })
                         } else {
                             let next_read_candidates =

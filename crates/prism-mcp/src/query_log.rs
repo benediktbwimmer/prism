@@ -7,6 +7,7 @@ use prism_js::{
     QueryDiagnostic, QueryLogEntryView, QueryPhaseView, QueryResultSummaryView, QueryTraceView,
 };
 use serde_json::Value;
+use tracing::info;
 
 use crate::{current_timestamp, DashboardState, QueryHost, QueryLogArgs, SessionState};
 
@@ -14,6 +15,13 @@ const QUERY_LOG_CAPACITY: usize = 200;
 const DEFAULT_QUERY_LOG_LIMIT: usize = 20;
 const DEFAULT_SLOW_QUERY_LIMIT: usize = 20;
 const DEFAULT_SLOW_QUERY_MIN_DURATION_MS: u64 = 250;
+const COMPACT_QUERY_KINDS: &[&str] = &[
+    "prism_locate",
+    "prism_gather",
+    "prism_open",
+    "prism_workset",
+    "prism_expand",
+];
 const MAX_QUERY_TEXT_CHARS: usize = 4096;
 const MAX_SUMMARY_CHARS: usize = 160;
 const MAX_SUMMARY_ITEMS: usize = 8;
@@ -147,6 +155,7 @@ impl QueryRun {
             None,
         );
         store.push(record.clone());
+        emit_compact_query_timing(&record);
         self.dashboard_finish(self.dashboard.as_ref(), &record.entry);
     }
 
@@ -158,6 +167,7 @@ impl QueryRun {
     ) {
         let record = self.build_record(None, diagnostics, 0, false, false, Some(error.into()));
         store.push(record.clone());
+        emit_compact_query_timing(&record);
         self.dashboard_finish(self.dashboard.as_ref(), &record.entry);
     }
 
@@ -348,6 +358,42 @@ fn summarize_query(query_text: &str, kind: &str) -> String {
     } else {
         clamp_string(&summary, MAX_SUMMARY_CHARS)
     }
+}
+
+fn emit_compact_query_timing(record: &QueryTraceRecord) {
+    if !COMPACT_QUERY_KINDS
+        .iter()
+        .any(|kind| kind == &record.entry.kind.as_str())
+    {
+        return;
+    }
+    let refresh_ms = phase_duration_ms(&record.phases, "compact.refreshWorkspace");
+    let handler_ms = phase_duration_ms(&record.phases, "compact.handler");
+    let other_ms = record
+        .entry
+        .duration_ms
+        .saturating_sub(refresh_ms.saturating_add(handler_ms));
+    info!(
+        target: "prism_mcp::benchmark_telemetry",
+        query_id = %record.entry.id,
+        tool = %record.entry.kind,
+        success = record.entry.success,
+        total_ms = record.entry.duration_ms,
+        refresh_ms,
+        handler_ms,
+        other_ms,
+        session_id = %record.entry.session_id,
+        task_id = %record.entry.task_id.as_deref().unwrap_or_default(),
+        "compact query timing"
+    );
+}
+
+fn phase_duration_ms(phases: &[QueryPhaseView], operation: &str) -> u64 {
+    phases
+        .iter()
+        .find(|phase| phase.operation == operation)
+        .map(|phase| phase.duration_ms)
+        .unwrap_or(0)
 }
 
 pub(crate) fn summarize_value(value: &Value) -> Value {

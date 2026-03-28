@@ -44,3 +44,8 @@ where
     )?;
     Ok(())
 }
+
+pub(super) fn delete_snapshot_row_tx(tx: &Transaction<'_>, key: &str) -> Result<()> {
+    tx.execute("DELETE FROM snapshots WHERE key = ?1", params![key])?;
+    Ok(())
+}

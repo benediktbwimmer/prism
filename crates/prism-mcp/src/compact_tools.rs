@@ -157,7 +157,32 @@ impl QueryHost {
                 true,
                 None,
             );
-            let (value, diagnostics) = build(self, query_run.clone())?;
+            let handler_started = Instant::now();
+            let (value, diagnostics) = match build(self, query_run.clone()) {
+                Ok((value, diagnostics)) => {
+                    query_run.record_phase(
+                        "compact.handler",
+                        &json!({
+                            "tool": kind,
+                            "diagnosticCount": diagnostics.len(),
+                        }),
+                        handler_started.elapsed(),
+                        true,
+                        None,
+                    );
+                    (value, diagnostics)
+                }
+                Err(error) => {
+                    query_run.record_phase(
+                        "compact.handler",
+                        &json!({ "tool": kind }),
+                        handler_started.elapsed(),
+                        false,
+                        Some(error.to_string()),
+                    );
+                    return Err(error);
+                }
+            };
             let json_value = serde_json::to_value(&value)?;
             let json_bytes = serde_json::to_vec(&json_value)?.len();
             Ok((value, diagnostics, json_bytes))

@@ -17,6 +17,11 @@ def _zero_telemetry_summary() -> dict[str, Any]:
         "prism_queries": 0,
         "prism_query_calls": 0,
         "prism_compact_tool_calls": 0,
+        "prism_locate_calls": 0,
+        "prism_gather_calls": 0,
+        "prism_open_calls": 0,
+        "prism_workset_calls": 0,
+        "prism_expand_calls": 0,
         "locate_preview_requests": 0,
         "locate_preview_hits": 0,
         "locate_preview_bytes": 0,
@@ -28,6 +33,15 @@ def _zero_telemetry_summary() -> dict[str, Any]:
         "expand_preview_direct_opens": 0,
         "expand_preview_direct_progressions": 0,
         "prism_payload_bytes": 0,
+        "compact_query_duration_ms": 0,
+        "compact_refresh_duration_ms": 0,
+        "compact_handler_duration_ms": 0,
+        "compact_other_duration_ms": 0,
+        "prism_locate_duration_ms": 0,
+        "prism_gather_duration_ms": 0,
+        "prism_open_duration_ms": 0,
+        "prism_workset_duration_ms": 0,
+        "prism_expand_duration_ms": 0,
         "shell_commands": 0,
         "shell_read_commands": 0,
         "repeated_reads": 0,
@@ -213,6 +227,11 @@ def _recompute_telemetry_summary(telemetry_arm: dict[str, Any]) -> None:
         summary["prism_queries"] += item["prism_queries"]
         summary["prism_query_calls"] += item["prism_query_calls"]
         summary["prism_compact_tool_calls"] += item["prism_compact_tool_calls"]
+        summary["prism_locate_calls"] += item["prism_locate_calls"]
+        summary["prism_gather_calls"] += item["prism_gather_calls"]
+        summary["prism_open_calls"] += item["prism_open_calls"]
+        summary["prism_workset_calls"] += item["prism_workset_calls"]
+        summary["prism_expand_calls"] += item["prism_expand_calls"]
         summary["locate_preview_requests"] += item["locate_preview_requests"]
         summary["locate_preview_hits"] += item["locate_preview_hits"]
         summary["locate_preview_bytes"] += item["locate_preview_bytes"]
@@ -224,6 +243,15 @@ def _recompute_telemetry_summary(telemetry_arm: dict[str, Any]) -> None:
         summary["expand_preview_direct_opens"] += item["expand_preview_direct_opens"]
         summary["expand_preview_direct_progressions"] += item["expand_preview_direct_progressions"]
         summary["prism_payload_bytes"] += item["prism_payload_bytes"]
+        summary["compact_query_duration_ms"] += item["compact_query_duration_ms"]
+        summary["compact_refresh_duration_ms"] += item["compact_refresh_duration_ms"]
+        summary["compact_handler_duration_ms"] += item["compact_handler_duration_ms"]
+        summary["compact_other_duration_ms"] += item["compact_other_duration_ms"]
+        summary["prism_locate_duration_ms"] += item["prism_locate_duration_ms"]
+        summary["prism_gather_duration_ms"] += item["prism_gather_duration_ms"]
+        summary["prism_open_duration_ms"] += item["prism_open_duration_ms"]
+        summary["prism_workset_duration_ms"] += item["prism_workset_duration_ms"]
+        summary["prism_expand_duration_ms"] += item["prism_expand_duration_ms"]
         summary["shell_commands"] += item["shell_commands"]
         summary["shell_read_commands"] += item["shell_read_commands"]
         summary["repeated_reads"] += item["repeated_reads"]
@@ -244,6 +272,11 @@ def record_telemetry_instance(
     prism_queries: int,
     prism_query_calls: int,
     prism_compact_tool_calls: int,
+    prism_locate_calls: int,
+    prism_gather_calls: int,
+    prism_open_calls: int,
+    prism_workset_calls: int,
+    prism_expand_calls: int,
     locate_preview_requests: int,
     locate_preview_hits: int,
     locate_preview_bytes: int,
@@ -255,6 +288,15 @@ def record_telemetry_instance(
     expand_preview_direct_opens: int,
     expand_preview_direct_progressions: int,
     prism_payload_bytes: int,
+    compact_query_duration_ms: int,
+    compact_refresh_duration_ms: int,
+    compact_handler_duration_ms: int,
+    compact_other_duration_ms: int,
+    prism_locate_duration_ms: int,
+    prism_gather_duration_ms: int,
+    prism_open_duration_ms: int,
+    prism_workset_duration_ms: int,
+    prism_expand_duration_ms: int,
     shell_commands: int,
     shell_read_commands: int,
     repeated_reads: int,
@@ -275,6 +317,11 @@ def record_telemetry_instance(
             "prism_queries": prism_queries,
             "prism_query_calls": prism_query_calls,
             "prism_compact_tool_calls": prism_compact_tool_calls,
+            "prism_locate_calls": prism_locate_calls,
+            "prism_gather_calls": prism_gather_calls,
+            "prism_open_calls": prism_open_calls,
+            "prism_workset_calls": prism_workset_calls,
+            "prism_expand_calls": prism_expand_calls,
             "locate_preview_requests": locate_preview_requests,
             "locate_preview_hits": locate_preview_hits,
             "locate_preview_bytes": locate_preview_bytes,
@@ -286,6 +333,15 @@ def record_telemetry_instance(
             "expand_preview_direct_opens": expand_preview_direct_opens,
             "expand_preview_direct_progressions": expand_preview_direct_progressions,
             "prism_payload_bytes": prism_payload_bytes,
+            "compact_query_duration_ms": compact_query_duration_ms,
+            "compact_refresh_duration_ms": compact_refresh_duration_ms,
+            "compact_handler_duration_ms": compact_handler_duration_ms,
+            "compact_other_duration_ms": compact_other_duration_ms,
+            "prism_locate_duration_ms": prism_locate_duration_ms,
+            "prism_gather_duration_ms": prism_gather_duration_ms,
+            "prism_open_duration_ms": prism_open_duration_ms,
+            "prism_workset_duration_ms": prism_workset_duration_ms,
+            "prism_expand_duration_ms": prism_expand_duration_ms,
             "shell_commands": shell_commands,
             "shell_read_commands": shell_read_commands,
             "repeated_reads": repeated_reads,

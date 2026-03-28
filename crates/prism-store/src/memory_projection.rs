@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use prism_memory::{EpisodicMemorySnapshot, MemoryEntry};
+use prism_memory::{EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind};
 
 pub(crate) fn latest_snapshot<I>(entries: I) -> Option<EpisodicMemorySnapshot>
 where
@@ -53,6 +53,27 @@ pub(crate) fn append_only_delta(
         })
         .cloned()
         .collect()
+}
+
+pub(crate) fn snapshot_from_events<I>(events: I) -> Option<EpisodicMemorySnapshot>
+where
+    I: IntoIterator<Item = MemoryEvent>,
+{
+    let mut by_id = HashMap::<String, MemoryEntry>::new();
+    for event in events {
+        for superseded in &event.supersedes {
+            by_id.remove(&superseded.0);
+        }
+        match event.action {
+            MemoryEventKind::Stored | MemoryEventKind::Promoted => {
+                if let Some(entry) = event.entry {
+                    by_id.insert(event.memory_id.0, entry);
+                }
+            }
+            MemoryEventKind::Superseded => {}
+        }
+    }
+    finalize_snapshot(by_id.into_values().collect())
 }
 
 fn finalize_snapshot(mut entries: Vec<MemoryEntry>) -> Option<EpisodicMemorySnapshot> {

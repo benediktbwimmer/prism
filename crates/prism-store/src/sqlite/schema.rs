@@ -1,19 +1,19 @@
 use anyhow::Result;
 use rusqlite::Connection;
 
-const SCHEMA_VERSION: i64 = 12;
+const SCHEMA_VERSION: i64 = 13;
 
 pub(super) fn init_schema(conn: &Connection) -> Result<()> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
     match version {
         0 | SCHEMA_VERSION => {}
-        11 => {}
+        11 | 12 => {}
         _ => reset_schema(conn)?,
     }
 
     conn.execute_batch(current_schema_sql())?;
-    if version == 11 {
-        super::memory_entries::backfill_from_snapshot_if_needed(conn)?;
+    if matches!(version, 11 | 12) {
+        super::memory_entries::backfill_event_log_if_needed(conn)?;
     }
     conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     Ok(())
@@ -131,6 +131,22 @@ fn current_schema_sql() -> &'static str {
         CREATE INDEX IF NOT EXISTS idx_memory_entry_log_memory_id_sequence
             ON memory_entry_log(memory_id, sequence DESC);
 
+        CREATE TABLE IF NOT EXISTS memory_event_log (
+            sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id TEXT NOT NULL UNIQUE,
+            memory_id TEXT NOT NULL,
+            scope TEXT NOT NULL,
+            action TEXT NOT NULL,
+            recorded_at INTEGER NOT NULL,
+            payload TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_memory_event_log_memory_id_sequence
+            ON memory_event_log(memory_id, sequence DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_memory_event_log_scope_sequence
+            ON memory_event_log(scope, sequence DESC);
+
         CREATE TABLE IF NOT EXISTS history_node_lineages (
             node_crate_name TEXT NOT NULL,
             node_path TEXT NOT NULL,
@@ -220,6 +236,7 @@ fn reset_schema(conn: &Connection) -> Result<()> {
         DROP TABLE IF EXISTS unresolved_intents;
         DROP TABLE IF EXISTS snapshots;
         DROP TABLE IF EXISTS memory_entry_log;
+        DROP TABLE IF EXISTS memory_event_log;
         DROP TABLE IF EXISTS history_node_lineages;
         DROP TABLE IF EXISTS history_events;
         DROP TABLE IF EXISTS history_co_change;

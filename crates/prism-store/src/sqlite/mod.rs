@@ -186,6 +186,20 @@ impl Store for SqliteStore {
         Ok(())
     }
 
+    fn load_memory_events(&mut self) -> Result<Vec<prism_memory::MemoryEvent>> {
+        memory_entries::load_events(&self.conn)
+    }
+
+    fn append_memory_events(&mut self, events: &[prism_memory::MemoryEvent]) -> Result<usize> {
+        let tx = self.conn.transaction()?;
+        let inserted = memory_entries::append_events_tx(&tx, events)?;
+        if inserted > 0 {
+            bump_metadata_value_tx(&tx, EPISODIC_REVISION_KEY)?;
+        }
+        tx.commit()?;
+        Ok(inserted)
+    }
+
     fn load_episodic_snapshot(&mut self) -> Result<Option<prism_memory::EpisodicMemorySnapshot>> {
         memory_entries::load_snapshot(&self.conn)
     }
