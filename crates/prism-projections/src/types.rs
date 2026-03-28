@@ -159,6 +159,49 @@ pub struct ConceptEvent {
     pub concept: ConceptPacket,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConceptRelationKind {
+    DependsOn,
+    Specializes,
+    PartOf,
+    ValidatedBy,
+    OftenUsedWith,
+    Supersedes,
+    ConfusedWith,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConceptRelation {
+    pub source_handle: String,
+    pub target_handle: String,
+    pub kind: ConceptRelationKind,
+    pub confidence: f32,
+    #[serde(default)]
+    pub evidence: Vec<String>,
+    #[serde(default)]
+    pub scope: ConceptScope,
+    #[serde(default)]
+    pub provenance: ConceptProvenance,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConceptRelationEventAction {
+    Upsert,
+    Retire,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ConceptRelationEvent {
+    pub id: String,
+    pub recorded_at: u64,
+    pub task_id: Option<String>,
+    pub action: ConceptRelationEventAction,
+    pub relation: ConceptRelation,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ValidationCheck {
     pub label: String,
@@ -193,6 +236,8 @@ pub struct ProjectionSnapshot {
     pub validation_by_lineage: Vec<(LineageId, Vec<ValidationCheck>)>,
     #[serde(default)]
     pub curated_concepts: Vec<ConceptPacket>,
+    #[serde(default)]
+    pub concept_relations: Vec<ConceptRelation>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]

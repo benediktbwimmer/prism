@@ -170,6 +170,10 @@ pub(crate) fn repo_concept_events_path(root: &Path) -> PathBuf {
     root.join(".prism").join("concepts").join("events.jsonl")
 }
 
+pub(crate) fn repo_concept_relations_path(root: &Path) -> PathBuf {
+    root.join(".prism").join("concepts").join("relations.jsonl")
+}
+
 pub(crate) fn repo_plans_dir(root: &Path) -> PathBuf {
     root.join(".prism").join("plans")
 }

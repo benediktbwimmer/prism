@@ -6,7 +6,8 @@ pub use prism_projections::ValidationCheck;
 pub use prism_projections::{
     canonical_concept_handle, ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptHealth,
     ConceptHealthSignals, ConceptHealthStatus, ConceptPacket, ConceptProvenance,
-    ConceptPublication, ConceptPublicationStatus, ConceptScope,
+    ConceptPublication, ConceptPublicationStatus, ConceptRelation, ConceptRelationEvent,
+    ConceptRelationEventAction, ConceptRelationKind, ConceptScope,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

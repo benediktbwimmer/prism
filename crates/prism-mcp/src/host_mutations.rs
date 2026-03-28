@@ -18,35 +18,38 @@ use prism_memory::{
 };
 use prism_query::{
     canonical_concept_handle, ConceptEvent, ConceptEventAction, ConceptPacket, ConceptProvenance,
-    ConceptPublication, ConceptPublicationStatus, ConceptScope, Prism,
+    ConceptPublication, ConceptPublicationStatus, ConceptRelation, ConceptRelationEvent,
+    ConceptRelationEventAction, ConceptRelationKind, ConceptScope, Prism,
 };
 use serde_json::{json, Value};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::{
-    artifact_view, claim_view, concept_packet_view, conflict_view, convert_acceptance,
-    convert_anchors, convert_completion_context, convert_inferred_scope, convert_memory_kind,
-    convert_memory_scope, convert_memory_source, convert_node_id, convert_outcome_evidence,
-    convert_outcome_kind, convert_outcome_result, convert_policy, coordination_task_view,
-    curator_disposition_label, curator_job_status_label, curator_memory_metadata, curator_proposal,
-    curator_proposal_state, curator_trigger_label, current_timestamp,
-    ensure_repo_publication_metadata, manual_memory_metadata, parse_capability, parse_claim_mode,
-    parse_coordination_task_status, parse_edge_kind, parse_plan_edge_kind, parse_plan_node_status,
-    parse_plan_status, parse_review_verdict, plan_edge_view, plan_node_view, plan_view,
-    task_journal_memory_metadata, task_journal_view, ArtifactActionInput, ArtifactMutationResult,
-    ArtifactProposePayload, ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload,
-    ClaimActionInput, ClaimMutationResult, ClaimReleasePayload, ClaimRenewPayload,
-    ConceptMutationOperationInput, ConceptMutationResult, ConceptScopeInput,
-    CoordinationMutationKindInput, CoordinationMutationResult, CuratorJobView,
-    CuratorProposalDecisionResult, EdgeMutationResult, EventMutationResult, HandoffAcceptPayload,
-    MemoryMutationActionInput, MemoryMutationResult, MemoryStorePayload, MutationViolationView,
-    NodeIdInput, PlanEdgeCreatePayload, PlanEdgeDeletePayload, PlanNodeCreatePayload,
-    PlanNodeUpdatePayload, PlanUpdatePayload, PrismArtifactArgs, PrismClaimArgs,
-    PrismConceptLensInput, PrismConceptMutationArgs, PrismCoordinationArgs,
-    PrismCuratorPromoteConceptArgs, PrismCuratorPromoteEdgeArgs, PrismCuratorPromoteMemoryArgs,
-    PrismCuratorRejectProposalArgs, PrismFinishTaskArgs, PrismInferEdgeArgs, PrismMemoryArgs,
-    PrismOutcomeArgs, PrismValidationFeedbackArgs, QueryHost, SessionState, TaskCreatePayload,
-    TaskUpdatePayload, ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
+    artifact_view, claim_view, concept_packet_view, concept_relation_view, conflict_view,
+    convert_acceptance, convert_anchors, convert_completion_context, convert_inferred_scope,
+    convert_memory_kind, convert_memory_scope, convert_memory_source, convert_node_id,
+    convert_outcome_evidence, convert_outcome_kind, convert_outcome_result,
+    convert_plan_acceptance, convert_policy, coordination_task_view, curator_disposition_label,
+    curator_job_status_label, curator_memory_metadata, curator_proposal, curator_proposal_state,
+    curator_trigger_label, current_timestamp, ensure_repo_publication_metadata,
+    manual_memory_metadata, parse_capability, parse_claim_mode, parse_coordination_task_status,
+    parse_edge_kind, parse_plan_edge_kind, parse_plan_node_status, parse_plan_status,
+    parse_review_verdict, plan_edge_view, plan_node_view, plan_view, task_journal_memory_metadata,
+    task_journal_view, ArtifactActionInput, ArtifactMutationResult, ArtifactProposePayload,
+    ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput,
+    ClaimMutationResult, ClaimReleasePayload, ClaimRenewPayload, ConceptMutationOperationInput,
+    ConceptMutationResult, ConceptRelationKindInput, ConceptRelationMutationOperationInput,
+    ConceptRelationMutationResult, ConceptScopeInput, CoordinationMutationKindInput,
+    CoordinationMutationResult, CuratorJobView, CuratorProposalDecisionResult, EdgeMutationResult,
+    EventMutationResult, HandoffAcceptPayload, MemoryMutationActionInput, MemoryMutationResult,
+    MemoryStorePayload, MutationViolationView, NodeIdInput, PlanEdgeCreatePayload,
+    PlanEdgeDeletePayload, PlanNodeCreatePayload, PlanNodeUpdatePayload, PlanUpdatePayload,
+    PrismArtifactArgs, PrismClaimArgs, PrismConceptLensInput, PrismConceptMutationArgs,
+    PrismConceptRelationMutationArgs, PrismCoordinationArgs, PrismCuratorPromoteConceptArgs,
+    PrismCuratorPromoteEdgeArgs, PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs,
+    PrismFinishTaskArgs, PrismInferEdgeArgs, PrismMemoryArgs, PrismOutcomeArgs,
+    PrismValidationFeedbackArgs, QueryHost, SessionState, TaskCreatePayload, TaskUpdatePayload,
+    ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
     ValidationFeedbackVerdictInput, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
     DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
@@ -613,7 +616,39 @@ impl QueryHost {
             event_id: event.id,
             concept_handle: packet.handle.clone(),
             task_id: task_id.0.to_string(),
-            packet: concept_packet_view(packet, true, None),
+            packet: concept_packet_view(prism.as_ref(), packet, true, None),
+        })
+    }
+
+    pub(crate) fn store_concept_relation(
+        &self,
+        session: &SessionState,
+        args: PrismConceptRelationMutationArgs,
+    ) -> Result<ConceptRelationMutationResult> {
+        self.refresh_workspace()?;
+        let workspace = self.workspace.as_ref().ok_or_else(|| {
+            anyhow!("concept relation mutations require a workspace-backed PRISM session")
+        })?;
+        let prism = self.current_prism();
+        let task_id = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
+        let relation = build_concept_relation(prism.as_ref(), &task_id, &args)?;
+        let event = ConceptRelationEvent {
+            id: next_concept_relation_event_id(),
+            recorded_at: current_timestamp(),
+            task_id: Some(task_id.0.to_string()),
+            action: match args.operation {
+                ConceptRelationMutationOperationInput::Upsert => ConceptRelationEventAction::Upsert,
+                ConceptRelationMutationOperationInput::Retire => ConceptRelationEventAction::Retire,
+            },
+            relation: relation.clone(),
+        };
+        workspace.append_concept_relation_event(event.clone())?;
+        self.sync_workspace_revision(workspace)?;
+        let focus_handle = relation.source_handle.clone();
+        Ok(ConceptRelationMutationResult {
+            event_id: event.id,
+            task_id: task_id.0.to_string(),
+            relation: concept_relation_view(prism.as_ref(), &focus_handle, relation),
         })
     }
 
@@ -1043,9 +1078,10 @@ impl QueryHost {
                         .assignee
                         .map(AgentId::new)
                         .or_else(|| session.current_agent()),
+                    payload.is_abstract.unwrap_or(false),
                     convert_anchors(payload.anchors.unwrap_or_default())?,
                     payload.depends_on.unwrap_or_default(),
-                    convert_acceptance(payload.acceptance)?,
+                    convert_plan_acceptance(payload.acceptance)?,
                     prism.workspace_revision(),
                 )?;
                 current_plan_node_state(prism, &plan_id, &node_id.0)
@@ -1062,12 +1098,13 @@ impl QueryHost {
                     &node_id,
                     status,
                     payload.assignee.map(|value| Some(AgentId::new(value))),
+                    payload.is_abstract,
                     payload.title,
                     payload.anchors.map(convert_anchors).transpose()?,
                     payload.depends_on,
                     payload
                         .acceptance
-                        .map(|acceptance| convert_acceptance(Some(acceptance)))
+                        .map(|acceptance| convert_plan_acceptance(Some(acceptance)))
                         .transpose()?,
                     Some(prism.workspace_revision()),
                 )?;
@@ -2032,6 +2069,62 @@ fn concept_args_from_curator_candidate(
     }
 }
 
+fn build_concept_relation(
+    prism: &Prism,
+    task_id: &TaskId,
+    args: &PrismConceptRelationMutationArgs,
+) -> Result<ConceptRelation> {
+    let source_handle = normalize_concept_handle(Some(&args.source_handle), &args.source_handle);
+    let target_handle = normalize_concept_handle(Some(&args.target_handle), &args.target_handle);
+    if source_handle == target_handle {
+        return Err(anyhow!(
+            "concept relations require distinct source and target handles"
+        ));
+    }
+    prism
+        .concept_by_handle(&source_handle)
+        .ok_or_else(|| anyhow!("no concept packet matched `{source_handle}`"))?;
+    prism
+        .concept_by_handle(&target_handle)
+        .ok_or_else(|| anyhow!("no concept packet matched `{target_handle}`"))?;
+    let kind = convert_concept_relation_kind(args.kind.clone());
+    match args.operation {
+        ConceptRelationMutationOperationInput::Upsert => Ok(ConceptRelation {
+            source_handle,
+            target_handle,
+            kind,
+            confidence: args.confidence.unwrap_or(0.78).clamp(0.0, 1.0),
+            evidence: sanitize_strings(args.evidence.clone().unwrap_or_default()),
+            scope: args
+                .scope
+                .clone()
+                .map(convert_concept_scope)
+                .unwrap_or(ConceptScope::Session),
+            provenance: ConceptProvenance {
+                origin: "manual_concept_relation".to_string(),
+                kind: "manual_concept_relation".to_string(),
+                task_id: Some(task_id.0.to_string()),
+            },
+        }),
+        ConceptRelationMutationOperationInput::Retire => prism
+            .concept_relations_for_handle(&source_handle)
+            .into_iter()
+            .find(|relation| {
+                relation.source_handle.eq_ignore_ascii_case(&source_handle)
+                    && relation.target_handle.eq_ignore_ascii_case(&target_handle)
+                    && relation.kind == kind
+            })
+            .ok_or_else(|| {
+                anyhow!(
+                    "no concept relation matched `{}` -> `{}` ({:?})",
+                    source_handle,
+                    target_handle,
+                    kind
+                )
+            }),
+    }
+}
+
 fn node_id_input(id: prism_ir::NodeId) -> NodeIdInput {
     NodeIdInput {
         crate_name: id.crate_name.to_string(),
@@ -2407,12 +2500,32 @@ fn convert_concept_scope(scope: crate::ConceptScopeInput) -> ConceptScope {
     }
 }
 
+fn convert_concept_relation_kind(kind: ConceptRelationKindInput) -> ConceptRelationKind {
+    match kind {
+        ConceptRelationKindInput::DependsOn => ConceptRelationKind::DependsOn,
+        ConceptRelationKindInput::Specializes => ConceptRelationKind::Specializes,
+        ConceptRelationKindInput::PartOf => ConceptRelationKind::PartOf,
+        ConceptRelationKindInput::ValidatedBy => ConceptRelationKind::ValidatedBy,
+        ConceptRelationKindInput::OftenUsedWith => ConceptRelationKind::OftenUsedWith,
+        ConceptRelationKindInput::Supersedes => ConceptRelationKind::Supersedes,
+        ConceptRelationKindInput::ConfusedWith => ConceptRelationKind::ConfusedWith,
+    }
+}
+
 fn next_concept_event_id() -> String {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("system clock should be after unix epoch")
         .as_nanos();
     format!("concept-event:{nanos}")
+}
+
+fn next_concept_relation_event_id() -> String {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock should be after unix epoch")
+        .as_nanos();
+    format!("concept-relation-event:{nanos}")
 }
 
 fn convert_validation_feedback_category(

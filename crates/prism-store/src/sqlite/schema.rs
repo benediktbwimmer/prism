@@ -197,6 +197,14 @@ fn current_schema_sql() -> &'static str {
             payload TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS projection_concept_relation (
+            source_handle TEXT NOT NULL,
+            target_handle TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            PRIMARY KEY (source_handle, target_handle, kind)
+        );
+
         CREATE INDEX IF NOT EXISTS idx_edges_file_path_kind
             ON edges(file_path, kind);
 
@@ -249,6 +257,7 @@ fn reset_schema(conn: &Connection) -> Result<()> {
         DROP TABLE IF EXISTS projection_co_change;
         DROP TABLE IF EXISTS projection_validation;
         DROP TABLE IF EXISTS projection_curated_concept;
+        DROP TABLE IF EXISTS projection_concept_relation;
         "#,
     )?;
     Ok(())

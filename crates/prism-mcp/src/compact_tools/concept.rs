@@ -17,9 +17,9 @@ use super::suggested_actions::{
 use super::workset::budgeted_workset_result_with_followups;
 use super::*;
 use crate::{
-    concept_decode_lens_view, concept_packet_view, concept_resolution_is_ambiguous, recent_patches,
-    resolve_concepts_for_session, scored_memory_view, symbol_views_for_ids,
-    validation_recipe_view_with,
+    concept_decode_lens_view, concept_packet_view, concept_relation_view,
+    concept_resolution_is_ambiguous, recent_patches, resolve_concepts_for_session,
+    scored_memory_view, symbol_views_for_ids, validation_recipe_view_with,
 };
 
 const CONCEPT_PATCH_LIMIT: usize = 4;
@@ -162,6 +162,11 @@ fn agent_concept_packet_view(
                 retired_at: publication.retired_at,
                 retirement_reason: publication.retirement_reason,
             }),
+        relations: prism
+            .concept_relations_for_handle(&packet.handle)
+            .into_iter()
+            .map(|relation| concept_relation_view(prism, &packet.handle, relation))
+            .collect(),
         resolution: resolution.map(|resolution| ConceptResolutionView {
             score: resolution.score,
             reasons: resolution.reasons,
@@ -395,7 +400,7 @@ fn decode_concept(
     packet: &ConceptPacket,
     lens: &crate::PrismConceptLensInput,
 ) -> Result<ConceptDecodeView> {
-    let concept = concept_packet_view(packet.clone(), false, None);
+    let concept = concept_packet_view(prism, packet.clone(), false, None);
     let members = symbol_views_for_ids(prism, packet.core_members.clone())?;
     let primary = members.first().cloned();
     let supporting_reads = symbol_views_for_ids(prism, packet.supporting_members.clone())?;

@@ -1,4 +1,5 @@
 mod common;
+mod concept_relations;
 mod concepts;
 mod intent;
 mod projections;
@@ -6,6 +7,7 @@ mod projections;
 mod tests;
 mod types;
 
+pub use crate::concept_relations::concept_relations_from_events;
 pub use crate::concepts::{canonical_concept_handle, curated_concepts_from_events};
 pub use crate::intent::IntentIndex;
 pub use crate::projections::{
@@ -15,6 +17,7 @@ pub use crate::projections::{
 pub use crate::types::{
     CoChangeDelta, CoChangeRecord, ConceptDecodeLens, ConceptEvent, ConceptEventAction,
     ConceptHealth, ConceptHealthSignals, ConceptHealthStatus, ConceptPacket, ConceptProvenance,
-    ConceptPublication, ConceptPublicationStatus, ConceptResolution, ConceptScope,
+    ConceptPublication, ConceptPublicationStatus, ConceptRelation, ConceptRelationEvent,
+    ConceptRelationEventAction, ConceptRelationKind, ConceptResolution, ConceptScope,
     IntentDriftRecord, IntentSpecProjection, ProjectionSnapshot, ValidationCheck, ValidationDelta,
 };

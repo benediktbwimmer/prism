@@ -657,14 +657,11 @@ fn plan_node_mutations_return_graph_native_views() {
                 payload: json!({
                     "planId": plan_id.clone(),
                     "title": "Edit main",
-                    "anchors": [{
-                        "type": "node",
-                        "crateName": "demo",
-                        "path": "demo::main",
-                        "kind": "function"
-                    }],
+                    "isAbstract": true,
                     "acceptance": [{
-                        "label": "main is updated"
+                        "label": "main is updated",
+                        "requiredChecks": [{ "id": "validation:demo-main" }],
+                        "evidencePolicy": "review-and-validation"
                     }]
                 }),
                 task_id: None,
@@ -674,9 +671,14 @@ fn plan_node_mutations_return_graph_native_views() {
     let node_id = node.state["id"].as_str().unwrap().to_string();
     assert_eq!(node.state["title"], "Edit main");
     assert_eq!(node.state["kind"], "Edit");
+    assert_eq!(node.state["isAbstract"], true);
     assert_eq!(
-        node.state["bindings"]["anchors"].as_array().unwrap().len(),
-        1
+        node.state["acceptance"][0]["requiredChecks"][0]["id"],
+        "validation:demo-main"
+    );
+    assert_eq!(
+        node.state["acceptance"][0]["evidencePolicy"],
+        "ReviewAndValidation"
     );
 
     let updated = host
@@ -688,9 +690,18 @@ fn plan_node_mutations_return_graph_native_views() {
                     "nodeId": node_id.clone(),
                     "title": "Edit main safely",
                     "status": "in-progress",
+                    "isAbstract": false,
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::main",
+                        "kind": "function"
+                    }],
                     "dependsOn": [dependency_id.clone()],
                     "acceptance": [{
-                        "label": "main still compiles"
+                        "label": "main still compiles",
+                        "requiredChecks": [{ "id": "validation:cargo-test" }],
+                        "evidencePolicy": "validation-only"
                     }]
                 }),
                 task_id: None,
@@ -700,6 +711,22 @@ fn plan_node_mutations_return_graph_native_views() {
     assert_eq!(updated.state["title"], "Edit main safely");
     assert_eq!(updated.state["status"], "InProgress");
     assert_eq!(updated.state["acceptance"].as_array().unwrap().len(), 1);
+    assert_eq!(updated.state["isAbstract"], false);
+    assert_eq!(
+        updated.state["bindings"]["anchors"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        updated.state["acceptance"][0]["requiredChecks"][0]["id"],
+        "validation:cargo-test"
+    );
+    assert_eq!(
+        updated.state["acceptance"][0]["evidencePolicy"],
+        "ValidationOnly"
+    );
 
     let graph = host
         .current_prism()
@@ -3502,6 +3529,145 @@ return {{
 }
 
 #[test]
+fn concept_relation_mutation_populates_query_and_compact_neighbor_views() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn validation_recipe() {}
+pub fn runtime_status() {}
+pub fn start_task() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    host.store_concept(
+        session.as_ref(),
+        PrismConceptMutationArgs {
+            operation: ConceptMutationOperationInput::Promote,
+            handle: Some("concept://custom_validation".to_string()),
+            canonical_name: Some("custom_validation".to_string()),
+            summary: Some("Custom validation concept.".to_string()),
+            aliases: Some(vec!["validation".to_string()]),
+            core_members: Some(vec![
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::validation_recipe".to_string(),
+                    kind: "function".to_string(),
+                },
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::runtime_status".to_string(),
+                    kind: "function".to_string(),
+                },
+            ]),
+            supporting_members: None,
+            likely_tests: None,
+            evidence: Some(vec!["Curated in test.".to_string()]),
+            risk_hint: None,
+            confidence: Some(0.9),
+            decode_lenses: Some(vec![PrismConceptLensInput::Validation]),
+            scope: Some(ConceptScopeInput::Session),
+            supersedes: None,
+            retirement_reason: None,
+            task_id: Some("task:concept-relation".to_string()),
+        },
+    )
+    .unwrap();
+    host.store_concept(
+        session.as_ref(),
+        PrismConceptMutationArgs {
+            operation: ConceptMutationOperationInput::Promote,
+            handle: Some("concept://runtime_surface".to_string()),
+            canonical_name: Some("runtime_surface".to_string()),
+            summary: Some("Runtime status and entry points.".to_string()),
+            aliases: Some(vec!["runtime".to_string()]),
+            core_members: Some(vec![
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::runtime_status".to_string(),
+                    kind: "function".to_string(),
+                },
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::start_task".to_string(),
+                    kind: "function".to_string(),
+                },
+            ]),
+            supporting_members: None,
+            likely_tests: None,
+            evidence: Some(vec!["Curated in test.".to_string()]),
+            risk_hint: None,
+            confidence: Some(0.88),
+            decode_lenses: Some(vec![PrismConceptLensInput::Open]),
+            scope: Some(ConceptScopeInput::Session),
+            supersedes: None,
+            retirement_reason: None,
+            task_id: Some("task:concept-relation".to_string()),
+        },
+    )
+    .unwrap();
+
+    let stored = host
+        .store_concept_relation(
+            session.as_ref(),
+            PrismConceptRelationMutationArgs {
+                operation: ConceptRelationMutationOperationInput::Upsert,
+                source_handle: "concept://custom_validation".to_string(),
+                target_handle: "concept://runtime_surface".to_string(),
+                kind: ConceptRelationKindInput::OftenUsedWith,
+                confidence: Some(0.82),
+                evidence: Some(vec![
+                    "Validation work usually routes through runtime status.".to_string(),
+                ]),
+                scope: Some(ConceptScopeInput::Session),
+                task_id: Some("task:concept-relation".to_string()),
+            },
+        )
+        .expect("concept relation should store");
+    assert_eq!(stored.relation.related_handle, "concept://runtime_surface");
+
+    let query = host
+        .execute(
+            session,
+            r#"
+return {
+  concept: prism.conceptByHandle("concept://custom_validation", { includeBindingMetadata: true }),
+  relations: prism.conceptRelations("concept://custom_validation"),
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed");
+    assert_eq!(
+        query.result["concept"]["relations"][0]["relatedHandle"],
+        Value::String("concept://runtime_surface".to_string())
+    );
+    assert_eq!(
+        query.result["relations"][0]["kind"],
+        Value::String("often_used_with".to_string())
+    );
+
+    let neighbors = host
+        .compact_expand(
+            test_session(&host),
+            PrismExpandArgs {
+                handle: "concept://custom_validation".to_string(),
+                kind: PrismExpandKindInput::Neighbors,
+                include_top_preview: None,
+            },
+        )
+        .expect("neighbor expand should accept concept handles");
+    assert_eq!(neighbors.kind, prism_js::AgentExpandKind::Neighbors);
+    assert_eq!(
+        neighbors.result["relations"][0]["relatedHandle"],
+        Value::String("concept://runtime_surface".to_string())
+    );
+}
+
+#[test]
 fn semantic_curator_memory_promotion_persists_and_is_recallable() {
     let root = temp_workspace();
 
@@ -4725,6 +4891,7 @@ fn prism_mutate_schema_surfaces_action_specific_examples() {
         "outcome",
         "memory",
         "concept",
+        "concept_relation",
         "infer_edge",
         "coordination",
         "claim",

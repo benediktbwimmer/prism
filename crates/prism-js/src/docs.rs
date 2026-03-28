@@ -267,6 +267,7 @@ type PrismApi = {
   concepts(query: string, options?: ConceptQueryOptions): ConceptPacketView[];
   concept(query: string, options?: ConceptQueryOptions): ConceptPacketView | null;
   conceptByHandle(handle: string, options?: { includeBindingMetadata?: boolean }): ConceptPacketView | null;
+  conceptRelations(handle: string): ConceptRelationView[];
   decodeConcept(input: { handle?: string; query?: string; lens?: "open" | "workset" | "validation" | "timeline" | "memory"; includeBindingMetadata?: boolean }): ConceptDecodeView | null;
   searchText(query: string, options?: SearchTextOptions): TextSearchMatchView[];
   textSearchBundle(query: string, options?: TextSearchBundleOptions): TextSearchBundleView;
@@ -2083,6 +2084,7 @@ The query runtime is read-only. State changes happen through two coarse MCP muta
   - action `outcome`
   - action `memory`
   - action `concept`
+  - action `concept_relation`
   - action `infer_edge`
   - action `coordination`
   - action `claim`

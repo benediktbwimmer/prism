@@ -81,9 +81,23 @@ pub(super) fn load_projection_snapshot_rows(
         }
     }
 
+    let mut concept_relations = Vec::<prism_projections::ConceptRelation>::new();
+    {
+        let mut stmt = conn.prepare(
+            "SELECT payload
+             FROM projection_concept_relation
+             ORDER BY source_handle, target_handle, kind",
+        )?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        for row in rows {
+            concept_relations.push(serde_json::from_str(&row?)?);
+        }
+    }
+
     if co_change_by_lineage.is_empty()
         && validation_by_lineage.is_empty()
         && curated_concepts.is_empty()
+        && concept_relations.is_empty()
     {
         info!(
             total_ms = started.elapsed().as_millis(),
@@ -97,6 +111,7 @@ pub(super) fn load_projection_snapshot_rows(
     let validation_lineages = validation_by_lineage.len();
     let validation_records = validation_by_lineage.values().map(Vec::len).sum::<usize>();
     let curated_count = curated_concepts.len();
+    let relation_count = concept_relations.len();
 
     let mut co_change_by_lineage = co_change_by_lineage.into_iter().collect::<Vec<_>>();
     co_change_by_lineage.sort_by(|left, right| left.0 .0.cmp(&right.0 .0));
@@ -110,6 +125,7 @@ pub(super) fn load_projection_snapshot_rows(
         validation_lineages,
         validation_records,
         curated_count,
+        relation_count,
         total_ms = started.elapsed().as_millis(),
         "loaded prism projection snapshot"
     );
@@ -118,6 +134,7 @@ pub(super) fn load_projection_snapshot_rows(
         co_change_by_lineage,
         validation_by_lineage,
         curated_concepts,
+        concept_relations,
     }))
 }
 
@@ -128,6 +145,7 @@ pub(super) fn save_projection_snapshot_tx(
     tx.execute("DELETE FROM projection_co_change", [])?;
     tx.execute("DELETE FROM projection_validation", [])?;
     tx.execute("DELETE FROM projection_curated_concept", [])?;
+    tx.execute("DELETE FROM projection_concept_relation", [])?;
 
     {
         let mut stmt = tx.prepare_cached(
@@ -169,6 +187,21 @@ pub(super) fn save_projection_snapshot_tx(
             stmt.execute(params![
                 concept.handle.as_str(),
                 serde_json::to_string(concept)?
+            ])?;
+        }
+    }
+
+    {
+        let mut stmt = tx.prepare_cached(
+            "INSERT INTO projection_concept_relation(source_handle, target_handle, kind, payload)
+             VALUES (?1, ?2, ?3, ?4)",
+        )?;
+        for relation in &snapshot.concept_relations {
+            stmt.execute(params![
+                relation.source_handle.as_str(),
+                relation.target_handle.as_str(),
+                serde_json::to_string(&relation.kind)?,
+                serde_json::to_string(relation)?,
             ])?;
         }
     }

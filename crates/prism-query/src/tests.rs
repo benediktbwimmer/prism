@@ -16,7 +16,8 @@ use prism_memory::{
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeRecallQuery, OutcomeResult,
 };
 use prism_projections::{
-    ConceptDecodeLens, ConceptPacket, ConceptProvenance, ConceptScope, ProjectionIndex,
+    ConceptDecodeLens, ConceptPacket, ConceptProvenance, ConceptRelation, ConceptRelationKind,
+    ConceptScope, ProjectionIndex,
 };
 use prism_store::Graph;
 
@@ -305,6 +306,83 @@ fn concept_lookup_returns_curated_validation_packet() {
     assert!(prism
         .concept_by_handle("concept://session_lifecycle")
         .is_some());
+}
+
+#[test]
+fn concept_relation_lookup_returns_direct_neighbors() {
+    let prism = Prism::new(Graph::new());
+    prism.replace_curated_concepts(vec![
+        ConceptPacket {
+            handle: "concept://validation_pipeline".to_string(),
+            canonical_name: "validation_pipeline".to_string(),
+            summary: "Curated validation concept.".to_string(),
+            aliases: vec!["validation".to_string()],
+            confidence: 0.95,
+            core_members: vec![
+                NodeId::new("demo", "demo::validation_recipe", NodeKind::Function),
+                NodeId::new("demo", "demo::runtime_status", NodeKind::Function),
+            ],
+            core_member_lineages: Vec::new(),
+            supporting_members: Vec::new(),
+            supporting_member_lineages: Vec::new(),
+            likely_tests: Vec::new(),
+            likely_test_lineages: Vec::new(),
+            evidence: vec!["Curated in test.".to_string()],
+            risk_hint: None,
+            decode_lenses: vec![ConceptDecodeLens::Validation],
+            scope: ConceptScope::Session,
+            provenance: ConceptProvenance {
+                origin: "test".to_string(),
+                kind: "curated_concept".to_string(),
+                task_id: None,
+            },
+            publication: None,
+        },
+        ConceptPacket {
+            handle: "concept://runtime_surface".to_string(),
+            canonical_name: "runtime_surface".to_string(),
+            summary: "Curated runtime concept.".to_string(),
+            aliases: vec!["runtime".to_string()],
+            confidence: 0.9,
+            core_members: vec![
+                NodeId::new("demo", "demo::runtime_status", NodeKind::Function),
+                NodeId::new("demo", "demo::start_task", NodeKind::Function),
+            ],
+            core_member_lineages: Vec::new(),
+            supporting_members: Vec::new(),
+            supporting_member_lineages: Vec::new(),
+            likely_tests: Vec::new(),
+            likely_test_lineages: Vec::new(),
+            evidence: vec!["Curated in test.".to_string()],
+            risk_hint: None,
+            decode_lenses: vec![ConceptDecodeLens::Open],
+            scope: ConceptScope::Session,
+            provenance: ConceptProvenance {
+                origin: "test".to_string(),
+                kind: "curated_concept".to_string(),
+                task_id: None,
+            },
+            publication: None,
+        },
+    ]);
+    prism.upsert_concept_relation(ConceptRelation {
+        source_handle: "concept://validation_pipeline".to_string(),
+        target_handle: "concept://runtime_surface".to_string(),
+        kind: ConceptRelationKind::OftenUsedWith,
+        confidence: 0.83,
+        evidence: vec!["Validation work often moves through runtime state.".to_string()],
+        scope: ConceptScope::Session,
+        provenance: ConceptProvenance {
+            origin: "test".to_string(),
+            kind: "concept_relation".to_string(),
+            task_id: None,
+        },
+    });
+
+    let relations = prism.concept_relations_for_handle("concept://validation_pipeline");
+    assert_eq!(relations.len(), 1);
+    assert_eq!(relations[0].target_handle, "concept://runtime_surface");
+    assert_eq!(relations[0].kind, ConceptRelationKind::OftenUsedWith);
 }
 
 #[test]
@@ -1464,8 +1542,15 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
                 summary: None,
                 status: PlanNodeStatus::Ready,
                 bindings: prism_ir::PlanBinding::default(),
-                acceptance: Vec::new(),
-                is_abstract: false,
+                acceptance: vec![prism_ir::PlanAcceptanceCriterion {
+                    label: "Task A is validated".into(),
+                    anchors: Vec::new(),
+                    required_checks: vec![prism_ir::ValidationRef {
+                        id: "validation:ci".into(),
+                    }],
+                    evidence_policy: prism_ir::AcceptanceEvidencePolicy::ReviewAndValidation,
+                }],
+                is_abstract: true,
                 assignee: None,
                 base_revision: WorkspaceRevision::default(),
                 priority: None,
@@ -1595,6 +1680,25 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
                 .pending_handoff_to
                 .as_ref()
                 .is_some_and(|agent| agent.0 == "agent-b")));
+    let task_a_node = runtime_graph
+        .nodes
+        .iter()
+        .find(|node| node.id == node_a)
+        .expect("task a node");
+    assert!(task_a_node.is_abstract);
+    assert_eq!(task_a_node.acceptance.len(), 1);
+    assert_eq!(
+        task_a_node.acceptance[0]
+            .required_checks
+            .iter()
+            .map(|check| check.id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["validation:ci"]
+    );
+    assert_eq!(
+        task_a_node.acceptance[0].evidence_policy,
+        prism_ir::AcceptanceEvidencePolicy::ReviewAndValidation
+    );
 }
 
 #[test]

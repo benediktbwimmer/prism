@@ -1,4 +1,5 @@
 mod concept_events;
+mod concept_relation_events;
 mod curator;
 mod curator_support;
 mod indexer;

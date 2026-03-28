@@ -10,7 +10,8 @@ use prism_memory::{
 use crate::projections::{ProjectionIndex, MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE};
 use crate::{
     ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptPacket, ConceptProvenance,
-    ConceptPublication, ConceptPublicationStatus, ConceptScope,
+    ConceptPublication, ConceptPublicationStatus, ConceptRelation, ConceptRelationKind,
+    ConceptScope,
 };
 
 #[test]
@@ -59,6 +60,97 @@ fn derives_validation_and_co_change_indexes() {
     let neighbors = index.co_change_neighbors(&alpha_lineage, 10);
     assert_eq!(neighbors[0].lineage, beta_lineage);
     assert_eq!(neighbors[0].count, 3);
+}
+
+#[test]
+fn projection_index_tracks_direct_concept_relations() {
+    let history = HistorySnapshot {
+        node_to_lineage: Vec::new(),
+        events: Vec::new(),
+        co_change_counts: Vec::new(),
+        tombstones: Vec::new(),
+        next_lineage: 0,
+        next_event: 0,
+    };
+    let outcomes = OutcomeMemorySnapshot { events: Vec::new() };
+    let validation = ConceptPacket {
+        handle: "concept://validation_pipeline".to_string(),
+        canonical_name: "validation_pipeline".to_string(),
+        summary: "Checks and likely tests for a change.".to_string(),
+        aliases: vec!["validation".to_string()],
+        confidence: 0.9,
+        core_members: vec![
+            NodeId::new("demo", "demo::validation_recipe", NodeKind::Function),
+            NodeId::new("demo", "demo::runtime_status", NodeKind::Function),
+        ],
+        core_member_lineages: vec![None, None],
+        supporting_members: Vec::new(),
+        supporting_member_lineages: Vec::new(),
+        likely_tests: Vec::new(),
+        likely_test_lineages: Vec::new(),
+        evidence: vec!["Curated in test.".to_string()],
+        risk_hint: None,
+        decode_lenses: vec![ConceptDecodeLens::Validation],
+        scope: ConceptScope::Session,
+        provenance: ConceptProvenance {
+            origin: "test".to_string(),
+            kind: "projection_test".to_string(),
+            task_id: None,
+        },
+        publication: None,
+    };
+    let runtime = ConceptPacket {
+        handle: "concept://runtime_surface".to_string(),
+        canonical_name: "runtime_surface".to_string(),
+        summary: "Entry points and runtime status.".to_string(),
+        aliases: vec!["runtime".to_string()],
+        confidence: 0.88,
+        core_members: vec![
+            NodeId::new("demo", "demo::runtime_status", NodeKind::Function),
+            NodeId::new("demo", "demo::start_task", NodeKind::Function),
+        ],
+        core_member_lineages: vec![None, None],
+        supporting_members: Vec::new(),
+        supporting_member_lineages: Vec::new(),
+        likely_tests: Vec::new(),
+        likely_test_lineages: Vec::new(),
+        evidence: vec!["Curated in test.".to_string()],
+        risk_hint: None,
+        decode_lenses: vec![ConceptDecodeLens::Open],
+        scope: ConceptScope::Session,
+        provenance: ConceptProvenance {
+            origin: "test".to_string(),
+            kind: "projection_test".to_string(),
+            task_id: None,
+        },
+        publication: None,
+    };
+    let relation = ConceptRelation {
+        source_handle: validation.handle.clone(),
+        target_handle: runtime.handle.clone(),
+        kind: ConceptRelationKind::OftenUsedWith,
+        confidence: 0.82,
+        evidence: vec!["Validation work routes through runtime status.".to_string()],
+        scope: ConceptScope::Session,
+        provenance: ConceptProvenance {
+            origin: "test".to_string(),
+            kind: "projection_test".to_string(),
+            task_id: None,
+        },
+    };
+
+    let index = ProjectionIndex::derive_with_knowledge(
+        &history,
+        &outcomes,
+        vec![validation.clone(), runtime.clone()],
+        vec![relation.clone()],
+    );
+
+    let neighbors = index.concept_relations_for_handle(&validation.handle);
+    assert_eq!(neighbors.len(), 1);
+    assert_eq!(neighbors[0].target_handle, runtime.handle);
+    assert_eq!(neighbors[0].kind, ConceptRelationKind::OftenUsedWith);
+    assert_eq!(index.snapshot().concept_relations, vec![relation]);
 }
 
 #[test]

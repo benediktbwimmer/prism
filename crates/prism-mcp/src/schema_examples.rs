@@ -139,6 +139,7 @@ fn prism_mutate_examples() -> Vec<Value> {
         "outcome",
         "memory",
         "concept",
+        "concept_relation",
         "infer_edge",
         "coordination",
         "claim",
@@ -214,6 +215,19 @@ fn prism_mutate_action_example(action: &str) -> Option<Value> {
                 ],
                 "aliases": ["validation", "checks"],
                 "evidence": ["Promoted from repeated validation worksets."]
+            }
+        })),
+        "concept_relation" => Some(json!({
+            "action": "concept_relation",
+            "input": {
+                "operation": "upsert",
+                "sourceHandle": "concept://validation_pipeline",
+                "targetHandle": "concept://runtime_surface",
+                "kind": "often_used_with",
+                "confidence": 0.82,
+                "scope": "session",
+                "evidence": ["Validation work usually routes through the runtime surface."],
+                "taskId": "task:demo-main"
             }
         })),
         "curator_promote_concept" => Some(json!({

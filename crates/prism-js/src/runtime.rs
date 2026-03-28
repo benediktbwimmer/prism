@@ -588,6 +588,9 @@ globalThis.prism = Object.freeze({
         options?.includeBindingMetadata ?? options?.include_binding_metadata,
     });
   },
+  conceptRelations(handle) {
+    return __prismHost("conceptRelations", { handle });
+  },
   decodeConcept(input) {
     if (typeof input === "string") {
       return __prismEnrichConceptDecode(

@@ -46,9 +46,10 @@ pub use crate::symbol::{Relations, Symbol};
 pub use crate::types::{
     canonical_concept_handle, ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens,
     ConceptEvent, ConceptEventAction, ConceptHealth, ConceptHealthSignals, ConceptHealthStatus,
-    ConceptPacket, ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptScope,
-    DriftCandidate, QueryLimits, TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck,
-    ValidationRecipe,
+    ConceptPacket, ConceptProvenance, ConceptPublication, ConceptPublicationStatus,
+    ConceptRelation, ConceptRelationEvent, ConceptRelationEventAction, ConceptRelationKind,
+    ConceptScope, DriftCandidate, QueryLimits, TaskIntent, TaskRisk, TaskValidationRecipe,
+    ValidationCheck, ValidationRecipe,
 };
 
 pub struct Prism {
@@ -490,9 +491,10 @@ impl Prism {
         title: String,
         status: Option<PlanNodeStatus>,
         assignee: Option<AgentId>,
+        is_abstract: bool,
         anchors: Vec<AnchorRef>,
         depends_on: Vec<String>,
-        acceptance: Vec<prism_coordination::AcceptanceCriterion>,
+        acceptance: Vec<prism_ir::PlanAcceptanceCriterion>,
         base_revision: WorkspaceRevision,
     ) -> Result<PlanNodeId> {
         self.mutate_native_plan_runtime(|runtime| {
@@ -501,6 +503,7 @@ impl Prism {
                 title,
                 status,
                 assignee,
+                is_abstract,
                 anchors,
                 depends_on,
                 acceptance,
@@ -575,10 +578,11 @@ impl Prism {
         node_id: &PlanNodeId,
         status: Option<PlanNodeStatus>,
         assignee: Option<Option<AgentId>>,
+        is_abstract: Option<bool>,
         title: Option<String>,
         anchors: Option<Vec<AnchorRef>>,
         depends_on: Option<Vec<String>>,
-        acceptance: Option<Vec<prism_coordination::AcceptanceCriterion>>,
+        acceptance: Option<Vec<prism_ir::PlanAcceptanceCriterion>>,
         base_revision: Option<WorkspaceRevision>,
     ) -> Result<PlanId> {
         self.mutate_native_plan_runtime(|runtime| {
@@ -586,6 +590,7 @@ impl Prism {
                 node_id,
                 status,
                 assignee,
+                is_abstract,
                 title,
                 anchors,
                 depends_on,
@@ -633,10 +638,17 @@ impl Prism {
             .expect("projection lock poisoned")
             .curated_concepts()
             .to_vec();
-        let next = ProjectionIndex::derive_with_curated(
+        let relations = self
+            .projections
+            .read()
+            .expect("projection lock poisoned")
+            .concept_relations()
+            .to_vec();
+        let next = ProjectionIndex::derive_with_knowledge(
             &self.history.snapshot(),
             &self.outcomes.snapshot(),
             curated,
+            relations,
         );
         *self.projections.write().expect("projection lock poisoned") = next;
     }
@@ -653,6 +665,32 @@ impl Prism {
             .write()
             .expect("projection lock poisoned")
             .upsert_curated_concept(concept);
+    }
+
+    pub fn replace_concept_relations(&self, relations: Vec<ConceptRelation>) {
+        self.projections
+            .write()
+            .expect("projection lock poisoned")
+            .replace_concept_relations(relations);
+    }
+
+    pub fn upsert_concept_relation(&self, relation: ConceptRelation) {
+        self.projections
+            .write()
+            .expect("projection lock poisoned")
+            .upsert_concept_relation(relation);
+    }
+
+    pub fn remove_concept_relation(
+        &self,
+        source_handle: &str,
+        target_handle: &str,
+        kind: ConceptRelationKind,
+    ) {
+        self.projections
+            .write()
+            .expect("projection lock poisoned")
+            .remove_concept_relation(source_handle, target_handle, kind);
     }
 
     pub fn apply_outcome_event_to_projections(&self, event: &OutcomeEvent) {
@@ -758,6 +796,13 @@ impl Prism {
             .read()
             .expect("projection lock poisoned")
             .concept_by_handle(handle)
+    }
+
+    pub fn concept_relations_for_handle(&self, handle: &str) -> Vec<ConceptRelation> {
+        self.projections
+            .read()
+            .expect("projection lock poisoned")
+            .concept_relations_for_handle(handle)
     }
 
     pub fn concept_health(&self, query: &str) -> Option<ConceptHealth> {

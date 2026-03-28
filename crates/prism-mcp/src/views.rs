@@ -6,7 +6,8 @@ use prism_ir::{AnchorRef, Edge, NodeId, WorkspaceRevision};
 use prism_js::{
     ArtifactRiskView, ArtifactView, BlockerView, ChangeImpactView, ClaimView, CoChangeView,
     ConceptBindingMetadataView, ConceptDecodeLensView, ConceptPacketView, ConceptProvenanceView,
-    ConceptPublicationStatusView, ConceptPublicationView, ConceptResolutionView, ConceptScopeView,
+    ConceptPublicationStatusView, ConceptPublicationView, ConceptRelationDirectionView,
+    ConceptRelationKindView, ConceptRelationView, ConceptResolutionView, ConceptScopeView,
     ConflictView, CoordinationTaskView, CuratorJobView, CuratorProposalRecordView,
     CuratorProposalView, DriftCandidateView, EdgeView, MemoryEntryView, MemoryEventView,
     NodeIdView, PlanAcceptanceCriterionView, PlanBindingView, PlanEdgeView,
@@ -18,8 +19,9 @@ use prism_js::{
 use prism_memory::{MemoryEntry, MemoryEvent, MemorySource, ScoredMemory};
 use prism_query::{
     ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens, ConceptPacket, ConceptProvenance,
-    ConceptPublication, ConceptPublicationStatus, ConceptResolution, ConceptScope, DriftCandidate,
-    Prism, TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck, ValidationRecipe,
+    ConceptPublication, ConceptPublicationStatus, ConceptRelation, ConceptRelationKind,
+    ConceptResolution, ConceptScope, DriftCandidate, Prism, TaskIntent, TaskRisk,
+    TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 use serde_json::Value;
 
@@ -242,12 +244,14 @@ pub(crate) fn concept_decode_lens_view(lens: ConceptDecodeLens) -> ConceptDecode
 }
 
 pub(crate) fn concept_packet_view(
+    prism: &Prism,
     packet: ConceptPacket,
     include_binding_metadata: bool,
     resolution: Option<ConceptResolution>,
 ) -> ConceptPacketView {
+    let handle = packet.handle.clone();
     ConceptPacketView {
-        handle: packet.handle,
+        handle: handle.clone(),
         canonical_name: packet.canonical_name,
         summary: packet.summary,
         aliases: packet.aliases,
@@ -269,6 +273,11 @@ pub(crate) fn concept_packet_view(
         scope: concept_scope_view(packet.scope),
         provenance: concept_provenance_view(packet.provenance),
         publication: packet.publication.map(concept_publication_view),
+        relations: prism
+            .concept_relations_for_handle(&handle)
+            .into_iter()
+            .map(|relation| concept_relation_view(prism, &handle, relation))
+            .collect(),
         resolution: resolution.map(concept_resolution_view),
         binding_metadata: include_binding_metadata.then(|| ConceptBindingMetadataView {
             core_member_lineages: packet
@@ -287,6 +296,35 @@ pub(crate) fn concept_packet_view(
                 .map(|lineage| lineage.map(|lineage| lineage.0.to_string()))
                 .collect(),
         }),
+    }
+}
+
+pub(crate) fn concept_relation_view(
+    prism: &Prism,
+    focus_handle: &str,
+    relation: ConceptRelation,
+) -> ConceptRelationView {
+    let focus = focus_handle.trim().to_ascii_lowercase();
+    let outgoing = relation.source_handle.trim().to_ascii_lowercase() == focus;
+    let related_handle = if outgoing {
+        relation.target_handle.clone()
+    } else {
+        relation.source_handle.clone()
+    };
+    let related = prism.concept_by_handle(&related_handle);
+    ConceptRelationView {
+        kind: concept_relation_kind_view(relation.kind),
+        direction: if outgoing {
+            ConceptRelationDirectionView::Outgoing
+        } else {
+            ConceptRelationDirectionView::Incoming
+        },
+        related_handle,
+        related_canonical_name: related.as_ref().map(|packet| packet.canonical_name.clone()),
+        related_summary: related.as_ref().map(|packet| packet.summary.clone()),
+        confidence: relation.confidence,
+        evidence: relation.evidence,
+        scope: concept_scope_view(relation.scope),
     }
 }
 
@@ -330,6 +368,18 @@ fn concept_publication_view(publication: ConceptPublication) -> ConceptPublicati
         supersedes: publication.supersedes,
         retired_at: publication.retired_at,
         retirement_reason: publication.retirement_reason,
+    }
+}
+
+fn concept_relation_kind_view(kind: ConceptRelationKind) -> ConceptRelationKindView {
+    match kind {
+        ConceptRelationKind::DependsOn => ConceptRelationKindView::DependsOn,
+        ConceptRelationKind::Specializes => ConceptRelationKindView::Specializes,
+        ConceptRelationKind::PartOf => ConceptRelationKindView::PartOf,
+        ConceptRelationKind::ValidatedBy => ConceptRelationKindView::ValidatedBy,
+        ConceptRelationKind::OftenUsedWith => ConceptRelationKindView::OftenUsedWith,
+        ConceptRelationKind::Supersedes => ConceptRelationKindView::Supersedes,
+        ConceptRelationKind::ConfusedWith => ConceptRelationKindView::ConfusedWith,
     }
 }
 

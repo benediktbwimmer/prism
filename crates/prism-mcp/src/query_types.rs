@@ -2,8 +2,9 @@ use anyhow::{anyhow, Result};
 use prism_agent::InferredEdgeScope;
 use prism_coordination::{AcceptanceCriterion, CoordinationPolicy};
 use prism_ir::{
-    AnchorRef, Capability, ClaimMode, CoordinationTaskStatus, EdgeKind, EventActor, NodeId,
-    NodeKind, PlanEdgeKind, PlanNodeStatus, PlanStatus, ReviewVerdict,
+    AcceptanceEvidencePolicy, AnchorRef, Capability, ClaimMode, CoordinationTaskStatus, EdgeKind,
+    EventActor, NodeId, NodeKind, PlanAcceptanceCriterion, PlanEdgeKind, PlanNodeStatus,
+    PlanStatus, ReviewVerdict, ValidationRef,
 };
 use prism_memory::{
     MemoryEventKind, MemoryKind, MemoryScope, OutcomeEvidence, OutcomeKind, OutcomeResult,
@@ -669,6 +670,33 @@ pub(crate) fn convert_acceptance(
         .collect()
 }
 
+pub(crate) fn convert_plan_acceptance(
+    payload: Option<Vec<AcceptanceCriterionPayload>>,
+) -> Result<Vec<PlanAcceptanceCriterion>> {
+    payload
+        .unwrap_or_default()
+        .into_iter()
+        .map(|criterion| {
+            Ok(PlanAcceptanceCriterion {
+                label: criterion.label,
+                anchors: convert_anchors(criterion.anchors.unwrap_or_default())?,
+                required_checks: criterion
+                    .required_checks
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|check| ValidationRef { id: check.id })
+                    .collect(),
+                evidence_policy: criterion
+                    .evidence_policy
+                    .as_deref()
+                    .map(parse_acceptance_evidence_policy)
+                    .transpose()?
+                    .unwrap_or(AcceptanceEvidencePolicy::Any),
+            })
+        })
+        .collect()
+}
+
 pub(crate) fn convert_completion_context(
     payload: Option<TaskCompletionContextPayload>,
 ) -> Option<prism_coordination::TaskCompletionContext> {
@@ -709,6 +737,25 @@ pub(crate) fn edge_kind_label(kind: EdgeKind) -> &'static str {
         EdgeKind::Validates => "validates",
         EdgeKind::RelatedTo => "related-to",
     }
+}
+
+pub(crate) fn parse_acceptance_evidence_policy(value: &str) -> Result<AcceptanceEvidencePolicy> {
+    let normalized = value
+        .trim()
+        .to_ascii_lowercase()
+        .replace('_', "-")
+        .replace(' ', "-");
+    let policy = match normalized.as_str() {
+        "any" => AcceptanceEvidencePolicy::Any,
+        "all" => AcceptanceEvidencePolicy::All,
+        "reviewonly" | "review-only" => AcceptanceEvidencePolicy::ReviewOnly,
+        "validationonly" | "validation-only" => AcceptanceEvidencePolicy::ValidationOnly,
+        "reviewandvalidation" | "review-and-validation" => {
+            AcceptanceEvidencePolicy::ReviewAndValidation
+        }
+        other => return Err(anyhow!("unknown acceptance evidence policy `{other}`")),
+    };
+    Ok(policy)
 }
 
 pub(crate) fn parse_node_kind(value: &str) -> Result<NodeKind> {

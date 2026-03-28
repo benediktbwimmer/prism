@@ -44,6 +44,7 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains(
         "conceptByHandle(handle: string, options?: { includeBindingMetadata?: boolean }): ConceptPacketView | null;"
     ));
+    assert!(docs.contains("conceptRelations(handle: string): ConceptRelationView[];"));
     assert!(docs.contains("decodeConcept(input:"));
     assert!(docs.contains("includeBindingMetadata?: boolean;"));
     assert!(docs.contains("bindingMetadata?: {"));
@@ -189,6 +190,7 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("concepts(query, options = {})"));
     assert!(prelude.contains("concept(query, options = {})"));
     assert!(prelude.contains("conceptByHandle(handle, options = {})"));
+    assert!(prelude.contains("conceptRelations(handle)"));
     assert!(prelude.contains("decodeConcept(input)"));
     assert!(prelude.contains("__prismBundleSummary("));
     assert!(prelude.contains("__prismWithLocalDiagnostics("));

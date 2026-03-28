@@ -1,5 +1,6 @@
 use prism_js::{AgentHandleCategoryView, EvidenceSourceKind, OwnerCandidateView};
 use prism_memory::{MemoryModule, OutcomeEvent, OutcomeKind, RecallQuery};
+use prism_query::ConceptPacket;
 
 use super::concept::compact_handles_for_ids;
 use super::open::{compact_preview_for_structured_target, compact_preview_for_symbol_view};
@@ -18,7 +19,7 @@ use super::workset::{
     structured_symbol_followups,
 };
 use super::*;
-use crate::validation_recipe_view_with;
+use crate::{concept_relation_view, validation_recipe_view_with};
 
 impl QueryHost {
     pub(crate) fn compact_expand(
@@ -291,7 +292,8 @@ fn compact_concept_expand_result(
     }
     if !matches!(
         kind,
-        AgentExpandKind::Health
+        AgentExpandKind::Neighbors
+            | AgentExpandKind::Health
             | AgentExpandKind::Validation
             | AgentExpandKind::Timeline
             | AgentExpandKind::Memory
@@ -302,6 +304,7 @@ fn compact_concept_expand_result(
         .concept_by_handle(handle)
         .ok_or_else(|| anyhow!("no concept packet matched `{handle}`"))?;
     let result = match kind {
+        AgentExpandKind::Neighbors => compact_concept_neighbors_expand_result(prism, &packet),
         AgentExpandKind::Health => compact_concept_health_expand_result(prism, &packet)?,
         AgentExpandKind::Validation => {
             compact_concept_validation_expand_result(session, prism, &packet)?
@@ -326,6 +329,7 @@ fn compact_concept_expand_result(
 
 fn concept_lens_for_expand_kind(kind: AgentExpandKind) -> Option<&'static str> {
     match kind {
+        AgentExpandKind::Neighbors => None,
         AgentExpandKind::Validation => Some("validation"),
         AgentExpandKind::Timeline => Some("timeline"),
         AgentExpandKind::Memory => Some("memory"),
@@ -335,6 +339,10 @@ fn concept_lens_for_expand_kind(kind: AgentExpandKind) -> Option<&'static str> {
 
 fn compact_concept_expand_next_action(kind: AgentExpandKind) -> String {
     match kind {
+        AgentExpandKind::Neighbors => {
+            "Use prism_concept on the related handle, or prism_workset on the current concept."
+                .to_string()
+        }
         AgentExpandKind::Health => {
             "Use prism_workset on this concept, or prism_expand `timeline` for recent failures."
                 .to_string()
@@ -351,6 +359,19 @@ fn compact_concept_expand_next_action(kind: AgentExpandKind) -> String {
         }
         _ => "Use prism_workset on this concept for member context.".to_string(),
     }
+}
+
+fn compact_concept_neighbors_expand_result(
+    prism: &Prism,
+    packet: &ConceptPacket,
+) -> serde_json::Value {
+    json!({
+        "relations": prism
+            .concept_relations_for_handle(&packet.handle)
+            .into_iter()
+            .map(|relation| concept_relation_view(prism, &packet.handle, relation))
+            .collect::<Vec<_>>(),
+    })
 }
 
 fn compact_expand_next_action(kind: AgentExpandKind, target: &SessionHandleTarget) -> String {
@@ -450,6 +471,15 @@ fn compact_concept_expand_suggested_actions(
         actions.push(suggested_open_action(primary.handle, AgentOpenMode::Focus));
     }
     match kind {
+        AgentExpandKind::Neighbors => {
+            if packet
+                .decode_lenses
+                .iter()
+                .any(|lens| matches!(lens, prism_query::ConceptDecodeLens::Validation))
+            {
+                actions.push(suggested_expand_action(handle, AgentExpandKind::Validation));
+            }
+        }
         AgentExpandKind::Health => {
             if packet
                 .decode_lenses

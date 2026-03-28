@@ -1,4 +1,4 @@
-use prism_js::{ConceptPacketView, TaskJournalView};
+use prism_js::{ConceptPacketView, ConceptRelationView, TaskJournalView};
 use rmcp::schemars::{JsonSchema, Schema};
 use serde::{Deserialize, Deserializer};
 use serde_json::Value;
@@ -289,6 +289,25 @@ pub(crate) enum ConceptScopeInput {
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ConceptRelationKindInput {
+    DependsOn,
+    Specializes,
+    PartOf,
+    ValidatedBy,
+    OftenUsedWith,
+    Supersedes,
+    ConfusedWith,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ConceptRelationMutationOperationInput {
+    Upsert,
+    Retire,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismConceptMutationArgs {
     #[schemars(
@@ -329,6 +348,20 @@ pub(crate) struct PrismConceptMutationArgs {
     pub(crate) supersedes: Option<Vec<String>>,
     #[schemars(description = "Reason for retiring a concept. Required for `retire`.")]
     pub(crate) retirement_reason: Option<String>,
+    #[serde(alias = "task_id")]
+    pub(crate) task_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismConceptRelationMutationArgs {
+    pub(crate) operation: ConceptRelationMutationOperationInput,
+    pub(crate) source_handle: String,
+    pub(crate) target_handle: String,
+    pub(crate) kind: ConceptRelationKindInput,
+    pub(crate) confidence: Option<f32>,
+    pub(crate) evidence: Option<Vec<String>>,
+    pub(crate) scope: Option<ConceptScopeInput>,
     #[serde(alias = "task_id")]
     pub(crate) task_id: Option<String>,
 }
@@ -567,6 +600,14 @@ pub(crate) struct ConceptMutationResult {
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct ConceptRelationMutationResult {
+    pub(crate) event_id: String,
+    pub(crate) task_id: String,
+    pub(crate) relation: ConceptRelationView,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct EdgeMutationResult {
     pub(crate) edge_id: String,
     pub(crate) task_id: String,
@@ -701,6 +742,7 @@ pub(crate) enum PrismMutationArgs {
     Outcome(PrismOutcomeArgs),
     Memory(PrismMemoryArgs),
     Concept(PrismConceptMutationArgs),
+    ConceptRelation(PrismConceptRelationMutationArgs),
     ValidationFeedback(PrismValidationFeedbackArgs),
     InferEdge(PrismInferEdgeArgs),
     Coordination(PrismCoordinationArgs),
@@ -721,6 +763,7 @@ enum PrismMutationArgsWire {
     Outcome(PrismOutcomeArgs),
     Memory(PrismMemoryArgs),
     Concept(PrismConceptMutationArgs),
+    ConceptRelation(PrismConceptRelationMutationArgs),
     ValidationFeedback(PrismValidationFeedbackArgs),
     InferEdge(PrismInferEdgeArgs),
     Coordination(PrismCoordinationArgs),
@@ -741,6 +784,7 @@ impl From<PrismMutationArgsWire> for PrismMutationArgs {
             PrismMutationArgsWire::Outcome(args) => Self::Outcome(args),
             PrismMutationArgsWire::Memory(args) => Self::Memory(args),
             PrismMutationArgsWire::Concept(args) => Self::Concept(args),
+            PrismMutationArgsWire::ConceptRelation(args) => Self::ConceptRelation(args),
             PrismMutationArgsWire::ValidationFeedback(args) => Self::ValidationFeedback(args),
             PrismMutationArgsWire::InferEdge(args) => Self::InferEdge(args),
             PrismMutationArgsWire::Coordination(args) => Self::Coordination(args),
@@ -775,6 +819,7 @@ pub(crate) enum PrismMutationActionSchema {
     Outcome,
     Memory,
     Concept,
+    ConceptRelation,
     ValidationFeedback,
     InferEdge,
     Coordination,
@@ -966,9 +1011,17 @@ pub(crate) struct CoordinationPolicyPayload {
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct ValidationRefPayload {
+    pub(crate) id: String,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct AcceptanceCriterionPayload {
     pub(crate) label: String,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
+    pub(crate) required_checks: Option<Vec<ValidationRefPayload>>,
+    pub(crate) evidence_policy: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -1003,6 +1056,7 @@ pub(crate) struct PlanNodeCreatePayload {
     pub(crate) title: String,
     pub(crate) status: Option<String>,
     pub(crate) assignee: Option<String>,
+    pub(crate) is_abstract: Option<bool>,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
     pub(crate) depends_on: Option<Vec<String>>,
     pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
@@ -1014,6 +1068,7 @@ pub(crate) struct PlanNodeUpdatePayload {
     pub(crate) node_id: String,
     pub(crate) status: Option<String>,
     pub(crate) assignee: Option<String>,
+    pub(crate) is_abstract: Option<bool>,
     pub(crate) title: Option<String>,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
     pub(crate) depends_on: Option<Vec<String>>,

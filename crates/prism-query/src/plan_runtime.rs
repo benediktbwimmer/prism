@@ -159,9 +159,10 @@ impl NativePlanRuntimeState {
         title: String,
         status: Option<PlanNodeStatus>,
         assignee: Option<AgentId>,
+        is_abstract: bool,
         anchors: Vec<AnchorRef>,
         depends_on: Vec<String>,
-        acceptance: Vec<AcceptanceCriterion>,
+        acceptance: Vec<PlanAcceptanceCriterion>,
         base_revision: WorkspaceRevision,
     ) -> Result<PlanNodeId> {
         let depends_on = dedupe_string_ids(depends_on);
@@ -186,11 +187,8 @@ impl NativePlanRuntimeState {
                 memory_refs: Vec::new(),
                 outcome_refs: Vec::new(),
             },
-            acceptance: acceptance
-                .into_iter()
-                .map(plan_acceptance_from_coordination)
-                .collect(),
-            is_abstract: false,
+            acceptance: normalize_plan_acceptance(acceptance),
+            is_abstract,
             assignee,
             base_revision,
             priority: None,
@@ -217,10 +215,11 @@ impl NativePlanRuntimeState {
         node_id: &PlanNodeId,
         status: Option<PlanNodeStatus>,
         assignee: Option<Option<AgentId>>,
+        is_abstract: Option<bool>,
         title: Option<String>,
         anchors: Option<Vec<AnchorRef>>,
         depends_on: Option<Vec<String>>,
-        acceptance: Option<Vec<AcceptanceCriterion>>,
+        acceptance: Option<Vec<PlanAcceptanceCriterion>>,
         base_revision: Option<WorkspaceRevision>,
     ) -> Result<PlanId> {
         let (plan_key, node_index) = self
@@ -243,6 +242,9 @@ impl NativePlanRuntimeState {
         if let Some(assignee) = assignee {
             node.assignee = assignee;
         }
+        if let Some(is_abstract) = is_abstract {
+            node.is_abstract = is_abstract;
+        }
         if let Some(title) = title {
             node.title = title;
         }
@@ -250,10 +252,7 @@ impl NativePlanRuntimeState {
             node.bindings.anchors = dedupe_anchors(anchors);
         }
         if let Some(acceptance) = acceptance {
-            node.acceptance = acceptance
-                .into_iter()
-                .map(plan_acceptance_from_coordination)
-                .collect();
+            node.acceptance = normalize_plan_acceptance(acceptance);
         }
         if let Some(base_revision) = base_revision {
             node.base_revision = base_revision;
@@ -465,10 +464,31 @@ fn execution_overlays_by_plan(
 fn plan_acceptance_from_coordination(criterion: AcceptanceCriterion) -> PlanAcceptanceCriterion {
     PlanAcceptanceCriterion {
         label: criterion.label,
-        anchors: criterion.anchors,
+        anchors: dedupe_anchors(criterion.anchors),
         required_checks: Vec::<ValidationRef>::new(),
         evidence_policy: prism_ir::AcceptanceEvidencePolicy::Any,
     }
+}
+
+fn merge_acceptance_from_coordination(
+    existing: Vec<PlanAcceptanceCriterion>,
+    incoming: Vec<AcceptanceCriterion>,
+) -> Vec<PlanAcceptanceCriterion> {
+    let existing = existing
+        .into_iter()
+        .map(|criterion| (criterion.label.clone(), criterion))
+        .collect::<BTreeMap<_, _>>();
+    incoming
+        .into_iter()
+        .map(|criterion| {
+            let mut mapped = plan_acceptance_from_coordination(criterion);
+            if let Some(existing) = existing.get(&mapped.label) {
+                mapped.required_checks = existing.required_checks.clone();
+                mapped.evidence_policy = existing.evidence_policy;
+            }
+            mapped
+        })
+        .collect()
 }
 
 fn dedupe_anchors(anchors: Vec<AnchorRef>) -> Vec<AnchorRef> {
@@ -483,6 +503,25 @@ fn dedupe_string_ids(ids: Vec<String>) -> Vec<String> {
     ids.sort();
     ids.dedup();
     ids
+}
+
+fn dedupe_validation_refs(mut refs: Vec<ValidationRef>) -> Vec<ValidationRef> {
+    refs.sort_by(|left, right| left.id.cmp(&right.id));
+    refs.dedup_by(|left, right| left.id == right.id);
+    refs
+}
+
+fn normalize_plan_acceptance(
+    acceptance: Vec<PlanAcceptanceCriterion>,
+) -> Vec<PlanAcceptanceCriterion> {
+    acceptance
+        .into_iter()
+        .map(|mut criterion| {
+            criterion.anchors = dedupe_anchors(criterion.anchors);
+            criterion.required_checks = dedupe_validation_refs(criterion.required_checks);
+            criterion
+        })
+        .collect()
 }
 
 fn plan_node_from_coordination_task(task: &CoordinationTask) -> PlanNode {
@@ -510,12 +549,12 @@ fn populate_plan_node_from_coordination_task(node: &mut PlanNode, task: &Coordin
     node.title = task.title.clone();
     node.status = map_coordination_task_status(task.status);
     node.bindings.anchors = dedupe_anchors(task.anchors.clone());
-    node.acceptance = task
-        .acceptance
-        .clone()
-        .into_iter()
-        .map(plan_acceptance_from_coordination)
-        .collect();
+    if !task.acceptance.is_empty() {
+        node.acceptance = merge_acceptance_from_coordination(
+            std::mem::take(&mut node.acceptance),
+            task.acceptance.clone(),
+        );
+    }
     node.assignee = task.assignee.clone();
     node.base_revision = task.base_revision.clone();
 }

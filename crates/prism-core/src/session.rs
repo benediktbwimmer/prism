@@ -16,18 +16,26 @@ use prism_ir::{
 };
 use prism_memory::OutcomeMemory;
 use prism_memory::{EpisodicMemorySnapshot, MemoryEvent, MemoryEventQuery, OutcomeEvent};
-use prism_projections::{validation_deltas_for_event, ConceptEvent, ProjectionIndex};
+use prism_projections::{
+    validation_deltas_for_event, ConceptEvent, ConceptRelationEvent, ConceptRelationEventAction,
+    ProjectionIndex,
+};
 use prism_query::Prism;
 use prism_store::{AuxiliaryPersistBatch, SqliteStore, Store};
 
 pub use prism_store::SnapshotRevisions as WorkspaceSnapshotRevisions;
 
 use crate::concept_events::{append_repo_concept_event, load_repo_curated_concepts};
+use crate::concept_relation_events::{
+    append_repo_concept_relation_event, load_repo_concept_relations,
+};
 use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorHandleRef};
 use crate::memory_events::{
     append_repo_memory_event, filter_memory_events, load_repo_memory_events,
 };
-use crate::published_knowledge::{validate_repo_concept_event, validate_repo_memory_event};
+use crate::published_knowledge::{
+    validate_repo_concept_event, validate_repo_concept_relation_event, validate_repo_memory_event,
+};
 use crate::published_plans::{
     load_hydrated_coordination_plan_state, load_hydrated_coordination_snapshot,
     sync_repo_published_plans,
@@ -313,6 +321,10 @@ impl WorkspaceSession {
         let mut combined = load_repo_curated_concepts(&self.root)?;
         combined.extend(session_curated);
         projections.replace_curated_concepts(combined);
+        let session_relations = projections.concept_relations().to_vec();
+        let mut combined_relations = load_repo_concept_relations(&self.root)?;
+        combined_relations.extend(session_relations);
+        projections.replace_concept_relations(combined_relations);
         projections.reseed_from_history(&history.snapshot());
         drop(store);
 
@@ -409,6 +421,31 @@ impl WorkspaceSession {
         }
         let prism = self.prism_arc();
         prism.upsert_curated_concept(event.concept);
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .save_projection_snapshot(&prism.projection_snapshot())?;
+        Ok(())
+    }
+
+    pub fn append_concept_relation_event(&self, event: ConceptRelationEvent) -> Result<()> {
+        let _guard = self
+            .refresh_lock
+            .lock()
+            .expect("workspace refresh lock poisoned");
+        if event.relation.scope == prism_projections::ConceptScope::Repo {
+            validate_repo_concept_relation_event(&event)?;
+            append_repo_concept_relation_event(&self.root, &event)?;
+        }
+        let prism = self.prism_arc();
+        match event.action {
+            ConceptRelationEventAction::Upsert => prism.upsert_concept_relation(event.relation),
+            ConceptRelationEventAction::Retire => prism.remove_concept_relation(
+                &event.relation.source_handle,
+                &event.relation.target_handle,
+                event.relation.kind,
+            ),
+        }
         self.store
             .lock()
             .expect("workspace store lock poisoned")

@@ -12,7 +12,8 @@ use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryId, MemoryKind, MemorySource, OutcomeMemorySnapshot,
 };
 use prism_projections::{
-    CoChangeDelta, CoChangeRecord, ProjectionSnapshot, ValidationCheck, ValidationDelta,
+    CoChangeDelta, CoChangeRecord, ConceptProvenance, ConceptRelation, ConceptRelationKind,
+    ConceptScope, ProjectionSnapshot, ValidationCheck, ValidationDelta,
     MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE,
 };
 use rusqlite::Connection;
@@ -271,6 +272,7 @@ fn memory_store_round_trips_auxiliary_snapshots() {
             }],
         )],
         curated_concepts: Vec::new(),
+        concept_relations: Vec::new(),
     };
 
     store.save_history_snapshot(&history).unwrap();
@@ -359,6 +361,19 @@ fn sqlite_store_persists_projections_in_dedicated_tables() {
             }],
         )],
         curated_concepts: Vec::new(),
+        concept_relations: vec![ConceptRelation {
+            source_handle: "concept://validation_pipeline".to_string(),
+            target_handle: "concept://runtime_surface".to_string(),
+            kind: ConceptRelationKind::OftenUsedWith,
+            confidence: 0.82,
+            evidence: vec!["Validation work often routes through runtime state.".to_string()],
+            scope: ConceptScope::Session,
+            provenance: ConceptProvenance {
+                origin: "test".to_string(),
+                kind: "store_test".to_string(),
+                task_id: None,
+            },
+        }],
     };
 
     let mut store = SqliteStore::open(&path).unwrap();
@@ -470,6 +485,7 @@ fn sqlite_store_prunes_co_change_neighbors_to_top_k() {
         )],
         validation_by_lineage: Vec::new(),
         curated_concepts: Vec::new(),
+        concept_relations: Vec::new(),
     };
 
     let mut store = SqliteStore::open(&path).unwrap();
@@ -618,6 +634,7 @@ fn sqlite_store_commits_auxiliary_snapshots_with_projection_deltas() {
                 }],
             )],
             curated_concepts: Vec::new(),
+            concept_relations: Vec::new(),
         })
     );
 
@@ -715,6 +732,7 @@ fn sqlite_store_commits_auxiliary_batches_atomically() {
                 }],
             )],
             curated_concepts: Vec::new(),
+            concept_relations: Vec::new(),
         })
     );
 
@@ -930,6 +948,7 @@ fn sqlite_store_commits_index_batches_atomically() {
                 }],
             )],
             curated_concepts: Vec::new(),
+            concept_relations: Vec::new(),
         })
     );
 

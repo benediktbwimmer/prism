@@ -7,17 +7,6 @@ use crate::types::{
     ConceptPublicationStatus, ConceptResolution, ConceptScope,
 };
 
-pub(crate) fn rank_concepts(
-    concepts: &[ConceptPacket],
-    query: &str,
-    limit: usize,
-) -> Vec<ConceptPacket> {
-    resolve_concepts(concepts, query, limit)
-        .into_iter()
-        .map(|resolution| resolution.packet)
-        .collect()
-}
-
 pub(crate) fn resolve_concepts(
     concepts: &[ConceptPacket],
     query: &str,

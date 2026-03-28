@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use crate::concept_events::load_repo_curated_concepts;
+use crate::concept_relation_events::load_repo_concept_relations;
 use crate::indexer_support::{
     build_workspace_session, collect_pending_file_parses, path_matches_refresh_scope,
     resolve_graph_edges,
@@ -155,6 +156,10 @@ impl<S: Store> WorkspaceIndexer<S> {
         let mut combined = load_repo_curated_concepts(&root)?;
         combined.extend(session_curated);
         projections.replace_curated_concepts(combined);
+        let session_relations = projections.concept_relations().to_vec();
+        let mut combined_relations = load_repo_concept_relations(&root)?;
+        combined_relations.extend(session_relations);
+        projections.replace_concept_relations(combined_relations);
         projections.reseed_from_history(&history.snapshot());
         let derive_or_restore_projection_ms = derive_projection_started.elapsed().as_millis();
 

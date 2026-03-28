@@ -1,6 +1,9 @@
 use anyhow::{anyhow, Result};
 use prism_memory::{MemoryEvent, MemoryScope};
-use prism_projections::{ConceptEvent, ConceptPacket, ConceptProvenance, ConceptPublicationStatus};
+use prism_projections::{
+    ConceptEvent, ConceptPacket, ConceptProvenance, ConceptPublicationStatus, ConceptRelation,
+    ConceptRelationEvent,
+};
 use serde_json::Value;
 
 pub(crate) fn validate_repo_memory_event(event: &MemoryEvent) -> Result<()> {
@@ -45,6 +48,13 @@ pub(crate) fn validate_repo_concept_event(event: &ConceptEvent) -> Result<()> {
         return Ok(());
     }
     validate_repo_concept_packet(&event.concept)
+}
+
+pub(crate) fn validate_repo_concept_relation_event(event: &ConceptRelationEvent) -> Result<()> {
+    if event.relation.scope != prism_projections::ConceptScope::Repo {
+        return Ok(());
+    }
+    validate_repo_concept_relation(&event.relation)
 }
 
 fn validate_repo_memory_metadata(metadata: &Value) -> Result<()> {
@@ -159,6 +169,38 @@ fn validate_repo_concept_packet(packet: &ConceptPacket) -> Result<()> {
     if packet.provenance == ConceptProvenance::default() {
         return Err(anyhow!(
             "repo-published concept must include provenance metadata"
+        ));
+    }
+    Ok(())
+}
+
+fn validate_repo_concept_relation(relation: &ConceptRelation) -> Result<()> {
+    if relation.source_handle.trim().is_empty() || relation.target_handle.trim().is_empty() {
+        return Err(anyhow!(
+            "repo-published concept relations must include non-empty source and target handles"
+        ));
+    }
+    if relation
+        .source_handle
+        .eq_ignore_ascii_case(&relation.target_handle)
+    {
+        return Err(anyhow!(
+            "repo-published concept relations cannot point to the same concept on both sides"
+        ));
+    }
+    if relation.confidence < 0.7 {
+        return Err(anyhow!(
+            "repo-published concept relation confidence must be at least 0.7"
+        ));
+    }
+    if relation.evidence.is_empty() {
+        return Err(anyhow!(
+            "repo-published concept relations must include evidence"
+        ));
+    }
+    if relation.provenance == ConceptProvenance::default() {
+        return Err(anyhow!(
+            "repo-published concept relations must include provenance metadata"
         ));
     }
     Ok(())

@@ -5,14 +5,17 @@ use prism_ir::{AnchorRef, LineageEvent, LineageId, NodeId};
 use prism_memory::{OutcomeEvent, OutcomeMemorySnapshot};
 
 use crate::common::{event_weight, validation_labels};
+use crate::concept_relations::{
+    concept_relation_query_bonus, concept_relations_for_handle, merge_concept_relations,
+};
 use crate::concepts::{
     concept_by_handle, curated_concepts_from_events, hydrate_curated_concepts,
-    merge_concept_packets, rank_concepts, resolve_concepts, resolve_curated_concepts,
+    merge_concept_packets, resolve_concepts, resolve_curated_concepts,
 };
 use crate::types::{
     CoChangeDelta, CoChangeRecord, ConceptEvent, ConceptHealth, ConceptHealthSignals,
-    ConceptHealthStatus, ConceptPacket, ConceptResolution, ConceptScope, ProjectionSnapshot,
-    ValidationCheck, ValidationDelta,
+    ConceptHealthStatus, ConceptPacket, ConceptRelation, ConceptResolution, ConceptScope,
+    ProjectionSnapshot, ValidationCheck, ValidationDelta,
 };
 
 pub const MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE: usize = 32;
@@ -23,6 +26,7 @@ pub struct ProjectionIndex {
     validation_by_lineage: HashMap<LineageId, Vec<ValidationCheck>>,
     node_to_lineage: HashMap<NodeId, LineageId>,
     curated_concepts: Vec<ConceptPacket>,
+    concept_relations: Vec<ConceptRelation>,
     concept_packets: Vec<ConceptPacket>,
 }
 
@@ -40,6 +44,7 @@ impl ProjectionIndex {
         let node_to_lineage = HashMap::new();
         let validation_by_lineage = snapshot.validation_by_lineage.into_iter().collect();
         let curated_concepts = snapshot.curated_concepts;
+        let concept_relations = merge_concept_relations(&snapshot.concept_relations);
         let concept_packets = merge_concept_packets(&resolve_curated_concepts(
             &curated_concepts,
             &node_to_lineage,
@@ -49,18 +54,28 @@ impl ProjectionIndex {
             validation_by_lineage,
             node_to_lineage,
             curated_concepts,
+            concept_relations,
             concept_packets,
         }
     }
 
     pub fn derive(history: &HistorySnapshot, outcomes: &OutcomeMemorySnapshot) -> Self {
-        Self::derive_with_curated(history, outcomes, Vec::new())
+        Self::derive_with_knowledge(history, outcomes, Vec::new(), Vec::new())
     }
 
     pub fn derive_with_curated(
         history: &HistorySnapshot,
         outcomes: &OutcomeMemorySnapshot,
         curated_concepts: Vec<ConceptPacket>,
+    ) -> Self {
+        Self::derive_with_knowledge(history, outcomes, curated_concepts, Vec::new())
+    }
+
+    pub fn derive_with_knowledge(
+        history: &HistorySnapshot,
+        outcomes: &OutcomeMemorySnapshot,
+        curated_concepts: Vec<ConceptPacket>,
+        concept_relations: Vec<ConceptRelation>,
     ) -> Self {
         let node_to_lineage = history
             .node_to_lineage
@@ -138,6 +153,7 @@ impl ProjectionIndex {
 
         let curated_concepts =
             hydrate_curated_concepts(curated_concepts, &node_to_lineage, &history.events);
+        let concept_relations = merge_concept_relations(&concept_relations);
         let concept_packets = merge_concept_packets(&curated_concepts);
 
         Self {
@@ -145,12 +161,18 @@ impl ProjectionIndex {
             validation_by_lineage,
             node_to_lineage,
             curated_concepts,
+            concept_relations,
             concept_packets,
         }
     }
 
     pub fn replace_curated_concepts(&mut self, curated_concepts: Vec<ConceptPacket>) {
         self.curated_concepts = curated_concepts;
+        self.rebuild_concepts();
+    }
+
+    pub fn replace_concept_relations(&mut self, concept_relations: Vec<ConceptRelation>) {
+        self.concept_relations = merge_concept_relations(&concept_relations);
         self.rebuild_concepts();
     }
 
@@ -173,8 +195,34 @@ impl ProjectionIndex {
         self.rebuild_concepts();
     }
 
+    pub fn upsert_concept_relation(&mut self, relation: ConceptRelation) {
+        self.concept_relations.push(relation);
+        self.concept_relations = merge_concept_relations(&self.concept_relations);
+        self.rebuild_concepts();
+    }
+
+    pub fn remove_concept_relation(
+        &mut self,
+        source_handle: &str,
+        target_handle: &str,
+        kind: crate::ConceptRelationKind,
+    ) {
+        let source = crate::concept_relations::normalize_handle(source_handle);
+        let target = crate::concept_relations::normalize_handle(target_handle);
+        self.concept_relations.retain(|relation| {
+            !(crate::concept_relations::normalize_handle(&relation.source_handle) == source
+                && crate::concept_relations::normalize_handle(&relation.target_handle) == target
+                && relation.kind == kind)
+        });
+        self.rebuild_concepts();
+    }
+
     pub fn curated_concepts(&self) -> &[ConceptPacket] {
         &self.curated_concepts
+    }
+
+    pub fn concept_relations(&self) -> &[ConceptRelation] {
+        &self.concept_relations
     }
 
     pub fn reseed_from_history(&mut self, history: &HistorySnapshot) {
@@ -274,6 +322,12 @@ impl ProjectionIndex {
                 .filter(|concept| concept.scope == ConceptScope::Session)
                 .cloned()
                 .collect(),
+            concept_relations: self
+                .concept_relations
+                .iter()
+                .filter(|relation| relation.scope == ConceptScope::Session)
+                .cloned()
+                .collect(),
         }
     }
 
@@ -328,11 +382,35 @@ impl ProjectionIndex {
     }
 
     pub fn concepts(&self, query: &str, limit: usize) -> Vec<ConceptPacket> {
-        rank_concepts(&self.concept_packets, query, limit)
+        self.resolve_concepts(query, limit)
+            .into_iter()
+            .map(|resolution| resolution.packet)
+            .collect()
     }
 
     pub fn resolve_concepts(&self, query: &str, limit: usize) -> Vec<ConceptResolution> {
-        resolve_concepts(&self.concept_packets, query, limit)
+        let mut resolutions = resolve_concepts(&self.concept_packets, query, 0);
+        for resolution in &mut resolutions {
+            let (bonus, reasons) = concept_relation_query_bonus(
+                &resolution.packet.handle,
+                query,
+                &self.concept_relations,
+                &self.concept_packets,
+            );
+            resolution.score += bonus;
+            resolution.reasons.extend(reasons);
+        }
+        resolutions.sort_by(|left, right| {
+            right
+                .score
+                .cmp(&left.score)
+                .then_with(|| right.packet.confidence.total_cmp(&left.packet.confidence))
+                .then_with(|| left.packet.handle.cmp(&right.packet.handle))
+        });
+        if limit > 0 {
+            resolutions.truncate(limit);
+        }
+        resolutions
     }
 
     pub fn concept_by_handle(&self, handle: &str) -> Option<ConceptPacket> {
@@ -350,11 +428,28 @@ impl ProjectionIndex {
         &self.concept_packets
     }
 
+    pub fn concept_relations_for_handle(&self, handle: &str) -> Vec<ConceptRelation> {
+        concept_relations_for_handle(&self.concept_relations, handle)
+    }
+
     fn rebuild_concepts(&mut self) {
         self.concept_packets = merge_concept_packets(&resolve_curated_concepts(
             &self.curated_concepts,
             &self.node_to_lineage,
         ));
+        let known_handles = self
+            .concept_packets
+            .iter()
+            .map(|packet| crate::concept_relations::normalize_handle(&packet.handle))
+            .collect::<std::collections::HashSet<_>>();
+        self.concept_relations.retain(|relation| {
+            known_handles.contains(&crate::concept_relations::normalize_handle(
+                &relation.source_handle,
+            )) && known_handles.contains(&crate::concept_relations::normalize_handle(
+                &relation.target_handle,
+            ))
+        });
+        self.concept_relations = merge_concept_relations(&self.concept_relations);
     }
 
     fn compute_concept_health(
