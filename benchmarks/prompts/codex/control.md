@@ -15,5 +15,3 @@ Rules:
 - If local validation is blocked, say so explicitly in the final summary instead of silently skipping it.
 - Do not broaden fixtures, snapshots, or test coverage beyond what is needed to validate the benchmark issue.
 - Do not optimize for tool-count reduction at the expense of correctness.
-
-This prompt is the control-arm baseline for PRISM A/B evaluation.
