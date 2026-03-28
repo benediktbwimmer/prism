@@ -1403,6 +1403,106 @@ fn plan_query_reads_surface_native_ready_nodes_and_blockers() {
 }
 
 #[test]
+fn plan_query_reads_surface_child_hierarchy_completion_gates() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Read hierarchy completion semantics" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let parent = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Parent",
+                    "kind": "Note",
+                    "isAbstract": true
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let parent_id = parent.state["id"].as_str().unwrap().to_string();
+
+    let child = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Child",
+                    "status": "InProgress"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let child_id = child.state["id"].as_str().unwrap().to_string();
+
+    host.store_coordination(
+        test_session(&host).as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanEdgeCreate,
+            payload: json!({
+                "planId": plan_id.clone(),
+                "fromNodeId": child_id,
+                "toNodeId": parent_id.clone(),
+                "kind": "child_of"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let execution = QueryExecution::new(
+        host.clone(),
+        test_session(&host),
+        host.current_prism(),
+        host.begin_query_run(test_session(&host).as_ref(), "test", "child hierarchy semantics"),
+    );
+    let parent_blockers = execution
+        .dispatch(
+            "planNodeBlockers",
+            &format!(r#"{{ "planId": "{plan_id}", "nodeId": "{parent_id}" }}"#),
+        )
+        .unwrap();
+    let next = execution
+        .dispatch(
+            "planNext",
+            &format!(r#"{{ "planId": "{plan_id}", "limit": 3 }}"#),
+        )
+        .unwrap();
+
+    assert_eq!(
+        parent_blockers[0]["kind"],
+        Value::String("ChildIncomplete".to_string())
+    );
+    assert!(next
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["node"]["id"] != parent_id)
+        .and_then(|entry| entry["unblocks"].as_array())
+        .is_some_and(|unblocks| {
+            unblocks
+                .iter()
+                .any(|node| node == &Value::String(parent_id.clone()))
+        }));
+}
+
+#[test]
 fn mcp_returns_structured_coordination_rejections_and_persists_them() {
     let root = temp_workspace();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());

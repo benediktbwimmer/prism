@@ -218,6 +218,9 @@ fn unlocked_neighbors(graph: &prism_ir::PlanGraph, node_id: &PlanNodeId) -> Vec<
             {
                 unblocks.insert(edge.from.clone());
             }
+            PlanEdgeKind::ChildOf if edge.from == *node_id => {
+                unblocks.insert(edge.to.clone());
+            }
             PlanEdgeKind::HandoffTo if edge.from == *node_id => {
                 unblocks.insert(edge.to.clone());
             }

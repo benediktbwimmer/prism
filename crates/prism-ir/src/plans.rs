@@ -101,6 +101,7 @@ pub enum AcceptanceEvidencePolicy {
 pub enum PlanNodeBlockerKind {
     Dependency,
     BlockingNode,
+    ChildIncomplete,
     ValidationGate,
     Handoff,
     ClaimConflict,

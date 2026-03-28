@@ -2555,6 +2555,117 @@ fn native_plan_ready_nodes_and_blockers_follow_edge_semantics() {
 }
 
 #[test]
+fn native_plan_child_hierarchy_gates_parent_completion_and_recommendations() {
+    fn node(
+        plan_id: &PlanId,
+        node_id: &PlanNodeId,
+        title: &str,
+        status: PlanNodeStatus,
+        is_abstract: bool,
+    ) -> PlanNode {
+        PlanNode {
+            id: node_id.clone(),
+            plan_id: plan_id.clone(),
+            kind: if is_abstract {
+                PlanNodeKind::Note
+            } else {
+                PlanNodeKind::Edit
+            },
+            title: title.into(),
+            summary: None,
+            status,
+            bindings: prism_ir::PlanBinding::default(),
+            acceptance: Vec::new(),
+            is_abstract,
+            assignee: None,
+            base_revision: WorkspaceRevision::default(),
+            priority: None,
+            tags: Vec::new(),
+            metadata: serde_json::Value::Null,
+        }
+    }
+
+    fn edge(plan_id: &PlanId, from: &PlanNodeId, to: &PlanNodeId, kind: PlanEdgeKind) -> PlanEdge {
+        PlanEdge {
+            id: PlanEdgeId::new(format!("{}:{:?}:{}", from.0, kind, to.0)),
+            plan_id: plan_id.clone(),
+            from: from.clone(),
+            to: to.clone(),
+            kind,
+            summary: None,
+            metadata: serde_json::Value::Null,
+        }
+    }
+
+    let plan_id = PlanId::new("plan:hierarchy");
+    let parent_id = PlanNodeId::new("coord-task:parent");
+    let child_id = PlanNodeId::new("coord-task:child");
+    let sibling_id = PlanNodeId::new("coord-task:sibling");
+    let graph = PlanGraph {
+        id: plan_id.clone(),
+        scope: prism_ir::PlanScope::Repo,
+        kind: prism_ir::PlanKind::TaskExecution,
+        title: "Hierarchy".into(),
+        goal: "Hierarchy".into(),
+        status: prism_ir::PlanStatus::Active,
+        revision: 0,
+        root_nodes: vec![parent_id.clone(), sibling_id.clone()],
+        tags: Vec::new(),
+        created_from: None,
+        metadata: serde_json::Value::Null,
+        nodes: vec![
+            node(
+                &plan_id,
+                &parent_id,
+                "Parent",
+                PlanNodeStatus::Ready,
+                true,
+            ),
+            node(
+                &plan_id,
+                &child_id,
+                "Child",
+                PlanNodeStatus::InProgress,
+                false,
+            ),
+            node(
+                &plan_id,
+                &sibling_id,
+                "Sibling",
+                PlanNodeStatus::Ready,
+                false,
+            ),
+        ],
+        edges: vec![edge(&plan_id, &child_id, &parent_id, PlanEdgeKind::ChildOf)],
+    };
+
+    let prism = Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
+        Graph::new(),
+        HistoryStore::new(),
+        OutcomeMemory::new(),
+        CoordinationStore::new(),
+        ProjectionIndex::default(),
+        vec![graph],
+        BTreeMap::new(),
+    );
+
+    let blockers = prism.plan_node_blockers(&plan_id, &parent_id);
+    assert_eq!(blockers.len(), 1);
+    assert_eq!(blockers[0].kind, PlanNodeBlockerKind::ChildIncomplete);
+    assert_eq!(blockers[0].related_node_id, Some(child_id.clone()));
+
+    let recommendations = prism.plan_next(&plan_id, 3);
+    let child_recommendation = recommendations
+        .iter()
+        .find(|recommendation| recommendation.node.id == child_id)
+        .expect("child recommendation");
+    assert!(child_recommendation
+        .unblocks
+        .iter()
+        .any(|node_id| node_id == &parent_id));
+}
+
+#[test]
 fn native_plan_next_prefers_actionable_nodes_that_unblock_more_follow_up_work() {
     fn node(
         plan_id: &PlanId,

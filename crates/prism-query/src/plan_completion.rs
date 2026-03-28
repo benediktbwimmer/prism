@@ -405,14 +405,15 @@ fn blocker_kind_rank(kind: PlanNodeBlockerKind) -> u8 {
     match kind {
         PlanNodeBlockerKind::Dependency => 0,
         PlanNodeBlockerKind::BlockingNode => 1,
-        PlanNodeBlockerKind::ValidationGate => 2,
-        PlanNodeBlockerKind::Handoff => 3,
-        PlanNodeBlockerKind::ClaimConflict => 4,
-        PlanNodeBlockerKind::ReviewRequired => 5,
-        PlanNodeBlockerKind::RiskReviewRequired => 6,
-        PlanNodeBlockerKind::ValidationRequired => 7,
-        PlanNodeBlockerKind::StaleRevision => 8,
-        PlanNodeBlockerKind::ArtifactStale => 9,
+        PlanNodeBlockerKind::ChildIncomplete => 2,
+        PlanNodeBlockerKind::ValidationGate => 3,
+        PlanNodeBlockerKind::Handoff => 4,
+        PlanNodeBlockerKind::ClaimConflict => 5,
+        PlanNodeBlockerKind::ReviewRequired => 6,
+        PlanNodeBlockerKind::RiskReviewRequired => 7,
+        PlanNodeBlockerKind::ValidationRequired => 8,
+        PlanNodeBlockerKind::StaleRevision => 9,
+        PlanNodeBlockerKind::ArtifactStale => 10,
     }
 }
 

@@ -591,14 +591,15 @@ fn plan_node_blocker_kind_key(kind: PlanNodeBlockerKind) -> u8 {
     match kind {
         PlanNodeBlockerKind::Dependency => 0,
         PlanNodeBlockerKind::BlockingNode => 1,
-        PlanNodeBlockerKind::ValidationGate => 2,
-        PlanNodeBlockerKind::Handoff => 3,
-        PlanNodeBlockerKind::ClaimConflict => 4,
-        PlanNodeBlockerKind::ReviewRequired => 5,
-        PlanNodeBlockerKind::RiskReviewRequired => 6,
-        PlanNodeBlockerKind::ValidationRequired => 7,
-        PlanNodeBlockerKind::StaleRevision => 8,
-        PlanNodeBlockerKind::ArtifactStale => 9,
+        PlanNodeBlockerKind::ChildIncomplete => 2,
+        PlanNodeBlockerKind::ValidationGate => 3,
+        PlanNodeBlockerKind::Handoff => 4,
+        PlanNodeBlockerKind::ClaimConflict => 5,
+        PlanNodeBlockerKind::ReviewRequired => 6,
+        PlanNodeBlockerKind::RiskReviewRequired => 7,
+        PlanNodeBlockerKind::ValidationRequired => 8,
+        PlanNodeBlockerKind::StaleRevision => 9,
+        PlanNodeBlockerKind::ArtifactStale => 10,
     }
 }
 
@@ -704,6 +705,31 @@ fn readiness_blockers_for_node(
 
 fn completion_blockers_for_node(graph: &PlanGraph, node: &PlanNode) -> Vec<PlanNodeBlocker> {
     let mut blockers = Vec::new();
+    for edge in graph.edges.iter().filter(|edge| edge.to == node.id) {
+        if edge.kind != PlanEdgeKind::ChildOf {
+            continue;
+        }
+        let Some(child) = graph_node_by_id(graph, &edge.from) else {
+            continue;
+        };
+        if matches!(
+            child.status,
+            PlanNodeStatus::Completed | PlanNodeStatus::Abandoned
+        ) {
+            continue;
+        }
+        blockers.push(PlanNodeBlocker {
+            kind: PlanNodeBlockerKind::ChildIncomplete,
+            summary: format!(
+                "child node `{}` must reach a terminal state before this parent can complete",
+                child.title
+            ),
+            related_node_id: Some(child.id.clone()),
+            related_artifact_id: None,
+            risk_score: None,
+            validation_checks: Vec::new(),
+        });
+    }
     for edge in graph.edges.iter().filter(|edge| edge.from == node.id) {
         if edge.kind != PlanEdgeKind::Validates {
             continue;

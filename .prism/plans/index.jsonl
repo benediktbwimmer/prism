@@ -1,0 +1,1 @@
+{"plan_id":"plan:1","title":"Migrate PRISM persistence toward DB-native authoritative runtime storage while keeping snapshots only as derived caches, bootstrap accelerators, and export artifacts.","status":"Active","scope":"Repo","kind":"TaskExecution","log_path":".prism/plans/active/plan:1.jsonl"}
