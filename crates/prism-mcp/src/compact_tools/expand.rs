@@ -159,6 +159,12 @@ impl QueryHost {
                             compact_diff_expand_result(prism.as_ref(), &target)?
                         }
                     }
+                    AgentExpandKind::Health => {
+                        json!({
+                            "note": "Health expansion is currently only available for concept handles. Use prism_concept to inspect a concept packet first.",
+                            "filePath": target.file_path,
+                        })
+                    }
                     AgentExpandKind::Validation => {
                         if is_structured_config_target(target.kind) {
                             compact_structured_config_validation_result(
@@ -283,13 +289,20 @@ fn compact_concept_expand_result(
     if !handle.starts_with("concept://") {
         return Ok(None);
     }
-    let Some(_lens) = concept_lens_for_expand_kind(kind) else {
+    if !matches!(
+        kind,
+        AgentExpandKind::Health
+            | AgentExpandKind::Validation
+            | AgentExpandKind::Timeline
+            | AgentExpandKind::Memory
+    ) {
         return Ok(None);
-    };
+    }
     let packet = prism
         .concept_by_handle(handle)
         .ok_or_else(|| anyhow!("no concept packet matched `{handle}`"))?;
     let result = match kind {
+        AgentExpandKind::Health => compact_concept_health_expand_result(prism, &packet)?,
         AgentExpandKind::Validation => {
             compact_concept_validation_expand_result(session, prism, &packet)?
         }
@@ -322,6 +335,10 @@ fn concept_lens_for_expand_kind(kind: AgentExpandKind) -> Option<&'static str> {
 
 fn compact_concept_expand_next_action(kind: AgentExpandKind) -> String {
     match kind {
+        AgentExpandKind::Health => {
+            "Use prism_workset on this concept, or prism_expand `timeline` for recent failures."
+                .to_string()
+        }
         AgentExpandKind::Validation => {
             "Use prism_workset on this concept, or prism_open on a core member.".to_string()
         }
@@ -380,6 +397,14 @@ fn compact_expand_next_action(kind: AgentExpandKind, target: &SessionHandleTarge
                 "Use prism_open for local source, or prism_query for full diff history.".to_string()
             }
         }
+        AgentExpandKind::Health => {
+            if is_text_fragment_target(target) {
+                "Use prism_concept on a concept handle if you need concept health.".to_string()
+            } else {
+                "Use prism_concept on a concept handle, or prism_workset on this symbol."
+                    .to_string()
+            }
+        }
         AgentExpandKind::Validation => {
             if is_text_fragment_target(target) {
                 "Use prism_open on a supporting slice, or prism_workset for the staged bundle."
@@ -425,6 +450,22 @@ fn compact_concept_expand_suggested_actions(
         actions.push(suggested_open_action(primary.handle, AgentOpenMode::Focus));
     }
     match kind {
+        AgentExpandKind::Health => {
+            if packet
+                .decode_lenses
+                .iter()
+                .any(|lens| matches!(lens, prism_query::ConceptDecodeLens::Timeline))
+            {
+                actions.push(suggested_expand_action(handle, AgentExpandKind::Timeline));
+            }
+            if packet
+                .decode_lenses
+                .iter()
+                .any(|lens| matches!(lens, prism_query::ConceptDecodeLens::Memory))
+            {
+                actions.push(suggested_expand_action(handle, AgentExpandKind::Memory));
+            }
+        }
         AgentExpandKind::Validation => {
             if packet
                 .decode_lenses
@@ -481,6 +522,9 @@ fn compact_expand_suggested_actions(
             if !is_text_fragment_target(target) {
                 actions.push(suggested_open_action(current_handle, AgentOpenMode::Focus));
             }
+        }
+        AgentExpandKind::Health => {
+            actions.push(suggested_workset_action(current_handle));
         }
         AgentExpandKind::Lineage | AgentExpandKind::Diff => {
             actions.push(suggested_open_action(current_handle, AgentOpenMode::Focus));
@@ -555,6 +599,41 @@ fn first_handle_in_result(result: &Value, field: &str) -> Option<AgentTargetHand
     serde_json::from_value::<Vec<AgentTargetHandleView>>(result.get(field)?.clone())
         .ok()
         .and_then(|items| items.into_iter().next())
+}
+
+fn compact_concept_health_expand_result(
+    prism: &Prism,
+    packet: &prism_query::ConceptPacket,
+) -> Result<Value> {
+    let health = prism
+        .concept_health_by_handle(&packet.handle)
+        .ok_or_else(|| anyhow!("no concept health matched `{}`", packet.handle))?;
+    let mut result = serde_json::to_value(&health)?;
+    if !matches!(health.status, prism_query::ConceptHealthStatus::Healthy) {
+        result["repairTaskPayload"] = json!({
+            "title": format!("Repair concept: {}", packet.canonical_name),
+            "summary": format!("Review concept health for `{}` and refresh members, aliases, or publication state as needed.", packet.handle),
+            "anchors": packet
+                .core_members
+                .iter()
+                .take(3)
+                .map(|node| {
+                    json!({
+                        "type": "node",
+                        "crateName": node.crate_name.as_str(),
+                        "path": node.path.as_str(),
+                        "kind": node.kind.to_string(),
+                    })
+                })
+                .collect::<Vec<_>>(),
+            "acceptance": [
+                "Confirm the concept still has the right core members.",
+                "Update aliases, evidence, and risk hints if they drifted.",
+                "Retire, split, or supersede the concept if it no longer represents one stable cluster."
+            ],
+        });
+    }
+    Ok(result)
 }
 
 fn compact_concept_validation_expand_result(

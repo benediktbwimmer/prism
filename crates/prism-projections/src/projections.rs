@@ -365,8 +365,8 @@ impl ProjectionIndex {
         let original_core_count = original.core_members.len().max(1);
         let original_slots = collect_member_slots(original);
         let slot_count = original_slots.len().max(1);
-        let live_core_member_ratio = (resolved.core_members.len() as f32 / original_core_count as f32)
-            .clamp(0.0, 1.0);
+        let live_core_member_ratio =
+            (resolved.core_members.len() as f32 / original_core_count as f32).clamp(0.0, 1.0);
 
         let lineage_coverage_count = original_slots
             .iter()
@@ -378,7 +378,11 @@ impl ProjectionIndex {
         let mut changed_slots = 0usize;
         let mut rebound_slots = 0usize;
         for slot in &original_slots {
-            let current = resolve_member_for_health(&slot.member, slot.lineage.as_ref(), &self.node_to_lineage);
+            let current = resolve_member_for_health(
+                &slot.member,
+                slot.lineage.as_ref(),
+                &self.node_to_lineage,
+            );
             if current.as_ref() != Some(&slot.member) {
                 changed_slots += 1;
                 if current.is_some() {
@@ -439,7 +443,9 @@ impl ProjectionIndex {
             );
         }
         if stale_risk_hint {
-            reasons.push("Risk hint may be stale relative to the current concept bindings.".to_string());
+            reasons.push(
+                "Risk hint may be stale relative to the current concept bindings.".to_string(),
+            );
         }
         if !superseded_by.is_empty() {
             reasons.push(format!(
@@ -461,16 +467,14 @@ impl ProjectionIndex {
             stale_validation_links,
             stale_risk_hint,
         };
-        let score = (
-            0.35 * live_core_member_ratio
-                + 0.15 * lineage_coverage_ratio
-                + 0.15 * rebind_success_ratio
-                + 0.15 * (1.0 - member_churn_ratio)
-                + 0.10 * validation_coverage_ratio
-                + 0.10 * (1.0 - ambiguity_ratio)
-                - if stale_validation_links { 0.1 } else { 0.0 }
-                - if stale_risk_hint { 0.05 } else { 0.0 }
-        )
+        let score = (0.35 * live_core_member_ratio
+            + 0.15 * lineage_coverage_ratio
+            + 0.15 * rebind_success_ratio
+            + 0.15 * (1.0 - member_churn_ratio)
+            + 0.10 * validation_coverage_ratio
+            + 0.10 * (1.0 - ambiguity_ratio)
+            - if stale_validation_links { 0.1 } else { 0.0 }
+            - if stale_risk_hint { 0.05 } else { 0.0 })
         .clamp(0.0, 1.0);
 
         let status = if !superseded_by.is_empty() {
@@ -506,7 +510,7 @@ impl ProjectionIndex {
         queries.sort();
         queries.dedup();
 
-        let mut max_ratio = 0.0;
+        let mut max_ratio: f32 = 0.0;
         for query in queries {
             let resolutions = resolve_concepts(&self.concept_packets, &query, 2);
             let Some(primary) = resolutions.first() else {
@@ -556,7 +560,10 @@ fn collect_member_slots(packet: &ConceptPacket) -> Vec<MemberSlot> {
         &packet.supporting_members,
         &packet.supporting_member_lineages,
     ));
-    slots.extend(member_slots(&packet.likely_tests, &packet.likely_test_lineages));
+    slots.extend(member_slots(
+        &packet.likely_tests,
+        &packet.likely_test_lineages,
+    ));
     slots
 }
 
@@ -596,9 +603,12 @@ fn resolve_member_for_health(
             }
             node_to_lineage
                 .iter()
-                .filter_map(|(candidate, current)| (current == lineage).then_some(candidate.clone()))
+                .filter_map(|(candidate, current)| {
+                    (current == lineage).then_some(candidate.clone())
+                })
                 .min_by(|left, right| {
-                    candidate_rank_for_health(left, original).cmp(&candidate_rank_for_health(right, original))
+                    candidate_rank_for_health(left, original)
+                        .cmp(&candidate_rank_for_health(right, original))
                 })
         }
         None if node_to_lineage.contains_key(original) => Some(original.clone()),

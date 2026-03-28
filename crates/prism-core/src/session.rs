@@ -316,20 +316,22 @@ impl WorkspaceSession {
         projections.reseed_from_history(&history.snapshot());
         drop(store);
 
-        let prism = Arc::new(Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
-            graph,
-            history,
-            outcomes,
-            coordination,
-            projections,
-            plan_state
-                .as_ref()
-                .map(|state| state.plan_graphs.clone())
-                .unwrap_or_default(),
-            plan_state
-                .map(|state| state.execution_overlays)
-                .unwrap_or_default(),
-        ));
+        let prism = Arc::new(
+            Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
+                graph,
+                history,
+                outcomes,
+                coordination,
+                projections,
+                plan_state
+                    .as_ref()
+                    .map(|state| state.plan_graphs.clone())
+                    .unwrap_or_default(),
+                plan_state
+                    .map(|state| state.execution_overlays)
+                    .unwrap_or_default(),
+            ),
+        );
         *self.prism.write().expect("workspace prism lock poisoned") = prism;
         self.loaded_workspace_revision
             .store(workspace_revision, Ordering::Relaxed);
@@ -469,13 +471,15 @@ impl WorkspaceSession {
             .lock()
             .expect("workspace store lock poisoned")
             .load_coordination_snapshot()?;
-        Ok(load_hydrated_coordination_plan_state(&self.root, snapshot)?.map(|state| {
-            CoordinationPlanState {
-                snapshot: state.snapshot,
-                plan_graphs: state.plan_graphs,
-                execution_overlays: state.execution_overlays,
-            }
-        }))
+        Ok(
+            load_hydrated_coordination_plan_state(&self.root, snapshot)?.map(|state| {
+                CoordinationPlanState {
+                    snapshot: state.snapshot,
+                    plan_graphs: state.plan_graphs,
+                    execution_overlays: state.execution_overlays,
+                }
+            }),
+        )
     }
 
     pub fn persist_coordination(&self, snapshot: &CoordinationSnapshot) -> Result<()> {

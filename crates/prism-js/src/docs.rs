@@ -1991,7 +1991,18 @@ return prism.claimPreview({
 });
 ```
 
-### 44. Ask `prism_expand` for a compact impact lens on one handle
+### 44. Ask `prism_expand` for a compact health lens on one concept handle
+
+```json
+{
+  "handle": "concept://validation_pipeline",
+  "kind": "health"
+}
+```
+
+Expected shape: `status`, `score`, `signals`, `reasons`, and optional `repairTaskPayload`.
+
+### 45. Ask `prism_expand` for a compact impact lens on one handle
 
 ```json
 {
@@ -2002,7 +2013,7 @@ return prism.claimPreview({
 
 Expected shape: `likelyTouch`, `likelyTests`, `recentFailures`, and one short `riskHint`.
 
-### 45. Ask `prism_expand` for a compact timeline lens on one handle
+### 46. Ask `prism_expand` for a compact timeline lens on one handle
 
 ```json
 {
@@ -2013,7 +2024,7 @@ Expected shape: `likelyTouch`, `likelyTests`, `recentFailures`, and one short `r
 
 Expected shape: `recentEvents`, `recentPatches`, `lastFailure`, and `lastValidation`.
 
-### 46. Ask `prism_expand` for compact memory recall on one handle
+### 47. Ask `prism_expand` for compact memory recall on one handle
 
 ```json
 {
@@ -2025,7 +2036,7 @@ Expected shape: `recentEvents`, `recentPatches`, `lastFailure`, and `lastValidat
 Expected shape: `memories` with short summaries, memory kind/source/trust, and a one-line
 `whyMatched`.
 
-### 47. Ask `prism_task_brief` for a compact coordination read
+### 48. Ask `prism_task_brief` for a compact coordination read
 
 ```json
 {

@@ -515,7 +515,7 @@ impl PrismMcpServer {
     }
 
     #[tool(
-        description = "Expand one compact handle on demand with diagnostics, lineage, neighbors, diff, validation, impact, timeline, memory, or drift detail.",
+        description = "Expand one compact handle on demand with diagnostics, lineage, neighbors, diff, health, validation, impact, timeline, memory, or drift detail.",
         annotations(title = "Expand PRISM Handle", read_only_hint = true),
         output_schema =
             rmcp::handler::server::tool::schema_for_output::<AgentExpandResultView>().unwrap()

@@ -217,6 +217,7 @@ pub(crate) enum PrismExpandKindInput {
     Lineage,
     Neighbors,
     Diff,
+    Health,
     Validation,
     Impact,
     Timeline,

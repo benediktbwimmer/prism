@@ -28,24 +28,23 @@ use crate::{
     curator_disposition_label, curator_job_status_label, curator_memory_metadata, curator_proposal,
     curator_proposal_state, curator_trigger_label, current_timestamp,
     ensure_repo_publication_metadata, manual_memory_metadata, parse_capability, parse_claim_mode,
-    parse_coordination_task_status, parse_edge_kind, parse_plan_edge_kind,
-    parse_plan_node_status, parse_plan_status, parse_review_verdict, plan_edge_view,
-    plan_node_view, plan_view,
-    task_journal_memory_metadata, task_journal_view, ArtifactActionInput,
-    ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
-    ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput, ClaimMutationResult,
-    ClaimReleasePayload, ClaimRenewPayload, ConceptMutationOperationInput, ConceptMutationResult,
-    CoordinationMutationKindInput, CoordinationMutationResult, CuratorJobView,
-    CuratorProposalDecisionResult, EdgeMutationResult, EventMutationResult, HandoffAcceptPayload,
-    MemoryMutationActionInput, MemoryMutationResult, MemoryStorePayload, MutationViolationView,
-    PlanEdgeCreatePayload, PlanEdgeDeletePayload, PlanNodeCreatePayload, PlanNodeUpdatePayload,
-    PlanUpdatePayload, PrismArtifactArgs, PrismClaimArgs, PrismConceptLensInput,
-    PrismConceptMutationArgs, PrismCoordinationArgs, PrismCuratorPromoteEdgeArgs,
-    PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs, PrismFinishTaskArgs,
-    PrismInferEdgeArgs, PrismMemoryArgs, PrismOutcomeArgs, PrismValidationFeedbackArgs, QueryHost,
-    SessionState, TaskCreatePayload, TaskUpdatePayload, ValidationFeedbackCategoryInput,
-    ValidationFeedbackMutationResult, ValidationFeedbackVerdictInput,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
+    parse_coordination_task_status, parse_edge_kind, parse_plan_edge_kind, parse_plan_node_status,
+    parse_plan_status, parse_review_verdict, plan_edge_view, plan_node_view, plan_view,
+    task_journal_memory_metadata, task_journal_view, ArtifactActionInput, ArtifactMutationResult,
+    ArtifactProposePayload, ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload,
+    ClaimActionInput, ClaimMutationResult, ClaimReleasePayload, ClaimRenewPayload,
+    ConceptMutationOperationInput, ConceptMutationResult, CoordinationMutationKindInput,
+    CoordinationMutationResult, CuratorJobView, CuratorProposalDecisionResult, EdgeMutationResult,
+    EventMutationResult, HandoffAcceptPayload, MemoryMutationActionInput, MemoryMutationResult,
+    MemoryStorePayload, MutationViolationView, PlanEdgeCreatePayload, PlanEdgeDeletePayload,
+    PlanNodeCreatePayload, PlanNodeUpdatePayload, PlanUpdatePayload, PrismArtifactArgs,
+    PrismClaimArgs, PrismConceptLensInput, PrismConceptMutationArgs, PrismCoordinationArgs,
+    PrismCuratorPromoteEdgeArgs, PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs,
+    PrismFinishTaskArgs, PrismInferEdgeArgs, PrismMemoryArgs, PrismOutcomeArgs,
+    PrismValidationFeedbackArgs, QueryHost, SessionState, TaskCreatePayload, TaskUpdatePayload,
+    ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
+    ValidationFeedbackVerdictInput, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
 
 #[derive(Default)]
@@ -149,9 +148,7 @@ fn current_plan_edge_state(
     let edge = graph
         .edges
         .into_iter()
-        .find(|edge| {
-            edge.from.0 == from_node_id && edge.to.0 == to_node_id && edge.kind == kind
-        })
+        .find(|edge| edge.from.0 == from_node_id && edge.to.0 == to_node_id && edge.kind == kind)
         .ok_or_else(|| {
             anyhow!(
                 "unknown plan edge `{}` -> `{}` ({:?})",
@@ -918,6 +915,7 @@ impl QueryHost {
             CoordinationMutationKindInput::PlanCreate => {
                 let payload: crate::PlanCreatePayload = serde_json::from_value(args.payload)?;
                 let plan_id = prism.create_native_plan(
+                    meta,
                     payload.goal,
                     payload
                         .status
@@ -935,6 +933,7 @@ impl QueryHost {
                 let payload: PlanUpdatePayload = serde_json::from_value(args.payload)?;
                 let plan_id = PlanId::new(payload.plan_id);
                 prism.update_native_plan(
+                    meta,
                     &plan_id,
                     payload
                         .status
@@ -1006,14 +1005,12 @@ impl QueryHost {
                         session: None,
                         title: payload.title,
                         anchors: payload.anchors.map(convert_anchors).transpose()?,
-                        depends_on: payload
-                            .depends_on
-                            .map(|depends_on| {
-                                depends_on
-                                    .into_iter()
-                                    .map(CoordinationTaskId::new)
-                                    .collect::<Vec<_>>()
-                            }),
+                        depends_on: payload.depends_on.map(|depends_on| {
+                            depends_on
+                                .into_iter()
+                                .map(CoordinationTaskId::new)
+                                .collect::<Vec<_>>()
+                        }),
                         acceptance: payload
                             .acceptance
                             .map(|acceptance| convert_acceptance(Some(acceptance)))
@@ -1032,8 +1029,7 @@ impl QueryHost {
                     .status
                     .as_deref()
                     .map(parse_plan_node_status)
-                    .transpose()?
-                    ;
+                    .transpose()?;
                 let plan_id = PlanId::new(payload.plan_id.clone());
                 let node_id = prism.create_native_plan_node(
                     &plan_id,
@@ -1101,12 +1097,7 @@ impl QueryHost {
                     &PlanNodeId::new(payload.to_node_id.clone()),
                     kind,
                 )?;
-                deleted_plan_edge_state(
-                    &plan_id,
-                    &payload.from_node_id,
-                    &payload.to_node_id,
-                    kind,
-                )
+                deleted_plan_edge_state(&plan_id, &payload.from_node_id, &payload.to_node_id, kind)
             }
             CoordinationMutationKindInput::Handoff => {
                 let payload: crate::HandoffPayload = serde_json::from_value(args.payload)?;

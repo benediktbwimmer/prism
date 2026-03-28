@@ -170,6 +170,7 @@ pub enum AgentExpandKind {
     Lineage,
     Neighbors,
     Diff,
+    Health,
     Validation,
     Impact,
     Timeline,

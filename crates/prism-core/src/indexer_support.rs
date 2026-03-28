@@ -40,15 +40,17 @@ pub(crate) fn build_workspace_session(
     let started = Instant::now();
     let store = store;
     let loaded_workspace_revision = Arc::new(AtomicU64::new(store.workspace_revision()?));
-    let prism = Arc::new(Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
-        graph,
-        history,
-        outcomes,
-        coordination,
-        projections,
-        plan_graphs,
-        plan_execution_overlays,
-    ));
+    let prism = Arc::new(
+        Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
+            graph,
+            history,
+            outcomes,
+            coordination,
+            projections,
+            plan_graphs,
+            plan_execution_overlays,
+        ),
+    );
     let prism = Arc::new(RwLock::new(prism));
     let store = Arc::new(Mutex::new(store));
     let refresh_lock = Arc::new(Mutex::new(()));

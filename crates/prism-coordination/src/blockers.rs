@@ -75,7 +75,8 @@ pub(crate) fn completion_policy_blockers(
 
     if let Some(context) = context {
         if let Some(threshold) = plan.policy.review_required_above_risk_score {
-            if context.risk_score.unwrap_or_default() >= threshold && approved_artifacts.is_empty() {
+            if context.risk_score.unwrap_or_default() >= threshold && approved_artifacts.is_empty()
+            {
                 blockers.push(TaskBlocker {
                     kind: BlockerKind::RiskReviewRequired,
                     summary: format!(
@@ -135,7 +136,10 @@ pub(crate) fn dependency_and_revision_blockers(
             Some(dependency) if dependency.status == CoordinationTaskStatus::Completed => {}
             Some(dependency) => blockers.push(TaskBlocker {
                 kind: BlockerKind::Dependency,
-                summary: format!("dependency `{}` is {:?}", dependency.id.0, dependency.status),
+                summary: format!(
+                    "dependency `{}` is {:?}",
+                    dependency.id.0, dependency.status
+                ),
                 related_task_id: Some(dependency.id.clone()),
                 related_artifact_id: None,
                 risk_score: None,
@@ -268,5 +272,4 @@ impl CoordinationStore {
     ) -> Vec<TaskBlocker> {
         completion_blockers(state, task, current_revision, now)
     }
-
 }

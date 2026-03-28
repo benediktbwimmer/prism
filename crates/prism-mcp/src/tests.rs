@@ -34,7 +34,7 @@ use prism_curator::{
 use prism_history::HistoryStore;
 use prism_ir::{
     AnchorRef, ChangeTrigger, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId, Language,
-    Node, NodeId, NodeKind, PlanEdgeKind, PlanId, ObservedChangeSet, ObservedNode, Span,
+    Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, PlanEdgeKind, PlanId, Span,
     SymbolFingerprint, TaskId,
 };
 use prism_memory::{
@@ -674,7 +674,10 @@ fn plan_node_mutations_return_graph_native_views() {
     let node_id = node.state["id"].as_str().unwrap().to_string();
     assert_eq!(node.state["title"], "Edit main");
     assert_eq!(node.state["kind"], "Edit");
-    assert_eq!(node.state["bindings"]["anchors"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        node.state["bindings"]["anchors"].as_array().unwrap().len(),
+        1
+    );
 
     let updated = host
         .store_coordination(
@@ -702,10 +705,9 @@ fn plan_node_mutations_return_graph_native_views() {
         .current_prism()
         .plan_graph(&PlanId::new(plan_id))
         .expect("plan graph");
-    assert!(graph
-        .edges
-        .iter()
-        .any(|edge| edge.from.0 == node_id && edge.to.0 == dependency_id && edge.kind == PlanEdgeKind::DependsOn));
+    assert!(graph.edges.iter().any(|edge| edge.from.0 == node_id
+        && edge.to.0 == dependency_id
+        && edge.kind == PlanEdgeKind::DependsOn));
     assert!(graph.root_nodes.iter().any(|root| root.0 == dependency_id));
     assert!(!graph.root_nodes.iter().any(|root| root.0 == node_id));
 }
@@ -779,10 +781,9 @@ fn plan_edge_mutations_update_projected_dependency_graph() {
         .current_prism()
         .plan_graph(&PlanId::new(plan_id.clone()))
         .expect("plan graph");
-    assert!(graph
-        .edges
-        .iter()
-        .any(|edge| edge.from.0 == node_id && edge.to.0 == dependency_id && edge.kind == PlanEdgeKind::DependsOn));
+    assert!(graph.edges.iter().any(|edge| edge.from.0 == node_id
+        && edge.to.0 == dependency_id
+        && edge.kind == PlanEdgeKind::DependsOn));
     assert!(!graph.root_nodes.iter().any(|root| root.0 == node_id));
 
     let deleted = host
@@ -808,10 +809,9 @@ fn plan_edge_mutations_update_projected_dependency_graph() {
         .current_prism()
         .plan_graph(&PlanId::new(plan_id))
         .expect("plan graph");
-    assert!(!graph
-        .edges
-        .iter()
-        .any(|edge| edge.from.0 == node_id && edge.to.0 == dependency_id && edge.kind == PlanEdgeKind::DependsOn));
+    assert!(!graph.edges.iter().any(|edge| edge.from.0 == node_id
+        && edge.to.0 == dependency_id
+        && edge.kind == PlanEdgeKind::DependsOn));
     assert!(graph.root_nodes.iter().any(|root| root.0 == node_id));
 }
 
@@ -882,10 +882,9 @@ fn plan_edge_mutations_support_non_dependency_edge_kinds() {
         .current_prism()
         .plan_graph(&PlanId::new(plan_id.clone()))
         .expect("plan graph");
-    assert!(graph
-        .edges
-        .iter()
-        .any(|edge| edge.from.0 == source_id && edge.to.0 == target_id && edge.kind == PlanEdgeKind::Validates));
+    assert!(graph.edges.iter().any(|edge| edge.from.0 == source_id
+        && edge.to.0 == target_id
+        && edge.kind == PlanEdgeKind::Validates));
 
     let deleted = host
         .store_coordination(
@@ -908,10 +907,9 @@ fn plan_edge_mutations_support_non_dependency_edge_kinds() {
         .current_prism()
         .plan_graph(&PlanId::new(plan_id))
         .expect("plan graph");
-    assert!(!graph
-        .edges
-        .iter()
-        .any(|edge| edge.from.0 == source_id && edge.to.0 == target_id && edge.kind == PlanEdgeKind::Validates));
+    assert!(!graph.edges.iter().any(|edge| edge.from.0 == source_id
+        && edge.to.0 == target_id
+        && edge.kind == PlanEdgeKind::Validates));
 }
 
 #[test]
@@ -1155,6 +1153,25 @@ fn mcp_plan_update_completes_plan_and_closed_plan_rejects_new_claims() {
         )
         .unwrap();
     let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    let rejected_plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanUpdate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "status": "completed"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert!(rejected_plan.rejected);
+    assert!(rejected_plan
+        .violations
+        .iter()
+        .any(|violation| violation.code == "incomplete_plan_tasks"));
 
     host.store_coordination(
         test_session(&host).as_ref(),
@@ -5391,6 +5408,7 @@ fn compact_tools_route_or_reject_concept_handles_with_clear_followups() {
         r#"
 pub fn validation_recipe() {}
 pub fn runtime_status() {}
+pub fn validation_recipe_test() {}
 "#,
     )
     .unwrap();
@@ -5417,7 +5435,11 @@ pub fn runtime_status() {}
                 },
             ]),
             supporting_members: None,
-            likely_tests: None,
+            likely_tests: Some(vec![NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::validation_recipe_test".to_string(),
+                kind: "function".to_string(),
+            }]),
             evidence: Some(vec!["Curated in test.".to_string()]),
             risk_hint: None,
             confidence: Some(0.91),
@@ -5515,6 +5537,31 @@ pub fn runtime_status() {}
         .next_action
         .as_deref()
         .is_some_and(|text| text.contains("prism_workset")));
+
+    let health = host
+        .compact_expand(
+            Arc::clone(&session),
+            PrismExpandArgs {
+                handle: "concept://custom_validation".to_string(),
+                kind: PrismExpandKindInput::Health,
+                include_top_preview: None,
+            },
+        )
+        .expect("health expand should accept concept handles");
+    assert_eq!(
+        health.handle_category,
+        prism_js::AgentHandleCategoryView::Concept
+    );
+    assert_eq!(health.kind, prism_js::AgentExpandKind::Health);
+    assert_eq!(health.result["status"], "drifted");
+    assert!(health.result["repairTaskPayload"].is_object());
+    assert!(health.result["signals"]["staleValidationLinks"]
+        .as_bool()
+        .unwrap());
+    assert!(health
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("timeline")));
 
     host.store_outcome(
         session.as_ref(),

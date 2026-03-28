@@ -8,9 +8,9 @@ use prism_coordination::{
 use prism_history::HistoryStore;
 use prism_ir::{
     AnchorRef, ChangeTrigger, Edge, EdgeKind, EventActor, EventId, EventMeta, FileId, Language,
-    Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, PlanEdge, PlanEdgeId,
-    PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanKind, PlanNode, PlanNodeId, PlanNodeKind,
-    PlanNodeStatus, PlanScope, PlanStatus, SessionId, Span, TaskId, WorkspaceRevision,
+    Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, PlanEdge, PlanEdgeId, PlanEdgeKind,
+    PlanExecutionOverlay, PlanGraph, PlanKind, PlanNode, PlanNodeId, PlanNodeKind, PlanNodeStatus,
+    PlanScope, PlanStatus, SessionId, Span, TaskId, WorkspaceRevision,
 };
 use prism_memory::{
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemory, OutcomeRecallQuery, OutcomeResult,
@@ -305,6 +305,112 @@ fn concept_lookup_returns_curated_validation_packet() {
     assert!(prism
         .concept_by_handle("concept://session_lifecycle")
         .is_some());
+}
+
+#[test]
+fn concept_health_flags_ambiguous_stale_validation_concepts() {
+    let mut graph = Graph::new();
+    graph.add_node(Node {
+        id: NodeId::new("demo", "demo::validation_recipe", NodeKind::Function),
+        name: "validation_recipe".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    graph.add_node(Node {
+        id: NodeId::new("demo", "demo::validation_healthcheck", NodeKind::Function),
+        name: "validation_healthcheck".into(),
+        kind: NodeKind::Function,
+        file: FileId(2),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    graph.add_node(Node {
+        id: NodeId::new("demo", "demo::validation_recipe_test", NodeKind::Function),
+        name: "validation_recipe_test".into(),
+        kind: NodeKind::Function,
+        file: FileId(3),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+
+    let prism = Prism::new(graph);
+    prism.replace_curated_concepts(vec![
+        ConceptPacket {
+            handle: "concept://validation_pipeline".to_string(),
+            canonical_name: "validation_pipeline".to_string(),
+            summary: "Validation checks and likely tests.".to_string(),
+            aliases: vec!["validation".to_string(), "checks".to_string()],
+            confidence: 0.95,
+            core_members: vec![NodeId::new(
+                "demo",
+                "demo::validation_recipe",
+                NodeKind::Function,
+            )],
+            core_member_lineages: Vec::new(),
+            supporting_members: Vec::new(),
+            supporting_member_lineages: Vec::new(),
+            likely_tests: vec![NodeId::new(
+                "demo",
+                "demo::validation_recipe_test",
+                NodeKind::Function,
+            )],
+            likely_test_lineages: Vec::new(),
+            evidence: vec!["Curated in test.".to_string()],
+            risk_hint: Some("Validation drift is common here.".to_string()),
+            decode_lenses: vec![ConceptDecodeLens::Validation, ConceptDecodeLens::Timeline],
+            scope: ConceptScope::Session,
+            provenance: ConceptProvenance {
+                origin: "test".to_string(),
+                kind: "curated_concept".to_string(),
+                task_id: None,
+            },
+            publication: None,
+        },
+        ConceptPacket {
+            handle: "concept://validation_health".to_string(),
+            canonical_name: "validation_health".to_string(),
+            summary: "Validation-oriented health probes.".to_string(),
+            aliases: vec!["validation".to_string()],
+            confidence: 0.9,
+            core_members: vec![NodeId::new(
+                "demo",
+                "demo::validation_healthcheck",
+                NodeKind::Function,
+            )],
+            core_member_lineages: Vec::new(),
+            supporting_members: Vec::new(),
+            supporting_member_lineages: Vec::new(),
+            likely_tests: Vec::new(),
+            likely_test_lineages: Vec::new(),
+            evidence: vec!["Curated in test.".to_string()],
+            risk_hint: None,
+            decode_lenses: vec![ConceptDecodeLens::Open],
+            scope: ConceptScope::Session,
+            provenance: ConceptProvenance {
+                origin: "test".to_string(),
+                kind: "curated_concept".to_string(),
+                task_id: None,
+            },
+            publication: None,
+        },
+    ]);
+
+    let health = prism
+        .concept_health_by_handle("concept://validation_pipeline")
+        .expect("health should resolve");
+
+    assert_eq!(
+        health.status,
+        prism_projections::ConceptHealthStatus::Drifted
+    );
+    assert!(health.signals.ambiguity_ratio >= 0.6);
+    assert!(health.signals.stale_validation_links);
+    assert!(health
+        .reasons
+        .iter()
+        .any(|reason| reason.contains("likely tests")));
 }
 
 #[test]
@@ -1246,7 +1352,10 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
         "Task A"
     );
     assert_eq!(
-        prism.coordination_task(&task_id).expect("runtime task should exist").title,
+        prism
+            .coordination_task(&task_id)
+            .expect("runtime task should exist")
+            .title,
         "Task A runtime"
     );
     assert!(prism.ready_tasks(&plan_id, 10).is_empty());
@@ -1471,7 +1580,9 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
     assert!(runtime_graph
         .edges
         .iter()
-        .any(|edge| edge.kind == PlanEdgeKind::Validates && edge.from == node_b && edge.to == node_a));
+        .any(|edge| edge.kind == PlanEdgeKind::Validates
+            && edge.from == node_b
+            && edge.to == node_a));
     assert!(runtime_graph
         .edges
         .iter()
@@ -1479,7 +1590,171 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
     let runtime_execution = prism.plan_execution(&plan_id);
     assert!(runtime_execution
         .iter()
-        .any(|overlay| overlay.node_id == node_a && overlay.pending_handoff_to.as_ref().is_some_and(|agent| agent.0 == "agent-b")));
+        .any(|overlay| overlay.node_id == node_a
+            && overlay
+                .pending_handoff_to
+                .as_ref()
+                .is_some_and(|agent| agent.0 == "agent-b")));
+}
+
+#[test]
+fn native_plan_updates_validate_completion_and_preserve_non_dependency_edges() {
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:native-plan"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Validate native plan writes".into(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_a, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:native-plan:a"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Task A".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let (task_b, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:native-plan:b"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Task B".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+
+    let node_a = PlanNodeId::new(task_a.0.clone());
+    let node_b = PlanNodeId::new(task_b.0.clone());
+    let native_graph = PlanGraph {
+        id: plan_id.clone(),
+        scope: PlanScope::Repo,
+        kind: PlanKind::TaskExecution,
+        title: "Validate native plan writes".into(),
+        goal: "Validate native plan writes".into(),
+        status: PlanStatus::Active,
+        revision: 1,
+        root_nodes: vec![node_a.clone(), node_b.clone()],
+        tags: Vec::new(),
+        created_from: None,
+        metadata: serde_json::Value::Null,
+        nodes: vec![
+            PlanNode {
+                id: node_a.clone(),
+                plan_id: plan_id.clone(),
+                kind: PlanNodeKind::Edit,
+                title: "Task A".into(),
+                summary: None,
+                status: PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+            PlanNode {
+                id: node_b.clone(),
+                plan_id: plan_id.clone(),
+                kind: PlanNodeKind::Validate,
+                title: "Task B".into(),
+                summary: None,
+                status: PlanNodeStatus::Waiting,
+                bindings: prism_ir::PlanBinding::default(),
+                acceptance: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            },
+        ],
+        edges: vec![PlanEdge {
+            id: PlanEdgeId::new("plan-edge:native-plan:validates"),
+            plan_id: plan_id.clone(),
+            from: node_b.clone(),
+            to: node_a.clone(),
+            kind: PlanEdgeKind::Validates,
+            summary: None,
+            metadata: serde_json::Value::Null,
+        }],
+    };
+
+    let prism = Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
+        graph,
+        history,
+        outcomes,
+        coordination,
+        ProjectionIndex::default(),
+        vec![native_graph],
+        BTreeMap::new(),
+    );
+
+    let error = prism
+        .update_native_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:native-plan:complete"),
+                ts: 4,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            &plan_id,
+            Some(PlanStatus::Completed),
+            None,
+            None,
+        )
+        .expect_err("incomplete plan should not complete");
+    assert!(error.to_string().contains("cannot be completed"));
+
+    let runtime_graph = prism.plan_graph(&plan_id).unwrap();
+    assert_eq!(runtime_graph.status, PlanStatus::Active);
+    assert!(runtime_graph.edges.iter().any(|edge| {
+        edge.kind == PlanEdgeKind::Validates && edge.from == node_b && edge.to == node_a
+    }));
 }
 
 #[test]
@@ -1675,10 +1950,13 @@ fn native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges() {
     assert!(runtime_graph
         .edges
         .iter()
-        .any(|edge| edge.kind == PlanEdgeKind::Validates && edge.from == node_b && edge.to == node_a));
+        .any(|edge| edge.kind == PlanEdgeKind::Validates
+            && edge.from == node_b
+            && edge.to == node_a));
     assert_eq!(prism.coordination_snapshot().claims.len(), 1);
     assert_eq!(
-        prism.artifacts(&prism_ir::CoordinationTaskId::new(task_a.0.clone()))
+        prism
+            .artifacts(&prism_ir::CoordinationTaskId::new(task_a.0.clone()))
             .len(),
         1
     );

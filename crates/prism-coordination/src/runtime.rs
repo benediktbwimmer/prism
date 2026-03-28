@@ -6,21 +6,23 @@ use prism_ir::{
 use serde_json::Value;
 
 use crate::blockers::{completion_blockers, readiness_blockers};
-use crate::mutations::{
-    accept_handoff_mutation, acquire_claim_mutation, create_task_mutation, handoff_mutation,
-    propose_artifact_mutation, release_claim_mutation, renew_claim_mutation,
-    review_artifact_mutation, supersede_artifact_mutation, update_task_mutation,
-};
 use crate::helpers::{
     anchors_overlap, claim_is_active, conflict_between, dedupe_conflicts,
     editor_capacity_conflicts, expire_claims_locked, plan_policy_for_task, simulate_conflicts,
+};
+use crate::mutations::{
+    accept_handoff_mutation, acquire_claim_mutation, create_plan_mutation, create_task_mutation,
+    handoff_mutation, propose_artifact_mutation, release_claim_mutation, renew_claim_mutation,
+    review_artifact_mutation, supersede_artifact_mutation, update_plan_mutation,
+    update_task_mutation,
 };
 use crate::state::CoordinationState;
 use crate::types::{
     Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
     ClaimAcquireInput, CoordinationConflict, CoordinationEvent, CoordinationSnapshot,
-    CoordinationTask, HandoffAcceptInput, HandoffInput, Plan, PolicyViolation,
-    PolicyViolationRecord, TaskBlocker, TaskCreateInput, TaskUpdateInput, WorkClaim,
+    CoordinationTask, HandoffAcceptInput, HandoffInput, Plan, PlanCreateInput, PlanUpdateInput,
+    PolicyViolation, PolicyViolationRecord, TaskBlocker, TaskCreateInput, TaskUpdateInput,
+    WorkClaim,
 };
 
 pub struct CoordinationRuntimeState {
@@ -40,6 +42,18 @@ impl CoordinationRuntimeState {
 
     pub fn plan(&self, id: &PlanId) -> Option<Plan> {
         self.state.plans.get(id).cloned()
+    }
+
+    pub fn create_plan(
+        &mut self,
+        meta: EventMeta,
+        input: PlanCreateInput,
+    ) -> Result<(PlanId, Plan)> {
+        create_plan_mutation(&mut self.state, meta, input)
+    }
+
+    pub fn update_plan(&mut self, meta: EventMeta, input: PlanUpdateInput) -> Result<Plan> {
+        update_plan_mutation(&mut self.state, meta, input)
     }
 
     pub fn task(&self, id: &prism_ir::CoordinationTaskId) -> Option<CoordinationTask> {
@@ -86,7 +100,11 @@ impl CoordinationRuntimeState {
         meta: EventMeta,
         session_id: SessionId,
         input: ClaimAcquireInput,
-    ) -> Result<(Option<ClaimId>, Vec<CoordinationConflict>, Option<WorkClaim>)> {
+    ) -> Result<(
+        Option<ClaimId>,
+        Vec<CoordinationConflict>,
+        Option<WorkClaim>,
+    )> {
         acquire_claim_mutation(&mut self.state, meta, session_id, input)
     }
 
@@ -134,11 +152,7 @@ impl CoordinationRuntimeState {
         review_artifact_mutation(&mut self.state, meta, input, current_revision)
     }
 
-    pub fn claims_for_anchor(
-        &mut self,
-        anchors: &[AnchorRef],
-        now: Timestamp,
-    ) -> Vec<WorkClaim> {
+    pub fn claims_for_anchor(&mut self, anchors: &[AnchorRef], now: Timestamp) -> Vec<WorkClaim> {
         expire_claims_locked(&mut self.state, now);
         let mut claims = self
             .state

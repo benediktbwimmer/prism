@@ -97,9 +97,15 @@ struct LegacyPublishedPlanEvent {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum LegacyPublishedPlanPayload {
-    Plan { plan: Plan },
-    Node { task: LegacyPublishedPlanNode },
-    Execution { execution: LegacyPublishedPlanExecutionOverlay },
+    Plan {
+        plan: Plan,
+    },
+    Node {
+        task: LegacyPublishedPlanNode,
+    },
+    Execution {
+        execution: LegacyPublishedPlanExecutionOverlay,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -200,12 +206,20 @@ pub(crate) fn sync_repo_published_plans(
         .tasks
         .iter()
         .cloned()
-        .fold(BTreeMap::<String, Vec<CoordinationTask>>::new(), |mut map, task| {
-            map.entry(task.plan.0.to_string()).or_default().push(task);
-            map
-        })
+        .fold(
+            BTreeMap::<String, Vec<CoordinationTask>>::new(),
+            |mut map, task| {
+                map.entry(task.plan.0.to_string()).or_default().push(task);
+                map
+            },
+        )
         .into_iter()
-        .map(|(plan_id, tasks)| (plan_id, normalize_execution_overlays(execution_overlays_from_tasks(&tasks))))
+        .map(|(plan_id, tasks)| {
+            (
+                plan_id,
+                normalize_execution_overlays(execution_overlays_from_tasks(&tasks)),
+            )
+        })
         .collect::<BTreeMap<_, _>>();
 
     let mut index_entries = Vec::new();
@@ -231,7 +245,10 @@ pub(crate) fn sync_repo_published_plans(
                 .cloned()
                 .unwrap_or_default(),
         };
-        let overlays = overlays_by_plan.get(plan_key.as_str()).cloned().unwrap_or_default();
+        let overlays = overlays_by_plan
+            .get(plan_key.as_str())
+            .cloned()
+            .unwrap_or_default();
 
         let relative_log_path = relative_plan_log_path(header.status, &header.id);
         let full_log_path = root.join(&relative_log_path);
@@ -248,18 +265,20 @@ pub(crate) fn sync_repo_published_plans(
         let previous_record = existing_projection.record(&graph.id);
         let previous_overlays = existing_projection.execution_overlays_for(&graph.id);
         let starting_sequence = existing_projection.next_log_sequence_for(&graph.id);
-        let events = if previous_record.is_none() && previous_overlays.is_empty() && !full_log_path.exists() {
-            published_plan_events(starting_sequence, &header, &graph, &overlays)
-        } else {
-            append_plan_delta_events(
-                starting_sequence,
-                previous_record.as_ref(),
-                &previous_overlays,
-                &header,
-                &graph,
-                &overlays,
-            )
-        };
+        let events =
+            if previous_record.is_none() && previous_overlays.is_empty() && !full_log_path.exists()
+            {
+                published_plan_events(starting_sequence, &header, &graph, &overlays)
+            } else {
+                append_plan_delta_events(
+                    starting_sequence,
+                    previous_record.as_ref(),
+                    &previous_overlays,
+                    &header,
+                    &graph,
+                    &overlays,
+                )
+            };
         if !events.is_empty() {
             append_jsonl_file(&full_log_path, &events)?;
         }
@@ -356,8 +375,12 @@ pub(crate) fn load_hydrated_coordination_plan_state(
     snapshot.tasks = published_snapshot.tasks;
     snapshot.plans.extend(extra_plans);
     snapshot.tasks.extend(extra_tasks);
-    snapshot.plans.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    snapshot.tasks.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    snapshot
+        .plans
+        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    snapshot
+        .tasks
+        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
     snapshot.next_plan = snapshot.next_plan.max(published.next_plan);
     snapshot.next_task = snapshot.next_task.max(published.next_task);
     graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
@@ -387,9 +410,13 @@ fn load_repo_published_plan_projection(root: &Path) -> Result<Option<PublishedPl
         projection.next_plan = projection
             .next_plan
             .max(next_numeric_suffix(&record.header.id.0, "plan:"));
-        projection.next_task = record.graph.nodes.iter().fold(projection.next_task, |current, node| {
-            current.max(next_numeric_suffix(&node.id.0, "coord-task:"))
-        });
+        projection.next_task = record
+            .graph
+            .nodes
+            .iter()
+            .fold(projection.next_task, |current, node| {
+                current.max(next_numeric_suffix(&node.id.0, "coord-task:"))
+            });
         projection.next_log_sequence.insert(
             record.header.id.0.to_string(),
             next_log_sequence_from_events(&events),
@@ -508,7 +535,9 @@ fn apply_legacy_event(
             let node = legacy_node_from_task(task);
             nodes.insert(node.id.0.to_string(), node);
             let from = PlanNodeId::new(task.id.0.to_string());
-            edges.retain(|_, edge| !(edge.from == from && edge.kind == prism_ir::PlanEdgeKind::DependsOn));
+            edges.retain(|_, edge| {
+                !(edge.from == from && edge.kind == prism_ir::PlanEdgeKind::DependsOn)
+            });
             for edge in legacy_dependency_edges_for_task(task) {
                 edges.insert(edge.id.0.to_string(), edge);
             }
@@ -547,7 +576,9 @@ fn published_plan_events(
         plan_id: header.id.clone(),
         node_id: None,
         edge_id: None,
-        payload: PublishedPlanPayload::Plan { plan: header.clone() },
+        payload: PublishedPlanPayload::Plan {
+            plan: header.clone(),
+        },
     });
     for node in sorted_nodes(&graph.nodes) {
         events.push(PublishedPlanEvent {
@@ -600,7 +631,9 @@ fn append_plan_delta_events(
             plan_id: header.id.clone(),
             node_id: None,
             edge_id: None,
-            payload: PublishedPlanPayload::Plan { plan: header.clone() },
+            payload: PublishedPlanPayload::Plan {
+                plan: header.clone(),
+            },
         });
     }
 
@@ -621,7 +654,10 @@ fn append_plan_delta_events(
         .cloned()
         .map(|node| (node.id.0.to_string(), node))
         .collect::<BTreeMap<_, _>>();
-    for node_id in previous_nodes.keys().filter(|node_id| !current_nodes.contains_key(*node_id)) {
+    for node_id in previous_nodes
+        .keys()
+        .filter(|node_id| !current_nodes.contains_key(*node_id))
+    {
         events.push(PublishedPlanEvent {
             event_id: next_published_event_id(&header.id, &mut sequence),
             kind: PublishedPlanEventKind::NodeRemoved,
@@ -773,12 +809,16 @@ fn normalize_execution_overlays(overlays: Vec<PlanExecutionOverlay>) -> Vec<Plan
 fn execution_overlays_by_plan(
     tasks: &[CoordinationTask],
 ) -> BTreeMap<String, Vec<PlanExecutionOverlay>> {
-    tasks.iter()
+    tasks
+        .iter()
         .cloned()
-        .fold(BTreeMap::<String, Vec<CoordinationTask>>::new(), |mut map, task| {
-            map.entry(task.plan.0.to_string()).or_default().push(task);
-            map
-        })
+        .fold(
+            BTreeMap::<String, Vec<CoordinationTask>>::new(),
+            |mut map, task| {
+                map.entry(task.plan.0.to_string()).or_default().push(task);
+                map
+            },
+        )
         .into_iter()
         .map(|(plan_id, tasks)| {
             (

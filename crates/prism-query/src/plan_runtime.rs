@@ -3,12 +3,12 @@ use std::collections::{BTreeMap, BTreeSet};
 use anyhow::{anyhow, Result};
 use prism_coordination::{
     coordination_snapshot_from_plan_graphs, execution_overlays_from_tasks, snapshot_plan_graphs,
-    AcceptanceCriterion, CoordinationPolicy, CoordinationSnapshot, CoordinationTask,
+    AcceptanceCriterion, CoordinationPolicy, CoordinationSnapshot, CoordinationTask, Plan,
 };
 use prism_ir::{
     AgentId, AnchorRef, CoordinationTaskId, PlanAcceptanceCriterion, PlanEdge, PlanEdgeId,
     PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanNode, PlanNodeId, PlanNodeKind,
-    PlanNodeStatus, PlanStatus, ValidationRef, WorkspaceRevision,
+    PlanNodeStatus, ValidationRef, WorkspaceRevision,
 };
 use serde_json::Value;
 
@@ -83,7 +83,8 @@ impl NativePlanRuntimeState {
         mut snapshot: CoordinationSnapshot,
     ) -> CoordinationSnapshot {
         let graphs = self.graphs.values().cloned().collect::<Vec<_>>();
-        let mut plan_snapshot = coordination_snapshot_from_plan_graphs(&graphs, &self.execution_overlays);
+        let mut plan_snapshot =
+            coordination_snapshot_from_plan_graphs(&graphs, &self.execution_overlays);
         for plan in &mut plan_snapshot.plans {
             if let Some(policy) = self.policies.get(plan.id.0.as_str()) {
                 plan.policy = policy.clone();
@@ -96,25 +97,27 @@ impl NativePlanRuntimeState {
         snapshot
     }
 
-    pub(crate) fn create_plan(
-        &mut self,
-        goal: String,
-        status: Option<PlanStatus>,
-        policy: Option<CoordinationPolicy>,
-    ) -> PlanId {
-        self.next_plan += 1;
-        let plan_id = PlanId::new(format!("plan:{}", self.next_plan));
+    pub(crate) fn create_plan_from_coordination(&mut self, plan: &Plan) -> Result<PlanId> {
+        if self.graphs.contains_key(plan.id.0.as_str()) {
+            return Err(anyhow!("plan `{}` already exists", plan.id.0));
+        }
+        self.next_plan = self.next_plan.max(counter_suffix(&plan.id.0, "plan:").unwrap_or(0));
         self.graphs.insert(
-            plan_id.0.to_string(),
+            plan.id.0.to_string(),
             PlanGraph {
-                id: plan_id.clone(),
+                id: plan.id.clone(),
                 scope: prism_ir::PlanScope::Repo,
                 kind: prism_ir::PlanKind::TaskExecution,
-                title: goal.clone(),
-                goal,
-                status: status.unwrap_or(PlanStatus::Active),
+                title: plan.goal.clone(),
+                goal: plan.goal.clone(),
+                status: plan.status,
                 revision: 0,
-                root_nodes: Vec::new(),
+                root_nodes: plan
+                    .root_tasks
+                    .iter()
+                    .cloned()
+                    .map(plan_node_id_from_task_id)
+                    .collect(),
                 tags: Vec::new(),
                 created_from: None,
                 metadata: Value::Null,
@@ -123,41 +126,28 @@ impl NativePlanRuntimeState {
             },
         );
         self.execution_overlays
-            .entry(plan_id.0.to_string())
+            .entry(plan.id.0.to_string())
             .or_default();
         self.policies
-            .insert(plan_id.0.to_string(), policy.unwrap_or_default());
-        plan_id
+            .insert(plan.id.0.to_string(), plan.policy.clone());
+        Ok(plan.id.clone())
     }
 
-    pub(crate) fn update_plan(
-        &mut self,
-        plan_id: &PlanId,
-        status: Option<PlanStatus>,
-        goal: Option<String>,
-        policy: Option<CoordinationPolicy>,
-    ) -> Result<()> {
-        let Some(graph) = self.graphs.get_mut(plan_id.0.as_str()) else {
-            return Err(anyhow!("unknown plan `{}`", plan_id.0));
+    pub(crate) fn update_plan_from_coordination(&mut self, plan: &Plan) -> Result<()> {
+        let Some(graph) = self.graphs.get_mut(plan.id.0.as_str()) else {
+            return Err(anyhow!("unknown plan `{}`", plan.id.0));
         };
-        if matches!(graph.status, PlanStatus::Completed | PlanStatus::Abandoned)
-            && (goal.is_some() || policy.is_some())
-        {
-            return Err(anyhow!(
-                "terminal plan `{}` cannot be edited",
-                plan_id.0
-            ));
-        }
-        if let Some(status) = status {
-            graph.status = status;
-        }
-        if let Some(goal) = goal {
-            graph.goal = goal.clone();
-            graph.title = goal;
-        }
-        if let Some(policy) = policy {
-            self.policies.insert(plan_id.0.to_string(), policy);
-        }
+        graph.title = plan.goal.clone();
+        graph.goal = plan.goal.clone();
+        graph.status = plan.status;
+        graph.root_nodes = plan
+            .root_tasks
+            .iter()
+            .cloned()
+            .map(plan_node_id_from_task_id)
+            .collect();
+        self.policies
+            .insert(plan.id.0.to_string(), plan.policy.clone());
         Ok(())
     }
 
@@ -268,9 +258,9 @@ impl NativePlanRuntimeState {
         }
         if let Some(depends_on) = depends_on {
             let dependency_targets = dedupe_string_ids(depends_on);
-            graph.edges.retain(|edge| {
-                !(edge.kind == PlanEdgeKind::DependsOn && edge.from == *node_id)
-            });
+            graph
+                .edges
+                .retain(|edge| !(edge.kind == PlanEdgeKind::DependsOn && edge.from == *node_id));
             for dependency_id in dependency_targets {
                 graph.edges.push(PlanEdge {
                     id: dependency_edge_id(node_id, dependency_id.as_str()),
@@ -352,6 +342,9 @@ impl NativePlanRuntimeState {
         &mut self,
         task: &CoordinationTask,
     ) -> Result<PlanNodeId> {
+        self.next_task = self
+            .next_task
+            .max(counter_suffix(&task.id.0, "coord-task:").unwrap_or(0));
         let node_id = plan_node_id_from_task_id(task.id.clone());
         let graph = self
             .graphs
@@ -367,7 +360,13 @@ impl NativePlanRuntimeState {
         Ok(node_id)
     }
 
-    pub(crate) fn update_task_from_coordination(&mut self, task: &CoordinationTask) -> Result<PlanId> {
+    pub(crate) fn update_task_from_coordination(
+        &mut self,
+        task: &CoordinationTask,
+    ) -> Result<PlanId> {
+        self.next_task = self
+            .next_task
+            .max(counter_suffix(&task.id.0, "coord-task:").unwrap_or(0));
         let node_id = plan_node_id_from_task_id(task.id.clone());
         let plan_id = {
             let graph = self
@@ -398,11 +397,7 @@ impl NativePlanRuntimeState {
         })
     }
 
-    fn validate_dependency_targets(
-        &self,
-        plan_id: &PlanId,
-        depends_on: &[String],
-    ) -> Result<()> {
+    fn validate_dependency_targets(&self, plan_id: &PlanId, depends_on: &[String]) -> Result<()> {
         let graph = self
             .graphs
             .get(plan_id.0.as_str())
@@ -423,10 +418,7 @@ impl NativePlanRuntimeState {
     fn sync_execution_overlay(&mut self, task: &CoordinationTask) {
         let plan_key = task.plan.0.to_string();
         let node_id = plan_node_id_from_task_id(task.id.clone());
-        let overlays = self
-            .execution_overlays
-            .entry(plan_key)
-            .or_default();
+        let overlays = self.execution_overlays.entry(plan_key).or_default();
         overlays.retain(|overlay| overlay.node_id != node_id);
         if task.pending_handoff_to.is_some() || task.session.is_some() {
             overlays.push(PlanExecutionOverlay {
@@ -439,9 +431,7 @@ impl NativePlanRuntimeState {
     }
 }
 
-fn sort_execution_overlays(
-    mut overlays: Vec<PlanExecutionOverlay>,
-) -> Vec<PlanExecutionOverlay> {
+fn sort_execution_overlays(mut overlays: Vec<PlanExecutionOverlay>) -> Vec<PlanExecutionOverlay> {
     overlays.sort_by(|left, right| left.node_id.0.cmp(&right.node_id.0));
     overlays
 }
@@ -454,7 +444,9 @@ fn execution_overlays_by_plan(
         .iter()
         .cloned()
         .fold(BTreeMap::new(), |mut map, task| {
-            map.entry(task.plan.0.to_string()).or_insert_with(Vec::new).push(task);
+            map.entry(task.plan.0.to_string())
+                .or_insert_with(Vec::new)
+                .push(task);
             map
         })
         .into_iter()
@@ -467,9 +459,7 @@ fn execution_overlays_by_plan(
         .collect()
 }
 
-fn plan_acceptance_from_coordination(
-    criterion: AcceptanceCriterion,
-) -> PlanAcceptanceCriterion {
+fn plan_acceptance_from_coordination(criterion: AcceptanceCriterion) -> PlanAcceptanceCriterion {
     PlanAcceptanceCriterion {
         label: criterion.label,
         anchors: criterion.anchors,
@@ -611,4 +601,8 @@ fn plan_edge_kind_slug(kind: PlanEdgeKind) -> &'static str {
         PlanEdgeKind::ChildOf => "child-of",
         PlanEdgeKind::RelatedTo => "related-to",
     }
+}
+
+fn counter_suffix(id: &str, prefix: &str) -> Option<u64> {
+    id.strip_prefix(prefix)?.parse().ok()
 }

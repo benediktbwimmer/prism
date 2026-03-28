@@ -654,8 +654,7 @@ pub(crate) fn review_artifact_mutation(
             .get_mut(&input.artifact_id)
             .ok_or_else(|| anyhow!("unknown artifact `{}`", input.artifact_id.0))?;
         if !input.required_validations.is_empty() {
-            artifact_mut.required_validations =
-                dedupe_strings(input.required_validations.clone());
+            artifact_mut.required_validations = dedupe_strings(input.required_validations.clone());
         }
         if !input.validated_checks.is_empty() {
             let mut checks = artifact_mut.validated_checks.clone();
@@ -770,8 +769,10 @@ pub(crate) fn update_plan_mutation(
         .get(&input.plan_id)
         .cloned()
         .ok_or_else(|| anyhow!("unknown plan `{}`", input.plan_id.0))?;
-    if matches!(previous.status, PlanStatus::Completed | PlanStatus::Abandoned)
-        && (input.goal.is_some() || input.policy.is_some())
+    if matches!(
+        previous.status,
+        PlanStatus::Completed | PlanStatus::Abandoned
+    ) && (input.goal.is_some() || input.policy.is_some())
     {
         let violations = vec![policy_violation(
             PolicyViolationCode::TerminalPlanEdit,
@@ -836,7 +837,10 @@ pub(crate) fn update_plan_mutation(
             .map(|task| {
                 policy_violation(
                     PolicyViolationCode::IncompletePlanTasks,
-                    format!("coordination task `{}` is still {:?}", task.id.0, task.status),
+                    format!(
+                        "coordination task `{}` is still {:?}",
+                        task.id.0, task.status
+                    ),
                     Some(input.plan_id.clone()),
                     Some(task.id.clone()),
                     None,

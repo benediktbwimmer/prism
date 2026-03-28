@@ -16,6 +16,5 @@ pub use crate::types::{
     CoChangeDelta, CoChangeRecord, ConceptDecodeLens, ConceptEvent, ConceptEventAction,
     ConceptHealth, ConceptHealthSignals, ConceptHealthStatus, ConceptPacket, ConceptProvenance,
     ConceptPublication, ConceptPublicationStatus, ConceptResolution, ConceptScope,
-    IntentDriftRecord, IntentSpecProjection, ProjectionSnapshot, ValidationCheck,
-    ValidationDelta,
+    IntentDriftRecord, IntentSpecProjection, ProjectionSnapshot, ValidationCheck, ValidationDelta,
 };

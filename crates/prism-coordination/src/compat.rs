@@ -108,8 +108,12 @@ pub fn coordination_snapshot_from_plan_graphs(
             ));
         }
     }
-    snapshot.plans.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    snapshot.tasks.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    snapshot
+        .plans
+        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    snapshot
+        .tasks
+        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
     snapshot
 }
 
@@ -266,7 +270,9 @@ fn map_plan_node_status(status: PlanNodeStatus) -> prism_ir::CoordinationTaskSta
         PlanNodeStatus::Proposed => prism_ir::CoordinationTaskStatus::Proposed,
         PlanNodeStatus::Ready => prism_ir::CoordinationTaskStatus::Ready,
         PlanNodeStatus::InProgress => prism_ir::CoordinationTaskStatus::InProgress,
-        PlanNodeStatus::Blocked | PlanNodeStatus::Waiting => prism_ir::CoordinationTaskStatus::Blocked,
+        PlanNodeStatus::Blocked | PlanNodeStatus::Waiting => {
+            prism_ir::CoordinationTaskStatus::Blocked
+        }
         PlanNodeStatus::InReview => prism_ir::CoordinationTaskStatus::InReview,
         PlanNodeStatus::Validating => prism_ir::CoordinationTaskStatus::Validating,
         PlanNodeStatus::Completed => prism_ir::CoordinationTaskStatus::Completed,

@@ -344,6 +344,65 @@ fn concept_resolution_handles_typo_tolerant_alias_queries() {
 }
 
 #[test]
+fn concept_health_reports_drift_for_unvalidated_test_heavy_concepts() {
+    let validation = NodeId::new("demo", "demo::validation_recipe", NodeKind::Function);
+    let validation_test = NodeId::new("demo", "demo::validation_recipe_test", NodeKind::Function);
+    let history = HistorySnapshot {
+        node_to_lineage: vec![
+            (validation.clone(), LineageId::new("lineage:validation")),
+            (
+                validation_test.clone(),
+                LineageId::new("lineage:validation_test"),
+            ),
+        ],
+        events: Vec::new(),
+        co_change_counts: Vec::new(),
+        tombstones: Vec::new(),
+        next_lineage: 1,
+        next_event: 0,
+    };
+    let mut index =
+        ProjectionIndex::derive(&history, &OutcomeMemorySnapshot { events: Vec::new() });
+    index.replace_curated_concepts_from_events(&[ConceptEvent {
+        id: "concept-event:health".to_string(),
+        recorded_at: 11,
+        task_id: Some("task:health".to_string()),
+        action: ConceptEventAction::Promote,
+        concept: ConceptPacket {
+            handle: "concept://validation_pipeline".to_string(),
+            canonical_name: "validation_pipeline".to_string(),
+            summary: "Validation checks and likely tests.".to_string(),
+            aliases: vec!["validation".to_string()],
+            confidence: 0.95,
+            core_members: vec![validation],
+            core_member_lineages: vec![Some(LineageId::new("lineage:validation"))],
+            supporting_members: Vec::new(),
+            supporting_member_lineages: Vec::new(),
+            likely_tests: vec![validation_test],
+            likely_test_lineages: vec![Some(LineageId::new("lineage:validation_test"))],
+            evidence: vec!["Curated in test.".to_string()],
+            risk_hint: Some("Validation drift is common.".to_string()),
+            decode_lenses: vec![ConceptDecodeLens::Validation],
+            scope: ConceptScope::Session,
+            provenance: ConceptProvenance {
+                origin: "test".to_string(),
+                kind: "curated".to_string(),
+                task_id: Some("task:health".to_string()),
+            },
+            publication: None,
+        },
+    }]);
+
+    let health = index
+        .concept_health("concept://validation_pipeline")
+        .expect("health should resolve");
+
+    assert_eq!(health.status, crate::ConceptHealthStatus::Drifted);
+    assert!(health.signals.stale_validation_links);
+    assert_eq!(health.signals.live_core_member_ratio, 1.0);
+}
+
+#[test]
 fn curated_concepts_rebind_members_from_lineage_after_rename() {
     let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
     let renamed_alpha = NodeId::new("demo", "demo::renamed_alpha", NodeKind::Function);

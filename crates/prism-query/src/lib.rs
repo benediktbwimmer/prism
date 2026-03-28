@@ -24,7 +24,7 @@ use prism_coordination::{
 };
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
-    AgentId, ArtifactId, AnchorRef, ClaimId, EventMeta, LineageEvent, LineageId, NodeId,
+    AgentId, AnchorRef, ArtifactId, ClaimId, EventMeta, LineageEvent, LineageId, NodeId,
     PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanNodeId, PlanNodeStatus, ReviewId,
     SessionId, WorkspaceRevision,
 };
@@ -111,7 +111,8 @@ impl Prism {
         projections: ProjectionIndex,
     ) -> Self {
         let coordination_snapshot = coordination.snapshot();
-        let native_plans = NativePlanRuntimeState::from_coordination_snapshot(&coordination_snapshot);
+        let native_plans =
+            NativePlanRuntimeState::from_coordination_snapshot(&coordination_snapshot);
         let continuity_runtime = CoordinationRuntimeState::from_snapshot(coordination_snapshot);
         Self::with_history_outcomes_coordination_projections_and_native_plans(
             graph,
@@ -423,7 +424,11 @@ impl Prism {
         meta: EventMeta,
         session_id: SessionId,
         input: prism_coordination::ClaimAcquireInput,
-    ) -> Result<(Option<ClaimId>, Vec<CoordinationConflict>, Option<WorkClaim>)> {
+    ) -> Result<(
+        Option<ClaimId>,
+        Vec<CoordinationConflict>,
+        Option<WorkClaim>,
+    )> {
         self.mutate_validated_coordination_snapshot(|store| {
             store.acquire_claim(meta, session_id, input)
         })
@@ -457,9 +462,7 @@ impl Prism {
         meta: EventMeta,
         input: ArtifactProposeInput,
     ) -> Result<(ArtifactId, Artifact)> {
-        self.mutate_validated_coordination_snapshot(|store| {
-            store.propose_artifact(meta, input)
-        })
+        self.mutate_validated_coordination_snapshot(|store| store.propose_artifact(meta, input))
     }
 
     pub fn supersede_native_artifact(
@@ -467,9 +470,7 @@ impl Prism {
         meta: EventMeta,
         input: ArtifactSupersedeInput,
     ) -> Result<Artifact> {
-        self.mutate_validated_coordination_snapshot(|store| {
-            store.supersede_artifact(meta, input)
-        })
+        self.mutate_validated_coordination_snapshot(|store| store.supersede_artifact(meta, input))
     }
 
     pub fn review_native_artifact(
@@ -510,21 +511,63 @@ impl Prism {
 
     pub fn create_native_plan(
         &self,
+        meta: EventMeta,
         goal: String,
         status: Option<prism_ir::PlanStatus>,
         policy: Option<prism_coordination::CoordinationPolicy>,
     ) -> Result<PlanId> {
-        self.mutate_native_plan_runtime(|runtime| Ok(runtime.create_plan(goal, status, policy)))
+        let mut runtime = CoordinationRuntimeState::from_snapshot(self.coordination.snapshot());
+        match runtime.create_plan(
+            meta,
+            prism_coordination::PlanCreateInput {
+                goal,
+                status,
+                policy,
+            },
+        ) {
+            Ok((plan_id, plan)) => {
+                let snapshot = runtime.snapshot();
+                self.mutate_native_plan_runtime_from_snapshot(snapshot, |plan_runtime| {
+                    plan_runtime.create_plan_from_coordination(&plan)?;
+                    Ok(plan_id)
+                })
+            }
+            Err(error) => {
+                self.persist_native_plan_runtime_against_snapshot(runtime.snapshot())?;
+                Err(error)
+            }
+        }
     }
 
     pub fn update_native_plan(
         &self,
+        meta: EventMeta,
         plan_id: &PlanId,
         status: Option<prism_ir::PlanStatus>,
         goal: Option<String>,
         policy: Option<prism_coordination::CoordinationPolicy>,
     ) -> Result<()> {
-        self.mutate_native_plan_runtime(|runtime| runtime.update_plan(plan_id, status, goal, policy))
+        let mut runtime = CoordinationRuntimeState::from_snapshot(self.coordination.snapshot());
+        match runtime.update_plan(
+            meta,
+            prism_coordination::PlanUpdateInput {
+                plan_id: plan_id.clone(),
+                goal,
+                status,
+                policy,
+            },
+        ) {
+            Ok(plan) => {
+                let snapshot = runtime.snapshot();
+                self.mutate_native_plan_runtime_from_snapshot(snapshot, |plan_runtime| {
+                    plan_runtime.update_plan_from_coordination(&plan)
+                })
+            }
+            Err(error) => {
+                self.persist_native_plan_runtime_against_snapshot(runtime.snapshot())?;
+                Err(error)
+            }
+        }
     }
 
     pub fn update_native_plan_node(

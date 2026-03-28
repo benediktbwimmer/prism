@@ -635,6 +635,7 @@ fn agent_expand_kind(kind: &PrismExpandKindInput) -> AgentExpandKind {
         PrismExpandKindInput::Lineage => AgentExpandKind::Lineage,
         PrismExpandKindInput::Neighbors => AgentExpandKind::Neighbors,
         PrismExpandKindInput::Diff => AgentExpandKind::Diff,
+        PrismExpandKindInput::Health => AgentExpandKind::Health,
         PrismExpandKindInput::Validation => AgentExpandKind::Validation,
         PrismExpandKindInput::Impact => AgentExpandKind::Impact,
         PrismExpandKindInput::Timeline => AgentExpandKind::Timeline,
