@@ -170,6 +170,22 @@ pub(crate) fn repo_concept_events_path(root: &Path) -> PathBuf {
     root.join(".prism").join("concepts").join("events.jsonl")
 }
 
+pub(crate) fn repo_plans_dir(root: &Path) -> PathBuf {
+    root.join(".prism").join("plans")
+}
+
+pub(crate) fn repo_plan_index_path(root: &Path) -> PathBuf {
+    repo_plans_dir(root).join("index.jsonl")
+}
+
+pub(crate) fn repo_active_plans_dir(root: &Path) -> PathBuf {
+    repo_plans_dir(root).join("active")
+}
+
+pub(crate) fn repo_archived_plans_dir(root: &Path) -> PathBuf {
+    repo_plans_dir(root).join("archived")
+}
+
 pub(crate) fn cleanup_legacy_cache(root: &Path) -> Result<()> {
     let legacy = root.join(".prism").join("cache.bin");
     if legacy.exists() {

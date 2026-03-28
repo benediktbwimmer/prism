@@ -1,15 +1,18 @@
 use prism_js::{ToolActionSchemaView, ToolCatalogEntryView, ToolFieldSchemaView, ToolSchemaView};
 use rmcp::schemars::JsonSchema;
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use crate::{
     capabilities_resource_view_link, dedupe_resource_link_views, resource_meta,
     schema_resource_contents, schema_resource_uri, schema_resource_value,
     schema_resource_view_link, session_resource_view_link, tool_action_example, tool_input_example,
     tool_schema_resource_uri, tool_schema_resource_view_link, tool_schemas_resource_view_link,
-    PrismConceptArgs, PrismExpandArgs, PrismGatherArgs, PrismLocateArgs, PrismMutationArgs,
-    PrismOpenArgs, PrismQueryArgs, PrismSessionArgs, PrismTaskBriefArgs, PrismWorksetArgs,
-    ResourceLinkView, TOOL_SCHEMAS_URI,
+    ArtifactProposePayload, ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload,
+    ClaimReleasePayload, ClaimRenewPayload, HandoffAcceptPayload, HandoffPayload,
+    MemoryStorePayload, PlanCreatePayload, PlanUpdatePayload, PrismConceptArgs, PrismExpandArgs,
+    PrismGatherArgs, PrismLocateArgs, PrismMutationArgs, PrismOpenArgs, PrismQueryArgs,
+    PrismSessionArgs, PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView, TaskCreatePayload,
+    TaskUpdatePayload, TOOL_SCHEMAS_URI,
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
@@ -310,7 +313,8 @@ fn tool_action_view(
         .get("const")?
         .as_str()?
         .to_string();
-    let input_schema = resolve_schema_ref(root_schema, properties.get("input")?).clone();
+    let input_schema =
+        enrich_action_input_schema(tool_name, &action, root_schema, properties.get("input")?);
     let required_fields = input_schema
         .get("required")
         .and_then(Value::as_array)
@@ -325,7 +329,7 @@ fn tool_action_view(
         .into_iter()
         .flat_map(|fields| fields.iter())
         .map(|(name, field_schema)| {
-            tool_field_view(root_schema, name, field_schema, &required_fields)
+            tool_field_view(&input_schema, name, field_schema, &required_fields)
         })
         .collect::<Vec<_>>();
     let example = tool_action_example(tool_name, &action).or_else(|| {
@@ -342,6 +346,166 @@ fn tool_action_view(
         input_schema,
         example_input: example,
     })
+}
+
+fn enrich_action_input_schema(
+    tool_name: &str,
+    action: &str,
+    root_schema: &Value,
+    input_schema: &Value,
+) -> Value {
+    let mut schema = expand_schema_refs(
+        root_schema,
+        resolve_schema_ref(root_schema, input_schema),
+        0,
+    );
+    let Some(payload_schema) = action_payload_schema(tool_name, action) else {
+        return schema;
+    };
+    if let Some(properties) = schema.get_mut("properties").and_then(Value::as_object_mut) {
+        properties.insert("payload".to_string(), payload_schema);
+    }
+    schema
+}
+
+fn action_payload_schema(tool_name: &str, action: &str) -> Option<Value> {
+    match (tool_name, action) {
+        ("prism_mutate", "memory") => Some(described_schema::<MemoryStorePayload>(
+            "Payload for `prism_mutate` action `memory` when `input.action` is `store`.",
+        )),
+        ("prism_mutate", "coordination") => Some(tagged_union_payload_schema(
+            "Payload for `prism_mutate` action `coordination`. Match this shape to `input.kind`.",
+            "kind",
+            vec![
+                (
+                    "plan_create",
+                    described_schema::<PlanCreatePayload>(
+                        "Payload when `input.kind` is `plan_create`.",
+                    ),
+                ),
+                (
+                    "plan_update",
+                    described_schema::<PlanUpdatePayload>(
+                        "Payload when `input.kind` is `plan_update`.",
+                    ),
+                ),
+                (
+                    "task_create",
+                    described_schema::<TaskCreatePayload>(
+                        "Payload when `input.kind` is `task_create`.",
+                    ),
+                ),
+                (
+                    "task_update",
+                    described_schema::<TaskUpdatePayload>(
+                        "Payload when `input.kind` is `task_update`.",
+                    ),
+                ),
+                (
+                    "handoff",
+                    described_schema::<HandoffPayload>("Payload when `input.kind` is `handoff`."),
+                ),
+                (
+                    "handoff_accept",
+                    described_schema::<HandoffAcceptPayload>(
+                        "Payload when `input.kind` is `handoff_accept`.",
+                    ),
+                ),
+            ],
+        )),
+        ("prism_mutate", "claim") => Some(tagged_union_payload_schema(
+            "Payload for `prism_mutate` action `claim`. Match this shape to `input.action`.",
+            "action",
+            vec![
+                (
+                    "acquire",
+                    described_schema::<ClaimAcquirePayload>(
+                        "Payload when `input.action` is `acquire`.",
+                    ),
+                ),
+                (
+                    "renew",
+                    described_schema::<ClaimRenewPayload>(
+                        "Payload when `input.action` is `renew`.",
+                    ),
+                ),
+                (
+                    "release",
+                    described_schema::<ClaimReleasePayload>(
+                        "Payload when `input.action` is `release`.",
+                    ),
+                ),
+            ],
+        )),
+        ("prism_mutate", "artifact") => Some(tagged_union_payload_schema(
+            "Payload for `prism_mutate` action `artifact`. Match this shape to `input.action`.",
+            "action",
+            vec![
+                (
+                    "propose",
+                    described_schema::<ArtifactProposePayload>(
+                        "Payload when `input.action` is `propose`.",
+                    ),
+                ),
+                (
+                    "supersede",
+                    described_schema::<ArtifactSupersedePayload>(
+                        "Payload when `input.action` is `supersede`.",
+                    ),
+                ),
+                (
+                    "review",
+                    described_schema::<ArtifactReviewPayload>(
+                        "Payload when `input.action` is `review`.",
+                    ),
+                ),
+            ],
+        )),
+        _ => None,
+    }
+}
+
+fn described_schema<T: JsonSchema + 'static>(description: &str) -> Value {
+    let mut schema = schema_value_for_type::<T>();
+    if let Some(object) = schema.as_object_mut() {
+        object.insert(
+            "description".to_string(),
+            Value::String(description.to_string()),
+        );
+    }
+    schema
+}
+
+fn tagged_union_payload_schema(
+    description: &str,
+    discriminator: &str,
+    variants: Vec<(&str, Value)>,
+) -> Value {
+    let one_of = variants
+        .into_iter()
+        .map(|(tag, mut schema)| {
+            if let Some(object) = schema.as_object_mut() {
+                object.insert(
+                    "title".to_string(),
+                    Value::String(format!("{discriminator}={tag}")),
+                );
+            }
+            schema
+        })
+        .collect::<Vec<_>>();
+    json!({
+        "description": description,
+        "oneOf": one_of,
+    })
+}
+
+fn schema_value_for_type<T: JsonSchema + 'static>() -> Value {
+    let root = Value::Object(
+        rmcp::handler::server::tool::schema_for_type::<T>()
+            .as_ref()
+            .clone(),
+    );
+    expand_schema_refs(&root, &root, 0)
 }
 
 fn tool_field_view(

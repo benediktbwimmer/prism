@@ -12,6 +12,7 @@ use crate::layout::{discover_layout, sync_root_nodes, PackageInfo, WorkspaceLayo
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 use crate::parse_pipeline::{parse_jobs_in_parallel, PreparedParseJob};
 use crate::patch_outcomes::default_outcome_meta;
+use crate::published_plans::load_hydrated_coordination_snapshot;
 use crate::reanchor::{detect_moved_files, infer_reanchors};
 use crate::session::WorkspaceSession;
 use crate::util::{cache_path, cleanup_legacy_cache, default_adapters};
@@ -125,8 +126,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         let load_outcomes_ms = load_outcomes_started.elapsed().as_millis();
         let load_coordination_started = Instant::now();
         let coordination = if options.coordination {
-            store
-                .load_coordination_snapshot()?
+            load_hydrated_coordination_snapshot(&root, store.load_coordination_snapshot()?)?
                 .map(CoordinationStore::from_snapshot)
                 .unwrap_or_else(CoordinationStore::new)
         } else {

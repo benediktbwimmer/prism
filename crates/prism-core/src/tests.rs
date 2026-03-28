@@ -1409,6 +1409,193 @@ fn reload_preserves_coordination_claim_resolution_through_rename() {
 }
 
 #[test]
+fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let (plan_id, task_id) = session
+        .mutate_coordination(|prism| {
+            let base_revision = prism.workspace_revision();
+            let (plan_id, _) = prism.coordination().create_plan(
+                EventMeta {
+                    id: EventId::new("coordination:published-plan"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:published-plan")),
+                    causation: None,
+                },
+                PlanCreateInput {
+                    goal: "Ship published plan hydration".into(),
+                    status: None,
+                    policy: Default::default(),
+                },
+            )?;
+            let (task_id, _) = prism.coordination().create_task(
+                EventMeta {
+                    id: EventId::new("coordination:published-task"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:published-plan")),
+                    causation: None,
+                },
+                prism_coordination::TaskCreateInput {
+                    plan_id: plan_id.clone(),
+                    title: "Hydrate plans from repo state".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: Some(prism_ir::SessionId::new("session:published-plan")),
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision,
+                },
+            )?;
+            Ok((plan_id, task_id))
+        })
+        .unwrap();
+
+    let index_path = root.join(".prism").join("plans").join("index.jsonl");
+    let log_path = root
+        .join(".prism")
+        .join("plans")
+        .join("active")
+        .join(format!("{}.jsonl", plan_id.0));
+    assert!(index_path.exists(), "published plan index should exist");
+    assert!(log_path.exists(), "published plan log should exist");
+    let log_contents = fs::read_to_string(&log_path).unwrap();
+    assert!(
+        !log_contents.contains("session:published-plan"),
+        "repo-published plan logs should not persist runtime session ids"
+    );
+
+    drop(session);
+    fs::remove_file(root.join(".prism").join("cache.db")).unwrap();
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let snapshot = reloaded
+        .load_coordination_snapshot()
+        .unwrap()
+        .expect("published plans should hydrate a coordination snapshot");
+    assert!(snapshot
+        .plans
+        .iter()
+        .any(|plan| plan.id == plan_id && plan.goal == "Ship published plan hydration"));
+    assert!(snapshot.tasks.iter().any(|task| {
+        task.id == task_id
+            && task.plan == plan_id
+            && task.title == "Hydrate plans from repo state"
+            && task.status == prism_ir::CoordinationTaskStatus::Ready
+            && task.session.is_none()
+    }));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_published_plan_logs_append_deltas_instead_of_rewriting_full_state() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let (plan_id, task_id) = session
+        .mutate_coordination(|prism| {
+            let base_revision = prism.workspace_revision();
+            let (plan_id, _) = prism.coordination().create_plan(
+                EventMeta {
+                    id: EventId::new("coordination:append-plan"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:append-plan")),
+                    causation: None,
+                },
+                PlanCreateInput {
+                    goal: "Append published plan deltas".into(),
+                    status: None,
+                    policy: Default::default(),
+                },
+            )?;
+            let (task_id, _) = prism.coordination().create_task(
+                EventMeta {
+                    id: EventId::new("coordination:append-task"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:append-plan")),
+                    causation: None,
+                },
+                prism_coordination::TaskCreateInput {
+                    plan_id: plan_id.clone(),
+                    title: "Append a node delta".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision,
+                },
+            )?;
+            Ok((plan_id, task_id))
+        })
+        .unwrap();
+
+    let log_path = root
+        .join(".prism")
+        .join("plans")
+        .join("active")
+        .join(format!("{}.jsonl", plan_id.0));
+    let initial_lines = fs::read_to_string(&log_path).unwrap().lines().count();
+    assert_eq!(initial_lines, 2, "initial publish should write plan + node");
+
+    session
+        .mutate_coordination(|prism| {
+            let _ = prism.coordination().update_task(
+                EventMeta {
+                    id: EventId::new("coordination:append-task-update"),
+                    ts: 3,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:append-plan")),
+                    causation: None,
+                },
+                prism_coordination::TaskUpdateInput {
+                    task_id: task_id.clone(),
+                    status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                    assignee: None,
+                    session: None,
+                    title: None,
+                    anchors: None,
+                    base_revision: Some(prism.workspace_revision()),
+                    completion_context: None,
+                },
+                prism.workspace_revision(),
+                3,
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let updated_lines = fs::read_to_string(&log_path).unwrap().lines().count();
+    assert_eq!(
+        updated_lines, 3,
+        "task status change should append one delta event instead of rewriting the full log"
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn refresh_fs_skips_reindex_when_workspace_is_clean() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

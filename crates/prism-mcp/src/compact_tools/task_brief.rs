@@ -1,15 +1,15 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use prism_ir::{AnchorRef, CoordinationTaskId, NodeId, TaskId};
 use prism_js::{AgentOutcomeSummaryView, AgentTaskBlockerView, AgentTaskBriefResultView};
 use prism_query::Prism;
 
 use super::suggested_actions::{dedupe_suggested_actions, suggested_open_action};
 use super::*;
-use crate::PrismTaskBriefArgs;
 use crate::task_journal_view;
+use crate::PrismTaskBriefArgs;
 
 impl QueryHost {
     pub(crate) fn compact_task_brief(

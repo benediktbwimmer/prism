@@ -26,6 +26,7 @@ use crate::memory_events::{
     append_repo_memory_event, filter_memory_events, load_repo_memory_events,
 };
 use crate::published_knowledge::{validate_repo_concept_event, validate_repo_memory_event};
+use crate::published_plans::{load_hydrated_coordination_snapshot, sync_repo_published_plans};
 use crate::util::{
     current_timestamp, current_timestamp_millis, workspace_fingerprint, WorkspaceFingerprint,
 };
@@ -283,8 +284,7 @@ impl WorkspaceSession {
             .map(OutcomeMemory::from_snapshot)
             .unwrap_or_else(OutcomeMemory::new);
         let coordination = if self.coordination_enabled {
-            store
-                .load_coordination_snapshot()?
+            load_hydrated_coordination_snapshot(&self.root, store.load_coordination_snapshot()?)?
                 .map(CoordinationStore::from_snapshot)
                 .unwrap_or_else(CoordinationStore::new)
         } else {
@@ -431,10 +431,12 @@ impl WorkspaceSession {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        self.store
+        let snapshot = self
+            .store
             .lock()
             .expect("workspace store lock poisoned")
-            .load_coordination_snapshot()
+            .load_coordination_snapshot()?;
+        load_hydrated_coordination_snapshot(&self.root, snapshot)
     }
 
     pub fn persist_coordination(&self, snapshot: &CoordinationSnapshot) -> Result<()> {
@@ -451,7 +453,8 @@ impl WorkspaceSession {
             .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
                 coordination_snapshot: Some(snapshot.clone()),
                 ..AuxiliaryPersistBatch::default()
-            })
+            })?;
+        sync_repo_published_plans(&self.root, snapshot)
     }
 
     pub fn persist_current_coordination(&self) -> Result<()> {
@@ -463,13 +466,15 @@ impl WorkspaceSession {
             .lock()
             .expect("workspace refresh lock poisoned");
         let prism = self.prism_arc();
+        let snapshot = prism.coordination_snapshot();
         self.store
             .lock()
             .expect("workspace store lock poisoned")
             .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
-                coordination_snapshot: Some(prism.coordination_snapshot()),
+                coordination_snapshot: Some(snapshot.clone()),
                 ..AuxiliaryPersistBatch::default()
-            })
+            })?;
+        sync_repo_published_plans(&self.root, &snapshot)
     }
 
     pub fn mutate_coordination<T, F>(&self, mutate: F) -> Result<T>
@@ -487,13 +492,15 @@ impl WorkspaceSession {
             .expect("workspace refresh lock poisoned");
         let prism = self.prism_arc();
         let result = mutate(prism.as_ref())?;
+        let snapshot = prism.coordination_snapshot();
         self.store
             .lock()
             .expect("workspace store lock poisoned")
             .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
-                coordination_snapshot: Some(prism.coordination_snapshot()),
+                coordination_snapshot: Some(snapshot.clone()),
                 ..AuxiliaryPersistBatch::default()
             })?;
+        sync_repo_published_plans(&self.root, &snapshot)?;
         Ok(result)
     }
 

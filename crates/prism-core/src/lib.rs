@@ -9,6 +9,7 @@ mod memory_refresh;
 mod parse_pipeline;
 mod patch_outcomes;
 mod published_knowledge;
+mod published_plans;
 mod reanchor;
 mod resolution;
 mod session;

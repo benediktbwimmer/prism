@@ -926,7 +926,7 @@ pub(crate) struct SimulateClaimArgs {
     pub(crate) task_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PlanCreatePayload {
     pub(crate) goal: String,
@@ -934,7 +934,7 @@ pub(crate) struct PlanCreatePayload {
     pub(crate) policy: Option<CoordinationPolicyPayload>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PlanUpdatePayload {
     pub(crate) plan_id: String,
@@ -943,7 +943,7 @@ pub(crate) struct PlanUpdatePayload {
     pub(crate) policy: Option<CoordinationPolicyPayload>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CoordinationPolicyPayload {
     pub(crate) default_claim_mode: Option<String>,
@@ -954,14 +954,14 @@ pub(crate) struct CoordinationPolicyPayload {
     pub(crate) review_required_above_risk_score: Option<f32>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct AcceptanceCriterionPayload {
     pub(crate) label: String,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct TaskCreatePayload {
     pub(crate) plan_id: String,
@@ -973,7 +973,7 @@ pub(crate) struct TaskCreatePayload {
     pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct TaskUpdatePayload {
     pub(crate) task_id: String,
@@ -984,14 +984,14 @@ pub(crate) struct TaskUpdatePayload {
     pub(crate) completion_context: Option<TaskCompletionContextPayload>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct TaskCompletionContextPayload {
     pub(crate) risk_score: Option<f32>,
     pub(crate) required_validations: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct HandoffPayload {
     pub(crate) task_id: String,
@@ -999,14 +999,14 @@ pub(crate) struct HandoffPayload {
     pub(crate) summary: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct HandoffAcceptPayload {
     pub(crate) task_id: String,
     pub(crate) agent: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ClaimAcquirePayload {
     pub(crate) anchors: Vec<AnchorRefInput>,
@@ -1017,20 +1017,20 @@ pub(crate) struct ClaimAcquirePayload {
     pub(crate) coordination_task_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ClaimRenewPayload {
     pub(crate) claim_id: String,
     pub(crate) ttl_seconds: Option<u64>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ClaimReleasePayload {
     pub(crate) claim_id: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ArtifactProposePayload {
     pub(crate) task_id: String,
@@ -1042,13 +1042,13 @@ pub(crate) struct ArtifactProposePayload {
     pub(crate) risk_score: Option<f32>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ArtifactSupersedePayload {
     pub(crate) artifact_id: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ArtifactReviewPayload {
     pub(crate) artifact_id: String,

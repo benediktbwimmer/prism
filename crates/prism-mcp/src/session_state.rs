@@ -20,6 +20,7 @@ pub(crate) struct SessionTaskState {
 pub(crate) enum SessionHandleCategory {
     Symbol,
     TextFragment,
+    Concept,
 }
 
 #[derive(Debug, Clone)]

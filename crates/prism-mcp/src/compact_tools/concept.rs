@@ -26,6 +26,14 @@ const CONCEPT_PATCH_LIMIT: usize = 4;
 const CONCEPT_MEMORY_LIMIT: usize = 4;
 const CONCEPT_FAILURE_LIMIT: usize = 8;
 
+#[derive(Debug, Clone)]
+pub(super) struct CompactConceptSelection {
+    pub(super) packet: ConceptPacket,
+    pub(super) primary: AgentTargetHandleView,
+    pub(super) supporting_reads: Vec<AgentTargetHandleView>,
+    pub(super) likely_tests: Vec<AgentTargetHandleView>,
+}
+
 impl QueryHost {
     pub(crate) fn compact_concept(
         &self,
@@ -232,6 +240,25 @@ pub(super) fn compact_concept_workset_result(
     prism: &Prism,
     handle: &str,
 ) -> Result<AgentWorksetResultView> {
+    let selection = compact_concept_selection(session, prism, handle)?;
+    let suggested_actions =
+        compact_concept_member_followups(&selection.packet, &selection.primary.handle);
+    budgeted_workset_result_with_followups(
+        selection.primary,
+        selection.supporting_reads,
+        selection.likely_tests,
+        selection.packet.summary.clone(),
+        false,
+        Some(compact_concept_workset_next_action(&selection.packet)),
+        suggested_actions,
+    )
+}
+
+pub(super) fn compact_concept_selection(
+    session: &SessionState,
+    prism: &Prism,
+    handle: &str,
+) -> Result<CompactConceptSelection> {
     let packet = prism
         .concept_by_handle(handle)
         .ok_or_else(|| anyhow!("no concept packet matched `{handle}`"))?;
@@ -243,7 +270,7 @@ pub(super) fn compact_concept_workset_result(
         &packet.supporting_members,
     )?);
     dedupe_handle_views(&mut supporting_reads);
-    let likely_tests = compact_handles_for_ids(session, prism, &packet.likely_tests)?;
+    let mut likely_tests = compact_handles_for_ids(session, prism, &packet.likely_tests)?;
     let primary = core_members
         .into_iter()
         .next()
@@ -251,18 +278,13 @@ pub(super) fn compact_concept_workset_result(
         .or_else(|| likely_tests.first().cloned())
         .ok_or_else(|| anyhow!("concept `{}` has no reusable members", packet.handle))?;
     supporting_reads.retain(|candidate| candidate.handle != primary.handle);
-    let mut likely_tests = likely_tests;
     likely_tests.retain(|candidate| candidate.handle != primary.handle);
-    let suggested_actions = compact_concept_member_followups(&packet, &primary.handle);
-    budgeted_workset_result_with_followups(
+    Ok(CompactConceptSelection {
+        packet,
         primary,
         supporting_reads,
         likely_tests,
-        packet.summary.clone(),
-        false,
-        Some(compact_concept_workset_next_action(&packet)),
-        suggested_actions,
-    )
+    })
 }
 
 fn compact_concept_suggested_actions(

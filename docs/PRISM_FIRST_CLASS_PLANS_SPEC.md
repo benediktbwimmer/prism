@@ -288,33 +288,42 @@ Authoring guidance:
 
 ## 5.8 Binding model
 
-Each plan node may bind to multiple runtime surfaces.
+Each plan node may bind to repo-published semantic surfaces and may receive runtime-attached conveniences during hydration.
 
 ```rust
 pub struct PlanBinding {
     pub anchors: Vec<AnchorRef>,
-    pub handles: Vec<String>,
     pub concept_handles: Vec<String>,
-    pub artifact_ids: Vec<ArtifactId>,
+    pub artifact_refs: Vec<String>,
     pub memory_refs: Vec<String>,
     pub outcome_refs: Vec<String>,
+}
+
+pub struct HydratedPlanBindingOverlay {
+    pub handles: Vec<String>,
 }
 ```
 
 Rules:
 
 - anchors are the durable structural substrate
-- handles are session-local conveniences and must be refreshable on hydration
 - concept handles are first-class semantic bindings
-- artifact and outcome refs are overlays, not the only source of truth
+- committed plan state should persist anchors, concept handles, and stable published refs only
+- session-local handles are hydration conveniences, not authored binding material, and must be refreshable on hydration
+- `artifact_refs`, `memory_refs`, and `outcome_refs` are valid in repo-published plans only when they resolve to durable published or branch-stable references
+- if an artifact, memory, or outcome reference is only meaningful inside one runtime session, it belongs in a runtime overlay rather than the authored plan object
 
 ## 5.9 Acceptance model
 
 ```rust
+pub struct ValidationRef {
+    pub id: String,
+}
+
 pub struct PlanAcceptanceCriterion {
     pub label: String,
     pub anchors: Vec<AnchorRef>,
-    pub required_checks: Vec<String>,
+    pub required_checks: Vec<ValidationRef>,
     pub evidence_policy: AcceptanceEvidencePolicy,
 }
 
@@ -335,6 +344,7 @@ Acceptance and policy precedence:
 - node acceptance criteria may strengthen those gates for a specific node but should not silently weaken plan-wide policy
 - artifact review state, recorded validations, and acceptance evidence must compose into one replayable completion decision
 - completion queries should explain whether a node is blocked by plan policy, node acceptance, artifact state, or derived risk/review thresholds
+- `ValidationRef` should be a stable validation identity, recipe ref, or check id, not an ad hoc display string
 
 ## 5.10 Plan node
 
@@ -348,15 +358,21 @@ pub struct PlanNode {
     pub status: PlanNodeStatus,
     pub bindings: PlanBinding,
     pub acceptance: Vec<PlanAcceptanceCriterion>,
+    pub is_abstract: bool,
     pub assignee: Option<AgentId>,
-    pub pending_handoff_to: Option<AgentId>,
-    pub session: Option<SessionId>,
     pub base_revision: WorkspaceRevision,
     pub priority: Option<u8>,
     pub tags: Vec<String>,
     pub metadata: serde_json::Value,
 }
 ```
+
+Node authorship rules:
+
+- `assignee` is authored shared intent when collaborators should see the intended owner
+- pending handoff state is execution state derived from handoff events and overlays, not canonical node structure
+- `session` is runtime-only transport state and should never be part of the authored node object
+- `is_abstract` must be explicit so intentionally unbound structure does not disappear into free-form metadata
 
 ## 5.11 Plan edge
 
@@ -410,7 +426,17 @@ pub struct PlanNodeBlocker {
 }
 ```
 
-## 6.2 Claims and contention
+## 6.2 Execution overlay
+A node may surface execution-local state such as:
+
+- effective assignee after handoff resolution
+- pending handoff target
+- runtime session currently executing the node
+- execution lease / heartbeat state when available
+
+These are overlays even when they materially affect readiness. They are not automatically part of the authored node object.
+
+## 6.3 Claims and contention
 Plan nodes do not directly own claims, but claims should be resolvable from node bindings.
 
 A node should surface:
@@ -420,7 +446,7 @@ A node should surface:
 - contending sessions/agents
 - safe-to-proceed signal
 
-## 6.3 Risk overlay
+## 6.4 Risk overlay
 A node may surface:
 
 - compact blast radius summary
@@ -428,7 +454,7 @@ A node may surface:
 - recent relevant failures
 - review requirement threshold
 
-## 6.4 Outcome overlay
+## 6.5 Outcome overlay
 A node may surface:
 
 - last successful execution outcome
@@ -436,7 +462,7 @@ A node may surface:
 - recent patches
 - previous attempted resolutions
 
-## 6.5 Freshness overlay
+## 6.6 Freshness overlay
 A node or entire plan may surface:
 
 - graph drift since `base_revision`
@@ -444,14 +470,16 @@ A node or entire plan may surface:
 - unresolved bindings requiring repair
 - stale risk requiring re-validation
 
-## 6.6 Critical-path overlay
+## 6.7 Critical-path overlay
 The runtime should be able to derive:
 
 - ready nodes
 - blocked nodes
-- critical path
+- current critical path
 - parallelizable nodes
 - validation frontier
+
+For PRISM, the current critical path means the longest remaining blocking chain under the current dependency graph and blocker state, not an implicit duration-weighted project-management schedule unless explicit weights are later introduced.
 
 These are runtime projections and should not be committed unless explicitly published as annotations.
 
@@ -581,6 +609,13 @@ Plan-index entries should be separate, compact records. For example:
 ## 7.7 Archived plans
 Completed or abandoned plans may remain in the active set, but the system may move them to `.prism/plans/archived/<plan-id>.jsonl` as long as hydration semantics remain lossless and the index updates deterministically.
 
+## 7.8 Compaction and snapshots
+
+- replay of the per-plan event log remains canonical
+- deterministic snapshot compaction is allowed for long-lived plans
+- compacted snapshots must be derived from the canonical event history, not treated as a second source of truth
+- hydration may use snapshots to accelerate replay as long as replay semantics remain identical
+
 ---
 
 ## 8. Hydration model
@@ -593,9 +628,10 @@ On startup PRISM must:
 3. replay published plan events into coordination state
 4. rebuild authored plan graph objects
 5. bind node anchors to the current graph
-6. refresh concept handles and node-local handles
+6. refresh concept bindings and attach fresh runtime handles
 7. derive blockers, claims, risk summaries, and readiness projections
-8. mark stale or unresolved bindings where rebinding fails
+8. attach execution-local overlays such as pending handoffs and runtime sessions
+9. mark stale or unresolved bindings where rebinding fails
 
 ## 8.2 Rebinding behavior
 Bindings should reattach in this order:
@@ -770,6 +806,7 @@ Returns the dependency path or critical path slice.
 Where `kind` may be:
 
 - `graph`
+- `execution`
 - `timeline`
 - `blockers`
 - `claims`
@@ -788,6 +825,7 @@ prism.planNodes(planId)
 prism.readyPlanNodes(planId)
 prism.blockedPlanNodes(planId)
 prism.planCriticalPath(planId)
+prism.planNodeExecution(nodeId)
 prism.planNodeBlockers(nodeId)
 prism.planNodeRisk(nodeId)
 prism.planNodeTimeline(nodeId)
@@ -864,6 +902,7 @@ Commit plan data that represents shared repo intent:
 - plan nodes and edges
 - status changes meaningful to collaborators and future agents
 - acceptance criteria
+- authored assignee changes when they are part of shared intent
 - durable blockers or plan annotations worth preserving
 - handoff requests and acceptances
 - review and validation events when they materially change shared understanding of plan state
@@ -881,6 +920,8 @@ Do not commit ultra-ephemeral execution details such as:
 - heartbeats
 - momentary cursor/caret-style activity
 - transient lease renewals
+- runtime session ids
+- hydrated opaque handles
 - speculative scratch nodes not yet part of shared intent
 - temporary local decompositions of a published node that no one else needs
 
@@ -906,12 +947,14 @@ A valid first-class plan implementation must enforce the following.
 - abandoned nodes cannot block readiness calculations
 
 ### Binding invariants
-- every executable node must have at least one structural or conceptual binding, unless explicitly marked abstract
+- every executable node must have at least one structural or conceptual binding, unless `is_abstract` is explicitly true
 - missing bindings must be surfaced, not hidden
+- runtime-attached handles must not be treated as committed authored bindings
 
 ### Validation invariants
 - completion must honor plan policy for review and validation
 - node acceptance criteria must be normalized and replayable
+- repo-published required checks should resolve through stable validation identifiers or recipe refs
 
 ### Publication invariants
 - replay of committed events must be deterministic
@@ -987,7 +1030,7 @@ A node is ready when:
 - its plan is not terminal
 
 ### 16.2 Critical path
-The runtime should derive a critical path over executable nodes using dependency structure and blocker state.
+The runtime should derive the current critical path over executable nodes using dependency structure and blocker state.
 
 ### 16.3 Parallelism hints
 The runtime should surface nodes that can safely proceed in parallel based on:

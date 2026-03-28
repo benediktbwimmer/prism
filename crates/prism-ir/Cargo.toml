@@ -7,4 +7,5 @@ license.workspace = true
 [dependencies]
 schemars = "1.2.1"
 serde.workspace = true
+serde_json.workspace = true
 smol_str.workspace = true

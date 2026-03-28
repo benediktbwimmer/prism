@@ -1,4 +1,5 @@
 mod blockers;
+mod compat;
 mod helpers;
 mod mutations;
 mod queries;
@@ -16,4 +17,7 @@ pub use crate::types::{
     HandoffAcceptInput, HandoffInput, Plan, PlanCreateInput, PlanUpdateInput, PolicyViolation,
     PolicyViolationCode, PolicyViolationRecord, TaskBlocker, TaskCompletionContext,
     TaskCreateInput, TaskUpdateInput, WorkClaim,
+};
+pub use compat::{
+    execution_overlays_from_tasks, plan_graph_from_coordination, snapshot_plan_graphs,
 };

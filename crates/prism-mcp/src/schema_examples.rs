@@ -75,17 +75,7 @@ pub(crate) fn tool_input_example(tool_name: &str) -> Option<Value> {
                 "tags": ["mcp", "examples"],
             }
         })),
-        "prism_mutate" => Some(json!({
-            "action": "validation_feedback",
-            "input": {
-                "context": "Search for `session` while curating concept packs.",
-                "prismSaid": "Search result ordering was helpful.",
-                "actuallyTrue": "The top result matched the active session-state owner quickly.",
-                "category": "projection",
-                "verdict": "helpful",
-                "correctedManually": false
-            }
-        })),
+        "prism_mutate" => prism_mutate_action_example("validation_feedback"),
         _ => None,
     }
 }
@@ -109,52 +99,7 @@ pub(crate) fn tool_input_examples(tool_name: &str) -> Option<Vec<Value>> {
                 }
             }),
         ]),
-        "prism_mutate" => Some(vec![
-            tool_input_example("prism_mutate").expect("mutate example"),
-            json!({
-                "action": "memory",
-                "input": {
-                    "action": "store",
-                    "payload": {
-                        "kind": "episodic",
-                        "scope": "session",
-                        "content": "Concept handles need concept-aware compact follow-through.",
-                        "anchors": [{
-                            "type": "node",
-                            "crateName": "prism_mcp",
-                            "path": "prism_mcp::compact_tools::concept::QueryHost::compact_concept",
-                            "kind": "Method"
-                        }],
-                        "trust": 0.82,
-                        "metadata": {
-                            "provenance": {
-                                "kind": "manual_memory",
-                                "origin": "schema_example"
-                            }
-                        }
-                    }
-                }
-            }),
-            json!({
-                "action": "concept",
-                "input": {
-                    "operation": "promote",
-                    "canonicalName": "validation_pipeline",
-                    "summary": "Checks, likely tests, and recent failures behind a change.",
-                    "coreMembers": [{
-                        "crateName": "demo",
-                        "path": "demo::validation_recipe",
-                        "kind": "function"
-                    }, {
-                        "crateName": "demo",
-                        "path": "demo::runtime_status",
-                        "kind": "function"
-                    }],
-                    "aliases": ["validation", "checks"],
-                    "evidence": ["Promoted from repeated validation worksets."]
-                }
-            }),
-        ]),
+        "prism_mutate" => Some(prism_mutate_examples()),
         _ => tool_input_example(tool_name).map(|example| vec![example]),
     }
 }
@@ -183,19 +128,222 @@ pub(crate) fn tool_action_example(tool_name: &str, action: &str) -> Option<Value
                 "summary": "Stopping after the compact-tool follow-up was redirected.",
             }
         })),
-        ("prism_mutate", "validation_feedback") => tool_input_example("prism_mutate"),
-        ("prism_mutate", "memory") => tool_input_examples("prism_mutate").and_then(|examples| {
-            examples
-                .into_iter()
-                .find(|example| example["action"] == "memory")
-        }),
-        ("prism_mutate", "concept") => tool_input_examples("prism_mutate").and_then(|examples| {
-            examples
-                .into_iter()
-                .find(|example| example["action"] == "concept")
-        }),
+        ("prism_mutate", action) => prism_mutate_action_example(action),
         _ => None,
     }
+}
+
+fn prism_mutate_examples() -> Vec<Value> {
+    [
+        "validation_feedback",
+        "outcome",
+        "memory",
+        "concept",
+        "infer_edge",
+        "coordination",
+        "claim",
+        "artifact",
+        "test_ran",
+        "failure_observed",
+        "fix_validated",
+        "curator_promote_edge",
+        "curator_promote_memory",
+        "curator_reject_proposal",
+    ]
+    .into_iter()
+    .filter_map(prism_mutate_action_example)
+    .collect()
+}
+
+fn prism_mutate_action_example(action: &str) -> Option<Value> {
+    match action {
+        "validation_feedback" => Some(json!({
+            "action": "validation_feedback",
+            "input": {
+                "context": "Search for `session` while curating concept packs.",
+                "prismSaid": "Search result ordering was helpful.",
+                "actuallyTrue": "The top result matched the active session-state owner quickly.",
+                "category": "projection",
+                "verdict": "helpful",
+                "correctedManually": false
+            }
+        })),
+        "outcome" => Some(json!({
+            "action": "outcome",
+            "input": {
+                "kind": "plan_created",
+                "anchors": [sample_node_anchor("demo", "demo::validation_recipe", "function")],
+                "summary": "Outlined the validation follow-up plan.",
+                "result": "success",
+                "taskId": "task:demo-main"
+            }
+        })),
+        "memory" => Some(json!({
+            "action": "memory",
+            "input": {
+                "action": "store",
+                "payload": {
+                    "kind": "episodic",
+                    "scope": "session",
+                    "content": "Concept handles need concept-aware compact follow-through.",
+                    "anchors": [sample_node_anchor(
+                        "prism_mcp",
+                        "prism_mcp::compact_tools::concept::QueryHost::compact_concept",
+                        "method"
+                    )],
+                    "trust": 0.82,
+                    "metadata": {
+                        "provenance": {
+                            "kind": "manual_memory",
+                            "origin": "schema_example"
+                        }
+                    }
+                }
+            }
+        })),
+        "concept" => Some(json!({
+            "action": "concept",
+            "input": {
+                "operation": "promote",
+                "canonicalName": "validation_pipeline",
+                "summary": "Checks, likely tests, and recent failures behind a change.",
+                "coreMembers": [
+                    sample_node_id_input("demo", "demo::validation_recipe", "function"),
+                    sample_node_id_input("demo", "demo::runtime_status", "function")
+                ],
+                "aliases": ["validation", "checks"],
+                "evidence": ["Promoted from repeated validation worksets."]
+            }
+        })),
+        "infer_edge" => Some(json!({
+            "action": "infer_edge",
+            "input": {
+                "source": sample_node_id_input("demo", "demo::validation_recipe", "function"),
+                "target": sample_node_id_input("demo", "demo::runtime_status", "function"),
+                "kind": "related_to",
+                "confidence": 0.74,
+                "scope": "persisted",
+                "evidence": ["Observed together in repeated validation worksets."],
+                "taskId": "task:demo-main"
+            }
+        })),
+        "coordination" => Some(json!({
+            "action": "coordination",
+            "input": {
+                "kind": "task_create",
+                "payload": {
+                    "planId": "plan:demo-main",
+                    "title": "Validate compact mutate examples",
+                    "anchors": [sample_node_anchor("demo", "demo::validation_recipe", "function")],
+                    "acceptance": [{
+                        "label": "Schema examples cover every mutate action"
+                    }]
+                },
+                "taskId": "task:demo-main"
+            }
+        })),
+        "claim" => Some(json!({
+            "action": "claim",
+            "input": {
+                "action": "acquire",
+                "payload": {
+                    "anchors": [sample_node_anchor("demo", "demo::validation_recipe", "function")],
+                    "capability": "Edit",
+                    "mode": "SoftExclusive",
+                    "ttlSeconds": 1800,
+                    "coordinationTaskId": "coord-task:1"
+                },
+                "taskId": "task:demo-main"
+            }
+        })),
+        "artifact" => Some(json!({
+            "action": "artifact",
+            "input": {
+                "action": "propose",
+                "payload": {
+                    "taskId": "coord-task:1",
+                    "anchors": [sample_node_anchor("demo", "demo::validation_recipe", "function")],
+                    "diffRef": "patch:demo-validation",
+                    "requiredValidations": ["cargo test -p prism-mcp"],
+                    "riskScore": 0.35
+                },
+                "taskId": "task:demo-main"
+            }
+        })),
+        "test_ran" => Some(json!({
+            "action": "test_ran",
+            "input": {
+                "anchors": [sample_node_anchor("demo", "demo::validation_recipe", "function")],
+                "test": "cargo test -p prism-mcp prism_mutate_schema_surfaces_action_specific_examples",
+                "passed": true,
+                "taskId": "task:demo-main"
+            }
+        })),
+        "failure_observed" => Some(json!({
+            "action": "failure_observed",
+            "input": {
+                "anchors": [sample_node_anchor("demo", "demo::validation_recipe", "function")],
+                "summary": "Schema example was missing the mutate action payload shape.",
+                "trace": "trace:schema-example-missing-payload-shape",
+                "taskId": "task:demo-main"
+            }
+        })),
+        "fix_validated" => Some(json!({
+            "action": "fix_validated",
+            "input": {
+                "anchors": [sample_node_anchor("demo", "demo::validation_recipe", "function")],
+                "summary": "Mutation schema now exposes concrete payload shapes and examples.",
+                "taskId": "task:demo-main"
+            }
+        })),
+        "curator_promote_edge" => Some(json!({
+            "action": "curator_promote_edge",
+            "input": {
+                "jobId": "curator:1",
+                "proposalIndex": 0,
+                "scope": "persisted",
+                "note": "Promote the inferred validation edge.",
+                "taskId": "task:demo-main"
+            }
+        })),
+        "curator_promote_memory" => Some(json!({
+            "action": "curator_promote_memory",
+            "input": {
+                "jobId": "curator:1",
+                "proposalIndex": 1,
+                "trust": 0.86,
+                "note": "Promote the repeated validation lesson.",
+                "taskId": "task:demo-main"
+            }
+        })),
+        "curator_reject_proposal" => Some(json!({
+            "action": "curator_reject_proposal",
+            "input": {
+                "jobId": "curator:1",
+                "proposalIndex": 2,
+                "reason": "The proposed memory was still too task-specific.",
+                "taskId": "task:demo-main"
+            }
+        })),
+        _ => None,
+    }
+}
+
+fn sample_node_anchor(crate_name: &str, path: &str, kind: &str) -> Value {
+    json!({
+        "type": "node",
+        "crateName": crate_name,
+        "path": path,
+        "kind": kind,
+    })
+}
+
+fn sample_node_id_input(crate_name: &str, path: &str, kind: &str) -> Value {
+    json!({
+        "crateName": crate_name,
+        "path": path,
+        "kind": kind,
+    })
 }
 
 fn resource_payload_example(resource_kind: &str) -> Option<Value> {

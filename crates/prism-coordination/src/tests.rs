@@ -581,6 +581,142 @@ fn risk_threshold_requires_review_before_completion() {
 }
 
 #[test]
+fn plan_graph_compat_preserves_task_ids_and_dependency_edges() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                goal: "Project coordination into a plan graph".to_string(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (dep_id, _) = store
+        .create_task(
+            meta("event:2", 2),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Investigate".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            meta("event:3", 3),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Edit".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                assignee: None,
+                session: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: vec![dep_id.clone()],
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+
+    let graph = store.plan_graph(&plan_id).expect("plan graph should exist");
+    assert_eq!(graph.id, plan_id);
+    assert!(graph
+        .root_nodes
+        .iter()
+        .any(|node_id| node_id.0.as_str() == dep_id.0.as_str()));
+    assert!(graph.nodes.iter().any(|node| {
+        node.id.0.as_str() == task_id.0.as_str()
+            && node.status == prism_ir::PlanNodeStatus::InProgress
+    }));
+    assert!(graph.edges.iter().any(|edge| {
+        edge.kind == prism_ir::PlanEdgeKind::DependsOn
+            && edge.from.0.as_str() == task_id.0.as_str()
+            && edge.to.0.as_str() == dep_id.0.as_str()
+    }));
+}
+
+#[test]
+fn plan_graph_execution_overlays_keep_runtime_state_outside_canonical_nodes() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                goal: "Separate runtime execution overlay".to_string(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            meta("event:2", 2),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Review".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Blocked),
+                assignee: Some(prism_ir::AgentId::new("agent:owner")),
+                session: Some(prism_ir::SessionId::new("session:runtime")),
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+    store
+        .handoff(
+            meta("event:3", 3),
+            HandoffInput {
+                task_id: task_id.clone(),
+                to_agent: Some(prism_ir::AgentId::new("agent:reviewer")),
+                summary: "Please review".to_string(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+            prism_ir::WorkspaceRevision {
+                graph_version: 1,
+                git_commit: None,
+            },
+        )
+        .unwrap();
+
+    let graph = store.plan_graph(&plan_id).expect("plan graph should exist");
+    let node = graph
+        .nodes
+        .iter()
+        .find(|node| node.id.0.as_str() == task_id.0.as_str())
+        .expect("compat graph should include node");
+    assert_eq!(node.assignee, Some(prism_ir::AgentId::new("agent:owner")));
+
+    let overlays = store.plan_execution_overlays(&plan_id);
+    assert!(overlays.iter().any(|overlay| {
+        overlay.node_id.0.as_str() == task_id.0.as_str()
+            && overlay.pending_handoff_to == Some(prism_ir::AgentId::new("agent:reviewer"))
+            && overlay.session == Some(prism_ir::SessionId::new("session:runtime"))
+    }));
+}
+
+#[test]
 fn invalid_task_transition_is_rejected() {
     let store = CoordinationStore::new();
     let (plan_id, _) = store

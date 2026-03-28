@@ -23,6 +23,8 @@ string_id!(TaskId);
 string_id!(AgentId);
 string_id!(SessionId);
 string_id!(PlanId);
+string_id!(PlanNodeId);
+string_id!(PlanEdgeId);
 string_id!(CoordinationTaskId);
 string_id!(ClaimId);
 string_id!(ArtifactId);

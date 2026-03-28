@@ -1,5 +1,6 @@
 use prism_js::AgentSuggestedActionView;
 
+use super::concept::compact_concept_selection;
 use super::expand::source_slice_view;
 use super::suggested_actions::{
     dedupe_suggested_actions, suggested_expand_action, suggested_open_action,
@@ -30,6 +31,42 @@ impl QueryHost {
             query_text,
             move |host, _query_run| {
                 let prism = host.current_prism();
+                if args.handle.starts_with("concept://") {
+                    let selection =
+                        compact_concept_selection(session.as_ref(), prism.as_ref(), &args.handle)?;
+                    let (target, _) = resolve_handle_target(
+                        host,
+                        session.as_ref(),
+                        prism.as_ref(),
+                        &selection.primary.handle,
+                        Some("open"),
+                    )?;
+                    let related_handles = compact_concept_open_related_handles(
+                        &selection.primary.handle,
+                        selection.supporting_reads,
+                        selection.likely_tests,
+                    );
+                    let suggested_actions = compact_concept_open_suggested_actions(
+                        &args.handle,
+                        &selection.packet,
+                        related_handles.as_deref(),
+                    );
+                    let result = compact_open_symbol_result(
+                        host,
+                        session.as_ref(),
+                        prism.as_ref(),
+                        &args.handle,
+                        crate::session_state::SessionHandleCategory::Concept,
+                        mode,
+                        &target,
+                        false,
+                        &compact_concept_open_next_action(&selection.packet),
+                        Some(selection.primary),
+                        related_handles,
+                        suggested_actions,
+                    )?;
+                    return Ok((result, Vec::new()));
+                }
                 let (target, remapped) = resolve_handle_target(
                     host,
                     session.as_ref(),
@@ -47,12 +84,6 @@ impl QueryHost {
                         remapped,
                     )?
                 } else {
-                    let symbol_id = target_symbol_id(&target)?;
-                    let symbol = symbol_for(prism.as_ref(), symbol_id)?;
-                    let symbol_view = symbol_view(prism.as_ref(), &symbol)?;
-                    let file_path = symbol_view.file_path.clone().ok_or_else(|| {
-                        anyhow!("target `{}` has no workspace file path", target.id.path)
-                    })?;
                     let related_handles = compact_open_related_handles(
                         host,
                         session.as_ref(),
@@ -64,143 +95,153 @@ impl QueryHost {
                         &target,
                         related_handles.as_deref(),
                     );
-                    let next_action = compact_open_next_action(&target);
-
-                    match mode {
-                        AgentOpenMode::Focus => {
-                            if is_structured_config_target(target.kind) {
-                                if let Some(preview) = compact_preview_for_structured_target(
-                                    host,
-                                    session.as_ref(),
-                                    prism.as_ref(),
-                                    &args.handle,
-                                    &target,
-                                )? {
-                                    compact_open_result_from_excerpt(
-                                        &args.handle,
-                                        target.handle_category,
-                                        &file_path,
-                                        SourceExcerptView {
-                                            text: preview.text,
-                                            start_line: preview.start_line,
-                                            end_line: preview.end_line,
-                                            truncated: preview.truncated,
-                                        },
-                                        remapped,
-                                        &next_action,
-                                        None,
-                                        related_handles.clone(),
-                                        suggested_actions.clone(),
-                                    )?
-                                } else {
-                                    let block = focused_block_for_symbol(
-                                        prism.as_ref(),
-                                        &symbol,
-                                        FOCUS_OPEN_OPTIONS,
-                                    )?;
-                                    compact_open_result_from_block(
-                                        &args.handle,
-                                        target.handle_category,
-                                        &file_path,
-                                        block.slice,
-                                        block.excerpt,
-                                        remapped,
-                                        &next_action,
-                                        None,
-                                        related_handles.clone(),
-                                        suggested_actions.clone(),
-                                    )?
-                                }
-                            } else {
-                                let block = focused_block_for_symbol(
-                                    prism.as_ref(),
-                                    &symbol,
-                                    FOCUS_OPEN_OPTIONS,
-                                )?;
-                                compact_open_result_from_block(
-                                    &args.handle,
-                                    target.handle_category,
-                                    &file_path,
-                                    block.slice,
-                                    block.excerpt,
-                                    remapped,
-                                    &next_action,
-                                    None,
-                                    related_handles.clone(),
-                                    suggested_actions.clone(),
-                                )?
-                            }
-                        }
-                        AgentOpenMode::Edit => {
-                            let slice = symbol
-                                .edit_slice(EDIT_OPEN_OPTIONS)
-                                .map(source_slice_view)
-                                .ok_or_else(|| {
-                                    anyhow!(
-                                        "target `{}` did not produce an edit slice",
-                                        target.id.path
-                                    )
-                                })?;
-                            compact_open_result_from_slice(
-                                &args.handle,
-                                target.handle_category,
-                                &file_path,
-                                slice,
-                                remapped,
-                                &next_action,
-                                None,
-                                related_handles.clone(),
-                                suggested_actions.clone(),
-                            )?
-                        }
-                        AgentOpenMode::Raw => {
-                            let excerpt = if let Some(excerpt) = symbol
-                                .excerpt(SourceExcerptOptions {
-                                    context_lines: 0,
-                                    max_lines: 0,
-                                    max_chars: RAW_OPEN_MAX_CHARS,
-                                })
-                                .map(|excerpt| SourceExcerptView {
-                                    text: excerpt.text,
-                                    start_line: excerpt.start_line,
-                                    end_line: excerpt.end_line,
-                                    truncated: excerpt.truncated,
-                                }) {
-                                excerpt
-                            } else {
-                                let location = symbol.location().ok_or_else(|| {
-                                    anyhow!(
-                                        "target `{}` has no line-addressable source location",
-                                        target.id.path
-                                    )
-                                })?;
-                                file_read(
-                                    host,
-                                    FileReadArgs {
-                                        path: file_path.clone(),
-                                        start_line: Some(location.start_line),
-                                        end_line: Some(location.end_line),
-                                        max_chars: Some(RAW_OPEN_MAX_CHARS),
-                                    },
-                                )?
-                            };
-                            compact_open_result_from_excerpt(
-                                &args.handle,
-                                target.handle_category,
-                                &file_path,
-                                excerpt,
-                                remapped,
-                                &next_action,
-                                None,
-                                related_handles.clone(),
-                                suggested_actions.clone(),
-                            )?
-                        }
-                    }
+                    compact_open_symbol_result(
+                        host,
+                        session.as_ref(),
+                        prism.as_ref(),
+                        &args.handle,
+                        target.handle_category,
+                        mode,
+                        &target,
+                        remapped,
+                        &compact_open_next_action(&target),
+                        None,
+                        related_handles,
+                        suggested_actions,
+                    )?
                 };
                 Ok((result, Vec::new()))
             },
         )
+    }
+}
+
+fn compact_open_symbol_result(
+    host: &QueryHost,
+    session: &SessionState,
+    prism: &Prism,
+    display_handle: &str,
+    handle_category: crate::session_state::SessionHandleCategory,
+    mode: AgentOpenMode,
+    target: &SessionHandleTarget,
+    remapped: bool,
+    next_action: &str,
+    promoted_handle: Option<AgentTargetHandleView>,
+    related_handles: Option<Vec<AgentTargetHandleView>>,
+    suggested_actions: Vec<AgentSuggestedActionView>,
+) -> Result<AgentOpenResultView> {
+    let symbol_id = target_symbol_id(target)?;
+    let symbol = symbol_for(prism, symbol_id)?;
+    let symbol_view = symbol_view(prism, &symbol)?;
+    let file_path = symbol_view
+        .file_path
+        .clone()
+        .ok_or_else(|| anyhow!("target `{}` has no workspace file path", target.id.path))?;
+
+    match mode {
+        AgentOpenMode::Focus => {
+            if is_structured_config_target(target.kind) {
+                if let Some(preview) = compact_preview_for_structured_target(
+                    host,
+                    session,
+                    prism,
+                    display_handle,
+                    target,
+                )? {
+                    return compact_open_result_from_excerpt(
+                        display_handle,
+                        handle_category,
+                        &file_path,
+                        SourceExcerptView {
+                            text: preview.text,
+                            start_line: preview.start_line,
+                            end_line: preview.end_line,
+                            truncated: preview.truncated,
+                        },
+                        remapped,
+                        next_action,
+                        promoted_handle,
+                        related_handles,
+                        suggested_actions,
+                    );
+                }
+            }
+            let block = focused_block_for_symbol(prism, &symbol, FOCUS_OPEN_OPTIONS)?;
+            compact_open_result_from_block(
+                display_handle,
+                handle_category,
+                &file_path,
+                block.slice,
+                block.excerpt,
+                remapped,
+                next_action,
+                promoted_handle,
+                related_handles,
+                suggested_actions,
+            )
+        }
+        AgentOpenMode::Edit => {
+            let slice = symbol
+                .edit_slice(EDIT_OPEN_OPTIONS)
+                .map(source_slice_view)
+                .ok_or_else(|| {
+                    anyhow!("target `{}` did not produce an edit slice", target.id.path)
+                })?;
+            compact_open_result_from_slice(
+                display_handle,
+                handle_category,
+                &file_path,
+                slice,
+                remapped,
+                next_action,
+                promoted_handle,
+                related_handles,
+                suggested_actions,
+            )
+        }
+        AgentOpenMode::Raw => {
+            let excerpt = if let Some(excerpt) = symbol
+                .excerpt(SourceExcerptOptions {
+                    context_lines: 0,
+                    max_lines: 0,
+                    max_chars: RAW_OPEN_MAX_CHARS,
+                })
+                .map(|excerpt| SourceExcerptView {
+                    text: excerpt.text,
+                    start_line: excerpt.start_line,
+                    end_line: excerpt.end_line,
+                    truncated: excerpt.truncated,
+                }) {
+                excerpt
+            } else {
+                let location = symbol.location().ok_or_else(|| {
+                    anyhow!(
+                        "target `{}` has no line-addressable source location",
+                        target.id.path
+                    )
+                })?;
+                file_read(
+                    host,
+                    FileReadArgs {
+                        path: file_path.clone(),
+                        start_line: Some(location.start_line),
+                        end_line: Some(location.end_line),
+                        max_chars: Some(RAW_OPEN_MAX_CHARS),
+                    },
+                )?
+            };
+            compact_open_result_from_excerpt(
+                display_handle,
+                handle_category,
+                &file_path,
+                excerpt,
+                remapped,
+                next_action,
+                promoted_handle,
+                related_handles,
+                suggested_actions,
+            )
+        }
     }
 }
 
@@ -313,6 +354,32 @@ fn compact_open_next_action(target: &SessionHandleTarget) -> String {
     }
 }
 
+fn compact_concept_open_next_action(packet: &prism_query::ConceptPacket) -> String {
+    if packet
+        .decode_lenses
+        .iter()
+        .any(|lens| matches!(lens, prism_query::ConceptDecodeLens::Validation))
+    {
+        "Use prism_workset on this concept, or prism_expand `validation` for broader concept context.".to_string()
+    } else if packet
+        .decode_lenses
+        .iter()
+        .any(|lens| matches!(lens, prism_query::ConceptDecodeLens::Timeline))
+    {
+        "Use prism_workset on this concept, or prism_expand `timeline` for broader concept context."
+            .to_string()
+    } else if packet
+        .decode_lenses
+        .iter()
+        .any(|lens| matches!(lens, prism_query::ConceptDecodeLens::Memory))
+    {
+        "Use prism_workset on this concept, or prism_expand `memory` for broader concept context."
+            .to_string()
+    } else {
+        "Use prism_workset on this concept, or prism_open on another concept member.".to_string()
+    }
+}
+
 pub(super) fn budgeted_open_result(mut result: AgentOpenResultView) -> Result<AgentOpenResultView> {
     if let Some(promoted_handle) = result.promoted_handle.as_mut() {
         promoted_handle.file_path = None;
@@ -342,6 +409,69 @@ pub(super) fn budgeted_open_result(mut result: AgentOpenResultView) -> Result<Ag
         break;
     }
     Ok(result)
+}
+
+fn compact_concept_open_related_handles(
+    primary_handle: &str,
+    supporting_reads: Vec<AgentTargetHandleView>,
+    likely_tests: Vec<AgentTargetHandleView>,
+) -> Option<Vec<AgentTargetHandleView>> {
+    let mut seen = HashSet::<String>::new();
+    let mut related_handles = Vec::new();
+    for handle in supporting_reads.into_iter().chain(likely_tests) {
+        if handle.handle == primary_handle || !seen.insert(handle.handle.clone()) {
+            continue;
+        }
+        related_handles.push(handle);
+    }
+    (!related_handles.is_empty()).then_some(related_handles)
+}
+
+fn compact_concept_open_suggested_actions(
+    current_handle: &str,
+    packet: &prism_query::ConceptPacket,
+    related_handles: Option<&[AgentTargetHandleView]>,
+) -> Vec<AgentSuggestedActionView> {
+    let mut actions = vec![suggested_workset_action(current_handle)];
+    if packet
+        .decode_lenses
+        .iter()
+        .any(|lens| matches!(lens, prism_query::ConceptDecodeLens::Validation))
+    {
+        actions.push(suggested_expand_action(
+            current_handle,
+            AgentExpandKind::Validation,
+        ));
+    }
+    if packet
+        .decode_lenses
+        .iter()
+        .any(|lens| matches!(lens, prism_query::ConceptDecodeLens::Timeline))
+    {
+        actions.push(suggested_expand_action(
+            current_handle,
+            AgentExpandKind::Timeline,
+        ));
+    }
+    if packet
+        .decode_lenses
+        .iter()
+        .any(|lens| matches!(lens, prism_query::ConceptDecodeLens::Memory))
+    {
+        actions.push(suggested_expand_action(
+            current_handle,
+            AgentExpandKind::Memory,
+        ));
+    }
+    if actions.len() == 1 {
+        if let Some(handle) = related_handles.and_then(|handles| handles.first()) {
+            actions.push(suggested_open_action(
+                handle.handle.clone(),
+                AgentOpenMode::Focus,
+            ));
+        }
+    }
+    dedupe_suggested_actions(actions)
 }
 
 fn compact_open_suggested_actions(

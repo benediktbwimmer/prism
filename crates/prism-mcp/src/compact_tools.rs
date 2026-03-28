@@ -3,7 +3,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use globset::{GlobBuilder, GlobMatcher};
 use prism_ir::{LineageId, NodeId, NodeKind};
 use prism_js::{
@@ -13,7 +13,7 @@ use prism_js::{
     SourceExcerptView, SourceLocationView, SourceSliceView, SymbolView, TextSearchMatchView,
 };
 use prism_query::{EditSliceOptions, Prism, SourceExcerptOptions};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 mod concept;
 mod expand;
@@ -32,11 +32,11 @@ use crate::file_queries::file_read;
 use crate::session_state::{SessionHandleCategory, SessionHandleTarget};
 use crate::text_search::search_text;
 use crate::{
+    diff_for, focused_block_for_symbol, next_reads, owner_views_for_target,
+    spec_drift_explanation_view, symbol_for, symbol_view, validation_context_view_cached,
     FileReadArgs, PrismConceptArgs, PrismExpandArgs, PrismExpandKindInput, PrismGatherArgs,
     PrismLocateArgs, PrismLocateTaskIntentInput, PrismOpenArgs, PrismOpenModeInput,
-    PrismWorksetArgs, QueryHost, QueryRun, SearchArgs, SearchTextArgs, SessionState, diff_for,
-    focused_block_for_symbol, next_reads, owner_views_for_target, spec_drift_explanation_view,
-    symbol_for, symbol_view, validation_context_view_cached,
+    PrismWorksetArgs, QueryHost, QueryRun, SearchArgs, SearchTextArgs, SessionState,
 };
 
 const DEFAULT_LOCATE_LIMIT: usize = 3;
@@ -562,6 +562,7 @@ fn agent_handle_category_view(category: SessionHandleCategory) -> AgentHandleCat
     match category {
         SessionHandleCategory::Symbol => AgentHandleCategoryView::Symbol,
         SessionHandleCategory::TextFragment => AgentHandleCategoryView::TextFragment,
+        SessionHandleCategory::Concept => AgentHandleCategoryView::Concept,
     }
 }
 
@@ -787,12 +788,10 @@ mod tests {
         .expect("budgeted workset should serialize");
 
         assert!(!result.truncated);
-        assert!(
-            result
-                .next_action
-                .as_deref()
-                .is_some_and(|value| value.contains("prism_open"))
-        );
+        assert!(result
+            .next_action
+            .as_deref()
+            .is_some_and(|value| value.contains("prism_open")));
         assert!(workset_json_bytes(&result).expect("json bytes") <= WORKSET_MAX_JSON_BYTES);
     }
 
@@ -815,12 +814,10 @@ mod tests {
         .expect("budgeted workset should serialize");
 
         assert!(result.truncated);
-        assert!(
-            result
-                .next_action
-                .as_deref()
-                .is_some_and(|value| value.contains("prism_open"))
-        );
+        assert!(result
+            .next_action
+            .as_deref()
+            .is_some_and(|value| value.contains("prism_open")));
         assert!(workset_json_bytes(&result).expect("json bytes") <= WORKSET_MAX_JSON_BYTES);
         assert_eq!(result.primary.handle, "handle:1");
         assert!(
@@ -847,18 +844,14 @@ mod tests {
         .expect("budgeted open should serialize");
 
         assert!(open_json_bytes(&result).expect("json bytes") <= OPEN_MAX_JSON_BYTES);
-        assert!(
-            result
-                .related_handles
-                .as_ref()
-                .is_none_or(|targets| targets.len() <= OPEN_RELATED_HANDLE_LIMIT)
-        );
-        assert!(
-            result
-                .related_handles
-                .as_ref()
-                .is_none_or(|targets| { targets.iter().all(|target| target.file_path.is_none()) })
-        );
+        assert!(result
+            .related_handles
+            .as_ref()
+            .is_none_or(|targets| targets.len() <= OPEN_RELATED_HANDLE_LIMIT));
+        assert!(result
+            .related_handles
+            .as_ref()
+            .is_none_or(|targets| { targets.iter().all(|target| target.file_path.is_none()) }));
     }
 
     #[test]
