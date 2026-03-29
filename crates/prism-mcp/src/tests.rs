@@ -43,7 +43,7 @@ use prism_memory::{
     OutcomeKind, OutcomeMemory, OutcomeResult, RecallQuery,
 };
 use prism_query::{ConceptDecodeLens, ConceptPacket, ConceptProvenance, ConceptScope};
-use prism_store::Graph;
+use prism_store::{Graph, SqliteStore, Store};
 use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -16048,4 +16048,63 @@ fn cloned_servers_isolate_session_state_but_share_persisted_state() {
     assert!(query_log
         .iter()
         .any(|entry| entry.session_id == client_b.session.session_id().0));
+}
+
+#[test]
+fn workspace_coordination_persistence_records_mcp_session_scope() {
+    let root = temp_workspace();
+    let workspace = index_workspace_session(&root).unwrap();
+    let host = host_with_session(workspace);
+    let session_a = host.new_session_state();
+    let session_b = host.new_session_state();
+
+    host.store_coordination(
+        session_a.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanCreate,
+            payload: json!({
+                "goal": "Track session-scoped persistence context"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+    let cache = root.join(".prism").join("cache.db");
+    let mut store = SqliteStore::open(&cache).unwrap();
+    let context_after_a = store
+        .load_latest_coordination_persist_context()
+        .unwrap()
+        .expect("coordination mutation log should retain a latest context");
+    assert_eq!(
+        context_after_a.session_id.as_deref(),
+        Some(session_a.session_id().0.as_str())
+    );
+    drop(store);
+
+    host.store_coordination(
+        session_b.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanCreate,
+            payload: json!({
+                "goal": "Track a second session-scoped persistence context"
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let mut store = SqliteStore::open(&cache).unwrap();
+    let logged_context = store
+        .load_latest_coordination_persist_context()
+        .unwrap()
+        .expect("coordination mutation log should retain a latest context");
+    assert_eq!(
+        logged_context.session_id.as_deref(),
+        Some(session_b.session_id().0.as_str())
+    );
+    assert_eq!(store.load_coordination_events().unwrap().len(), 2);
+
+    drop(store);
+    drop(host);
+    let _ = fs::remove_dir_all(root);
 }

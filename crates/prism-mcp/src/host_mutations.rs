@@ -779,7 +779,7 @@ impl QueryHost {
             causation: None,
         };
         let state = if let Some(workspace) = &self.workspace {
-            match workspace.mutate_coordination(|prism| {
+            match workspace.mutate_coordination_with_session(Some(&session.session_id()), |prism| {
                 self.apply_coordination_mutation(session, prism, args, meta.clone())
             }) {
                 Ok(state) => {
@@ -856,7 +856,7 @@ impl QueryHost {
             causation: None,
         };
         if let Some(workspace) = &self.workspace {
-            match workspace.mutate_coordination(|prism| {
+            match workspace.mutate_coordination_with_session(Some(&session.session_id()), |prism| {
                 self.apply_claim_mutation(session, prism, args, meta.clone())
             }) {
                 Ok(mut result) => {
@@ -927,7 +927,7 @@ impl QueryHost {
             causation: None,
         };
         if let Some(workspace) = &self.workspace {
-            match workspace.mutate_coordination(|prism| {
+            match workspace.mutate_coordination_with_session(Some(&session.session_id()), |prism| {
                 self.apply_artifact_mutation(prism, args, meta.clone())
             }) {
                 Ok(mut result) => {

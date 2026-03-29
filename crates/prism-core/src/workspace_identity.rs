@@ -4,6 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
+use prism_ir::SessionId;
 use prism_store::CoordinationPersistContext;
 
 use crate::util::current_timestamp_millis;
@@ -14,7 +15,10 @@ struct GitWorkspaceIdentity {
     head_ref: Option<String>,
 }
 
-pub(crate) fn coordination_persist_context_for_root(root: &Path) -> CoordinationPersistContext {
+pub(crate) fn coordination_persist_context_for_root(
+    root: &Path,
+    session_id: Option<&SessionId>,
+) -> CoordinationPersistContext {
     let canonical_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
     let git_identity = discover_git_workspace_identity(&canonical_root);
     let repo_source = git_identity
@@ -27,7 +31,7 @@ pub(crate) fn coordination_persist_context_for_root(root: &Path) -> Coordination
         repo_id: scoped_id("repo", &repo_source),
         worktree_id: scoped_id("worktree", &canonical_root.to_string_lossy()),
         branch_ref: git_identity.head_ref,
-        session_id: None,
+        session_id: session_id.map(|session_id| session_id.0.to_string()),
         instance_id: Some(instance_id().clone()),
     }
 }

@@ -12,7 +12,7 @@ use prism_curator::{
 };
 use prism_history::HistoryStore;
 use prism_ir::{
-    ChangeTrigger, EventId, ObservedChangeSet, PlanExecutionOverlay, PlanGraph, TaskId,
+    ChangeTrigger, EventId, ObservedChangeSet, PlanExecutionOverlay, PlanGraph, SessionId, TaskId,
 };
 use prism_memory::OutcomeMemory;
 use prism_memory::{EpisodicMemorySnapshot, MemoryEvent, MemoryEventQuery, OutcomeEvent};
@@ -546,6 +546,17 @@ impl WorkspaceSession {
     where
         F: FnOnce(&Prism) -> Result<T>,
     {
+        self.mutate_coordination_with_session(None, mutate)
+    }
+
+    pub fn mutate_coordination_with_session<T, F>(
+        &self,
+        session_id: Option<&SessionId>,
+        mutate: F,
+    ) -> Result<T>
+    where
+        F: FnOnce(&Prism) -> Result<T>,
+    {
         if !self.coordination_enabled {
             return Err(anyhow!(
                 "coordination is disabled for this workspace session"
@@ -575,15 +586,23 @@ impl WorkspaceSession {
             })
             .cloned()
             .collect::<Vec<_>>();
-        self.store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .persist_coordination_mutation_for_root(
+        let mut store = self.store.lock().expect("workspace store lock poisoned");
+        if let Some(session_id) = session_id {
+            store.persist_coordination_mutation_for_root_with_session(
+                &self.root,
+                expected_revision,
+                &snapshot,
+                &appended_events,
+                Some(session_id),
+            )?;
+        } else {
+            store.persist_coordination_mutation_for_root(
                 &self.root,
                 expected_revision,
                 &snapshot,
                 &appended_events,
             )?;
+        }
         Ok(result)
     }
 
