@@ -196,11 +196,32 @@ pub(crate) enum PrismOpenModeInput {
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismOpenArgs {
-    pub(crate) handle: String,
     #[schemars(
-        description = "Open mode: `focus` for a bounded local block, `edit` for an edit-oriented slice, or `raw` for the literal file window covering the target span."
+        description = "Previously located compact handle to open. Exactly one of `handle` or `path` is required."
+    )]
+    pub(crate) handle: Option<String>,
+    #[schemars(
+        description = "Exact workspace file path to open directly without first minting a locate handle. Exactly one of `handle` or `path` is required."
+    )]
+    pub(crate) path: Option<String>,
+    #[schemars(
+        description = "Open mode: `focus` for a bounded local block, `edit` for an edit-oriented slice, or `raw` for the literal file window covering the target span. Path-based opens currently support only `raw`."
     )]
     pub(crate) mode: Option<PrismOpenModeInput>,
+    #[schemars(
+        description = "Optional 1-based focus line for exact-path opens. When present, PRISM returns a bounded window around this line."
+    )]
+    pub(crate) line: Option<usize>,
+    #[schemars(
+        description = "Optional context lines before `line` for exact-path opens. Ignored unless `line` is set."
+    )]
+    pub(crate) before_lines: Option<usize>,
+    #[schemars(
+        description = "Optional context lines after `line` for exact-path opens. Ignored unless `line` is set."
+    )]
+    pub(crate) after_lines: Option<usize>,
+    #[schemars(description = "Optional character budget for the returned exact-path slice.")]
+    pub(crate) max_chars: Option<usize>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

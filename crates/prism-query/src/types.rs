@@ -122,7 +122,7 @@ pub struct PlanListEntry {
     pub status: PlanStatus,
     pub scope: PlanScope,
     pub kind: PlanKind,
-    pub root_task_ids: Vec<CoordinationTaskId>,
+    pub root_node_ids: Vec<PlanNodeId>,
     pub summary: PlanSummary,
 }
 

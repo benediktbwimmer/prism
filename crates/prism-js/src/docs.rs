@@ -1192,7 +1192,7 @@ type PlanView = {
   id: string;
   goal: string;
   status: string;
-  rootTaskIds: string[];
+  rootNodeIds: string[];
 };
 
 type PlanListEntryView = {
@@ -1202,7 +1202,7 @@ type PlanListEntryView = {
   status: string;
   scope: string;
   kind: string;
-  rootTaskIds: string[];
+  rootNodeIds: string[];
   summary: PlanSummaryView;
 };
 

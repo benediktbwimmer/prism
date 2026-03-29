@@ -689,10 +689,21 @@ impl QueryExecution {
             }
             "plan" => {
                 let args: PlanTargetArgs = serde_json::from_value(args)?;
+                let plan_id = PlanId::new(args.plan_id);
                 Ok(serde_json::to_value(
-                    self.prism
-                        .coordination_plan(&PlanId::new(args.plan_id))
-                        .map(plan_view),
+                    self.prism.coordination_plan(&plan_id).map(|plan| {
+                        let root_node_ids = self
+                            .prism
+                            .plan_graph(&plan_id)
+                            .map(|graph| graph.root_nodes)
+                            .unwrap_or_else(|| {
+                                plan.root_tasks
+                                    .iter()
+                                    .map(|task_id| prism_ir::PlanNodeId::new(task_id.0.clone()))
+                                    .collect()
+                            });
+                        plan_view(plan, root_node_ids)
+                    }),
                 )?)
             }
             "planGraph" => {

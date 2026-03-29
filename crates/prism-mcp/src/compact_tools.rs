@@ -34,9 +34,10 @@ use crate::text_search::search_text;
 use crate::{
     diff_for, focused_block_for_symbol, next_reads, owner_views_for_target,
     spec_drift_explanation_view, symbol_for, symbol_view, validation_context_view_cached,
-    FileReadArgs, PrismConceptArgs, PrismExpandArgs, PrismExpandKindInput, PrismGatherArgs,
-    PrismLocateArgs, PrismLocateTaskIntentInput, PrismOpenArgs, PrismOpenModeInput,
-    PrismWorksetArgs, QueryHost, QueryRun, SearchArgs, SearchTextArgs, SessionState,
+    FileAroundArgs, FileReadArgs, PrismConceptArgs, PrismExpandArgs, PrismExpandKindInput,
+    PrismGatherArgs, PrismLocateArgs, PrismLocateTaskIntentInput, PrismOpenArgs,
+    PrismOpenModeInput, PrismWorksetArgs, QueryHost, QueryRun, SearchArgs, SearchTextArgs,
+    SessionState,
 };
 
 const DEFAULT_LOCATE_LIMIT: usize = 3;

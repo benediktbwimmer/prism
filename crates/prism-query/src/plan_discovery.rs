@@ -1,4 +1,4 @@
-use prism_ir::{CoordinationTaskId, PlanNodeId, PlanScope, PlanStatus};
+use prism_ir::{PlanScope, PlanStatus};
 
 use crate::{NativePlanRuntimeState, PlanListEntry, Prism};
 
@@ -50,7 +50,7 @@ impl Prism {
                     status: graph.status,
                     scope: graph.scope,
                     kind: graph.kind,
-                    root_task_ids: root_task_ids(&graph.root_nodes),
+                    root_node_ids: graph.root_nodes,
                     summary,
                 })
             })
@@ -70,13 +70,6 @@ impl Prism {
         });
         plans
     }
-}
-
-fn root_task_ids(root_nodes: &[PlanNodeId]) -> Vec<CoordinationTaskId> {
-    root_nodes
-        .iter()
-        .map(|node_id| CoordinationTaskId::new(node_id.0.clone()))
-        .collect()
 }
 
 fn plan_status_rank(status: PlanStatus) -> u8 {

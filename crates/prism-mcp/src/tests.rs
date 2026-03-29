@@ -6309,8 +6309,13 @@ def helper():
         .compact_open(
             Arc::clone(&session),
             PrismOpenArgs {
-                handle: locate.candidates[0].handle.clone(),
+                handle: Some(locate.candidates[0].handle.clone()),
+                path: None,
                 mode: Some(PrismOpenModeInput::Focus),
+                line: None,
+                before_lines: None,
+                after_lines: None,
+                max_chars: None,
             },
         )
         .expect("open should succeed");
@@ -6355,8 +6360,13 @@ fn compact_open_remaps_stale_text_fragment_handles_after_file_edits() {
         .compact_open(
             Arc::clone(&session),
             PrismOpenArgs {
-                handle: locate.candidates[0].handle.clone(),
+                handle: Some(locate.candidates[0].handle.clone()),
+                path: None,
                 mode: Some(PrismOpenModeInput::Raw),
+                line: None,
+                before_lines: None,
+                after_lines: None,
+                max_chars: None,
             },
         )
         .expect("open should remap the stale text-fragment handle");
@@ -6413,8 +6423,13 @@ The event journal snapshot should persist journal entries.
         .compact_open(
             Arc::clone(&session),
             PrismOpenArgs {
-                handle: locate.candidates[0].handle.clone(),
+                handle: Some(locate.candidates[0].handle.clone()),
+                path: None,
                 mode: Some(PrismOpenModeInput::Focus),
+                line: None,
+                before_lines: None,
+                after_lines: None,
+                max_chars: None,
             },
         )
         .expect("open should succeed");
@@ -6463,8 +6478,13 @@ pub fn compact_open() {
         .compact_open(
             Arc::clone(&session),
             PrismOpenArgs {
-                handle: locate.candidates[0].handle.clone(),
+                handle: Some(locate.candidates[0].handle.clone()),
+                path: None,
                 mode: Some(PrismOpenModeInput::Raw),
+                line: None,
+                before_lines: None,
+                after_lines: None,
+                max_chars: None,
             },
         )
         .expect("raw open should succeed");
@@ -6472,6 +6492,90 @@ pub fn compact_open() {
     assert!(open.text.contains("let preview = \"preview\";"));
     assert!(open.text.contains("println!"));
     assert!(open.end_line > open.start_line);
+}
+
+#[test]
+fn compact_open_supports_exact_workspace_paths_without_locate() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn alpha() {}
+pub fn beta() {
+    let value = 42;
+}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let open = host
+        .compact_open(
+            Arc::clone(&session),
+            PrismOpenArgs {
+                handle: None,
+                path: Some("src/lib.rs".to_string()),
+                mode: Some(PrismOpenModeInput::Raw),
+                line: Some(3),
+                before_lines: Some(0),
+                after_lines: Some(2),
+                max_chars: Some(200),
+            },
+        )
+        .expect("path open should succeed");
+
+    assert_eq!(
+        open.handle_category,
+        prism_js::AgentHandleCategoryView::TextFragment
+    );
+    assert!(open.handle.starts_with("handle:"));
+    assert!(open.text.contains("pub fn beta()"));
+    assert!(open.text.contains("let value = 42;"));
+
+    let reopened = host
+        .compact_open(
+            Arc::clone(&session),
+            PrismOpenArgs {
+                handle: Some(open.handle.clone()),
+                path: None,
+                mode: Some(PrismOpenModeInput::Raw),
+                line: None,
+                before_lines: None,
+                after_lines: None,
+                max_chars: None,
+            },
+        )
+        .expect("reopening the exact-path handle should succeed");
+    assert_eq!(reopened.text, open.text);
+    assert_eq!(reopened.start_line, open.start_line);
+    assert_eq!(reopened.end_line, open.end_line);
+}
+
+#[test]
+fn compact_open_rejects_non_raw_modes_for_exact_paths() {
+    let root = temp_workspace();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let error = host
+        .compact_open(
+            test_session(&host),
+            PrismOpenArgs {
+                handle: None,
+                path: Some("src/lib.rs".to_string()),
+                mode: Some(PrismOpenModeInput::Focus),
+                line: None,
+                before_lines: None,
+                after_lines: None,
+                max_chars: None,
+            },
+        )
+        .expect_err("path open should reject focus mode");
+
+    assert!(error
+        .to_string()
+        .contains("path-based prism_open currently supports only raw mode"));
 }
 
 #[test]
@@ -6765,8 +6869,13 @@ pub fn validation_recipe_test() {}
         .compact_open(
             Arc::clone(&session),
             PrismOpenArgs {
-                handle: "concept://custom_validation".to_string(),
+                handle: Some("concept://custom_validation".to_string()),
+                path: None,
                 mode: Some(PrismOpenModeInput::Focus),
+                line: None,
+                before_lines: None,
+                after_lines: None,
+                max_chars: None,
             },
         )
         .expect("open should accept concept handles");
@@ -7905,8 +8014,13 @@ fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
         .compact_open(
             Arc::clone(&session),
             PrismOpenArgs {
-                handle: semantic_handle.clone(),
+                handle: Some(semantic_handle.clone()),
+                path: None,
                 mode: Some(PrismOpenModeInput::Focus),
+                line: None,
+                before_lines: None,
+                after_lines: None,
+                max_chars: None,
             },
         )
         .expect("open should succeed");
@@ -9116,8 +9230,13 @@ fn compact_open_for_product_surface_spec_headings_prefers_identifier_owners() {
         .compact_open(
             Arc::clone(&session),
             PrismOpenArgs {
-                handle: locate.candidates[0].handle.clone(),
+                handle: Some(locate.candidates[0].handle.clone()),
+                path: None,
                 mode: Some(PrismOpenModeInput::Focus),
+                line: None,
+                before_lines: None,
+                after_lines: None,
+                max_chars: None,
             },
         )
         .expect("open should succeed");
@@ -14648,7 +14767,7 @@ pub mod beta;
 }
 
 #[test]
-fn plans_resource_payload_surfaces_filters_and_related_tasks() {
+fn plans_resource_payload_surfaces_filters_and_root_nodes() {
     let host = host_with_node(demo_node());
 
     let plan = host
@@ -14688,10 +14807,7 @@ fn plans_resource_payload_surfaces_filters_and_related_tasks() {
         .related_resources
         .iter()
         .any(|link| link.uri == "prism://plans?contains=persistence"));
-    assert!(payload
-        .related_resources
-        .iter()
-        .any(|link| link.uri.starts_with("prism://task/")));
+    assert_eq!(payload.plans[0].root_node_ids, vec!["coord-task:1"]);
 }
 
 #[test]

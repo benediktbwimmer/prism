@@ -316,12 +316,12 @@ pub(super) fn resolve_text_fragment_target(
     let query = target
         .query
         .clone()
-        .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| {
-            anyhow!(
-                "text-fragment handle `{handle}` is missing its search query; rerun prism_gather or prism_locate to select a fresh exact-text slice"
-            )
-        })?;
+        .filter(|value| !value.trim().is_empty());
+    if query.is_none() {
+        session.refresh_target_handle(handle, target.clone());
+        return Ok((target, false));
+    }
+    let query = query.expect("query presence already checked");
 
     if text_fragment_excerpt_matches_query(host, &target)? {
         session.refresh_target_handle(handle, target.clone());
@@ -429,7 +429,7 @@ fn remap_text_fragment_target(
     Ok(best.map(|(_, candidate)| candidate))
 }
 
-fn text_hit_kind(path: &str) -> NodeKind {
+pub(super) fn text_hit_kind(path: &str) -> NodeKind {
     if path.ends_with(".json") {
         NodeKind::JsonKey
     } else if path.ends_with(".toml") {
@@ -546,7 +546,7 @@ fn text_fragment_query_variants(target: &SessionHandleTarget) -> Vec<String> {
     queries
 }
 
-fn first_non_empty_line(text: &str) -> Option<&str> {
+pub(super) fn first_non_empty_line(text: &str) -> Option<&str> {
     text.lines().map(str::trim).find(|line| !line.is_empty())
 }
 

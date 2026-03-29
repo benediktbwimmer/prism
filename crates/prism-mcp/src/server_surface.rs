@@ -447,7 +447,7 @@ impl PrismMcpServer {
     }
 
     #[tool(
-        description = "Open one previously located handle as a bounded focus, edit, or raw slice.",
+        description = "Open one previously located handle as a bounded focus, edit, or raw slice, or open an exact workspace path directly as a raw slice.",
         annotations(title = "Open PRISM Handle", read_only_hint = true),
         output_schema =
             rmcp::handler::server::tool::schema_for_output::<AgentOpenResultView>().unwrap()
@@ -456,10 +456,49 @@ impl PrismMcpServer {
         &self,
         Parameters(args): Parameters<PrismOpenArgs>,
     ) -> Result<CallToolResult, McpError> {
-        if args.handle.trim().is_empty() {
+        let has_handle = args
+            .handle
+            .as_ref()
+            .is_some_and(|handle| !handle.trim().is_empty());
+        let has_path = args
+            .path
+            .as_ref()
+            .is_some_and(|path| !path.trim().is_empty());
+        if has_handle == has_path {
+            return Err(McpError::invalid_params(
+                "exactly one of `handle` or `path` is required",
+                Some(json!({ "fields": ["handle", "path"] })),
+            ));
+        }
+        if args
+            .handle
+            .as_ref()
+            .is_some_and(|handle| handle.trim().is_empty())
+        {
             return Err(McpError::invalid_params(
                 "handle cannot be empty",
                 Some(json!({ "field": "handle" })),
+            ));
+        }
+        if args
+            .path
+            .as_ref()
+            .is_some_and(|path| path.trim().is_empty())
+        {
+            return Err(McpError::invalid_params(
+                "path cannot be empty",
+                Some(json!({ "field": "path" })),
+            ));
+        }
+        if has_path
+            && matches!(
+                args.mode,
+                Some(PrismOpenModeInput::Focus | PrismOpenModeInput::Edit)
+            )
+        {
+            return Err(McpError::invalid_params(
+                "path-based prism_open currently supports only raw mode",
+                Some(json!({ "field": "mode" })),
             ));
         }
 

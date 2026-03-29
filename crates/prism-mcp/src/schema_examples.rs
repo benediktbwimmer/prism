@@ -49,8 +49,11 @@ pub(crate) fn tool_input_example(tool_name: &str) -> Option<Value> {
             "limit": 3,
         })),
         "prism_open" => Some(json!({
-            "handle": "handle:1",
-            "mode": "focus",
+            "path": "crates/prism-mcp/src/query_runtime.rs",
+            "mode": "raw",
+            "line": 686,
+            "beforeLines": 2,
+            "afterLines": 6,
         })),
         "prism_workset" => Some(json!({
             "handle": "handle:1",
@@ -512,7 +515,7 @@ fn plans_payload_example() -> Value {
             "status": "active",
             "scope": "repo",
             "kind": "migration",
-            "rootTaskIds": ["coord-task:1"],
+            "rootNodeIds": ["coord-task:1"],
             "summary": {
                 "planId": "plan:1",
                 "totalNodes": 6,

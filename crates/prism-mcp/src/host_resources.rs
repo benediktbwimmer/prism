@@ -220,7 +220,7 @@ impl QueryHost {
                 session.limits().max_result_nodes,
             )?,
         );
-        let mut related_resources = vec![
+        let related_resources = vec![
             session_resource_view_link(),
             schema_resource_view_link("plans"),
             schemas_resource_view_link(),
@@ -234,13 +234,6 @@ impl QueryHost {
                 )
             },
         ];
-        related_resources.extend(
-            paged
-                .items
-                .iter()
-                .flat_map(|plan| plan.root_task_ids.iter().take(4))
-                .map(|task_id| task_resource_view_link(task_id)),
-        );
         Ok(PlansResourcePayload {
             uri: uri.to_string(),
             schema_uri,

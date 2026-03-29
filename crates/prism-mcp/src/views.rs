@@ -672,15 +672,17 @@ pub(crate) fn workspace_revision_view(value: WorkspaceRevision) -> WorkspaceRevi
     }
 }
 
-pub(crate) fn plan_view(value: prism_coordination::Plan) -> PlanView {
+pub(crate) fn plan_view(
+    value: prism_coordination::Plan,
+    root_node_ids: Vec<prism_ir::PlanNodeId>,
+) -> PlanView {
     PlanView {
         id: value.id.0.to_string(),
         goal: value.goal,
         status: value.status,
-        root_task_ids: value
-            .root_tasks
+        root_node_ids: root_node_ids
             .into_iter()
-            .map(|task_id| task_id.0.to_string())
+            .map(|node_id| node_id.0.to_string())
             .collect(),
     }
 }
@@ -693,10 +695,10 @@ pub(crate) fn plan_list_entry_view(value: PlanListEntry) -> PlanListEntryView {
         status: value.status,
         scope: value.scope,
         kind: value.kind,
-        root_task_ids: value
-            .root_task_ids
+        root_node_ids: value
+            .root_node_ids
             .into_iter()
-            .map(|task_id| task_id.0.to_string())
+            .map(|node_id| node_id.0.to_string())
             .collect(),
         summary: plan_summary_view(value.summary),
     }

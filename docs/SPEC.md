@@ -1850,7 +1850,7 @@ interface PlanView {
   id: string;
   goal: string;
   status: PlanStatus;
-  rootTaskIds: string[];
+  rootNodeIds: string[];
 }
 
 interface CoordinationTaskView {

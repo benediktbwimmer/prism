@@ -7,12 +7,15 @@ use super::suggested_actions::{
     suggested_workset_action,
 };
 use super::text_fragments::{
-    compact_open_text_fragment, compact_text_fragment_related_handles, read_text_fragment,
+    compact_open_text_fragment, compact_text_fragment_related_handles, first_non_empty_line,
+    read_text_fragment, text_hit_kind,
 };
 use super::workset::{
     is_structured_config_target, prioritized_spec_supporting_reads, structured_symbol_followups,
 };
 use super::*;
+use crate::compact_followups::workspace_scoped_path;
+use crate::file_queries::file_around;
 
 const STRUCTURED_PREVIEW_FOLLOWUP_LIMIT: usize = 8;
 const STRUCTURED_PREVIEW_MAX_CHARS: usize = 240;
@@ -23,17 +26,34 @@ impl QueryHost {
         session: Arc<SessionState>,
         args: PrismOpenArgs,
     ) -> Result<AgentOpenResultView> {
-        let mode = agent_open_mode(args.mode.as_ref());
-        let query_text = format!("prism_open({}, {:?})", args.handle, mode);
+        let mode = if args.path.is_some() && args.mode.is_none() {
+            AgentOpenMode::Raw
+        } else {
+            agent_open_mode(args.mode.as_ref())
+        };
+        let target_text = args
+            .handle
+            .as_deref()
+            .or(args.path.as_deref())
+            .unwrap_or_default();
+        let query_text = format!("prism_open({}, {:?})", target_text, mode);
         self.execute_compact_tool(
             Arc::clone(&session),
             "prism_open",
             query_text,
             move |host, _query_run| {
+                if let Some(path) = args.path.as_deref() {
+                    let result =
+                        compact_open_exact_path(host, session.as_ref(), path, &args, mode)?;
+                    return Ok((result, Vec::new()));
+                }
                 let prism = host.current_prism();
-                if args.handle.starts_with("concept://") {
+                let handle = args.handle.as_deref().ok_or_else(|| {
+                    anyhow!("prism_open requires either a handle or an exact path")
+                })?;
+                if handle.starts_with("concept://") {
                     let selection =
-                        compact_concept_selection(session.as_ref(), prism.as_ref(), &args.handle)?;
+                        compact_concept_selection(session.as_ref(), prism.as_ref(), handle)?;
                     let (target, _) = resolve_handle_target(
                         host,
                         session.as_ref(),
@@ -47,7 +67,7 @@ impl QueryHost {
                         selection.likely_tests,
                     );
                     let suggested_actions = compact_concept_open_suggested_actions(
-                        &args.handle,
+                        handle,
                         &selection.packet,
                         related_handles.as_deref(),
                     );
@@ -55,7 +75,7 @@ impl QueryHost {
                         host,
                         session.as_ref(),
                         prism.as_ref(),
-                        &args.handle,
+                        handle,
                         crate::session_state::SessionHandleCategory::Concept,
                         mode,
                         &target,
@@ -71,14 +91,14 @@ impl QueryHost {
                     host,
                     session.as_ref(),
                     prism.as_ref(),
-                    &args.handle,
+                    handle,
                     Some("open"),
                 )?;
                 let result = if is_text_fragment_target(&target) {
                     compact_open_text_fragment(
                         host,
                         session.as_ref(),
-                        &args.handle,
+                        handle,
                         mode,
                         &target,
                         remapped,
@@ -90,16 +110,13 @@ impl QueryHost {
                         prism.as_ref(),
                         &target,
                     )?;
-                    let suggested_actions = compact_open_suggested_actions(
-                        &args.handle,
-                        &target,
-                        related_handles.as_deref(),
-                    );
+                    let suggested_actions =
+                        compact_open_suggested_actions(handle, &target, related_handles.as_deref());
                     compact_open_symbol_result(
                         host,
                         session.as_ref(),
                         prism.as_ref(),
-                        &args.handle,
+                        handle,
                         target.handle_category,
                         mode,
                         &target,
@@ -243,6 +260,124 @@ fn compact_open_symbol_result(
             )
         }
     }
+}
+
+fn compact_open_exact_path(
+    host: &QueryHost,
+    session: &SessionState,
+    path: &str,
+    args: &PrismOpenArgs,
+    mode: AgentOpenMode,
+) -> Result<AgentOpenResultView> {
+    if !matches!(mode, AgentOpenMode::Raw) {
+        return Err(anyhow!(
+            "path-based prism_open currently supports only raw mode"
+        ));
+    }
+    let scoped_path = workspace_scoped_path(
+        host.workspace.as_ref().map(|workspace| workspace.root()),
+        path,
+    );
+    let max_chars = Some(args.max_chars.unwrap_or(RAW_OPEN_MAX_CHARS));
+    if let Some(line) = args.line {
+        let slice = file_around(
+            host,
+            FileAroundArgs {
+                path: scoped_path.clone(),
+                line,
+                before: args.before_lines,
+                after: args.after_lines,
+                max_chars,
+            },
+        )?;
+        let target = session_target_from_exact_path_slice(&scoped_path, &slice);
+        let handle = session.intern_target_handle(target);
+        return compact_open_result_from_slice(
+            &handle,
+            crate::session_state::SessionHandleCategory::TextFragment,
+            &scoped_path,
+            slice,
+            false,
+            "Use prism_locate with `path` if you need a semantic symbol in this file, or prism_open again with a tighter `line` window.",
+            None,
+            None,
+            Vec::new(),
+        );
+    }
+
+    let excerpt = file_read(
+        host,
+        FileReadArgs {
+            path: scoped_path.clone(),
+            start_line: Some(1),
+            end_line: None,
+            max_chars,
+        },
+    )?;
+    let target = session_target_from_exact_path_excerpt(&scoped_path, &excerpt);
+    let handle = session.intern_target_handle(target);
+    compact_open_result_from_excerpt(
+        &handle,
+        crate::session_state::SessionHandleCategory::TextFragment,
+        &scoped_path,
+        excerpt,
+        false,
+        "Use prism_open with `line` for a tighter file window, or prism_locate with `path` for a semantic target in this file.",
+        None,
+        None,
+        Vec::new(),
+    )
+}
+
+fn session_target_from_exact_path_excerpt(
+    path: &str,
+    excerpt: &SourceExcerptView,
+) -> SessionHandleTarget {
+    let kind = text_hit_kind(path);
+    let basename = Path::new(path)
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or(path)
+        .to_string();
+    SessionHandleTarget {
+        id: NodeId::new(
+            TEXT_FRAGMENT_CRATE_NAME,
+            format!("{path}:{}", excerpt.start_line),
+            kind,
+        ),
+        lineage_id: None,
+        handle_category: crate::session_state::SessionHandleCategory::TextFragment,
+        name: format!("{basename}:{}", excerpt.start_line),
+        kind,
+        file_path: Some(path.to_string()),
+        query: first_non_empty_line(&excerpt.text).map(|line| line.to_string()),
+        why_short: clamp_string(
+            &format!("Exact path open for `{basename}`."),
+            MAX_WHY_SHORT_CHARS,
+        ),
+        start_line: Some(excerpt.start_line),
+        end_line: Some(excerpt.end_line),
+        start_column: None,
+        end_column: None,
+    }
+}
+
+fn session_target_from_exact_path_slice(
+    path: &str,
+    slice: &SourceSliceView,
+) -> SessionHandleTarget {
+    let mut target = session_target_from_exact_path_excerpt(
+        path,
+        &SourceExcerptView {
+            text: slice.text.clone(),
+            start_line: slice.start_line,
+            end_line: slice.end_line,
+            truncated: slice.truncated,
+        },
+    );
+    target.start_column = Some(slice.focus.start_column);
+    target.end_column = Some(slice.focus.end_column);
+    target
 }
 
 pub(super) fn compact_open_result_from_block(

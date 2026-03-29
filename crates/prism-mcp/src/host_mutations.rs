@@ -970,7 +970,16 @@ impl QueryHost {
                 let plan = prism
                     .coordination_plan(&plan_id)
                     .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
-                Ok(serde_json::to_value(plan_view(plan))?)
+                let root_node_ids = prism
+                    .plan_graph(&plan_id)
+                    .map(|graph| graph.root_nodes)
+                    .unwrap_or_else(|| {
+                        plan.root_tasks
+                            .iter()
+                            .map(|task_id| prism_ir::PlanNodeId::new(task_id.0.clone()))
+                            .collect()
+                    });
+                Ok(serde_json::to_value(plan_view(plan, root_node_ids))?)
             }
             CoordinationMutationKindInput::PlanUpdate => {
                 let payload: PlanUpdatePayload = serde_json::from_value(args.payload)?;
@@ -989,7 +998,16 @@ impl QueryHost {
                 let plan = prism
                     .coordination_plan(&plan_id)
                     .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
-                Ok(serde_json::to_value(plan_view(plan))?)
+                let root_node_ids = prism
+                    .plan_graph(&plan_id)
+                    .map(|graph| graph.root_nodes)
+                    .unwrap_or_else(|| {
+                        plan.root_tasks
+                            .iter()
+                            .map(|task_id| prism_ir::PlanNodeId::new(task_id.0.clone()))
+                            .collect()
+                    });
+                Ok(serde_json::to_value(plan_view(plan, root_node_ids))?)
             }
             CoordinationMutationKindInput::TaskCreate => {
                 let payload: TaskCreatePayload = serde_json::from_value(args.payload)?;

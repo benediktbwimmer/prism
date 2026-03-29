@@ -4,6 +4,7 @@ use prism_ir::{
     CoordinationTaskId, CoordinationTaskStatus, EventId, EventMeta, PlanId, PlanStatus, ReviewId,
     ReviewVerdict, SessionId, Timestamp, WorkspaceRevision,
 };
+use serde::Serialize;
 use serde_json::{json, Value};
 
 use crate::blockers::{completion_blockers, completion_policy_blockers};
@@ -29,6 +30,13 @@ fn push_patch_op(patch: &mut serde_json::Map<String, Value>, field: &str, op: &s
 
 fn patch_metadata(patch: serde_json::Map<String, Value>) -> Option<Value> {
     (!patch.is_empty()).then_some(Value::Object(patch))
+}
+
+fn insert_serialized<T: Serialize>(map: &mut serde_json::Map<String, Value>, key: &str, value: T) {
+    map.insert(
+        key.to_string(),
+        serde_json::to_value(value).expect("coordination metadata serialization should succeed"),
+    );
 }
 
 fn rejection_error(
@@ -762,7 +770,9 @@ pub(crate) fn create_plan_mutation(
         claim: None,
         artifact: None,
         review: None,
-        metadata: Value::Null,
+        metadata: json!({
+            "plan": plan.clone(),
+        }),
     });
     Ok((id, plan))
 }
@@ -910,6 +920,9 @@ pub(crate) fn update_plan_mutation(
         .plans
         .get_mut(&input.plan_id)
         .expect("plan validated above");
+    let update_goal = input.goal.is_some();
+    let update_status = input.status.is_some();
+    let update_policy = input.policy.is_some();
     if let Some(goal) = input.goal {
         plan.goal = goal;
     }
@@ -931,6 +944,19 @@ pub(crate) fn update_plan_mutation(
     );
     if let Some(patch) = patch {
         metadata.insert("patch".to_string(), patch);
+    }
+    let mut patch_values = serde_json::Map::new();
+    if update_goal {
+        insert_serialized(&mut patch_values, "goal", plan.goal.clone());
+    }
+    if update_status {
+        insert_serialized(&mut patch_values, "status", plan.status);
+    }
+    if update_policy {
+        insert_serialized(&mut patch_values, "policy", plan.policy.clone());
+    }
+    if !patch_values.is_empty() {
+        metadata.insert("patchValues".to_string(), Value::Object(patch_values));
     }
     state.events.push(CoordinationEvent {
         meta,
@@ -1062,7 +1088,9 @@ pub(crate) fn create_task_mutation(
         claim: None,
         artifact: None,
         review: None,
-        metadata: Value::Null,
+        metadata: json!({
+            "task": task.clone(),
+        }),
     });
     Ok((id, task))
 }
@@ -1074,6 +1102,14 @@ pub(crate) fn update_task_mutation(
     current_revision: WorkspaceRevision,
     now: Timestamp,
 ) -> Result<CoordinationTask> {
+    let update_status = input.status.is_some();
+    let update_assignee = input.assignee.is_some();
+    let update_session = input.session.is_some();
+    let update_title = input.title.is_some();
+    let update_anchors = input.anchors.is_some();
+    let update_depends_on = input.depends_on.is_some();
+    let update_acceptance = input.acceptance.is_some();
+    let update_base_revision = input.base_revision.is_some();
     let mut patch = serde_json::Map::new();
     if input.status.is_some() {
         push_patch_op(&mut patch, "status", "set");
@@ -1424,6 +1460,38 @@ pub(crate) fn update_task_mutation(
     if let Some(patch) = patch {
         metadata.insert("patch".to_string(), patch);
     }
+    let mut patch_values = serde_json::Map::new();
+    if update_status {
+        insert_serialized(&mut patch_values, "status", task.status);
+    }
+    if update_assignee {
+        insert_serialized(&mut patch_values, "assignee", task.assignee.clone());
+    }
+    if update_session {
+        insert_serialized(&mut patch_values, "session", task.session.clone());
+    }
+    if update_title {
+        insert_serialized(&mut patch_values, "title", task.title.clone());
+    }
+    if update_anchors {
+        insert_serialized(&mut patch_values, "anchors", task.anchors.clone());
+    }
+    if update_depends_on {
+        insert_serialized(&mut patch_values, "dependsOn", task.depends_on.clone());
+    }
+    if update_acceptance {
+        insert_serialized(&mut patch_values, "acceptance", task.acceptance.clone());
+    }
+    if update_base_revision {
+        insert_serialized(
+            &mut patch_values,
+            "baseRevision",
+            task.base_revision.clone(),
+        );
+    }
+    if !patch_values.is_empty() {
+        metadata.insert("patchValues".to_string(), Value::Object(patch_values));
+    }
     state.events.push(CoordinationEvent {
         meta,
         kind,
@@ -1557,6 +1625,38 @@ pub(crate) fn handoff_mutation(
     }
     task.base_revision = input.base_revision.clone();
     let task = task.clone();
+    let mut patch = serde_json::Map::new();
+    push_patch_op(&mut patch, "status", "set");
+    push_patch_op(
+        &mut patch,
+        "pendingHandoffTo",
+        if task.pending_handoff_to.is_some() {
+            "set"
+        } else {
+            "clear"
+        },
+    );
+    push_patch_op(&mut patch, "baseRevision", "set");
+    if target_agent.is_none() {
+        push_patch_op(&mut patch, "assignee", "clear");
+        push_patch_op(&mut patch, "session", "clear");
+    }
+    let mut patch_values = serde_json::Map::new();
+    insert_serialized(&mut patch_values, "status", task.status);
+    insert_serialized(
+        &mut patch_values,
+        "pendingHandoffTo",
+        task.pending_handoff_to.clone(),
+    );
+    insert_serialized(
+        &mut patch_values,
+        "baseRevision",
+        task.base_revision.clone(),
+    );
+    if target_agent.is_none() {
+        insert_serialized(&mut patch_values, "assignee", task.assignee.clone());
+        insert_serialized(&mut patch_values, "session", task.session.clone());
+    }
     state.events.push(CoordinationEvent {
         meta: meta.clone(),
         kind: CoordinationEventKind::HandoffRequested,
@@ -1567,7 +1667,9 @@ pub(crate) fn handoff_mutation(
         artifact: None,
         review: None,
         metadata: json!({
-            "to_agent": target_agent.map(|agent| agent.0.to_string())
+            "to_agent": target_agent.map(|agent| agent.0.to_string()),
+            "patch": Value::Object(patch),
+            "patchValues": Value::Object(patch_values),
         }),
     });
     Ok(task)
@@ -1694,6 +1796,20 @@ pub(crate) fn accept_handoff_mutation(
     task.session = None;
     task.status = CoordinationTaskStatus::Ready;
     let task = task.clone();
+    let mut patch = serde_json::Map::new();
+    push_patch_op(&mut patch, "assignee", "set");
+    push_patch_op(&mut patch, "pendingHandoffTo", "clear");
+    push_patch_op(&mut patch, "session", "clear");
+    push_patch_op(&mut patch, "status", "set");
+    let mut patch_values = serde_json::Map::new();
+    insert_serialized(&mut patch_values, "assignee", task.assignee.clone());
+    insert_serialized(
+        &mut patch_values,
+        "pendingHandoffTo",
+        task.pending_handoff_to.clone(),
+    );
+    insert_serialized(&mut patch_values, "session", task.session.clone());
+    insert_serialized(&mut patch_values, "status", task.status);
     state.events.push(CoordinationEvent {
         meta: derived_event_meta(&meta, "accepted"),
         kind: CoordinationEventKind::HandoffAccepted,
@@ -1705,6 +1821,8 @@ pub(crate) fn accept_handoff_mutation(
         review: None,
         metadata: json!({
             "agent": target.0.to_string(),
+            "patch": Value::Object(patch),
+            "patchValues": Value::Object(patch_values),
         }),
     });
     Ok(task)

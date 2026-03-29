@@ -1243,6 +1243,205 @@ fn task_update_events_record_sparse_patch_metadata() {
 }
 
 #[test]
+fn snapshot_load_replays_plan_and_task_patch_events() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                goal: "Original goal".to_string(),
+                status: Some(prism_ir::PlanStatus::Draft),
+                policy: None,
+            },
+        )
+        .unwrap();
+    store
+        .update_plan(
+            meta("event:2", 2),
+            PlanUpdateInput {
+                plan_id: plan_id.clone(),
+                status: Some(prism_ir::PlanStatus::Active),
+                goal: Some("Refined goal".to_string()),
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            meta("event:3", 3),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Investigate".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: Some(prism_ir::AgentId::new("agent:a")),
+                session: Some(prism_ir::SessionId::new("session:a")),
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+    let (dependency_id, _) = store
+        .create_task(
+            meta("event:4", 4),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Dependency".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+    store
+        .update_task(
+            meta("event:5", 5),
+            TaskUpdateInput {
+                task_id: task_id.clone(),
+                status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                assignee: Some(None),
+                session: Some(None),
+                title: Some("Investigate deeply".to_string()),
+                anchors: None,
+                depends_on: Some(vec![dependency_id.clone()]),
+                acceptance: None,
+                base_revision: Some(prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                }),
+                completion_context: None,
+            },
+            prism_ir::WorkspaceRevision {
+                graph_version: 1,
+                git_commit: None,
+            },
+            5,
+        )
+        .unwrap();
+
+    let mut snapshot = store.snapshot();
+    let plan = snapshot
+        .plans
+        .iter_mut()
+        .find(|plan| plan.id == plan_id)
+        .expect("plan should be present");
+    plan.goal = "stale goal".to_string();
+    plan.status = prism_ir::PlanStatus::Draft;
+    plan.root_tasks = vec![task_id.clone()];
+    let task = snapshot
+        .tasks
+        .iter_mut()
+        .find(|task| task.id == task_id)
+        .expect("task should be present");
+    task.title = "stale title".to_string();
+    task.status = prism_ir::CoordinationTaskStatus::Ready;
+    task.assignee = Some(prism_ir::AgentId::new("agent:stale"));
+    task.session = Some(prism_ir::SessionId::new("session:stale"));
+    task.depends_on.clear();
+
+    let reloaded = CoordinationStore::from_snapshot(snapshot);
+    let plan = reloaded.plan(&plan_id).expect("plan should reload");
+    assert_eq!(plan.goal, "Refined goal");
+    assert_eq!(plan.status, prism_ir::PlanStatus::Active);
+    assert_eq!(plan.root_tasks, vec![dependency_id]);
+    let task = reloaded.task(&task_id).expect("task should reload");
+    assert_eq!(task.title, "Investigate deeply");
+    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::InProgress);
+    assert_eq!(task.assignee, None);
+    assert_eq!(task.session, None);
+}
+
+#[test]
+fn snapshot_load_replays_handoff_events() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                goal: "Handle handoffs".to_string(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            meta("event:2", 2),
+            TaskCreateInput {
+                plan_id,
+                title: "Review work".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                assignee: Some(prism_ir::AgentId::new("agent:a")),
+                session: Some(prism_ir::SessionId::new("session:a")),
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+    store
+        .handoff(
+            meta("event:3", 3),
+            HandoffInput {
+                task_id: task_id.clone(),
+                to_agent: Some(prism_ir::AgentId::new("agent:b")),
+                summary: "Need review".to_string(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+            prism_ir::WorkspaceRevision {
+                graph_version: 1,
+                git_commit: None,
+            },
+        )
+        .unwrap();
+    store
+        .accept_handoff(
+            meta("event:4", 4),
+            HandoffAcceptInput {
+                task_id: task_id.clone(),
+                agent: Some(prism_ir::AgentId::new("agent:b")),
+            },
+        )
+        .unwrap();
+
+    let mut snapshot = store.snapshot();
+    let task = snapshot
+        .tasks
+        .iter_mut()
+        .find(|task| task.id == task_id)
+        .expect("task should be present");
+    task.assignee = Some(prism_ir::AgentId::new("agent:stale"));
+    task.pending_handoff_to = Some(prism_ir::AgentId::new("agent:b"));
+    task.session = Some(prism_ir::SessionId::new("session:stale"));
+    task.status = prism_ir::CoordinationTaskStatus::Blocked;
+
+    let reloaded = CoordinationStore::from_snapshot(snapshot);
+    let task = reloaded.task(&task_id).expect("task should reload");
+    assert_eq!(task.assignee, Some(prism_ir::AgentId::new("agent:b")));
+    assert_eq!(task.pending_handoff_to, None);
+    assert_eq!(task.session, None);
+    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::Ready);
+}
+
+#[test]
 fn handoff_acceptance_blocks_updates_until_target_accepts() {
     let store = CoordinationStore::new();
     let (plan_id, _) = store

@@ -766,72 +766,47 @@ Validation recipes should be attachable as:
 
 The full plan system should expose a compact default read path and a richer query/runtime path.
 
-## 11.1 Compact read tools
+## 11.1 Resource and query discovery surface
 
-### `prism_plan(plan_id_or_query)`
-Returns a compact plan brief:
+Plans should not add a separate family of dedicated MCP tools. The compact browse and discovery path is:
 
-- `plan_handle`
+- `prism://plans`
+- `prism.plans({ status?, scope?, contains?, limit? })`
+- `prism.plan(planId)`
+- `prism.planSummary(planId)`
+- `prism.planNext(planId, limit?)`
+
+Design guidance:
+
+- prefer a browseable plans resource plus the existing JS/query surface over adding more top-level MCP tools
+- discovery is `list/filter -> inspect by id`, not fuzzy single-item lookup
+- `prism.plan(planId)` is an exact-id read, and broader lookup should start from `prism://plans` or `prism.plans(...)`
+- plan discovery payloads should expose plan-native identifiers such as `root_node_ids`, not compatibility task ids
+- related resources may point back to the filtered plans resource, schemas, and session context; they should not imply that plans are fundamentally task-addressed
+
+`prism://plans` should return compact list entries with:
+
 - `plan_id`
 - `title`
 - `goal`
 - `status`
+- `scope`
 - `kind`
-- `ready_nodes`
-- `blocked_nodes`
-- `critical_path_summary`
-- `why`
-
-### `prism_plan_node(handle_or_id)`
-Returns a compact node brief:
-
-- `node_handle`
-- `title`
-- `kind`
-- `status`
-- `bindings_summary`
-- `depends_on`
-- `blockers`
-- `likely_validations`
-- `risk_hint`
-- `next_actions`
-
-### `prism_plan_next(plan_handle)`
-Returns the best next executable nodes for the current context.
-
-### `prism_plan_path(from_node, to_node?)`
-Returns the dependency path or critical path slice.
-
-### `prism_plan_expand(handle, kind)`
-Where `kind` may be:
-
-- `graph`
-- `execution`
-- `timeline`
-- `blockers`
-- `claims`
-- `risk`
-- `validation`
-- `memory`
-- `outcomes`
+- `root_node_ids`
+- `summary`
 
 ## 11.2 Runtime query surface
 The JS/query runtime should expose richer programmatic access:
 
 ```ts
+prism.plans(options?)
 prism.plan(planId)
-prism.planNode(nodeId)
-prism.planNodes(planId)
-prism.readyPlanNodes(planId)
-prism.blockedPlanNodes(planId)
-prism.planCriticalPath(planId)
-prism.planNodeExecution(nodeId)
-prism.planNodeBlockers(nodeId)
-prism.planNodeRisk(nodeId)
-prism.planNodeTimeline(nodeId)
-prism.planNodeMemory(nodeId)
-prism.planNodeOutcomes(nodeId)
-prism.planNodeClaims(nodeId)
+prism.planGraph(planId)
+prism.planExecution(planId)
+prism.planReadyNodes(planId)
+prism.planNodeBlockers(planId, nodeId)
+prism.planSummary(planId)
+prism.planNext(planId, limit?)
 ```
 
 ## 11.3 Mutation surface

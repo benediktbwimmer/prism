@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::RwLock;
 
+use crate::event_replay::rehydrate_plan_task_state;
 use crate::helpers::sorted_values;
 use crate::types::{
     Artifact, ArtifactReview, CoordinationEvent, CoordinationSnapshot, CoordinationTask, Plan,
@@ -30,6 +31,7 @@ pub(crate) struct CoordinationState {
 
 impl CoordinationState {
     pub(crate) fn from_snapshot(snapshot: CoordinationSnapshot) -> Self {
+        let snapshot = rehydrate_plan_task_state(snapshot);
         Self {
             plans: snapshot
                 .plans

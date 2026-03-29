@@ -1,5 +1,6 @@
 mod blockers;
 mod compat;
+mod event_replay;
 mod helpers;
 mod mutations;
 mod queries;

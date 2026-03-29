@@ -843,7 +843,7 @@ pub struct PlanView {
     pub id: String,
     pub goal: String,
     pub status: PlanStatus,
-    pub root_task_ids: Vec<String>,
+    pub root_node_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -855,7 +855,7 @@ pub struct PlanListEntryView {
     pub status: PlanStatus,
     pub scope: PlanScope,
     pub kind: PlanKind,
-    pub root_task_ids: Vec<String>,
+    pub root_node_ids: Vec<String>,
     pub summary: PlanSummaryView,
 }
 

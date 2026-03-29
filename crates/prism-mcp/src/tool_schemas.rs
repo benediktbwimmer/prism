@@ -54,8 +54,9 @@ pub(crate) fn tool_schema_catalog_entries() -> Vec<ToolSchemaCatalogEntry> {
         ToolSchemaCatalogEntry {
             tool_name: "prism_open".to_string(),
             schema_uri: tool_schema_resource_uri("prism_open"),
-            description: "Input schema for opening one compact handle as a bounded code slice."
-                .to_string(),
+            description:
+                "Input schema for opening one compact handle or exact workspace path as a bounded code slice."
+                    .to_string(),
             example_input: tool_input_example("prism_open").expect("tool example"),
         },
         ToolSchemaCatalogEntry {
