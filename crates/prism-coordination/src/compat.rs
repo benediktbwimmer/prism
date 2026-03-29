@@ -216,8 +216,12 @@ fn task_from_plan_node(
         pending_handoff_to: execution
             .as_ref()
             .and_then(|overlay| overlay.pending_handoff_to.clone()),
-        session: execution.as_ref().and_then(|overlay| overlay.session.clone()),
-        worktree_id: execution.as_ref().and_then(|overlay| overlay.worktree_id.clone()),
+        session: execution
+            .as_ref()
+            .and_then(|overlay| overlay.session.clone()),
+        worktree_id: execution
+            .as_ref()
+            .and_then(|overlay| overlay.worktree_id.clone()),
         branch_ref: execution.and_then(|overlay| overlay.branch_ref),
         anchors,
         bindings: node.bindings,

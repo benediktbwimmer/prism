@@ -1,6 +1,6 @@
 use prism_ir::{
-    ArtifactStatus, ClaimStatus, CoordinationEventKind, CoordinationTaskId,
-    CoordinationTaskStatus, PlanId, PlanStatus,
+    ArtifactStatus, ClaimStatus, CoordinationEventKind, CoordinationTaskId, CoordinationTaskStatus,
+    PlanId, PlanStatus,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

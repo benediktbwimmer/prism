@@ -1,22 +1,28 @@
 use anyhow::Result;
-use prism_coordination::{ready_task_count_for_active_plans, CoordinationReadModel};
+use prism_coordination::{
+    coordination_queue_read_model_from_snapshot, ready_task_count_for_active_plans,
+    CoordinationQueueReadModel, CoordinationReadModel,
+};
 use prism_ir::{ClaimStatus, TaskId};
 use prism_js::TaskJournalView;
 
 use crate::dashboard_types::{
-    DashboardCoordinationSummaryView, DashboardSummaryView, DashboardTaskSnapshotView,
+    DashboardCoordinationQueuesView, DashboardCoordinationSummaryView, DashboardSummaryView,
+    DashboardTaskSnapshotView,
 };
 use crate::runtime_views::{runtime_status, runtime_timeline};
 use crate::{
-    artifact_view, current_timestamp, policy_violation_record_view, task_journal_view,
-    CoordinationFeaturesView, FeatureFlagsView, QueryHost, RuntimeTimelineArgs, SessionLimitsView,
-    SessionState, SessionTaskView, SessionView,
+    artifact_view, claim_view, coordination_task_view, current_timestamp,
+    policy_violation_record_view, task_journal_view, CoordinationFeaturesView, FeatureFlagsView,
+    QueryHost, RuntimeTimelineArgs, SessionLimitsView, SessionState, SessionTaskView, SessionView,
 };
 
 const DASHBOARD_TASK_EVENT_LIMIT: usize = 12;
 const DASHBOARD_TASK_MEMORY_LIMIT: usize = 6;
 const DASHBOARD_COORDINATION_REVIEW_LIMIT: usize = 6;
 const DASHBOARD_COORDINATION_VIOLATION_LIMIT: usize = 6;
+const DASHBOARD_COORDINATION_HANDOFF_LIMIT: usize = 6;
+const DASHBOARD_COORDINATION_CLAIM_LIMIT: usize = 6;
 
 impl QueryHost {
     pub(crate) fn dashboard_summary_view(&self) -> Result<DashboardSummaryView> {
@@ -84,6 +90,16 @@ impl QueryHost {
             .as_ref()
             .and_then(|workspace| workspace.load_coordination_read_model().ok().flatten())
             .unwrap_or_else(|| fallback_coordination_read_model(&fallback_snapshot));
+        let queue_model = self
+            .workspace
+            .as_ref()
+            .and_then(|workspace| {
+                workspace
+                    .load_coordination_queue_read_model()
+                    .ok()
+                    .flatten()
+            })
+            .unwrap_or_else(|| fallback_coordination_queue_read_model(&fallback_snapshot));
         let ready_task_count =
             ready_task_count_for_active_plans(&read_model.active_plans, |plan_id| {
                 prism.ready_tasks(plan_id, now).len()
@@ -115,10 +131,59 @@ impl QueryHost {
             ready_task_count,
             in_review_task_count: read_model.in_review_task_ids.len(),
             active_claim_count,
+            pending_handoff_count: queue_model.pending_handoff_tasks.len(),
             pending_review_count: read_model.pending_review_artifacts.len(),
             proposed_artifact_count: read_model.proposed_artifact_count,
             recent_pending_reviews,
             recent_violations,
+        })
+    }
+
+    pub(crate) fn dashboard_coordination_queues(&self) -> Result<DashboardCoordinationQueuesView> {
+        if !self.features.coordination_layer_enabled() {
+            return Ok(DashboardCoordinationQueuesView::disabled());
+        }
+
+        let prism = self.current_prism();
+        let fallback_snapshot = prism.coordination_snapshot();
+        let queue_model = self
+            .workspace
+            .as_ref()
+            .and_then(|workspace| {
+                workspace
+                    .load_coordination_queue_read_model()
+                    .ok()
+                    .flatten()
+            })
+            .unwrap_or_else(|| fallback_coordination_queue_read_model(&fallback_snapshot));
+
+        let pending_handoffs = queue_model
+            .pending_handoff_tasks
+            .iter()
+            .take(DASHBOARD_COORDINATION_HANDOFF_LIMIT)
+            .cloned()
+            .map(coordination_task_view)
+            .collect();
+        let active_claims = queue_model
+            .active_claims
+            .iter()
+            .take(DASHBOARD_COORDINATION_CLAIM_LIMIT)
+            .cloned()
+            .map(claim_view)
+            .collect();
+        let pending_reviews = queue_model
+            .pending_review_artifacts
+            .iter()
+            .take(DASHBOARD_COORDINATION_REVIEW_LIMIT)
+            .cloned()
+            .map(artifact_view)
+            .collect();
+
+        Ok(DashboardCoordinationQueuesView {
+            enabled: true,
+            pending_handoffs,
+            active_claims,
+            pending_reviews,
         })
     }
 
@@ -133,6 +198,9 @@ impl QueryHost {
         let summary = self.dashboard_coordination_summary()?;
         self.dashboard_state()
             .publish_value("coordination.updated", serde_json::to_value(summary)?);
+        let queues = self.dashboard_coordination_queues()?;
+        self.dashboard_state()
+            .publish_value("coordination.queues.updated", serde_json::to_value(queues)?);
         Ok(())
     }
 }
@@ -141,6 +209,12 @@ fn fallback_coordination_read_model(
     snapshot: &prism_coordination::CoordinationSnapshot,
 ) -> CoordinationReadModel {
     prism_coordination::coordination_read_model_from_snapshot(snapshot)
+}
+
+fn fallback_coordination_queue_read_model(
+    snapshot: &prism_coordination::CoordinationSnapshot,
+) -> CoordinationQueueReadModel {
+    coordination_queue_read_model_from_snapshot(snapshot)
 }
 
 fn dashboard_session_view(host: &QueryHost, session: Option<&SessionState>) -> SessionView {

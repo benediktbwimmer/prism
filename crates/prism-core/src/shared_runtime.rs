@@ -8,7 +8,10 @@ use prism_projections::{
     ConceptPacket, ConceptRelation, ConceptScope, ProjectionIndex, ProjectionSnapshot,
 };
 
-pub(crate) fn composite_workspace_revision(local_revision: u64, shared_revision: Option<u64>) -> u64 {
+pub(crate) fn composite_workspace_revision(
+    local_revision: u64,
+    shared_revision: Option<u64>,
+) -> u64 {
     shared_revision.map_or(local_revision, |shared| local_revision.max(shared))
 }
 

@@ -84,13 +84,7 @@ impl SessionState {
         let sequence = self.next_event.fetch_add(1, Ordering::Relaxed) + 1;
         let session_fragment = format!("{:?}", self.session_id)
             .chars()
-            .map(|ch| {
-                if ch.is_ascii_alphanumeric() {
-                    ch
-                } else {
-                    '-'
-                }
-            })
+            .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '-' })
             .collect::<String>();
         EventId::new(format!("{prefix}:{session_fragment}:{sequence}"))
     }

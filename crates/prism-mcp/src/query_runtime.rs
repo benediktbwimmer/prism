@@ -113,7 +113,7 @@ impl QueryHost {
             self.begin_query_run(session.as_ref(), "symbolQuery", format!("symbol({query})"));
         let mut execution = None;
         match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize)> {
-            self.refresh_workspace()?;
+            self.observe_workspace_for_read()?;
             let created = QueryExecution::new(
                 self.clone(),
                 Arc::clone(&session),
@@ -166,7 +166,7 @@ impl QueryHost {
         );
         let mut execution = None;
         match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize)> {
-            self.refresh_workspace()?;
+            self.observe_workspace_for_read()?;
             let created = QueryExecution::new(
                 self.clone(),
                 Arc::clone(&session),
@@ -211,7 +211,7 @@ impl QueryHost {
         let mut execution = None;
         match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize, bool)> {
             let refresh_started = Instant::now();
-            let refresh = self.refresh_workspace_for_query()?;
+            let refresh = self.observe_workspace_for_read()?;
             query_run.record_phase(
                 "typescript.refreshWorkspace",
                 &json!({

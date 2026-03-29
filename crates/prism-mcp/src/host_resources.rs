@@ -62,7 +62,7 @@ impl QueryHost {
     }
 
     pub(crate) fn session_view(&self, session: &SessionState) -> Result<SessionView> {
-        self.refresh_workspace_for_query()?;
+        self.observe_workspace_for_read()?;
         Ok(self.session_view_without_refresh(session))
     }
 
@@ -153,7 +153,7 @@ impl QueryHost {
         session: Arc<SessionState>,
         uri: &str,
     ) -> Result<EntrypointsResourcePayload> {
-        self.refresh_workspace_for_query()?;
+        self.observe_workspace_for_read()?;
         let schema_uri = schema_resource_uri("entrypoints");
         let prism = self.current_prism();
         let execution = QueryExecution::new(
@@ -197,7 +197,7 @@ impl QueryHost {
         session: Arc<SessionState>,
         uri: &str,
     ) -> Result<PlansResourcePayload> {
-        self.refresh_workspace_for_query()?;
+        self.observe_workspace_for_read()?;
         let schema_uri = schema_resource_uri("plans");
         let prism = self.current_prism();
         let execution = QueryExecution::new(
@@ -257,7 +257,7 @@ impl QueryHost {
         session: Arc<SessionState>,
         id: &NodeId,
     ) -> Result<SymbolResourcePayload> {
-        self.refresh_workspace_for_query()?;
+        self.observe_workspace_for_read()?;
         let schema_uri = schema_resource_uri("symbol");
         let prism = self.current_prism();
         let execution = QueryExecution::new(
@@ -337,7 +337,7 @@ impl QueryHost {
         uri: &str,
         query: &str,
     ) -> Result<SearchResourcePayload> {
-        self.refresh_workspace_for_query()?;
+        self.observe_workspace_for_read()?;
         let schema_uri = schema_resource_uri("search");
         let prism = self.current_prism();
         let execution = QueryExecution::new(
@@ -530,7 +530,7 @@ impl QueryHost {
         uri: &str,
         lineage: &LineageId,
     ) -> Result<LineageResourcePayload> {
-        self.refresh_workspace_for_query()?;
+        self.observe_workspace_for_read()?;
         let schema_uri = schema_resource_uri("lineage");
         let prism = self.current_prism();
         let history = prism.history_snapshot();
@@ -596,7 +596,7 @@ impl QueryHost {
         uri: &str,
         task_id: &TaskId,
     ) -> Result<TaskResourcePayload> {
-        self.refresh_workspace_for_query()?;
+        self.observe_workspace_for_read()?;
         let schema_uri = schema_resource_uri("task");
         let prism = self.current_prism();
         let replay = prism.resume_task(task_id);
@@ -647,7 +647,7 @@ impl QueryHost {
     }
 
     pub(crate) fn event_resource_value(&self, event_id: &EventId) -> Result<EventResourcePayload> {
-        self.refresh_workspace_for_query()?;
+        self.observe_workspace_for_read()?;
         let schema_uri = schema_resource_uri("event");
         let event = self
             .current_prism()
@@ -677,7 +677,7 @@ impl QueryHost {
         session: &SessionState,
         memory_id: &MemoryId,
     ) -> Result<MemoryResourcePayload> {
-        self.refresh_workspace_for_query()?;
+        self.observe_workspace_for_read()?;
         let schema_uri = schema_resource_uri("memory");
         let entry = session
             .notes
@@ -734,7 +734,7 @@ impl QueryHost {
         session: &SessionState,
         edge_id: &EdgeId,
     ) -> Result<EdgeResourcePayload> {
-        self.refresh_workspace_for_query()?;
+        self.observe_workspace_for_read()?;
         let schema_uri = schema_resource_uri("edge");
         let record = session
             .inferred_edges

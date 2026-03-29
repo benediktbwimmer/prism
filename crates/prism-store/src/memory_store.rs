@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use prism_coordination::{CoordinationEvent, CoordinationReadModel};
+use prism_coordination::{CoordinationEvent, CoordinationQueueReadModel, CoordinationReadModel};
 use prism_projections::ProjectionIndex;
 
 use crate::graph::{Graph, GraphSnapshot};
@@ -23,6 +23,7 @@ pub struct MemoryStore {
     coordination_events: Vec<CoordinationEvent>,
     coordination_compaction: Option<(usize, prism_coordination::CoordinationSnapshot)>,
     coordination_read_model: Option<CoordinationReadModel>,
+    coordination_queue_read_model: Option<CoordinationQueueReadModel>,
     coordination_revision: u64,
     latest_coordination_context: Option<CoordinationPersistContext>,
 }
@@ -223,6 +224,18 @@ impl Store for MemoryStore {
         Ok(())
     }
 
+    fn load_coordination_queue_read_model(&mut self) -> Result<Option<CoordinationQueueReadModel>> {
+        Ok(self.coordination_queue_read_model.clone())
+    }
+
+    fn save_coordination_queue_read_model(
+        &mut self,
+        read_model: &CoordinationQueueReadModel,
+    ) -> Result<()> {
+        self.coordination_queue_read_model = Some(read_model.clone());
+        Ok(())
+    }
+
     fn load_latest_coordination_persist_context(
         &mut self,
     ) -> Result<Option<CoordinationPersistContext>> {
@@ -238,9 +251,9 @@ impl Store for MemoryStore {
             if expected_revision != current_revision {
                 if !batch.appended_events.is_empty()
                     && batch.appended_events.iter().all(|event| {
-                    self.coordination_events
-                        .iter()
-                        .any(|stored| stored.meta.id == event.meta.id)
+                        self.coordination_events
+                            .iter()
+                            .any(|stored| stored.meta.id == event.meta.id)
                     })
                 {
                     return Ok(CoordinationPersistResult {

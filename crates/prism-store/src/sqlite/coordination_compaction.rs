@@ -51,7 +51,10 @@ pub(super) fn save_compaction(conn: &Connection, snapshot: &CoordinationSnapshot
          ON CONFLICT(id) DO UPDATE SET
              last_sequence = excluded.last_sequence,
              payload = excluded.payload",
-        params![last_sequence, serde_json::to_string(&compacted_snapshot(snapshot))?],
+        params![
+            last_sequence,
+            serde_json::to_string(&compacted_snapshot(snapshot))?
+        ],
     )?;
     Ok(())
 }

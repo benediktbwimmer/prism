@@ -370,31 +370,33 @@ impl QueryHost {
         Ok(())
     }
 
-    pub(crate) fn refresh_workspace_for_query(&self) -> Result<WorkspaceRefreshReport> {
+    pub(crate) fn observe_workspace_for_read(&self) -> Result<WorkspaceRefreshReport> {
         let Some(workspace) = &self.workspace else {
             return Ok(WorkspaceRefreshReport::none());
         };
         let Some(runtime) = &self.workspace_runtime else {
-            let _ = workspace.refresh_fs_nonblocking()?;
-            return Ok(WorkspaceRefreshReport::none());
+            let refresh_path = match workspace.refresh_fs_nonblocking()? {
+                FsRefreshStatus::Clean => "none",
+                FsRefreshStatus::Refreshed => "full",
+                FsRefreshStatus::DeferredBusy => "deferred",
+            };
+            return Ok(WorkspaceRefreshReport {
+                refresh_path,
+                deferred: refresh_path == "deferred",
+                episodic_reloaded: false,
+                inference_reloaded: false,
+                coordination_reloaded: false,
+            });
         };
 
-        let config = WorkspaceRuntimeConfig {
-            workspace: Arc::clone(workspace),
-            notes: Arc::clone(&self.notes),
-            inferred_edges: Arc::clone(&self.inferred_edges),
-            dashboard_state: Arc::clone(&self.dashboard_state),
-            loaded_workspace_revision: Arc::clone(&self.loaded_workspace_revision),
-            loaded_episodic_revision: Arc::clone(&self.loaded_episodic_revision),
-            loaded_inference_revision: Arc::clone(&self.loaded_inference_revision),
-            loaded_coordination_revision: Arc::clone(&self.loaded_coordination_revision),
-        };
-        let report = sync_persisted_workspace_state(&config)?;
-        if report.coordination_reloaded {
-            let _ = self.publish_dashboard_coordination_update();
-        }
         runtime.request_refresh();
-        Ok(report)
+        Ok(WorkspaceRefreshReport {
+            refresh_path: "queued",
+            deferred: false,
+            episodic_reloaded: false,
+            inference_reloaded: false,
+            coordination_reloaded: false,
+        })
     }
 
     pub(crate) fn refresh_workspace_for_mutation(&self) -> Result<WorkspaceRefreshReport> {

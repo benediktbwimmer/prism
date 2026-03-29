@@ -1178,7 +1178,11 @@ pub(crate) fn update_task_mutation(
         push_patch_op(
             &mut patch,
             "worktreeId",
-            if worktree_id.is_some() { "set" } else { "clear" },
+            if worktree_id.is_some() {
+                "set"
+            } else {
+                "clear"
+            },
         );
     }
     if let Some(branch_ref) = input.branch_ref.as_ref() {
@@ -1887,12 +1891,20 @@ pub(crate) fn accept_handoff_mutation(
     push_patch_op(
         &mut patch,
         "worktreeId",
-        if task.worktree_id.is_some() { "set" } else { "clear" },
+        if task.worktree_id.is_some() {
+            "set"
+        } else {
+            "clear"
+        },
     );
     push_patch_op(
         &mut patch,
         "branchRef",
-        if task.branch_ref.is_some() { "set" } else { "clear" },
+        if task.branch_ref.is_some() {
+            "set"
+        } else {
+            "clear"
+        },
     );
     push_patch_op(&mut patch, "status", "set");
     let mut patch_values = serde_json::Map::new();

@@ -26,6 +26,7 @@ pub(crate) struct MutationDashboardMeta {
 #[derive(Clone, Copy)]
 pub(crate) enum MutationRefreshPolicy {
     None,
+    #[allow(dead_code)]
     PersistedOnly,
 }
 
@@ -276,7 +277,7 @@ impl PrismMcpServer {
 
                 let session = self.execute_logged_mutation(
                     "session.bind_coordination_task",
-                    MutationRefreshPolicy::PersistedOnly,
+                    MutationRefreshPolicy::None,
                     || {
                         self.host.configure_session_without_refresh(
                             self.session.as_ref(),
@@ -329,7 +330,7 @@ impl PrismMcpServer {
             PrismSessionArgs::Configure(args) => {
                 let session = self.execute_logged_mutation(
                     "session.configure",
-                    MutationRefreshPolicy::PersistedOnly,
+                    MutationRefreshPolicy::None,
                     || {
                         self.host
                             .configure_session_without_refresh(self.session.as_ref(), args)
@@ -378,7 +379,7 @@ impl PrismMcpServer {
 
                 let result = self.execute_logged_mutation(
                     "session.finish_task",
-                    MutationRefreshPolicy::PersistedOnly,
+                    MutationRefreshPolicy::None,
                     || {
                         self.host
                             .finish_task_without_refresh(self.session.as_ref(), args)
@@ -425,7 +426,7 @@ impl PrismMcpServer {
 
                 let result = self.execute_logged_mutation(
                     "session.abandon_task",
-                    MutationRefreshPolicy::PersistedOnly,
+                    MutationRefreshPolicy::None,
                     || {
                         self.host
                             .abandon_task_without_refresh(self.session.as_ref(), args)
@@ -757,7 +758,7 @@ impl PrismMcpServer {
             PrismMutationArgs::Outcome(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.outcome",
-                    MutationRefreshPolicy::PersistedOnly,
+                    MutationRefreshPolicy::None,
                     || {
                         self.host
                             .store_outcome_without_refresh(self.session.as_ref(), args)
@@ -785,7 +786,7 @@ impl PrismMcpServer {
             PrismMutationArgs::Memory(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.memory",
-                    MutationRefreshPolicy::PersistedOnly,
+                    MutationRefreshPolicy::None,
                     || {
                         self.host
                             .store_memory_without_refresh(self.session.as_ref(), args)
@@ -813,7 +814,7 @@ impl PrismMcpServer {
             PrismMutationArgs::Concept(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.concept",
-                    MutationRefreshPolicy::PersistedOnly,
+                    MutationRefreshPolicy::None,
                     || {
                         self.host
                             .store_concept_without_refresh(self.session.as_ref(), args)
@@ -842,7 +843,7 @@ impl PrismMcpServer {
             PrismMutationArgs::ConceptRelation(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.concept_relation",
-                    MutationRefreshPolicy::PersistedOnly,
+                    MutationRefreshPolicy::None,
                     || {
                         self.host
                             .store_concept_relation(self.session.as_ref(), args)
@@ -871,7 +872,7 @@ impl PrismMcpServer {
             PrismMutationArgs::ValidationFeedback(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.validation_feedback",
-                    MutationRefreshPolicy::PersistedOnly,
+                    MutationRefreshPolicy::None,
                     || {
                         self.host
                             .store_validation_feedback_without_refresh(self.session.as_ref(), args)
@@ -985,7 +986,7 @@ impl PrismMcpServer {
                 );
                 let result = self.execute_logged_mutation(
                     "mutate.test_ran",
-                    MutationRefreshPolicy::PersistedOnly,
+                    MutationRefreshPolicy::None,
                     || {
                         self.host.store_outcome_without_refresh(
                             self.session.as_ref(),
@@ -1032,7 +1033,7 @@ impl PrismMcpServer {
                     .map(|trace| vec![OutcomeEvidenceInput::StackTrace { hash: trace }]);
                 let result = self.execute_logged_mutation(
                     "mutate.failure_observed",
-                    MutationRefreshPolicy::PersistedOnly,
+                    MutationRefreshPolicy::None,
                     || {
                         self.host.store_outcome_without_refresh(
                             self.session.as_ref(),
@@ -1069,7 +1070,7 @@ impl PrismMcpServer {
             PrismMutationArgs::FixValidated(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.fix_validated",
-                    MutationRefreshPolicy::PersistedOnly,
+                    MutationRefreshPolicy::None,
                     || {
                         self.host.store_outcome_without_refresh(
                             self.session.as_ref(),

@@ -4,8 +4,12 @@ use std::path::{Path, PathBuf};
 pub enum SharedRuntimeBackend {
     #[default]
     Disabled,
-    Sqlite { path: PathBuf },
-    Remote { uri: String },
+    Sqlite {
+        path: PathBuf,
+    },
+    Remote {
+        uri: String,
+    },
 }
 
 impl SharedRuntimeBackend {

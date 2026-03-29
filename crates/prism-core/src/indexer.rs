@@ -88,7 +88,8 @@ impl WorkspaceIndexer<SqliteStore> {
         };
         if let Some(shared_store) = shared_runtime_store.as_mut() {
             if options.coordination {
-                let plan_state = shared_store.load_hydrated_coordination_plan_state_for_root(&root)?;
+                let plan_state =
+                    shared_store.load_hydrated_coordination_plan_state_for_root(&root)?;
                 indexer.coordination_snapshot = plan_state
                     .as_ref()
                     .map(|state| state.snapshot.clone())

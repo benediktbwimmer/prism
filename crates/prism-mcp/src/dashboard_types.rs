@@ -1,6 +1,6 @@
 use prism_js::{
-    ArtifactView, PolicyViolationRecordView, QueryLogEntryView, QueryPhaseView, QueryTraceView,
-    RuntimeLogEventView, RuntimeStatusView, TaskJournalView,
+    ArtifactView, ClaimView, CoordinationTaskView, PolicyViolationRecordView, QueryLogEntryView,
+    QueryPhaseView, QueryTraceView, RuntimeLogEventView, RuntimeStatusView, TaskJournalView,
 };
 use serde::Serialize;
 use serde_json::Value;
@@ -25,6 +25,7 @@ pub(crate) struct DashboardBootstrapView {
     pub(crate) operations: DashboardOperationsView,
     pub(crate) task: DashboardTaskSnapshotView,
     pub(crate) coordination: DashboardCoordinationSummaryView,
+    pub(crate) coordination_queues: DashboardCoordinationQueuesView,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -97,10 +98,20 @@ pub(crate) struct DashboardCoordinationSummaryView {
     pub(crate) ready_task_count: usize,
     pub(crate) in_review_task_count: usize,
     pub(crate) active_claim_count: usize,
+    pub(crate) pending_handoff_count: usize,
     pub(crate) pending_review_count: usize,
     pub(crate) proposed_artifact_count: usize,
     pub(crate) recent_pending_reviews: Vec<ArtifactView>,
     pub(crate) recent_violations: Vec<PolicyViolationRecordView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct DashboardCoordinationQueuesView {
+    pub(crate) enabled: bool,
+    pub(crate) pending_handoffs: Vec<CoordinationTaskView>,
+    pub(crate) active_claims: Vec<ClaimView>,
+    pub(crate) pending_reviews: Vec<ArtifactView>,
 }
 
 impl DashboardCoordinationSummaryView {
@@ -112,10 +123,22 @@ impl DashboardCoordinationSummaryView {
             ready_task_count: 0,
             in_review_task_count: 0,
             active_claim_count: 0,
+            pending_handoff_count: 0,
             pending_review_count: 0,
             proposed_artifact_count: 0,
             recent_pending_reviews: Vec::new(),
             recent_violations: Vec::new(),
+        }
+    }
+}
+
+impl DashboardCoordinationQueuesView {
+    pub(crate) fn disabled() -> Self {
+        Self {
+            enabled: false,
+            pending_handoffs: Vec::new(),
+            active_claims: Vec::new(),
+            pending_reviews: Vec::new(),
         }
     }
 }

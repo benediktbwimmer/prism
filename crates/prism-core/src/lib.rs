@@ -30,10 +30,10 @@ use prism_query::Prism;
 
 pub(crate) use indexer::PendingFileParse;
 pub use indexer::WorkspaceIndexer;
-pub use shared_runtime_backend::SharedRuntimeBackend;
 pub use session::{
     CoordinationPlanState, FsRefreshStatus, WorkspaceSession, WorkspaceSnapshotRevisions,
 };
+pub use shared_runtime_backend::SharedRuntimeBackend;
 pub use validation_feedback::{
     ValidationFeedbackCategory, ValidationFeedbackEntry, ValidationFeedbackRecord,
     ValidationFeedbackVerdict,

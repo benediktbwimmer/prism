@@ -5,7 +5,10 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use crate::helpers::sorted_values;
-use crate::types::{Artifact, ArtifactReview, CoordinationEvent, CoordinationSnapshot, CoordinationTask, Plan, WorkClaim};
+use crate::types::{
+    Artifact, ArtifactReview, CoordinationEvent, CoordinationSnapshot, CoordinationTask, Plan,
+    WorkClaim,
+};
 
 pub fn coordination_snapshot_from_events(
     events: &[CoordinationEvent],
@@ -19,9 +22,7 @@ pub fn coordination_snapshot_from_events(
     Some(rehydrate_coordination_snapshot(snapshot))
 }
 
-pub fn rehydrate_coordination_snapshot(
-    mut snapshot: CoordinationSnapshot,
-) -> CoordinationSnapshot {
+pub fn rehydrate_coordination_snapshot(mut snapshot: CoordinationSnapshot) -> CoordinationSnapshot {
     let stored_plans = snapshot
         .plans
         .iter()
@@ -157,15 +158,18 @@ pub fn rehydrate_coordination_snapshot(
     snapshot.claims = sorted_values(&claims, |claim| claim.id.0.to_string());
     snapshot.artifacts = sorted_values(&artifacts, |artifact| artifact.id.0.to_string());
     snapshot.reviews = sorted_values(&reviews, |review| review.id.0.to_string());
-    snapshot.next_plan = snapshot
-        .next_plan
-        .max(next_counter(snapshot.plans.iter().map(|plan| plan.id.0.as_str()), "plan:"));
-    snapshot.next_task = snapshot
-        .next_task
-        .max(next_counter(snapshot.tasks.iter().map(|task| task.id.0.as_str()), "coord-task:"));
-    snapshot.next_claim = snapshot
-        .next_claim
-        .max(next_counter(snapshot.claims.iter().map(|claim| claim.id.0.as_str()), "claim:"));
+    snapshot.next_plan = snapshot.next_plan.max(next_counter(
+        snapshot.plans.iter().map(|plan| plan.id.0.as_str()),
+        "plan:",
+    ));
+    snapshot.next_task = snapshot.next_task.max(next_counter(
+        snapshot.tasks.iter().map(|task| task.id.0.as_str()),
+        "coord-task:",
+    ));
+    snapshot.next_claim = snapshot.next_claim.max(next_counter(
+        snapshot.claims.iter().map(|claim| claim.id.0.as_str()),
+        "claim:",
+    ));
     snapshot.next_artifact = snapshot.next_artifact.max(next_counter(
         snapshot
             .artifacts
@@ -173,9 +177,10 @@ pub fn rehydrate_coordination_snapshot(
             .map(|artifact| artifact.id.0.as_str()),
         "artifact:",
     ));
-    snapshot.next_review = snapshot
-        .next_review
-        .max(next_counter(snapshot.reviews.iter().map(|review| review.id.0.as_str()), "review:"));
+    snapshot.next_review = snapshot.next_review.max(next_counter(
+        snapshot.reviews.iter().map(|review| review.id.0.as_str()),
+        "review:",
+    ));
     snapshot
 }
 

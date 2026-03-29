@@ -32,8 +32,7 @@ use serde_json::json;
 use super::{
     index_workspace, index_workspace_session, index_workspace_session_with_curator,
     index_workspace_session_with_options, SharedRuntimeBackend, ValidationFeedbackCategory,
-    ValidationFeedbackRecord, ValidationFeedbackVerdict, WorkspaceIndexer,
-    WorkspaceSessionOptions,
+    ValidationFeedbackRecord, ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
 };
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
@@ -1187,14 +1186,20 @@ fn shared_runtime_sqlite_shares_session_memory_and_concepts_across_workspaces() 
         .load_episodic_snapshot()
         .unwrap()
         .expect("shared session memory should reload");
-    assert!(snapshot.entries.iter().any(|candidate| candidate.id == entry.id));
+    assert!(snapshot
+        .entries
+        .iter()
+        .any(|candidate| candidate.id == entry.id));
 
     let concept = session_two
         .prism()
         .concept_by_handle("concept://shared_alpha")
         .expect("shared concept should reload");
     assert_eq!(concept.scope, ConceptScope::Session);
-    assert_eq!(concept.summary, "Session concept persisted through the shared runtime sqlite.");
+    assert_eq!(
+        concept.summary,
+        "Session concept persisted through the shared runtime sqlite."
+    );
 
     let _ = fs::remove_dir_all(root_one);
     let _ = fs::remove_dir_all(root_two);
@@ -1793,6 +1798,13 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
         .expect("coordination read model should be persisted");
     assert_eq!(read_model.active_plans.len(), 1);
     assert_eq!(read_model.task_count, 1);
+    let queue_model = store
+        .load_coordination_queue_read_model()
+        .unwrap()
+        .expect("coordination queue read model should be persisted");
+    assert!(queue_model.pending_handoff_tasks.is_empty());
+    assert!(queue_model.active_claims.is_empty());
+    assert!(queue_model.pending_review_artifacts.is_empty());
 
     assert!(root
         .join(".prism")

@@ -167,7 +167,7 @@ impl QueryHost {
         let query_run = self.begin_query_run(session.as_ref(), kind, query_text);
         match (|| -> Result<(T, Vec<QueryDiagnostic>, usize)> {
             let refresh_started = Instant::now();
-            let refresh = self.refresh_workspace_for_query()?;
+            let refresh = self.observe_workspace_for_read()?;
             query_run.record_phase(
                 "compact.refreshWorkspace",
                 &json!({

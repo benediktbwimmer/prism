@@ -287,7 +287,6 @@ impl QueryHost {
         session: &SessionState,
         args: PrismFinishTaskArgs,
     ) -> Result<TaskClosureMutationResult> {
-        self.refresh_workspace()?;
         self.close_task_without_refresh(session, args, TaskClosureDisposition::Completed)
     }
 
@@ -297,7 +296,6 @@ impl QueryHost {
         session: &SessionState,
         args: PrismFinishTaskArgs,
     ) -> Result<TaskClosureMutationResult> {
-        self.refresh_workspace()?;
         self.close_task_without_refresh(session, args, TaskClosureDisposition::Abandoned)
     }
 
@@ -425,7 +423,6 @@ impl QueryHost {
         session: &SessionState,
         args: PrismOutcomeArgs,
     ) -> Result<EventMutationResult> {
-        self.refresh_workspace()?;
         self.store_outcome_without_refresh(session, args)
     }
 
@@ -482,7 +479,6 @@ impl QueryHost {
         session: &SessionState,
         args: PrismMemoryArgs,
     ) -> Result<MemoryMutationResult> {
-        self.refresh_workspace()?;
         self.store_memory_without_refresh(session, args)
     }
 
@@ -607,7 +603,6 @@ impl QueryHost {
         session: &SessionState,
         args: PrismConceptMutationArgs,
     ) -> Result<ConceptMutationResult> {
-        self.refresh_workspace()?;
         self.store_concept_without_refresh(session, args)
     }
 
@@ -662,7 +657,6 @@ impl QueryHost {
         session: &SessionState,
         args: PrismConceptRelationMutationArgs,
     ) -> Result<ConceptRelationMutationResult> {
-        self.refresh_workspace()?;
         let workspace = self.workspace.as_ref().ok_or_else(|| {
             anyhow!("concept relation mutations require a workspace-backed PRISM session")
         })?;
@@ -695,7 +689,6 @@ impl QueryHost {
         session: &SessionState,
         args: PrismValidationFeedbackArgs,
     ) -> Result<ValidationFeedbackMutationResult> {
-        self.refresh_workspace()?;
         self.store_validation_feedback_without_refresh(session, args)
     }
 
@@ -766,7 +759,10 @@ impl QueryHost {
         args: PrismCoordinationArgs,
     ) -> Result<CoordinationMutationResult> {
         self.ensure_tool_enabled("prism_coordination", "coordination workflow mutations")?;
-        let _ = self.refresh_workspace_for_mutation()?;
+        if let Some(workspace) = &self.workspace {
+            workspace.reload_persisted_prism()?;
+            self.sync_coordination_revision(workspace)?;
+        }
         let prism = self.current_prism();
         let before_events = prism.coordination_events().len();
         let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
@@ -778,15 +774,24 @@ impl QueryHost {
             correlation: Some(task),
             causation: None,
         };
-        let state = if let Some(workspace) = &self.workspace {
+        if let Some(workspace) = &self.workspace {
             match workspace.mutate_coordination_with_session(Some(&session.session_id()), |prism| {
                 self.apply_coordination_mutation(session, prism, args, meta.clone())
             }) {
                 Ok(state) => {
                     self.sync_coordination_revision(workspace)?;
-                    state
+                    let prism = self.current_prism();
+                    let audit = coordination_audit_since(prism.as_ref(), before_events);
+                    return Ok(CoordinationMutationResult {
+                        event_id: event_id.0.to_string(),
+                        event_ids: audit.event_ids,
+                        rejected: false,
+                        violations: audit.violations,
+                        state,
+                    });
                 }
                 Err(error) => {
+                    let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     if audit.rejected && !audit.event_ids.is_empty() {
                         workspace.persist_current_coordination()?;
@@ -806,7 +811,8 @@ impl QueryHost {
                     return Err(error);
                 }
             }
-        } else {
+        }
+        let state =
             match self.apply_coordination_mutation(session, prism.as_ref(), args, meta.clone()) {
                 Ok(state) => state,
                 Err(error) => {
@@ -826,8 +832,7 @@ impl QueryHost {
                     }
                     return Err(error);
                 }
-            }
-        };
+            };
         let audit = coordination_audit_since(prism.as_ref(), before_events);
         Ok(CoordinationMutationResult {
             event_id: event_id.0.to_string(),
@@ -844,7 +849,10 @@ impl QueryHost {
         args: PrismClaimArgs,
     ) -> Result<ClaimMutationResult> {
         self.ensure_tool_enabled("prism_claim", "coordination claim mutations")?;
-        let _ = self.refresh_workspace_for_mutation()?;
+        if let Some(workspace) = &self.workspace {
+            workspace.reload_persisted_prism()?;
+            self.sync_coordination_revision(workspace)?;
+        }
         let prism = self.current_prism();
         let before_events = prism.coordination_events().len();
         let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
@@ -861,12 +869,14 @@ impl QueryHost {
             }) {
                 Ok(mut result) => {
                     self.sync_coordination_revision(workspace)?;
+                    let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     result.event_ids = audit.event_ids;
                     result.violations.extend(audit.violations);
                     Ok(result)
                 }
                 Err(error) => {
+                    let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     if audit.rejected && !audit.event_ids.is_empty() {
                         workspace.persist_current_coordination()?;
@@ -915,7 +925,10 @@ impl QueryHost {
         args: PrismArtifactArgs,
     ) -> Result<ArtifactMutationResult> {
         self.ensure_tool_enabled("prism_artifact", "coordination artifact mutations")?;
-        let _ = self.refresh_workspace_for_mutation()?;
+        if let Some(workspace) = &self.workspace {
+            workspace.reload_persisted_prism()?;
+            self.sync_coordination_revision(workspace)?;
+        }
         let prism = self.current_prism();
         let before_events = prism.coordination_events().len();
         let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
@@ -932,12 +945,14 @@ impl QueryHost {
             }) {
                 Ok(mut result) => {
                     self.sync_coordination_revision(workspace)?;
+                    let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     result.event_ids = audit.event_ids;
                     result.violations.extend(audit.violations);
                     Ok(result)
                 }
                 Err(error) => {
+                    let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     if audit.rejected && !audit.event_ids.is_empty() {
                         workspace.persist_current_coordination()?;
@@ -1507,7 +1522,6 @@ impl QueryHost {
         session: &SessionState,
         args: PrismCuratorPromoteEdgeArgs,
     ) -> Result<CuratorProposalDecisionResult> {
-        self.refresh_workspace()?;
         let workspace = self
             .workspace
             .as_ref()
@@ -1596,7 +1610,6 @@ impl QueryHost {
         session: &SessionState,
         args: PrismCuratorPromoteConceptArgs,
     ) -> Result<CuratorProposalDecisionResult> {
-        self.refresh_workspace()?;
         let workspace = self
             .workspace
             .as_ref()
@@ -1690,7 +1703,6 @@ impl QueryHost {
         session: &SessionState,
         args: PrismCuratorApplyProposalArgs,
     ) -> Result<CuratorProposalDecisionResult> {
-        self.refresh_workspace()?;
         let workspace = self
             .workspace
             .as_ref()
@@ -1761,7 +1773,6 @@ impl QueryHost {
         session: &SessionState,
         args: PrismCuratorPromoteMemoryArgs,
     ) -> Result<CuratorProposalDecisionResult> {
-        self.refresh_workspace()?;
         let workspace = self
             .workspace
             .as_ref()
@@ -2008,7 +2019,6 @@ impl QueryHost {
         session: &SessionState,
         args: PrismCuratorRejectProposalArgs,
     ) -> Result<CuratorProposalDecisionResult> {
-        self.refresh_workspace()?;
         let workspace = self
             .workspace
             .as_ref()

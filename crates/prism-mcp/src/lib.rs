@@ -608,10 +608,7 @@ impl QueryHost {
 
     #[cfg(test)]
     fn cached_test_session(&self) -> Arc<SessionState> {
-        Arc::clone(
-            self.test_session
-                .get_or_init(|| self.new_session_state()),
-        )
+        Arc::clone(self.test_session.get_or_init(|| self.new_session_state()))
     }
 
     #[allow(dead_code)]

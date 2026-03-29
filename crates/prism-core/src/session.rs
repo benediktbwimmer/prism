@@ -5,8 +5,7 @@ use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 
 use anyhow::{anyhow, Result};
 use prism_agent::InferenceSnapshot;
-use prism_coordination::CoordinationSnapshot;
-use prism_coordination::CoordinationReadModel;
+use prism_coordination::{CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot};
 use prism_curator::{
     CuratorJobId, CuratorProposalDisposition, CuratorProposalState, CuratorSnapshot,
 };
@@ -314,17 +313,22 @@ impl WorkspaceSession {
     }
 
     fn reload_persisted_prism_with_guard(&self, _guard: MutexGuard<'_, ()>) -> Result<()> {
+        self.reload_persisted_prism_locked()
+    }
+
+    fn reload_persisted_prism_locked(&self) -> Result<()> {
         let mut store = self.store.lock().expect("workspace store lock poisoned");
         let local_workspace_revision = store.workspace_revision()?;
-        let shared_workspace_revision = if let Some(shared_runtime_store) = self.shared_runtime_store() {
-            let mut shared_store = shared_runtime_store
-                .lock()
-                .expect("shared runtime store lock poisoned");
-            self.sync_repo_memory_events_locked(&mut shared_store)?;
-            Some(shared_store.workspace_revision()?)
-        } else {
-            None
-        };
+        let shared_workspace_revision =
+            if let Some(shared_runtime_store) = self.shared_runtime_store() {
+                let mut shared_store = shared_runtime_store
+                    .lock()
+                    .expect("shared runtime store lock poisoned");
+                self.sync_repo_memory_events_locked(&mut shared_store)?;
+                Some(shared_store.workspace_revision()?)
+            } else {
+                None
+            };
         let workspace_revision =
             composite_workspace_revision(local_workspace_revision, shared_workspace_revision);
         let graph = store.load_graph()?.unwrap_or_default();
@@ -384,7 +388,7 @@ impl WorkspaceSession {
                 plan_state
                     .map(|state| state.execution_overlays)
                     .unwrap_or_default(),
-                ),
+            ),
         );
         prism.set_workspace_revision(prism_ir::WorkspaceRevision {
             graph_version: local_workspace_revision,
@@ -414,7 +418,10 @@ impl WorkspaceSession {
                     .workspace_revision()
             })
             .transpose()?;
-        Ok(composite_workspace_revision(local_revision, shared_revision))
+        Ok(composite_workspace_revision(
+            local_revision,
+            shared_revision,
+        ))
     }
 
     pub fn loaded_workspace_revision(&self) -> u64 {
@@ -693,6 +700,23 @@ impl WorkspaceSession {
         }
     }
 
+    pub fn load_coordination_queue_read_model(&self) -> Result<Option<CoordinationQueueReadModel>> {
+        if !self.coordination_enabled {
+            return Ok(None);
+        }
+        if let Some(shared_runtime_store) = self.shared_runtime_store() {
+            shared_runtime_store
+                .lock()
+                .expect("shared runtime store lock poisoned")
+                .load_coordination_queue_read_model()
+        } else {
+            self.store
+                .lock()
+                .expect("workspace store lock poisoned")
+                .load_coordination_queue_read_model()
+        }
+    }
+
     pub fn load_coordination_plan_state(&self) -> Result<Option<CoordinationPlanState>> {
         if !self.coordination_enabled {
             return Ok(None);
@@ -789,6 +813,7 @@ impl WorkspaceSession {
             .refresh_lock
             .lock()
             .expect("workspace refresh lock poisoned");
+        self.reload_persisted_prism_locked()?;
         let expected_revision = self.coordination_revision()?;
         let prism = self.prism_arc();
         let before = prism.coordination_snapshot();

@@ -4062,8 +4062,7 @@ return {{
         )
         .unwrap();
     assert_eq!(
-        reviewed_state.result["artifacts"][0]["status"],
-        "Approved",
+        reviewed_state.result["artifacts"][0]["status"], "Approved",
         "reviewed artifact did not reload into host_b: {reviewed_state:#?}"
     );
 
@@ -10802,6 +10801,75 @@ fn mutation_trace_records_internal_phases_for_persisted_only_mutations() {
         .is_some_and(|args| args["refreshPath"] != Value::String("skipped".to_string())));
 }
 
+#[tokio::test]
+async fn validation_feedback_tool_mutation_skips_request_path_refresh() {
+    let root = temp_workspace();
+    let server = PrismMcpServer::with_session_and_features(
+        index_workspace_session(&root).unwrap(),
+        PrismMcpFeatures::full().with_internal_developer(true),
+    );
+    let server_handle = server.clone();
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_mutate",
+            json!({
+                "action": "validation_feedback",
+                "input": {
+                    "context": "Dogfooding refresh-runtime mutation policy.",
+                    "prismSaid": "Mutation refresh should run before validation feedback.",
+                    "actuallyTrue": "Validation feedback should append directly without request-path refresh.",
+                    "category": "freshness",
+                    "verdict": "helpful",
+                    "correctedManually": true
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let envelope = first_tool_content_json(client.receive().await.unwrap());
+    assert_eq!(envelope["action"], "validation_feedback");
+
+    let detail = server_handle
+        .host
+        .dashboard_operation_detail("mutation:1")
+        .expect("mutation detail should exist");
+    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+        panic!("expected mutation trace");
+    };
+    let refresh_phase = trace
+        .phases
+        .iter()
+        .find(|phase| phase.operation == "mutation.refreshWorkspace")
+        .expect("refresh phase should exist");
+    let args = refresh_phase
+        .args_summary
+        .as_ref()
+        .and_then(Value::as_object)
+        .expect("refresh args");
+    assert_eq!(
+        args.get("refreshPath"),
+        Some(&Value::String("skipped".to_string()))
+    );
+
+    running.cancel().await.unwrap();
+}
+
 #[test]
 fn follow_up_queries_skip_persisted_refresh_after_local_outcome_write() {
     let root = temp_workspace();
@@ -10856,7 +10924,7 @@ return recent[0] ? prism.queryTrace(recent[0].id) : null;
         .expect("refresh args");
     assert_eq!(
         args.get("refreshPath"),
-        Some(&Value::String("none".to_string()))
+        Some(&Value::String("queued".to_string()))
     );
     assert_eq!(args.get("episodicReloaded"), Some(&Value::Bool(false)));
     assert_eq!(args.get("inferenceReloaded"), Some(&Value::Bool(false)));
@@ -13258,7 +13326,7 @@ fn auto_refreshes_workspace_and_records_patch_events() {
     )
     .unwrap();
 
-    host.refresh_workspace_for_query().unwrap();
+    host.observe_workspace_for_read().unwrap();
     wait_until("background workspace refresh after external edit", || {
         host.execute(
             test_session(&host),
@@ -13343,7 +13411,7 @@ return prism.symbol("alpha")?.id.path ?? null;
 }
 
 #[test]
-fn queries_use_nonblocking_persisted_refresh_phase() {
+fn queries_queue_background_refresh_without_request_path_persisted_reload() {
     let root = temp_workspace();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
@@ -13389,7 +13457,7 @@ return prism.symbol("alpha")?.id.path ?? null;
         .expect("refresh args");
     assert_eq!(
         args.get("refreshPath"),
-        Some(&Value::String("none".to_string()))
+        Some(&Value::String("queued".to_string()))
     );
 }
 

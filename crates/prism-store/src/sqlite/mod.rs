@@ -278,7 +278,9 @@ impl Store for SqliteStore {
         coordination_compaction::save_compaction(&self.conn, snapshot)
     }
 
-    fn load_coordination_read_model(&mut self) -> Result<Option<prism_coordination::CoordinationReadModel>> {
+    fn load_coordination_read_model(
+        &mut self,
+    ) -> Result<Option<prism_coordination::CoordinationReadModel>> {
         snapshots::load_snapshot_row(&self.conn, "coordination_read_model")
     }
 
@@ -287,6 +289,19 @@ impl Store for SqliteStore {
         read_model: &prism_coordination::CoordinationReadModel,
     ) -> Result<()> {
         snapshots::save_snapshot_row(&self.conn, "coordination_read_model", read_model)
+    }
+
+    fn load_coordination_queue_read_model(
+        &mut self,
+    ) -> Result<Option<prism_coordination::CoordinationQueueReadModel>> {
+        snapshots::load_snapshot_row(&self.conn, "coordination_queue_read_model")
+    }
+
+    fn save_coordination_queue_read_model(
+        &mut self,
+        read_model: &prism_coordination::CoordinationQueueReadModel,
+    ) -> Result<()> {
+        snapshots::save_snapshot_row(&self.conn, "coordination_queue_read_model", read_model)
     }
 
     fn load_latest_coordination_persist_context(
@@ -311,9 +326,9 @@ impl Store for SqliteStore {
                 let existing = coordination_events::event_ids_exist_tx(&tx, &event_ids)?;
                 if !batch.appended_events.is_empty()
                     && batch
-                    .appended_events
-                    .iter()
-                    .all(|event| existing.contains(event.meta.id.0.as_str()))
+                        .appended_events
+                        .iter()
+                        .all(|event| existing.contains(event.meta.id.0.as_str()))
                 {
                     return Ok(CoordinationPersistResult {
                         revision: current_revision,

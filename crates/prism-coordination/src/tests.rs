@@ -1697,8 +1697,8 @@ fn snapshot_load_replays_handoff_events() {
             HandoffAcceptInput {
                 task_id: task_id.clone(),
                 agent: Some(prism_ir::AgentId::new("agent:b")),
-            worktree_id: None,
-            branch_ref: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap();
@@ -1821,7 +1821,10 @@ fn snapshot_replay_reconstructs_continuity_state_from_events() {
     assert_eq!(replayed.claims[0].status, prism_ir::ClaimStatus::Released);
     assert_eq!(replayed.artifacts.len(), 1);
     assert_eq!(replayed.artifacts[0].id, artifact_id);
-    assert_eq!(replayed.artifacts[0].status, prism_ir::ArtifactStatus::Approved);
+    assert_eq!(
+        replayed.artifacts[0].status,
+        prism_ir::ArtifactStatus::Approved
+    );
     assert_eq!(replayed.reviews.len(), 1);
     assert_eq!(replayed.reviews[0].id, review_id);
 }
@@ -1921,8 +1924,8 @@ fn handoff_acceptance_blocks_updates_until_target_accepts() {
             HandoffAcceptInput {
                 task_id: task_id.clone(),
                 agent: None,
-            worktree_id: None,
-            branch_ref: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap_err();
@@ -1936,8 +1939,8 @@ fn handoff_acceptance_blocks_updates_until_target_accepts() {
             HandoffAcceptInput {
                 task_id: task_id.clone(),
                 agent: Some(prism_ir::AgentId::new("agent-c")),
-            worktree_id: None,
-            branch_ref: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap_err();
@@ -1949,8 +1952,8 @@ fn handoff_acceptance_blocks_updates_until_target_accepts() {
             HandoffAcceptInput {
                 task_id: task_id.clone(),
                 agent: Some(prism_ir::AgentId::new("agent-b")),
-            worktree_id: None,
-            branch_ref: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap();

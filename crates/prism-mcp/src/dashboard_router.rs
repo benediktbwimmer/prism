@@ -11,8 +11,9 @@ use serde::Deserialize;
 use tower_http::services::{ServeDir, ServeFile};
 
 use crate::dashboard_types::{
-    DashboardBootstrapView, DashboardCoordinationSummaryView, DashboardOperationDetailView,
-    DashboardOperationsView, DashboardSummaryView, DashboardTaskSnapshotView,
+    DashboardBootstrapView, DashboardCoordinationQueuesView, DashboardCoordinationSummaryView,
+    DashboardOperationDetailView, DashboardOperationsView, DashboardSummaryView,
+    DashboardTaskSnapshotView,
 };
 use crate::runtime_views::runtime_status;
 use crate::{
@@ -47,6 +48,10 @@ pub(crate) fn routes(state: DashboardAppState) -> Router {
         .route("/dashboard/api/summary", get(dashboard_summary))
         .route("/dashboard/api/task", get(dashboard_task))
         .route("/dashboard/api/coordination", get(dashboard_coordination))
+        .route(
+            "/dashboard/api/coordination/queues",
+            get(dashboard_coordination_queues),
+        )
         .route("/dashboard/api/runtime", get(dashboard_runtime))
         .route("/dashboard/api/operations", get(dashboard_operations))
         .route(
@@ -85,11 +90,16 @@ async fn dashboard_bootstrap(
         .host
         .dashboard_coordination_summary()
         .map_err(internal_error)?;
+    let coordination_queues = state
+        .host
+        .dashboard_coordination_queues()
+        .map_err(internal_error)?;
     Ok(Json(DashboardBootstrapView {
         summary,
         operations,
         task,
         coordination,
+        coordination_queues,
     }))
 }
 
@@ -122,6 +132,17 @@ async fn dashboard_coordination(
         state
             .host
             .dashboard_coordination_summary()
+            .map_err(internal_error)?,
+    ))
+}
+
+async fn dashboard_coordination_queues(
+    State(state): State<DashboardAppState>,
+) -> std::result::Result<Json<DashboardCoordinationQueuesView>, (StatusCode, String)> {
+    Ok(Json(
+        state
+            .host
+            .dashboard_coordination_queues()
             .map_err(internal_error)?,
     ))
 }

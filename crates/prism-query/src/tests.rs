@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use prism_coordination::{
     Artifact, ArtifactProposeInput, CoordinationPolicy, CoordinationRuntimeState,
-    CoordinationSnapshot, CoordinationStore, HandoffInput, PlanCreateInput,
-    TaskCompletionContext, TaskCreateInput, TaskUpdateInput, WorkClaim,
+    CoordinationSnapshot, CoordinationStore, HandoffInput, PlanCreateInput, TaskCompletionContext,
+    TaskCreateInput, TaskUpdateInput, WorkClaim,
 };
 use prism_history::HistoryStore;
 use prism_ir::{

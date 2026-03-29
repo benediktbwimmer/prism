@@ -3,8 +3,8 @@ use std::path::Path;
 
 use anyhow::Result;
 use prism_coordination::{
-    coordination_read_model_from_snapshot, coordination_snapshot_from_events, CoordinationEvent,
-    CoordinationSnapshot,
+    coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
+    coordination_snapshot_from_events, CoordinationEvent, CoordinationSnapshot,
 };
 use prism_ir::{PlanExecutionOverlay, PlanGraph, SessionId};
 use prism_store::{CoordinationPersistBatch, CoordinationPersistResult, Store};
@@ -61,6 +61,9 @@ pub(crate) trait CoordinationPersistenceBackend: Store {
             appended_events,
         })?;
         self.save_coordination_read_model(&coordination_read_model_from_snapshot(snapshot))?;
+        self.save_coordination_queue_read_model(&coordination_queue_read_model_from_snapshot(
+            snapshot,
+        ))?;
         self.maybe_compact_coordination_events(snapshot)?;
         match (plan_graphs, execution_overlays) {
             (Some(plan_graphs), Some(execution_overlays)) => sync_repo_published_plan_state(
@@ -89,6 +92,9 @@ pub(crate) trait CoordinationPersistenceBackend: Store {
             appended_events: appended_events.to_vec(),
         })?;
         self.save_coordination_read_model(&coordination_read_model_from_snapshot(snapshot))?;
+        self.save_coordination_queue_read_model(&coordination_queue_read_model_from_snapshot(
+            snapshot,
+        ))?;
         if result.applied {
             self.maybe_compact_coordination_events(snapshot)?;
         }
@@ -108,10 +114,7 @@ pub(crate) trait CoordinationPersistenceBackend: Store {
 impl<T: Store + ?Sized> CoordinationPersistenceBackend for T {}
 
 trait CoordinationCompactionBackend: Store {
-    fn maybe_compact_coordination_events(
-        &mut self,
-        snapshot: &CoordinationSnapshot,
-    ) -> Result<()> {
+    fn maybe_compact_coordination_events(&mut self, snapshot: &CoordinationSnapshot) -> Result<()> {
         let stream = self.load_coordination_event_stream()?;
         if stream.suffix_events.len() < COORDINATION_COMPACTION_SUFFIX_THRESHOLD {
             return Ok(());
