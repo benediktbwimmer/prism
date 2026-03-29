@@ -9,7 +9,7 @@ use crate::blockers::{completion_blockers, readiness_blockers};
 use crate::helpers::{
     anchors_overlap, artifact_matches_worktree_scope, claim_is_active,
     claim_matches_worktree_scope, conflict_between, dedupe_conflicts, editor_capacity_conflicts,
-    expire_claims_locked, plan_policy_for_task, simulate_conflicts,
+    expire_claims_locked, plan_policy_for_task, simulate_conflicts, task_matches_worktree_scope,
 };
 use crate::mutations::{
     accept_handoff_mutation, acquire_claim_mutation, create_plan_mutation, create_task_mutation,
@@ -311,6 +311,16 @@ impl CoordinationRuntimeState {
         current_revision: WorkspaceRevision,
         now: Timestamp,
     ) -> Vec<CoordinationTask> {
+        self.ready_tasks_in_scope(plan_id, current_revision, now, None)
+    }
+
+    pub fn ready_tasks_in_scope(
+        &self,
+        plan_id: &PlanId,
+        current_revision: WorkspaceRevision,
+        now: Timestamp,
+        worktree_id: Option<&str>,
+    ) -> Vec<CoordinationTask> {
         if !self
             .state
             .plans
@@ -324,6 +334,7 @@ impl CoordinationRuntimeState {
             .tasks
             .values()
             .filter(|task| &task.plan == plan_id)
+            .filter(|task| task_matches_worktree_scope(task, worktree_id))
             .filter(|task| {
                 matches!(
                     task.status,

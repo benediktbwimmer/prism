@@ -64,11 +64,18 @@ pub fn plan_graph_from_coordination(plan: Plan, mut tasks: Vec<CoordinationTask>
 pub fn execution_overlays_from_tasks(tasks: &[CoordinationTask]) -> Vec<PlanExecutionOverlay> {
     let mut overlays = tasks
         .iter()
-        .filter(|task| task.pending_handoff_to.is_some() || task.session.is_some())
+        .filter(|task| {
+            task.pending_handoff_to.is_some()
+                || task.session.is_some()
+                || task.worktree_id.is_some()
+                || task.branch_ref.is_some()
+        })
         .map(|task| PlanExecutionOverlay {
             node_id: plan_node_id_from_task_id(task.id.clone()),
             pending_handoff_to: task.pending_handoff_to.clone(),
             session: task.session.clone(),
+            worktree_id: task.worktree_id.clone(),
+            branch_ref: task.branch_ref.clone(),
             effective_assignee: None,
             awaiting_handoff_from: None,
         })
@@ -209,7 +216,9 @@ fn task_from_plan_node(
         pending_handoff_to: execution
             .as_ref()
             .and_then(|overlay| overlay.pending_handoff_to.clone()),
-        session: execution.and_then(|overlay| overlay.session),
+        session: execution.as_ref().and_then(|overlay| overlay.session.clone()),
+        worktree_id: execution.as_ref().and_then(|overlay| overlay.worktree_id.clone()),
+        branch_ref: execution.and_then(|overlay| overlay.branch_ref),
         anchors,
         bindings: node.bindings,
         depends_on,

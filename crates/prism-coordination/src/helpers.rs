@@ -326,6 +326,17 @@ pub(crate) fn artifact_matches_worktree_scope(
     })
 }
 
+pub(crate) fn task_matches_worktree_scope(
+    task: &crate::types::CoordinationTask,
+    worktree_id: Option<&str>,
+) -> bool {
+    worktree_id.is_none_or(|requested| {
+        task.worktree_id
+            .as_deref()
+            .is_none_or(|task_scope| task_scope == requested)
+    })
+}
+
 pub(crate) fn anchors_overlap(left: &[AnchorRef], right: &[AnchorRef]) -> bool {
     if left.is_empty() || right.is_empty() {
         return false;

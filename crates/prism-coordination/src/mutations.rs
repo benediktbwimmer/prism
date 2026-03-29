@@ -1087,6 +1087,8 @@ pub(crate) fn create_task_mutation(
         assignee: input.assignee,
         pending_handoff_to: None,
         session: input.session,
+        worktree_id: input.worktree_id,
+        branch_ref: input.branch_ref,
         anchors: anchors.clone(),
         bindings: PlanBinding {
             anchors,
@@ -1136,6 +1138,8 @@ pub(crate) fn update_task_mutation(
     let update_status = input.status.is_some();
     let update_assignee = input.assignee.is_some();
     let update_session = input.session.is_some();
+    let update_worktree = input.worktree_id.is_some();
+    let update_branch = input.branch_ref.is_some();
     let update_title = input.title.is_some();
     let update_anchors = input.anchors.is_some();
     let update_depends_on = input.depends_on.is_some();
@@ -1157,6 +1161,20 @@ pub(crate) fn update_task_mutation(
             &mut patch,
             "session",
             if session.is_some() { "set" } else { "clear" },
+        );
+    }
+    if let Some(worktree_id) = input.worktree_id.as_ref() {
+        push_patch_op(
+            &mut patch,
+            "worktreeId",
+            if worktree_id.is_some() { "set" } else { "clear" },
+        );
+    }
+    if let Some(branch_ref) = input.branch_ref.as_ref() {
+        push_patch_op(
+            &mut patch,
+            "branchRef",
+            if branch_ref.is_some() { "set" } else { "clear" },
         );
     }
     if input.title.is_some() {
@@ -1393,6 +1411,12 @@ pub(crate) fn update_task_mutation(
         if let Some(session) = input.session {
             task.session = session;
         }
+        if let Some(worktree_id) = input.worktree_id {
+            task.worktree_id = worktree_id;
+        }
+        if let Some(branch_ref) = input.branch_ref {
+            task.branch_ref = branch_ref;
+        }
         if let Some(anchors) = input.anchors {
             task.anchors = dedupe_anchors(anchors);
             task.bindings.anchors = task.anchors.clone();
@@ -1504,6 +1528,12 @@ pub(crate) fn update_task_mutation(
     }
     if update_session {
         insert_serialized(&mut patch_values, "session", task.session.clone());
+    }
+    if update_worktree {
+        insert_serialized(&mut patch_values, "worktreeId", task.worktree_id.clone());
+    }
+    if update_branch {
+        insert_serialized(&mut patch_values, "branchRef", task.branch_ref.clone());
     }
     if update_title {
         insert_serialized(&mut patch_values, "title", task.title.clone());
@@ -1655,6 +1685,8 @@ pub(crate) fn handoff_mutation(
     } else {
         task.assignee = None;
         task.session = None;
+        task.worktree_id = None;
+        task.branch_ref = None;
         task.status = CoordinationTaskStatus::Ready;
         task.pending_handoff_to = None;
     }
@@ -1675,6 +1707,8 @@ pub(crate) fn handoff_mutation(
     if target_agent.is_none() {
         push_patch_op(&mut patch, "assignee", "clear");
         push_patch_op(&mut patch, "session", "clear");
+        push_patch_op(&mut patch, "worktreeId", "clear");
+        push_patch_op(&mut patch, "branchRef", "clear");
     }
     let mut patch_values = serde_json::Map::new();
     insert_serialized(&mut patch_values, "status", task.status);
@@ -1691,6 +1725,8 @@ pub(crate) fn handoff_mutation(
     if target_agent.is_none() {
         insert_serialized(&mut patch_values, "assignee", task.assignee.clone());
         insert_serialized(&mut patch_values, "session", task.session.clone());
+        insert_serialized(&mut patch_values, "worktreeId", task.worktree_id.clone());
+        insert_serialized(&mut patch_values, "branchRef", task.branch_ref.clone());
     }
     state.events.push(CoordinationEvent {
         meta: meta.clone(),
@@ -1829,12 +1865,24 @@ pub(crate) fn accept_handoff_mutation(
     task.assignee = Some(target.clone());
     task.pending_handoff_to = None;
     task.session = None;
+    task.worktree_id = input.worktree_id;
+    task.branch_ref = input.branch_ref;
     task.status = CoordinationTaskStatus::Ready;
     let task = task.clone();
     let mut patch = serde_json::Map::new();
     push_patch_op(&mut patch, "assignee", "set");
     push_patch_op(&mut patch, "pendingHandoffTo", "clear");
     push_patch_op(&mut patch, "session", "clear");
+    push_patch_op(
+        &mut patch,
+        "worktreeId",
+        if task.worktree_id.is_some() { "set" } else { "clear" },
+    );
+    push_patch_op(
+        &mut patch,
+        "branchRef",
+        if task.branch_ref.is_some() { "set" } else { "clear" },
+    );
     push_patch_op(&mut patch, "status", "set");
     let mut patch_values = serde_json::Map::new();
     insert_serialized(&mut patch_values, "assignee", task.assignee.clone());
@@ -1844,6 +1892,8 @@ pub(crate) fn accept_handoff_mutation(
         task.pending_handoff_to.clone(),
     );
     insert_serialized(&mut patch_values, "session", task.session.clone());
+    insert_serialized(&mut patch_values, "worktreeId", task.worktree_id.clone());
+    insert_serialized(&mut patch_values, "branchRef", task.branch_ref.clone());
     insert_serialized(&mut patch_values, "status", task.status);
     state.events.push(CoordinationEvent {
         meta: derived_event_meta(&meta, "accepted"),

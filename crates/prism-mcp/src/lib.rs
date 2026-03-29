@@ -11,6 +11,8 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+#[cfg(test)]
+use std::sync::OnceLock;
 use tracing::{debug, info};
 
 mod ambiguity;
@@ -396,6 +398,8 @@ struct QueryHost {
     loaded_coordination_revision: Arc<AtomicU64>,
     workspace_runtime: Option<Arc<WorkspaceRuntime>>,
     features: PrismMcpFeatures,
+    #[cfg(test)]
+    test_session: OnceLock<Arc<SessionState>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -459,6 +463,8 @@ impl QueryHost {
             loaded_coordination_revision: Arc::new(AtomicU64::new(0)),
             workspace_runtime: None,
             features: features.clone(),
+            #[cfg(test)]
+            test_session: OnceLock::new(),
         }
     }
 
@@ -542,6 +548,8 @@ impl QueryHost {
             loaded_coordination_revision,
             workspace_runtime,
             features,
+            #[cfg(test)]
+            test_session: OnceLock::new(),
         }
     }
 
@@ -553,6 +561,14 @@ impl QueryHost {
             Arc::clone(&self.next_task),
             self.default_limits,
         ))
+    }
+
+    #[cfg(test)]
+    fn cached_test_session(&self) -> Arc<SessionState> {
+        Arc::clone(
+            self.test_session
+                .get_or_init(|| self.new_session_state()),
+        )
     }
 
     #[allow(dead_code)]

@@ -1,6 +1,6 @@
 use std::fs;
 use std::path::Path;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -88,19 +88,7 @@ fn host_with_session_internal_and_limits(
 }
 
 fn test_session(host: &QueryHost) -> Arc<SessionState> {
-    static TEST_SESSIONS: OnceLock<Mutex<HashMap<(usize, usize), Arc<SessionState>>>> =
-        OnceLock::new();
-    let key = (
-        Arc::as_ptr(&host.dashboard_state()) as usize,
-        Arc::as_ptr(&host.current_prism()) as usize,
-    );
-    let sessions = TEST_SESSIONS.get_or_init(|| Mutex::new(HashMap::new()));
-    let mut sessions = sessions.lock().expect("test sessions lock poisoned");
-    Arc::clone(
-        sessions
-            .entry(key)
-            .or_insert_with(|| host.new_session_state()),
-    )
+    host.cached_test_session()
 }
 
 fn temp_workspace() -> PathBuf {
@@ -9362,6 +9350,8 @@ fn compact_task_brief_prefers_refresh_for_stale_current_task() {
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha)],
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),

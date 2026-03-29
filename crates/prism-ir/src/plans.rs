@@ -159,6 +159,10 @@ pub struct PlanExecutionOverlay {
     pub pending_handoff_to: Option<AgentId>,
     pub session: Option<SessionId>,
     #[serde(default)]
+    pub worktree_id: Option<String>,
+    #[serde(default)]
+    pub branch_ref: Option<String>,
+    #[serde(default)]
     pub effective_assignee: Option<AgentId>,
     #[serde(default)]
     pub awaiting_handoff_from: Option<PlanNodeId>,

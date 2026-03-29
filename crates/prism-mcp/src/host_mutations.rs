@@ -1059,6 +1059,8 @@ impl QueryHost {
                             .map(AgentId::new)
                             .or_else(|| session.current_agent()),
                         session: Some(session.session_id()),
+                        worktree_id: None,
+                        branch_ref: None,
                         anchors: convert_anchors(payload.anchors.unwrap_or_default())?,
                         depends_on: payload
                             .depends_on
@@ -1102,6 +1104,8 @@ impl QueryHost {
                         status,
                         assignee,
                         session: None,
+                        worktree_id: None,
+                        branch_ref: None,
                         title: payload.title,
                         anchors: payload.anchors.map(convert_anchors).transpose()?,
                         depends_on: payload.depends_on.map(|depends_on| {
@@ -1274,6 +1278,8 @@ impl QueryHost {
                     HandoffAcceptInput {
                         task_id: CoordinationTaskId::new(payload.task_id),
                         agent: session_agent,
+                        worktree_id: None,
+                        branch_ref: None,
                     },
                 )?;
                 Ok(serde_json::to_value(coordination_task_view(task))?)

@@ -69,10 +69,16 @@ impl Prism {
     }
 
     pub fn ready_tasks(&self, plan_id: &PlanId, now: Timestamp) -> Vec<CoordinationTask> {
+        let worktree_id = self.coordination_worktree_scope();
         self.continuity_runtime
             .read()
             .expect("continuity runtime lock poisoned")
-            .ready_tasks(plan_id, self.workspace_revision(), now)
+            .ready_tasks_in_scope(
+                plan_id,
+                self.workspace_revision(),
+                now,
+                worktree_id.as_deref(),
+            )
     }
 
     pub fn claims(&self, anchors: &[AnchorRef], now: Timestamp) -> Vec<WorkClaim> {

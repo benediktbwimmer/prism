@@ -96,12 +96,37 @@ impl NativePlanRuntimeState {
         &self,
         mut snapshot: CoordinationSnapshot,
     ) -> CoordinationSnapshot {
+        let task_runtime_scope = snapshot
+            .tasks
+            .iter()
+            .map(|task| {
+                (
+                    task.id.clone(),
+                    (
+                        task.pending_handoff_to.clone(),
+                        task.session.clone(),
+                        task.worktree_id.clone(),
+                        task.branch_ref.clone(),
+                    ),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
         let graphs = self.graphs.values().cloned().collect::<Vec<_>>();
         let mut plan_snapshot =
             coordination_snapshot_from_plan_graphs(&graphs, &self.execution_overlays);
         for plan in &mut plan_snapshot.plans {
             if let Some(policy) = self.policies.get(plan.id.0.as_str()) {
                 plan.policy = policy.clone();
+            }
+        }
+        for task in &mut plan_snapshot.tasks {
+            if let Some((pending_handoff_to, session, worktree_id, branch_ref)) =
+                task_runtime_scope.get(&task.id)
+            {
+                task.pending_handoff_to = pending_handoff_to.clone();
+                task.session = session.clone();
+                task.worktree_id = worktree_id.clone();
+                task.branch_ref = branch_ref.clone();
             }
         }
         snapshot.plans = plan_snapshot.plans;
@@ -468,11 +493,17 @@ impl NativePlanRuntimeState {
         let node_id = plan_node_id_from_task_id(task.id.clone());
         let overlays = self.execution_overlays.entry(plan_key).or_default();
         overlays.retain(|overlay| overlay.node_id != node_id);
-        if task.pending_handoff_to.is_some() || task.session.is_some() {
+        if task.pending_handoff_to.is_some()
+            || task.session.is_some()
+            || task.worktree_id.is_some()
+            || task.branch_ref.is_some()
+        {
             overlays.push(PlanExecutionOverlay {
                 node_id,
                 pending_handoff_to: task.pending_handoff_to.clone(),
                 session: task.session.clone(),
+                worktree_id: task.worktree_id.clone(),
+                branch_ref: task.branch_ref.clone(),
                 effective_assignee: None,
                 awaiting_handoff_from: None,
             });
@@ -495,10 +526,14 @@ fn derive_execution_overlays(
         let stored = overlay_for_node(overlays, &node.id);
         let pending_handoff_to = stored.and_then(|overlay| overlay.pending_handoff_to.clone());
         let session = stored.and_then(|overlay| overlay.session.clone());
+        let worktree_id = stored.and_then(|overlay| overlay.worktree_id.clone());
+        let branch_ref = stored.and_then(|overlay| overlay.branch_ref.clone());
         let effective_assignee = effective_assignee_for_node(graph, overlays, node);
         let awaiting_handoff_from = awaiting_handoff_from_node(graph, node);
         if pending_handoff_to.is_some()
             || session.is_some()
+            || worktree_id.is_some()
+            || branch_ref.is_some()
             || effective_assignee.is_some()
             || awaiting_handoff_from.is_some()
         {
@@ -506,6 +541,8 @@ fn derive_execution_overlays(
                 node_id: node.id.clone(),
                 pending_handoff_to,
                 session,
+                worktree_id,
+                branch_ref,
                 effective_assignee,
                 awaiting_handoff_from,
             });

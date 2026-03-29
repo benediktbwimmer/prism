@@ -89,6 +89,10 @@ pub struct CoordinationTask {
     #[serde(default)]
     pub pending_handoff_to: Option<AgentId>,
     pub session: Option<SessionId>,
+    #[serde(default)]
+    pub worktree_id: Option<String>,
+    #[serde(default)]
+    pub branch_ref: Option<String>,
     pub anchors: Vec<AnchorRef>,
     #[serde(default)]
     pub bindings: PlanBinding,
@@ -287,6 +291,8 @@ pub struct TaskCreateInput {
     pub status: Option<CoordinationTaskStatus>,
     pub assignee: Option<AgentId>,
     pub session: Option<SessionId>,
+    pub worktree_id: Option<String>,
+    pub branch_ref: Option<String>,
     pub anchors: Vec<AnchorRef>,
     pub depends_on: Vec<CoordinationTaskId>,
     pub acceptance: Vec<AcceptanceCriterion>,
@@ -299,6 +305,8 @@ pub struct TaskUpdateInput {
     pub status: Option<CoordinationTaskStatus>,
     pub assignee: Option<Option<AgentId>>,
     pub session: Option<Option<SessionId>>,
+    pub worktree_id: Option<Option<String>>,
+    pub branch_ref: Option<Option<String>>,
     pub title: Option<String>,
     pub anchors: Option<Vec<AnchorRef>>,
     pub depends_on: Option<Vec<CoordinationTaskId>>,
@@ -325,6 +333,8 @@ pub struct HandoffInput {
 pub struct HandoffAcceptInput {
     pub task_id: CoordinationTaskId,
     pub agent: Option<AgentId>,
+    pub worktree_id: Option<String>,
+    pub branch_ref: Option<String>,
 }
 
 #[derive(Debug, Clone)]

@@ -1081,6 +1081,8 @@ fn coordination_queries_expand_into_neighboring_symbols() {
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: Some(SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha.clone())],
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -1193,6 +1195,8 @@ fn plan_graph_reads_native_runtime_state_before_coordination_projection() {
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -1215,6 +1219,8 @@ fn plan_graph_reads_native_runtime_state_before_coordination_projection() {
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -1290,6 +1296,8 @@ fn plan_graph_reads_native_runtime_state_before_coordination_projection() {
             node_id: node_b.clone(),
             pending_handoff_to: None,
             session: Some(SessionId::new("session:native")),
+            worktree_id: None,
+            branch_ref: None,
             effective_assignee: None,
             awaiting_handoff_from: None,
         }],
@@ -1364,6 +1372,8 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha.clone())],
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -1496,6 +1506,8 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -1518,6 +1530,8 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -1620,6 +1634,8 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
                 status: Some(prism_ir::CoordinationTaskStatus::InProgress),
                 assignee: None,
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 title: None,
                 anchors: None,
                 depends_on: None,
@@ -1664,6 +1680,8 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: Some(SessionId::new("session:native")),
+                worktree_id: None,
+                branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: vec![prism_ir::CoordinationTaskId::new(task_a.0.clone())],
                 acceptance: Vec::new(),
@@ -1858,6 +1876,8 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha.clone())],
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -1915,6 +1935,147 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
     assert!(prism
         .coordination_artifact(&prism_ir::ArtifactId::new("artifact:b"))
         .is_none());
+}
+
+#[test]
+fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:worktree-ready"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Scoped ready work".into(),
+                status: Some(prism_ir::PlanStatus::Active),
+                policy: None,
+            },
+        )
+        .unwrap();
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        Graph::new(),
+        HistoryStore::new(),
+        OutcomeMemory::new(),
+        coordination,
+        ProjectionIndex::default(),
+    );
+
+    prism.set_coordination_context(Some(CoordinationPersistContext {
+        repo_id: "repo:test".into(),
+        worktree_id: "worktree:a".into(),
+        branch_ref: Some("refs/heads/a".into()),
+        session_id: None,
+        instance_id: Some("instance:test".into()),
+    }));
+    let task = prism
+        .create_native_task(
+            EventMeta {
+                id: EventId::new("coord:task:worktree-ready"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Edit alpha".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: Some(prism_ir::AgentId::new("agent-a")),
+                session: Some(SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    assert_eq!(task.worktree_id.as_deref(), Some("worktree:a"));
+    assert_eq!(prism.ready_tasks(&plan_id, 10).len(), 1);
+
+    prism.set_coordination_context(Some(CoordinationPersistContext {
+        repo_id: "repo:test".into(),
+        worktree_id: "worktree:b".into(),
+        branch_ref: Some("refs/heads/b".into()),
+        session_id: None,
+        instance_id: Some("instance:test".into()),
+    }));
+    assert!(prism.ready_tasks(&plan_id, 10).is_empty());
+
+    prism.set_coordination_context(Some(CoordinationPersistContext {
+        repo_id: "repo:test".into(),
+        worktree_id: "worktree:a".into(),
+        branch_ref: Some("refs/heads/a".into()),
+        session_id: None,
+        instance_id: Some("instance:test".into()),
+    }));
+    prism
+        .request_native_handoff(
+            EventMeta {
+                id: EventId::new("coord:handoff:worktree-ready"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            HandoffInput {
+                task_id: task.id.clone(),
+                to_agent: Some(prism_ir::AgentId::new("agent-b")),
+                summary: "handoff".into(),
+                base_revision: WorkspaceRevision::default(),
+            },
+            WorkspaceRevision::default(),
+        )
+        .unwrap();
+
+    prism.set_coordination_context(Some(CoordinationPersistContext {
+        repo_id: "repo:test".into(),
+        worktree_id: "worktree:b".into(),
+        branch_ref: Some("refs/heads/b".into()),
+        session_id: None,
+        instance_id: Some("instance:test".into()),
+    }));
+    let accepted = prism
+        .accept_native_handoff(
+            EventMeta {
+                id: EventId::new("coord:handoff-accept:worktree-ready"),
+                ts: 4,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            prism_coordination::HandoffAcceptInput {
+                task_id: task.id.clone(),
+                agent: Some(prism_ir::AgentId::new("agent-b")),
+                worktree_id: None,
+                branch_ref: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(accepted.worktree_id.as_deref(), Some("worktree:b"));
+    let execution = prism.plan_execution(&plan_id);
+    assert_eq!(execution.len(), 1);
+    assert_eq!(execution[0].worktree_id.as_deref(), Some("worktree:b"));
+    let projected = prism
+        .coordination_task(&task.id)
+        .expect("accepted task should remain queryable");
+    assert_eq!(projected.worktree_id.as_deref(), Some("worktree:b"));
+    assert_eq!(projected.status, prism_ir::CoordinationTaskStatus::Ready);
+    assert_eq!(prism.ready_tasks(&plan_id, 10).len(), 1);
+
+    prism.set_coordination_context(Some(CoordinationPersistContext {
+        repo_id: "repo:test".into(),
+        worktree_id: "worktree:a".into(),
+        branch_ref: Some("refs/heads/a".into()),
+        session_id: None,
+        instance_id: Some("instance:test".into()),
+    }));
+    assert!(prism.ready_tasks(&plan_id, 10).is_empty());
 }
 
 #[test]
@@ -1988,6 +2149,8 @@ fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
                 status: None,
                 assignee: None,
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -2503,6 +2666,8 @@ fn native_plan_updates_validate_completion_and_preserve_non_dependency_edges() {
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -2525,6 +2690,8 @@ fn native_plan_updates_validate_completion_and_preserve_non_dependency_edges() {
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -2665,6 +2832,8 @@ fn native_plan_edge_validation_rejects_self_cycles_and_multiple_child_parents() 
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -2687,6 +2856,8 @@ fn native_plan_edge_validation_rejects_self_cycles_and_multiple_child_parents() 
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -2709,6 +2880,8 @@ fn native_plan_edge_validation_rejects_self_cycles_and_multiple_child_parents() 
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -3185,6 +3358,8 @@ fn native_plan_ready_nodes_and_blockers_follow_edge_semantics() {
                 node_id: pending_handoff.clone(),
                 pending_handoff_to: Some(prism_ir::AgentId::new("agent-b")),
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 effective_assignee: None,
                 awaiting_handoff_from: None,
             }],
@@ -3673,6 +3848,8 @@ fn published_plan_unbound_tasks_stay_actionable_across_unrelated_graph_drift() {
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -3793,6 +3970,8 @@ fn replace_coordination_snapshot_and_plan_graphs_preserves_stale_policy() {
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha)],
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -3872,6 +4051,8 @@ fn task_backed_native_plan_node_completion_uses_continuity_review_state() {
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: Some(SessionId::new("session:native")),
+                worktree_id: None,
+                branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -4033,6 +4214,8 @@ fn native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges() {
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -4055,6 +4238,8 @@ fn native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges() {
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -4253,6 +4438,8 @@ fn native_plan_metadata_survives_compatibility_write_and_reload() {
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha.clone())],
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -4551,6 +4738,8 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
                 status: None,
                 assignee: None,
                 session: Some(SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha.clone())],
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -4706,6 +4895,8 @@ fn exposes_intent_links_and_task_intent() {
                 status: None,
                 assignee: None,
                 session: Some(SessionId::new("session:intent")),
+                worktree_id: None,
+                branch_ref: None,
                 anchors: vec![AnchorRef::Node(alpha.clone())],
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -4812,6 +5003,8 @@ fn policy_violations_expose_rejected_coordination_mutations() {
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: Some(SessionId::new("session:audit")),
+                worktree_id: None,
+                branch_ref: None,
                 anchors: Vec::new(),
                 depends_on: Vec::new(),
                 acceptance: Vec::new(),
@@ -4836,6 +5029,8 @@ fn policy_violations_expose_rejected_coordination_mutations() {
                 status: Some(prism_ir::CoordinationTaskStatus::Completed),
                 assignee: None,
                 session: None,
+                worktree_id: None,
+                branch_ref: None,
                 title: None,
                 anchors: None,
                 depends_on: None,
