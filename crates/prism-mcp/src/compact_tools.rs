@@ -164,7 +164,7 @@ impl QueryHost {
         T: serde::Serialize,
         F: FnOnce(&QueryHost, QueryRun) -> Result<(T, Vec<QueryDiagnostic>)>,
     {
-        let query_run = self.begin_query_run(session.as_ref(), kind, query_text);
+        let query_run = self.begin_query_run(session.as_ref(), kind, kind, query_text);
         match (|| -> Result<(T, Vec<QueryDiagnostic>, usize)> {
             let refresh_started = Instant::now();
             let refresh = self.observe_workspace_for_read()?;
@@ -214,7 +214,7 @@ impl QueryHost {
             Ok((value, diagnostics, json_bytes)) => {
                 let result_value = serde_json::to_value(&value)?;
                 query_run.finish_success(
-                    self.query_log_store.as_ref(),
+                    self.mcp_call_log_store.as_ref(),
                     &result_value,
                     diagnostics,
                     json_bytes,
@@ -224,7 +224,7 @@ impl QueryHost {
             }
             Err(error) => {
                 query_run.finish_error(
-                    self.query_log_store.as_ref(),
+                    self.mcp_call_log_store.as_ref(),
                     Vec::new(),
                     error.to_string(),
                 );

@@ -52,16 +52,17 @@ use crate::{
     ChangedSymbolsArgs, ConceptHandleArgs, ConceptQueryArgs, CoordinationTaskTargetArgs,
     CuratorJobArgs, CuratorJobsArgs, CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs,
     DiscoveryTargetArgs, EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs,
-    LimitArgs, MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
-    PendingReviewsArgs, PlanNextArgs, PlanNodeTargetArgs, PlanTargetArgs, PlansQueryArgs,
-    PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs,
-    RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchAmbiguityContext, SearchArgs,
-    SearchTextArgs, SemanticContextCache, SessionState, SimulateClaimArgs, SourceExcerptArgs,
-    SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode,
-    TaskTargetArgs, ToolNameArgs, ToolValidationArgs, ValidationFeedbackArgs, WhereUsedArgs,
-    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER,
-    QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
+    LimitArgs, McpLogArgs, McpTraceArgs, MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs,
+    NodeIdInput, OwnerLookupArgs, PendingReviewsArgs, PlanNextArgs, PlanNodeTargetArgs,
+    PlanTargetArgs, PlansQueryArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage,
+    QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs,
+    SearchAmbiguityContext, SearchArgs, SearchTextArgs, SemanticContextCache, SessionState,
+    SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs,
+    TaskJournalArgs, TaskScopeMode, TaskTargetArgs, ToolNameArgs, ToolValidationArgs,
+    ValidationFeedbackArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
+    QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER,
+    USER_SNIPPET_MARKER,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -109,8 +110,12 @@ impl QueryHost {
         session: Arc<SessionState>,
         query: &str,
     ) -> Result<QueryEnvelope> {
-        let query_run =
-            self.begin_query_run(session.as_ref(), "symbolQuery", format!("symbol({query})"));
+        let query_run = self.begin_query_run(
+            session.as_ref(),
+            "prism_query",
+            "symbolQuery",
+            format!("symbol({query})"),
+        );
         let mut execution = None;
         match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize)> {
             self.observe_workspace_for_read()?;
@@ -128,7 +133,7 @@ impl QueryHost {
         })() {
             Ok((result, diagnostics, json_bytes)) => {
                 query_run.finish_success(
-                    self.query_log_store.as_ref(),
+                    self.mcp_call_log_store.as_ref(),
                     &result,
                     diagnostics.clone(),
                     json_bytes,
@@ -141,7 +146,7 @@ impl QueryHost {
             }
             Err(error) => {
                 query_run.finish_error(
-                    self.query_log_store.as_ref(),
+                    self.mcp_call_log_store.as_ref(),
                     execution
                         .as_ref()
                         .map(QueryExecution::diagnostics)
@@ -161,6 +166,7 @@ impl QueryHost {
     ) -> Result<QueryEnvelope> {
         let query_run = self.begin_query_run(
             session.as_ref(),
+            "prism_query",
             "searchQuery",
             format!("search({})", args.query),
         );
@@ -181,7 +187,7 @@ impl QueryHost {
         })() {
             Ok((result, diagnostics, json_bytes)) => {
                 query_run.finish_success(
-                    self.query_log_store.as_ref(),
+                    self.mcp_call_log_store.as_ref(),
                     &result,
                     diagnostics.clone(),
                     json_bytes,
@@ -194,7 +200,7 @@ impl QueryHost {
             }
             Err(error) => {
                 query_run.finish_error(
-                    self.query_log_store.as_ref(),
+                    self.mcp_call_log_store.as_ref(),
                     execution
                         .as_ref()
                         .map(QueryExecution::diagnostics)
@@ -207,7 +213,7 @@ impl QueryHost {
     }
 
     fn execute_typescript(&self, session: Arc<SessionState>, code: &str) -> Result<QueryEnvelope> {
-        let query_run = self.begin_query_run(session.as_ref(), "typescript", code);
+        let query_run = self.begin_query_run(session.as_ref(), "prism_query", "typescript", code);
         let mut execution = None;
         match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize, bool)> {
             let refresh_started = Instant::now();
@@ -286,7 +292,7 @@ impl QueryHost {
         })() {
             Ok((result, diagnostics, json_bytes, output_cap_hit)) => {
                 query_run.finish_success(
-                    self.query_log_store.as_ref(),
+                    self.mcp_call_log_store.as_ref(),
                     &result,
                     diagnostics.clone(),
                     json_bytes,
@@ -299,7 +305,7 @@ impl QueryHost {
             }
             Err(error) => {
                 query_run.finish_error(
-                    self.query_log_store.as_ref(),
+                    self.mcp_call_log_store.as_ref(),
                     execution
                         .as_ref()
                         .map(QueryExecution::diagnostics)
@@ -637,6 +643,30 @@ impl QueryExecution {
             "runtimeTimeline" => {
                 let args: RuntimeTimelineArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.runtime_timeline(args)?)?)
+            }
+            "mcpLog" => {
+                let args: McpLogArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.host.mcp_call_entries(args))?)
+            }
+            "slowMcpCalls" => {
+                let args: McpLogArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.host.slow_mcp_call_entries(args))?)
+            }
+            "mcpTrace" => {
+                let args: McpTraceArgs = serde_json::from_value(args)?;
+                let trace = self.host.mcp_call_trace_view(&args.id);
+                if trace.is_none() {
+                    self.push_diagnostic(
+                        "anchor_unresolved",
+                        format!("No MCP call trace matched `{}`.", args.id),
+                        Some(json!({ "callId": args.id })),
+                    );
+                }
+                Ok(serde_json::to_value(trace)?)
+            }
+            "mcpStats" => {
+                let args: McpLogArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(self.host.mcp_call_stats(args))?)
             }
             "queryLog" => {
                 let args: QueryLogArgs = serde_json::from_value(args)?;

@@ -37,6 +37,10 @@ impl CoordinationRuntimeState {
         }
     }
 
+    pub fn replace_from_snapshot(&mut self, snapshot: CoordinationSnapshot) {
+        self.state = CoordinationState::from_raw_snapshot(snapshot);
+    }
+
     pub fn snapshot(&self) -> CoordinationSnapshot {
         self.state.snapshot()
     }

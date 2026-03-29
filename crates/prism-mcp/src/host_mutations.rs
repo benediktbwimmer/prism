@@ -358,6 +358,19 @@ impl QueryHost {
         entry.trust = disposition.trust();
         entry.metadata = task_journal_memory_metadata(Value::Null, &task, disposition.label());
         let memory_id = session.notes.store(entry)?;
+        let memory_event = session
+            .notes
+            .entry(&memory_id)
+            .map(|entry| {
+                MemoryEvent::from_entry(
+                    MemoryEventKind::Stored,
+                    entry,
+                    Some(task.0.to_string()),
+                    Vec::new(),
+                    Vec::new(),
+                )
+            })
+            .ok_or_else(|| anyhow!("stored memory `{}` could not be reloaded", memory_id.0))?;
 
         let event = OutcomeEvent {
             meta: EventMeta {
@@ -381,11 +394,8 @@ impl QueryHost {
             }),
         };
         let event_id = if let Some(workspace) = &self.workspace {
-            let event_id = workspace.append_outcome_with_auxiliary(
-                event,
-                Some(session.notes.snapshot()),
-                None,
-            )?;
+            let event_id =
+                workspace.append_outcome_with_auxiliary(event, vec![memory_event], None, None)?;
             self.sync_workspace_revision(workspace)?;
             self.sync_episodic_revision(workspace)?;
             event_id
@@ -549,7 +559,7 @@ impl QueryHost {
                         .map(prism_memory::MemoryId)
                         .collect(),
                 ))?;
-                self.persist_notes()?;
+                self.sync_episodic_revision(workspace)?;
             } else if stored_entry.scope == MemoryScope::Repo {
                 return Err(anyhow!(
                     "repo-published memory requires a workspace-backed PRISM session"
@@ -746,7 +756,15 @@ impl QueryHost {
             args.evidence.unwrap_or_default(),
         );
         if scope != prism_agent::InferredEdgeScope::SessionOnly {
-            self.persist_inferred_edges()?;
+            if let Some(workspace) = &self.workspace {
+                let record = session.inferred_edges.record(&id).ok_or_else(|| {
+                    anyhow!("stored inferred edge `{}` could not be reloaded", id.0)
+                })?;
+                workspace.append_inference_records(&[record])?;
+                self.sync_inference_revision(workspace)?;
+            } else {
+                self.persist_inferred_edges()?;
+            }
         }
         Ok(EdgeMutationResult {
             edge_id: id.0,
@@ -1566,7 +1584,11 @@ impl QueryHost {
             candidate.evidence.clone(),
         );
         if scope != prism_agent::InferredEdgeScope::SessionOnly {
-            self.persist_inferred_edges()?;
+            let record = session.inferred_edges.record(&edge_id).ok_or_else(|| {
+                anyhow!("stored inferred edge `{}` could not be reloaded", edge_id.0)
+            })?;
+            workspace.append_inference_records(&[record])?;
+            self.sync_inference_revision(workspace)?;
         }
         let detail = args.note.clone();
         workspace.set_curator_proposal_state(

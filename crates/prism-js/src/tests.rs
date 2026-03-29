@@ -66,6 +66,10 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("tools(): ToolCatalogEntryView[];"));
     assert!(docs.contains("tool(name: string): ToolSchemaView | null;"));
     assert!(docs.contains("file(path: string): FileView;"));
+    assert!(docs.contains("mcpLog(options?: McpLogOptions): McpCallLogEntryView[];"));
+    assert!(docs.contains("slowMcpCalls(options?: McpLogOptions): McpCallLogEntryView[];"));
+    assert!(docs.contains("mcpTrace(id: string): McpCallTraceView | null;"));
+    assert!(docs.contains("mcpStats(options?: McpLogOptions): McpCallStatsView;"));
     assert!(docs.contains("queryLog(options?: QueryLogOptions): QueryLogEntryView[];"));
     assert!(docs.contains("slowQueries(options?: QueryLogOptions): QueryLogEntryView[];"));
     assert!(docs.contains("queryTrace(id: string): QueryTraceView | null;"));
@@ -97,6 +101,7 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("preferEditableTargets?: boolean;"));
     assert!(docs.contains("preferBehavioralOwners?: boolean;"));
     assert!(docs.contains("type TextSearchMatchView = {"));
+    assert!(docs.contains("type McpLogOptions = {"));
     assert!(docs.contains("type QueryLogOptions = {"));
     assert!(docs.contains("type RuntimeLogOptions = {"));
     assert!(docs.contains("type RuntimeTimelineOptions = {"));
@@ -130,6 +135,8 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("type TextSearchBundleView = {"));
     assert!(docs.contains("type TargetBundleView = {"));
     assert!(docs.contains("type RuntimeStatusView = {"));
+    assert!(docs.contains("mcpCallLogPath?: string;"));
+    assert!(docs.contains("mcpCallLogBytes?: number;"));
     assert!(docs.contains("type ConnectionInfoView = {"));
     assert!(docs.contains("mode: string;"));
     assert!(docs.contains("transport: string;"));
@@ -141,6 +148,11 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("connectedBridgeCount: number;"));
     assert!(docs.contains("orphanBridgeCount: number;"));
     assert!(docs.contains("type RuntimeLogEventView = {"));
+    assert!(docs.contains("type McpCallPayloadSummaryView = {"));
+    assert!(docs.contains("type McpCallLogEntryView = {"));
+    assert!(docs.contains("type McpCallTraceView = {"));
+    assert!(docs.contains("type McpCallStatsBucketView = {"));
+    assert!(docs.contains("type McpCallStatsView = {"));
     assert!(docs.contains("type QueryLogEntryView = {"));
     assert!(docs.contains("type QueryTraceView = {"));
     assert!(docs.contains("kind: \"toml-key\""));
@@ -213,6 +225,10 @@ fn prelude_exposes_global_prism() {
         prelude.contains("options?.preferBehavioralOwners ?? options?.prefer_behavioral_owners")
     );
     assert!(prelude.contains("file(path)"));
+    assert!(prelude.contains("mcpLog(options = {})"));
+    assert!(prelude.contains("slowMcpCalls(options = {})"));
+    assert!(prelude.contains("mcpTrace(id)"));
+    assert!(prelude.contains("mcpStats(options = {})"));
     assert!(prelude.contains("queryLog(options = {})"));
     assert!(prelude.contains("slowQueries(options = {})"));
     assert!(prelude.contains("queryTrace(id)"));

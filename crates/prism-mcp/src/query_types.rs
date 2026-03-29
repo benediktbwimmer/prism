@@ -120,6 +120,25 @@ pub(crate) struct QueryLogArgs {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct McpLogArgs {
+    pub(crate) limit: Option<usize>,
+    pub(crate) since: Option<u64>,
+    pub(crate) call_type: Option<String>,
+    pub(crate) name: Option<String>,
+    pub(crate) task_id: Option<String>,
+    pub(crate) session_id: Option<String>,
+    pub(crate) success: Option<bool>,
+    pub(crate) min_duration_ms: Option<u64>,
+    pub(crate) contains: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct McpTraceArgs {
+    pub(crate) id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct RuntimeLogArgs {
     pub(crate) limit: Option<usize>,
     pub(crate) level: Option<String>,

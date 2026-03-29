@@ -588,7 +588,12 @@ fn coordination_mutations_flow_through_query_runtime() {
         host.clone(),
         test_session(&host),
         host.current_prism(),
-        host.begin_query_run(test_session(&host).as_ref(), "test", "dispatch plan"),
+        host.begin_query_run(
+            test_session(&host).as_ref(),
+            "test",
+            "test",
+            "dispatch plan",
+        ),
     );
     let plan_id = plan.state["id"].as_str().unwrap();
     let plan_value = execution
@@ -841,9 +846,7 @@ fn plan_node_mutations_return_graph_native_views() {
     assert_eq!(updated.state["isAbstract"], false);
     assert_eq!(updated.state["priority"], 7);
     assert_eq!(updated.state["tags"], json!(["review", "validation"]));
-    let binding_anchors = updated.state["bindings"]["anchors"]
-        .as_array()
-        .unwrap();
+    let binding_anchors = updated.state["bindings"]["anchors"].as_array().unwrap();
     assert_eq!(binding_anchors.len(), 2);
     assert!(binding_anchors.iter().any(
         |anchor| anchor["Node"]["path"] == "demo::main" && anchor["Node"]["kind"] == "Function"
@@ -952,6 +955,7 @@ fn native_plan_node_completion_rejects_missing_review_and_validation() {
         host.current_prism(),
         host.begin_query_run(
             test_session(&host).as_ref(),
+            "test",
             "test",
             "native completion blockers",
         ),
@@ -1515,7 +1519,12 @@ fn plan_query_reads_surface_native_ready_nodes_and_blockers() {
         host.clone(),
         test_session(&host),
         host.current_prism(),
-        host.begin_query_run(test_session(&host).as_ref(), "test", "plan query reads"),
+        host.begin_query_run(
+            test_session(&host).as_ref(),
+            "test",
+            "test",
+            "plan query reads",
+        ),
     );
     let ready_nodes = execution
         .dispatch("planReadyNodes", &format!(r#"{{ "planId": "{plan_id}" }}"#))
@@ -1698,6 +1707,7 @@ fn plan_query_reads_surface_child_hierarchy_completion_gates() {
         host.begin_query_run(
             test_session(&host).as_ref(),
             "test",
+            "test",
             "child hierarchy semantics",
         ),
     );
@@ -1862,6 +1872,7 @@ fn mcp_exposes_policy_violations_through_prism_query() {
         host.current_prism(),
         host.begin_query_run(
             test_session(&host).as_ref(),
+            "test",
             "test",
             "dispatch policy violations",
         ),
@@ -2276,6 +2287,7 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
     assert!(api_reference.contains("prism_open"));
     assert!(api_reference.contains("prism_query"));
     assert!(!api_reference.contains("runtimeStatus(): RuntimeStatusView;"));
+    assert!(!api_reference.contains("mcpLog(options?: McpLogOptions): McpCallLogEntryView[];"));
     assert!(!api_reference.contains("queryLog(options?: QueryLogOptions): QueryLogEntryView[];"));
 
     client
@@ -2486,6 +2498,7 @@ async fn mcp_server_internal_developer_mode_surfaces_runtime_and_query_history_q
         .as_str()
         .expect("api reference should be text");
     assert!(api_reference.contains("runtimeStatus(): RuntimeStatusView;"));
+    assert!(api_reference.contains("mcpLog(options?: McpLogOptions): McpCallLogEntryView[];"));
     assert!(api_reference.contains("queryLog(options?: QueryLogOptions): QueryLogEntryView[];"));
     assert!(api_reference.contains(
         "validationFeedback(options?: ValidationFeedbackOptions): ValidationFeedbackView[];"
@@ -2508,6 +2521,11 @@ async fn mcp_server_internal_developer_mode_surfaces_runtime_and_query_history_q
         .unwrap()
         .iter()
         .any(|method| method["name"] == "runtimeStatus"));
+    assert!(capabilities_payload["queryMethods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|method| method["name"] == "mcpLog"));
     assert!(capabilities_payload["queryMethods"]
         .as_array()
         .unwrap()
@@ -2838,6 +2856,7 @@ fn simple_mode_disables_coordination_host_paths() {
         host.current_prism(),
         host.begin_query_run(
             test_session(&host).as_ref(),
+            "test",
             "test",
             "dispatch simple-mode plan",
         ),
@@ -3523,6 +3542,7 @@ fn drift_candidates_and_task_intent_flow_through_prism_query_reads() {
         host.current_prism(),
         host.begin_query_run(
             test_session(&host).as_ref(),
+            "test",
             "test",
             "dispatch drift candidates",
         ),
@@ -10929,6 +10949,138 @@ return {
 }
 
 #[test]
+fn prism_mcp_log_exposes_canonical_call_history_trace_and_stats() {
+    let root = temp_workspace();
+    write_long_excerpt_workspace(&root);
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    host.execute(
+        test_session(&host),
+        r#"
+return prism.searchText("read context", {
+  path: "src/recall.rs",
+  limit: 1,
+  contextLines: 0,
+});
+"#,
+        QueryLanguage::Ts,
+    )
+    .expect("text search query should succeed");
+
+    host.execute(
+        test_session(&host),
+        r#"
+return prism.file("src/recall.rs").around({
+  line: 8,
+  before: 1,
+  after: 1,
+});
+"#,
+        QueryLanguage::Ts,
+    )
+    .expect("file slice query should succeed");
+
+    let result = host
+        .execute(
+            test_session(&host),
+            r#"
+const recent = prism.mcpLog({
+  limit: 5,
+  callType: "tool",
+  name: "prism_query",
+  contains: "src/recall.rs",
+});
+const slow = prism.slowMcpCalls({
+  limit: 5,
+  callType: "tool",
+  name: "prism_query",
+  minDurationMs: 0,
+  contains: "src/recall.rs",
+});
+return {
+  recent,
+  slow,
+  trace: recent[0] ? prism.mcpTrace(recent[0].id) : null,
+  stats: prism.mcpStats({
+    callType: "tool",
+    name: "prism_query",
+    contains: "src/recall.rs",
+  }),
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("mcp log query should succeed");
+
+    let recent = result.result["recent"].as_array().expect("recent mcp log");
+    assert_eq!(recent.len(), 2);
+    assert_eq!(recent[0]["callType"], "tool");
+    assert_eq!(recent[0]["name"], "prism_query");
+    assert_eq!(recent[0]["success"], true);
+    assert!(recent[0]["serverInstanceId"]
+        .as_str()
+        .unwrap_or_default()
+        .starts_with("mcp-instance:"));
+    assert!(recent[0]["processId"].as_u64().unwrap_or_default() > 0);
+    assert_eq!(recent[0]["traceAvailable"], true);
+    assert!(
+        recent[0]["request"]["jsonBytes"]
+            .as_u64()
+            .expect("request bytes should be present")
+            > 0
+    );
+    assert!(
+        recent[0]["response"]["jsonBytes"]
+            .as_u64()
+            .expect("response bytes should be present")
+            > 0
+    );
+
+    let slow = result.result["slow"].as_array().expect("slow mcp log");
+    assert_eq!(slow.len(), 2);
+    assert!(
+        slow[0]["durationMs"].as_u64().unwrap_or_default()
+            >= slow[1]["durationMs"].as_u64().unwrap_or_default()
+    );
+
+    let trace = &result.result["trace"];
+    assert_eq!(trace["entry"]["id"], recent[0]["id"]);
+    assert_eq!(trace["metadata"]["tool"], "prism_query");
+    assert!(trace["metadata"]["queryText"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("src/recall.rs"));
+    assert!(trace["requestPreview"]["queryText"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("src/recall.rs"));
+    assert!(trace["phases"].as_array().is_some_and(|phases| phases
+        .iter()
+        .any(|phase| phase["operation"] == "fileAround")));
+
+    assert_eq!(result.result["stats"]["totalCalls"], 2);
+    assert_eq!(result.result["stats"]["successCount"], 2);
+    assert_eq!(result.result["stats"]["errorCount"], 0);
+    assert!(result.result["stats"]["byName"]
+        .as_array()
+        .is_some_and(|buckets| buckets.iter().any(|bucket| bucket["key"] == "prism_query")));
+
+    let status = host
+        .execute(
+            test_session(&host),
+            "return prism.runtimeStatus();",
+            QueryLanguage::Ts,
+        )
+        .expect("runtime status query should succeed")
+        .result;
+    assert!(status["mcpCallLogPath"]
+        .as_str()
+        .unwrap_or_default()
+        .contains(".prism/prism-mcp-call-log-"));
+    assert!(status["mcpCallLogBytes"].as_u64().unwrap_or_default() > 0);
+}
+
+#[test]
 fn prism_query_log_touched_prefers_semantic_targets() {
     let root = temp_workspace();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
@@ -12989,6 +13141,7 @@ fn unknown_host_operations_return_actionable_diagnostics() {
         host.current_prism(),
         host.begin_query_run(
             test_session(&host).as_ref(),
+            "test",
             "test",
             "dispatch unknown operation",
         ),
@@ -15655,14 +15808,14 @@ fn plans_resource_payload_surfaces_filters_and_root_nodes() {
 
     let root_node = host
         .store_coordination(
-        test_session(&host).as_ref(),
-        PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::PlanNodeCreate,
-            payload: json!({ "planId": plan_id, "title": "Classify authoritative tables" }),
-            task_id: None,
-        },
-    )
-    .unwrap();
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({ "planId": plan_id, "title": "Classify authoritative tables" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
 
     let payload = host
         .plans_resource_value(

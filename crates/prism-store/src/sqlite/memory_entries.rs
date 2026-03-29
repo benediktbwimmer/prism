@@ -37,9 +37,6 @@ pub(super) fn save_snapshot_tx(
     let current = load_snapshot_tx(tx)?;
     let delta = append_only_delta(current.as_ref(), snapshot);
     if delta.is_empty() {
-        if let Some(merged) = current {
-            snapshots::save_snapshot_row_tx(tx, "episodic", &merged)?;
-        }
         return Ok(false);
     }
 
@@ -56,14 +53,7 @@ pub(super) fn save_snapshot_tx(
         })
         .collect::<Vec<_>>();
     let inserted = append_events_tx(tx, &events)?;
-    if inserted == 0 {
-        if let Some(merged) = current {
-            snapshots::save_snapshot_row_tx(tx, "episodic", &merged)?;
-        }
-        return Ok(false);
-    }
-    replace_snapshot_row_from_event_log_tx(tx)?;
-    Ok(true)
+    Ok(inserted > 0)
 }
 
 pub(super) fn append_events_tx(tx: &Transaction<'_>, events: &[MemoryEvent]) -> Result<usize> {
@@ -83,9 +73,6 @@ pub(super) fn append_events_tx(tx: &Transaction<'_>, events: &[MemoryEvent]) -> 
                 serde_json::to_string(event)?,
             ],
         )?;
-    }
-    if inserted > 0 {
-        replace_snapshot_row_from_event_log_tx(tx)?;
     }
     Ok(inserted)
 }
@@ -223,16 +210,6 @@ where
         events.push(event);
     }
     Ok(events)
-}
-
-fn replace_snapshot_row_from_event_log_tx(tx: &Transaction<'_>) -> Result<()> {
-    let snapshot = snapshot_from_events(load_events_tx(tx)?);
-    if let Some(snapshot) = snapshot {
-        snapshots::save_snapshot_row_tx(tx, "episodic", &snapshot)?;
-    } else {
-        snapshots::delete_snapshot_row_tx(tx, "episodic")?;
-    }
-    Ok(())
 }
 
 fn extract_task_id(snapshot: &EpisodicMemorySnapshot) -> Option<String> {

@@ -72,27 +72,6 @@ pub(crate) fn local_projection_snapshot_for_persist(
     }
 }
 
-pub(crate) fn shared_projection_snapshot_for_persist(
-    snapshot: &ProjectionSnapshot,
-) -> ProjectionSnapshot {
-    ProjectionSnapshot {
-        co_change_by_lineage: Vec::new(),
-        validation_by_lineage: Vec::new(),
-        curated_concepts: snapshot
-            .curated_concepts
-            .iter()
-            .filter(|concept| concept.scope == ConceptScope::Session)
-            .cloned()
-            .collect(),
-        concept_relations: snapshot
-            .concept_relations
-            .iter()
-            .filter(|relation| relation.scope == ConceptScope::Session)
-            .cloned()
-            .collect(),
-    }
-}
-
 pub(crate) fn overlay_persisted_projection_knowledge(
     projections: &mut ProjectionIndex,
     snapshots: impl IntoIterator<Item = ProjectionSnapshot>,
@@ -116,7 +95,7 @@ pub(crate) fn merged_projection_index(
     outcomes: &OutcomeMemorySnapshot,
 ) -> ProjectionIndex {
     let mut projections = local_snapshot
-        .map(ProjectionIndex::from_snapshot)
+        .map(|snapshot| ProjectionIndex::from_snapshot_with_history(snapshot, Some(history)))
         .unwrap_or_else(|| ProjectionIndex::derive(history, outcomes));
     let keep_local_only = shared_snapshot.is_some();
     let local_concepts = projections
@@ -157,7 +136,6 @@ pub(crate) fn merged_projection_index(
         combined_relations.extend(shared_snapshot.concept_relations);
     }
     projections.replace_concept_relations(combined_relations);
-    projections.reseed_from_history(history);
     projections
 }
 

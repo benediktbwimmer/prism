@@ -209,6 +209,56 @@ pub(super) fn save_projection_snapshot_tx(
     Ok(())
 }
 
+pub(super) fn upsert_curated_concept_tx(
+    tx: &Transaction<'_>,
+    concept: &prism_projections::ConceptPacket,
+) -> Result<usize> {
+    Ok(tx.execute(
+        "INSERT INTO projection_curated_concept(handle, payload)
+         VALUES (?1, ?2)
+         ON CONFLICT(handle) DO UPDATE SET payload = excluded.payload",
+        params![concept.handle.as_str(), serde_json::to_string(concept)?],
+    )?)
+}
+
+pub(super) fn delete_curated_concept_tx(tx: &Transaction<'_>, handle: &str) -> Result<usize> {
+    Ok(tx.execute(
+        "DELETE FROM projection_curated_concept WHERE handle = ?1",
+        [handle],
+    )?)
+}
+
+pub(super) fn upsert_concept_relation_tx(
+    tx: &Transaction<'_>,
+    relation: &prism_projections::ConceptRelation,
+) -> Result<usize> {
+    Ok(tx.execute(
+        "INSERT INTO projection_concept_relation(source_handle, target_handle, kind, payload)
+         VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(source_handle, target_handle, kind)
+         DO UPDATE SET payload = excluded.payload",
+        params![
+            relation.source_handle.as_str(),
+            relation.target_handle.as_str(),
+            serde_json::to_string(&relation.kind)?,
+            serde_json::to_string(relation)?,
+        ],
+    )?)
+}
+
+pub(super) fn delete_concept_relation_tx(
+    tx: &Transaction<'_>,
+    source_handle: &str,
+    target_handle: &str,
+    kind: prism_projections::ConceptRelationKind,
+) -> Result<usize> {
+    Ok(tx.execute(
+        "DELETE FROM projection_concept_relation
+         WHERE source_handle = ?1 AND target_handle = ?2 AND kind = ?3",
+        params![source_handle, target_handle, serde_json::to_string(&kind)?],
+    )?)
+}
+
 pub(super) fn prune_projection_co_change(conn: &mut Connection) -> Result<usize> {
     let tx = conn.transaction()?;
     let deleted_rows = prune_projection_co_change_tx(&tx)?;

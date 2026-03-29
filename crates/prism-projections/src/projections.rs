@@ -28,6 +28,7 @@ pub struct ProjectionIndex {
     curated_concepts: Vec<ConceptPacket>,
     concept_relations: Vec<ConceptRelation>,
     concept_packets: Vec<ConceptPacket>,
+    history_hydrated: bool,
 }
 
 impl ProjectionIndex {
@@ -36,15 +37,37 @@ impl ProjectionIndex {
     }
 
     pub fn from_snapshot(snapshot: ProjectionSnapshot) -> Self {
-        let mut co_change_by_lineage = snapshot
-            .co_change_by_lineage
-            .into_iter()
-            .collect::<HashMap<_, _>>();
+        Self::from_snapshot_with_history(snapshot, None)
+    }
+
+    pub fn from_snapshot_with_history(
+        snapshot: ProjectionSnapshot,
+        history: Option<&HistorySnapshot>,
+    ) -> Self {
+        let ProjectionSnapshot {
+            co_change_by_lineage,
+            validation_by_lineage,
+            curated_concepts,
+            concept_relations,
+        } = snapshot;
+        let mut co_change_by_lineage = co_change_by_lineage.into_iter().collect::<HashMap<_, _>>();
         normalize_co_change_by_lineage(&mut co_change_by_lineage);
-        let node_to_lineage = HashMap::new();
-        let validation_by_lineage = snapshot.validation_by_lineage.into_iter().collect();
-        let curated_concepts = snapshot.curated_concepts;
-        let concept_relations = merge_concept_relations(&snapshot.concept_relations);
+        let node_to_lineage = history
+            .map(|history| {
+                history
+                    .node_to_lineage
+                    .iter()
+                    .cloned()
+                    .collect::<HashMap<NodeId, LineageId>>()
+            })
+            .unwrap_or_default();
+        let validation_by_lineage = validation_by_lineage.into_iter().collect();
+        let curated_concepts = if let Some(history) = history {
+            hydrate_curated_concepts(curated_concepts, &node_to_lineage, &history.events)
+        } else {
+            curated_concepts
+        };
+        let concept_relations = merge_concept_relations(&concept_relations);
         let concept_packets = merge_concept_packets(&resolve_curated_concepts(
             &curated_concepts,
             &node_to_lineage,
@@ -56,6 +79,7 @@ impl ProjectionIndex {
             curated_concepts,
             concept_relations,
             concept_packets,
+            history_hydrated: history.is_some(),
         }
     }
 
@@ -163,6 +187,7 @@ impl ProjectionIndex {
             curated_concepts,
             concept_relations,
             concept_packets,
+            history_hydrated: true,
         }
     }
 
@@ -226,6 +251,9 @@ impl ProjectionIndex {
     }
 
     pub fn reseed_from_history(&mut self, history: &HistorySnapshot) {
+        if self.history_hydrated {
+            return;
+        }
         self.node_to_lineage = history
             .node_to_lineage
             .iter()
@@ -237,6 +265,7 @@ impl ProjectionIndex {
             &history.events,
         );
         self.rebuild_concepts();
+        self.history_hydrated = true;
     }
 
     pub fn apply_lineage_events(&mut self, events: &[LineageEvent]) {
@@ -251,6 +280,7 @@ impl ProjectionIndex {
             }
         }
         self.rebuild_concepts();
+        self.history_hydrated = true;
     }
 
     pub fn apply_outcome_event<F>(&mut self, event: &OutcomeEvent, mut lineage_of: F)

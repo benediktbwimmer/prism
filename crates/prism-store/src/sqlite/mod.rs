@@ -4,7 +4,9 @@ mod coordination_events;
 mod coordination_mutations;
 mod graph_io;
 mod history_io;
+mod inference_records;
 mod memory_entries;
+mod outcome_events;
 mod projections;
 mod schema;
 mod snapshots;
@@ -13,6 +15,8 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
+use prism_agent::InferredEdgeRecord;
+use prism_projections::{ConceptPacket, ConceptRelation, ConceptRelationKind};
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use tracing::info;
 
@@ -128,6 +132,65 @@ impl SqliteStore {
         }
         Ok(revisions)
     }
+
+    pub fn append_inference_records(&mut self, records: &[InferredEdgeRecord]) -> Result<usize> {
+        let tx = self.conn.transaction()?;
+        let inserted = inference_records::append_records_tx(&tx, records)?;
+        if inserted > 0 {
+            bump_metadata_value_tx(&tx, INFERENCE_REVISION_KEY)?;
+        }
+        tx.commit()?;
+        Ok(inserted)
+    }
+
+    pub fn upsert_projection_concept(&mut self, concept: &ConceptPacket) -> Result<bool> {
+        let tx = self.conn.transaction()?;
+        let changed = projections::upsert_curated_concept_tx(&tx, concept)? > 0;
+        if changed {
+            bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        }
+        tx.commit()?;
+        Ok(changed)
+    }
+
+    pub fn delete_projection_concept(&mut self, handle: &str) -> Result<bool> {
+        let tx = self.conn.transaction()?;
+        let changed = projections::delete_curated_concept_tx(&tx, handle)? > 0;
+        if changed {
+            bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        }
+        tx.commit()?;
+        Ok(changed)
+    }
+
+    pub fn upsert_projection_concept_relation(
+        &mut self,
+        relation: &ConceptRelation,
+    ) -> Result<bool> {
+        let tx = self.conn.transaction()?;
+        let changed = projections::upsert_concept_relation_tx(&tx, relation)? > 0;
+        if changed {
+            bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        }
+        tx.commit()?;
+        Ok(changed)
+    }
+
+    pub fn delete_projection_concept_relation(
+        &mut self,
+        source_handle: &str,
+        target_handle: &str,
+        kind: ConceptRelationKind,
+    ) -> Result<bool> {
+        let tx = self.conn.transaction()?;
+        let changed =
+            projections::delete_concept_relation_tx(&tx, source_handle, target_handle, kind)? > 0;
+        if changed {
+            bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        }
+        tx.commit()?;
+        Ok(changed)
+    }
 }
 
 impl Store for SqliteStore {
@@ -165,7 +228,7 @@ impl Store for SqliteStore {
     }
 
     fn load_outcome_snapshot(&mut self) -> Result<Option<prism_memory::OutcomeMemorySnapshot>> {
-        snapshots::load_snapshot_row(&self.conn, "outcomes")
+        outcome_events::load_snapshot(&self.conn)
     }
 
     fn save_outcome_snapshot(
@@ -173,8 +236,9 @@ impl Store for SqliteStore {
         snapshot: &prism_memory::OutcomeMemorySnapshot,
     ) -> Result<()> {
         let tx = self.conn.transaction()?;
-        snapshots::save_snapshot_row_tx(&tx, "outcomes", snapshot)?;
-        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        if outcome_events::save_snapshot_tx(&tx, snapshot)? {
+            bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        }
         tx.commit()?;
         Ok(())
     }
@@ -185,9 +249,12 @@ impl Store for SqliteStore {
         deltas: &[prism_projections::ValidationDelta],
     ) -> Result<()> {
         let tx = self.conn.transaction()?;
-        snapshots::save_snapshot_row_tx(&tx, "outcomes", snapshot)?;
+        let mut workspace_changed = outcome_events::save_snapshot_tx(&tx, snapshot)?;
         projections::apply_projection_validation_deltas_tx(&tx, deltas)?;
-        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        workspace_changed |= !deltas.is_empty();
+        if workspace_changed {
+            bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        }
         tx.commit()?;
         Ok(())
     }
@@ -223,13 +290,14 @@ impl Store for SqliteStore {
     }
 
     fn load_inference_snapshot(&mut self) -> Result<Option<prism_agent::InferenceSnapshot>> {
-        snapshots::load_snapshot_row(&self.conn, "inference")
+        inference_records::load_snapshot(&self.conn)
     }
 
     fn save_inference_snapshot(&mut self, snapshot: &prism_agent::InferenceSnapshot) -> Result<()> {
         let tx = self.conn.transaction()?;
-        snapshots::save_snapshot_row_tx(&tx, "inference", snapshot)?;
-        bump_metadata_value_tx(&tx, INFERENCE_REVISION_KEY)?;
+        if inference_records::save_snapshot_tx(&tx, snapshot)? {
+            bump_metadata_value_tx(&tx, INFERENCE_REVISION_KEY)?;
+        }
         tx.commit()?;
         Ok(())
     }
@@ -383,18 +451,27 @@ impl Store for SqliteStore {
     fn commit_auxiliary_persist_batch(&mut self, batch: &AuxiliaryPersistBatch) -> Result<()> {
         let tx = self.conn.transaction()?;
         let mut workspace_changed = false;
-        if let Some(snapshot) = &batch.outcome_snapshot {
-            snapshots::save_snapshot_row_tx(&tx, "outcomes", snapshot)?;
+        if outcome_events::append_events_tx(&tx, &batch.outcome_events)? > 0 {
             workspace_changed = true;
+        }
+        if let Some(snapshot) = &batch.outcome_snapshot {
+            workspace_changed |= outcome_events::save_snapshot_tx(&tx, snapshot)?;
+        }
+        if memory_entries::append_events_tx(&tx, &batch.memory_events)? > 0 {
+            bump_metadata_value_tx(&tx, EPISODIC_REVISION_KEY)?;
         }
         if let Some(snapshot) = &batch.episodic_snapshot {
             if memory_entries::save_snapshot_tx(&tx, snapshot)? {
                 bump_metadata_value_tx(&tx, EPISODIC_REVISION_KEY)?;
             }
         }
-        if let Some(snapshot) = &batch.inference_snapshot {
-            snapshots::save_snapshot_row_tx(&tx, "inference", snapshot)?;
+        if inference_records::append_records_tx(&tx, &batch.inference_records)? > 0 {
             bump_metadata_value_tx(&tx, INFERENCE_REVISION_KEY)?;
+        }
+        if let Some(snapshot) = &batch.inference_snapshot {
+            if inference_records::save_snapshot_tx(&tx, snapshot)? {
+                bump_metadata_value_tx(&tx, INFERENCE_REVISION_KEY)?;
+            }
         }
         if let Some(snapshot) = &batch.curator_snapshot {
             snapshots::save_snapshot_row_tx(&tx, "curator", snapshot)?;
@@ -500,7 +577,7 @@ impl Store for SqliteStore {
         let save_history_ms = save_history_started.elapsed().as_millis();
 
         let save_outcomes_started = Instant::now();
-        snapshots::save_snapshot_row_tx(&tx, "outcomes", &batch.outcome_snapshot)?;
+        outcome_events::save_snapshot_tx(&tx, &batch.outcome_snapshot)?;
         let save_outcomes_ms = save_outcomes_started.elapsed().as_millis();
 
         let projection_started = Instant::now();

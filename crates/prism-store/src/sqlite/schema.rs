@@ -1,19 +1,25 @@
 use anyhow::Result;
 use rusqlite::Connection;
 
-const SCHEMA_VERSION: i64 = 16;
+const SCHEMA_VERSION: i64 = 18;
 
 pub(super) fn init_schema(conn: &Connection) -> Result<()> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
     match version {
         0 | SCHEMA_VERSION => {}
-        11 | 12 | 13 | 14 | 15 => {}
+        11 | 12 | 13 | 14 | 15 | 16 | 17 => {}
         _ => reset_schema(conn)?,
     }
 
     conn.execute_batch(current_schema_sql())?;
     if matches!(version, 11 | 12) {
         super::memory_entries::backfill_event_log_if_needed(conn)?;
+    }
+    if matches!(version, 11 | 12 | 13 | 14 | 15 | 16) {
+        super::outcome_events::backfill_event_log_if_needed(conn)?;
+    }
+    if matches!(version, 11 | 12 | 13 | 14 | 15 | 16 | 17) {
+        super::inference_records::backfill_record_log_if_needed(conn)?;
     }
     conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     Ok(())
@@ -146,6 +152,25 @@ fn current_schema_sql() -> &'static str {
 
         CREATE INDEX IF NOT EXISTS idx_memory_event_log_scope_sequence
             ON memory_event_log(scope, sequence DESC);
+
+        CREATE TABLE IF NOT EXISTS outcome_event_log (
+            sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id TEXT NOT NULL UNIQUE,
+            ts INTEGER NOT NULL,
+            payload TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_outcome_event_log_ts_sequence
+            ON outcome_event_log(ts DESC, sequence DESC);
+
+        CREATE TABLE IF NOT EXISTS inference_record_log (
+            sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+            edge_id TEXT NOT NULL UNIQUE,
+            payload TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_inference_record_log_edge_id_sequence
+            ON inference_record_log(edge_id, sequence DESC);
 
         CREATE TABLE IF NOT EXISTS coordination_event_log (
             sequence INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -282,6 +307,7 @@ fn reset_schema(conn: &Connection) -> Result<()> {
         DROP TABLE IF EXISTS snapshots;
         DROP TABLE IF EXISTS memory_entry_log;
         DROP TABLE IF EXISTS memory_event_log;
+        DROP TABLE IF EXISTS outcome_event_log;
         DROP TABLE IF EXISTS history_node_lineages;
         DROP TABLE IF EXISTS history_events;
         DROP TABLE IF EXISTS history_co_change;

@@ -570,7 +570,7 @@ fn sqlite_store_configures_connection_pragmas() {
     assert_eq!(synchronous, 1);
     assert_eq!(temp_store, 2);
     assert_eq!(wal_autocheckpoint, 1000);
-    assert_eq!(user_version, 16);
+    assert_eq!(user_version, 18);
     assert!(indexed_tables.into_iter().all(|count| count == 1));
 
     drop(store);
@@ -918,8 +918,7 @@ fn sqlite_store_commits_auxiliary_snapshots_with_projection_deltas() {
     assert_eq!(loaded_history.next_lineage, history.next_lineage);
     assert_eq!(loaded_history.next_event, history.next_event);
 
-    let loaded_outcomes = store.load_outcome_snapshot().unwrap().unwrap();
-    assert!(loaded_outcomes.events.is_empty());
+    assert!(store.load_outcome_snapshot().unwrap().is_none());
     assert_eq!(
         store.load_projection_snapshot().unwrap(),
         Some(ProjectionSnapshot {
@@ -1005,14 +1004,17 @@ fn sqlite_store_commits_auxiliary_batches_atomically() {
     let mut store = SqliteStore::open(&path).unwrap();
     store
         .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
-            outcome_snapshot: Some(outcome),
+            outcome_snapshot: None,
+            outcome_events: outcome.events.clone(),
             validation_deltas: vec![ValidationDelta {
                 lineage: prism_ir::LineageId::new("lineage:10"),
                 label: "test:smoke".to_string(),
                 score_delta: 2.0,
                 last_seen: 11,
             }],
+            memory_events: Vec::new(),
             episodic_snapshot: Some(episodic.clone()),
+            inference_records: Vec::new(),
             inference_snapshot: Some(inference.clone()),
             curator_snapshot: None,
         })
@@ -1021,6 +1023,22 @@ fn sqlite_store_commits_auxiliary_batches_atomically() {
     let loaded_outcomes = store.load_outcome_snapshot().unwrap().unwrap();
     assert_eq!(loaded_outcomes.events.len(), 1);
     assert_eq!(loaded_outcomes.events[0].summary, "stored with note");
+    let stored_outcome_rows: i64 = store
+        .conn
+        .query_row("SELECT COUNT(*) FROM outcome_event_log", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(stored_outcome_rows, 1);
+    let cached_outcome_rows: i64 = store
+        .conn
+        .query_row(
+            "SELECT COUNT(*) FROM snapshots WHERE key = 'outcomes'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(cached_outcome_rows, 0);
     assert_eq!(store.load_episodic_snapshot().unwrap(), Some(episodic));
     assert_eq!(store.load_inference_snapshot().unwrap(), Some(inference));
     assert_eq!(
@@ -1110,6 +1128,137 @@ fn sqlite_store_merges_episodic_snapshots_append_only() {
 }
 
 #[test]
+fn sqlite_store_migrates_snapshot_backed_outcomes_to_append_only_log() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-outcome-migration-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let outcomes = OutcomeMemorySnapshot {
+        events: vec![prism_memory::OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:migrated"),
+                ts: 7,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            anchors: Vec::new(),
+            kind: prism_memory::OutcomeKind::NoteAdded,
+            result: prism_memory::OutcomeResult::Success,
+            summary: "migrated from snapshot".to_string(),
+            evidence: Vec::new(),
+            metadata: serde_json::Value::Null,
+        }],
+    };
+
+    {
+        let conn = Connection::open(&path).unwrap();
+        conn.execute_batch(
+            r#"
+            CREATE TABLE snapshots (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            PRAGMA user_version = 16;
+            "#,
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO snapshots(key, value) VALUES (?1, ?2)",
+            ("outcomes", serde_json::to_string(&outcomes).unwrap()),
+        )
+        .unwrap();
+    }
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    let loaded = store.load_outcome_snapshot().unwrap().unwrap();
+    assert_eq!(loaded.events, outcomes.events);
+    let logged_rows: i64 = store
+        .conn
+        .query_row("SELECT COUNT(*) FROM outcome_event_log", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(logged_rows, 1);
+
+    drop(store);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(path.with_extension("db-shm"));
+}
+
+#[test]
+fn sqlite_store_reconciles_inference_snapshot_updates_and_removals() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-inference-reconcile-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
+    let gamma = NodeId::new("demo", "demo::gamma", NodeKind::Function);
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    store
+        .save_inference_snapshot(&InferenceSnapshot {
+            records: vec![InferredEdgeRecord {
+                id: EdgeId("edge:1".to_string()),
+                edge: Edge {
+                    kind: EdgeKind::Calls,
+                    source: alpha.clone(),
+                    target: beta,
+                    origin: EdgeOrigin::Inferred,
+                    confidence: 0.9,
+                },
+                scope: InferredEdgeScope::Persisted,
+                task: None,
+                evidence: vec!["initial".to_string()],
+            }],
+        })
+        .unwrap();
+
+    store
+        .save_inference_snapshot(&InferenceSnapshot {
+            records: vec![InferredEdgeRecord {
+                id: EdgeId("edge:1".to_string()),
+                edge: Edge {
+                    kind: EdgeKind::Calls,
+                    source: alpha,
+                    target: gamma.clone(),
+                    origin: EdgeOrigin::Inferred,
+                    confidence: 0.95,
+                },
+                scope: InferredEdgeScope::Persisted,
+                task: None,
+                evidence: vec!["updated".to_string()],
+            }],
+        })
+        .unwrap();
+
+    let loaded = store.load_inference_snapshot().unwrap().unwrap();
+    assert_eq!(loaded.records.len(), 1);
+    assert_eq!(loaded.records[0].edge.target, gamma);
+    assert_eq!(loaded.records[0].evidence, vec!["updated".to_string()]);
+
+    store
+        .save_inference_snapshot(&InferenceSnapshot {
+            records: Vec::new(),
+        })
+        .unwrap();
+    assert_eq!(store.load_inference_snapshot().unwrap(), None);
+
+    drop(store);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(path.with_extension("db-shm"));
+}
+
+#[test]
 fn sqlite_store_migrates_snapshot_backed_episodic_memory_to_append_only_log() {
     let path = std::env::temp_dir().join(format!(
         "prism-store-episodic-migration-test-{}.db",
@@ -1162,7 +1311,7 @@ fn sqlite_store_migrates_snapshot_backed_episodic_memory_to_append_only_log() {
         .conn
         .pragma_query_value(None, "user_version", |row| row.get(0))
         .unwrap();
-    assert_eq!(user_version, 16);
+    assert_eq!(user_version, 18);
 
     let logged_rows: i64 = store
         .conn

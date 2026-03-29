@@ -4,17 +4,22 @@ use prism_projections::ProjectionIndex;
 
 use crate::graph::{Graph, GraphSnapshot};
 use crate::memory_projection::{append_only_delta, merge_snapshot, snapshot_from_events};
+use crate::outcome_projection::{
+    append_only_delta as outcome_append_only_delta, merge_snapshot as merge_outcome_snapshot,
+    snapshot_from_events as outcome_snapshot_from_events,
+};
 use crate::store::{
     AuxiliaryPersistBatch, CoordinationEventStream, CoordinationPersistBatch,
     CoordinationPersistContext, CoordinationPersistResult, IndexPersistBatch, Store,
 };
-use prism_memory::{MemoryEvent, MemoryEventKind};
+use prism_memory::{MemoryEvent, MemoryEventKind, OutcomeEvent};
 
 #[derive(Debug, Default)]
 pub struct MemoryStore {
     snapshot: Option<GraphSnapshot>,
     history_snapshot: Option<prism_history::HistorySnapshot>,
     outcome_snapshot: Option<prism_memory::OutcomeMemorySnapshot>,
+    outcome_events: Vec<OutcomeEvent>,
     memory_events: Vec<MemoryEvent>,
     episodic_snapshot: Option<prism_memory::EpisodicMemorySnapshot>,
     inference_snapshot: Option<prism_agent::InferenceSnapshot>,
@@ -65,6 +70,9 @@ impl Store for MemoryStore {
     fn load_outcome_snapshot(
         &mut self,
     ) -> anyhow::Result<Option<prism_memory::OutcomeMemorySnapshot>> {
+        if !self.outcome_events.is_empty() {
+            self.outcome_snapshot = outcome_snapshot_from_events(self.outcome_events.clone());
+        }
         Ok(self.outcome_snapshot.clone())
     }
 
@@ -72,7 +80,10 @@ impl Store for MemoryStore {
         &mut self,
         snapshot: &prism_memory::OutcomeMemorySnapshot,
     ) -> anyhow::Result<()> {
-        self.outcome_snapshot = Some(snapshot.clone());
+        let current = self.outcome_snapshot.as_ref();
+        self.outcome_events
+            .extend(outcome_append_only_delta(current, snapshot));
+        self.outcome_snapshot = merge_outcome_snapshot(self.outcome_snapshot.clone(), snapshot);
         Ok(())
     }
 
@@ -81,7 +92,7 @@ impl Store for MemoryStore {
         snapshot: &prism_memory::OutcomeMemorySnapshot,
         deltas: &[prism_projections::ValidationDelta],
     ) -> anyhow::Result<()> {
-        self.outcome_snapshot = Some(snapshot.clone());
+        self.save_outcome_snapshot(snapshot)?;
         if deltas.is_empty() {
             return Ok(());
         }
@@ -305,8 +316,34 @@ impl Store for MemoryStore {
         &mut self,
         batch: &AuxiliaryPersistBatch,
     ) -> anyhow::Result<()> {
+        for event in &batch.outcome_events {
+            if self
+                .outcome_events
+                .iter()
+                .any(|existing| existing.meta.id == event.meta.id)
+            {
+                continue;
+            }
+            self.outcome_events.push(event.clone());
+        }
+        if !batch.outcome_events.is_empty() {
+            self.outcome_snapshot = outcome_snapshot_from_events(self.outcome_events.clone());
+        }
         if let Some(snapshot) = &batch.outcome_snapshot {
-            self.outcome_snapshot = Some(snapshot.clone());
+            self.save_outcome_snapshot(snapshot)?;
+        }
+        for event in &batch.memory_events {
+            if self
+                .memory_events
+                .iter()
+                .any(|existing| existing.id == event.id)
+            {
+                continue;
+            }
+            self.memory_events.push(event.clone());
+        }
+        if !batch.memory_events.is_empty() {
+            self.episodic_snapshot = snapshot_from_events(self.memory_events.clone());
         }
         if let Some(snapshot) = &batch.episodic_snapshot {
             for entry in append_only_delta(self.episodic_snapshot.as_ref(), snapshot) {
@@ -320,8 +357,26 @@ impl Store for MemoryStore {
             }
             self.episodic_snapshot = merge_snapshot(self.episodic_snapshot.clone(), snapshot);
         }
+        if !batch.inference_records.is_empty() {
+            let mut records = self
+                .inference_snapshot
+                .clone()
+                .unwrap_or_default()
+                .records
+                .into_iter()
+                .map(|record| (record.id.0.clone(), record))
+                .collect::<std::collections::BTreeMap<_, _>>();
+            for record in &batch.inference_records {
+                records
+                    .entry(record.id.0.clone())
+                    .or_insert_with(|| record.clone());
+            }
+            self.inference_snapshot = Some(prism_agent::InferenceSnapshot {
+                records: records.into_values().collect(),
+            });
+        }
         if let Some(snapshot) = &batch.inference_snapshot {
-            self.inference_snapshot = Some(snapshot.clone());
+            self.save_inference_snapshot(snapshot)?;
         }
         if let Some(snapshot) = &batch.curator_snapshot {
             self.curator_snapshot = Some(snapshot.clone());
@@ -343,7 +398,7 @@ impl Store for MemoryStore {
     ) -> anyhow::Result<()> {
         self.snapshot = Some(graph.snapshot());
         self.history_snapshot = Some(batch.history_snapshot.clone());
-        self.outcome_snapshot = Some(batch.outcome_snapshot.clone());
+        self.save_outcome_snapshot(&batch.outcome_snapshot)?;
         if let Some(snapshot) = &batch.projection_snapshot {
             self.projection_snapshot = Some(snapshot.clone());
         } else if !batch.co_change_deltas.is_empty() || !batch.validation_deltas.is_empty() {

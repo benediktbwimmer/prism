@@ -520,6 +520,8 @@ pub struct RuntimeStatusView {
     pub uri_file: String,
     pub log_path: String,
     pub log_bytes: Option<u64>,
+    pub mcp_call_log_path: Option<String>,
+    pub mcp_call_log_bytes: Option<u64>,
     pub cache_path: String,
     pub cache_bytes: Option<u64>,
     pub health_path: String,
@@ -1527,6 +1529,72 @@ pub struct QueryPhaseView {
     pub touched: Vec<String>,
     pub success: bool,
     pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct McpCallPayloadSummaryView {
+    pub kind: String,
+    pub json_bytes: usize,
+    pub item_count: Option<usize>,
+    pub truncated: bool,
+    pub excerpt: Option<Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct McpCallLogEntryView {
+    pub id: String,
+    pub call_type: String,
+    pub name: String,
+    pub summary: String,
+    pub started_at: u64,
+    pub duration_ms: u64,
+    pub session_id: Option<String>,
+    pub task_id: Option<String>,
+    pub success: bool,
+    pub error: Option<String>,
+    pub operations: Vec<String>,
+    pub touched: Vec<String>,
+    pub diagnostics: Vec<QueryDiagnostic>,
+    pub request: McpCallPayloadSummaryView,
+    pub response: McpCallPayloadSummaryView,
+    pub server_instance_id: String,
+    pub process_id: u32,
+    pub workspace_root: Option<String>,
+    pub trace_available: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct McpCallTraceView {
+    pub entry: McpCallLogEntryView,
+    pub phases: Vec<QueryPhaseView>,
+    pub request_preview: Option<Value>,
+    pub response_preview: Option<Value>,
+    pub metadata: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct McpCallStatsBucketView {
+    pub key: String,
+    pub count: usize,
+    pub error_count: usize,
+    pub average_duration_ms: u64,
+    pub max_duration_ms: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct McpCallStatsView {
+    pub total_calls: usize,
+    pub success_count: usize,
+    pub error_count: usize,
+    pub average_duration_ms: u64,
+    pub max_duration_ms: u64,
+    pub by_call_type: Vec<McpCallStatsBucketView>,
+    pub by_name: Vec<McpCallStatsBucketView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

@@ -167,7 +167,12 @@ impl QueryHost {
             self.clone(),
             Arc::clone(&session),
             prism,
-            self.begin_query_run(session.as_ref(), "resource", "prism://entrypoints"),
+            self.begin_query_run(
+                session.as_ref(),
+                "read_resource",
+                "resource",
+                "prism://entrypoints",
+            ),
         );
         let paged = paginate_items(
             execution.entrypoints()?,
@@ -211,7 +216,12 @@ impl QueryHost {
             self.clone(),
             Arc::clone(&session),
             prism.clone(),
-            self.begin_query_run(session.as_ref(), "resource", "prism://plans"),
+            self.begin_query_run(
+                session.as_ref(),
+                "read_resource",
+                "resource",
+                "prism://plans",
+            ),
         );
         let status = parse_resource_query_param(uri, "status").filter(|value| !value.is_empty());
         let scope = parse_resource_query_param(uri, "scope").filter(|value| !value.is_empty());
@@ -273,6 +283,7 @@ impl QueryHost {
             prism.clone(),
             self.begin_query_run(
                 session.as_ref(),
+                "read_resource",
                 "resource",
                 format!("prism://symbol/{}", id.path),
             ),
@@ -353,6 +364,7 @@ impl QueryHost {
             prism.clone(),
             self.begin_query_run(
                 session.as_ref(),
+                "read_resource",
                 "resource",
                 format!("prism://search/{query}"),
             ),

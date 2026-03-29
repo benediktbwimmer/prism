@@ -356,11 +356,10 @@ impl Prism {
     }
 
     fn replace_continuity_snapshot(&self, snapshot: CoordinationSnapshot) {
-        *self
-            .continuity_runtime
+        self.continuity_runtime
             .write()
-            .expect("continuity runtime lock poisoned") =
-            CoordinationRuntimeState::from_snapshot(snapshot);
+            .expect("continuity runtime lock poisoned")
+            .replace_from_snapshot(snapshot);
     }
 
     fn persist_coordination_snapshot(&self, snapshot: CoordinationSnapshot) -> Result<()> {
@@ -377,17 +376,34 @@ impl Prism {
     where
         F: FnOnce(&mut CoordinationRuntimeState) -> Result<T>,
     {
-        let mut runtime = CoordinationRuntimeState::from_snapshot(self.continuity_snapshot());
-        match mutate(&mut runtime) {
-            Ok(result) => {
-                self.persist_coordination_snapshot(runtime.snapshot())?;
-                Ok(result)
-            }
-            Err(error) => {
-                self.persist_coordination_snapshot(runtime.snapshot())?;
-                Err(error)
-            }
-        }
+        let (result, snapshot) = {
+            let mut runtime = self
+                .continuity_runtime
+                .write()
+                .expect("continuity runtime lock poisoned");
+            let result = mutate(&mut runtime);
+            let snapshot = runtime.snapshot();
+            (result, snapshot)
+        };
+        self.persist_coordination_snapshot(snapshot)?;
+        result
+    }
+
+    fn mutate_live_coordination_runtime<T, F>(
+        &self,
+        mutate: F,
+    ) -> (CoordinationSnapshot, CoordinationSnapshot, Result<T>)
+    where
+        F: FnOnce(&mut CoordinationRuntimeState) -> Result<T>,
+    {
+        let mut runtime = self
+            .continuity_runtime
+            .write()
+            .expect("continuity runtime lock poisoned");
+        let before_snapshot = runtime.snapshot();
+        let result = mutate(&mut runtime);
+        let after_snapshot = runtime.snapshot();
+        (before_snapshot, after_snapshot, result)
     }
 
     pub fn create_native_task(
@@ -401,17 +417,17 @@ impl Prism {
                 input.branch_ref = context.branch_ref;
             }
         }
-        let mut runtime = CoordinationRuntimeState::from_snapshot(self.continuity_snapshot());
-        match runtime.create_task(meta, input) {
-            Ok((_, task)) => {
-                let snapshot = runtime.snapshot();
-                self.apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
+        let (before_snapshot, snapshot, result) =
+            self.mutate_live_coordination_runtime(|runtime| runtime.create_task(meta, input));
+        match result {
+            Ok((_, task)) => self
+                .apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
                     plan_runtime.create_task_from_coordination(&task)?;
                     Ok(task.clone())
                 })
-            }
+                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone())),
             Err(error) => {
-                self.persist_coordination_snapshot(runtime.snapshot())?;
+                self.persist_coordination_snapshot(snapshot)?;
                 Err(error)
             }
         }
@@ -433,17 +449,19 @@ impl Prism {
                 input.branch_ref = Some(None);
             }
         }
-        let mut runtime = CoordinationRuntimeState::from_snapshot(self.continuity_snapshot());
-        match runtime.update_task(meta, input, current_revision, now) {
-            Ok(task) => {
-                let snapshot = runtime.snapshot();
-                self.apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
+        let (before_snapshot, snapshot, result) =
+            self.mutate_live_coordination_runtime(|runtime| {
+                runtime.update_task(meta, input, current_revision, now)
+            });
+        match result {
+            Ok(task) => self
+                .apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
                     plan_runtime.update_task_from_coordination(&task)?;
                     Ok(task.clone())
                 })
-            }
+                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone())),
             Err(error) => {
-                self.persist_coordination_snapshot(runtime.snapshot())?;
+                self.persist_coordination_snapshot(snapshot)?;
                 Err(error)
             }
         }
@@ -455,17 +473,19 @@ impl Prism {
         input: HandoffInput,
         current_revision: WorkspaceRevision,
     ) -> Result<CoordinationTask> {
-        let mut runtime = CoordinationRuntimeState::from_snapshot(self.continuity_snapshot());
-        match runtime.handoff(meta, input, current_revision) {
-            Ok(task) => {
-                let snapshot = runtime.snapshot();
-                self.apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
+        let (before_snapshot, snapshot, result) =
+            self.mutate_live_coordination_runtime(|runtime| {
+                runtime.handoff(meta, input, current_revision)
+            });
+        match result {
+            Ok(task) => self
+                .apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
                     plan_runtime.update_task_from_coordination(&task)?;
                     Ok(task.clone())
                 })
-            }
+                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone())),
             Err(error) => {
-                self.persist_coordination_snapshot(runtime.snapshot())?;
+                self.persist_coordination_snapshot(snapshot)?;
                 Err(error)
             }
         }
@@ -480,17 +500,17 @@ impl Prism {
             input.worktree_id = Some(context.worktree_id);
             input.branch_ref = context.branch_ref;
         }
-        let mut runtime = CoordinationRuntimeState::from_snapshot(self.continuity_snapshot());
-        match runtime.accept_handoff(meta, input) {
-            Ok(task) => {
-                let snapshot = runtime.snapshot();
-                self.apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
+        let (before_snapshot, snapshot, result) =
+            self.mutate_live_coordination_runtime(|runtime| runtime.accept_handoff(meta, input));
+        match result {
+            Ok(task) => self
+                .apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
                     plan_runtime.update_task_from_coordination(&task)?;
                     Ok(task.clone())
                 })
-            }
+                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone())),
             Err(error) => {
-                self.persist_coordination_snapshot(runtime.snapshot())?;
+                self.persist_coordination_snapshot(snapshot)?;
                 Err(error)
             }
         }
@@ -614,24 +634,26 @@ impl Prism {
         status: Option<prism_ir::PlanStatus>,
         policy: Option<prism_coordination::CoordinationPolicy>,
     ) -> Result<PlanId> {
-        let mut runtime = CoordinationRuntimeState::from_snapshot(self.continuity_snapshot());
-        match runtime.create_plan(
-            meta,
-            prism_coordination::PlanCreateInput {
-                goal,
-                status,
-                policy,
-            },
-        ) {
-            Ok((plan_id, plan)) => {
-                let snapshot = runtime.snapshot();
-                self.apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
+        let (before_snapshot, snapshot, result) =
+            self.mutate_live_coordination_runtime(|runtime| {
+                runtime.create_plan(
+                    meta,
+                    prism_coordination::PlanCreateInput {
+                        goal,
+                        status,
+                        policy,
+                    },
+                )
+            });
+        match result {
+            Ok((plan_id, plan)) => self
+                .apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
                     plan_runtime.create_plan_from_coordination(&plan)?;
                     Ok(plan_id)
                 })
-            }
+                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone())),
             Err(error) => {
-                self.persist_coordination_snapshot(runtime.snapshot())?;
+                self.persist_coordination_snapshot(snapshot)?;
                 Err(error)
             }
         }
@@ -645,24 +667,26 @@ impl Prism {
         goal: Option<String>,
         policy: Option<prism_coordination::CoordinationPolicy>,
     ) -> Result<()> {
-        let mut runtime = CoordinationRuntimeState::from_snapshot(self.continuity_snapshot());
-        match runtime.update_plan(
-            meta,
-            prism_coordination::PlanUpdateInput {
-                plan_id: plan_id.clone(),
-                goal,
-                status,
-                policy,
-            },
-        ) {
-            Ok(plan) => {
-                let snapshot = runtime.snapshot();
-                self.apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
+        let (before_snapshot, snapshot, result) =
+            self.mutate_live_coordination_runtime(|runtime| {
+                runtime.update_plan(
+                    meta,
+                    prism_coordination::PlanUpdateInput {
+                        plan_id: plan_id.clone(),
+                        goal,
+                        status,
+                        policy,
+                    },
+                )
+            });
+        match result {
+            Ok(plan) => self
+                .apply_coordination_snapshot_with_native_runtime(snapshot, |plan_runtime| {
                     plan_runtime.update_plan_from_coordination(&plan)
                 })
-            }
+                .inspect_err(|_| self.replace_continuity_snapshot(before_snapshot.clone())),
             Err(error) => {
-                self.persist_coordination_snapshot(runtime.snapshot())?;
+                self.persist_coordination_snapshot(snapshot)?;
                 Err(error)
             }
         }

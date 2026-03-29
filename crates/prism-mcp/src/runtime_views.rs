@@ -105,6 +105,11 @@ pub(crate) fn runtime_status(host: &QueryHost) -> Result<RuntimeStatusView> {
         uri_file: paths.uri_file.display().to_string(),
         log_path: paths.log_path.display().to_string(),
         log_bytes: file_len(&paths.log_path),
+        mcp_call_log_path: host
+            .mcp_call_log_store
+            .path()
+            .map(|path| path.display().to_string()),
+        mcp_call_log_bytes: host.mcp_call_log_store.file_len(),
         cache_path: paths.cache_path.display().to_string(),
         cache_bytes: file_len(&paths.cache_path),
         health_path: daemon_health_path(&daemons).to_string(),

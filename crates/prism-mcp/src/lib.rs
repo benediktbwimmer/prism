@@ -40,6 +40,7 @@ mod host_resources;
 mod js_runtime;
 mod lineage_views;
 mod logging;
+mod mcp_call_log;
 mod memory_metadata;
 mod process_lifecycle;
 mod proxy_server;
@@ -81,6 +82,7 @@ pub use features::{CoordinationFeatureFlag, PrismMcpFeatures};
 use js_runtime::JsWorkerPool;
 use lineage_views::*;
 pub use logging::{init_logging, log_process_start, log_top_level_error};
+use mcp_call_log::*;
 use memory_metadata::*;
 pub use process_lifecycle::maybe_daemonize_process;
 use query_errors::*;
@@ -441,7 +443,7 @@ struct QueryHost {
     next_event: Arc<AtomicU64>,
     default_limits: QueryLimits,
     worker_pool: Arc<JsWorkerPool>,
-    query_log_store: Arc<QueryLogStore>,
+    pub(crate) mcp_call_log_store: Arc<McpCallLogStore>,
     dashboard_state: Arc<DashboardState>,
     workspace: Option<Arc<WorkspaceSession>>,
     workspace_runtime_sync_lock: Arc<Mutex<()>>,
@@ -519,7 +521,7 @@ impl QueryHost {
             next_event: Arc::new(AtomicU64::new(0)),
             default_limits: limits,
             worker_pool: Arc::new(worker_pool),
-            query_log_store: Arc::new(QueryLogStore::default()),
+            mcp_call_log_store: Arc::new(McpCallLogStore::for_root(None)),
             dashboard_state: Arc::new(DashboardState::default()),
             workspace: None,
             workspace_runtime_sync_lock: Arc::new(Mutex::new(())),
@@ -566,7 +568,7 @@ impl QueryHost {
         let prism = workspace.prism_arc();
         let notes = Arc::new(SessionMemory::new());
         let inferred_edges = Arc::new(InferenceStore::new());
-        let query_log_store = Arc::new(QueryLogStore::default());
+        let mcp_call_log_store = Arc::new(McpCallLogStore::for_root(Some(workspace.root())));
         let dashboard_state = Arc::new(DashboardState::default());
         let workspace_runtime_sync_lock = shared_workspace_runtime_sync_lock(workspace.root());
         let loaded_workspace_revision = workspace.loaded_workspace_revision_handle();
@@ -594,7 +596,7 @@ impl QueryHost {
             next_event: Arc::new(AtomicU64::new(0)),
             default_limits: limits,
             worker_pool: Arc::new(worker_pool),
-            query_log_store,
+            mcp_call_log_store,
             dashboard_state,
             workspace: Some(Arc::clone(&workspace)),
             workspace_runtime_sync_lock,
@@ -817,12 +819,17 @@ fn strip_internal_developer_api_reference(markdown: &str) -> String {
         "  runtimeStatus(): RuntimeStatusView;",
         "  runtimeLogs(options?: RuntimeLogOptions): RuntimeLogEventView[];",
         "  runtimeTimeline(options?: RuntimeTimelineOptions): RuntimeLogEventView[];",
+        "  mcpLog(options?: McpLogOptions): McpCallLogEntryView[];",
+        "  slowMcpCalls(options?: McpLogOptions): McpCallLogEntryView[];",
+        "  mcpTrace(id: string): McpCallTraceView | null;",
+        "  mcpStats(options?: McpLogOptions): McpCallStatsView;",
         "  queryLog(options?: QueryLogOptions): QueryLogEntryView[];",
         "  slowQueries(options?: QueryLogOptions): QueryLogEntryView[];",
         "  queryTrace(id: string): QueryTraceView | null;",
         "  validationFeedback(options?: ValidationFeedbackOptions): ValidationFeedbackView[];",
     ];
     const TYPE_BLOCKS: &[&str] = &[
+        "type McpLogOptions = {",
         "type QueryLogOptions = {",
         "type ValidationFeedbackOptions = {",
         "type RuntimeLogOptions = {",
@@ -835,19 +842,24 @@ fn strip_internal_developer_api_reference(markdown: &str) -> String {
         "type RuntimeStatusView = {",
         "type RuntimeLogEventView = {",
         "type ValidationFeedbackView = {",
+        "type McpCallPayloadSummaryView = {",
+        "type McpCallLogEntryView = {",
+        "type McpCallTraceView = {",
+        "type McpCallStatsBucketView = {",
+        "type McpCallStatsView = {",
         "type QueryResultSummaryView = {",
         "type QueryPhaseView = {",
         "type QueryLogEntryView = {",
         "type QueryTraceView = {",
     ];
     const HEADING_SECTIONS: &[&str] = &[
-        "### 7a. Inspect recent query behavior through PRISM itself",
+        "### 7a. Inspect recent MCP activity through PRISM itself",
         "### 7e. Inspect daemon status and recent runtime activity through PRISM",
         "### 7f. Inspect validation feedback recorded while dogfooding PRISM",
     ];
     const BULLET_PATTERNS: &[&str] = &[
         "workspace-backed runtime introspection through `prism.runtimeStatus()`",
-        "a first-class query log through `prism.queryLog(...)`",
+        "a durable canonical MCP call log through `prism.mcpLog(...)`",
         "internal validation-feedback inspection through `prism.validationFeedback(...)`",
     ];
 

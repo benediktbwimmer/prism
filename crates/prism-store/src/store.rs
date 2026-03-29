@@ -1,13 +1,13 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use prism_agent::InferenceSnapshot;
+use prism_agent::{InferenceSnapshot, InferredEdgeRecord};
 use prism_coordination::{
     CoordinationEvent, CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
 };
 use prism_curator::CuratorSnapshot;
 use prism_history::{HistoryPersistDelta, HistorySnapshot};
-use prism_memory::{EpisodicMemorySnapshot, MemoryEvent, OutcomeMemorySnapshot};
+use prism_memory::{EpisodicMemorySnapshot, MemoryEvent, OutcomeEvent, OutcomeMemorySnapshot};
 use prism_projections::{CoChangeDelta, ProjectionSnapshot, ValidationDelta};
 
 use crate::graph::Graph;
@@ -36,8 +36,11 @@ pub struct IndexPersistBatch {
 #[derive(Debug, Clone, Default)]
 pub struct AuxiliaryPersistBatch {
     pub outcome_snapshot: Option<OutcomeMemorySnapshot>,
+    pub outcome_events: Vec<OutcomeEvent>,
     pub validation_deltas: Vec<ValidationDelta>,
+    pub memory_events: Vec<MemoryEvent>,
     pub episodic_snapshot: Option<EpisodicMemorySnapshot>,
+    pub inference_records: Vec<InferredEdgeRecord>,
     pub inference_snapshot: Option<InferenceSnapshot>,
     pub curator_snapshot: Option<CuratorSnapshot>,
 }

@@ -13,8 +13,15 @@ use crate::dashboard_types::{
     ActiveOperationView, DashboardEventEnvelope, DashboardOperationDetailView,
     DashboardOperationsView, MutationLogEntryView, MutationTraceView,
 };
-use crate::query_log::{duration_to_ms, summarize_value, touches_for_value};
-use crate::{current_timestamp, QueryHost, QueryLogArgs, QueryRun, SessionState};
+use crate::{
+    current_timestamp,
+    mcp_call_log::{
+        duration_to_ms, new_log_entry, payload_summary, preview_value, summarize_value,
+        touches_for_value, unique_operations, unique_touches, McpCallLogStore,
+        PersistedMcpCallRecord,
+    },
+    QueryHost, QueryLogArgs, QueryRun, SessionState,
+};
 
 const DASHBOARD_EVENT_CAPACITY: usize = 512;
 const ACTIVE_OPERATION_LIMIT: usize = 256;
@@ -48,7 +55,9 @@ impl Default for DashboardState {
 #[derive(Debug, Clone)]
 pub(crate) struct MutationRun {
     dashboard: Arc<DashboardState>,
+    mcp_call_log_store: Arc<McpCallLogStore>,
     id: String,
+    tool_name: String,
     action: String,
     started_at: u64,
     started: Instant,
@@ -194,13 +203,16 @@ impl DashboardState {
 
 impl QueryHost {
     pub(crate) fn begin_mutation_run(&self, session: &SessionState, action: &str) -> MutationRun {
-        let sequence = self
-            .dashboard_state
-            .next_mutation_id
-            .fetch_add(1, Ordering::Relaxed);
         let run = MutationRun {
             dashboard: Arc::clone(&self.dashboard_state),
-            id: format!("mutation:{sequence}"),
+            mcp_call_log_store: Arc::clone(&self.mcp_call_log_store),
+            id: format!(
+                "mutation:{}",
+                self.dashboard_state
+                    .next_mutation_id
+                    .fetch_add(1, Ordering::Relaxed)
+            ),
+            tool_name: tool_name_for_action(action).to_string(),
             action: action.to_string(),
             started_at: current_timestamp(),
             started: Instant::now(),
@@ -324,6 +336,42 @@ impl MutationRun {
             result_ids,
             violation_count,
         };
+        let record = PersistedMcpCallRecord {
+            entry: new_log_entry(
+                self.mcp_call_log_store.runtime(),
+                "tool",
+                &self.tool_name,
+                self.action.clone(),
+                self.started_at,
+                entry.duration_ms,
+                Some(self.session_id.clone()),
+                entry.task_id.clone(),
+                true,
+                None,
+                unique_operations(&phases),
+                unique_touches(&phases),
+                Vec::new(),
+                payload_summary(Some(&json!({
+                    "tool": self.tool_name,
+                    "action": self.action,
+                }))),
+                payload_summary(Some(&result)),
+            ),
+            phases: phases.clone(),
+            request_preview: Some(json!({
+                "tool": self.tool_name,
+                "action": self.action,
+            })),
+            response_preview: preview_value(&result),
+            metadata: json!({
+                "tool": self.tool_name,
+                "action": self.action,
+                "resultIds": entry.result_ids,
+                "violationCount": entry.violation_count,
+            }),
+            query_compat: None,
+        };
+        let _ = self.mcp_call_log_store.push(record);
         self.dashboard.remove_active(&self.id);
         self.dashboard.push_mutation(MutationTraceRecord {
             entry: entry.clone(),
@@ -352,6 +400,40 @@ impl MutationRun {
             result_ids: Vec::new(),
             violation_count: 0,
         };
+        let record = PersistedMcpCallRecord {
+            entry: new_log_entry(
+                self.mcp_call_log_store.runtime(),
+                "tool",
+                &self.tool_name,
+                self.action.clone(),
+                self.started_at,
+                entry.duration_ms,
+                Some(self.session_id.clone()),
+                entry.task_id.clone(),
+                false,
+                entry.error.clone(),
+                unique_operations(&phases),
+                unique_touches(&phases),
+                Vec::new(),
+                payload_summary(Some(&json!({
+                    "tool": self.tool_name,
+                    "action": self.action,
+                }))),
+                payload_summary(None),
+            ),
+            phases: phases.clone(),
+            request_preview: Some(json!({
+                "tool": self.tool_name,
+                "action": self.action,
+            })),
+            response_preview: None,
+            metadata: json!({
+                "tool": self.tool_name,
+                "action": self.action,
+            }),
+            query_compat: None,
+        };
+        let _ = self.mcp_call_log_store.push(record);
         self.dashboard.remove_active(&self.id);
         self.dashboard.push_mutation(MutationTraceRecord {
             entry: entry.clone(),
@@ -378,6 +460,14 @@ impl MutationRun {
         self.dashboard.upsert_active(active.clone());
         self.dashboard
             .publish_value("mutation.phase", json!(active));
+    }
+}
+
+fn tool_name_for_action(action: &str) -> &str {
+    if action.starts_with("session.") {
+        "prism_session"
+    } else {
+        "prism_mutate"
     }
 }
 

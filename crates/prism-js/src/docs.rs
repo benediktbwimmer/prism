@@ -187,6 +187,18 @@ type QueryLogOptions = {
   minDurationMs?: number;
 };
 
+type McpLogOptions = {
+  limit?: number;
+  since?: number;
+  callType?: string;
+  name?: string;
+  taskId?: string;
+  sessionId?: string;
+  success?: boolean;
+  minDurationMs?: number;
+  contains?: string;
+};
+
 type ValidationFeedbackOptions = {
   limit?: number;
   since?: number;
@@ -373,6 +385,10 @@ type PrismApi = {
     proposals(options?: CuratorProposalQueryOptions): CuratorProposalRecordView[];
     job(id: string): CuratorJobView | null;
   };
+  mcpLog(options?: McpLogOptions): McpCallLogEntryView[];
+  slowMcpCalls(options?: McpLogOptions): McpCallLogEntryView[];
+  mcpTrace(id: string): McpCallTraceView | null;
+  mcpStats(options?: McpLogOptions): McpCallStatsView;
   queryLog(options?: QueryLogOptions): QueryLogEntryView[];
   slowQueries(options?: QueryLogOptions): QueryLogEntryView[];
   queryTrace(id: string): QueryTraceView | null;
@@ -665,6 +681,8 @@ type RuntimeStatusView = {
   uriFile: string;
   logPath: string;
   logBytes?: number;
+  mcpCallLogPath?: string;
+  mcpCallLogBytes?: number;
   cachePath: string;
   cacheBytes?: number;
   healthPath: string;
@@ -1114,6 +1132,62 @@ type QueryLogEntryView = {
 type QueryTraceView = {
   entry: QueryLogEntryView;
   phases: QueryPhaseView[];
+};
+
+type McpCallPayloadSummaryView = {
+  kind: string;
+  jsonBytes: number;
+  itemCount?: number;
+  truncated: boolean;
+  excerpt?: unknown;
+};
+
+type McpCallLogEntryView = {
+  id: string;
+  callType: string;
+  name: string;
+  summary: string;
+  startedAt: number;
+  durationMs: number;
+  sessionId?: string;
+  taskId?: string;
+  success: boolean;
+  error?: string;
+  operations: string[];
+  touched: string[];
+  diagnostics: QueryDiagnostic[];
+  request: McpCallPayloadSummaryView;
+  response: McpCallPayloadSummaryView;
+  serverInstanceId: string;
+  processId: number;
+  workspaceRoot?: string;
+  traceAvailable: boolean;
+};
+
+type McpCallTraceView = {
+  entry: McpCallLogEntryView;
+  phases: QueryPhaseView[];
+  requestPreview?: unknown;
+  responsePreview?: unknown;
+  metadata: unknown;
+};
+
+type McpCallStatsBucketView = {
+  key: string;
+  count: number;
+  errorCount: number;
+  averageDurationMs: number;
+  maxDurationMs: number;
+};
+
+type McpCallStatsView = {
+  totalCalls: number;
+  successCount: number;
+  errorCount: number;
+  averageDurationMs: number;
+  maxDurationMs: number;
+  byCallType: McpCallStatsBucketView[];
+  byName: McpCallStatsBucketView[];
 };
 
 type ValidationFeedbackView = {
@@ -1714,14 +1788,15 @@ return {
 };
 ```
 
-### 7a. Inspect recent query behavior through PRISM itself
+### 7a. Inspect recent MCP activity through PRISM itself
 
 ```ts
-const recent = prism.queryLog({ limit: 5 });
-const trace = recent[0] ? prism.queryTrace(recent[0].id) : null;
+const recent = prism.mcpLog({ limit: 5 });
+const trace = recent[0] ? prism.mcpTrace(recent[0].id) : null;
 return {
   recent,
   trace,
+  stats: prism.mcpStats({ limit: 50 }),
 };
 ```
 
@@ -2214,7 +2289,7 @@ likely validations, and 1 to 2 `nextReads`.
 - Available now: a namespaced runtime alias through `prism.runtime.status()`, `prism.runtime.logs(...)`, and `prism.runtime.timeline(...)` so query authors do not have to remember only the flat runtime helpers.
 - Available now: non-symbol repo coverage for markdown headings plus structured JSON, YAML, and TOML config keys through the normal PRISM search and relation surface.
 - Available now: ambiguity-aware search narrowing through `path`, `module`, `taskId`, behavioral owner hints, and exact focused-block follow-ups surfaced directly from diagnostics and search resources.
-- Available now: a first-class query log through `prism.queryLog(...)`, `prism.slowQueries(...)`, and `prism.queryTrace(id)` with duration, diagnostics, truncation metadata, and phase breakdowns.
+- Available now: a durable canonical MCP call log through `prism.mcpLog(...)`, `prism.slowMcpCalls(...)`, `prism.mcpTrace(id)`, and `prism.mcpStats(...)` with per-runtime execution history, duration, diagnostics, payload summaries, previews, and phase breakdowns for tools and resources.
 - Available now: spec-to-code clustering and drift explanations that group direct links with read/write/persistence/test owners for spec-like symbols.
 - Available now: repo-exported curated concept packets that hydrate into the live concept layer and travel with the repo through `.prism/concepts/events.jsonl`.
 - Available now: session/workspace memory recall for anchored memory entries, filtered outcome history, and promoted curator memories.

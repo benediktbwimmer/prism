@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 
 use anyhow::{anyhow, Result};
-use prism_agent::InferenceSnapshot;
+use prism_agent::{InferenceSnapshot, InferredEdgeRecord};
 use prism_coordination::{CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot};
 use prism_curator::{
     CuratorJobId, CuratorProposalDisposition, CuratorProposalState, CuratorSnapshot,
@@ -17,7 +17,7 @@ use prism_memory::OutcomeMemory;
 use prism_memory::{EpisodicMemorySnapshot, MemoryEvent, MemoryEventQuery, OutcomeEvent};
 use prism_projections::{
     concept_from_event, validation_deltas_for_event, ConceptEvent, ConceptRelationEvent,
-    ConceptRelationEventAction,
+    ConceptRelationEventAction, ConceptScope,
 };
 use prism_query::Prism;
 use prism_store::{AuxiliaryPersistBatch, SqliteStore, Store};
@@ -39,9 +39,8 @@ use crate::published_knowledge::{
     validate_repo_concept_event, validate_repo_concept_relation_event, validate_repo_memory_event,
 };
 use crate::shared_runtime::{
-    composite_workspace_revision, local_projection_snapshot_for_persist, merge_episodic_snapshots,
-    merge_memory_events, merged_projection_index, shared_projection_snapshot_for_persist,
-    split_episodic_snapshot_for_persist,
+    composite_workspace_revision, merge_episodic_snapshots, merge_memory_events,
+    merged_projection_index, split_episodic_snapshot_for_persist,
 };
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::util::{
@@ -571,6 +570,58 @@ impl WorkspaceSession {
         Ok(())
     }
 
+    pub fn append_inference_records(&self, records: &[InferredEdgeRecord]) -> Result<()> {
+        if records.is_empty() {
+            return Ok(());
+        }
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .append_inference_records(records)?;
+        Ok(())
+    }
+
+    fn projection_target_store(&self, scope: ConceptScope) -> Option<&Arc<Mutex<SqliteStore>>> {
+        match (scope, self.shared_runtime_store()) {
+            (ConceptScope::Repo | ConceptScope::Local, _) => None,
+            (ConceptScope::Session, Some(shared_runtime_store)) => Some(shared_runtime_store),
+            (ConceptScope::Session, None) => Some(&self.store),
+        }
+    }
+
+    fn delete_persisted_projection_concept_everywhere(&self, handle: &str) -> Result<()> {
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .delete_projection_concept(handle)?;
+        if let Some(shared_runtime_store) = self.shared_runtime_store() {
+            shared_runtime_store
+                .lock()
+                .expect("shared runtime store lock poisoned")
+                .delete_projection_concept(handle)?;
+        }
+        Ok(())
+    }
+
+    fn delete_persisted_projection_relation_everywhere(
+        &self,
+        source_handle: &str,
+        target_handle: &str,
+        kind: prism_projections::ConceptRelationKind,
+    ) -> Result<()> {
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .delete_projection_concept_relation(source_handle, target_handle, kind)?;
+        if let Some(shared_runtime_store) = self.shared_runtime_store() {
+            shared_runtime_store
+                .lock()
+                .expect("shared runtime store lock poisoned")
+                .delete_projection_concept_relation(source_handle, target_handle, kind)?;
+        }
+        Ok(())
+    }
+
     pub fn memory_events(&self, query: &MemoryEventQuery) -> Result<Vec<MemoryEvent>> {
         let local_events = {
             let mut store = self.store.lock().expect("workspace store lock poisoned");
@@ -606,22 +657,15 @@ impl WorkspaceSession {
         let prism = self.prism_arc();
         let previous = prism.concept_by_handle(&event.concept.handle);
         let concept = concept_from_event(previous.as_ref(), &event);
-        prism.upsert_curated_concept(concept);
-        let snapshot = prism.projection_snapshot();
-        if let Some(shared_runtime_store) = self.shared_runtime_store() {
-            self.store
-                .lock()
-                .expect("workspace store lock poisoned")
-                .save_projection_snapshot(&local_projection_snapshot_for_persist(&snapshot))?;
-            shared_runtime_store
-                .lock()
-                .expect("shared runtime store lock poisoned")
-                .save_projection_snapshot(&shared_projection_snapshot_for_persist(&snapshot))?;
-        } else {
-            self.store
-                .lock()
-                .expect("workspace store lock poisoned")
-                .save_projection_snapshot(&snapshot)?;
+        prism.upsert_curated_concept(concept.clone());
+        self.delete_persisted_projection_concept_everywhere(&event.concept.handle)?;
+        if concept.scope != ConceptScope::Repo {
+            if let Some(target) = self.projection_target_store(concept.scope) {
+                target
+                    .lock()
+                    .expect("projection target store lock poisoned")
+                    .upsert_projection_concept(&concept)?;
+            }
         }
         Ok(())
     }
@@ -636,29 +680,29 @@ impl WorkspaceSession {
             append_repo_concept_relation_event(&self.root, &event)?;
         }
         let prism = self.prism_arc();
+        let relation = event.relation.clone();
         match event.action {
-            ConceptRelationEventAction::Upsert => prism.upsert_concept_relation(event.relation),
+            ConceptRelationEventAction::Upsert => prism.upsert_concept_relation(relation.clone()),
             ConceptRelationEventAction::Retire => prism.remove_concept_relation(
-                &event.relation.source_handle,
-                &event.relation.target_handle,
-                event.relation.kind,
+                &relation.source_handle,
+                &relation.target_handle,
+                relation.kind,
             ),
         }
-        let snapshot = prism.projection_snapshot();
-        if let Some(shared_runtime_store) = self.shared_runtime_store() {
-            self.store
-                .lock()
-                .expect("workspace store lock poisoned")
-                .save_projection_snapshot(&local_projection_snapshot_for_persist(&snapshot))?;
-            shared_runtime_store
-                .lock()
-                .expect("shared runtime store lock poisoned")
-                .save_projection_snapshot(&shared_projection_snapshot_for_persist(&snapshot))?;
-        } else {
-            self.store
-                .lock()
-                .expect("workspace store lock poisoned")
-                .save_projection_snapshot(&snapshot)?;
+        self.delete_persisted_projection_relation_everywhere(
+            &relation.source_handle,
+            &relation.target_handle,
+            relation.kind,
+        )?;
+        if matches!(event.action, ConceptRelationEventAction::Upsert)
+            && relation.scope != ConceptScope::Repo
+        {
+            if let Some(target) = self.projection_target_store(relation.scope) {
+                target
+                    .lock()
+                    .expect("projection target store lock poisoned")
+                    .upsert_projection_concept_relation(&relation)?;
+            }
         }
         Ok(())
     }
@@ -699,6 +743,7 @@ impl WorkspaceSession {
             .lock()
             .expect("workspace store lock poisoned")
             .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+                inference_records: Vec::new(),
                 inference_snapshot: Some(snapshot.clone()),
                 ..AuxiliaryPersistBatch::default()
             })
@@ -1010,11 +1055,11 @@ impl WorkspaceSession {
     }
 
     pub fn append_outcome(&self, event: OutcomeEvent) -> Result<EventId> {
-        self.append_outcome_with_auxiliary(event, None, None)
+        self.append_outcome_with_auxiliary(event, Vec::new(), None, None)
     }
 
     pub fn try_append_outcome(&self, event: OutcomeEvent) -> Result<Option<EventId>> {
-        self.try_append_outcome_with_auxiliary(event, None, None)
+        self.try_append_outcome_with_auxiliary(event, Vec::new(), None, None)
     }
 
     pub fn append_validation_feedback(
@@ -1039,6 +1084,7 @@ impl WorkspaceSession {
     pub fn append_outcome_with_auxiliary(
         &self,
         event: OutcomeEvent,
+        memory_events: Vec<MemoryEvent>,
         episodic_snapshot: Option<EpisodicMemorySnapshot>,
         inference_snapshot: Option<InferenceSnapshot>,
     ) -> Result<EventId> {
@@ -1046,37 +1092,53 @@ impl WorkspaceSession {
             .refresh_lock
             .lock()
             .expect("workspace refresh lock poisoned");
-        self.append_outcome_with_auxiliary_guarded(event, episodic_snapshot, inference_snapshot)
+        self.append_outcome_with_auxiliary_guarded(
+            event,
+            memory_events,
+            episodic_snapshot,
+            inference_snapshot,
+        )
     }
 
     pub fn try_append_outcome_with_auxiliary(
         &self,
         event: OutcomeEvent,
+        memory_events: Vec<MemoryEvent>,
         episodic_snapshot: Option<EpisodicMemorySnapshot>,
         inference_snapshot: Option<InferenceSnapshot>,
     ) -> Result<Option<EventId>> {
         let Ok(_guard) = self.refresh_lock.try_lock() else {
             return Ok(None);
         };
-        self.append_outcome_with_auxiliary_guarded(event, episodic_snapshot, inference_snapshot)
-            .map(Some)
+        self.append_outcome_with_auxiliary_guarded(
+            event,
+            memory_events,
+            episodic_snapshot,
+            inference_snapshot,
+        )
+        .map(Some)
     }
 
     fn append_outcome_with_auxiliary_guarded(
         &self,
         event: OutcomeEvent,
+        memory_events: Vec<MemoryEvent>,
         episodic_snapshot: Option<EpisodicMemorySnapshot>,
         inference_snapshot: Option<InferenceSnapshot>,
     ) -> Result<EventId> {
         let prism = self.prism_arc();
         let deltas = validation_deltas_for_event(&event, |node| prism.lineage_of(node));
         prism.apply_outcome_event_to_projections(&event);
+        let persisted_event = event.clone();
         let id = prism.outcome_memory().store_event(event)?;
         let mut store = self.store.lock().expect("workspace store lock poisoned");
         store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
-            outcome_snapshot: Some(prism.outcome_snapshot()),
+            outcome_snapshot: None,
+            outcome_events: vec![persisted_event],
             validation_deltas: deltas,
+            memory_events,
             episodic_snapshot,
+            inference_records: Vec::new(),
             inference_snapshot,
             curator_snapshot: None,
         })?;

@@ -509,6 +509,30 @@ fn query_method_specs() -> Vec<(
             "Read a startup and refresh-focused runtime timeline from recent daemon log events.",
         ),
         (
+            "mcpLog",
+            "internal",
+            Some("internal_developer"),
+            "List recent durable MCP calls across tools, resources, and list operations.",
+        ),
+        (
+            "slowMcpCalls",
+            "internal",
+            Some("internal_developer"),
+            "List slow durable MCP calls with duration-based filtering and sorting.",
+        ),
+        (
+            "mcpTrace",
+            "internal",
+            Some("internal_developer"),
+            "Inspect the phase-by-phase trace and previews for one recorded MCP call.",
+        ),
+        (
+            "mcpStats",
+            "internal",
+            Some("internal_developer"),
+            "Aggregate durable MCP call counts and latency buckets by type and name.",
+        ),
+        (
             "queryLog",
             "internal",
             Some("internal_developer"),

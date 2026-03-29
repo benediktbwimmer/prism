@@ -1,6 +1,7 @@
 mod graph;
 mod memory_projection;
 mod memory_store;
+mod outcome_projection;
 mod sqlite;
 mod store;
 

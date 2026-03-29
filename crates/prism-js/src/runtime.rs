@@ -1247,6 +1247,50 @@ globalThis.prism = Object.freeze({
       return __prismHost("curatorJob", { job_id: id });
     },
   }),
+  mcpLog(options = {}) {
+    return __prismHost("mcpLog", {
+      limit: options?.limit,
+      since: options?.since,
+      callType: options?.callType ?? options?.call_type,
+      name: options?.name,
+      taskId: options?.taskId ?? options?.task_id,
+      sessionId: options?.sessionId ?? options?.session_id,
+      success: options?.success,
+      minDurationMs: options?.minDurationMs ?? options?.min_duration_ms,
+      contains: options?.contains,
+    });
+  },
+  slowMcpCalls(options = {}) {
+    return __prismHost("slowMcpCalls", {
+      limit: options?.limit,
+      since: options?.since,
+      callType: options?.callType ?? options?.call_type,
+      name: options?.name,
+      taskId: options?.taskId ?? options?.task_id,
+      sessionId: options?.sessionId ?? options?.session_id,
+      success: options?.success,
+      minDurationMs: options?.minDurationMs ?? options?.min_duration_ms,
+      contains: options?.contains,
+    });
+  },
+  mcpTrace(id) {
+    if (typeof id !== "string" || id.length === 0) {
+      return null;
+    }
+    return __prismHost("mcpTrace", { id });
+  },
+  mcpStats(options = {}) {
+    return __prismHost("mcpStats", {
+      since: options?.since,
+      callType: options?.callType ?? options?.call_type,
+      name: options?.name,
+      taskId: options?.taskId ?? options?.task_id,
+      sessionId: options?.sessionId ?? options?.session_id,
+      success: options?.success,
+      minDurationMs: options?.minDurationMs ?? options?.min_duration_ms,
+      contains: options?.contains,
+    });
+  },
   queryLog(options = {}) {
     return __prismHost("queryLog", {
       limit: options?.limit,
