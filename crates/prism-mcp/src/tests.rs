@@ -3132,6 +3132,25 @@ async fn mcp_server_accepts_prism_session_start_task_aliases() {
     running.cancel().await.unwrap();
 }
 
+#[test]
+fn prism_session_accepts_bind_coordination_task_action() {
+    let args = serde_json::from_value::<PrismSessionArgs>(json!({
+        "action": "bind_coordination_task",
+        "coordinationTaskId": "coord-task:12",
+        "tags": ["coordination", "dogfood"]
+    }))
+    .expect("bind_coordination_task shorthand should deserialize");
+
+    let PrismSessionArgs::BindCoordinationTask(args) = args else {
+        panic!("expected bind_coordination_task action");
+    };
+    assert_eq!(args.coordination_task_id, "coord-task:12");
+    assert_eq!(
+        args.tags,
+        Some(vec!["coordination".to_string(), "dogfood".to_string()])
+    );
+}
+
 #[tokio::test]
 async fn mcp_server_surfaces_structured_prism_query_error_categories() {
     let server = server_with_node(demo_node());

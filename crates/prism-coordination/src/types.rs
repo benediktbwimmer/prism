@@ -242,7 +242,7 @@ pub enum BlockerKind {
     ArtifactStale,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct CoordinationSnapshot {
     pub plans: Vec<Plan>,
     pub tasks: Vec<CoordinationTask>,

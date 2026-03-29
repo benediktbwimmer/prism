@@ -555,13 +555,35 @@ impl WorkspaceSession {
             .refresh_lock
             .lock()
             .expect("workspace refresh lock poisoned");
+        let expected_revision = self
+            .store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .coordination_revision()?;
         let prism = self.prism_arc();
+        let before = prism.coordination_snapshot();
         let result = mutate(prism.as_ref())?;
         let snapshot = prism.coordination_snapshot();
+        let appended_events = snapshot
+            .events
+            .iter()
+            .filter(|event| {
+                !before
+                    .events
+                    .iter()
+                    .any(|stored| stored.meta.id == event.meta.id)
+            })
+            .cloned()
+            .collect::<Vec<_>>();
         self.store
             .lock()
             .expect("workspace store lock poisoned")
-            .persist_coordination_snapshot_for_root(&self.root, &snapshot)?;
+            .persist_coordination_mutation_for_root(
+                &self.root,
+                expected_revision,
+                &snapshot,
+                &appended_events,
+            )?;
         Ok(result)
     }
 

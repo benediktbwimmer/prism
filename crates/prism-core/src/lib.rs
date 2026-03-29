@@ -18,6 +18,7 @@ mod session;
 mod util;
 mod validation_feedback;
 mod watch;
+mod workspace_identity;
 
 use std::sync::Arc;
 

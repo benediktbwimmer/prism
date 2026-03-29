@@ -90,6 +90,12 @@ pub(crate) fn tool_input_examples(tool_name: &str) -> Option<Vec<Value>> {
         "prism_session" => Some(vec![
             tool_input_example("prism_session").expect("session example"),
             json!({
+                "action": "bind_coordination_task",
+                "input": {
+                    "coordinationTaskId": "coord-task:12",
+                }
+            }),
+            json!({
                 "action": "configure",
                 "input": {
                     "currentTaskDescription": "Continue compact-tool follow-up cleanup.",
@@ -112,6 +118,12 @@ pub(crate) fn tool_input_examples(tool_name: &str) -> Option<Vec<Value>> {
 pub(crate) fn tool_action_example(tool_name: &str, action: &str) -> Option<Value> {
     match (tool_name, action) {
         ("prism_session", "start_task") => tool_input_example("prism_session"),
+        ("prism_session", "bind_coordination_task") => Some(json!({
+            "action": "bind_coordination_task",
+            "input": {
+                "coordinationTaskId": "coord-task:12",
+            }
+        })),
         ("prism_session", "configure") => Some(json!({
             "action": "configure",
             "input": {

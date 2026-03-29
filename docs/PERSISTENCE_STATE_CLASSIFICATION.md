@@ -16,6 +16,12 @@ PRISM should converge on three distinct state planes:
 
 The most important design rule is that a shared database complements `.prism`; it does not replace it.
 
+PRISM should therefore evolve from "local-first only" into "local-first plus shared-runtime capable":
+
+- local embedded backends such as SQLite remain first-class
+- shared remote backends such as Postgres become first-class deployment targets
+- `.prism` remains repo-owned published truth in both modes
+
 ## Rules
 
 - Authoritative persisted state is the durable truth the runtime should reconstruct from.
@@ -24,6 +30,7 @@ The most important design rule is that a shared database complements `.prism`; i
 - Runtime-only hydration details such as fresh handles, resolved overlays, or process-local caches must not be published as authored repo truth.
 - Snapshots and compaction outputs are allowed as accelerators, bootstrap aids, or exports, but not as a second semantic authority.
 - A shared backend should be treated as the mutable runtime state plane for collaboration, not as a replacement for repo-published knowledge.
+- Scope should be modeled explicitly through identity and context, not inferred accidentally from storage location.
 
 ## Classification
 
@@ -65,6 +72,53 @@ A shared backend becomes valuable for:
 - CI or automation-attached runtimes contributing live outcomes
 - longer-lived organizational deployments where local-only runtime state is too fragmented
 
+The same architecture is already useful on a single machine when one developer has:
+
+- multiple checkouts of the same repository
+- multiple worktrees for the same repository
+- more than one local Prism runtime touching the same logical repo work
+
+That means the shared-runtime model is not only for future hosted deployments. Multiple worktrees already turn local-first into a multi-context runtime problem.
+
+## Identity And Scope Dimensions
+
+The persistence model should make the following identities explicit:
+
+- `repo_id`: the logical repository identity
+- `worktree_id`: the specific checkout or worktree context
+- `branch_ref` and/or checked-out commit identity: the current code reality for that context
+- `session_id`: the agent session bound to a worktree context
+- `instance_id`: the Prism server process or runtime instance
+
+These identities let PRISM answer distinct questions cleanly:
+
+- should this state be visible in every checkout of the repo?
+- should it only apply to this worktree?
+- is it branch-specific?
+- is it only for this live session or process?
+
+Without these dimensions, scope bleeds accidentally across checkouts or gets encoded in deployment layout instead of domain semantics.
+
+## Endpoint And Worktree Contexts
+
+PRISM should not require one MCP server per worktree.
+
+The target model is:
+
+- one local Prism daemon or MCP endpoint can manage many repos and many worktrees
+- each MCP session binds to one worktree context by default
+- handles, runtime overlays, and mutable coordination state are scoped under that bound context
+
+This separates:
+
+- transport identity: which endpoint the client is talking to
+- session identity: which agent conversation or runtime is active
+- worktree context: which checkout, branch, and mutable code reality the session is attached to
+
+Running one server per worktree can remain a useful fallback or debug mode, but it should not be the architectural requirement.
+
+The persistence plan should therefore include an explicit worktree-context binding model rather than assuming that "one server equals one workspace."
+
 ## Distributed Runtime Capabilities
 
 The long-term backend abstraction should be shaped around coordination capabilities and semantics, not just generic CRUD.
@@ -88,6 +142,7 @@ This also means the persistence plan must account for:
 - lease and heartbeat renewal
 - stale session cleanup
 - repo, branch, and worktree identity
+- session-to-worktree binding and context isolation
 - latency tolerance and reconnect behavior
 - partial-failure handling
 
@@ -103,6 +158,7 @@ Good candidates for the shared remote backend:
 - maintenance queues
 - ephemeral draft plans or concepts before publication
 - live coordination telemetry
+- worktree-bound coordination state for uncommitted or branch-diverged work
 
 State that should remain repo-published in `.prism`:
 
@@ -117,6 +173,13 @@ State that should remain process-local cache:
 - hot derived projections
 - local memoization
 - UI or session convenience state
+
+State that is often worktree- or branch-scoped even when a shared backend exists:
+
+- active claims tied to uncommitted local edits
+- draft plans before publication
+- stale-revision judgments against one checkout state
+- branch-diverged intent and temporary execution overlays
 
 ## Current Transitional Caveats
 
@@ -134,10 +197,10 @@ During the migration:
 
 - `coord-task:7` should introduce backend-neutral interfaces for authoritative state and optional snapshot or compaction loaders, not SQLite-shaped snapshot authority.
 - `coord-task:2` should move native plan and coordination writes onto authoritative event-backed or normalized persistence paths, with revision-aware and idempotent mutation semantics suitable for shared runtime backends.
-- `coord-task:3` should maintain projections, summaries, recommendations, compatibility views, and shared runtime read models incrementally from authoritative state.
-- `coord-task:4` should hydrate runtime state from authoritative state first, then perform rebinding, runtime overlay attachment, and explicit repo/branch/worktree identity handling.
+- `coord-task:3` should maintain projections, summaries, recommendations, compatibility views, and shared runtime read models incrementally from authoritative state, including read models needed for shared multi-worktree coordination.
+- `coord-task:4` should hydrate runtime state from authoritative state first, then perform rebinding, runtime overlay attachment, explicit repo/branch/worktree identity handling, and worktree-context binding.
 - `coord-task:5` should keep compaction and snapshots explicitly derived from canonical history.
-- `coord-task:6` should validate multi-instance concurrency, leases or heartbeats, stale-session cleanup, reconnect behavior, and migration safety in addition to correctness and latency.
+- `coord-task:6` should validate multi-instance concurrency, leases or heartbeats, stale-session cleanup, reconnect behavior, migration safety, and single-endpoint multi-worktree context isolation in addition to correctness and latency.
 
 ## Plans-Specific Interpretation
 

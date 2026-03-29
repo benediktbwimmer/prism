@@ -1,4 +1,6 @@
 mod codecs;
+mod coordination_events;
+mod coordination_mutations;
 mod graph_io;
 mod history_io;
 mod memory_entries;
@@ -14,7 +16,10 @@ use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use tracing::info;
 
 use crate::graph::Graph;
-use crate::store::{AuxiliaryPersistBatch, IndexPersistBatch, Store};
+use crate::store::{
+    AuxiliaryPersistBatch, CoordinationPersistBatch, CoordinationPersistResult, IndexPersistBatch,
+    Store,
+};
 
 const WORKSPACE_REVISION_KEY: &str = "revision:workspace";
 const EPISODIC_REVISION_KEY: &str = "revision:episodic";
@@ -253,10 +258,24 @@ impl Store for SqliteStore {
         snapshots::save_snapshot_row(&self.conn, "curator", snapshot)
     }
 
+    fn coordination_revision(&self) -> Result<u64> {
+        Self::coordination_revision(self)
+    }
+
     fn load_coordination_snapshot(
         &mut self,
     ) -> Result<Option<prism_coordination::CoordinationSnapshot>> {
         snapshots::load_snapshot_row(&self.conn, "coordination")
+    }
+
+    fn load_coordination_events(&mut self) -> Result<Vec<prism_coordination::CoordinationEvent>> {
+        coordination_events::load_events(&self.conn)
+    }
+
+    fn load_latest_coordination_persist_context(
+        &mut self,
+    ) -> Result<Option<crate::store::CoordinationPersistContext>> {
+        coordination_mutations::load_latest_context(&self.conn)
     }
 
     fn save_coordination_snapshot(
@@ -268,6 +287,80 @@ impl Store for SqliteStore {
         bump_metadata_value_tx(&tx, COORDINATION_REVISION_KEY)?;
         tx.commit()?;
         Ok(())
+    }
+
+    fn commit_coordination_persist_batch(
+        &mut self,
+        batch: &CoordinationPersistBatch,
+    ) -> Result<CoordinationPersistResult> {
+        let tx = self.conn.transaction()?;
+        let current_revision = metadata_value_tx(&tx, COORDINATION_REVISION_KEY)?;
+        let current_snapshot = snapshots::load_snapshot_row_tx::<
+            prism_coordination::CoordinationSnapshot,
+        >(&tx, "coordination")?;
+        if let Some(expected_revision) = batch.expected_revision {
+            if expected_revision != current_revision {
+                let event_ids = batch
+                    .appended_events
+                    .iter()
+                    .map(|event| event.meta.id.0.to_string())
+                    .collect::<Vec<_>>();
+                let existing = coordination_events::event_ids_exist_tx(&tx, &event_ids)?;
+                if current_snapshot.as_ref() == Some(&batch.snapshot)
+                    && batch
+                        .appended_events
+                        .iter()
+                        .all(|event| existing.contains(event.meta.id.0.as_str()))
+                {
+                    return Ok(CoordinationPersistResult {
+                        revision: current_revision,
+                        inserted_events: 0,
+                        applied: false,
+                    });
+                }
+                anyhow::bail!(
+                    "coordination revision mismatch: expected {}, found {}",
+                    expected_revision,
+                    current_revision
+                );
+            }
+        }
+
+        let inserted_events = coordination_events::append_events_tx(&tx, &batch.appended_events)?;
+        let snapshot_changed = current_snapshot.as_ref() != Some(&batch.snapshot);
+        if inserted_events == 0 && !snapshot_changed {
+            coordination_mutations::append_mutation_tx(
+                &tx,
+                current_revision,
+                batch.expected_revision,
+                inserted_events,
+                false,
+                &batch.context,
+            )?;
+            tx.commit()?;
+            return Ok(CoordinationPersistResult {
+                revision: current_revision,
+                inserted_events,
+                applied: false,
+            });
+        }
+
+        snapshots::save_snapshot_row_tx(&tx, "coordination", &batch.snapshot)?;
+        let revision = bump_metadata_value_tx(&tx, COORDINATION_REVISION_KEY)?;
+        coordination_mutations::append_mutation_tx(
+            &tx,
+            revision,
+            batch.expected_revision,
+            inserted_events,
+            true,
+            &batch.context,
+        )?;
+        tx.commit()?;
+        Ok(CoordinationPersistResult {
+            revision,
+            inserted_events,
+            applied: true,
+        })
     }
 
     fn commit_auxiliary_persist_batch(&mut self, batch: &AuxiliaryPersistBatch) -> Result<()> {
@@ -517,6 +610,17 @@ fn metadata_value(conn: &Connection, key: &str) -> Result<u64> {
         .optional()?
         .unwrap_or(0);
     Ok(value as u64)
+}
+
+fn metadata_value_tx(tx: &Transaction<'_>, key: &str) -> Result<u64> {
+    let raw = tx
+        .query_row(
+            "SELECT value FROM metadata WHERE key = ?1",
+            params![key],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()?;
+    Ok(raw.unwrap_or(0) as u64)
 }
 
 fn bump_metadata_value_tx(tx: &Transaction<'_>, key: &str) -> Result<u64> {

@@ -1,0 +1,98 @@
+use std::collections::hash_map::DefaultHasher;
+use std::fs;
+use std::hash::{Hash, Hasher};
+use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
+
+use prism_store::CoordinationPersistContext;
+
+use crate::util::current_timestamp_millis;
+
+#[derive(Debug)]
+struct GitWorkspaceIdentity {
+    common_dir: Option<PathBuf>,
+    head_ref: Option<String>,
+}
+
+pub(crate) fn coordination_persist_context_for_root(root: &Path) -> CoordinationPersistContext {
+    let canonical_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    let git_identity = discover_git_workspace_identity(&canonical_root);
+    let repo_source = git_identity
+        .common_dir
+        .as_ref()
+        .unwrap_or(&canonical_root)
+        .to_string_lossy()
+        .to_string();
+    CoordinationPersistContext {
+        repo_id: scoped_id("repo", &repo_source),
+        worktree_id: scoped_id("worktree", &canonical_root.to_string_lossy()),
+        branch_ref: git_identity.head_ref,
+        session_id: None,
+        instance_id: Some(instance_id().clone()),
+    }
+}
+
+fn instance_id() -> &'static String {
+    static INSTANCE_ID: OnceLock<String> = OnceLock::new();
+    INSTANCE_ID.get_or_init(|| {
+        format!(
+            "instance:{}:{}",
+            std::process::id(),
+            current_timestamp_millis()
+        )
+    })
+}
+
+fn scoped_id(prefix: &str, value: &str) -> String {
+    let mut hasher = DefaultHasher::new();
+    value.hash(&mut hasher);
+    format!("{prefix}:{:016x}", hasher.finish())
+}
+
+fn discover_git_workspace_identity(root: &Path) -> GitWorkspaceIdentity {
+    let Some(git_dir) = resolve_git_dir(root) else {
+        return GitWorkspaceIdentity {
+            common_dir: None,
+            head_ref: None,
+        };
+    };
+    let common_dir = resolve_common_dir(&git_dir);
+    let head_ref = fs::read_to_string(git_dir.join("HEAD"))
+        .ok()
+        .map(|contents| contents.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .map(|value| {
+            value
+                .strip_prefix("ref: ")
+                .map(str::to_owned)
+                .unwrap_or_else(|| format!("detached:{value}"))
+        });
+    GitWorkspaceIdentity {
+        common_dir,
+        head_ref,
+    }
+}
+
+fn resolve_git_dir(root: &Path) -> Option<PathBuf> {
+    let dot_git = root.join(".git");
+    if dot_git.is_dir() {
+        return dot_git.canonicalize().ok().or(Some(dot_git));
+    }
+    let contents = fs::read_to_string(&dot_git).ok()?;
+    let gitdir = contents.strip_prefix("gitdir: ")?.trim();
+    let resolved = dot_git
+        .parent()
+        .unwrap_or(root)
+        .join(gitdir)
+        .canonicalize()
+        .ok()
+        .or_else(|| Some(dot_git.parent().unwrap_or(root).join(gitdir)))?;
+    Some(resolved)
+}
+
+fn resolve_common_dir(git_dir: &Path) -> Option<PathBuf> {
+    let common_dir_file = git_dir.join("commondir");
+    let relative = fs::read_to_string(common_dir_file).ok()?;
+    let candidate = git_dir.join(relative.trim());
+    candidate.canonicalize().ok().or(Some(candidate))
+}

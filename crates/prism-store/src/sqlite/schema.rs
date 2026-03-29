@@ -1,13 +1,13 @@
 use anyhow::Result;
 use rusqlite::Connection;
 
-const SCHEMA_VERSION: i64 = 13;
+const SCHEMA_VERSION: i64 = 15;
 
 pub(super) fn init_schema(conn: &Connection) -> Result<()> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
     match version {
         0 | SCHEMA_VERSION => {}
-        11 | 12 => {}
+        11 | 12 | 13 | 14 => {}
         _ => reset_schema(conn)?,
     }
 
@@ -146,6 +146,32 @@ fn current_schema_sql() -> &'static str {
 
         CREATE INDEX IF NOT EXISTS idx_memory_event_log_scope_sequence
             ON memory_event_log(scope, sequence DESC);
+
+        CREATE TABLE IF NOT EXISTS coordination_event_log (
+            sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_id TEXT NOT NULL UNIQUE,
+            ts INTEGER NOT NULL,
+            payload TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_coordination_event_log_ts_sequence
+            ON coordination_event_log(ts, sequence);
+
+        CREATE TABLE IF NOT EXISTS coordination_mutation_log (
+            sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+            revision INTEGER NOT NULL,
+            expected_revision INTEGER,
+            inserted_events INTEGER NOT NULL,
+            applied INTEGER NOT NULL,
+            repo_id TEXT NOT NULL,
+            worktree_id TEXT NOT NULL,
+            branch_ref TEXT,
+            session_id TEXT,
+            instance_id TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_coordination_mutation_log_revision_sequence
+            ON coordination_mutation_log(revision DESC, sequence DESC);
 
         CREATE TABLE IF NOT EXISTS history_node_lineages (
             node_crate_name TEXT NOT NULL,

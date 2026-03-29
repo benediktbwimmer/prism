@@ -1661,6 +1661,17 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
     store
         .persist_coordination_snapshot_for_root(&root, &snapshot)
         .unwrap();
+    assert_eq!(
+        store.load_coordination_events().unwrap().len(),
+        snapshot.events.len()
+    );
+    let context = store
+        .load_latest_coordination_persist_context()
+        .unwrap()
+        .expect("coordination persist context should be recorded");
+    assert!(context.repo_id.starts_with("repo:"));
+    assert!(context.worktree_id.starts_with("worktree:"));
+    assert!(context.instance_id.is_some());
 
     assert!(root
         .join(".prism")

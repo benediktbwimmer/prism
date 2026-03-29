@@ -1,8 +1,13 @@
+use anyhow::{anyhow, Result};
+use prism_coordination::CoordinationEvent;
 use prism_projections::ProjectionIndex;
 
 use crate::graph::{Graph, GraphSnapshot};
 use crate::memory_projection::{append_only_delta, merge_snapshot, snapshot_from_events};
-use crate::store::{AuxiliaryPersistBatch, IndexPersistBatch, Store};
+use crate::store::{
+    AuxiliaryPersistBatch, CoordinationPersistBatch, CoordinationPersistContext,
+    CoordinationPersistResult, IndexPersistBatch, Store,
+};
 use prism_memory::{MemoryEvent, MemoryEventKind};
 
 #[derive(Debug, Default)]
@@ -16,6 +21,9 @@ pub struct MemoryStore {
     projection_snapshot: Option<prism_projections::ProjectionSnapshot>,
     curator_snapshot: Option<prism_curator::CuratorSnapshot>,
     coordination_snapshot: Option<prism_coordination::CoordinationSnapshot>,
+    coordination_events: Vec<CoordinationEvent>,
+    coordination_revision: u64,
+    latest_coordination_context: Option<CoordinationPersistContext>,
 }
 
 impl Store for MemoryStore {
@@ -173,10 +181,24 @@ impl Store for MemoryStore {
         Ok(())
     }
 
+    fn coordination_revision(&self) -> Result<u64> {
+        Ok(self.coordination_revision)
+    }
+
     fn load_coordination_snapshot(
         &mut self,
     ) -> anyhow::Result<Option<prism_coordination::CoordinationSnapshot>> {
         Ok(self.coordination_snapshot.clone())
+    }
+
+    fn load_coordination_events(&mut self) -> Result<Vec<CoordinationEvent>> {
+        Ok(self.coordination_events.clone())
+    }
+
+    fn load_latest_coordination_persist_context(
+        &mut self,
+    ) -> Result<Option<CoordinationPersistContext>> {
+        Ok(self.latest_coordination_context.clone())
     }
 
     fn save_coordination_snapshot(
@@ -184,7 +206,71 @@ impl Store for MemoryStore {
         snapshot: &prism_coordination::CoordinationSnapshot,
     ) -> anyhow::Result<()> {
         self.coordination_snapshot = Some(snapshot.clone());
+        self.coordination_events = snapshot.events.clone();
+        self.coordination_revision += 1;
         Ok(())
+    }
+
+    fn commit_coordination_persist_batch(
+        &mut self,
+        batch: &CoordinationPersistBatch,
+    ) -> Result<CoordinationPersistResult> {
+        let current_revision = self.coordination_revision;
+        if let Some(expected_revision) = batch.expected_revision {
+            if expected_revision != current_revision {
+                if self.coordination_snapshot.as_ref() == Some(&batch.snapshot)
+                    && batch.appended_events.iter().all(|event| {
+                        self.coordination_events
+                            .iter()
+                            .any(|stored| stored.meta.id == event.meta.id)
+                    })
+                {
+                    return Ok(CoordinationPersistResult {
+                        revision: current_revision,
+                        inserted_events: 0,
+                        applied: false,
+                    });
+                }
+                return Err(anyhow!(
+                    "coordination revision mismatch: expected {}, found {}",
+                    expected_revision,
+                    current_revision
+                ));
+            }
+        }
+
+        let mut inserted_events = 0;
+        for event in &batch.appended_events {
+            if self
+                .coordination_events
+                .iter()
+                .any(|stored| stored.meta.id == event.meta.id)
+            {
+                continue;
+            }
+            self.coordination_events.push(event.clone());
+            inserted_events += 1;
+        }
+
+        let snapshot_changed = self.coordination_snapshot.as_ref() != Some(&batch.snapshot);
+        if inserted_events == 0 && !snapshot_changed {
+            self.latest_coordination_context = Some(batch.context.clone());
+            return Ok(CoordinationPersistResult {
+                revision: current_revision,
+                inserted_events,
+                applied: false,
+            });
+        }
+
+        self.coordination_snapshot = Some(batch.snapshot.clone());
+        self.coordination_events = batch.snapshot.events.clone();
+        self.latest_coordination_context = Some(batch.context.clone());
+        self.coordination_revision += 1;
+        Ok(CoordinationPersistResult {
+            revision: self.coordination_revision,
+            inserted_events,
+            applied: true,
+        })
     }
 
     fn commit_auxiliary_persist_batch(
@@ -214,6 +300,8 @@ impl Store for MemoryStore {
         }
         if let Some(snapshot) = &batch.coordination_snapshot {
             self.coordination_snapshot = Some(snapshot.clone());
+            self.coordination_events = snapshot.events.clone();
+            self.coordination_revision += 1;
         }
         if !batch.validation_deltas.is_empty() {
             let mut snapshot = self.projection_snapshot.clone().unwrap_or_default();

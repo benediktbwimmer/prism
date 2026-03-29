@@ -7,7 +7,10 @@ mod store;
 pub use graph::{FileRecord, FileState, FileUpdate, Graph, GraphSnapshot};
 pub use memory_store::MemoryStore;
 pub use sqlite::{SnapshotRevisions, SqliteStore};
-pub use store::{AuxiliaryPersistBatch, IndexPersistBatch, Store};
+pub use store::{
+    AuxiliaryPersistBatch, CoordinationPersistBatch, CoordinationPersistContext,
+    CoordinationPersistResult, IndexPersistBatch, Store,
+};
 
 #[cfg(test)]
 mod tests;

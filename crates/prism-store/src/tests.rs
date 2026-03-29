@@ -3,10 +3,11 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use prism_agent::{EdgeId, InferenceSnapshot, InferredEdgeRecord, InferredEdgeScope};
+use prism_coordination::{CoordinationEvent, CoordinationSnapshot};
 use prism_history::{HistoryPersistDelta, HistorySnapshot, LineageTombstone};
 use prism_ir::{
-    Edge, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta, FileId, GraphChange, Language,
-    Node, NodeId, NodeKind, Span,
+    CoordinationEventKind, Edge, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta, FileId,
+    GraphChange, Language, Node, NodeId, NodeKind, Span,
 };
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryId, MemoryKind, MemorySource, OutcomeMemorySnapshot,
@@ -18,7 +19,10 @@ use prism_projections::{
 };
 use rusqlite::Connection;
 
-use crate::{AuxiliaryPersistBatch, Graph, IndexPersistBatch, MemoryStore, SqliteStore, Store};
+use crate::{
+    AuxiliaryPersistBatch, CoordinationPersistBatch, CoordinationPersistContext, Graph,
+    IndexPersistBatch, MemoryStore, SqliteStore, Store,
+};
 
 fn node(name: &str) -> Node {
     Node {
@@ -28,6 +32,16 @@ fn node(name: &str) -> Node {
         file: FileId(0),
         span: Span::line(1),
         language: Language::Rust,
+    }
+}
+
+fn coordination_context() -> CoordinationPersistContext {
+    CoordinationPersistContext {
+        repo_id: "repo:test".to_string(),
+        worktree_id: "worktree:test".to_string(),
+        branch_ref: Some("refs/heads/test".to_string()),
+        session_id: Some("session:test".to_string()),
+        instance_id: Some("instance:test".to_string()),
     }
 }
 
@@ -291,6 +305,70 @@ fn memory_store_round_trips_auxiliary_snapshots() {
 }
 
 #[test]
+fn coordination_persist_batch_is_revisioned_and_idempotent() {
+    let event = CoordinationEvent {
+        meta: EventMeta {
+            id: EventId::new("coordination:event:1"),
+            ts: 1,
+            actor: EventActor::Agent,
+            correlation: None,
+            causation: None,
+        },
+        kind: CoordinationEventKind::PlanCreated,
+        summary: "create plan".to_string(),
+        plan: None,
+        task: None,
+        claim: None,
+        artifact: None,
+        review: None,
+        metadata: serde_json::Value::Null,
+    };
+    let snapshot = CoordinationSnapshot {
+        events: vec![event.clone()],
+        ..CoordinationSnapshot::default()
+    };
+
+    let mut memory = MemoryStore::default();
+    let first = memory
+        .commit_coordination_persist_batch(&CoordinationPersistBatch {
+            context: coordination_context(),
+            expected_revision: Some(0),
+            snapshot: snapshot.clone(),
+            appended_events: vec![event.clone()],
+        })
+        .unwrap();
+    assert_eq!(first.revision, 1);
+    assert_eq!(first.inserted_events, 1);
+    assert!(first.applied);
+
+    let retry = memory
+        .commit_coordination_persist_batch(&CoordinationPersistBatch {
+            context: coordination_context(),
+            expected_revision: Some(0),
+            snapshot: snapshot.clone(),
+            appended_events: vec![event.clone()],
+        })
+        .unwrap();
+    assert_eq!(retry.revision, 1);
+    assert_eq!(retry.inserted_events, 0);
+    assert!(!retry.applied);
+    assert_eq!(
+        memory.load_latest_coordination_persist_context().unwrap(),
+        Some(coordination_context())
+    );
+
+    let err = memory
+        .commit_coordination_persist_batch(&CoordinationPersistBatch {
+            context: coordination_context(),
+            expected_revision: Some(0),
+            snapshot: CoordinationSnapshot::default(),
+            appended_events: Vec::new(),
+        })
+        .unwrap_err();
+    assert!(err.to_string().contains("coordination revision mismatch"));
+}
+
+#[test]
 fn memory_store_merges_episodic_snapshots_append_only() {
     let mut store = MemoryStore::default();
     let alpha = MemoryEntry {
@@ -454,8 +532,122 @@ fn sqlite_store_configures_connection_pragmas() {
     assert_eq!(synchronous, 1);
     assert_eq!(temp_store, 2);
     assert_eq!(wal_autocheckpoint, 1000);
-    assert_eq!(user_version, 13);
+    assert_eq!(user_version, 15);
     assert!(indexed_tables.into_iter().all(|count| count == 1));
+
+    drop(store);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(path.with_extension("db-shm"));
+}
+
+#[test]
+fn sqlite_store_coordination_persist_batch_appends_events_and_enforces_revision() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-coordination-persist-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let event = CoordinationEvent {
+        meta: EventMeta {
+            id: EventId::new("coordination:event:sqlite"),
+            ts: 7,
+            actor: EventActor::Agent,
+            correlation: None,
+            causation: None,
+        },
+        kind: CoordinationEventKind::PlanCreated,
+        summary: "create persisted plan".to_string(),
+        plan: None,
+        task: None,
+        claim: None,
+        artifact: None,
+        review: None,
+        metadata: serde_json::Value::Null,
+    };
+    let snapshot = CoordinationSnapshot {
+        events: vec![event.clone()],
+        ..CoordinationSnapshot::default()
+    };
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    let first = store
+        .commit_coordination_persist_batch(&CoordinationPersistBatch {
+            context: coordination_context(),
+            expected_revision: Some(0),
+            snapshot: snapshot.clone(),
+            appended_events: vec![event.clone()],
+        })
+        .unwrap();
+    assert_eq!(first.revision, 1);
+    assert_eq!(first.inserted_events, 1);
+    assert!(first.applied);
+
+    let event_rows: i64 = store
+        .conn
+        .query_row("SELECT COUNT(*) FROM coordination_event_log", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(event_rows, 1);
+    let logged_context = store
+        .load_latest_coordination_persist_context()
+        .unwrap()
+        .unwrap();
+    assert_eq!(logged_context, coordination_context());
+    let mutation_row: (String, String, Option<String>, Option<String>, Option<String>, i64, i64) =
+        store
+            .conn
+            .query_row(
+                "SELECT repo_id, worktree_id, branch_ref, session_id, instance_id, inserted_events, applied
+                 FROM coordination_mutation_log
+                 ORDER BY sequence DESC
+                 LIMIT 1",
+                [],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                        row.get(6)?,
+                    ))
+                },
+            )
+            .unwrap();
+    assert_eq!(mutation_row.0, "repo:test");
+    assert_eq!(mutation_row.1, "worktree:test");
+    assert_eq!(mutation_row.2.as_deref(), Some("refs/heads/test"));
+    assert_eq!(mutation_row.3.as_deref(), Some("session:test"));
+    assert_eq!(mutation_row.4.as_deref(), Some("instance:test"));
+    assert_eq!(mutation_row.5, 1);
+    assert_eq!(mutation_row.6, 1);
+
+    let retry = store
+        .commit_coordination_persist_batch(&CoordinationPersistBatch {
+            context: coordination_context(),
+            expected_revision: Some(0),
+            snapshot: snapshot.clone(),
+            appended_events: vec![event.clone()],
+        })
+        .unwrap();
+    assert_eq!(retry.revision, 1);
+    assert_eq!(retry.inserted_events, 0);
+    assert!(!retry.applied);
+
+    let err = store
+        .commit_coordination_persist_batch(&CoordinationPersistBatch {
+            context: coordination_context(),
+            expected_revision: Some(0),
+            snapshot: CoordinationSnapshot::default(),
+            appended_events: Vec::new(),
+        })
+        .unwrap_err();
+    assert!(err.to_string().contains("coordination revision mismatch"));
 
     drop(store);
     let _ = std::fs::remove_file(&path);
@@ -858,7 +1050,7 @@ fn sqlite_store_migrates_snapshot_backed_episodic_memory_to_append_only_log() {
         .conn
         .pragma_query_value(None, "user_version", |row| row.get(0))
         .unwrap();
-    assert_eq!(user_version, 13);
+    assert_eq!(user_version, 15);
 
     let logged_rows: i64 = store
         .conn

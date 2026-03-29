@@ -632,6 +632,15 @@ pub(crate) struct PrismStartTaskArgs {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct PrismBindCoordinationTaskArgs {
+    #[serde(alias = "coordination_task_id")]
+    pub(crate) coordination_task_id: String,
+    pub(crate) description: Option<String>,
+    pub(crate) tags: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct PrismFinishTaskArgs {
     pub(crate) summary: String,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
@@ -760,6 +769,7 @@ pub(crate) struct PrismConfigureSessionArgs {
 #[serde(rename_all = "snake_case", tag = "action", content = "input")]
 pub(crate) enum PrismSessionArgs {
     StartTask(PrismStartTaskArgs),
+    BindCoordinationTask(PrismBindCoordinationTaskArgs),
     Configure(PrismConfigureSessionArgs),
     FinishTask(PrismFinishTaskArgs),
     AbandonTask(PrismFinishTaskArgs),
@@ -769,6 +779,7 @@ pub(crate) enum PrismSessionArgs {
 #[serde(rename_all = "snake_case", tag = "action", content = "input")]
 enum PrismSessionArgsWire {
     StartTask(PrismStartTaskArgs),
+    BindCoordinationTask(PrismBindCoordinationTaskArgs),
     Configure(PrismConfigureSessionArgs),
     FinishTask(PrismFinishTaskArgs),
     AbandonTask(PrismFinishTaskArgs),
@@ -778,6 +789,7 @@ impl From<PrismSessionArgsWire> for PrismSessionArgs {
     fn from(value: PrismSessionArgsWire) -> Self {
         match value {
             PrismSessionArgsWire::StartTask(args) => Self::StartTask(args),
+            PrismSessionArgsWire::BindCoordinationTask(args) => Self::BindCoordinationTask(args),
             PrismSessionArgsWire::Configure(args) => Self::Configure(args),
             PrismSessionArgsWire::FinishTask(args) => Self::FinishTask(args),
             PrismSessionArgsWire::AbandonTask(args) => Self::AbandonTask(args),
@@ -801,6 +813,7 @@ impl<'de> Deserialize<'de> for PrismSessionArgs {
 #[serde(rename_all = "snake_case")]
 pub(crate) enum SessionMutationActionSchema {
     StartTask,
+    BindCoordinationTask,
     Configure,
     FinishTask,
     AbandonTask,

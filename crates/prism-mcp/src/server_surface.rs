@@ -266,6 +266,66 @@ impl PrismMcpServer {
                     vec![session_resource_link(), task_resource_link(&task_id)],
                 )
             }
+            PrismSessionArgs::BindCoordinationTask(args) => {
+                if args.coordination_task_id.trim().is_empty() {
+                    return Err(McpError::invalid_params(
+                        "coordinationTaskId cannot be empty",
+                        Some(json!({ "field": "input.coordinationTaskId" })),
+                    ));
+                }
+
+                let session = self.execute_logged_mutation(
+                    "session.bind_coordination_task",
+                    MutationRefreshPolicy::PersistedOnly,
+                    || {
+                        self.host.configure_session_without_refresh(
+                            self.session.as_ref(),
+                            PrismConfigureSessionArgs {
+                                limits: None,
+                                current_task_id: None,
+                                coordination_task_id: Some(args.coordination_task_id.clone()),
+                                current_task_description: args.description.clone(),
+                                current_task_tags: args.tags.clone(),
+                                clear_current_task: None,
+                                current_agent: None,
+                                clear_current_agent: None,
+                            },
+                        )
+                    },
+                    |session| {
+                        MutationDashboardMeta::task(
+                            session
+                                .current_task
+                                .as_ref()
+                                .map(|task| task.task_id.clone()),
+                            session
+                                .current_task
+                                .as_ref()
+                                .map(|task| vec![task.task_id.clone()])
+                                .unwrap_or_default(),
+                            0,
+                        )
+                    },
+                )?;
+                let mut links = vec![session_resource_link()];
+                if let Some(task) = &session.current_task {
+                    links.push(task_resource_link(&task.task_id));
+                }
+                structured_tool_result_with_links(
+                    PrismSessionMutationResult {
+                        action: SessionMutationActionSchema::BindCoordinationTask,
+                        task_id: session
+                            .current_task
+                            .as_ref()
+                            .map(|task| task.task_id.clone()),
+                        event_id: None,
+                        memory_id: None,
+                        journal: None,
+                        session,
+                    },
+                    links,
+                )
+            }
             PrismSessionArgs::Configure(args) => {
                 let session = self.execute_logged_mutation(
                     "session.configure",

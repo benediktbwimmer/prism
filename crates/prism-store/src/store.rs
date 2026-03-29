@@ -2,13 +2,22 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use prism_agent::InferenceSnapshot;
-use prism_coordination::CoordinationSnapshot;
+use prism_coordination::{CoordinationEvent, CoordinationSnapshot};
 use prism_curator::CuratorSnapshot;
 use prism_history::{HistoryPersistDelta, HistorySnapshot};
 use prism_memory::{EpisodicMemorySnapshot, MemoryEvent, OutcomeMemorySnapshot};
 use prism_projections::{CoChangeDelta, ProjectionSnapshot, ValidationDelta};
 
 use crate::graph::Graph;
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CoordinationPersistContext {
+    pub repo_id: String,
+    pub worktree_id: String,
+    pub branch_ref: Option<String>,
+    pub session_id: Option<String>,
+    pub instance_id: Option<String>,
+}
 
 #[derive(Debug, Clone)]
 pub struct IndexPersistBatch {
@@ -30,6 +39,21 @@ pub struct AuxiliaryPersistBatch {
     pub inference_snapshot: Option<InferenceSnapshot>,
     pub curator_snapshot: Option<CuratorSnapshot>,
     pub coordination_snapshot: Option<CoordinationSnapshot>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CoordinationPersistBatch {
+    pub context: CoordinationPersistContext,
+    pub expected_revision: Option<u64>,
+    pub snapshot: CoordinationSnapshot,
+    pub appended_events: Vec<CoordinationEvent>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CoordinationPersistResult {
+    pub revision: u64,
+    pub inserted_events: usize,
+    pub applied: bool,
 }
 
 pub trait Store {
@@ -58,8 +82,17 @@ pub trait Store {
     fn save_projection_snapshot(&mut self, snapshot: &ProjectionSnapshot) -> Result<()>;
     fn load_curator_snapshot(&mut self) -> Result<Option<CuratorSnapshot>>;
     fn save_curator_snapshot(&mut self, snapshot: &CuratorSnapshot) -> Result<()>;
+    fn coordination_revision(&self) -> Result<u64>;
     fn load_coordination_snapshot(&mut self) -> Result<Option<CoordinationSnapshot>>;
+    fn load_coordination_events(&mut self) -> Result<Vec<CoordinationEvent>>;
+    fn load_latest_coordination_persist_context(
+        &mut self,
+    ) -> Result<Option<CoordinationPersistContext>>;
     fn save_coordination_snapshot(&mut self, snapshot: &CoordinationSnapshot) -> Result<()>;
+    fn commit_coordination_persist_batch(
+        &mut self,
+        batch: &CoordinationPersistBatch,
+    ) -> Result<CoordinationPersistResult>;
     fn commit_auxiliary_persist_batch(&mut self, batch: &AuxiliaryPersistBatch) -> Result<()>;
     fn commit_index_persist_batch(
         &mut self,
