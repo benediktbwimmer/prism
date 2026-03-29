@@ -972,6 +972,10 @@ mod tests_query_history;
 mod tests_server_resources;
 
 #[cfg(test)]
+#[path = "tests/server_tool_calls.rs"]
+mod tests_server_tool_calls;
+
+#[cfg(test)]
 mod tests_support;
 
 #[cfg(test)]
