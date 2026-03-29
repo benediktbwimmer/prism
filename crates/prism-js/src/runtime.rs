@@ -533,7 +533,35 @@ function __prismSymbolBundle(query, options = {}) {
   };
 }
 
-globalThis.prism = Object.freeze({
+let __prismDynamicViewsLoaded = false;
+const __prismDynamicViews = new Map();
+
+function __prismDynamicViewMethod(name) {
+  if (!__prismDynamicViews.has(name)) {
+    __prismDynamicViews.set(name, function(input = {}) {
+      return __prismHost(`__queryView:${name}`, input);
+    });
+  }
+  return __prismDynamicViews.get(name);
+}
+
+function __prismLoadDynamicViews() {
+  if (__prismDynamicViewsLoaded) {
+    return __prismDynamicViews;
+  }
+  const views = __prismHost("__queryViews", {});
+  if (Array.isArray(views)) {
+    for (const view of views) {
+      if (view && typeof view.name === "string" && view.name.length > 0) {
+        __prismDynamicViewMethod(view.name);
+      }
+    }
+  }
+  __prismDynamicViewsLoaded = true;
+  return __prismDynamicViews;
+}
+
+const __prismBase = Object.freeze({
   symbol(query) {
     return __prismEnrichSymbol(__prismHost("symbol", { query }));
   },
@@ -1319,6 +1347,49 @@ globalThis.prism = Object.freeze({
   },
   diagnostics() {
     return __prismHost("diagnostics", {});
+  },
+});
+
+globalThis.prism = new Proxy(__prismBase, {
+  get(target, prop, receiver) {
+    if (Reflect.has(target, prop)) {
+      return Reflect.get(target, prop, receiver);
+    }
+    if (typeof prop !== "string") {
+      return undefined;
+    }
+    return __prismLoadDynamicViews().get(prop);
+  },
+  has(target, prop) {
+    return (
+      Reflect.has(target, prop) ||
+      (typeof prop === "string" && __prismLoadDynamicViews().has(prop))
+    );
+  },
+  ownKeys(target) {
+    const keys = new Set(Reflect.ownKeys(target));
+    for (const name of __prismLoadDynamicViews().keys()) {
+      keys.add(name);
+    }
+    return Array.from(keys);
+  },
+  getOwnPropertyDescriptor(target, prop) {
+    if (Reflect.has(target, prop)) {
+      return Object.getOwnPropertyDescriptor(target, prop);
+    }
+    if (typeof prop !== "string") {
+      return undefined;
+    }
+    const method = __prismLoadDynamicViews().get(prop);
+    if (!method) {
+      return undefined;
+    }
+    return {
+      configurable: true,
+      enumerable: true,
+      writable: false,
+      value: method,
+    };
   },
 });
 

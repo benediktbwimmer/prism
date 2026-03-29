@@ -561,6 +561,10 @@ impl QueryExecution {
         &self.query_run
     }
 
+    pub(crate) fn query_view_enabled(&self, flag: crate::QueryViewFeatureFlag) -> bool {
+        self.host.features.query_view_enabled(flag)
+    }
+
     pub(crate) fn diagnostics(&self) -> Vec<QueryDiagnostic> {
         self.diagnostics
             .lock()
@@ -595,544 +599,550 @@ impl QueryExecution {
             serde_json::from_str(args_json).context("failed to parse host-call arguments")?
         };
         let phase_args = args.clone();
-
-        self.ensure_operation_enabled(operation)?;
-
-        let result = match operation {
-            "symbol" => {
-                let args: SymbolQueryArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.best_symbol(&args.query)?)?)
-            }
-            "symbols" => {
-                let args: SymbolQueryArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.symbols(&args.query)?)?)
-            }
-            "search" => {
-                let args: SearchArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.search(args)?)?)
-            }
-            "searchText" => {
-                let args: SearchTextArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.search_text(args)?)?)
-            }
-            "changedFiles" => {
-                let args: ChangedFilesArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.changed_files(args)?)?)
-            }
-            "changedSymbols" => {
-                let args: ChangedSymbolsArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.changed_symbols(args)?)?)
-            }
-            "recentPatches" => {
-                let args: RecentPatchesArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.recent_patches(args)?)?)
-            }
-            "diffFor" => {
-                let args: DiffForArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.diff_for(args)?)?)
-            }
-            "taskChanges" => {
-                let args: TaskChangesArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.task_changes(args)?)?)
-            }
-            "connectionInfo" => Ok(serde_json::to_value(self.connection_info()?)?),
-            "runtimeStatus" => Ok(serde_json::to_value(self.runtime_status()?)?),
-            "runtimeLogs" => {
-                let args: RuntimeLogArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.runtime_logs(args)?)?)
-            }
-            "runtimeTimeline" => {
-                let args: RuntimeTimelineArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.runtime_timeline(args)?)?)
-            }
-            "mcpLog" => {
-                let args: McpLogArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.host.mcp_call_entries(args))?)
-            }
-            "slowMcpCalls" => {
-                let args: McpLogArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.host.slow_mcp_call_entries(args))?)
-            }
-            "mcpTrace" => {
-                let args: McpTraceArgs = serde_json::from_value(args)?;
-                let trace = self.host.mcp_call_trace_view(&args.id);
-                if trace.is_none() {
-                    self.push_diagnostic(
-                        "anchor_unresolved",
-                        format!("No MCP call trace matched `{}`.", args.id),
-                        Some(json!({ "callId": args.id })),
-                    );
+        let result = if operation == "__queryViews" {
+            Ok(serde_json::to_value(
+                self.host.enabled_query_view_capabilities(),
+            )?)
+        } else if let Some(name) = operation.strip_prefix("__queryView:") {
+            self.dispatch_query_view(name, args)
+        } else {
+            self.ensure_operation_enabled(operation)?;
+            match operation {
+                "symbol" => {
+                    let args: SymbolQueryArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.best_symbol(&args.query)?)?)
                 }
-                Ok(serde_json::to_value(trace)?)
-            }
-            "mcpStats" => {
-                let args: McpLogArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.host.mcp_call_stats(args))?)
-            }
-            "queryLog" => {
-                let args: QueryLogArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.host.query_log_entries(args))?)
-            }
-            "slowQueries" => {
-                let args: QueryLogArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.host.slow_query_entries(args))?)
-            }
-            "queryTrace" => {
-                let args: QueryTraceArgs = serde_json::from_value(args)?;
-                let trace = self.host.query_trace_view(&args.id);
-                if trace.is_none() {
-                    self.push_diagnostic(
-                        "anchor_unresolved",
-                        format!("No query trace matched `{}`.", args.id),
-                        Some(json!({ "queryId": args.id })),
-                    );
+                "symbols" => {
+                    let args: SymbolQueryArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.symbols(&args.query)?)?)
                 }
-                Ok(serde_json::to_value(trace)?)
-            }
-            "validationFeedback" => {
-                let args: ValidationFeedbackArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.validation_feedback(args)?)?)
-            }
-            "concepts" => {
-                let args: ConceptQueryArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.concepts(args)?)?)
-            }
-            "concept" => {
-                let args: ConceptQueryArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.concept(args)?)?)
-            }
-            "conceptByHandle" => {
-                let args: ConceptHandleArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.concept_by_handle(args)?)?)
-            }
-            "conceptRelations" => {
-                let args: ConceptHandleArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.concept_relations(args)?)?)
-            }
-            "decodeConcept" => {
-                let args: DecodeConceptArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.decode_concept(args)?)?)
-            }
-            "entrypoints" => Ok(serde_json::to_value(self.entrypoints()?)?),
-            "plans" => {
-                let args: PlansQueryArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.plans(args)?)?)
-            }
-            "plan" => {
-                let args: PlanTargetArgs = serde_json::from_value(args)?;
-                let plan_id = PlanId::new(args.plan_id);
-                Ok(serde_json::to_value(
-                    self.prism.coordination_plan(&plan_id).map(|plan| {
-                        let root_node_ids = self
-                            .prism
-                            .plan_graph(&plan_id)
-                            .map(|graph| graph.root_nodes)
-                            .unwrap_or_else(|| {
-                                plan.root_tasks
-                                    .iter()
-                                    .map(|task_id| prism_ir::PlanNodeId::new(task_id.0.clone()))
-                                    .collect()
-                            });
-                        plan_view(plan, root_node_ids)
-                    }),
-                )?)
-            }
-            "planGraph" => {
-                let args: PlanTargetArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(
-                    self.prism
-                        .plan_graph(&PlanId::new(args.plan_id))
-                        .map(plan_graph_view),
-                )?)
-            }
-            "planExecution" => {
-                let args: PlanTargetArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(
-                    self.prism
-                        .plan_execution(&PlanId::new(args.plan_id))
-                        .into_iter()
-                        .map(plan_execution_overlay_view)
-                        .collect::<Vec<_>>(),
-                )?)
-            }
-            "planReadyNodes" => {
-                let args: PlanTargetArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(
-                    self.prism
-                        .plan_ready_nodes(&PlanId::new(args.plan_id))
-                        .into_iter()
-                        .map(plan_node_view)
-                        .collect::<Vec<_>>(),
-                )?)
-            }
-            "planNodeBlockers" => {
-                let args: PlanNodeTargetArgs = serde_json::from_value(args)?;
-                let blockers = self.prism.plan_node_blockers(
-                    &PlanId::new(args.plan_id.clone()),
-                    &PlanNodeId::new(args.node_id.clone()),
-                );
-                if !blockers.is_empty() {
-                    self.push_diagnostic(
+                "search" => {
+                    let args: SearchArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.search(args)?)?)
+                }
+                "searchText" => {
+                    let args: SearchTextArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.search_text(args)?)?)
+                }
+                "changedFiles" => {
+                    let args: ChangedFilesArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.changed_files(args)?)?)
+                }
+                "changedSymbols" => {
+                    let args: ChangedSymbolsArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.changed_symbols(args)?)?)
+                }
+                "recentPatches" => {
+                    let args: RecentPatchesArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.recent_patches(args)?)?)
+                }
+                "diffFor" => {
+                    let args: DiffForArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.diff_for(args)?)?)
+                }
+                "taskChanges" => {
+                    let args: TaskChangesArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.task_changes(args)?)?)
+                }
+                "connectionInfo" => Ok(serde_json::to_value(self.connection_info()?)?),
+                "runtimeStatus" => Ok(serde_json::to_value(self.runtime_status()?)?),
+                "runtimeLogs" => {
+                    let args: RuntimeLogArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.runtime_logs(args)?)?)
+                }
+                "runtimeTimeline" => {
+                    let args: RuntimeTimelineArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.runtime_timeline(args)?)?)
+                }
+                "mcpLog" => {
+                    let args: McpLogArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.host.mcp_call_entries(args))?)
+                }
+                "slowMcpCalls" => {
+                    let args: McpLogArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.host.slow_mcp_call_entries(args))?)
+                }
+                "mcpTrace" => {
+                    let args: McpTraceArgs = serde_json::from_value(args)?;
+                    let trace = self.host.mcp_call_trace_view(&args.id);
+                    if trace.is_none() {
+                        self.push_diagnostic(
+                            "anchor_unresolved",
+                            format!("No MCP call trace matched `{}`.", args.id),
+                            Some(json!({ "callId": args.id })),
+                        );
+                    }
+                    Ok(serde_json::to_value(trace)?)
+                }
+                "mcpStats" => {
+                    let args: McpLogArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.host.mcp_call_stats(args))?)
+                }
+                "queryLog" => {
+                    let args: QueryLogArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.host.query_log_entries(args))?)
+                }
+                "slowQueries" => {
+                    let args: QueryLogArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.host.slow_query_entries(args))?)
+                }
+                "queryTrace" => {
+                    let args: QueryTraceArgs = serde_json::from_value(args)?;
+                    let trace = self.host.query_trace_view(&args.id);
+                    if trace.is_none() {
+                        self.push_diagnostic(
+                            "anchor_unresolved",
+                            format!("No query trace matched `{}`.", args.id),
+                            Some(json!({ "queryId": args.id })),
+                        );
+                    }
+                    Ok(serde_json::to_value(trace)?)
+                }
+                "validationFeedback" => {
+                    let args: ValidationFeedbackArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.validation_feedback(args)?)?)
+                }
+                "concepts" => {
+                    let args: ConceptQueryArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.concepts(args)?)?)
+                }
+                "concept" => {
+                    let args: ConceptQueryArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.concept(args)?)?)
+                }
+                "conceptByHandle" => {
+                    let args: ConceptHandleArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.concept_by_handle(args)?)?)
+                }
+                "conceptRelations" => {
+                    let args: ConceptHandleArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.concept_relations(args)?)?)
+                }
+                "decodeConcept" => {
+                    let args: DecodeConceptArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.decode_concept(args)?)?)
+                }
+                "entrypoints" => Ok(serde_json::to_value(self.entrypoints()?)?),
+                "plans" => {
+                    let args: PlansQueryArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.plans(args)?)?)
+                }
+                "plan" => {
+                    let args: PlanTargetArgs = serde_json::from_value(args)?;
+                    let plan_id = PlanId::new(args.plan_id);
+                    Ok(serde_json::to_value(
+                        self.prism.coordination_plan(&plan_id).map(|plan| {
+                            let root_node_ids = self
+                                .prism
+                                .plan_graph(&plan_id)
+                                .map(|graph| graph.root_nodes)
+                                .unwrap_or_else(|| {
+                                    plan.root_tasks
+                                        .iter()
+                                        .map(|task_id| prism_ir::PlanNodeId::new(task_id.0.clone()))
+                                        .collect()
+                                });
+                            plan_view(plan, root_node_ids)
+                        }),
+                    )?)
+                }
+                "planGraph" => {
+                    let args: PlanTargetArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .plan_graph(&PlanId::new(args.plan_id))
+                            .map(plan_graph_view),
+                    )?)
+                }
+                "planExecution" => {
+                    let args: PlanTargetArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .plan_execution(&PlanId::new(args.plan_id))
+                            .into_iter()
+                            .map(plan_execution_overlay_view)
+                            .collect::<Vec<_>>(),
+                    )?)
+                }
+                "planReadyNodes" => {
+                    let args: PlanTargetArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .plan_ready_nodes(&PlanId::new(args.plan_id))
+                            .into_iter()
+                            .map(plan_node_view)
+                            .collect::<Vec<_>>(),
+                    )?)
+                }
+                "planNodeBlockers" => {
+                    let args: PlanNodeTargetArgs = serde_json::from_value(args)?;
+                    let blockers = self.prism.plan_node_blockers(
+                        &PlanId::new(args.plan_id.clone()),
+                        &PlanNodeId::new(args.node_id.clone()),
+                    );
+                    if !blockers.is_empty() {
+                        self.push_diagnostic(
                         "plan_node_blocked",
                         format!("Plan node `{}` currently has blockers.", args.node_id),
                         Some(json!({ "planId": args.plan_id, "nodeId": args.node_id, "count": blockers.len() })),
                     );
+                    }
+                    Ok(serde_json::to_value(
+                        blockers
+                            .into_iter()
+                            .map(plan_node_blocker_view)
+                            .collect::<Vec<_>>(),
+                    )?)
                 }
-                Ok(serde_json::to_value(
-                    blockers
-                        .into_iter()
-                        .map(plan_node_blocker_view)
-                        .collect::<Vec<_>>(),
-                )?)
-            }
-            "planSummary" => {
-                let args: PlanTargetArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(
-                    self.prism
-                        .plan_summary(&PlanId::new(args.plan_id))
-                        .map(plan_summary_view),
-                )?)
-            }
-            "planNext" => {
-                let args: PlanNextArgs = serde_json::from_value(args)?;
-                let limit = args
-                    .limit
-                    .unwrap_or(3)
-                    .min(self.session.limits().max_result_nodes.max(1));
-                Ok(serde_json::to_value(
-                    self.prism
-                        .plan_next(&PlanId::new(args.plan_id), limit)
-                        .into_iter()
-                        .map(plan_node_recommendation_view)
-                        .collect::<Vec<_>>(),
-                )?)
-            }
-            "coordinationTask" => {
-                let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(
-                    self.prism
-                        .coordination_task(&CoordinationTaskId::new(args.task_id))
-                        .map(coordination_task_view),
-                )?)
-            }
-            "readyTasks" => {
-                let args: PlanTargetArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(
-                    self.prism
-                        .ready_tasks(&PlanId::new(args.plan_id), current_timestamp())
-                        .into_iter()
-                        .map(coordination_task_view)
-                        .collect::<Vec<_>>(),
-                )?)
-            }
-            "claims" => {
-                let args: AnchorListArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(
-                    self.prism
-                        .claims(&convert_anchors(args.anchors)?, current_timestamp())
-                        .into_iter()
-                        .map(claim_view)
-                        .collect::<Vec<_>>(),
-                )?)
-            }
-            "conflicts" => {
-                let args: AnchorListArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(
-                    self.prism
-                        .conflicts(&convert_anchors(args.anchors)?, current_timestamp())
-                        .into_iter()
-                        .map(conflict_view)
-                        .collect::<Vec<_>>(),
-                )?)
-            }
-            "blockers" => {
-                let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
-                let blockers = self.prism.blockers(
-                    &CoordinationTaskId::new(args.task_id.clone()),
-                    current_timestamp(),
-                );
-                if !blockers.is_empty() {
-                    self.push_diagnostic(
-                        "task_blocked",
-                        format!(
-                            "Coordination task `{}` currently has blockers.",
-                            args.task_id
-                        ),
-                        Some(json!({ "taskId": args.task_id, "count": blockers.len() })),
+                "planSummary" => {
+                    let args: PlanTargetArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .plan_summary(&PlanId::new(args.plan_id))
+                            .map(plan_summary_view),
+                    )?)
+                }
+                "planNext" => {
+                    let args: PlanNextArgs = serde_json::from_value(args)?;
+                    let limit = args
+                        .limit
+                        .unwrap_or(3)
+                        .min(self.session.limits().max_result_nodes.max(1));
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .plan_next(&PlanId::new(args.plan_id), limit)
+                            .into_iter()
+                            .map(plan_node_recommendation_view)
+                            .collect::<Vec<_>>(),
+                    )?)
+                }
+                "coordinationTask" => {
+                    let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .coordination_task(&CoordinationTaskId::new(args.task_id))
+                            .map(coordination_task_view),
+                    )?)
+                }
+                "readyTasks" => {
+                    let args: PlanTargetArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .ready_tasks(&PlanId::new(args.plan_id), current_timestamp())
+                            .into_iter()
+                            .map(coordination_task_view)
+                            .collect::<Vec<_>>(),
+                    )?)
+                }
+                "claims" => {
+                    let args: AnchorListArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .claims(&convert_anchors(args.anchors)?, current_timestamp())
+                            .into_iter()
+                            .map(claim_view)
+                            .collect::<Vec<_>>(),
+                    )?)
+                }
+                "conflicts" => {
+                    let args: AnchorListArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .conflicts(&convert_anchors(args.anchors)?, current_timestamp())
+                            .into_iter()
+                            .map(conflict_view)
+                            .collect::<Vec<_>>(),
+                    )?)
+                }
+                "blockers" => {
+                    let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                    let blockers = self.prism.blockers(
+                        &CoordinationTaskId::new(args.task_id.clone()),
+                        current_timestamp(),
                     );
-                }
-                if blockers
-                    .iter()
-                    .any(|blocker| blocker.kind == prism_coordination::BlockerKind::StaleRevision)
-                {
-                    self.push_diagnostic(
-                        "stale_revision",
-                        "The coordination task is based on a stale workspace revision.",
-                        None,
-                    );
-                }
-                if blockers.iter().any(|blocker| {
-                    blocker.kind == prism_coordination::BlockerKind::ValidationRequired
-                }) {
-                    self.push_diagnostic(
-                        "validation_required",
-                        "The coordination task is missing required validations.",
-                        None,
-                    );
-                }
-                if blockers.iter().any(|blocker| {
-                    blocker.kind == prism_coordination::BlockerKind::RiskReviewRequired
-                        || blocker.kind == prism_coordination::BlockerKind::ArtifactStale
-                }) {
-                    self.push_diagnostic(
-                        "task_risk_blocked",
-                        "The coordination task is blocked by risk or stale artifact state.",
-                        None,
-                    );
-                }
-                Ok(serde_json::to_value(
-                    blockers.into_iter().map(blocker_view).collect::<Vec<_>>(),
-                )?)
-            }
-            "pendingReviews" => {
-                let args: PendingReviewsArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(
-                    self.prism
-                        .pending_reviews(
-                            args.plan_id
-                                .as_ref()
-                                .map(|plan_id| PlanId::new(plan_id.clone()))
-                                .as_ref(),
-                        )
-                        .into_iter()
-                        .map(artifact_view)
-                        .collect::<Vec<_>>(),
-                )?)
-            }
-            "artifacts" => {
-                let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(
-                    self.prism
-                        .artifacts(&CoordinationTaskId::new(args.task_id))
-                        .into_iter()
-                        .map(artifact_view)
-                        .collect::<Vec<_>>(),
-                )?)
-            }
-            "policyViolations" => {
-                let args: PolicyViolationQueryArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(
-                    self.prism
-                        .policy_violations(
-                            args.plan_id
-                                .as_ref()
-                                .map(|plan_id| PlanId::new(plan_id.clone()))
-                                .as_ref(),
-                            args.task_id
-                                .as_ref()
-                                .map(|task_id| CoordinationTaskId::new(task_id.clone()))
-                                .as_ref(),
-                            args.limit.unwrap_or(20),
-                        )
-                        .into_iter()
-                        .map(policy_violation_record_view)
-                        .collect::<Vec<_>>(),
-                )?)
-            }
-            "taskBlastRadius" => {
-                let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
-                let task_id = CoordinationTaskId::new(args.task_id);
-                Ok(serde_json::to_value(
-                    self.prism.task_blast_radius(&task_id).map(|impact| {
-                        let anchors = self
-                            .prism
-                            .coordination_task(&task_id)
-                            .map(|task| task.anchors)
-                            .unwrap_or_default();
-                        let mut view = change_impact_view(impact);
-                        view.promoted_summaries = promoted_summary_texts(
-                            self.session.as_ref(),
-                            self.prism.as_ref(),
-                            &anchors,
+                    if !blockers.is_empty() {
+                        self.push_diagnostic(
+                            "task_blocked",
+                            format!(
+                                "Coordination task `{}` currently has blockers.",
+                                args.task_id
+                            ),
+                            Some(json!({ "taskId": args.task_id, "count": blockers.len() })),
                         );
-                        view
-                    }),
-                )?)
-            }
-            "taskValidationRecipe" => {
-                let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
-                let task_id = CoordinationTaskId::new(args.task_id);
-                Ok(serde_json::to_value(
-                    self.prism
-                        .task_validation_recipe(&task_id)
-                        .map(|mut recipe| {
+                    }
+                    if blockers.iter().any(|blocker| {
+                        blocker.kind == prism_coordination::BlockerKind::StaleRevision
+                    }) {
+                        self.push_diagnostic(
+                            "stale_revision",
+                            "The coordination task is based on a stale workspace revision.",
+                            None,
+                        );
+                    }
+                    if blockers.iter().any(|blocker| {
+                        blocker.kind == prism_coordination::BlockerKind::ValidationRequired
+                    }) {
+                        self.push_diagnostic(
+                            "validation_required",
+                            "The coordination task is missing required validations.",
+                            None,
+                        );
+                    }
+                    if blockers.iter().any(|blocker| {
+                        blocker.kind == prism_coordination::BlockerKind::RiskReviewRequired
+                            || blocker.kind == prism_coordination::BlockerKind::ArtifactStale
+                    }) {
+                        self.push_diagnostic(
+                            "task_risk_blocked",
+                            "The coordination task is blocked by risk or stale artifact state.",
+                            None,
+                        );
+                    }
+                    Ok(serde_json::to_value(
+                        blockers.into_iter().map(blocker_view).collect::<Vec<_>>(),
+                    )?)
+                }
+                "pendingReviews" => {
+                    let args: PendingReviewsArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .pending_reviews(
+                                args.plan_id
+                                    .as_ref()
+                                    .map(|plan_id| PlanId::new(plan_id.clone()))
+                                    .as_ref(),
+                            )
+                            .into_iter()
+                            .map(artifact_view)
+                            .collect::<Vec<_>>(),
+                    )?)
+                }
+                "artifacts" => {
+                    let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .artifacts(&CoordinationTaskId::new(args.task_id))
+                            .into_iter()
+                            .map(artifact_view)
+                            .collect::<Vec<_>>(),
+                    )?)
+                }
+                "policyViolations" => {
+                    let args: PolicyViolationQueryArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .policy_violations(
+                                args.plan_id
+                                    .as_ref()
+                                    .map(|plan_id| PlanId::new(plan_id.clone()))
+                                    .as_ref(),
+                                args.task_id
+                                    .as_ref()
+                                    .map(|task_id| CoordinationTaskId::new(task_id.clone()))
+                                    .as_ref(),
+                                args.limit.unwrap_or(20),
+                            )
+                            .into_iter()
+                            .map(policy_violation_record_view)
+                            .collect::<Vec<_>>(),
+                    )?)
+                }
+                "taskBlastRadius" => {
+                    let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                    let task_id = CoordinationTaskId::new(args.task_id);
+                    Ok(serde_json::to_value(
+                        self.prism.task_blast_radius(&task_id).map(|impact| {
                             let anchors = self
                                 .prism
                                 .coordination_task(&task_id)
                                 .map(|task| task.anchors)
                                 .unwrap_or_default();
-                            merge_promoted_checks(
-                                &mut recipe.scored_checks,
-                                promoted_validation_checks(
+                            let mut view = change_impact_view(impact);
+                            view.promoted_summaries = promoted_summary_texts(
+                                self.session.as_ref(),
+                                self.prism.as_ref(),
+                                &anchors,
+                            );
+                            view
+                        }),
+                    )?)
+                }
+                "taskValidationRecipe" => {
+                    let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                    let task_id = CoordinationTaskId::new(args.task_id);
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .task_validation_recipe(&task_id)
+                            .map(|mut recipe| {
+                                let anchors = self
+                                    .prism
+                                    .coordination_task(&task_id)
+                                    .map(|task| task.anchors)
+                                    .unwrap_or_default();
+                                merge_promoted_checks(
+                                    &mut recipe.scored_checks,
+                                    promoted_validation_checks(
+                                        self.session.as_ref(),
+                                        self.prism.as_ref(),
+                                        &anchors,
+                                    ),
+                                );
+                                recipe.checks = recipe
+                                    .scored_checks
+                                    .iter()
+                                    .map(|check| check.label.clone())
+                                    .collect::<Vec<_>>();
+                                recipe.checks.sort();
+                                recipe.checks.dedup();
+                                task_validation_recipe_view(recipe)
+                            }),
+                    )?)
+                }
+                "taskRisk" => {
+                    let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                    let task_id = CoordinationTaskId::new(args.task_id);
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .task_risk(&task_id, current_timestamp())
+                            .map(|risk| {
+                                let task = self.prism.coordination_task(&task_id);
+                                let anchors = task
+                                    .as_ref()
+                                    .map(|task| task.anchors.clone())
+                                    .unwrap_or_default();
+                                let promoted_summaries = promoted_summary_texts(
                                     self.session.as_ref(),
                                     self.prism.as_ref(),
                                     &anchors,
-                                ),
-                            );
-                            recipe.checks = recipe
-                                .scored_checks
-                                .iter()
-                                .map(|check| check.label.clone())
-                                .collect::<Vec<_>>();
-                            recipe.checks.sort();
-                            recipe.checks.dedup();
-                            task_validation_recipe_view(recipe)
-                        }),
-                )?)
-            }
-            "taskRisk" => {
-                let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
-                let task_id = CoordinationTaskId::new(args.task_id);
-                Ok(serde_json::to_value(
-                    self.prism
-                        .task_risk(&task_id, current_timestamp())
-                        .map(|risk| {
-                            let task = self.prism.coordination_task(&task_id);
-                            let anchors = task
-                                .as_ref()
-                                .map(|task| task.anchors.clone())
-                                .unwrap_or_default();
-                            let promoted_summaries = promoted_summary_texts(
-                                self.session.as_ref(),
-                                self.prism.as_ref(),
-                                &anchors,
-                            );
-                            let promoted_risk_boost = promoted_memory_entries(
-                                self.session.as_ref(),
-                                self.prism.as_ref(),
-                                &anchors,
-                                "risk_summary",
-                            )
-                            .into_iter()
-                            .map(|entry| {
-                                let severity_weight = match entry
-                                    .metadata
-                                    .get("severity")
-                                    .and_then(Value::as_str)
-                                    .unwrap_or("medium")
-                                {
-                                    "low" => 0.04,
-                                    "high" => 0.12,
-                                    _ => 0.08,
-                                };
-                                severity_weight * entry.trust.clamp(0.0, 1.0)
-                            })
-                            .sum::<f32>()
-                            .min(0.25);
-                            let boosted_risk_score =
-                                (risk.risk_score + promoted_risk_boost).min(1.0);
-                            let review_required = risk.review_required
-                                || task
+                                );
+                                let promoted_risk_boost = promoted_memory_entries(
+                                    self.session.as_ref(),
+                                    self.prism.as_ref(),
+                                    &anchors,
+                                    "risk_summary",
+                                )
+                                .into_iter()
+                                .map(|entry| {
+                                    let severity_weight = match entry
+                                        .metadata
+                                        .get("severity")
+                                        .and_then(Value::as_str)
+                                        .unwrap_or("medium")
+                                    {
+                                        "low" => 0.04,
+                                        "high" => 0.12,
+                                        _ => 0.08,
+                                    };
+                                    severity_weight * entry.trust.clamp(0.0, 1.0)
+                                })
+                                .sum::<f32>()
+                                .min(0.25);
+                                let boosted_risk_score =
+                                    (risk.risk_score + promoted_risk_boost).min(1.0);
+                                let review_required = risk.review_required
+                                    || task
+                                        .as_ref()
+                                        .and_then(|task| self.prism.coordination_plan(&task.plan))
+                                        .and_then(|plan| {
+                                            plan.policy.review_required_above_risk_score
+                                        })
+                                        .map(|threshold| boosted_risk_score >= threshold)
+                                        .unwrap_or(false);
+                                let mut view = task_risk_view(risk, promoted_summaries);
+                                view.risk_score = boosted_risk_score;
+                                view.review_required = review_required;
+                                view
+                            }),
+                    )?)
+                }
+                "artifactRisk" => {
+                    let artifact_id = args
+                        .get("artifactId")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| anyhow!("artifactId is required"))?;
+                    let artifact_id = ArtifactId::new(artifact_id.to_string());
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .artifact_risk(&artifact_id, current_timestamp())
+                            .map(|risk| {
+                                let anchors = self
+                                    .prism
+                                    .coordination_artifact(&artifact_id)
+                                    .map(|artifact| artifact.anchors)
+                                    .unwrap_or_default();
+                                let promoted_summaries = promoted_summary_texts(
+                                    self.session.as_ref(),
+                                    self.prism.as_ref(),
+                                    &anchors,
+                                );
+                                let promoted_risk_boost = promoted_memory_entries(
+                                    self.session.as_ref(),
+                                    self.prism.as_ref(),
+                                    &anchors,
+                                    "risk_summary",
+                                )
+                                .into_iter()
+                                .map(|entry| {
+                                    let severity_weight = match entry
+                                        .metadata
+                                        .get("severity")
+                                        .and_then(Value::as_str)
+                                        .unwrap_or("medium")
+                                    {
+                                        "low" => 0.04,
+                                        "high" => 0.12,
+                                        _ => 0.08,
+                                    };
+                                    severity_weight * entry.trust.clamp(0.0, 1.0)
+                                })
+                                .sum::<f32>()
+                                .min(0.25);
+                                let mut view = artifact_risk_view(risk, promoted_summaries);
+                                view.risk_score = (view.risk_score + promoted_risk_boost).min(1.0);
+                                view
+                            }),
+                    )?)
+                }
+                "taskIntent" => {
+                    let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
+                    let task_id = CoordinationTaskId::new(args.task_id);
+                    Ok(serde_json::to_value(
+                        self.prism.task_intent(&task_id).map(task_intent_view),
+                    )?)
+                }
+                "simulateClaim" => {
+                    let args: SimulateClaimArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .simulate_claim(
+                                &self.session.session_id(),
+                                &convert_anchors(args.anchors)?,
+                                convert_capability(args.capability),
+                                args.mode.map(convert_claim_mode),
+                                args.task_id
                                     .as_ref()
-                                    .and_then(|task| self.prism.coordination_plan(&task.plan))
-                                    .and_then(|plan| plan.policy.review_required_above_risk_score)
-                                    .map(|threshold| boosted_risk_score >= threshold)
-                                    .unwrap_or(false);
-                            let mut view = task_risk_view(risk, promoted_summaries);
-                            view.risk_score = boosted_risk_score;
-                            view.review_required = review_required;
-                            view
-                        }),
-                )?)
-            }
-            "artifactRisk" => {
-                let artifact_id = args
-                    .get("artifactId")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| anyhow!("artifactId is required"))?;
-                let artifact_id = ArtifactId::new(artifact_id.to_string());
-                Ok(serde_json::to_value(
-                    self.prism
-                        .artifact_risk(&artifact_id, current_timestamp())
-                        .map(|risk| {
-                            let anchors = self
-                                .prism
-                                .coordination_artifact(&artifact_id)
-                                .map(|artifact| artifact.anchors)
-                                .unwrap_or_default();
-                            let promoted_summaries = promoted_summary_texts(
-                                self.session.as_ref(),
-                                self.prism.as_ref(),
-                                &anchors,
-                            );
-                            let promoted_risk_boost = promoted_memory_entries(
-                                self.session.as_ref(),
-                                self.prism.as_ref(),
-                                &anchors,
-                                "risk_summary",
+                                    .map(|task_id| CoordinationTaskId::new(task_id.clone()))
+                                    .as_ref(),
+                                current_timestamp(),
                             )
                             .into_iter()
-                            .map(|entry| {
-                                let severity_weight = match entry
-                                    .metadata
-                                    .get("severity")
-                                    .and_then(Value::as_str)
-                                    .unwrap_or("medium")
-                                {
-                                    "low" => 0.04,
-                                    "high" => 0.12,
-                                    _ => 0.08,
-                                };
-                                severity_weight * entry.trust.clamp(0.0, 1.0)
-                            })
-                            .sum::<f32>()
-                            .min(0.25);
-                            let mut view = artifact_risk_view(risk, promoted_summaries);
-                            view.risk_score = (view.risk_score + promoted_risk_boost).min(1.0);
-                            view
-                        }),
-                )?)
-            }
-            "taskIntent" => {
-                let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
-                let task_id = CoordinationTaskId::new(args.task_id);
-                Ok(serde_json::to_value(
-                    self.prism.task_intent(&task_id).map(task_intent_view),
-                )?)
-            }
-            "simulateClaim" => {
-                let args: SimulateClaimArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(
-                    self.prism
-                        .simulate_claim(
-                            &self.session.session_id(),
-                            &convert_anchors(args.anchors)?,
-                            convert_capability(args.capability),
-                            args.mode.map(convert_claim_mode),
-                            args.task_id
-                                .as_ref()
-                                .map(|task_id| CoordinationTaskId::new(task_id.clone()))
-                                .as_ref(),
-                            current_timestamp(),
-                        )
-                        .into_iter()
-                        .map(conflict_view)
-                        .collect::<Vec<_>>(),
-                )?)
-            }
-            "full" => {
-                let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = self.resolve_target_id(args.id, args.lineage_id)?;
-                Ok(serde_json::to_value(
-                    symbol_for(self.prism.as_ref(), &id)?.full(),
-                )?)
-            }
-            "fileRead" => {
-                let args: FileReadArgs = serde_json::from_value(args)?;
-                let excerpt = file_read(&self.host, args.clone())?;
-                if excerpt.truncated {
-                    let max_chars = args.max_chars.unwrap_or(DEFAULT_FILE_READ_MAX_CHARS);
-                    self.push_diagnostic(
+                            .map(conflict_view)
+                            .collect::<Vec<_>>(),
+                    )?)
+                }
+                "full" => {
+                    let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                    let id = self.resolve_target_id(args.id, args.lineage_id)?;
+                    Ok(serde_json::to_value(
+                        symbol_for(self.prism.as_ref(), &id)?.full(),
+                    )?)
+                }
+                "fileRead" => {
+                    let args: FileReadArgs = serde_json::from_value(args)?;
+                    let excerpt = file_read(&self.host, args.clone())?;
+                    if excerpt.truncated {
+                        let max_chars = args.max_chars.unwrap_or(DEFAULT_FILE_READ_MAX_CHARS);
+                        self.push_diagnostic(
                         "result_truncated",
                         format!(
                             "File excerpt for `{}` was truncated by the {max_chars} character cap. Next action: raise `maxChars` or narrow the line range.",
@@ -1147,15 +1157,15 @@ impl QueryExecution {
                             "nextAction": "Use prism.file(path).read({ startLine: ..., endLine: ..., maxChars: ... }) with a tighter range or larger maxChars.",
                         })),
                     );
+                    }
+                    Ok(serde_json::to_value(excerpt)?)
                 }
-                Ok(serde_json::to_value(excerpt)?)
-            }
-            "fileAround" => {
-                let args: FileAroundArgs = serde_json::from_value(args)?;
-                let slice = file_around(&self.host, args.clone())?;
-                if slice.truncated {
-                    let max_chars = args.max_chars.unwrap_or(DEFAULT_FILE_AROUND_MAX_CHARS);
-                    self.push_diagnostic(
+                "fileAround" => {
+                    let args: FileAroundArgs = serde_json::from_value(args)?;
+                    let slice = file_around(&self.host, args.clone())?;
+                    if slice.truncated {
+                        let max_chars = args.max_chars.unwrap_or(DEFAULT_FILE_AROUND_MAX_CHARS);
+                        self.push_diagnostic(
                         "result_truncated",
                         format!(
                             "File context for `{}` around line {} was truncated by the {max_chars} character cap. Next action: raise `maxChars` or narrow the line window.",
@@ -1171,264 +1181,264 @@ impl QueryExecution {
                             "nextAction": "Use prism.file(path).around({ line: ..., before: ..., after: ..., maxChars: ... }) with a tighter window or larger maxChars.",
                         })),
                     );
+                    }
+                    Ok(serde_json::to_value(slice)?)
                 }
-                Ok(serde_json::to_value(slice)?)
-            }
-            "tools" => Ok(serde_json::to_value(self.tools())?),
-            "tool" => {
-                let args: ToolNameArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.tool(&args.name)?)?)
-            }
-            "validateToolInput" => {
-                let args: ToolValidationArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(
-                    self.validate_tool_input(&args.name, args.input),
-                )?)
-            }
-            "excerpt" => {
-                let args: SourceExcerptArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.source_excerpt(args)?)?)
-            }
-            "editSlice" => {
-                let args: EditSliceArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.edit_slice(args)?)?)
-            }
-            "focusedBlock" => {
-                let args: EditSliceArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.focused_block(args)?)?)
-            }
-            "relations" => {
-                let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = self.resolve_target_id(args.id, args.lineage_id)?;
-                Ok(serde_json::to_value(relations_view(
-                    self.prism.as_ref(),
-                    self.session.as_ref(),
-                    &id,
-                )?)?)
-            }
-            "callGraph" => {
-                let args: CallGraphArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.call_graph(args)?)?)
-            }
-            "lineage" => {
-                let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = self.resolve_target_id(args.id, args.lineage_id)?;
-                let lineage = lineage_view(self.prism.as_ref(), &id)?;
-                if lineage
-                    .as_ref()
-                    .is_some_and(|view| view.history.iter().any(|event| event.kind == "Ambiguous"))
-                {
-                    self.push_diagnostic(
-                        "lineage_uncertain",
-                        format!("Lineage for `{}` contains ambiguous history.", id.path),
-                        Some(json!({ "id": id.path })),
-                    );
+                "tools" => Ok(serde_json::to_value(self.tools())?),
+                "tool" => {
+                    let args: ToolNameArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.tool(&args.name)?)?)
                 }
-                Ok(serde_json::to_value(lineage)?)
-            }
-            "relatedFailures" => {
-                let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = self.resolve_target_id(args.id, args.lineage_id)?;
-                serde_json::to_value(self.prism.related_failures(&id)).map_err(Into::into)
-            }
-            "coChangeNeighbors" => {
-                let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = self.resolve_target_id(args.id, args.lineage_id)?;
-                self.host.co_change_neighbors_value(&id)
-            }
-            "blastRadius" => {
-                let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = self.resolve_target_id(args.id, args.lineage_id)?;
-                Ok(serde_json::to_value(blast_radius_view(
-                    self.prism.as_ref(),
-                    self.session.as_ref(),
-                    &id,
-                ))?)
-            }
-            "validationRecipe" => {
-                let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = self.resolve_target_id(args.id, args.lineage_id)?;
-                Ok(serde_json::to_value(validation_recipe_view_with(
-                    self.prism.as_ref(),
-                    self.session.as_ref(),
-                    &id,
-                ))?)
-            }
-            "readContext" => {
-                let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = self.resolve_target_id(args.id, args.lineage_id)?;
-                Ok(serde_json::to_value(self.read_context(&id)?)?)
-            }
-            "editContext" => {
-                let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = self.resolve_target_id(args.id, args.lineage_id)?;
-                Ok(serde_json::to_value(self.edit_context(&id)?)?)
-            }
-            "validationContext" => {
-                let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = self.resolve_target_id(args.id, args.lineage_id)?;
-                Ok(serde_json::to_value(self.validation_context(&id)?)?)
-            }
-            "recentChangeContext" => {
-                let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = self.resolve_target_id(args.id, args.lineage_id)?;
-                Ok(serde_json::to_value(self.recent_change_context(&id)?)?)
-            }
-            "discoveryBundle" => {
-                let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = self.resolve_target_id(args.id, args.lineage_id)?;
-                Ok(serde_json::to_value(self.discovery_bundle(&id)?)?)
-            }
-            "nextReads" => {
-                let args: DiscoveryTargetArgs = serde_json::from_value(args)?;
-                let id = self.resolve_target_id(args.id, args.lineage_id)?;
-                let applied = args
-                    .limit
-                    .unwrap_or(INSIGHT_LIMIT)
-                    .min(self.session.limits().max_result_nodes);
-                Ok(serde_json::to_value(next_reads(
-                    self.prism.as_ref(),
-                    &id,
-                    applied,
-                )?)?)
-            }
-            "whereUsed" => {
-                let args: WhereUsedArgs = serde_json::from_value(args)?;
-                let id = self.resolve_target_id(args.id, args.lineage_id)?;
-                let applied = args
-                    .limit
-                    .unwrap_or(INSIGHT_LIMIT)
-                    .min(self.session.limits().max_result_nodes);
-                Ok(serde_json::to_value(where_used(
-                    self.prism.as_ref(),
-                    self.session.as_ref(),
-                    &id,
-                    args.mode.as_deref(),
-                    applied,
-                )?)?)
-            }
-            "entrypointsFor" => {
-                let args: DiscoveryTargetArgs = serde_json::from_value(args)?;
-                let id = self.resolve_target_id(args.id, args.lineage_id)?;
-                let applied = args
-                    .limit
-                    .unwrap_or(INSIGHT_LIMIT)
-                    .min(self.session.limits().max_result_nodes);
-                Ok(serde_json::to_value(entrypoints_for(
-                    self.prism.as_ref(),
-                    self.session.as_ref(),
-                    &id,
-                    applied,
-                )?)?)
-            }
-            "specFor" => {
-                let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = self.resolve_target_id(args.id, args.lineage_id)?;
-                Ok(serde_json::to_value(symbol_views_for_ids(
-                    self.prism.as_ref(),
-                    self.prism.spec_for(&id),
-                )?)?)
-            }
-            "implementationFor" => {
-                let args: ImplementationTargetArgs = serde_json::from_value(args)?;
-                let id = self.resolve_target_id(args.id, args.lineage_id)?;
-                if args.mode.as_deref() == Some("owners") {
-                    let limit = self.session.limits().max_result_nodes.min(INSIGHT_LIMIT);
-                    Ok(serde_json::to_value(owner_symbol_views_for_target(
+                "validateToolInput" => {
+                    let args: ToolValidationArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.validate_tool_input(&args.name, args.input),
+                    )?)
+                }
+                "excerpt" => {
+                    let args: SourceExcerptArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.source_excerpt(args)?)?)
+                }
+                "editSlice" => {
+                    let args: EditSliceArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.edit_slice(args)?)?)
+                }
+                "focusedBlock" => {
+                    let args: EditSliceArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.focused_block(args)?)?)
+                }
+                "relations" => {
+                    let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                    let id = self.resolve_target_id(args.id, args.lineage_id)?;
+                    Ok(serde_json::to_value(relations_view(
+                        self.prism.as_ref(),
+                        self.session.as_ref(),
+                        &id,
+                    )?)?)
+                }
+                "callGraph" => {
+                    let args: CallGraphArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.call_graph(args)?)?)
+                }
+                "lineage" => {
+                    let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                    let id = self.resolve_target_id(args.id, args.lineage_id)?;
+                    let lineage = lineage_view(self.prism.as_ref(), &id)?;
+                    if lineage.as_ref().is_some_and(|view| {
+                        view.history.iter().any(|event| event.kind == "Ambiguous")
+                    }) {
+                        self.push_diagnostic(
+                            "lineage_uncertain",
+                            format!("Lineage for `{}` contains ambiguous history.", id.path),
+                            Some(json!({ "id": id.path })),
+                        );
+                    }
+                    Ok(serde_json::to_value(lineage)?)
+                }
+                "relatedFailures" => {
+                    let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                    let id = self.resolve_target_id(args.id, args.lineage_id)?;
+                    serde_json::to_value(self.prism.related_failures(&id)).map_err(Into::into)
+                }
+                "coChangeNeighbors" => {
+                    let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                    let id = self.resolve_target_id(args.id, args.lineage_id)?;
+                    self.host.co_change_neighbors_value(&id)
+                }
+                "blastRadius" => {
+                    let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                    let id = self.resolve_target_id(args.id, args.lineage_id)?;
+                    Ok(serde_json::to_value(blast_radius_view(
+                        self.prism.as_ref(),
+                        self.session.as_ref(),
+                        &id,
+                    ))?)
+                }
+                "validationRecipe" => {
+                    let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                    let id = self.resolve_target_id(args.id, args.lineage_id)?;
+                    Ok(serde_json::to_value(validation_recipe_view_with(
+                        self.prism.as_ref(),
+                        self.session.as_ref(),
+                        &id,
+                    ))?)
+                }
+                "readContext" => {
+                    let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                    let id = self.resolve_target_id(args.id, args.lineage_id)?;
+                    Ok(serde_json::to_value(self.read_context(&id)?)?)
+                }
+                "editContext" => {
+                    let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                    let id = self.resolve_target_id(args.id, args.lineage_id)?;
+                    Ok(serde_json::to_value(self.edit_context(&id)?)?)
+                }
+                "validationContext" => {
+                    let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                    let id = self.resolve_target_id(args.id, args.lineage_id)?;
+                    Ok(serde_json::to_value(self.validation_context(&id)?)?)
+                }
+                "recentChangeContext" => {
+                    let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                    let id = self.resolve_target_id(args.id, args.lineage_id)?;
+                    Ok(serde_json::to_value(self.recent_change_context(&id)?)?)
+                }
+                "discoveryBundle" => {
+                    let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                    let id = self.resolve_target_id(args.id, args.lineage_id)?;
+                    Ok(serde_json::to_value(self.discovery_bundle(&id)?)?)
+                }
+                "nextReads" => {
+                    let args: DiscoveryTargetArgs = serde_json::from_value(args)?;
+                    let id = self.resolve_target_id(args.id, args.lineage_id)?;
+                    let applied = args
+                        .limit
+                        .unwrap_or(INSIGHT_LIMIT)
+                        .min(self.session.limits().max_result_nodes);
+                    Ok(serde_json::to_value(next_reads(
                         self.prism.as_ref(),
                         &id,
-                        args.owner_kind.as_deref(),
-                        limit,
+                        applied,
                     )?)?)
-                } else {
+                }
+                "whereUsed" => {
+                    let args: WhereUsedArgs = serde_json::from_value(args)?;
+                    let id = self.resolve_target_id(args.id, args.lineage_id)?;
+                    let applied = args
+                        .limit
+                        .unwrap_or(INSIGHT_LIMIT)
+                        .min(self.session.limits().max_result_nodes);
+                    Ok(serde_json::to_value(where_used(
+                        self.prism.as_ref(),
+                        self.session.as_ref(),
+                        &id,
+                        args.mode.as_deref(),
+                        applied,
+                    )?)?)
+                }
+                "entrypointsFor" => {
+                    let args: DiscoveryTargetArgs = serde_json::from_value(args)?;
+                    let id = self.resolve_target_id(args.id, args.lineage_id)?;
+                    let applied = args
+                        .limit
+                        .unwrap_or(INSIGHT_LIMIT)
+                        .min(self.session.limits().max_result_nodes);
+                    Ok(serde_json::to_value(entrypoints_for(
+                        self.prism.as_ref(),
+                        self.session.as_ref(),
+                        &id,
+                        applied,
+                    )?)?)
+                }
+                "specFor" => {
+                    let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                    let id = self.resolve_target_id(args.id, args.lineage_id)?;
                     Ok(serde_json::to_value(symbol_views_for_ids(
                         self.prism.as_ref(),
-                        self.prism.implementation_for(&id),
+                        self.prism.spec_for(&id),
                     )?)?)
                 }
-            }
-            "driftCandidates" => {
-                let args: LimitArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(
-                    self.prism
-                        .drift_candidates(args.limit.unwrap_or(10))
-                        .into_iter()
-                        .map(drift_candidate_view)
-                        .collect::<Vec<_>>(),
-                )?)
-            }
-            "specCluster" => {
-                let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = self.resolve_target_id(args.id, args.lineage_id)?;
-                Ok(serde_json::to_value(self.spec_cluster(&id)?)?)
-            }
-            "explainDrift" => {
-                let args: SymbolTargetArgs = serde_json::from_value(args)?;
-                let id = self.resolve_target_id(args.id, args.lineage_id)?;
-                Ok(serde_json::to_value(self.explain_drift(&id)?)?)
-            }
-            "owners" => {
-                let args: OwnerLookupArgs = serde_json::from_value(args)?;
-                let id = self.resolve_target_id(args.id, args.lineage_id)?;
-                let applied = args
-                    .limit
-                    .unwrap_or(INSIGHT_LIMIT)
-                    .min(self.session.limits().max_result_nodes);
-                Ok(serde_json::to_value(owner_views_for_target(
-                    self.prism.as_ref(),
-                    &id,
-                    args.kind.as_deref(),
-                    applied,
-                )?)?)
-            }
-            "resumeTask" => {
-                let args: TaskTargetArgs = serde_json::from_value(args)?;
-                serde_json::to_value(self.prism.resume_task(&args.task_id)).map_err(Into::into)
-            }
-            "taskJournal" => {
-                let args: TaskJournalArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.task_journal(args)?)?)
-            }
-            "memoryRecall" => {
-                let args: MemoryRecallArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.memory_recall(args)?)?)
-            }
-            "memoryOutcomes" => {
-                let args: MemoryOutcomeArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.memory_outcomes(args)?)?)
-            }
-            "memoryEvents" => {
-                let args: MemoryEventArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.memory_events(args)?)?)
-            }
-            "curatorJobs" => {
-                let args: CuratorJobsArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.host.curator_jobs(args)?)?)
-            }
-            "curatorProposals" => {
-                let args: CuratorProposalsArgs = serde_json::from_value(args)?;
-                Ok(serde_json::to_value(self.host.curator_proposals(args)?)?)
-            }
-            "curatorJob" => {
-                let args: CuratorJobArgs = serde_json::from_value(args)?;
-                let job = self.host.curator_job(&args.job_id)?;
-                if job.is_none() {
-                    self.push_diagnostic(
-                        "anchor_unresolved",
-                        format!("No curator job matched `{}`.", args.job_id),
-                        Some(json!({ "jobId": args.job_id })),
-                    );
+                "implementationFor" => {
+                    let args: ImplementationTargetArgs = serde_json::from_value(args)?;
+                    let id = self.resolve_target_id(args.id, args.lineage_id)?;
+                    if args.mode.as_deref() == Some("owners") {
+                        let limit = self.session.limits().max_result_nodes.min(INSIGHT_LIMIT);
+                        Ok(serde_json::to_value(owner_symbol_views_for_target(
+                            self.prism.as_ref(),
+                            &id,
+                            args.owner_kind.as_deref(),
+                            limit,
+                        )?)?)
+                    } else {
+                        Ok(serde_json::to_value(symbol_views_for_ids(
+                            self.prism.as_ref(),
+                            self.prism.implementation_for(&id),
+                        )?)?)
+                    }
                 }
-                Ok(serde_json::to_value(job)?)
-            }
-            "diagnostics" => Ok(serde_json::to_value(self.diagnostics())?),
-            other => {
-                self.push_diagnostic(
-                    "unknown_method",
-                    format!("Unknown Prism host operation `{other}`."),
-                    Some(json!({ "operation": other })),
-                );
-                Err(anyhow!("unsupported host operation `{other}`"))
+                "driftCandidates" => {
+                    let args: LimitArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(
+                        self.prism
+                            .drift_candidates(args.limit.unwrap_or(10))
+                            .into_iter()
+                            .map(drift_candidate_view)
+                            .collect::<Vec<_>>(),
+                    )?)
+                }
+                "specCluster" => {
+                    let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                    let id = self.resolve_target_id(args.id, args.lineage_id)?;
+                    Ok(serde_json::to_value(self.spec_cluster(&id)?)?)
+                }
+                "explainDrift" => {
+                    let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                    let id = self.resolve_target_id(args.id, args.lineage_id)?;
+                    Ok(serde_json::to_value(self.explain_drift(&id)?)?)
+                }
+                "owners" => {
+                    let args: OwnerLookupArgs = serde_json::from_value(args)?;
+                    let id = self.resolve_target_id(args.id, args.lineage_id)?;
+                    let applied = args
+                        .limit
+                        .unwrap_or(INSIGHT_LIMIT)
+                        .min(self.session.limits().max_result_nodes);
+                    Ok(serde_json::to_value(owner_views_for_target(
+                        self.prism.as_ref(),
+                        &id,
+                        args.kind.as_deref(),
+                        applied,
+                    )?)?)
+                }
+                "resumeTask" => {
+                    let args: TaskTargetArgs = serde_json::from_value(args)?;
+                    serde_json::to_value(self.prism.resume_task(&args.task_id)).map_err(Into::into)
+                }
+                "taskJournal" => {
+                    let args: TaskJournalArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.task_journal(args)?)?)
+                }
+                "memoryRecall" => {
+                    let args: MemoryRecallArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.memory_recall(args)?)?)
+                }
+                "memoryOutcomes" => {
+                    let args: MemoryOutcomeArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.memory_outcomes(args)?)?)
+                }
+                "memoryEvents" => {
+                    let args: MemoryEventArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.memory_events(args)?)?)
+                }
+                "curatorJobs" => {
+                    let args: CuratorJobsArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.host.curator_jobs(args)?)?)
+                }
+                "curatorProposals" => {
+                    let args: CuratorProposalsArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.host.curator_proposals(args)?)?)
+                }
+                "curatorJob" => {
+                    let args: CuratorJobArgs = serde_json::from_value(args)?;
+                    let job = self.host.curator_job(&args.job_id)?;
+                    if job.is_none() {
+                        self.push_diagnostic(
+                            "anchor_unresolved",
+                            format!("No curator job matched `{}`.", args.job_id),
+                            Some(json!({ "jobId": args.job_id })),
+                        );
+                    }
+                    Ok(serde_json::to_value(job)?)
+                }
+                "diagnostics" => Ok(serde_json::to_value(self.diagnostics())?),
+                other => {
+                    self.push_diagnostic(
+                        "unknown_method",
+                        format!("Unknown Prism host operation `{other}`."),
+                        Some(json!({ "operation": other })),
+                    );
+                    Err(anyhow!("unsupported host operation `{other}`"))
+                }
             }
         };
         self.query_run.record_phase(

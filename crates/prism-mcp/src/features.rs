@@ -9,6 +9,19 @@ pub enum CoordinationFeatureFlag {
     All,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[value(rename_all = "snake_case")]
+pub enum QueryViewFeatureFlag {
+    RepoPlaybook,
+    ValidationPlan,
+    Impact,
+    AfterEdit,
+    CommandMemory,
+    All,
+    #[cfg(test)]
+    TestEcho,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct CoordinationFeatureSet {
     pub(crate) workflow: bool,
@@ -47,9 +60,75 @@ impl CoordinationFeatureSet {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) struct QueryViewFeatureSet {
+    pub(crate) repo_playbook: bool,
+    pub(crate) validation_plan: bool,
+    pub(crate) impact: bool,
+    pub(crate) after_edit: bool,
+    pub(crate) command_memory: bool,
+    #[cfg(test)]
+    pub(crate) test_echo: bool,
+}
+
+impl QueryViewFeatureSet {
+    pub(crate) fn apply(&mut self, flag: QueryViewFeatureFlag, enabled: bool) {
+        match flag {
+            QueryViewFeatureFlag::RepoPlaybook => self.repo_playbook = enabled,
+            QueryViewFeatureFlag::ValidationPlan => self.validation_plan = enabled,
+            QueryViewFeatureFlag::Impact => self.impact = enabled,
+            QueryViewFeatureFlag::AfterEdit => self.after_edit = enabled,
+            QueryViewFeatureFlag::CommandMemory => self.command_memory = enabled,
+            QueryViewFeatureFlag::All => {
+                self.repo_playbook = enabled;
+                self.validation_plan = enabled;
+                self.impact = enabled;
+                self.after_edit = enabled;
+                self.command_memory = enabled;
+                #[cfg(test)]
+                {
+                    self.test_echo = enabled;
+                }
+            }
+            #[cfg(test)]
+            QueryViewFeatureFlag::TestEcho => self.test_echo = enabled,
+        }
+    }
+
+    pub(crate) fn enabled(&self, flag: QueryViewFeatureFlag) -> bool {
+        match flag {
+            QueryViewFeatureFlag::RepoPlaybook => self.repo_playbook,
+            QueryViewFeatureFlag::ValidationPlan => self.validation_plan,
+            QueryViewFeatureFlag::Impact => self.impact,
+            QueryViewFeatureFlag::AfterEdit => self.after_edit,
+            QueryViewFeatureFlag::CommandMemory => self.command_memory,
+            QueryViewFeatureFlag::All => {
+                self.repo_playbook
+                    && self.validation_plan
+                    && self.impact
+                    && self.after_edit
+                    && self.command_memory
+                    && {
+                        #[cfg(test)]
+                        {
+                            self.test_echo
+                        }
+                        #[cfg(not(test))]
+                        {
+                            true
+                        }
+                    }
+            }
+            #[cfg(test)]
+            QueryViewFeatureFlag::TestEcho => self.test_echo,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrismMcpFeatures {
     pub(crate) coordination: CoordinationFeatureSet,
+    pub(crate) query_views: QueryViewFeatureSet,
     pub(crate) internal_developer: bool,
 }
 
@@ -63,6 +142,7 @@ impl PrismMcpFeatures {
     pub fn full() -> Self {
         Self {
             coordination: CoordinationFeatureSet::full(),
+            query_views: QueryViewFeatureSet::default(),
             internal_developer: false,
         }
     }
@@ -70,12 +150,18 @@ impl PrismMcpFeatures {
     pub fn simple() -> Self {
         Self {
             coordination: CoordinationFeatureSet::simple(),
+            query_views: QueryViewFeatureSet::default(),
             internal_developer: false,
         }
     }
 
     pub fn with_internal_developer(mut self, enabled: bool) -> Self {
         self.internal_developer = enabled;
+        self
+    }
+
+    pub fn with_query_view(mut self, flag: QueryViewFeatureFlag, enabled: bool) -> Self {
+        self.query_views.apply(flag, enabled);
         self
     }
 
@@ -175,6 +261,25 @@ impl PrismMcpFeatures {
             self.disabled_query_group(operation),
             Some("internal_developer")
         )
+    }
+
+    pub(crate) fn query_view_enabled(&self, flag: QueryViewFeatureFlag) -> bool {
+        self.query_views.enabled(flag)
+    }
+}
+
+impl QueryViewFeatureFlag {
+    pub(crate) fn key(self) -> &'static str {
+        match self {
+            QueryViewFeatureFlag::RepoPlaybook => "repo_playbook",
+            QueryViewFeatureFlag::ValidationPlan => "validation_plan",
+            QueryViewFeatureFlag::Impact => "impact",
+            QueryViewFeatureFlag::AfterEdit => "after_edit",
+            QueryViewFeatureFlag::CommandMemory => "command_memory",
+            QueryViewFeatureFlag::All => "all",
+            #[cfg(test)]
+            QueryViewFeatureFlag::TestEcho => "test_echo",
+        }
     }
 }
 

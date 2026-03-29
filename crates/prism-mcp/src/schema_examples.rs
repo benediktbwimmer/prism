@@ -586,6 +586,14 @@ fn capabilities_payload_example() -> Value {
             "featureGate": null,
             "description": "Build a validation-focused bundle for a target."
         }],
+        "queryViews": [{
+            "name": "repoPlaybook",
+            "enabled": false,
+            "featureFlag": "repo_playbook",
+            "stability": "experimental",
+            "owner": "prism-mcp",
+            "description": "Summarize repo-specific build, test, lint, format, and workflow guidance."
+        }],
         "resources": [{
             "name": "PRISM Session",
             "uri": session_resource_uri(),

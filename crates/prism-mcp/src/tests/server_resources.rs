@@ -105,6 +105,11 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .unwrap()
         .iter()
         .any(|method| method["name"] == "readContext" && method["enabled"] == true));
+    assert!(capabilities_payload["queryViews"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|view| view["name"] == "repoPlaybook" && view["enabled"] == false));
     assert!(!capabilities_payload["queryMethods"]
         .as_array()
         .unwrap()

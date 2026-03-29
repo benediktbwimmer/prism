@@ -78,6 +78,7 @@ pub(crate) fn capabilities_resource_value(
             internal_developer: host.features.internal_developer,
         },
         query_methods: query_method_capabilities(&host.features),
+        query_views: host.query_view_capabilities(),
         resources: resource_capabilities(),
         resource_templates: resource_template_capabilities(),
         tools: tool_schema_catalog_entries()

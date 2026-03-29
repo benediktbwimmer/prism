@@ -182,7 +182,10 @@ fn api_reference_mentions_primary_tool() {
 fn prelude_exposes_global_prism() {
     let prelude = runtime_prelude();
     assert!(prelude.contains("globalThis.prism"));
+    assert!(prelude.contains("new Proxy(__prismBase"));
     assert!(prelude.contains("__prismHostCall"));
+    assert!(prelude.contains("__queryViews"));
+    assert!(prelude.contains("__queryView:${name}"));
     assert!(prelude.contains("__prismNormalizeTargetPayload"));
     assert!(prelude.contains("full(target)"));
     assert!(prelude.contains("symbolBundle: __prismSymbolBundle"));

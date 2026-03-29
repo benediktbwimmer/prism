@@ -526,6 +526,8 @@ mod tests {
             shared_runtime_uri: None,
             enable_coordination: Vec::new(),
             disable_coordination: Vec::new(),
+            enable_query_view: Vec::new(),
+            disable_query_view: Vec::new(),
             daemon_log: None,
             daemon_start_timeout_ms: None,
             http_bind: http_bind.to_string(),

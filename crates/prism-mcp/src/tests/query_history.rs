@@ -229,6 +229,41 @@ return {
 }
 
 #[test]
+fn prism_dynamic_query_views_follow_runtime_feature_flags() {
+    let root = temp_workspace();
+    write_long_excerpt_workspace(&root);
+
+    let disabled_host = QueryHost::with_session_and_limits_and_features(
+        index_workspace_session(&root).unwrap(),
+        QueryLimits::default(),
+        PrismMcpFeatures::full(),
+    );
+    let disabled_error = disabled_host
+        .execute(
+            test_session(&disabled_host),
+            r#"return prism.testEcho({ value: 1 });"#,
+            QueryLanguage::Ts,
+        )
+        .expect_err("disabled dynamic query view should fail");
+    assert!(disabled_error.to_string().contains("not a function"));
+
+    let enabled_host = QueryHost::with_session_and_limits_and_features(
+        index_workspace_session(&root).unwrap(),
+        QueryLimits::default(),
+        PrismMcpFeatures::full().with_query_view(QueryViewFeatureFlag::TestEcho, true),
+    );
+    let enabled_result = enabled_host
+        .execute(
+            test_session(&enabled_host),
+            r#"return prism.testEcho({ value: 7, label: "ok" });"#,
+            QueryLanguage::Ts,
+        )
+        .expect("enabled dynamic query view should succeed");
+    assert_eq!(enabled_result.result["echo"]["value"], 7);
+    assert_eq!(enabled_result.result["echo"]["label"], "ok");
+}
+
+#[test]
 fn prism_mcp_log_exposes_canonical_call_history_trace_and_stats() {
     let root = temp_workspace();
     write_long_excerpt_workspace(&root);

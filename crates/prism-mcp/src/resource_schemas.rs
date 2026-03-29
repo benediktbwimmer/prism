@@ -117,6 +117,17 @@ pub(crate) struct QueryMethodCapabilityView {
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct QueryViewCapabilityView {
+    pub(crate) name: String,
+    pub(crate) enabled: bool,
+    pub(crate) feature_flag: String,
+    pub(crate) stability: String,
+    pub(crate) owner: String,
+    pub(crate) description: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ResourceCapabilityView {
     pub(crate) name: String,
     pub(crate) uri: String,
@@ -153,6 +164,7 @@ pub(crate) struct CapabilitiesResourcePayload {
     pub(crate) build: CapabilitiesBuildInfoView,
     pub(crate) features: FeatureFlagsView,
     pub(crate) query_methods: Vec<QueryMethodCapabilityView>,
+    pub(crate) query_views: Vec<QueryViewCapabilityView>,
     pub(crate) resources: Vec<ResourceCapabilityView>,
     pub(crate) resource_templates: Vec<ResourceTemplateCapabilityView>,
     pub(crate) tools: Vec<ToolCapabilityView>,

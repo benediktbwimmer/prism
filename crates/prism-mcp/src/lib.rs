@@ -49,6 +49,7 @@ mod query_helpers;
 mod query_log;
 mod query_runtime;
 mod query_types;
+mod query_views;
 mod resource_schemas;
 mod resources;
 mod runtime_state;
@@ -78,7 +79,7 @@ use dashboard_events::*;
 use diagnostics::*;
 use discovery_bundle::*;
 use discovery_helpers::*;
-pub use features::{CoordinationFeatureFlag, PrismMcpFeatures};
+pub use features::{CoordinationFeatureFlag, PrismMcpFeatures, QueryViewFeatureFlag};
 use js_runtime::JsWorkerPool;
 use lineage_views::*;
 pub use logging::{init_logging, log_process_start, log_top_level_error};
@@ -161,6 +162,10 @@ pub struct PrismMcpCli {
     pub enable_coordination: Vec<CoordinationFeatureFlag>,
     #[arg(long, value_enum, value_delimiter = ',', action = ArgAction::Append)]
     pub disable_coordination: Vec<CoordinationFeatureFlag>,
+    #[arg(long, value_enum, value_delimiter = ',', action = ArgAction::Append)]
+    pub enable_query_view: Vec<QueryViewFeatureFlag>,
+    #[arg(long, value_enum, value_delimiter = ',', action = ArgAction::Append)]
+    pub disable_query_view: Vec<QueryViewFeatureFlag>,
     #[arg(long = "daemon-log")]
     pub daemon_log: Option<PathBuf>,
     #[arg(long = "shared-runtime-sqlite")]
@@ -208,6 +213,12 @@ impl PrismMcpCli {
         for flag in &self.disable_coordination {
             features.coordination.apply(*flag, false);
         }
+        for flag in &self.enable_query_view {
+            features.query_views.apply(*flag, true);
+        }
+        for flag in &self.disable_query_view {
+            features.query_views.apply(*flag, false);
+        }
         features
     }
 
@@ -248,6 +259,24 @@ impl PrismMcpCli {
         }
         for flag in &self.disable_coordination {
             args.push("--disable-coordination".to_string());
+            args.push(
+                flag.to_possible_value()
+                    .expect("value enum")
+                    .get_name()
+                    .to_string(),
+            );
+        }
+        for flag in &self.enable_query_view {
+            args.push("--enable-query-view".to_string());
+            args.push(
+                flag.to_possible_value()
+                    .expect("value enum")
+                    .get_name()
+                    .to_string(),
+            );
+        }
+        for flag in &self.disable_query_view {
+            args.push("--disable-query-view".to_string());
             args.push(
                 flag.to_possible_value()
                     .expect("value enum")

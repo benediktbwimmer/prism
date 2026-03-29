@@ -252,8 +252,7 @@ fn file_fingerprint(
             file.len == metadata.len()
                 && file.modified_ns == modified_ns
                 && file.changed_ns == changed_ns
-        })
-    {
+        }) {
         cached
             .expect("cached fingerprint should exist")
             .content_hash
