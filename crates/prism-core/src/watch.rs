@@ -3,14 +3,14 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use notify::{recommended_watcher, Event, RecursiveMode, Watcher};
 use prism_ir::ChangeTrigger;
 use prism_query::Prism;
 use prism_store::SqliteStore;
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::curator::{enqueue_curator_for_observed_locked, CuratorHandleRef};
 use crate::indexer::WorkspaceIndexer;
@@ -20,8 +20,13 @@ use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::util::{workspace_fingerprint, WorkspaceFingerprint};
 
 pub(crate) struct WatchHandle {
-    pub(crate) stop: mpsc::Sender<()>,
+    pub(crate) stop: mpsc::Sender<WatchMessage>,
     pub(crate) handle: thread::JoinHandle<()>,
+}
+
+pub(crate) enum WatchMessage {
+    Fs(notify::Result<Event>),
+    Stop,
 }
 
 pub(crate) fn spawn_fs_watch(
@@ -36,37 +41,41 @@ pub(crate) fn spawn_fs_watch(
     coordination_enabled: bool,
     curator: Option<CuratorHandleRef>,
 ) -> Result<WatchHandle> {
-    let (stop_tx, stop_rx) = mpsc::channel::<()>();
-    let (init_tx, init_rx) = mpsc::sync_channel::<Result<()>>(1);
+    let (msg_tx, msg_rx) = mpsc::channel::<WatchMessage>();
+    let (ready_tx, ready_rx) = mpsc::sync_channel::<bool>(1);
+    let callback_tx = msg_tx.clone();
 
     let handle = thread::spawn(move || {
-        let (event_tx, event_rx) = mpsc::channel::<notify::Result<Event>>();
         let mut watcher = match recommended_watcher(move |event| {
-            let _ = event_tx.send(event);
+            let _ = callback_tx.send(WatchMessage::Fs(event));
         }) {
             Ok(watcher) => watcher,
             Err(error) => {
-                let _ = init_tx.send(Err(error.into()));
+                warn!(
+                    root = %root.display(),
+                    error = %error,
+                    "failed to initialize prism fs watcher; continuing with fallback refresh checks"
+                );
+                let _ = ready_tx.send(false);
                 return;
             }
         };
 
         if let Err(error) = watcher.watch(&root, RecursiveMode::Recursive) {
-            let _ = init_tx.send(Err(error.into()));
+            warn!(
+                root = %root.display(),
+                error = %error,
+                "failed to start prism fs watcher; continuing with fallback refresh checks"
+            );
+            let _ = ready_tx.send(false);
             return;
         }
-
-        let _ = init_tx.send(Ok(()));
+        let _ = ready_tx.send(true);
 
         loop {
-            if stop_rx.try_recv().is_ok() {
-                break;
-            }
-
-            let event = match event_rx.recv_timeout(Duration::from_millis(250)) {
-                Ok(event) => event,
-                Err(mpsc::RecvTimeoutError::Timeout) => continue,
-                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            let event = match msg_rx.recv() {
+                Ok(WatchMessage::Fs(event)) => event,
+                Ok(WatchMessage::Stop) | Err(mpsc::RecvError) => break,
             };
 
             let Ok(event) = event else {
@@ -77,17 +86,18 @@ pub(crate) fn spawn_fs_watch(
                 continue;
             }
 
-            while let Ok(next) = event_rx.recv_timeout(Duration::from_millis(75)) {
-                if stop_rx.try_recv().is_ok() {
-                    return;
-                }
-                if let Ok(next) = next {
-                    let next_paths = relevant_watch_paths(&root, &next);
-                    if next_paths.is_empty() {
-                        continue;
+            while let Ok(next) = msg_rx.recv_timeout(Duration::from_millis(75)) {
+                match next {
+                    WatchMessage::Fs(Ok(next)) => {
+                        let next_paths = relevant_watch_paths(&root, &next);
+                        if next_paths.is_empty() {
+                            continue;
+                        }
+                        dirty_paths.extend(next_paths);
                     }
-                    dirty_paths.extend(next_paths);
-                }
+                    WatchMessage::Fs(Err(_)) => continue,
+                    WatchMessage::Stop => return,
+                };
             }
 
             refresh_state.mark_fs_dirty_paths(dirty_paths.iter().cloned());
@@ -116,12 +126,10 @@ pub(crate) fn spawn_fs_watch(
         }
     });
 
-    init_rx
-        .recv()
-        .map_err(|_| anyhow::anyhow!("watcher init channel closed"))??;
+    let _ = ready_rx.try_recv();
 
     Ok(WatchHandle {
-        stop: stop_tx,
+        stop: msg_tx,
         handle,
     })
 }
@@ -207,6 +215,7 @@ fn refresh_prism_snapshot_with_guard(
     known_fingerprint: Option<WorkspaceFingerprint>,
     _guard: MutexGuard<'_, ()>,
 ) -> Result<Vec<prism_ir::ObservedChangeSet>> {
+    let started = Instant::now();
     let observed_revision = refresh_state.observed_fs_revision();
     let dirty_paths = if trigger == ChangeTrigger::FsWatch {
         refresh_state.dirty_paths_snapshot()
@@ -266,6 +275,7 @@ fn refresh_prism_snapshot_with_guard(
         enqueue_curator_for_observed_locked(curator, next.as_ref(), &mut store, &observed)?;
     }
     refresh_state.mark_refreshed_revision(observed_revision, &dirty_paths);
+    refresh_state.record_refresh(started.elapsed().as_millis() as u64, workspace_revision);
     Ok(observed)
 }
 

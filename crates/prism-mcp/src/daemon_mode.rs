@@ -52,11 +52,6 @@ pub async fn serve_with_mode(cli: PrismMcpCli) -> Result<()> {
 
 async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
     let started = Instant::now();
-    let server = PrismMcpServer::from_workspace_with_features_and_shared_runtime(
-        root,
-        cli.features(),
-        cli.shared_runtime_backend()?,
-    )?;
     let listener = bind_listener(cli, root).await?;
     let mcp_path = normalize_route_path(&cli.http_path);
     let health_path = normalize_route_path(&cli.health_path);
@@ -68,6 +63,11 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         path: uri_file_path,
         expected_uri: http_uri.clone(),
     };
+    let server = PrismMcpServer::from_workspace_with_features_and_shared_runtime(
+        root,
+        cli.features(),
+        cli.shared_runtime_backend()?,
+    )?;
     info!(
         mode = "daemon",
         root = %root.display(),

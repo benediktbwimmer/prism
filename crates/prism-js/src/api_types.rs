@@ -430,6 +430,39 @@ pub struct RuntimeProcessView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct RuntimeMaterializationItemView {
+    pub status: String,
+    pub loaded_revision: u64,
+    pub current_revision: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeMaterializationView {
+    pub workspace: RuntimeMaterializationItemView,
+    pub episodic: RuntimeMaterializationItemView,
+    pub inference: RuntimeMaterializationItemView,
+    pub coordination: RuntimeMaterializationItemView,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeFreshnessView {
+    pub fs_observed_revision: u64,
+    pub fs_applied_revision: u64,
+    pub fs_dirty: bool,
+    pub last_refresh_path: Option<String>,
+    pub last_refresh_timestamp: Option<String>,
+    pub last_refresh_duration_ms: Option<u64>,
+    pub last_workspace_build_ms: Option<u64>,
+    pub last_daemon_ready_ms: Option<u64>,
+    pub materialization: RuntimeMaterializationView,
+    pub status: String,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct RuntimeStatusView {
     pub root: String,
     pub connection: ConnectionInfoView,
@@ -447,6 +480,7 @@ pub struct RuntimeStatusView {
     pub orphan_bridge_count: usize,
     pub processes: Vec<RuntimeProcessView>,
     pub process_error: Option<String>,
+    pub freshness: RuntimeFreshnessView,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

@@ -10924,7 +10924,7 @@ return recent[0] ? prism.queryTrace(recent[0].id) : null;
         .expect("refresh args");
     assert_eq!(
         args.get("refreshPath"),
-        Some(&Value::String("queued".to_string()))
+        Some(&Value::String("none".to_string()))
     );
     assert_eq!(args.get("episodicReloaded"), Some(&Value::Bool(false)));
     assert_eq!(args.get("inferenceReloaded"), Some(&Value::Bool(false)));
@@ -11380,6 +11380,13 @@ return {
         .as_str()
         .unwrap_or_default()
         .ends_with(".prism/cache.db"));
+    assert_eq!(status["freshness"]["fsDirty"], false);
+    assert!(
+        status["freshness"]["materialization"]["workspace"]["status"]
+            .as_str()
+            .is_some()
+    );
+    assert!(status["freshness"]["status"].as_str().is_some());
 
     let warnings = result.result["warnings"]
         .as_array()
@@ -11449,6 +11456,18 @@ fn prism_runtime_views_prefer_structured_runtime_state() {
     )
     .unwrap();
     fs::write(prism_dir.join("prism-mcp-daemon.log"), "").unwrap();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+    let workspace = host.workspace.as_ref().expect("workspace-backed host");
+    let source_path = root.join("src/lib.rs");
+    fs::write(&source_path, "pub fn runtime_status_refresh() {}\n").unwrap();
+    workspace
+        .refresh_state
+        .mark_fs_dirty_paths([source_path.clone()]);
+    workspace.refresh_fs().unwrap();
+    host.sync_workspace_revision(workspace).unwrap();
+    let last_refresh = workspace
+        .last_refresh()
+        .expect("workspace refresh should record live refresh metadata");
     fs::write(
         prism_dir.join("prism-mcp-runtime.json"),
         json!({
@@ -11481,17 +11500,30 @@ fn prism_runtime_views_prefer_structured_runtime_state() {
                     "target": "prism_mcp::lib",
                     "file": "crates/prism-mcp/src/lib.rs",
                     "line_number": null,
-                    "fields": { "fileCount": 12 }
+                    "fields": { "fileCount": 12, "buildMs": 4321 }
                 },
                 {
                     "ts": 12,
                     "timestamp": "12",
                     "level": "INFO",
+                    "message": "prism-mcp workspace refresh",
+                    "target": "prism_mcp::lib",
+                    "file": "crates/prism-mcp/src/lib.rs",
+                    "line_number": null,
+                    "fields": {
+                        "refreshPath": "auxiliary",
+                        "durationMs": 87
+                    }
+                },
+                {
+                    "ts": 13,
+                    "timestamp": "13",
+                    "level": "INFO",
                     "message": "prism-mcp daemon ready",
                     "target": "prism_mcp::daemon_mode",
                     "file": "crates/prism-mcp/src/daemon_mode.rs",
                     "line_number": null,
-                    "fields": { "httpUri": format!("http://{addr}/mcp") }
+                    "fields": { "httpUri": format!("http://{addr}/mcp"), "startupMs": 6534 }
                 }
             ]
         })
@@ -11499,7 +11531,6 @@ fn prism_runtime_views_prefer_structured_runtime_state() {
     )
     .unwrap();
 
-    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
     let result = host
         .execute(
             test_session(&host),
@@ -11523,6 +11554,22 @@ return {
         status["connection"]["uri"].as_str().unwrap_or_default(),
         format!("http://{addr}/mcp")
     );
+    assert_eq!(status["freshness"]["lastWorkspaceBuildMs"], 4321);
+    assert_eq!(status["freshness"]["lastDaemonReadyMs"], 6534);
+    assert_eq!(status["freshness"]["lastRefreshPath"], last_refresh.path);
+    assert_eq!(
+        status["freshness"]["lastRefreshDurationMs"],
+        last_refresh.duration_ms
+    );
+    assert_eq!(
+        status["freshness"]["lastRefreshTimestamp"],
+        last_refresh.timestamp
+    );
+    assert_eq!(status["freshness"]["fsDirty"], false);
+    assert_eq!(
+        status["freshness"]["materialization"]["workspace"]["status"],
+        "current"
+    );
     let processes = status["processes"].as_array().expect("runtime processes");
     assert_eq!(processes.len(), 1);
     assert_eq!(processes[0]["kind"], "daemon");
@@ -11530,10 +11577,62 @@ return {
     let timeline = result.result["timeline"]
         .as_array()
         .expect("runtime timeline");
-    assert_eq!(timeline.len(), 3);
+    assert_eq!(timeline.len(), 4);
     assert_eq!(timeline[0]["message"], "starting prism-mcp");
     assert_eq!(timeline[1]["message"], "built prism-mcp workspace server");
-    assert_eq!(timeline[2]["message"], "prism-mcp daemon ready");
+    assert_eq!(timeline[2]["message"], "prism-mcp workspace refresh");
+    assert_eq!(timeline[3]["message"], "prism-mcp daemon ready");
+}
+
+#[test]
+fn prism_runtime_views_do_not_source_freshness_from_runtime_state_refresh_events() {
+    let root = temp_workspace();
+    let prism_dir = root.join(".prism");
+    fs::create_dir_all(&prism_dir).unwrap();
+    let addr = "127.0.0.1:9";
+
+    fs::write(
+        prism_dir.join("prism-mcp-http-uri"),
+        format!("http://{addr}/mcp\n"),
+    )
+    .unwrap();
+    fs::write(prism_dir.join("prism-mcp-daemon.log"), "").unwrap();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+    fs::write(
+        prism_dir.join("prism-mcp-runtime.json"),
+        json!({
+            "processes": [],
+            "events": [
+                {
+                    "ts": 12,
+                    "timestamp": "12",
+                    "level": "INFO",
+                    "message": "prism-mcp workspace refresh",
+                    "target": "prism_mcp::lib",
+                    "file": "crates/prism-mcp/src/lib.rs",
+                    "line_number": null,
+                    "fields": {
+                        "refreshPath": "auxiliary",
+                        "durationMs": 87
+                    }
+                }
+            ]
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    let result = host
+        .execute(
+            test_session(&host),
+            "return prism.runtimeStatus().freshness;",
+            QueryLanguage::Ts,
+        )
+        .expect("runtime status query should succeed");
+
+    assert_eq!(result.result["lastRefreshPath"], Value::Null);
+    assert_eq!(result.result["lastRefreshDurationMs"], Value::Null);
+    assert_eq!(result.result["lastRefreshTimestamp"], Value::Null);
 }
 
 #[test]
@@ -11565,6 +11664,7 @@ fn prism_runtime_views_ignore_invalid_runtime_state_sidecar() {
     assert_eq!(result.result["health"]["ok"], false);
     assert_eq!(result.result["daemonCount"], 0);
     assert_eq!(result.result["bridgeCount"], 0);
+    assert!(result.result["freshness"]["status"].as_str().is_some());
 }
 
 #[test]
@@ -13411,7 +13511,7 @@ return prism.symbol("alpha")?.id.path ?? null;
 }
 
 #[test]
-fn queries_queue_background_refresh_without_request_path_persisted_reload() {
+fn queries_skip_request_path_persisted_reload_when_runtime_is_current() {
     let root = temp_workspace();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
@@ -13457,7 +13557,7 @@ return prism.symbol("alpha")?.id.path ?? null;
         .expect("refresh args");
     assert_eq!(
         args.get("refreshPath"),
-        Some(&Value::String("queued".to_string()))
+        Some(&Value::String("none".to_string()))
     );
 }
 

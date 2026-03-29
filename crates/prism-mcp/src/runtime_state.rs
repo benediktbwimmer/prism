@@ -97,6 +97,7 @@ pub(crate) fn record_workspace_server_built(
     node_count: usize,
     edge_count: usize,
     file_count: usize,
+    build_ms: u128,
 ) -> Result<()> {
     update_runtime_state(root, |state| {
         push_event(
@@ -111,6 +112,7 @@ pub(crate) fn record_workspace_server_built(
                 "nodeCount": node_count,
                 "edgeCount": edge_count,
                 "fileCount": file_count,
+                "buildMs": build_ms,
             }),
         );
     })
@@ -210,6 +212,14 @@ pub(crate) fn record_workspace_refresh(
     episodic_reloaded: bool,
     inference_reloaded: bool,
     coordination_reloaded: bool,
+    workspace_revision: Option<u64>,
+    loaded_workspace_revision: u64,
+    episodic_revision: Option<u64>,
+    loaded_episodic_revision: u64,
+    inference_revision: Option<u64>,
+    loaded_inference_revision: u64,
+    coordination_revision: Option<u64>,
+    loaded_coordination_revision: u64,
     duration_ms: u128,
 ) -> Result<()> {
     update_runtime_state(root, |state| {
@@ -227,6 +237,14 @@ pub(crate) fn record_workspace_refresh(
                 "episodicReloaded": episodic_reloaded,
                 "inferenceReloaded": inference_reloaded,
                 "coordinationReloaded": coordination_reloaded,
+                "workspaceRevision": workspace_revision,
+                "loadedWorkspaceRevision": loaded_workspace_revision,
+                "episodicRevision": episodic_revision,
+                "loadedEpisodicRevision": loaded_episodic_revision,
+                "inferenceRevision": inference_revision,
+                "loadedInferenceRevision": loaded_inference_revision,
+                "coordinationRevision": coordination_revision,
+                "loadedCoordinationRevision": loaded_coordination_revision,
                 "durationMs": duration_ms,
             }),
         );

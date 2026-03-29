@@ -283,6 +283,7 @@ fn validation_feedback_persists_across_workspace_reloads() {
         Some("prism.blastRadius(alpha)")
     );
 
+    drop(reloaded);
     let _ = fs::remove_dir_all(root);
 }
 
@@ -569,7 +570,7 @@ fn emits_reanchored_changes_for_file_move_with_same_content() {
 }
 
 #[test]
-fn watcher_refreshes_session_after_external_edit() {
+fn fs_watch_refreshes_session_after_external_edit() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -589,22 +590,17 @@ fn watcher_refreshes_session_after_external_edit() {
         "pub fn alpha() { gamma(); }\npub fn gamma() {}\n",
     )
     .unwrap();
+    session
+        .refresh_state
+        .mark_fs_dirty_paths([root.join("src/lib.rs")]);
+    let observed = session.refresh_fs().unwrap();
+    assert!(!observed.is_empty());
 
-    let mut saw_gamma = false;
-    for _ in 0..40 {
-        if session
-            .prism()
-            .symbol("gamma")
-            .iter()
-            .any(|symbol| symbol.id().path == "demo::gamma")
-        {
-            saw_gamma = true;
-            break;
-        }
-        thread::sleep(Duration::from_millis(50));
-    }
-
-    assert!(saw_gamma);
+    assert!(session
+        .prism()
+        .symbol("gamma")
+        .iter()
+        .any(|symbol| symbol.id().path == "demo::gamma"));
     let patch_events = session
         .prism()
         .outcome_memory()
@@ -625,7 +621,7 @@ fn watcher_refreshes_session_after_external_edit() {
 }
 
 #[test]
-fn watcher_refresh_enqueues_curator_with_patch_outcomes_and_projection_context() {
+fn fs_watch_refresh_enqueues_curator_with_patch_outcomes_and_projection_context() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -688,6 +684,11 @@ fn watcher_refresh_enqueues_curator_with_patch_outcomes_and_projection_context()
         "fn gamma() { delta(); }\nfn delta() {}\nfn beta() {}\n",
     )
     .unwrap();
+    session
+        .refresh_state
+        .mark_fs_dirty_paths([root.join("src/lib.rs")]);
+    let observed = session.refresh_fs().unwrap();
+    assert!(!observed.is_empty());
 
     let mut gamma = None;
     let mut delta = None;
@@ -2197,6 +2198,7 @@ fn refresh_fs_skips_reindex_when_workspace_is_clean() {
     assert!(observed.is_empty());
     assert!(Arc::ptr_eq(&before, &after));
 
+    drop(session);
     let _ = fs::remove_dir_all(root);
 }
 
@@ -2227,7 +2229,7 @@ fn refresh_fs_nonblocking_defers_when_refresh_is_in_progress() {
 }
 
 #[test]
-fn try_reload_persisted_prism_defers_when_refresh_is_in_progress() {
+fn recovery_rebuild_from_persisted_state_defers_when_refresh_is_in_progress() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -2243,8 +2245,50 @@ fn try_reload_persisted_prism_defers_when_refresh_is_in_progress() {
         .lock()
         .expect("workspace refresh lock poisoned");
 
-    let reloaded = session.try_reload_persisted_prism().unwrap();
+    let reloaded = session.try_recover_runtime_from_persisted_state().unwrap();
     assert!(!reloaded);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn coordination_mutations_use_live_runtime_state_without_forcing_persisted_reload() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let live_plan_id = session
+        .prism()
+        .create_native_plan(
+            EventMeta {
+                id: EventId::new("coordination:live-runtime-plan"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:live-runtime-plan")),
+                causation: None,
+            },
+            "Use live runtime coordination state".into(),
+            None,
+            Some(Default::default()),
+        )
+        .unwrap();
+
+    let observed_plan_id = session
+        .mutate_coordination(|prism| {
+            Ok(prism
+                .coordination_plan(&live_plan_id)
+                .expect("live-only plan should still be visible during mutation")
+                .id)
+        })
+        .unwrap();
+
+    assert_eq!(observed_plan_id, live_plan_id);
 
     let _ = fs::remove_dir_all(root);
 }

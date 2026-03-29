@@ -1,7 +1,6 @@
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
 
 use anyhow::Result;
 use prism_curator::{
@@ -22,15 +21,14 @@ use crate::util::current_timestamp;
 
 pub(crate) struct CuratorHandle {
     pub(crate) state: Arc<Mutex<CuratorQueueState>>,
-    tx: Option<mpsc::Sender<CuratorWorkItem>>,
-    stop: Option<mpsc::Sender<()>>,
+    tx: Option<mpsc::Sender<CuratorMessage>>,
     handle: Option<thread::JoinHandle<()>>,
 }
 
 #[derive(Clone)]
 pub(crate) struct CuratorHandleRef {
     state: Arc<Mutex<CuratorQueueState>>,
-    tx: Option<mpsc::Sender<CuratorWorkItem>>,
+    tx: Option<mpsc::Sender<CuratorMessage>>,
 }
 
 #[derive(Default)]
@@ -45,6 +43,11 @@ struct CuratorWorkItem {
     context: CuratorContext,
 }
 
+enum CuratorMessage {
+    Work(CuratorWorkItem),
+    Stop,
+}
+
 impl CuratorHandle {
     pub(crate) fn new(
         snapshot: CuratorSnapshot,
@@ -57,21 +60,15 @@ impl CuratorHandle {
             snapshot,
         }));
 
-        let (tx, rx) = mpsc::channel::<CuratorWorkItem>();
-        let (stop_tx, stop_rx) = mpsc::channel::<()>();
+        let (tx, rx) = mpsc::channel::<CuratorMessage>();
         let worker_state = Arc::clone(&state);
         let worker_store = Arc::clone(&store);
         let worker_refresh_lock = Arc::clone(&refresh_lock);
         let worker_backend = backend.clone();
         let handle = thread::spawn(move || loop {
-            if stop_rx.try_recv().is_ok() {
-                break;
-            }
-
-            let item = match rx.recv_timeout(Duration::from_millis(250)) {
-                Ok(item) => item,
-                Err(mpsc::RecvTimeoutError::Timeout) => continue,
-                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            let item = match rx.recv() {
+                Ok(CuratorMessage::Work(item)) => item,
+                Ok(CuratorMessage::Stop) | Err(mpsc::RecvError) => break,
             };
 
             update_curator_record(
@@ -132,7 +129,6 @@ impl CuratorHandle {
         Self {
             state,
             tx: Some(tx),
-            stop: Some(stop_tx),
             handle: Some(handle),
         }
     }
@@ -155,8 +151,8 @@ impl CuratorHandle {
     }
 
     pub(crate) fn stop(&mut self) {
-        if let Some(stop) = self.stop.take() {
-            let _ = stop.send(());
+        if let Some(tx) = self.tx.take() {
+            let _ = tx.send(CuratorMessage::Stop);
         }
         if let Some(handle) = self.handle.take() {
             let _ = handle.join();
@@ -193,11 +189,11 @@ impl CuratorHandleRef {
         drop(state);
 
         if let Some(tx) = &self.tx {
-            let _ = tx.send(CuratorWorkItem {
+            let _ = tx.send(CuratorMessage::Work(CuratorWorkItem {
                 id: id.clone(),
                 job,
                 context,
-            });
+            }));
         }
 
         Ok(id)

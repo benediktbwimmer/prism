@@ -4,17 +4,21 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
 use prism_js::{
-    ConnectionInfoView, RuntimeHealthView, RuntimeLogEventView, RuntimeProcessView,
+    ConnectionInfoView, RuntimeFreshnessView, RuntimeHealthView, RuntimeLogEventView,
+    RuntimeMaterializationItemView, RuntimeMaterializationView, RuntimeProcessView,
     RuntimeStatusView,
 };
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
-use crate::runtime_state::{read_runtime_state, RuntimeEventRecord, RuntimeProcessRecord};
+use crate::runtime_state::{
+    read_runtime_state, RuntimeEventRecord, RuntimeProcessRecord, RuntimeState,
+};
 use crate::{QueryHost, RuntimeLogArgs, RuntimeTimelineArgs};
 
 const DEFAULT_HEALTH_PATH: &str = "/healthz";
@@ -114,6 +118,7 @@ pub(crate) fn runtime_status(host: &QueryHost) -> Result<RuntimeStatusView> {
             .map(|process| runtime_process_view(process, &connected_bridge_pids))
             .collect(),
         process_error,
+        freshness: runtime_freshness(host, runtime_state.as_ref())?,
     })
 }
 
@@ -224,6 +229,122 @@ fn workspace_root(host: &QueryHost) -> Result<&Path> {
         .as_ref()
         .map(|workspace| workspace.root())
         .ok_or_else(|| anyhow!("runtime introspection requires a workspace-backed PRISM session"))
+}
+
+fn runtime_freshness(
+    host: &QueryHost,
+    runtime_state: Option<&RuntimeState>,
+) -> Result<RuntimeFreshnessView> {
+    let workspace = host.workspace.as_ref().ok_or_else(|| {
+        anyhow!("runtime introspection requires a workspace-backed PRISM session")
+    })?;
+    let snapshot_revisions = workspace.snapshot_revisions()?;
+    let fs_observed_revision = workspace.observed_fs_revision();
+    let fs_applied_revision = workspace.applied_fs_revision();
+    let fs_dirty = fs_observed_revision != fs_applied_revision;
+    let materialization = RuntimeMaterializationView {
+        workspace: materialization_item(
+            host.loaded_workspace_revision.load(Ordering::Relaxed),
+            Some(snapshot_revisions.workspace),
+        ),
+        episodic: materialization_item(
+            host.loaded_episodic_revision.load(Ordering::Relaxed),
+            workspace.episodic_revision().ok(),
+        ),
+        inference: materialization_item(
+            host.loaded_inference_revision.load(Ordering::Relaxed),
+            workspace.inference_revision().ok(),
+        ),
+        coordination: materialization_item(
+            host.loaded_coordination_revision.load(Ordering::Relaxed),
+            workspace.coordination_revision().ok(),
+        ),
+    };
+    let loaded_workspace_revision = host.loaded_workspace_revision.load(Ordering::Relaxed);
+    let loaded_episodic_revision = host.loaded_episodic_revision.load(Ordering::Relaxed);
+    let loaded_inference_revision = host.loaded_inference_revision.load(Ordering::Relaxed);
+    let loaded_coordination_revision = host.loaded_coordination_revision.load(Ordering::Relaxed);
+    let last_refresh = workspace.last_refresh();
+    let last_build = latest_runtime_event(runtime_state, "built prism-mcp workspace server");
+    let last_ready = latest_runtime_event(runtime_state, "prism-mcp daemon ready");
+
+    Ok(RuntimeFreshnessView {
+        fs_observed_revision,
+        fs_applied_revision,
+        fs_dirty,
+        last_refresh_path: last_refresh.as_ref().map(|refresh| refresh.path.clone()),
+        last_refresh_timestamp: last_refresh.as_ref().map(|refresh| refresh.timestamp.clone()),
+        last_refresh_duration_ms: last_refresh.as_ref().map(|refresh| refresh.duration_ms),
+        last_workspace_build_ms: event_field_u64(last_build, "buildMs"),
+        last_daemon_ready_ms: event_field_u64(last_ready, "startupMs"),
+        materialization: materialization.clone(),
+        status: freshness_status(fs_dirty, &materialization).to_string(),
+        error: None,
+    })
+}
+
+fn materialization_item(
+    loaded_revision: u64,
+    current_revision: Option<u64>,
+) -> RuntimeMaterializationItemView {
+    RuntimeMaterializationItemView {
+        status: materialization_status(loaded_revision, current_revision).to_string(),
+        loaded_revision,
+        current_revision,
+    }
+}
+
+fn materialization_status(loaded_revision: u64, current_revision: Option<u64>) -> &'static str {
+    match current_revision {
+        Some(current_revision) if loaded_revision == current_revision => "current",
+        Some(_) => "stale",
+        None => "unknown",
+    }
+}
+
+fn freshness_status(fs_dirty: bool, materialization: &RuntimeMaterializationView) -> &'static str {
+    if fs_dirty {
+        return "refresh-queued";
+    }
+    let statuses = [
+        materialization.workspace.status.as_str(),
+        materialization.episodic.status.as_str(),
+        materialization.inference.status.as_str(),
+        materialization.coordination.status.as_str(),
+    ];
+    if statuses.contains(&"stale") {
+        "stale"
+    } else if statuses.contains(&"unknown") {
+        "unknown"
+    } else {
+        "current"
+    }
+}
+
+fn latest_runtime_event<'a>(
+    runtime_state: Option<&'a RuntimeState>,
+    message: &str,
+) -> Option<&'a RuntimeEventRecord> {
+    runtime_state?
+        .events
+        .iter()
+        .rev()
+        .find(|event| event.message == message)
+}
+
+fn event_field_string(event: Option<&RuntimeEventRecord>, key: &str) -> Option<String> {
+    event?
+        .fields
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::to_string)
+}
+
+fn event_field_u64(event: Option<&RuntimeEventRecord>, key: &str) -> Option<u64> {
+    let value = event?.fields.get(key)?;
+    value
+        .as_u64()
+        .or_else(|| value.as_str().and_then(|value| value.parse::<u64>().ok()))
 }
 
 fn file_len(path: &Path) -> Option<u64> {

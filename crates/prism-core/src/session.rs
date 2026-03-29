@@ -49,7 +49,7 @@ use crate::validation_feedback::{
     append_validation_feedback, load_validation_feedback, ValidationFeedbackEntry,
     ValidationFeedbackRecord,
 };
-use crate::watch::{refresh_prism_snapshot, try_refresh_prism_snapshot, WatchHandle};
+use crate::watch::{refresh_prism_snapshot, try_refresh_prism_snapshot, WatchHandle, WatchMessage};
 use crate::workspace_identity::coordination_persist_context_for_root;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -57,6 +57,16 @@ pub enum FsRefreshStatus {
     Clean,
     Refreshed,
     DeferredBusy,
+}
+
+#[derive(Debug, Clone)]
+pub struct WorkspaceLastRefresh {
+    pub path: String,
+    pub timestamp: String,
+    pub duration_ms: u64,
+    pub fs_observed_revision: u64,
+    pub fs_applied_revision: u64,
+    pub workspace_revision: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -71,6 +81,7 @@ pub(crate) struct WorkspaceRefreshState {
     applied_fs_revision: AtomicU64,
     last_fallback_check_ms: AtomicU64,
     dirty_paths: Mutex<HashMap<PathBuf, u64>>,
+    last_refresh: Mutex<Option<WorkspaceLastRefresh>>,
 }
 
 const FALLBACK_FINGERPRINT_INTERVAL_MS: u64 = 250;
@@ -82,6 +93,7 @@ impl WorkspaceRefreshState {
             applied_fs_revision: AtomicU64::new(0),
             last_fallback_check_ms: AtomicU64::new(0),
             dirty_paths: Mutex::new(HashMap::new()),
+            last_refresh: Mutex::new(None),
         }
     }
 
@@ -139,6 +151,28 @@ impl WorkspaceRefreshState {
 
     pub(crate) fn applied_fs_revision(&self) -> u64 {
         self.applied_fs_revision.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn record_refresh(&self, duration_ms: u64, workspace_revision: u64) {
+        let record = WorkspaceLastRefresh {
+            path: "full".to_string(),
+            timestamp: current_timestamp().to_string(),
+            duration_ms,
+            fs_observed_revision: self.observed_fs_revision(),
+            fs_applied_revision: self.applied_fs_revision(),
+            workspace_revision,
+        };
+        *self
+            .last_refresh
+            .lock()
+            .expect("workspace last refresh lock poisoned") = Some(record);
+    }
+
+    pub(crate) fn last_refresh(&self) -> Option<WorkspaceLastRefresh> {
+        self.last_refresh
+            .lock()
+            .expect("workspace last refresh lock poisoned")
+            .clone()
     }
 
     pub(crate) fn should_run_fallback_check(&self, now_ms: u64) -> bool {
@@ -253,6 +287,10 @@ impl WorkspaceSession {
         self.refresh_state.applied_fs_revision()
     }
 
+    pub fn last_refresh(&self) -> Option<WorkspaceLastRefresh> {
+        self.refresh_state.last_refresh()
+    }
+
     pub fn persist_outcomes(&self) -> Result<()> {
         let _guard = self
             .refresh_lock
@@ -296,27 +334,25 @@ impl WorkspaceSession {
         Ok(merge_episodic_snapshots(local_snapshot, shared_snapshot))
     }
 
-    pub fn reload_persisted_prism(&self) -> Result<()> {
-        let guard = self
-            .refresh_lock
-            .lock()
-            .expect("workspace refresh lock poisoned");
-        self.reload_persisted_prism_with_guard(guard)
-    }
-
-    pub fn try_reload_persisted_prism(&self) -> Result<bool> {
+    #[allow(dead_code)]
+    pub(crate) fn try_recover_runtime_from_persisted_state(&self) -> Result<bool> {
         let Ok(guard) = self.refresh_lock.try_lock() else {
             return Ok(false);
         };
-        self.reload_persisted_prism_with_guard(guard)?;
+        self.recover_runtime_from_persisted_state_with_guard(guard)?;
         Ok(true)
     }
 
-    fn reload_persisted_prism_with_guard(&self, _guard: MutexGuard<'_, ()>) -> Result<()> {
-        self.reload_persisted_prism_locked()
+    #[allow(dead_code)]
+    fn recover_runtime_from_persisted_state_with_guard(
+        &self,
+        _guard: MutexGuard<'_, ()>,
+    ) -> Result<()> {
+        self.recover_runtime_from_persisted_state_locked()
     }
 
-    fn reload_persisted_prism_locked(&self) -> Result<()> {
+    #[allow(dead_code)]
+    fn recover_runtime_from_persisted_state_locked(&self) -> Result<()> {
         let mut store = self.store.lock().expect("workspace store lock poisoned");
         let local_workspace_revision = store.workspace_revision()?;
         let shared_workspace_revision =
@@ -813,7 +849,6 @@ impl WorkspaceSession {
             .refresh_lock
             .lock()
             .expect("workspace refresh lock poisoned");
-        self.reload_persisted_prism_locked()?;
         let expected_revision = self.coordination_revision()?;
         let prism = self.prism_arc();
         let before = prism.coordination_snapshot();
@@ -1050,8 +1085,12 @@ impl WorkspaceSession {
 impl Drop for WorkspaceSession {
     fn drop(&mut self) {
         if let Some(watch) = self.watch.take() {
-            let _ = watch.stop.send(());
-            let _ = watch.handle.join();
+            let _ = watch.stop.send(WatchMessage::Stop);
+            let _ = std::thread::Builder::new()
+                .name("prism-watch-join".to_string())
+                .spawn(move || {
+                    let _ = watch.handle.join();
+                });
         }
         if let Some(mut curator) = self.curator.take() {
             curator.stop();

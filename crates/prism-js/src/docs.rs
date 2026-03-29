@@ -583,6 +583,33 @@ type RuntimeProcessView = {
   bridgeState?: string;
 };
 
+type RuntimeMaterializationItemView = {
+  status: string;
+  loadedRevision: number;
+  currentRevision?: number;
+};
+
+type RuntimeMaterializationView = {
+  workspace: RuntimeMaterializationItemView;
+  episodic: RuntimeMaterializationItemView;
+  inference: RuntimeMaterializationItemView;
+  coordination: RuntimeMaterializationItemView;
+};
+
+type RuntimeFreshnessView = {
+  fsObservedRevision: number;
+  fsAppliedRevision: number;
+  fsDirty: boolean;
+  lastRefreshPath?: string;
+  lastRefreshTimestamp?: string;
+  lastRefreshDurationMs?: number;
+  lastWorkspaceBuildMs?: number;
+  lastDaemonReadyMs?: number;
+  materialization: RuntimeMaterializationView;
+  status: string;
+  error?: string;
+};
+
 type ConnectionInfoView = {
   root: string;
   mode: string;
@@ -611,6 +638,7 @@ type RuntimeStatusView = {
   orphanBridgeCount: number;
   processes: RuntimeProcessView[];
   processError?: string;
+  freshness: RuntimeFreshnessView;
 };
 
 type RuntimeLogEventView = {
