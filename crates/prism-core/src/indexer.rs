@@ -5,6 +5,7 @@ use std::time::Instant;
 
 use crate::concept_events::load_repo_curated_concepts;
 use crate::concept_relation_events::load_repo_concept_relations;
+use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::indexer_support::{
     build_workspace_session, collect_pending_file_parses, path_matches_refresh_scope,
     resolve_graph_edges,
@@ -13,7 +14,6 @@ use crate::layout::{discover_layout, sync_root_nodes, PackageInfo, WorkspaceLayo
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 use crate::parse_pipeline::{parse_jobs_in_parallel, PreparedParseJob};
 use crate::patch_outcomes::default_outcome_meta;
-use crate::published_plans::load_hydrated_coordination_plan_state;
 use crate::reanchor::{detect_moved_files, infer_reanchors};
 use crate::session::WorkspaceSession;
 use crate::util::{cache_path, cleanup_legacy_cache, default_adapters};
@@ -134,7 +134,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         let load_outcomes_ms = load_outcomes_started.elapsed().as_millis();
         let load_coordination_started = Instant::now();
         let plan_state = if options.coordination {
-            load_hydrated_coordination_plan_state(&root, store.load_coordination_snapshot()?)?
+            store.load_hydrated_coordination_plan_state_for_root(&root)?
         } else {
             None
         };

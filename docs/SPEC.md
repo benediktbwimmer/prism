@@ -120,6 +120,7 @@ Critical boundaries:
 * `prism-core` owns workspace loading, adapter registration, incremental reindex coordination, and long-lived service construction
 * `prism-core` is intentionally thin: it wires subsystems together, but does not redefine their storage, query, or memory semantics
 * `prism-store` owns persistence and raw observed change capture
+* the authoritative-vs-derived persistence contract for the migration is documented in [`docs/PERSISTENCE_STATE_CLASSIFICATION.md`](/Users/bene/code/prism/docs/PERSISTENCE_STATE_CLASSIFICATION.md)
 * `prism-history` owns lineage assignment and time-aware projection
 * `prism-memory` owns structured memory and outcomes, but not graph construction
 * `prism-projections` owns derived signals built from history and outcomes, including concept packets

@@ -6,7 +6,7 @@ use std::thread;
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use prism_coordination::PlanCreateInput;
+use prism_coordination::{CoordinationStore, PlanCreateInput, TaskCreateInput};
 use prism_curator::{
     CandidateRiskSummary, CuratorBackend, CuratorContext, CuratorJob, CuratorProposal, CuratorRun,
 };
@@ -31,6 +31,7 @@ use super::{
     index_workspace_session_with_options, ValidationFeedbackCategory, ValidationFeedbackRecord,
     ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
 };
+use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 
 static NEXT_TEMP_WORKSPACE: AtomicU64 = AtomicU64::new(0);
@@ -1596,6 +1597,96 @@ fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
             && task.title == "Hydrate plans from repo state"
             && task.status == prism_ir::CoordinationTaskStatus::Ready
             && task.session.is_none()
+    }));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coordination:persistence-backend-plan"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:persistence-backend")),
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Exercise backend-neutral coordination persistence".into(),
+                status: None,
+                policy: Default::default(),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coordination:persistence-backend-task"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:persistence-backend")),
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Hydrate native plan state through the store facade".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+
+    let snapshot = coordination.snapshot();
+    let mut store = MemoryStore::default();
+    store
+        .persist_coordination_snapshot_for_root(&root, &snapshot)
+        .unwrap();
+
+    assert!(root
+        .join(".prism")
+        .join("plans")
+        .join("index.jsonl")
+        .exists());
+    assert!(root
+        .join(".prism")
+        .join("plans")
+        .join("active")
+        .join(format!("{}.jsonl", plan_id.0))
+        .exists());
+
+    let hydrated = store
+        .load_hydrated_coordination_plan_state_for_root(&root)
+        .unwrap()
+        .expect("coordination backend should hydrate published plan state");
+    assert!(hydrated.snapshot.plans.iter().any(|plan| plan.id == plan_id
+        && plan.goal == "Exercise backend-neutral coordination persistence"));
+    assert!(hydrated.snapshot.tasks.iter().any(|task| {
+        task.id == task_id
+            && task.plan == plan_id
+            && task.title == "Hydrate native plan state through the store facade"
+    }));
+    assert!(hydrated.plan_graphs.iter().any(|graph| {
+        graph.id == plan_id && graph.nodes.iter().any(|node| node.id.0 == task_id.0)
     }));
 
     let _ = fs::remove_dir_all(root);

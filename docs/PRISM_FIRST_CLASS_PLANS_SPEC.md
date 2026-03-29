@@ -524,6 +524,8 @@ The published layout should prefer one event log per plan over one global shared
 ## 7.3 Event sourcing policy
 `.prism/plans/index.jsonl` plus `.prism/plans/active/<plan-id>.jsonl` are the committed source of truth for published plan intent.
 
+This plan-specific persistence policy follows the repo-wide classification in [`docs/PERSISTENCE_STATE_CLASSIFICATION.md`](/Users/bene/code/prism/docs/PERSISTENCE_STATE_CLASSIFICATION.md): authored plan intent and durable workflow continuity are authoritative, while hydrated graph materializations, compatibility task projections, summaries, recommendations, and snapshots remain derived.
+
 The index should remain intentionally small and hold only compact plan-level metadata needed for discovery, listing, and archive routing.
 
 The runtime state DB may keep:

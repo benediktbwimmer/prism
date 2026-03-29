@@ -29,16 +29,13 @@ use crate::concept_events::{append_repo_concept_event, load_repo_curated_concept
 use crate::concept_relation_events::{
     append_repo_concept_relation_event, load_repo_concept_relations,
 };
+use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorHandleRef};
 use crate::memory_events::{
     append_repo_memory_event, filter_memory_events, load_repo_memory_events,
 };
 use crate::published_knowledge::{
     validate_repo_concept_event, validate_repo_concept_relation_event, validate_repo_memory_event,
-};
-use crate::published_plans::{
-    load_hydrated_coordination_plan_state, load_hydrated_coordination_snapshot,
-    sync_repo_published_plans,
 };
 use crate::util::{
     current_timestamp, current_timestamp_millis, workspace_fingerprint, WorkspaceFingerprint,
@@ -304,7 +301,7 @@ impl WorkspaceSession {
             .map(OutcomeMemory::from_snapshot)
             .unwrap_or_else(OutcomeMemory::new);
         let plan_state = if self.coordination_enabled {
-            load_hydrated_coordination_plan_state(&self.root, store.load_coordination_snapshot()?)?
+            store.load_hydrated_coordination_plan_state_for_root(&self.root)?
         } else {
             None
         };
@@ -493,32 +490,26 @@ impl WorkspaceSession {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        let snapshot = self
-            .store
+        self.store
             .lock()
             .expect("workspace store lock poisoned")
-            .load_coordination_snapshot()?;
-        load_hydrated_coordination_snapshot(&self.root, snapshot)
+            .load_hydrated_coordination_snapshot_for_root(&self.root)
     }
 
     pub fn load_coordination_plan_state(&self) -> Result<Option<CoordinationPlanState>> {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        let snapshot = self
+        Ok(self
             .store
             .lock()
             .expect("workspace store lock poisoned")
-            .load_coordination_snapshot()?;
-        Ok(
-            load_hydrated_coordination_plan_state(&self.root, snapshot)?.map(|state| {
-                CoordinationPlanState {
-                    snapshot: state.snapshot,
-                    plan_graphs: state.plan_graphs,
-                    execution_overlays: state.execution_overlays,
-                }
-            }),
-        )
+            .load_hydrated_coordination_plan_state_for_root(&self.root)?
+            .map(|state| CoordinationPlanState {
+                snapshot: state.snapshot,
+                plan_graphs: state.plan_graphs,
+                execution_overlays: state.execution_overlays,
+            }))
     }
 
     pub fn persist_coordination(&self, snapshot: &CoordinationSnapshot) -> Result<()> {
@@ -532,11 +523,7 @@ impl WorkspaceSession {
         self.store
             .lock()
             .expect("workspace store lock poisoned")
-            .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
-                coordination_snapshot: Some(snapshot.clone()),
-                ..AuxiliaryPersistBatch::default()
-            })?;
-        sync_repo_published_plans(&self.root, snapshot)
+            .persist_coordination_snapshot_for_root(&self.root, snapshot)
     }
 
     pub fn persist_current_coordination(&self) -> Result<()> {
@@ -552,11 +539,7 @@ impl WorkspaceSession {
         self.store
             .lock()
             .expect("workspace store lock poisoned")
-            .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
-                coordination_snapshot: Some(snapshot.clone()),
-                ..AuxiliaryPersistBatch::default()
-            })?;
-        sync_repo_published_plans(&self.root, &snapshot)
+            .persist_coordination_snapshot_for_root(&self.root, &snapshot)
     }
 
     pub fn mutate_coordination<T, F>(&self, mutate: F) -> Result<T>
@@ -578,11 +561,7 @@ impl WorkspaceSession {
         self.store
             .lock()
             .expect("workspace store lock poisoned")
-            .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
-                coordination_snapshot: Some(snapshot.clone()),
-                ..AuxiliaryPersistBatch::default()
-            })?;
-        sync_repo_published_plans(&self.root, &snapshot)?;
+            .persist_coordination_snapshot_for_root(&self.root, &snapshot)?;
         Ok(result)
     }
 
