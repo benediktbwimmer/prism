@@ -261,8 +261,15 @@ impl Prism {
         self.outcomes.snapshot()
     }
 
+    fn continuity_snapshot(&self) -> CoordinationSnapshot {
+        self.continuity_runtime
+            .read()
+            .expect("continuity runtime lock poisoned")
+            .snapshot()
+    }
+
     pub fn coordination_snapshot(&self) -> CoordinationSnapshot {
-        self.coordination.snapshot()
+        self.continuity_snapshot()
     }
 
     pub fn replace_coordination_snapshot(&self, snapshot: CoordinationSnapshot) {
@@ -292,7 +299,7 @@ impl Prism {
             .write()
             .expect("plan runtime lock poisoned") =
             NativePlanRuntimeState::from_snapshot_with_graphs_and_overlays(
-                &self.coordination.snapshot(),
+                &self.continuity_snapshot(),
                 plan_graphs,
                 execution_overlays,
             );
@@ -303,7 +310,7 @@ impl Prism {
     }
 
     pub fn refresh_plan_runtime_from_coordination(&self) {
-        let snapshot = self.coordination.snapshot();
+        let snapshot = self.continuity_snapshot();
         *self
             .plan_runtime
             .write()
@@ -320,7 +327,7 @@ impl Prism {
     where
         F: FnOnce(&mut NativePlanRuntimeState) -> Result<T>,
     {
-        let snapshot = self.coordination.snapshot();
+        let snapshot = self.continuity_snapshot();
         let mut runtime = self
             .plan_runtime
             .write()
@@ -372,7 +379,7 @@ impl Prism {
     where
         F: FnOnce(&mut CoordinationRuntimeState) -> Result<T>,
     {
-        let mut runtime = CoordinationRuntimeState::from_snapshot(self.coordination.snapshot());
+        let mut runtime = CoordinationRuntimeState::from_snapshot(self.continuity_snapshot());
         match mutate(&mut runtime) {
             Ok(result) => {
                 self.persist_coordination_snapshot(runtime.snapshot())?;
@@ -396,7 +403,7 @@ impl Prism {
                 input.branch_ref = context.branch_ref;
             }
         }
-        let mut runtime = CoordinationRuntimeState::from_snapshot(self.coordination.snapshot());
+        let mut runtime = CoordinationRuntimeState::from_snapshot(self.continuity_snapshot());
         match runtime.create_task(meta, input) {
             Ok((_, task)) => {
                 let snapshot = runtime.snapshot();
@@ -428,7 +435,7 @@ impl Prism {
                 input.branch_ref = Some(None);
             }
         }
-        let mut runtime = CoordinationRuntimeState::from_snapshot(self.coordination.snapshot());
+        let mut runtime = CoordinationRuntimeState::from_snapshot(self.continuity_snapshot());
         match runtime.update_task(meta, input, current_revision, now) {
             Ok(task) => {
                 let snapshot = runtime.snapshot();
@@ -450,7 +457,7 @@ impl Prism {
         input: HandoffInput,
         current_revision: WorkspaceRevision,
     ) -> Result<CoordinationTask> {
-        let mut runtime = CoordinationRuntimeState::from_snapshot(self.coordination.snapshot());
+        let mut runtime = CoordinationRuntimeState::from_snapshot(self.continuity_snapshot());
         match runtime.handoff(meta, input, current_revision) {
             Ok(task) => {
                 let snapshot = runtime.snapshot();
@@ -475,7 +482,7 @@ impl Prism {
             input.worktree_id = Some(context.worktree_id);
             input.branch_ref = context.branch_ref;
         }
-        let mut runtime = CoordinationRuntimeState::from_snapshot(self.coordination.snapshot());
+        let mut runtime = CoordinationRuntimeState::from_snapshot(self.continuity_snapshot());
         match runtime.accept_handoff(meta, input) {
             Ok(task) => {
                 let snapshot = runtime.snapshot();
@@ -609,7 +616,7 @@ impl Prism {
         status: Option<prism_ir::PlanStatus>,
         policy: Option<prism_coordination::CoordinationPolicy>,
     ) -> Result<PlanId> {
-        let mut runtime = CoordinationRuntimeState::from_snapshot(self.coordination.snapshot());
+        let mut runtime = CoordinationRuntimeState::from_snapshot(self.continuity_snapshot());
         match runtime.create_plan(
             meta,
             prism_coordination::PlanCreateInput {
@@ -640,7 +647,7 @@ impl Prism {
         goal: Option<String>,
         policy: Option<prism_coordination::CoordinationPolicy>,
     ) -> Result<()> {
-        let mut runtime = CoordinationRuntimeState::from_snapshot(self.coordination.snapshot());
+        let mut runtime = CoordinationRuntimeState::from_snapshot(self.continuity_snapshot());
         match runtime.update_plan(
             meta,
             prism_coordination::PlanUpdateInput {

@@ -1439,17 +1439,17 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
         .expect("continuity runtime lock poisoned") =
         CoordinationRuntimeState::from_snapshot(runtime_snapshot);
 
-    assert!(prism.coordination_snapshot().claims.is_empty());
-    assert!(prism.coordination_snapshot().artifacts.is_empty());
+    assert_eq!(prism.coordination_snapshot().claims.len(), 1);
+    assert_eq!(prism.coordination_snapshot().artifacts.len(), 1);
     assert_eq!(
         prism
             .coordination_snapshot()
             .tasks
             .into_iter()
             .find(|task| task.id == task_id)
-            .expect("projected task should exist")
+            .expect("runtime task should exist")
             .title,
-        "Task A"
+        "Task A runtime"
     );
     assert_eq!(
         prism

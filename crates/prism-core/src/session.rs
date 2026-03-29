@@ -576,9 +576,19 @@ impl WorkspaceSession {
             .expect("workspace store lock poisoned")
             .coordination_revision()?;
         let prism = self.prism_arc();
-        let before = prism.coordination_snapshot();
+        let before_runtime = prism.coordination_snapshot();
+        let before_store = prism.coordination().snapshot();
         let result = mutate(prism.as_ref())?;
-        let snapshot = prism.coordination_snapshot();
+        let after_runtime = prism.coordination_snapshot();
+        let after_store = prism.coordination().snapshot();
+        let (before, snapshot) = if after_runtime != before_runtime {
+            (before_runtime, after_runtime)
+        } else if after_store != before_store {
+            prism.replace_coordination_snapshot(after_store.clone());
+            (before_store, after_store)
+        } else {
+            (before_runtime, after_runtime)
+        };
         let appended_events = snapshot
             .events
             .iter()
