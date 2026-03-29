@@ -540,10 +540,17 @@ impl WorkspaceSession {
             .expect("workspace refresh lock poisoned");
         let prism = self.prism_arc();
         let snapshot = prism.coordination_snapshot();
+        let plan_graphs = prism.plan_graphs();
+        let execution_overlays = prism.plan_execution_overlays_by_plan();
         self.store
             .lock()
             .expect("workspace store lock poisoned")
-            .persist_coordination_snapshot_for_root(&self.root, &snapshot)
+            .persist_coordination_state_for_root(
+                &self.root,
+                &snapshot,
+                Some(&plan_graphs),
+                Some(&execution_overlays),
+            )
     }
 
     pub fn mutate_coordination<T, F>(&self, mutate: F) -> Result<T>
@@ -600,21 +607,28 @@ impl WorkspaceSession {
             })
             .cloned()
             .collect::<Vec<_>>();
+        let plan_graphs = prism.plan_graphs();
+        let execution_overlays = prism.plan_execution_overlays_by_plan();
         let mut store = self.store.lock().expect("workspace store lock poisoned");
         if let Some(session_id) = session_id {
-            store.persist_coordination_mutation_for_root_with_session(
+            store.persist_coordination_mutation_state_for_root_with_session(
                 &self.root,
                 expected_revision,
                 &snapshot,
                 &appended_events,
                 Some(session_id),
+                Some(&plan_graphs),
+                Some(&execution_overlays),
             )?;
         } else {
-            store.persist_coordination_mutation_for_root(
+            store.persist_coordination_mutation_state_for_root_with_session(
                 &self.root,
                 expected_revision,
                 &snapshot,
                 &appended_events,
+                None,
+                Some(&plan_graphs),
+                Some(&execution_overlays),
             )?;
         }
         Ok(result)

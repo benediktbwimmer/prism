@@ -5,6 +5,7 @@ use prism_ir::{
     AnchorRef, ArtifactId, Capability, ClaimMode, CoordinationTaskId, PlanExecutionOverlay,
     PlanGraph, PlanId, PlanNode, SessionId, Timestamp, WorkspaceRevision,
 };
+use std::collections::BTreeMap;
 
 use crate::common::{anchor_sort_key, sort_node_ids};
 use crate::plan_completion::current_timestamp;
@@ -57,6 +58,20 @@ impl Prism {
             .read()
             .expect("plan runtime lock poisoned")
             .plan_execution(plan_id)
+    }
+
+    pub fn plan_graphs(&self) -> Vec<PlanGraph> {
+        self.plan_runtime
+            .read()
+            .expect("plan runtime lock poisoned")
+            .plan_graphs()
+    }
+
+    pub fn plan_execution_overlays_by_plan(&self) -> BTreeMap<String, Vec<PlanExecutionOverlay>> {
+        self.plan_runtime
+            .read()
+            .expect("plan runtime lock poisoned")
+            .execution_overlays_by_plan()
     }
 
     pub fn plan_ready_nodes(&self, plan_id: &PlanId) -> Vec<PlanNode> {

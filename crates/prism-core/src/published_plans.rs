@@ -186,6 +186,38 @@ pub(crate) fn sync_repo_published_plans(
     root: &Path,
     snapshot: &CoordinationSnapshot,
 ) -> Result<()> {
+    sync_repo_published_plan_state(
+        root,
+        snapshot,
+        snapshot_plan_graphs(snapshot),
+        snapshot
+            .tasks
+            .iter()
+            .cloned()
+            .fold(
+                BTreeMap::<String, Vec<CoordinationTask>>::new(),
+                |mut map, task| {
+                    map.entry(task.plan.0.to_string()).or_default().push(task);
+                    map
+                },
+            )
+            .into_iter()
+            .map(|(plan_id, tasks)| {
+                (
+                    plan_id,
+                    normalize_execution_overlays(execution_overlays_from_tasks(&tasks)),
+                )
+            })
+            .collect::<BTreeMap<_, _>>(),
+    )
+}
+
+pub(crate) fn sync_repo_published_plan_state(
+    root: &Path,
+    snapshot: &CoordinationSnapshot,
+    mut graphs: Vec<PlanGraph>,
+    overlays_by_plan: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+) -> Result<()> {
     let plans_dir = repo_plans_dir(root);
     fs::create_dir_all(repo_active_plans_dir(root))?;
     fs::create_dir_all(repo_archived_plans_dir(root))?;
@@ -202,29 +234,9 @@ pub(crate) fn sync_repo_published_plans(
         .iter()
         .map(|plan| (plan.id.0.to_string(), plan.policy.clone()))
         .collect::<BTreeMap<_, _>>();
-    let overlays_by_plan = snapshot
-        .tasks
-        .iter()
-        .cloned()
-        .fold(
-            BTreeMap::<String, Vec<CoordinationTask>>::new(),
-            |mut map, task| {
-                map.entry(task.plan.0.to_string()).or_default().push(task);
-                map
-            },
-        )
-        .into_iter()
-        .map(|(plan_id, tasks)| {
-            (
-                plan_id,
-                normalize_execution_overlays(execution_overlays_from_tasks(&tasks)),
-            )
-        })
-        .collect::<BTreeMap<_, _>>();
 
     let mut index_entries = Vec::new();
     let mut expected_logs = BTreeSet::new();
-    let mut graphs = snapshot_plan_graphs(snapshot);
     graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
     for graph in graphs {
         let plan_key = graph.id.0.to_string();
@@ -249,6 +261,7 @@ pub(crate) fn sync_repo_published_plans(
             .get(plan_key.as_str())
             .cloned()
             .unwrap_or_default();
+        let overlays = sanitize_published_execution_overlays(overlays);
 
         let relative_log_path = relative_plan_log_path(header.status, &header.id);
         let full_log_path = root.join(&relative_log_path);
@@ -816,6 +829,24 @@ fn normalize_execution_overlays(overlays: Vec<PlanExecutionOverlay>) -> Vec<Plan
         .collect::<Vec<_>>();
     overlays.sort_by(|left, right| left.node_id.0.cmp(&right.node_id.0));
     overlays
+}
+
+fn sanitize_published_execution_overlays(
+    overlays: Vec<PlanExecutionOverlay>,
+) -> Vec<PlanExecutionOverlay> {
+    normalize_execution_overlays(
+        overlays
+            .into_iter()
+            .map(|mut overlay| {
+                overlay.session = None;
+                overlay.worktree_id = None;
+                overlay.branch_ref = None;
+                overlay.effective_assignee = None;
+                overlay.awaiting_handoff_from = None;
+                overlay
+            })
+            .collect(),
+    )
 }
 
 fn execution_overlays_by_plan(

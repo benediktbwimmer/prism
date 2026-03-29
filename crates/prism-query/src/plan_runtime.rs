@@ -76,6 +76,10 @@ impl NativePlanRuntimeState {
         self.graphs.values().cloned().collect()
     }
 
+    pub(crate) fn execution_overlays_by_plan(&self) -> BTreeMap<String, Vec<PlanExecutionOverlay>> {
+        self.execution_overlays.clone()
+    }
+
     pub(crate) fn plan_execution(&self, plan_id: &PlanId) -> Vec<PlanExecutionOverlay> {
         let Some(graph) = self.graphs.get(plan_id.0.as_str()) else {
             return Vec::new();
