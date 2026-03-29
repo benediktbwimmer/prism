@@ -12,6 +12,13 @@ fn meta(id: &str, ts: u64) -> EventMeta {
     }
 }
 
+fn revision() -> prism_ir::WorkspaceRevision {
+    prism_ir::WorkspaceRevision {
+        graph_version: 1,
+        git_commit: None,
+    }
+}
+
 #[test]
 fn claim_conflicts_block_hard_exclusive_overlap() {
     let store = CoordinationStore::new();
@@ -245,6 +252,244 @@ fn review_policy_gates_completion_but_not_ready_work() {
             .unwrap()
             .status,
         prism_ir::CoordinationTaskStatus::Completed
+    );
+}
+
+#[test]
+fn incremental_coordination_read_model_matches_snapshot_rebuild() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:plan", 1),
+            PlanCreateInput {
+                goal: "Ship reviewed change".to_string(),
+                status: None,
+                policy: Some(CoordinationPolicy {
+                    require_review_for_completion: true,
+                    ..CoordinationPolicy::default()
+                }),
+            },
+        )
+        .unwrap();
+    let (task_id, task) = store
+        .create_task(
+            meta("event:task", 2),
+            TaskCreateInput {
+                plan_id,
+                title: "Edit main".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: Some("worktree:a".to_string()),
+                branch_ref: Some("refs/heads/main".to_string()),
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+
+    let base_snapshot = store.snapshot();
+    let base_read_model = coordination_read_model_from_snapshot(&base_snapshot);
+
+    store
+        .update_task(
+            meta("event:task-review", 3),
+            TaskUpdateInput {
+                task_id: task_id.clone(),
+                status: Some(prism_ir::CoordinationTaskStatus::InReview),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                anchors: None,
+                depends_on: None,
+                acceptance: None,
+                base_revision: None,
+                completion_context: None,
+            },
+            revision(),
+            3,
+        )
+        .unwrap();
+    store
+        .acquire_claim(
+            meta("event:claim", 4),
+            prism_ir::SessionId::new("session:a"),
+            ClaimAcquireInput {
+                task_id: Some(task_id.clone()),
+                anchors: task.anchors.clone(),
+                capability: prism_ir::Capability::Edit,
+                mode: Some(prism_ir::ClaimMode::SoftExclusive),
+                ttl_seconds: Some(60),
+                base_revision: revision(),
+                current_revision: revision(),
+                agent: None,
+                worktree_id: Some("worktree:a".to_string()),
+                branch_ref: Some("refs/heads/main".to_string()),
+            },
+        )
+        .unwrap();
+    store
+        .propose_artifact(
+            meta("event:artifact", 5),
+            ArtifactProposeInput {
+                task_id: task_id.clone(),
+                anchors: task.anchors.clone(),
+                diff_ref: Some("patch:main".to_string()),
+                evidence: Vec::new(),
+                base_revision: revision(),
+                current_revision: revision(),
+                required_validations: Vec::new(),
+                validated_checks: Vec::new(),
+                risk_score: Some(0.2),
+                worktree_id: Some("worktree:a".to_string()),
+                branch_ref: Some("refs/heads/main".to_string()),
+            },
+        )
+        .unwrap();
+    assert!(store
+        .update_task(
+            meta("event:reject", 6),
+            TaskUpdateInput {
+                task_id: task_id.clone(),
+                status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                anchors: None,
+                depends_on: None,
+                acceptance: None,
+                base_revision: None,
+                completion_context: None,
+            },
+            revision(),
+            6,
+        )
+        .is_err());
+
+    let final_snapshot = store.snapshot();
+    let appended_events = final_snapshot.events[base_snapshot.events.len()..].to_vec();
+
+    assert_eq!(
+        coordination_read_model_from_seed(
+            &final_snapshot,
+            Some(&base_read_model),
+            &appended_events
+        ),
+        coordination_read_model_from_snapshot(&final_snapshot)
+    );
+}
+
+#[test]
+fn incremental_coordination_queue_read_model_matches_snapshot_rebuild() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:plan", 1),
+            PlanCreateInput {
+                goal: "Ship handoff".to_string(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, task) = store
+        .create_task(
+            meta("event:task", 2),
+            TaskCreateInput {
+                plan_id,
+                title: "Edit main".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: Some(prism_ir::AgentId::new("agent:a")),
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: Some("worktree:a".to_string()),
+                branch_ref: Some("refs/heads/main".to_string()),
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+
+    let base_snapshot = store.snapshot();
+    let base_queue_model = coordination_queue_read_model_from_snapshot(&base_snapshot);
+
+    store
+        .handoff(
+            meta("event:handoff", 3),
+            HandoffInput {
+                task_id: task_id.clone(),
+                to_agent: Some(prism_ir::AgentId::new("agent:b")),
+                summary: "Need review".to_string(),
+                base_revision: revision(),
+            },
+            revision(),
+        )
+        .unwrap();
+    store
+        .accept_handoff(
+            meta("event:handoff-accept", 4),
+            HandoffAcceptInput {
+                task_id: task_id.clone(),
+                agent: Some(prism_ir::AgentId::new("agent:b")),
+                worktree_id: Some("worktree:b".to_string()),
+                branch_ref: Some("refs/heads/feature".to_string()),
+            },
+        )
+        .unwrap();
+    store
+        .acquire_claim(
+            meta("event:claim", 5),
+            prism_ir::SessionId::new("session:b"),
+            ClaimAcquireInput {
+                task_id: Some(task_id.clone()),
+                anchors: task.anchors.clone(),
+                capability: prism_ir::Capability::Edit,
+                mode: Some(prism_ir::ClaimMode::SoftExclusive),
+                ttl_seconds: Some(60),
+                base_revision: revision(),
+                current_revision: revision(),
+                agent: Some(prism_ir::AgentId::new("agent:b")),
+                worktree_id: Some("worktree:b".to_string()),
+                branch_ref: Some("refs/heads/feature".to_string()),
+            },
+        )
+        .unwrap();
+    store
+        .propose_artifact(
+            meta("event:artifact", 6),
+            ArtifactProposeInput {
+                task_id,
+                anchors: task.anchors.clone(),
+                diff_ref: Some("patch:feature".to_string()),
+                evidence: Vec::new(),
+                base_revision: revision(),
+                current_revision: revision(),
+                required_validations: Vec::new(),
+                validated_checks: Vec::new(),
+                risk_score: Some(0.1),
+                worktree_id: Some("worktree:b".to_string()),
+                branch_ref: Some("refs/heads/feature".to_string()),
+            },
+        )
+        .unwrap();
+
+    let final_snapshot = store.snapshot();
+    let appended_events = final_snapshot.events[base_snapshot.events.len()..].to_vec();
+
+    assert_eq!(
+        coordination_queue_read_model_from_seed(
+            &final_snapshot,
+            Some(&base_queue_model),
+            &appended_events
+        ),
+        coordination_queue_read_model_from_snapshot(&final_snapshot)
     );
 }
 

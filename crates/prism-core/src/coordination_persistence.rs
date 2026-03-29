@@ -3,7 +3,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use prism_coordination::{
-    coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
+    coordination_queue_read_model_from_seed, coordination_read_model_from_seed,
     coordination_snapshot_from_events, CoordinationEvent, CoordinationSnapshot,
 };
 use prism_ir::{PlanExecutionOverlay, PlanGraph, SessionId};
@@ -53,17 +53,27 @@ pub(crate) trait CoordinationPersistenceBackend: Store {
         plan_graphs: Option<&[PlanGraph]>,
         execution_overlays: Option<&BTreeMap<String, Vec<PlanExecutionOverlay>>>,
     ) -> Result<()> {
+        let existing_read_model = self.load_coordination_read_model()?;
+        let existing_queue_read_model = self.load_coordination_queue_read_model()?;
         let existing_events = self.load_coordination_events()?;
         let appended_events = coordination_event_delta(&existing_events, &snapshot.events);
         self.commit_coordination_persist_batch(&CoordinationPersistBatch {
             context: coordination_persist_context_for_root(root, None),
             expected_revision: None,
-            appended_events,
+            appended_events: appended_events.clone(),
         })?;
-        self.save_coordination_read_model(&coordination_read_model_from_snapshot(snapshot))?;
-        self.save_coordination_queue_read_model(&coordination_queue_read_model_from_snapshot(
+        let read_model = coordination_read_model_from_seed(
             snapshot,
-        ))?;
+            existing_read_model.as_ref(),
+            &appended_events,
+        );
+        let queue_read_model = coordination_queue_read_model_from_seed(
+            snapshot,
+            existing_queue_read_model.as_ref(),
+            &appended_events,
+        );
+        self.save_coordination_read_model(&read_model)?;
+        self.save_coordination_queue_read_model(&queue_read_model)?;
         self.maybe_compact_coordination_events(snapshot)?;
         match (plan_graphs, execution_overlays) {
             (Some(plan_graphs), Some(execution_overlays)) => sync_repo_published_plan_state(
@@ -86,15 +96,25 @@ pub(crate) trait CoordinationPersistenceBackend: Store {
         plan_graphs: Option<&[PlanGraph]>,
         execution_overlays: Option<&BTreeMap<String, Vec<PlanExecutionOverlay>>>,
     ) -> Result<CoordinationPersistResult> {
+        let existing_read_model = self.load_coordination_read_model()?;
+        let existing_queue_read_model = self.load_coordination_queue_read_model()?;
         let result = self.commit_coordination_persist_batch(&CoordinationPersistBatch {
             context: coordination_persist_context_for_root(root, session_id),
             expected_revision: Some(expected_revision),
             appended_events: appended_events.to_vec(),
         })?;
-        self.save_coordination_read_model(&coordination_read_model_from_snapshot(snapshot))?;
-        self.save_coordination_queue_read_model(&coordination_queue_read_model_from_snapshot(
+        let read_model = coordination_read_model_from_seed(
             snapshot,
-        ))?;
+            existing_read_model.as_ref(),
+            appended_events,
+        );
+        let queue_read_model = coordination_queue_read_model_from_seed(
+            snapshot,
+            existing_queue_read_model.as_ref(),
+            appended_events,
+        );
+        self.save_coordination_read_model(&read_model)?;
+        self.save_coordination_queue_read_model(&queue_read_model)?;
         if result.applied {
             self.maybe_compact_coordination_events(snapshot)?;
         }

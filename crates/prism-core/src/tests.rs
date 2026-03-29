@@ -7,7 +7,8 @@ use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use prism_coordination::{
-    CoordinationEvent, CoordinationSnapshot, CoordinationStore, PlanCreateInput, TaskCreateInput,
+    ArtifactProposeInput, ClaimAcquireInput, CoordinationEvent, CoordinationSnapshot,
+    CoordinationStore, HandoffInput, PlanCreateInput, TaskCreateInput, TaskUpdateInput,
 };
 use prism_curator::{
     CandidateRiskSummary, CuratorBackend, CuratorContext, CuratorJob, CuratorProposal, CuratorRun,
@@ -15,7 +16,7 @@ use prism_curator::{
 use prism_ir::{
     AnchorRef, ChangeTrigger, CoordinationEventKind, EdgeKind, EventActor, EventId, EventMeta,
     GraphChange, LineageEvent, LineageEventKind, LineageEvidence, LineageId, NodeId, NodeKind,
-    TaskId,
+    SessionId, TaskId,
 };
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind, MemoryEventQuery, MemoryId,
@@ -1835,6 +1836,219 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
     assert!(hydrated.plan_graphs.iter().any(|graph| {
         graph.id == plan_id && graph.nodes.iter().any(|node| node.id.0 == task_id.0)
     }));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn coordination_persistence_incrementally_updates_stored_read_models() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coordination:incremental-plan"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:incremental-plan")),
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Exercise incremental read-model persistence".into(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, task) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coordination:incremental-task"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:incremental-plan")),
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Track incremental persistence".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(SessionId::new("session:a")),
+                worktree_id: Some("worktree:a".into()),
+                branch_ref: Some("refs/heads/main".into()),
+                anchors: vec![AnchorRef::Kind(NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+
+    let initial_snapshot = coordination.snapshot();
+    let mut store = MemoryStore::default();
+    store
+        .persist_coordination_snapshot_for_root(&root, &initial_snapshot)
+        .unwrap();
+    assert_eq!(store.coordination_revision().unwrap(), 1);
+
+    coordination
+        .update_task(
+            EventMeta {
+                id: EventId::new("coordination:incremental-task-review"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:incremental-plan")),
+                causation: None,
+            },
+            TaskUpdateInput {
+                task_id: task_id.clone(),
+                status: Some(prism_ir::CoordinationTaskStatus::InReview),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                anchors: None,
+                depends_on: None,
+                acceptance: None,
+                base_revision: None,
+                completion_context: None,
+            },
+            prism_ir::WorkspaceRevision {
+                graph_version: 1,
+                git_commit: None,
+            },
+            3,
+        )
+        .unwrap();
+    coordination
+        .handoff(
+            EventMeta {
+                id: EventId::new("coordination:incremental-handoff"),
+                ts: 4,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:incremental-plan")),
+                causation: None,
+            },
+            HandoffInput {
+                task_id: task_id.clone(),
+                to_agent: Some(prism_ir::AgentId::new("agent:b")),
+                summary: "Need another owner".into(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+            prism_ir::WorkspaceRevision {
+                graph_version: 1,
+                git_commit: None,
+            },
+        )
+        .unwrap();
+    coordination
+        .acquire_claim(
+            EventMeta {
+                id: EventId::new("coordination:incremental-claim"),
+                ts: 5,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:incremental-plan")),
+                causation: None,
+            },
+            SessionId::new("session:b"),
+            ClaimAcquireInput {
+                task_id: Some(task_id.clone()),
+                anchors: task.anchors.clone(),
+                capability: prism_ir::Capability::Edit,
+                mode: Some(prism_ir::ClaimMode::SoftExclusive),
+                ttl_seconds: Some(60),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                current_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                agent: Some(prism_ir::AgentId::new("agent:b")),
+                worktree_id: Some("worktree:b".into()),
+                branch_ref: Some("refs/heads/feature".into()),
+            },
+        )
+        .unwrap();
+    coordination
+        .propose_artifact(
+            EventMeta {
+                id: EventId::new("coordination:incremental-artifact"),
+                ts: 6,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:incremental-plan")),
+                causation: None,
+            },
+            ArtifactProposeInput {
+                task_id: task_id.clone(),
+                anchors: task.anchors.clone(),
+                diff_ref: Some("patch:feature".into()),
+                evidence: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                current_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                required_validations: Vec::new(),
+                validated_checks: Vec::new(),
+                risk_score: Some(0.1),
+                worktree_id: Some("worktree:b".into()),
+                branch_ref: Some("refs/heads/feature".into()),
+            },
+        )
+        .unwrap();
+
+    let updated_snapshot = coordination.snapshot();
+    let appended_events = updated_snapshot.events[initial_snapshot.events.len()..].to_vec();
+    store
+        .persist_coordination_mutation_state_for_root_with_session(
+            &root,
+            1,
+            &updated_snapshot,
+            &appended_events,
+            Some(&SessionId::new("session:b")),
+            None,
+            None,
+        )
+        .unwrap();
+
+    let read_model = store
+        .load_coordination_read_model()
+        .unwrap()
+        .expect("incremental coordination read model should be persisted");
+    assert_eq!(
+        read_model,
+        prism_coordination::coordination_read_model_from_snapshot(&updated_snapshot)
+    );
+
+    let queue_model = store
+        .load_coordination_queue_read_model()
+        .unwrap()
+        .expect("incremental coordination queue model should be persisted");
+    assert_eq!(
+        queue_model,
+        prism_coordination::coordination_queue_read_model_from_snapshot(&updated_snapshot)
+    );
 
     let _ = fs::remove_dir_all(root);
 }

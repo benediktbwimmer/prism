@@ -28,9 +28,11 @@ pub use compat::{
 };
 pub use event_replay::coordination_snapshot_from_events;
 pub use queue_read_model::{
-    coordination_queue_read_model_from_snapshot, CoordinationQueueReadModel,
+    coordination_queue_read_model_from_seed, coordination_queue_read_model_from_snapshot,
+    CoordinationQueueReadModel,
 };
 pub use read_model::{
-    coordination_read_model_from_snapshot, ready_task_count_for_active_plans, CoordinationReadModel,
+    coordination_read_model_from_seed, coordination_read_model_from_snapshot,
+    ready_task_count_for_active_plans, CoordinationReadModel,
 };
 pub use runtime::CoordinationRuntimeState;
