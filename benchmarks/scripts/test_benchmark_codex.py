@@ -10,7 +10,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from benchmark_codex import _compose_prompt, _parse_exec_jsonl
+from benchmark_codex import (
+    _compose_prompt,
+    _parse_exec_jsonl,
+    _parse_workspace_refresh_metrics,
+)
 
 
 class BenchmarkCodexTests(unittest.TestCase):
@@ -119,6 +123,59 @@ class BenchmarkCodexTests(unittest.TestCase):
         self.assertEqual(parsed["expand_preview_direct_progressions"], 0)
         self.assertEqual(parsed["prompt_tokens"], 11)
         self.assertEqual(parsed["completion_tokens"], 7)
+
+    def test_parse_workspace_refresh_metrics_sums_internal_breakdown(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace_dir = Path(temp_dir)
+            prism_dir = workspace_dir / ".prism"
+            prism_dir.mkdir()
+            log_path = prism_dir / "prism-mcp-daemon.log"
+            log_path.write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "message": "prism-mcp workspace refresh",
+                                "refresh_path": "auxiliary",
+                                "duration_ms": 15,
+                                "lock_wait_ms": 1,
+                                "lock_hold_ms": 15,
+                                "snapshot_revisions_ms": 3,
+                                "load_episodic_ms": 4,
+                                "load_inference_ms": 0,
+                                "load_coordination_ms": 2,
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "message": "prism-mcp workspace refresh",
+                                "refresh_path": "full",
+                                "duration_ms": 40,
+                                "lock_wait_ms": 2,
+                                "lock_hold_ms": 40,
+                                "snapshot_revisions_ms": 5,
+                                "load_episodic_ms": 6,
+                                "load_inference_ms": 7,
+                                "load_coordination_ms": 8,
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            parsed = _parse_workspace_refresh_metrics(workspace_dir, 0)
+
+            self.assertEqual(parsed["workspace_refresh_duration_ms"], 55)
+            self.assertEqual(parsed["workspace_refresh_lock_wait_ms"], 3)
+            self.assertEqual(parsed["workspace_refresh_lock_hold_ms"], 55)
+            self.assertEqual(parsed["workspace_refresh_snapshot_revisions_ms"], 8)
+            self.assertEqual(parsed["workspace_refresh_load_episodic_ms"], 10)
+            self.assertEqual(parsed["workspace_refresh_load_inference_ms"], 7)
+            self.assertEqual(parsed["workspace_refresh_load_coordination_ms"], 10)
+            self.assertEqual(parsed["workspace_full_reload_count"], 1)
+            self.assertEqual(parsed["workspace_auxiliary_reload_count"], 1)
 
 
 if __name__ == "__main__":

@@ -24,6 +24,15 @@
         "expand_preview_direct_opens",
         "expand_preview_direct_progressions",
         "prism_payload_bytes",
+        "workspace_refresh_duration_ms",
+        "workspace_refresh_lock_wait_ms",
+        "workspace_refresh_lock_hold_ms",
+        "workspace_refresh_snapshot_revisions_ms",
+        "workspace_refresh_load_episodic_ms",
+        "workspace_refresh_load_inference_ms",
+        "workspace_refresh_load_coordination_ms",
+        "workspace_full_reload_count",
+        "workspace_auxiliary_reload_count",
         "shell_commands",
         "shell_read_commands",
         "repeated_reads",
@@ -96,6 +105,42 @@
           "minimum": 0
         },
         "prism_payload_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "workspace_refresh_duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "workspace_refresh_lock_wait_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "workspace_refresh_lock_hold_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "workspace_refresh_snapshot_revisions_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "workspace_refresh_load_episodic_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "workspace_refresh_load_inference_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "workspace_refresh_load_coordination_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "workspace_full_reload_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "workspace_auxiliary_reload_count": {
           "type": "integer",
           "minimum": 0
         },
@@ -211,6 +256,15 @@
                 "expand_preview_direct_opens",
                 "expand_preview_direct_progressions",
                 "prism_payload_bytes",
+                "workspace_refresh_duration_ms",
+                "workspace_refresh_lock_wait_ms",
+                "workspace_refresh_lock_hold_ms",
+                "workspace_refresh_snapshot_revisions_ms",
+                "workspace_refresh_load_episodic_ms",
+                "workspace_refresh_load_inference_ms",
+                "workspace_refresh_load_coordination_ms",
+                "workspace_full_reload_count",
+                "workspace_auxiliary_reload_count",
                 "shell_commands",
                 "shell_read_commands",
                 "repeated_reads",
@@ -289,6 +343,42 @@
                   "minimum": 0
                 },
                 "prism_payload_bytes": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "workspace_refresh_duration_ms": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "workspace_refresh_lock_wait_ms": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "workspace_refresh_lock_hold_ms": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "workspace_refresh_snapshot_revisions_ms": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "workspace_refresh_load_episodic_ms": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "workspace_refresh_load_inference_ms": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "workspace_refresh_load_coordination_ms": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "workspace_full_reload_count": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "workspace_auxiliary_reload_count": {
                   "type": "integer",
                   "minimum": 0
                 },

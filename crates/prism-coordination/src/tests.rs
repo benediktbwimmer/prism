@@ -128,7 +128,7 @@ fn review_policy_gates_completion_but_not_ready_work() {
         .create_task(
             meta("event:2", 2),
             TaskCreateInput {
-                plan_id,
+                plan_id: plan_id.clone(),
                 title: "Edit main".to_string(),
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
@@ -149,7 +149,7 @@ fn review_policy_gates_completion_but_not_ready_work() {
     assert_eq!(
         store
             .ready_tasks(
-                &prism_ir::PlanId::new("plan:1"),
+                &plan_id,
                 prism_ir::WorkspaceRevision {
                     graph_version: 1,
                     git_commit: None,

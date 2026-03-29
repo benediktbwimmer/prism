@@ -459,6 +459,20 @@ def _zero_compact_timing_summary() -> dict[str, int]:
     }
 
 
+def _zero_workspace_refresh_summary() -> dict[str, int]:
+    return {
+        "workspace_refresh_duration_ms": 0,
+        "workspace_refresh_lock_wait_ms": 0,
+        "workspace_refresh_lock_hold_ms": 0,
+        "workspace_refresh_snapshot_revisions_ms": 0,
+        "workspace_refresh_load_episodic_ms": 0,
+        "workspace_refresh_load_inference_ms": 0,
+        "workspace_refresh_load_coordination_ms": 0,
+        "workspace_full_reload_count": 0,
+        "workspace_auxiliary_reload_count": 0,
+    }
+
+
 def _parse_compact_query_timings(workspace_dir: Path, start_offset: int) -> dict[str, int]:
     path = _daemon_log_path(workspace_dir)
     summary = _zero_compact_timing_summary()
@@ -489,6 +503,47 @@ def _parse_compact_query_timings(workspace_dir: Path, start_offset: int) -> dict
             summary["compact_handler_duration_ms"] += handler_ms
             summary["compact_other_duration_ms"] += other_ms
             summary[f"{tool}_duration_ms"] += total_ms
+    return summary
+
+
+def _parse_workspace_refresh_metrics(workspace_dir: Path, start_offset: int) -> dict[str, int]:
+    path = _daemon_log_path(workspace_dir)
+    summary = _zero_workspace_refresh_summary()
+    if not path.exists():
+        return summary
+
+    with path.open("r", encoding="utf-8", errors="replace") as handle:
+        try:
+            handle.seek(start_offset)
+        except OSError:
+            handle.seek(0)
+        for line in handle:
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if event.get("message") != "prism-mcp workspace refresh":
+                continue
+            refresh_path = str(event.get("refresh_path", "") or "")
+            summary["workspace_refresh_duration_ms"] += int(event.get("duration_ms", 0) or 0)
+            summary["workspace_refresh_lock_wait_ms"] += int(event.get("lock_wait_ms", 0) or 0)
+            summary["workspace_refresh_lock_hold_ms"] += int(event.get("lock_hold_ms", 0) or 0)
+            summary["workspace_refresh_snapshot_revisions_ms"] += int(
+                event.get("snapshot_revisions_ms", 0) or 0
+            )
+            summary["workspace_refresh_load_episodic_ms"] += int(
+                event.get("load_episodic_ms", 0) or 0
+            )
+            summary["workspace_refresh_load_inference_ms"] += int(
+                event.get("load_inference_ms", 0) or 0
+            )
+            summary["workspace_refresh_load_coordination_ms"] += int(
+                event.get("load_coordination_ms", 0) or 0
+            )
+            if refresh_path == "full":
+                summary["workspace_full_reload_count"] += 1
+            elif refresh_path == "auxiliary":
+                summary["workspace_auxiliary_reload_count"] += 1
     return summary
 
 
@@ -551,6 +606,7 @@ def run_codex_instance(
 
     parsed = _parse_exec_jsonl(proc.stdout)
     compact_timings = _parse_compact_query_timings(isolated_workspace, daemon_log_offset)
+    refresh_metrics = _parse_workspace_refresh_metrics(isolated_workspace, daemon_log_offset)
     patch_attempts = 1 if patch.strip() else 0
     telemetry_path = Path(config["output"]["telemetry_abspath"])
     record_telemetry_instance(
@@ -584,6 +640,15 @@ def run_codex_instance(
         compact_refresh_duration_ms=compact_timings["compact_refresh_duration_ms"],
         compact_handler_duration_ms=compact_timings["compact_handler_duration_ms"],
         compact_other_duration_ms=compact_timings["compact_other_duration_ms"],
+        workspace_refresh_duration_ms=refresh_metrics["workspace_refresh_duration_ms"],
+        workspace_refresh_lock_wait_ms=refresh_metrics["workspace_refresh_lock_wait_ms"],
+        workspace_refresh_lock_hold_ms=refresh_metrics["workspace_refresh_lock_hold_ms"],
+        workspace_refresh_snapshot_revisions_ms=refresh_metrics["workspace_refresh_snapshot_revisions_ms"],
+        workspace_refresh_load_episodic_ms=refresh_metrics["workspace_refresh_load_episodic_ms"],
+        workspace_refresh_load_inference_ms=refresh_metrics["workspace_refresh_load_inference_ms"],
+        workspace_refresh_load_coordination_ms=refresh_metrics["workspace_refresh_load_coordination_ms"],
+        workspace_full_reload_count=refresh_metrics["workspace_full_reload_count"],
+        workspace_auxiliary_reload_count=refresh_metrics["workspace_auxiliary_reload_count"],
         prism_locate_duration_ms=compact_timings["prism_locate_duration_ms"],
         prism_gather_duration_ms=compact_timings["prism_gather_duration_ms"],
         prism_open_duration_ms=compact_timings["prism_open_duration_ms"],
@@ -634,6 +699,15 @@ def run_codex_instance(
         "compact_refresh_duration_ms": compact_timings["compact_refresh_duration_ms"],
         "compact_handler_duration_ms": compact_timings["compact_handler_duration_ms"],
         "compact_other_duration_ms": compact_timings["compact_other_duration_ms"],
+        "workspace_refresh_duration_ms": refresh_metrics["workspace_refresh_duration_ms"],
+        "workspace_refresh_lock_wait_ms": refresh_metrics["workspace_refresh_lock_wait_ms"],
+        "workspace_refresh_lock_hold_ms": refresh_metrics["workspace_refresh_lock_hold_ms"],
+        "workspace_refresh_snapshot_revisions_ms": refresh_metrics["workspace_refresh_snapshot_revisions_ms"],
+        "workspace_refresh_load_episodic_ms": refresh_metrics["workspace_refresh_load_episodic_ms"],
+        "workspace_refresh_load_inference_ms": refresh_metrics["workspace_refresh_load_inference_ms"],
+        "workspace_refresh_load_coordination_ms": refresh_metrics["workspace_refresh_load_coordination_ms"],
+        "workspace_full_reload_count": refresh_metrics["workspace_full_reload_count"],
+        "workspace_auxiliary_reload_count": refresh_metrics["workspace_auxiliary_reload_count"],
         "prism_locate_duration_ms": compact_timings["prism_locate_duration_ms"],
         "prism_gather_duration_ms": compact_timings["prism_gather_duration_ms"],
         "prism_open_duration_ms": compact_timings["prism_open_duration_ms"],

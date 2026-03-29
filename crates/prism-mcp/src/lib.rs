@@ -2,8 +2,7 @@ use anyhow::{anyhow, Result};
 use clap::{ArgAction, ValueEnum};
 use prism_agent::InferenceStore;
 use prism_core::{
-    hydrate_workspace_session_with_options, index_workspace_session_with_options,
-    SharedRuntimeBackend, WorkspaceSession,
+    hydrate_workspace_session_with_options, SharedRuntimeBackend, WorkspaceSession,
     WorkspaceSessionOptions,
 };
 use prism_ir::TaskId;

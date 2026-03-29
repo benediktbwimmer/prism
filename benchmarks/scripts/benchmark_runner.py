@@ -37,6 +37,15 @@ def _zero_telemetry_summary() -> dict[str, Any]:
         "compact_refresh_duration_ms": 0,
         "compact_handler_duration_ms": 0,
         "compact_other_duration_ms": 0,
+        "workspace_refresh_duration_ms": 0,
+        "workspace_refresh_lock_wait_ms": 0,
+        "workspace_refresh_lock_hold_ms": 0,
+        "workspace_refresh_snapshot_revisions_ms": 0,
+        "workspace_refresh_load_episodic_ms": 0,
+        "workspace_refresh_load_inference_ms": 0,
+        "workspace_refresh_load_coordination_ms": 0,
+        "workspace_full_reload_count": 0,
+        "workspace_auxiliary_reload_count": 0,
         "prism_locate_duration_ms": 0,
         "prism_gather_duration_ms": 0,
         "prism_open_duration_ms": 0,
@@ -247,6 +256,25 @@ def _recompute_telemetry_summary(telemetry_arm: dict[str, Any]) -> None:
         summary["compact_refresh_duration_ms"] += item["compact_refresh_duration_ms"]
         summary["compact_handler_duration_ms"] += item["compact_handler_duration_ms"]
         summary["compact_other_duration_ms"] += item["compact_other_duration_ms"]
+        summary["workspace_refresh_duration_ms"] += item["workspace_refresh_duration_ms"]
+        summary["workspace_refresh_lock_wait_ms"] += item["workspace_refresh_lock_wait_ms"]
+        summary["workspace_refresh_lock_hold_ms"] += item["workspace_refresh_lock_hold_ms"]
+        summary["workspace_refresh_snapshot_revisions_ms"] += item[
+            "workspace_refresh_snapshot_revisions_ms"
+        ]
+        summary["workspace_refresh_load_episodic_ms"] += item[
+            "workspace_refresh_load_episodic_ms"
+        ]
+        summary["workspace_refresh_load_inference_ms"] += item[
+            "workspace_refresh_load_inference_ms"
+        ]
+        summary["workspace_refresh_load_coordination_ms"] += item[
+            "workspace_refresh_load_coordination_ms"
+        ]
+        summary["workspace_full_reload_count"] += item["workspace_full_reload_count"]
+        summary["workspace_auxiliary_reload_count"] += item[
+            "workspace_auxiliary_reload_count"
+        ]
         summary["prism_locate_duration_ms"] += item["prism_locate_duration_ms"]
         summary["prism_gather_duration_ms"] += item["prism_gather_duration_ms"]
         summary["prism_open_duration_ms"] += item["prism_open_duration_ms"]
@@ -292,6 +320,15 @@ def record_telemetry_instance(
     compact_refresh_duration_ms: int,
     compact_handler_duration_ms: int,
     compact_other_duration_ms: int,
+    workspace_refresh_duration_ms: int,
+    workspace_refresh_lock_wait_ms: int,
+    workspace_refresh_lock_hold_ms: int,
+    workspace_refresh_snapshot_revisions_ms: int,
+    workspace_refresh_load_episodic_ms: int,
+    workspace_refresh_load_inference_ms: int,
+    workspace_refresh_load_coordination_ms: int,
+    workspace_full_reload_count: int,
+    workspace_auxiliary_reload_count: int,
     prism_locate_duration_ms: int,
     prism_gather_duration_ms: int,
     prism_open_duration_ms: int,
@@ -337,6 +374,15 @@ def record_telemetry_instance(
             "compact_refresh_duration_ms": compact_refresh_duration_ms,
             "compact_handler_duration_ms": compact_handler_duration_ms,
             "compact_other_duration_ms": compact_other_duration_ms,
+            "workspace_refresh_duration_ms": workspace_refresh_duration_ms,
+            "workspace_refresh_lock_wait_ms": workspace_refresh_lock_wait_ms,
+            "workspace_refresh_lock_hold_ms": workspace_refresh_lock_hold_ms,
+            "workspace_refresh_snapshot_revisions_ms": workspace_refresh_snapshot_revisions_ms,
+            "workspace_refresh_load_episodic_ms": workspace_refresh_load_episodic_ms,
+            "workspace_refresh_load_inference_ms": workspace_refresh_load_inference_ms,
+            "workspace_refresh_load_coordination_ms": workspace_refresh_load_coordination_ms,
+            "workspace_full_reload_count": workspace_full_reload_count,
+            "workspace_auxiliary_reload_count": workspace_auxiliary_reload_count,
             "prism_locate_duration_ms": prism_locate_duration_ms,
             "prism_gather_duration_ms": prism_gather_duration_ms,
             "prism_open_duration_ms": prism_open_duration_ms,

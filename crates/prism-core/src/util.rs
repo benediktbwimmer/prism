@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
-use ignore::{Walk, WalkBuilder};
+use ignore::{DirEntry, Walk, WalkBuilder};
 use prism_lang_json::JsonAdapter;
 use prism_lang_markdown::MarkdownAdapter;
 use prism_lang_python::PythonAdapter;
@@ -183,7 +183,14 @@ pub(crate) fn default_adapters() -> Vec<Box<dyn LanguageAdapter + Send + Sync>> 
 
 #[cfg(test)]
 mod tests {
-    use super::{persisted_file_hash, stable_hash_with_version};
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::{persisted_file_hash, stable_hash_with_version, workspace_walk};
+
+    static NEXT_TEMP_UTIL_WORKSPACE: AtomicU64 = AtomicU64::new(0);
 
     #[test]
     fn persisted_file_hash_changes_when_index_format_version_changes() {
@@ -196,6 +203,61 @@ mod tests {
             stable_hash_with_version(source, 1),
             stable_hash_with_version(source, 2)
         );
+    }
+
+    #[test]
+    fn workspace_walk_skips_hidden_junk_roots() {
+        let root = temp_workspace();
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::create_dir_all(root.join(".git")).unwrap();
+        fs::create_dir_all(root.join(".prism")).unwrap();
+        fs::create_dir_all(root.join("target")).unwrap();
+        fs::create_dir_all(root.join("node_modules")).unwrap();
+        fs::create_dir_all(root.join(".codex-target-trash-123")).unwrap();
+        fs::write(root.join("src/lib.rs"), "pub fn live() {}\n").unwrap();
+        fs::write(root.join(".git/ignored.rs"), "pub fn ignored() {}\n").unwrap();
+        fs::write(root.join(".prism/ignored.rs"), "pub fn ignored() {}\n").unwrap();
+        fs::write(root.join("target/ignored.rs"), "pub fn ignored() {}\n").unwrap();
+        fs::write(
+            root.join("node_modules/ignored.rs"),
+            "pub fn ignored() {}\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join(".codex-target-trash-123/ignored.rs"),
+            "pub fn ignored() {}\n",
+        )
+        .unwrap();
+
+        let walked = workspace_walk(&root)
+            .filter_map(Result::ok)
+            .map(|entry| entry.path().strip_prefix(&root).unwrap().to_path_buf())
+            .collect::<Vec<_>>();
+
+        assert!(walked
+            .iter()
+            .any(|path| path == &PathBuf::from("src/lib.rs")));
+        assert!(!walked.iter().any(|path| path.starts_with(".git")));
+        assert!(!walked.iter().any(|path| path.starts_with(".prism")));
+        assert!(!walked.iter().any(|path| path.starts_with("target")));
+        assert!(!walked.iter().any(|path| path.starts_with("node_modules")));
+        assert!(!walked
+            .iter()
+            .any(|path| path.starts_with(".codex-target-trash-123")));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    fn temp_workspace() -> PathBuf {
+        let nonce = NEXT_TEMP_UTIL_WORKSPACE.fetch_add(1, Ordering::Relaxed);
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("prism-util-{unique}-{nonce}"));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        root
     }
 }
 
@@ -253,6 +315,8 @@ pub(crate) fn workspace_walk(root: &Path) -> Walk {
     builder.parents(true);
     builder.require_git(false);
     builder.sort_by_file_path(|left, right| left.cmp(right));
+    let walk_root = root.to_path_buf();
+    builder.filter_entry(move |entry| !should_skip_workspace_walk_entry(&walk_root, entry));
     builder.build()
 }
 
@@ -262,6 +326,21 @@ fn top_level_prefix(root: &Path, path: &Path) -> Option<String> {
         .components()
         .next()
         .map(|component| component.as_os_str().to_string_lossy().into_owned())
+}
+
+fn should_skip_workspace_walk_entry(root: &Path, entry: &DirEntry) -> bool {
+    let Ok(relative) = entry.path().strip_prefix(root) else {
+        return false;
+    };
+    is_ignored_workspace_walk_relative_path(relative)
+}
+
+fn is_ignored_workspace_walk_relative_path(relative: &Path) -> bool {
+    relative.components().any(|component| {
+        let name = component.as_os_str().to_string_lossy();
+        matches!(name.as_ref(), ".git" | ".prism" | "target" | "node_modules")
+            || name.starts_with(".codex-target-trash-")
+    })
 }
 
 fn summarize_prefix_counts(counts: &HashMap<String, usize>) -> Vec<String> {

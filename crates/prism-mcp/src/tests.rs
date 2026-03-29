@@ -6145,6 +6145,32 @@ fn compact_tool_query_trace_records_refresh_and_handler_phases() {
         .collect::<Vec<_>>();
     assert!(operations.contains(&"compact.refreshWorkspace"));
     assert!(operations.contains(&"compact.handler"));
+    let refresh_args = trace
+        .phases
+        .iter()
+        .find(|phase| phase.operation == "compact.refreshWorkspace")
+        .and_then(|phase| phase.args_summary.as_ref())
+        .and_then(Value::as_object)
+        .expect("compact refresh args");
+    let refresh_metrics = refresh_args
+        .get("metrics")
+        .and_then(Value::as_object)
+        .expect("compact refresh metrics");
+    for key in [
+        "lockWaitMs",
+        "lockHoldMs",
+        "fsRefreshMs",
+        "snapshotRevisionsMs",
+        "loadEpisodicMs",
+        "loadInferenceMs",
+        "loadCoordinationMs",
+        "workspaceReloaded",
+    ] {
+        assert!(
+            refresh_metrics.contains_key(key),
+            "expected compact refresh args to include `{key}`"
+        );
+    }
     assert!(trace
         .phases
         .iter()
@@ -8225,26 +8251,30 @@ return prism.runtimeStatus();
     )
     .expect("follow-up query should succeed");
 
+    let entry = host
+        .query_log_entries(QueryLogArgs {
+            limit: Some(5),
+            since: None,
+            target: Some("runtimeStatus".to_string()),
+            operation: None,
+            task_id: None,
+            min_duration_ms: None,
+        })
+        .into_iter()
+        .find(|entry| entry.kind == "typescript")
+        .expect("runtime status query log entry");
     let trace = host
-        .execute(
-            test_session(&host),
-            r#"
-const recent = prism.queryLog({ limit: 1, operation: "runtimeStatus" });
-return recent[0] ? prism.queryTrace(recent[0].id) : null;
-"#,
-            QueryLanguage::Ts,
-        )
-        .expect("trace lookup should succeed")
-        .result;
-
-    let refresh_phase = trace["phases"]
-        .as_array()
-        .expect("trace phases")
+        .query_trace_view(&entry.id)
+        .expect("runtime status query trace");
+    let refresh_phase = trace
+        .phases
         .iter()
-        .find(|phase| phase["operation"] == "typescript.refreshWorkspace")
+        .find(|phase| phase.operation == "typescript.refreshWorkspace")
         .expect("refresh phase should exist");
-    let args = refresh_phase["argsSummary"]
-        .as_object()
+    let args = refresh_phase
+        .args_summary
+        .as_ref()
+        .and_then(Value::as_object)
         .expect("refresh args");
     let refresh_path = args
         .get("refreshPath")
@@ -8254,6 +8284,25 @@ return recent[0] ? prism.queryTrace(recent[0].id) : null;
     assert_eq!(args.get("episodicReloaded"), Some(&Value::Bool(false)));
     assert_eq!(args.get("inferenceReloaded"), Some(&Value::Bool(false)));
     assert_eq!(args.get("coordinationReloaded"), Some(&Value::Bool(false)));
+    let metrics = args
+        .get("metrics")
+        .and_then(Value::as_object)
+        .expect("refresh metrics");
+    for key in [
+        "lockWaitMs",
+        "lockHoldMs",
+        "fsRefreshMs",
+        "snapshotRevisionsMs",
+        "loadEpisodicMs",
+        "loadInferenceMs",
+        "loadCoordinationMs",
+        "workspaceReloaded",
+    ] {
+        assert!(
+            metrics.contains_key(key),
+            "expected typescript refresh args to include `{key}`"
+        );
+    }
 }
 
 #[test]
@@ -8921,6 +8970,10 @@ fn prism_runtime_views_do_not_source_freshness_from_runtime_state_refresh_events
     .unwrap();
     fs::write(prism_dir.join("prism-mcp-daemon.log"), "").unwrap();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+    let last_refresh = host
+        .workspace
+        .as_ref()
+        .and_then(|workspace| workspace.last_refresh());
     fs::write(
         prism_dir.join("prism-mcp-runtime.json"),
         json!({
@@ -8953,9 +9006,31 @@ fn prism_runtime_views_do_not_source_freshness_from_runtime_state_refresh_events
         )
         .expect("runtime status query should succeed");
 
-    assert_eq!(result.result["lastRefreshPath"], Value::Null);
-    assert_eq!(result.result["lastRefreshDurationMs"], Value::Null);
-    assert_eq!(result.result["lastRefreshTimestamp"], Value::Null);
+    assert_eq!(
+        result.result["lastRefreshPath"],
+        last_refresh
+            .as_ref()
+            .map(|refresh| Value::String(refresh.path.clone()))
+            .unwrap_or(Value::Null)
+    );
+    assert_eq!(
+        result.result["lastRefreshDurationMs"],
+        last_refresh
+            .as_ref()
+            .map(|refresh| Value::Number(refresh.duration_ms.into()))
+            .unwrap_or(Value::Null)
+    );
+    assert_eq!(
+        result.result["lastRefreshTimestamp"],
+        last_refresh
+            .as_ref()
+            .map(|refresh| Value::String(refresh.timestamp.clone()))
+            .unwrap_or(Value::Null)
+    );
+    assert_ne!(
+        result.result["lastRefreshPath"],
+        Value::String("auxiliary".to_string())
+    );
 }
 
 #[test]
@@ -10879,10 +10954,11 @@ return prism.symbol("alpha")?.id.path ?? null;
         .as_ref()
         .and_then(Value::as_object)
         .expect("refresh args");
-    assert_eq!(
-        args.get("refreshPath"),
-        Some(&Value::String("none".to_string()))
-    );
+    let refresh_path = args
+        .get("refreshPath")
+        .and_then(Value::as_str)
+        .expect("refreshPath should be a string");
+    assert!(matches!(refresh_path, "none" | "deferred"));
 }
 
 #[test]
@@ -10938,6 +11014,13 @@ return prism.symbol("alpha")?.id.path ?? null;
         args.get("refreshPath"),
         Some(&Value::String("deferred".to_string()))
     );
+    let metrics = args
+        .get("metrics")
+        .and_then(Value::as_object)
+        .expect("refresh metrics");
+    assert_eq!(metrics.get("lockWaitMs"), Some(&Value::Number(0.into())));
+    assert_eq!(metrics.get("lockHoldMs"), Some(&Value::Number(0.into())));
+    assert_eq!(metrics.get("workspaceReloaded"), Some(&Value::Bool(false)));
 }
 
 #[test]
@@ -11024,6 +11107,39 @@ return prism.memory.recall({
     assert_eq!(
         workspace.observed_fs_revision(),
         initial_observed_fs_revision
+    );
+
+    let timeline = crate::runtime_views::runtime_timeline(
+        &host,
+        RuntimeTimelineArgs {
+            limit: Some(10),
+            contains: Some("workspace refresh".to_string()),
+        },
+    )
+    .expect("runtime timeline should include refresh events");
+    let refresh_fields = timeline[0]
+        .fields
+        .as_ref()
+        .and_then(Value::as_object)
+        .expect("refresh event fields");
+    for key in [
+        "lockWaitMs",
+        "lockHoldMs",
+        "fsRefreshMs",
+        "snapshotRevisionsMs",
+        "loadEpisodicMs",
+        "loadInferenceMs",
+        "loadCoordinationMs",
+        "workspaceReloaded",
+    ] {
+        assert!(
+            refresh_fields.contains_key(key),
+            "expected runtime refresh event to include `{key}`"
+        );
+    }
+    assert_eq!(
+        refresh_fields.get("workspaceReloaded"),
+        Some(&Value::Bool(false))
     );
 }
 

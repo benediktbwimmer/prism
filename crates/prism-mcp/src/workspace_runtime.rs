@@ -259,9 +259,7 @@ fn sync_workspace_runtime_with_guard(
     })
 }
 
-pub(crate) fn hydrate_persisted_workspace_state(
-    config: &WorkspaceRuntimeConfig,
-) -> Result<()> {
+pub(crate) fn hydrate_persisted_workspace_state(config: &WorkspaceRuntimeConfig) -> Result<()> {
     config.loaded_workspace_revision.store(
         config.workspace.loaded_workspace_revision(),
         Ordering::Relaxed,

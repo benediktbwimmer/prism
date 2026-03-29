@@ -68,9 +68,7 @@ pub fn index_workspace_session(root: impl AsRef<std::path::Path>) -> Result<Work
     index_workspace_session_with_options(root, WorkspaceSessionOptions::default())
 }
 
-pub fn hydrate_workspace_session(
-    root: impl AsRef<std::path::Path>,
-) -> Result<WorkspaceSession> {
+pub fn hydrate_workspace_session(root: impl AsRef<std::path::Path>) -> Result<WorkspaceSession> {
     hydrate_workspace_session_with_options(root, WorkspaceSessionOptions::default())
 }
 

@@ -33,9 +33,9 @@ use serde_json::json;
 
 use super::{
     hydrate_workspace_session_with_options, index_workspace, index_workspace_session,
-    index_workspace_session_with_curator,
-    index_workspace_session_with_options, SharedRuntimeBackend, ValidationFeedbackCategory,
-    ValidationFeedbackRecord, ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
+    index_workspace_session_with_curator, index_workspace_session_with_options,
+    SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
+    ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
 };
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
@@ -139,8 +139,8 @@ fn hydrated_workspace_session_marks_background_refresh_pending() {
     .unwrap();
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
 
-    let _ = index_workspace_session_with_options(&root, WorkspaceSessionOptions::default())
-        .unwrap();
+    let _ =
+        index_workspace_session_with_options(&root, WorkspaceSessionOptions::default()).unwrap();
 
     fs::write(root.join("src/lib.rs"), "pub fn beta() {}\n").unwrap();
 
