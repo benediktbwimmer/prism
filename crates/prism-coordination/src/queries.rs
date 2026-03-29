@@ -134,7 +134,7 @@ impl CoordinationStore {
             session_id,
         );
         conflicts.extend(editor_capacity_conflicts(
-            &state, anchors, capability, task_id, session_id, policy, now,
+            &state, anchors, capability, task_id, session_id, policy, now, None,
         ));
         dedupe_conflicts(conflicts)
     }

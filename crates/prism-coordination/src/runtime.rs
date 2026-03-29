@@ -7,8 +7,9 @@ use serde_json::Value;
 
 use crate::blockers::{completion_blockers, readiness_blockers};
 use crate::helpers::{
-    anchors_overlap, claim_is_active, conflict_between, dedupe_conflicts,
-    editor_capacity_conflicts, expire_claims_locked, plan_policy_for_task, simulate_conflicts,
+    anchors_overlap, artifact_matches_worktree_scope, claim_is_active,
+    claim_matches_worktree_scope, conflict_between, dedupe_conflicts, editor_capacity_conflicts,
+    expire_claims_locked, plan_policy_for_task, simulate_conflicts,
 };
 use crate::mutations::{
     accept_handoff_mutation, acquire_claim_mutation, create_plan_mutation, create_task_mutation,
@@ -153,12 +154,22 @@ impl CoordinationRuntimeState {
     }
 
     pub fn claims_for_anchor(&mut self, anchors: &[AnchorRef], now: Timestamp) -> Vec<WorkClaim> {
+        self.claims_for_anchor_in_scope(anchors, now, None)
+    }
+
+    pub fn claims_for_anchor_in_scope(
+        &mut self,
+        anchors: &[AnchorRef],
+        now: Timestamp,
+        worktree_id: Option<&str>,
+    ) -> Vec<WorkClaim> {
         expire_claims_locked(&mut self.state, now);
         let mut claims = self
             .state
             .claims
             .values()
             .filter(|claim| claim_is_active(claim, now))
+            .filter(|claim| claim_matches_worktree_scope(claim, worktree_id))
             .filter(|claim| anchors_overlap(&claim.anchors, anchors))
             .cloned()
             .collect::<Vec<_>>();
@@ -171,12 +182,22 @@ impl CoordinationRuntimeState {
         anchors: &[AnchorRef],
         now: Timestamp,
     ) -> Vec<CoordinationConflict> {
+        self.conflicts_for_anchor_in_scope(anchors, now, None)
+    }
+
+    pub fn conflicts_for_anchor_in_scope(
+        &mut self,
+        anchors: &[AnchorRef],
+        now: Timestamp,
+        worktree_id: Option<&str>,
+    ) -> Vec<CoordinationConflict> {
         expire_claims_locked(&mut self.state, now);
         let relevant = self
             .state
             .claims
             .values()
             .filter(|claim| claim_is_active(claim, now))
+            .filter(|claim| claim_matches_worktree_scope(claim, worktree_id))
             .filter(|claim| anchors_overlap(&claim.anchors, anchors))
             .cloned()
             .collect::<Vec<_>>();
@@ -201,6 +222,22 @@ impl CoordinationRuntimeState {
         revision: WorkspaceRevision,
         now: Timestamp,
     ) -> Vec<CoordinationConflict> {
+        self.simulate_claim_in_scope(
+            session_id, anchors, capability, mode, task_id, revision, now, None,
+        )
+    }
+
+    pub fn simulate_claim_in_scope(
+        &mut self,
+        session_id: &SessionId,
+        anchors: &[AnchorRef],
+        capability: Capability,
+        mode: Option<ClaimMode>,
+        task_id: Option<&prism_ir::CoordinationTaskId>,
+        revision: WorkspaceRevision,
+        now: Timestamp,
+        worktree_id: Option<&str>,
+    ) -> Vec<CoordinationConflict> {
         expire_claims_locked(&mut self.state, now);
         let policy = plan_policy_for_task(&self.state, task_id).ok().flatten();
         let mode = mode
@@ -210,7 +247,8 @@ impl CoordinationRuntimeState {
             self.state
                 .claims
                 .values()
-                .filter(|claim| claim_is_active(claim, now)),
+                .filter(|claim| claim_is_active(claim, now))
+                .filter(|claim| claim_matches_worktree_scope(claim, worktree_id)),
             anchors,
             capability,
             mode,
@@ -227,11 +265,20 @@ impl CoordinationRuntimeState {
             session_id,
             policy,
             now,
+            worktree_id,
         ));
         dedupe_conflicts(conflicts)
     }
 
     pub fn pending_reviews(&self, plan_id: Option<&PlanId>) -> Vec<Artifact> {
+        self.pending_reviews_in_scope(plan_id, None)
+    }
+
+    pub fn pending_reviews_in_scope(
+        &self,
+        plan_id: Option<&PlanId>,
+        worktree_id: Option<&str>,
+    ) -> Vec<Artifact> {
         let mut artifacts = self
             .state
             .artifacts
@@ -242,6 +289,7 @@ impl CoordinationRuntimeState {
                     ArtifactStatus::Proposed | ArtifactStatus::InReview
                 )
             })
+            .filter(|artifact| artifact_matches_worktree_scope(artifact, worktree_id))
             .filter(|artifact| {
                 plan_id.map_or(true, |plan_id| {
                     self.state
@@ -293,11 +341,20 @@ impl CoordinationRuntimeState {
     }
 
     pub fn artifacts(&self, task_id: &prism_ir::CoordinationTaskId) -> Vec<Artifact> {
+        self.artifacts_in_scope(task_id, None)
+    }
+
+    pub fn artifacts_in_scope(
+        &self,
+        task_id: &prism_ir::CoordinationTaskId,
+        worktree_id: Option<&str>,
+    ) -> Vec<Artifact> {
         let mut artifacts = self
             .state
             .artifacts
             .values()
             .filter(|artifact| &artifact.task == task_id)
+            .filter(|artifact| artifact_matches_worktree_scope(artifact, worktree_id))
             .cloned()
             .collect::<Vec<_>>();
         artifacts.sort_by(|left, right| left.id.0.cmp(&right.id.0));
@@ -367,6 +424,15 @@ impl CoordinationRuntimeState {
     }
 
     pub fn artifact(&self, artifact_id: &ArtifactId) -> Option<Artifact> {
-        self.state.artifacts.get(artifact_id).cloned()
+        self.artifact_in_scope(artifact_id, None)
+    }
+
+    pub fn artifact_in_scope(
+        &self,
+        artifact_id: &ArtifactId,
+        worktree_id: Option<&str>,
+    ) -> Option<Artifact> {
+        let artifact = self.state.artifacts.get(artifact_id)?;
+        artifact_matches_worktree_scope(artifact, worktree_id).then(|| artifact.clone())
     }
 }

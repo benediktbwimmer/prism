@@ -1407,6 +1407,8 @@ fn reload_preserves_coordination_claim_resolution_through_rename() {
                     base_revision: base_revision.clone(),
                     current_revision: base_revision,
                     agent: None,
+                    worktree_id: None,
+                    branch_ref: None,
                 },
             )?;
             Ok((plan_id, task_id, holder))

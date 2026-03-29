@@ -193,6 +193,7 @@ pub(crate) fn editor_capacity_conflicts(
     session_id: &SessionId,
     policy: Option<&CoordinationPolicy>,
     now: Timestamp,
+    worktree_id: Option<&str>,
 ) -> Vec<CoordinationConflict> {
     if !matches!(capability, Capability::Edit | Capability::Merge) {
         return Vec::new();
@@ -203,6 +204,7 @@ pub(crate) fn editor_capacity_conflicts(
         .claims
         .values()
         .filter(|claim| claim_is_active(claim, now))
+        .filter(|claim| claim_matches_worktree_scope(claim, worktree_id))
         .filter(|claim| matches!(claim.capability, Capability::Edit | Capability::Merge))
         .filter(|claim| &claim.holder != session_id)
         .filter(|claim| task_id.map_or(true, |task| claim.task.as_ref() != Some(task)))
@@ -301,6 +303,27 @@ pub(crate) fn missing_validations_for_artifact(artifact: &Artifact) -> Vec<Strin
 
 pub(crate) fn claim_is_active(claim: &WorkClaim, now: Timestamp) -> bool {
     matches!(claim.status, ClaimStatus::Active | ClaimStatus::Contended) && claim.expires_at >= now
+}
+
+pub(crate) fn claim_matches_worktree_scope(claim: &WorkClaim, worktree_id: Option<&str>) -> bool {
+    worktree_id.is_none_or(|requested| {
+        claim
+            .worktree_id
+            .as_deref()
+            .is_none_or(|claim_scope| claim_scope == requested)
+    })
+}
+
+pub(crate) fn artifact_matches_worktree_scope(
+    artifact: &Artifact,
+    worktree_id: Option<&str>,
+) -> bool {
+    worktree_id.is_none_or(|requested| {
+        artifact
+            .worktree_id
+            .as_deref()
+            .is_none_or(|artifact_scope| artifact_scope == requested)
+    })
 }
 
 pub(crate) fn anchors_overlap(left: &[AnchorRef], right: &[AnchorRef]) -> bool {

@@ -10,11 +10,11 @@ use serde_json::{json, Value};
 
 use crate::blockers::{completion_blockers, completion_policy_blockers};
 use crate::helpers::{
-    claim_is_active, dedupe_anchors, dedupe_conflicts, dedupe_event_ids, dedupe_ids,
-    dedupe_strings, derived_event_meta, editor_capacity_conflicts, expire_claims_locked,
-    missing_validations_for_artifact, normalize_acceptance, plan_policy_for_task, policy_violation,
-    policy_violation_from_blocker, record_rejection, simulate_conflicts, validate_plan_transition,
-    validate_task_transition,
+    claim_is_active, claim_matches_worktree_scope, dedupe_anchors, dedupe_conflicts,
+    dedupe_event_ids, dedupe_ids, dedupe_strings, derived_event_meta, editor_capacity_conflicts,
+    expire_claims_locked, missing_validations_for_artifact, normalize_acceptance,
+    plan_policy_for_task, policy_violation, policy_violation_from_blocker, record_rejection,
+    simulate_conflicts, validate_plan_transition, validate_task_transition,
 };
 use crate::state::CoordinationState;
 use crate::state::CoordinationStore;
@@ -156,7 +156,10 @@ pub(crate) fn acquire_claim_mutation(
         .or_else(|| policy.map(|policy| policy.default_claim_mode))
         .unwrap_or(ClaimMode::Advisory);
     let mut conflicts = simulate_conflicts(
-        state.claims.values(),
+        state
+            .claims
+            .values()
+            .filter(|claim| claim_matches_worktree_scope(claim, input.worktree_id.as_deref())),
         &anchors,
         input.capability,
         mode,
@@ -173,6 +176,7 @@ pub(crate) fn acquire_claim_mutation(
         &session_id,
         policy,
         meta.ts,
+        input.worktree_id.as_deref(),
     ));
     let conflicts = dedupe_conflicts(conflicts);
     let has_blocking = conflicts
@@ -227,6 +231,8 @@ pub(crate) fn acquire_claim_mutation(
         id: id.clone(),
         holder: session_id,
         agent: input.agent,
+        worktree_id: input.worktree_id,
+        branch_ref: input.branch_ref,
         task: input.task_id,
         anchors,
         capability: input.capability,
@@ -480,6 +486,8 @@ pub(crate) fn propose_artifact_mutation(
     let artifact = Artifact {
         id: id.clone(),
         task: input.task_id.clone(),
+        worktree_id: input.worktree_id,
+        branch_ref: input.branch_ref,
         anchors: dedupe_anchors(input.anchors),
         base_revision: input.base_revision,
         diff_ref: input.diff_ref,

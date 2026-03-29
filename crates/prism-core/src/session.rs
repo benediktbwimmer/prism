@@ -45,6 +45,7 @@ use crate::validation_feedback::{
     ValidationFeedbackRecord,
 };
 use crate::watch::{refresh_prism_snapshot, try_refresh_prism_snapshot, WatchHandle};
+use crate::workspace_identity::coordination_persist_context_for_root;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FsRefreshStatus {
@@ -341,6 +342,9 @@ impl WorkspaceSession {
                     .unwrap_or_default(),
             ),
         );
+        prism.set_coordination_context(Some(coordination_persist_context_for_root(
+            &self.root, None,
+        )));
         *self.prism.write().expect("workspace prism lock poisoned") = prism;
         self.loaded_workspace_revision
             .store(workspace_revision, Ordering::Relaxed);

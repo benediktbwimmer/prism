@@ -1307,6 +1307,8 @@ impl QueryHost {
                             .agent
                             .map(AgentId::new)
                             .or_else(|| session.current_agent()),
+                        worktree_id: None,
+                        branch_ref: None,
                     },
                 )?;
                 Ok(ClaimMutationResult {
@@ -1423,6 +1425,8 @@ impl QueryHost {
                         risk_score: payload
                             .risk_score
                             .or_else(|| risk.map(|risk| risk.risk_score)),
+                        worktree_id: None,
+                        branch_ref: None,
                     },
                 )?;
                 Ok(ArtifactMutationResult {

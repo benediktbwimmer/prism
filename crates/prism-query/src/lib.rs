@@ -35,7 +35,7 @@ use prism_ir::{
 use prism_memory::{OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot};
 pub use prism_projections::ConceptResolution;
 use prism_projections::{IntentIndex, ProjectionIndex, ProjectionSnapshot};
-use prism_store::Graph;
+use prism_store::{CoordinationPersistContext, Graph};
 use tracing::info;
 
 use crate::common::{anchor_sort_key, dedupe_node_ids, sort_node_ids};
@@ -65,6 +65,7 @@ pub struct Prism {
     coordination: Arc<CoordinationStore>,
     plan_runtime: RwLock<NativePlanRuntimeState>,
     continuity_runtime: RwLock<CoordinationRuntimeState>,
+    coordination_context: RwLock<Option<CoordinationPersistContext>>,
     projections: RwLock<ProjectionIndex>,
     intent: RwLock<IntentIndex>,
 }
@@ -204,6 +205,7 @@ impl Prism {
             coordination: Arc::new(coordination),
             plan_runtime: RwLock::new(native_plans),
             continuity_runtime: RwLock::new(continuity_runtime),
+            coordination_context: RwLock::new(None),
             projections: RwLock::new(projections),
             intent: RwLock::new(intent),
         }
@@ -231,6 +233,20 @@ impl Prism {
 
     pub fn coordination(&self) -> Arc<CoordinationStore> {
         Arc::clone(&self.coordination)
+    }
+
+    pub fn set_coordination_context(&self, context: Option<CoordinationPersistContext>) {
+        *self
+            .coordination_context
+            .write()
+            .expect("coordination context lock poisoned") = context;
+    }
+
+    pub fn coordination_context(&self) -> Option<CoordinationPersistContext> {
+        self.coordination_context
+            .read()
+            .expect("coordination context lock poisoned")
+            .clone()
     }
 
     pub fn anchors_for(&self, anchors: &[AnchorRef]) -> Vec<AnchorRef> {
@@ -446,12 +462,16 @@ impl Prism {
         &self,
         meta: EventMeta,
         session_id: SessionId,
-        input: prism_coordination::ClaimAcquireInput,
+        mut input: prism_coordination::ClaimAcquireInput,
     ) -> Result<(
         Option<ClaimId>,
         Vec<CoordinationConflict>,
         Option<WorkClaim>,
     )> {
+        if let Some(context) = self.coordination_context() {
+            input.worktree_id = Some(context.worktree_id);
+            input.branch_ref = context.branch_ref;
+        }
         self.mutate_validated_coordination_snapshot(|store| {
             store.acquire_claim(meta, session_id, input)
         })
@@ -483,8 +503,12 @@ impl Prism {
     pub fn propose_native_artifact(
         &self,
         meta: EventMeta,
-        input: ArtifactProposeInput,
+        mut input: ArtifactProposeInput,
     ) -> Result<(ArtifactId, Artifact)> {
+        if let Some(context) = self.coordination_context() {
+            input.worktree_id = Some(context.worktree_id);
+            input.branch_ref = context.branch_ref;
+        }
         self.mutate_validated_coordination_snapshot(|store| store.propose_artifact(meta, input))
     }
 

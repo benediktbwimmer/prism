@@ -20,7 +20,7 @@ use prism_projections::{
     ConceptDecodeLens, ConceptPacket, ConceptProvenance, ConceptRelation, ConceptRelationKind,
     ConceptScope, ProjectionIndex,
 };
-use prism_store::Graph;
+use prism_store::{CoordinationPersistContext, Graph};
 
 use super::Prism;
 
@@ -1116,6 +1116,8 @@ fn coordination_queries_expand_into_neighboring_symbols() {
                     git_commit: None,
                 },
                 agent: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap();
@@ -1395,6 +1397,8 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
         id: prism_ir::ClaimId::new("claim:runtime"),
         holder: SessionId::new("session:runtime"),
         agent: Some(prism_ir::AgentId::new("agent-runtime")),
+        worktree_id: None,
+        branch_ref: None,
         task: Some(task_id.clone()),
         anchors: vec![AnchorRef::Node(alpha.clone())],
         capability: prism_ir::Capability::Edit,
@@ -1407,6 +1411,8 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
     runtime_snapshot.artifacts.push(Artifact {
         id: prism_ir::ArtifactId::new("artifact:runtime"),
         task: task_id.clone(),
+        worktree_id: None,
+        branch_ref: None,
         anchors: vec![AnchorRef::Node(alpha.clone())],
         base_revision: WorkspaceRevision::default(),
         diff_ref: None,
@@ -1714,6 +1720,204 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
 }
 
 #[test]
+fn claim_reads_and_simulation_respect_worktree_scope() {
+    let mut graph = Graph::new();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        HistoryStore::new(),
+        OutcomeMemory::new(),
+        CoordinationStore::new(),
+        ProjectionIndex::default(),
+    );
+    prism.set_coordination_context(Some(CoordinationPersistContext {
+        repo_id: "repo:test".into(),
+        worktree_id: "worktree:a".into(),
+        branch_ref: Some("refs/heads/a".into()),
+        session_id: None,
+        instance_id: Some("instance:test".into()),
+    }));
+
+    let mut runtime_snapshot = prism.coordination_snapshot();
+    runtime_snapshot.claims.push(WorkClaim {
+        id: prism_ir::ClaimId::new("claim:a"),
+        holder: SessionId::new("session:a"),
+        agent: None,
+        worktree_id: Some("worktree:a".into()),
+        branch_ref: Some("refs/heads/a".into()),
+        task: None,
+        anchors: vec![AnchorRef::Node(alpha.clone())],
+        capability: prism_ir::Capability::Edit,
+        mode: prism_ir::ClaimMode::HardExclusive,
+        since: 1,
+        expires_at: 100,
+        status: prism_ir::ClaimStatus::Active,
+        base_revision: WorkspaceRevision::default(),
+    });
+    runtime_snapshot.claims.push(WorkClaim {
+        id: prism_ir::ClaimId::new("claim:b"),
+        holder: SessionId::new("session:b"),
+        agent: None,
+        worktree_id: Some("worktree:b".into()),
+        branch_ref: Some("refs/heads/b".into()),
+        task: None,
+        anchors: vec![AnchorRef::Node(alpha.clone())],
+        capability: prism_ir::Capability::Edit,
+        mode: prism_ir::ClaimMode::HardExclusive,
+        since: 1,
+        expires_at: 100,
+        status: prism_ir::ClaimStatus::Active,
+        base_revision: WorkspaceRevision::default(),
+    });
+    *prism
+        .continuity_runtime
+        .write()
+        .expect("continuity runtime lock poisoned") =
+        CoordinationRuntimeState::from_snapshot(runtime_snapshot);
+
+    let claims = prism.claims(&[AnchorRef::Node(alpha.clone())], 10);
+    assert_eq!(claims.len(), 1);
+    assert_eq!(claims[0].id.0, "claim:a");
+
+    let conflicts = prism.simulate_claim(
+        &SessionId::new("session:new"),
+        &[AnchorRef::Node(alpha)],
+        prism_ir::Capability::Edit,
+        Some(prism_ir::ClaimMode::HardExclusive),
+        None,
+        10,
+    );
+    assert_eq!(conflicts.len(), 1);
+    assert_eq!(conflicts[0].blocking_claims[0].0, "claim:a");
+}
+
+#[test]
+fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
+    let mut graph = Graph::new();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        HistoryStore::new(),
+        OutcomeMemory::new(),
+        CoordinationStore::new(),
+        ProjectionIndex::default(),
+    );
+    prism.set_coordination_context(Some(CoordinationPersistContext {
+        repo_id: "repo:test".into(),
+        worktree_id: "worktree:a".into(),
+        branch_ref: Some("refs/heads/a".into()),
+        session_id: None,
+        instance_id: Some("instance:test".into()),
+    }));
+
+    let seeded = CoordinationStore::new();
+    let (plan_id, _) = seeded
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:artifact-scope"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Scoped artifact reviews".into(),
+                status: None,
+                policy: Some(CoordinationPolicy::default()),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = seeded
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:artifact-scope"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Edit alpha".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                anchors: vec![AnchorRef::Node(alpha.clone())],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let mut runtime_snapshot = seeded.snapshot();
+    runtime_snapshot.artifacts.push(Artifact {
+        id: prism_ir::ArtifactId::new("artifact:a"),
+        task: task_id.clone(),
+        worktree_id: Some("worktree:a".into()),
+        branch_ref: Some("refs/heads/a".into()),
+        anchors: vec![AnchorRef::Node(alpha.clone())],
+        base_revision: WorkspaceRevision::default(),
+        diff_ref: Some("patch:a".into()),
+        status: prism_ir::ArtifactStatus::Proposed,
+        evidence: Vec::new(),
+        reviews: Vec::new(),
+        required_validations: Vec::new(),
+        validated_checks: Vec::new(),
+        risk_score: None,
+    });
+    runtime_snapshot.artifacts.push(Artifact {
+        id: prism_ir::ArtifactId::new("artifact:b"),
+        task: task_id.clone(),
+        worktree_id: Some("worktree:b".into()),
+        branch_ref: Some("refs/heads/b".into()),
+        anchors: vec![AnchorRef::Node(alpha.clone())],
+        base_revision: WorkspaceRevision::default(),
+        diff_ref: Some("patch:b".into()),
+        status: prism_ir::ArtifactStatus::Proposed,
+        evidence: Vec::new(),
+        reviews: Vec::new(),
+        required_validations: Vec::new(),
+        validated_checks: Vec::new(),
+        risk_score: None,
+    });
+    *prism
+        .continuity_runtime
+        .write()
+        .expect("continuity runtime lock poisoned") =
+        CoordinationRuntimeState::from_snapshot(runtime_snapshot);
+
+    let artifacts = prism.artifacts(&task_id);
+    assert_eq!(artifacts.len(), 1);
+    assert_eq!(artifacts[0].id.0, "artifact:a");
+    assert_eq!(prism.pending_reviews(Some(&plan_id)).len(), 1);
+    assert_eq!(
+        prism
+            .coordination_artifact(&prism_ir::ArtifactId::new("artifact:a"))
+            .map(|artifact| artifact.id.0),
+        Some("artifact:a".into())
+    );
+    assert!(prism
+        .coordination_artifact(&prism_ir::ArtifactId::new("artifact:b"))
+        .is_none());
+}
+
+#[test]
 fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
     let graph = Graph::new();
     let history = HistoryStore::new();
@@ -1840,6 +2044,8 @@ fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
                 required_validations: Vec::new(),
                 validated_checks: Vec::new(),
                 risk_score: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap();
@@ -1862,6 +2068,8 @@ fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
                 required_validations: Vec::new(),
                 validated_checks: Vec::new(),
                 risk_score: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap();
@@ -3733,6 +3941,8 @@ fn task_backed_native_plan_node_completion_uses_continuity_review_state() {
                 required_validations: Vec::new(),
                 validated_checks: Vec::new(),
                 risk_score: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap();
@@ -3947,6 +4157,8 @@ fn native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges() {
                 base_revision: WorkspaceRevision::default(),
                 current_revision: WorkspaceRevision::default(),
                 agent: Some(prism_ir::AgentId::new("agent-a")),
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap();
@@ -3972,6 +4184,8 @@ fn native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges() {
                 required_validations: Vec::new(),
                 validated_checks: Vec::new(),
                 risk_score: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap();
@@ -4116,6 +4330,8 @@ fn native_plan_metadata_survives_compatibility_write_and_reload() {
                 base_revision: WorkspaceRevision::default(),
                 current_revision: WorkspaceRevision::default(),
                 agent: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .expect("claim should succeed");
@@ -4370,6 +4586,8 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
                 required_validations: vec!["test:alpha_integration".into()],
                 validated_checks: Vec::new(),
                 risk_score: Some(0.7),
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap();

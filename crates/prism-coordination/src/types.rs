@@ -112,6 +112,10 @@ pub struct WorkClaim {
     pub id: ClaimId,
     pub holder: SessionId,
     pub agent: Option<AgentId>,
+    #[serde(default)]
+    pub worktree_id: Option<String>,
+    #[serde(default)]
+    pub branch_ref: Option<String>,
     pub task: Option<CoordinationTaskId>,
     pub anchors: Vec<AnchorRef>,
     pub capability: Capability,
@@ -183,6 +187,10 @@ pub struct PolicyViolationRecord {
 pub struct Artifact {
     pub id: ArtifactId,
     pub task: CoordinationTaskId,
+    #[serde(default)]
+    pub worktree_id: Option<String>,
+    #[serde(default)]
+    pub branch_ref: Option<String>,
     pub anchors: Vec<AnchorRef>,
     pub base_revision: WorkspaceRevision,
     pub diff_ref: Option<String>,
@@ -329,6 +337,8 @@ pub struct ClaimAcquireInput {
     pub base_revision: WorkspaceRevision,
     pub current_revision: WorkspaceRevision,
     pub agent: Option<AgentId>,
+    pub worktree_id: Option<String>,
+    pub branch_ref: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -342,6 +352,8 @@ pub struct ArtifactProposeInput {
     pub required_validations: Vec<String>,
     pub validated_checks: Vec<String>,
     pub risk_score: Option<f32>,
+    pub worktree_id: Option<String>,
+    pub branch_ref: Option<String>,
 }
 
 #[derive(Debug, Clone)]

@@ -23,6 +23,7 @@ use crate::resolution::{resolve_calls, resolve_impls, resolve_imports, resolve_i
 use crate::session::{WorkspaceRefreshState, WorkspaceSession};
 use crate::util::{persisted_file_hash, workspace_fingerprint, workspace_walk};
 use crate::watch::spawn_fs_watch;
+use crate::workspace_identity::coordination_persist_context_for_root;
 
 pub(crate) fn build_workspace_session(
     root: PathBuf,
@@ -51,6 +52,7 @@ pub(crate) fn build_workspace_session(
             plan_execution_overlays,
         ),
     );
+    prism.set_coordination_context(Some(coordination_persist_context_for_root(&root, None)));
     let prism = Arc::new(RwLock::new(prism));
     let store = Arc::new(Mutex::new(store));
     let refresh_lock = Arc::new(Mutex::new(()));

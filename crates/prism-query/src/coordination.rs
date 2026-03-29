@@ -11,6 +11,11 @@ use crate::plan_completion::current_timestamp;
 use crate::Prism;
 
 impl Prism {
+    fn coordination_worktree_scope(&self) -> Option<String> {
+        self.coordination_context()
+            .map(|context| context.worktree_id)
+    }
+
     pub fn workspace_revision(&self) -> WorkspaceRevision {
         WorkspaceRevision {
             graph_version: self.history_snapshot().events.len() as u64,
@@ -33,10 +38,11 @@ impl Prism {
     }
 
     pub fn coordination_artifact(&self, artifact_id: &ArtifactId) -> Option<Artifact> {
+        let worktree_id = self.coordination_worktree_scope();
         self.continuity_runtime
             .read()
             .expect("continuity runtime lock poisoned")
-            .artifact(artifact_id)
+            .artifact_in_scope(artifact_id, worktree_id.as_deref())
     }
 
     pub fn plan_graph(&self, plan_id: &PlanId) -> Option<PlanGraph> {
@@ -71,18 +77,20 @@ impl Prism {
 
     pub fn claims(&self, anchors: &[AnchorRef], now: Timestamp) -> Vec<WorkClaim> {
         let anchors = self.coordination_scope_anchors(anchors);
+        let worktree_id = self.coordination_worktree_scope();
         self.continuity_runtime
             .write()
             .expect("continuity runtime lock poisoned")
-            .claims_for_anchor(&anchors, now)
+            .claims_for_anchor_in_scope(&anchors, now, worktree_id.as_deref())
     }
 
     pub fn conflicts(&self, anchors: &[AnchorRef], now: Timestamp) -> Vec<CoordinationConflict> {
         let anchors = self.coordination_scope_anchors(anchors);
+        let worktree_id = self.coordination_worktree_scope();
         self.continuity_runtime
             .write()
             .expect("continuity runtime lock poisoned")
-            .conflicts_for_anchor(&anchors, now)
+            .conflicts_for_anchor_in_scope(&anchors, now, worktree_id.as_deref())
     }
 
     pub fn blockers(&self, task_id: &CoordinationTaskId, now: Timestamp) -> Vec<TaskBlocker> {
@@ -137,17 +145,19 @@ impl Prism {
     }
 
     pub fn pending_reviews(&self, plan_id: Option<&PlanId>) -> Vec<Artifact> {
+        let worktree_id = self.coordination_worktree_scope();
         self.continuity_runtime
             .read()
             .expect("continuity runtime lock poisoned")
-            .pending_reviews(plan_id)
+            .pending_reviews_in_scope(plan_id, worktree_id.as_deref())
     }
 
     pub fn artifacts(&self, task_id: &CoordinationTaskId) -> Vec<Artifact> {
+        let worktree_id = self.coordination_worktree_scope();
         self.continuity_runtime
             .read()
             .expect("continuity runtime lock poisoned")
-            .artifacts(task_id)
+            .artifacts_in_scope(task_id, worktree_id.as_deref())
     }
 
     pub fn policy_violations(
@@ -172,10 +182,11 @@ impl Prism {
         now: Timestamp,
     ) -> Vec<CoordinationConflict> {
         let anchors = self.coordination_scope_anchors(anchors);
+        let worktree_id = self.coordination_worktree_scope();
         self.continuity_runtime
             .write()
             .expect("continuity runtime lock poisoned")
-            .simulate_claim(
+            .simulate_claim_in_scope(
                 session_id,
                 &anchors,
                 capability,
@@ -183,6 +194,7 @@ impl Prism {
                 task_id,
                 self.workspace_revision(),
                 now,
+                worktree_id.as_deref(),
             )
     }
 

@@ -64,6 +64,8 @@ fn claim_conflicts_block_hard_exclusive_overlap() {
                     git_commit: None,
                 },
                 agent: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap();
@@ -88,6 +90,8 @@ fn claim_conflicts_block_hard_exclusive_overlap() {
                     git_commit: None,
                 },
                 agent: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap();
@@ -186,6 +190,8 @@ fn review_policy_gates_completion_but_not_ready_work() {
                 required_validations: Vec::new(),
                 validated_checks: Vec::new(),
                 risk_score: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap();
@@ -288,6 +294,8 @@ fn edit_capacity_limit_blocks_extra_claims() {
                     git_commit: None,
                 },
                 agent: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap()
@@ -313,6 +321,8 @@ fn edit_capacity_limit_blocks_extra_claims() {
                     git_commit: None,
                 },
                 agent: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap();
@@ -377,6 +387,8 @@ fn approving_stale_artifact_is_rejected() {
                 required_validations: Vec::new(),
                 validated_checks: Vec::new(),
                 risk_score: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap();
@@ -454,6 +466,8 @@ fn validation_policy_requires_approved_artifact_checks() {
                 required_validations: vec!["test:main_integration".to_string()],
                 validated_checks: Vec::new(),
                 risk_score: Some(0.4),
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap();
@@ -842,6 +856,8 @@ fn stale_claim_and_artifact_mutations_are_rejected() {
                     git_commit: None,
                 },
                 agent: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap_err();
@@ -868,6 +884,8 @@ fn stale_claim_and_artifact_mutations_are_rejected() {
                 required_validations: Vec::new(),
                 validated_checks: Vec::new(),
                 risk_score: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap_err();
@@ -927,6 +945,8 @@ fn plan_completion_requires_terminal_tasks_and_no_active_claims() {
                     git_commit: None,
                 },
                 agent: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap();
@@ -1792,6 +1812,8 @@ fn overlap_kind_changes_conflict_severity() {
                     git_commit: None,
                 },
                 agent: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap();
@@ -1816,6 +1838,8 @@ fn overlap_kind_changes_conflict_severity() {
                     git_commit: None,
                 },
                 agent: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap();
@@ -1844,6 +1868,8 @@ fn overlap_kind_changes_conflict_severity() {
                     git_commit: None,
                 },
                 agent: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap();
@@ -1868,6 +1894,8 @@ fn overlap_kind_changes_conflict_severity() {
                     git_commit: None,
                 },
                 agent: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap();
@@ -1929,6 +1957,8 @@ fn claim_ownership_is_enforced_and_audited() {
                     git_commit: None,
                 },
                 agent: None,
+                worktree_id: None,
+                branch_ref: None,
             },
         )
         .unwrap()
