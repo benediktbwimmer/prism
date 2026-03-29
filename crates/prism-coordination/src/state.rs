@@ -30,8 +30,7 @@ pub(crate) struct CoordinationState {
 }
 
 impl CoordinationState {
-    pub(crate) fn from_snapshot(snapshot: CoordinationSnapshot) -> Self {
-        let snapshot = rehydrate_plan_task_state(snapshot);
+    pub(crate) fn from_raw_snapshot(snapshot: CoordinationSnapshot) -> Self {
         Self {
             plans: snapshot
                 .plans
@@ -65,6 +64,10 @@ impl CoordinationState {
             next_artifact: snapshot.next_artifact,
             next_review: snapshot.next_review,
         }
+    }
+
+    pub(crate) fn from_snapshot(snapshot: CoordinationSnapshot) -> Self {
+        Self::from_raw_snapshot(rehydrate_plan_task_state(snapshot))
     }
 
     pub(crate) fn snapshot(&self) -> CoordinationSnapshot {

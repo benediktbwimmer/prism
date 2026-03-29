@@ -71,11 +71,21 @@ pub(crate) fn rehydrate_plan_task_state(
         }
     }
 
-    for (plan_id, plan) in stored_plans {
-        plans.entry(plan_id).or_insert(plan);
+    for (plan_id, stored) in stored_plans {
+        match plans.get_mut(&plan_id) {
+            Some(plan) => merge_stored_plan_metadata(plan, stored),
+            None => {
+                plans.insert(plan_id, stored);
+            }
+        }
     }
-    for (task_id, task) in stored_tasks {
-        tasks.entry(task_id).or_insert(task);
+    for (task_id, stored) in stored_tasks {
+        match tasks.get_mut(&task_id) {
+            Some(task) => merge_stored_task_metadata(task, stored),
+            None => {
+                tasks.insert(task_id, stored);
+            }
+        }
     }
 
     recompute_root_tasks(&mut plans, &tasks);
@@ -94,6 +104,9 @@ fn apply_plan_patch(plan: &mut Plan, metadata: &Value) {
     }
     if patch_is_set(metadata, "goal") {
         if let Some(goal) = metadata_path::<String>(metadata, &["patchValues", "goal"]) {
+            if plan.title.is_empty() || plan.title == plan.goal {
+                plan.title = goal.clone();
+            }
             plan.goal = goal;
         }
     }
@@ -141,6 +154,7 @@ fn apply_task_patch(task: &mut CoordinationTask, metadata: &Value) {
     if patch_is_set(metadata, "anchors") {
         if let Some(anchors) = metadata_path(metadata, &["patchValues", "anchors"]) {
             task.anchors = anchors;
+            task.bindings.anchors = task.anchors.clone();
         }
     }
     if patch_is_set(metadata, "dependsOn") {
@@ -157,6 +171,55 @@ fn apply_task_patch(task: &mut CoordinationTask, metadata: &Value) {
         if let Some(base_revision) = metadata_path(metadata, &["patchValues", "baseRevision"]) {
             task.base_revision = base_revision;
         }
+    }
+    if task.bindings.anchors.is_empty() && !task.anchors.is_empty() {
+        task.bindings.anchors = task.anchors.clone();
+    }
+}
+
+fn merge_stored_plan_metadata(plan: &mut Plan, stored: Plan) {
+    if !stored.title.is_empty() && stored.title != stored.goal {
+        plan.title = stored.title;
+    }
+    plan.scope = stored.scope;
+    plan.kind = stored.kind;
+    plan.revision = stored.revision;
+    plan.tags = stored.tags;
+    plan.created_from = stored.created_from;
+    plan.metadata = stored.metadata;
+}
+
+fn merge_stored_task_metadata(task: &mut CoordinationTask, stored: CoordinationTask) {
+    if stored.kind != prism_ir::PlanNodeKind::Edit {
+        task.kind = stored.kind;
+    }
+    if stored.summary.is_some() {
+        task.summary = stored.summary;
+    }
+    if !stored.bindings.concept_handles.is_empty()
+        || !stored.bindings.artifact_refs.is_empty()
+        || !stored.bindings.memory_refs.is_empty()
+        || !stored.bindings.outcome_refs.is_empty()
+    {
+        task.bindings = stored.bindings;
+        task.bindings.anchors = task.anchors.clone();
+    } else if task.bindings.anchors.is_empty() && !task.anchors.is_empty() {
+        task.bindings.anchors = task.anchors.clone();
+    }
+    if !stored.validation_refs.is_empty() {
+        task.validation_refs = stored.validation_refs;
+    }
+    if stored.is_abstract {
+        task.is_abstract = true;
+    }
+    if stored.priority.is_some() {
+        task.priority = stored.priority;
+    }
+    if !stored.tags.is_empty() {
+        task.tags = stored.tags;
+    }
+    if !stored.metadata.is_null() {
+        task.metadata = stored.metadata;
     }
 }
 

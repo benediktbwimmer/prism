@@ -310,7 +310,9 @@ Rules:
 - concept handles are first-class semantic bindings
 - committed plan state should persist anchors, concept handles, and stable published refs only
 - session-local handles are hydration conveniences, not authored binding material, and must be refreshable on hydration
+- runtime transport handles such as `handle:*` must be rejected from authored plan bindings rather than normalized into repo truth
 - `artifact_refs`, `memory_refs`, and `outcome_refs` are valid in repo-published plans only when they resolve to durable published or branch-stable references
+- implementations should reject authored `concept_handles`, `artifact_refs`, and `outcome_refs` that do not resolve in the currently loaded published/runtime knowledge stores instead of preserving unresolved published identifiers as if they were valid authored intent
 - if an artifact, memory, or outcome reference is only meaningful inside one runtime session, it belongs in a runtime overlay rather than the authored plan object
 
 ## 5.9 Acceptance model

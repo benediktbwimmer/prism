@@ -3,6 +3,7 @@ mod coordination;
 mod impact;
 mod intent;
 mod outcomes;
+mod plan_bindings;
 mod plan_completion;
 mod plan_discovery;
 mod plan_insights;
@@ -27,7 +28,7 @@ use prism_coordination::{
 };
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
-    AgentId, AnchorRef, ArtifactId, ClaimId, EventMeta, LineageEvent, LineageId, NodeId,
+    AgentId, AnchorRef, ArtifactId, ClaimId, EventId, EventMeta, LineageEvent, LineageId, NodeId,
     PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanNodeId, PlanNodeKind,
     PlanNodeStatus, ReviewId, SessionId, WorkspaceRevision,
 };
@@ -38,6 +39,7 @@ use prism_store::Graph;
 use tracing::info;
 
 use crate::common::{anchor_sort_key, dedupe_node_ids, sort_node_ids};
+use crate::plan_bindings::validate_authored_plan_binding;
 use crate::plan_runtime::NativePlanRuntimeState;
 
 pub use crate::source::{
@@ -68,6 +70,18 @@ pub struct Prism {
 }
 
 impl Prism {
+    fn validate_native_plan_binding(&self, binding: &prism_ir::PlanBinding) -> Result<()> {
+        validate_authored_plan_binding(
+            binding,
+            |handle| self.concept_by_handle(handle).is_some(),
+            |artifact_ref| {
+                self.coordination_artifact(&ArtifactId::new(artifact_ref))
+                    .is_some()
+            },
+            |outcome_ref| self.outcomes.event(&EventId::new(outcome_ref)).is_some(),
+        )
+    }
+
     pub fn new(graph: Graph) -> Self {
         let mut history = HistoryStore::new();
         history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
@@ -261,7 +275,11 @@ impl Prism {
             .plan_runtime
             .write()
             .expect("plan runtime lock poisoned") =
-            NativePlanRuntimeState::from_graphs_and_overlays(plan_graphs, execution_overlays);
+            NativePlanRuntimeState::from_snapshot_with_graphs_and_overlays(
+                &self.coordination.snapshot(),
+                plan_graphs,
+                execution_overlays,
+            );
         *self
             .continuity_runtime
             .write()
@@ -506,6 +524,7 @@ impl Prism {
         priority: Option<u8>,
         tags: Vec<String>,
     ) -> Result<PlanNodeId> {
+        self.validate_native_plan_binding(&bindings)?;
         self.mutate_native_plan_runtime(|runtime| {
             runtime.create_node(
                 plan_id,
@@ -606,6 +625,9 @@ impl Prism {
         clear_priority: bool,
         tags: Option<Vec<String>>,
     ) -> Result<PlanId> {
+        if let Some(bindings) = bindings.as_ref() {
+            self.validate_native_plan_binding(bindings)?;
+        }
         if matches!(status, Some(PlanNodeStatus::Completed)) {
             let mut preview = self
                 .plan_runtime

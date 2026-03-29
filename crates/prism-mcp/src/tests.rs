@@ -22,6 +22,7 @@ use super::query_replay_cases::{replay_cases, ReplayExpectation, ReplayHostProfi
 use super::*;
 use crate::server_surface::{MutationDashboardMeta, MutationRefreshPolicy};
 use prism_agent::{InferenceSnapshot, InferredEdgeScope};
+use prism_coordination::{CoordinationPolicy, CoordinationStore, PlanCreateInput, TaskCreateInput};
 use prism_core::{
     index_workspace_session, index_workspace_session_with_curator, ValidationFeedbackCategory,
     ValidationFeedbackRecord, ValidationFeedbackVerdict,
@@ -41,6 +42,7 @@ use prism_memory::{
     MemoryEntry, MemoryId, MemoryKind, MemoryModule, MemorySource, OutcomeEvent, OutcomeEvidence,
     OutcomeKind, OutcomeMemory, OutcomeResult, RecallQuery,
 };
+use prism_query::{ConceptDecodeLens, ConceptPacket, ConceptProvenance, ConceptScope};
 use prism_store::Graph;
 use serde_json::json;
 use serde_json::Value;
@@ -643,6 +645,96 @@ fn plan_node_mutations_return_graph_native_views() {
         )
         .unwrap();
     let plan_id = plan.state["id"].as_str().unwrap().to_string();
+    host.current_prism()
+        .replace_curated_concepts(vec![ConceptPacket {
+            handle: "concept://native_plan_runtime".to_string(),
+            canonical_name: "native_plan_runtime".to_string(),
+            summary: "Native plan runtime concept.".to_string(),
+            aliases: vec!["plan runtime".to_string()],
+            confidence: 0.95,
+            core_members: Vec::new(),
+            core_member_lineages: Vec::new(),
+            supporting_members: Vec::new(),
+            supporting_member_lineages: Vec::new(),
+            likely_tests: Vec::new(),
+            likely_test_lineages: Vec::new(),
+            evidence: vec!["Seeded for MCP native plan node mutation test.".to_string()],
+            risk_hint: None,
+            decode_lenses: vec![ConceptDecodeLens::Open],
+            scope: ConceptScope::Session,
+            provenance: ConceptProvenance {
+                origin: "test".to_string(),
+                kind: "seed".to_string(),
+                task_id: None,
+            },
+            publication: None,
+        }]);
+
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Track plan artifacts"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let validation_artifact = host
+        .store_artifact(
+            test_session(&host).as_ref(),
+            PrismArtifactArgs {
+                action: ArtifactActionInput::Propose,
+                payload: json!({
+                    "taskId": task.state["id"].as_str().unwrap(),
+                    "diffRef": "patch:demo-main"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let review_artifact = host
+        .store_artifact(
+            test_session(&host).as_ref(),
+            PrismArtifactArgs {
+                action: ArtifactActionInput::Propose,
+                payload: json!({
+                    "taskId": task.state["id"].as_str().unwrap(),
+                    "diffRef": "patch:review-main"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let validation_outcome = host
+        .store_outcome(
+            test_session(&host).as_ref(),
+            PrismOutcomeArgs {
+                kind: OutcomeKindInput::TestRan,
+                anchors: Vec::new(),
+                summary: "demo main validated".to_string(),
+                result: Some(OutcomeResultInput::Success),
+                evidence: None,
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let review_outcome = host
+        .store_outcome(
+            test_session(&host).as_ref(),
+            PrismOutcomeArgs {
+                kind: OutcomeKindInput::FixValidated,
+                anchors: Vec::new(),
+                summary: "review main validated".to_string(),
+                result: Some(OutcomeResultInput::Success),
+                evidence: None,
+                task_id: None,
+            },
+        )
+        .unwrap();
 
     let dependency = host
         .store_coordination(
@@ -673,9 +765,9 @@ fn plan_node_mutations_return_graph_native_views() {
                     "isAbstract": true,
                     "bindings": {
                         "conceptHandles": ["concept://native_plan_runtime"],
-                        "artifactRefs": ["artifact:demo-main"],
+                        "artifactRefs": [validation_artifact.artifact_id.as_deref().unwrap()],
                         "memoryRefs": ["memory:demo-main"],
-                        "outcomeRefs": ["outcome:demo-main"]
+                        "outcomeRefs": [validation_outcome.event_id.as_str()]
                     },
                     "acceptance": [{
                         "label": "main is updated",
@@ -734,9 +826,9 @@ fn plan_node_mutations_return_graph_native_views() {
                     }],
                     "bindings": {
                         "conceptHandles": ["concept://native_plan_runtime"],
-                        "artifactRefs": ["artifact:review-main"],
+                        "artifactRefs": [review_artifact.artifact_id.as_deref().unwrap()],
                         "memoryRefs": ["memory:review-main"],
-                        "outcomeRefs": ["outcome:review-main"]
+                        "outcomeRefs": [review_outcome.event_id.as_str()]
                     },
                     "dependsOn": [dependency_id.clone()],
                     "acceptance": [{
@@ -769,7 +861,7 @@ fn plan_node_mutations_return_graph_native_views() {
     );
     assert_eq!(
         updated.state["bindings"]["artifactRefs"][0],
-        "artifact:review-main"
+        review_artifact.artifact_id.as_deref().unwrap()
     );
     assert_eq!(
         updated.state["acceptance"][0]["requiredChecks"][0]["id"],
@@ -1228,6 +1320,78 @@ fn plan_edge_mutations_enforce_native_edge_semantics() {
     assert!(handoff_error
         .to_string()
         .contains("must connect executable nodes"));
+}
+
+#[test]
+fn plan_node_mutations_reject_runtime_only_binding_handles() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Reject runtime binding handles" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let error = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan_id,
+                    "title": "Bad binding node",
+                    "bindings": {
+                        "conceptHandles": ["handle:1"]
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .expect_err("runtime-only binding handle should reject");
+    assert!(error
+        .to_string()
+        .contains("runtime-only handles like `handle:1`"));
+}
+
+#[test]
+fn plan_node_mutations_reject_missing_published_binding_refs() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Reject missing published plan refs" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let error = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Bad binding node",
+                    "bindings": {
+                        "conceptHandles": ["concept://missing"]
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .expect_err("missing concept handle should reject");
+    assert!(error
+        .to_string()
+        .contains("must reference an existing concept handle"));
 }
 
 #[test]
@@ -9024,10 +9188,130 @@ fn compact_task_brief_summarizes_coordination_outcomes_and_next_reads() {
         .iter()
         .any(|target| target.path == "demo::gamma"));
     assert_eq!(brief.next_reads[0].path, "demo::gamma");
+    assert!(brief.next_action.as_deref().is_some_and(|value| {
+        value.contains("current task blockers") && value.contains("prism.blockers(taskId)")
+    }));
+}
+
+#[test]
+fn compact_task_brief_prefers_refresh_for_stale_current_task() {
+    let mut graph = Graph::new();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha.clone()]);
+    history.apply(&ObservedChangeSet {
+        meta: EventMeta {
+            id: EventId::new("observed:task-brief-stale"),
+            ts: 1,
+            actor: EventActor::System,
+            correlation: None,
+            causation: None,
+        },
+        trigger: ChangeTrigger::ManualReindex,
+        files: vec![FileId(1)],
+        previous_path: Some("/workspace/src/lib.rs".into()),
+        current_path: Some("/workspace/src/lib.rs".into()),
+        added: Vec::new(),
+        removed: Vec::new(),
+        updated: vec![(
+            ObservedNode {
+                node: Node {
+                    id: alpha.clone(),
+                    name: "alpha".into(),
+                    kind: NodeKind::Function,
+                    file: FileId(1),
+                    span: Span::line(1),
+                    language: Language::Rust,
+                },
+                fingerprint: SymbolFingerprint::with_parts(1, Some(1), None, None),
+            },
+            ObservedNode {
+                node: Node {
+                    id: alpha.clone(),
+                    name: "alpha".into(),
+                    kind: NodeKind::Function,
+                    file: FileId(1),
+                    span: Span::line(1),
+                    language: Language::Rust,
+                },
+                fingerprint: SymbolFingerprint::with_parts(1, Some(1), None, None),
+            },
+        )],
+        edge_added: Vec::new(),
+        edge_removed: Vec::new(),
+    });
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:task-brief-stale"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Refresh stale task".into(),
+                status: None,
+                policy: Some(CoordinationPolicy {
+                    stale_after_graph_change: true,
+                    ..CoordinationPolicy::default()
+                }),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:task-brief-stale"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id,
+                title: "Edit alpha".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                anchors: vec![AnchorRef::Node(alpha)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let prism = Prism::with_history_and_outcomes(graph, history, outcomes);
+    prism.replace_coordination_snapshot(coordination.snapshot());
+    let host = host_with_prism(prism);
+
+    let brief = host
+        .compact_task_brief(
+            test_session(&host),
+            PrismTaskBriefArgs {
+                task_id: task_id.0.to_string(),
+            },
+        )
+        .expect("task brief should succeed");
+
+    assert!(brief
+        .blockers
+        .iter()
+        .any(|blocker| blocker.kind == prism_coordination::BlockerKind::StaleRevision));
     assert!(brief
         .next_action
         .as_deref()
-        .is_some_and(|value| value.contains("prism_open") && value.contains("blocking work")));
+        .is_some_and(|value| value.contains("Refresh this task")));
 }
 
 #[test]

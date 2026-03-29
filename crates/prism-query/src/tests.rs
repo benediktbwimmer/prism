@@ -1440,7 +1440,7 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
             .coordination_task(&task_id)
             .expect("runtime task should exist")
             .title,
-        "Task A"
+        "Task A runtime"
     );
     assert_eq!(prism.claims(&[AnchorRef::Node(alpha.clone())], 10).len(), 1);
     assert_eq!(prism.artifacts(&task_id).len(), 1);
@@ -1718,6 +1718,40 @@ fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
     let graph = Graph::new();
     let history = HistoryStore::new();
     let outcomes = OutcomeMemory::new();
+    outcomes
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:validation-plan"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            anchors: Vec::new(),
+            kind: OutcomeKind::TestRan,
+            result: OutcomeResult::Success,
+            summary: "validation plan ran".into(),
+            evidence: Vec::new(),
+            metadata: serde_json::Value::Null,
+        })
+        .unwrap();
+    outcomes
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:review-plan"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            anchors: Vec::new(),
+            kind: OutcomeKind::FixValidated,
+            result: OutcomeResult::Success,
+            summary: "review plan validated".into(),
+            evidence: Vec::new(),
+            metadata: serde_json::Value::Null,
+        })
+        .unwrap();
     let coordination = CoordinationStore::new();
     let (plan_id, _) = coordination
         .create_plan(
@@ -1735,6 +1769,28 @@ fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
             },
         )
         .unwrap();
+    let (task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:native-node-metadata"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Track artifacts".into(),
+                status: None,
+                assignee: None,
+                session: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
     let prism = Prism::with_history_outcomes_coordination_and_projections(
         graph,
         history,
@@ -1742,6 +1798,73 @@ fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
         coordination,
         ProjectionIndex::default(),
     );
+    prism.replace_curated_concepts(vec![ConceptPacket {
+        handle: "concept://validation_pipeline".to_string(),
+        canonical_name: "validation_pipeline".to_string(),
+        summary: "Validation pipeline concept.".to_string(),
+        aliases: vec!["validation".to_string()],
+        confidence: 0.95,
+        core_members: Vec::new(),
+        core_member_lineages: Vec::new(),
+        supporting_members: Vec::new(),
+        supporting_member_lineages: Vec::new(),
+        likely_tests: Vec::new(),
+        likely_test_lineages: Vec::new(),
+        evidence: vec!["Seeded for native plan binding tests.".to_string()],
+        risk_hint: None,
+        decode_lenses: vec![ConceptDecodeLens::Validation],
+        scope: ConceptScope::Session,
+        provenance: ConceptProvenance {
+            origin: "test".to_string(),
+            kind: "seed".to_string(),
+            task_id: None,
+        },
+        publication: None,
+    }]);
+    let (validation_artifact_id, _) = prism
+        .propose_native_artifact(
+            EventMeta {
+                id: EventId::new("coord:artifact:native-node-metadata:validation"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            ArtifactProposeInput {
+                task_id: task_id.clone(),
+                anchors: Vec::new(),
+                diff_ref: Some("patch:validation".into()),
+                evidence: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+                current_revision: WorkspaceRevision::default(),
+                required_validations: Vec::new(),
+                validated_checks: Vec::new(),
+                risk_score: None,
+            },
+        )
+        .unwrap();
+    let (review_artifact_id, _) = prism
+        .propose_native_artifact(
+            EventMeta {
+                id: EventId::new("coord:artifact:native-node-metadata:review"),
+                ts: 4,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            ArtifactProposeInput {
+                task_id,
+                anchors: Vec::new(),
+                diff_ref: Some("patch:review".into()),
+                evidence: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+                current_revision: WorkspaceRevision::default(),
+                required_validations: Vec::new(),
+                validated_checks: Vec::new(),
+                risk_score: None,
+            },
+        )
+        .unwrap();
 
     let node_id = prism
         .create_native_plan_node(
@@ -1758,7 +1881,7 @@ fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
                     "concept://validation_pipeline".into(),
                     "concept://validation_pipeline".into(),
                 ],
-                artifact_refs: vec!["artifact:demo-main".into()],
+                artifact_refs: vec![validation_artifact_id.0.to_string()],
                 memory_refs: vec!["memory:validation-note".into()],
                 outcome_refs: vec!["outcome:validation-plan".into()],
             },
@@ -1786,7 +1909,7 @@ fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
             Some(prism_ir::PlanBinding {
                 anchors: vec![AnchorRef::Kind(NodeKind::Method)],
                 concept_handles: vec!["concept://validation_pipeline".into()],
-                artifact_refs: vec!["artifact:review-main".into()],
+                artifact_refs: vec![review_artifact_id.0.to_string()],
                 memory_refs: vec!["memory:review-note".into()],
                 outcome_refs: vec!["outcome:review-plan".into()],
             }),
@@ -1821,7 +1944,10 @@ fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
         node.bindings.concept_handles,
         vec!["concept://validation_pipeline"]
     );
-    assert_eq!(node.bindings.artifact_refs, vec!["artifact:review-main"]);
+    assert_eq!(
+        node.bindings.artifact_refs,
+        vec![review_artifact_id.0.to_string()]
+    );
     assert_eq!(node.bindings.memory_refs, vec!["memory:review-note"]);
     assert_eq!(node.bindings.outcome_refs, vec!["outcome:review-plan"]);
     assert_eq!(
@@ -1831,6 +1957,305 @@ fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
             .collect::<Vec<_>>(),
         vec!["validation:review-main"]
     );
+}
+
+#[test]
+fn native_plan_node_bindings_reject_runtime_handles_and_unstable_refs() {
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:native-node-bindings"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Reject unstable binding refs".into(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        history,
+        outcomes,
+        coordination,
+        ProjectionIndex::default(),
+    );
+
+    let create_error = prism
+        .create_native_plan_node(
+            &plan_id,
+            PlanNodeKind::Edit,
+            "Bad binding".into(),
+            None,
+            None,
+            None,
+            false,
+            prism_ir::PlanBinding {
+                anchors: Vec::new(),
+                concept_handles: vec!["handle:1".into()],
+                artifact_refs: Vec::new(),
+                memory_refs: Vec::new(),
+                outcome_refs: Vec::new(),
+            },
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            WorkspaceRevision::default(),
+            None,
+            Vec::new(),
+        )
+        .expect_err("runtime handle binding should reject");
+    assert!(create_error
+        .to_string()
+        .contains("runtime-only handles like `handle:1`"));
+
+    let node_id = prism
+        .create_native_plan_node(
+            &plan_id,
+            PlanNodeKind::Edit,
+            "Valid node".into(),
+            None,
+            None,
+            None,
+            false,
+            prism_ir::PlanBinding::default(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            WorkspaceRevision::default(),
+            None,
+            Vec::new(),
+        )
+        .unwrap();
+    prism.replace_curated_concepts(vec![ConceptPacket {
+        handle: "concept://validation_pipeline".to_string(),
+        canonical_name: "validation_pipeline".to_string(),
+        summary: "Validation pipeline concept.".to_string(),
+        aliases: Vec::new(),
+        confidence: 0.9,
+        core_members: Vec::new(),
+        core_member_lineages: Vec::new(),
+        supporting_members: Vec::new(),
+        supporting_member_lineages: Vec::new(),
+        likely_tests: Vec::new(),
+        likely_test_lineages: Vec::new(),
+        evidence: vec!["Seeded for artifact ref shape validation.".to_string()],
+        risk_hint: None,
+        decode_lenses: vec![ConceptDecodeLens::Validation],
+        scope: ConceptScope::Session,
+        provenance: ConceptProvenance {
+            origin: "test".to_string(),
+            kind: "seed".to_string(),
+            task_id: None,
+        },
+        publication: None,
+    }]);
+
+    let update_error = prism
+        .update_native_plan_node(
+            &node_id,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            Some(prism_ir::PlanBinding {
+                anchors: Vec::new(),
+                concept_handles: Vec::new(),
+                artifact_refs: vec!["not-an-artifact-ref".into()],
+                memory_refs: Vec::new(),
+                outcome_refs: Vec::new(),
+            }),
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+        )
+        .expect_err("unstable published ref should reject");
+    assert!(update_error
+        .to_string()
+        .contains("artifact_refs` must use stable `artifact:...` refs"));
+}
+
+#[test]
+fn native_plan_node_bindings_reject_missing_published_refs() {
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:native-node-binding-resolution"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Reject missing published binding refs".into(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        history,
+        outcomes,
+        coordination,
+        ProjectionIndex::default(),
+    );
+
+    let concept_error = prism
+        .create_native_plan_node(
+            &plan_id,
+            PlanNodeKind::Edit,
+            "Missing concept".into(),
+            None,
+            None,
+            None,
+            false,
+            prism_ir::PlanBinding {
+                anchors: Vec::new(),
+                concept_handles: vec!["concept://missing".into()],
+                artifact_refs: Vec::new(),
+                memory_refs: Vec::new(),
+                outcome_refs: Vec::new(),
+            },
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            WorkspaceRevision::default(),
+            None,
+            Vec::new(),
+        )
+        .expect_err("missing concept binding should reject");
+    assert!(concept_error
+        .to_string()
+        .contains("must reference an existing concept handle"));
+
+    prism.replace_curated_concepts(vec![ConceptPacket {
+        handle: "concept://binding_resolution".to_string(),
+        canonical_name: "binding_resolution".to_string(),
+        summary: "Binding resolution concept.".to_string(),
+        aliases: Vec::new(),
+        confidence: 0.9,
+        core_members: Vec::new(),
+        core_member_lineages: Vec::new(),
+        supporting_members: Vec::new(),
+        supporting_member_lineages: Vec::new(),
+        likely_tests: Vec::new(),
+        likely_test_lineages: Vec::new(),
+        evidence: vec!["Seeded for binding resolution test.".to_string()],
+        risk_hint: None,
+        decode_lenses: vec![ConceptDecodeLens::Open],
+        scope: ConceptScope::Session,
+        provenance: ConceptProvenance {
+            origin: "test".to_string(),
+            kind: "seed".to_string(),
+            task_id: None,
+        },
+        publication: None,
+    }]);
+
+    let node_id = prism
+        .create_native_plan_node(
+            &plan_id,
+            PlanNodeKind::Edit,
+            "Valid concept".into(),
+            None,
+            None,
+            None,
+            false,
+            prism_ir::PlanBinding {
+                anchors: Vec::new(),
+                concept_handles: vec!["concept://binding_resolution".into()],
+                artifact_refs: Vec::new(),
+                memory_refs: Vec::new(),
+                outcome_refs: Vec::new(),
+            },
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            WorkspaceRevision::default(),
+            None,
+            Vec::new(),
+        )
+        .unwrap();
+
+    let artifact_error = prism
+        .update_native_plan_node(
+            &node_id,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            Some(prism_ir::PlanBinding {
+                anchors: Vec::new(),
+                concept_handles: vec!["concept://binding_resolution".into()],
+                artifact_refs: vec!["artifact:missing".into()],
+                memory_refs: Vec::new(),
+                outcome_refs: Vec::new(),
+            }),
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+        )
+        .expect_err("missing artifact binding should reject");
+    assert!(artifact_error
+        .to_string()
+        .contains("must reference an existing published ref"));
+
+    let outcome_error = prism
+        .update_native_plan_node(
+            &node_id,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            Some(prism_ir::PlanBinding {
+                anchors: Vec::new(),
+                concept_handles: vec!["concept://binding_resolution".into()],
+                artifact_refs: Vec::new(),
+                memory_refs: Vec::new(),
+                outcome_refs: vec!["outcome:missing".into()],
+            }),
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+        )
+        .expect_err("missing outcome binding should reject");
+    assert!(outcome_error
+        .to_string()
+        .contains("must reference an existing published ref"));
 }
 
 #[test]
@@ -3069,6 +3494,137 @@ fn published_plan_stale_tasks_are_not_reported_as_ready_or_actionable() {
 }
 
 #[test]
+fn replace_coordination_snapshot_and_plan_graphs_preserves_stale_policy() {
+    let mut graph = Graph::new();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha.clone()]);
+    history.apply(&ObservedChangeSet {
+        meta: EventMeta {
+            id: EventId::new("observed:replace-stale-ready"),
+            ts: 1,
+            actor: EventActor::System,
+            correlation: None,
+            causation: None,
+        },
+        trigger: ChangeTrigger::ManualReindex,
+        files: vec![FileId(1)],
+        previous_path: Some("/workspace/src/lib.rs".into()),
+        current_path: Some("/workspace/src/lib.rs".into()),
+        added: Vec::new(),
+        removed: Vec::new(),
+        updated: vec![(
+            ObservedNode {
+                node: Node {
+                    id: alpha.clone(),
+                    name: "alpha".into(),
+                    kind: NodeKind::Function,
+                    file: FileId(1),
+                    span: Span::line(1),
+                    language: Language::Rust,
+                },
+                fingerprint: prism_ir::SymbolFingerprint::with_parts(1, Some(1), None, None),
+            },
+            ObservedNode {
+                node: Node {
+                    id: alpha.clone(),
+                    name: "alpha".into(),
+                    kind: NodeKind::Function,
+                    file: FileId(1),
+                    span: Span::line(1),
+                    language: Language::Rust,
+                },
+                fingerprint: prism_ir::SymbolFingerprint::with_parts(1, Some(1), None, None),
+            },
+        )],
+        edge_added: Vec::new(),
+        edge_removed: Vec::new(),
+    });
+
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:replace-stale-ready"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Preserve stale policy on replacement".into(),
+                status: None,
+                policy: Some(CoordinationPolicy {
+                    stale_after_graph_change: true,
+                    ..CoordinationPolicy::default()
+                }),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:replace-stale-ready"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Stale task".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                anchors: vec![AnchorRef::Node(alpha)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let snapshot = coordination.snapshot();
+    let plan_graph = coordination.plan_graph(&plan_id).expect("plan graph");
+
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        history,
+        outcomes,
+        coordination,
+        ProjectionIndex::default(),
+    );
+    prism.replace_coordination_snapshot_and_plan_graphs(
+        snapshot,
+        vec![plan_graph],
+        BTreeMap::new(),
+    );
+
+    let blockers = prism.plan_node_blockers(&plan_id, &PlanNodeId::new(task_id.0.clone()));
+    assert!(blockers
+        .iter()
+        .any(|blocker| blocker.kind == PlanNodeBlockerKind::StaleRevision));
+    let summary = prism
+        .plan_summary(&plan_id)
+        .expect("plan summary should exist");
+    assert_eq!(summary.actionable_nodes, 0);
+    assert_eq!(summary.execution_blocked_nodes, 1);
+    assert_eq!(summary.stale_nodes, 1);
+    assert!(prism
+        .plan_next(&plan_id, 5)
+        .into_iter()
+        .all(|recommendation| !recommendation.actionable));
+}
+
+#[test]
 fn task_backed_native_plan_node_completion_uses_continuity_review_state() {
     let graph = Graph::new();
     let history = HistoryStore::new();
@@ -3435,6 +3991,176 @@ fn native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges() {
             .len(),
         1
     );
+}
+
+#[test]
+fn native_plan_metadata_survives_compatibility_write_and_reload() {
+    let mut graph = Graph::new();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:metadata-reload"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Persist native metadata".into(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:metadata-reload"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Task A".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                anchors: vec![AnchorRef::Node(alpha.clone())],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+
+    let node_id = PlanNodeId::new(task_id.0.clone());
+    let native_graph = PlanGraph {
+        id: plan_id.clone(),
+        scope: PlanScope::Repo,
+        kind: PlanKind::Migration,
+        title: "Native persistence migration".into(),
+        goal: "Persist native metadata".into(),
+        status: PlanStatus::Active,
+        revision: 9,
+        root_nodes: vec![node_id.clone()],
+        tags: vec!["persistence".into(), "ux".into()],
+        created_from: Some("concept://coordination_ux".into()),
+        metadata: serde_json::json!({ "source": "native-graph" }),
+        nodes: vec![PlanNode {
+            id: node_id.clone(),
+            plan_id: plan_id.clone(),
+            kind: PlanNodeKind::Validate,
+            title: "Task A".into(),
+            summary: Some("Preserve authored metadata".into()),
+            status: PlanNodeStatus::Ready,
+            bindings: prism_ir::PlanBinding {
+                anchors: vec![AnchorRef::Node(alpha.clone())],
+                concept_handles: vec!["concept://coordination_ux".into()],
+                artifact_refs: vec!["artifact:coordination".into()],
+                memory_refs: vec!["memory:coordination".into()],
+                outcome_refs: vec!["outcome:coordination".into()],
+            },
+            acceptance: Vec::new(),
+            validation_refs: vec![prism_ir::ValidationRef {
+                id: "validation:coordination".into(),
+            }],
+            is_abstract: true,
+            assignee: None,
+            base_revision: WorkspaceRevision::default(),
+            priority: Some(5),
+            tags: vec!["native".into(), "metadata".into()],
+            metadata: serde_json::json!({ "source": "native-node" }),
+        }],
+        edges: Vec::new(),
+    };
+
+    let prism = Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
+        graph,
+        history,
+        outcomes,
+        coordination,
+        ProjectionIndex::default(),
+        vec![native_graph],
+        BTreeMap::new(),
+    );
+    prism
+        .acquire_native_claim(
+            EventMeta {
+                id: EventId::new("coord:claim:metadata-reload"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            SessionId::new("session:metadata"),
+            prism_coordination::ClaimAcquireInput {
+                task_id: Some(prism_ir::CoordinationTaskId::new(task_id.0.clone())),
+                anchors: vec![AnchorRef::Node(alpha)],
+                capability: prism_ir::Capability::Edit,
+                mode: Some(prism_ir::ClaimMode::Advisory),
+                ttl_seconds: Some(60),
+                base_revision: WorkspaceRevision::default(),
+                current_revision: WorkspaceRevision::default(),
+                agent: None,
+            },
+        )
+        .expect("claim should succeed");
+
+    let snapshot = prism.coordination_snapshot();
+    let reloaded = Prism::with_history_outcomes_coordination_and_projections(
+        Graph::new(),
+        HistoryStore::new(),
+        OutcomeMemory::new(),
+        CoordinationStore::from_snapshot(snapshot),
+        ProjectionIndex::default(),
+    );
+
+    let persisted = reloaded.plan_graph(&plan_id).expect("persisted graph");
+    assert_eq!(persisted.title, "Native persistence migration");
+    assert_eq!(persisted.kind, PlanKind::Migration);
+    assert_eq!(persisted.revision, 9);
+    assert_eq!(persisted.tags, vec!["persistence", "ux"]);
+    assert_eq!(
+        persisted.created_from.as_deref(),
+        Some("concept://coordination_ux")
+    );
+    assert_eq!(persisted.metadata["source"], "native-graph");
+    let node = persisted
+        .nodes
+        .into_iter()
+        .find(|node| node.id == node_id)
+        .expect("node should persist");
+    assert_eq!(node.kind, PlanNodeKind::Validate);
+    assert_eq!(node.summary.as_deref(), Some("Preserve authored metadata"));
+    assert_eq!(node.priority, Some(5));
+    assert_eq!(node.tags, vec!["native", "metadata"]);
+    assert_eq!(
+        node.bindings.concept_handles,
+        vec!["concept://coordination_ux"]
+    );
+    assert_eq!(
+        node.validation_refs
+            .iter()
+            .map(|value| value.id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["validation:coordination"]
+    );
+    assert!(node.is_abstract);
+    assert_eq!(node.metadata["source"], "native-node");
 }
 
 #[test]

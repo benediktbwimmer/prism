@@ -1,12 +1,25 @@
 use prism_ir::{
     AgentId, AnchorRef, ArtifactId, ArtifactStatus, Capability, ClaimId, ClaimMode, ClaimStatus,
     ConflictOverlapKind, ConflictSeverity, CoordinationEventKind, CoordinationTaskId,
-    CoordinationTaskStatus, EventId, EventMeta, PlanId, PlanStatus, ReviewId, ReviewVerdict,
-    SessionId, Timestamp, WorkspaceRevision,
+    CoordinationTaskStatus, EventId, EventMeta, PlanBinding, PlanId, PlanKind, PlanNodeKind,
+    PlanScope, PlanStatus, ReviewId, ReviewVerdict, SessionId, Timestamp, ValidationRef,
+    WorkspaceRevision,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+fn default_plan_scope() -> PlanScope {
+    PlanScope::Repo
+}
+
+fn default_plan_kind() -> PlanKind {
+    PlanKind::TaskExecution
+}
+
+fn default_plan_node_kind() -> PlanNodeKind {
+    PlanNodeKind::Edit
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CoordinationPolicy {
@@ -43,8 +56,22 @@ pub struct AcceptanceCriterion {
 pub struct Plan {
     pub id: PlanId,
     pub goal: String,
+    #[serde(default)]
+    pub title: String,
     pub status: PlanStatus,
     pub policy: CoordinationPolicy,
+    #[serde(default = "default_plan_scope")]
+    pub scope: PlanScope,
+    #[serde(default = "default_plan_kind")]
+    pub kind: PlanKind,
+    #[serde(default)]
+    pub revision: u64,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub created_from: Option<String>,
+    #[serde(default)]
+    pub metadata: Value,
     pub root_tasks: Vec<CoordinationTaskId>,
 }
 
@@ -52,16 +79,32 @@ pub struct Plan {
 pub struct CoordinationTask {
     pub id: CoordinationTaskId,
     pub plan: PlanId,
+    #[serde(default = "default_plan_node_kind")]
+    pub kind: PlanNodeKind,
     pub title: String,
+    #[serde(default)]
+    pub summary: Option<String>,
     pub status: CoordinationTaskStatus,
     pub assignee: Option<AgentId>,
     #[serde(default)]
     pub pending_handoff_to: Option<AgentId>,
     pub session: Option<SessionId>,
     pub anchors: Vec<AnchorRef>,
+    #[serde(default)]
+    pub bindings: PlanBinding,
     pub depends_on: Vec<CoordinationTaskId>,
     pub acceptance: Vec<AcceptanceCriterion>,
+    #[serde(default)]
+    pub validation_refs: Vec<ValidationRef>,
+    #[serde(default)]
+    pub is_abstract: bool,
     pub base_revision: WorkspaceRevision,
+    #[serde(default)]
+    pub priority: Option<u8>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub metadata: Value,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -1,8 +1,9 @@
 use anyhow::{anyhow, Result};
 use prism_ir::{
     ArtifactStatus, ClaimId, ClaimMode, ConflictSeverity, CoordinationEventKind,
-    CoordinationTaskId, CoordinationTaskStatus, EventId, EventMeta, PlanId, PlanStatus, ReviewId,
-    ReviewVerdict, SessionId, Timestamp, WorkspaceRevision,
+    CoordinationTaskId, CoordinationTaskStatus, EventId, EventMeta, PlanBinding, PlanId, PlanKind,
+    PlanNodeKind, PlanScope, PlanStatus, ReviewId, ReviewVerdict, SessionId, Timestamp,
+    WorkspaceRevision,
 };
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -756,8 +757,15 @@ pub(crate) fn create_plan_mutation(
     let plan = Plan {
         id: id.clone(),
         goal: input.goal.clone(),
+        title: input.goal.clone(),
         status: input.status.unwrap_or(PlanStatus::Active),
         policy: input.policy.unwrap_or_default(),
+        scope: PlanScope::Repo,
+        kind: PlanKind::TaskExecution,
+        revision: 0,
+        tags: Vec::new(),
+        created_from: None,
+        metadata: Value::Null,
         root_tasks: Vec::new(),
     };
     state.plans.insert(id.clone(), plan.clone());
@@ -924,6 +932,9 @@ pub(crate) fn update_plan_mutation(
     let update_status = input.status.is_some();
     let update_policy = input.policy.is_some();
     if let Some(goal) = input.goal {
+        if plan.title.is_empty() || plan.title == plan.goal {
+            plan.title = goal.clone();
+        }
         plan.goal = goal;
     }
     if let Some(status) = input.status {
@@ -1057,18 +1068,30 @@ pub(crate) fn create_task_mutation(
     state.next_task += 1;
     let id = CoordinationTaskId::new(format!("coord-task:{}", state.next_task));
     let is_root = input.depends_on.is_empty();
+    let anchors = dedupe_anchors(input.anchors);
     let task = CoordinationTask {
         id: id.clone(),
         plan: input.plan_id.clone(),
+        kind: PlanNodeKind::Edit,
         title: input.title.clone(),
+        summary: None,
         status: input.status.unwrap_or(CoordinationTaskStatus::Ready),
         assignee: input.assignee,
         pending_handoff_to: None,
         session: input.session,
-        anchors: dedupe_anchors(input.anchors),
+        anchors: anchors.clone(),
+        bindings: PlanBinding {
+            anchors,
+            ..PlanBinding::default()
+        },
         depends_on: dedupe_ids(input.depends_on),
         acceptance: normalize_acceptance(input.acceptance),
+        validation_refs: Vec::new(),
+        is_abstract: false,
         base_revision: input.base_revision,
+        priority: None,
+        tags: Vec::new(),
+        metadata: Value::Null,
     };
     if is_root {
         let plan = state
@@ -1364,6 +1387,7 @@ pub(crate) fn update_task_mutation(
         }
         if let Some(anchors) = input.anchors {
             task.anchors = dedupe_anchors(anchors);
+            task.bindings.anchors = task.anchors.clone();
         }
         if let Some(depends_on) = next_dependencies.clone() {
             let previous_root = task.depends_on.is_empty();
@@ -1378,6 +1402,9 @@ pub(crate) fn update_task_mutation(
         }
         if let Some(base_revision) = input.base_revision {
             task.base_revision = base_revision;
+        }
+        if task.bindings.anchors.is_empty() && !task.anchors.is_empty() {
+            task.bindings.anchors = task.anchors.clone();
         }
         task_snapshot = task.clone();
     }

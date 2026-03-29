@@ -32,7 +32,7 @@ pub struct CoordinationRuntimeState {
 impl CoordinationRuntimeState {
     pub fn from_snapshot(snapshot: CoordinationSnapshot) -> Self {
         Self {
-            state: CoordinationState::from_snapshot(snapshot),
+            state: CoordinationState::from_raw_snapshot(snapshot),
         }
     }
 

@@ -2,8 +2,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use prism_ir::{
     AcceptanceEvidencePolicy, PlanAcceptanceCriterion, PlanBinding, PlanEdge, PlanEdgeId,
-    PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanKind, PlanNode, PlanNodeId, PlanNodeKind,
-    PlanNodeStatus, PlanScope, ValidationRef,
+    PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanNode, PlanNodeId, PlanNodeStatus,
+    ValidationRef,
 };
 use serde_json::Value;
 
@@ -42,20 +42,20 @@ pub fn plan_graph_from_coordination(plan: Plan, mut tasks: Vec<CoordinationTask>
 
     PlanGraph {
         id: plan.id.clone(),
-        scope: PlanScope::Repo,
-        kind: PlanKind::TaskExecution,
-        title: plan.goal.clone(),
+        scope: plan.scope,
+        kind: plan.kind,
+        title: authored_plan_title(&plan),
         goal: plan.goal,
         status: plan.status,
-        revision: 0,
+        revision: plan.revision,
         root_nodes: plan
             .root_tasks
             .into_iter()
             .map(plan_node_id_from_task_id)
             .collect(),
-        tags: Vec::new(),
-        created_from: None,
-        metadata: Value::Null,
+        tags: plan.tags,
+        created_from: plan.created_from,
+        metadata: plan.metadata,
         nodes,
         edges,
     }
@@ -145,32 +145,27 @@ impl CoordinationStore {
 }
 
 fn plan_node_from_task(task: CoordinationTask) -> PlanNode {
+    let bindings = task_bindings(&task);
     PlanNode {
         id: plan_node_id_from_task_id(task.id),
         plan_id: task.plan,
-        kind: PlanNodeKind::Edit,
+        kind: task.kind,
         title: task.title,
-        summary: None,
+        summary: task.summary,
         status: map_task_status(task.status),
-        bindings: PlanBinding {
-            anchors: task.anchors,
-            concept_handles: Vec::new(),
-            artifact_refs: Vec::new(),
-            memory_refs: Vec::new(),
-            outcome_refs: Vec::new(),
-        },
+        bindings,
         acceptance: task
             .acceptance
             .into_iter()
             .map(map_acceptance)
             .collect::<Vec<_>>(),
-        validation_refs: Vec::new(),
-        is_abstract: false,
+        validation_refs: task.validation_refs,
+        is_abstract: task.is_abstract,
         assignee: task.assignee,
         base_revision: task.base_revision,
-        priority: None,
-        tags: Vec::new(),
-        metadata: Value::Null,
+        priority: task.priority,
+        tags: task.tags,
+        metadata: task.metadata,
     }
 }
 
@@ -178,8 +173,15 @@ fn plan_from_graph(graph: &PlanGraph) -> Plan {
     Plan {
         id: graph.id.clone(),
         goal: graph.goal.clone(),
+        title: graph.title.clone(),
         status: graph.status,
         policy: crate::types::CoordinationPolicy::default(),
+        scope: graph.scope,
+        kind: graph.kind,
+        revision: graph.revision,
+        tags: graph.tags.clone(),
+        created_from: graph.created_from.clone(),
+        metadata: graph.metadata.clone(),
         root_tasks: graph
             .root_nodes
             .iter()
@@ -195,25 +197,50 @@ fn task_from_plan_node(
     depends_on: Vec<prism_ir::CoordinationTaskId>,
     execution: Option<PlanExecutionOverlay>,
 ) -> CoordinationTask {
+    let anchors = node.bindings.anchors.clone();
     CoordinationTask {
         id: coordination_task_id_from_plan_node_id(node.id),
         plan: plan_id,
+        kind: node.kind,
         title: node.title,
+        summary: node.summary,
         status: map_plan_node_status(node.status),
         assignee: node.assignee,
         pending_handoff_to: execution
             .as_ref()
             .and_then(|overlay| overlay.pending_handoff_to.clone()),
         session: execution.and_then(|overlay| overlay.session),
-        anchors: node.bindings.anchors,
+        anchors,
+        bindings: node.bindings,
         depends_on,
         acceptance: node
             .acceptance
             .into_iter()
             .map(map_plan_acceptance)
             .collect(),
+        validation_refs: node.validation_refs,
+        is_abstract: node.is_abstract,
         base_revision: node.base_revision,
+        priority: node.priority,
+        tags: node.tags,
+        metadata: node.metadata,
     }
+}
+
+fn authored_plan_title(plan: &Plan) -> String {
+    if plan.title.is_empty() {
+        plan.goal.clone()
+    } else {
+        plan.title.clone()
+    }
+}
+
+fn task_bindings(task: &CoordinationTask) -> PlanBinding {
+    let mut bindings = task.bindings.clone();
+    if bindings.anchors.is_empty() {
+        bindings.anchors = task.anchors.clone();
+    }
+    bindings
 }
 
 fn dependency_edges_for_task(task: &CoordinationTask) -> Vec<PlanEdge> {

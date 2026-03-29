@@ -86,6 +86,12 @@ impl QueryHost {
                     prism.task_risk(&coordination_task_id, now).as_ref(),
                     plan_summary.as_ref(),
                 );
+                let next_action = compact_task_brief_next_action(
+                    &task,
+                    blockers.as_slice(),
+                    plan_summary.as_ref(),
+                    plan_next.as_slice(),
+                );
 
                 let mut result = AgentTaskBriefResultView {
                     task_id: task.id.0.to_string(),
@@ -112,11 +118,7 @@ impl QueryHost {
                     next_reads,
                     risk_hint,
                     truncated: false,
-                    next_action: Some(compact_task_brief_next_action(
-                        &task,
-                        plan_summary.as_ref(),
-                        plan_next.as_slice(),
-                    )),
+                    next_action: Some(next_action),
                     suggested_actions: Vec::new(),
                 };
                 if let Some(next_read) = result.next_reads.first() {
@@ -339,9 +341,19 @@ fn compact_outcome_summary_view(
 
 fn compact_task_brief_next_action(
     task: &prism_coordination::CoordinationTask,
+    blockers: &[AgentTaskBlockerView],
     plan_summary: Option<&PlanSummary>,
     plan_next: &[PlanNodeRecommendation],
 ) -> String {
+    if blockers
+        .iter()
+        .any(|blocker| blocker.kind == prism_coordination::BlockerKind::StaleRevision)
+    {
+        return "Refresh this task against the current workspace revision, then rerun prism_task_brief or prism.blockers(taskId).".to_string();
+    }
+    if !blockers.is_empty() {
+        return "Inspect the current task blockers before switching nodes; use prism.blockers(taskId) or prism_query for full coordination detail.".to_string();
+    }
     if let Some(recommendation) = plan_next
         .iter()
         .find(|recommendation| recommendation.actionable && recommendation.node.id.0 != task.id.0)

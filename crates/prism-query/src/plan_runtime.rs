@@ -122,21 +122,21 @@ impl NativePlanRuntimeState {
             plan.id.0.to_string(),
             PlanGraph {
                 id: plan.id.clone(),
-                scope: prism_ir::PlanScope::Repo,
-                kind: prism_ir::PlanKind::TaskExecution,
-                title: plan.goal.clone(),
+                scope: plan.scope,
+                kind: plan.kind,
+                title: authored_plan_title(plan),
                 goal: plan.goal.clone(),
                 status: plan.status,
-                revision: 0,
+                revision: plan.revision,
                 root_nodes: plan
                     .root_tasks
                     .iter()
                     .cloned()
                     .map(plan_node_id_from_task_id)
                     .collect(),
-                tags: Vec::new(),
-                created_from: None,
-                metadata: Value::Null,
+                tags: plan.tags.clone(),
+                created_from: plan.created_from.clone(),
+                metadata: plan.metadata.clone(),
                 nodes: Vec::new(),
                 edges: Vec::new(),
             },
@@ -153,15 +153,21 @@ impl NativePlanRuntimeState {
         let Some(graph) = self.graphs.get_mut(plan.id.0.as_str()) else {
             return Err(anyhow!("unknown plan `{}`", plan.id.0));
         };
-        graph.title = plan.goal.clone();
+        graph.scope = plan.scope;
+        graph.kind = plan.kind;
+        graph.title = authored_plan_title(plan);
         graph.goal = plan.goal.clone();
         graph.status = plan.status;
+        graph.revision = plan.revision;
         graph.root_nodes = plan
             .root_tasks
             .iter()
             .cloned()
             .map(plan_node_id_from_task_id)
             .collect();
+        graph.tags = plan.tags.clone();
+        graph.created_from = plan.created_from.clone();
+        graph.metadata = plan.metadata.clone();
         self.policies
             .insert(plan.id.0.to_string(), plan.policy.clone());
         Ok(())
@@ -565,6 +571,9 @@ fn merge_acceptance_from_coordination(
     existing: Vec<PlanAcceptanceCriterion>,
     incoming: Vec<AcceptanceCriterion>,
 ) -> Vec<PlanAcceptanceCriterion> {
+    if incoming.is_empty() {
+        return existing;
+    }
     let existing = existing
         .into_iter()
         .map(|criterion| (criterion.label.clone(), criterion))
@@ -852,36 +861,87 @@ fn plan_node_from_coordination_task(task: &CoordinationTask) -> PlanNode {
     let mut node = PlanNode {
         id: plan_node_id_from_task_id(task.id.clone()),
         plan_id: task.plan.clone(),
-        kind: PlanNodeKind::Edit,
+        kind: task.kind,
         title: String::new(),
-        summary: None,
+        summary: task.summary.clone(),
         status: map_coordination_task_status(task.status),
-        bindings: prism_ir::PlanBinding::default(),
-        acceptance: Vec::new(),
-        validation_refs: Vec::new(),
-        is_abstract: false,
-        assignee: None,
+        bindings: task_bindings(task),
+        acceptance: task
+            .acceptance
+            .iter()
+            .cloned()
+            .map(plan_acceptance_from_coordination)
+            .collect(),
+        validation_refs: dedupe_validation_refs(task.validation_refs.clone()),
+        is_abstract: task.is_abstract,
+        assignee: task.assignee.clone(),
         base_revision: task.base_revision.clone(),
-        priority: None,
-        tags: Vec::new(),
-        metadata: Value::Null,
+        priority: task.priority,
+        tags: normalize_string_refs(task.tags.clone()),
+        metadata: task.metadata.clone(),
     };
     populate_plan_node_from_coordination_task(&mut node, task);
     node
 }
 
 fn populate_plan_node_from_coordination_task(node: &mut PlanNode, task: &CoordinationTask) {
+    if task.kind != PlanNodeKind::Edit || node.kind == PlanNodeKind::Edit {
+        node.kind = task.kind;
+    }
     node.title = task.title.clone();
+    if task.summary.is_some() {
+        node.summary = task.summary.clone();
+    }
     node.status = map_coordination_task_status(task.status);
-    node.bindings.anchors = dedupe_anchors(task.anchors.clone());
-    if !task.acceptance.is_empty() {
-        node.acceptance = merge_acceptance_from_coordination(
-            std::mem::take(&mut node.acceptance),
-            task.acceptance.clone(),
-        );
+    let mut bindings = if task_has_authored_binding_metadata(task) {
+        normalize_plan_binding(task.bindings.clone())
+    } else {
+        normalize_plan_binding(node.bindings.clone())
+    };
+    bindings.anchors = dedupe_anchors(task.anchors.clone());
+    node.bindings = bindings;
+    node.acceptance =
+        merge_acceptance_from_coordination(node.acceptance.clone(), task.acceptance.clone());
+    if !task.validation_refs.is_empty() || node.validation_refs.is_empty() {
+        node.validation_refs = dedupe_validation_refs(task.validation_refs.clone());
+    }
+    if task.is_abstract {
+        node.is_abstract = true;
     }
     node.assignee = task.assignee.clone();
     node.base_revision = task.base_revision.clone();
+    if task.priority.is_some() {
+        node.priority = task.priority;
+    }
+    if !task.tags.is_empty() {
+        node.tags = normalize_string_refs(task.tags.clone());
+    }
+    if !task.metadata.is_null() {
+        node.metadata = task.metadata.clone();
+    }
+}
+
+fn authored_plan_title(plan: &Plan) -> String {
+    if plan.title.is_empty() {
+        plan.goal.clone()
+    } else {
+        plan.title.clone()
+    }
+}
+
+fn task_bindings(task: &CoordinationTask) -> PlanBinding {
+    let mut bindings = normalize_plan_binding(task.bindings.clone());
+    if bindings.anchors.is_empty() {
+        bindings.anchors = dedupe_anchors(task.anchors.clone());
+    }
+    bindings
+}
+
+fn task_has_authored_binding_metadata(task: &CoordinationTask) -> bool {
+    !task.bindings.concept_handles.is_empty()
+        || !task.bindings.artifact_refs.is_empty()
+        || !task.bindings.memory_refs.is_empty()
+        || !task.bindings.outcome_refs.is_empty()
 }
 
 fn sync_dependency_edges(

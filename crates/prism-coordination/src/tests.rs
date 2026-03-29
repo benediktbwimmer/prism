@@ -1363,6 +1363,207 @@ fn snapshot_load_replays_plan_and_task_patch_events() {
 }
 
 #[test]
+fn snapshot_load_replays_patches_without_losing_native_plan_and_node_metadata() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                goal: "Original goal".to_string(),
+                status: Some(prism_ir::PlanStatus::Draft),
+                policy: None,
+            },
+        )
+        .unwrap();
+    store
+        .update_plan(
+            meta("event:2", 2),
+            PlanUpdateInput {
+                plan_id: plan_id.clone(),
+                status: Some(prism_ir::PlanStatus::Active),
+                goal: Some("Refined goal".to_string()),
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            meta("event:3", 3),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Investigate".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: Some(prism_ir::AgentId::new("agent:a")),
+                session: Some(prism_ir::SessionId::new("session:a")),
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+            },
+        )
+        .unwrap();
+    store
+        .update_task(
+            meta("event:4", 4),
+            TaskUpdateInput {
+                task_id: task_id.clone(),
+                status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                assignee: Some(None),
+                session: Some(None),
+                title: Some("Investigate deeply".to_string()),
+                anchors: Some(vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Method)]),
+                depends_on: None,
+                acceptance: None,
+                base_revision: Some(prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                }),
+                completion_context: None,
+            },
+            prism_ir::WorkspaceRevision {
+                graph_version: 1,
+                git_commit: None,
+            },
+            4,
+        )
+        .unwrap();
+
+    let mut snapshot = store.snapshot();
+    let plan = snapshot
+        .plans
+        .iter_mut()
+        .find(|plan| plan.id == plan_id)
+        .expect("stored plan");
+    plan.title = "Native plan title".to_string();
+    plan.kind = prism_ir::PlanKind::Migration;
+    plan.revision = 7;
+    plan.tags = vec!["persistence".to_string(), "ux".to_string()];
+    plan.created_from = Some("concept://persistence_runtime".to_string());
+    plan.metadata = serde_json::json!({ "source": "native-plan" });
+    let task = snapshot
+        .tasks
+        .iter_mut()
+        .find(|task| task.id == task_id)
+        .expect("stored task");
+    task.kind = prism_ir::PlanNodeKind::Validate;
+    task.summary = Some("Keep authored summary".to_string());
+    task.bindings = prism_ir::PlanBinding {
+        anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Method)],
+        concept_handles: vec!["concept://validation_pipeline".to_string()],
+        artifact_refs: vec!["artifact:alpha".to_string()],
+        memory_refs: vec!["memory:alpha".to_string()],
+        outcome_refs: vec!["outcome:alpha".to_string()],
+    };
+    task.validation_refs = vec![prism_ir::ValidationRef {
+        id: "validation:alpha".to_string(),
+    }];
+    task.is_abstract = true;
+    task.priority = Some(4);
+    task.tags = vec!["native".to_string(), "preserve".to_string()];
+    task.metadata = serde_json::json!({ "source": "native-node" });
+    let plan_create = snapshot
+        .events
+        .iter_mut()
+        .find(|event| event.kind == prism_ir::CoordinationEventKind::PlanCreated)
+        .expect("plan create event");
+    plan_create.metadata["plan"] = serde_json::to_value(Plan {
+        id: plan_id.clone(),
+        goal: "Original goal".to_string(),
+        title: "Native plan title".to_string(),
+        status: prism_ir::PlanStatus::Draft,
+        policy: CoordinationPolicy::default(),
+        scope: prism_ir::PlanScope::Repo,
+        kind: prism_ir::PlanKind::Migration,
+        revision: 7,
+        tags: vec!["persistence".to_string(), "ux".to_string()],
+        created_from: Some("concept://persistence_runtime".to_string()),
+        metadata: serde_json::json!({ "source": "native-plan" }),
+        root_tasks: vec![task_id.clone()],
+    })
+    .unwrap();
+    let task_create = snapshot
+        .events
+        .iter_mut()
+        .find(|event| event.kind == prism_ir::CoordinationEventKind::TaskCreated)
+        .expect("task create event");
+    task_create.metadata["task"] = serde_json::to_value(CoordinationTask {
+        id: task_id.clone(),
+        plan: plan_id.clone(),
+        kind: prism_ir::PlanNodeKind::Validate,
+        title: "Investigate".to_string(),
+        summary: Some("Keep authored summary".to_string()),
+        status: prism_ir::CoordinationTaskStatus::Ready,
+        assignee: Some(prism_ir::AgentId::new("agent:a")),
+        pending_handoff_to: None,
+        session: Some(prism_ir::SessionId::new("session:a")),
+        anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+        bindings: prism_ir::PlanBinding {
+            anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+            concept_handles: vec!["concept://validation_pipeline".to_string()],
+            artifact_refs: vec!["artifact:alpha".to_string()],
+            memory_refs: vec!["memory:alpha".to_string()],
+            outcome_refs: vec!["outcome:alpha".to_string()],
+        },
+        depends_on: Vec::new(),
+        acceptance: Vec::new(),
+        validation_refs: vec![prism_ir::ValidationRef {
+            id: "validation:alpha".to_string(),
+        }],
+        is_abstract: true,
+        base_revision: prism_ir::WorkspaceRevision {
+            graph_version: 1,
+            git_commit: None,
+        },
+        priority: Some(4),
+        tags: vec!["native".to_string(), "preserve".to_string()],
+        metadata: serde_json::json!({ "source": "native-node" }),
+    })
+    .unwrap();
+
+    let reloaded = CoordinationStore::from_snapshot(snapshot);
+    let plan = reloaded.plan(&plan_id).expect("plan should reload");
+    assert_eq!(plan.goal, "Refined goal");
+    assert_eq!(plan.title, "Native plan title");
+    assert_eq!(plan.kind, prism_ir::PlanKind::Migration);
+    assert_eq!(plan.revision, 7);
+    assert_eq!(plan.tags, vec!["persistence", "ux"]);
+    assert_eq!(
+        plan.created_from.as_deref(),
+        Some("concept://persistence_runtime")
+    );
+    assert_eq!(plan.metadata["source"], "native-plan");
+
+    let task = reloaded.task(&task_id).expect("task should reload");
+    assert_eq!(task.kind, prism_ir::PlanNodeKind::Validate);
+    assert_eq!(task.title, "Investigate deeply");
+    assert_eq!(task.summary.as_deref(), Some("Keep authored summary"));
+    assert_eq!(task.status, prism_ir::CoordinationTaskStatus::InProgress);
+    assert_eq!(
+        task.anchors,
+        vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Method)]
+    );
+    assert_eq!(task.bindings.anchors, task.anchors);
+    assert_eq!(
+        task.bindings.concept_handles,
+        vec!["concept://validation_pipeline"]
+    );
+    assert_eq!(
+        task.validation_refs
+            .iter()
+            .map(|value| value.id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["validation:alpha"]
+    );
+    assert!(task.is_abstract);
+    assert_eq!(task.priority, Some(4));
+    assert_eq!(task.tags, vec!["native", "preserve"]);
+    assert_eq!(task.metadata["source"], "native-node");
+}
+
+#[test]
 fn snapshot_load_replays_handoff_events() {
     let store = CoordinationStore::new();
     let (plan_id, _) = store
