@@ -13,6 +13,7 @@ use serde_json::json;
 use std::sync::Arc;
 use std::time::Instant;
 
+use crate::dashboard_events::MutationRun;
 use crate::*;
 
 pub(crate) struct MutationDashboardMeta {
@@ -77,6 +78,21 @@ impl PrismMcpServer {
         F: FnOnce() -> Result<T, anyhow::Error>,
         G: FnOnce(&T) -> MutationDashboardMeta,
     {
+        self.execute_logged_mutation_with_run(action, refresh_policy, |_| operation(), finish)
+    }
+
+    pub(crate) fn execute_logged_mutation_with_run<T, F, G>(
+        &self,
+        action: &str,
+        refresh_policy: MutationRefreshPolicy,
+        operation: F,
+        finish: G,
+    ) -> Result<T, McpError>
+    where
+        T: Serialize,
+        F: FnOnce(&MutationRun) -> Result<T, anyhow::Error>,
+        G: FnOnce(&T) -> MutationDashboardMeta,
+    {
         let run = self.host.begin_mutation_run(self.session.as_ref(), action);
         let refresh_started = Instant::now();
         match refresh_policy {
@@ -119,7 +135,7 @@ impl PrismMcpServer {
         }
 
         let operation_started = Instant::now();
-        match operation() {
+        match operation(&run) {
             Ok(result) => {
                 run.record_phase(
                     "mutation.operation",
@@ -920,10 +936,13 @@ impl PrismMcpServer {
                 )
             }
             PrismMutationArgs::Coordination(args) => {
-                let result = self.execute_logged_mutation(
+                let result = self.execute_logged_mutation_with_run(
                     "mutate.coordination",
                     MutationRefreshPolicy::None,
-                    || self.host.store_coordination(self.session.as_ref(), args),
+                    |run| {
+                        self.host
+                            .store_coordination_traced(self.session.as_ref(), args, run)
+                    },
                     |result| {
                         MutationDashboardMeta::coordination(
                             result.event_ids.clone(),

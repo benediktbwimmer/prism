@@ -24,6 +24,7 @@ use prism_query::{
 use serde_json::{json, Value};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::dashboard_events::MutationRun;
 use crate::{
     artifact_view, claim_view, concept_packet_view, concept_relation_view, conflict_view,
     convert_acceptance, convert_anchors, convert_capability, convert_claim_mode,
@@ -754,10 +755,29 @@ impl QueryHost {
         })
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn store_coordination(
         &self,
         session: &SessionState,
         args: PrismCoordinationArgs,
+    ) -> Result<CoordinationMutationResult> {
+        self.store_coordination_with_trace(session, args, None)
+    }
+
+    pub(crate) fn store_coordination_traced(
+        &self,
+        session: &SessionState,
+        args: PrismCoordinationArgs,
+        trace: &MutationRun,
+    ) -> Result<CoordinationMutationResult> {
+        self.store_coordination_with_trace(session, args, Some(trace))
+    }
+
+    fn store_coordination_with_trace(
+        &self,
+        session: &SessionState,
+        args: PrismCoordinationArgs,
+        trace: Option<&MutationRun>,
     ) -> Result<CoordinationMutationResult> {
         self.ensure_tool_enabled("prism_coordination", "coordination workflow mutations")?;
         if let Some(workspace) = &self.workspace {
@@ -776,9 +796,20 @@ impl QueryHost {
             causation: None,
         };
         if let Some(workspace) = &self.workspace {
-            match workspace.mutate_coordination_with_session(Some(&session.session_id()), |prism| {
-                self.apply_coordination_mutation(session, prism, args, meta.clone())
-            }) {
+            let result = if let Some(trace) = trace {
+                workspace.mutate_coordination_with_session_observed(
+                    Some(&session.session_id()),
+                    |prism| self.apply_coordination_mutation(session, prism, args, meta.clone()),
+                    |operation, duration, args, success, error| {
+                        trace.record_phase(operation, &args, duration, success, error)
+                    },
+                )
+            } else {
+                workspace.mutate_coordination_with_session(Some(&session.session_id()), |prism| {
+                    self.apply_coordination_mutation(session, prism, args, meta.clone())
+                })
+            };
+            match result {
                 Ok(state) => {
                     self.sync_coordination_revision(workspace)?;
                     let prism = self.current_prism();

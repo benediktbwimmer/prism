@@ -21,6 +21,8 @@ use prism_projections::{
 };
 use prism_query::Prism;
 use prism_store::{AuxiliaryPersistBatch, SqliteStore, Store};
+use serde_json::{json, Value};
+use std::time::{Duration, Instant};
 
 pub use prism_store::SnapshotRevisions as WorkspaceSnapshotRevisions;
 
@@ -775,6 +777,29 @@ impl WorkspaceSession {
         }))
     }
 
+    pub fn hydrate_coordination_runtime(&self) -> Result<Option<CoordinationPlanState>> {
+        let state = self.load_coordination_plan_state()?;
+        let snapshot = state
+            .as_ref()
+            .map(|state| state.snapshot.clone())
+            .unwrap_or_default();
+        let plan_graphs = state
+            .as_ref()
+            .map(|state| state.plan_graphs.clone())
+            .unwrap_or_default();
+        let execution_overlays = state
+            .as_ref()
+            .map(|state| state.execution_overlays.clone())
+            .unwrap_or_default();
+        self.prism_arc()
+            .replace_coordination_snapshot_and_plan_graphs(
+                snapshot,
+                plan_graphs,
+                execution_overlays,
+            );
+        Ok(state)
+    }
+
     pub fn persist_coordination(&self, snapshot: &CoordinationSnapshot) -> Result<()> {
         if !self.coordination_enabled {
             return Ok(());
@@ -806,7 +831,7 @@ impl WorkspaceSession {
             .expect("workspace refresh lock poisoned");
         let prism = self.prism_arc();
         let snapshot = prism.coordination_snapshot();
-        let plan_graphs = prism.plan_graphs();
+        let plan_graphs = prism.authored_plan_graphs();
         let execution_overlays = prism.plan_execution_overlays_by_plan();
         let target = if let Some(shared_runtime_store) = self.shared_runtime_store() {
             Arc::clone(shared_runtime_store)
@@ -840,6 +865,23 @@ impl WorkspaceSession {
     where
         F: FnOnce(&Prism) -> Result<T>,
     {
+        self.mutate_coordination_with_session_observed(
+            session_id,
+            mutate,
+            |_operation, _duration, _args, _success, _error| {},
+        )
+    }
+
+    pub fn mutate_coordination_with_session_observed<T, F, O>(
+        &self,
+        session_id: Option<&SessionId>,
+        mutate: F,
+        mut observe_phase: O,
+    ) -> Result<T>
+    where
+        F: FnOnce(&Prism) -> Result<T>,
+        O: FnMut(&str, Duration, Value, bool, Option<String>),
+    {
         if !self.coordination_enabled {
             return Err(anyhow!(
                 "coordination is disabled for this workspace session"
@@ -853,6 +895,7 @@ impl WorkspaceSession {
         let prism = self.prism_arc();
         let before = prism.coordination_snapshot();
         let result = mutate(prism.as_ref());
+        let delta_started = Instant::now();
         let snapshot = prism.coordination_snapshot();
         let appended_events = snapshot
             .events
@@ -865,7 +908,17 @@ impl WorkspaceSession {
             })
             .cloned()
             .collect::<Vec<_>>();
-        let plan_graphs = prism.plan_graphs();
+        observe_phase(
+            "mutation.coordination.captureDelta",
+            delta_started.elapsed(),
+            json!({
+                "appendedEventCount": appended_events.len(),
+                "snapshotChanged": snapshot != before,
+            }),
+            result.is_ok(),
+            result.as_ref().err().map(|error| error.to_string()),
+        );
+        let plan_graphs = prism.authored_plan_graphs();
         let execution_overlays = prism.plan_execution_overlays_by_plan();
         let target = if let Some(shared_runtime_store) = self.shared_runtime_store() {
             Arc::clone(shared_runtime_store)
@@ -875,15 +928,29 @@ impl WorkspaceSession {
         let mut store = target.lock().expect("coordination store lock poisoned");
         let should_persist = !appended_events.is_empty() || snapshot != before;
         if should_persist {
-            store.persist_coordination_mutation_state_for_root_with_session(
-                &self.root,
-                expected_revision,
-                &snapshot,
-                &appended_events,
-                session_id,
-                Some(&plan_graphs),
-                Some(&execution_overlays),
-            )?;
+            let persist_started = Instant::now();
+            let persist_result = store
+                .persist_coordination_mutation_state_for_root_with_session_observed(
+                    &self.root,
+                    expected_revision,
+                    &snapshot,
+                    &appended_events,
+                    session_id,
+                    Some(&plan_graphs),
+                    Some(&execution_overlays),
+                    &mut observe_phase,
+                );
+            observe_phase(
+                "mutation.coordination.persistState",
+                persist_started.elapsed(),
+                json!({
+                    "appendedEventCount": appended_events.len(),
+                    "planCount": plan_graphs.len(),
+                }),
+                persist_result.is_ok(),
+                persist_result.as_ref().err().map(|error| error.to_string()),
+            );
+            persist_result?;
         }
         result
     }

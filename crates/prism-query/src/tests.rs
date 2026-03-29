@@ -2630,6 +2630,105 @@ fn native_plan_node_bindings_reject_missing_published_refs() {
 }
 
 #[test]
+fn hydrated_plan_graph_recovers_concept_bound_runtime_anchors() {
+    let mut graph = Graph::new();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha.clone()]);
+
+    let prism = Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
+        graph,
+        history,
+        OutcomeMemory::new(),
+        CoordinationSnapshot::default(),
+        ProjectionIndex::default(),
+        vec![PlanGraph {
+            id: PlanId::new("plan:concept-hydration"),
+            scope: PlanScope::Repo,
+            kind: PlanKind::TaskExecution,
+            title: "Concept hydration".into(),
+            goal: "Hydrate runtime anchors from concept bindings".into(),
+            status: PlanStatus::Active,
+            revision: 1,
+            root_nodes: vec![PlanNodeId::new("plan-node:concept-hydration")],
+            tags: Vec::new(),
+            created_from: None,
+            metadata: serde_json::Value::Null,
+            nodes: vec![PlanNode {
+                id: PlanNodeId::new("plan-node:concept-hydration"),
+                plan_id: PlanId::new("plan:concept-hydration"),
+                kind: PlanNodeKind::Edit,
+                title: "Hydrate concept binding".into(),
+                summary: None,
+                status: PlanNodeStatus::Ready,
+                bindings: prism_ir::PlanBinding {
+                    anchors: Vec::new(),
+                    concept_handles: vec!["concept://alpha_flow".into()],
+                    artifact_refs: Vec::new(),
+                    memory_refs: Vec::new(),
+                    outcome_refs: Vec::new(),
+                },
+                acceptance: Vec::new(),
+                validation_refs: Vec::new(),
+                is_abstract: false,
+                assignee: None,
+                base_revision: WorkspaceRevision::default(),
+                priority: None,
+                tags: Vec::new(),
+                metadata: serde_json::Value::Null,
+            }],
+            edges: Vec::new(),
+        }],
+        BTreeMap::new(),
+    );
+    prism.replace_curated_concepts(vec![ConceptPacket {
+        handle: "concept://alpha_flow".to_string(),
+        canonical_name: "alpha_flow".to_string(),
+        summary: "Recover alpha through concept bindings.".to_string(),
+        aliases: vec!["alpha".to_string()],
+        confidence: 0.92,
+        core_members: vec![alpha.clone()],
+        core_member_lineages: vec![None],
+        supporting_members: Vec::new(),
+        supporting_member_lineages: Vec::new(),
+        likely_tests: Vec::new(),
+        likely_test_lineages: Vec::new(),
+        evidence: vec!["Seeded for hydration test.".to_string()],
+        risk_hint: None,
+        decode_lenses: vec![ConceptDecodeLens::Open],
+        scope: ConceptScope::Session,
+        provenance: ConceptProvenance {
+            origin: "test".to_string(),
+            kind: "seed".to_string(),
+            task_id: None,
+        },
+        publication: None,
+    }]);
+
+    let hydrated = prism
+        .plan_graph(&PlanId::new("plan:concept-hydration"))
+        .expect("hydrated plan graph");
+    let node = hydrated
+        .nodes
+        .iter()
+        .find(|node| node.id == PlanNodeId::new("plan-node:concept-hydration"))
+        .expect("hydrated node");
+    assert!(node.bindings.anchors.contains(&AnchorRef::Node(alpha)));
+    assert_eq!(
+        node.bindings.concept_handles,
+        vec!["concept://alpha_flow".to_string()]
+    );
+}
+
+#[test]
 fn native_plan_updates_validate_completion_and_preserve_non_dependency_edges() {
     let graph = Graph::new();
     let history = HistoryStore::new();

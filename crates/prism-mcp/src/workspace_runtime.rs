@@ -212,10 +212,7 @@ fn sync_workspace_runtime_with_guard(
 
 fn has_stale_coordination_revision(config: &WorkspaceRuntimeConfig) -> Result<bool> {
     let revisions = config.workspace.snapshot_revisions()?;
-    Ok(
-        revisions.coordination
-            > config.loaded_coordination_revision.load(Ordering::Relaxed),
-    )
+    Ok(revisions.coordination > config.loaded_coordination_revision.load(Ordering::Relaxed))
 }
 
 fn try_sync_workspace_runtime(
@@ -370,24 +367,7 @@ fn reload_coordination_snapshot_if_needed(
         return Ok(false);
     }
 
-    let plan_state = config.workspace.load_coordination_plan_state()?;
-    let snapshot = plan_state
-        .as_ref()
-        .map(|state| state.snapshot.clone())
-        .unwrap_or_default();
-    config
-        .workspace
-        .prism_arc()
-        .replace_coordination_snapshot_and_plan_graphs(
-            snapshot,
-            plan_state
-                .as_ref()
-                .map(|state| state.plan_graphs.clone())
-                .unwrap_or_default(),
-            plan_state
-                .map(|state| state.execution_overlays)
-                .unwrap_or_default(),
-        );
+    config.workspace.hydrate_coordination_runtime()?;
     config
         .loaded_coordination_revision
         .store(revision, Ordering::Relaxed);

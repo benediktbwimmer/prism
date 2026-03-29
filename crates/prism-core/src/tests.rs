@@ -1627,6 +1627,129 @@ fn reload_preserves_coordination_claim_resolution_through_rename() {
 }
 
 #[test]
+fn reloaded_native_plan_bindings_hydrate_through_lineage_without_republishing_runtime_anchors() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let prism = session.prism();
+    let alpha = prism
+        .symbol("alpha")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::alpha")
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+    let alpha_lineage = prism
+        .lineage_of(&alpha)
+        .expect("alpha should have a lineage before rename");
+    drop(prism);
+
+    let (plan_id, node_id) = session
+        .mutate_coordination(|prism| {
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:binding-hydration-plan"),
+                    ts: 1,
+                    actor: EventActor::User,
+                    correlation: Some(TaskId::new("task:binding-hydration")),
+                    causation: None,
+                },
+                "Reload native bindings".into(),
+                None,
+                Some(Default::default()),
+            )?;
+            let node_id = prism.create_native_plan_node(
+                &plan_id,
+                prism_ir::PlanNodeKind::Edit,
+                "Rename alpha".into(),
+                None,
+                Some(prism_ir::PlanNodeStatus::Ready),
+                None,
+                false,
+                prism_ir::PlanBinding {
+                    anchors: vec![AnchorRef::Node(alpha.clone())],
+                    concept_handles: Vec::new(),
+                    artifact_refs: Vec::new(),
+                    memory_refs: Vec::new(),
+                    outcome_refs: Vec::new(),
+                },
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                prism_ir::WorkspaceRevision {
+                    graph_version: 1,
+                    git_commit: None,
+                },
+                None,
+                Vec::new(),
+            )?;
+            Ok((plan_id, node_id))
+        })
+        .unwrap();
+
+    fs::write(root.join("src/lib.rs"), "fn renamed_alpha() {}\n").unwrap();
+    session.refresh_fs().unwrap();
+    drop(session);
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let renamed_alpha = reloaded
+        .prism()
+        .symbol("renamed_alpha")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::renamed_alpha")
+        .expect("renamed alpha should be indexed after reload")
+        .id()
+        .clone();
+    let runtime_graph = reloaded
+        .prism()
+        .plan_graph(&plan_id)
+        .expect("runtime graph should reload");
+    let runtime_node = runtime_graph
+        .nodes
+        .iter()
+        .find(|node| node.id == node_id)
+        .expect("runtime node should reload");
+    assert!(runtime_node
+        .bindings
+        .anchors
+        .contains(&AnchorRef::Node(renamed_alpha.clone())));
+    assert!(runtime_node
+        .bindings
+        .anchors
+        .contains(&AnchorRef::Lineage(alpha_lineage.clone())));
+
+    reloaded.persist_current_coordination().unwrap();
+    let raw_state = reloaded
+        .load_coordination_plan_state()
+        .unwrap()
+        .expect("raw plan state should remain persisted");
+    let raw_node = raw_state
+        .plan_graphs
+        .iter()
+        .find(|graph| graph.id == plan_id)
+        .and_then(|graph| graph.nodes.iter().find(|node| node.id == node_id))
+        .expect("persisted node should exist");
+    assert!(raw_node.bindings.anchors.contains(&AnchorRef::Node(alpha)));
+    assert!(raw_node
+        .bindings
+        .anchors
+        .contains(&AnchorRef::Lineage(alpha_lineage)));
+    assert!(!raw_node
+        .bindings
+        .anchors
+        .contains(&AnchorRef::Node(renamed_alpha)));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

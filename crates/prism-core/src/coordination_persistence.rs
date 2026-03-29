@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::path::Path;
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use prism_coordination::{
@@ -8,14 +9,53 @@ use prism_coordination::{
 };
 use prism_ir::{PlanExecutionOverlay, PlanGraph, SessionId};
 use prism_store::{CoordinationPersistBatch, CoordinationPersistResult, Store};
+use serde_json::{json, Value};
 
 use crate::published_plans::{
     load_hydrated_coordination_plan_state, load_hydrated_coordination_snapshot,
-    sync_repo_published_plan_state, sync_repo_published_plans, HydratedCoordinationPlanState,
+    sync_repo_published_plan_state, sync_repo_published_plan_state_observed,
+    sync_repo_published_plans, HydratedCoordinationPlanState,
 };
 use crate::workspace_identity::coordination_persist_context_for_root;
 
 const COORDINATION_COMPACTION_SUFFIX_THRESHOLD: usize = 128;
+
+fn observe_coordination_step<T, E, O, F, A>(
+    observe_phase: &mut O,
+    operation: &str,
+    success_args: A,
+    step: F,
+) -> std::result::Result<T, E>
+where
+    E: ToString,
+    O: FnMut(&str, Duration, Value, bool, Option<String>),
+    F: FnOnce() -> std::result::Result<T, E>,
+    A: FnOnce(&T) -> Value,
+{
+    let started = Instant::now();
+    match step() {
+        Ok(value) => {
+            observe_phase(
+                operation,
+                started.elapsed(),
+                success_args(&value),
+                true,
+                None,
+            );
+            Ok(value)
+        }
+        Err(error) => {
+            observe_phase(
+                operation,
+                started.elapsed(),
+                json!({}),
+                false,
+                Some(error.to_string()),
+            );
+            Err(error)
+        }
+    }
+}
 
 pub(crate) trait CoordinationPersistenceBackend: Store {
     fn load_hydrated_coordination_snapshot_for_root(
@@ -86,6 +126,7 @@ pub(crate) trait CoordinationPersistenceBackend: Store {
         }
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     fn persist_coordination_mutation_state_for_root_with_session(
         &mut self,
         root: &Path,
@@ -96,36 +137,157 @@ pub(crate) trait CoordinationPersistenceBackend: Store {
         plan_graphs: Option<&[PlanGraph]>,
         execution_overlays: Option<&BTreeMap<String, Vec<PlanExecutionOverlay>>>,
     ) -> Result<CoordinationPersistResult> {
-        let existing_read_model = self.load_coordination_read_model()?;
-        let existing_queue_read_model = self.load_coordination_queue_read_model()?;
-        let result = self.commit_coordination_persist_batch(&CoordinationPersistBatch {
-            context: coordination_persist_context_for_root(root, session_id),
-            expected_revision: Some(expected_revision),
-            appended_events: appended_events.to_vec(),
-        })?;
+        self.persist_coordination_mutation_state_for_root_with_session_observed(
+            root,
+            expected_revision,
+            snapshot,
+            appended_events,
+            session_id,
+            plan_graphs,
+            execution_overlays,
+            |_operation, _duration, _args, _success, _error| {},
+        )
+    }
+
+    fn persist_coordination_mutation_state_for_root_with_session_observed<O>(
+        &mut self,
+        root: &Path,
+        expected_revision: u64,
+        snapshot: &CoordinationSnapshot,
+        appended_events: &[CoordinationEvent],
+        session_id: Option<&SessionId>,
+        plan_graphs: Option<&[PlanGraph]>,
+        execution_overlays: Option<&BTreeMap<String, Vec<PlanExecutionOverlay>>>,
+        mut observe_phase: O,
+    ) -> Result<CoordinationPersistResult>
+    where
+        O: FnMut(&str, Duration, Value, bool, Option<String>),
+    {
+        let existing_read_model = observe_coordination_step(
+            &mut observe_phase,
+            "mutation.coordination.loadReadModel",
+            |model: &Option<_>| json!({ "hadReadModel": model.is_some() }),
+            || self.load_coordination_read_model(),
+        )?;
+        let existing_queue_read_model = observe_coordination_step(
+            &mut observe_phase,
+            "mutation.coordination.loadQueueReadModel",
+            |model: &Option<_>| json!({ "hadQueueReadModel": model.is_some() }),
+            || self.load_coordination_queue_read_model(),
+        )?;
+        let result = observe_coordination_step(
+            &mut observe_phase,
+            "mutation.coordination.commitPersistBatch",
+            |result: &CoordinationPersistResult| {
+                json!({
+                    "applied": result.applied,
+                    "appendedEventCount": appended_events.len(),
+                })
+            },
+            || {
+                self.commit_coordination_persist_batch(&CoordinationPersistBatch {
+                    context: coordination_persist_context_for_root(root, session_id),
+                    expected_revision: Some(expected_revision),
+                    appended_events: appended_events.to_vec(),
+                })
+            },
+        )?;
+        let read_model_started = Instant::now();
         let read_model = coordination_read_model_from_seed(
             snapshot,
             existing_read_model.as_ref(),
             appended_events,
         );
+        observe_phase(
+            "mutation.coordination.buildReadModel",
+            read_model_started.elapsed(),
+            json!({
+                "appendedEventCount": appended_events.len(),
+                "eventCount": snapshot.events.len(),
+            }),
+            true,
+            None,
+        );
+        let queue_read_model_started = Instant::now();
         let queue_read_model = coordination_queue_read_model_from_seed(
             snapshot,
             existing_queue_read_model.as_ref(),
             appended_events,
         );
-        self.save_coordination_read_model(&read_model)?;
-        self.save_coordination_queue_read_model(&queue_read_model)?;
+        observe_phase(
+            "mutation.coordination.buildQueueReadModel",
+            queue_read_model_started.elapsed(),
+            json!({
+                "appendedEventCount": appended_events.len(),
+                "taskCount": snapshot.tasks.len(),
+            }),
+            true,
+            None,
+        );
+        observe_coordination_step(
+            &mut observe_phase,
+            "mutation.coordination.saveReadModel",
+            |_| json!({ "eventCount": snapshot.events.len() }),
+            || self.save_coordination_read_model(&read_model),
+        )?;
+        observe_coordination_step(
+            &mut observe_phase,
+            "mutation.coordination.saveQueueReadModel",
+            |_| json!({ "taskCount": snapshot.tasks.len() }),
+            || self.save_coordination_queue_read_model(&queue_read_model),
+        )?;
         if result.applied {
-            self.maybe_compact_coordination_events(snapshot)?;
+            observe_coordination_step(
+                &mut observe_phase,
+                "mutation.coordination.compactEvents",
+                |_| json!({ "applied": true }),
+                || self.maybe_compact_coordination_events(snapshot),
+            )?;
+        } else {
+            observe_phase(
+                "mutation.coordination.compactEvents",
+                Duration::default(),
+                json!({ "applied": false, "compaction": "skipped" }),
+                true,
+                None,
+            );
         }
-        match (plan_graphs, execution_overlays) {
-            (Some(plan_graphs), Some(execution_overlays)) => sync_repo_published_plan_state(
-                root,
-                snapshot,
-                plan_graphs.to_vec(),
-                execution_overlays.clone(),
-            )?,
-            _ => sync_repo_published_plans(root, snapshot)?,
+        let sync_started = Instant::now();
+        let sync_mode = if plan_graphs.is_some() && execution_overlays.is_some() {
+            "state"
+        } else {
+            "snapshot"
+        };
+        let sync_result = match (plan_graphs, execution_overlays) {
+            (Some(plan_graphs), Some(execution_overlays)) => {
+                sync_repo_published_plan_state_observed(
+                    root,
+                    snapshot,
+                    plan_graphs.to_vec(),
+                    execution_overlays.clone(),
+                    &mut observe_phase,
+                )
+            }
+            _ => sync_repo_published_plans(root, snapshot),
+        };
+        match sync_result {
+            Ok(()) => observe_phase(
+                "mutation.coordination.syncPublishedPlans",
+                sync_started.elapsed(),
+                json!({ "mode": sync_mode }),
+                true,
+                None,
+            ),
+            Err(error) => {
+                observe_phase(
+                    "mutation.coordination.syncPublishedPlans",
+                    sync_started.elapsed(),
+                    json!({ "mode": sync_mode }),
+                    false,
+                    Some(error.to_string()),
+                );
+                return Err(error);
+            }
         }
         Ok(result)
     }

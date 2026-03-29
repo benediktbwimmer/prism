@@ -16,7 +16,7 @@ impl Prism {
         plan_id: &PlanId,
         now: Timestamp,
     ) -> Vec<PlanNode> {
-        let Some(graph) = runtime.plan_graph(plan_id) else {
+        let Some(graph) = self.hydrated_plan_graph_for_runtime(runtime, plan_id) else {
             return Vec::new();
         };
         if graph.status != PlanStatus::Active {
@@ -60,7 +60,7 @@ impl Prism {
         runtime: &NativePlanRuntimeState,
         plan_id: &PlanId,
     ) -> Option<PlanSummary> {
-        let graph = runtime.plan_graph(plan_id)?;
+        let graph = self.hydrated_plan_graph_for_runtime(runtime, plan_id)?;
         let now = current_timestamp();
         let actionable_ids = self
             .actionable_plan_nodes_for_runtime(runtime, plan_id, now)
@@ -141,7 +141,7 @@ impl Prism {
         plan_id: &PlanId,
         limit: usize,
     ) -> Vec<PlanNodeRecommendation> {
-        let Some(graph) = runtime.plan_graph(plan_id) else {
+        let Some(graph) = self.hydrated_plan_graph_for_runtime(runtime, plan_id) else {
             return Vec::new();
         };
         let execution = runtime.plan_execution(plan_id);

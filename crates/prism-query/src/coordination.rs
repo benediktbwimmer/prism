@@ -55,10 +55,12 @@ impl Prism {
     }
 
     pub fn plan_graph(&self, plan_id: &PlanId) -> Option<PlanGraph> {
-        self.plan_runtime
+        let runtime = self
+            .plan_runtime
             .read()
             .expect("plan runtime lock poisoned")
-            .plan_graph(plan_id)
+            .clone();
+        self.hydrated_plan_graph_for_runtime(&runtime, plan_id)
     }
 
     pub fn plan_execution(&self, plan_id: &PlanId) -> Vec<PlanExecutionOverlay> {
@@ -69,10 +71,21 @@ impl Prism {
     }
 
     pub fn plan_graphs(&self) -> Vec<PlanGraph> {
-        self.plan_runtime
+        let runtime = self
+            .plan_runtime
             .read()
             .expect("plan runtime lock poisoned")
-            .plan_graphs()
+            .clone();
+        self.hydrated_plan_graphs_for_runtime(&runtime)
+    }
+
+    pub fn authored_plan_graphs(&self) -> Vec<PlanGraph> {
+        let runtime = self
+            .plan_runtime
+            .read()
+            .expect("plan runtime lock poisoned")
+            .clone();
+        self.stabilized_plan_graphs_for_persist(&runtime)
     }
 
     pub fn plan_execution_overlays_by_plan(&self) -> BTreeMap<String, Vec<PlanExecutionOverlay>> {

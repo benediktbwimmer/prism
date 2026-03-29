@@ -10924,6 +10924,59 @@ fn mutation_trace_records_internal_phases_for_persisted_only_mutations() {
         .is_some_and(|args| args["refreshPath"] != Value::String("skipped".to_string())));
 }
 
+#[test]
+fn coordination_mutation_trace_records_persistence_subphases() {
+    let root = temp_workspace();
+    let server = PrismMcpServer::with_session_and_features(
+        index_workspace_session(&root).unwrap(),
+        PrismMcpFeatures::full().with_internal_developer(true),
+    );
+
+    let result = server
+        .execute_logged_mutation_with_run(
+            "mutate.coordination",
+            MutationRefreshPolicy::None,
+            |run| {
+                server.host.store_coordination_traced(
+                    test_session(&server.host).as_ref(),
+                    PrismCoordinationArgs {
+                        kind: CoordinationMutationKindInput::PlanCreate,
+                        payload: json!({ "goal": "Trace coordination persistence" }),
+                        task_id: None,
+                    },
+                    run,
+                )
+            },
+            |result| {
+                MutationDashboardMeta::coordination(
+                    result.event_ids.clone(),
+                    result.violations.len(),
+                )
+            },
+        )
+        .expect("coordination mutation should succeed");
+
+    assert!(result.event_id.starts_with("coordination:"));
+
+    let detail = server
+        .host
+        .dashboard_operation_detail("mutation:1")
+        .expect("mutation detail should exist");
+    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+        panic!("expected mutation trace");
+    };
+    let operations = trace
+        .phases
+        .iter()
+        .map(|phase| phase.operation.as_str())
+        .collect::<Vec<_>>();
+    assert!(operations.contains(&"mutation.coordination.captureDelta"));
+    assert!(operations.contains(&"mutation.coordination.commitPersistBatch"));
+    assert!(operations.contains(&"mutation.coordination.syncPublishedPlans"));
+    assert!(operations.contains(&"mutation.coordination.publishedPlans.writeLogs"));
+    assert!(operations.contains(&"mutation.coordination.publishedPlans.writeIndex"));
+}
+
 #[tokio::test]
 async fn validation_feedback_tool_mutation_skips_request_path_refresh() {
     let root = temp_workspace();

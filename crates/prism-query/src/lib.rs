@@ -6,6 +6,7 @@ mod outcomes;
 mod plan_bindings;
 mod plan_completion;
 mod plan_discovery;
+mod plan_hydration;
 mod plan_insights;
 mod plan_runtime;
 mod source;

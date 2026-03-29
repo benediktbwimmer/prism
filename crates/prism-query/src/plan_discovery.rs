@@ -29,8 +29,8 @@ impl Prism {
             .filter(|value| !value.is_empty())
             .map(|value| value.to_ascii_lowercase());
 
-        let mut plans = runtime
-            .plan_graphs()
+        let mut plans = self
+            .hydrated_plan_graphs_for_runtime(runtime)
             .into_iter()
             .filter(|graph| status.is_none_or(|expected| graph.status == expected))
             .filter(|graph| scope.is_none_or(|expected| graph.scope == expected))

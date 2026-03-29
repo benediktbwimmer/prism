@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
 use prism_coordination::{
@@ -13,11 +14,48 @@ use prism_ir::{
     PlanNodeId, PlanNodeStatus, PlanStatus,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use crate::util::{
     repo_active_plans_dir, repo_archived_plans_dir, repo_plan_index_path, repo_plans_dir,
 };
+
+fn observe_published_plan_step<T, E, O, F, A>(
+    observe_phase: &mut O,
+    operation: &str,
+    success_args: A,
+    step: F,
+) -> std::result::Result<T, E>
+where
+    E: ToString,
+    O: FnMut(&str, Duration, Value, bool, Option<String>),
+    F: FnOnce() -> std::result::Result<T, E>,
+    A: FnOnce(&T) -> Value,
+{
+    let started = Instant::now();
+    match step() {
+        Ok(value) => {
+            observe_phase(
+                operation,
+                started.elapsed(),
+                success_args(&value),
+                true,
+                None,
+            );
+            Ok(value)
+        }
+        Err(error) => {
+            observe_phase(
+                operation,
+                started.elapsed(),
+                json!({}),
+                false,
+                Some(error.to_string()),
+            );
+            Err(error)
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -186,7 +224,7 @@ pub(crate) fn sync_repo_published_plans(
     root: &Path,
     snapshot: &CoordinationSnapshot,
 ) -> Result<()> {
-    sync_repo_published_plan_state(
+    sync_repo_published_plan_state_observed(
         root,
         snapshot,
         snapshot_plan_graphs(snapshot),
@@ -209,25 +247,61 @@ pub(crate) fn sync_repo_published_plans(
                 )
             })
             .collect::<BTreeMap<_, _>>(),
+        |_operation, _duration, _args, _success, _error| {},
     )
 }
 
 pub(crate) fn sync_repo_published_plan_state(
     root: &Path,
     snapshot: &CoordinationSnapshot,
-    mut graphs: Vec<PlanGraph>,
+    graphs: Vec<PlanGraph>,
     overlays_by_plan: BTreeMap<String, Vec<PlanExecutionOverlay>>,
 ) -> Result<()> {
+    sync_repo_published_plan_state_observed(
+        root,
+        snapshot,
+        graphs,
+        overlays_by_plan,
+        |_operation, _duration, _args, _success, _error| {},
+    )
+}
+
+pub(crate) fn sync_repo_published_plan_state_observed<O>(
+    root: &Path,
+    snapshot: &CoordinationSnapshot,
+    mut graphs: Vec<PlanGraph>,
+    overlays_by_plan: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    mut observe_phase: O,
+) -> Result<()>
+where
+    O: FnMut(&str, Duration, Value, bool, Option<String>),
+{
     let plans_dir = repo_plans_dir(root);
     fs::create_dir_all(repo_active_plans_dir(root))?;
     fs::create_dir_all(repo_archived_plans_dir(root))?;
 
-    let existing_entries = load_jsonl_file::<PublishedPlanIndexEntry>(&repo_plan_index_path(root))?;
+    let existing_entries = observe_published_plan_step(
+        &mut observe_phase,
+        "mutation.coordination.publishedPlans.loadIndex",
+        |entries: &Vec<PublishedPlanIndexEntry>| json!({ "entryCount": entries.len() }),
+        || load_jsonl_file::<PublishedPlanIndexEntry>(&repo_plan_index_path(root)),
+    )?;
     let existing_paths = existing_entries
         .into_iter()
         .map(|entry| (entry.plan_id.0.to_string(), entry.log_path))
         .collect::<BTreeMap<_, _>>();
-    let existing_projection = load_repo_published_plan_projection(root)?.unwrap_or_default();
+    let existing_projection = observe_published_plan_step(
+        &mut observe_phase,
+        "mutation.coordination.publishedPlans.loadProjection",
+        |projection: &Option<PublishedPlanProjection>| {
+            json!({
+                "hasProjection": projection.is_some(),
+                "recordCount": projection.as_ref().map_or(0, |projection| projection.records.len()),
+            })
+        },
+        || load_repo_published_plan_projection(root),
+    )?
+    .unwrap_or_default();
 
     let plan_policies = snapshot
         .plans
@@ -238,48 +312,53 @@ pub(crate) fn sync_repo_published_plan_state(
     let mut index_entries = Vec::new();
     let mut expected_logs = BTreeSet::new();
     graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    for graph in graphs {
-        let plan_key = graph.id.0.to_string();
-        let header = PublishedPlanHeader {
-            id: graph.id.clone(),
-            scope: graph.scope,
-            kind: graph.kind,
-            title: graph.title.clone(),
-            goal: graph.goal.clone(),
-            status: graph.status,
-            revision: graph.revision,
-            root_nodes: graph.root_nodes.clone(),
-            tags: graph.tags.clone(),
-            created_from: graph.created_from.clone(),
-            metadata: graph.metadata.clone(),
-            policy: plan_policies
+    let write_logs_started = Instant::now();
+    let mut logs_written = 0usize;
+    let mut events_written = 0usize;
+    let write_logs_result: Result<()> = (|| {
+        for graph in graphs {
+            let plan_key = graph.id.0.to_string();
+            let header = PublishedPlanHeader {
+                id: graph.id.clone(),
+                scope: graph.scope,
+                kind: graph.kind,
+                title: graph.title.clone(),
+                goal: graph.goal.clone(),
+                status: graph.status,
+                revision: graph.revision,
+                root_nodes: graph.root_nodes.clone(),
+                tags: graph.tags.clone(),
+                created_from: graph.created_from.clone(),
+                metadata: graph.metadata.clone(),
+                policy: plan_policies
+                    .get(plan_key.as_str())
+                    .cloned()
+                    .unwrap_or_default(),
+            };
+            let overlays = overlays_by_plan
                 .get(plan_key.as_str())
                 .cloned()
-                .unwrap_or_default(),
-        };
-        let overlays = overlays_by_plan
-            .get(plan_key.as_str())
-            .cloned()
-            .unwrap_or_default();
-        let overlays = sanitize_published_execution_overlays(overlays);
+                .unwrap_or_default();
+            let overlays = sanitize_published_execution_overlays(overlays);
 
-        let relative_log_path = relative_plan_log_path(header.status, &header.id);
-        let full_log_path = root.join(&relative_log_path);
-        if let Some(previous_path) = existing_paths.get(&plan_key) {
-            let previous_path = resolve_log_path(root, previous_path);
-            if previous_path != full_log_path && previous_path.exists() {
-                if let Some(parent) = full_log_path.parent() {
-                    fs::create_dir_all(parent)?;
+            let relative_log_path = relative_plan_log_path(header.status, &header.id);
+            let full_log_path = root.join(&relative_log_path);
+            if let Some(previous_path) = existing_paths.get(&plan_key) {
+                let previous_path = resolve_log_path(root, previous_path);
+                if previous_path != full_log_path && previous_path.exists() {
+                    if let Some(parent) = full_log_path.parent() {
+                        fs::create_dir_all(parent)?;
+                    }
+                    fs::rename(previous_path, &full_log_path)?;
                 }
-                fs::rename(previous_path, &full_log_path)?;
             }
-        }
 
-        let previous_record = existing_projection.record(&graph.id);
-        let previous_overlays = existing_projection.execution_overlays_for(&graph.id);
-        let starting_sequence = existing_projection.next_log_sequence_for(&graph.id);
-        let events =
-            if previous_record.is_none() && previous_overlays.is_empty() && !full_log_path.exists()
+            let previous_record = existing_projection.record(&graph.id);
+            let previous_overlays = existing_projection.execution_overlays_for(&graph.id);
+            let starting_sequence = existing_projection.next_log_sequence_for(&graph.id);
+            let events = if previous_record.is_none()
+                && previous_overlays.is_empty()
+                && !full_log_path.exists()
             {
                 published_plan_events(starting_sequence, &header, &graph, &overlays)
             } else {
@@ -292,23 +371,62 @@ pub(crate) fn sync_repo_published_plan_state(
                     &overlays,
                 )
             };
-        if !events.is_empty() {
-            append_jsonl_file(&full_log_path, &events)?;
+            if !events.is_empty() {
+                append_jsonl_file(&full_log_path, &events)?;
+                logs_written += 1;
+                events_written += events.len();
+            }
+            expected_logs.insert(normalize_path(&full_log_path));
+            index_entries.push(PublishedPlanIndexEntry {
+                plan_id: header.id.clone(),
+                title: header.title.clone(),
+                status: header.status,
+                scope: format!("{:?}", header.scope),
+                kind: format!("{:?}", header.kind),
+                log_path: normalize_relative_path(&relative_log_path),
+            });
         }
-        expected_logs.insert(normalize_path(&full_log_path));
-        index_entries.push(PublishedPlanIndexEntry {
-            plan_id: header.id.clone(),
-            title: header.title.clone(),
-            status: header.status,
-            scope: format!("{:?}", header.scope),
-            kind: format!("{:?}", header.kind),
-            log_path: normalize_relative_path(&relative_log_path),
-        });
+        Ok(())
+    })();
+    match write_logs_result {
+        Ok(()) => observe_phase(
+            "mutation.coordination.publishedPlans.writeLogs",
+            write_logs_started.elapsed(),
+            json!({
+                "eventCount": events_written,
+                "logCount": logs_written,
+            }),
+            true,
+            None,
+        ),
+        Err(error) => {
+            observe_phase(
+                "mutation.coordination.publishedPlans.writeLogs",
+                write_logs_started.elapsed(),
+                json!({
+                    "eventCount": events_written,
+                    "logCount": logs_written,
+                }),
+                false,
+                Some(error.to_string()),
+            );
+            return Err(error);
+        }
     }
 
     index_entries.sort_by(|left, right| left.plan_id.0.cmp(&right.plan_id.0));
-    write_jsonl_file(&repo_plan_index_path(root), &index_entries)?;
-    cleanup_stale_plan_logs(&plans_dir, &expected_logs)?;
+    observe_published_plan_step(
+        &mut observe_phase,
+        "mutation.coordination.publishedPlans.writeIndex",
+        |_| json!({ "entryCount": index_entries.len() }),
+        || write_jsonl_file(&repo_plan_index_path(root), &index_entries),
+    )?;
+    observe_published_plan_step(
+        &mut observe_phase,
+        "mutation.coordination.publishedPlans.cleanupLogs",
+        |_| json!({ "expectedLogCount": expected_logs.len() }),
+        || cleanup_stale_plan_logs(&plans_dir, &expected_logs),
+    )?;
     Ok(())
 }
 

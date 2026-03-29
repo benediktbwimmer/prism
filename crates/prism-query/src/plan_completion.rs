@@ -57,7 +57,7 @@ impl Prism {
         node_id: &PlanNodeId,
         now: Timestamp,
     ) -> Vec<PlanNodeBlocker> {
-        let Some(graph) = runtime.plan_graph(plan_id) else {
+        let Some(graph) = self.hydrated_plan_graph_for_runtime(runtime, plan_id) else {
             return Vec::new();
         };
         let Some(node) = graph.nodes.iter().find(|node| node.id == *node_id).cloned() else {
