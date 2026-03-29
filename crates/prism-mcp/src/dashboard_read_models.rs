@@ -76,7 +76,7 @@ impl QueryHost {
         }
 
         let prism = self.current_prism();
-        let snapshot = prism.coordination().snapshot();
+        let snapshot = prism.coordination_snapshot();
         let now = current_timestamp();
         let active_plan_ids = snapshot
             .plans

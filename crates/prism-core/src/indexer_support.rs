@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::Instant;
 
 use anyhow::Result;
-use prism_coordination::CoordinationStore;
+use prism_coordination::CoordinationSnapshot;
 use prism_curator::CuratorBackend;
 use prism_history::HistoryStore;
 use prism_ir::{EdgeKind, PlanExecutionOverlay, PlanGraph};
@@ -31,7 +31,7 @@ pub(crate) fn build_workspace_session(
     graph: Graph,
     history: HistoryStore,
     outcomes: OutcomeMemory,
-    coordination: CoordinationStore,
+    coordination_snapshot: CoordinationSnapshot,
     plan_graphs: Vec<PlanGraph>,
     plan_execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     projections: ProjectionIndex,
@@ -46,7 +46,7 @@ pub(crate) fn build_workspace_session(
             graph,
             history,
             outcomes,
-            coordination,
+            coordination_snapshot,
             projections,
             plan_graphs,
             plan_execution_overlays,

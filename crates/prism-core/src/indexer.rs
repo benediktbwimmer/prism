@@ -19,7 +19,7 @@ use crate::session::WorkspaceSession;
 use crate::util::{cache_path, cleanup_legacy_cache, default_adapters};
 use crate::WorkspaceSessionOptions;
 use anyhow::Result;
-use prism_coordination::CoordinationStore;
+use prism_coordination::CoordinationSnapshot;
 use prism_curator::CuratorBackend;
 use prism_history::HistoryStore;
 use prism_ir::{
@@ -43,7 +43,7 @@ pub struct WorkspaceIndexer<S: Store> {
     pub(crate) graph: Graph,
     pub(crate) history: HistoryStore,
     pub(crate) outcomes: OutcomeMemory,
-    pub(crate) coordination: CoordinationStore,
+    pub(crate) coordination_snapshot: CoordinationSnapshot,
     pub(crate) plan_graphs: Vec<PlanGraph>,
     pub(crate) plan_execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     pub(crate) projections: ProjectionIndex,
@@ -88,7 +88,7 @@ impl WorkspaceIndexer<SqliteStore> {
             self.graph,
             self.history,
             self.outcomes,
-            self.coordination,
+            self.coordination_snapshot,
             self.plan_graphs,
             self.plan_execution_overlays,
             self.projections,
@@ -138,10 +138,10 @@ impl<S: Store> WorkspaceIndexer<S> {
         } else {
             None
         };
-        let coordination = plan_state
+        let coordination_snapshot = plan_state
             .as_ref()
-            .map(|state| CoordinationStore::from_snapshot(state.snapshot.clone()))
-            .unwrap_or_else(CoordinationStore::new);
+            .map(|state| state.snapshot.clone())
+            .unwrap_or_default();
         let load_coordination_ms = load_coordination_started.elapsed().as_millis();
         let load_projection_started = Instant::now();
         let stored_projection_snapshot = store.load_projection_snapshot()?;
@@ -189,7 +189,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             graph,
             history,
             outcomes,
-            coordination,
+            coordination_snapshot,
             plan_graphs: plan_state
                 .as_ref()
                 .map(|state| state.plan_graphs.clone())
@@ -711,7 +711,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             self.graph,
             self.history,
             self.outcomes,
-            self.coordination,
+            self.coordination_snapshot,
             self.projections,
             self.plan_graphs,
             self.plan_execution_overlays,

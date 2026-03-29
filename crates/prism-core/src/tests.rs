@@ -1354,7 +1354,7 @@ fn reload_preserves_coordination_claim_resolution_through_rename() {
                 .expect("alpha should have a lineage before rename");
             assert!(scoped_anchors.contains(&AnchorRef::Lineage(lineage)));
 
-            let (plan_id, _) = prism.coordination().create_plan(
+            let plan_id = prism.create_native_plan(
                 EventMeta {
                     id: EventId::new("coordination:rename-plan"),
                     ts: 1,
@@ -1362,13 +1362,11 @@ fn reload_preserves_coordination_claim_resolution_through_rename() {
                     correlation: Some(TaskId::new("task:coordination-rename")),
                     causation: None,
                 },
-                PlanCreateInput {
-                    goal: "Coordinate rename follow-up".into(),
-                    status: None,
-                    policy: Default::default(),
-                },
+                "Coordinate rename follow-up".into(),
+                None,
+                Some(Default::default()),
             )?;
-            let (task_id, _) = prism.coordination().create_task(
+            let task = prism.create_native_task(
                 EventMeta {
                     id: EventId::new("coordination:rename-task"),
                     ts: 2,
@@ -1390,8 +1388,9 @@ fn reload_preserves_coordination_claim_resolution_through_rename() {
                     base_revision: base_revision.clone(),
                 },
             )?;
+            let task_id = task.id.clone();
             let holder = prism_ir::SessionId::new("session:rename-owner");
-            prism.coordination().acquire_claim(
+            prism.acquire_native_claim(
                 EventMeta {
                     id: EventId::new("coordination:rename-claim"),
                     ts: 3,
@@ -1523,7 +1522,7 @@ fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
     let (plan_id, task_id) = session
         .mutate_coordination(|prism| {
             let base_revision = prism.workspace_revision();
-            let (plan_id, _) = prism.coordination().create_plan(
+            let plan_id = prism.create_native_plan(
                 EventMeta {
                     id: EventId::new("coordination:published-plan"),
                     ts: 1,
@@ -1531,13 +1530,11 @@ fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
                     correlation: Some(TaskId::new("task:published-plan")),
                     causation: None,
                 },
-                PlanCreateInput {
-                    goal: "Ship published plan hydration".into(),
-                    status: None,
-                    policy: Default::default(),
-                },
+                "Ship published plan hydration".into(),
+                None,
+                Some(Default::default()),
             )?;
-            let (task_id, _) = prism.coordination().create_task(
+            let task = prism.create_native_task(
                 EventMeta {
                     id: EventId::new("coordination:published-task"),
                     ts: 2,
@@ -1559,7 +1556,7 @@ fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
                     base_revision,
                 },
             )?;
-            Ok((plan_id, task_id))
+            Ok((plan_id, task.id))
         })
         .unwrap();
 
@@ -1776,7 +1773,7 @@ fn repo_published_plan_logs_append_deltas_instead_of_rewriting_full_state() {
     let (plan_id, task_id) = session
         .mutate_coordination(|prism| {
             let base_revision = prism.workspace_revision();
-            let (plan_id, _) = prism.coordination().create_plan(
+            let plan_id = prism.create_native_plan(
                 EventMeta {
                     id: EventId::new("coordination:append-plan"),
                     ts: 1,
@@ -1784,13 +1781,11 @@ fn repo_published_plan_logs_append_deltas_instead_of_rewriting_full_state() {
                     correlation: Some(TaskId::new("task:append-plan")),
                     causation: None,
                 },
-                PlanCreateInput {
-                    goal: "Append published plan deltas".into(),
-                    status: None,
-                    policy: Default::default(),
-                },
+                "Append published plan deltas".into(),
+                None,
+                Some(Default::default()),
             )?;
-            let (task_id, _) = prism.coordination().create_task(
+            let task = prism.create_native_task(
                 EventMeta {
                     id: EventId::new("coordination:append-task"),
                     ts: 2,
@@ -1812,7 +1807,7 @@ fn repo_published_plan_logs_append_deltas_instead_of_rewriting_full_state() {
                     base_revision,
                 },
             )?;
-            Ok((plan_id, task_id))
+            Ok((plan_id, task.id))
         })
         .unwrap();
 
@@ -1826,7 +1821,7 @@ fn repo_published_plan_logs_append_deltas_instead_of_rewriting_full_state() {
 
     session
         .mutate_coordination(|prism| {
-            let _ = prism.coordination().update_task(
+            let _ = prism.update_native_task(
                 EventMeta {
                     id: EventId::new("coordination:append-task-update"),
                     ts: 3,
@@ -2147,7 +2142,7 @@ fn workspace_session_can_disable_coordination_entirely() {
     let enabled = index_workspace_session(&root).unwrap();
     enabled
         .mutate_coordination(|prism| {
-            let _ = prism.coordination().create_plan(
+            let _ = prism.create_native_plan(
                 EventMeta {
                     id: EventId::new("coordination:test"),
                     ts: 1,
@@ -2155,11 +2150,9 @@ fn workspace_session_can_disable_coordination_entirely() {
                     correlation: Some(TaskId::new("task:test")),
                     causation: None,
                 },
-                PlanCreateInput {
-                    goal: "Coordinate alpha".into(),
-                    status: None,
-                    policy: Default::default(),
-                },
+                "Coordinate alpha".into(),
+                None,
+                Some(Default::default()),
             )?;
             Ok(())
         })

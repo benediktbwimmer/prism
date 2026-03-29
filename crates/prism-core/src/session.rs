@@ -6,7 +6,6 @@ use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 use anyhow::{anyhow, Result};
 use prism_agent::InferenceSnapshot;
 use prism_coordination::CoordinationSnapshot;
-use prism_coordination::CoordinationStore;
 use prism_curator::{
     CuratorJobId, CuratorProposalDisposition, CuratorProposalState, CuratorSnapshot,
 };
@@ -306,10 +305,10 @@ impl WorkspaceSession {
         } else {
             None
         };
-        let coordination = plan_state
+        let coordination_snapshot = plan_state
             .as_ref()
-            .map(|state| CoordinationStore::from_snapshot(state.snapshot.clone()))
-            .unwrap_or_else(CoordinationStore::new);
+            .map(|state| state.snapshot.clone())
+            .unwrap_or_default();
         let projections = store
             .load_projection_snapshot()?
             .map(ProjectionIndex::from_snapshot)
@@ -331,7 +330,7 @@ impl WorkspaceSession {
                 graph,
                 history,
                 outcomes,
-                coordination,
+                coordination_snapshot,
                 projections,
                 plan_state
                     .as_ref()
@@ -583,19 +582,9 @@ impl WorkspaceSession {
             .expect("workspace store lock poisoned")
             .coordination_revision()?;
         let prism = self.prism_arc();
-        let before_runtime = prism.coordination_snapshot();
-        let before_store = prism.coordination().snapshot();
+        let before = prism.coordination_snapshot();
         let result = mutate(prism.as_ref())?;
-        let after_runtime = prism.coordination_snapshot();
-        let after_store = prism.coordination().snapshot();
-        let (before, snapshot) = if after_runtime != before_runtime {
-            (before_runtime, after_runtime)
-        } else if after_store != before_store {
-            prism.replace_coordination_snapshot(after_store.clone());
-            (before_store, after_store)
-        } else {
-            (before_runtime, after_runtime)
-        };
+        let snapshot = prism.coordination_snapshot();
         let appended_events = snapshot
             .events
             .iter()

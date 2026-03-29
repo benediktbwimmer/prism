@@ -1,5 +1,6 @@
 use prism_coordination::{
-    Artifact, CoordinationConflict, CoordinationTask, Plan, TaskBlocker, WorkClaim,
+    Artifact, CoordinationConflict, CoordinationEvent, CoordinationTask, Plan, TaskBlocker,
+    WorkClaim,
 };
 use prism_ir::{
     AnchorRef, ArtifactId, Capability, ClaimMode, CoordinationTaskId, PlanExecutionOverlay,
@@ -44,6 +45,13 @@ impl Prism {
             .read()
             .expect("continuity runtime lock poisoned")
             .artifact_in_scope(artifact_id, worktree_id.as_deref())
+    }
+
+    pub fn coordination_events(&self) -> Vec<CoordinationEvent> {
+        self.continuity_runtime
+            .read()
+            .expect("continuity runtime lock poisoned")
+            .events()
     }
 
     pub fn plan_graph(&self, plan_id: &PlanId) -> Option<PlanGraph> {

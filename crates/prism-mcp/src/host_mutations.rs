@@ -116,7 +116,7 @@ fn mutation_violation_view(value: PolicyViolation) -> MutationViolationView {
 
 fn coordination_audit_since(prism: &Prism, before_len: usize) -> CoordinationAudit {
     let mut audit = CoordinationAudit::default();
-    for event in prism.coordination().events().into_iter().skip(before_len) {
+    for event in prism.coordination_events().into_iter().skip(before_len) {
         audit.event_ids.push(event.meta.id.0.to_string());
         if event.kind == prism_ir::CoordinationEventKind::MutationRejected {
             audit.rejected = true;
@@ -768,7 +768,7 @@ impl QueryHost {
         self.ensure_tool_enabled("prism_coordination", "coordination workflow mutations")?;
         self.refresh_workspace()?;
         let prism = self.current_prism();
-        let before_events = prism.coordination().events().len();
+        let before_events = prism.coordination_events().len();
         let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
         let event_id = session.next_event_id("coordination");
         let meta = EventMeta {
@@ -846,7 +846,7 @@ impl QueryHost {
         self.ensure_tool_enabled("prism_claim", "coordination claim mutations")?;
         self.refresh_workspace()?;
         let prism = self.current_prism();
-        let before_events = prism.coordination().events().len();
+        let before_events = prism.coordination_events().len();
         let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
         let meta = EventMeta {
             id: session.next_event_id("coordination"),
@@ -917,7 +917,7 @@ impl QueryHost {
         self.ensure_tool_enabled("prism_artifact", "coordination artifact mutations")?;
         self.refresh_workspace()?;
         let prism = self.current_prism();
-        let before_events = prism.coordination().events().len();
+        let before_events = prism.coordination_events().len();
         let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
         let meta = EventMeta {
             id: session.next_event_id("coordination"),
