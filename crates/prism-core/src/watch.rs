@@ -9,15 +9,18 @@ use anyhow::Result;
 use notify::{recommended_watcher, Event, RecursiveMode, Watcher};
 use prism_ir::ChangeTrigger;
 use prism_query::Prism;
-use prism_store::SqliteStore;
+use prism_store::{SqliteStore, WorkspaceTreeSnapshot};
 use tracing::{error, warn};
 
 use crate::curator::{enqueue_curator_for_observed_locked, CuratorHandleRef};
 use crate::indexer::WorkspaceIndexer;
-use crate::session::WorkspaceRefreshState;
+use crate::session::{WorkspaceRefreshResult, WorkspaceRefreshState};
 use crate::shared_runtime::composite_workspace_revision;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
-use crate::util::{workspace_fingerprint, WorkspaceFingerprint};
+use crate::workspace_tree::{
+    diff_workspace_tree_snapshot, plan_full_refresh, plan_incremental_refresh,
+    populate_package_regions, WorkspaceRefreshMode,
+};
 
 pub(crate) struct WatchHandle {
     pub(crate) stop: mpsc::Sender<WatchMessage>,
@@ -37,7 +40,7 @@ pub(crate) fn spawn_fs_watch(
     refresh_lock: Arc<Mutex<()>>,
     refresh_state: Arc<WorkspaceRefreshState>,
     loaded_workspace_revision: Arc<AtomicU64>,
-    fs_snapshot: Arc<Mutex<WorkspaceFingerprint>>,
+    fs_snapshot: Arc<Mutex<WorkspaceTreeSnapshot>>,
     coordination_enabled: bool,
     curator: Option<CuratorHandleRef>,
 ) -> Result<WatchHandle> {
@@ -142,12 +145,12 @@ pub(crate) fn refresh_prism_snapshot(
     refresh_lock: &Arc<Mutex<()>>,
     refresh_state: &Arc<WorkspaceRefreshState>,
     loaded_workspace_revision: &Arc<AtomicU64>,
-    fs_snapshot: &Arc<Mutex<WorkspaceFingerprint>>,
+    fs_snapshot: &Arc<Mutex<WorkspaceTreeSnapshot>>,
     coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
     trigger: ChangeTrigger,
-    known_fingerprint: Option<WorkspaceFingerprint>,
-) -> Result<Vec<prism_ir::ObservedChangeSet>> {
+    known_fingerprint: Option<WorkspaceTreeSnapshot>,
+) -> Result<WorkspaceRefreshResult> {
     let guard = refresh_lock
         .lock()
         .expect("workspace refresh lock poisoned");
@@ -175,12 +178,12 @@ pub(crate) fn try_refresh_prism_snapshot(
     refresh_lock: &Arc<Mutex<()>>,
     refresh_state: &Arc<WorkspaceRefreshState>,
     loaded_workspace_revision: &Arc<AtomicU64>,
-    fs_snapshot: &Arc<Mutex<WorkspaceFingerprint>>,
+    fs_snapshot: &Arc<Mutex<WorkspaceTreeSnapshot>>,
     coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
     trigger: ChangeTrigger,
-    known_fingerprint: Option<WorkspaceFingerprint>,
-) -> Result<Option<Vec<prism_ir::ObservedChangeSet>>> {
+    known_fingerprint: Option<WorkspaceTreeSnapshot>,
+) -> Result<Option<WorkspaceRefreshResult>> {
     let Ok(guard) = refresh_lock.try_lock() else {
         return Ok(None);
     };
@@ -208,13 +211,13 @@ fn refresh_prism_snapshot_with_guard(
     shared_runtime_sqlite: Option<&Path>,
     refresh_state: &Arc<WorkspaceRefreshState>,
     loaded_workspace_revision: &Arc<AtomicU64>,
-    fs_snapshot: &Arc<Mutex<WorkspaceFingerprint>>,
+    fs_snapshot: &Arc<Mutex<WorkspaceTreeSnapshot>>,
     coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
     trigger: ChangeTrigger,
-    known_fingerprint: Option<WorkspaceFingerprint>,
+    known_fingerprint: Option<WorkspaceTreeSnapshot>,
     _guard: MutexGuard<'_, ()>,
-) -> Result<Vec<prism_ir::ObservedChangeSet>> {
+) -> Result<WorkspaceRefreshResult> {
     let started = Instant::now();
     let observed_revision = refresh_state.observed_fs_revision();
     let dirty_paths = if trigger == ChangeTrigger::FsWatch {
@@ -227,21 +230,35 @@ fn refresh_prism_snapshot_with_guard(
         && can_scope_watch_refresh(root, &dirty_paths);
     let cached_snapshot = fs_snapshot
         .lock()
-        .expect("workspace fingerprint lock poisoned")
+        .expect("workspace tree snapshot lock poisoned")
         .clone();
-    let next_fingerprint =
-        known_fingerprint.unwrap_or(workspace_fingerprint(root, Some(&cached_snapshot))?);
-    {
-        let current = fs_snapshot
-            .lock()
-            .expect("workspace fingerprint lock poisoned")
-            .value;
-        if current == next_fingerprint.value {
-            return Ok(Vec::new());
+    let mut plan = if scoped_watch_refresh {
+        plan_incremental_refresh(root, &cached_snapshot, &dirty_paths)?
+    } else if let Some(next_snapshot) = known_fingerprint {
+        crate::workspace_tree::WorkspaceRefreshPlan {
+            mode: WorkspaceRefreshMode::Full,
+            delta: diff_workspace_tree_snapshot(root, &cached_snapshot, &next_snapshot),
+            next_snapshot,
         }
+    } else {
+        plan_full_refresh(root, &cached_snapshot)?
+    };
+    if plan.delta.is_empty() {
+        *fs_snapshot
+            .lock()
+            .expect("workspace tree snapshot lock poisoned") = plan.next_snapshot;
+        refresh_state.mark_refreshed_revision(observed_revision, &dirty_paths);
+        return Ok(WorkspaceRefreshResult {
+            mode: None,
+            observed: Vec::new(),
+        });
     }
-    let mut indexer = WorkspaceIndexer::new_with_options(
+    let current_prism = prism.read().expect("workspace prism lock poisoned").clone();
+    let coordination_context = current_prism.coordination_context();
+    let mut indexer = WorkspaceIndexer::new_from_live_prism_with_options(
         root,
+        current_prism.as_ref(),
+        Some(cached_snapshot),
         crate::WorkspaceSessionOptions {
             coordination: coordination_enabled,
             shared_runtime: shared_runtime_sqlite
@@ -252,13 +269,11 @@ fn refresh_prism_snapshot_with_guard(
             hydrate_persisted_projections: false,
         },
     )?;
-    let observed = if scoped_watch_refresh {
-        indexer.index_with_scope(trigger, dirty_paths.iter().cloned())?
-    } else {
-        indexer.index_with_trigger(trigger)?
-    };
+    populate_package_regions(&mut plan.delta, &indexer.layout);
+    let observed = indexer.index_with_refresh_plan(trigger, &plan)?;
+    let local_workspace_revision = indexer.store.workspace_revision()?;
     let workspace_revision = composite_workspace_revision(
-        indexer.store.workspace_revision()?,
+        local_workspace_revision,
         indexer
             .shared_runtime_store
             .as_ref()
@@ -266,18 +281,31 @@ fn refresh_prism_snapshot_with_guard(
             .transpose()?,
     );
     let next = Arc::new(indexer.into_prism());
+    next.set_workspace_revision(prism_ir::WorkspaceRevision {
+        graph_version: local_workspace_revision,
+        git_commit: None,
+    });
+    next.set_coordination_context(coordination_context);
     *prism.write().expect("workspace prism lock poisoned") = Arc::clone(&next);
     loaded_workspace_revision.store(workspace_revision, Ordering::Relaxed);
     *fs_snapshot
         .lock()
-        .expect("workspace fingerprint lock poisoned") = next_fingerprint;
+        .expect("workspace tree snapshot lock poisoned") = plan.next_snapshot;
     if let Some(curator) = curator {
         let mut store = store.lock().expect("workspace store lock poisoned");
         enqueue_curator_for_observed_locked(curator, next.as_ref(), &mut store, &observed)?;
     }
     refresh_state.mark_refreshed_revision(observed_revision, &dirty_paths);
-    refresh_state.record_refresh(started.elapsed().as_millis() as u64, workspace_revision);
-    Ok(observed)
+    refresh_state.record_refresh(
+        plan.mode.as_str(),
+        started.elapsed().as_millis() as u64,
+        workspace_revision,
+        &plan.delta,
+    );
+    Ok(WorkspaceRefreshResult {
+        mode: Some(plan.mode),
+        observed,
+    })
 }
 
 fn can_scope_watch_refresh(root: &Path, dirty_paths: &[PathBuf]) -> bool {

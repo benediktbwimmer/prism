@@ -23,7 +23,7 @@ use tracing::info;
 use crate::graph::Graph;
 use crate::store::{
     AuxiliaryPersistBatch, CoordinationEventStream, CoordinationPersistBatch,
-    CoordinationPersistResult, IndexPersistBatch, Store,
+    CoordinationPersistResult, IndexPersistBatch, Store, WorkspaceTreeSnapshot,
 };
 
 const WORKSPACE_REVISION_KEY: &str = "revision:workspace";
@@ -319,6 +319,18 @@ impl Store for SqliteStore {
         Ok(())
     }
 
+    fn load_workspace_tree_snapshot(&mut self) -> Result<Option<WorkspaceTreeSnapshot>> {
+        snapshots::load_snapshot_row(&self.conn, "workspace_tree")
+    }
+
+    fn save_workspace_tree_snapshot(&mut self, snapshot: &WorkspaceTreeSnapshot) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        snapshots::save_snapshot_row_tx(&tx, "workspace_tree", snapshot)?;
+        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        tx.commit()?;
+        Ok(())
+    }
+
     fn load_curator_snapshot(&mut self) -> Result<Option<prism_curator::CuratorSnapshot>> {
         snapshots::load_snapshot_row(&self.conn, "curator")
     }
@@ -601,6 +613,9 @@ impl Store for SqliteStore {
         } else {
             projections::apply_projection_co_change_deltas_tx(&tx, &batch.co_change_deltas)?;
             projections::apply_projection_validation_deltas_tx(&tx, &batch.validation_deltas)?;
+        }
+        if let Some(snapshot) = &batch.workspace_tree_snapshot {
+            snapshots::save_snapshot_row_tx(&tx, "workspace_tree", snapshot)?;
         }
         let persist_projection_ms = projection_started.elapsed().as_millis();
 

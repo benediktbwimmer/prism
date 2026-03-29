@@ -1327,6 +1327,41 @@ fn plan_graph_reads_native_runtime_state_before_coordination_projection() {
 }
 
 #[test]
+fn plans_contains_filter_matches_singular_and_plural_plan_terms() {
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:bottleneck"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Eliminate the remaining performance bottleneck".into(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        history,
+        outcomes,
+        coordination.snapshot(),
+        ProjectionIndex::default(),
+    );
+
+    let plans = prism.plans(None, None, Some("bottlenecks"));
+    assert_eq!(plans.len(), 1);
+    assert!(plans[0].title.to_ascii_lowercase().contains("bottleneck"));
+}
+
+#[test]
 fn continuity_reads_native_runtime_state_before_coordination_projection() {
     let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
     let mut graph = Graph::new();

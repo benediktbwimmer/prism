@@ -22,6 +22,7 @@ mod util;
 mod validation_feedback;
 mod watch;
 mod workspace_identity;
+mod workspace_tree;
 
 use std::sync::Arc;
 
@@ -33,7 +34,8 @@ use session_bootstrap::hydrate_workspace_session_with_options as bootstrap_works
 pub(crate) use indexer::PendingFileParse;
 pub use indexer::WorkspaceIndexer;
 pub use session::{
-    CoordinationPlanState, FsRefreshStatus, WorkspaceSession, WorkspaceSnapshotRevisions,
+    CoordinationPlanState, FsRefreshStatus, WorkspaceFsRefreshOutcome, WorkspaceSession,
+    WorkspaceSnapshotRevisions,
 };
 pub use shared_runtime_backend::SharedRuntimeBackend;
 pub use validation_feedback::{

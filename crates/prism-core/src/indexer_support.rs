@@ -14,7 +14,7 @@ use prism_memory::OutcomeMemory;
 use prism_parser::LanguageAdapter;
 use prism_projections::ProjectionIndex;
 use prism_query::Prism;
-use prism_store::{Graph, SqliteStore, Store};
+use prism_store::{Graph, SqliteStore, Store, WorkspaceTreeSnapshot};
 use tracing::info;
 
 use crate::curator::{CuratorHandle, CuratorHandleRef};
@@ -23,13 +23,14 @@ use crate::resolution::{resolve_calls, resolve_impls, resolve_imports, resolve_i
 use crate::session::{WorkspaceRefreshState, WorkspaceSession};
 use crate::shared_runtime::composite_workspace_revision;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
-use crate::util::{persisted_file_hash, workspace_fingerprint, workspace_walk};
+use crate::util::{persisted_file_hash, workspace_walk};
 use crate::watch::spawn_fs_watch;
 use crate::workspace_identity::coordination_persist_context_for_root;
 
 pub(crate) fn build_workspace_session(
     root: PathBuf,
     store: SqliteStore,
+    workspace_tree_snapshot: WorkspaceTreeSnapshot,
     shared_runtime: SharedRuntimeBackend,
     shared_runtime_store: Option<SqliteStore>,
     graph: Graph,
@@ -72,9 +73,7 @@ pub(crate) fn build_workspace_session(
     let shared_runtime_store = shared_runtime_store.map(|store| Arc::new(Mutex::new(store)));
     let refresh_lock = Arc::new(Mutex::new(()));
     let refresh_state = Arc::new(WorkspaceRefreshState::new());
-    let fingerprint_started = Instant::now();
-    let fs_snapshot = Arc::new(Mutex::new(workspace_fingerprint(&root, None)?));
-    let fingerprint_ms = fingerprint_started.elapsed().as_millis();
+    let fs_snapshot = Arc::new(Mutex::new(workspace_tree_snapshot));
     let curator_snapshot_started = Instant::now();
     let curator_snapshot = {
         let mut store = store.lock().expect("workspace store lock poisoned");
@@ -112,7 +111,6 @@ pub(crate) fn build_workspace_session(
         node_count,
         edge_count,
         file_count,
-        fingerprint_ms,
         load_curator_snapshot_ms,
         watch_start_ms,
         total_ms = started.elapsed().as_millis(),

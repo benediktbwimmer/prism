@@ -10,7 +10,8 @@ pub use memory_store::MemoryStore;
 pub use sqlite::{SnapshotRevisions, SqliteStore};
 pub use store::{
     AuxiliaryPersistBatch, CoordinationPersistBatch, CoordinationPersistContext,
-    CoordinationPersistResult, IndexPersistBatch, Store,
+    CoordinationPersistResult, IndexPersistBatch, Store, WorkspaceTreeDirectoryFingerprint,
+    WorkspaceTreeFileFingerprint, WorkspaceTreeSnapshot,
 };
 
 #[cfg(test)]

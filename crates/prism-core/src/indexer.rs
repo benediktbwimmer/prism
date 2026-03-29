@@ -22,6 +22,10 @@ use crate::shared_runtime::{
 };
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::util::{cache_path, cleanup_legacy_cache, default_adapters};
+use crate::workspace_tree::{
+    build_workspace_tree_snapshot, plan_incremental_refresh, populate_package_regions,
+    WorkspaceRefreshPlan,
+};
 use crate::WorkspaceSessionOptions;
 use anyhow::Result;
 use prism_coordination::CoordinationSnapshot;
@@ -37,7 +41,7 @@ use prism_projections::{
     co_change_deltas_for_events, CoChangeDelta, ProjectionIndex, ValidationDelta,
 };
 use prism_query::Prism;
-use prism_store::{Graph, IndexPersistBatch, SqliteStore, Store};
+use prism_store::{Graph, IndexPersistBatch, SqliteStore, Store, WorkspaceTreeSnapshot};
 use tracing::{info, warn};
 
 const SLOW_FILE_PHASE_THRESHOLD_MS: u128 = 200;
@@ -56,6 +60,7 @@ pub struct WorkspaceIndexer<S: Store> {
     pub(crate) had_projection_snapshot: bool,
     pub(crate) adapters: Vec<Box<dyn LanguageAdapter + Send + Sync>>,
     pub(crate) store: S,
+    pub(crate) workspace_tree_snapshot: Option<WorkspaceTreeSnapshot>,
     pub(crate) shared_runtime: SharedRuntimeBackend,
     pub(crate) shared_runtime_store: Option<SqliteStore>,
     pub(crate) coordination_enabled: bool,
@@ -137,6 +142,34 @@ impl WorkspaceIndexer<SqliteStore> {
         Ok(indexer)
     }
 
+    pub fn new_from_live_prism_with_options(
+        root: impl AsRef<Path>,
+        prism: &Prism,
+        workspace_tree_snapshot: Option<WorkspaceTreeSnapshot>,
+        options: WorkspaceSessionOptions,
+    ) -> Result<Self> {
+        let root = root.as_ref().canonicalize()?;
+        cleanup_legacy_cache(&root)?;
+        let store = SqliteStore::open(cache_path(&root))?;
+        let mut indexer = Self::with_live_prism_and_options(
+            root.clone(),
+            store,
+            prism,
+            workspace_tree_snapshot,
+            options.clone(),
+        )?;
+        let shared_runtime_store = match &options.shared_runtime {
+            SharedRuntimeBackend::Disabled => None,
+            SharedRuntimeBackend::Sqlite { path } => Some(SqliteStore::open(path)?),
+            SharedRuntimeBackend::Remote { uri } => {
+                anyhow::bail!("shared runtime backend `{uri}` is not implemented yet")
+            }
+        };
+        indexer.shared_runtime = options.shared_runtime.clone();
+        indexer.shared_runtime_store = shared_runtime_store;
+        Ok(indexer)
+    }
+
     pub fn into_session(
         self,
         root: PathBuf,
@@ -145,6 +178,7 @@ impl WorkspaceIndexer<SqliteStore> {
         build_workspace_session(
             root,
             self.store,
+            self.workspace_tree_snapshot.unwrap_or_default(),
             self.shared_runtime,
             self.shared_runtime_store,
             self.graph,
@@ -163,6 +197,82 @@ impl WorkspaceIndexer<SqliteStore> {
 impl<S: Store> WorkspaceIndexer<S> {
     pub fn with_store(root: impl AsRef<Path>, store: S) -> Result<Self> {
         Self::with_store_and_options(root, store, WorkspaceSessionOptions::default())
+    }
+
+    pub fn with_live_prism_and_options(
+        root: impl AsRef<Path>,
+        store: S,
+        prism: &Prism,
+        workspace_tree_snapshot: Option<WorkspaceTreeSnapshot>,
+        options: WorkspaceSessionOptions,
+    ) -> Result<Self> {
+        let started = Instant::now();
+        let root = root.as_ref().canonicalize()?;
+        let WorkspaceSessionOptions {
+            coordination,
+            shared_runtime,
+            hydrate_persisted_projections: _,
+        } = options;
+        let layout_started = Instant::now();
+        let layout = discover_layout(&root)?;
+        let discover_layout_ms = layout_started.elapsed().as_millis();
+        let restore_runtime_started = Instant::now();
+        let mut graph = Graph::from_snapshot(prism.graph().snapshot());
+        sync_root_nodes(&mut graph, &layout);
+        let mut history = HistoryStore::from_snapshot(prism.history_snapshot());
+        history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
+        let history_snapshot = history.snapshot();
+        let outcomes = OutcomeMemory::from_snapshot(prism.outcome_snapshot());
+        let projections = merged_projection_index(
+            Some(prism.projection_snapshot()),
+            None,
+            load_repo_curated_concepts(&root)?,
+            load_repo_concept_relations(&root)?,
+            &history_snapshot,
+            &outcomes.snapshot(),
+        );
+        let (coordination_snapshot, plan_graphs, plan_execution_overlays) = if coordination {
+            (
+                prism.coordination_snapshot(),
+                prism.authored_plan_graphs(),
+                prism.plan_execution_overlays_by_plan(),
+            )
+        } else {
+            (CoordinationSnapshot::default(), Vec::new(), BTreeMap::new())
+        };
+        let restore_runtime_ms = restore_runtime_started.elapsed().as_millis();
+
+        info!(
+            root = %root.display(),
+            coordination_enabled = coordination,
+            node_count = graph.node_count(),
+            edge_count = graph.edge_count(),
+            file_count = graph.file_count(),
+            discover_layout_ms,
+            restore_runtime_ms,
+            total_ms = started.elapsed().as_millis(),
+            "prepared prism workspace indexer from live runtime state"
+        );
+
+        Ok(Self {
+            root,
+            layout,
+            graph,
+            history,
+            outcomes,
+            coordination_snapshot,
+            plan_graphs,
+            plan_execution_overlays,
+            projections,
+            had_prior_snapshot: true,
+            had_projection_snapshot: true,
+            adapters: default_adapters(),
+            store,
+            workspace_tree_snapshot,
+            shared_runtime,
+            shared_runtime_store: None,
+            coordination_enabled: coordination,
+        })
     }
 
     pub fn with_store_and_options(
@@ -207,6 +317,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         let load_coordination_ms = load_coordination_started.elapsed().as_millis();
         let load_projection_started = Instant::now();
         let persisted_projection_snapshot = store.load_projection_snapshot()?;
+        let workspace_tree_snapshot = store.load_workspace_tree_snapshot()?;
         let stored_projection_snapshot = if options.hydrate_persisted_projections {
             persisted_projection_snapshot.clone()
         } else {
@@ -270,6 +381,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             had_projection_snapshot,
             adapters: default_adapters(),
             store,
+            workspace_tree_snapshot,
             shared_runtime: options.shared_runtime,
             shared_runtime_store: None,
             coordination_enabled: options.coordination,
@@ -282,7 +394,7 @@ impl<S: Store> WorkspaceIndexer<S> {
     }
 
     pub fn index_with_changes(&mut self) -> Result<Vec<prism_ir::GraphChange>> {
-        let (_, changes) = self.index_impl(ChangeTrigger::ManualReindex, None)?;
+        let (_, changes) = self.index_impl(ChangeTrigger::ManualReindex, None, None)?;
         Ok(changes)
     }
 
@@ -291,7 +403,7 @@ impl<S: Store> WorkspaceIndexer<S> {
     }
 
     pub fn index_with_trigger(&mut self, trigger: ChangeTrigger) -> Result<Vec<ObservedChangeSet>> {
-        let (observed, _) = self.index_impl(trigger, None)?;
+        let (observed, _) = self.index_impl(trigger, None, None)?;
         Ok(observed)
     }
 
@@ -303,15 +415,28 @@ impl<S: Store> WorkspaceIndexer<S> {
     where
         I: IntoIterator<Item = PathBuf>,
     {
-        let dirty_paths = dirty_paths.into_iter().collect::<HashSet<_>>();
-        let (observed, _) = self.index_impl(trigger, Some(&dirty_paths))?;
+        let dirty_paths = dirty_paths.into_iter().collect::<Vec<_>>();
+        let cached_snapshot = self.workspace_tree_snapshot.clone().unwrap_or_default();
+        let mut plan = plan_incremental_refresh(&self.root, &cached_snapshot, &dirty_paths)?;
+        populate_package_regions(&mut plan.delta, &self.layout);
+        let (observed, _) = self.index_impl(trigger, Some(&plan), Some(&plan.next_snapshot))?;
+        Ok(observed)
+    }
+
+    pub(crate) fn index_with_refresh_plan(
+        &mut self,
+        trigger: ChangeTrigger,
+        plan: &WorkspaceRefreshPlan,
+    ) -> Result<Vec<ObservedChangeSet>> {
+        let (observed, _) = self.index_impl(trigger, Some(plan), Some(&plan.next_snapshot))?;
         Ok(observed)
     }
 
     fn index_impl(
         &mut self,
         trigger: ChangeTrigger,
-        refresh_scope: Option<&HashSet<PathBuf>>,
+        refresh_plan: Option<&WorkspaceRefreshPlan>,
+        next_tree_snapshot: Option<&WorkspaceTreeSnapshot>,
     ) -> Result<(Vec<ObservedChangeSet>, Vec<prism_ir::GraphChange>)> {
         let started = Instant::now();
         info!(
@@ -329,19 +454,20 @@ impl<S: Store> WorkspaceIndexer<S> {
         let mut validation_deltas = Vec::<ValidationDelta>::new();
         let mut upserted_paths = Vec::<PathBuf>::new();
         let mut removed_paths = Vec::<PathBuf>::new();
-        let expanded_refresh_scope = refresh_scope.map(|scope| self.expand_refresh_scope(scope));
+        let refresh_scope =
+            refresh_plan.map(|plan| plan.delta.scope_paths().into_iter().collect::<HashSet<_>>());
+        let dependency_refresh_scope = refresh_scope
+            .as_ref()
+            .map(|scope| self.expand_refresh_scope(scope));
         let walk_root = self.root.clone();
         let collect_pending_started = Instant::now();
-        let (mut pending, seen_files) = collect_pending_file_parses(
-            &walk_root,
-            &self.adapters,
-            expanded_refresh_scope.as_ref(),
-        )?;
+        let (mut pending, seen_files) =
+            collect_pending_file_parses(&walk_root, &self.adapters, refresh_scope.as_ref())?;
         let collect_pending_ms = collect_pending_started.elapsed().as_millis();
         let targeted_refresh = refresh_scope.is_some();
-        let refresh_scope_path_count = refresh_scope.map_or(0, HashSet::len);
-        let expanded_refresh_scope_path_count =
-            expanded_refresh_scope.as_ref().map_or(0, HashSet::len);
+        let refresh_scope_path_count = refresh_scope.as_ref().map_or(0, HashSet::len);
+        let dependency_refresh_scope_path_count =
+            dependency_refresh_scope.as_ref().map_or(0, HashSet::len);
         let pending_file_count = pending.len();
         let pending_bytes = pending
             .iter()
@@ -351,7 +477,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             root = %self.root.display(),
             targeted_refresh,
             refresh_scope_path_count,
-            expanded_refresh_scope_path_count,
+            dependency_refresh_scope_path_count,
             pending_file_count,
             pending_bytes,
             seen_file_count = seen_files.len(),
@@ -362,7 +488,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         let moved_paths = detect_moved_files(
             &self.graph,
             &seen_files,
-            expanded_refresh_scope.as_ref(),
+            refresh_scope.as_ref(),
             &mut pending,
         );
         let moved_file_count = moved_paths.len();
@@ -446,7 +572,7 @@ impl<S: Store> WorkspaceIndexer<S> {
                 warn!(
                     root = %self.root.display(),
                     targeted_refresh,
-                    expanded_refresh_scope_path_count,
+                    dependency_refresh_scope_path_count,
                     path = %parsed_job.pending.path.display(),
                     language = ?parsed_job.language,
                     source_bytes = parsed_job.pending.source.len(),
@@ -463,7 +589,7 @@ impl<S: Store> WorkspaceIndexer<S> {
                 info!(
                     root = %self.root.display(),
                     targeted_refresh,
-                    expanded_refresh_scope_path_count,
+                    dependency_refresh_scope_path_count,
                     parsed_file_count,
                     prepared_file_count,
                     skipped_unchanged_count,
@@ -478,7 +604,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             root = %self.root.display(),
             targeted_refresh,
             refresh_scope_path_count,
-            expanded_refresh_scope_path_count,
+            dependency_refresh_scope_path_count,
             prepared_file_count,
             parsed_file_count,
             parse_worker_count,
@@ -493,7 +619,7 @@ impl<S: Store> WorkspaceIndexer<S> {
 
         let remove_missing_started = Instant::now();
         for tracked in self.graph.tracked_files() {
-            if expanded_refresh_scope
+            if refresh_scope
                 .as_ref()
                 .is_some_and(|scope| !path_matches_refresh_scope(&tracked, scope))
             {
@@ -525,14 +651,14 @@ impl<S: Store> WorkspaceIndexer<S> {
             root = %self.root.display(),
             targeted_refresh,
             refresh_scope_path_count,
-            expanded_refresh_scope_path_count,
+            dependency_refresh_scope_path_count,
             removed_file_count = removed_paths.len(),
             remove_missing_ms,
             rebuild_graph_indexes_ms,
             "finished prism missing-file removal phase"
         );
 
-        let edge_resolution_scope = expanded_refresh_scope
+        let edge_resolution_scope = dependency_refresh_scope
             .as_ref()
             .map(|scope| self.expand_edge_resolution_scope(scope));
         let resolve_edges_started = Instant::now();
@@ -543,7 +669,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             root = %self.root.display(),
             targeted_refresh,
             refresh_scope_path_count,
-            expanded_refresh_scope_path_count,
+            dependency_refresh_scope_path_count,
             edge_resolution_scope_path_count = resolve_edge_stats.resolution_scope_path_count,
             edge_resolution_scope_node_count = resolve_edge_stats.resolution_scope_node_count,
             cleared_derived_edge_count = resolve_edge_stats.cleared_derived_edge_count,
@@ -590,6 +716,13 @@ impl<S: Store> WorkspaceIndexer<S> {
         let removed_file_count = removed_paths.len();
         let co_change_delta_count = co_change_deltas.len();
         let validation_delta_count = validation_deltas.len();
+        let workspace_tree_snapshot = match next_tree_snapshot {
+            Some(snapshot) => Some(snapshot.clone()),
+            None => Some(build_workspace_tree_snapshot(
+                &self.root,
+                self.workspace_tree_snapshot.as_ref(),
+            )?),
+        };
         let batch = IndexPersistBatch {
             upserted_paths,
             removed_paths,
@@ -599,6 +732,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             co_change_deltas,
             validation_deltas,
             projection_snapshot,
+            workspace_tree_snapshot: workspace_tree_snapshot.clone(),
         };
         let skip_persist = self.had_prior_snapshot
             && self.had_projection_snapshot
@@ -612,7 +746,7 @@ impl<S: Store> WorkspaceIndexer<S> {
                 root = %self.root.display(),
                 targeted_refresh,
                 refresh_scope_path_count,
-                expanded_refresh_scope_path_count,
+                dependency_refresh_scope_path_count,
                 "skipped prism index persistence batch because workspace state is unchanged"
             );
             0
@@ -624,7 +758,7 @@ impl<S: Store> WorkspaceIndexer<S> {
                 root = %self.root.display(),
                 targeted_refresh,
                 refresh_scope_path_count,
-                expanded_refresh_scope_path_count,
+                dependency_refresh_scope_path_count,
                 upserted_file_count,
                 removed_file_count,
                 co_change_delta_count,
@@ -644,19 +778,20 @@ impl<S: Store> WorkspaceIndexer<S> {
             root = %self.root.display(),
             targeted_refresh,
             refresh_scope_path_count,
-            expanded_refresh_scope_path_count,
+            dependency_refresh_scope_path_count,
             lineage_event_count = all_lineage_events.len(),
             reanchor_memory_ms,
             "reanchored persisted prism memory"
         );
         self.had_prior_snapshot = true;
         self.had_projection_snapshot = true;
+        self.workspace_tree_snapshot = workspace_tree_snapshot;
         info!(
             root = %self.root.display(),
             trigger = ?trigger,
             targeted_refresh,
             refresh_scope_path_count,
-            expanded_refresh_scope_path_count,
+            dependency_refresh_scope_path_count,
             edge_resolution_scope_path_count = resolve_edge_stats.resolution_scope_path_count,
             edge_resolution_scope_node_count = resolve_edge_stats.resolution_scope_node_count,
             cleared_derived_edge_count = resolve_edge_stats.cleared_derived_edge_count,

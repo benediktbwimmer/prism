@@ -21,7 +21,8 @@ use rusqlite::Connection;
 
 use crate::{
     AuxiliaryPersistBatch, CoordinationPersistBatch, CoordinationPersistContext, Graph,
-    IndexPersistBatch, MemoryStore, SqliteStore, Store,
+    IndexPersistBatch, MemoryStore, SqliteStore, Store, WorkspaceTreeDirectoryFingerprint,
+    WorkspaceTreeFileFingerprint, WorkspaceTreeSnapshot,
 };
 
 fn node(name: &str) -> Node {
@@ -288,11 +289,35 @@ fn memory_store_round_trips_auxiliary_snapshots() {
         curated_concepts: Vec::new(),
         concept_relations: Vec::new(),
     };
+    let workspace_tree = WorkspaceTreeSnapshot {
+        root_hash: 17,
+        files: vec![(
+            PathBuf::from("src/lib.rs"),
+            WorkspaceTreeFileFingerprint {
+                len: 128,
+                modified_ns: Some(11),
+                changed_ns: Some(13),
+                content_hash: 23,
+            },
+        )]
+        .into_iter()
+        .collect(),
+        directories: vec![(
+            PathBuf::from("src"),
+            WorkspaceTreeDirectoryFingerprint {
+                aggregate_hash: 29,
+                file_count: 1,
+            },
+        )]
+        .into_iter()
+        .collect(),
+    };
 
     store.save_history_snapshot(&history).unwrap();
     store.save_episodic_snapshot(&episodic).unwrap();
     store.save_inference_snapshot(&inference).unwrap();
     store.save_projection_snapshot(&projections).unwrap();
+    store.save_workspace_tree_snapshot(&workspace_tree).unwrap();
 
     let loaded_history = store.load_history_snapshot().unwrap().unwrap();
     assert!(loaded_history.node_to_lineage.is_empty());
@@ -302,6 +327,10 @@ fn memory_store_round_trips_auxiliary_snapshots() {
     assert_eq!(store.load_episodic_snapshot().unwrap(), Some(episodic));
     assert_eq!(store.load_inference_snapshot().unwrap(), Some(inference));
     assert_eq!(store.load_projection_snapshot().unwrap(), Some(projections));
+    assert_eq!(
+        store.load_workspace_tree_snapshot().unwrap(),
+        Some(workspace_tree)
+    );
 }
 
 #[test]
@@ -508,6 +537,50 @@ fn sqlite_store_persists_projections_in_dedicated_tables() {
         )
         .unwrap();
     assert_eq!(snapshot_rows, 0);
+
+    drop(store);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn sqlite_store_round_trips_workspace_tree_snapshot() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-tree-snapshot-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let workspace_tree = WorkspaceTreeSnapshot {
+        root_hash: 41,
+        files: vec![(
+            PathBuf::from("crates/prism-core/src/lib.rs"),
+            WorkspaceTreeFileFingerprint {
+                len: 256,
+                modified_ns: Some(101),
+                changed_ns: Some(103),
+                content_hash: 107,
+            },
+        )]
+        .into_iter()
+        .collect(),
+        directories: vec![(
+            PathBuf::from("crates/prism-core/src"),
+            WorkspaceTreeDirectoryFingerprint {
+                aggregate_hash: 109,
+                file_count: 1,
+            },
+        )]
+        .into_iter()
+        .collect(),
+    };
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    store.save_workspace_tree_snapshot(&workspace_tree).unwrap();
+    assert_eq!(
+        store.load_workspace_tree_snapshot().unwrap(),
+        Some(workspace_tree)
+    );
 
     drop(store);
     let _ = std::fs::remove_file(path);
@@ -1375,6 +1448,7 @@ fn sqlite_store_commits_index_batches_atomically() {
             last_seen: 7,
         }],
         projection_snapshot: None,
+        workspace_tree_snapshot: None,
     };
 
     let mut store = SqliteStore::open(&path).unwrap();
@@ -1502,6 +1576,7 @@ fn sqlite_store_applies_incremental_history_delta() {
                 }],
                 validation_deltas: Vec::new(),
                 projection_snapshot: None,
+                workspace_tree_snapshot: None,
             },
         )
         .unwrap();
@@ -1547,6 +1622,7 @@ fn sqlite_store_applies_incremental_history_delta() {
                 }],
                 validation_deltas: Vec::new(),
                 projection_snapshot: None,
+                workspace_tree_snapshot: None,
             },
         )
         .unwrap();
@@ -1599,6 +1675,7 @@ fn sqlite_store_tolerates_duplicate_node_ids_in_single_file_state() {
         co_change_deltas: Vec::new(),
         validation_deltas: Vec::new(),
         projection_snapshot: None,
+        workspace_tree_snapshot: None,
     };
 
     let mut store = SqliteStore::open(&path).unwrap();

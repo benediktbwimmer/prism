@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
@@ -9,8 +10,30 @@ use prism_curator::CuratorSnapshot;
 use prism_history::{HistoryPersistDelta, HistorySnapshot};
 use prism_memory::{EpisodicMemorySnapshot, MemoryEvent, OutcomeEvent, OutcomeMemorySnapshot};
 use prism_projections::{CoChangeDelta, ProjectionSnapshot, ValidationDelta};
+use serde::{Deserialize, Serialize};
 
 use crate::graph::Graph;
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct WorkspaceTreeSnapshot {
+    pub root_hash: u64,
+    pub files: BTreeMap<PathBuf, WorkspaceTreeFileFingerprint>,
+    pub directories: BTreeMap<PathBuf, WorkspaceTreeDirectoryFingerprint>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkspaceTreeFileFingerprint {
+    pub len: u64,
+    pub modified_ns: Option<u128>,
+    pub changed_ns: Option<u128>,
+    pub content_hash: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkspaceTreeDirectoryFingerprint {
+    pub aggregate_hash: u64,
+    pub file_count: usize,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct CoordinationPersistContext {
@@ -31,6 +54,7 @@ pub struct IndexPersistBatch {
     pub co_change_deltas: Vec<CoChangeDelta>,
     pub validation_deltas: Vec<ValidationDelta>,
     pub projection_snapshot: Option<ProjectionSnapshot>,
+    pub workspace_tree_snapshot: Option<WorkspaceTreeSnapshot>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -89,6 +113,8 @@ pub trait Store {
     fn save_inference_snapshot(&mut self, snapshot: &InferenceSnapshot) -> Result<()>;
     fn load_projection_snapshot(&mut self) -> Result<Option<ProjectionSnapshot>>;
     fn save_projection_snapshot(&mut self, snapshot: &ProjectionSnapshot) -> Result<()>;
+    fn load_workspace_tree_snapshot(&mut self) -> Result<Option<WorkspaceTreeSnapshot>>;
+    fn save_workspace_tree_snapshot(&mut self, snapshot: &WorkspaceTreeSnapshot) -> Result<()>;
     fn load_curator_snapshot(&mut self) -> Result<Option<CuratorSnapshot>>;
     fn save_curator_snapshot(&mut self, snapshot: &CuratorSnapshot) -> Result<()>;
     fn coordination_revision(&self) -> Result<u64>;

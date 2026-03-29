@@ -287,6 +287,113 @@ similar size:
 5. Revisit bridge topology and background-session machinery after the core path is efficient.
 6. Add TypeScript query caching after the larger structural issues are fixed.
 
+## Milestone Validation Recipes
+
+Milestone 0 closes only when every later milestone has an explicit before/after measurement target
+and a concrete validation recipe attached up front.
+
+### `perf:m1-refresh-runtime`
+
+Scope:
+- Replace reconstructive read-path refresh work with a persistent runtime path and narrower locking.
+
+Before:
+- Small no-op and small-delta reads can still pay non-trivial request-path refresh cost.
+- `refreshPath` can still degrade into a broader reload path on common read traffic.
+- `lockHoldMs`, `loadedBytes`, `replayVolume`, and `fullRebuildCount` remain non-zero on cases
+  that should stay incremental.
+
+After:
+- No-op and stale-auxiliary read refreshes report `refreshPath` of `none` or `deferred`.
+- `fsRefreshMs` and `fullRebuildCount` stay at `0` on those read paths.
+- `lockHoldMs`, `loadedBytes`, and `replayVolume` drop materially versus the before case.
+
+Validation:
+- `cargo test -p prism-mcp queries_skip_request_path_persisted_reload_when_runtime_is_current`
+- `cargo test -p prism-mcp queries_defer_request_path_refresh_when_runtime_sync_is_busy`
+- `cargo test -p prism-mcp unchanged_query_skips_workspace_refresh`
+
+### `perf:m2-memory-suffix-ingest`
+
+Scope:
+- Make repo memory ingestion and episodic materialization suffix-based instead of replaying full
+  state on unchanged or append-only paths.
+
+Before:
+- Episodic reload paths can repopulate state from a full snapshot or full event history even when
+  only a suffix changed.
+- `loadedBytes` and `replayVolume` scale with total memory state rather than the appended delta.
+
+After:
+- Append-only memory updates keep reload work proportional to the new suffix.
+- `loadedBytes` and `replayVolume` for episodic refreshes track the appended material rather than
+  the full persisted history.
+
+Validation:
+- `cargo test -p prism-core repo_memory_events_round_trip_through_committed_jsonl_and_reload`
+- `cargo test -p prism-mcp refresh_workspace_reloads_updated_persisted_notes`
+
+### `perf:m3-coordination-incremental`
+
+Scope:
+- Convert coordination reload and persistence to incremental read/write models.
+
+Before:
+- Coordination refreshes can still hydrate a broad coordination state payload after revision bumps.
+- Coordination mutation paths can still force unnecessary persisted refresh work.
+
+After:
+- Coordination mutations append and hydrate only the necessary delta.
+- Coordination reloads keep `loadedBytes`, `replayVolume`, and `fullRebuildCount` bounded to the
+  changed coordination state.
+
+Validation:
+- `cargo test -p prism-mcp coordination_mutation_trace_records_persistence_subphases`
+- `cargo test -p prism-mcp validation_feedback_tool_mutation_skips_request_path_refresh`
+- `cargo test -p prism-mcp first_mutation_after_workspace_refresh_skips_persisted_reload`
+
+### `perf:m4-projection-incremental`
+
+Scope:
+- Batch and incrementalize projection and concept maintenance so reload and indexing do not rebuild
+  unaffected projection state.
+
+Before:
+- Projection upkeep can still trigger broad rebuild work on lineage or outcome churn.
+- `loadedBytes` and `replayVolume` remain tied to whole-projection rebuilds rather than affected
+  subsets.
+
+After:
+- Projection updates touch only the affected concept or projection slices.
+- Incremental runs show lower `loadedBytes`, `replayVolume`, and `fullRebuildCount` than the
+  original full-rebuild path.
+
+Validation:
+- `cargo test -p prism-core coordination_persistence_compacts_large_event_suffixes_into_optional_baseline`
+- Re-run the startup and small-change refresh measurements from this document and compare
+  projection-heavy cases before and after the change.
+
+### `perf:m5-closeout-audit`
+
+Scope:
+- Prove the original audited hotspots are removed or explicitly quarantined to cold paths.
+
+Before:
+- Remaining audited hotspots still appear in runtime timelines, query traces, or daemon startup
+  logs.
+
+After:
+- The audited hot paths no longer show broad rebuild work during ordinary request, mutate, reload,
+  startup, or background flows.
+- `loadedBytes`, `replayVolume`, and `fullRebuildCount` make residual whole-state work obvious if
+  it regresses.
+
+Validation:
+- `cargo test -p prism-mcp compact_tool_query_trace_records_refresh_and_handler_phases`
+- `cargo test -p prism-mcp mutation_trace_records_internal_phases_for_persisted_only_mutations`
+- `cargo test -p prism-mcp refresh_workspace_reloads_updated_persisted_notes`
+- Re-run the milestone startup, refresh, and steady-state daemon measurements from this document.
+
 ## Next Slice
 
 The next concrete implementation slice for this milestone should be:

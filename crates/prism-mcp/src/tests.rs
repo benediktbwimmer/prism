@@ -6164,11 +6164,26 @@ fn compact_tool_query_trace_records_refresh_and_handler_phases() {
         "loadEpisodicMs",
         "loadInferenceMs",
         "loadCoordinationMs",
-        "workspaceReloaded",
+        "reloadWork",
     ] {
         assert!(
             refresh_metrics.contains_key(key),
             "expected compact refresh args to include `{key}`"
+        );
+    }
+    let reload_work = refresh_metrics
+        .get("reloadWork")
+        .and_then(Value::as_object)
+        .expect("compact refresh reload-work metrics");
+    for key in [
+        "loadedBytes",
+        "replayVolume",
+        "fullRebuildCount",
+        "workspaceReloaded",
+    ] {
+        assert!(
+            reload_work.contains_key(key),
+            "expected compact refresh reload-work metrics to include `{key}`"
         );
     }
     assert!(trace
@@ -8296,13 +8311,34 @@ return prism.runtimeStatus();
         "loadEpisodicMs",
         "loadInferenceMs",
         "loadCoordinationMs",
-        "workspaceReloaded",
+        "reloadWork",
     ] {
         assert!(
             metrics.contains_key(key),
             "expected typescript refresh args to include `{key}`"
         );
     }
+    let reload_work = metrics
+        .get("reloadWork")
+        .and_then(Value::as_object)
+        .expect("typescript refresh reload-work metrics");
+    assert_eq!(
+        reload_work.get("loadedBytes"),
+        Some(&Value::Number(0.into()))
+    );
+    assert_eq!(
+        reload_work.get("replayVolume"),
+        Some(&Value::Number(0.into()))
+    );
+    assert_eq!(
+        reload_work.get("fullRebuildCount"),
+        Some(&Value::Number(0.into()))
+    );
+    assert_eq!(metrics.get("fsRefreshMs"), Some(&Value::Number(0.into())));
+    assert_eq!(
+        reload_work.get("workspaceReloaded"),
+        Some(&Value::Bool(false))
+    );
 }
 
 #[test]
@@ -10959,6 +10995,31 @@ return prism.symbol("alpha")?.id.path ?? null;
         .and_then(Value::as_str)
         .expect("refreshPath should be a string");
     assert!(matches!(refresh_path, "none" | "deferred"));
+    let metrics = args
+        .get("metrics")
+        .and_then(Value::as_object)
+        .expect("refresh metrics");
+    let reload_work = metrics
+        .get("reloadWork")
+        .and_then(Value::as_object)
+        .expect("refresh reload-work metrics");
+    assert_eq!(
+        reload_work.get("loadedBytes"),
+        Some(&Value::Number(0.into()))
+    );
+    assert_eq!(
+        reload_work.get("replayVolume"),
+        Some(&Value::Number(0.into()))
+    );
+    assert_eq!(
+        reload_work.get("fullRebuildCount"),
+        Some(&Value::Number(0.into()))
+    );
+    assert_eq!(metrics.get("fsRefreshMs"), Some(&Value::Number(0.into())));
+    assert_eq!(
+        reload_work.get("workspaceReloaded"),
+        Some(&Value::Bool(false))
+    );
 }
 
 #[test]
@@ -11018,9 +11079,29 @@ return prism.symbol("alpha")?.id.path ?? null;
         .get("metrics")
         .and_then(Value::as_object)
         .expect("refresh metrics");
+    let reload_work = metrics
+        .get("reloadWork")
+        .and_then(Value::as_object)
+        .expect("refresh reload-work metrics");
     assert_eq!(metrics.get("lockWaitMs"), Some(&Value::Number(0.into())));
     assert_eq!(metrics.get("lockHoldMs"), Some(&Value::Number(0.into())));
-    assert_eq!(metrics.get("workspaceReloaded"), Some(&Value::Bool(false)));
+    assert_eq!(
+        reload_work.get("loadedBytes"),
+        Some(&Value::Number(0.into()))
+    );
+    assert_eq!(
+        reload_work.get("replayVolume"),
+        Some(&Value::Number(0.into()))
+    );
+    assert_eq!(
+        reload_work.get("fullRebuildCount"),
+        Some(&Value::Number(0.into()))
+    );
+    assert_eq!(metrics.get("fsRefreshMs"), Some(&Value::Number(0.into())));
+    assert_eq!(
+        reload_work.get("workspaceReloaded"),
+        Some(&Value::Bool(false))
+    );
 }
 
 #[test]
@@ -11130,6 +11211,9 @@ return prism.memory.recall({
         "loadEpisodicMs",
         "loadInferenceMs",
         "loadCoordinationMs",
+        "loadedBytes",
+        "replayVolume",
+        "fullRebuildCount",
         "workspaceReloaded",
     ] {
         assert!(
@@ -12851,6 +12935,35 @@ fn plans_resource_payload_surfaces_filters_and_root_nodes() {
         payload.plans[0].root_node_ids,
         vec![root_node.state["id"].as_str().unwrap()]
     );
+}
+
+#[test]
+fn plans_resource_contains_filter_matches_singular_and_plural_terms() {
+    let host = host_with_node(demo_node());
+
+    host.store_coordination(
+        test_session(&host).as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::PlanCreate,
+            payload: json!({ "goal": "Burn down the last refresh bottleneck" }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let payload = host
+        .plans_resource_value(
+            test_session(&host),
+            "prism://plans?contains=bottlenecks&limit=5",
+        )
+        .expect("plans resource should succeed");
+
+    assert_eq!(payload.contains.as_deref(), Some("bottlenecks"));
+    assert_eq!(payload.plans.len(), 1);
+    assert!(payload.plans[0]
+        .title
+        .to_ascii_lowercase()
+        .contains("bottleneck"));
 }
 
 #[test]

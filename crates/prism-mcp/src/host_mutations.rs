@@ -798,7 +798,7 @@ impl QueryHost {
     ) -> Result<CoordinationMutationResult> {
         self.ensure_tool_enabled("prism_coordination", "coordination workflow mutations")?;
         if let Some(workspace) = &self.workspace {
-            self.observe_workspace_for_read()?;
+            self.refresh_workspace_for_mutation()?;
             self.sync_coordination_revision(workspace)?;
         }
         let prism = self.current_prism();
@@ -898,7 +898,7 @@ impl QueryHost {
     ) -> Result<ClaimMutationResult> {
         self.ensure_tool_enabled("prism_claim", "coordination claim mutations")?;
         if let Some(workspace) = &self.workspace {
-            self.observe_workspace_for_read()?;
+            self.refresh_workspace_for_mutation()?;
             self.sync_coordination_revision(workspace)?;
         }
         let prism = self.current_prism();
@@ -973,7 +973,7 @@ impl QueryHost {
     ) -> Result<ArtifactMutationResult> {
         self.ensure_tool_enabled("prism_artifact", "coordination artifact mutations")?;
         if let Some(workspace) = &self.workspace {
-            self.observe_workspace_for_read()?;
+            self.refresh_workspace_for_mutation()?;
             self.sync_coordination_revision(workspace)?;
         }
         let prism = self.current_prism();

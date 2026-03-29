@@ -11,6 +11,7 @@ use crate::outcome_projection::{
 use crate::store::{
     AuxiliaryPersistBatch, CoordinationEventStream, CoordinationPersistBatch,
     CoordinationPersistContext, CoordinationPersistResult, IndexPersistBatch, Store,
+    WorkspaceTreeSnapshot,
 };
 use prism_memory::{MemoryEvent, MemoryEventKind, OutcomeEvent};
 
@@ -24,6 +25,7 @@ pub struct MemoryStore {
     episodic_snapshot: Option<prism_memory::EpisodicMemorySnapshot>,
     inference_snapshot: Option<prism_agent::InferenceSnapshot>,
     projection_snapshot: Option<prism_projections::ProjectionSnapshot>,
+    workspace_tree_snapshot: Option<WorkspaceTreeSnapshot>,
     curator_snapshot: Option<prism_curator::CuratorSnapshot>,
     coordination_events: Vec<CoordinationEvent>,
     coordination_compaction: Option<(usize, prism_coordination::CoordinationSnapshot)>,
@@ -179,6 +181,18 @@ impl Store for MemoryStore {
         snapshot: &prism_projections::ProjectionSnapshot,
     ) -> anyhow::Result<()> {
         self.projection_snapshot = Some(snapshot.clone());
+        Ok(())
+    }
+
+    fn load_workspace_tree_snapshot(&mut self) -> anyhow::Result<Option<WorkspaceTreeSnapshot>> {
+        Ok(self.workspace_tree_snapshot.clone())
+    }
+
+    fn save_workspace_tree_snapshot(
+        &mut self,
+        snapshot: &WorkspaceTreeSnapshot,
+    ) -> anyhow::Result<()> {
+        self.workspace_tree_snapshot = Some(snapshot.clone());
         Ok(())
     }
 
@@ -408,6 +422,9 @@ impl Store for MemoryStore {
             index.apply_validation_deltas(&batch.validation_deltas);
             snapshot = index.snapshot();
             self.projection_snapshot = Some(snapshot);
+        }
+        if let Some(snapshot) = &batch.workspace_tree_snapshot {
+            self.workspace_tree_snapshot = Some(snapshot.clone());
         }
         Ok(())
     }

@@ -2948,6 +2948,68 @@ fn index_with_scope_refreshes_only_dirty_paths_and_removals() {
 }
 
 #[test]
+fn refresh_fs_preserves_live_projection_state_and_coordination_context() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    session.prism().upsert_curated_concept(ConceptPacket {
+        handle: "concept://live_refresh_state".to_string(),
+        canonical_name: "live_refresh_state".to_string(),
+        summary: "Session-local concept kept across fs refresh.".to_string(),
+        aliases: vec!["live refresh".to_string()],
+        confidence: 0.9,
+        core_members: Vec::new(),
+        core_member_lineages: Vec::new(),
+        supporting_members: Vec::new(),
+        supporting_member_lineages: Vec::new(),
+        likely_tests: Vec::new(),
+        likely_test_lineages: Vec::new(),
+        evidence: vec!["Added directly to the live prism state in a refresh test.".to_string()],
+        risk_hint: None,
+        decode_lenses: vec![ConceptDecodeLens::Open],
+        scope: ConceptScope::Session,
+        provenance: ConceptProvenance {
+            origin: "test".to_string(),
+            kind: "refresh_live_state".to_string(),
+            task_id: None,
+        },
+        publication: None,
+    });
+    assert!(session.prism().coordination_context().is_some());
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() {}\npub fn beta() {}\n",
+    )
+    .unwrap();
+    session
+        .refresh_state
+        .mark_fs_dirty_paths([root.join("src/lib.rs")]);
+
+    let observed = session.refresh_fs().unwrap();
+    assert!(!observed.is_empty());
+
+    let prism = session.prism();
+    assert!(prism.coordination_context().is_some());
+    assert!(prism
+        .concept_by_handle("concept://live_refresh_state")
+        .is_some());
+    assert!(prism
+        .symbol("beta")
+        .into_iter()
+        .any(|symbol| symbol.id().path.ends_with("::beta")));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn appended_outcome_persists_projection_snapshot() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

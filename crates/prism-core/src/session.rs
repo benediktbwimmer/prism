@@ -20,7 +20,7 @@ use prism_projections::{
     ConceptRelationEventAction, ConceptScope,
 };
 use prism_query::Prism;
-use prism_store::{AuxiliaryPersistBatch, SqliteStore, Store};
+use prism_store::{AuxiliaryPersistBatch, SqliteStore, Store, WorkspaceTreeSnapshot};
 use serde_json::{json, Value};
 use std::time::{Duration, Instant};
 
@@ -43,21 +43,33 @@ use crate::shared_runtime::{
     merged_projection_index, split_episodic_snapshot_for_persist,
 };
 use crate::shared_runtime_backend::SharedRuntimeBackend;
-use crate::util::{
-    current_timestamp, current_timestamp_millis, workspace_fingerprint, WorkspaceFingerprint,
-};
+use crate::util::{current_timestamp, current_timestamp_millis};
 use crate::validation_feedback::{
     append_validation_feedback, load_validation_feedback, ValidationFeedbackEntry,
     ValidationFeedbackRecord,
 };
 use crate::watch::{refresh_prism_snapshot, try_refresh_prism_snapshot, WatchHandle, WatchMessage};
 use crate::workspace_identity::coordination_persist_context_for_root;
+use crate::workspace_tree::{plan_full_refresh, WorkspaceRefreshDelta, WorkspaceRefreshMode};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FsRefreshStatus {
     Clean,
-    Refreshed,
+    Incremental,
+    Full,
     DeferredBusy,
+}
+
+#[derive(Debug, Clone)]
+pub struct WorkspaceFsRefreshOutcome {
+    pub status: FsRefreshStatus,
+    pub observed: Vec<ObservedChangeSet>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct WorkspaceRefreshResult {
+    pub(crate) mode: Option<WorkspaceRefreshMode>,
+    pub(crate) observed: Vec<ObservedChangeSet>,
 }
 
 #[derive(Debug, Clone)]
@@ -68,6 +80,12 @@ pub struct WorkspaceLastRefresh {
     pub fs_observed_revision: u64,
     pub fs_applied_revision: u64,
     pub workspace_revision: u64,
+    pub changed_files: Vec<String>,
+    pub removed_files: Vec<String>,
+    pub changed_directories: Vec<String>,
+    pub changed_packages: Vec<String>,
+    pub unaffected_directories: Vec<String>,
+    pub unaffected_packages: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -154,14 +172,50 @@ impl WorkspaceRefreshState {
         self.applied_fs_revision.load(Ordering::Relaxed)
     }
 
-    pub(crate) fn record_refresh(&self, duration_ms: u64, workspace_revision: u64) {
+    pub(crate) fn record_refresh(
+        &self,
+        path: &str,
+        duration_ms: u64,
+        workspace_revision: u64,
+        delta: &WorkspaceRefreshDelta,
+    ) {
         let record = WorkspaceLastRefresh {
-            path: "full".to_string(),
+            path: path.to_string(),
             timestamp: current_timestamp().to_string(),
             duration_ms,
             fs_observed_revision: self.observed_fs_revision(),
             fs_applied_revision: self.applied_fs_revision(),
             workspace_revision,
+            changed_files: delta
+                .changed_files
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect(),
+            removed_files: delta
+                .removed_files
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect(),
+            changed_directories: delta
+                .changed_directories
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect(),
+            changed_packages: delta
+                .changed_packages
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect(),
+            unaffected_directories: delta
+                .unaffected_directories
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect(),
+            unaffected_packages: delta
+                .unaffected_packages
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect(),
         };
         *self
             .last_refresh
@@ -202,7 +256,7 @@ pub struct WorkspaceSession {
     pub(crate) refresh_lock: Arc<Mutex<()>>,
     pub(crate) refresh_state: Arc<WorkspaceRefreshState>,
     pub(crate) loaded_workspace_revision: Arc<AtomicU64>,
-    pub(crate) fs_snapshot: Arc<Mutex<WorkspaceFingerprint>>,
+    pub(crate) fs_snapshot: Arc<Mutex<WorkspaceTreeSnapshot>>,
     pub(crate) watch: Option<WatchHandle>,
     pub(crate) curator: Option<CuratorHandle>,
     pub(crate) coordination_enabled: bool,
@@ -229,24 +283,47 @@ impl WorkspaceSession {
     }
 
     pub fn refresh_fs(&self) -> Result<Vec<ObservedChangeSet>> {
+        Ok(self.refresh_fs_with_status()?.observed)
+    }
+
+    pub fn refresh_fs_with_status(&self) -> Result<WorkspaceFsRefreshOutcome> {
         if !self.refresh_state.needs_refresh()
             && !self
                 .refresh_state
                 .should_run_fallback_check(current_timestamp_millis())
         {
-            return Ok(Vec::new());
+            return Ok(WorkspaceFsRefreshOutcome {
+                status: FsRefreshStatus::Clean,
+                observed: Vec::new(),
+            });
         }
-        let known_snapshot = self
-            .fs_snapshot
-            .lock()
-            .expect("workspace fingerprint lock poisoned")
-            .clone();
-        let current_fingerprint = workspace_fingerprint(&self.root, Some(&known_snapshot))?;
-        if !self.refresh_state.needs_refresh() && current_fingerprint.value == known_snapshot.value
-        {
-            return Ok(Vec::new());
-        }
-        self.refresh_with_trigger(ChangeTrigger::FsWatch, Some(current_fingerprint))
+        let dirty_paths = self.refresh_state.dirty_paths_snapshot();
+        let refreshed = if self.refresh_state.needs_refresh() && !dirty_paths.is_empty() {
+            self.refresh_with_trigger(ChangeTrigger::FsWatch, None)?
+        } else {
+            let known_snapshot = self
+                .fs_snapshot
+                .lock()
+                .expect("workspace tree snapshot lock poisoned")
+                .clone();
+            let plan = plan_full_refresh(&self.root, &known_snapshot)?;
+            if !self.refresh_state.needs_refresh() && plan.delta.is_empty() {
+                return Ok(WorkspaceFsRefreshOutcome {
+                    status: FsRefreshStatus::Clean,
+                    observed: Vec::new(),
+                });
+            }
+            self.refresh_with_trigger(ChangeTrigger::FsWatch, Some(plan.next_snapshot))?
+        };
+        let status = match refreshed.mode {
+            None => FsRefreshStatus::Clean,
+            Some(WorkspaceRefreshMode::Incremental) => FsRefreshStatus::Incremental,
+            Some(WorkspaceRefreshMode::Full) => FsRefreshStatus::Full,
+        };
+        Ok(WorkspaceFsRefreshOutcome {
+            status,
+            observed: refreshed.observed,
+        })
     }
 
     pub fn refresh_fs_nonblocking(&self) -> Result<FsRefreshStatus> {
@@ -257,22 +334,30 @@ impl WorkspaceSession {
         {
             return Ok(FsRefreshStatus::Clean);
         }
-        let known_snapshot = self
-            .fs_snapshot
-            .lock()
-            .expect("workspace fingerprint lock poisoned")
-            .clone();
-        let current_fingerprint = workspace_fingerprint(&self.root, Some(&known_snapshot))?;
-        if !self.refresh_state.needs_refresh() && current_fingerprint.value == known_snapshot.value
-        {
-            return Ok(FsRefreshStatus::Clean);
-        }
-        let refreshed =
-            self.try_refresh_with_trigger(ChangeTrigger::FsWatch, Some(current_fingerprint))?;
-        if refreshed {
-            Ok(FsRefreshStatus::Refreshed)
+        let dirty_paths = self.refresh_state.dirty_paths_snapshot();
+        let known_snapshot = if self.refresh_state.needs_refresh() && !dirty_paths.is_empty() {
+            None
         } else {
-            Ok(FsRefreshStatus::DeferredBusy)
+            Some(
+                plan_full_refresh(
+                    &self.root,
+                    &self
+                        .fs_snapshot
+                        .lock()
+                        .expect("workspace tree snapshot lock poisoned")
+                        .clone(),
+                )?
+                .next_snapshot,
+            )
+        };
+        let refreshed = self.try_refresh_with_trigger(ChangeTrigger::FsWatch, known_snapshot)?;
+        match refreshed {
+            Some(result) => Ok(match result.mode {
+                None => FsRefreshStatus::Clean,
+                Some(WorkspaceRefreshMode::Incremental) => FsRefreshStatus::Incremental,
+                Some(WorkspaceRefreshMode::Full) => FsRefreshStatus::Full,
+            }),
+            None => Ok(FsRefreshStatus::DeferredBusy),
         }
     }
 
@@ -1151,10 +1236,10 @@ impl WorkspaceSession {
     fn refresh_with_trigger(
         &self,
         trigger: ChangeTrigger,
-        known_fingerprint: Option<WorkspaceFingerprint>,
-    ) -> Result<Vec<ObservedChangeSet>> {
+        known_fingerprint: Option<WorkspaceTreeSnapshot>,
+    ) -> Result<WorkspaceRefreshResult> {
         let curator = self.curator.as_ref().map(CuratorHandleRef::from);
-        let observed = refresh_prism_snapshot(
+        refresh_prism_snapshot(
             &self.root,
             &self.prism,
             &self.store,
@@ -1167,16 +1252,15 @@ impl WorkspaceSession {
             curator.as_ref(),
             trigger,
             known_fingerprint,
-        )?;
-        Ok(observed)
+        )
     }
 
     fn try_refresh_with_trigger(
         &self,
         trigger: ChangeTrigger,
-        known_fingerprint: Option<WorkspaceFingerprint>,
-    ) -> Result<bool> {
-        let observed = try_refresh_prism_snapshot(
+        known_fingerprint: Option<WorkspaceTreeSnapshot>,
+    ) -> Result<Option<WorkspaceRefreshResult>> {
+        try_refresh_prism_snapshot(
             &self.root,
             &self.prism,
             &self.store,
@@ -1189,8 +1273,7 @@ impl WorkspaceSession {
             self.curator.as_ref().map(CuratorHandleRef::from).as_ref(),
             trigger,
             known_fingerprint,
-        )?;
-        Ok(observed.is_some())
+        )
     }
 
     fn sync_repo_memory_events_locked(&self, store: &mut SqliteStore) -> Result<bool> {

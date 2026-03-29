@@ -476,7 +476,30 @@ struct WorkspaceRefreshMetrics {
     load_episodic_ms: u64,
     load_inference_ms: u64,
     load_coordination_ms: u64,
+    loaded_bytes: u64,
+    replay_volume: u64,
+    full_rebuild_count: u64,
     workspace_reloaded: bool,
+}
+
+impl WorkspaceRefreshMetrics {
+    fn as_json(self) -> serde_json::Value {
+        serde_json::json!({
+            "lockWaitMs": self.lock_wait_ms,
+            "lockHoldMs": self.lock_hold_ms,
+            "fsRefreshMs": self.fs_refresh_ms,
+            "snapshotRevisionsMs": self.snapshot_revisions_ms,
+            "loadEpisodicMs": self.load_episodic_ms,
+            "loadInferenceMs": self.load_inference_ms,
+            "loadCoordinationMs": self.load_coordination_ms,
+            "reloadWork": {
+                "loadedBytes": self.loaded_bytes,
+                "replayVolume": self.replay_volume,
+                "fullRebuildCount": self.full_rebuild_count,
+                "workspaceReloaded": self.workspace_reloaded,
+            },
+        })
+    }
 }
 
 fn shared_workspace_runtime_sync_lock(root: &Path) -> Arc<Mutex<()>> {
@@ -978,6 +1001,9 @@ fn log_refresh_workspace(
         load_episodic_ms = metrics.load_episodic_ms,
         load_inference_ms = metrics.load_inference_ms,
         load_coordination_ms = metrics.load_coordination_ms,
+        loaded_bytes = metrics.loaded_bytes,
+        replay_volume = metrics.replay_volume,
+        full_rebuild_count = metrics.full_rebuild_count,
         workspace_reloaded = metrics.workspace_reloaded,
         "prism-mcp workspace refresh"
     );
