@@ -964,4 +964,15 @@ fn log_refresh_workspace(
 mod query_replay_cases;
 
 #[cfg(test)]
+#[path = "tests/query_history.rs"]
+mod tests_query_history;
+
+#[cfg(test)]
+#[path = "tests/server_resources.rs"]
+mod tests_server_resources;
+
+#[cfg(test)]
+mod tests_support;
+
+#[cfg(test)]
 mod tests;

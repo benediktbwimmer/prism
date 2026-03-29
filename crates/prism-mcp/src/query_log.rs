@@ -116,7 +116,13 @@ impl QueryHost {
         self.mcp_call_log_store
             .records()
             .into_iter()
-            .find(|record| record.entry.id == id)
+            .find(|record| {
+                record.entry.id == id
+                    || record
+                        .query_compat
+                        .as_ref()
+                        .is_some_and(|trace| trace.entry.id == id)
+            })
             .and_then(|record| record.query_compat)
     }
 }

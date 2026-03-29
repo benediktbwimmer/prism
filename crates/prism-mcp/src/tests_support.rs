@@ -1,0 +1,461 @@
+use std::collections::HashMap;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
+
+use axum::Router;
+use rmcp::{
+    model::{ClientJsonRpcMessage, ServerJsonRpcMessage},
+    transport::{
+        streamable_http_server::session::local::LocalSessionManager, StreamableHttpServerConfig,
+        StreamableHttpService, Transport,
+    },
+};
+use serde_json::{json, Value};
+
+use super::*;
+use prism_ir::new_sortable_token;
+use prism_ir::{Language, Node, NodeId, NodeKind, Span};
+use prism_query::{Prism, QueryLimits};
+use prism_store::Graph;
+
+pub(crate) fn host_with_node(node: Node) -> QueryHost {
+    let mut graph = Graph::default();
+    graph.nodes.insert(node.id.clone(), node);
+    graph.adjacency = HashMap::new();
+    graph.reverse_adjacency = HashMap::new();
+    QueryHost::new(Prism::new(graph))
+}
+
+pub(crate) fn host_with_prism(prism: Prism) -> QueryHost {
+    QueryHost::new(prism)
+}
+
+pub(crate) fn host_with_session_internal(workspace: WorkspaceSession) -> QueryHost {
+    QueryHost::with_session_and_limits_and_features(
+        workspace,
+        QueryLimits::default(),
+        PrismMcpFeatures::full().with_internal_developer(true),
+    )
+}
+
+pub(crate) fn host_with_session(workspace: WorkspaceSession) -> QueryHost {
+    QueryHost::with_session_and_limits_and_features(
+        workspace,
+        QueryLimits::default(),
+        PrismMcpFeatures::full(),
+    )
+}
+
+pub(crate) fn host_with_session_internal_and_limits(
+    workspace: WorkspaceSession,
+    limits: QueryLimits,
+) -> QueryHost {
+    QueryHost::with_session_and_limits_and_features(
+        workspace,
+        limits,
+        PrismMcpFeatures::full().with_internal_developer(true),
+    )
+}
+
+pub(crate) fn test_session(host: &QueryHost) -> Arc<SessionState> {
+    host.cached_test_session()
+}
+
+pub(crate) fn temp_workspace() -> PathBuf {
+    let suffix = new_sortable_token();
+    let root = std::env::temp_dir().join(format!("prism-mcp-test-{suffix}"));
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { beta(); }\npub fn beta() {}\n",
+    )
+    .unwrap();
+    root
+}
+
+pub(crate) fn repo_workspace_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .expect("repo root should exist")
+        .to_path_buf()
+}
+
+pub(crate) fn wait_for_completed_curator_job(session: &WorkspaceSession) -> String {
+    for _ in 0..200 {
+        let snapshot = session.curator_snapshot();
+        if let Some(record) = snapshot
+            .records
+            .iter()
+            .find(|record| curator_job_status_label(record) == "completed")
+        {
+            return record.id.0.clone();
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+    let snapshot = session.curator_snapshot();
+    panic!(
+        "timed out waiting for completed curator job; statuses: {:?}",
+        snapshot
+            .records
+            .iter()
+            .map(|record| (record.id.0.clone(), curator_job_status_label(record)))
+            .collect::<Vec<_>>()
+    );
+}
+
+pub(crate) fn wait_until(description: &str, mut condition: impl FnMut() -> bool) {
+    for _ in 0..200 {
+        if condition() {
+            return;
+        }
+        thread::sleep(Duration::from_millis(25));
+    }
+    panic!("timed out waiting for {description}");
+}
+
+pub(crate) fn demo_node() -> Node {
+    Node {
+        id: NodeId::new("demo", "demo::main", NodeKind::Function),
+        name: "main".into(),
+        kind: NodeKind::Function,
+        file: prism_ir::FileId(1),
+        span: Span::new(1, 3),
+        language: Language::Rust,
+    }
+}
+
+pub(crate) fn server_with_node(node: Node) -> PrismMcpServer {
+    let mut graph = Graph::default();
+    graph.nodes.insert(node.id.clone(), node);
+    graph.adjacency = HashMap::new();
+    graph.reverse_adjacency = HashMap::new();
+    PrismMcpServer::new(Prism::new(graph))
+}
+
+pub(crate) fn server_with_node_and_features(
+    node: Node,
+    features: PrismMcpFeatures,
+) -> PrismMcpServer {
+    let mut graph = Graph::default();
+    graph.nodes.insert(node.id.clone(), node);
+    graph.adjacency = HashMap::new();
+    graph.reverse_adjacency = HashMap::new();
+    PrismMcpServer::new_with_features(Prism::new(graph), features)
+}
+
+pub(crate) async fn spawn_http_upstream(
+    server: PrismMcpServer,
+) -> (String, tokio::task::JoinHandle<()>) {
+    let service: StreamableHttpService<PrismMcpServer, LocalSessionManager> =
+        StreamableHttpService::new(
+            move || Ok(server.clone()),
+            Default::default(),
+            StreamableHttpServerConfig {
+                sse_keep_alive: None,
+                ..Default::default()
+            },
+        );
+    let router = Router::new().nest_service("/mcp", service);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("listener should bind");
+    let addr = listener.local_addr().expect("listener should expose addr");
+    let task = tokio::spawn(async move {
+        let _ = axum::serve(listener, router).await;
+    });
+    (format!("http://{addr}/mcp"), task)
+}
+
+pub(crate) fn client_message(raw: &str) -> ClientJsonRpcMessage {
+    serde_json::from_str(raw).expect("invalid client json-rpc message")
+}
+
+pub(crate) fn initialize_request() -> ClientJsonRpcMessage {
+    client_message(
+        r#"{
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-11-25",
+                    "capabilities": {},
+                    "clientInfo": { "name": "prism-mcp-test", "version": "0.0.1" }
+                }
+            }"#,
+    )
+}
+
+pub(crate) fn initialized_notification() -> ClientJsonRpcMessage {
+    client_message(r#"{ "jsonrpc": "2.0", "method": "notifications/initialized" }"#)
+}
+
+pub(crate) fn list_tools_request(id: u64) -> ClientJsonRpcMessage {
+    client_message(&format!(
+        r#"{{ "jsonrpc": "2.0", "id": {id}, "method": "tools/list" }}"#
+    ))
+}
+
+pub(crate) fn list_resources_request(id: u64) -> ClientJsonRpcMessage {
+    client_message(&format!(
+        r#"{{ "jsonrpc": "2.0", "id": {id}, "method": "resources/list" }}"#
+    ))
+}
+
+pub(crate) fn read_resource_request(id: u64, uri: &str) -> ClientJsonRpcMessage {
+    serde_json::from_value(json!({
+        "jsonrpc": "2.0",
+        "id": id,
+        "method": "resources/read",
+        "params": { "uri": uri },
+    }))
+    .expect("resources/read request should deserialize")
+}
+
+pub(crate) fn call_tool_request(
+    id: u64,
+    name: &str,
+    arguments: serde_json::Map<String, Value>,
+) -> ClientJsonRpcMessage {
+    serde_json::from_value(json!({
+        "jsonrpc": "2.0",
+        "id": id,
+        "method": "tools/call",
+        "params": {
+            "name": name,
+            "arguments": arguments,
+        },
+    }))
+    .expect("tools/call request should deserialize")
+}
+
+pub(crate) async fn initialize_client(
+    client: &mut impl Transport<rmcp::RoleClient>,
+) -> serde_json::Value {
+    client.send(initialize_request()).await.unwrap();
+    let response = client.receive().await.unwrap();
+    serde_json::to_value(response).expect("initialize response should serialize")
+}
+
+pub(crate) fn response_json(response: ServerJsonRpcMessage) -> serde_json::Value {
+    serde_json::to_value(response).expect("response should serialize")
+}
+
+pub(crate) fn first_tool_content_json(response: ServerJsonRpcMessage) -> serde_json::Value {
+    let response = response_json(response);
+    if !response["error"].is_null() {
+        panic!("tool call failed: {response}");
+    }
+    if !response["result"]["structuredContent"].is_null() {
+        return response["result"]["structuredContent"].clone();
+    }
+    if let Some(content) = response["result"]["content"].as_array() {
+        if let Some(json) = content.iter().find_map(|item| {
+            let json = item.get("json")?;
+            if json.is_null() {
+                None
+            } else {
+                Some(json.clone())
+            }
+        }) {
+            return json;
+        }
+    }
+    let text = response["result"]["content"]
+        .as_array()
+        .and_then(|content| {
+            content
+                .iter()
+                .find_map(|item| item.get("text").and_then(Value::as_str))
+        })
+        .unwrap_or_else(|| panic!("tool result should contain json text: {response}"));
+    serde_json::from_str(text).expect("tool content should decode as json")
+}
+
+pub(crate) fn write_memory_insight_workspace(root: &Path) {
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::create_dir_all(root.join("tests")).unwrap();
+    fs::write(
+        root.join("docs/SPEC.md"),
+        "# Memory\n\n## Integration Points\n\nPRISM should enrich memory recall with lineage and prior outcomes.\n\n* current node\n* mapped lineage\n* prior outcomes\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "mod recall;\nmod persist;\n\npub struct OutcomeMemory;\npub struct SessionMemory;\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/recall.rs"),
+        "pub fn memory_recall() {}\n\npub fn task_journal_view() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/persist.rs"),
+        "pub fn reanchor_persisted_memory_snapshot() {}\n\npub fn persist_memory_snapshot() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("tests/memory_paths.rs"),
+        "#[test]\nfn memory_recall_keeps_lineage_context() {}\n",
+    )
+    .unwrap();
+}
+
+pub(crate) fn write_dashboard_validation_workspace(root: &Path) {
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::create_dir_all(root.join("tests")).unwrap();
+    fs::write(
+        root.join("docs/DASHBOARD_IMPLEMENTATION_SPEC.md"),
+        "# Dashboard\n\n## Validation view\n\nThe validation view should surface validation feedback counts and trends.\nIt should read validation feedback and trust metrics from the MCP layer.\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "mod query_runtime;\nmod host_mutations;\nmod helpers;\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/query_runtime.rs"),
+        "pub fn validation_feedback_view() {}\n\npub fn validation_feedback_contains() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/host_mutations.rs"),
+        "pub struct QueryHost;\n\nimpl QueryHost {\n    pub fn store_validation_feedback(&self) {}\n}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/helpers.rs"),
+        "pub fn strip_internal_developer_api_reference() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("tests/validation_feedback.rs"),
+        "#[test]\nfn validation_feedback_view_stays_connected() {}\n",
+    )
+    .unwrap();
+}
+
+pub(crate) fn write_compact_default_tools_workspace(root: &Path) {
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::create_dir_all(root.join("tests")).unwrap();
+    fs::write(
+        root.join("docs/SPEC.md"),
+        "# MCP\n\n## 11.2 Compact Default Tools\n\nThe target default agent tools are `prism_locate`, `prism_open`, `prism_workset`, and `prism_expand`.\nThese should stay compact and chain through handles.\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "mod server_surface;\nmod compact_tools;\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/server_surface.rs"),
+        "pub fn prism_locate() {}\npub fn prism_open() {}\npub fn prism_workset() {}\npub fn prism_expand() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/compact_tools.rs"),
+        "pub fn compact_target_view() {}\npub fn resolve_handle_target() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("tests/compact_tools.rs"),
+        "#[test]\nfn compact_locate_promotes_numbered_markdown_headings_to_semantic_handles() {}\n",
+    )
+    .unwrap();
+}
+
+pub(crate) fn write_long_excerpt_workspace(root: &Path) {
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("docs/SPEC.md"),
+        "# Memory\n\n## Integration Points\n\nPRISM should enrich memory recall with lineage and prior outcomes.\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "mod recall;\n").unwrap();
+    fs::write(
+        root.join("src/recall.rs"),
+        r#"pub fn memory_recall() {
+    let alpha = "lineage context";
+    let beta = "prior outcomes";
+    let gamma = "task journal";
+    let delta = "behavioral ranking";
+    let epsilon = "validation recipe";
+    let zeta = "related failures";
+    let eta = "read context";
+    let theta = "edit context";
+    let iota = "co change neighbors";
+    let kappa = "owner hints";
+    let lambda = "symbol excerpts";
+    let mu = "candidate ranking";
+    let nu = "session memory";
+    let xi = "evidence chain";
+    let omicron = "workspace revision";
+    let pi = alpha.len()
+        + beta.len()
+        + gamma.len()
+        + delta.len()
+        + epsilon.len()
+        + zeta.len()
+        + eta.len()
+        + theta.len()
+        + iota.len()
+        + kappa.len()
+        + lambda.len()
+        + mu.len()
+        + nu.len()
+        + xi.len()
+        + omicron.len();
+    assert!(pi > 0);
+}
+
+pub fn memory_recall_support() {
+    let alpha = "lineage context";
+    let beta = "prior outcomes";
+    let gamma = "task journal";
+    let delta = "behavioral ranking";
+    let epsilon = "validation recipe";
+    let zeta = "related failures";
+    let eta = "read context";
+    let theta = "edit context";
+    let iota = "co change neighbors";
+    let kappa = "owner hints";
+    let lambda = "symbol excerpts";
+    let mu = "candidate ranking";
+    let nu = "session memory";
+    let xi = "evidence chain";
+    let omicron = "workspace revision";
+    let pi = alpha.len()
+        + beta.len()
+        + gamma.len()
+        + delta.len()
+        + epsilon.len()
+        + zeta.len()
+        + eta.len()
+        + theta.len()
+        + iota.len()
+        + kappa.len()
+        + lambda.len()
+        + mu.len()
+        + nu.len()
+        + xi.len()
+        + omicron.len();
+    assert!(pi > 0);
+}
+"#,
+    )
+    .unwrap();
+}
