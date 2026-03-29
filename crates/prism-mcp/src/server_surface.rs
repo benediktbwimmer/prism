@@ -1585,6 +1585,8 @@ impl ServerHandler for PrismMcpServer {
                     None,
                 )),
             )?
+        } else if let Some((tool_name, action)) = parse_tool_action_schema_resource_uri(uri) {
+            tool_action_schema_resource_contents(&tool_name, &action, uri)?
         } else if let Some(tool_name) = parse_tool_schema_resource_uri(uri) {
             tool_schema_resource_contents(&tool_name, uri)?
         } else if let Some(resource_kind) = parse_schema_resource_uri(uri) {
@@ -1728,6 +1730,16 @@ impl ServerHandler for PrismMcpServer {
                     .with_mime_type("application/schema+json")
                     .with_title("PRISM Tool Schema")
                     .no_annotation(),
+                RawResourceTemplate::new(
+                    TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI,
+                    "PRISM Tool Action Schema",
+                )
+                .with_description(
+                    "Read an exact JSON Schema document for one tagged PRISM MCP tool action such as `prism_mutate` action `coordination`",
+                )
+                .with_mime_type("application/schema+json")
+                .with_title("PRISM Tool Action Schema")
+                .no_annotation(),
                 RawResourceTemplate::new(SEARCH_RESOURCE_TEMPLATE_URI, "PRISM Search")
                     .with_description(
                         "Read structured PRISM search results and diagnostics for a query string with optional `limit`, `cursor`, `strategy`, `ownerKind`, `kind`, `path`, `module`, `taskId`, and `includeInferred` options",

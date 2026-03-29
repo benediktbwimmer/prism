@@ -8,8 +8,8 @@ use prism_curator::{
     CuratorProposalDisposition,
 };
 use prism_ir::{
-    AgentId, AnchorRef, ArtifactId, ClaimId, CoordinationTaskId, Edge, EdgeOrigin, EventActor,
-    EventId, EventMeta, PlanEdge, PlanEdgeId, PlanEdgeKind, PlanId, PlanNodeId, TaskId,
+    new_prefixed_id, AgentId, AnchorRef, ArtifactId, ClaimId, CoordinationTaskId, Edge, EdgeOrigin,
+    EventActor, EventId, EventMeta, PlanEdge, PlanEdgeId, PlanEdgeKind, PlanId, PlanNodeId, TaskId,
 };
 use prism_js::{CuratorProposalRecordView, TaskJournalView};
 use prism_memory::{
@@ -22,7 +22,6 @@ use prism_query::{
     ConceptRelationEvent, ConceptRelationEventAction, ConceptRelationKind, ConceptScope, Prism,
 };
 use serde_json::{json, Value};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::dashboard_events::MutationRun;
 use crate::{
@@ -2856,19 +2855,11 @@ fn convert_concept_relation_kind(kind: ConceptRelationKindInput) -> ConceptRelat
 }
 
 fn next_concept_event_id() -> String {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system clock should be after unix epoch")
-        .as_nanos();
-    format!("concept-event:{nanos}")
+    new_prefixed_id("concept-event").to_string()
 }
 
 fn next_concept_relation_event_id() -> String {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system clock should be after unix epoch")
-        .as_nanos();
-    format!("concept-relation-event:{nanos}")
+    new_prefixed_id("concept-relation-event").to_string()
 }
 
 fn convert_validation_feedback_category(

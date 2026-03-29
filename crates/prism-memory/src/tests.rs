@@ -60,7 +60,7 @@ fn episodic_memory_generates_store_owned_ids() {
 
     let id = memory.store(entry).unwrap();
 
-    assert_eq!(id.0, "memory:1");
+    assert!(id.0.starts_with("memory:"));
 }
 
 #[test]

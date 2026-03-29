@@ -1,9 +1,12 @@
-use prism_js::{ConceptPacketView, ConceptRelationView, TaskJournalView};
+use prism_js::{
+    ConceptPacketView, ConceptRelationView, TaskJournalView, ToolActionSchemaView,
+    ToolInputValidationView, ToolValidationIssueView,
+};
 use rmcp::schemars::{JsonSchema, Schema};
 use serde::{de, Deserialize, Deserializer};
 use serde_json::Value;
 
-use crate::{tool_schema_view, vocabulary_error, SessionView};
+use crate::{tool_schema_resource_uri, tool_schema_view, vocabulary_error, SessionView};
 
 fn ensure_root_object_input_schema(schema: &mut Schema) {
     if schema.get("type").is_none() {
@@ -15,78 +18,25 @@ fn parse_tagged_tool_input<T>(tool_name: &str, value: Value) -> Result<T, String
 where
     T: serde::de::DeserializeOwned,
 {
-    let used_flat_shorthand = is_flat_tagged_tool_input(&value);
-    let value = normalize_tagged_tool_input(value);
-    let tool = tool_schema_view(tool_name);
-    let action = value
-        .get("action")
-        .and_then(Value::as_str)
-        .map(ToString::to_string);
-
-    if let Some(tool) = &tool {
-        if !tool.actions.is_empty() {
-            let valid_actions = tool
-                .actions
-                .iter()
-                .map(|action| action.action.as_str())
-                .collect::<Vec<_>>();
-            match action.as_deref() {
-                None => {
-                    return Err(format!(
-                        "{tool_name} requires `action`; valid actions: {}. Inspect via prism.tool(\"{tool_name}\").",
-                        valid_actions.join(", ")
-                    ));
-                }
-                Some(action_name) if !valid_actions.contains(&action_name) => {
-                    return Err(format!(
-                        "unknown {tool_name} action `{action_name}`; valid actions: {}. Inspect via prism.tool(\"{tool_name}\").",
-                        valid_actions.join(", ")
-                    ));
-                }
-                _ => {}
-            }
-        }
+    let validation = validate_tool_input_value(tool_name, value);
+    if !validation.valid {
+        return Err(format_tool_validation_error(&validation));
     }
-
-    serde_json::from_value(value).map_err(|error| {
-        if let (Some(tool), Some(action_name), Some(field)) =
-            (tool.as_ref(), action.as_deref(), missing_field_name(&error.to_string()))
-        {
-            if let Some(action_schema) = tool.actions.iter().find(|candidate| candidate.action == action_name)
-            {
-                let field_label = if used_flat_shorthand {
-                    field.to_string()
-                } else {
-                    format!("input.{field}")
-                };
-                let shorthand_hint = if used_flat_shorthand {
-                    format!(
-                        " Flat shorthand was detected, so `{field}` can stay at the top level or inside `input.{field}`."
-                    )
-                } else {
-                    String::new()
-                };
-                return format!(
-                    "{tool_name} action `{action_name}` is missing required field `{field_label}`; required fields: {}. Inspect via prism.tool(\"{tool_name}\")?.actions.find((action) => action.action === \"{action_name}\").{shorthand_hint}",
-                    action_schema.required_fields.join(", "),
-                );
-            }
-        }
-
+    serde_json::from_value(validation.normalized_input).map_err(|error| {
         format!(
-            "invalid {tool_name} input: {}. Inspect via prism.tool(\"{tool_name}\").",
+            "invalid {tool_name} input: {}. Inspect via prism.tool(\"{tool_name}\") or prism.validateToolInput(\"{tool_name}\", <input>).",
             error
         )
     })
 }
 
-fn is_flat_tagged_tool_input(value: &Value) -> bool {
+pub(crate) fn is_flat_tagged_tool_input(value: &Value) -> bool {
     value.as_object().is_some_and(|object| {
         object.contains_key("action") && !object.contains_key("input") && object.len() > 1
     })
 }
 
-fn normalize_tagged_tool_input(mut value: Value) -> Value {
+pub(crate) fn normalize_tagged_tool_input(mut value: Value) -> Value {
     let Some(object) = value.as_object_mut() else {
         return value;
     };
@@ -109,6 +59,527 @@ fn normalize_tagged_tool_input(mut value: Value) -> Value {
         object.insert("input".to_string(), Value::Object(input));
     }
     value
+}
+
+pub(crate) fn validate_tool_input_value(tool_name: &str, value: Value) -> ToolInputValidationView {
+    let Some(tool) = tool_schema_view(tool_name) else {
+        let summary = format!("Unknown PRISM MCP tool `{tool_name}`.");
+        return ToolInputValidationView {
+            tool_name: tool_name.to_string(),
+            schema_uri: tool_schema_resource_uri(tool_name),
+            valid: false,
+            normalized_input: value,
+            action: None,
+            action_schema_uri: None,
+            summary: summary.clone(),
+            issues: vec![ToolValidationIssueView {
+                code: "unknown_tool".to_string(),
+                path: None,
+                summary,
+                allowed_values: Vec::new(),
+                required_fields: Vec::new(),
+            }],
+            example_inputs: Vec::new(),
+        };
+    };
+
+    let normalized_input = if tool.actions.is_empty() {
+        value
+    } else {
+        normalize_tagged_tool_input(value)
+    };
+    let action = normalized_input
+        .get("action")
+        .and_then(Value::as_str)
+        .map(ToString::to_string);
+    let action_schema = action
+        .as_deref()
+        .and_then(|name| {
+            tool.actions
+                .iter()
+                .find(|candidate| candidate.action == name)
+        })
+        .cloned();
+
+    if !tool.actions.is_empty() {
+        let valid_actions = tool
+            .actions
+            .iter()
+            .map(|candidate| candidate.action.clone())
+            .collect::<Vec<_>>();
+        match action.as_deref() {
+            None => {
+                let summary = format!(
+                    "{tool_name} requires `action`; valid actions: {}.",
+                    valid_actions.join(", ")
+                );
+                return invalid_tool_validation(
+                    &tool,
+                    normalized_input,
+                    None,
+                    None,
+                    ToolValidationIssueView {
+                        code: "missing_action".to_string(),
+                        path: Some("action".to_string()),
+                        summary,
+                        allowed_values: valid_actions,
+                        required_fields: Vec::new(),
+                    },
+                );
+            }
+            Some(action_name)
+                if !tool
+                    .actions
+                    .iter()
+                    .any(|candidate| candidate.action == action_name) =>
+            {
+                let summary = format!(
+                    "unknown {tool_name} action `{action_name}`; valid actions: {}.",
+                    valid_actions.join(", ")
+                );
+                return invalid_tool_validation(
+                    &tool,
+                    normalized_input,
+                    Some(action_name.to_string()),
+                    None,
+                    ToolValidationIssueView {
+                        code: "invalid_action".to_string(),
+                        path: Some("action".to_string()),
+                        summary,
+                        allowed_values: valid_actions,
+                        required_fields: Vec::new(),
+                    },
+                );
+            }
+            _ => {}
+        }
+    }
+
+    match validate_tool_value_against_schema(
+        tool_name,
+        normalized_input.clone(),
+        &tool,
+        action_schema.as_ref(),
+    ) {
+        Ok(()) => ToolInputValidationView {
+            tool_name: tool.tool_name.clone(),
+            schema_uri: tool.schema_uri.clone(),
+            valid: true,
+            normalized_input,
+            action: action.clone(),
+            action_schema_uri: action_schema
+                .as_ref()
+                .map(|schema| schema.schema_uri.clone()),
+            summary: action
+                .as_deref()
+                .map(|action_name| {
+                    format!("Input is valid for `{tool_name}` action `{action_name}`.")
+                })
+                .unwrap_or_else(|| format!("Input is valid for `{tool_name}`.")),
+            issues: Vec::new(),
+            example_inputs: action_examples(&tool, action_schema.as_ref()),
+        },
+        Err(issue) => invalid_tool_validation(
+            &tool,
+            normalized_input,
+            action,
+            action_schema.as_ref(),
+            issue,
+        ),
+    }
+}
+
+fn invalid_tool_validation(
+    tool: &prism_js::ToolSchemaView,
+    normalized_input: Value,
+    action: Option<String>,
+    action_schema: Option<&ToolActionSchemaView>,
+    issue: ToolValidationIssueView,
+) -> ToolInputValidationView {
+    let summary = if issue.code == "missing_required_field" {
+        if let Some(action_name) = action.as_deref() {
+            format!(
+                "{} action `{}` is missing required field `{}`; required fields: {}.",
+                tool.tool_name,
+                action_name,
+                issue.path.clone().unwrap_or_else(|| "input".to_string()),
+                issue.required_fields.join(", ")
+            )
+        } else {
+            format!(
+                "{} is missing required field `{}`; required fields: {}.",
+                tool.tool_name,
+                issue.path.clone().unwrap_or_else(|| "input".to_string()),
+                issue.required_fields.join(", ")
+            )
+        }
+    } else if let Some(action_name) = action.as_deref() {
+        format!(
+            "invalid {} action `{}` input: {}",
+            tool.tool_name, action_name, issue.summary
+        )
+    } else {
+        format!("invalid {} input: {}", tool.tool_name, issue.summary)
+    };
+
+    ToolInputValidationView {
+        tool_name: tool.tool_name.clone(),
+        schema_uri: tool.schema_uri.clone(),
+        valid: false,
+        normalized_input,
+        action,
+        action_schema_uri: action_schema.map(|schema| schema.schema_uri.clone()),
+        summary,
+        issues: vec![issue],
+        example_inputs: action_examples(tool, action_schema),
+    }
+}
+
+fn action_examples(
+    tool: &prism_js::ToolSchemaView,
+    action_schema: Option<&ToolActionSchemaView>,
+) -> Vec<Value> {
+    action_schema.map_or_else(
+        || tool.example_inputs.clone(),
+        |schema| {
+            if !schema.example_inputs.is_empty() {
+                schema.example_inputs.clone()
+            } else {
+                schema
+                    .example_input
+                    .clone()
+                    .map(|value| vec![value])
+                    .unwrap_or_default()
+            }
+        },
+    )
+}
+
+fn validate_tool_value_against_schema(
+    tool_name: &str,
+    value: Value,
+    tool: &prism_js::ToolSchemaView,
+    action_schema: Option<&ToolActionSchemaView>,
+) -> Result<(), ToolValidationIssueView> {
+    let required_fields = action_schema
+        .map(|schema| schema.required_fields.clone())
+        .unwrap_or_else(|| root_required_fields(tool));
+    match tool_name {
+        "prism_locate" => {
+            deserialize_or_issue::<PrismLocateArgs>(value, None, &required_fields).map(|_| ())
+        }
+        "prism_gather" => {
+            deserialize_or_issue::<PrismGatherArgs>(value, None, &required_fields).map(|_| ())
+        }
+        "prism_open" => {
+            deserialize_or_issue::<PrismOpenArgs>(value, None, &required_fields).map(|_| ())
+        }
+        "prism_workset" => {
+            deserialize_or_issue::<PrismWorksetArgs>(value, None, &required_fields).map(|_| ())
+        }
+        "prism_expand" => {
+            deserialize_or_issue::<PrismExpandArgs>(value, None, &required_fields).map(|_| ())
+        }
+        "prism_task_brief" => {
+            deserialize_or_issue::<PrismTaskBriefArgs>(value, None, &required_fields).map(|_| ())
+        }
+        "prism_concept" => {
+            deserialize_or_issue::<PrismConceptArgs>(value, None, &required_fields).map(|_| ())
+        }
+        "prism_query" => {
+            deserialize_or_issue::<PrismQueryArgs>(value, None, &required_fields).map(|_| ())
+        }
+        "prism_session" => {
+            deserialize_or_issue::<PrismSessionArgsWire>(value, Some("input"), &required_fields)
+                .map(|_| ())
+        }
+        "prism_mutate" => validate_prism_mutate_input(value, &required_fields),
+        _ => Ok(()),
+    }
+}
+
+fn validate_prism_mutate_input(
+    value: Value,
+    required_fields: &[String],
+) -> Result<(), ToolValidationIssueView> {
+    let parsed =
+        deserialize_or_issue::<PrismMutationArgsWire>(value, Some("input"), required_fields)?;
+    match parsed {
+        PrismMutationArgsWire::Memory(args) => validate_memory_payload(args),
+        PrismMutationArgsWire::Coordination(args) => validate_coordination_payload(args),
+        PrismMutationArgsWire::Claim(args) => validate_claim_payload(args),
+        PrismMutationArgsWire::Artifact(args) => validate_artifact_payload(args),
+        _ => Ok(()),
+    }
+}
+
+fn validate_memory_payload(args: PrismMemoryArgs) -> Result<(), ToolValidationIssueView> {
+    let tag = match args.action {
+        MemoryMutationActionInput::Store => "store",
+    };
+    let required_fields = payload_required_fields("prism_mutate", "memory", tag);
+    match args.action {
+        MemoryMutationActionInput::Store => deserialize_or_issue::<MemoryStorePayload>(
+            args.payload,
+            Some("input.payload"),
+            &required_fields,
+        )
+        .map(|_| ()),
+    }
+}
+
+fn validate_coordination_payload(
+    args: PrismCoordinationArgs,
+) -> Result<(), ToolValidationIssueView> {
+    let tag = coordination_kind_tag(&args.kind);
+    let required_fields = payload_required_fields("prism_mutate", "coordination", tag);
+    match args.kind {
+        CoordinationMutationKindInput::PlanCreate => deserialize_or_issue::<PlanCreatePayload>(
+            args.payload,
+            Some("input.payload"),
+            &required_fields,
+        )
+        .map(|_| ()),
+        CoordinationMutationKindInput::PlanUpdate => deserialize_or_issue::<PlanUpdatePayload>(
+            args.payload,
+            Some("input.payload"),
+            &required_fields,
+        )
+        .map(|_| ()),
+        CoordinationMutationKindInput::TaskCreate => deserialize_or_issue::<TaskCreatePayload>(
+            args.payload,
+            Some("input.payload"),
+            &required_fields,
+        )
+        .map(|_| ()),
+        CoordinationMutationKindInput::TaskUpdate => deserialize_or_issue::<TaskUpdatePayload>(
+            args.payload,
+            Some("input.payload"),
+            &required_fields,
+        )
+        .map(|_| ()),
+        CoordinationMutationKindInput::PlanNodeCreate => {
+            deserialize_or_issue::<PlanNodeCreatePayload>(
+                args.payload,
+                Some("input.payload"),
+                &required_fields,
+            )
+            .map(|_| ())
+        }
+        CoordinationMutationKindInput::PlanNodeUpdate => {
+            deserialize_or_issue::<PlanNodeUpdatePayload>(
+                args.payload,
+                Some("input.payload"),
+                &required_fields,
+            )
+            .map(|_| ())
+        }
+        CoordinationMutationKindInput::PlanEdgeCreate => {
+            deserialize_or_issue::<PlanEdgeCreatePayload>(
+                args.payload,
+                Some("input.payload"),
+                &required_fields,
+            )
+            .map(|_| ())
+        }
+        CoordinationMutationKindInput::PlanEdgeDelete => {
+            deserialize_or_issue::<PlanEdgeDeletePayload>(
+                args.payload,
+                Some("input.payload"),
+                &required_fields,
+            )
+            .map(|_| ())
+        }
+        CoordinationMutationKindInput::Handoff => deserialize_or_issue::<HandoffPayload>(
+            args.payload,
+            Some("input.payload"),
+            &required_fields,
+        )
+        .map(|_| ()),
+        CoordinationMutationKindInput::HandoffAccept => {
+            deserialize_or_issue::<HandoffAcceptPayload>(
+                args.payload,
+                Some("input.payload"),
+                &required_fields,
+            )
+            .map(|_| ())
+        }
+    }
+}
+
+fn validate_claim_payload(args: PrismClaimArgs) -> Result<(), ToolValidationIssueView> {
+    let tag = claim_action_tag(&args.action);
+    let required_fields = payload_required_fields("prism_mutate", "claim", tag);
+    match args.action {
+        ClaimActionInput::Acquire => deserialize_or_issue::<ClaimAcquirePayload>(
+            args.payload,
+            Some("input.payload"),
+            &required_fields,
+        )
+        .map(|_| ()),
+        ClaimActionInput::Renew => deserialize_or_issue::<ClaimRenewPayload>(
+            args.payload,
+            Some("input.payload"),
+            &required_fields,
+        )
+        .map(|_| ()),
+        ClaimActionInput::Release => deserialize_or_issue::<ClaimReleasePayload>(
+            args.payload,
+            Some("input.payload"),
+            &required_fields,
+        )
+        .map(|_| ()),
+    }
+}
+
+fn validate_artifact_payload(args: PrismArtifactArgs) -> Result<(), ToolValidationIssueView> {
+    let tag = artifact_action_tag(&args.action);
+    let required_fields = payload_required_fields("prism_mutate", "artifact", tag);
+    match args.action {
+        ArtifactActionInput::Propose => deserialize_or_issue::<ArtifactProposePayload>(
+            args.payload,
+            Some("input.payload"),
+            &required_fields,
+        )
+        .map(|_| ()),
+        ArtifactActionInput::Supersede => deserialize_or_issue::<ArtifactSupersedePayload>(
+            args.payload,
+            Some("input.payload"),
+            &required_fields,
+        )
+        .map(|_| ()),
+        ArtifactActionInput::Review => deserialize_or_issue::<ArtifactReviewPayload>(
+            args.payload,
+            Some("input.payload"),
+            &required_fields,
+        )
+        .map(|_| ()),
+    }
+}
+
+fn deserialize_or_issue<T>(
+    value: Value,
+    path_prefix: Option<&str>,
+    required_fields: &[String],
+) -> Result<T, ToolValidationIssueView>
+where
+    T: serde::de::DeserializeOwned,
+{
+    serde_json::from_value(value).map_err(|error| {
+        validation_issue_from_error(&error.to_string(), path_prefix, required_fields)
+    })
+}
+
+fn validation_issue_from_error(
+    parse_error: &str,
+    path_prefix: Option<&str>,
+    required_fields: &[String],
+) -> ToolValidationIssueView {
+    if let Some(field) = missing_field_name(parse_error) {
+        return ToolValidationIssueView {
+            code: "missing_required_field".to_string(),
+            path: Some(prefixed_field_path(path_prefix, field)),
+            summary: format!(
+                "Missing required field `{}`.",
+                prefixed_field_path(path_prefix, field)
+            ),
+            allowed_values: Vec::new(),
+            required_fields: required_fields.to_vec(),
+        };
+    }
+    ToolValidationIssueView {
+        code: if parse_error.contains("Allowed values:") {
+            "invalid_value".to_string()
+        } else {
+            "invalid_input".to_string()
+        },
+        path: path_prefix.map(ToString::to_string),
+        summary: parse_error.to_string(),
+        allowed_values: Vec::new(),
+        required_fields: required_fields.to_vec(),
+    }
+}
+
+fn prefixed_field_path(path_prefix: Option<&str>, field: &str) -> String {
+    path_prefix
+        .map(|prefix| format!("{prefix}.{field}"))
+        .unwrap_or_else(|| field.to_string())
+}
+
+fn root_required_fields(tool: &prism_js::ToolSchemaView) -> Vec<String> {
+    tool.input_schema
+        .get("required")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flat_map(|items| items.iter())
+        .filter_map(Value::as_str)
+        .map(ToString::to_string)
+        .collect()
+}
+
+fn payload_required_fields(tool_name: &str, action: &str, tag: &str) -> Vec<String> {
+    tool_schema_view(tool_name)
+        .and_then(|tool| {
+            tool.actions
+                .into_iter()
+                .find(|candidate| candidate.action == action)
+        })
+        .and_then(|schema| {
+            schema
+                .payload_variants
+                .into_iter()
+                .find(|variant| variant.tag == tag)
+        })
+        .map(|variant| variant.required_fields)
+        .unwrap_or_default()
+}
+
+fn coordination_kind_tag(kind: &CoordinationMutationKindInput) -> &'static str {
+    match kind {
+        CoordinationMutationKindInput::PlanCreate => "plan_create",
+        CoordinationMutationKindInput::PlanUpdate => "plan_update",
+        CoordinationMutationKindInput::TaskCreate => "task_create",
+        CoordinationMutationKindInput::TaskUpdate => "task_update",
+        CoordinationMutationKindInput::PlanNodeCreate => "plan_node_create",
+        CoordinationMutationKindInput::PlanNodeUpdate => "plan_node_update",
+        CoordinationMutationKindInput::PlanEdgeCreate => "plan_edge_create",
+        CoordinationMutationKindInput::PlanEdgeDelete => "plan_edge_delete",
+        CoordinationMutationKindInput::Handoff => "handoff",
+        CoordinationMutationKindInput::HandoffAccept => "handoff_accept",
+    }
+}
+
+fn claim_action_tag(action: &ClaimActionInput) -> &'static str {
+    match action {
+        ClaimActionInput::Acquire => "acquire",
+        ClaimActionInput::Renew => "renew",
+        ClaimActionInput::Release => "release",
+    }
+}
+
+fn artifact_action_tag(action: &ArtifactActionInput) -> &'static str {
+    match action {
+        ArtifactActionInput::Propose => "propose",
+        ArtifactActionInput::Supersede => "supersede",
+        ArtifactActionInput::Review => "review",
+    }
+}
+
+fn format_tool_validation_error(validation: &ToolInputValidationView) -> String {
+    let inspect_hint = match (
+        validation.action.as_deref(),
+        validation.action_schema_uri.as_deref(),
+    ) {
+        (Some(action), Some(action_schema_uri)) => format!(
+            "Inspect via prism.tool(\"{}\")?.actions.find((action) => action.action === \"{}\") or prism.validateToolInput(\"{}\", <input>). Action schema: {}.",
+            validation.tool_name, action, validation.tool_name, action_schema_uri
+        ),
+        _ => format!(
+            "Inspect via prism.tool(\"{}\") or prism.validateToolInput(\"{}\", <input>).",
+            validation.tool_name, validation.tool_name
+        ),
+    };
+    format!("{} {}", validation.summary, inspect_hint)
 }
 
 fn missing_field_name(parse_error: &str) -> Option<&str> {
@@ -587,11 +1058,21 @@ pub(crate) struct MemoryStorePayload {
     pub(crate) supersedes: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum MemoryMutationActionInput {
     Store,
 }
+
+impl_vocab_deserialize!(
+    MemoryMutationActionInput,
+    "memoryMutationAction",
+    "memory mutation action",
+    r#"{"action":"store"}"#,
+    {
+        "store" => Store
+    }
+);
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -1016,7 +1497,7 @@ pub(crate) struct PrismFixValidatedArgs {
     pub(crate) task_id: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum CoordinationMutationKindInput {
     PlanCreate,
@@ -1031,7 +1512,26 @@ pub(crate) enum CoordinationMutationKindInput {
     HandoffAccept,
 }
 
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+impl_vocab_deserialize!(
+    CoordinationMutationKindInput,
+    "coordinationMutationKind",
+    "coordination mutation kind",
+    r#"{"kind":"task_create"}"#,
+    {
+        "plancreate" => PlanCreate,
+        "planupdate" => PlanUpdate,
+        "taskcreate" => TaskCreate,
+        "taskupdate" => TaskUpdate,
+        "plannodecreate" => PlanNodeCreate,
+        "plannodeupdate" => PlanNodeUpdate,
+        "planedgecreate" => PlanEdgeCreate,
+        "planedgedelete" => PlanEdgeDelete,
+        "handoff" => Handoff,
+        "handoffaccept" => HandoffAccept
+    }
+);
+
+#[derive(Debug, Clone, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum ClaimActionInput {
     Acquire,
@@ -1039,13 +1539,37 @@ pub(crate) enum ClaimActionInput {
     Release,
 }
 
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
+impl_vocab_deserialize!(
+    ClaimActionInput,
+    "claimAction",
+    "claim action",
+    r#"{"action":"acquire"}"#,
+    {
+        "acquire" => Acquire,
+        "renew" => Renew,
+        "release" => Release
+    }
+);
+
+#[derive(Debug, Clone, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum ArtifactActionInput {
     Propose,
     Supersede,
     Review,
 }
+
+impl_vocab_deserialize!(
+    ArtifactActionInput,
+    "artifactAction",
+    "artifact action",
+    r#"{"action":"propose"}"#,
+    {
+        "propose" => Propose,
+        "supersede" => Supersede,
+        "review" => Review
+    }
+);
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]

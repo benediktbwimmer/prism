@@ -44,4 +44,5 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 tree-sitter = "0.26"
 tree-sitter-python = "0.25.0"
+ulid = "1.2"
 walkdir = "2.5"

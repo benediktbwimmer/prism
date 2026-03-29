@@ -624,6 +624,9 @@ globalThis.prism = Object.freeze({
   tool(name) {
     return __prismHost("tool", { name });
   },
+  validateToolInput(name, input) {
+    return __prismHost("validateToolInput", { name, input });
+  },
   entrypoints() {
     return __prismEnrichSymbols(__prismHost("entrypoints", {}));
   },

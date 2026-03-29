@@ -8,7 +8,7 @@ use prism_curator::{
     CuratorJob, CuratorJobId, CuratorJobRecord, CuratorJobStatus, CuratorProposalState, CuratorRun,
     CuratorSnapshot,
 };
-use prism_ir::EventId;
+use prism_ir::{new_prefixed_id, EventId};
 use prism_query::Prism;
 use prism_store::{AuxiliaryPersistBatch, SqliteStore, Store};
 
@@ -168,8 +168,8 @@ impl CuratorHandleRef {
         store: &mut SqliteStore,
     ) -> Result<CuratorJobId> {
         let mut state = self.state.lock().expect("curator state lock poisoned");
-        let id = CuratorJobId(format!("curator:{}", state.next_sequence + 1));
         state.next_sequence += 1;
+        let id = CuratorJobId(new_prefixed_id("curator").to_string());
         let record = CuratorJobRecord {
             id: id.clone(),
             job: job.clone(),

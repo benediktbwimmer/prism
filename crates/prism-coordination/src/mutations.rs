@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use prism_ir::{
-    ArtifactStatus, ClaimId, ClaimMode, ConflictSeverity, CoordinationEventKind,
+    new_prefixed_id, ArtifactStatus, ClaimId, ClaimMode, ConflictSeverity, CoordinationEventKind,
     CoordinationTaskId, CoordinationTaskStatus, EventId, EventMeta, PlanBinding, PlanId, PlanKind,
     PlanNodeKind, PlanScope, PlanStatus, ReviewId, ReviewVerdict, SessionId, Timestamp,
     WorkspaceRevision,
@@ -226,7 +226,7 @@ pub(crate) fn acquire_claim_mutation(
         return Ok((None, conflicts, None));
     }
     state.next_claim += 1;
-    let id = ClaimId::new(format!("claim:{}", state.next_claim));
+    let id = ClaimId::new(new_prefixed_id("claim"));
     let claim = WorkClaim {
         id: id.clone(),
         holder: session_id,
@@ -486,7 +486,7 @@ pub(crate) fn propose_artifact_mutation(
         ));
     }
     state.next_artifact += 1;
-    let id = prism_ir::ArtifactId::new(format!("artifact:{}", state.next_artifact));
+    let id = prism_ir::ArtifactId::new(new_prefixed_id("artifact"));
     let artifact = Artifact {
         id: id.clone(),
         task: input.task_id.clone(),
@@ -600,7 +600,7 @@ pub(crate) fn review_artifact_mutation(
     current_revision: WorkspaceRevision,
 ) -> Result<(ReviewId, ArtifactReview, Artifact)> {
     state.next_review += 1;
-    let review_id = ReviewId::new(format!("review:{}", state.next_review));
+    let review_id = ReviewId::new(new_prefixed_id("review"));
     let (plan, mut artifact): (Option<Plan>, Artifact) = {
         let artifact = state
             .artifacts
@@ -771,7 +771,7 @@ pub(crate) fn create_plan_mutation(
     input: PlanCreateInput,
 ) -> Result<(PlanId, Plan)> {
     state.next_plan += 1;
-    let id = PlanId::new(format!("plan:{}", state.next_plan));
+    let id = PlanId::new(new_prefixed_id("plan"));
     let plan = Plan {
         id: id.clone(),
         goal: input.goal.clone(),
@@ -1084,7 +1084,7 @@ pub(crate) fn create_task_mutation(
         }
     }
     state.next_task += 1;
-    let id = CoordinationTaskId::new(format!("coord-task:{}", state.next_task));
+    let id = CoordinationTaskId::new(new_prefixed_id("coord-task"));
     let is_root = input.depends_on.is_empty();
     let anchors = dedupe_anchors(input.anchors);
     let task = CoordinationTask {

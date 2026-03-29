@@ -280,6 +280,7 @@ type PrismApi = {
   textSearchBundle(query: string, options?: TextSearchBundleOptions): TextSearchBundleView;
   tools(): ToolCatalogEntryView[];
   tool(name: string): ToolSchemaView | null;
+  validateToolInput(name: string, input: unknown): ToolInputValidationView;
   entrypoints(): SymbolView[];
   file(path: string): FileView;
   plans(options?: PlanListOptions): PlanListEntryView[];
@@ -500,13 +501,27 @@ type ToolFieldSchemaView = {
   schema: unknown;
 };
 
+type ToolPayloadVariantSchemaView = {
+  tag: string;
+  schemaUri: string;
+  requiredFields: string[];
+  fields: ToolFieldSchemaView[];
+  schema: unknown;
+  exampleInput?: unknown;
+  exampleInputs: unknown[];
+};
+
 type ToolActionSchemaView = {
   action: string;
+  schemaUri: string;
+  description?: string;
   requiredFields: string[];
   fields: ToolFieldSchemaView[];
   inputSchema: unknown;
   exampleInput?: unknown;
   exampleInputs: unknown[];
+  payloadDiscriminator?: string;
+  payloadVariants: ToolPayloadVariantSchemaView[];
 };
 
 type ToolSchemaView = {
@@ -517,6 +532,26 @@ type ToolSchemaView = {
   exampleInputs: unknown[];
   inputSchema: unknown;
   actions: ToolActionSchemaView[];
+};
+
+type ToolValidationIssueView = {
+  code: string;
+  path?: string;
+  summary: string;
+  allowedValues: string[];
+  requiredFields: string[];
+};
+
+type ToolInputValidationView = {
+  toolName: string;
+  schemaUri: string;
+  valid: boolean;
+  normalizedInput: unknown;
+  action?: string;
+  actionSchemaUri?: string;
+  summary: string;
+  issues: ToolValidationIssueView[];
+  exampleInputs: unknown[];
 };
 
 type TextSearchMatchView = {
@@ -1608,6 +1643,16 @@ return prism.searchText("read context", {
 ```ts
 const mutate = prism.tool("prism_mutate");
 return mutate?.actions.find((action) => action.action === "validation_feedback");
+```
+
+### 5c. Validate a tool payload before you call the tool
+
+```ts
+return prism.validateToolInput("prism_mutate", {
+  action: "coordination",
+  kind: "task_create",
+  payload: { title: "Missing plan id" },
+});
 ```
 
 ### 6. Pull source plus relations in one round-trip

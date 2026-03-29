@@ -1848,6 +1848,95 @@ fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
 }
 
 #[test]
+fn replayed_coordination_snapshot_stays_authoritative_over_published_plan_exports() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let (plan_id, task_id) = session
+        .mutate_coordination(|prism| {
+            let base_revision = prism.workspace_revision();
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:authoritative-plan"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:authoritative-plan")),
+                    causation: None,
+                },
+                "Keep replay authoritative".into(),
+                None,
+                Some(Default::default()),
+            )?;
+            let task = prism.create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:authoritative-task"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:authoritative-plan")),
+                    causation: None,
+                },
+                prism_coordination::TaskCreateInput {
+                    plan_id: plan_id.clone(),
+                    title: "Ignore stale export artifacts".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision,
+                },
+            )?;
+            Ok((plan_id, task.id))
+        })
+        .unwrap();
+
+    let log_path = root
+        .join(".prism")
+        .join("plans")
+        .join("active")
+        .join(format!("{}.jsonl", plan_id.0));
+    let stale_export = fs::read_to_string(&log_path)
+        .unwrap()
+        .replace(
+            "Keep replay authoritative",
+            "Stale published export should not win",
+        )
+        .replace(
+            "Ignore stale export artifacts",
+            "Projection mutation should not override replay",
+        );
+    fs::write(&log_path, stale_export).unwrap();
+
+    drop(session);
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let state = reloaded
+        .load_coordination_plan_state()
+        .unwrap()
+        .expect("replayed coordination plan state");
+    assert!(state
+        .snapshot
+        .plans
+        .iter()
+        .any(|plan| { plan.id == plan_id && plan.goal == "Keep replay authoritative" }));
+    assert!(state.snapshot.tasks.iter().any(|task| {
+        task.id == task_id && task.plan == plan_id && task.title == "Ignore stale export artifacts"
+    }));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

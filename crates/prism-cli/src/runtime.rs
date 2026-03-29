@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Result};
 use prism_core::WorkspaceSession;
-use prism_ir::{AnchorRef, EventActor, EventId, EventMeta, TaskId};
+use prism_ir::{new_prefixed_id, AnchorRef, EventActor, EventId, EventMeta, TaskId};
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind, MemoryId, MemoryKind,
     MemoryScope, MemorySource, OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult,
@@ -286,9 +286,5 @@ pub fn current_timestamp() -> u64 {
 }
 
 pub fn current_event_id(prefix: &str) -> EventId {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system clock should be after unix epoch")
-        .as_nanos();
-    EventId::new(format!("{prefix}:{nanos}"))
+    EventId::new(new_prefixed_id(prefix))
 }

@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::RwLock;
 
 use anyhow::{anyhow, Result};
-use prism_ir::{AnchorRef, LineageEvent, LineageEventKind, NodeId};
+use prism_ir::{new_prefixed_id, AnchorRef, LineageEvent, LineageEventKind, NodeId};
 
 use crate::common::{clamp_unit, dedupe_anchors};
 use crate::types::{EpisodicMemorySnapshot, MemoryEntry, MemoryId, MemoryKind, RecallQuery};
@@ -113,7 +113,7 @@ impl EntryStore {
             .write()
             .expect("memory entry store lock poisoned");
         state.next_sequence += 1;
-        let id = MemoryId(format!("{}:{}", self.id_prefix, state.next_sequence));
+        let id = MemoryId(new_prefixed_id(self.id_prefix).to_string());
         entry.id = id.clone();
         insert_entry(&mut state, entry.clone());
         Ok(id)

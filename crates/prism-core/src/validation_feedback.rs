@@ -3,10 +3,9 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 use std::str::FromStr;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
-use prism_ir::AnchorRef;
+use prism_ir::{new_prefixed_id, AnchorRef};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -186,9 +185,5 @@ pub(crate) fn load_validation_feedback(root: &Path) -> Result<Vec<ValidationFeed
 }
 
 fn next_feedback_id() -> String {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system clock should be after unix epoch")
-        .as_nanos();
-    format!("feedback:{nanos}")
+    new_prefixed_id("feedback").to_string()
 }

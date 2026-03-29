@@ -1,6 +1,7 @@
 mod anchor;
 mod change;
 mod coordination;
+mod durable_ids;
 mod events;
 mod graph;
 mod history;
@@ -15,6 +16,7 @@ pub use coordination::{
     ArtifactStatus, Capability, ClaimMode, ClaimStatus, ConflictOverlapKind, ConflictSeverity,
     CoordinationEventKind, CoordinationTaskStatus, PlanStatus, ReviewVerdict,
 };
+pub use durable_ids::{new_prefixed_id, new_slugged_id, new_sortable_token, slugify_id_fragment};
 pub use events::{EventActor, EventMeta};
 pub use graph::{Edge, EdgeKind, EdgeOrigin, Node, NodeId, NodeKind, Skeleton, Subgraph};
 pub use history::{LineageEvent, LineageEventKind, LineageEvidence};

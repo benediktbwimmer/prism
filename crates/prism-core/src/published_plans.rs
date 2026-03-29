@@ -434,49 +434,86 @@ pub(crate) fn load_hydrated_coordination_snapshot(
     root: &Path,
     snapshot: Option<CoordinationSnapshot>,
 ) -> Result<Option<CoordinationSnapshot>> {
-    Ok(load_hydrated_coordination_plan_state(root, snapshot)?.map(|state| state.snapshot))
+    if snapshot.is_some() {
+        return Ok(snapshot);
+    }
+
+    Ok(load_repo_published_plan_projection(root)?
+        .map(hydrated_plan_state_from_projection)
+        .map(|state| state.snapshot))
 }
 
 pub(crate) fn load_hydrated_coordination_plan_state(
     root: &Path,
     snapshot: Option<CoordinationSnapshot>,
 ) -> Result<Option<HydratedCoordinationPlanState>> {
-    let Some(published) = load_repo_published_plan_projection(root)? else {
-        return Ok(snapshot.map(|snapshot| HydratedCoordinationPlanState {
+    match (snapshot, load_repo_published_plan_projection(root)?) {
+        (Some(snapshot), Some(published)) => {
+            let mut state = hydrated_plan_state_from_projection(published);
+            merge_snapshot_bootstrap_into_plan_state(
+                &snapshot,
+                &mut state.plan_graphs,
+                &mut state.execution_overlays,
+            );
+            Ok(Some(HydratedCoordinationPlanState {
+                snapshot,
+                plan_graphs: state.plan_graphs,
+                execution_overlays: state.execution_overlays,
+            }))
+        }
+        (Some(snapshot), None) => Ok(Some(HydratedCoordinationPlanState {
             plan_graphs: snapshot_plan_graphs(&snapshot),
             execution_overlays: execution_overlays_by_plan(&snapshot.tasks),
             snapshot,
-        }));
-    };
+        })),
+        (None, Some(published)) => Ok(Some(hydrated_plan_state_from_projection(published))),
+        (None, None) => Ok(None),
+    }
+}
 
+fn hydrated_plan_state_from_projection(
+    published: PublishedPlanProjection,
+) -> HydratedCoordinationPlanState {
     let mut graphs = published
         .records
         .iter()
         .map(|record| record.graph.clone())
         .collect::<Vec<_>>();
-    let mut execution_overlays = published.execution_overlays.clone();
-    let mut published_snapshot =
-        coordination_snapshot_from_plan_graphs(&graphs, &execution_overlays);
+    let execution_overlays = published.execution_overlays.clone();
+    let mut snapshot = coordination_snapshot_from_plan_graphs(&graphs, &execution_overlays);
     let policies = published
         .records
         .into_iter()
         .map(|record| (record.header.id.0.to_string(), record.header.policy))
         .collect::<BTreeMap<_, _>>();
-    for plan in &mut published_snapshot.plans {
+    for plan in &mut snapshot.plans {
         if let Some(policy) = policies.get(plan.id.0.as_str()) {
             plan.policy = policy.clone();
         }
     }
+    snapshot.next_plan = snapshot.next_plan.max(published.next_plan);
+    snapshot.next_task = snapshot.next_task.max(published.next_task);
+    graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    HydratedCoordinationPlanState {
+        snapshot,
+        plan_graphs: graphs,
+        execution_overlays,
+    }
+}
 
-    let mut snapshot = snapshot.unwrap_or_default();
-    let snapshot_graphs = snapshot_plan_graphs(&snapshot);
+fn merge_snapshot_bootstrap_into_plan_state(
+    snapshot: &CoordinationSnapshot,
+    graphs: &mut Vec<PlanGraph>,
+    execution_overlays: &mut BTreeMap<String, Vec<PlanExecutionOverlay>>,
+) {
+    let snapshot_graphs = snapshot_plan_graphs(snapshot);
     let snapshot_execution = execution_overlays_by_plan(&snapshot.tasks);
-    let existing_published_plan_ids = graphs
+    let existing_plan_ids = graphs
         .iter()
         .map(|graph| graph.id.0.to_string())
         .collect::<BTreeSet<_>>();
     for graph in snapshot_graphs {
-        if existing_published_plan_ids.contains(graph.id.0.as_str()) {
+        if existing_plan_ids.contains(graph.id.0.as_str()) {
             continue;
         }
         execution_overlays
@@ -489,37 +526,7 @@ pub(crate) fn load_hydrated_coordination_plan_state(
             });
         graphs.push(graph);
     }
-
-    let extra_plans = snapshot
-        .plans
-        .iter()
-        .filter(|plan| !existing_published_plan_ids.contains(plan.id.0.as_str()))
-        .cloned()
-        .collect::<Vec<_>>();
-    let extra_tasks = snapshot
-        .tasks
-        .iter()
-        .filter(|task| !existing_published_plan_ids.contains(task.plan.0.as_str()))
-        .cloned()
-        .collect::<Vec<_>>();
-    snapshot.plans = published_snapshot.plans;
-    snapshot.tasks = published_snapshot.tasks;
-    snapshot.plans.extend(extra_plans);
-    snapshot.tasks.extend(extra_tasks);
-    snapshot
-        .plans
-        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    snapshot
-        .tasks
-        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    snapshot.next_plan = snapshot.next_plan.max(published.next_plan);
-    snapshot.next_task = snapshot.next_task.max(published.next_task);
     graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
-    Ok(Some(HydratedCoordinationPlanState {
-        snapshot,
-        plan_graphs: graphs,
-        execution_overlays,
-    }))
 }
 
 fn load_repo_published_plan_projection(root: &Path) -> Result<Option<PublishedPlanProjection>> {

@@ -1,12 +1,16 @@
-use prism_js::{ToolActionSchemaView, ToolCatalogEntryView, ToolFieldSchemaView, ToolSchemaView};
+use prism_js::{
+    ToolActionSchemaView, ToolCatalogEntryView, ToolFieldSchemaView, ToolPayloadVariantSchemaView,
+    ToolSchemaView,
+};
 use rmcp::schemars::JsonSchema;
 use serde_json::{json, Value};
 
 use crate::{
-    capabilities_resource_view_link, dedupe_resource_link_views, resource_meta,
-    schema_resource_contents, schema_resource_uri, schema_resource_value,
+    capabilities_resource_view_link, dedupe_resource_link_views, json_resource_contents_with_meta,
+    resource_meta, schema_resource_contents, schema_resource_uri, schema_resource_value,
     schema_resource_view_link, session_resource_view_link, tool_action_example,
-    tool_action_examples, tool_input_example, tool_input_examples, tool_schema_resource_uri,
+    tool_action_examples, tool_action_schema_resource_uri, tool_action_schema_resource_view_link,
+    tool_input_example, tool_input_examples, tool_schema_resource_uri,
     tool_schema_resource_view_link, tool_schemas_resource_view_link, vocab_resource_view_link,
     ArtifactProposePayload, ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload,
     ClaimReleasePayload, ClaimRenewPayload, HandoffAcceptPayload, HandoffPayload,
@@ -122,6 +126,14 @@ pub(crate) fn tool_schemas_resource_value() -> ToolSchemaCatalogPayload {
             .iter()
             .map(|entry| tool_schema_resource_view_link(&entry.tool_name)),
     );
+    related_resources.extend(tool_schema_catalog_entries().iter().flat_map(|entry| {
+        tool_schema_view(&entry.tool_name)
+            .into_iter()
+            .flat_map(|schema| schema.actions.into_iter())
+            .map(move |action| {
+                tool_action_schema_resource_view_link(&entry.tool_name, &action.action)
+            })
+    }));
     ToolSchemaCatalogPayload {
         uri: TOOL_SCHEMAS_URI.to_string(),
         schema_uri: schema_resource_uri("tool-schemas"),
@@ -157,6 +169,80 @@ pub(crate) fn tool_schema_view(tool_name: &str) -> Option<ToolSchemaView> {
         actions: tool_action_views(tool_name, &input_schema, &entry.example_input),
         input_schema,
     })
+}
+
+pub(crate) fn tool_action_schema_view(
+    tool_name: &str,
+    action: &str,
+) -> Option<ToolActionSchemaView> {
+    let root_schema = tool_input_schema_value(tool_name)?;
+    let example_input = tool_input_example(tool_name)?;
+    root_schema
+        .get("oneOf")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flat_map(|variants| variants.iter())
+        .filter_map(|variant| tool_action_view(tool_name, &root_schema, variant, &example_input))
+        .find(|candidate| candidate.action == action)
+}
+
+pub(crate) fn tool_action_schema_value(tool_name: &str, action: &str) -> Option<Value> {
+    let action_view = tool_action_schema_view(tool_name, action)?;
+    let mut schema = action_view.input_schema.clone();
+    let description = action_view
+        .description
+        .clone()
+        .unwrap_or_else(|| format!("Exact input schema for `{tool_name}` action `{action}`."));
+    if let Some(object) = schema.as_object_mut() {
+        object.insert(
+            "$schema".to_string(),
+            Value::String("https://json-schema.org/draft/2020-12/schema".to_string()),
+        );
+        object.insert(
+            "$id".to_string(),
+            Value::String(tool_action_schema_resource_uri(tool_name, action)),
+        );
+        object.insert(
+            "title".to_string(),
+            Value::String(format!("PRISM Tool Action Schema: {tool_name}.{action}")),
+        );
+        object.insert("description".to_string(), Value::String(description));
+        if !action_view.example_inputs.is_empty() {
+            object.insert(
+                "examples".to_string(),
+                Value::Array(action_view.example_inputs.clone()),
+            );
+        } else if let Some(example_input) = &action_view.example_input {
+            object.insert(
+                "examples".to_string(),
+                Value::Array(vec![example_input.clone()]),
+            );
+        }
+    }
+    Some(schema)
+}
+
+pub(crate) fn tool_action_schema_resource_contents(
+    tool_name: &str,
+    action: &str,
+    uri: &str,
+) -> Result<ResourceContents, McpError> {
+    let schema = tool_action_schema_value(tool_name, action).ok_or_else(|| {
+        McpError::resource_not_found(
+            "resource_not_found",
+            Some(serde_json::json!({ "uri": uri })),
+        )
+    })?;
+    json_resource_contents_with_meta(
+        schema,
+        uri.to_string(),
+        Some(resource_meta(
+            "tool-action-schema",
+            Some(tool_action_schema_resource_uri(tool_name, action)),
+            Some(tool_name),
+        )),
+    )
+    .map(|contents| contents.with_mime_type("application/schema+json"))
 }
 
 pub(crate) fn tool_schema_resource_contents(
@@ -346,14 +432,35 @@ fn tool_action_view(
             .map(|_| example_input.clone())
     });
     let example_inputs = tool_action_examples(tool_name, &action);
+    let payload_discriminator = action_payload_discriminator(tool_name, &action);
+    let payload_variants = payload_variant_views(
+        tool_name,
+        &action,
+        payload_discriminator,
+        &example_inputs,
+        &input_schema,
+    );
     Some(ToolActionSchemaView {
-        action,
+        action: action.clone(),
+        schema_uri: tool_action_schema_resource_uri(tool_name, &action),
+        description: Some(action_description(tool_name, &action)),
         required_fields,
         fields,
         input_schema,
         example_input: example,
         example_inputs,
+        payload_discriminator: payload_discriminator.map(ToString::to_string),
+        payload_variants,
     })
+}
+
+fn action_description(tool_name: &str, action: &str) -> String {
+    match action_payload_discriminator(tool_name, action) {
+        Some(discriminator) => format!(
+            "Exact input schema for `{tool_name}` action `{action}`. Match `input.payload` to `input.{discriminator}`."
+        ),
+        None => format!("Exact input schema for `{tool_name}` action `{action}`."),
+    }
 }
 
 fn enrich_action_input_schema(
@@ -374,6 +481,16 @@ fn enrich_action_input_schema(
         properties.insert("payload".to_string(), payload_schema);
     }
     schema
+}
+
+fn action_payload_discriminator(tool_name: &str, action: &str) -> Option<&'static str> {
+    match (tool_name, action) {
+        ("prism_mutate", "memory") => Some("action"),
+        ("prism_mutate", "coordination") => Some("kind"),
+        ("prism_mutate", "claim") => Some("action"),
+        ("prism_mutate", "artifact") => Some("action"),
+        _ => None,
+    }
 }
 
 fn action_payload_schema(tool_name: &str, action: &str) -> Option<Value> {
@@ -495,6 +612,90 @@ fn action_payload_schema(tool_name: &str, action: &str) -> Option<Value> {
         )),
         _ => None,
     }
+}
+
+fn payload_variant_views(
+    tool_name: &str,
+    action: &str,
+    payload_discriminator: Option<&str>,
+    action_examples: &[Value],
+    action_input_schema: &Value,
+) -> Vec<ToolPayloadVariantSchemaView> {
+    let Some(discriminator) = payload_discriminator else {
+        return Vec::new();
+    };
+    let payload_schema = action_input_schema
+        .get("properties")
+        .and_then(Value::as_object)
+        .and_then(|properties| properties.get("payload"));
+    let Some(variants) = payload_schema
+        .and_then(|schema| schema.get("oneOf"))
+        .and_then(Value::as_array)
+    else {
+        return Vec::new();
+    };
+    variants
+        .iter()
+        .filter_map(|variant| {
+            payload_variant_view(tool_name, action, discriminator, action_examples, variant)
+        })
+        .collect()
+}
+
+fn payload_variant_view(
+    tool_name: &str,
+    action: &str,
+    discriminator: &str,
+    action_examples: &[Value],
+    variant_schema: &Value,
+) -> Option<ToolPayloadVariantSchemaView> {
+    let title = variant_schema.get("title")?.as_str()?;
+    let (_, tag) = title.split_once('=')?;
+    let required_fields = variant_schema
+        .get("required")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flat_map(|items| items.iter())
+        .filter_map(Value::as_str)
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    let fields = variant_schema
+        .get("properties")
+        .and_then(Value::as_object)
+        .into_iter()
+        .flat_map(|properties| properties.iter())
+        .map(|(name, schema)| tool_field_view(variant_schema, name, schema, &required_fields))
+        .collect::<Vec<_>>();
+    let example_inputs = payload_variant_examples(action_examples, discriminator, tag);
+    Some(ToolPayloadVariantSchemaView {
+        tag: tag.to_string(),
+        schema_uri: format!(
+            "{}#payloadVariant={tag}",
+            tool_action_schema_resource_uri(tool_name, action)
+        ),
+        required_fields,
+        fields,
+        schema: variant_schema.clone(),
+        example_input: example_inputs.first().cloned(),
+        example_inputs,
+    })
+}
+
+fn payload_variant_examples(
+    action_examples: &[Value],
+    discriminator: &str,
+    tag: &str,
+) -> Vec<Value> {
+    action_examples
+        .iter()
+        .filter_map(|example| {
+            let input = example.get("input")?;
+            let matches_variant = input.get(discriminator).and_then(Value::as_str) == Some(tag);
+            matches_variant
+                .then(|| input.get("payload").cloned())
+                .flatten()
+        })
+        .collect()
 }
 
 fn described_schema<T: JsonSchema + 'static>(description: &str) -> Value {

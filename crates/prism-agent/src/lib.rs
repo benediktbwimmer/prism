@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::RwLock;
 
-use prism_ir::{Edge, EdgeKind, EdgeOrigin, NodeId, TaskId};
+use prism_ir::{new_prefixed_id, Edge, EdgeKind, EdgeOrigin, NodeId, TaskId};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -92,7 +92,7 @@ impl InferenceStore {
         edge.origin = EdgeOrigin::Inferred;
         let mut state = self.state.write().expect("inference store lock poisoned");
         state.next_edge += 1;
-        let id = EdgeId(format!("edge:{}", state.next_edge));
+        let id = EdgeId(new_prefixed_id("edge").to_string());
         let record = InferredEdgeRecord {
             id: id.clone(),
             edge: edge.clone(),

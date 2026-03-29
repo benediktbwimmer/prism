@@ -11,8 +11,8 @@ use prism_js::{
     DiffHunkView, DiscoveryBundleView, EditContextView, FocusedBlockView, MemoryEventView,
     PatchEventView, QueryDiagnostic, QueryEnvelope, ReadContextView, RecentChangeContextView,
     RuntimeLogEventView, RuntimeStatusView, ScoredMemoryView, SourceExcerptView, SourceSliceView,
-    SubgraphView, SymbolView, TextSearchMatchView, ToolCatalogEntryView, ToolSchemaView,
-    ValidationContextView, ValidationFeedbackView,
+    SubgraphView, SymbolView, TextSearchMatchView, ToolCatalogEntryView, ToolInputValidationView,
+    ToolSchemaView, ValidationContextView, ValidationFeedbackView,
 };
 use prism_memory::{MemoryEventQuery, MemoryModule, OutcomeKind, OutcomeRecallQuery, RecallQuery};
 use prism_query::{ConceptDecodeLens, EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
@@ -46,22 +46,22 @@ use crate::{
     scored_memory_view, search_queries, source_excerpt_for_symbol, spec_cluster_view,
     spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids, task_intent_view,
     task_journal_view, task_risk_view, task_validation_recipe_view, tool_catalog_views,
-    tool_schema_view, validation_context_view_cached, validation_recipe_view_with,
-    weak_concept_match_reason, weak_search_match_diagnostic_data, weak_search_match_reason,
-    where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs,
-    ConceptHandleArgs, ConceptQueryArgs, CoordinationTaskTargetArgs, CuratorJobArgs,
-    CuratorJobsArgs, CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs, DiscoveryTargetArgs,
-    EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs,
-    MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
+    tool_schema_view, validate_tool_input_value, validation_context_view_cached,
+    validation_recipe_view_with, weak_concept_match_reason, weak_search_match_diagnostic_data,
+    weak_search_match_reason, where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs,
+    ChangedSymbolsArgs, ConceptHandleArgs, ConceptQueryArgs, CoordinationTaskTargetArgs,
+    CuratorJobArgs, CuratorJobsArgs, CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs,
+    DiscoveryTargetArgs, EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs,
+    LimitArgs, MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
     PendingReviewsArgs, PlanNextArgs, PlanNodeTargetArgs, PlanTargetArgs, PlansQueryArgs,
     PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs,
     RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchAmbiguityContext, SearchArgs,
     SearchTextArgs, SemanticContextCache, SessionState, SimulateClaimArgs, SourceExcerptArgs,
     SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode,
-    TaskTargetArgs, ToolNameArgs, ValidationFeedbackArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH,
-    DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
-    INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER,
-    USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
+    TaskTargetArgs, ToolNameArgs, ToolValidationArgs, ValidationFeedbackArgs, WhereUsedArgs,
+    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER,
+    QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -1148,6 +1148,12 @@ impl QueryExecution {
                 let args: ToolNameArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.tool(&args.name)?)?)
             }
+            "validateToolInput" => {
+                let args: ToolValidationArgs = serde_json::from_value(args)?;
+                Ok(serde_json::to_value(
+                    self.validate_tool_input(&args.name, args.input),
+                )?)
+            }
             "excerpt" => {
                 let args: SourceExcerptArgs = serde_json::from_value(args)?;
                 Ok(serde_json::to_value(self.source_excerpt(args)?)?)
@@ -1492,6 +1498,10 @@ impl QueryExecution {
 
     fn tool(&self, name: &str) -> Result<Option<ToolSchemaView>> {
         Ok(tool_schema_view(name))
+    }
+
+    fn validate_tool_input(&self, name: &str, input: Value) -> ToolInputValidationView {
+        validate_tool_input_value(name, input)
     }
 
     pub(crate) fn plans(&self, args: PlansQueryArgs) -> Result<Vec<prism_js::PlanListEntryView>> {

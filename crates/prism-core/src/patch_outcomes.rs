@@ -1,19 +1,15 @@
 use std::collections::HashSet;
-use std::sync::atomic::{AtomicU64, Ordering};
 
-use prism_ir::{AnchorRef, EventActor, EventId, EventMeta, ObservedChangeSet};
+use prism_ir::{new_prefixed_id, AnchorRef, EventActor, EventId, EventMeta, ObservedChangeSet};
 use prism_memory::{OutcomeEvent, OutcomeKind, OutcomeResult};
 use prism_projections::ValidationDelta;
 
 use crate::util::current_timestamp;
 use crate::WorkspaceIndexer;
 
-static NEXT_AUTO_OUTCOME_ID: AtomicU64 = AtomicU64::new(1);
-
 pub(crate) fn default_outcome_meta(prefix: &str) -> EventMeta {
-    let sequence = NEXT_AUTO_OUTCOME_ID.fetch_add(1, Ordering::Relaxed);
     EventMeta {
-        id: EventId::new(format!("{prefix}:{sequence}")),
+        id: EventId::new(new_prefixed_id(prefix)),
         ts: current_timestamp(),
         actor: EventActor::System,
         correlation: None,
@@ -30,8 +26,7 @@ pub(crate) fn observed_is_empty(observed: &ObservedChangeSet) -> bool {
 }
 
 fn auto_outcome_event_id(prefix: &str) -> EventId {
-    let sequence = NEXT_AUTO_OUTCOME_ID.fetch_add(1, Ordering::Relaxed);
-    EventId::new(format!("{prefix}:{sequence}"))
+    EventId::new(new_prefixed_id(prefix))
 }
 
 fn patch_summary(observed: &ObservedChangeSet) -> String {

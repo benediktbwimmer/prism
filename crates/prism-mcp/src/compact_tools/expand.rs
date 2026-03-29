@@ -1429,7 +1429,6 @@ mod tests {
             Arc::new(prism_memory::SessionMemory::default()),
             Arc::new(prism_agent::InferenceStore::default()),
             Arc::new(std::sync::atomic::AtomicU64::new(0)),
-            Arc::new(std::sync::atomic::AtomicU64::new(0)),
             prism_query::QueryLimits::default(),
         );
         let target = SessionHandleTarget {

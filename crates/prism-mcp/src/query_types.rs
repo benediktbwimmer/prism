@@ -31,6 +31,12 @@ pub(crate) struct ToolNameArgs {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub(crate) struct ToolValidationArgs {
+    pub(crate) name: String,
+    pub(crate) input: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub(crate) struct SearchArgs {
     pub(crate) query: String,
     pub(crate) limit: Option<usize>,

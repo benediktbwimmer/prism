@@ -3,11 +3,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use prism_agent::{InferenceStore, InferredEdgeRecord, InferredEdgeScope};
-use prism_ir::{AgentId, EventId, NodeId, NodeKind, SessionId, TaskId};
+use prism_ir::{
+    new_prefixed_id, new_slugged_id, new_sortable_token, AgentId, EventId, NodeId, NodeKind,
+    SessionId, TaskId,
+};
 use prism_memory::SessionMemory;
 use prism_query::QueryLimits;
-
-use crate::NEXT_SESSION_ID;
 
 #[derive(Debug, Clone)]
 pub(crate) struct SessionTaskState {
@@ -47,7 +48,6 @@ pub(crate) struct SessionState {
     current_task: Mutex<Option<SessionTaskState>>,
     current_agent: Mutex<Option<AgentId>>,
     next_event: Arc<AtomicU64>,
-    next_task: Arc<AtomicU64>,
     next_handle: AtomicU64,
     handle_targets: Mutex<HashMap<String, SessionHandleTarget>>,
     handle_keys: Mutex<HashMap<String, String>>,
@@ -59,20 +59,15 @@ impl SessionState {
         notes: Arc<SessionMemory>,
         inferred_edges: Arc<InferenceStore>,
         next_event: Arc<AtomicU64>,
-        next_task: Arc<AtomicU64>,
         limits: QueryLimits,
     ) -> Self {
         Self {
-            session_id: SessionId::new(format!(
-                "session:{}",
-                NEXT_SESSION_ID.fetch_add(1, Ordering::Relaxed)
-            )),
+            session_id: SessionId::new(new_prefixed_id("session")),
             notes,
             inferred_edges: SessionInferenceStore::new(inferred_edges),
             current_task: Mutex::new(None),
             current_agent: Mutex::new(None),
             next_event,
-            next_task,
             next_handle: AtomicU64::new(1),
             handle_targets: Mutex::new(HashMap::new()),
             handle_keys: Mutex::new(HashMap::new()),
@@ -86,7 +81,10 @@ impl SessionState {
             .chars()
             .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '-' })
             .collect::<String>();
-        EventId::new(format!("{prefix}:{session_fragment}:{sequence}"))
+        EventId::new(format!(
+            "{prefix}:{}:{session_fragment}:{sequence}",
+            new_sortable_token()
+        ))
     }
 
     pub(crate) fn current_task(&self) -> Option<TaskId> {
@@ -198,23 +196,7 @@ impl SessionState {
     }
 
     fn next_described_task_id(&self, description: &str) -> TaskId {
-        let sequence = self.next_task.fetch_add(1, Ordering::Relaxed) + 1;
-        let mut slug = description
-            .chars()
-            .map(|ch| {
-                if ch.is_ascii_alphanumeric() {
-                    ch.to_ascii_lowercase()
-                } else {
-                    '-'
-                }
-            })
-            .collect::<String>();
-        while slug.contains("--") {
-            slug = slug.replace("--", "-");
-        }
-        slug = slug.trim_matches('-').to_owned();
-        let prefix = if slug.is_empty() { "task" } else { &slug };
-        TaskId::new(format!("task:{prefix}:{sequence}"))
+        TaskId::new(new_slugged_id("task", description))
     }
 
     pub(crate) fn task_for_mutation(&self, explicit: Option<TaskId>) -> TaskId {

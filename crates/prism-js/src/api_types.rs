@@ -316,14 +316,32 @@ pub struct ToolFieldSchemaView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct ToolPayloadVariantSchemaView {
+    pub tag: String,
+    pub schema_uri: String,
+    pub required_fields: Vec<String>,
+    pub fields: Vec<ToolFieldSchemaView>,
+    pub schema: Value,
+    pub example_input: Option<Value>,
+    #[serde(default)]
+    pub example_inputs: Vec<Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ToolActionSchemaView {
     pub action: String,
+    pub schema_uri: String,
+    pub description: Option<String>,
     pub required_fields: Vec<String>,
     pub fields: Vec<ToolFieldSchemaView>,
     pub input_schema: Value,
     pub example_input: Option<Value>,
     #[serde(default)]
     pub example_inputs: Vec<Value>,
+    pub payload_discriminator: Option<String>,
+    #[serde(default)]
+    pub payload_variants: Vec<ToolPayloadVariantSchemaView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -337,6 +355,34 @@ pub struct ToolSchemaView {
     pub example_inputs: Vec<Value>,
     pub input_schema: Value,
     pub actions: Vec<ToolActionSchemaView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolValidationIssueView {
+    pub code: String,
+    pub path: Option<String>,
+    pub summary: String,
+    #[serde(default)]
+    pub allowed_values: Vec<String>,
+    #[serde(default)]
+    pub required_fields: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolInputValidationView {
+    pub tool_name: String,
+    pub schema_uri: String,
+    pub valid: bool,
+    pub normalized_input: Value,
+    pub action: Option<String>,
+    pub action_schema_uri: Option<String>,
+    pub summary: String,
+    #[serde(default)]
+    pub issues: Vec<ToolValidationIssueView>,
+    #[serde(default)]
+    pub example_inputs: Vec<Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

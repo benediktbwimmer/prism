@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use prism_ir::new_prefixed_id;
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind, MemoryScope,
 };
@@ -102,9 +103,9 @@ pub(super) fn backfill_event_log_if_needed(conn: &Connection) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
     let legacy_entries = load_entries_tx(&tx)?;
     if !legacy_entries.is_empty() {
-        for (index, entry) in legacy_entries.into_iter().enumerate() {
+        for entry in legacy_entries {
             let event = MemoryEvent {
-                id: format!("memory-event:migrated-entry-log:{}", index + 1),
+                id: new_prefixed_id("memory-event").to_string(),
                 action: MemoryEventKind::Stored,
                 memory_id: entry.id.clone(),
                 scope: entry.scope,
@@ -125,9 +126,9 @@ pub(super) fn backfill_event_log_if_needed(conn: &Connection) -> Result<()> {
         return Ok(());
     };
 
-    for (index, entry) in snapshot.entries.into_iter().enumerate() {
+    for entry in snapshot.entries {
         let event = MemoryEvent {
-            id: format!("memory-event:migrated-snapshot:{}", index + 1),
+            id: new_prefixed_id("memory-event").to_string(),
             action: MemoryEventKind::Stored,
             memory_id: entry.id.clone(),
             scope: entry.scope,

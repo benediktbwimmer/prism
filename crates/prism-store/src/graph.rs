@@ -4,8 +4,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use prism_ir::{
-    ChangeTrigger, Edge, EdgeIndex, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta, FileId,
-    GraphChange, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode,
+    new_prefixed_id, ChangeTrigger, Edge, EdgeIndex, EdgeKind, EdgeOrigin, EventActor, EventId,
+    EventMeta, FileId, GraphChange, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode,
 };
 use prism_parser::{
     NodeFingerprint, UnresolvedCall, UnresolvedImpl, UnresolvedImport, UnresolvedIntent,
@@ -925,9 +925,9 @@ fn edge_key(edge: &Edge) -> (EdgeKind, NodeId, NodeId, u8, u32) {
 }
 
 fn default_event_meta() -> EventMeta {
-    let sequence = NEXT_OBSERVED_EVENT_ID.fetch_add(1, Ordering::Relaxed);
+    NEXT_OBSERVED_EVENT_ID.fetch_add(1, Ordering::Relaxed);
     EventMeta {
-        id: EventId::new(format!("observed:{sequence}")),
+        id: EventId::new(new_prefixed_id("observed")),
         ts: current_timestamp(),
         actor: EventActor::System,
         correlation: None,

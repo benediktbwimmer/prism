@@ -128,7 +128,8 @@ const MEMORY_RESOURCE_TEMPLATE_URI: &str = "prism://memory/{memoryId}";
 const EDGE_RESOURCE_TEMPLATE_URI: &str = "prism://edge/{edgeId}";
 const SCHEMA_RESOURCE_TEMPLATE_URI: &str = "prism://schema/{resourceKind}";
 const TOOL_SCHEMA_RESOURCE_TEMPLATE_URI: &str = "prism://schema/tool/{toolName}";
-static NEXT_SESSION_ID: AtomicU64 = AtomicU64::new(1);
+const TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI: &str =
+    "prism://schema/tool/{toolName}/action/{action}";
 static WORKSPACE_RUNTIME_SYNC_LOCKS: OnceLock<Mutex<HashMap<PathBuf, Weak<Mutex<()>>>>> =
     OnceLock::new();
 
@@ -438,7 +439,6 @@ struct QueryHost {
     notes: Arc<SessionMemory>,
     inferred_edges: Arc<InferenceStore>,
     next_event: Arc<AtomicU64>,
-    next_task: Arc<AtomicU64>,
     default_limits: QueryLimits,
     worker_pool: Arc<JsWorkerPool>,
     query_log_store: Arc<QueryLogStore>,
@@ -516,8 +516,7 @@ impl QueryHost {
             prism: prism.clone(),
             notes: Arc::new(SessionMemory::new()),
             inferred_edges: Arc::new(InferenceStore::new()),
-            next_event: Arc::new(AtomicU64::new(max_event_sequence(prism.as_ref()))),
-            next_task: Arc::new(AtomicU64::new(max_task_sequence(prism.as_ref()))),
+            next_event: Arc::new(AtomicU64::new(0)),
             default_limits: limits,
             worker_pool: Arc::new(worker_pool),
             query_log_store: Arc::new(QueryLogStore::default()),
@@ -592,8 +591,7 @@ impl QueryHost {
             prism: Arc::clone(&prism),
             notes,
             inferred_edges,
-            next_event: Arc::new(AtomicU64::new(max_event_sequence(prism.as_ref()))),
-            next_task: Arc::new(AtomicU64::new(max_task_sequence(prism.as_ref()))),
+            next_event: Arc::new(AtomicU64::new(0)),
             default_limits: limits,
             worker_pool: Arc::new(worker_pool),
             query_log_store,
@@ -616,7 +614,6 @@ impl QueryHost {
             Arc::clone(&self.notes),
             Arc::clone(&self.inferred_edges),
             Arc::clone(&self.next_event),
-            Arc::clone(&self.next_task),
             self.default_limits,
         ))
     }

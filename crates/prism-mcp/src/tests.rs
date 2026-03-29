@@ -590,11 +590,12 @@ fn coordination_mutations_flow_through_query_runtime() {
         host.current_prism(),
         host.begin_query_run(test_session(&host).as_ref(), "test", "dispatch plan"),
     );
+    let plan_id = plan.state["id"].as_str().unwrap();
     let plan_value = execution
-        .dispatch("plan", r#"{ "planId": "plan:1" }"#)
+        .dispatch("plan", &json!({ "planId": plan_id }).to_string())
         .unwrap();
     let ready_value = execution
-        .dispatch("readyTasks", r#"{ "planId": "plan:1" }"#)
+        .dispatch("readyTasks", &json!({ "planId": plan_id }).to_string())
         .unwrap();
     let claims_value = execution
             .dispatch(
@@ -609,7 +610,7 @@ fn coordination_mutations_flow_through_query_runtime() {
             )
             .unwrap_or_else(|error| panic!("simulateClaim dispatch failed: {error:#}"));
     let artifacts_value = execution
-        .dispatch("artifacts", r#"{ "taskId": "coord-task:1" }"#)
+        .dispatch("artifacts", &json!({ "taskId": task_id }).to_string())
         .unwrap();
     assert_eq!(plan_value["goal"], "Ship coordination");
     assert_eq!(ready_value.as_array().unwrap().len(), 1);
@@ -840,13 +841,13 @@ fn plan_node_mutations_return_graph_native_views() {
     assert_eq!(updated.state["isAbstract"], false);
     assert_eq!(updated.state["priority"], 7);
     assert_eq!(updated.state["tags"], json!(["review", "validation"]));
-    assert_eq!(
-        updated.state["bindings"]["anchors"]
-            .as_array()
-            .unwrap()
-            .len(),
-        1
-    );
+    let binding_anchors = updated.state["bindings"]["anchors"]
+        .as_array()
+        .unwrap();
+    assert_eq!(binding_anchors.len(), 2);
+    assert!(binding_anchors.iter().any(
+        |anchor| anchor["Node"]["path"] == "demo::main" && anchor["Node"]["kind"] == "Function"
+    ));
     assert_eq!(
         updated.state["bindings"]["artifactRefs"][0],
         review_artifact.artifact_id.as_deref().unwrap()
@@ -1556,15 +1557,16 @@ fn plan_query_reads_surface_native_ready_nodes_and_blockers() {
         .iter()
         .map(|node| node["id"].as_str().unwrap().to_string())
         .collect::<Vec<_>>();
-    assert_eq!(
-        ready_ids,
-        vec![
-            dependency_id.clone(),
-            validator_id.clone(),
-            handoff_source_id.clone(),
-            free_id,
-        ]
-    );
+    let mut ready_ids = ready_ids;
+    ready_ids.sort();
+    let mut expected_ready_ids = vec![
+        dependency_id.clone(),
+        validator_id.clone(),
+        handoff_source_id.clone(),
+        free_id,
+    ];
+    expected_ready_ids.sort();
+    assert_eq!(ready_ids, expected_ready_ids);
 
     let blocked_kinds = blocked_node_blockers
         .as_array()
@@ -2423,6 +2425,38 @@ async fn mcp_server_lists_and_reads_tool_schema_resources() {
         "start_task"
     );
 
+    client
+        .send(read_resource_request(
+            6,
+            "prism://schema/tool/prism_mutate/action/coordination",
+        ))
+        .await
+        .unwrap();
+    let action_schema = response_json(client.receive().await.unwrap());
+    let action_schema_text = action_schema["result"]["contents"][0]["text"]
+        .as_str()
+        .unwrap_or_else(|| panic!("tool action schema should be text: {action_schema:#?}"));
+    let action_schema_payload = serde_json::from_str::<Value>(action_schema_text).unwrap();
+    assert_eq!(
+        action_schema_payload["$id"],
+        "prism://schema/tool/prism_mutate/action/coordination"
+    );
+    assert_eq!(
+        action_schema_payload["title"],
+        "PRISM Tool Action Schema: prism_mutate.coordination"
+    );
+    assert_eq!(
+        action_schema_payload["properties"]["payload"]["oneOf"]
+            .as_array()
+            .map(|variants| variants.len()),
+        Some(10)
+    );
+    assert!(action_schema_payload["examples"]
+        .as_array()
+        .expect("action schema examples")
+        .iter()
+        .any(|example| example["input"]["kind"] == "task_create"));
+
     running.cancel().await.unwrap();
 }
 
@@ -3032,9 +3066,8 @@ async fn mcp_server_reports_actionable_tool_input_errors() {
     assert!(
         message.contains("required fields: context, prismSaid, actuallyTrue, category, verdict")
     );
-    assert!(message.contains(
-        "Inspect via prism.tool(\"prism_mutate\")?.actions.find((action) => action.action === \"validation_feedback\")"
-    ));
+    assert!(message.contains("prism.validateToolInput(\"prism_mutate\", <input>)"));
+    assert!(message.contains("prism://schema/tool/prism_mutate/action/validation_feedback"));
 
     running.cancel().await.unwrap();
 }
@@ -5836,11 +5869,24 @@ fn prism_tool_queries_surface_schema_actions_and_examples() {
 const tools = prism.tools();
 const mutate = prism.tool("prism_mutate");
 const validationFeedback = mutate?.actions.find((action) => action.action === "validation_feedback");
+const coordination = mutate?.actions.find((action) => action.action === "coordination");
+const validation = prism.validateToolInput("prism_mutate", {
+  action: "coordination",
+  kind: "task_create",
+  payload: { title: "Missing plan id" },
+});
 const missing = prism.tool("bogus_tool");
 return {
-  tools,
-  mutate,
+  toolNames: tools.map((tool) => tool.toolName),
+  mutateSummary: mutate ? {
+    toolName: mutate.toolName,
+    actionCount: mutate.actions.length,
+    exampleAction: mutate.exampleInput?.action,
+    examplePrismSaid: mutate.exampleInput?.input?.prismSaid,
+  } : null,
   validationFeedback,
+  coordination,
+  validation,
   missing,
 };
 "#,
@@ -5848,26 +5894,19 @@ return {
         )
         .expect("tool schema query should succeed");
 
-    let tools = result.result["tools"].as_array().expect("tool catalog");
-    assert_eq!(tools.len(), 10);
-    assert!(tools.iter().any(|tool| tool["toolName"] == "prism_locate"));
-    assert!(tools
-        .iter()
-        .any(|tool| tool["toolName"] == "prism_task_brief"));
-    assert!(tools.iter().any(|tool| tool["toolName"] == "prism_concept"));
-    assert!(tools.iter().any(|tool| tool["toolName"] == "prism_mutate"));
-    assert!(tools
-        .iter()
-        .any(|tool| tool["exampleInput"]["action"] == "validation_feedback"));
+    let tool_names = result.result["toolNames"].as_array().expect("tool catalog");
+    assert_eq!(tool_names.len(), 10);
+    assert!(tool_names.iter().any(|tool| tool == "prism_locate"));
+    assert!(tool_names.iter().any(|tool| tool == "prism_task_brief"));
+    assert!(tool_names.iter().any(|tool| tool == "prism_concept"));
+    assert!(tool_names.iter().any(|tool| tool == "prism_mutate"));
 
-    let mutate = &result.result["mutate"];
+    let mutate = &result.result["mutateSummary"];
     assert_eq!(mutate["toolName"], "prism_mutate");
+    assert_eq!(mutate["actionCount"], 17);
+    assert_eq!(mutate["exampleAction"], "validation_feedback");
     assert_eq!(
-        mutate["actions"].as_array().map(|items| items.len()),
-        Some(17)
-    );
-    assert_eq!(
-        mutate["exampleInput"]["input"]["prismSaid"],
+        mutate["examplePrismSaid"],
         "Search result ordering was helpful."
     );
 
@@ -5927,6 +5966,64 @@ return {
     assert!(anchors_field["schema"]
         .to_string()
         .contains("\"properties\""));
+
+    assert_eq!(
+        validation_feedback["schemaUri"],
+        "prism://schema/tool/prism_mutate/action/validation_feedback"
+    );
+
+    let coordination = &result.result["coordination"];
+    assert_eq!(
+        coordination["schemaUri"],
+        "prism://schema/tool/prism_mutate/action/coordination"
+    );
+    assert_eq!(coordination["payloadDiscriminator"], "kind");
+    let payload_variants = coordination["payloadVariants"]
+        .as_array()
+        .expect("payload variants");
+    assert_eq!(payload_variants.len(), 10);
+    let task_create_variant = payload_variants
+        .iter()
+        .find(|variant| variant["tag"] == "task_create")
+        .expect("task_create variant should exist");
+    assert_eq!(
+        task_create_variant["requiredFields"]
+            .as_array()
+            .expect("required fields")
+            .iter()
+            .filter_map(|value| value.as_str())
+            .collect::<Vec<_>>(),
+        vec!["planId", "title"]
+    );
+    assert_eq!(
+        task_create_variant["exampleInput"]["planId"],
+        "plan:demo-main"
+    );
+
+    let validation = &result.result["validation"];
+    assert_eq!(validation["toolName"], "prism_mutate");
+    assert_eq!(validation["valid"], false);
+    assert_eq!(validation["action"], "coordination");
+    assert_eq!(
+        validation["actionSchemaUri"],
+        "prism://schema/tool/prism_mutate/action/coordination"
+    );
+    assert_eq!(
+        validation["normalizedInput"],
+        json!({
+            "action": "coordination",
+            "input": {
+                "kind": "task_create",
+                "payload": {
+                    "title": "Missing plan id"
+                }
+            }
+        })
+    );
+    assert!(validation["summary"]
+        .as_str()
+        .is_some_and(|summary| summary.contains("input.payload.planId")));
+    assert_eq!(validation["issues"][0]["path"], "input.payload.planId");
 
     assert!(result.result["missing"].is_null());
 }
@@ -15556,7 +15653,8 @@ fn plans_resource_payload_surfaces_filters_and_root_nodes() {
         .unwrap();
     let plan_id = plan.state["id"].as_str().unwrap().to_string();
 
-    host.store_coordination(
+    let root_node = host
+        .store_coordination(
         test_session(&host).as_ref(),
         PrismCoordinationArgs {
             kind: CoordinationMutationKindInput::PlanNodeCreate,
@@ -15581,7 +15679,10 @@ fn plans_resource_payload_surfaces_filters_and_root_nodes() {
         .related_resources
         .iter()
         .any(|link| link.uri == "prism://plans?contains=persistence"));
-    assert_eq!(payload.plans[0].root_node_ids, vec!["coord-task:1"]);
+    assert_eq!(
+        payload.plans[0].root_node_ids,
+        vec![root_node.state["id"].as_str().unwrap()]
+    );
 }
 
 #[test]

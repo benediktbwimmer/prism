@@ -1,7 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use prism_ir::NodeId;
-use prism_query::Prism;
 use rmcp::{model::*, ErrorData as McpError};
 use serde_json::json;
 
@@ -63,25 +62,4 @@ pub(crate) fn current_timestamp() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs()
-}
-
-pub(crate) fn max_event_sequence(prism: &Prism) -> u64 {
-    prism
-        .outcome_snapshot()
-        .events
-        .into_iter()
-        .filter_map(|event| event.meta.id.0.rsplit(':').next()?.parse::<u64>().ok())
-        .max()
-        .unwrap_or(0)
-}
-
-pub(crate) fn max_task_sequence(prism: &Prism) -> u64 {
-    prism
-        .outcome_snapshot()
-        .events
-        .into_iter()
-        .filter_map(|event| event.meta.correlation)
-        .map(|task| task.0.to_string())
-        .collect::<std::collections::BTreeSet<_>>()
-        .len() as u64
 }

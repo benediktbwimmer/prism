@@ -4,14 +4,15 @@ use crate::{
     capabilities_resource_uri, capabilities_resource_view_link, resource_example_uri,
     resource_link_view, resource_schema_catalog_entries, schema_resource_uri,
     schema_resource_view_link, search_resource_view_link_with_options, session_resource_view_link,
-    tool_schema_catalog_entries, tool_schema_resource_uri, tool_schemas_resource_view_link,
-    workspace_revision_view, CapabilitiesBuildInfoView, CapabilitiesResourcePayload,
-    FeatureFlagsView, PrismMcpFeatures, QueryHost, QueryMethodCapabilityView,
-    ResourceCapabilityView, ResourceTemplateCapabilityView, ToolCapabilityView, API_REFERENCE_URI,
-    CAPABILITIES_URI, EDGE_RESOURCE_TEMPLATE_URI, ENTRYPOINTS_RESOURCE_TEMPLATE_URI,
-    EVENT_RESOURCE_TEMPLATE_URI, LINEAGE_RESOURCE_TEMPLATE_URI, MEMORY_RESOURCE_TEMPLATE_URI,
-    PLANS_RESOURCE_TEMPLATE_URI, PLANS_URI, SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI,
-    SYMBOL_RESOURCE_TEMPLATE_URI, TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI,
+    tool_action_schema_resource_uri, tool_schema_catalog_entries, tool_schema_resource_uri,
+    tool_schemas_resource_view_link, workspace_revision_view, CapabilitiesBuildInfoView,
+    CapabilitiesResourcePayload, FeatureFlagsView, PrismMcpFeatures, QueryHost,
+    QueryMethodCapabilityView, ResourceCapabilityView, ResourceTemplateCapabilityView,
+    ToolCapabilityView, API_REFERENCE_URI, CAPABILITIES_URI, EDGE_RESOURCE_TEMPLATE_URI,
+    ENTRYPOINTS_RESOURCE_TEMPLATE_URI, EVENT_RESOURCE_TEMPLATE_URI, LINEAGE_RESOURCE_TEMPLATE_URI,
+    MEMORY_RESOURCE_TEMPLATE_URI, PLANS_RESOURCE_TEMPLATE_URI, PLANS_URI, SCHEMAS_URI,
+    SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI, SYMBOL_RESOURCE_TEMPLATE_URI,
+    TASK_RESOURCE_TEMPLATE_URI, TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI,
     TOOL_SCHEMA_RESOURCE_TEMPLATE_URI, VOCAB_URI,
 };
 
@@ -150,6 +151,12 @@ fn query_method_specs() -> Vec<(
             "core",
             None,
             "Inspect one PRISM MCP tool schema, its action variants, required fields, and example input.",
+        ),
+        (
+            "validateToolInput",
+            "core",
+            None,
+            "Validate a PRISM MCP tool payload, normalize tagged shorthand, and return actionable issues plus exact schema URIs.",
         ),
         (
             "entrypoints",
@@ -635,6 +642,16 @@ fn resource_template_capabilities() -> Vec<ResourceTemplateCapabilityView> {
             mime_type: "application/schema+json".to_string(),
             description: "Read a JSON Schema for a PRISM MCP tool input payload.".to_string(),
             example_uri: Some(tool_schema_resource_uri("prism_query")),
+        },
+        ResourceTemplateCapabilityView {
+            name: "PRISM Tool Action Schema".to_string(),
+            uri_template: TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI.to_string(),
+            mime_type: "application/schema+json".to_string(),
+            description: "Read an exact JSON Schema for one tagged PRISM MCP tool action.".to_string(),
+            example_uri: Some(tool_action_schema_resource_uri(
+                "prism_mutate",
+                "validation_feedback",
+            )),
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Search".to_string(),

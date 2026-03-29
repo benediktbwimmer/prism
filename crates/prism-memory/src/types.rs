@@ -1,9 +1,8 @@
 use anyhow::Result;
-use prism_ir::{AnchorRef, EventMeta, LineageEvent, TaskId, Timestamp};
+use prism_ir::{new_prefixed_id, AnchorRef, EventMeta, LineageEvent, TaskId, Timestamp};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::common::current_timestamp;
 
@@ -222,9 +221,5 @@ pub trait MemoryModule: Send + Sync {
 }
 
 fn next_memory_event_id() -> String {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("system clock should be after unix epoch")
-        .as_nanos();
-    format!("memory-event:{nanos}")
+    new_prefixed_id("memory-event").to_string()
 }

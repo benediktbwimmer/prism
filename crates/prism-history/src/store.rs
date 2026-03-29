@@ -1,7 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use prism_ir::{
-    EventId, EventMeta, LineageEvent, LineageId, NodeId, ObservedChangeSet, ObservedNode,
+    new_prefixed_id, new_sortable_token, EventId, EventMeta, LineageEvent, LineageId, NodeId,
+    ObservedChangeSet, ObservedNode,
 };
 
 use crate::resolver::resolve_change_set;
@@ -251,7 +252,8 @@ impl HistoryStore {
             meta: EventMeta {
                 id: EventId::new(format!(
                     "{}:lineage:{}",
-                    change_set.meta.id.0, self.next_event
+                    change_set.meta.id.0,
+                    new_sortable_token()
                 )),
                 ts: change_set.meta.ts,
                 actor: change_set.meta.actor.clone(),
@@ -269,7 +271,7 @@ impl HistoryStore {
 
     pub(crate) fn alloc_lineage(&mut self) -> LineageId {
         self.next_lineage += 1;
-        LineageId::new(format!("lineage:{}", self.next_lineage))
+        LineageId::new(new_prefixed_id("lineage"))
     }
 
     pub(crate) fn record_co_changes(&mut self, events: &[LineageEvent]) {

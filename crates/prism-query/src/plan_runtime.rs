@@ -6,9 +6,9 @@ use prism_coordination::{
     AcceptanceCriterion, CoordinationPolicy, CoordinationSnapshot, CoordinationTask, Plan,
 };
 use prism_ir::{
-    AgentId, AnchorRef, CoordinationTaskId, PlanAcceptanceCriterion, PlanBinding, PlanEdge,
-    PlanEdgeId, PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanNode, PlanNodeBlocker,
-    PlanNodeBlockerKind, PlanNodeId, PlanNodeKind, PlanNodeStatus, ValidationRef,
+    new_prefixed_id, AgentId, AnchorRef, CoordinationTaskId, PlanAcceptanceCriterion, PlanBinding,
+    PlanEdge, PlanEdgeId, PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanNode,
+    PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId, PlanNodeKind, PlanNodeStatus, ValidationRef,
     WorkspaceRevision,
 };
 use serde_json::Value;
@@ -222,7 +222,7 @@ impl NativePlanRuntimeState {
         let depends_on = dedupe_string_ids(depends_on);
         self.validate_dependency_targets(plan_id, &depends_on)?;
         self.next_task += 1;
-        let node_id = PlanNodeId::new(format!("coord-task:{}", self.next_task));
+        let node_id = PlanNodeId::new(new_prefixed_id("coord-task"));
         let graph = self
             .graphs
             .get_mut(plan_id.0.as_str())

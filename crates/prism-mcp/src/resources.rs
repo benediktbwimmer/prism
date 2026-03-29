@@ -158,7 +158,19 @@ pub(crate) fn parse_tool_schema_resource_uri(uri: &str) -> Option<String> {
     let (base, _) = split_resource_uri(uri);
     base.strip_prefix("prism://schema/tool/")
         .map(percent_decode_lossy)
-        .filter(|tool_name| !tool_name.trim().is_empty())
+        .filter(|tool_name| !tool_name.trim().is_empty() && !tool_name.contains("/action/"))
+}
+
+pub(crate) fn parse_tool_action_schema_resource_uri(uri: &str) -> Option<(String, String)> {
+    let (base, _) = split_resource_uri(uri);
+    let rest = base.strip_prefix("prism://schema/tool/")?;
+    let (tool_name, action) = rest.split_once("/action/")?;
+    let tool_name = percent_decode_lossy(tool_name);
+    let action = percent_decode_lossy(action);
+    if tool_name.trim().is_empty() || action.trim().is_empty() {
+        return None;
+    }
+    Some((tool_name, action))
 }
 
 pub(crate) fn paginate_items<T>(items: Vec<T>, request: ResourcePageRequest) -> PageSlice<T> {
@@ -347,6 +359,14 @@ pub(crate) fn tool_schema_resource_uri(tool_name: &str) -> String {
     format!(
         "prism://schema/tool/{}",
         percent_encode_component(tool_name)
+    )
+}
+
+pub(crate) fn tool_action_schema_resource_uri(tool_name: &str, action: &str) -> String {
+    format!(
+        "prism://schema/tool/{}/action/{}",
+        percent_encode_component(tool_name),
+        percent_encode_component(action)
     )
 }
 
@@ -611,6 +631,17 @@ pub(crate) fn tool_schema_resource_view_link(tool_name: &str) -> ResourceLinkVie
         tool_schema_resource_uri(tool_name),
         format!("PRISM Tool Schema: {tool_name}"),
         format!("JSON Schema for the `{tool_name}` tool input payload"),
+    )
+}
+
+pub(crate) fn tool_action_schema_resource_view_link(
+    tool_name: &str,
+    action: &str,
+) -> ResourceLinkView {
+    resource_link_view(
+        tool_action_schema_resource_uri(tool_name, action),
+        format!("PRISM Tool Action Schema: {tool_name}.{action}"),
+        format!("Exact action schema for `{tool_name}` action `{action}`"),
     )
 }
 
