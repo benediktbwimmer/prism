@@ -710,7 +710,7 @@ pub(crate) struct PrismOpenArgs {
     )]
     pub(crate) path: Option<String>,
     #[schemars(
-        description = "Open mode: `focus` for a bounded local block, `edit` for an edit-oriented slice, or `raw` for the literal file window covering the target span. Path-based opens currently support only `raw`."
+        description = "Open mode: `focus` for a bounded local block, `edit` for an edit-oriented slice, or `raw` for the literal file window covering the target span. Path-based opens support `raw`, and also support `edit` when `line` is provided so PRISM can center an edit-ready window."
     )]
     pub(crate) mode: Option<PrismOpenModeInput>,
     #[schemars(

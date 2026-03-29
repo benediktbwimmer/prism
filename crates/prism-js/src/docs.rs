@@ -325,6 +325,8 @@ type PrismApi = {
   taskRisk(taskId: string): TaskRiskView | null;
   repoPlaybook(): RepoPlaybookView;
   validationPlan(input: { taskId?: string; target?: QueryTarget; paths?: string[] }): ValidationPlanView;
+  impact(input: { taskId?: string; target?: QueryTarget; paths?: string[] }): ImpactView;
+  afterEdit(input?: { taskId?: string; target?: QueryTarget; paths?: string[] }): AfterEditView;
   artifactRisk(artifactId: string): ArtifactRiskView | null;
   taskIntent(taskId: string): TaskIntentView | null;
   coordinationInbox(planId: string): CoordinationInboxView;
@@ -846,6 +848,48 @@ type ValidationPlanView = {
   fast: ValidationPlanCheckView[];
   broader: ValidationPlanCheckView[];
   relatedTargets: NodeId[];
+  notes: string[];
+};
+
+type QueryViewSubjectView = {
+  kind: string;
+  taskId?: string;
+  target?: NodeId;
+  paths: string[];
+  unresolvedPaths: string[];
+};
+
+type QueryRecommendationView = {
+  kind: string;
+  label: string;
+  why: string;
+  provenance: QueryEvidenceView[];
+  target?: NodeId;
+  path?: string;
+  score?: number;
+  lastSeen?: number;
+};
+
+type QueryRiskHintView = {
+  summary: string;
+  why: string;
+  provenance: QueryEvidenceView[];
+};
+
+type ImpactView = {
+  subject: QueryViewSubjectView;
+  downstream: QueryRecommendationView[];
+  risks: QueryRiskHintView[];
+  recommendedChecks: QueryRecommendationView[];
+  notes: string[];
+};
+
+type AfterEditView = {
+  subject: QueryViewSubjectView;
+  nextReads: QueryRecommendationView[];
+  tests: QueryRecommendationView[];
+  docs: QueryRecommendationView[];
+  riskChecks: QueryRecommendationView[];
   notes: string[];
 };
 

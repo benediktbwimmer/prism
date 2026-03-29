@@ -643,14 +643,9 @@ impl PrismMcpServer {
                 Some(json!({ "field": "path" })),
             ));
         }
-        if has_path
-            && matches!(
-                args.mode,
-                Some(PrismOpenModeInput::Focus | PrismOpenModeInput::Edit)
-            )
-        {
+        if has_path && matches!(args.mode, Some(PrismOpenModeInput::Focus)) {
             return Err(McpError::invalid_params(
-                "path-based prism_open currently supports only raw mode",
+                "path-based prism_open currently supports raw mode, or edit mode when `line` is set",
                 Some(json!({ "field": "mode" })),
             ));
         }

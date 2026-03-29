@@ -793,6 +793,66 @@ pub struct ValidationPlanView {
     pub notes: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct QueryViewSubjectView {
+    pub kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub task_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target: Option<NodeIdView>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub paths: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unresolved_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct QueryRecommendationView {
+    pub kind: String,
+    pub label: String,
+    pub why: String,
+    pub provenance: Vec<QueryEvidenceView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target: Option<NodeIdView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub score: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_seen: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct QueryRiskHintView {
+    pub summary: String,
+    pub why: String,
+    pub provenance: Vec<QueryEvidenceView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ImpactView {
+    pub subject: QueryViewSubjectView,
+    pub downstream: Vec<QueryRecommendationView>,
+    pub risks: Vec<QueryRiskHintView>,
+    pub recommended_checks: Vec<QueryRecommendationView>,
+    pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct AfterEditView {
+    pub subject: QueryViewSubjectView,
+    pub next_reads: Vec<QueryRecommendationView>,
+    pub tests: Vec<QueryRecommendationView>,
+    pub docs: Vec<QueryRecommendationView>,
+    pub risk_checks: Vec<QueryRecommendationView>,
+    pub notes: Vec<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ConceptDecodeLensView {

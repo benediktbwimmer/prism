@@ -389,6 +389,56 @@ fn prism_new_query_views_follow_independent_runtime_feature_flags() {
         )
         .expect_err("repoPlaybook should stay hidden when disabled");
     assert!(playbook_disabled.to_string().contains("not a function"));
+
+    let impact_only = QueryHost::with_session_and_limits_and_features(
+        index_workspace_session(&root).unwrap(),
+        QueryLimits::default(),
+        PrismMcpFeatures::full().with_query_view(QueryViewFeatureFlag::Impact, true),
+    );
+    let impact = impact_only
+        .execute(
+            test_session(&impact_only),
+            r#"return prism.impact({ paths: ["src/recall.rs"] });"#,
+            QueryLanguage::Ts,
+        )
+        .expect("impact should succeed when enabled");
+    assert_eq!(impact.result["subject"]["kind"], "pathSet");
+    assert!(impact.result["recommendedChecks"]
+        .as_array()
+        .is_some_and(|checks| !checks.is_empty()));
+    let after_edit_disabled = impact_only
+        .execute(
+            test_session(&impact_only),
+            r#"return prism.afterEdit({ paths: ["src/recall.rs"] });"#,
+            QueryLanguage::Ts,
+        )
+        .expect_err("afterEdit should stay hidden when disabled");
+    assert!(after_edit_disabled.to_string().contains("not a function"));
+
+    let after_edit_only = QueryHost::with_session_and_limits_and_features(
+        index_workspace_session(&root).unwrap(),
+        QueryLimits::default(),
+        PrismMcpFeatures::full().with_query_view(QueryViewFeatureFlag::AfterEdit, true),
+    );
+    let after_edit = after_edit_only
+        .execute(
+            test_session(&after_edit_only),
+            r#"return prism.afterEdit({ paths: ["src/recall.rs"] });"#,
+            QueryLanguage::Ts,
+        )
+        .expect("afterEdit should succeed when enabled");
+    assert_eq!(after_edit.result["subject"]["kind"], "pathSet");
+    assert!(after_edit.result["tests"]
+        .as_array()
+        .is_some_and(|checks| !checks.is_empty()));
+    let impact_disabled = after_edit_only
+        .execute(
+            test_session(&after_edit_only),
+            r#"return prism.impact({ paths: ["src/recall.rs"] });"#,
+            QueryLanguage::Ts,
+        )
+        .expect_err("impact should stay hidden when disabled");
+    assert!(impact_disabled.to_string().contains("not a function"));
 }
 
 #[test]
@@ -474,6 +524,96 @@ return {
         .expect("stats should be array");
     assert!(stats.iter().any(|entry| entry["key"] == "repoPlaybook"));
     assert!(stats.iter().any(|entry| entry["key"] == "validationPlan"));
+}
+
+#[test]
+fn prism_impact_and_after_edit_views_return_explainable_results_and_log_by_name() {
+    let root = temp_workspace();
+    write_long_excerpt_workspace(&root);
+    fs::write(
+        root.join("AGENTS.md"),
+        "- `cargo build --release -p prism-cli -p prism-mcp`\n- `./target/release/prism-cli mcp restart --internal-developer`\n- `./target/release/prism-cli mcp status`\n- `./target/release/prism-cli mcp health`\n",
+    )
+    .unwrap();
+
+    let host = QueryHost::with_session_and_limits_and_features(
+        index_workspace_session(&root).unwrap(),
+        QueryLimits::default(),
+        PrismMcpFeatures::full()
+            .with_internal_developer(true)
+            .with_query_view(QueryViewFeatureFlag::Impact, true)
+            .with_query_view(QueryViewFeatureFlag::AfterEdit, true),
+    );
+
+    let impact = host
+        .execute(
+            test_session(&host),
+            r#"return prism.impact({ paths: ["src/recall.rs"] });"#,
+            QueryLanguage::Ts,
+        )
+        .expect("impact should succeed");
+    assert_eq!(impact.result["subject"]["kind"], "pathSet");
+    assert!(impact.result["downstream"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(impact.result["recommendedChecks"][0]["why"]
+        .as_str()
+        .is_some_and(|why| !why.is_empty()));
+    assert!(impact.result["recommendedChecks"][0]["provenance"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+
+    let after_edit = host
+        .execute(
+            test_session(&host),
+            r#"return prism.afterEdit({ paths: ["src/recall.rs"] });"#,
+            QueryLanguage::Ts,
+        )
+        .expect("afterEdit should succeed");
+    assert_eq!(after_edit.result["subject"]["kind"], "pathSet");
+    assert!(after_edit.result["nextReads"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(after_edit.result["tests"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(after_edit.result["docs"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+    assert!(after_edit.result["nextReads"][0]["why"]
+        .as_str()
+        .is_some_and(|why| !why.is_empty()));
+    assert!(after_edit.result["nextReads"][0]["provenance"]
+        .as_array()
+        .is_some_and(|items| !items.is_empty()));
+
+    let result = host
+        .execute(
+            test_session(&host),
+            r#"
+const entries = prism.queryLog({ limit: 10 })
+  .filter((entry) => entry.viewName === "impact" || entry.viewName === "afterEdit")
+  .map((entry) => entry.viewName);
+return {
+  entries,
+  stats: prism.mcpStats({ callType: "tool", name: "prism_query" }).byViewName
+    .filter((entry) => entry.key === "impact" || entry.key === "afterEdit"),
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query log lookup should succeed");
+
+    let entries = result.result["entries"]
+        .as_array()
+        .expect("entries should be array");
+    assert!(entries.iter().any(|entry| entry == "impact"));
+    assert!(entries.iter().any(|entry| entry == "afterEdit"));
+    let stats = result.result["stats"]
+        .as_array()
+        .expect("stats should be array");
+    assert!(stats.iter().any(|entry| entry["key"] == "impact"));
+    assert!(stats.iter().any(|entry| entry["key"] == "afterEdit"));
 }
 
 #[test]

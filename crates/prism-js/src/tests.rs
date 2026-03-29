@@ -99,6 +99,12 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains(
         "validationPlan(input: { taskId?: string; target?: QueryTarget; paths?: string[] }): ValidationPlanView;"
     ));
+    assert!(docs.contains(
+        "impact(input: { taskId?: string; target?: QueryTarget; paths?: string[] }): ImpactView;"
+    ));
+    assert!(docs.contains(
+        "afterEdit(input?: { taskId?: string; target?: QueryTarget; paths?: string[] }): AfterEditView;"
+    ));
     assert!(docs.contains("editSlice(options?: EditSliceOptions)"));
     assert!(docs.contains("relativeFocus"));
     assert!(docs.contains("type SearchTextOptions = {"));
@@ -168,6 +174,11 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("type QueryEvidenceView = {"));
     assert!(docs.contains("type RepoPlaybookView = {"));
     assert!(docs.contains("type ValidationPlanView = {"));
+    assert!(docs.contains("type QueryViewSubjectView = {"));
+    assert!(docs.contains("type QueryRecommendationView = {"));
+    assert!(docs.contains("type QueryRiskHintView = {"));
+    assert!(docs.contains("type ImpactView = {"));
+    assert!(docs.contains("type AfterEditView = {"));
     assert!(docs.contains("kind: \"toml-key\""));
     assert!(docs.contains("read(options?: FileReadOptions): SourceExcerptView;"));
     assert!(docs.contains("around(options: FileAroundOptions): SourceSliceView;"));

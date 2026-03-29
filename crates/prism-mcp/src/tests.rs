@@ -7897,6 +7897,66 @@ async fn mcp_server_maps_prism_query_user_errors_to_invalid_params_like_compact_
     running.cancel().await.unwrap();
 }
 
+#[tokio::test]
+async fn mcp_server_allows_path_based_prism_open_edit_mode_when_line_is_provided() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        concat!(
+            "pub fn alpha() {}\n",
+            "pub fn beta() {\n",
+            "    let value = 42;\n",
+            "    let doubled = value * 2;\n",
+            "    let tripled = doubled + value;\n",
+            "    println!(\"{tripled}\");\n",
+            "}\n",
+        ),
+    )
+    .unwrap();
+    let server = PrismMcpServer::with_session(index_workspace_session(&root).unwrap());
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_open",
+            json!({
+                "path": "src/lib.rs",
+                "mode": "edit",
+                "line": 4,
+            })
+            .as_object()
+            .expect("tool args should be an object")
+            .clone(),
+        ))
+        .await
+        .unwrap();
+
+    let payload = first_tool_content_json(client.receive().await.unwrap());
+    assert!(payload["filePath"]
+        .as_str()
+        .is_some_and(|path| path.ends_with("/src/lib.rs")));
+    assert_eq!(payload["startLine"], 2);
+    assert_eq!(payload["endLine"], 7);
+    assert!(payload["text"]
+        .as_str()
+        .is_some_and(|text| text.contains("pub fn beta() {")));
+    assert!(payload["text"]
+        .as_str()
+        .is_some_and(|text| text.contains("println!(\"{tripled}\");")));
+
+    running.cancel().await.unwrap();
+}
+
 #[test]
 fn bundle_helpers_collapse_search_and_target_context_into_one_query() {
     let root = temp_workspace();

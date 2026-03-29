@@ -49,6 +49,8 @@ mod query_helpers;
 mod query_log;
 mod query_runtime;
 mod query_types;
+mod query_view_after_edit;
+mod query_view_impact;
 mod query_view_playbook;
 mod query_view_validation_plan;
 mod query_views;
