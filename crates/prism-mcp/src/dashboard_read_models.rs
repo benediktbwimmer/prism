@@ -1,5 +1,6 @@
 use anyhow::Result;
-use prism_ir::{ArtifactStatus, ClaimStatus, CoordinationTaskStatus, PlanStatus, TaskId};
+use prism_coordination::{ready_task_count_for_active_plans, CoordinationReadModel};
+use prism_ir::{ClaimStatus, TaskId};
 use prism_js::TaskJournalView;
 
 use crate::dashboard_types::{
@@ -76,57 +77,46 @@ impl QueryHost {
         }
 
         let prism = self.current_prism();
-        let snapshot = prism.coordination_snapshot();
         let now = current_timestamp();
-        let active_plan_ids = snapshot
-            .plans
+        let fallback_snapshot = prism.coordination_snapshot();
+        let read_model = self
+            .workspace
+            .as_ref()
+            .and_then(|workspace| workspace.load_coordination_read_model().ok().flatten())
+            .unwrap_or_else(|| fallback_coordination_read_model(&fallback_snapshot));
+        let ready_task_count =
+            ready_task_count_for_active_plans(&read_model.active_plans, |plan_id| {
+                prism.ready_tasks(plan_id, now).len()
+            });
+        let recent_pending_reviews = read_model
+            .pending_review_artifacts
             .iter()
-            .filter(|plan| plan.status == PlanStatus::Active)
-            .map(|plan| plan.id.clone())
-            .collect::<Vec<_>>();
-        let ready_task_count = active_plan_ids
-            .iter()
-            .map(|plan_id| prism.ready_tasks(plan_id, now).len())
-            .sum();
-        let pending_reviews = prism.pending_reviews(None);
-        let pending_review_count = pending_reviews.len();
-        let recent_pending_reviews = pending_reviews
-            .into_iter()
             .take(DASHBOARD_COORDINATION_REVIEW_LIMIT)
+            .cloned()
             .map(artifact_view)
             .collect();
-        let recent_violations = prism
-            .policy_violations(None, None, DASHBOARD_COORDINATION_VIOLATION_LIMIT)
-            .into_iter()
+        let recent_violations = read_model
+            .recent_violations
+            .iter()
+            .take(DASHBOARD_COORDINATION_VIOLATION_LIMIT)
+            .cloned()
             .map(policy_violation_record_view)
             .collect::<Vec<_>>();
+        let active_claim_count = read_model
+            .active_claims
+            .iter()
+            .filter(|claim| claim.status == ClaimStatus::Active && claim.expires_at > now)
+            .count();
 
         Ok(DashboardCoordinationSummaryView {
             enabled: true,
-            active_plan_count: active_plan_ids.len(),
-            task_count: snapshot.tasks.len(),
+            active_plan_count: read_model.active_plans.len(),
+            task_count: read_model.task_count,
             ready_task_count,
-            in_review_task_count: snapshot
-                .tasks
-                .iter()
-                .filter(|task| {
-                    matches!(
-                        task.status,
-                        CoordinationTaskStatus::InReview | CoordinationTaskStatus::Validating
-                    )
-                })
-                .count(),
-            active_claim_count: snapshot
-                .claims
-                .iter()
-                .filter(|claim| claim.status == ClaimStatus::Active && claim.expires_at > now)
-                .count(),
-            pending_review_count,
-            proposed_artifact_count: snapshot
-                .artifacts
-                .iter()
-                .filter(|artifact| artifact.status == ArtifactStatus::Proposed)
-                .count(),
+            in_review_task_count: read_model.in_review_task_ids.len(),
+            active_claim_count,
+            pending_review_count: read_model.pending_review_artifacts.len(),
+            proposed_artifact_count: read_model.proposed_artifact_count,
             recent_pending_reviews,
             recent_violations,
         })
@@ -145,6 +135,12 @@ impl QueryHost {
             .publish_value("coordination.updated", serde_json::to_value(summary)?);
         Ok(())
     }
+}
+
+fn fallback_coordination_read_model(
+    snapshot: &prism_coordination::CoordinationSnapshot,
+) -> CoordinationReadModel {
+    prism_coordination::coordination_read_model_from_snapshot(snapshot)
 }
 
 fn dashboard_session_view(host: &QueryHost, session: Option<&SessionState>) -> SessionView {

@@ -16,6 +16,7 @@ use crate::curator::{enqueue_curator_for_observed_locked, CuratorHandleRef};
 use crate::indexer::WorkspaceIndexer;
 use crate::session::WorkspaceRefreshState;
 use crate::shared_runtime::composite_workspace_revision;
+use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::util::{workspace_fingerprint, WorkspaceFingerprint};
 
 pub(crate) struct WatchHandle {
@@ -234,7 +235,11 @@ fn refresh_prism_snapshot_with_guard(
         root,
         crate::WorkspaceSessionOptions {
             coordination: coordination_enabled,
-            shared_runtime_sqlite: shared_runtime_sqlite.map(Path::to_path_buf),
+            shared_runtime: shared_runtime_sqlite
+                .map(|path| SharedRuntimeBackend::Sqlite {
+                    path: path.to_path_buf(),
+                })
+                .unwrap_or(SharedRuntimeBackend::Disabled),
         },
     )?;
     let observed = if scoped_watch_refresh {

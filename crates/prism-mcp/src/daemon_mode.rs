@@ -41,7 +41,7 @@ pub async fn serve_with_mode(cli: PrismMcpCli) -> Result<()> {
             let server = PrismMcpServer::from_workspace_with_features_and_shared_runtime(
                 &root,
                 cli.features(),
-                cli.shared_runtime_sqlite.clone(),
+                cli.shared_runtime_backend()?,
             )?;
             server.serve_stdio().await
         }
@@ -55,7 +55,7 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
     let server = PrismMcpServer::from_workspace_with_features_and_shared_runtime(
         root,
         cli.features(),
-        cli.shared_runtime_sqlite.clone(),
+        cli.shared_runtime_backend()?,
     )?;
     let listener = bind_listener(cli, root).await?;
     let mcp_path = normalize_route_path(&cli.http_path);
@@ -523,6 +523,7 @@ mod tests {
             no_coordination: false,
             internal_developer: false,
             shared_runtime_sqlite: None,
+            shared_runtime_uri: None,
             enable_coordination: Vec::new(),
             disable_coordination: Vec::new(),
             daemon_log: None,

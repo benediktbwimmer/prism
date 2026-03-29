@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 use anyhow::{anyhow, Result};
 use prism_agent::InferenceSnapshot;
 use prism_coordination::CoordinationSnapshot;
+use prism_coordination::CoordinationReadModel;
 use prism_curator::{
     CuratorJobId, CuratorProposalDisposition, CuratorProposalState, CuratorSnapshot,
 };
@@ -41,6 +42,7 @@ use crate::shared_runtime::{
     merge_memory_events, merged_projection_index, shared_projection_snapshot_for_persist,
     split_episodic_snapshot_for_persist,
 };
+use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::util::{
     current_timestamp, current_timestamp_millis, workspace_fingerprint, WorkspaceFingerprint,
 };
@@ -161,7 +163,7 @@ pub struct WorkspaceSession {
     pub(crate) root: PathBuf,
     pub(crate) prism: Arc<RwLock<Arc<Prism>>>,
     pub(crate) store: Arc<Mutex<SqliteStore>>,
-    pub(crate) shared_runtime_sqlite: Option<PathBuf>,
+    pub(crate) shared_runtime: SharedRuntimeBackend,
     pub(crate) shared_runtime_store: Option<Arc<Mutex<SqliteStore>>>,
     pub(crate) refresh_lock: Arc<Mutex<()>>,
     pub(crate) refresh_state: Arc<WorkspaceRefreshState>,
@@ -674,6 +676,23 @@ impl WorkspaceSession {
         }
     }
 
+    pub fn load_coordination_read_model(&self) -> Result<Option<CoordinationReadModel>> {
+        if !self.coordination_enabled {
+            return Ok(None);
+        }
+        if let Some(shared_runtime_store) = self.shared_runtime_store() {
+            shared_runtime_store
+                .lock()
+                .expect("shared runtime store lock poisoned")
+                .load_coordination_read_model()
+        } else {
+            self.store
+                .lock()
+                .expect("workspace store lock poisoned")
+                .load_coordination_read_model()
+        }
+    }
+
     pub fn load_coordination_plan_state(&self) -> Result<Option<CoordinationPlanState>> {
         if !self.coordination_enabled {
             return Ok(None);
@@ -959,7 +978,7 @@ impl WorkspaceSession {
             &self.root,
             &self.prism,
             &self.store,
-            self.shared_runtime_sqlite.as_deref(),
+            self.shared_runtime.sqlite_path(),
             &self.refresh_lock,
             &self.refresh_state,
             &self.loaded_workspace_revision,
@@ -981,7 +1000,7 @@ impl WorkspaceSession {
             &self.root,
             &self.prism,
             &self.store,
-            self.shared_runtime_sqlite.as_deref(),
+            self.shared_runtime.sqlite_path(),
             &self.refresh_lock,
             &self.refresh_state,
             &self.loaded_workspace_revision,

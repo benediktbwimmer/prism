@@ -1,7 +1,10 @@
 use anyhow::{anyhow, Result};
 use clap::{ArgAction, ValueEnum};
 use prism_agent::InferenceStore;
-use prism_core::{index_workspace_session_with_options, WorkspaceSession, WorkspaceSessionOptions};
+use prism_core::{
+    index_workspace_session_with_options, SharedRuntimeBackend, WorkspaceSession,
+    WorkspaceSessionOptions,
+};
 use prism_ir::TaskId;
 use prism_js::{api_reference_markdown, CuratorJobView, API_REFERENCE_URI};
 use prism_memory::{OutcomeEvent, SessionMemory};
@@ -153,6 +156,8 @@ pub struct PrismMcpCli {
     pub daemon_log: Option<PathBuf>,
     #[arg(long = "shared-runtime-sqlite")]
     pub shared_runtime_sqlite: Option<PathBuf>,
+    #[arg(long = "shared-runtime-uri")]
+    pub shared_runtime_uri: Option<String>,
     #[arg(long = "daemon-start-timeout-ms")]
     pub daemon_start_timeout_ms: Option<u64>,
     #[arg(long = "http-bind", default_value = "127.0.0.1:0")]
@@ -170,6 +175,17 @@ pub struct PrismMcpCli {
 }
 
 impl PrismMcpCli {
+    pub fn shared_runtime_backend(&self) -> Result<SharedRuntimeBackend> {
+        match (&self.shared_runtime_sqlite, &self.shared_runtime_uri) {
+            (Some(_), Some(_)) => Err(anyhow!(
+                "shared runtime backend must be configured with either --shared-runtime-sqlite or --shared-runtime-uri, not both"
+            )),
+            (Some(path), None) => Ok(SharedRuntimeBackend::Sqlite { path: path.clone() }),
+            (None, Some(uri)) => Ok(SharedRuntimeBackend::Remote { uri: uri.clone() }),
+            (None, None) => Ok(SharedRuntimeBackend::Disabled),
+        }
+    }
+
     pub fn features(&self) -> PrismMcpFeatures {
         let mut features = if self.no_coordination {
             PrismMcpFeatures::simple()
@@ -238,6 +254,14 @@ impl PrismMcpCli {
         args.push(self.health_path.clone());
         args.push("--http-uri-file".to_string());
         args.push(self.http_uri_file_path(root).display().to_string());
+        if let Some(path) = &self.shared_runtime_sqlite {
+            args.push("--shared-runtime-sqlite".to_string());
+            args.push(path.display().to_string());
+        }
+        if let Some(uri) = &self.shared_runtime_uri {
+            args.push("--shared-runtime-uri".to_string());
+            args.push(uri.clone());
+        }
         args
     }
 }
@@ -270,7 +294,7 @@ impl PrismMcpServer {
         Self::from_workspace_with_features_and_shared_runtime(
             root,
             PrismMcpFeatures::default(),
-            None,
+            SharedRuntimeBackend::Disabled,
         )
     }
 
@@ -278,13 +302,17 @@ impl PrismMcpServer {
         root: impl AsRef<Path>,
         features: PrismMcpFeatures,
     ) -> Result<Self> {
-        Self::from_workspace_with_features_and_shared_runtime(root, features, None)
+        Self::from_workspace_with_features_and_shared_runtime(
+            root,
+            features,
+            SharedRuntimeBackend::Disabled,
+        )
     }
 
     pub fn from_workspace_with_features_and_shared_runtime(
         root: impl AsRef<Path>,
         features: PrismMcpFeatures,
-        shared_runtime_sqlite: Option<PathBuf>,
+        shared_runtime: SharedRuntimeBackend,
     ) -> Result<Self> {
         let root = root.as_ref();
         info!(
@@ -296,7 +324,7 @@ impl PrismMcpServer {
             root,
             WorkspaceSessionOptions {
                 coordination: features.coordination_layer_enabled(),
-                shared_runtime_sqlite,
+                shared_runtime,
             },
         )?;
         let prism = session.prism_arc();

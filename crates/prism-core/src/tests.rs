@@ -31,8 +31,9 @@ use serde_json::json;
 
 use super::{
     index_workspace, index_workspace_session, index_workspace_session_with_curator,
-    index_workspace_session_with_options, ValidationFeedbackCategory, ValidationFeedbackRecord,
-    ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
+    index_workspace_session_with_options, SharedRuntimeBackend, ValidationFeedbackCategory,
+    ValidationFeedbackRecord, ValidationFeedbackVerdict, WorkspaceIndexer,
+    WorkspaceSessionOptions,
 };
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
@@ -1112,7 +1113,9 @@ fn shared_runtime_sqlite_shares_session_memory_and_concepts_across_workspaces() 
 
     let options = WorkspaceSessionOptions {
         coordination: true,
-        shared_runtime_sqlite: Some(shared_runtime_sqlite.clone()),
+        shared_runtime: SharedRuntimeBackend::Sqlite {
+            path: shared_runtime_sqlite.clone(),
+        },
     };
     let session_one = index_workspace_session_with_options(&root_one, options.clone()).unwrap();
     let alpha = session_one
@@ -1784,6 +1787,12 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
     assert!(context.repo_id.starts_with("repo:"));
     assert!(context.worktree_id.starts_with("worktree:"));
     assert!(context.instance_id.is_some());
+    let read_model = store
+        .load_coordination_read_model()
+        .unwrap()
+        .expect("coordination read model should be persisted");
+    assert_eq!(read_model.active_plans.len(), 1);
+    assert_eq!(read_model.task_count, 1);
 
     assert!(root
         .join(".prism")
@@ -2461,7 +2470,7 @@ fn workspace_session_can_disable_coordination_entirely() {
         &root,
         WorkspaceSessionOptions {
             coordination: false,
-            shared_runtime_sqlite: None,
+            shared_runtime: SharedRuntimeBackend::Disabled,
         },
     )
     .unwrap();

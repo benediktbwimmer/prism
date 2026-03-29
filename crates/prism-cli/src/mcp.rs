@@ -109,11 +109,13 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             no_coordination,
             internal_developer,
             shared_runtime_sqlite,
+            shared_runtime_uri,
         } => start(
             &root,
             no_coordination,
             internal_developer,
             shared_runtime_sqlite,
+            shared_runtime_uri,
             "start",
         ),
         McpCommand::Stop { kill_bridges } => stop(&root, kill_bridges),
@@ -122,6 +124,7 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             no_coordination,
             internal_developer,
             shared_runtime_sqlite,
+            shared_runtime_uri,
         } => {
             stop(&root, kill_bridges)?;
             start(
@@ -129,6 +132,7 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
                 no_coordination,
                 internal_developer,
                 shared_runtime_sqlite,
+                shared_runtime_uri,
                 "restart",
             )
         }
@@ -239,6 +243,7 @@ fn start(
     no_coordination: bool,
     internal_developer: bool,
     shared_runtime_sqlite: Option<PathBuf>,
+    shared_runtime_uri: Option<String>,
     operation: &str,
 ) -> Result<()> {
     let paths = McpPaths::for_root(root);
@@ -274,6 +279,7 @@ fn start(
         no_coordination,
         internal_developer,
         shared_runtime_sqlite.as_deref(),
+        shared_runtime_uri.as_deref(),
     )?;
     let uri = wait_for_healthy_uri(root, &paths, DEFAULT_HEALTH_PATH)?;
     println!("started daemon");
@@ -523,7 +529,11 @@ fn spawn_daemon(
     no_coordination: bool,
     internal_developer: bool,
     shared_runtime_sqlite: Option<&Path>,
+    shared_runtime_uri: Option<&str>,
 ) -> Result<()> {
+    if shared_runtime_sqlite.is_some() && shared_runtime_uri.is_some() {
+        bail!("configure either shared runtime sqlite or shared runtime uri, not both");
+    }
     let mut args = vec![
         "--mode".to_string(),
         "daemon".to_string(),
@@ -548,6 +558,10 @@ fn spawn_daemon(
     if let Some(shared_runtime_sqlite) = shared_runtime_sqlite {
         args.push("--shared-runtime-sqlite".to_string());
         args.push(shared_runtime_sqlite.display().to_string());
+    }
+    if let Some(shared_runtime_uri) = shared_runtime_uri {
+        args.push("--shared-runtime-uri".to_string());
+        args.push(shared_runtime_uri.to_string());
     }
 
     let log_file = OpenOptions::new()

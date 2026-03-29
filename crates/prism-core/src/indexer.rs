@@ -17,6 +17,7 @@ use crate::patch_outcomes::default_outcome_meta;
 use crate::reanchor::{detect_moved_files, infer_reanchors};
 use crate::session::WorkspaceSession;
 use crate::shared_runtime::{local_projection_snapshot_for_persist, merged_projection_index};
+use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::util::{cache_path, cleanup_legacy_cache, default_adapters};
 use crate::WorkspaceSessionOptions;
 use anyhow::Result;
@@ -52,7 +53,7 @@ pub struct WorkspaceIndexer<S: Store> {
     pub(crate) had_projection_snapshot: bool,
     pub(crate) adapters: Vec<Box<dyn LanguageAdapter + Send + Sync>>,
     pub(crate) store: S,
-    pub(crate) shared_runtime_sqlite: Option<PathBuf>,
+    pub(crate) shared_runtime: SharedRuntimeBackend,
     pub(crate) shared_runtime_store: Option<SqliteStore>,
     pub(crate) coordination_enabled: bool,
 }
@@ -78,11 +79,13 @@ impl WorkspaceIndexer<SqliteStore> {
         cleanup_legacy_cache(&root)?;
         let store = SqliteStore::open(cache_path(&root))?;
         let mut indexer = Self::with_store_and_options(root.clone(), store, options.clone())?;
-        let mut shared_runtime_store = options
-            .shared_runtime_sqlite
-            .as_ref()
-            .map(SqliteStore::open)
-            .transpose()?;
+        let mut shared_runtime_store = match &options.shared_runtime {
+            SharedRuntimeBackend::Disabled => None,
+            SharedRuntimeBackend::Sqlite { path } => Some(SqliteStore::open(path)?),
+            SharedRuntimeBackend::Remote { uri } => {
+                anyhow::bail!("shared runtime backend `{uri}` is not implemented yet")
+            }
+        };
         if let Some(shared_store) = shared_runtime_store.as_mut() {
             if options.coordination {
                 let plan_state = shared_store.load_hydrated_coordination_plan_state_for_root(&root)?;
@@ -107,7 +110,7 @@ impl WorkspaceIndexer<SqliteStore> {
                 &indexer.outcomes.snapshot(),
             );
         }
-        indexer.shared_runtime_sqlite = options.shared_runtime_sqlite.clone();
+        indexer.shared_runtime = options.shared_runtime.clone();
         indexer.shared_runtime_store = shared_runtime_store;
         Ok(indexer)
     }
@@ -120,7 +123,7 @@ impl WorkspaceIndexer<SqliteStore> {
         build_workspace_session(
             root,
             self.store,
-            self.shared_runtime_sqlite,
+            self.shared_runtime,
             self.shared_runtime_store,
             self.graph,
             self.history,
@@ -234,7 +237,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             had_projection_snapshot,
             adapters: default_adapters(),
             store,
-            shared_runtime_sqlite: options.shared_runtime_sqlite,
+            shared_runtime: options.shared_runtime,
             shared_runtime_store: None,
             coordination_enabled: options.coordination,
         })

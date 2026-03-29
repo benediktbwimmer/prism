@@ -22,6 +22,7 @@ use crate::indexer::PendingFileParse;
 use crate::resolution::{resolve_calls, resolve_impls, resolve_imports, resolve_intents};
 use crate::session::{WorkspaceRefreshState, WorkspaceSession};
 use crate::shared_runtime::composite_workspace_revision;
+use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::util::{persisted_file_hash, workspace_fingerprint, workspace_walk};
 use crate::watch::spawn_fs_watch;
 use crate::workspace_identity::coordination_persist_context_for_root;
@@ -29,7 +30,7 @@ use crate::workspace_identity::coordination_persist_context_for_root;
 pub(crate) fn build_workspace_session(
     root: PathBuf,
     store: SqliteStore,
-    shared_runtime_sqlite: Option<PathBuf>,
+    shared_runtime: SharedRuntimeBackend,
     shared_runtime_store: Option<SqliteStore>,
     graph: Graph,
     history: HistoryStore,
@@ -91,7 +92,7 @@ pub(crate) fn build_workspace_session(
         root.clone(),
         Arc::clone(&prism),
         Arc::clone(&store),
-        shared_runtime_sqlite.clone(),
+        shared_runtime.sqlite_path().map(Path::to_path_buf),
         Arc::clone(&refresh_lock),
         Arc::clone(&refresh_state),
         Arc::clone(&loaded_workspace_revision),
@@ -121,7 +122,7 @@ pub(crate) fn build_workspace_session(
         root,
         prism,
         store,
-        shared_runtime_sqlite,
+        shared_runtime,
         shared_runtime_store,
         refresh_lock,
         refresh_state,

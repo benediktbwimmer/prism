@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use prism_coordination::CoordinationEvent;
+use prism_coordination::{CoordinationEvent, CoordinationReadModel};
 use prism_projections::ProjectionIndex;
 
 use crate::graph::{Graph, GraphSnapshot};
@@ -22,6 +22,7 @@ pub struct MemoryStore {
     curator_snapshot: Option<prism_curator::CuratorSnapshot>,
     coordination_events: Vec<CoordinationEvent>,
     coordination_compaction: Option<(usize, prism_coordination::CoordinationSnapshot)>,
+    coordination_read_model: Option<CoordinationReadModel>,
     coordination_revision: u64,
     latest_coordination_context: Option<CoordinationPersistContext>,
 }
@@ -210,6 +211,15 @@ impl Store for MemoryStore {
             self.coordination_events.len(),
             compacted_snapshot(snapshot.clone()),
         ));
+        Ok(())
+    }
+
+    fn load_coordination_read_model(&mut self) -> Result<Option<CoordinationReadModel>> {
+        Ok(self.coordination_read_model.clone())
+    }
+
+    fn save_coordination_read_model(&mut self, read_model: &CoordinationReadModel) -> Result<()> {
+        self.coordination_read_model = Some(read_model.clone());
         Ok(())
     }
 

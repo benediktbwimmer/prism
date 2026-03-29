@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use prism_agent::InferenceSnapshot;
-use prism_coordination::{CoordinationEvent, CoordinationSnapshot};
+use prism_coordination::{CoordinationEvent, CoordinationReadModel, CoordinationSnapshot};
 use prism_curator::CuratorSnapshot;
 use prism_history::{HistoryPersistDelta, HistorySnapshot};
 use prism_memory::{EpisodicMemorySnapshot, MemoryEvent, OutcomeMemorySnapshot};
@@ -90,6 +90,8 @@ pub trait Store {
     fn load_coordination_events(&mut self) -> Result<Vec<CoordinationEvent>>;
     fn load_coordination_event_stream(&mut self) -> Result<CoordinationEventStream>;
     fn save_coordination_compaction(&mut self, snapshot: &CoordinationSnapshot) -> Result<()>;
+    fn load_coordination_read_model(&mut self) -> Result<Option<CoordinationReadModel>>;
+    fn save_coordination_read_model(&mut self, read_model: &CoordinationReadModel) -> Result<()>;
     fn load_latest_coordination_persist_context(
         &mut self,
     ) -> Result<Option<CoordinationPersistContext>>;

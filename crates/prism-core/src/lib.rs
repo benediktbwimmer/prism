@@ -16,6 +16,7 @@ mod reanchor;
 mod resolution;
 mod session;
 mod shared_runtime;
+mod shared_runtime_backend;
 mod util;
 mod validation_feedback;
 mod watch;
@@ -29,6 +30,7 @@ use prism_query::Prism;
 
 pub(crate) use indexer::PendingFileParse;
 pub use indexer::WorkspaceIndexer;
+pub use shared_runtime_backend::SharedRuntimeBackend;
 pub use session::{
     CoordinationPlanState, FsRefreshStatus, WorkspaceSession, WorkspaceSnapshotRevisions,
 };
@@ -40,14 +42,14 @@ pub use validation_feedback::{
 #[derive(Debug, Clone)]
 pub struct WorkspaceSessionOptions {
     pub coordination: bool,
-    pub shared_runtime_sqlite: Option<std::path::PathBuf>,
+    pub shared_runtime: SharedRuntimeBackend,
 }
 
 impl Default for WorkspaceSessionOptions {
     fn default() -> Self {
         Self {
             coordination: true,
-            shared_runtime_sqlite: None,
+            shared_runtime: SharedRuntimeBackend::Disabled,
         }
     }
 }

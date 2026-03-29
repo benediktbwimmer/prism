@@ -2,7 +2,10 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use anyhow::Result;
-use prism_coordination::{coordination_snapshot_from_events, CoordinationEvent, CoordinationSnapshot};
+use prism_coordination::{
+    coordination_read_model_from_snapshot, coordination_snapshot_from_events, CoordinationEvent,
+    CoordinationSnapshot,
+};
 use prism_ir::{PlanExecutionOverlay, PlanGraph, SessionId};
 use prism_store::{CoordinationPersistBatch, CoordinationPersistResult, Store};
 
@@ -57,6 +60,7 @@ pub(crate) trait CoordinationPersistenceBackend: Store {
             expected_revision: None,
             appended_events,
         })?;
+        self.save_coordination_read_model(&coordination_read_model_from_snapshot(snapshot))?;
         self.maybe_compact_coordination_events(snapshot)?;
         match (plan_graphs, execution_overlays) {
             (Some(plan_graphs), Some(execution_overlays)) => sync_repo_published_plan_state(
@@ -84,6 +88,7 @@ pub(crate) trait CoordinationPersistenceBackend: Store {
             expected_revision: Some(expected_revision),
             appended_events: appended_events.to_vec(),
         })?;
+        self.save_coordination_read_model(&coordination_read_model_from_snapshot(snapshot))?;
         if result.applied {
             self.maybe_compact_coordination_events(snapshot)?;
         }

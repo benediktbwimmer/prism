@@ -278,6 +278,17 @@ impl Store for SqliteStore {
         coordination_compaction::save_compaction(&self.conn, snapshot)
     }
 
+    fn load_coordination_read_model(&mut self) -> Result<Option<prism_coordination::CoordinationReadModel>> {
+        snapshots::load_snapshot_row(&self.conn, "coordination_read_model")
+    }
+
+    fn save_coordination_read_model(
+        &mut self,
+        read_model: &prism_coordination::CoordinationReadModel,
+    ) -> Result<()> {
+        snapshots::save_snapshot_row(&self.conn, "coordination_read_model", read_model)
+    }
+
     fn load_latest_coordination_persist_context(
         &mut self,
     ) -> Result<Option<crate::store::CoordinationPersistContext>> {

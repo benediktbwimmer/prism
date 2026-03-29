@@ -4,6 +4,7 @@ mod event_replay;
 mod helpers;
 mod mutations;
 mod queries;
+mod read_model;
 mod runtime;
 mod state;
 mod types;
@@ -25,4 +26,7 @@ pub use compat::{
     plan_graph_from_coordination, snapshot_plan_graphs,
 };
 pub use event_replay::coordination_snapshot_from_events;
+pub use read_model::{
+    coordination_read_model_from_snapshot, ready_task_count_for_active_plans, CoordinationReadModel,
+};
 pub use runtime::CoordinationRuntimeState;
