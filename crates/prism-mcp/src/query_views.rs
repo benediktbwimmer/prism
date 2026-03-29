@@ -2,9 +2,10 @@ use anyhow::{anyhow, Result};
 use serde_json::Value;
 
 use crate::{
-    query_view_after_edit::after_edit_view, query_view_impact::impact_view,
-    query_view_playbook::repo_playbook_view, query_view_validation_plan::validation_plan_view,
-    PrismMcpFeatures, QueryExecution, QueryHost, QueryViewCapabilityView, QueryViewFeatureFlag,
+    query_view_after_edit::after_edit_view, query_view_command_memory::command_memory_view,
+    query_view_impact::impact_view, query_view_playbook::repo_playbook_view,
+    query_view_validation_plan::validation_plan_view, PrismMcpFeatures, QueryExecution, QueryHost,
+    QueryViewCapabilityView, QueryViewFeatureFlag,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -52,6 +53,7 @@ impl QueryViewDefinition {
             "validationPlan" => validation_plan_view(execution, _input),
             "impact" => impact_view(execution, _input),
             "afterEdit" => after_edit_view(execution, _input),
+            "commandMemory" => command_memory_view(execution, _input),
             #[cfg(test)]
             "testEcho" => Ok(test_echo_view(_input)),
             _ => not_implemented_view(self, execution),

@@ -175,6 +175,7 @@ pub enum OutcomeEvidence {
     Commit { sha: String },
     Test { name: String, passed: bool },
     Build { target: String, passed: bool },
+    Command { argv: Vec<String>, passed: bool },
     Reviewer { author: String },
     Issue { id: String },
     StackTrace { hash: String },

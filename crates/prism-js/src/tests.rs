@@ -105,6 +105,7 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains(
         "afterEdit(input?: { taskId?: string; target?: QueryTarget; paths?: string[] }): AfterEditView;"
     ));
+    assert!(docs.contains("commandMemory(input?: { taskId?: string }): CommandMemoryView;"));
     assert!(docs.contains("editSlice(options?: EditSliceOptions)"));
     assert!(docs.contains("relativeFocus"));
     assert!(docs.contains("type SearchTextOptions = {"));
@@ -179,6 +180,8 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("type QueryRiskHintView = {"));
     assert!(docs.contains("type ImpactView = {"));
     assert!(docs.contains("type AfterEditView = {"));
+    assert!(docs.contains("type CommandMemoryCommandView = {"));
+    assert!(docs.contains("type CommandMemoryView = {"));
     assert!(docs.contains("kind: \"toml-key\""));
     assert!(docs.contains("read(options?: FileReadOptions): SourceExcerptView;"));
     assert!(docs.contains("around(options: FileAroundOptions): SourceSliceView;"));

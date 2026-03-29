@@ -853,6 +853,26 @@ pub struct AfterEditView {
     pub notes: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CommandMemoryCommandView {
+    pub command: String,
+    pub confidence: f32,
+    pub why: String,
+    pub provenance: Vec<QueryEvidenceView>,
+    pub caveats: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_seen: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CommandMemoryView {
+    pub subject: QueryViewSubjectView,
+    pub commands: Vec<CommandMemoryCommandView>,
+    pub notes: Vec<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ConceptDecodeLensView {

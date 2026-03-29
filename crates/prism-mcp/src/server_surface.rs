@@ -1067,6 +1067,16 @@ impl PrismMcpServer {
                     args.test,
                     if args.passed { "passed" } else { "failed" }
                 );
+                let mut evidence = vec![OutcomeEvidenceInput::Test {
+                    name: args.test.clone(),
+                    passed: args.passed,
+                }];
+                if let Some(command) = args.command.clone() {
+                    evidence.push(OutcomeEvidenceInput::Command {
+                        argv: command,
+                        passed: args.passed,
+                    });
+                }
                 let result = self.execute_logged_mutation(
                     "mutate.test_ran",
                     MutationRefreshPolicy::None,
@@ -1082,10 +1092,7 @@ impl PrismMcpServer {
                                 } else {
                                     OutcomeResultInput::Failure
                                 }),
-                                evidence: Some(vec![OutcomeEvidenceInput::Test {
-                                    name: args.test,
-                                    passed: args.passed,
-                                }]),
+                                evidence: Some(evidence),
                                 task_id: args.task_id,
                             },
                         )
@@ -1151,6 +1158,12 @@ impl PrismMcpServer {
                 )
             }
             PrismMutationArgs::FixValidated(args) => {
+                let evidence = args.command.clone().map(|command| {
+                    vec![OutcomeEvidenceInput::Command {
+                        argv: command,
+                        passed: true,
+                    }]
+                });
                 let result = self.execute_logged_mutation(
                     "mutate.fix_validated",
                     MutationRefreshPolicy::None,
@@ -1162,7 +1175,7 @@ impl PrismMcpServer {
                                 anchors: args.anchors,
                                 summary: args.summary,
                                 result: Some(OutcomeResultInput::Success),
-                                evidence: None,
+                                evidence,
                                 task_id: args.task_id,
                             },
                         )

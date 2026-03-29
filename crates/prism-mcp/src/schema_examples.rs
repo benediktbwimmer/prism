@@ -317,6 +317,7 @@ fn prism_mutate_action_example(action: &str) -> Option<Value> {
                 "anchors": [sample_node_anchor("demo", "demo::validation_recipe", "function")],
                 "test": "cargo test -p prism-mcp prism_mutate_schema_surfaces_action_specific_examples",
                 "passed": true,
+                "command": ["cargo", "test", "-p", "prism-mcp", "prism_mutate_schema_surfaces_action_specific_examples"],
                 "taskId": "task:demo-main"
             }
         })),
@@ -334,6 +335,7 @@ fn prism_mutate_action_example(action: &str) -> Option<Value> {
             "input": {
                 "anchors": [sample_node_anchor("demo", "demo::validation_recipe", "function")],
                 "summary": "Mutation schema now exposes concrete payload shapes and examples.",
+                "command": ["cargo", "test", "-p", "prism-mcp", "prism_mutate_schema_surfaces_action_specific_examples"],
                 "taskId": "task:demo-main"
             }
         })),

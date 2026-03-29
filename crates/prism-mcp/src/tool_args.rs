@@ -1017,6 +1017,7 @@ pub(crate) enum OutcomeEvidenceInput {
     Commit { sha: String },
     Test { name: String, passed: bool },
     Build { target: String, passed: bool },
+    Command { argv: Vec<String>, passed: bool },
     Reviewer { author: String },
     Issue { id: String },
     StackTrace { hash: String },
@@ -1474,6 +1475,7 @@ pub(crate) struct PrismTestRanArgs {
     pub(crate) anchors: Vec<AnchorRefInput>,
     pub(crate) test: String,
     pub(crate) passed: bool,
+    pub(crate) command: Option<Vec<String>>,
     #[serde(alias = "task_id")]
     pub(crate) task_id: Option<String>,
 }
@@ -1493,6 +1495,7 @@ pub(crate) struct PrismFailureObservedArgs {
 pub(crate) struct PrismFixValidatedArgs {
     pub(crate) anchors: Vec<AnchorRefInput>,
     pub(crate) summary: String,
+    pub(crate) command: Option<Vec<String>>,
     #[serde(alias = "task_id")]
     pub(crate) task_id: Option<String>,
 }

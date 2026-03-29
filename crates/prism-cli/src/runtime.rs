@@ -204,14 +204,26 @@ pub fn run_validation_command(
         }
     });
     let evidence = match kind {
-        OutcomeKind::TestRan => vec![OutcomeEvidence::Test {
-            name: label,
-            passed,
-        }],
-        OutcomeKind::BuildRan => vec![OutcomeEvidence::Build {
-            target: label,
-            passed,
-        }],
+        OutcomeKind::TestRan => vec![
+            OutcomeEvidence::Test {
+                name: label,
+                passed,
+            },
+            OutcomeEvidence::Command {
+                argv: command,
+                passed,
+            },
+        ],
+        OutcomeKind::BuildRan => vec![
+            OutcomeEvidence::Build {
+                target: label,
+                passed,
+            },
+            OutcomeEvidence::Command {
+                argv: command,
+                passed,
+            },
+        ],
         _ => Vec::new(),
     };
 

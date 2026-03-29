@@ -327,6 +327,7 @@ type PrismApi = {
   validationPlan(input: { taskId?: string; target?: QueryTarget; paths?: string[] }): ValidationPlanView;
   impact(input: { taskId?: string; target?: QueryTarget; paths?: string[] }): ImpactView;
   afterEdit(input?: { taskId?: string; target?: QueryTarget; paths?: string[] }): AfterEditView;
+  commandMemory(input?: { taskId?: string }): CommandMemoryView;
   artifactRisk(artifactId: string): ArtifactRiskView | null;
   taskIntent(taskId: string): TaskIntentView | null;
   coordinationInbox(planId: string): CoordinationInboxView;
@@ -890,6 +891,21 @@ type AfterEditView = {
   tests: QueryRecommendationView[];
   docs: QueryRecommendationView[];
   riskChecks: QueryRecommendationView[];
+  notes: string[];
+};
+
+type CommandMemoryCommandView = {
+  command: string;
+  confidence: number;
+  why: string;
+  provenance: QueryEvidenceView[];
+  caveats: string[];
+  lastSeen?: number;
+};
+
+type CommandMemoryView = {
+  subject: QueryViewSubjectView;
+  commands: CommandMemoryCommandView[];
   notes: string[];
 };
 

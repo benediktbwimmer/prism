@@ -548,6 +548,7 @@ pub(crate) fn convert_outcome_evidence(evidence: OutcomeEvidenceInput) -> Outcom
         OutcomeEvidenceInput::Commit { sha } => OutcomeEvidence::Commit { sha },
         OutcomeEvidenceInput::Test { name, passed } => OutcomeEvidence::Test { name, passed },
         OutcomeEvidenceInput::Build { target, passed } => OutcomeEvidence::Build { target, passed },
+        OutcomeEvidenceInput::Command { argv, passed } => OutcomeEvidence::Command { argv, passed },
         OutcomeEvidenceInput::Reviewer { author } => OutcomeEvidence::Reviewer { author },
         OutcomeEvidenceInput::Issue { id } => OutcomeEvidence::Issue { id },
         OutcomeEvidenceInput::StackTrace { hash } => OutcomeEvidence::StackTrace { hash },
