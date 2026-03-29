@@ -506,6 +506,7 @@ type ToolActionSchemaView = {
   fields: ToolFieldSchemaView[];
   inputSchema: unknown;
   exampleInput?: unknown;
+  exampleInputs: unknown[];
 };
 
 type ToolSchemaView = {
@@ -513,6 +514,7 @@ type ToolSchemaView = {
   schemaUri: string;
   description: string;
   exampleInput: unknown;
+  exampleInputs: unknown[];
   inputSchema: unknown;
   actions: ToolActionSchemaView[];
 };
@@ -1466,6 +1468,7 @@ Beyond `prism_query`, the MCP server exposes navigable `prism://...` resources.
 - Static resources:
   - `prism://api-reference`
   - `prism://capabilities`
+  - `prism://vocab`
   - `prism://session`
   - `prism://plans`
   - `prism://entrypoints`

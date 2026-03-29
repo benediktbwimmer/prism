@@ -93,6 +93,20 @@ pub(crate) fn shared_projection_snapshot_for_persist(
     }
 }
 
+pub(crate) fn overlay_persisted_projection_knowledge(
+    projections: &mut ProjectionIndex,
+    snapshots: impl IntoIterator<Item = ProjectionSnapshot>,
+) {
+    let mut combined_concepts = projections.curated_concepts().to_vec();
+    let mut combined_relations = projections.concept_relations().to_vec();
+    for snapshot in snapshots {
+        combined_concepts.extend(snapshot.curated_concepts);
+        combined_relations.extend(snapshot.concept_relations);
+    }
+    projections.replace_curated_concepts(combined_concepts);
+    projections.replace_concept_relations(combined_relations);
+}
+
 pub(crate) fn merged_projection_index(
     local_snapshot: Option<ProjectionSnapshot>,
     shared_snapshot: Option<ProjectionSnapshot>,

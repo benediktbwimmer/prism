@@ -456,8 +456,7 @@ pub(crate) fn propose_artifact_mutation(
         .as_ref()
         .map(|plan| plan.policy.stale_after_graph_change)
         .unwrap_or(false)
-        && (input.base_revision.graph_version < input.current_revision.graph_version
-            || task.base_revision.graph_version < input.current_revision.graph_version)
+        && input.base_revision.graph_version < input.current_revision.graph_version
     {
         let violations = vec![policy_violation(
             PolicyViolationCode::ArtifactStale,

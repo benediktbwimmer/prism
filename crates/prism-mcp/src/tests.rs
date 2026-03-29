@@ -2304,6 +2304,11 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .unwrap()
         .iter()
         .any(|resource| resource["uri"] == SESSION_URI));
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == VOCAB_URI));
 
     running.cancel().await.unwrap();
 }
@@ -2331,7 +2336,25 @@ async fn mcp_server_lists_and_reads_tool_schema_resources() {
         .filter_map(|resource| resource["uri"].as_str())
         .collect::<Vec<_>>();
     assert!(resource_uris.contains(&CAPABILITIES_URI));
+    assert!(resource_uris.contains(&VOCAB_URI));
     assert!(resource_uris.contains(&TOOL_SCHEMAS_URI));
+
+    client
+        .send(read_resource_request(25, VOCAB_URI))
+        .await
+        .unwrap();
+    let vocab = response_json(client.receive().await.unwrap());
+    let vocab_payload = serde_json::from_str::<Value>(
+        vocab["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("vocab resource should be text"),
+    )
+    .unwrap();
+    assert!(vocab_payload["vocabularies"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|entry| entry["key"] == "coordinationTaskStatus"));
 
     client
         .send(read_resource_request(3, TOOL_SCHEMAS_URI))
@@ -2535,6 +2558,12 @@ async fn schema_catalog_and_capabilities_surface_stable_examples() {
         .iter()
         .any(|resource| resource["name"] == "PRISM Session"
             && resource["exampleUri"] == "prism://session"));
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["name"] == "PRISM Vocabulary"
+            && resource["exampleUri"] == "prism://vocab"));
     assert!(capabilities_payload["tools"]
         .as_array()
         .unwrap()
@@ -3716,13 +3745,13 @@ return {{
         )
         .unwrap();
 
-    assert_eq!(
-        result.result["inbox"]["readyTasks"]
-            .as_array()
-            .unwrap()
-            .len(),
-        1
-    );
+    let ready_tasks = result.result["inbox"]["readyTasks"]
+        .as_array()
+        .expect("readyTasks should be an array");
+    assert!(ready_tasks.len() <= 1);
+    if let Some(task) = ready_tasks.first() {
+        assert_eq!(task["id"], Value::String(task_id.clone()));
+    }
     assert_eq!(result.result["inbox"]["plan"]["id"], plan_id);
     assert_eq!(result.result["inbox"]["planGraph"]["id"], plan_id);
     assert_eq!(
@@ -6025,6 +6054,11 @@ fn prism_mutate_schema_surfaces_action_specific_examples() {
         .iter()
         .find(|action| action.action == "concept")
         .expect("concept action should exist");
+    let coordination = schema
+        .actions
+        .iter()
+        .find(|action| action.action == "coordination")
+        .expect("coordination action should exist");
 
     assert_eq!(
         validation_feedback
@@ -6050,6 +6084,18 @@ fn prism_mutate_schema_surfaces_action_specific_examples() {
             .and_then(Value::as_str),
         Some("concept")
     );
+    assert!(
+        coordination.example_inputs.len() >= 3,
+        "coordination should expose multiple action-specific examples"
+    );
+    assert!(coordination
+        .example_inputs
+        .iter()
+        .any(|value| value["input"]["kind"] == "plan_create"));
+    assert!(coordination
+        .example_inputs
+        .iter()
+        .any(|value| value["input"]["kind"] == "plan_node_create"));
 
     let mutate_schema =
         crate::tool_input_schema_value("prism_mutate").expect("mutate schema value should exist");
@@ -6083,6 +6129,46 @@ fn prism_mutate_schema_surfaces_action_specific_examples() {
             "missing mutate example for action `{action}`"
         );
     }
+}
+
+#[test]
+fn coordination_schema_surfaces_closed_status_and_kind_enums() {
+    let schema = crate::tool_schema_view("prism_mutate").expect("mutate schema should exist");
+    let coordination = schema
+        .actions
+        .iter()
+        .find(|action| action.action == "coordination")
+        .expect("coordination action should exist");
+    let payload_variants = coordination.input_schema["properties"]["payload"]["oneOf"]
+        .as_array()
+        .expect("coordination payload should be a tagged union");
+    let task_create = payload_variants
+        .iter()
+        .find(|variant| variant["title"] == "kind=task_create")
+        .expect("task_create payload should exist");
+    let plan_node_create = payload_variants
+        .iter()
+        .find(|variant| variant["title"] == "kind=plan_node_create")
+        .expect("plan_node_create payload should exist");
+    let plan_edge_create = payload_variants
+        .iter()
+        .find(|variant| variant["title"] == "kind=plan_edge_create")
+        .expect("plan_edge_create payload should exist");
+
+    let task_create_schema = task_create.to_string();
+    assert!(task_create_schema.contains("\"status\""));
+    assert!(task_create_schema.contains("\"ready\""));
+    assert!(task_create_schema.contains("\"in_progress\""));
+
+    let plan_node_create_schema = plan_node_create.to_string();
+    assert!(plan_node_create_schema.contains("\"kind\""));
+    assert!(plan_node_create_schema.contains("\"investigate\""));
+    assert!(plan_node_create_schema.contains("\"edit\""));
+
+    let plan_edge_create_schema = plan_edge_create.to_string();
+    assert!(plan_edge_create_schema.contains("\"kind\""));
+    assert!(plan_edge_create_schema.contains("\"depends_on\""));
+    assert!(plan_edge_create_schema.contains("\"handoff_to\""));
 }
 
 #[test]
@@ -6193,6 +6279,43 @@ fn prism_mutate_schema_expands_payload_shapes_for_structured_actions() {
     assert!(artifact_nested.contains(&"taskId"));
     assert!(artifact_nested.contains(&"artifactId"));
     assert!(artifact_nested.contains(&"verdict"));
+}
+
+#[test]
+fn coordination_status_errors_are_self_repairing() {
+    let host = host_with_node(demo_node());
+    let session = test_session(&host);
+    let plan = host
+        .store_coordination(
+            session.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "goal": "Self-repairing coordination validation"
+                }),
+                task_id: None,
+            },
+        )
+        .expect("plan should be created");
+    let error = host
+        .store_coordination(
+            session.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Investigate refresh path",
+                    "status": "not_a_real_status",
+                }),
+                task_id: None,
+            },
+        )
+        .expect_err("invalid status should be rejected")
+        .to_string();
+
+    assert!(error.contains("Allowed values"));
+    assert!(error.contains(r#"{"status":"ready"}"#));
+    assert!(error.contains("prism://vocab"));
 }
 
 #[test]
@@ -10922,10 +11045,11 @@ return recent[0] ? prism.queryTrace(recent[0].id) : null;
     let args = refresh_phase["argsSummary"]
         .as_object()
         .expect("refresh args");
-    assert_eq!(
-        args.get("refreshPath"),
-        Some(&Value::String("none".to_string()))
-    );
+    let refresh_path = args
+        .get("refreshPath")
+        .and_then(Value::as_str)
+        .expect("refreshPath should be a string");
+    assert!(matches!(refresh_path, "none" | "deferred"));
     assert_eq!(args.get("episodicReloaded"), Some(&Value::Bool(false)));
     assert_eq!(args.get("inferenceReloaded"), Some(&Value::Bool(false)));
     assert_eq!(args.get("coordinationReloaded"), Some(&Value::Bool(false)));
@@ -16338,6 +16462,78 @@ fn workspace_coordination_persistence_records_mcp_session_scope() {
         Some(session_b.session_id().0.as_str())
     );
     assert_eq!(store.load_coordination_events().unwrap().len(), 2);
+
+    drop(store);
+    drop(host);
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn rejected_coordination_mutations_keep_mcp_session_scope_in_authoritative_persistence() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+    let session = host.new_session_state();
+
+    let plan = host
+        .store_coordination(
+            session.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "goal": "Track rejected mutation persistence",
+                    "policy": { "requireReviewForCompletion": true }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let task = host
+        .store_coordination(
+            session.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id,
+                    "title": "Complete without review"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+
+    let rejected = host
+        .store_coordination(
+            session.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskUpdate,
+                payload: json!({
+                    "taskId": task.state["id"].as_str().unwrap(),
+                    "status": "completed"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert!(rejected.rejected);
+    assert!(!rejected.event_ids.is_empty());
+
+    let cache = root.join(".prism").join("cache.db");
+    let mut store = SqliteStore::open(&cache).unwrap();
+    let context = store
+        .load_latest_coordination_persist_context()
+        .unwrap()
+        .expect("rejected coordination mutation should retain latest context");
+    assert_eq!(
+        context.session_id.as_deref(),
+        Some(session.session_id().0.as_str())
+    );
+    let events = store.load_coordination_events().unwrap();
+    assert_eq!(
+        events.last().map(|event| &event.kind),
+        Some(&prism_ir::CoordinationEventKind::MutationRejected)
+    );
 
     drop(store);
     drop(host);

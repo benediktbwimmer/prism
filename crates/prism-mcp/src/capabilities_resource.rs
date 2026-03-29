@@ -12,7 +12,7 @@ use crate::{
     EVENT_RESOURCE_TEMPLATE_URI, LINEAGE_RESOURCE_TEMPLATE_URI, MEMORY_RESOURCE_TEMPLATE_URI,
     PLANS_RESOURCE_TEMPLATE_URI, PLANS_URI, SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI,
     SYMBOL_RESOURCE_TEMPLATE_URI, TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI,
-    TOOL_SCHEMA_RESOURCE_TEMPLATE_URI,
+    TOOL_SCHEMA_RESOURCE_TEMPLATE_URI, VOCAB_URI,
 };
 
 pub(crate) fn capabilities_resource_value(
@@ -23,7 +23,9 @@ pub(crate) fn capabilities_resource_value(
     let mut related_resources = vec![
         capabilities_resource_view_link(),
         session_resource_view_link(),
+        crate::vocab_resource_view_link(),
         schema_resource_view_link("capabilities"),
+        schema_resource_view_link("vocab"),
         schema_resource_view_link("session"),
         schema_resource_view_link("schemas"),
         tool_schemas_resource_view_link(),
@@ -561,6 +563,16 @@ fn resource_capabilities() -> Vec<ResourceCapabilityView> {
                 .to_string(),
             schema_uri: Some(schema_resource_uri("session")),
             example_uri: resource_example_uri("session"),
+        },
+        ResourceCapabilityView {
+            name: "PRISM Vocabulary".to_string(),
+            uri: VOCAB_URI.to_string(),
+            mime_type: "application/json".to_string(),
+            description:
+                "Canonical enum and action vocabularies for PRISM MCP resources, query args, and mutation payloads."
+                    .to_string(),
+            schema_uri: Some(schema_resource_uri("vocab")),
+            example_uri: resource_example_uri("vocab"),
         },
         ResourceCapabilityView {
             name: "PRISM Plans".to_string(),

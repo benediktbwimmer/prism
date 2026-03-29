@@ -322,6 +322,8 @@ pub struct ToolActionSchemaView {
     pub fields: Vec<ToolFieldSchemaView>,
     pub input_schema: Value,
     pub example_input: Option<Value>,
+    #[serde(default)]
+    pub example_inputs: Vec<Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -331,6 +333,8 @@ pub struct ToolSchemaView {
     pub schema_uri: String,
     pub description: String,
     pub example_input: Value,
+    #[serde(default)]
+    pub example_inputs: Vec<Value>,
     pub input_schema: Value,
     pub actions: Vec<ToolActionSchemaView>,
 }

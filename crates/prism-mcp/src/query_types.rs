@@ -13,9 +13,11 @@ use serde::Deserialize;
 
 use crate::tool_args::ValidationRefPayload;
 use crate::{
-    AcceptanceCriterionPayload, AnchorRefInput, CoordinationPolicyPayload, InferredEdgeScopeInput,
-    MemoryKindInput, MemorySourceInput, NodeIdInput, OutcomeEvidenceInput, OutcomeKindInput,
-    OutcomeResultInput, PlanBindingPayload, TaskCompletionContextPayload,
+    vocabulary_error, AcceptanceCriterionPayload, AcceptanceEvidencePolicyInput, AnchorRefInput,
+    CapabilityInput, ClaimModeInput, CoordinationPolicyPayload, CoordinationTaskStatusInput,
+    InferredEdgeScopeInput, MemoryKindInput, MemorySourceInput, NodeIdInput, OutcomeEvidenceInput,
+    OutcomeKindInput, OutcomeResultInput, PlanBindingPayload, PlanEdgeKindInput, PlanNodeKindInput,
+    PlanNodeStatusInput, PlanStatusInput, ReviewVerdictInput, TaskCompletionContextPayload,
 };
 
 #[derive(Debug, Clone, Deserialize)]
@@ -537,40 +539,36 @@ pub(crate) fn convert_inferred_scope(scope: InferredEdgeScopeInput) -> InferredE
     }
 }
 
-pub(crate) fn parse_capability(value: &str) -> Result<Capability> {
-    let normalized = value.trim().to_ascii_lowercase();
-    match normalized.as_str() {
-        "observe" => Ok(Capability::Observe),
-        "edit" => Ok(Capability::Edit),
-        "review" => Ok(Capability::Review),
-        "validate" => Ok(Capability::Validate),
-        "merge" => Ok(Capability::Merge),
-        other => Err(anyhow!("unknown capability `{other}`")),
+pub(crate) fn convert_capability(value: CapabilityInput) -> Capability {
+    match value {
+        CapabilityInput::Observe => Capability::Observe,
+        CapabilityInput::Edit => Capability::Edit,
+        CapabilityInput::Review => Capability::Review,
+        CapabilityInput::Validate => Capability::Validate,
+        CapabilityInput::Merge => Capability::Merge,
     }
 }
 
-pub(crate) fn parse_claim_mode(value: &str) -> Result<ClaimMode> {
-    let normalized = value.trim().to_ascii_lowercase();
-    match normalized.as_str() {
-        "advisory" => Ok(ClaimMode::Advisory),
-        "softexclusive" | "soft-exclusive" | "soft_exclusive" => Ok(ClaimMode::SoftExclusive),
-        "hardexclusive" | "hard-exclusive" | "hard_exclusive" => Ok(ClaimMode::HardExclusive),
-        other => Err(anyhow!("unknown claim mode `{other}`")),
+pub(crate) fn convert_claim_mode(value: ClaimModeInput) -> ClaimMode {
+    match value {
+        ClaimModeInput::Advisory => ClaimMode::Advisory,
+        ClaimModeInput::SoftExclusive => ClaimMode::SoftExclusive,
+        ClaimModeInput::HardExclusive => ClaimMode::HardExclusive,
     }
 }
 
-pub(crate) fn parse_coordination_task_status(value: &str) -> Result<CoordinationTaskStatus> {
-    let normalized = value.trim().to_ascii_lowercase();
-    match normalized.as_str() {
-        "proposed" => Ok(CoordinationTaskStatus::Proposed),
-        "ready" => Ok(CoordinationTaskStatus::Ready),
-        "inprogress" | "in-progress" => Ok(CoordinationTaskStatus::InProgress),
-        "blocked" => Ok(CoordinationTaskStatus::Blocked),
-        "inreview" | "in-review" => Ok(CoordinationTaskStatus::InReview),
-        "validating" => Ok(CoordinationTaskStatus::Validating),
-        "completed" => Ok(CoordinationTaskStatus::Completed),
-        "abandoned" => Ok(CoordinationTaskStatus::Abandoned),
-        other => Err(anyhow!("unknown coordination task status `{other}`")),
+pub(crate) fn convert_coordination_task_status(
+    value: CoordinationTaskStatusInput,
+) -> CoordinationTaskStatus {
+    match value {
+        CoordinationTaskStatusInput::Proposed => CoordinationTaskStatus::Proposed,
+        CoordinationTaskStatusInput::Ready => CoordinationTaskStatus::Ready,
+        CoordinationTaskStatusInput::InProgress => CoordinationTaskStatus::InProgress,
+        CoordinationTaskStatusInput::Blocked => CoordinationTaskStatus::Blocked,
+        CoordinationTaskStatusInput::InReview => CoordinationTaskStatus::InReview,
+        CoordinationTaskStatusInput::Validating => CoordinationTaskStatus::Validating,
+        CoordinationTaskStatusInput::Completed => CoordinationTaskStatus::Completed,
+        CoordinationTaskStatusInput::Abandoned => CoordinationTaskStatus::Abandoned,
     }
 }
 
@@ -582,7 +580,22 @@ pub(crate) fn parse_plan_status(value: &str) -> Result<PlanStatus> {
         "blocked" => Ok(PlanStatus::Blocked),
         "completed" => Ok(PlanStatus::Completed),
         "abandoned" => Ok(PlanStatus::Abandoned),
-        other => Err(anyhow!("unknown coordination plan status `{other}`")),
+        other => Err(anyhow!(vocabulary_error(
+            "planStatus",
+            "coordination plan status",
+            other,
+            r#"{"status":"active"}"#
+        ))),
+    }
+}
+
+pub(crate) fn convert_plan_status(value: PlanStatusInput) -> PlanStatus {
+    match value {
+        PlanStatusInput::Draft => PlanStatus::Draft,
+        PlanStatusInput::Active => PlanStatus::Active,
+        PlanStatusInput::Blocked => PlanStatus::Blocked,
+        PlanStatusInput::Completed => PlanStatus::Completed,
+        PlanStatusInput::Abandoned => PlanStatus::Abandoned,
     }
 }
 
@@ -592,65 +605,60 @@ pub(crate) fn parse_plan_scope(value: &str) -> Result<PlanScope> {
         "local" => Ok(PlanScope::Local),
         "session" => Ok(PlanScope::Session),
         "repo" => Ok(PlanScope::Repo),
-        other => Err(anyhow!("unknown plan scope `{other}`")),
+        other => Err(anyhow!(vocabulary_error(
+            "planScope",
+            "plan scope",
+            other,
+            r#"{"scope":"repo"}"#
+        ))),
     }
 }
 
-pub(crate) fn parse_plan_node_status(value: &str) -> Result<PlanNodeStatus> {
-    let normalized = value.trim().to_ascii_lowercase();
-    match normalized.as_str() {
-        "proposed" => Ok(PlanNodeStatus::Proposed),
-        "ready" => Ok(PlanNodeStatus::Ready),
-        "inprogress" | "in-progress" => Ok(PlanNodeStatus::InProgress),
-        "blocked" => Ok(PlanNodeStatus::Blocked),
-        "waiting" => Ok(PlanNodeStatus::Waiting),
-        "inreview" | "in-review" => Ok(PlanNodeStatus::InReview),
-        "validating" => Ok(PlanNodeStatus::Validating),
-        "completed" => Ok(PlanNodeStatus::Completed),
-        "abandoned" => Ok(PlanNodeStatus::Abandoned),
-        other => Err(anyhow!("unknown plan node status `{other}`")),
+pub(crate) fn convert_plan_node_status(value: PlanNodeStatusInput) -> PlanNodeStatus {
+    match value {
+        PlanNodeStatusInput::Proposed => PlanNodeStatus::Proposed,
+        PlanNodeStatusInput::Ready => PlanNodeStatus::Ready,
+        PlanNodeStatusInput::InProgress => PlanNodeStatus::InProgress,
+        PlanNodeStatusInput::Blocked => PlanNodeStatus::Blocked,
+        PlanNodeStatusInput::Waiting => PlanNodeStatus::Waiting,
+        PlanNodeStatusInput::InReview => PlanNodeStatus::InReview,
+        PlanNodeStatusInput::Validating => PlanNodeStatus::Validating,
+        PlanNodeStatusInput::Completed => PlanNodeStatus::Completed,
+        PlanNodeStatusInput::Abandoned => PlanNodeStatus::Abandoned,
     }
 }
 
-pub(crate) fn parse_plan_node_kind(value: &str) -> Result<PlanNodeKind> {
-    let normalized = value.trim().to_ascii_lowercase();
-    match normalized.as_str() {
-        "investigate" => Ok(PlanNodeKind::Investigate),
-        "decide" => Ok(PlanNodeKind::Decide),
-        "edit" => Ok(PlanNodeKind::Edit),
-        "validate" => Ok(PlanNodeKind::Validate),
-        "review" => Ok(PlanNodeKind::Review),
-        "handoff" => Ok(PlanNodeKind::Handoff),
-        "merge" => Ok(PlanNodeKind::Merge),
-        "release" => Ok(PlanNodeKind::Release),
-        "note" => Ok(PlanNodeKind::Note),
-        other => Err(anyhow!("unknown plan node kind `{other}`")),
+pub(crate) fn convert_plan_node_kind(value: PlanNodeKindInput) -> PlanNodeKind {
+    match value {
+        PlanNodeKindInput::Investigate => PlanNodeKind::Investigate,
+        PlanNodeKindInput::Decide => PlanNodeKind::Decide,
+        PlanNodeKindInput::Edit => PlanNodeKind::Edit,
+        PlanNodeKindInput::Validate => PlanNodeKind::Validate,
+        PlanNodeKindInput::Review => PlanNodeKind::Review,
+        PlanNodeKindInput::Handoff => PlanNodeKind::Handoff,
+        PlanNodeKindInput::Merge => PlanNodeKind::Merge,
+        PlanNodeKindInput::Release => PlanNodeKind::Release,
+        PlanNodeKindInput::Note => PlanNodeKind::Note,
     }
 }
 
-pub(crate) fn parse_plan_edge_kind(value: &str) -> Result<PlanEdgeKind> {
-    let normalized = value.trim().to_ascii_lowercase();
-    match normalized.as_str() {
-        "dependson" | "depends-on" | "depends_on" => Ok(PlanEdgeKind::DependsOn),
-        "blocks" => Ok(PlanEdgeKind::Blocks),
-        "informs" => Ok(PlanEdgeKind::Informs),
-        "validates" => Ok(PlanEdgeKind::Validates),
-        "handoffto" | "handoff-to" | "handoff_to" => Ok(PlanEdgeKind::HandoffTo),
-        "childof" | "child-of" | "child_of" => Ok(PlanEdgeKind::ChildOf),
-        "relatedto" | "related-to" | "related_to" => Ok(PlanEdgeKind::RelatedTo),
-        other => Err(anyhow!("unknown plan edge kind `{other}`")),
+pub(crate) fn convert_plan_edge_kind(value: PlanEdgeKindInput) -> PlanEdgeKind {
+    match value {
+        PlanEdgeKindInput::DependsOn => PlanEdgeKind::DependsOn,
+        PlanEdgeKindInput::Blocks => PlanEdgeKind::Blocks,
+        PlanEdgeKindInput::Informs => PlanEdgeKind::Informs,
+        PlanEdgeKindInput::Validates => PlanEdgeKind::Validates,
+        PlanEdgeKindInput::HandoffTo => PlanEdgeKind::HandoffTo,
+        PlanEdgeKindInput::ChildOf => PlanEdgeKind::ChildOf,
+        PlanEdgeKindInput::RelatedTo => PlanEdgeKind::RelatedTo,
     }
 }
 
-pub(crate) fn parse_review_verdict(value: &str) -> Result<ReviewVerdict> {
-    let normalized = value.trim().to_ascii_lowercase();
-    match normalized.as_str() {
-        "approved" => Ok(ReviewVerdict::Approved),
-        "changesrequested" | "changes-requested" | "changes_requested" => {
-            Ok(ReviewVerdict::ChangesRequested)
-        }
-        "rejected" => Ok(ReviewVerdict::Rejected),
-        other => Err(anyhow!("unknown review verdict `{other}`")),
+pub(crate) fn convert_review_verdict(value: ReviewVerdictInput) -> ReviewVerdict {
+    match value {
+        ReviewVerdictInput::Approved => ReviewVerdict::Approved,
+        ReviewVerdictInput::ChangesRequested => ReviewVerdict::ChangesRequested,
+        ReviewVerdictInput::Rejected => ReviewVerdict::Rejected,
     }
 }
 
@@ -662,7 +670,7 @@ pub(crate) fn convert_policy(
     };
     let mut policy = CoordinationPolicy::default();
     if let Some(mode) = payload.default_claim_mode {
-        policy.default_claim_mode = parse_claim_mode(&mode)?;
+        policy.default_claim_mode = convert_claim_mode(mode);
     }
     if let Some(value) = payload.max_parallel_editors_per_anchor {
         policy.max_parallel_editors_per_anchor = value;
@@ -715,9 +723,7 @@ pub(crate) fn convert_plan_acceptance(
                     .collect(),
                 evidence_policy: criterion
                     .evidence_policy
-                    .as_deref()
-                    .map(parse_acceptance_evidence_policy)
-                    .transpose()?
+                    .map(convert_acceptance_evidence_policy)
                     .unwrap_or(AcceptanceEvidencePolicy::Any),
             })
         })
@@ -797,23 +803,18 @@ pub(crate) fn edge_kind_label(kind: EdgeKind) -> &'static str {
     }
 }
 
-pub(crate) fn parse_acceptance_evidence_policy(value: &str) -> Result<AcceptanceEvidencePolicy> {
-    let normalized = value
-        .trim()
-        .to_ascii_lowercase()
-        .replace('_', "-")
-        .replace(' ', "-");
-    let policy = match normalized.as_str() {
-        "any" => AcceptanceEvidencePolicy::Any,
-        "all" => AcceptanceEvidencePolicy::All,
-        "reviewonly" | "review-only" => AcceptanceEvidencePolicy::ReviewOnly,
-        "validationonly" | "validation-only" => AcceptanceEvidencePolicy::ValidationOnly,
-        "reviewandvalidation" | "review-and-validation" => {
+pub(crate) fn convert_acceptance_evidence_policy(
+    value: AcceptanceEvidencePolicyInput,
+) -> AcceptanceEvidencePolicy {
+    match value {
+        AcceptanceEvidencePolicyInput::Any => AcceptanceEvidencePolicy::Any,
+        AcceptanceEvidencePolicyInput::All => AcceptanceEvidencePolicy::All,
+        AcceptanceEvidencePolicyInput::ReviewOnly => AcceptanceEvidencePolicy::ReviewOnly,
+        AcceptanceEvidencePolicyInput::ValidationOnly => AcceptanceEvidencePolicy::ValidationOnly,
+        AcceptanceEvidencePolicyInput::ReviewAndValidation => {
             AcceptanceEvidencePolicy::ReviewAndValidation
         }
-        other => return Err(anyhow!("unknown acceptance evidence policy `{other}`")),
-    };
-    Ok(policy)
+    }
 }
 
 pub(crate) fn parse_node_kind(value: &str) -> Result<NodeKind> {

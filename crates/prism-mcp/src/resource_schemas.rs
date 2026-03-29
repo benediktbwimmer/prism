@@ -189,6 +189,32 @@ pub(crate) struct PlansResourcePayload {
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct VocabularyValueView {
+    pub(crate) value: String,
+    pub(crate) aliases: Vec<String>,
+    pub(crate) description: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct VocabularyCategoryView {
+    pub(crate) key: String,
+    pub(crate) title: String,
+    pub(crate) description: String,
+    pub(crate) values: Vec<VocabularyValueView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct VocabularyResourcePayload {
+    pub(crate) uri: String,
+    pub(crate) schema_uri: String,
+    pub(crate) vocabularies: Vec<VocabularyCategoryView>,
+    pub(crate) related_resources: Vec<ResourceLinkView>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct SearchResourcePayload {
     pub(crate) uri: String,
     pub(crate) schema_uri: String,

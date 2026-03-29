@@ -1342,6 +1342,18 @@ impl ServerHandler for PrismMcpServer {
                 plans_resource_link()
                     .with_title("PRISM Plans")
                     .no_annotation(),
+                RawResource::new(VOCAB_URI, "PRISM Vocabulary")
+                    .with_description(
+                        "Canonical enum and action vocabularies for PRISM MCP resources, query args, and mutation payloads",
+                    )
+                    .with_mime_type("application/json")
+                    .with_title("PRISM Vocabulary")
+                    .with_meta(resource_meta(
+                        "vocab",
+                        Some(schema_resource_uri("vocab")),
+                        None,
+                    ))
+                    .no_annotation(),
                 RawResource::new(ENTRYPOINTS_URI, "PRISM Entrypoints")
                     .with_description(
                         "Workspace entrypoints and top-level starting symbols in structured JSON, with optional cursor-based pagination",
@@ -1401,6 +1413,16 @@ impl ServerHandler for PrismMcpServer {
                 Some(resource_meta(
                     "capabilities",
                     Some(schema_resource_uri("capabilities")),
+                    None,
+                )),
+            )?
+        } else if base_uri == VOCAB_URI {
+            json_resource_contents_with_meta(
+                self.host.vocab_resource_value(),
+                request.uri.clone(),
+                Some(resource_meta(
+                    "vocab",
+                    Some(schema_resource_uri("vocab")),
                     None,
                 )),
             )?
@@ -1559,6 +1581,12 @@ impl ServerHandler for PrismMcpServer {
                     "PRISM Session Resource Schema",
                     "JSON Schema for the PRISM session resource payload.",
                     "session",
+                )?,
+                "vocab" => schema_resource_contents::<VocabularyResourcePayload>(
+                    uri,
+                    "PRISM Vocabulary Resource Schema",
+                    "JSON Schema for the canonical PRISM vocabulary resource payload.",
+                    "vocab",
                 )?,
                 "plans" => schema_resource_contents::<PlansResourcePayload>(
                     uri,
@@ -1728,7 +1756,7 @@ impl ServerHandler for PrismMcpServer {
 impl PrismMcpServer {
     fn server_instructions(&self) -> String {
         let mut instructions = String::from(
-            "Start with prism://capabilities for the canonical map of tools, query methods, resources, feature gates, and build info, then use prism://api-reference for the typed query contract and prism://schemas for the JSON Schema catalog. Use prism://tool-schemas and prism://schema/tool/{toolName} when you need exact MCP tool input shapes. Prefer the compact staged path for default agent work: prism_locate to pick a target, prism_open to inspect a bounded slice, prism_workset for compact surrounding context, prism_expand for explicit depth, and prism_query only when the compact path cannot express the needed read. Use prism://session to inspect the active workspace, task, runtime limits, and active feature flags, prism://plans for browseable plan discovery, prism_session to change task context or limits, prism://entrypoints for a quick workspace overview, prism://search/{query} for browseable search results, prism://symbol/{crateName}/{kind}/{path} for exact symbol snapshots, prism://lineage/{lineageId} for symbol history, prism://task/{taskId} for recorded task outcomes, and prism://event/{eventId}, prism://memory/{memoryId}, and prism://edge/{edgeId} for mutation outputs. Follow each resource payload's schemaUri and relatedResources fields instead of reconstructing URIs by convention. Use prism_mutate for outcomes, anchored memory, validation feedback, inferred edges, coordination state, claims, artifacts, and curator proposal decisions.",
+            "Start with prism://capabilities for the canonical map of tools, query methods, resources, feature gates, and build info, then inspect prism://vocab for canonical enums and mutation/action vocabularies before using prism://api-reference and prism://schemas for the typed query contract and JSON Schema catalog. Use prism://tool-schemas and prism://schema/tool/{toolName} when you need exact MCP tool input shapes, and prefer prism.tool(\"...\") or the tool schema resources for action-specific examples. Prefer the compact staged path for default agent work: prism_locate to pick a target, prism_open to inspect a bounded slice, prism_workset for compact surrounding context, prism_expand for explicit depth, and prism_query only when the compact path cannot express the needed read. Use prism://session to inspect the active workspace, task, runtime limits, and active feature flags, prism://plans for browseable plan discovery, prism_session to change task context or limits, prism://entrypoints for a quick workspace overview, prism://search/{query} for browseable search results, prism://symbol/{crateName}/{kind}/{path} for exact symbol snapshots, prism://lineage/{lineageId} for symbol history, prism://task/{taskId} for recorded task outcomes, and prism://event/{eventId}, prism://memory/{memoryId}, and prism://edge/{edgeId} for mutation outputs. Follow each resource payload's schemaUri and relatedResources fields instead of reconstructing URIs by convention. Use prism_mutate for outcomes, anchored memory, validation feedback, inferred edges, coordination state, claims, artifacts, and curator proposal decisions.",
         );
 
         if self.host.features.mode_label() != "full" {

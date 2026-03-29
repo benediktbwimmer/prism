@@ -22,11 +22,11 @@ use prism_memory::{
     MemoryKind, MemoryModule, MemoryScope, MemorySource, OutcomeEvent, OutcomeEvidence,
     OutcomeKind, OutcomeResult, SessionMemory,
 };
+use prism_projections::ProjectionSnapshot;
 use prism_query::{
     ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptPacket,
     ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptScope,
 };
-use prism_projections::ProjectionSnapshot;
 use prism_store::{MemoryStore, Store};
 use serde_json::json;
 
@@ -2296,7 +2296,7 @@ fn coordination_mutations_use_live_runtime_state_without_forcing_persisted_reloa
 }
 
 #[test]
-fn startup_ignores_persisted_projection_snapshot_by_default() {
+fn startup_hydrates_persisted_curated_concepts_even_when_derived_projections_stay_disabled() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -2309,8 +2309,9 @@ fn startup_ignores_persisted_projection_snapshot_by_default() {
     let persisted_concept = ConceptPacket {
         handle: "concept://persisted-only".to_string(),
         canonical_name: "persisted only".to_string(),
-        summary: "Should only load when persisted projection hydration is explicitly enabled."
-            .to_string(),
+        summary:
+            "Curated session concepts should still load even when derived projection hydration stays disabled."
+                .to_string(),
         aliases: Vec::new(),
         confidence: 0.9,
         core_members: Vec::new(),
@@ -2336,16 +2337,17 @@ fn startup_ignores_persisted_projection_snapshot_by_default() {
             concept_relations: Vec::new(),
         })
         .unwrap();
-    let default_indexer =
-        WorkspaceIndexer::with_store_and_options(&root, default_store, WorkspaceSessionOptions::default())
-            .unwrap();
-    assert!(
-        default_indexer
-            .projections
-            .curated_concepts()
-            .iter()
-            .all(|concept| concept.handle != persisted_concept.handle)
-    );
+    let default_indexer = WorkspaceIndexer::with_store_and_options(
+        &root,
+        default_store,
+        WorkspaceSessionOptions::default(),
+    )
+    .unwrap();
+    assert!(default_indexer
+        .projections
+        .curated_concepts()
+        .iter()
+        .any(|concept| concept.handle == persisted_concept.handle));
 
     let mut hydrated_store = MemoryStore::default();
     hydrated_store
@@ -2365,13 +2367,11 @@ fn startup_ignores_persisted_projection_snapshot_by_default() {
         },
     )
     .unwrap();
-    assert!(
-        hydrated_indexer
-            .projections
-            .curated_concepts()
-            .iter()
-            .any(|concept| concept.handle == persisted_concept.handle)
-    );
+    assert!(hydrated_indexer
+        .projections
+        .curated_concepts()
+        .iter()
+        .any(|concept| concept.handle == persisted_concept.handle));
 
     let _ = fs::remove_dir_all(root);
 }

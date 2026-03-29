@@ -16,14 +16,17 @@ use crate::parse_pipeline::{parse_jobs_in_parallel, PreparedParseJob};
 use crate::patch_outcomes::default_outcome_meta;
 use crate::reanchor::{detect_moved_files, infer_reanchors};
 use crate::session::WorkspaceSession;
-use crate::shared_runtime::{local_projection_snapshot_for_persist, merged_projection_index};
+use crate::shared_runtime::{
+    local_projection_snapshot_for_persist, merged_projection_index,
+    overlay_persisted_projection_knowledge,
+};
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::util::{cache_path, cleanup_legacy_cache, default_adapters};
 use crate::WorkspaceSessionOptions;
 use anyhow::Result;
 use prism_coordination::CoordinationSnapshot;
 use prism_curator::CuratorBackend;
-use prism_history::HistoryStore;
+use prism_history::{HistoryCoChangeDelta, HistoryStore};
 use prism_ir::{
     ChangeTrigger, Edge, EdgeKind, EdgeOrigin, LineageEvent, ObservedChangeSet,
     PlanExecutionOverlay, PlanGraph,
@@ -102,14 +105,16 @@ impl WorkspaceIndexer<SqliteStore> {
                     .map(|state| state.execution_overlays)
                     .unwrap_or_default();
             }
+            let local_projection_snapshot = indexer.store.load_projection_snapshot()?;
+            let shared_projection_snapshot = shared_store.load_projection_snapshot()?;
             indexer.projections = merged_projection_index(
                 if options.hydrate_persisted_projections {
-                    indexer.store.load_projection_snapshot()?
+                    local_projection_snapshot.clone()
                 } else {
                     None
                 },
                 if options.hydrate_persisted_projections {
-                    shared_store.load_projection_snapshot()?
+                    shared_projection_snapshot.clone()
                 } else {
                     None
                 },
@@ -118,6 +123,14 @@ impl WorkspaceIndexer<SqliteStore> {
                 &indexer.history.snapshot(),
                 &indexer.outcomes.snapshot(),
             );
+            if !options.hydrate_persisted_projections {
+                overlay_persisted_projection_knowledge(
+                    &mut indexer.projections,
+                    local_projection_snapshot
+                        .into_iter()
+                        .chain(shared_projection_snapshot),
+                );
+            }
         }
         indexer.shared_runtime = options.shared_runtime.clone();
         indexer.shared_runtime_store = shared_runtime_store;
@@ -193,15 +206,16 @@ impl<S: Store> WorkspaceIndexer<S> {
             .unwrap_or_default();
         let load_coordination_ms = load_coordination_started.elapsed().as_millis();
         let load_projection_started = Instant::now();
+        let persisted_projection_snapshot = store.load_projection_snapshot()?;
         let stored_projection_snapshot = if options.hydrate_persisted_projections {
-            store.load_projection_snapshot()?
+            persisted_projection_snapshot.clone()
         } else {
             None
         };
         let load_projection_ms = load_projection_started.elapsed().as_millis();
         let had_projection_snapshot = stored_projection_snapshot.is_some();
         let derive_projection_started = Instant::now();
-        let projections = merged_projection_index(
+        let mut projections = merged_projection_index(
             stored_projection_snapshot,
             None,
             load_repo_curated_concepts(&root)?,
@@ -209,6 +223,12 @@ impl<S: Store> WorkspaceIndexer<S> {
             &history.snapshot(),
             &outcomes.snapshot(),
         );
+        if !options.hydrate_persisted_projections {
+            overlay_persisted_projection_knowledge(
+                &mut projections,
+                persisted_projection_snapshot.into_iter(),
+            );
+        }
         let derive_or_restore_projection_ms = derive_projection_started.elapsed().as_millis();
 
         info!(
@@ -551,9 +571,20 @@ impl<S: Store> WorkspaceIndexer<S> {
                 snapshot
             }
         });
+        let history_co_change_deltas = co_change_deltas
+            .iter()
+            .map(|delta| HistoryCoChangeDelta {
+                source_lineage: delta.source_lineage.clone(),
+                target_lineage: delta.target_lineage.clone(),
+                count_delta: delta.count_delta,
+            })
+            .collect::<Vec<_>>();
         let history_delta = self.had_prior_snapshot.then(|| {
-            self.history
-                .persistence_delta(&all_lineage_events, &seeded_node_lineages, &[])
+            self.history.persistence_delta(
+                &all_lineage_events,
+                &seeded_node_lineages,
+                &history_co_change_deltas,
+            )
         });
         let upserted_file_count = upserted_paths.len();
         let removed_file_count = removed_paths.len();

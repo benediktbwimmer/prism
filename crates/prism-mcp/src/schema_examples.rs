@@ -4,7 +4,7 @@ use crate::{
     capabilities_resource_uri, edge_resource_uri, event_resource_uri, memory_resource_uri,
     plans_resource_uri, schema_resource_uri, session_resource_uri,
     symbol_resource_uri_from_node_id, task_resource_uri, tool_schema_resource_uri,
-    API_REFERENCE_URI,
+    vocab_resource_uri, API_REFERENCE_URI,
 };
 use prism_ir::{EdgeKind, NodeId};
 
@@ -20,6 +20,7 @@ pub(crate) fn resource_example_uri(resource_kind: &str) -> Option<String> {
         "capabilities" => Some(capabilities_resource_uri()),
         "schemas" => Some("prism://schemas".to_string()),
         "session" => Some(session_resource_uri()),
+        "vocab" => Some(vocab_resource_uri()),
         "tool-schemas" => Some("prism://tool-schemas".to_string()),
         "plans" => Some("prism://plans?contains=persistence&limit=5".to_string()),
         "entrypoints" => Some("prism://entrypoints?limit=5".to_string()),
@@ -109,6 +110,13 @@ pub(crate) fn tool_input_examples(tool_name: &str) -> Option<Vec<Value>> {
                     "summary": "Recorded the final compact-tool follow-up result.",
                 }
             }),
+            json!({
+                "action": "abandon_task",
+                "input": {
+                    "taskId": "task:demo-main",
+                    "summary": "Stopping after the compact-tool follow-up was redirected.",
+                }
+            }),
         ]),
         "prism_mutate" => Some(prism_mutate_examples()),
         _ => tool_input_example(tool_name).map(|example| vec![example]),
@@ -116,42 +124,30 @@ pub(crate) fn tool_input_examples(tool_name: &str) -> Option<Vec<Value>> {
 }
 
 pub(crate) fn tool_action_example(tool_name: &str, action: &str) -> Option<Value> {
-    match (tool_name, action) {
-        ("prism_session", "start_task") => tool_input_example("prism_session"),
-        ("prism_session", "bind_coordination_task") => Some(json!({
-            "action": "bind_coordination_task",
-            "input": {
-                "coordinationTaskId": "coord-task:12",
-            }
-        })),
-        ("prism_session", "configure") => Some(json!({
-            "action": "configure",
-            "input": {
-                "currentTaskDescription": "Continue compact-tool follow-up cleanup.",
-                "currentTaskTags": ["prism-mcp", "dogfood"],
-            }
-        })),
-        ("prism_session", "finish_task") => Some(json!({
-            "action": "finish_task",
-            "input": {
-                "taskId": "task:demo-main",
-                "summary": "Recorded the final compact-tool follow-up result.",
-            }
-        })),
-        ("prism_session", "abandon_task") => Some(json!({
-            "action": "abandon_task",
-            "input": {
-                "taskId": "task:demo-main",
-                "summary": "Stopping after the compact-tool follow-up was redirected.",
-            }
-        })),
-        ("prism_mutate", action) => prism_mutate_action_example(action),
-        _ => None,
+    tool_action_examples(tool_name, action).into_iter().next()
+}
+
+pub(crate) fn tool_action_examples(tool_name: &str, action: &str) -> Vec<Value> {
+    match tool_name {
+        "prism_session" => tool_input_examples("prism_session")
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|example| example.get("action").and_then(Value::as_str) == Some(action))
+            .collect(),
+        "prism_mutate" => prism_mutate_examples()
+            .into_iter()
+            .filter(|example| example.get("action").and_then(Value::as_str) == Some(action))
+            .collect(),
+        _ => tool_input_examples(tool_name)
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|example| example.get("action").and_then(Value::as_str) == Some(action))
+            .collect(),
     }
 }
 
 fn prism_mutate_examples() -> Vec<Value> {
-    [
+    let mut examples = [
         "validation_feedback",
         "outcome",
         "memory",
@@ -172,7 +168,9 @@ fn prism_mutate_examples() -> Vec<Value> {
     ]
     .into_iter()
     .filter_map(prism_mutate_action_example)
-    .collect()
+    .collect::<Vec<_>>();
+    examples.extend(extra_prism_mutate_examples());
+    examples
 }
 
 fn prism_mutate_action_example(action: &str) -> Option<Value> {
@@ -291,8 +289,8 @@ fn prism_mutate_action_example(action: &str) -> Option<Value> {
                 "action": "acquire",
                 "payload": {
                     "anchors": [sample_node_anchor("demo", "demo::validation_recipe", "function")],
-                    "capability": "Edit",
-                    "mode": "SoftExclusive",
+                    "capability": "edit",
+                    "mode": "soft_exclusive",
                     "ttlSeconds": 1800,
                     "coordinationTaskId": "coord-task:1"
                 },
@@ -386,6 +384,91 @@ fn prism_mutate_action_example(action: &str) -> Option<Value> {
     }
 }
 
+fn extra_prism_mutate_examples() -> Vec<Value> {
+    vec![
+        json!({
+            "action": "coordination",
+            "input": {
+                "kind": "plan_create",
+                "payload": {
+                    "goal": "Investigate refresh path latency",
+                    "status": "active",
+                    "policy": {
+                        "defaultClaimMode": "soft_exclusive",
+                        "staleAfterGraphChange": false
+                    }
+                },
+                "taskId": "task:demo-main"
+            }
+        }),
+        json!({
+            "action": "coordination",
+            "input": {
+                "kind": "plan_node_create",
+                "payload": {
+                    "planId": "plan:demo-main",
+                    "kind": "investigate",
+                    "title": "Break down refresh latency",
+                    "status": "ready",
+                    "validationRefs": [{ "id": "bench:refresh-hot-path" }],
+                    "acceptance": [{
+                        "label": "Captures no-op and one-file timings",
+                        "evidencePolicy": "any"
+                    }]
+                },
+                "taskId": "task:demo-main"
+            }
+        }),
+        json!({
+            "action": "coordination",
+            "input": {
+                "kind": "plan_edge_create",
+                "payload": {
+                    "planId": "plan:demo-main",
+                    "fromNodeId": "coord-task:1",
+                    "toNodeId": "coord-task:2",
+                    "kind": "depends_on"
+                },
+                "taskId": "task:demo-main"
+            }
+        }),
+        json!({
+            "action": "claim",
+            "input": {
+                "action": "renew",
+                "payload": {
+                    "claimId": "claim:demo-main",
+                    "ttlSeconds": 1800
+                },
+                "taskId": "task:demo-main"
+            }
+        }),
+        json!({
+            "action": "claim",
+            "input": {
+                "action": "release",
+                "payload": {
+                    "claimId": "claim:demo-main"
+                },
+                "taskId": "task:demo-main"
+            }
+        }),
+        json!({
+            "action": "artifact",
+            "input": {
+                "action": "review",
+                "payload": {
+                    "artifactId": "artifact:demo-main",
+                    "verdict": "approved",
+                    "summary": "Refresh hot path change looks safe.",
+                    "validatedChecks": ["cargo test -p prism-mcp"]
+                },
+                "taskId": "task:demo-main"
+            }
+        }),
+    ]
+}
+
 fn sample_node_anchor(crate_name: &str, path: &str, kind: &str) -> Value {
     json!({
         "type": "node",
@@ -408,6 +491,7 @@ fn resource_payload_example(resource_kind: &str) -> Option<Value> {
         "capabilities" => Some(capabilities_payload_example()),
         "schemas" => Some(resource_schema_catalog_payload_example()),
         "session" => Some(session_payload_example()),
+        "vocab" => Some(vocab_payload_example()),
         "tool-schemas" => Some(tool_schema_catalog_payload_example()),
         "plans" => Some(plans_payload_example()),
         "entrypoints" => Some(entrypoints_payload_example()),
@@ -435,6 +519,41 @@ fn session_payload_example() -> Value {
         "currentAgent": "codex",
         "limits": sample_limits(),
         "features": sample_features(),
+        "relatedResources": sample_related_resources(),
+    })
+}
+
+fn vocab_payload_example() -> Value {
+    json!({
+        "uri": vocab_resource_uri(),
+        "schemaUri": schema_resource_uri("vocab"),
+        "vocabularies": [{
+            "key": "coordinationTaskStatus",
+            "title": "Coordination Task Statuses",
+            "description": "Canonical coordination task status values.",
+            "values": [{
+                "value": "ready",
+                "aliases": ["todo"],
+                "description": "Actionable task waiting to be worked."
+            }, {
+                "value": "in_progress",
+                "aliases": ["in-progress", "inprogress"],
+                "description": "Task actively being worked."
+            }]
+        }, {
+            "key": "coordinationMutationKind",
+            "title": "Coordination Mutation Kinds",
+            "description": "Nested kind values accepted by prism_mutate action coordination.",
+            "values": [{
+                "value": "task_create",
+                "aliases": [],
+                "description": "Create a coordination task."
+            }, {
+                "value": "plan_node_create",
+                "aliases": [],
+                "description": "Create a first-class plan node."
+            }]
+        }],
         "relatedResources": sample_related_resources(),
     })
 }
@@ -474,6 +593,13 @@ fn capabilities_payload_example() -> Value {
             "description": "Active workspace root, task context, limits, and feature flags.",
             "schemaUri": schema_resource_uri("session"),
             "exampleUri": session_resource_uri(),
+        }, {
+            "name": "PRISM Vocabulary",
+            "uri": vocab_resource_uri(),
+            "mimeType": "application/json",
+            "description": "Canonical enum and action vocabularies for PRISM MCP resources, query args, and mutation payloads.",
+            "schemaUri": schema_resource_uri("vocab"),
+            "exampleUri": vocab_resource_uri(),
         }],
         "resourceTemplates": [{
             "name": "PRISM Search",
@@ -738,6 +864,12 @@ fn resource_schema_catalog_payload_example() -> Value {
         "uri": "prism://schemas",
         "schemaUri": schema_resource_uri("schemas"),
         "schemas": [{
+            "resourceKind": "vocab",
+            "schemaUri": schema_resource_uri("vocab"),
+            "resourceUri": vocab_resource_uri(),
+            "exampleUri": resource_example_uri("vocab"),
+            "description": "Schema for the canonical PRISM vocabulary catalog."
+        }, {
             "resourceKind": "search",
             "schemaUri": schema_resource_uri("search"),
             "resourceUri": "prism://search/{query}?limit={limit}&cursor={cursor}&strategy={strategy}&ownerKind={ownerKind}&kind={kind}&path={path}&module={module}&taskId={taskId}&pathMode={pathMode}&structuredPath={structuredPath}&topLevelOnly={topLevelOnly}&preferCallableCode={preferCallableCode}&preferEditableTargets={preferEditableTargets}&preferBehavioralOwners={preferBehavioralOwners}&includeInferred={includeInferred}",
@@ -787,6 +919,11 @@ fn tool_schema_catalog_payload_example() -> Value {
             "schemaUri": tool_schema_resource_uri("prism_query"),
             "description": "Input schema for programmable read-only TypeScript PRISM queries.",
             "exampleInput": tool_input_example("prism_query"),
+        }, {
+            "toolName": "prism_mutate",
+            "schemaUri": tool_schema_resource_uri("prism_mutate"),
+            "description": "Input schema for coarse PRISM state mutations and tagged action unions.",
+            "exampleInput": tool_input_example("prism_mutate"),
         }],
         "relatedResources": sample_related_resources(),
     })
@@ -1131,6 +1268,11 @@ fn sample_related_resources() -> Value {
             "uri": capabilities_resource_uri(),
             "name": "PRISM Capabilities",
             "description": "Canonical capability map for query methods, resources, features, and build info"
+        },
+        {
+            "uri": vocab_resource_uri(),
+            "name": "PRISM Vocabulary",
+            "description": "Canonical enum and action vocabularies for PRISM MCP resources, query args, and mutation payloads"
         },
         {
             "uri": schema_resource_uri("search"),

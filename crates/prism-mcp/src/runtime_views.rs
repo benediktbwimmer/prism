@@ -269,7 +269,9 @@ fn runtime_freshness(
         fs_applied_revision,
         fs_dirty,
         last_refresh_path: last_refresh.as_ref().map(|refresh| refresh.path.clone()),
-        last_refresh_timestamp: last_refresh.as_ref().map(|refresh| refresh.timestamp.clone()),
+        last_refresh_timestamp: last_refresh
+            .as_ref()
+            .map(|refresh| refresh.timestamp.clone()),
         last_refresh_duration_ms: last_refresh.as_ref().map(|refresh| refresh.duration_ms),
         last_workspace_build_ms: event_field_u64(last_build, "buildMs"),
         last_daemon_ready_ms: event_field_u64(last_ready, "startupMs"),

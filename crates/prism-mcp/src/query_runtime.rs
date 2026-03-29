@@ -29,12 +29,12 @@ use crate::{
     artifact_risk_view, artifact_view, blast_radius_view, blocker_view, change_impact_view,
     changed_files, changed_symbols, claim_view, co_change_view, combined_parse_typescript_error,
     concept_decode_lens_view, concept_packet_view, concept_relation_view,
-    concept_resolution_is_ambiguous, conflict_view, convert_anchors, convert_node_id,
-    coordination_task_view, current_timestamp, diff_for, drift_candidate_view, edge_kind_label,
-    edge_view, edit_slice_for_symbol, entrypoints_for, focused_block_for_symbol,
-    is_query_parse_error, js_runtime, lineage_view, memory_event_view, merge_node_ids,
-    merge_promoted_checks, missing_return_hint, next_reads, owner_symbol_views_for_query,
-    owner_symbol_views_for_target, owner_views_for_target, parse_capability, parse_claim_mode,
+    concept_resolution_is_ambiguous, conflict_view, convert_anchors, convert_capability,
+    convert_claim_mode, convert_node_id, coordination_task_view, current_timestamp, diff_for,
+    drift_candidate_view, edge_kind_label, edge_view, edit_slice_for_symbol, entrypoints_for,
+    focused_block_for_symbol, is_query_parse_error, js_runtime, lineage_view, memory_event_view,
+    merge_node_ids, merge_promoted_checks, missing_return_hint, next_reads,
+    owner_symbol_views_for_query, owner_symbol_views_for_target, owner_views_for_target,
     parse_event_actor, parse_memory_event_action, parse_memory_kind, parse_memory_scope,
     parse_node_kind, parse_outcome_kind, parse_outcome_result, parse_plan_scope, parse_plan_status,
     parse_typescript_error, plan_execution_overlay_view, plan_graph_view, plan_node_blocker_view,
@@ -1076,8 +1076,8 @@ impl QueryExecution {
                         .simulate_claim(
                             &self.session.session_id(),
                             &convert_anchors(args.anchors)?,
-                            parse_capability(&args.capability)?,
-                            args.mode.as_deref().map(parse_claim_mode).transpose()?,
+                            convert_capability(args.capability),
+                            args.mode.map(convert_claim_mode),
                             args.task_id
                                 .as_ref()
                                 .map(|task_id| CoordinationTaskId::new(task_id.clone()))

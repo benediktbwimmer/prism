@@ -1,9 +1,9 @@
 use prism_js::{ConceptPacketView, ConceptRelationView, TaskJournalView};
 use rmcp::schemars::{JsonSchema, Schema};
-use serde::{Deserialize, Deserializer};
+use serde::{de, Deserialize, Deserializer};
 use serde_json::Value;
 
-use crate::{tool_schema_view, SessionView};
+use crate::{tool_schema_view, vocabulary_error, SessionView};
 
 fn ensure_root_object_input_schema(schema: &mut Schema) {
     if schema.get("type").is_none() {
@@ -115,6 +115,40 @@ fn missing_field_name(parse_error: &str) -> Option<&str> {
     let (_, tail) = parse_error.split_once("missing field `")?;
     let (field, _) = tail.split_once('`')?;
     Some(field)
+}
+
+fn normalize_vocab_token(value: &str) -> String {
+    value
+        .trim()
+        .to_ascii_lowercase()
+        .chars()
+        .filter(|ch| *ch != '_' && *ch != '-' && !ch.is_whitespace())
+        .collect()
+}
+
+macro_rules! impl_vocab_deserialize {
+    ($name:ident, $key:literal, $label:literal, $example:literal, { $($normalized:literal => $variant:ident),+ $(,)? }) => {
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                let raw = String::deserialize(deserializer)?;
+                let normalized = normalize_vocab_token(&raw);
+                match normalized.as_str() {
+                    $(
+                        $normalized => Ok(Self::$variant),
+                    )+
+                    _ => Err(de::Error::custom(vocabulary_error(
+                        $key,
+                        $label,
+                        raw.trim(),
+                        $example,
+                    ))),
+                }
+            }
+        }
+    };
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -1113,17 +1147,253 @@ pub(crate) struct PendingReviewsArgs {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct SimulateClaimArgs {
     pub(crate) anchors: Vec<AnchorRefInput>,
-    pub(crate) capability: String,
-    pub(crate) mode: Option<String>,
+    pub(crate) capability: CapabilityInput,
+    pub(crate) mode: Option<ClaimModeInput>,
     #[serde(alias = "task_id")]
     pub(crate) task_id: Option<String>,
 }
+
+#[derive(Debug, Clone, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum CapabilityInput {
+    Observe,
+    Edit,
+    Review,
+    Validate,
+    Merge,
+}
+
+impl_vocab_deserialize!(
+    CapabilityInput,
+    "capability",
+    "capability",
+    r#"{"capability":"edit"}"#,
+    {
+        "observe" => Observe,
+        "edit" => Edit,
+        "review" => Review,
+        "validate" => Validate,
+        "merge" => Merge
+    }
+);
+
+#[derive(Debug, Clone, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ClaimModeInput {
+    Advisory,
+    SoftExclusive,
+    HardExclusive,
+}
+
+impl_vocab_deserialize!(
+    ClaimModeInput,
+    "claimMode",
+    "claim mode",
+    r#"{"mode":"soft_exclusive"}"#,
+    {
+        "advisory" => Advisory,
+        "softexclusive" => SoftExclusive,
+        "hardexclusive" => HardExclusive
+    }
+);
+
+#[derive(Debug, Clone, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum CoordinationTaskStatusInput {
+    Proposed,
+    Ready,
+    InProgress,
+    Blocked,
+    InReview,
+    Validating,
+    Completed,
+    Abandoned,
+}
+
+impl_vocab_deserialize!(
+    CoordinationTaskStatusInput,
+    "coordinationTaskStatus",
+    "coordination task status",
+    r#"{"status":"ready"}"#,
+    {
+        "proposed" => Proposed,
+        "todo" => Ready,
+        "ready" => Ready,
+        "inprogress" => InProgress,
+        "blocked" => Blocked,
+        "inreview" => InReview,
+        "validating" => Validating,
+        "completed" => Completed,
+        "abandoned" => Abandoned
+    }
+);
+
+#[derive(Debug, Clone, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum PlanStatusInput {
+    Draft,
+    Active,
+    Blocked,
+    Completed,
+    Abandoned,
+}
+
+impl_vocab_deserialize!(
+    PlanStatusInput,
+    "planStatus",
+    "coordination plan status",
+    r#"{"status":"active"}"#,
+    {
+        "draft" => Draft,
+        "active" => Active,
+        "blocked" => Blocked,
+        "completed" => Completed,
+        "abandoned" => Abandoned
+    }
+);
+
+#[derive(Debug, Clone, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum AcceptanceEvidencePolicyInput {
+    Any,
+    All,
+    ReviewOnly,
+    ValidationOnly,
+    ReviewAndValidation,
+}
+
+impl_vocab_deserialize!(
+    AcceptanceEvidencePolicyInput,
+    "acceptanceEvidencePolicy",
+    "acceptance evidence policy",
+    r#"{"evidencePolicy":"any"}"#,
+    {
+        "any" => Any,
+        "all" => All,
+        "reviewonly" => ReviewOnly,
+        "validationonly" => ValidationOnly,
+        "reviewandvalidation" => ReviewAndValidation
+    }
+);
+
+#[derive(Debug, Clone, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum PlanNodeStatusInput {
+    Proposed,
+    Ready,
+    InProgress,
+    Blocked,
+    Waiting,
+    InReview,
+    Validating,
+    Completed,
+    Abandoned,
+}
+
+impl_vocab_deserialize!(
+    PlanNodeStatusInput,
+    "planNodeStatus",
+    "plan node status",
+    r#"{"status":"ready"}"#,
+    {
+        "proposed" => Proposed,
+        "todo" => Ready,
+        "ready" => Ready,
+        "inprogress" => InProgress,
+        "blocked" => Blocked,
+        "waiting" => Waiting,
+        "inreview" => InReview,
+        "validating" => Validating,
+        "completed" => Completed,
+        "abandoned" => Abandoned
+    }
+);
+
+#[derive(Debug, Clone, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum PlanNodeKindInput {
+    Investigate,
+    Decide,
+    Edit,
+    Validate,
+    Review,
+    Handoff,
+    Merge,
+    Release,
+    Note,
+}
+
+impl_vocab_deserialize!(
+    PlanNodeKindInput,
+    "planNodeKind",
+    "plan node kind",
+    r#"{"kind":"edit"}"#,
+    {
+        "investigate" => Investigate,
+        "decide" => Decide,
+        "edit" => Edit,
+        "validate" => Validate,
+        "review" => Review,
+        "handoff" => Handoff,
+        "merge" => Merge,
+        "release" => Release,
+        "note" => Note
+    }
+);
+
+#[derive(Debug, Clone, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum PlanEdgeKindInput {
+    DependsOn,
+    Blocks,
+    Informs,
+    Validates,
+    HandoffTo,
+    ChildOf,
+    RelatedTo,
+}
+
+impl_vocab_deserialize!(
+    PlanEdgeKindInput,
+    "planEdgeKind",
+    "plan edge kind",
+    r#"{"kind":"depends_on"}"#,
+    {
+        "dependson" => DependsOn,
+        "blocks" => Blocks,
+        "informs" => Informs,
+        "validates" => Validates,
+        "handoffto" => HandoffTo,
+        "childof" => ChildOf,
+        "relatedto" => RelatedTo
+    }
+);
+
+#[derive(Debug, Clone, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ReviewVerdictInput {
+    Approved,
+    ChangesRequested,
+    Rejected,
+}
+
+impl_vocab_deserialize!(
+    ReviewVerdictInput,
+    "reviewVerdict",
+    "review verdict",
+    r#"{"verdict":"approved"}"#,
+    {
+        "approved" => Approved,
+        "changesrequested" => ChangesRequested,
+        "rejected" => Rejected
+    }
+);
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PlanCreatePayload {
     pub(crate) goal: String,
-    pub(crate) status: Option<String>,
+    pub(crate) status: Option<PlanStatusInput>,
     pub(crate) policy: Option<CoordinationPolicyPayload>,
 }
 
@@ -1131,7 +1401,7 @@ pub(crate) struct PlanCreatePayload {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PlanUpdatePayload {
     pub(crate) plan_id: String,
-    pub(crate) status: Option<String>,
+    pub(crate) status: Option<PlanStatusInput>,
     pub(crate) goal: Option<String>,
     pub(crate) policy: Option<CoordinationPolicyPayload>,
 }
@@ -1139,7 +1409,7 @@ pub(crate) struct PlanUpdatePayload {
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CoordinationPolicyPayload {
-    pub(crate) default_claim_mode: Option<String>,
+    pub(crate) default_claim_mode: Option<ClaimModeInput>,
     pub(crate) max_parallel_editors_per_anchor: Option<u16>,
     pub(crate) require_review_for_completion: Option<bool>,
     pub(crate) require_validation_for_completion: Option<bool>,
@@ -1169,7 +1439,7 @@ pub(crate) struct AcceptanceCriterionPayload {
     pub(crate) label: String,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
     pub(crate) required_checks: Option<Vec<ValidationRefPayload>>,
-    pub(crate) evidence_policy: Option<String>,
+    pub(crate) evidence_policy: Option<AcceptanceEvidencePolicyInput>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -1177,7 +1447,7 @@ pub(crate) struct AcceptanceCriterionPayload {
 pub(crate) struct TaskCreatePayload {
     pub(crate) plan_id: String,
     pub(crate) title: String,
-    pub(crate) status: Option<String>,
+    pub(crate) status: Option<CoordinationTaskStatusInput>,
     pub(crate) assignee: Option<String>,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
     pub(crate) depends_on: Option<Vec<String>>,
@@ -1188,7 +1458,7 @@ pub(crate) struct TaskCreatePayload {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct TaskUpdatePayload {
     pub(crate) task_id: String,
-    pub(crate) status: Option<String>,
+    pub(crate) status: Option<CoordinationTaskStatusInput>,
     pub(crate) assignee: Option<SparsePatchInput<String>>,
     pub(crate) title: Option<String>,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
@@ -1201,10 +1471,10 @@ pub(crate) struct TaskUpdatePayload {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PlanNodeCreatePayload {
     pub(crate) plan_id: String,
-    pub(crate) kind: Option<String>,
+    pub(crate) kind: Option<PlanNodeKindInput>,
     pub(crate) title: String,
     pub(crate) summary: Option<String>,
-    pub(crate) status: Option<String>,
+    pub(crate) status: Option<PlanNodeStatusInput>,
     pub(crate) assignee: Option<String>,
     pub(crate) is_abstract: Option<bool>,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
@@ -1220,8 +1490,8 @@ pub(crate) struct PlanNodeCreatePayload {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PlanNodeUpdatePayload {
     pub(crate) node_id: String,
-    pub(crate) kind: Option<String>,
-    pub(crate) status: Option<String>,
+    pub(crate) kind: Option<PlanNodeKindInput>,
+    pub(crate) status: Option<PlanNodeStatusInput>,
     pub(crate) assignee: Option<SparsePatchInput<String>>,
     pub(crate) is_abstract: Option<bool>,
     pub(crate) title: Option<String>,
@@ -1243,7 +1513,7 @@ pub(crate) struct PlanEdgeCreatePayload {
     pub(crate) plan_id: String,
     pub(crate) from_node_id: String,
     pub(crate) to_node_id: String,
-    pub(crate) kind: String,
+    pub(crate) kind: PlanEdgeKindInput,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -1252,7 +1522,7 @@ pub(crate) struct PlanEdgeDeletePayload {
     pub(crate) plan_id: String,
     pub(crate) from_node_id: String,
     pub(crate) to_node_id: String,
-    pub(crate) kind: String,
+    pub(crate) kind: PlanEdgeKindInput,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -1281,8 +1551,8 @@ pub(crate) struct HandoffAcceptPayload {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ClaimAcquirePayload {
     pub(crate) anchors: Vec<AnchorRefInput>,
-    pub(crate) capability: String,
-    pub(crate) mode: Option<String>,
+    pub(crate) capability: CapabilityInput,
+    pub(crate) mode: Option<ClaimModeInput>,
     pub(crate) ttl_seconds: Option<u64>,
     pub(crate) agent: Option<String>,
     pub(crate) coordination_task_id: Option<String>,
@@ -1323,7 +1593,7 @@ pub(crate) struct ArtifactSupersedePayload {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ArtifactReviewPayload {
     pub(crate) artifact_id: String,
-    pub(crate) verdict: String,
+    pub(crate) verdict: ReviewVerdictInput,
     pub(crate) summary: String,
     pub(crate) required_validations: Option<Vec<String>>,
     pub(crate) validated_checks: Option<Vec<String>>,

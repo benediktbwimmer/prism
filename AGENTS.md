@@ -29,7 +29,12 @@ When touching code that violates this policy, move it toward the target architec
 
 When the PRISM MCP server is available for this repo, use it as the primary repo-awareness surface.
 
-- Start with `prism://api-reference` and `prism://session` to confirm the available query surface, active task, and session limits.
+- Start with this familiarization sequence before substantial work:
+  - `prism://session` to confirm the active workspace root, task context, limits, and feature flags.
+  - `prism://capabilities` to confirm the available query methods, resources, tools, and feature gates.
+  - `prism://vocab` to confirm canonical enums, action names, status values, edge kinds, and other closed vocabularies before guessing payload spellings.
+  - `prism://tool-schemas` and `prism://schema/tool/{toolName}` when the task will rely on exact MCP mutation or tool payloads.
+  - `prism://api-reference` for the typed query surface and usage recipes after the basic server shape is clear.
 - The default agent path is compact and staged:
   - `prism_locate`
   - `prism_gather`
@@ -42,6 +47,8 @@ When the PRISM MCP server is available for this repo, use it as the primary repo
 - Use `prism_concept` when the user asks about a broad repo-native term or subsystem concept such as `validation`, `runtime`, `session`, `memory`, `status`, `compact tools`, or `task continuity`.
 - Prefer concept retrieval before symbol or text search when the likely unit is a multi-artifact repo concept rather than one file, symbol, or exact text match.
 - Treat `prism_query` as the rich semantic escape hatch, not the default first hop.
+- Prefer checking `prism://vocab` before guessing enum spellings or mutation action names.
+- Prefer checking `prism.tool("...")`, `prism://tool-schemas`, and `prism://schema/tool/{toolName}` before hand-writing non-trivial mutation payloads.
 - Prefer the compact top-level tools over ad hoc query snippets whenever they can express the task.
 - Prefer PRISM-native file inspection and search when they can replace multiple shell reads with one bounded call, especially `prism_locate`, `prism_gather`, `prism_open`, `prism_workset`, `prism_expand`, `prism.file(path).read(...)`, `prism.file(path).around(...)`, and `prism.searchText(...)`.
 - Prefer the compact PRISM tools and bounded PRISM-native reads over `sed`, `cat`, and `rg` when the work can be expressed in one staged PRISM flow.

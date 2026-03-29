@@ -19,13 +19,14 @@ use crate::{
     symbol_for, symbol_resource_uri, symbol_resource_view_link, symbol_resource_view_link_for_id,
     symbol_view, symbol_views_for_ids, task_journal_view, task_resource_view_link,
     task_resource_view_links_from_events, tool_schemas_resource_value,
-    tool_schemas_resource_view_link, workspace_revision_view, CapabilitiesResourcePayload,
-    CoordinationFeaturesView, EdgeResourcePayload, EntrypointsResourcePayload,
-    EventResourcePayload, FeatureFlagsView, InferredEdgeRecordView, LineageResourcePayload,
-    MemoryResourcePayload, PlansQueryArgs, PlansResourcePayload, QueryExecution, QueryHost,
-    ResourceSchemaCatalogPayload, SearchArgs, SearchResourcePayload, SessionLimitsView,
-    SessionResourcePayload, SessionState, SessionTaskView, SessionView, SymbolResourcePayload,
-    TaskResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    tool_schemas_resource_view_link, vocab_resource_value, vocab_resource_view_link,
+    workspace_revision_view, CapabilitiesResourcePayload, CoordinationFeaturesView,
+    EdgeResourcePayload, EntrypointsResourcePayload, EventResourcePayload, FeatureFlagsView,
+    InferredEdgeRecordView, LineageResourcePayload, MemoryResourcePayload, PlansQueryArgs,
+    PlansResourcePayload, QueryExecution, QueryHost, ResourceSchemaCatalogPayload, SearchArgs,
+    SearchResourcePayload, SessionLimitsView, SessionResourcePayload, SessionState,
+    SessionTaskView, SessionView, SymbolResourcePayload, TaskResourcePayload,
+    VocabularyResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
     DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
 };
 
@@ -75,6 +76,7 @@ impl QueryHost {
         let mut related_resources = vec![
             capabilities_resource_view_link(),
             session_resource_view_link(),
+            vocab_resource_view_link(),
             schema_resource_view_link("session"),
             schemas_resource_view_link(),
             resource_link_view(
@@ -106,6 +108,7 @@ impl QueryHost {
         let mut related_resources = vec![
             capabilities_resource_view_link(),
             schemas_resource_view_link(),
+            vocab_resource_view_link(),
             schema_resource_view_link("schemas"),
             tool_schemas_resource_view_link(),
             session_resource_view_link(),
@@ -130,6 +133,10 @@ impl QueryHost {
 
     pub(crate) fn tool_schemas_resource_value(&self) -> crate::ToolSchemaCatalogPayload {
         tool_schemas_resource_value()
+    }
+
+    pub(crate) fn vocab_resource_value(&self) -> VocabularyResourcePayload {
+        vocab_resource_value()
     }
 
     pub(crate) fn task_metadata(

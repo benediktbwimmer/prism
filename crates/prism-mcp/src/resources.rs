@@ -15,7 +15,7 @@ use crate::{
     ENTRYPOINTS_RESOURCE_TEMPLATE_URI, EVENT_RESOURCE_TEMPLATE_URI, LINEAGE_RESOURCE_TEMPLATE_URI,
     MEMORY_RESOURCE_TEMPLATE_URI, PLANS_RESOURCE_TEMPLATE_URI, PLANS_URI, SCHEMAS_URI,
     SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI, SYMBOL_RESOURCE_TEMPLATE_URI,
-    TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI,
+    TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI, VOCAB_URI,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -304,6 +304,10 @@ pub(crate) fn plans_resource_uri() -> String {
     PLANS_URI.to_string()
 }
 
+pub(crate) fn vocab_resource_uri() -> String {
+    VOCAB_URI.to_string()
+}
+
 pub(crate) fn schemas_resource_uri() -> String {
     SCHEMAS_URI.to_string()
 }
@@ -578,6 +582,14 @@ pub(crate) fn plans_resource_view_link() -> ResourceLinkView {
     )
 }
 
+pub(crate) fn vocab_resource_view_link() -> ResourceLinkView {
+    resource_link_view(
+        vocab_resource_uri(),
+        "PRISM Vocabulary",
+        "Canonical enum and action vocabularies for PRISM MCP resources, query args, and mutation payloads",
+    )
+}
+
 pub(crate) fn tool_schemas_resource_view_link() -> ResourceLinkView {
     resource_link_view(
         tool_schemas_resource_uri(),
@@ -751,6 +763,15 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             resource_uri: Some(SCHEMAS_URI.to_string()),
             example_uri: resource_example_uri("schemas"),
             description: "Schema for the JSON Schema catalog resource itself.".to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "vocab".to_string(),
+            schema_uri: schema_resource_uri("vocab"),
+            resource_uri: Some(VOCAB_URI.to_string()),
+            example_uri: resource_example_uri("vocab"),
+            description:
+                "Schema for the canonical PRISM vocabulary catalog, including enums, actions, and allowed values."
+                    .to_string(),
         },
         ResourceSchemaCatalogEntry {
             resource_kind: "session".to_string(),

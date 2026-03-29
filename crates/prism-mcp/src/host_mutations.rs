@@ -26,21 +26,22 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::{
     artifact_view, claim_view, concept_packet_view, concept_relation_view, conflict_view,
-    convert_acceptance, convert_anchors, convert_completion_context, convert_inferred_scope,
+    convert_acceptance, convert_anchors, convert_capability, convert_claim_mode,
+    convert_completion_context, convert_coordination_task_status, convert_inferred_scope,
     convert_memory_kind, convert_memory_scope, convert_memory_source, convert_node_id,
     convert_outcome_evidence, convert_outcome_kind, convert_outcome_result,
-    convert_plan_acceptance, convert_plan_binding, convert_policy, convert_validation_refs,
-    coordination_task_view, curator_disposition_label, curator_job_status_label,
-    curator_memory_metadata, curator_proposal, curator_proposal_state, curator_trigger_label,
-    current_timestamp, ensure_repo_publication_metadata, manual_memory_metadata, parse_capability,
-    parse_claim_mode, parse_coordination_task_status, parse_edge_kind, parse_plan_edge_kind,
-    parse_plan_node_kind, parse_plan_node_status, parse_plan_status, parse_review_verdict,
-    plan_edge_view, plan_node_view, plan_view, task_journal_memory_metadata, task_journal_view,
-    ArtifactActionInput, ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
-    ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput, ClaimMutationResult,
-    ClaimReleasePayload, ClaimRenewPayload, ConceptMutationOperationInput, ConceptMutationResult,
-    ConceptRelationKindInput, ConceptRelationMutationOperationInput, ConceptRelationMutationResult,
-    ConceptScopeInput, CoordinationMutationKindInput, CoordinationMutationResult, CuratorJobView,
+    convert_plan_acceptance, convert_plan_binding, convert_plan_edge_kind, convert_plan_node_kind,
+    convert_plan_node_status, convert_plan_status, convert_policy, convert_review_verdict,
+    convert_validation_refs, coordination_task_view, curator_disposition_label,
+    curator_job_status_label, curator_memory_metadata, curator_proposal, curator_proposal_state,
+    curator_trigger_label, current_timestamp, ensure_repo_publication_metadata,
+    manual_memory_metadata, parse_edge_kind, plan_edge_view, plan_node_view, plan_view,
+    task_journal_memory_metadata, task_journal_view, ArtifactActionInput, ArtifactMutationResult,
+    ArtifactProposePayload, ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload,
+    ClaimActionInput, ClaimMutationResult, ClaimReleasePayload, ClaimRenewPayload,
+    ConceptMutationOperationInput, ConceptMutationResult, ConceptRelationKindInput,
+    ConceptRelationMutationOperationInput, ConceptRelationMutationResult, ConceptScopeInput,
+    CoordinationMutationKindInput, CoordinationMutationResult, CuratorJobView,
     CuratorProposalCreatedResources, CuratorProposalDecision, CuratorProposalDecisionResult,
     EdgeMutationResult, EventMutationResult, HandoffAcceptPayload, MemoryMutationActionInput,
     MemoryMutationResult, MemoryStorePayload, MutationViolationView, NodeIdInput,
@@ -794,7 +795,6 @@ impl QueryHost {
                     let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     if audit.rejected && !audit.event_ids.is_empty() {
-                        workspace.persist_current_coordination()?;
                         self.sync_coordination_revision(workspace)?;
                         return Ok(CoordinationMutationResult {
                             event_id: audit
@@ -879,7 +879,6 @@ impl QueryHost {
                     let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     if audit.rejected && !audit.event_ids.is_empty() {
-                        workspace.persist_current_coordination()?;
                         self.sync_coordination_revision(workspace)?;
                         return Ok(ClaimMutationResult {
                             claim_id: None,
@@ -955,7 +954,6 @@ impl QueryHost {
                     let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     if audit.rejected && !audit.event_ids.is_empty() {
-                        workspace.persist_current_coordination()?;
                         self.sync_coordination_revision(workspace)?;
                         return Ok(ArtifactMutationResult {
                             artifact_id: None,
@@ -1008,11 +1006,7 @@ impl QueryHost {
                 let plan_id = prism.create_native_plan(
                     meta,
                     payload.goal,
-                    payload
-                        .status
-                        .as_deref()
-                        .map(parse_plan_status)
-                        .transpose()?,
+                    payload.status.map(convert_plan_status),
                     convert_policy(payload.policy)?,
                 )?;
                 let plan = prism
@@ -1035,11 +1029,7 @@ impl QueryHost {
                 prism.update_native_plan(
                     meta,
                     &plan_id,
-                    payload
-                        .status
-                        .as_deref()
-                        .map(parse_plan_status)
-                        .transpose()?,
+                    payload.status.map(convert_plan_status),
                     payload.goal,
                     convert_policy(payload.policy)?,
                 )?;
@@ -1064,11 +1054,7 @@ impl QueryHost {
                     TaskCreateInput {
                         plan_id: PlanId::new(payload.plan_id),
                         title: payload.title,
-                        status: payload
-                            .status
-                            .as_deref()
-                            .map(parse_coordination_task_status)
-                            .transpose()?,
+                        status: payload.status.map(convert_coordination_task_status),
                         assignee: payload
                             .assignee
                             .map(AgentId::new)
@@ -1092,11 +1078,7 @@ impl QueryHost {
             CoordinationMutationKindInput::TaskUpdate => {
                 let payload: TaskUpdatePayload = serde_json::from_value(args.payload)?;
                 let task_id = CoordinationTaskId::new(payload.task_id.clone());
-                let status = payload
-                    .status
-                    .as_deref()
-                    .map(parse_coordination_task_status)
-                    .transpose()?;
+                let status = payload.status.map(convert_coordination_task_status);
                 let assignee = match parse_sparse_patch(payload.assignee, "assignee")? {
                     SparsePatch::Keep => None,
                     SparsePatch::Set(value) => Some(Some(AgentId::new(value))),
@@ -1145,15 +1127,9 @@ impl QueryHost {
                 let payload: PlanNodeCreatePayload = serde_json::from_value(args.payload)?;
                 let kind = payload
                     .kind
-                    .as_deref()
-                    .map(parse_plan_node_kind)
-                    .transpose()?
+                    .map(convert_plan_node_kind)
                     .unwrap_or(prism_ir::PlanNodeKind::Edit);
-                let status = payload
-                    .status
-                    .as_deref()
-                    .map(parse_plan_node_status)
-                    .transpose()?;
+                let status = payload.status.map(convert_plan_node_status);
                 let plan_id = PlanId::new(payload.plan_id.clone());
                 let node_id = prism.create_native_plan_node(
                     &plan_id,
@@ -1178,16 +1154,8 @@ impl QueryHost {
             }
             CoordinationMutationKindInput::PlanNodeUpdate => {
                 let payload: PlanNodeUpdatePayload = serde_json::from_value(args.payload)?;
-                let kind = payload
-                    .kind
-                    .as_deref()
-                    .map(parse_plan_node_kind)
-                    .transpose()?;
-                let status = payload
-                    .status
-                    .as_deref()
-                    .map(parse_plan_node_status)
-                    .transpose()?;
+                let kind = payload.kind.map(convert_plan_node_kind);
+                let status = payload.status.map(convert_plan_node_status);
                 let assignee = match parse_sparse_patch(payload.assignee, "assignee")? {
                     SparsePatch::Keep => None,
                     SparsePatch::Set(value) => Some(Some(AgentId::new(value))),
@@ -1233,7 +1201,7 @@ impl QueryHost {
             }
             CoordinationMutationKindInput::PlanEdgeCreate => {
                 let payload: PlanEdgeCreatePayload = serde_json::from_value(args.payload)?;
-                let kind = parse_plan_edge_kind(&payload.kind)?;
+                let kind = convert_plan_edge_kind(payload.kind);
                 let plan_id = PlanId::new(payload.plan_id.clone());
                 prism.create_native_plan_edge(
                     &plan_id,
@@ -1251,7 +1219,7 @@ impl QueryHost {
             }
             CoordinationMutationKindInput::PlanEdgeDelete => {
                 let payload: PlanEdgeDeletePayload = serde_json::from_value(args.payload)?;
-                let kind = parse_plan_edge_kind(&payload.kind)?;
+                let kind = convert_plan_edge_kind(payload.kind);
                 let plan_id = PlanId::new(payload.plan_id.clone());
                 prism.delete_native_plan_edge(
                     &plan_id,
@@ -1319,8 +1287,8 @@ impl QueryHost {
                     prism_coordination::ClaimAcquireInput {
                         task_id: payload.coordination_task_id.map(CoordinationTaskId::new),
                         anchors,
-                        capability: parse_capability(&payload.capability)?,
-                        mode: payload.mode.as_deref().map(parse_claim_mode).transpose()?,
+                        capability: convert_capability(payload.capability),
+                        mode: payload.mode.map(convert_claim_mode),
                         ttl_seconds: payload.ttl_seconds,
                         base_revision: prism.workspace_revision(),
                         current_revision: prism.workspace_revision(),
@@ -1491,7 +1459,7 @@ impl QueryHost {
                     meta,
                     prism_coordination::ArtifactReviewInput {
                         artifact_id,
-                        verdict: parse_review_verdict(&payload.verdict)?,
+                        verdict: convert_review_verdict(payload.verdict),
                         summary: payload.summary,
                         required_validations: payload.required_validations.unwrap_or_else(|| {
                             risk.as_ref()

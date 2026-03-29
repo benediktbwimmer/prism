@@ -63,6 +63,8 @@ mod text_search;
 mod tool_args;
 mod tool_schemas;
 mod views;
+mod vocab_resource;
+mod vocabulary;
 mod workspace_runtime;
 
 use ambiguity::*;
@@ -98,6 +100,8 @@ use task_journal::*;
 use tool_args::*;
 use tool_schemas::*;
 use views::*;
+use vocab_resource::*;
+use vocabulary::*;
 use workspace_runtime::*;
 
 const DEFAULT_SEARCH_LIMIT: usize = 20;
@@ -107,6 +111,7 @@ const ENTRYPOINTS_URI: &str = "prism://entrypoints";
 const CAPABILITIES_URI: &str = "prism://capabilities";
 const SESSION_URI: &str = "prism://session";
 const PLANS_URI: &str = "prism://plans";
+const VOCAB_URI: &str = "prism://vocab";
 const SCHEMAS_URI: &str = "prism://schemas";
 const TOOL_SCHEMAS_URI: &str = "prism://tool-schemas";
 const ENTRYPOINTS_RESOURCE_TEMPLATE_URI: &str = "prism://entrypoints?limit={limit}&cursor={cursor}";

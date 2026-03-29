@@ -210,6 +210,14 @@ fn sync_workspace_runtime_with_guard(
     })
 }
 
+fn has_stale_coordination_revision(config: &WorkspaceRuntimeConfig) -> Result<bool> {
+    let revisions = config.workspace.snapshot_revisions()?;
+    Ok(
+        revisions.coordination
+            > config.loaded_coordination_revision.load(Ordering::Relaxed),
+    )
+}
+
 fn try_sync_workspace_runtime(
     config: &WorkspaceRuntimeConfig,
 ) -> Result<Option<WorkspaceRefreshReport>> {
@@ -458,6 +466,13 @@ impl QueryHost {
             loaded_coordination_revision: Arc::clone(&self.loaded_coordination_revision),
         };
         let Some(report) = try_sync_workspace_runtime(&config)? else {
+            if has_stale_coordination_revision(&config)? {
+                let report = sync_workspace_runtime(&config)?;
+                if report.coordination_reloaded {
+                    let _ = self.publish_dashboard_coordination_update();
+                }
+                return Ok(report);
+            }
             runtime.request_refresh();
             return Ok(WorkspaceRefreshReport {
                 refresh_path: "deferred",

@@ -852,7 +852,7 @@ impl WorkspaceSession {
         let expected_revision = self.coordination_revision()?;
         let prism = self.prism_arc();
         let before = prism.coordination_snapshot();
-        let result = mutate(prism.as_ref())?;
+        let result = mutate(prism.as_ref());
         let snapshot = prism.coordination_snapshot();
         let appended_events = snapshot
             .events
@@ -873,28 +873,19 @@ impl WorkspaceSession {
             Arc::clone(&self.store)
         };
         let mut store = target.lock().expect("coordination store lock poisoned");
-        if let Some(session_id) = session_id {
+        let should_persist = !appended_events.is_empty() || snapshot != before;
+        if should_persist {
             store.persist_coordination_mutation_state_for_root_with_session(
                 &self.root,
                 expected_revision,
                 &snapshot,
                 &appended_events,
-                Some(session_id),
-                Some(&plan_graphs),
-                Some(&execution_overlays),
-            )?;
-        } else {
-            store.persist_coordination_mutation_state_for_root_with_session(
-                &self.root,
-                expected_revision,
-                &snapshot,
-                &appended_events,
-                None,
+                session_id,
                 Some(&plan_graphs),
                 Some(&execution_overlays),
             )?;
         }
-        Ok(result)
+        result
     }
 
     pub fn curator_snapshot(&self) -> CuratorSnapshot {

@@ -5,8 +5,9 @@ use serde_json::{json, Value};
 use crate::{
     capabilities_resource_view_link, dedupe_resource_link_views, resource_meta,
     schema_resource_contents, schema_resource_uri, schema_resource_value,
-    schema_resource_view_link, session_resource_view_link, tool_action_example, tool_input_example,
-    tool_schema_resource_uri, tool_schema_resource_view_link, tool_schemas_resource_view_link,
+    schema_resource_view_link, session_resource_view_link, tool_action_example,
+    tool_action_examples, tool_input_example, tool_input_examples, tool_schema_resource_uri,
+    tool_schema_resource_view_link, tool_schemas_resource_view_link, vocab_resource_view_link,
     ArtifactProposePayload, ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload,
     ClaimReleasePayload, ClaimRenewPayload, HandoffAcceptPayload, HandoffPayload,
     MemoryStorePayload, PlanCreatePayload, PlanEdgeCreatePayload, PlanEdgeDeletePayload,
@@ -112,6 +113,7 @@ pub(crate) fn tool_schemas_resource_value() -> ToolSchemaCatalogPayload {
     let mut related_resources = vec![
         capabilities_resource_view_link(),
         tool_schemas_resource_view_link(),
+        vocab_resource_view_link(),
         schema_resource_view_link("tool-schemas"),
         session_resource_view_link(),
     ];
@@ -150,6 +152,8 @@ pub(crate) fn tool_schema_view(tool_name: &str) -> Option<ToolSchemaView> {
         schema_uri: entry.schema_uri,
         description: entry.description,
         example_input: entry.example_input.clone(),
+        example_inputs: tool_input_examples(tool_name)
+            .unwrap_or_else(|| vec![entry.example_input.clone()]),
         actions: tool_action_views(tool_name, &input_schema, &entry.example_input),
         input_schema,
     })
@@ -341,12 +345,14 @@ fn tool_action_view(
             .filter(|candidate| *candidate == action)
             .map(|_| example_input.clone())
     });
+    let example_inputs = tool_action_examples(tool_name, &action);
     Some(ToolActionSchemaView {
         action,
         required_fields,
         fields,
         input_schema,
         example_input: example,
+        example_inputs,
     })
 }
 
