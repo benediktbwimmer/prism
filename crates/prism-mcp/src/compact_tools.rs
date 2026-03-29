@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use anyhow::{anyhow, Result};
 use globset::{GlobBuilder, GlobMatcher};
-use prism_ir::{LineageId, NodeId, NodeKind};
+use prism_ir::{EdgeKind, LineageId, NodeId, NodeKind};
 use prism_js::{
     AgentExpandKind, AgentExpandResultView, AgentGatherResultView, AgentHandleCategoryView,
     AgentLocateResultView, AgentLocateStatus, AgentOpenMode, AgentOpenResultView,
@@ -52,10 +52,10 @@ const FOCUS_OPEN_OPTIONS: EditSliceOptions = EditSliceOptions {
     max_chars: 480,
 };
 const EDIT_OPEN_OPTIONS: EditSliceOptions = EditSliceOptions {
-    before_lines: 1,
-    after_lines: 1,
-    max_lines: 8,
-    max_chars: 360,
+    before_lines: 2,
+    after_lines: 4,
+    max_lines: 16,
+    max_chars: 720,
 };
 const PREVIEW_OPEN_OPTIONS: EditSliceOptions = EditSliceOptions {
     before_lines: 0,

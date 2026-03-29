@@ -127,11 +127,10 @@ pub(super) fn budgeted_workset_result_with_followups(
     let mut trimmed = false;
 
     if workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES {
-        trimmed |= strip_file_paths(&mut result.supporting_reads);
         trimmed |= strip_file_paths(&mut result.likely_tests);
     }
-    if workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES && result.primary.file_path.is_some() {
-        result.primary.file_path = None;
+    while workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES && !result.likely_tests.is_empty() {
+        result.likely_tests.pop();
         trimmed = true;
     }
     if workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES {
@@ -154,8 +153,11 @@ pub(super) fn budgeted_workset_result_with_followups(
             }
         }
     }
-    while workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES && !result.likely_tests.is_empty() {
-        result.likely_tests.pop();
+    if workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES {
+        trimmed |= strip_file_paths(&mut result.supporting_reads);
+    }
+    if workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES && result.primary.file_path.is_some() {
+        result.primary.file_path = None;
         trimmed = true;
     }
     while workset_json_bytes(&result)? > WORKSET_MAX_JSON_BYTES && result.supporting_reads.len() > 1
@@ -292,19 +294,10 @@ fn workset_context_for_target(
             });
         }
     }
+    let supporting_reads =
+        edit_ready_symbol_followups(host, session, prism, target, WORKSET_SUPPORTING_LIMIT)?;
     Ok(WorksetContext {
-        supporting_reads: next_reads(prism, target_symbol_id(target)?, WORKSET_SUPPORTING_LIMIT)?
-            .into_iter()
-            .take(WORKSET_SUPPORTING_LIMIT)
-            .map(|candidate| {
-                compact_target_view(
-                    session,
-                    &candidate.symbol,
-                    target.query.as_deref(),
-                    Some(candidate.why),
-                )
-            })
-            .collect(),
+        supporting_reads,
         likely_tests: owner_views_for_target(
             prism,
             target_symbol_id(target)?,
@@ -322,7 +315,10 @@ fn workset_context_for_target(
             )
         })
         .collect(),
-        why: workset_why(target),
+        why: format!(
+            "{} Same-file and graph-adjacent follow-ups are prioritized before broader read owners.",
+            workset_why(target)
+        ),
     })
 }
 
@@ -430,6 +426,244 @@ pub(super) fn structured_symbol_followups(
     Ok(followups)
 }
 
+pub(super) fn edit_ready_symbol_followups(
+    host: &QueryHost,
+    session: &SessionState,
+    prism: &Prism,
+    target: &SessionHandleTarget,
+    limit: usize,
+) -> Result<Vec<AgentTargetHandleView>> {
+    let symbol_id = target_symbol_id(target)?;
+    let symbol = symbol_for(prism, symbol_id)?;
+    let current = symbol_view(prism, &symbol)?;
+    let relations = symbol.relations();
+    let workspace_root = host.workspace.as_ref().map(|workspace| workspace.root());
+    let current_file_path = current.file_path.as_deref().or(target.file_path.as_deref());
+    let mut same_file_followups = Vec::<AgentTargetHandleView>::new();
+    let mut cross_file_followups = Vec::<AgentTargetHandleView>::new();
+    let mut seen = HashSet::<String>::from([target.id.path.to_string()]);
+
+    push_edit_followups_for_ids(
+        &mut same_file_followups,
+        &mut cross_file_followups,
+        &mut seen,
+        session,
+        target,
+        current_file_path,
+        workspace_root,
+        prism,
+        relations.incoming_calls.into_iter().chain(
+            session
+                .inferred_edges
+                .edges_to(symbol_id, Some(EdgeKind::Calls))
+                .into_iter()
+                .map(|record| record.edge.source),
+        ),
+        "Direct caller of this symbol.",
+    )?;
+    push_edit_followups_for_ids(
+        &mut same_file_followups,
+        &mut cross_file_followups,
+        &mut seen,
+        session,
+        target,
+        current_file_path,
+        workspace_root,
+        prism,
+        relations.outgoing_calls.into_iter().chain(
+            session
+                .inferred_edges
+                .edges_from(symbol_id, Some(EdgeKind::Calls))
+                .into_iter()
+                .map(|record| record.edge.target),
+        ),
+        "Direct callee from this symbol.",
+    )?;
+    push_edit_followups_for_ids(
+        &mut same_file_followups,
+        &mut cross_file_followups,
+        &mut seen,
+        session,
+        target,
+        current_file_path,
+        workspace_root,
+        prism,
+        prism
+            .graph()
+            .edges_from(symbol_id, Some(EdgeKind::References))
+            .into_iter()
+            .map(|edge| edge.target.clone())
+            .chain(
+                prism
+                    .graph()
+                    .edges_to(symbol_id, Some(EdgeKind::References))
+                    .into_iter()
+                    .map(|edge| edge.source.clone()),
+            )
+            .chain(
+                session
+                    .inferred_edges
+                    .edges_from(symbol_id, Some(EdgeKind::References))
+                    .into_iter()
+                    .map(|record| record.edge.target),
+            )
+            .chain(
+                session
+                    .inferred_edges
+                    .edges_to(symbol_id, Some(EdgeKind::References))
+                    .into_iter()
+                    .map(|record| record.edge.source),
+            ),
+        "Direct reference neighbor for this symbol.",
+    )?;
+    push_edit_followups_for_ids(
+        &mut same_file_followups,
+        &mut cross_file_followups,
+        &mut seen,
+        session,
+        target,
+        current_file_path,
+        workspace_root,
+        prism,
+        relations.outgoing_imports.into_iter().chain(
+            session
+                .inferred_edges
+                .edges_from(symbol_id, Some(EdgeKind::Imports))
+                .into_iter()
+                .map(|record| record.edge.target),
+        ),
+        "Imported dependency used by this symbol.",
+    )?;
+    push_edit_followups_for_ids(
+        &mut same_file_followups,
+        &mut cross_file_followups,
+        &mut seen,
+        session,
+        target,
+        current_file_path,
+        workspace_root,
+        prism,
+        relations.outgoing_implements.into_iter().chain(
+            session
+                .inferred_edges
+                .edges_from(symbol_id, Some(EdgeKind::Implements))
+                .into_iter()
+                .map(|record| record.edge.target),
+        ),
+        "Implementation surface linked to this symbol.",
+    )?;
+    push_edit_followups_for_ids(
+        &mut same_file_followups,
+        &mut cross_file_followups,
+        &mut seen,
+        session,
+        target,
+        current_file_path,
+        workspace_root,
+        prism,
+        relations
+            .outgoing_specifies
+            .into_iter()
+            .chain(
+                session
+                    .inferred_edges
+                    .edges_from(symbol_id, Some(EdgeKind::Specifies))
+                    .into_iter()
+                    .map(|record| record.edge.target),
+            )
+            .chain(
+                relations.incoming_specifies.into_iter().chain(
+                    session
+                        .inferred_edges
+                        .edges_to(symbol_id, Some(EdgeKind::Specifies))
+                        .into_iter()
+                        .map(|record| record.edge.source),
+                ),
+            ),
+        "Specification-linked symbol.",
+    )?;
+    push_edit_followups_for_ids(
+        &mut same_file_followups,
+        &mut cross_file_followups,
+        &mut seen,
+        session,
+        target,
+        current_file_path,
+        workspace_root,
+        prism,
+        relations
+            .outgoing_validates
+            .into_iter()
+            .chain(
+                session
+                    .inferred_edges
+                    .edges_from(symbol_id, Some(EdgeKind::Validates))
+                    .into_iter()
+                    .map(|record| record.edge.target),
+            )
+            .chain(
+                relations.incoming_validates.into_iter().chain(
+                    session
+                        .inferred_edges
+                        .edges_to(symbol_id, Some(EdgeKind::Validates))
+                        .into_iter()
+                        .map(|record| record.edge.source),
+                ),
+            ),
+        "Validation-linked symbol.",
+    )?;
+    push_edit_followups_for_ids(
+        &mut same_file_followups,
+        &mut cross_file_followups,
+        &mut seen,
+        session,
+        target,
+        current_file_path,
+        workspace_root,
+        prism,
+        relations
+            .outgoing_related
+            .into_iter()
+            .chain(
+                session
+                    .inferred_edges
+                    .edges_from(symbol_id, Some(EdgeKind::RelatedTo))
+                    .into_iter()
+                    .map(|record| record.edge.target),
+            )
+            .chain(
+                relations.incoming_related.into_iter().chain(
+                    session
+                        .inferred_edges
+                        .edges_to(symbol_id, Some(EdgeKind::RelatedTo))
+                        .into_iter()
+                        .map(|record| record.edge.source),
+                ),
+            ),
+        "Directly related symbol.",
+    )?;
+
+    for candidate in next_reads(prism, symbol_id, limit.saturating_mul(4).max(limit + 2))? {
+        push_edit_followup(
+            &mut same_file_followups,
+            &mut cross_file_followups,
+            &mut seen,
+            session,
+            target,
+            current_file_path,
+            workspace_root,
+            &candidate.symbol,
+            candidate.why,
+        );
+    }
+
+    Ok(same_file_followups
+        .into_iter()
+        .chain(cross_file_followups)
+        .take(limit)
+        .collect())
+}
+
 fn structured_parent_symbol_id(id: &NodeId) -> Option<NodeId> {
     let (_, after_document) = id.path.split_once("::document::")?;
     let (_, structured) = after_document.split_once("::")?;
@@ -499,6 +733,73 @@ fn push_structured_followup(
     ));
     if followups.len() > limit {
         followups.truncate(limit);
+    }
+}
+
+fn push_edit_followups_for_ids<I>(
+    same_file_followups: &mut Vec<AgentTargetHandleView>,
+    cross_file_followups: &mut Vec<AgentTargetHandleView>,
+    seen: &mut HashSet<String>,
+    session: &SessionState,
+    target: &SessionHandleTarget,
+    current_file_path: Option<&str>,
+    workspace_root: Option<&Path>,
+    prism: &Prism,
+    ids: I,
+    why: &str,
+) -> Result<()>
+where
+    I: IntoIterator<Item = NodeId>,
+{
+    for id in ids {
+        let symbol = match symbol_for(prism, &id) {
+            Ok(symbol) => symbol,
+            Err(_) => continue,
+        };
+        let candidate = symbol_view(prism, &symbol)?;
+        push_edit_followup(
+            same_file_followups,
+            cross_file_followups,
+            seen,
+            session,
+            target,
+            current_file_path,
+            workspace_root,
+            &candidate,
+            why.to_string(),
+        );
+    }
+    Ok(())
+}
+
+fn push_edit_followup(
+    same_file_followups: &mut Vec<AgentTargetHandleView>,
+    cross_file_followups: &mut Vec<AgentTargetHandleView>,
+    seen: &mut HashSet<String>,
+    session: &SessionState,
+    target: &SessionHandleTarget,
+    current_file_path: Option<&str>,
+    workspace_root: Option<&Path>,
+    candidate: &SymbolView,
+    why: String,
+) {
+    if candidate.id.path == target.id.path || is_test_like_symbol(candidate) {
+        return;
+    }
+    if !seen.insert(candidate.id.path.clone()) {
+        return;
+    }
+    let followup = compact_target_view(session, candidate, target.query.as_deref(), Some(why));
+    let same_file = current_file_path.is_some_and(|expected| {
+        candidate
+            .file_path
+            .as_deref()
+            .is_some_and(|path| same_workspace_file(workspace_root, expected, path))
+    });
+    if same_file {
+        same_file_followups.push(followup);
+    } else {
+        cross_file_followups.push(followup);
     }
 }
 

@@ -11,7 +11,8 @@ use super::text_fragments::{
     read_text_fragment, text_hit_kind,
 };
 use super::workset::{
-    is_structured_config_target, prioritized_spec_supporting_reads, structured_symbol_followups,
+    edit_ready_symbol_followups, is_structured_config_target, prioritized_spec_supporting_reads,
+    structured_symbol_followups,
 };
 use super::*;
 use crate::compact_followups::workspace_scoped_path;
@@ -712,33 +713,10 @@ fn compact_open_related_handles(
             structured_symbol_followups(host, session, prism, target, OPEN_RELATED_HANDLE_LIMIT)?;
         return Ok((!related.is_empty()).then_some(related));
     }
-    let mut seen = HashSet::<String>::new();
-    let mut related_handles = Vec::new();
-    for candidate in next_reads(
-        prism,
-        target_symbol_id(target)?,
-        OPEN_RELATED_HANDLE_LIMIT + 1,
-    )? {
-        if candidate.symbol.id.crate_name == target.id.crate_name
-            && candidate.symbol.id.path == target.id.path
-            && candidate.symbol.kind == target.kind
-        {
-            continue;
-        }
-        if !seen.insert(candidate.symbol.id.path.clone()) {
-            continue;
-        }
-        let mut handle = compact_target_view(
-            session,
-            &candidate.symbol,
-            target.query.as_deref(),
-            Some(candidate.why),
-        );
+    let mut related_handles =
+        edit_ready_symbol_followups(host, session, prism, target, OPEN_RELATED_HANDLE_LIMIT)?;
+    for handle in &mut related_handles {
         handle.file_path = None;
-        related_handles.push(handle);
-        if related_handles.len() >= OPEN_RELATED_HANDLE_LIMIT {
-            break;
-        }
     }
     Ok((!related_handles.is_empty()).then_some(related_handles))
 }

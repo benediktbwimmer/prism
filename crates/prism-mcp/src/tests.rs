@@ -4271,6 +4271,68 @@ pub fn compact_open() {
 }
 
 #[test]
+fn compact_open_edit_returns_enough_body_context_to_start_editing() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+fn helper_value(seed: i32) -> i32 {
+    seed + 1
+}
+
+pub fn edit_target() {
+    let alpha = helper_value(1);
+    let beta = alpha + 1;
+    let gamma = beta + 1;
+    let delta = gamma + 1;
+    let epsilon = delta + 1;
+    let zeta = epsilon + 1;
+    let eta = zeta + 1;
+    let theta = eta + 1;
+    let iota = theta + 1;
+    println!("{iota}");
+}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "edit_target".to_string(),
+                path: Some("src/lib.rs".to_string()),
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                limit: Some(1),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+
+    let open = host
+        .compact_open(
+            Arc::clone(&session),
+            PrismOpenArgs {
+                handle: Some(locate.candidates[0].handle.clone()),
+                path: None,
+                mode: Some(PrismOpenModeInput::Edit),
+                line: None,
+                before_lines: None,
+                after_lines: None,
+                max_chars: None,
+            },
+        )
+        .expect("edit open should succeed");
+
+    assert!(open.text.contains("let alpha = helper_value(1);"));
+    assert!(open.text.contains("let theta = eta + 1;"));
+    assert!(open.text.contains("println!(\"{iota}\");"));
+}
+
+#[test]
 fn compact_open_supports_exact_workspace_paths_without_locate() {
     let root = temp_workspace();
     fs::write(
@@ -4408,6 +4470,79 @@ def helper():
         .next_action
         .as_deref()
         .is_some_and(|text| text.contains("prism_open")));
+}
+
+#[test]
+fn compact_workset_for_code_symbols_prefers_same_file_graph_neighbors() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("tests")).unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+fn parse_input(raw: &str) -> String {
+    raw.trim().to_string()
+}
+
+fn persist_result(value: &str) {
+    println!("{value}");
+}
+
+pub fn edit_target(raw: &str) {
+    let parsed = parse_input(raw);
+    persist_result(&parsed);
+}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("tests/edit_target.rs"),
+        r#"
+#[test]
+fn edit_target_smoke_test() {
+    demo::edit_target("value");
+}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "edit_target".to_string(),
+                path: Some("src/lib.rs".to_string()),
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                limit: Some(1),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+
+    let workset = host
+        .compact_workset(
+            Arc::clone(&session),
+            PrismWorksetArgs {
+                handle: Some(locate.candidates[0].handle.clone()),
+                query: None,
+            },
+        )
+        .expect("workset should succeed");
+
+    assert!(!workset.supporting_reads.is_empty());
+    assert!(workset
+        .supporting_reads
+        .iter()
+        .any(|target| target.path == "demo::parse_input" || target.path == "demo::persist_result"));
+    assert!(workset.supporting_reads[0]
+        .why_short
+        .contains("Direct callee from this symbol."));
+    assert!(workset
+        .likely_tests
+        .iter()
+        .all(|target| target.path != "demo::parse_input"));
 }
 
 #[test]
