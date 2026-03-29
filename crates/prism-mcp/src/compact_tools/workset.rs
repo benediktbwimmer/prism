@@ -90,17 +90,30 @@ pub(super) fn budgeted_workset_result(
     why: String,
     remapped: bool,
 ) -> Result<AgentWorksetResultView> {
+    let why = compact_workset_guidance(&why, &primary, &supporting_reads, &likely_tests);
     let followup_handle =
         result_primary_followup_handle(&primary, &supporting_reads, &likely_tests);
-    let suggested_actions =
-        compact_workset_suggested_actions(target, &primary.handle, &followup_handle);
+    let has_supporting_followup = !followup_handle
+        .as_deref()
+        .is_some_and(|handle| handle == primary.handle.as_str());
+    let has_likely_tests = !likely_tests.is_empty();
+    let suggested_actions = compact_workset_suggested_actions(
+        target,
+        &primary.handle,
+        &followup_handle,
+        likely_tests.first().map(|target| target.handle.as_str()),
+    );
     budgeted_workset_result_with_followups(
         primary,
         supporting_reads,
         likely_tests,
         why,
         remapped,
-        Some(compact_workset_next_action(target)),
+        Some(compact_workset_next_action(
+            target,
+            has_supporting_followup,
+            has_likely_tests,
+        )),
         suggested_actions,
     )
 }
@@ -192,10 +205,27 @@ fn compact_workset_suggested_actions(
     target: &SessionHandleTarget,
     current_handle: &str,
     followup_handle: &Option<String>,
+    likely_test_handle: Option<&str>,
 ) -> Vec<AgentSuggestedActionView> {
     let mut actions = Vec::new();
-    if let Some(handle) = followup_handle {
-        actions.push(suggested_open_action(handle.clone(), AgentOpenMode::Focus));
+    actions.push(suggested_open_action(
+        current_handle.to_string(),
+        compact_workset_primary_open_mode(target),
+    ));
+    if let Some(handle) = followup_handle
+        .as_deref()
+        .filter(|handle| *handle != current_handle)
+    {
+        actions.push(suggested_open_action(
+            handle.to_string(),
+            AgentOpenMode::Focus,
+        ));
+    }
+    if let Some(handle) = likely_test_handle.filter(|handle| *handle != current_handle) {
+        actions.push(suggested_open_action(
+            handle.to_string(),
+            AgentOpenMode::Focus,
+        ));
     }
     if is_structured_config_target(target.kind) {
         actions.push(suggested_expand_action(
@@ -223,6 +253,100 @@ fn compact_workset_suggested_actions(
     dedupe_suggested_actions(actions)
 }
 
+fn compact_workset_primary_open_mode(target: &SessionHandleTarget) -> AgentOpenMode {
+    if is_spec_like_kind(target.kind) || target.file_path.as_deref().is_some_and(is_docs_path) {
+        AgentOpenMode::Focus
+    } else {
+        AgentOpenMode::Edit
+    }
+}
+
+fn compact_workset_guidance(
+    why: &str,
+    primary: &AgentTargetHandleView,
+    supporting_reads: &[AgentTargetHandleView],
+    likely_tests: &[AgentTargetHandleView],
+) -> String {
+    let preserve_leading_context = why.contains("Gap summary:")
+        || why.contains("gap summary")
+        || why.contains("Exact text hit");
+    let mut parts = Vec::new();
+    if preserve_leading_context {
+        parts.push(why.to_string());
+    }
+    if let Some(target) = supporting_reads.first() {
+        parts.push(format!(
+            "Start with `{}`.",
+            compact_workset_target_label(target)
+        ));
+    } else {
+        parts.push(format!(
+            "Start with `{}`.",
+            compact_workset_target_label(primary)
+        ));
+    }
+    if let Some(target) = likely_tests.first() {
+        parts.push(format!(
+            "Likely test: `{}`.",
+            compact_workset_target_label(target)
+        ));
+    }
+    if !preserve_leading_context {
+        parts.push(why.to_string());
+    }
+    parts.join(" ")
+}
+
+fn compact_workset_target_label(target: &AgentTargetHandleView) -> &str {
+    if !target.name.is_empty() && target.name != target.path {
+        target.name.as_str()
+    } else {
+        target.path.as_str()
+    }
+}
+
+fn compact_workset_next_action(
+    target: &SessionHandleTarget,
+    has_supporting_followup: bool,
+    has_likely_tests: bool,
+) -> String {
+    if is_text_fragment_target(target) {
+        if has_supporting_followup {
+            "Use prism_open on the first supporting slice; if you need more room, reopen it in edit mode, or prism_expand `neighbors`.".to_string()
+        } else if has_likely_tests {
+            "Use prism_open on the first likely test, or prism_expand `neighbors`.".to_string()
+        } else {
+            "Use prism_open in edit mode on the primary slice, or prism_expand `neighbors`."
+                .to_string()
+        }
+    } else if is_structured_config_target(target.kind) {
+        if has_supporting_followup {
+            "Use prism_open on the first same-file key, or prism_expand `validation`.".to_string()
+        } else {
+            "Use prism_open in edit mode on the primary target, or prism_expand `validation`."
+                .to_string()
+        }
+    } else if is_spec_like_kind(target.kind)
+        || target.file_path.as_deref().is_some_and(is_docs_path)
+    {
+        if has_supporting_followup {
+            "Use prism_open on the first owner, or prism_expand `drift`.".to_string()
+        } else {
+            "Use prism_open on the primary target, or prism_expand `drift`.".to_string()
+        }
+    } else if has_supporting_followup && has_likely_tests {
+        "Use prism_open on the first supporting read, then inspect the first likely test, or prism_expand `validation`.".to_string()
+    } else if has_supporting_followup {
+        "Use prism_open on the first supporting read, or prism_open in edit mode on the primary target.".to_string()
+    } else if has_likely_tests {
+        "Use prism_open on the first likely test, or prism_open in edit mode on the primary target."
+            .to_string()
+    } else {
+        "Use prism_open in edit mode on the primary target, or prism_expand `validation`."
+            .to_string()
+    }
+}
+
 fn result_primary_followup_handle(
     primary: &AgentTargetHandleView,
     supporting_reads: &[AgentTargetHandleView],
@@ -233,20 +357,6 @@ fn result_primary_followup_handle(
         .or_else(|| likely_tests.first())
         .map(|handle| handle.handle.clone())
         .or_else(|| Some(primary.handle.clone()))
-}
-
-fn compact_workset_next_action(target: &SessionHandleTarget) -> String {
-    if is_text_fragment_target(target) {
-        "Use prism_open on a supporting slice, or prism_expand `neighbors`.".to_string()
-    } else if is_structured_config_target(target.kind) {
-        "Use prism_open on a same-file key, or prism_expand `validation`.".to_string()
-    } else if is_spec_like_kind(target.kind)
-        || target.file_path.as_deref().is_some_and(is_docs_path)
-    {
-        "Use prism_open on an owner, or prism_expand `drift`.".to_string()
-    } else {
-        "Use prism_open on a supporting read, or prism_expand `validation`.".to_string()
-    }
 }
 
 pub(super) fn compact_string_list(items: &[String], limit: usize, max_chars: usize) -> Vec<String> {
@@ -818,7 +928,10 @@ fn compact_text_fragment_workset_context(
             target,
             WORKSET_TEST_LIMIT,
         )?,
-        why: workset_why(target),
+        why: format!(
+            "{} Nearby semantic handles and likely tests are surfaced first for exact-hit follow-through.",
+            workset_why(target)
+        ),
     })
 }
 

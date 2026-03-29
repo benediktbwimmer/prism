@@ -279,6 +279,7 @@ impl QueryHost {
             let _ = prism.outcome_memory().store_event(event)?;
             self.persist_outcomes()?;
         }
+        self.persist_session_seed(session)?;
         Ok(task)
     }
 
@@ -410,6 +411,7 @@ impl QueryHost {
         if current_task.as_ref().is_some_and(|state| state.id == task) {
             session.clear_current_task();
         }
+        self.persist_session_seed(session)?;
 
         let journal = task_journal_view(
             session,

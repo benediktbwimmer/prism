@@ -9,6 +9,7 @@ pub(crate) const USER_SNIPPET_MARKER: &str = "/* __PRISM_USER_SNIPPET_START__ */
 pub(crate) const LEGACY_USER_SNIPPET_FIRST_WRAPPED_LINE: usize = 4;
 pub(crate) const QUERY_RUNTIME_ERROR_MARKER: &str = "__PRISM_QUERY_RUNTIME_ERROR__";
 pub(crate) const QUERY_SERIALIZATION_ERROR_MARKER: &str = "__PRISM_QUERY_SERIALIZATION_ERROR__";
+pub(crate) const QUERY_USER_ERROR_MARKER: &str = "__PRISM_QUERY_USER_ERROR__";
 pub(crate) const USER_SNIPPET_LOCATION_MARKER: &str = "__PRISM_USER_LOCATION__";
 const STATEMENT_BODY_MODE: &str = "statement_body";
 const IMPLICIT_EXPRESSION_MODE: &str = "implicit_expression";
@@ -25,6 +26,10 @@ impl QueryExecutionError {
         self.summary
     }
 
+    pub(crate) fn code(&self) -> Option<&str> {
+        self.data["code"].as_str()
+    }
+
     pub(crate) fn data(&self) -> &Value {
         &self.data
     }
@@ -37,6 +42,73 @@ impl Display for QueryExecutionError {
 }
 
 impl Error for QueryExecutionError {}
+
+pub(crate) fn invalid_query_argument_error(
+    operation: &str,
+    detail: impl Into<String>,
+) -> anyhow::Error {
+    let detail = detail.into();
+    QueryExecutionError {
+        summary: "prism_query arguments invalid",
+        message: format!(
+            "prism_query arguments invalid for `{operation}`: {detail}\nHint: Check the query method argument names, required fields, and enum spellings, then retry."
+        ),
+        data: json!({
+            "code": "query_invalid_argument",
+            "category": "invalid_argument",
+            "operation": operation,
+            "error": detail,
+            "nextAction": "Check the query method argument names, required fields, and enum spellings, then retry.",
+            "examples": valid_query_examples(),
+        }),
+    }
+    .into()
+}
+
+pub(crate) fn query_feature_disabled_error(operation: &str, group: &str) -> anyhow::Error {
+    let (message, next_action) = match group {
+        "internal_developer" => (
+            "internal developer queries are disabled unless the PRISM MCP server is started with `--internal-developer`".to_string(),
+            "Restart the PRISM MCP server with `--internal-developer`, or switch to an enabled query method.".to_string(),
+        ),
+        _ => (
+            format!("coordination {group} queries are disabled by the PRISM MCP server feature flags"),
+            "Restart the PRISM MCP server with the relevant coordination feature enabled, or switch to an enabled query method.".to_string(),
+        ),
+    };
+    QueryExecutionError {
+        summary: "prism_query feature disabled",
+        message: format!("{message}\nHint: {next_action}"),
+        data: json!({
+            "code": "query_feature_disabled",
+            "category": "feature_disabled",
+            "operation": operation,
+            "group": group,
+            "error": message,
+            "nextAction": next_action,
+            "examples": valid_query_examples(),
+        }),
+    }
+    .into()
+}
+
+fn decode_marshaled_query_error(body: &str) -> Option<QueryExecutionError> {
+    let payload = serde_json::Deserializer::from_str(body)
+        .into_iter::<Value>()
+        .next()?
+        .ok()?;
+    let data = payload.get("data")?.clone();
+    let summary = match data.get("code")?.as_str()? {
+        "query_invalid_argument" => "prism_query arguments invalid",
+        "query_feature_disabled" => "prism_query feature disabled",
+        _ => return None,
+    };
+    Some(QueryExecutionError {
+        summary,
+        message: payload.get("message")?.as_str()?.to_string(),
+        data,
+    })
+}
 
 pub(crate) fn parse_typescript_error(
     error: anyhow::Error,
@@ -61,6 +133,12 @@ pub(crate) fn runtime_or_serialization_error(
 ) -> anyhow::Error {
     let detail = error.to_string();
     if let Some(payload) = detail.strip_prefix("javascript query evaluation failed: ") {
+        if let Some(index) = payload.find(QUERY_USER_ERROR_MARKER) {
+            let body = &payload[index + QUERY_USER_ERROR_MARKER.len()..];
+            if let Some(query_error) = decode_marshaled_query_error(body.trim_start()) {
+                return query_error.into();
+            }
+        }
         if let Some(body) = payload.strip_prefix(QUERY_SERIALIZATION_ERROR_MARKER) {
             return build_runtime_error(
                 "query_result_not_serializable",

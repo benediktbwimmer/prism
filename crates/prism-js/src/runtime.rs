@@ -4,6 +4,9 @@ pub fn runtime_prelude() -> &'static str {
 function __prismDecode(raw) {
   const envelope = JSON.parse(raw);
   if (!envelope.ok) {
+    if (envelope.queryError != null) {
+      throw new Error(`__PRISM_QUERY_USER_ERROR__${JSON.stringify(envelope.queryError)}`);
+    }
     throw new Error(envelope.error);
   }
   return envelope.value;
@@ -539,10 +542,21 @@ const __prismDynamicViews = new Map();
 function __prismDynamicViewMethod(name) {
   if (!__prismDynamicViews.has(name)) {
     __prismDynamicViews.set(name, function(input = {}) {
-      return __prismHost(`__queryView:${name}`, input);
+      return __prismHost(`__queryView:${name}`, __prismNormalizeDynamicViewInput(input));
     });
   }
   return __prismDynamicViews.get(name);
+}
+
+function __prismNormalizeDynamicViewInput(input = {}) {
+  if (input == null || typeof input !== "object" || Array.isArray(input)) {
+    return input;
+  }
+  const normalized = { ...input };
+  if (Object.prototype.hasOwnProperty.call(normalized, "target")) {
+    normalized.target = __prismNormalizeTargetPayload(normalized.target);
+  }
+  return normalized;
 }
 
 function __prismLoadDynamicViews() {

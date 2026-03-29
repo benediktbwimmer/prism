@@ -15,6 +15,15 @@ Target default agent path:
 - `prism_concept` for repo-native concept packets and decode lenses
 - `prism_task_brief` for compact coordination-task reads when you already have a task id
 - `prism_concept` for broad repo concepts when symbol-like first hops are the wrong unit
+
+`prism_workset` is the comparison baseline for future agent-facing views. A useful workset should already give you:
+
+- a primary target
+- 1 to 3 supporting reads biased toward same-file and direct-graph follow-through
+- likely tests when the repo exposes them
+- `why`, `nextAction`, and `suggestedActions` that let you continue without reconstructing context manually
+
+Use `prism_workset` after `prism_locate` and `prism_open` when you want the next bounded reads or validations before inventing a dedicated view.
 - `prism_query` only when the compact surface cannot express the need
 
 Compact-tool note:
@@ -314,6 +323,8 @@ type PrismApi = {
   taskBlastRadius(taskId: string): ChangeImpactView | null;
   taskValidationRecipe(taskId: string): TaskValidationRecipeView | null;
   taskRisk(taskId: string): TaskRiskView | null;
+  repoPlaybook(): RepoPlaybookView;
+  validationPlan(input: { taskId?: string; target?: QueryTarget; paths?: string[] }): ValidationPlanView;
   artifactRisk(artifactId: string): ArtifactRiskView | null;
   taskIntent(taskId: string): TaskIntentView | null;
   coordinationInbox(planId: string): CoordinationInboxView;
@@ -780,6 +791,62 @@ type ValidationRecipeView = {
   relatedNodes: NodeId[];
   coChangeNeighbors: CoChangeView[];
   recentFailures: OutcomeEvent[];
+};
+
+type QueryEvidenceView = {
+  kind: string;
+  detail: string;
+  path?: string;
+  line?: number;
+  target?: NodeId;
+};
+
+type RepoPlaybookSectionView = {
+  status: string;
+  summary: string;
+  commands: string[];
+  why: string;
+  provenance: QueryEvidenceView[];
+};
+
+type RepoPlaybookGotchaView = {
+  summary: string;
+  why: string;
+  provenance: QueryEvidenceView[];
+};
+
+type RepoPlaybookView = {
+  root: string;
+  build: RepoPlaybookSectionView;
+  test: RepoPlaybookSectionView;
+  lint: RepoPlaybookSectionView;
+  format: RepoPlaybookSectionView;
+  workflow: RepoPlaybookSectionView;
+  gotchas: RepoPlaybookGotchaView[];
+};
+
+type ValidationPlanSubjectView = {
+  kind: string;
+  taskId?: string;
+  target?: NodeId;
+  paths: string[];
+  unresolvedPaths: string[];
+};
+
+type ValidationPlanCheckView = {
+  label: string;
+  why: string;
+  provenance: QueryEvidenceView[];
+  score?: number;
+  lastSeen?: number;
+};
+
+type ValidationPlanView = {
+  subject: ValidationPlanSubjectView;
+  fast: ValidationPlanCheckView[];
+  broader: ValidationPlanCheckView[];
+  relatedTargets: NodeId[];
+  notes: string[];
 };
 
 type ConceptDecodeLensView = "open" | "workset" | "validation" | "timeline" | "memory";

@@ -714,6 +714,85 @@ pub struct ValidationRecipeView {
     pub recent_failures: Vec<OutcomeEvent>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct QueryEvidenceView {
+    pub kind: String,
+    pub detail: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub line: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target: Option<NodeIdView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoPlaybookSectionView {
+    pub status: String,
+    pub summary: String,
+    pub commands: Vec<String>,
+    pub why: String,
+    pub provenance: Vec<QueryEvidenceView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoPlaybookGotchaView {
+    pub summary: String,
+    pub why: String,
+    pub provenance: Vec<QueryEvidenceView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoPlaybookView {
+    pub root: String,
+    pub build: RepoPlaybookSectionView,
+    pub test: RepoPlaybookSectionView,
+    pub lint: RepoPlaybookSectionView,
+    pub format: RepoPlaybookSectionView,
+    pub workflow: RepoPlaybookSectionView,
+    pub gotchas: Vec<RepoPlaybookGotchaView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidationPlanSubjectView {
+    pub kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub task_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target: Option<NodeIdView>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub paths: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unresolved_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidationPlanCheckView {
+    pub label: String,
+    pub why: String,
+    pub provenance: Vec<QueryEvidenceView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub score: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_seen: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ValidationPlanView {
+    pub subject: ValidationPlanSubjectView,
+    pub fast: Vec<ValidationPlanCheckView>,
+    pub broader: Vec<ValidationPlanCheckView>,
+    pub related_targets: Vec<NodeIdView>,
+    pub notes: Vec<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ConceptDecodeLensView {
@@ -1547,6 +1626,8 @@ pub struct McpCallLogEntryView {
     pub id: String,
     pub call_type: String,
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub view_name: Option<String>,
     pub summary: String,
     pub started_at: u64,
     pub duration_ms: u64,
@@ -1581,8 +1662,11 @@ pub struct McpCallStatsBucketView {
     pub key: String,
     pub count: usize,
     pub error_count: usize,
+    pub unique_task_count: usize,
     pub average_duration_ms: u64,
     pub max_duration_ms: u64,
+    pub average_result_json_bytes: u64,
+    pub max_result_json_bytes: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -1595,6 +1679,7 @@ pub struct McpCallStatsView {
     pub max_duration_ms: u64,
     pub by_call_type: Vec<McpCallStatsBucketView>,
     pub by_name: Vec<McpCallStatsBucketView>,
+    pub by_view_name: Vec<McpCallStatsBucketView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -1602,6 +1687,8 @@ pub struct McpCallStatsView {
 pub struct QueryLogEntryView {
     pub id: String,
     pub kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub view_name: Option<String>,
     pub query_summary: String,
     pub query_text: String,
     pub started_at: u64,

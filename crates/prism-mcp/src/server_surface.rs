@@ -98,6 +98,7 @@ impl PrismMcpServer {
             self.host.mcp_call_log_store.runtime(),
             call_type,
             name,
+            None,
             summary,
             started_at,
             duration_ms,

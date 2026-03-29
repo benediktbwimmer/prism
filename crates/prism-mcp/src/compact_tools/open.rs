@@ -270,24 +270,36 @@ fn compact_open_exact_path(
     args: &PrismOpenArgs,
     mode: AgentOpenMode,
 ) -> Result<AgentOpenResultView> {
-    if !matches!(mode, AgentOpenMode::Raw) {
+    if matches!(mode, AgentOpenMode::Focus) {
         return Err(anyhow!(
-            "path-based prism_open currently supports only raw mode"
+            "path-based prism_open currently supports raw mode, or edit mode when `line` is set"
         ));
     }
     let scoped_path = workspace_scoped_path(
         host.workspace.as_ref().map(|workspace| workspace.root()),
         path,
     );
-    let max_chars = Some(args.max_chars.unwrap_or(RAW_OPEN_MAX_CHARS));
+    let max_chars = Some(args.max_chars.unwrap_or(match mode {
+        AgentOpenMode::Focus => RAW_OPEN_MAX_CHARS,
+        AgentOpenMode::Edit => EDIT_OPEN_OPTIONS.max_chars,
+        AgentOpenMode::Raw => RAW_OPEN_MAX_CHARS,
+    }));
     if let Some(line) = args.line {
+        let (before, after) = match mode {
+            AgentOpenMode::Focus => (args.before_lines, args.after_lines),
+            AgentOpenMode::Edit => (
+                Some(args.before_lines.unwrap_or(EDIT_OPEN_OPTIONS.before_lines)),
+                Some(args.after_lines.unwrap_or(EDIT_OPEN_OPTIONS.after_lines)),
+            ),
+            AgentOpenMode::Raw => (args.before_lines, args.after_lines),
+        };
         let slice = file_around(
             host,
             FileAroundArgs {
                 path: scoped_path.clone(),
                 line,
-                before: args.before_lines,
-                after: args.after_lines,
+                before,
+                after,
                 max_chars,
             },
         )?;
@@ -304,6 +316,11 @@ fn compact_open_exact_path(
             None,
             Vec::new(),
         );
+    }
+    if matches!(mode, AgentOpenMode::Edit) {
+        return Err(anyhow!(
+            "path-based prism_open edit mode requires `line` so the server can center an edit-ready window"
+        ));
     }
 
     let excerpt = file_read(

@@ -220,8 +220,11 @@ impl McpCallLogStore {
             error_count,
             average_duration_ms,
             max_duration_ms,
-            by_call_type: aggregate_buckets(&records, |record| record.entry.call_type.clone()),
-            by_name: aggregate_buckets(&records, |record| record.entry.name.clone()),
+            by_call_type: aggregate_buckets(&records, |record| {
+                Some(record.entry.call_type.clone())
+            }),
+            by_name: aggregate_buckets(&records, |record| Some(record.entry.name.clone())),
+            by_view_name: aggregate_buckets(&records, |record| record.entry.view_name.clone()),
         }
     }
 }
@@ -430,6 +433,7 @@ pub(crate) fn new_log_entry(
     runtime: &McpCallLogRuntime,
     call_type: &str,
     name: &str,
+    view_name: Option<String>,
     summary: String,
     started_at: u64,
     duration_ms: u64,
@@ -447,6 +451,7 @@ pub(crate) fn new_log_entry(
         id: new_prefixed_id("mcp-call").to_string(),
         call_type: call_type.to_string(),
         name: name.to_string(),
+        view_name,
         summary,
         started_at,
         duration_ms,
@@ -571,17 +576,25 @@ fn read_records_from_path(path: &Path) -> Result<Vec<PersistedMcpCallRecord>> {
 
 fn aggregate_buckets(
     records: &[PersistedMcpCallRecord],
-    key_fn: impl Fn(&PersistedMcpCallRecord) -> String,
+    key_fn: impl Fn(&PersistedMcpCallRecord) -> Option<String>,
 ) -> Vec<McpCallStatsBucketView> {
     let mut buckets: BTreeMap<String, Vec<&PersistedMcpCallRecord>> = BTreeMap::new();
     for record in records {
-        buckets.entry(key_fn(record)).or_default().push(record);
+        let Some(key) = key_fn(record) else {
+            continue;
+        };
+        buckets.entry(key).or_default().push(record);
     }
     let mut views = buckets
         .into_iter()
         .map(|(key, bucket)| {
             let count = bucket.len();
             let error_count = bucket.iter().filter(|record| !record.entry.success).count();
+            let unique_task_count = bucket
+                .iter()
+                .filter_map(|record| record.entry.task_id.as_deref())
+                .collect::<BTreeSet<_>>()
+                .len();
             let total_duration = bucket.iter().fold(0u128, |acc, record| {
                 acc + u128::from(record.entry.duration_ms)
             });
@@ -595,12 +608,28 @@ fn aggregate_buckets(
                 .map(|record| record.entry.duration_ms)
                 .max()
                 .unwrap_or(0);
+            let total_result_json_bytes = bucket.iter().fold(0u128, |acc, record| {
+                acc + record.entry.response.json_bytes as u128
+            });
+            let average_result_json_bytes = if count == 0 {
+                0
+            } else {
+                (total_result_json_bytes / count as u128) as u64
+            };
+            let max_result_json_bytes = bucket
+                .iter()
+                .map(|record| record.entry.response.json_bytes)
+                .max()
+                .unwrap_or(0) as u64;
             McpCallStatsBucketView {
                 key,
                 count,
                 error_count,
+                unique_task_count,
                 average_duration_ms,
                 max_duration_ms,
+                average_result_json_bytes,
+                max_result_json_bytes,
             }
         })
         .collect::<Vec<_>>();
@@ -621,6 +650,10 @@ fn serialized_lines_len(lines: &[String]) -> usize {
 
 fn entry_contains(entry: &McpCallLogEntryView, needle: &str) -> bool {
     contains_case_insensitive(&entry.name, needle)
+        || entry
+            .view_name
+            .as_ref()
+            .is_some_and(|view_name| contains_case_insensitive(view_name, needle))
         || contains_case_insensitive(&entry.summary, needle)
         || contains_case_insensitive(&entry.call_type, needle)
         || entry
@@ -831,6 +864,7 @@ mod tests {
                 &test_runtime(),
                 "tool",
                 "prism_query",
+                None,
                 format!("record {index}"),
                 1_700_000_000 + index as u64,
                 10 + index as u64,

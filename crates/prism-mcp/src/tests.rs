@@ -4333,6 +4333,67 @@ pub fn edit_target() {
 }
 
 #[test]
+fn compact_open_text_fragment_edit_mode_widens_beyond_raw_line_windows() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        concat!(
+            "fn alpha() {\n",
+            "    let one = 1;\n",
+            "    let two = one + 1;\n",
+            "    let three = two + 1;\n",
+            "    let four = three + 1;\n",
+            "    let five = four + 1;\n",
+            "    println!(\"{five}\");\n",
+            "}\n",
+        ),
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let raw = host
+        .compact_open(
+            Arc::clone(&session),
+            PrismOpenArgs {
+                handle: None,
+                path: Some("src/lib.rs".to_string()),
+                mode: Some(PrismOpenModeInput::Raw),
+                line: Some(4),
+                before_lines: Some(0),
+                after_lines: Some(0),
+                max_chars: Some(160),
+            },
+        )
+        .expect("raw path open should succeed");
+
+    assert_eq!(raw.start_line, 4);
+    assert_eq!(raw.end_line, 4);
+    assert!(raw.text.contains("let three = two + 1;"));
+
+    let edit = host
+        .compact_open(
+            Arc::clone(&session),
+            PrismOpenArgs {
+                handle: Some(raw.handle.clone()),
+                path: None,
+                mode: Some(PrismOpenModeInput::Edit),
+                line: None,
+                before_lines: None,
+                after_lines: None,
+                max_chars: None,
+            },
+        )
+        .expect("text-fragment edit open should widen the window");
+
+    assert!(edit.start_line <= 2);
+    assert!(edit.end_line >= 7);
+    assert!(edit.text.contains("let one = 1;"));
+    assert!(edit.text.contains("let five = four + 1;"));
+    assert!(edit.text.contains("println!(\"{five}\");"));
+}
+
+#[test]
 fn compact_open_supports_exact_workspace_paths_without_locate() {
     let root = temp_workspace();
     fs::write(
@@ -4391,12 +4452,56 @@ pub fn beta() {
 }
 
 #[test]
-fn compact_open_rejects_non_raw_modes_for_exact_paths() {
+fn compact_open_supports_edit_mode_for_exact_paths_with_default_context() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        concat!(
+            "pub fn alpha() {}\n",
+            "pub fn beta() {\n",
+            "    let value = 42;\n",
+            "    let doubled = value * 2;\n",
+            "    let tripled = doubled + value;\n",
+            "    println!(\"{tripled}\");\n",
+            "}\n",
+        ),
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let open = host
+        .compact_open(
+            test_session(&host),
+            PrismOpenArgs {
+                handle: None,
+                path: Some("src/lib.rs".to_string()),
+                mode: Some(PrismOpenModeInput::Edit),
+                line: Some(4),
+                before_lines: None,
+                after_lines: None,
+                max_chars: None,
+            },
+        )
+        .expect("path open should support edit mode when a line is provided");
+
+    assert_eq!(
+        open.handle_category,
+        prism_js::AgentHandleCategoryView::TextFragment
+    );
+    assert!(open.text.contains("pub fn beta() {"));
+    assert!(open.text.contains("let value = 42;"));
+    assert!(open.text.contains("println!(\"{tripled}\");"));
+    assert_eq!(open.start_line, 2);
+    assert_eq!(open.end_line, 7);
+}
+
+#[test]
+fn compact_open_rejects_unsupported_exact_path_modes() {
     let root = temp_workspace();
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
-    let error = host
+    let focus_error = host
         .compact_open(
             test_session(&host),
             PrismOpenArgs {
@@ -4411,9 +4516,28 @@ fn compact_open_rejects_non_raw_modes_for_exact_paths() {
         )
         .expect_err("path open should reject focus mode");
 
-    assert!(error
+    assert!(focus_error.to_string().contains(
+        "path-based prism_open currently supports raw mode, or edit mode when `line` is set"
+    ));
+
+    let edit_error = host
+        .compact_open(
+            test_session(&host),
+            PrismOpenArgs {
+                handle: None,
+                path: Some("src/lib.rs".to_string()),
+                mode: Some(PrismOpenModeInput::Edit),
+                line: None,
+                before_lines: None,
+                after_lines: None,
+                max_chars: None,
+            },
+        )
+        .expect_err("path edit open should require a line");
+
+    assert!(edit_error
         .to_string()
-        .contains("path-based prism_open currently supports only raw mode"));
+        .contains("path-based prism_open edit mode requires `line`"));
 }
 
 #[test]
@@ -4469,7 +4593,10 @@ def helper():
     assert!(workset
         .next_action
         .as_deref()
-        .is_some_and(|text| text.contains("prism_open")));
+        .is_some_and(|text| text.contains("reopen it in edit mode")));
+    assert!(workset.suggested_actions.iter().any(|action| {
+        action.tool == "prism_open" && action.handle.is_some() && action.open_mode.is_some()
+    }));
 }
 
 #[test]
@@ -4543,6 +4670,26 @@ fn edit_target_smoke_test() {
         .likely_tests
         .iter()
         .all(|target| target.path != "demo::parse_input"));
+    assert!(workset.why.contains("Start with `"));
+    assert!(workset.why.contains("Likely test: `"));
+    assert!(workset
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("first supporting read")));
+    assert!(workset.suggested_actions.iter().any(|action| {
+        action.tool == "prism_open"
+            && action.handle.as_deref() == Some(workset.primary.handle.as_str())
+            && action.open_mode == Some(prism_js::AgentOpenMode::Edit)
+    }));
+    assert!(workset.suggested_actions.iter().any(|action| {
+        action.tool == "prism_open"
+            && action.handle.as_deref() == Some(workset.supporting_reads[0].handle.as_str())
+            && action.open_mode == Some(prism_js::AgentOpenMode::Focus)
+    }));
+    assert!(workset
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("likely test")));
 }
 
 #[test]
@@ -7665,6 +7812,91 @@ async fn mcp_server_keeps_compact_handles_stable_across_parallel_follow_up_calls
     running.cancel().await.unwrap();
 }
 
+#[tokio::test]
+async fn mcp_server_maps_prism_query_user_errors_to_invalid_params_like_compact_tools() {
+    let server = server_with_node(demo_node());
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_query",
+            json!({
+                "code": "return prism.runtimeStatus();",
+            })
+            .as_object()
+            .expect("tool args should be an object")
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let feature_disabled = response_json(client.receive().await.unwrap());
+    assert_eq!(feature_disabled["error"]["code"], -32602);
+    assert_eq!(
+        feature_disabled["error"]["data"]["code"],
+        "query_feature_disabled"
+    );
+    assert!(feature_disabled["error"]["message"]
+        .as_str()
+        .is_some_and(|value| value.contains("internal developer queries are disabled")));
+
+    client
+        .send(call_tool_request(
+            3,
+            "prism_query",
+            json!({
+                "code": "return prism.search(\"main\", { pathMode: \"sideways\" });",
+            })
+            .as_object()
+            .expect("tool args should be an object")
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let invalid_query_args = response_json(client.receive().await.unwrap());
+    assert_eq!(invalid_query_args["error"]["code"], -32602);
+    assert_eq!(
+        invalid_query_args["error"]["data"]["code"],
+        "query_invalid_argument"
+    );
+    assert!(invalid_query_args["error"]["message"]
+        .as_str()
+        .is_some_and(|value| value.contains("unsupported search pathMode `sideways`")));
+
+    client
+        .send(call_tool_request(
+            4,
+            "prism_open",
+            json!({})
+                .as_object()
+                .expect("tool args should be an object")
+                .clone(),
+        ))
+        .await
+        .unwrap();
+    let compact_invalid_args = response_json(client.receive().await.unwrap());
+    assert_eq!(compact_invalid_args["error"]["code"], -32602);
+    assert_eq!(
+        compact_invalid_args["error"]["message"],
+        "exactly one of `handle` or `path` is required"
+    );
+    assert_eq!(
+        compact_invalid_args["error"]["data"]["fields"],
+        json!(["handle", "path"])
+    );
+
+    running.cancel().await.unwrap();
+}
+
 #[test]
 fn bundle_helpers_collapse_search_and_target_context_into_one_query() {
     let root = temp_workspace();
@@ -7817,6 +8049,60 @@ return {
             > 0
     );
     assert_eq!(rich_target["summary"]["kind"], "target");
+}
+
+#[test]
+fn restart_restores_persisted_session_seed_for_new_host_sessions() {
+    let root = temp_workspace();
+    let first = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let started = first
+        .start_task(
+            test_session(&first).as_ref(),
+            Some("Resume milestone one".to_string()),
+            vec!["milestone-1".to_string(), "restart".to_string()],
+            None,
+        )
+        .expect("task should start");
+    first
+        .configure_session_without_refresh(
+            test_session(&first).as_ref(),
+            PrismConfigureSessionArgs {
+                limits: Some(QueryLimitsInput {
+                    max_result_nodes: Some(3),
+                    max_call_graph_depth: Some(2),
+                    max_output_json_bytes: Some(2048),
+                }),
+                current_task_id: Some(started.0.to_string()),
+                coordination_task_id: None,
+                current_task_description: Some("Resume milestone one".to_string()),
+                current_task_tags: Some(vec!["milestone-1".to_string(), "restart".to_string()]),
+                clear_current_task: None,
+                current_agent: Some("agent-restart".to_string()),
+                clear_current_agent: None,
+            },
+        )
+        .expect("session configure should succeed");
+
+    let restarted = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let restored = restarted
+        .session_resource_value(test_session(&restarted).as_ref())
+        .expect("restored session should load");
+
+    let current_task = restored.current_task.expect("current task should restore");
+    assert_eq!(current_task.task_id, started.0);
+    assert_eq!(
+        current_task.description.as_deref(),
+        Some("Resume milestone one")
+    );
+    assert_eq!(
+        current_task.tags,
+        vec!["milestone-1".to_string(), "restart".to_string()]
+    );
+    assert_eq!(restored.current_agent.as_deref(), Some("agent-restart"));
+    assert_eq!(restored.limits.max_result_nodes, 3);
+    assert_eq!(restored.limits.max_call_graph_depth, 2);
+    assert_eq!(restored.limits.max_output_json_bytes, 2048);
 }
 
 #[test]

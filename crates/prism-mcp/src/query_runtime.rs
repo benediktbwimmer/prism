@@ -32,15 +32,16 @@ use crate::{
     concept_resolution_is_ambiguous, conflict_view, convert_anchors, convert_capability,
     convert_claim_mode, convert_node_id, coordination_task_view, current_timestamp, diff_for,
     drift_candidate_view, edge_kind_label, edge_view, edit_slice_for_symbol, entrypoints_for,
-    focused_block_for_symbol, is_query_parse_error, js_runtime, lineage_view, memory_event_view,
-    merge_node_ids, merge_promoted_checks, missing_return_hint, next_reads,
-    owner_symbol_views_for_query, owner_symbol_views_for_target, owner_views_for_target,
-    parse_event_actor, parse_memory_event_action, parse_memory_kind, parse_memory_scope,
-    parse_node_kind, parse_outcome_kind, parse_outcome_result, parse_plan_scope, parse_plan_status,
-    parse_typescript_error, plan_execution_overlay_view, plan_graph_view, plan_node_blocker_view,
-    plan_node_recommendation_view, plan_node_view, plan_summary_view, plan_view,
-    policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
-    promoted_validation_checks, query_diagnostic, rank_search_results, read_context_view_cached,
+    focused_block_for_symbol, invalid_query_argument_error, is_query_parse_error, js_runtime,
+    lineage_view, memory_event_view, merge_node_ids, merge_promoted_checks, missing_return_hint,
+    next_reads, owner_symbol_views_for_query, owner_symbol_views_for_target,
+    owner_views_for_target, parse_event_actor, parse_memory_event_action, parse_memory_kind,
+    parse_memory_scope, parse_node_kind, parse_outcome_kind, parse_outcome_result,
+    parse_plan_scope, parse_plan_status, parse_typescript_error, plan_execution_overlay_view,
+    plan_graph_view, plan_node_blocker_view, plan_node_recommendation_view, plan_node_view,
+    plan_summary_view, plan_view, policy_violation_record_view, promoted_memory_entries,
+    promoted_summary_texts, promoted_validation_checks, query_diagnostic,
+    query_feature_disabled_error, rank_search_results, read_context_view_cached,
     recent_change_context_view_cached, recent_patches, relations_view,
     resolve_concepts_for_session, result_decode_error, runtime_or_serialization_error,
     scored_memory_view, search_queries, source_excerpt_for_symbol, spec_cluster_view,
@@ -565,6 +566,21 @@ impl QueryExecution {
         self.host.features.query_view_enabled(flag)
     }
 
+    pub(crate) fn prism(&self) -> &Prism {
+        self.prism.as_ref()
+    }
+
+    pub(crate) fn session(&self) -> &SessionState {
+        self.session.as_ref()
+    }
+
+    pub(crate) fn workspace_root(&self) -> Option<&Path> {
+        self.host
+            .workspace
+            .as_ref()
+            .map(|workspace| workspace.root())
+    }
+
     pub(crate) fn diagnostics(&self) -> Vec<QueryDiagnostic> {
         self.diagnostics
             .lock()
@@ -587,7 +603,46 @@ impl QueryExecution {
     pub(crate) fn dispatch_enveloped(&self, operation: &str, args_json: &str) -> String {
         match self.dispatch(operation, args_json) {
             Ok(value) => json!({ "ok": true, "value": value }).to_string(),
-            Err(error) => json!({ "ok": false, "error": error.to_string() }).to_string(),
+            Err(error) => {
+                if let Some(query_error) = error.downcast_ref::<crate::QueryExecutionError>() {
+                    if matches!(
+                        query_error.code(),
+                        Some("query_feature_disabled" | "query_invalid_argument")
+                    ) {
+                        return json!({
+                            "ok": false,
+                            "error": query_error.to_string(),
+                            "queryError": {
+                                "summary": query_error.summary(),
+                                "message": query_error.to_string(),
+                                "data": query_error.data(),
+                            },
+                        })
+                        .to_string();
+                    }
+                }
+                if let Some(json_error) = error.downcast_ref::<serde_json::Error>() {
+                    return json!({
+                        "ok": false,
+                        "error": "prism_query arguments invalid",
+                        "queryError": {
+                            "summary": "prism_query arguments invalid",
+                            "message": format!(
+                                "prism_query arguments invalid: {}\nHint: Check the query method argument names, required fields, and value types, then retry.",
+                                json_error
+                            ),
+                            "data": {
+                                "code": "query_invalid_argument",
+                                "category": "invalid_argument",
+                                "error": json_error.to_string(),
+                                "nextAction": "Check the query method argument names, required fields, and value types, then retry.",
+                            },
+                        },
+                    })
+                    .to_string();
+                }
+                json!({ "ok": false, "error": error.to_string() }).to_string()
+            }
         }
     }
 
@@ -1453,17 +1508,7 @@ impl QueryExecution {
 
     fn ensure_operation_enabled(&self, operation: &str) -> Result<()> {
         if let Some(group) = self.host.features.disabled_query_group(operation) {
-            let message = match group {
-                "internal_developer" => {
-                    "internal developer queries are disabled unless the PRISM MCP server is started with `--internal-developer`"
-                }
-                _ => {
-                    return Err(anyhow!(
-                        "coordination {group} queries are disabled by the PRISM MCP server feature flags"
-                    ));
-                }
-            };
-            return Err(anyhow!(message));
+            return Err(query_feature_disabled_error(operation, group));
         }
         Ok(())
     }
@@ -2887,7 +2932,7 @@ impl QueryExecution {
         self.symbols_from(self.prism.symbol(query))
     }
 
-    fn resolve_target_id(
+    pub(crate) fn resolve_target_id(
         &self,
         id: Option<NodeIdInput>,
         lineage_id: Option<String>,
@@ -3009,7 +3054,10 @@ fn parse_concept_lens(value: &str) -> Result<ConceptDecodeLens> {
         "validation" => Ok(ConceptDecodeLens::Validation),
         "timeline" => Ok(ConceptDecodeLens::Timeline),
         "memory" => Ok(ConceptDecodeLens::Memory),
-        other => Err(anyhow!("unknown concept lens `{other}`")),
+        other => Err(invalid_query_argument_error(
+            "prism.concept",
+            format!("unknown concept lens `{other}`"),
+        )),
     }
 }
 
@@ -3046,8 +3094,9 @@ fn parse_path_mode(value: Option<&str>) -> Result<SearchPathMode> {
     match value.unwrap_or("contains") {
         "contains" => Ok(SearchPathMode::Contains),
         "exact" => Ok(SearchPathMode::Exact),
-        other => Err(anyhow!(
-            "unsupported search pathMode `{other}`; expected `contains` or `exact`"
+        other => Err(invalid_query_argument_error(
+            "prism.search",
+            format!("unsupported search pathMode `{other}`; expected `contains` or `exact`"),
         )),
     }
 }

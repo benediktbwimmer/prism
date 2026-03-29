@@ -648,15 +648,19 @@ pub(super) fn compact_open_text_fragment(
         AgentOpenMode::Focus => read_text_fragment(
             host,
             target,
-            start_line.saturating_sub(1).max(1),
-            end_line + 1,
+            start_line
+                .saturating_sub(FOCUS_OPEN_OPTIONS.before_lines)
+                .max(1),
+            end_line.saturating_add(FOCUS_OPEN_OPTIONS.after_lines),
             FOCUS_OPEN_OPTIONS.max_chars,
         )?,
         AgentOpenMode::Edit => read_text_fragment(
             host,
             target,
-            start_line.saturating_sub(1).max(1),
-            end_line + 1,
+            start_line
+                .saturating_sub(EDIT_OPEN_OPTIONS.before_lines)
+                .max(1),
+            end_line.saturating_add(EDIT_OPEN_OPTIONS.after_lines),
             EDIT_OPEN_OPTIONS.max_chars,
         )?,
         AgentOpenMode::Raw => {

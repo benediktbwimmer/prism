@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use serde_json::Value;
 
 use crate::{
+    query_view_playbook::repo_playbook_view, query_view_validation_plan::validation_plan_view,
     PrismMcpFeatures, QueryExecution, QueryHost, QueryViewCapabilityView, QueryViewFeatureFlag,
 };
 
@@ -46,6 +47,8 @@ impl QueryViewDefinition {
 
     fn invoke(self, execution: &QueryExecution, _input: Value) -> Result<Value> {
         match self.name {
+            "repoPlaybook" => repo_playbook_view(execution),
+            "validationPlan" => validation_plan_view(execution, _input),
             #[cfg(test)]
             "testEcho" => Ok(test_echo_view(_input)),
             _ => not_implemented_view(self, execution),
@@ -160,6 +163,7 @@ impl QueryExecution {
                 view.feature_flag.key()
             ));
         }
+        self.query_run().set_view_name(name);
         view.invoke(self, input)
     }
 }

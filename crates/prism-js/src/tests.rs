@@ -8,6 +8,12 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("prism_open"));
     assert!(docs.contains("prism_workset"));
     assert!(docs.contains("prism_expand"));
+    assert!(
+        docs.contains("`prism_workset` is the comparison baseline for future agent-facing views.")
+    );
+    assert!(docs.contains(
+        "why`, `nextAction`, and `suggestedActions` that let you continue without reconstructing context manually"
+    ));
     assert!(docs.contains("prism_task_brief"));
     assert!(docs.contains("prism_concept"));
     assert!(docs.contains("prism_query"));
@@ -89,6 +95,10 @@ fn api_reference_mentions_primary_tool() {
     assert!(
         docs.contains("runtimeTimeline(options?: RuntimeTimelineOptions): RuntimeLogEventView[];")
     );
+    assert!(docs.contains("repoPlaybook(): RepoPlaybookView;"));
+    assert!(docs.contains(
+        "validationPlan(input: { taskId?: string; target?: QueryTarget; paths?: string[] }): ValidationPlanView;"
+    ));
     assert!(docs.contains("editSlice(options?: EditSliceOptions)"));
     assert!(docs.contains("relativeFocus"));
     assert!(docs.contains("type SearchTextOptions = {"));
@@ -155,6 +165,9 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("type McpCallStatsView = {"));
     assert!(docs.contains("type QueryLogEntryView = {"));
     assert!(docs.contains("type QueryTraceView = {"));
+    assert!(docs.contains("type QueryEvidenceView = {"));
+    assert!(docs.contains("type RepoPlaybookView = {"));
+    assert!(docs.contains("type ValidationPlanView = {"));
     assert!(docs.contains("kind: \"toml-key\""));
     assert!(docs.contains("read(options?: FileReadOptions): SourceExcerptView;"));
     assert!(docs.contains("around(options: FileAroundOptions): SourceSliceView;"));
@@ -186,6 +199,7 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("__prismHostCall"));
     assert!(prelude.contains("__queryViews"));
     assert!(prelude.contains("__queryView:${name}"));
+    assert!(prelude.contains("__prismNormalizeDynamicViewInput"));
     assert!(prelude.contains("__prismNormalizeTargetPayload"));
     assert!(prelude.contains("full(target)"));
     assert!(prelude.contains("symbolBundle: __prismSymbolBundle"));

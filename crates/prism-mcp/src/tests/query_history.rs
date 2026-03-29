@@ -1,3 +1,5 @@
+use std::fs;
+
 use super::*;
 use crate::tests_support::{
     host_with_session_internal, temp_workspace, test_session, write_long_excerpt_workspace,
@@ -264,6 +266,217 @@ fn prism_dynamic_query_views_follow_runtime_feature_flags() {
 }
 
 #[test]
+fn prism_dynamic_query_views_are_attributed_in_query_history_and_mcp_stats() {
+    let root = temp_workspace();
+    write_long_excerpt_workspace(&root);
+
+    let host = QueryHost::with_session_and_limits_and_features(
+        index_workspace_session(&root).unwrap(),
+        QueryLimits::default(),
+        PrismMcpFeatures::full()
+            .with_internal_developer(true)
+            .with_query_view(QueryViewFeatureFlag::TestEcho, true),
+    );
+
+    host.execute(
+        test_session(&host),
+        r#"return prism.testEcho({ value: 7, label: "ok" });"#,
+        QueryLanguage::Ts,
+    )
+    .expect("dynamic query view should succeed");
+
+    let result = host
+        .execute(
+            test_session(&host),
+            r#"
+const queryEntry = prism.queryLog({ limit: 5 }).find((entry) => entry.viewName === "testEcho");
+const mcpEntry = prism
+  .mcpLog({ limit: 5, callType: "tool", name: "prism_query" })
+  .find((entry) => entry.viewName === "testEcho");
+const trace = mcpEntry ? prism.mcpTrace(mcpEntry.id) : null;
+return {
+  queryEntry,
+  mcpEntry,
+  trace,
+  stats: prism.mcpStats({ callType: "tool", name: "prism_query" }),
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query history lookup should succeed");
+
+    assert_eq!(result.result["queryEntry"]["viewName"], "testEcho");
+    assert_eq!(result.result["mcpEntry"]["viewName"], "testEcho");
+    assert_eq!(result.result["trace"]["entry"]["viewName"], "testEcho");
+    assert_eq!(
+        result.result["trace"]["metadata"]["queryViewName"],
+        "testEcho"
+    );
+    assert_eq!(result.result["stats"]["byViewName"][0]["key"], "testEcho");
+    assert_eq!(result.result["stats"]["byViewName"][0]["count"], 1);
+    assert_eq!(
+        result.result["stats"]["byViewName"][0]["uniqueTaskCount"],
+        0
+    );
+    assert!(
+        result.result["stats"]["byViewName"][0]["averageResultJsonBytes"]
+            .as_u64()
+            .unwrap_or_default()
+            > 0
+    );
+    assert!(
+        result.result["stats"]["byViewName"][0]["maxResultJsonBytes"]
+            .as_u64()
+            .unwrap_or_default()
+            > 0
+    );
+}
+
+#[test]
+fn prism_new_query_views_follow_independent_runtime_feature_flags() {
+    let root = temp_workspace();
+    write_long_excerpt_workspace(&root);
+    fs::write(
+        root.join("AGENTS.md"),
+        "- `cargo build --release -p prism-cli -p prism-mcp`\n- `./target/release/prism-cli mcp restart --internal-developer`\n- `./target/release/prism-cli mcp status`\n- `./target/release/prism-cli mcp health`\n",
+    )
+    .unwrap();
+
+    let playbook_only = QueryHost::with_session_and_limits_and_features(
+        index_workspace_session(&root).unwrap(),
+        QueryLimits::default(),
+        PrismMcpFeatures::full().with_query_view(QueryViewFeatureFlag::RepoPlaybook, true),
+    );
+    let playbook = playbook_only
+        .execute(
+            test_session(&playbook_only),
+            r#"return prism.repoPlaybook();"#,
+            QueryLanguage::Ts,
+        )
+        .expect("repoPlaybook should succeed when enabled");
+    assert_eq!(
+        playbook.result["build"]["commands"][0],
+        "cargo build --release -p prism-cli -p prism-mcp"
+    );
+    let validation_disabled = playbook_only
+        .execute(
+            test_session(&playbook_only),
+            r#"return prism.validationPlan({ paths: ["src/recall.rs"] });"#,
+            QueryLanguage::Ts,
+        )
+        .expect_err("validationPlan should stay hidden when disabled");
+    assert!(validation_disabled.to_string().contains("not a function"));
+
+    let validation_only = QueryHost::with_session_and_limits_and_features(
+        index_workspace_session(&root).unwrap(),
+        QueryLimits::default(),
+        PrismMcpFeatures::full().with_query_view(QueryViewFeatureFlag::ValidationPlan, true),
+    );
+    let validation = validation_only
+        .execute(
+            test_session(&validation_only),
+            r#"return prism.validationPlan({ paths: ["src/recall.rs"] });"#,
+            QueryLanguage::Ts,
+        )
+        .expect("validationPlan should succeed when enabled");
+    assert_eq!(validation.result["subject"]["kind"], "pathSet");
+    assert_eq!(validation.result["subject"]["paths"][0], "src/recall.rs");
+    let playbook_disabled = validation_only
+        .execute(
+            test_session(&validation_only),
+            r#"return prism.repoPlaybook();"#,
+            QueryLanguage::Ts,
+        )
+        .expect_err("repoPlaybook should stay hidden when disabled");
+    assert!(playbook_disabled.to_string().contains("not a function"));
+}
+
+#[test]
+fn prism_repo_playbook_and_validation_plan_views_return_provenance_and_log_by_name() {
+    let root = temp_workspace();
+    write_long_excerpt_workspace(&root);
+    fs::write(
+        root.join("AGENTS.md"),
+        "- `cargo build --release -p prism-cli -p prism-mcp`\n- `./target/release/prism-cli mcp restart --internal-developer`\n- `./target/release/prism-cli mcp status`\n- `./target/release/prism-cli mcp health`\n- Prefer the release binaries for restart and verification instead of `cargo run`.\n",
+    )
+    .unwrap();
+
+    let host = QueryHost::with_session_and_limits_and_features(
+        index_workspace_session(&root).unwrap(),
+        QueryLimits::default(),
+        PrismMcpFeatures::full()
+            .with_internal_developer(true)
+            .with_query_view(QueryViewFeatureFlag::RepoPlaybook, true)
+            .with_query_view(QueryViewFeatureFlag::ValidationPlan, true),
+    );
+
+    let playbook = host
+        .execute(
+            test_session(&host),
+            r#"return prism.repoPlaybook();"#,
+            QueryLanguage::Ts,
+        )
+        .expect("repoPlaybook should succeed");
+    assert_eq!(
+        playbook.result["workflow"]["commands"][1],
+        "./target/release/prism-cli mcp restart --internal-developer"
+    );
+    assert_eq!(
+        playbook.result["workflow"]["provenance"][0]["path"],
+        "AGENTS.md"
+    );
+    assert!(playbook.result["gotchas"]
+        .as_array()
+        .is_some_and(|gotchas| !gotchas.is_empty()));
+
+    let validation = host
+        .execute(
+            test_session(&host),
+            r#"return prism.validationPlan({ paths: ["src/recall.rs"] });"#,
+            QueryLanguage::Ts,
+        )
+        .expect("validationPlan should succeed");
+    assert_eq!(validation.result["subject"]["kind"], "pathSet");
+    assert!(validation.result["fast"]
+        .as_array()
+        .is_some_and(|fast| !fast.is_empty()));
+    assert!(validation.result["fast"][0]["why"]
+        .as_str()
+        .is_some_and(|why| !why.is_empty()));
+    assert!(validation.result["fast"][0]["provenance"]
+        .as_array()
+        .is_some_and(|provenance| !provenance.is_empty()));
+
+    let result = host
+        .execute(
+            test_session(&host),
+            r#"
+const entries = prism.queryLog({ limit: 10 })
+  .filter((entry) => entry.viewName === "repoPlaybook" || entry.viewName === "validationPlan")
+  .map((entry) => entry.viewName);
+return {
+  entries,
+  stats: prism.mcpStats({ callType: "tool", name: "prism_query" }).byViewName
+    .filter((entry) => entry.key === "repoPlaybook" || entry.key === "validationPlan"),
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query log lookup should succeed");
+
+    let entries = result.result["entries"]
+        .as_array()
+        .expect("entries should be array");
+    assert!(entries.iter().any(|entry| entry == "repoPlaybook"));
+    assert!(entries.iter().any(|entry| entry == "validationPlan"));
+    let stats = result.result["stats"]
+        .as_array()
+        .expect("stats should be array");
+    assert!(stats.iter().any(|entry| entry["key"] == "repoPlaybook"));
+    assert!(stats.iter().any(|entry| entry["key"] == "validationPlan"));
+}
+
+#[test]
 fn prism_mcp_log_exposes_canonical_call_history_trace_and_stats() {
     let root = temp_workspace();
     write_long_excerpt_workspace(&root);
@@ -379,6 +592,9 @@ return {
     assert!(result.result["stats"]["byName"]
         .as_array()
         .is_some_and(|buckets| buckets.iter().any(|bucket| bucket["key"] == "prism_query")));
+    assert!(result.result["stats"]["byViewName"]
+        .as_array()
+        .is_some_and(|buckets| buckets.is_empty()));
 
     let status = host
         .execute(

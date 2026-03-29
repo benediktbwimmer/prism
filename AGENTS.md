@@ -50,9 +50,10 @@ When the PRISM MCP server is available for this repo, use it as the primary repo
 - Prefer checking `prism://vocab` before guessing enum spellings or mutation action names.
 - Prefer checking `prism.tool("...")`, `prism://tool-schemas`, and `prism://schema/tool/{toolName}` before hand-writing non-trivial mutation payloads.
 - Prefer the compact top-level tools over ad hoc query snippets whenever they can express the task.
-- Prefer PRISM-native file inspection and search when they can replace multiple shell reads with one bounded call, especially `prism_locate`, `prism_gather`, `prism_open`, `prism_workset`, `prism_expand`, `prism.file(path).read(...)`, `prism.file(path).around(...)`, and `prism.searchText(...)`.
-- Prefer the compact PRISM tools and bounded PRISM-native reads over `sed`, `cat`, and `rg` when the work can be expressed in one staged PRISM flow.
-- Keep shell reads as a fallback for raw bytes, command output, or cases where PRISM cannot yet express the needed inspection precisely.
+- Prefer PRISM-native file inspection and bounded context retrieval when they can replace multiple shell reads with one staged call, especially `prism_locate`, `prism_gather`, `prism_open`, `prism_workset`, `prism_expand`, `prism.file(path).read(...)`, `prism.file(path).around(...)`, and `prism.searchText(...)`.
+- Prefer the compact PRISM tools and bounded PRISM-native reads over manual line-window shell reads such as `sed` and `cat` when the work can be expressed in one staged PRISM flow.
+- Targeted `rg` is still acceptable for exact-text narrowing, test-name lookup, or fast filename discrimination before returning to PRISM for the actual edit/read context.
+- Keep shell reads as a fallback for raw bytes, command output, or cases where PRISM cannot yet express the needed inspection precisely. Treat `sed` as a last resort when PRISM cannot provide the surrounding slice you need without manual line-window guessing.
 - Keep `prism_query` read-only. Do not try to encode writes or side effects inside query snippets.
 - After meaningful changes to PRISM MCP behavior or query/runtime behavior, rebuild the release binaries and restart the MCP daemon so the live PRISM server reflects the current code during the same Codex session.
 - From the repo root, use these exact commands:

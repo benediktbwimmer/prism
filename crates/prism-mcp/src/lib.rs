@@ -49,6 +49,8 @@ mod query_helpers;
 mod query_log;
 mod query_runtime;
 mod query_types;
+mod query_view_playbook;
+mod query_view_validation_plan;
 mod query_views;
 mod resource_schemas;
 mod resources;
@@ -57,6 +59,7 @@ mod runtime_views;
 mod schema_examples;
 mod semantic_contexts;
 mod server_surface;
+mod session_seed;
 mod session_state;
 mod spec_insights;
 mod suggested_queries;
@@ -96,6 +99,9 @@ use resources::*;
 use runtime_state::*;
 use schema_examples::*;
 use semantic_contexts::*;
+use session_seed::{
+    load_session_seed, persist_session_seed, restore_session_seed, PersistedSessionSeed,
+};
 use session_state::SessionState;
 use spec_insights::*;
 use suggested_queries::*;
@@ -481,6 +487,7 @@ struct QueryHost {
     loaded_inference_revision: Arc<AtomicU64>,
     loaded_coordination_revision: Arc<AtomicU64>,
     workspace_runtime: Option<Arc<WorkspaceRuntime>>,
+    restored_session_seed: Option<PersistedSessionSeed>,
     features: PrismMcpFeatures,
     #[cfg(test)]
     test_session: OnceLock<Arc<SessionState>>,
@@ -595,6 +602,7 @@ impl QueryHost {
             loaded_inference_revision: Arc::new(AtomicU64::new(0)),
             loaded_coordination_revision: Arc::new(AtomicU64::new(0)),
             workspace_runtime: None,
+            restored_session_seed: None,
             features: features.clone(),
             #[cfg(test)]
             test_session: OnceLock::new(),
@@ -654,6 +662,13 @@ impl QueryHost {
         let workspace_runtime = Arc::new(WorkspaceRuntime::spawn(runtime_config.clone()));
         let _ = crate::workspace_runtime::hydrate_persisted_workspace_state(&runtime_config);
         workspace_runtime.request_refresh();
+        let restored_session_seed = match load_session_seed(workspace.root()) {
+            Ok(seed) => seed,
+            Err(error) => {
+                debug!(error = %error, "failed to load persisted session seed");
+                None
+            }
+        };
         Self {
             prism: Arc::clone(&prism),
             notes,
@@ -670,6 +685,7 @@ impl QueryHost {
             loaded_inference_revision,
             loaded_coordination_revision,
             workspace_runtime: Some(workspace_runtime),
+            restored_session_seed,
             features,
             #[cfg(test)]
             test_session: OnceLock::new(),
@@ -677,12 +693,23 @@ impl QueryHost {
     }
 
     fn new_session_state(&self) -> Arc<SessionState> {
-        Arc::new(SessionState::new(
+        let session = Arc::new(SessionState::new(
             Arc::clone(&self.notes),
             Arc::clone(&self.inferred_edges),
             Arc::clone(&self.next_event),
             self.default_limits,
-        ))
+        ));
+        if let Some(seed) = self.restored_session_seed.as_ref() {
+            restore_session_seed(session.as_ref(), seed);
+        }
+        session
+    }
+
+    fn persist_session_seed(&self, session: &SessionState) -> Result<()> {
+        if let Some(workspace) = &self.workspace {
+            persist_session_seed(workspace.root(), session)?;
+        }
+        Ok(())
     }
 
     #[cfg(test)]
@@ -774,6 +801,7 @@ impl QueryHost {
             session.set_current_agent(prism_ir::AgentId::new(agent));
         }
 
+        self.persist_session_seed(session)?;
         Ok(self.session_view_without_refresh(session))
     }
 

@@ -8,7 +8,27 @@ use crate::QueryExecutionError;
 
 pub(crate) fn map_query_error(error: anyhow::Error) -> McpError {
     if let Some(query_error) = error.downcast_ref::<QueryExecutionError>() {
+        if matches!(
+            query_error.code(),
+            Some("query_feature_disabled" | "query_invalid_argument")
+        ) {
+            return McpError::invalid_params(
+                query_error.to_string(),
+                Some(query_error.data().clone()),
+            );
+        }
         return McpError::internal_error(query_error.summary(), Some(query_error.data().clone()));
+    }
+    if let Some(json_error) = error.downcast_ref::<serde_json::Error>() {
+        return McpError::invalid_params(
+            "prism_query arguments invalid",
+            Some(json!({
+                "code": "query_invalid_argument",
+                "category": "invalid_argument",
+                "error": json_error.to_string(),
+                "nextAction": "Check the query method argument names, required fields, and value types, then retry.",
+            })),
+        );
     }
     McpError::internal_error(
         "prism query failed",
