@@ -15,6 +15,7 @@ mod published_plans;
 mod reanchor;
 mod resolution;
 mod session;
+mod shared_runtime;
 mod util;
 mod validation_feedback;
 mod watch;
@@ -36,14 +37,18 @@ pub use validation_feedback::{
     ValidationFeedbackVerdict,
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct WorkspaceSessionOptions {
     pub coordination: bool,
+    pub shared_runtime_sqlite: Option<std::path::PathBuf>,
 }
 
 impl Default for WorkspaceSessionOptions {
     fn default() -> Self {
-        Self { coordination: true }
+        Self {
+            coordination: true,
+            shared_runtime_sqlite: None,
+        }
     }
 }
 

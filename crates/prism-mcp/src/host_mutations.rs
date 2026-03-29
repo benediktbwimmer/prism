@@ -766,7 +766,7 @@ impl QueryHost {
         args: PrismCoordinationArgs,
     ) -> Result<CoordinationMutationResult> {
         self.ensure_tool_enabled("prism_coordination", "coordination workflow mutations")?;
-        self.refresh_workspace()?;
+        let _ = self.refresh_workspace_for_mutation()?;
         let prism = self.current_prism();
         let before_events = prism.coordination_events().len();
         let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
@@ -844,7 +844,7 @@ impl QueryHost {
         args: PrismClaimArgs,
     ) -> Result<ClaimMutationResult> {
         self.ensure_tool_enabled("prism_claim", "coordination claim mutations")?;
-        self.refresh_workspace()?;
+        let _ = self.refresh_workspace_for_mutation()?;
         let prism = self.current_prism();
         let before_events = prism.coordination_events().len();
         let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
@@ -915,7 +915,7 @@ impl QueryHost {
         args: PrismArtifactArgs,
     ) -> Result<ArtifactMutationResult> {
         self.ensure_tool_enabled("prism_artifact", "coordination artifact mutations")?;
-        self.refresh_workspace()?;
+        let _ = self.refresh_workspace_for_mutation()?;
         let prism = self.current_prism();
         let before_events = prism.coordination_events().len();
         let task = session.task_for_mutation(args.task_id.clone().map(TaskId::new));

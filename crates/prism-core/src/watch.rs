@@ -15,6 +15,7 @@ use tracing::error;
 use crate::curator::{enqueue_curator_for_observed_locked, CuratorHandleRef};
 use crate::indexer::WorkspaceIndexer;
 use crate::session::WorkspaceRefreshState;
+use crate::shared_runtime::composite_workspace_revision;
 use crate::util::{workspace_fingerprint, WorkspaceFingerprint};
 
 pub(crate) struct WatchHandle {
@@ -26,6 +27,7 @@ pub(crate) fn spawn_fs_watch(
     root: PathBuf,
     prism: Arc<RwLock<Arc<Prism>>>,
     store: Arc<Mutex<SqliteStore>>,
+    shared_runtime_sqlite: Option<PathBuf>,
     refresh_lock: Arc<Mutex<()>>,
     refresh_state: Arc<WorkspaceRefreshState>,
     loaded_workspace_revision: Arc<AtomicU64>,
@@ -93,6 +95,7 @@ pub(crate) fn spawn_fs_watch(
                 &root,
                 &prism,
                 &store,
+                shared_runtime_sqlite.as_deref(),
                 &refresh_lock,
                 &refresh_state,
                 &loaded_workspace_revision,
@@ -126,6 +129,7 @@ pub(crate) fn refresh_prism_snapshot(
     root: &Path,
     prism: &Arc<RwLock<Arc<Prism>>>,
     store: &Arc<Mutex<SqliteStore>>,
+    shared_runtime_sqlite: Option<&Path>,
     refresh_lock: &Arc<Mutex<()>>,
     refresh_state: &Arc<WorkspaceRefreshState>,
     loaded_workspace_revision: &Arc<AtomicU64>,
@@ -142,6 +146,7 @@ pub(crate) fn refresh_prism_snapshot(
         root,
         prism,
         store,
+        shared_runtime_sqlite,
         refresh_state,
         loaded_workspace_revision,
         fs_snapshot,
@@ -157,6 +162,7 @@ pub(crate) fn try_refresh_prism_snapshot(
     root: &Path,
     prism: &Arc<RwLock<Arc<Prism>>>,
     store: &Arc<Mutex<SqliteStore>>,
+    shared_runtime_sqlite: Option<&Path>,
     refresh_lock: &Arc<Mutex<()>>,
     refresh_state: &Arc<WorkspaceRefreshState>,
     loaded_workspace_revision: &Arc<AtomicU64>,
@@ -173,6 +179,7 @@ pub(crate) fn try_refresh_prism_snapshot(
         root,
         prism,
         store,
+        shared_runtime_sqlite,
         refresh_state,
         loaded_workspace_revision,
         fs_snapshot,
@@ -189,6 +196,7 @@ fn refresh_prism_snapshot_with_guard(
     root: &Path,
     prism: &Arc<RwLock<Arc<Prism>>>,
     store: &Arc<Mutex<SqliteStore>>,
+    shared_runtime_sqlite: Option<&Path>,
     refresh_state: &Arc<WorkspaceRefreshState>,
     loaded_workspace_revision: &Arc<AtomicU64>,
     fs_snapshot: &Arc<Mutex<WorkspaceFingerprint>>,
@@ -226,6 +234,7 @@ fn refresh_prism_snapshot_with_guard(
         root,
         crate::WorkspaceSessionOptions {
             coordination: coordination_enabled,
+            shared_runtime_sqlite: shared_runtime_sqlite.map(Path::to_path_buf),
         },
     )?;
     let observed = if scoped_watch_refresh {
@@ -233,7 +242,14 @@ fn refresh_prism_snapshot_with_guard(
     } else {
         indexer.index_with_trigger(trigger)?
     };
-    let workspace_revision = indexer.store.workspace_revision()?;
+    let workspace_revision = composite_workspace_revision(
+        indexer.store.workspace_revision()?,
+        indexer
+            .shared_runtime_store
+            .as_ref()
+            .map(SqliteStore::workspace_revision)
+            .transpose()?,
+    );
     let next = Arc::new(indexer.into_prism());
     *prism.write().expect("workspace prism lock poisoned") = Arc::clone(&next);
     loaded_workspace_revision.store(workspace_revision, Ordering::Relaxed);

@@ -258,6 +258,7 @@ pub(crate) fn acquire_claim_mutation(
         review: None,
         metadata: json!({
             "status": format!("{:?}", claim.status),
+            "claim": claim.clone(),
         }),
     });
     if !conflicts.is_empty() {
@@ -343,7 +344,9 @@ pub(crate) fn renew_claim_mutation(
         claim: Some(claim.id.clone()),
         artifact: None,
         review: None,
-        metadata: Value::Null,
+        metadata: json!({
+            "claim": claim.clone(),
+        }),
     });
     Ok(claim)
 }
@@ -407,7 +410,9 @@ pub(crate) fn release_claim_mutation(
         claim: Some(claim.id.clone()),
         artifact: None,
         review: None,
-        metadata: Value::Null,
+        metadata: json!({
+            "claim": claim.clone(),
+        }),
     });
     Ok(claim)
 }
@@ -516,6 +521,7 @@ pub(crate) fn propose_artifact_mutation(
             "requiredValidations": artifact.required_validations.clone(),
             "validatedChecks": artifact.validated_checks.clone(),
             "riskScore": artifact.risk_score,
+            "artifact": artifact.clone(),
         }),
     });
     Ok((id, artifact))
@@ -580,7 +586,10 @@ pub(crate) fn supersede_artifact_mutation(
         claim: None,
         artifact: Some(artifact.id.clone()),
         review: None,
-        metadata: json!({ "status": "Superseded" }),
+        metadata: json!({
+            "status": "Superseded",
+            "artifact": artifact.clone(),
+        }),
     });
     Ok(artifact)
 }
@@ -750,6 +759,8 @@ pub(crate) fn review_artifact_mutation(
             "requiredValidations": artifact.required_validations.clone(),
             "validatedChecks": artifact.validated_checks.clone(),
             "riskScore": artifact.risk_score,
+            "artifact": artifact.clone(),
+            "review": review.clone(),
         }),
     });
     Ok((review_id, review, artifact))

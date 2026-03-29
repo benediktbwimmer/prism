@@ -5,9 +5,21 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use crate::helpers::sorted_values;
-use crate::types::{CoordinationSnapshot, CoordinationTask, Plan};
+use crate::types::{Artifact, ArtifactReview, CoordinationEvent, CoordinationSnapshot, CoordinationTask, Plan, WorkClaim};
 
-pub(crate) fn rehydrate_plan_task_state(
+pub fn coordination_snapshot_from_events(
+    events: &[CoordinationEvent],
+    fallback: Option<CoordinationSnapshot>,
+) -> Option<CoordinationSnapshot> {
+    if events.is_empty() {
+        return fallback.map(rehydrate_coordination_snapshot);
+    }
+    let mut snapshot = fallback.unwrap_or_default();
+    snapshot.events = events.to_vec();
+    Some(rehydrate_coordination_snapshot(snapshot))
+}
+
+pub fn rehydrate_coordination_snapshot(
     mut snapshot: CoordinationSnapshot,
 ) -> CoordinationSnapshot {
     let stored_plans = snapshot
@@ -22,9 +34,30 @@ pub(crate) fn rehydrate_plan_task_state(
         .cloned()
         .map(|task| (task.id.clone(), task))
         .collect::<HashMap<_, _>>();
+    let stored_claims = snapshot
+        .claims
+        .iter()
+        .cloned()
+        .map(|claim| (claim.id.clone(), claim))
+        .collect::<HashMap<_, _>>();
+    let stored_artifacts = snapshot
+        .artifacts
+        .iter()
+        .cloned()
+        .map(|artifact| (artifact.id.clone(), artifact))
+        .collect::<HashMap<_, _>>();
+    let stored_reviews = snapshot
+        .reviews
+        .iter()
+        .cloned()
+        .map(|review| (review.id.clone(), review))
+        .collect::<HashMap<_, _>>();
 
     let mut plans = HashMap::<PlanId, Plan>::new();
     let mut tasks = HashMap::<CoordinationTaskId, CoordinationTask>::new();
+    let mut claims = HashMap::new();
+    let mut artifacts = HashMap::new();
+    let mut reviews = HashMap::new();
 
     for event in &snapshot.events {
         match event.kind {
@@ -67,6 +100,26 @@ pub(crate) fn rehydrate_plan_task_state(
                     }
                 }
             }
+            CoordinationEventKind::ClaimAcquired
+            | CoordinationEventKind::ClaimRenewed
+            | CoordinationEventKind::ClaimReleased => {
+                if let Some(claim) = metadata_field::<WorkClaim>(&event.metadata, "claim") {
+                    claims.insert(claim.id.clone(), claim);
+                }
+            }
+            CoordinationEventKind::ArtifactProposed | CoordinationEventKind::ArtifactSuperseded => {
+                if let Some(artifact) = metadata_field::<Artifact>(&event.metadata, "artifact") {
+                    artifacts.insert(artifact.id.clone(), artifact);
+                }
+            }
+            CoordinationEventKind::ArtifactReviewed => {
+                if let Some(artifact) = metadata_field::<Artifact>(&event.metadata, "artifact") {
+                    artifacts.insert(artifact.id.clone(), artifact);
+                }
+                if let Some(review) = metadata_field::<ArtifactReview>(&event.metadata, "review") {
+                    reviews.insert(review.id.clone(), review);
+                }
+            }
             _ => {}
         }
     }
@@ -87,11 +140,42 @@ pub(crate) fn rehydrate_plan_task_state(
             }
         }
     }
+    for (claim_id, stored) in stored_claims {
+        claims.entry(claim_id).or_insert(stored);
+    }
+    for (artifact_id, stored) in stored_artifacts {
+        artifacts.entry(artifact_id).or_insert(stored);
+    }
+    for (review_id, stored) in stored_reviews {
+        reviews.entry(review_id).or_insert(stored);
+    }
 
     recompute_root_tasks(&mut plans, &tasks);
 
     snapshot.plans = sorted_values(&plans, |plan| plan.id.0.to_string());
     snapshot.tasks = sorted_values(&tasks, |task| task.id.0.to_string());
+    snapshot.claims = sorted_values(&claims, |claim| claim.id.0.to_string());
+    snapshot.artifacts = sorted_values(&artifacts, |artifact| artifact.id.0.to_string());
+    snapshot.reviews = sorted_values(&reviews, |review| review.id.0.to_string());
+    snapshot.next_plan = snapshot
+        .next_plan
+        .max(next_counter(snapshot.plans.iter().map(|plan| plan.id.0.as_str()), "plan:"));
+    snapshot.next_task = snapshot
+        .next_task
+        .max(next_counter(snapshot.tasks.iter().map(|task| task.id.0.as_str()), "coord-task:"));
+    snapshot.next_claim = snapshot
+        .next_claim
+        .max(next_counter(snapshot.claims.iter().map(|claim| claim.id.0.as_str()), "claim:"));
+    snapshot.next_artifact = snapshot.next_artifact.max(next_counter(
+        snapshot
+            .artifacts
+            .iter()
+            .map(|artifact| artifact.id.0.as_str()),
+        "artifact:",
+    ));
+    snapshot.next_review = snapshot
+        .next_review
+        .max(next_counter(snapshot.reviews.iter().map(|review| review.id.0.as_str()), "review:"));
     snapshot
 }
 
@@ -149,6 +233,17 @@ fn apply_task_patch(task: &mut CoordinationTask, metadata: &Value) {
     if patch_is_set(metadata, "session") || patch_is_clear(metadata, "session") {
         if let Some(session) = metadata_optional_path(metadata, &["patchValues", "session"]) {
             task.session = session;
+        }
+    }
+    if patch_is_set(metadata, "worktreeId") || patch_is_clear(metadata, "worktreeId") {
+        if let Some(worktree_id) = metadata_optional_path(metadata, &["patchValues", "worktreeId"])
+        {
+            task.worktree_id = worktree_id;
+        }
+    }
+    if patch_is_set(metadata, "branchRef") || patch_is_clear(metadata, "branchRef") {
+        if let Some(branch_ref) = metadata_optional_path(metadata, &["patchValues", "branchRef"]) {
+            task.branch_ref = branch_ref;
         }
     }
     if patch_is_set(metadata, "anchors") {
@@ -291,4 +386,14 @@ fn metadata_optional_path<T: DeserializeOwned>(
         value = value.get(*segment)?;
     }
     serde_json::from_value(value.clone()).ok()
+}
+
+fn next_counter<'a, I>(ids: I, prefix: &str) -> u64
+where
+    I: Iterator<Item = &'a str>,
+{
+    ids.filter_map(|id| id.strip_prefix(prefix))
+        .filter_map(|suffix| suffix.parse::<u64>().ok())
+        .max()
+        .unwrap_or(0)
 }

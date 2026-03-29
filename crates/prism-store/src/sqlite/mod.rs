@@ -1,4 +1,5 @@
 mod codecs;
+mod coordination_compaction;
 mod coordination_events;
 mod coordination_mutations;
 mod graph_io;
@@ -17,8 +18,8 @@ use tracing::info;
 
 use crate::graph::Graph;
 use crate::store::{
-    AuxiliaryPersistBatch, CoordinationPersistBatch, CoordinationPersistResult, IndexPersistBatch,
-    Store,
+    AuxiliaryPersistBatch, CoordinationEventStream, CoordinationPersistBatch,
+    CoordinationPersistResult, IndexPersistBatch, Store,
 };
 
 const WORKSPACE_REVISION_KEY: &str = "revision:workspace";
@@ -262,14 +263,19 @@ impl Store for SqliteStore {
         Self::coordination_revision(self)
     }
 
-    fn load_coordination_snapshot(
-        &mut self,
-    ) -> Result<Option<prism_coordination::CoordinationSnapshot>> {
-        snapshots::load_snapshot_row(&self.conn, "coordination")
-    }
-
     fn load_coordination_events(&mut self) -> Result<Vec<prism_coordination::CoordinationEvent>> {
         coordination_events::load_events(&self.conn)
+    }
+
+    fn load_coordination_event_stream(&mut self) -> Result<CoordinationEventStream> {
+        coordination_compaction::load_event_stream(&self.conn)
+    }
+
+    fn save_coordination_compaction(
+        &mut self,
+        snapshot: &prism_coordination::CoordinationSnapshot,
+    ) -> Result<()> {
+        coordination_compaction::save_compaction(&self.conn, snapshot)
     }
 
     fn load_latest_coordination_persist_context(
@@ -278,26 +284,12 @@ impl Store for SqliteStore {
         coordination_mutations::load_latest_context(&self.conn)
     }
 
-    fn save_coordination_snapshot(
-        &mut self,
-        snapshot: &prism_coordination::CoordinationSnapshot,
-    ) -> Result<()> {
-        let tx = self.conn.transaction()?;
-        snapshots::save_snapshot_row_tx(&tx, "coordination", snapshot)?;
-        bump_metadata_value_tx(&tx, COORDINATION_REVISION_KEY)?;
-        tx.commit()?;
-        Ok(())
-    }
-
     fn commit_coordination_persist_batch(
         &mut self,
         batch: &CoordinationPersistBatch,
     ) -> Result<CoordinationPersistResult> {
         let tx = self.conn.transaction()?;
         let current_revision = metadata_value_tx(&tx, COORDINATION_REVISION_KEY)?;
-        let current_snapshot = snapshots::load_snapshot_row_tx::<
-            prism_coordination::CoordinationSnapshot,
-        >(&tx, "coordination")?;
         if let Some(expected_revision) = batch.expected_revision {
             if expected_revision != current_revision {
                 let event_ids = batch
@@ -306,11 +298,11 @@ impl Store for SqliteStore {
                     .map(|event| event.meta.id.0.to_string())
                     .collect::<Vec<_>>();
                 let existing = coordination_events::event_ids_exist_tx(&tx, &event_ids)?;
-                if current_snapshot.as_ref() == Some(&batch.snapshot)
+                if !batch.appended_events.is_empty()
                     && batch
-                        .appended_events
-                        .iter()
-                        .all(|event| existing.contains(event.meta.id.0.as_str()))
+                    .appended_events
+                    .iter()
+                    .all(|event| existing.contains(event.meta.id.0.as_str()))
                 {
                     return Ok(CoordinationPersistResult {
                         revision: current_revision,
@@ -327,8 +319,8 @@ impl Store for SqliteStore {
         }
 
         let inserted_events = coordination_events::append_events_tx(&tx, &batch.appended_events)?;
-        let snapshot_changed = current_snapshot.as_ref() != Some(&batch.snapshot);
-        if inserted_events == 0 && !snapshot_changed {
+        snapshots::delete_snapshot_row_tx(&tx, "coordination")?;
+        if inserted_events == 0 {
             coordination_mutations::append_mutation_tx(
                 &tx,
                 current_revision,
@@ -345,7 +337,6 @@ impl Store for SqliteStore {
             });
         }
 
-        snapshots::save_snapshot_row_tx(&tx, "coordination", &batch.snapshot)?;
         let revision = bump_metadata_value_tx(&tx, COORDINATION_REVISION_KEY)?;
         coordination_mutations::append_mutation_tx(
             &tx,
@@ -381,10 +372,6 @@ impl Store for SqliteStore {
         }
         if let Some(snapshot) = &batch.curator_snapshot {
             snapshots::save_snapshot_row_tx(&tx, "curator", snapshot)?;
-        }
-        if let Some(snapshot) = &batch.coordination_snapshot {
-            snapshots::save_snapshot_row_tx(&tx, "coordination", snapshot)?;
-            bump_metadata_value_tx(&tx, COORDINATION_REVISION_KEY)?;
         }
         projections::apply_projection_validation_deltas_tx(&tx, &batch.validation_deltas)?;
         if !batch.validation_deltas.is_empty() {

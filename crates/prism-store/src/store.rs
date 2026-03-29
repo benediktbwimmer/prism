@@ -38,14 +38,12 @@ pub struct AuxiliaryPersistBatch {
     pub episodic_snapshot: Option<EpisodicMemorySnapshot>,
     pub inference_snapshot: Option<InferenceSnapshot>,
     pub curator_snapshot: Option<CuratorSnapshot>,
-    pub coordination_snapshot: Option<CoordinationSnapshot>,
 }
 
 #[derive(Debug, Clone)]
 pub struct CoordinationPersistBatch {
     pub context: CoordinationPersistContext,
     pub expected_revision: Option<u64>,
-    pub snapshot: CoordinationSnapshot,
     pub appended_events: Vec<CoordinationEvent>,
 }
 
@@ -54,6 +52,12 @@ pub struct CoordinationPersistResult {
     pub revision: u64,
     pub inserted_events: usize,
     pub applied: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct CoordinationEventStream {
+    pub fallback_snapshot: Option<CoordinationSnapshot>,
+    pub suffix_events: Vec<CoordinationEvent>,
 }
 
 pub trait Store {
@@ -83,12 +87,12 @@ pub trait Store {
     fn load_curator_snapshot(&mut self) -> Result<Option<CuratorSnapshot>>;
     fn save_curator_snapshot(&mut self, snapshot: &CuratorSnapshot) -> Result<()>;
     fn coordination_revision(&self) -> Result<u64>;
-    fn load_coordination_snapshot(&mut self) -> Result<Option<CoordinationSnapshot>>;
     fn load_coordination_events(&mut self) -> Result<Vec<CoordinationEvent>>;
+    fn load_coordination_event_stream(&mut self) -> Result<CoordinationEventStream>;
+    fn save_coordination_compaction(&mut self, snapshot: &CoordinationSnapshot) -> Result<()>;
     fn load_latest_coordination_persist_context(
         &mut self,
     ) -> Result<Option<CoordinationPersistContext>>;
-    fn save_coordination_snapshot(&mut self, snapshot: &CoordinationSnapshot) -> Result<()>;
     fn commit_coordination_persist_batch(
         &mut self,
         batch: &CoordinationPersistBatch,

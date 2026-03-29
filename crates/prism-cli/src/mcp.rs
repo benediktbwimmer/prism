@@ -108,15 +108,29 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
         McpCommand::Start {
             no_coordination,
             internal_developer,
-        } => start(&root, no_coordination, internal_developer, "start"),
+            shared_runtime_sqlite,
+        } => start(
+            &root,
+            no_coordination,
+            internal_developer,
+            shared_runtime_sqlite,
+            "start",
+        ),
         McpCommand::Stop { kill_bridges } => stop(&root, kill_bridges),
         McpCommand::Restart {
             kill_bridges,
             no_coordination,
             internal_developer,
+            shared_runtime_sqlite,
         } => {
             stop(&root, kill_bridges)?;
-            start(&root, no_coordination, internal_developer, "restart")
+            start(
+                &root,
+                no_coordination,
+                internal_developer,
+                shared_runtime_sqlite,
+                "restart",
+            )
         }
         McpCommand::Health => health(&root),
         McpCommand::Logs { lines } => logs(&root, lines),
@@ -224,6 +238,7 @@ fn start(
     root: &Path,
     no_coordination: bool,
     internal_developer: bool,
+    shared_runtime_sqlite: Option<PathBuf>,
     operation: &str,
 ) -> Result<()> {
     let paths = McpPaths::for_root(root);
@@ -252,7 +267,14 @@ fn start(
     let _startup_marker = StartupMarkerGuard::create(&paths.startup_marker, operation)?;
 
     let binary = prism_mcp_binary()?;
-    spawn_daemon(root, &binary, &paths, no_coordination, internal_developer)?;
+    spawn_daemon(
+        root,
+        &binary,
+        &paths,
+        no_coordination,
+        internal_developer,
+        shared_runtime_sqlite.as_deref(),
+    )?;
     let uri = wait_for_healthy_uri(root, &paths, DEFAULT_HEALTH_PATH)?;
     println!("started daemon");
     println!("uri: {uri}");
@@ -500,6 +522,7 @@ fn spawn_daemon(
     paths: &McpPaths,
     no_coordination: bool,
     internal_developer: bool,
+    shared_runtime_sqlite: Option<&Path>,
 ) -> Result<()> {
     let mut args = vec![
         "--mode".to_string(),
@@ -521,6 +544,10 @@ fn spawn_daemon(
     }
     if internal_developer {
         args.push("--internal-developer".to_string());
+    }
+    if let Some(shared_runtime_sqlite) = shared_runtime_sqlite {
+        args.push("--shared-runtime-sqlite".to_string());
+        args.push(shared_runtime_sqlite.display().to_string());
     }
 
     let log_file = OpenOptions::new()

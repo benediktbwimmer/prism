@@ -323,7 +323,7 @@ fn coordination_persist_batch_is_revisioned_and_idempotent() {
         review: None,
         metadata: serde_json::Value::Null,
     };
-    let snapshot = CoordinationSnapshot {
+    let _snapshot = CoordinationSnapshot {
         events: vec![event.clone()],
         ..CoordinationSnapshot::default()
     };
@@ -333,7 +333,6 @@ fn coordination_persist_batch_is_revisioned_and_idempotent() {
         .commit_coordination_persist_batch(&CoordinationPersistBatch {
             context: coordination_context(),
             expected_revision: Some(0),
-            snapshot: snapshot.clone(),
             appended_events: vec![event.clone()],
         })
         .unwrap();
@@ -345,7 +344,6 @@ fn coordination_persist_batch_is_revisioned_and_idempotent() {
         .commit_coordination_persist_batch(&CoordinationPersistBatch {
             context: coordination_context(),
             expected_revision: Some(0),
-            snapshot: snapshot.clone(),
             appended_events: vec![event.clone()],
         })
         .unwrap();
@@ -361,11 +359,51 @@ fn coordination_persist_batch_is_revisioned_and_idempotent() {
         .commit_coordination_persist_batch(&CoordinationPersistBatch {
             context: coordination_context(),
             expected_revision: Some(0),
-            snapshot: CoordinationSnapshot::default(),
             appended_events: Vec::new(),
         })
         .unwrap_err();
     assert!(err.to_string().contains("coordination revision mismatch"));
+}
+
+#[test]
+fn memory_store_coordination_compaction_replays_from_fallback_snapshot_and_suffix() {
+    let event = CoordinationEvent {
+        meta: EventMeta {
+            id: EventId::new("coordination:event:1"),
+            ts: 1,
+            actor: EventActor::Agent,
+            correlation: None,
+            causation: None,
+        },
+        kind: CoordinationEventKind::PlanCreated,
+        summary: "create plan".to_string(),
+        plan: None,
+        task: None,
+        claim: None,
+        artifact: None,
+        review: None,
+        metadata: serde_json::Value::Null,
+    };
+    let mut store = MemoryStore::default();
+    store
+        .commit_coordination_persist_batch(&CoordinationPersistBatch {
+            context: coordination_context(),
+            expected_revision: Some(0),
+            appended_events: vec![event.clone()],
+        })
+        .unwrap();
+    let snapshot = CoordinationSnapshot {
+        events: vec![event.clone()],
+        ..CoordinationSnapshot::default()
+    };
+    store.save_coordination_compaction(&snapshot).unwrap();
+
+    let stream = store.load_coordination_event_stream().unwrap();
+    assert_eq!(
+        stream.fallback_snapshot.unwrap().events,
+        Vec::<CoordinationEvent>::new()
+    );
+    assert!(stream.suffix_events.is_empty());
 }
 
 #[test]
@@ -532,7 +570,7 @@ fn sqlite_store_configures_connection_pragmas() {
     assert_eq!(synchronous, 1);
     assert_eq!(temp_store, 2);
     assert_eq!(wal_autocheckpoint, 1000);
-    assert_eq!(user_version, 15);
+    assert_eq!(user_version, 16);
     assert!(indexed_tables.into_iter().all(|count| count == 1));
 
     drop(store);
@@ -567,7 +605,7 @@ fn sqlite_store_coordination_persist_batch_appends_events_and_enforces_revision(
         review: None,
         metadata: serde_json::Value::Null,
     };
-    let snapshot = CoordinationSnapshot {
+    let _snapshot = CoordinationSnapshot {
         events: vec![event.clone()],
         ..CoordinationSnapshot::default()
     };
@@ -577,7 +615,6 @@ fn sqlite_store_coordination_persist_batch_appends_events_and_enforces_revision(
         .commit_coordination_persist_batch(&CoordinationPersistBatch {
             context: coordination_context(),
             expected_revision: Some(0),
-            snapshot: snapshot.clone(),
             appended_events: vec![event.clone()],
         })
         .unwrap();
@@ -631,7 +668,6 @@ fn sqlite_store_coordination_persist_batch_appends_events_and_enforces_revision(
         .commit_coordination_persist_batch(&CoordinationPersistBatch {
             context: coordination_context(),
             expected_revision: Some(0),
-            snapshot: snapshot.clone(),
             appended_events: vec![event.clone()],
         })
         .unwrap();
@@ -643,11 +679,88 @@ fn sqlite_store_coordination_persist_batch_appends_events_and_enforces_revision(
         .commit_coordination_persist_batch(&CoordinationPersistBatch {
             context: coordination_context(),
             expected_revision: Some(0),
-            snapshot: CoordinationSnapshot::default(),
             appended_events: Vec::new(),
         })
         .unwrap_err();
     assert!(err.to_string().contains("coordination revision mismatch"));
+
+    drop(store);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(path.with_extension("db-shm"));
+}
+
+#[test]
+fn sqlite_store_coordination_compaction_loads_suffix_events_after_compacted_sequence() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-coordination-compaction-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let event = CoordinationEvent {
+        meta: EventMeta {
+            id: EventId::new("coordination:event:1"),
+            ts: 1,
+            actor: EventActor::Agent,
+            correlation: None,
+            causation: None,
+        },
+        kind: CoordinationEventKind::PlanCreated,
+        summary: "create plan".to_string(),
+        plan: None,
+        task: None,
+        claim: None,
+        artifact: None,
+        review: None,
+        metadata: serde_json::Value::Null,
+    };
+    let next_event = CoordinationEvent {
+        meta: EventMeta {
+            id: EventId::new("coordination:event:2"),
+            ts: 2,
+            actor: EventActor::Agent,
+            correlation: None,
+            causation: None,
+        },
+        kind: CoordinationEventKind::PlanUpdated,
+        summary: "update plan".to_string(),
+        plan: None,
+        task: None,
+        claim: None,
+        artifact: None,
+        review: None,
+        metadata: serde_json::json!({}),
+    };
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    store
+        .commit_coordination_persist_batch(&CoordinationPersistBatch {
+            context: coordination_context(),
+            expected_revision: Some(0),
+            appended_events: vec![event.clone()],
+        })
+        .unwrap();
+    let snapshot = CoordinationSnapshot {
+        events: vec![event.clone()],
+        ..CoordinationSnapshot::default()
+    };
+    store.save_coordination_compaction(&snapshot).unwrap();
+    store
+        .commit_coordination_persist_batch(&CoordinationPersistBatch {
+            context: coordination_context(),
+            expected_revision: Some(1),
+            appended_events: vec![next_event.clone()],
+        })
+        .unwrap();
+
+    let stream = store.load_coordination_event_stream().unwrap();
+    assert_eq!(
+        stream.fallback_snapshot.expect("fallback snapshot").events,
+        Vec::<CoordinationEvent>::new()
+    );
+    assert_eq!(stream.suffix_events, vec![next_event]);
 
     drop(store);
     let _ = std::fs::remove_file(&path);
@@ -902,7 +1015,6 @@ fn sqlite_store_commits_auxiliary_batches_atomically() {
             episodic_snapshot: Some(episodic.clone()),
             inference_snapshot: Some(inference.clone()),
             curator_snapshot: None,
-            coordination_snapshot: None,
         })
         .unwrap();
 
@@ -1050,7 +1162,7 @@ fn sqlite_store_migrates_snapshot_backed_episodic_memory_to_append_only_log() {
         .conn
         .pragma_query_value(None, "user_version", |row| row.get(0))
         .unwrap();
-    assert_eq!(user_version, 15);
+    assert_eq!(user_version, 16);
 
     let logged_rows: i64 = store
         .conn

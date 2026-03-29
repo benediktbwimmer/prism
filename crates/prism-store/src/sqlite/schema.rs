@@ -1,13 +1,13 @@
 use anyhow::Result;
 use rusqlite::Connection;
 
-const SCHEMA_VERSION: i64 = 15;
+const SCHEMA_VERSION: i64 = 16;
 
 pub(super) fn init_schema(conn: &Connection) -> Result<()> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
     match version {
         0 | SCHEMA_VERSION => {}
-        11 | 12 | 13 | 14 => {}
+        11 | 12 | 13 | 14 | 15 => {}
         _ => reset_schema(conn)?,
     }
 
@@ -156,6 +156,12 @@ fn current_schema_sql() -> &'static str {
 
         CREATE INDEX IF NOT EXISTS idx_coordination_event_log_ts_sequence
             ON coordination_event_log(ts, sequence);
+
+        CREATE TABLE IF NOT EXISTS coordination_event_compaction (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            last_sequence INTEGER NOT NULL,
+            payload TEXT NOT NULL
+        );
 
         CREATE TABLE IF NOT EXISTS coordination_mutation_log (
             sequence INTEGER PRIMARY KEY AUTOINCREMENT,

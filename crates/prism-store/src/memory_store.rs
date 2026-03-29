@@ -5,8 +5,8 @@ use prism_projections::ProjectionIndex;
 use crate::graph::{Graph, GraphSnapshot};
 use crate::memory_projection::{append_only_delta, merge_snapshot, snapshot_from_events};
 use crate::store::{
-    AuxiliaryPersistBatch, CoordinationPersistBatch, CoordinationPersistContext,
-    CoordinationPersistResult, IndexPersistBatch, Store,
+    AuxiliaryPersistBatch, CoordinationEventStream, CoordinationPersistBatch,
+    CoordinationPersistContext, CoordinationPersistResult, IndexPersistBatch, Store,
 };
 use prism_memory::{MemoryEvent, MemoryEventKind};
 
@@ -20,8 +20,8 @@ pub struct MemoryStore {
     inference_snapshot: Option<prism_agent::InferenceSnapshot>,
     projection_snapshot: Option<prism_projections::ProjectionSnapshot>,
     curator_snapshot: Option<prism_curator::CuratorSnapshot>,
-    coordination_snapshot: Option<prism_coordination::CoordinationSnapshot>,
     coordination_events: Vec<CoordinationEvent>,
+    coordination_compaction: Option<(usize, prism_coordination::CoordinationSnapshot)>,
     coordination_revision: u64,
     latest_coordination_context: Option<CoordinationPersistContext>,
 }
@@ -185,30 +185,38 @@ impl Store for MemoryStore {
         Ok(self.coordination_revision)
     }
 
-    fn load_coordination_snapshot(
-        &mut self,
-    ) -> anyhow::Result<Option<prism_coordination::CoordinationSnapshot>> {
-        Ok(self.coordination_snapshot.clone())
-    }
-
     fn load_coordination_events(&mut self) -> Result<Vec<CoordinationEvent>> {
         Ok(self.coordination_events.clone())
+    }
+
+    fn load_coordination_event_stream(&mut self) -> Result<CoordinationEventStream> {
+        let Some((compacted_events, snapshot)) = self.coordination_compaction.clone() else {
+            return Ok(CoordinationEventStream {
+                fallback_snapshot: None,
+                suffix_events: self.coordination_events.clone(),
+            });
+        };
+        Ok(CoordinationEventStream {
+            fallback_snapshot: Some(snapshot),
+            suffix_events: self.coordination_events[compacted_events..].to_vec(),
+        })
+    }
+
+    fn save_coordination_compaction(
+        &mut self,
+        snapshot: &prism_coordination::CoordinationSnapshot,
+    ) -> Result<()> {
+        self.coordination_compaction = Some((
+            self.coordination_events.len(),
+            compacted_snapshot(snapshot.clone()),
+        ));
+        Ok(())
     }
 
     fn load_latest_coordination_persist_context(
         &mut self,
     ) -> Result<Option<CoordinationPersistContext>> {
         Ok(self.latest_coordination_context.clone())
-    }
-
-    fn save_coordination_snapshot(
-        &mut self,
-        snapshot: &prism_coordination::CoordinationSnapshot,
-    ) -> anyhow::Result<()> {
-        self.coordination_snapshot = Some(snapshot.clone());
-        self.coordination_events = snapshot.events.clone();
-        self.coordination_revision += 1;
-        Ok(())
     }
 
     fn commit_coordination_persist_batch(
@@ -218,11 +226,11 @@ impl Store for MemoryStore {
         let current_revision = self.coordination_revision;
         if let Some(expected_revision) = batch.expected_revision {
             if expected_revision != current_revision {
-                if self.coordination_snapshot.as_ref() == Some(&batch.snapshot)
+                if !batch.appended_events.is_empty()
                     && batch.appended_events.iter().all(|event| {
-                        self.coordination_events
-                            .iter()
-                            .any(|stored| stored.meta.id == event.meta.id)
+                    self.coordination_events
+                        .iter()
+                        .any(|stored| stored.meta.id == event.meta.id)
                     })
                 {
                     return Ok(CoordinationPersistResult {
@@ -252,8 +260,7 @@ impl Store for MemoryStore {
             inserted_events += 1;
         }
 
-        let snapshot_changed = self.coordination_snapshot.as_ref() != Some(&batch.snapshot);
-        if inserted_events == 0 && !snapshot_changed {
+        if inserted_events == 0 {
             self.latest_coordination_context = Some(batch.context.clone());
             return Ok(CoordinationPersistResult {
                 revision: current_revision,
@@ -262,8 +269,6 @@ impl Store for MemoryStore {
             });
         }
 
-        self.coordination_snapshot = Some(batch.snapshot.clone());
-        self.coordination_events = batch.snapshot.events.clone();
         self.latest_coordination_context = Some(batch.context.clone());
         self.coordination_revision += 1;
         Ok(CoordinationPersistResult {
@@ -297,11 +302,6 @@ impl Store for MemoryStore {
         }
         if let Some(snapshot) = &batch.curator_snapshot {
             self.curator_snapshot = Some(snapshot.clone());
-        }
-        if let Some(snapshot) = &batch.coordination_snapshot {
-            self.coordination_snapshot = Some(snapshot.clone());
-            self.coordination_events = snapshot.events.clone();
-            self.coordination_revision += 1;
         }
         if !batch.validation_deltas.is_empty() {
             let mut snapshot = self.projection_snapshot.clone().unwrap_or_default();
@@ -352,4 +352,11 @@ impl Store for MemoryStore {
         self.snapshot = Some(graph.snapshot());
         Ok(())
     }
+}
+
+fn compacted_snapshot(
+    mut snapshot: prism_coordination::CoordinationSnapshot,
+) -> prism_coordination::CoordinationSnapshot {
+    snapshot.events.clear();
+    snapshot
 }

@@ -16,6 +16,7 @@ use crate::parse_pipeline::{parse_jobs_in_parallel, PreparedParseJob};
 use crate::patch_outcomes::default_outcome_meta;
 use crate::reanchor::{detect_moved_files, infer_reanchors};
 use crate::session::WorkspaceSession;
+use crate::shared_runtime::{local_projection_snapshot_for_persist, merged_projection_index};
 use crate::util::{cache_path, cleanup_legacy_cache, default_adapters};
 use crate::WorkspaceSessionOptions;
 use anyhow::Result;
@@ -51,6 +52,8 @@ pub struct WorkspaceIndexer<S: Store> {
     pub(crate) had_projection_snapshot: bool,
     pub(crate) adapters: Vec<Box<dyn LanguageAdapter + Send + Sync>>,
     pub(crate) store: S,
+    pub(crate) shared_runtime_sqlite: Option<PathBuf>,
+    pub(crate) shared_runtime_store: Option<SqliteStore>,
     pub(crate) coordination_enabled: bool,
 }
 
@@ -74,7 +77,39 @@ impl WorkspaceIndexer<SqliteStore> {
         let root = root.as_ref().canonicalize()?;
         cleanup_legacy_cache(&root)?;
         let store = SqliteStore::open(cache_path(&root))?;
-        Self::with_store_and_options(root, store, options)
+        let mut indexer = Self::with_store_and_options(root.clone(), store, options.clone())?;
+        let mut shared_runtime_store = options
+            .shared_runtime_sqlite
+            .as_ref()
+            .map(SqliteStore::open)
+            .transpose()?;
+        if let Some(shared_store) = shared_runtime_store.as_mut() {
+            if options.coordination {
+                let plan_state = shared_store.load_hydrated_coordination_plan_state_for_root(&root)?;
+                indexer.coordination_snapshot = plan_state
+                    .as_ref()
+                    .map(|state| state.snapshot.clone())
+                    .unwrap_or_default();
+                indexer.plan_graphs = plan_state
+                    .as_ref()
+                    .map(|state| state.plan_graphs.clone())
+                    .unwrap_or_default();
+                indexer.plan_execution_overlays = plan_state
+                    .map(|state| state.execution_overlays)
+                    .unwrap_or_default();
+            }
+            indexer.projections = merged_projection_index(
+                indexer.store.load_projection_snapshot()?,
+                shared_store.load_projection_snapshot()?,
+                load_repo_curated_concepts(&root)?,
+                load_repo_concept_relations(&root)?,
+                &indexer.history.snapshot(),
+                &indexer.outcomes.snapshot(),
+            );
+        }
+        indexer.shared_runtime_sqlite = options.shared_runtime_sqlite.clone();
+        indexer.shared_runtime_store = shared_runtime_store;
+        Ok(indexer)
     }
 
     pub fn into_session(
@@ -85,6 +120,8 @@ impl WorkspaceIndexer<SqliteStore> {
         build_workspace_session(
             root,
             self.store,
+            self.shared_runtime_sqlite,
+            self.shared_runtime_store,
             self.graph,
             self.history,
             self.outcomes,
@@ -148,19 +185,14 @@ impl<S: Store> WorkspaceIndexer<S> {
         let load_projection_ms = load_projection_started.elapsed().as_millis();
         let had_projection_snapshot = stored_projection_snapshot.is_some();
         let derive_projection_started = Instant::now();
-        let projections = stored_projection_snapshot
-            .map(ProjectionIndex::from_snapshot)
-            .unwrap_or_else(|| ProjectionIndex::derive(&history.snapshot(), &outcomes.snapshot()));
-        let mut projections = projections;
-        let session_curated = projections.curated_concepts().to_vec();
-        let mut combined = load_repo_curated_concepts(&root)?;
-        combined.extend(session_curated);
-        projections.replace_curated_concepts(combined);
-        let session_relations = projections.concept_relations().to_vec();
-        let mut combined_relations = load_repo_concept_relations(&root)?;
-        combined_relations.extend(session_relations);
-        projections.replace_concept_relations(combined_relations);
-        projections.reseed_from_history(&history.snapshot());
+        let projections = merged_projection_index(
+            stored_projection_snapshot,
+            None,
+            load_repo_curated_concepts(&root)?,
+            load_repo_concept_relations(&root)?,
+            &history.snapshot(),
+            &outcomes.snapshot(),
+        );
         let derive_or_restore_projection_ms = derive_projection_started.elapsed().as_millis();
 
         info!(
@@ -202,6 +234,8 @@ impl<S: Store> WorkspaceIndexer<S> {
             had_projection_snapshot,
             adapters: default_adapters(),
             store,
+            shared_runtime_sqlite: options.shared_runtime_sqlite,
+            shared_runtime_store: None,
             coordination_enabled: options.coordination,
         })
     }
@@ -493,8 +527,14 @@ impl<S: Store> WorkspaceIndexer<S> {
         let seeded_node_lineages = self
             .history
             .seed_nodes(self.graph.all_nodes().map(|node| node.id.clone()));
-        let projection_snapshot =
-            (!self.had_projection_snapshot).then(|| self.projections.snapshot());
+        let projection_snapshot = (!self.had_projection_snapshot).then(|| {
+            let snapshot = self.projections.snapshot();
+            if self.shared_runtime_store.is_some() {
+                local_projection_snapshot_for_persist(&snapshot)
+            } else {
+                snapshot
+            }
+        });
         let history_delta = self.had_prior_snapshot.then(|| {
             self.history
                 .persistence_delta(&all_lineage_events, &seeded_node_lineages, &[])
@@ -549,6 +589,9 @@ impl<S: Store> WorkspaceIndexer<S> {
         };
         let reanchor_started = Instant::now();
         reanchor_persisted_memory_snapshot(&mut self.store, &all_lineage_events)?;
+        if let Some(shared_runtime_store) = self.shared_runtime_store.as_mut() {
+            reanchor_persisted_memory_snapshot(shared_runtime_store, &all_lineage_events)?;
+        }
         let reanchor_memory_ms = reanchor_started.elapsed().as_millis();
         info!(
             root = %self.root.display(),

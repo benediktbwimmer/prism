@@ -61,6 +61,7 @@ pub struct Prism {
     graph: Arc<Graph>,
     history: Arc<HistoryStore>,
     outcomes: Arc<OutcomeMemory>,
+    workspace_revision: RwLock<WorkspaceRevision>,
     plan_runtime: RwLock<NativePlanRuntimeState>,
     continuity_runtime: RwLock<CoordinationRuntimeState>,
     coordination_context: RwLock<Option<CoordinationPersistContext>>,
@@ -182,6 +183,10 @@ impl Prism {
             graph.edges.iter().collect::<Vec<_>>(),
         );
         let derive_intent_ms = intent_started.elapsed().as_millis();
+        let default_workspace_revision = WorkspaceRevision {
+            graph_version: history.snapshot().events.len() as u64,
+            git_commit: None,
+        };
         info!(
             node_count,
             edge_count,
@@ -194,6 +199,7 @@ impl Prism {
             graph: Arc::new(graph),
             history: Arc::new(history),
             outcomes: Arc::new(outcomes),
+            workspace_revision: RwLock::new(default_workspace_revision),
             plan_runtime: RwLock::new(native_plans),
             continuity_runtime: RwLock::new(continuity_runtime),
             coordination_context: RwLock::new(None),
@@ -234,6 +240,13 @@ impl Prism {
             .read()
             .expect("coordination context lock poisoned")
             .clone()
+    }
+
+    pub fn set_workspace_revision(&self, revision: WorkspaceRevision) {
+        *self
+            .workspace_revision
+            .write()
+            .expect("workspace revision lock poisoned") = revision;
     }
 
     pub fn anchors_for(&self, anchors: &[AnchorRef]) -> Vec<AnchorRef> {
@@ -284,7 +297,7 @@ impl Prism {
             .write()
             .expect("plan runtime lock poisoned") =
             NativePlanRuntimeState::from_snapshot_with_graphs_and_overlays(
-                &self.continuity_snapshot(),
+                &snapshot,
                 plan_graphs,
                 execution_overlays,
             );

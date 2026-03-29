@@ -1723,6 +1723,110 @@ fn snapshot_load_replays_handoff_events() {
 }
 
 #[test]
+fn snapshot_replay_reconstructs_continuity_state_from_events() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:plan", 1),
+            PlanCreateInput {
+                goal: "Replay continuity events".to_string(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, task) = store
+        .create_task(
+            meta("event:task", 2),
+            TaskCreateInput {
+                plan_id,
+                title: "Replay claim and artifact state".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: Some("worktree:a".into()),
+                branch_ref: Some("refs/heads/main".into()),
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let (claim_id, _, _) = store
+        .acquire_claim(
+            meta("event:claim", 3),
+            prism_ir::SessionId::new("session:a"),
+            ClaimAcquireInput {
+                task_id: Some(task_id.clone()),
+                anchors: task.anchors.clone(),
+                capability: prism_ir::Capability::Edit,
+                mode: Some(prism_ir::ClaimMode::HardExclusive),
+                ttl_seconds: Some(60),
+                base_revision: prism_ir::WorkspaceRevision::default(),
+                current_revision: prism_ir::WorkspaceRevision::default(),
+                agent: None,
+                worktree_id: Some("worktree:a".into()),
+                branch_ref: Some("refs/heads/main".into()),
+            },
+        )
+        .unwrap();
+    let claim_id = claim_id.expect("claim id");
+    let released = store
+        .release_claim(
+            meta("event:claim:release", 4),
+            &prism_ir::SessionId::new("session:a"),
+            &claim_id,
+        )
+        .unwrap();
+    assert_eq!(released.status, prism_ir::ClaimStatus::Released);
+
+    let (artifact_id, _) = store
+        .propose_artifact(
+            meta("event:artifact", 5),
+            ArtifactProposeInput {
+                task_id,
+                anchors: task.anchors.clone(),
+                diff_ref: Some("patch:1".into()),
+                evidence: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision::default(),
+                current_revision: prism_ir::WorkspaceRevision::default(),
+                required_validations: Vec::new(),
+                validated_checks: Vec::new(),
+                risk_score: None,
+                worktree_id: Some("worktree:a".into()),
+                branch_ref: Some("refs/heads/main".into()),
+            },
+        )
+        .unwrap();
+    let (review_id, _, reviewed_artifact) = store
+        .review_artifact(
+            meta("event:artifact:review", 6),
+            ArtifactReviewInput {
+                artifact_id: artifact_id.clone(),
+                verdict: prism_ir::ReviewVerdict::Approved,
+                summary: "approved".into(),
+                required_validations: Vec::new(),
+                validated_checks: Vec::new(),
+                risk_score: None,
+            },
+            prism_ir::WorkspaceRevision::default(),
+        )
+        .unwrap();
+    assert_eq!(reviewed_artifact.status, prism_ir::ArtifactStatus::Approved);
+
+    let replayed = coordination_snapshot_from_events(&store.events(), None).expect("snapshot");
+    assert_eq!(replayed.claims.len(), 1);
+    assert_eq!(replayed.claims[0].id, claim_id);
+    assert_eq!(replayed.claims[0].status, prism_ir::ClaimStatus::Released);
+    assert_eq!(replayed.artifacts.len(), 1);
+    assert_eq!(replayed.artifacts[0].id, artifact_id);
+    assert_eq!(replayed.artifacts[0].status, prism_ir::ArtifactStatus::Approved);
+    assert_eq!(replayed.reviews.len(), 1);
+    assert_eq!(replayed.reviews[0].id, review_id);
+}
+
+#[test]
 fn handoff_acceptance_blocks_updates_until_target_accepts() {
     let store = CoordinationStore::new();
     let (plan_id, _) = store

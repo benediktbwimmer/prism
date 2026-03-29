@@ -4047,6 +4047,26 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
         )
         .unwrap();
 
+    let reviewed_state = host_b
+        .execute(
+            test_session(&host_b),
+            &format!(
+                r#"
+return {{
+  artifacts: prism.artifacts("{task_id}"),
+  pendingReviews: prism.pendingReviews("{plan_id}"),
+}};
+"#
+            ),
+            QueryLanguage::Ts,
+        )
+        .unwrap();
+    assert_eq!(
+        reviewed_state.result["artifacts"][0]["status"],
+        "Approved",
+        "reviewed artifact did not reload into host_b: {reviewed_state:#?}"
+    );
+
     let completed = host_b
         .store_coordination(
             test_session(&host_b).as_ref(),
@@ -4060,6 +4080,10 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
             },
         )
         .unwrap();
+    assert!(
+        !completed.rejected,
+        "completion unexpectedly rejected: {completed:#?}"
+    );
     assert_eq!(completed.state["status"], "Completed");
 
     let final_state = host_a

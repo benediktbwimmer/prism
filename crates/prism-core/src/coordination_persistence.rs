@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use anyhow::Result;
-use prism_coordination::{CoordinationEvent, CoordinationSnapshot};
+use prism_coordination::{coordination_snapshot_from_events, CoordinationEvent, CoordinationSnapshot};
 use prism_ir::{PlanExecutionOverlay, PlanGraph, SessionId};
 use prism_store::{CoordinationPersistBatch, CoordinationPersistResult, Store};
 
@@ -12,19 +12,27 @@ use crate::published_plans::{
 };
 use crate::workspace_identity::coordination_persist_context_for_root;
 
+const COORDINATION_COMPACTION_SUFFIX_THRESHOLD: usize = 128;
+
 pub(crate) trait CoordinationPersistenceBackend: Store {
     fn load_hydrated_coordination_snapshot_for_root(
         &mut self,
         root: &Path,
     ) -> Result<Option<CoordinationSnapshot>> {
-        load_hydrated_coordination_snapshot(root, self.load_coordination_snapshot()?)
+        let stream = self.load_coordination_event_stream()?;
+        let snapshot =
+            coordination_snapshot_from_events(&stream.suffix_events, stream.fallback_snapshot);
+        load_hydrated_coordination_snapshot(root, snapshot)
     }
 
     fn load_hydrated_coordination_plan_state_for_root(
         &mut self,
         root: &Path,
     ) -> Result<Option<HydratedCoordinationPlanState>> {
-        load_hydrated_coordination_plan_state(root, self.load_coordination_snapshot()?)
+        let stream = self.load_coordination_event_stream()?;
+        let snapshot =
+            coordination_snapshot_from_events(&stream.suffix_events, stream.fallback_snapshot);
+        load_hydrated_coordination_plan_state(root, snapshot)
     }
 
     fn persist_coordination_snapshot_for_root(
@@ -47,9 +55,9 @@ pub(crate) trait CoordinationPersistenceBackend: Store {
         self.commit_coordination_persist_batch(&CoordinationPersistBatch {
             context: coordination_persist_context_for_root(root, None),
             expected_revision: None,
-            snapshot: snapshot.clone(),
             appended_events,
         })?;
+        self.maybe_compact_coordination_events(snapshot)?;
         match (plan_graphs, execution_overlays) {
             (Some(plan_graphs), Some(execution_overlays)) => sync_repo_published_plan_state(
                 root,
@@ -74,9 +82,11 @@ pub(crate) trait CoordinationPersistenceBackend: Store {
         let result = self.commit_coordination_persist_batch(&CoordinationPersistBatch {
             context: coordination_persist_context_for_root(root, session_id),
             expected_revision: Some(expected_revision),
-            snapshot: snapshot.clone(),
             appended_events: appended_events.to_vec(),
         })?;
+        if result.applied {
+            self.maybe_compact_coordination_events(snapshot)?;
+        }
         match (plan_graphs, execution_overlays) {
             (Some(plan_graphs), Some(execution_overlays)) => sync_repo_published_plan_state(
                 root,
@@ -91,6 +101,21 @@ pub(crate) trait CoordinationPersistenceBackend: Store {
 }
 
 impl<T: Store + ?Sized> CoordinationPersistenceBackend for T {}
+
+trait CoordinationCompactionBackend: Store {
+    fn maybe_compact_coordination_events(
+        &mut self,
+        snapshot: &CoordinationSnapshot,
+    ) -> Result<()> {
+        let stream = self.load_coordination_event_stream()?;
+        if stream.suffix_events.len() < COORDINATION_COMPACTION_SUFFIX_THRESHOLD {
+            return Ok(());
+        }
+        self.save_coordination_compaction(snapshot)
+    }
+}
+
+impl<T: Store + ?Sized> CoordinationCompactionBackend for T {}
 
 fn coordination_event_delta(
     existing_events: &[CoordinationEvent],

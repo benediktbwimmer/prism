@@ -82,7 +82,17 @@ impl SessionState {
 
     pub(crate) fn next_event_id(&self, prefix: &str) -> EventId {
         let sequence = self.next_event.fetch_add(1, Ordering::Relaxed) + 1;
-        EventId::new(format!("{prefix}:{sequence}"))
+        let session_fragment = format!("{:?}", self.session_id)
+            .chars()
+            .map(|ch| {
+                if ch.is_ascii_alphanumeric() {
+                    ch
+                } else {
+                    '-'
+                }
+            })
+            .collect::<String>();
+        EventId::new(format!("{prefix}:{session_fragment}:{sequence}"))
     }
 
     pub(crate) fn current_task(&self) -> Option<TaskId> {

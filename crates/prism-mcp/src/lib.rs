@@ -151,6 +151,8 @@ pub struct PrismMcpCli {
     pub disable_coordination: Vec<CoordinationFeatureFlag>,
     #[arg(long = "daemon-log")]
     pub daemon_log: Option<PathBuf>,
+    #[arg(long = "shared-runtime-sqlite")]
+    pub shared_runtime_sqlite: Option<PathBuf>,
     #[arg(long = "daemon-start-timeout-ms")]
     pub daemon_start_timeout_ms: Option<u64>,
     #[arg(long = "http-bind", default_value = "127.0.0.1:0")]
@@ -265,12 +267,24 @@ impl Clone for PrismMcpServer {
 
 impl PrismMcpServer {
     pub fn from_workspace(root: impl AsRef<Path>) -> Result<Self> {
-        Self::from_workspace_with_features(root, PrismMcpFeatures::default())
+        Self::from_workspace_with_features_and_shared_runtime(
+            root,
+            PrismMcpFeatures::default(),
+            None,
+        )
     }
 
     pub fn from_workspace_with_features(
         root: impl AsRef<Path>,
         features: PrismMcpFeatures,
+    ) -> Result<Self> {
+        Self::from_workspace_with_features_and_shared_runtime(root, features, None)
+    }
+
+    pub fn from_workspace_with_features_and_shared_runtime(
+        root: impl AsRef<Path>,
+        features: PrismMcpFeatures,
+        shared_runtime_sqlite: Option<PathBuf>,
     ) -> Result<Self> {
         let root = root.as_ref();
         info!(
@@ -282,6 +296,7 @@ impl PrismMcpServer {
             root,
             WorkspaceSessionOptions {
                 coordination: features.coordination_layer_enabled(),
+                shared_runtime_sqlite,
             },
         )?;
         let prism = session.prism_arc();

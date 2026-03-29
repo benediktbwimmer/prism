@@ -38,7 +38,11 @@ pub async fn serve_with_mode(cli: PrismMcpCli) -> Result<()> {
     let root = cli.root.canonicalize()?;
     match cli.mode {
         crate::PrismMcpMode::Stdio => {
-            let server = PrismMcpServer::from_workspace_with_features(&root, cli.features())?;
+            let server = PrismMcpServer::from_workspace_with_features_and_shared_runtime(
+                &root,
+                cli.features(),
+                cli.shared_runtime_sqlite.clone(),
+            )?;
             server.serve_stdio().await
         }
         crate::PrismMcpMode::Daemon => run_daemon(&cli, &root).await,
@@ -48,7 +52,11 @@ pub async fn serve_with_mode(cli: PrismMcpCli) -> Result<()> {
 
 async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
     let started = Instant::now();
-    let server = PrismMcpServer::from_workspace_with_features(root, cli.features())?;
+    let server = PrismMcpServer::from_workspace_with_features_and_shared_runtime(
+        root,
+        cli.features(),
+        cli.shared_runtime_sqlite.clone(),
+    )?;
     let listener = bind_listener(cli, root).await?;
     let mcp_path = normalize_route_path(&cli.http_path);
     let health_path = normalize_route_path(&cli.health_path);
@@ -514,6 +522,7 @@ mod tests {
             mode: PrismMcpMode::Daemon,
             no_coordination: false,
             internal_developer: false,
+            shared_runtime_sqlite: None,
             enable_coordination: Vec::new(),
             disable_coordination: Vec::new(),
             daemon_log: None,

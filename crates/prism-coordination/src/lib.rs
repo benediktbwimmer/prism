@@ -24,4 +24,5 @@ pub use compat::{
     coordination_snapshot_from_plan_graphs, execution_overlays_from_tasks,
     plan_graph_from_coordination, snapshot_plan_graphs,
 };
+pub use event_replay::coordination_snapshot_from_events;
 pub use runtime::CoordinationRuntimeState;

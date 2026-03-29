@@ -6,13 +6,16 @@ use std::thread;
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use prism_coordination::{CoordinationStore, PlanCreateInput, TaskCreateInput};
+use prism_coordination::{
+    CoordinationEvent, CoordinationSnapshot, CoordinationStore, PlanCreateInput, TaskCreateInput,
+};
 use prism_curator::{
     CandidateRiskSummary, CuratorBackend, CuratorContext, CuratorJob, CuratorProposal, CuratorRun,
 };
 use prism_ir::{
-    AnchorRef, ChangeTrigger, EdgeKind, EventActor, EventId, EventMeta, GraphChange, LineageEvent,
-    LineageEventKind, LineageEvidence, LineageId, NodeId, NodeKind, TaskId,
+    AnchorRef, ChangeTrigger, CoordinationEventKind, EdgeKind, EventActor, EventId, EventMeta,
+    GraphChange, LineageEvent, LineageEventKind, LineageEvidence, LineageId, NodeId, NodeKind,
+    TaskId,
 };
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind, MemoryEventQuery, MemoryId,
@@ -1092,6 +1095,110 @@ fn repo_concept_events_round_trip_through_committed_jsonl_and_reload() {
 }
 
 #[test]
+fn shared_runtime_sqlite_shares_session_memory_and_concepts_across_workspaces() {
+    let shared_runtime_root = temp_workspace();
+    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+    let root_one = temp_workspace();
+    let root_two = temp_workspace();
+    for root in [&root_one, &root_two] {
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+    }
+
+    let options = WorkspaceSessionOptions {
+        coordination: true,
+        shared_runtime_sqlite: Some(shared_runtime_sqlite.clone()),
+    };
+    let session_one = index_workspace_session_with_options(&root_one, options.clone()).unwrap();
+    let alpha = session_one
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    let mut entry = MemoryEntry::new(MemoryKind::Structural, "shared session memory");
+    entry.id = MemoryId("memory:shared-session".to_string());
+    entry.anchors = vec![AnchorRef::Node(alpha.clone())];
+    entry.scope = MemoryScope::Session;
+    entry.source = MemorySource::User;
+    entry.trust = 0.9;
+    session_one
+        .append_memory_event(MemoryEvent::from_entry(
+            MemoryEventKind::Stored,
+            entry.clone(),
+            Some("task:shared-runtime".to_string()),
+            Vec::new(),
+            Vec::new(),
+        ))
+        .unwrap();
+    session_one
+        .persist_episodic(&EpisodicMemorySnapshot {
+            entries: vec![entry.clone()],
+        })
+        .unwrap();
+
+    session_one
+        .append_concept_event(ConceptEvent {
+            id: "concept-event:shared-runtime".to_string(),
+            recorded_at: 23,
+            task_id: Some("task:shared-runtime".to_string()),
+            action: ConceptEventAction::Promote,
+            patch: None,
+            concept: ConceptPacket {
+                handle: "concept://shared_alpha".to_string(),
+                canonical_name: "shared_alpha".to_string(),
+                summary: "Session concept persisted through the shared runtime sqlite.".to_string(),
+                aliases: vec!["shared alpha".to_string()],
+                confidence: 0.87,
+                core_members: vec![alpha.clone()],
+                core_member_lineages: vec![session_one.prism().lineage_of(&alpha)],
+                supporting_members: Vec::new(),
+                supporting_member_lineages: Vec::new(),
+                likely_tests: Vec::new(),
+                likely_test_lineages: Vec::new(),
+                evidence: vec!["Session-scoped concept".to_string()],
+                risk_hint: None,
+                decode_lenses: vec![ConceptDecodeLens::Open],
+                scope: ConceptScope::Session,
+                provenance: ConceptProvenance {
+                    origin: "test".to_string(),
+                    kind: "shared_runtime_sqlite".to_string(),
+                    task_id: Some("task:shared-runtime".to_string()),
+                },
+                publication: None,
+            },
+        })
+        .unwrap();
+    drop(session_one);
+
+    let session_two = index_workspace_session_with_options(&root_two, options).unwrap();
+    let snapshot = session_two
+        .load_episodic_snapshot()
+        .unwrap()
+        .expect("shared session memory should reload");
+    assert!(snapshot.entries.iter().any(|candidate| candidate.id == entry.id));
+
+    let concept = session_two
+        .prism()
+        .concept_by_handle("concept://shared_alpha")
+        .expect("shared concept should reload");
+    assert_eq!(concept.scope, ConceptScope::Session);
+    assert_eq!(concept.summary, "Session concept persisted through the shared runtime sqlite.");
+
+    let _ = fs::remove_dir_all(root_one);
+    let _ = fs::remove_dir_all(root_two);
+    let _ = fs::remove_dir_all(shared_runtime_root);
+}
+
+#[test]
 fn repo_concept_event_patch_trace_round_trips_through_jsonl() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -1709,6 +1816,197 @@ fn coordination_persistence_backend_wraps_store_and_repo_published_plans() {
 }
 
 #[test]
+fn authoritative_coordination_load_prefers_event_log_over_stale_snapshot_row() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coordination:event-backed-plan"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:event-backed-load")),
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Prefer event-backed continuity load".into(),
+                status: None,
+                policy: Default::default(),
+            },
+        )
+        .unwrap();
+    let (task_id, task) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coordination:event-backed-task"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:event-backed-load")),
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id,
+                title: "Rehydrate continuity from events".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(prism_ir::SessionId::new("session:event-backed")),
+                worktree_id: Some("worktree:event-backed".into()),
+                branch_ref: Some("refs/heads/main".into()),
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    let (claim_id, _, _) = coordination
+        .acquire_claim(
+            EventMeta {
+                id: EventId::new("coordination:event-backed-claim"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:event-backed-load")),
+                causation: None,
+            },
+            prism_ir::SessionId::new("session:event-backed"),
+            prism_coordination::ClaimAcquireInput {
+                task_id: Some(task_id.clone()),
+                anchors: task.anchors.clone(),
+                capability: prism_ir::Capability::Edit,
+                mode: Some(prism_ir::ClaimMode::HardExclusive),
+                ttl_seconds: Some(60),
+                base_revision: prism_ir::WorkspaceRevision::default(),
+                current_revision: prism_ir::WorkspaceRevision::default(),
+                agent: None,
+                worktree_id: Some("worktree:event-backed".into()),
+                branch_ref: Some("refs/heads/main".into()),
+            },
+        )
+        .unwrap();
+    let claim_id = claim_id.expect("claim id");
+    let (artifact_id, _) = coordination
+        .propose_artifact(
+            EventMeta {
+                id: EventId::new("coordination:event-backed-artifact"),
+                ts: 4,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:event-backed-load")),
+                causation: None,
+            },
+            prism_coordination::ArtifactProposeInput {
+                task_id: task_id.clone(),
+                anchors: Vec::new(),
+                diff_ref: Some("patch:event-backed".into()),
+                evidence: Vec::new(),
+                base_revision: prism_ir::WorkspaceRevision::default(),
+                current_revision: prism_ir::WorkspaceRevision::default(),
+                required_validations: Vec::new(),
+                validated_checks: Vec::new(),
+                risk_score: None,
+                worktree_id: Some("worktree:event-backed".into()),
+                branch_ref: Some("refs/heads/main".into()),
+            },
+        )
+        .unwrap();
+    let (review_id, _, _) = coordination
+        .review_artifact(
+            EventMeta {
+                id: EventId::new("coordination:event-backed-review"),
+                ts: 5,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:event-backed-load")),
+                causation: None,
+            },
+            prism_coordination::ArtifactReviewInput {
+                artifact_id: artifact_id.clone(),
+                verdict: prism_ir::ReviewVerdict::Approved,
+                summary: "approved".into(),
+                required_validations: Vec::new(),
+                validated_checks: Vec::new(),
+                risk_score: None,
+            },
+            prism_ir::WorkspaceRevision::default(),
+        )
+        .unwrap();
+
+    let snapshot = coordination.snapshot();
+    let mut store = MemoryStore::default();
+    store
+        .persist_coordination_snapshot_for_root(&root, &snapshot)
+        .unwrap();
+
+    let loaded = store
+        .load_hydrated_coordination_snapshot_for_root(&root)
+        .unwrap()
+        .expect("event-backed snapshot");
+    assert_eq!(loaded.claims.len(), 1);
+    assert_eq!(loaded.claims[0].id, claim_id);
+    assert_eq!(loaded.artifacts.len(), 1);
+    assert_eq!(loaded.artifacts[0].id, artifact_id);
+    assert_eq!(loaded.reviews.len(), 1);
+    assert_eq!(loaded.reviews[0].id, review_id);
+}
+
+#[test]
+fn coordination_persistence_compacts_large_event_suffixes_into_optional_baseline() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let snapshot = CoordinationSnapshot {
+        events: (0..140)
+            .map(|index| CoordinationEvent {
+                meta: EventMeta {
+                    id: EventId::new(format!("coordination:compact:{index}")),
+                    ts: index as u64,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:coordination-compaction")),
+                    causation: None,
+                },
+                kind: CoordinationEventKind::PlanCreated,
+                summary: format!("event {index}"),
+                plan: None,
+                task: None,
+                claim: None,
+                artifact: None,
+                review: None,
+                metadata: serde_json::Value::Null,
+            })
+            .collect(),
+        ..CoordinationSnapshot::default()
+    };
+
+    let mut store = MemoryStore::default();
+    store
+        .persist_coordination_snapshot_for_root(&root, &snapshot)
+        .unwrap();
+
+    let stream = store.load_coordination_event_stream().unwrap();
+    assert!(stream.fallback_snapshot.is_some());
+    assert!(stream.suffix_events.is_empty());
+    let hydrated = store
+        .load_hydrated_coordination_snapshot_for_root(&root)
+        .unwrap()
+        .expect("event-backed snapshot");
+    assert!(hydrated.events.is_empty());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn legacy_repo_published_plan_logs_still_hydrate() {
     let root = temp_workspace();
     fs::create_dir_all(root.join(".prism").join("plans").join("active")).unwrap();
@@ -2163,6 +2461,7 @@ fn workspace_session_can_disable_coordination_entirely() {
         &root,
         WorkspaceSessionOptions {
             coordination: false,
+            shared_runtime_sqlite: None,
         },
     )
     .unwrap();

@@ -21,6 +21,7 @@ use crate::curator::{CuratorHandle, CuratorHandleRef};
 use crate::indexer::PendingFileParse;
 use crate::resolution::{resolve_calls, resolve_impls, resolve_imports, resolve_intents};
 use crate::session::{WorkspaceRefreshState, WorkspaceSession};
+use crate::shared_runtime::composite_workspace_revision;
 use crate::util::{persisted_file_hash, workspace_fingerprint, workspace_walk};
 use crate::watch::spawn_fs_watch;
 use crate::workspace_identity::coordination_persist_context_for_root;
@@ -28,6 +29,8 @@ use crate::workspace_identity::coordination_persist_context_for_root;
 pub(crate) fn build_workspace_session(
     root: PathBuf,
     store: SqliteStore,
+    shared_runtime_sqlite: Option<PathBuf>,
+    shared_runtime_store: Option<SqliteStore>,
     graph: Graph,
     history: HistoryStore,
     outcomes: OutcomeMemory,
@@ -39,8 +42,14 @@ pub(crate) fn build_workspace_session(
     backend: Option<Arc<dyn CuratorBackend>>,
 ) -> Result<WorkspaceSession> {
     let started = Instant::now();
-    let store = store;
-    let loaded_workspace_revision = Arc::new(AtomicU64::new(store.workspace_revision()?));
+    let workspace_revision = composite_workspace_revision(
+        store.workspace_revision()?,
+        shared_runtime_store
+            .as_ref()
+            .map(SqliteStore::workspace_revision)
+            .transpose()?,
+    );
+    let loaded_workspace_revision = Arc::new(AtomicU64::new(workspace_revision));
     let prism = Arc::new(
         Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
             graph,
@@ -52,9 +61,14 @@ pub(crate) fn build_workspace_session(
             plan_execution_overlays,
         ),
     );
+    prism.set_workspace_revision(prism_ir::WorkspaceRevision {
+        graph_version: store.workspace_revision()?,
+        git_commit: None,
+    });
     prism.set_coordination_context(Some(coordination_persist_context_for_root(&root, None)));
     let prism = Arc::new(RwLock::new(prism));
     let store = Arc::new(Mutex::new(store));
+    let shared_runtime_store = shared_runtime_store.map(|store| Arc::new(Mutex::new(store)));
     let refresh_lock = Arc::new(Mutex::new(()));
     let refresh_state = Arc::new(WorkspaceRefreshState::new());
     let fingerprint_started = Instant::now();
@@ -77,6 +91,7 @@ pub(crate) fn build_workspace_session(
         root.clone(),
         Arc::clone(&prism),
         Arc::clone(&store),
+        shared_runtime_sqlite.clone(),
         Arc::clone(&refresh_lock),
         Arc::clone(&refresh_state),
         Arc::clone(&loaded_workspace_revision),
@@ -106,6 +121,8 @@ pub(crate) fn build_workspace_session(
         root,
         prism,
         store,
+        shared_runtime_sqlite,
+        shared_runtime_store,
         refresh_lock,
         refresh_state,
         loaded_workspace_revision,

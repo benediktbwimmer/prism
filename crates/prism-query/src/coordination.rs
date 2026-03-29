@@ -19,10 +19,10 @@ impl Prism {
     }
 
     pub fn workspace_revision(&self) -> WorkspaceRevision {
-        WorkspaceRevision {
-            graph_version: self.history_snapshot().events.len() as u64,
-            git_commit: None,
-        }
+        self.workspace_revision
+            .read()
+            .expect("workspace revision lock poisoned")
+            .clone()
     }
 
     pub fn coordination_plan(&self, plan_id: &PlanId) -> Option<Plan> {
