@@ -161,6 +161,7 @@ fn dashboard_session_view(host: &QueryHost, session: Option<&SessionState>) -> S
                 task_id: task.id.0.to_string(),
                 description: task.description,
                 tags: task.tags,
+                coordination_task_id: task.coordination_task_id,
             })
         }),
         current_agent: session

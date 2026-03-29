@@ -14,6 +14,7 @@ use crate::cli::McpCommand;
 
 const START_TIMEOUT: Duration = Duration::from_secs(180);
 const STOP_TIMEOUT: Duration = Duration::from_secs(10);
+const RESTART_GRACE_TIMEOUT: Duration = Duration::from_secs(3);
 const POLL_INTERVAL: Duration = Duration::from_millis(100);
 const DEFAULT_HEALTH_PATH: &str = "/healthz";
 
@@ -95,10 +96,9 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
 
 fn status(root: &Path) -> Result<()> {
     let paths = McpPaths::for_root(root);
-    let processes = list_processes(root)?;
+    let (processes, connection) = connection_snapshot_with_restart_grace(root, &paths)?;
     let daemons = select_kind(&processes, McpProcessKind::Daemon);
     let bridges = select_kind(&processes, McpProcessKind::Bridge);
-    let connection = daemon_connection_info(root, &paths, &daemons)?;
     let uri = connection.uri.clone();
     let connected_bridge_pids = uri
         .as_deref()
@@ -263,9 +263,8 @@ fn stop(root: &Path, kill_bridges: bool) -> Result<()> {
 
 fn health(root: &Path) -> Result<()> {
     let paths = McpPaths::for_root(root);
-    let processes = list_processes(root)?;
-    let daemons = select_kind(&processes, McpProcessKind::Daemon);
-    let health = daemon_connection_info(root, &paths, &daemons)?.health;
+    let (_, connection) = connection_snapshot_with_restart_grace(root, &paths)?;
+    let health = connection.health;
     println!("{}", health.detail);
     if !health.ok {
         bail!("daemon is not healthy");
@@ -639,6 +638,42 @@ fn daemon_connection_info(
     })
 }
 
+fn connection_snapshot_with_restart_grace(
+    root: &Path,
+    paths: &McpPaths,
+) -> Result<(Vec<McpProcess>, DaemonConnectionInfo)> {
+    let mut processes = list_processes(root)?;
+    let mut daemons = select_kind(&processes, McpProcessKind::Daemon);
+    let mut bridges = select_kind(&processes, McpProcessKind::Bridge);
+    let mut connection = daemon_connection_info(root, paths, &daemons)?;
+    if should_wait_for_restart_grace(&connection, &daemons, &bridges) {
+        let deadline = Instant::now() + RESTART_GRACE_TIMEOUT;
+        while Instant::now() < deadline {
+            thread::sleep(POLL_INTERVAL);
+            processes = list_processes(root)?;
+            daemons = select_kind(&processes, McpProcessKind::Daemon);
+            bridges = select_kind(&processes, McpProcessKind::Bridge);
+            connection = daemon_connection_info(root, paths, &daemons)?;
+            if connection.health.ok || connection.uri.is_some() || bridges.is_empty() {
+                break;
+            }
+        }
+        if should_wait_for_restart_grace(&connection, &daemons, &bridges) {
+            connection.health.detail =
+                "daemon restart appears to be in progress; retry shortly".to_string();
+        }
+    }
+    Ok((processes, connection))
+}
+
+fn should_wait_for_restart_grace(
+    connection: &DaemonConnectionInfo,
+    daemons: &[McpProcess],
+    bridges: &[McpProcess],
+) -> bool {
+    !connection.health.ok && connection.uri.is_none() && daemons.is_empty() && !bridges.is_empty()
+}
+
 fn resolve_daemon_uri(
     root: &Path,
     paths: &McpPaths,
@@ -924,6 +959,63 @@ mod tests {
             info.health_uri.as_deref(),
             Some("http://127.0.0.1:9/healthz")
         );
+    }
+
+    #[test]
+    fn restart_grace_only_applies_while_bridges_outlive_the_daemon() {
+        let connection = DaemonConnectionInfo {
+            transport: "streamable-http",
+            mode: "direct-daemon",
+            bridge_role: "stdio-compatibility-only",
+            uri: None,
+            health_uri: None,
+            health: HealthStatus {
+                ok: false,
+                detail: "missing uri file".to_string(),
+            },
+        };
+        let bridges = vec![McpProcess {
+            pid: 10,
+            ppid: 1000,
+            rss_kb: 1,
+            elapsed: "00:01".to_string(),
+            command: "prism-mcp --mode bridge".to_string(),
+            kind: McpProcessKind::Bridge,
+            health_path: None,
+        }];
+
+        assert!(should_wait_for_restart_grace(&connection, &[], &bridges));
+
+        let healthy = DaemonConnectionInfo {
+            health: HealthStatus {
+                ok: true,
+                detail: "ok".to_string(),
+            },
+            ..connection.clone()
+        };
+        assert!(!should_wait_for_restart_grace(&healthy, &[], &bridges));
+
+        let with_uri = DaemonConnectionInfo {
+            uri: Some("http://127.0.0.1:52695/mcp".to_string()),
+            ..connection.clone()
+        };
+        assert!(!should_wait_for_restart_grace(&with_uri, &[], &bridges));
+
+        let daemons = vec![McpProcess {
+            pid: 11,
+            ppid: 1,
+            rss_kb: 1,
+            elapsed: "00:02".to_string(),
+            command: "prism-mcp --mode daemon".to_string(),
+            kind: McpProcessKind::Daemon,
+            health_path: Some("/healthz".to_string()),
+        }];
+        assert!(!should_wait_for_restart_grace(
+            &connection,
+            &daemons,
+            &bridges
+        ));
+        assert!(!should_wait_for_restart_grace(&connection, &[], &[]));
     }
 
     #[test]

@@ -1906,6 +1906,7 @@ fn configure_session_binds_current_agent_and_task_create_inherits_it() {
             PrismConfigureSessionArgs {
                 limits: None,
                 current_task_id: None,
+                coordination_task_id: None,
                 current_task_description: None,
                 current_task_tags: None,
                 clear_current_task: None,
@@ -1943,6 +1944,61 @@ fn configure_session_binds_current_agent_and_task_create_inherits_it() {
 
     let claims = host.current_prism().coordination_snapshot().claims;
     assert!(claims.is_empty());
+}
+
+#[test]
+fn configure_session_can_bind_coordination_task_without_current_task_id() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Bind a coordination task into session state" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    let session = host
+        .configure_session(
+            test_session(&host).as_ref(),
+            PrismConfigureSessionArgs {
+                limits: None,
+                current_task_id: None,
+                coordination_task_id: Some(task_id.clone()),
+                current_task_description: None,
+                current_task_tags: None,
+                clear_current_task: None,
+                current_agent: None,
+                clear_current_agent: None,
+            },
+        )
+        .unwrap();
+
+    let current_task = session.current_task.expect("current task should be set");
+    assert_eq!(current_task.task_id, task_id);
+    assert_eq!(current_task.description.as_deref(), Some("Edit alpha"));
+    assert_eq!(
+        current_task.coordination_task_id.as_deref(),
+        Some(current_task.task_id.as_str())
+    );
 }
 
 #[test]
@@ -3718,6 +3774,7 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
             PrismConfigureSessionArgs {
                 limits: None,
                 current_task_id: None,
+                coordination_task_id: None,
                 current_task_description: None,
                 current_task_tags: None,
                 clear_current_task: None,
@@ -3870,6 +3927,7 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
             PrismConfigureSessionArgs {
                 limits: None,
                 current_task_id: None,
+                coordination_task_id: None,
                 current_task_description: None,
                 current_task_tags: None,
                 clear_current_task: None,
@@ -3903,6 +3961,7 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
             PrismConfigureSessionArgs {
                 limits: None,
                 current_task_id: None,
+                coordination_task_id: None,
                 current_task_description: None,
                 current_task_tags: None,
                 clear_current_task: None,
@@ -15310,8 +15369,9 @@ fn finish_task_writes_summary_memory_clears_session_task_and_updates_task_resour
     let task = host
         .start_task(
             test_session(&host).as_ref(),
-            "Investigate main".to_string(),
+            Some("Investigate main".to_string()),
             vec!["bug".to_string()],
+            None,
         )
         .expect("task should start");
 
@@ -15530,8 +15590,9 @@ fn abandon_task_suppresses_unresolved_failure_diagnostic() {
     let task = host
         .start_task(
             test_session(&host).as_ref(),
-            "Investigate main".to_string(),
+            Some("Investigate main".to_string()),
             Vec::new(),
+            None,
         )
         .expect("task should start");
 
@@ -15583,8 +15644,9 @@ fn explicit_start_task_sets_session_default_and_logs_plan() {
     let task = host
         .start_task(
             test_session(&host).as_ref(),
-            "Investigate main".to_string(),
+            Some("Investigate main".to_string()),
             vec!["bug".to_string()],
+            None,
         )
         .expect("task should start");
 
@@ -15613,6 +15675,135 @@ fn explicit_start_task_sets_session_default_and_logs_plan() {
 }
 
 #[test]
+fn start_task_can_bind_directly_to_coordination_task() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Dogfood coordination task session binding" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    let started = host
+        .start_task(
+            test_session(&host).as_ref(),
+            None,
+            vec!["ux".to_string()],
+            Some(task_id.clone()),
+        )
+        .expect("task should bind to coordination task");
+
+    assert_eq!(started.0.as_str(), task_id);
+    let current_task = test_session(&host)
+        .current_task_state()
+        .expect("current task should be set");
+    assert_eq!(current_task.id, started);
+    assert_eq!(current_task.description.as_deref(), Some("Edit alpha"));
+    assert_eq!(current_task.tags, vec!["ux".to_string()]);
+    assert_eq!(
+        current_task.coordination_task_id.as_deref(),
+        Some(task_id.as_str())
+    );
+
+    let replay = host.current_prism().resume_task(&started);
+    assert_eq!(replay.events.len(), 1);
+    assert_eq!(replay.events[0].summary, "Edit alpha");
+    assert_eq!(replay.events[0].metadata["coordinationTaskId"], task_id);
+
+    let session = host
+        .session_resource_value(test_session(&host).as_ref())
+        .expect("session resource should load");
+    assert_eq!(
+        session
+            .current_task
+            .as_ref()
+            .and_then(|task| task.coordination_task_id.as_deref()),
+        Some(task_id.as_str())
+    );
+}
+
+#[test]
+fn coordination_task_journal_falls_back_to_task_title_without_outcomes() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Dogfood coordination task journal metadata fallback" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Validate persistence task",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap();
+
+    let journal = host
+        .execute(
+            test_session(&host),
+            &format!(
+                "return prism.taskJournal(\"{task_id}\", {{ eventLimit: 10, memoryLimit: 5 }});"
+            ),
+            QueryLanguage::Ts,
+        )
+        .expect("task journal query should succeed");
+
+    assert_eq!(journal.result["taskId"], task_id);
+    assert_eq!(journal.result["description"], "Validate persistence task");
+    assert!(journal.result["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|diagnostic| diagnostic["code"] != "missing_plan"));
+}
+
+#[test]
 fn task_journal_without_outcome_history_does_not_claim_missing_plan() {
     let host = host_with_node(demo_node());
     let task = TaskId::new("task:empty");
@@ -15620,6 +15811,7 @@ fn task_journal_without_outcome_history_does_not_claim_missing_plan() {
         task.clone(),
         Some("Investigate empty task".to_string()),
         Vec::new(),
+        None,
     );
 
     let journal = host
@@ -15647,8 +15839,9 @@ fn explicit_task_override_does_not_replace_session_default() {
     let active = host
         .start_task(
             test_session(&host).as_ref(),
-            "Primary task".to_string(),
+            Some("Primary task".to_string()),
             Vec::new(),
+            None,
         )
         .expect("task should start");
 
@@ -15700,6 +15893,7 @@ fn cloned_servers_isolate_session_state_but_share_persisted_state() {
                     max_output_json_bytes: None,
                 }),
                 current_task_id: None,
+                coordination_task_id: None,
                 current_task_description: None,
                 current_task_tags: None,
                 clear_current_task: None,
@@ -15712,8 +15906,9 @@ fn cloned_servers_isolate_session_state_but_share_persisted_state() {
         .host
         .start_task(
             client_a.session.as_ref(),
-            "Investigate main".to_string(),
+            Some("Investigate main".to_string()),
             vec!["bug".to_string()],
+            None,
         )
         .unwrap();
 

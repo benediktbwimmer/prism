@@ -14,6 +14,7 @@ pub(crate) struct SessionTaskState {
     pub(crate) id: TaskId,
     pub(crate) description: Option<String>,
     pub(crate) tags: Vec<String>,
+    pub(crate) coordination_task_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -115,6 +116,7 @@ impl SessionState {
         task: TaskId,
         description: Option<String>,
         tags: Vec<String>,
+        coordination_task_id: Option<String>,
     ) {
         *self
             .current_task
@@ -123,6 +125,7 @@ impl SessionState {
             id: task,
             description,
             tags,
+            coordination_task_id,
         });
     }
 
@@ -167,7 +170,30 @@ impl SessionState {
             .expect("session agent lock poisoned") = None;
     }
 
-    pub(crate) fn start_task(&self, description: &str, tags: &[String]) -> TaskId {
+    pub(crate) fn start_task(
+        &self,
+        description: &str,
+        tags: &[String],
+        explicit_task_id: Option<TaskId>,
+        coordination_task_id: Option<String>,
+    ) -> TaskId {
+        let task = explicit_task_id.unwrap_or_else(|| self.next_described_task_id(description));
+        let coordination_task_id = coordination_task_id.or_else(|| {
+            task.0
+                .as_str()
+                .starts_with("coord-task:")
+                .then(|| task.0.to_string())
+        });
+        self.set_current_task(
+            task.clone(),
+            Some(description.to_string()),
+            tags.to_vec(),
+            coordination_task_id,
+        );
+        task
+    }
+
+    fn next_described_task_id(&self, description: &str) -> TaskId {
         let sequence = self.next_task.fetch_add(1, Ordering::Relaxed) + 1;
         let mut slug = description
             .chars()
@@ -184,9 +210,7 @@ impl SessionState {
         }
         slug = slug.trim_matches('-').to_owned();
         let prefix = if slug.is_empty() { "task" } else { &slug };
-        let task = TaskId::new(format!("task:{prefix}:{sequence}"));
-        self.set_current_task(task.clone(), Some(description.to_string()), tags.to_vec());
-        task
+        TaskId::new(format!("task:{prefix}:{sequence}"))
     }
 
     pub(crate) fn task_for_mutation(&self, explicit: Option<TaskId>) -> TaskId {
@@ -196,7 +220,7 @@ impl SessionState {
         if let Some(task) = self.current_task() {
             return task;
         }
-        self.start_task("session", &[])
+        self.start_task("session", &[], None, None)
     }
 
     pub(crate) fn limits(&self) -> QueryLimits {

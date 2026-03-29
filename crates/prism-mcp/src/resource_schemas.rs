@@ -23,6 +23,7 @@ pub(crate) struct SessionTaskView {
     pub(crate) task_id: String,
     pub(crate) description: Option<String>,
     pub(crate) tags: Vec<String>,
+    pub(crate) coordination_task_id: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]

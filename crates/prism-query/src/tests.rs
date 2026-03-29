@@ -3374,7 +3374,7 @@ fn native_plan_node_completion_rejects_missing_review_and_acceptance_validation(
 }
 
 #[test]
-fn published_plan_stale_tasks_are_not_reported_as_ready_or_actionable() {
+fn published_plan_unbound_tasks_stay_actionable_across_unrelated_graph_drift() {
     let mut graph = Graph::new();
     let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
     graph.add_node(Node {
@@ -3461,7 +3461,7 @@ fn published_plan_stale_tasks_are_not_reported_as_ready_or_actionable() {
             },
             TaskCreateInput {
                 plan_id: plan_id.clone(),
-                title: "Stale task".into(),
+                title: "Unbound task".into(),
                 status: Some(prism_ir::CoordinationTaskStatus::Ready),
                 assignee: None,
                 session: None,
@@ -3481,16 +3481,16 @@ fn published_plan_stale_tasks_are_not_reported_as_ready_or_actionable() {
         ProjectionIndex::default(),
     );
 
-    assert!(prism.plan_ready_nodes(&plan_id).is_empty());
-    assert!(prism.ready_tasks(&plan_id, 10).is_empty());
+    assert_eq!(prism.plan_ready_nodes(&plan_id).len(), 1);
+    assert_eq!(prism.ready_tasks(&plan_id, 10).len(), 1);
 
     let summary = prism
         .plan_summary(&plan_id)
         .expect("plan summary should exist");
     assert_eq!(summary.total_nodes, 1);
-    assert_eq!(summary.actionable_nodes, 0);
-    assert_eq!(summary.execution_blocked_nodes, 1);
-    assert_eq!(summary.stale_nodes, 1);
+    assert_eq!(summary.actionable_nodes, 1);
+    assert_eq!(summary.execution_blocked_nodes, 0);
+    assert_eq!(summary.stale_nodes, 0);
 }
 
 #[test]

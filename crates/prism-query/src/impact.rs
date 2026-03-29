@@ -91,7 +91,8 @@ impl Prism {
             })
             .map(|artifact| artifact.id.clone())
             .collect::<Vec<_>>();
-        let stale_task = task.base_revision.graph_version < self.workspace_revision().graph_version;
+        let stale_task = task_is_workspace_bound(&task)
+            && task.base_revision.graph_version < self.workspace_revision().graph_version;
         let risk_score = score_change_impact(&impact, stale_task || !stale_artifact_ids.is_empty());
         let review_required = self
             .coordination_plan(&task.plan)
@@ -312,6 +313,14 @@ impl Prism {
             })
             .collect()
     }
+}
+
+fn task_is_workspace_bound(task: &prism_coordination::CoordinationTask) -> bool {
+    !task.anchors.is_empty()
+        || task
+            .acceptance
+            .iter()
+            .any(|criterion| !criterion.anchors.is_empty())
 }
 
 fn merge_change_impact(target: &mut ChangeImpact, other: ChangeImpact) {

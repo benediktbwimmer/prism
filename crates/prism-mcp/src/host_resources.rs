@@ -41,6 +41,7 @@ impl QueryHost {
                 task_id: task.id.0.to_string(),
                 description: task.description,
                 tags: task.tags,
+                coordination_task_id: task.coordination_task_id,
             }),
             current_agent: session.current_agent().map(|agent| agent.0.to_string()),
             limits: SessionLimitsView {
@@ -135,10 +136,12 @@ impl QueryHost {
         &self,
         session: &SessionState,
         task_id: &TaskId,
-    ) -> (Option<String>, Vec<String>) {
-        let replay = self.current_prism().resume_task(task_id);
+    ) -> crate::ResolvedTaskMetadata {
+        let prism = self.current_prism();
+        let replay = prism.resume_task(task_id);
         derive_task_metadata(
             session.current_task_state().as_ref(),
+            prism.as_ref(),
             task_id,
             &replay.events,
             None,

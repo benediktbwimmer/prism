@@ -158,6 +158,7 @@ pub(crate) fn dependency_and_revision_blockers(
 
     if let Some(plan) = state.plans.get(&task.plan) {
         if plan.policy.stale_after_graph_change
+            && task_is_workspace_bound(task)
             && task.base_revision.graph_version < current_revision.graph_version
         {
             blockers.push(TaskBlocker {
@@ -174,6 +175,14 @@ pub(crate) fn dependency_and_revision_blockers(
         }
     }
     blockers
+}
+
+fn task_is_workspace_bound(task: &CoordinationTask) -> bool {
+    !task.anchors.is_empty()
+        || task
+            .acceptance
+            .iter()
+            .any(|criterion| !criterion.anchors.is_empty())
 }
 
 pub(crate) fn review_blockers(

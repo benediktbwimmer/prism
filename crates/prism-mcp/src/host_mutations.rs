@@ -216,10 +216,40 @@ impl QueryHost {
     pub(crate) fn start_task(
         &self,
         session: &SessionState,
-        description: String,
+        description: Option<String>,
         tags: Vec<String>,
+        coordination_task_id: Option<String>,
     ) -> Result<TaskId> {
-        let task = session.start_task(&description, &tags);
+        let (task, description, coordination_task_id) =
+            if let Some(coordination_task_id) = coordination_task_id {
+                let coordination_task = self
+                    .current_prism()
+                    .coordination_task(&prism_ir::CoordinationTaskId::new(
+                        coordination_task_id.clone(),
+                    ))
+                    .ok_or_else(|| anyhow!("unknown coordination task `{coordination_task_id}`"))?;
+                let description = description
+                    .map(|value| value.trim().to_owned())
+                    .filter(|value| !value.is_empty())
+                    .unwrap_or_else(|| coordination_task.title.clone());
+                (
+                    session.start_task(
+                        &description,
+                        &tags,
+                        Some(TaskId::new(coordination_task_id.clone())),
+                        Some(coordination_task_id.clone()),
+                    ),
+                    description,
+                    Some(coordination_task_id),
+                )
+            } else {
+                let description = description.unwrap_or_default();
+                (
+                    session.start_task(&description, &tags, None, None),
+                    description,
+                    None,
+                )
+            };
         let event = OutcomeEvent {
             meta: EventMeta {
                 id: session.next_event_id("outcome"),
@@ -233,7 +263,10 @@ impl QueryHost {
             result: prism_memory::OutcomeResult::Success,
             summary: description,
             evidence: Vec::new(),
-            metadata: json!({ "tags": tags }),
+            metadata: json!({
+                "tags": tags,
+                "coordinationTaskId": coordination_task_id,
+            }),
         };
         if let Some(workspace) = &self.workspace {
             if workspace.try_append_outcome(event)?.is_some() {

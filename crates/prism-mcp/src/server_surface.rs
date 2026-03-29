@@ -221,9 +221,15 @@ impl PrismMcpServer {
     ) -> Result<CallToolResult, McpError> {
         match args {
             PrismSessionArgs::StartTask(args) => {
-                if args.description.trim().is_empty() {
+                let description = args
+                    .description
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|description| !description.is_empty())
+                    .map(ToOwned::to_owned);
+                if description.is_none() && args.coordination_task_id.is_none() {
                     return Err(McpError::invalid_params(
-                        "task description cannot be empty",
+                        "task description cannot be empty unless coordinationTaskId is provided",
                         Some(json!({ "field": "input.description" })),
                     ));
                 }
@@ -234,8 +240,9 @@ impl PrismMcpServer {
                     || {
                         self.host.start_task(
                             self.session.as_ref(),
-                            args.description,
+                            description.clone(),
                             args.tags.unwrap_or_default(),
+                            args.coordination_task_id.clone(),
                         )
                     },
                     |task| {

@@ -572,11 +572,12 @@ impl QueryHost {
     ) -> Result<SessionView> {
         if args.clear_current_task.unwrap_or(false)
             && (args.current_task_id.is_some()
+                || args.coordination_task_id.is_some()
                 || args.current_task_description.is_some()
                 || args.current_task_tags.is_some())
         {
             return Err(anyhow!(
-                "clearCurrentTask cannot be combined with currentTaskId, currentTaskDescription, or currentTaskTags"
+                "clearCurrentTask cannot be combined with currentTaskId, coordinationTaskId, currentTaskDescription, or currentTaskTags"
             ));
         }
         if args.clear_current_agent.unwrap_or(false) && args.current_agent.is_some() {
@@ -607,13 +608,18 @@ impl QueryHost {
 
         if args.clear_current_task.unwrap_or(false) {
             session.clear_current_task();
-        } else if let Some(task_id) = args.current_task_id {
+        } else if let Some(task_id) = args
+            .current_task_id
+            .clone()
+            .or_else(|| args.coordination_task_id.clone())
+        {
             let task_id = TaskId::new(task_id);
-            let (description, tags) = self.task_metadata(session, &task_id);
+            let metadata = self.task_metadata(session, &task_id);
             session.set_current_task(
                 task_id,
-                args.current_task_description.or(description),
-                args.current_task_tags.unwrap_or(tags),
+                args.current_task_description.or(metadata.description),
+                args.current_task_tags.unwrap_or(metadata.tags),
+                args.coordination_task_id.or(metadata.coordination_task_id),
             );
         } else if args.current_task_description.is_some() || args.current_task_tags.is_some() {
             if session.current_task_state().is_none() {

@@ -115,11 +115,12 @@ impl Prism {
             })
             .map(|artifact| artifact.id.clone())
             .collect::<Vec<_>>();
+        let stale_workspace_binding = policy.stale_after_graph_change
+            && node_is_workspace_bound(node)
+            && node.base_revision.graph_version < workspace_revision.graph_version;
 
         let mut blockers = Vec::new();
-        if policy.stale_after_graph_change
-            && node.base_revision.graph_version < workspace_revision.graph_version
-        {
+        if stale_workspace_binding {
             blockers.push(PlanNodeBlocker {
                 kind: PlanNodeBlockerKind::StaleRevision,
                 summary: format!(
@@ -167,8 +168,7 @@ impl Prism {
         let impact = self.impact_for_anchors(&node.bindings.anchors);
         let risk_score = score_change_impact(
             &impact,
-            node.base_revision.graph_version < workspace_revision.graph_version
-                || !stale_artifact_ids.is_empty(),
+            stale_workspace_binding || !stale_artifact_ids.is_empty(),
         );
 
         if policy.require_review_for_completion && approved_artifacts.is_empty() {
@@ -261,6 +261,14 @@ impl Prism {
         artifacts.dedup_by(|left, right| left.id == right.id);
         artifacts
     }
+}
+
+fn node_is_workspace_bound(node: &PlanNode) -> bool {
+    !node.bindings.anchors.is_empty()
+        || node
+            .acceptance
+            .iter()
+            .any(|criterion| !criterion.anchors.is_empty())
 }
 
 fn acceptance_blockers(

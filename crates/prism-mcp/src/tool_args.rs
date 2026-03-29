@@ -621,10 +621,13 @@ pub(crate) struct PrismValidationFeedbackArgs {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct PrismStartTaskArgs {
     #[serde(alias = "label", alias = "title", alias = "summary")]
-    pub(crate) description: String,
+    pub(crate) description: Option<String>,
     pub(crate) tags: Option<Vec<String>>,
+    #[serde(alias = "coordination_task_id")]
+    pub(crate) coordination_task_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -740,6 +743,8 @@ pub(crate) struct PrismConfigureSessionArgs {
     pub(crate) limits: Option<QueryLimitsInput>,
     #[serde(alias = "current_task_id")]
     pub(crate) current_task_id: Option<String>,
+    #[serde(alias = "coordination_task_id")]
+    pub(crate) coordination_task_id: Option<String>,
     #[serde(alias = "current_task_description")]
     pub(crate) current_task_description: Option<String>,
     #[serde(alias = "current_task_tags")]

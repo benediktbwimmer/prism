@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use anyhow::Result;
-use prism_ir::{AnchorRef, TaskId};
+use prism_ir::{AnchorRef, CoordinationTaskId, TaskId};
 use prism_js::{QueryDiagnostic, TaskJournalView, TaskLifecycleSummaryView};
 use prism_memory::{MemoryModule, OutcomeEvent, OutcomeKind, RecallQuery};
 use prism_query::Prism;
@@ -10,6 +10,13 @@ use crate::{query_diagnostic, scored_memory_view, session_state::SessionTaskStat
 
 pub(crate) const DEFAULT_TASK_JOURNAL_EVENT_LIMIT: usize = 20;
 pub(crate) const DEFAULT_TASK_JOURNAL_MEMORY_LIMIT: usize = 8;
+
+#[derive(Debug, Clone, Default)]
+pub(crate) struct ResolvedTaskMetadata {
+    pub(crate) description: Option<String>,
+    pub(crate) tags: Vec<String>,
+    pub(crate) coordination_task_id: Option<String>,
+}
 
 pub(crate) fn task_journal_view(
     session: &SessionState,
@@ -25,8 +32,15 @@ pub(crate) fn task_journal_view(
     let active = current_task
         .as_ref()
         .is_some_and(|task| task.id == *task_id);
-    let (description, tags) =
-        derive_task_metadata(current_task.as_ref(), task_id, &events, metadata_override);
+    let metadata = derive_task_metadata(
+        current_task.as_ref(),
+        prism,
+        task_id,
+        &events,
+        metadata_override,
+    );
+    let description = metadata.description;
+    let tags = metadata.tags;
     let anchors = task_focus(prism, &events);
     let related_memory = if anchors.is_empty() {
         Vec::new()
@@ -69,17 +83,36 @@ pub(crate) fn task_journal_view(
 
 pub(crate) fn derive_task_metadata(
     current_task: Option<&SessionTaskState>,
+    prism: &Prism,
     task_id: &TaskId,
     events: &[OutcomeEvent],
     metadata_override: Option<(Option<String>, Vec<String>)>,
-) -> (Option<String>, Vec<String>) {
+) -> ResolvedTaskMetadata {
+    let coordination_fallback = coordination_task_fallback(prism, task_id);
+    let coordination_task_id = current_task
+        .filter(|task| task.id == *task_id)
+        .and_then(|task| task.coordination_task_id.clone())
+        .or_else(|| {
+            coordination_fallback
+                .as_ref()
+                .map(|(task_id, _)| task_id.clone())
+        });
+
     if let Some(metadata) = metadata_override {
-        return metadata;
+        return ResolvedTaskMetadata {
+            description: metadata.0,
+            tags: metadata.1,
+            coordination_task_id,
+        };
     }
 
     if let Some(task) = current_task {
         if task.id == *task_id {
-            return (task.description.clone(), task.tags.clone());
+            return ResolvedTaskMetadata {
+                description: task.description.clone(),
+                tags: task.tags.clone(),
+                coordination_task_id: task.coordination_task_id.clone().or(coordination_task_id),
+            };
         }
     }
 
@@ -99,7 +132,37 @@ pub(crate) fn derive_task_metadata(
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
-    (description, tags)
+    if description.is_some() || !tags.is_empty() {
+        return ResolvedTaskMetadata {
+            description,
+            tags,
+            coordination_task_id,
+        };
+    }
+
+    if let Some((coordination_task_id, title)) = coordination_fallback {
+        return ResolvedTaskMetadata {
+            description: Some(title),
+            tags: Vec::new(),
+            coordination_task_id: Some(coordination_task_id),
+        };
+    }
+
+    ResolvedTaskMetadata {
+        description,
+        tags,
+        coordination_task_id,
+    }
+}
+
+fn coordination_task_fallback(prism: &Prism, task_id: &TaskId) -> Option<(String, String)> {
+    let task_id = task_id.0.to_string();
+    if !task_id.starts_with("coord-task:") {
+        return None;
+    }
+    prism
+        .coordination_task(&CoordinationTaskId::new(task_id.clone()))
+        .map(|task| (task_id, task.title))
 }
 
 fn task_focus(prism: &Prism, events: &[OutcomeEvent]) -> Vec<AnchorRef> {
