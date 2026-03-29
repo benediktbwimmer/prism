@@ -26,6 +26,7 @@ use prism_query::{
     ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptPacket,
     ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptScope,
 };
+use prism_projections::ProjectionSnapshot;
 use prism_store::{MemoryStore, Store};
 use serde_json::json;
 
@@ -1116,6 +1117,7 @@ fn shared_runtime_sqlite_shares_session_memory_and_concepts_across_workspaces() 
         shared_runtime: SharedRuntimeBackend::Sqlite {
             path: shared_runtime_sqlite.clone(),
         },
+        hydrate_persisted_projections: false,
     };
     let session_one = index_workspace_session_with_options(&root_one, options.clone()).unwrap();
     let alpha = session_one
@@ -2294,6 +2296,87 @@ fn coordination_mutations_use_live_runtime_state_without_forcing_persisted_reloa
 }
 
 #[test]
+fn startup_ignores_persisted_projection_snapshot_by_default() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let persisted_concept = ConceptPacket {
+        handle: "concept://persisted-only".to_string(),
+        canonical_name: "persisted only".to_string(),
+        summary: "Should only load when persisted projection hydration is explicitly enabled."
+            .to_string(),
+        aliases: Vec::new(),
+        confidence: 0.9,
+        core_members: Vec::new(),
+        core_member_lineages: Vec::new(),
+        supporting_members: Vec::new(),
+        supporting_member_lineages: Vec::new(),
+        likely_tests: Vec::new(),
+        likely_test_lineages: Vec::new(),
+        evidence: vec!["seeded from a persisted projection snapshot".to_string()],
+        risk_hint: None,
+        decode_lenses: Vec::new(),
+        scope: ConceptScope::Session,
+        provenance: ConceptProvenance::default(),
+        publication: None,
+    };
+
+    let mut default_store = MemoryStore::default();
+    default_store
+        .save_projection_snapshot(&ProjectionSnapshot {
+            co_change_by_lineage: Vec::new(),
+            validation_by_lineage: Vec::new(),
+            curated_concepts: vec![persisted_concept.clone()],
+            concept_relations: Vec::new(),
+        })
+        .unwrap();
+    let default_indexer =
+        WorkspaceIndexer::with_store_and_options(&root, default_store, WorkspaceSessionOptions::default())
+            .unwrap();
+    assert!(
+        default_indexer
+            .projections
+            .curated_concepts()
+            .iter()
+            .all(|concept| concept.handle != persisted_concept.handle)
+    );
+
+    let mut hydrated_store = MemoryStore::default();
+    hydrated_store
+        .save_projection_snapshot(&ProjectionSnapshot {
+            co_change_by_lineage: Vec::new(),
+            validation_by_lineage: Vec::new(),
+            curated_concepts: vec![persisted_concept.clone()],
+            concept_relations: Vec::new(),
+        })
+        .unwrap();
+    let hydrated_indexer = WorkspaceIndexer::with_store_and_options(
+        &root,
+        hydrated_store,
+        WorkspaceSessionOptions {
+            hydrate_persisted_projections: true,
+            ..WorkspaceSessionOptions::default()
+        },
+    )
+    .unwrap();
+    assert!(
+        hydrated_indexer
+            .projections
+            .curated_concepts()
+            .iter()
+            .any(|concept| concept.handle == persisted_concept.handle)
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn refresh_state_throttles_clean_fallback_checks() {
     let state = crate::session::WorkspaceRefreshState::new();
 
@@ -2527,6 +2610,7 @@ fn workspace_session_can_disable_coordination_entirely() {
         WorkspaceSessionOptions {
             coordination: false,
             shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
         },
     )
     .unwrap();

@@ -11460,9 +11460,7 @@ fn prism_runtime_views_prefer_structured_runtime_state() {
     let workspace = host.workspace.as_ref().expect("workspace-backed host");
     let source_path = root.join("src/lib.rs");
     fs::write(&source_path, "pub fn runtime_status_refresh() {}\n").unwrap();
-    workspace
-        .refresh_state
-        .mark_fs_dirty_paths([source_path.clone()]);
+    thread::sleep(Duration::from_millis(300));
     workspace.refresh_fs().unwrap();
     host.sync_workspace_revision(workspace).unwrap();
     let last_refresh = workspace
@@ -13558,6 +13556,61 @@ return prism.symbol("alpha")?.id.path ?? null;
     assert_eq!(
         args.get("refreshPath"),
         Some(&Value::String("none".to_string()))
+    );
+}
+
+#[test]
+fn queries_defer_request_path_refresh_when_runtime_sync_is_busy() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let _sync_guard = host
+        .workspace_runtime_sync_lock
+        .lock()
+        .expect("workspace runtime sync lock should be available");
+
+    let started = Instant::now();
+    let result = host
+        .execute(
+            test_session(&host),
+            r#"
+return prism.symbol("alpha")?.id.path ?? null;
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed while workspace sync is busy");
+
+    assert_eq!(result.result, Value::String("demo::alpha".to_string()));
+    assert!(
+        started.elapsed() < Duration::from_millis(200),
+        "query spent too long waiting on the workspace runtime sync lock"
+    );
+
+    let trace = host
+        .query_trace_view(
+            &host.query_log_entries(QueryLogArgs {
+                limit: Some(1),
+                since: None,
+                target: None,
+                operation: Some("typescript.refreshWorkspace".to_string()),
+                task_id: None,
+                min_duration_ms: None,
+            })[0]
+                .id,
+        )
+        .expect("query trace should exist");
+    let refresh_phase = trace
+        .phases
+        .iter()
+        .find(|phase| phase.operation == "typescript.refreshWorkspace")
+        .expect("refresh phase should exist");
+    let args = refresh_phase
+        .args_summary
+        .as_ref()
+        .and_then(Value::as_object)
+        .expect("refresh args");
+    assert_eq!(
+        args.get("refreshPath"),
+        Some(&Value::String("deferred".to_string()))
     );
 }
 

@@ -260,10 +260,6 @@ fn runtime_freshness(
             workspace.coordination_revision().ok(),
         ),
     };
-    let loaded_workspace_revision = host.loaded_workspace_revision.load(Ordering::Relaxed);
-    let loaded_episodic_revision = host.loaded_episodic_revision.load(Ordering::Relaxed);
-    let loaded_inference_revision = host.loaded_inference_revision.load(Ordering::Relaxed);
-    let loaded_coordination_revision = host.loaded_coordination_revision.load(Ordering::Relaxed);
     let last_refresh = workspace.last_refresh();
     let last_build = latest_runtime_event(runtime_state, "built prism-mcp workspace server");
     let last_ready = latest_runtime_event(runtime_state, "prism-mcp daemon ready");
@@ -330,14 +326,6 @@ fn latest_runtime_event<'a>(
         .iter()
         .rev()
         .find(|event| event.message == message)
-}
-
-fn event_field_string(event: Option<&RuntimeEventRecord>, key: &str) -> Option<String> {
-    event?
-        .fields
-        .get(key)
-        .and_then(Value::as_str)
-        .map(str::to_string)
 }
 
 fn event_field_u64(event: Option<&RuntimeEventRecord>, key: &str) -> Option<u64> {

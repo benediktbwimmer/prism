@@ -103,8 +103,16 @@ impl WorkspaceIndexer<SqliteStore> {
                     .unwrap_or_default();
             }
             indexer.projections = merged_projection_index(
-                indexer.store.load_projection_snapshot()?,
-                shared_store.load_projection_snapshot()?,
+                if options.hydrate_persisted_projections {
+                    indexer.store.load_projection_snapshot()?
+                } else {
+                    None
+                },
+                if options.hydrate_persisted_projections {
+                    shared_store.load_projection_snapshot()?
+                } else {
+                    None
+                },
                 load_repo_curated_concepts(&root)?,
                 load_repo_concept_relations(&root)?,
                 &indexer.history.snapshot(),
@@ -185,7 +193,11 @@ impl<S: Store> WorkspaceIndexer<S> {
             .unwrap_or_default();
         let load_coordination_ms = load_coordination_started.elapsed().as_millis();
         let load_projection_started = Instant::now();
-        let stored_projection_snapshot = store.load_projection_snapshot()?;
+        let stored_projection_snapshot = if options.hydrate_persisted_projections {
+            store.load_projection_snapshot()?
+        } else {
+            None
+        };
         let load_projection_ms = load_projection_started.elapsed().as_millis();
         let had_projection_snapshot = stored_projection_snapshot.is_some();
         let derive_projection_started = Instant::now();

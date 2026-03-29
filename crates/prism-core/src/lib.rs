@@ -43,6 +43,7 @@ pub use validation_feedback::{
 pub struct WorkspaceSessionOptions {
     pub coordination: bool,
     pub shared_runtime: SharedRuntimeBackend,
+    pub hydrate_persisted_projections: bool,
 }
 
 impl Default for WorkspaceSessionOptions {
@@ -50,6 +51,7 @@ impl Default for WorkspaceSessionOptions {
         Self {
             coordination: true,
             shared_runtime: SharedRuntimeBackend::Disabled,
+            hydrate_persisted_projections: false,
         }
     }
 }

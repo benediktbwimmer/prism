@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError, SyncSender, TrySendError};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard, TryLockError};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
@@ -109,10 +109,17 @@ impl Drop for WorkspaceRuntime {
 pub(crate) fn sync_workspace_runtime(
     config: &WorkspaceRuntimeConfig,
 ) -> Result<WorkspaceRefreshReport> {
-    let _guard = config
+    let guard = config
         .sync_lock
         .lock()
         .expect("workspace runtime sync lock poisoned");
+    sync_workspace_runtime_with_guard(config, guard)
+}
+
+fn sync_workspace_runtime_with_guard(
+    config: &WorkspaceRuntimeConfig,
+    _guard: MutexGuard<'_, ()>,
+) -> Result<WorkspaceRefreshReport> {
     let started = Instant::now();
     let refresh_path = match config.workspace.refresh_fs_nonblocking()? {
         FsRefreshStatus::Clean => "none",
@@ -201,6 +208,18 @@ pub(crate) fn sync_workspace_runtime(
         inference_reloaded,
         coordination_reloaded,
     })
+}
+
+fn try_sync_workspace_runtime(
+    config: &WorkspaceRuntimeConfig,
+) -> Result<Option<WorkspaceRefreshReport>> {
+    match config.sync_lock.try_lock() {
+        Ok(guard) => sync_workspace_runtime_with_guard(config, guard).map(Some),
+        Err(TryLockError::WouldBlock) => Ok(None),
+        Err(TryLockError::Poisoned(_)) => {
+            panic!("workspace runtime sync lock poisoned");
+        }
+    }
 }
 
 pub(crate) fn sync_persisted_workspace_state(
@@ -438,7 +457,16 @@ impl QueryHost {
             loaded_inference_revision: Arc::clone(&self.loaded_inference_revision),
             loaded_coordination_revision: Arc::clone(&self.loaded_coordination_revision),
         };
-        let report = sync_workspace_runtime(&config)?;
+        let Some(report) = try_sync_workspace_runtime(&config)? else {
+            runtime.request_refresh();
+            return Ok(WorkspaceRefreshReport {
+                refresh_path: "deferred",
+                deferred: true,
+                episodic_reloaded: false,
+                inference_reloaded: false,
+                coordination_reloaded: false,
+            });
+        };
         if report.coordination_reloaded {
             let _ = self.publish_dashboard_coordination_update();
         }

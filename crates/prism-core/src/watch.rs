@@ -249,6 +249,7 @@ fn refresh_prism_snapshot_with_guard(
                     path: path.to_path_buf(),
                 })
                 .unwrap_or(SharedRuntimeBackend::Disabled),
+            hydrate_persisted_projections: false,
         },
     )?;
     let observed = if scoped_watch_refresh {

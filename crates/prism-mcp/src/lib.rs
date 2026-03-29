@@ -327,6 +327,7 @@ impl PrismMcpServer {
             WorkspaceSessionOptions {
                 coordination: features.coordination_layer_enabled(),
                 shared_runtime,
+                hydrate_persisted_projections: false,
             },
         )?;
         let prism = session.prism_arc();
