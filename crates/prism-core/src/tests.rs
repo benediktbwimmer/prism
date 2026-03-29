@@ -32,7 +32,8 @@ use prism_store::{MemoryStore, Store};
 use serde_json::json;
 
 use super::{
-    index_workspace, index_workspace_session, index_workspace_session_with_curator,
+    hydrate_workspace_session_with_options, index_workspace, index_workspace_session,
+    index_workspace_session_with_curator,
     index_workspace_session_with_options, SharedRuntimeBackend, ValidationFeedbackCategory,
     ValidationFeedbackRecord, ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
 };
@@ -125,6 +126,27 @@ fn reindexes_incrementally_across_file_changes() {
         .all(|edge| edge.kind != EdgeKind::Calls));
 
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn hydrated_workspace_session_marks_background_refresh_pending() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let _ = index_workspace_session_with_options(&root, WorkspaceSessionOptions::default())
+        .unwrap();
+
+    fs::write(root.join("src/lib.rs"), "pub fn beta() {}\n").unwrap();
+
+    let session =
+        hydrate_workspace_session_with_options(&root, WorkspaceSessionOptions::default()).unwrap();
+    assert!(session.needs_refresh());
 }
 
 #[test]

@@ -2,7 +2,8 @@ use anyhow::{anyhow, Result};
 use clap::{ArgAction, ValueEnum};
 use prism_agent::InferenceStore;
 use prism_core::{
-    index_workspace_session_with_options, SharedRuntimeBackend, WorkspaceSession,
+    hydrate_workspace_session_with_options, index_workspace_session_with_options,
+    SharedRuntimeBackend, WorkspaceSession,
     WorkspaceSessionOptions,
 };
 use prism_ir::TaskId;
@@ -330,7 +331,7 @@ impl PrismMcpServer {
             coordination = %features.mode_label(),
             "building prism-mcp workspace server"
         );
-        let session = index_workspace_session_with_options(
+        let session = hydrate_workspace_session_with_options(
             root,
             WorkspaceSessionOptions {
                 coordination: features.coordination_layer_enabled(),
@@ -464,6 +465,19 @@ struct WorkspaceRefreshReport {
     episodic_reloaded: bool,
     inference_reloaded: bool,
     coordination_reloaded: bool,
+    metrics: WorkspaceRefreshMetrics,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct WorkspaceRefreshMetrics {
+    lock_wait_ms: u64,
+    lock_hold_ms: u64,
+    fs_refresh_ms: u64,
+    snapshot_revisions_ms: u64,
+    load_episodic_ms: u64,
+    load_inference_ms: u64,
+    load_coordination_ms: u64,
+    workspace_reloaded: bool,
 }
 
 fn shared_workspace_runtime_sync_lock(root: &Path) -> Arc<Mutex<()>> {
@@ -587,7 +601,7 @@ impl QueryHost {
             loaded_coordination_revision: Arc::clone(&loaded_coordination_revision),
         };
         let workspace_runtime = Arc::new(WorkspaceRuntime::spawn(runtime_config.clone()));
-        let _ = crate::workspace_runtime::sync_persisted_workspace_state(&runtime_config);
+        let _ = crate::workspace_runtime::hydrate_persisted_workspace_state(&runtime_config);
         workspace_runtime.request_refresh();
         Self {
             prism: Arc::clone(&prism),
@@ -913,6 +927,7 @@ fn log_refresh_workspace(
     inference_reloaded: bool,
     coordination_reloaded: bool,
     duration_ms: u128,
+    metrics: WorkspaceRefreshMetrics,
 ) {
     let meaningful_refresh =
         refresh_path == "full" || episodic_reloaded || inference_reloaded || coordination_reloaded;
@@ -936,6 +951,7 @@ fn log_refresh_workspace(
             workspace.coordination_revision().ok(),
             loaded_coordination_revision,
             duration_ms,
+            metrics,
         ) {
             debug!(
                 error = %error,
@@ -956,6 +972,14 @@ fn log_refresh_workspace(
         inference_reloaded,
         coordination_reloaded,
         duration_ms,
+        lock_wait_ms = metrics.lock_wait_ms,
+        lock_hold_ms = metrics.lock_hold_ms,
+        fs_refresh_ms = metrics.fs_refresh_ms,
+        snapshot_revisions_ms = metrics.snapshot_revisions_ms,
+        load_episodic_ms = metrics.load_episodic_ms,
+        load_inference_ms = metrics.load_inference_ms,
+        load_coordination_ms = metrics.load_coordination_ms,
+        workspace_reloaded = metrics.workspace_reloaded,
         "prism-mcp workspace refresh"
     );
 }
@@ -968,8 +992,20 @@ mod query_replay_cases;
 mod tests_query_history;
 
 #[cfg(test)]
+#[path = "tests/coordination_surface.rs"]
+mod tests_coordination_surface;
+
+#[cfg(test)]
+#[path = "tests/view_surfaces.rs"]
+mod tests_view_surfaces;
+
+#[cfg(test)]
 #[path = "tests/server_resources.rs"]
 mod tests_server_resources;
+
+#[cfg(test)]
+#[path = "tests/server_transport.rs"]
+mod tests_server_transport;
 
 #[cfg(test)]
 #[path = "tests/server_tool_calls.rs"]

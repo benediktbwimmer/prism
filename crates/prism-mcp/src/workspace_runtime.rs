@@ -12,7 +12,10 @@ use prism_memory::{EpisodicMemorySnapshot, SessionMemory};
 use serde_json::json;
 use tracing::{debug, error};
 
-use crate::{log_refresh_workspace, DashboardState, QueryHost, WorkspaceRefreshReport};
+use crate::{
+    log_refresh_workspace, DashboardState, QueryHost, WorkspaceRefreshMetrics,
+    WorkspaceRefreshReport,
+};
 
 const BACKGROUND_REFRESH_INTERVAL: Duration = Duration::from_millis(250);
 
@@ -43,6 +46,7 @@ impl WorkspaceRefreshReport {
             episodic_reloaded: false,
             inference_reloaded: false,
             coordination_reloaded: false,
+            metrics: WorkspaceRefreshMetrics::default(),
         }
     }
 }
@@ -109,36 +113,62 @@ impl Drop for WorkspaceRuntime {
 pub(crate) fn sync_workspace_runtime(
     config: &WorkspaceRuntimeConfig,
 ) -> Result<WorkspaceRefreshReport> {
+    let lock_wait_started = Instant::now();
     let guard = config
         .sync_lock
         .lock()
         .expect("workspace runtime sync lock poisoned");
-    sync_workspace_runtime_with_guard(config, guard)
+    sync_workspace_runtime_with_guard(config, guard, elapsed_ms(lock_wait_started))
 }
 
 fn sync_workspace_runtime_with_guard(
     config: &WorkspaceRuntimeConfig,
     _guard: MutexGuard<'_, ()>,
+    lock_wait_ms: u64,
 ) -> Result<WorkspaceRefreshReport> {
     let started = Instant::now();
+    let fs_refresh_started = Instant::now();
     let refresh_path = match config.workspace.refresh_fs_nonblocking()? {
         FsRefreshStatus::Clean => "none",
         FsRefreshStatus::Refreshed => "full",
         FsRefreshStatus::DeferredBusy => "deferred",
     };
+    let fs_refresh_ms = elapsed_ms(fs_refresh_started);
     let deferred = refresh_path == "deferred";
+    let revisions_started = Instant::now();
     let revisions = config.workspace.snapshot_revisions()?;
-    let (episodic_reloaded, inference_reloaded, coordination_reloaded) = if deferred {
-        (false, false, false)
+    let snapshot_revisions_ms = elapsed_ms(revisions_started);
+    let (
+        episodic_reloaded,
+        inference_reloaded,
+        coordination_reloaded,
+        load_episodic_ms,
+        load_inference_ms,
+        load_coordination_ms,
+    ) = if deferred {
+        (false, false, false, 0, 0, 0)
     } else {
         config.loaded_workspace_revision.store(
             config.workspace.loaded_workspace_revision(),
             Ordering::Relaxed,
         );
+        let episodic_started = Instant::now();
+        let episodic_reloaded = reload_episodic_snapshot_if_needed(config, revisions.episodic)?;
+        let load_episodic_ms = elapsed_ms(episodic_started);
+        let inference_started = Instant::now();
+        let inference_reloaded = reload_inference_snapshot_if_needed(config, revisions.inference)?;
+        let load_inference_ms = elapsed_ms(inference_started);
+        let coordination_started = Instant::now();
+        let coordination_reloaded =
+            reload_coordination_snapshot_if_needed(config, revisions.coordination)?;
+        let load_coordination_ms = elapsed_ms(coordination_started);
         (
-            reload_episodic_snapshot_if_needed(config, revisions.episodic)?,
-            reload_inference_snapshot_if_needed(config, revisions.inference)?,
-            reload_coordination_snapshot_if_needed(config, revisions.coordination)?,
+            episodic_reloaded,
+            inference_reloaded,
+            coordination_reloaded,
+            load_episodic_ms,
+            load_inference_ms,
+            load_coordination_ms,
         )
     };
     let refresh_path = if refresh_path == "none"
@@ -149,6 +179,16 @@ fn sync_workspace_runtime_with_guard(
         refresh_path
     };
     let duration_ms = started.elapsed().as_millis();
+    let metrics = WorkspaceRefreshMetrics {
+        lock_wait_ms,
+        lock_hold_ms: u64::try_from(duration_ms).unwrap_or(u64::MAX),
+        fs_refresh_ms,
+        snapshot_revisions_ms,
+        load_episodic_ms,
+        load_inference_ms,
+        load_coordination_ms,
+        workspace_reloaded: refresh_path == "full",
+    };
     log_refresh_workspace(
         refresh_path,
         config.loaded_workspace_revision.load(Ordering::Relaxed),
@@ -160,6 +200,7 @@ fn sync_workspace_runtime_with_guard(
         inference_reloaded,
         coordination_reloaded,
         duration_ms,
+        metrics,
     );
     config.dashboard_state.publish_value(
         "runtime.refreshed",
@@ -172,6 +213,13 @@ fn sync_workspace_runtime_with_guard(
             "fsAppliedRevision": config.workspace.applied_fs_revision(),
             "fsDirty": config.workspace.observed_fs_revision() != config.workspace.applied_fs_revision(),
             "fsObservedRevision": config.workspace.observed_fs_revision(),
+            "lockWaitMs": metrics.lock_wait_ms,
+            "lockHoldMs": metrics.lock_hold_ms,
+            "fsRefreshMs": metrics.fs_refresh_ms,
+            "snapshotRevisionsMs": metrics.snapshot_revisions_ms,
+            "loadEpisodicMs": metrics.load_episodic_ms,
+            "loadInferenceMs": metrics.load_inference_ms,
+            "loadCoordinationMs": metrics.load_coordination_ms,
             "inferenceReloaded": inference_reloaded,
             "loadedCoordinationRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
             "loadedEpisodicRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
@@ -207,7 +255,22 @@ fn sync_workspace_runtime_with_guard(
         episodic_reloaded,
         inference_reloaded,
         coordination_reloaded,
+        metrics,
     })
+}
+
+pub(crate) fn hydrate_persisted_workspace_state(
+    config: &WorkspaceRuntimeConfig,
+) -> Result<()> {
+    config.loaded_workspace_revision.store(
+        config.workspace.loaded_workspace_revision(),
+        Ordering::Relaxed,
+    );
+    let revisions = config.workspace.snapshot_revisions()?;
+    let _ = reload_episodic_snapshot_if_needed(config, revisions.episodic)?;
+    let _ = reload_inference_snapshot_if_needed(config, revisions.inference)?;
+    let _ = reload_coordination_snapshot_if_needed(config, revisions.coordination)?;
+    Ok(())
 }
 
 fn has_stale_coordination_revision(config: &WorkspaceRuntimeConfig) -> Result<bool> {
@@ -219,7 +282,7 @@ fn try_sync_workspace_runtime(
     config: &WorkspaceRuntimeConfig,
 ) -> Result<Option<WorkspaceRefreshReport>> {
     match config.sync_lock.try_lock() {
-        Ok(guard) => sync_workspace_runtime_with_guard(config, guard).map(Some),
+        Ok(guard) => sync_workspace_runtime_with_guard(config, guard, 0).map(Some),
         Err(TryLockError::WouldBlock) => Ok(None),
         Err(TryLockError::Poisoned(_)) => {
             panic!("workspace runtime sync lock poisoned");
@@ -230,21 +293,33 @@ fn try_sync_workspace_runtime(
 pub(crate) fn sync_persisted_workspace_state(
     config: &WorkspaceRuntimeConfig,
 ) -> Result<WorkspaceRefreshReport> {
+    let lock_wait_started = Instant::now();
     let _guard = config
         .sync_lock
         .lock()
         .expect("workspace runtime sync lock poisoned");
+    let lock_wait_ms = elapsed_ms(lock_wait_started);
     let started = Instant::now();
+    let fs_refresh_started = Instant::now();
     let workspace_reloaded = !config.workspace.refresh_fs()?.is_empty();
+    let fs_refresh_ms = elapsed_ms(fs_refresh_started);
     config.loaded_workspace_revision.store(
         config.workspace.loaded_workspace_revision(),
         Ordering::Relaxed,
     );
+    let revisions_started = Instant::now();
     let revisions = config.workspace.snapshot_revisions()?;
+    let snapshot_revisions_ms = elapsed_ms(revisions_started);
+    let episodic_started = Instant::now();
     let episodic_reloaded = reload_episodic_snapshot_if_needed(config, revisions.episodic)?;
+    let load_episodic_ms = elapsed_ms(episodic_started);
+    let inference_started = Instant::now();
     let inference_reloaded = reload_inference_snapshot_if_needed(config, revisions.inference)?;
+    let load_inference_ms = elapsed_ms(inference_started);
+    let coordination_started = Instant::now();
     let coordination_reloaded =
         reload_coordination_snapshot_if_needed(config, revisions.coordination)?;
+    let load_coordination_ms = elapsed_ms(coordination_started);
     let deferred = false;
     let refresh_path = if workspace_reloaded {
         "full"
@@ -254,6 +329,16 @@ pub(crate) fn sync_persisted_workspace_state(
         "none"
     };
     let duration_ms = started.elapsed().as_millis();
+    let metrics = WorkspaceRefreshMetrics {
+        lock_wait_ms,
+        lock_hold_ms: u64::try_from(duration_ms).unwrap_or(u64::MAX),
+        fs_refresh_ms,
+        snapshot_revisions_ms,
+        load_episodic_ms,
+        load_inference_ms,
+        load_coordination_ms,
+        workspace_reloaded,
+    };
     log_refresh_workspace(
         refresh_path,
         config.loaded_workspace_revision.load(Ordering::Relaxed),
@@ -265,6 +350,7 @@ pub(crate) fn sync_persisted_workspace_state(
         inference_reloaded,
         coordination_reloaded,
         duration_ms,
+        metrics,
     );
     config.dashboard_state.publish_value(
         "runtime.refreshed",
@@ -277,6 +363,13 @@ pub(crate) fn sync_persisted_workspace_state(
             "fsAppliedRevision": config.workspace.applied_fs_revision(),
             "fsDirty": config.workspace.observed_fs_revision() != config.workspace.applied_fs_revision(),
             "fsObservedRevision": config.workspace.observed_fs_revision(),
+            "lockWaitMs": metrics.lock_wait_ms,
+            "lockHoldMs": metrics.lock_hold_ms,
+            "fsRefreshMs": metrics.fs_refresh_ms,
+            "snapshotRevisionsMs": metrics.snapshot_revisions_ms,
+            "loadEpisodicMs": metrics.load_episodic_ms,
+            "loadInferenceMs": metrics.load_inference_ms,
+            "loadCoordinationMs": metrics.load_coordination_ms,
             "inferenceReloaded": inference_reloaded,
             "loadedCoordinationRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
             "loadedEpisodicRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
@@ -313,6 +406,7 @@ pub(crate) fn sync_persisted_workspace_state(
         episodic_reloaded,
         inference_reloaded,
         coordination_reloaded,
+        metrics,
     })
 }
 
@@ -336,6 +430,10 @@ fn reload_episodic_snapshot_if_needed(
         .loaded_episodic_revision
         .store(revision, Ordering::Relaxed);
     Ok(true)
+}
+
+fn elapsed_ms(started: Instant) -> u64 {
+    u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 
 fn reload_inference_snapshot_if_needed(
@@ -431,6 +529,7 @@ impl QueryHost {
                 episodic_reloaded: false,
                 inference_reloaded: false,
                 coordination_reloaded: false,
+                metrics: WorkspaceRefreshMetrics::default(),
             });
         };
 
@@ -460,6 +559,7 @@ impl QueryHost {
                 episodic_reloaded: false,
                 inference_reloaded: false,
                 coordination_reloaded: false,
+                metrics: WorkspaceRefreshMetrics::default(),
             });
         };
         if report.coordination_reloaded {

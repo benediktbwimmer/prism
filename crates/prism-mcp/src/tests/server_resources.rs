@@ -1,4 +1,7 @@
-use rmcp::transport::IntoTransport;
+use rmcp::{
+    model::ProtocolVersion,
+    transport::{IntoTransport, Transport},
+};
 use serde_json::Value;
 
 use super::*;

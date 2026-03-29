@@ -8,6 +8,7 @@ use prism_core::WorkspaceSession;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+use crate::WorkspaceRefreshMetrics;
 use crate::{current_timestamp, PrismMcpCli, PrismMcpFeatures, PrismMcpMode};
 
 const MAX_RUNTIME_EVENTS: usize = 200;
@@ -221,6 +222,7 @@ pub(crate) fn record_workspace_refresh(
     coordination_revision: Option<u64>,
     loaded_coordination_revision: u64,
     duration_ms: u128,
+    metrics: WorkspaceRefreshMetrics,
 ) -> Result<()> {
     update_runtime_state(root, |state| {
         push_event(
@@ -237,6 +239,14 @@ pub(crate) fn record_workspace_refresh(
                 "episodicReloaded": episodic_reloaded,
                 "inferenceReloaded": inference_reloaded,
                 "coordinationReloaded": coordination_reloaded,
+                "lockWaitMs": metrics.lock_wait_ms,
+                "lockHoldMs": metrics.lock_hold_ms,
+                "fsRefreshMs": metrics.fs_refresh_ms,
+                "snapshotRevisionsMs": metrics.snapshot_revisions_ms,
+                "loadEpisodicMs": metrics.load_episodic_ms,
+                "loadInferenceMs": metrics.load_inference_ms,
+                "loadCoordinationMs": metrics.load_coordination_ms,
+                "workspaceReloaded": metrics.workspace_reloaded,
                 "workspaceRevision": workspace_revision,
                 "loadedWorkspaceRevision": loaded_workspace_revision,
                 "episodicRevision": episodic_revision,

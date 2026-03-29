@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
 use ignore::{Walk, WalkBuilder};
@@ -14,8 +14,11 @@ use prism_lang_rust::RustAdapter;
 use prism_lang_toml::TomlAdapter;
 use prism_lang_yaml::YamlAdapter;
 use prism_parser::LanguageAdapter;
+use tracing::info;
 
 const INDEX_FORMAT_VERSION: u64 = 1;
+const FINGERPRINT_SLOW_LOG_MS: u128 = 100;
+const FINGERPRINT_LOG_TOP_PREFIXES: usize = 8;
 
 pub(crate) fn current_timestamp() -> u64 {
     SystemTime::now()
@@ -66,21 +69,41 @@ pub(crate) fn workspace_fingerprint(
     root: &Path,
     cached: Option<&WorkspaceFingerprint>,
 ) -> Result<WorkspaceFingerprint> {
+    let started = Instant::now();
     let mut hasher = DefaultHasher::new();
     let mut files = HashMap::new();
+    let mut walk_entry_count = 0usize;
+    let mut walk_file_count = 0usize;
+    let mut relevant_file_count = 0usize;
+    let mut cache_hits = 0usize;
+    let mut cache_misses = 0usize;
+    let mut bytes_read = 0u64;
+    let mut top_level_file_counts = HashMap::new();
+    let mut top_level_relevant_counts = HashMap::new();
     for entry in workspace_walk(root).filter_map(Result::ok) {
+        walk_entry_count += 1;
         let path = entry.path();
-        if !entry
+        let is_file = entry
             .file_type()
             .map(|file_type| file_type.is_file())
-            .unwrap_or(false)
-            || !is_relevant_workspace_file(path)
-        {
+            .unwrap_or(false);
+        if !is_file {
             continue;
         }
+        walk_file_count += 1;
+        if let Some(prefix) = top_level_prefix(root, path) {
+            *top_level_file_counts.entry(prefix).or_insert(0) += 1;
+        }
+        if !is_relevant_workspace_file(path) {
+            continue;
+        }
+        relevant_file_count += 1;
         let Ok(relative) = path.strip_prefix(root) else {
             continue;
         };
+        if let Some(prefix) = top_level_prefix(root, path) {
+            *top_level_relevant_counts.entry(prefix).or_insert(0) += 1;
+        }
         let metadata = match fs::metadata(path) {
             Ok(metadata) => metadata,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
@@ -98,6 +121,7 @@ pub(crate) fn workspace_fingerprint(
                 && file.modified_ns == modified_ns
                 && file.changed_ns == changed_ns
         }) {
+            cache_hits += 1;
             cached_file.expect("cached file should exist").content_hash
         } else {
             let bytes = match fs::read(path) {
@@ -105,6 +129,8 @@ pub(crate) fn workspace_fingerprint(
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
                 Err(error) => return Err(error.into()),
             };
+            cache_misses += 1;
+            bytes_read += bytes.len() as u64;
             stable_hash_bytes(&bytes)
         };
         relative.hash(&mut hasher);
@@ -119,10 +145,29 @@ pub(crate) fn workspace_fingerprint(
             },
         );
     }
-    Ok(WorkspaceFingerprint {
+    let fingerprint = WorkspaceFingerprint {
         value: hasher.finish(),
         files,
-    })
+    };
+    let duration_ms = started.elapsed().as_millis();
+    if duration_ms >= FINGERPRINT_SLOW_LOG_MS {
+        info!(
+            root = %root.display(),
+            duration_ms,
+            walk_entry_count,
+            walk_file_count,
+            relevant_file_count,
+            cached_snapshot_file_count = cached.map(|snapshot| snapshot.files.len()).unwrap_or(0),
+            cache_hits,
+            cache_misses,
+            bytes_read,
+            fingerprint_file_count = fingerprint.files.len(),
+            top_level_file_counts = ?summarize_prefix_counts(&top_level_file_counts),
+            top_level_relevant_counts = ?summarize_prefix_counts(&top_level_relevant_counts),
+            "computed workspace fingerprint"
+        );
+    }
+    Ok(fingerprint)
 }
 
 pub(crate) fn default_adapters() -> Vec<Box<dyn LanguageAdapter + Send + Sync>> {
@@ -209,6 +254,27 @@ pub(crate) fn workspace_walk(root: &Path) -> Walk {
     builder.require_git(false);
     builder.sort_by_file_path(|left, right| left.cmp(right));
     builder.build()
+}
+
+fn top_level_prefix(root: &Path, path: &Path) -> Option<String> {
+    path.strip_prefix(root)
+        .ok()?
+        .components()
+        .next()
+        .map(|component| component.as_os_str().to_string_lossy().into_owned())
+}
+
+fn summarize_prefix_counts(counts: &HashMap<String, usize>) -> Vec<String> {
+    let mut entries = counts
+        .iter()
+        .map(|(prefix, count)| (prefix.clone(), *count))
+        .collect::<Vec<_>>();
+    entries.sort_by(|left, right| right.1.cmp(&left.1).then_with(|| left.0.cmp(&right.0)));
+    entries
+        .into_iter()
+        .take(FINGERPRINT_LOG_TOP_PREFIXES)
+        .map(|(prefix, count)| format!("{prefix}:{count}"))
+        .collect()
 }
 
 fn is_relevant_workspace_file(path: &Path) -> bool {

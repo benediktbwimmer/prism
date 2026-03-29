@@ -15,6 +15,7 @@ mod published_plans;
 mod reanchor;
 mod resolution;
 mod session;
+mod session_bootstrap;
 mod shared_runtime;
 mod shared_runtime_backend;
 mod util;
@@ -27,6 +28,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use prism_curator::CuratorBackend;
 use prism_query::Prism;
+use session_bootstrap::hydrate_workspace_session_with_options as bootstrap_workspace_session;
 
 pub(crate) use indexer::PendingFileParse;
 pub use indexer::WorkspaceIndexer;
@@ -64,6 +66,19 @@ pub fn index_workspace(root: impl AsRef<std::path::Path>) -> Result<Prism> {
 
 pub fn index_workspace_session(root: impl AsRef<std::path::Path>) -> Result<WorkspaceSession> {
     index_workspace_session_with_options(root, WorkspaceSessionOptions::default())
+}
+
+pub fn hydrate_workspace_session(
+    root: impl AsRef<std::path::Path>,
+) -> Result<WorkspaceSession> {
+    hydrate_workspace_session_with_options(root, WorkspaceSessionOptions::default())
+}
+
+pub fn hydrate_workspace_session_with_options(
+    root: impl AsRef<std::path::Path>,
+    options: WorkspaceSessionOptions,
+) -> Result<WorkspaceSession> {
+    bootstrap_workspace_session(root, options)
 }
 
 pub fn index_workspace_session_with_options(

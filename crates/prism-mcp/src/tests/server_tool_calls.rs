@@ -1,4 +1,4 @@
-use rmcp::transport::IntoTransport;
+use rmcp::transport::{IntoTransport, Transport};
 use serde_json::{json, Value};
 
 use super::*;
