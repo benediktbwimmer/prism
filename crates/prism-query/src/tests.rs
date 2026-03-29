@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use prism_coordination::{
     Artifact, ArtifactProposeInput, CoordinationPolicy, CoordinationRuntimeState,
-    CoordinationStore, HandoffInput, PlanCreateInput, TaskCompletionContext, TaskCreateInput,
-    TaskUpdateInput, WorkClaim,
+    CoordinationSnapshot, CoordinationStore, HandoffInput, PlanCreateInput,
+    TaskCompletionContext, TaskCreateInput, TaskUpdateInput, WorkClaim,
 };
 use prism_history::HistoryStore;
 use prism_ir::{
@@ -1128,7 +1128,7 @@ fn coordination_queries_expand_into_neighboring_symbols() {
         graph,
         history,
         OutcomeMemory::new(),
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
     );
 
@@ -1307,7 +1307,7 @@ fn plan_graph_reads_native_runtime_state_before_coordination_projection() {
         graph,
         history,
         outcomes,
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
         vec![native_graph],
         native_overlays,
@@ -1386,7 +1386,7 @@ fn continuity_reads_native_runtime_state_before_coordination_projection() {
         graph,
         history,
         OutcomeMemory::new(),
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
     );
 
@@ -1614,7 +1614,7 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
         graph,
         history,
         outcomes,
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
         vec![native_graph],
         BTreeMap::new(),
@@ -1753,7 +1753,7 @@ fn claim_reads_and_simulation_respect_worktree_scope() {
         graph,
         HistoryStore::new(),
         OutcomeMemory::new(),
-        CoordinationStore::new(),
+        CoordinationSnapshot::default(),
         ProjectionIndex::default(),
     );
     prism.set_coordination_context(Some(CoordinationPersistContext {
@@ -1833,7 +1833,7 @@ fn artifact_reads_and_pending_reviews_respect_worktree_scope() {
         graph,
         HistoryStore::new(),
         OutcomeMemory::new(),
-        CoordinationStore::new(),
+        CoordinationSnapshot::default(),
         ProjectionIndex::default(),
     );
     prism.set_coordination_context(Some(CoordinationPersistContext {
@@ -1960,7 +1960,7 @@ fn ready_tasks_and_handoff_acceptance_respect_worktree_scope() {
         Graph::new(),
         HistoryStore::new(),
         OutcomeMemory::new(),
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
     );
 
@@ -2162,7 +2162,7 @@ fn native_plan_node_mutations_preserve_authored_bindings_and_metadata() {
         graph,
         history,
         outcomes,
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
     );
     prism.replace_curated_concepts(vec![ConceptPacket {
@@ -2356,7 +2356,7 @@ fn native_plan_node_bindings_reject_runtime_handles_and_unstable_refs() {
         graph,
         history,
         outcomes,
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
     );
 
@@ -2487,7 +2487,7 @@ fn native_plan_node_bindings_reject_missing_published_refs() {
         graph,
         history,
         outcomes,
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
     );
 
@@ -2765,7 +2765,7 @@ fn native_plan_updates_validate_completion_and_preserve_non_dependency_edges() {
         graph,
         history,
         outcomes,
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
         vec![native_graph],
         BTreeMap::new(),
@@ -2969,7 +2969,7 @@ fn native_plan_edge_validation_rejects_self_cycles_and_multiple_child_parents() 
         graph,
         history,
         outcomes,
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
         vec![native_graph],
         BTreeMap::new(),
@@ -3145,7 +3145,7 @@ fn native_plan_edge_validation_enforces_kind_and_hierarchy_semantics() {
         graph,
         history,
         outcomes,
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
         vec![native_graph],
         BTreeMap::new(),
@@ -3349,7 +3349,7 @@ fn native_plan_ready_nodes_and_blockers_follow_edge_semantics() {
         graph,
         history,
         outcomes,
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
         vec![native_graph],
         BTreeMap::from([(
@@ -3528,7 +3528,7 @@ fn native_plan_child_hierarchy_gates_parent_completion_and_recommendations() {
         Graph::new(),
         HistoryStore::new(),
         OutcomeMemory::new(),
-        CoordinationStore::new(),
+        CoordinationSnapshot::default(),
         ProjectionIndex::default(),
         vec![graph],
         BTreeMap::new(),
@@ -3632,7 +3632,7 @@ fn native_plan_next_prefers_actionable_nodes_that_unblock_more_follow_up_work() 
         graph,
         history,
         outcomes,
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
         vec![native_graph],
         BTreeMap::new(),
@@ -3679,7 +3679,7 @@ fn native_plan_node_completion_rejects_missing_review_and_acceptance_validation(
         graph,
         history,
         outcomes,
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
     );
 
@@ -3862,7 +3862,7 @@ fn published_plan_unbound_tasks_stay_actionable_across_unrelated_graph_drift() {
         graph,
         history,
         outcomes,
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
     );
 
@@ -3986,7 +3986,7 @@ fn replace_coordination_snapshot_and_plan_graphs_preserves_stale_policy() {
         graph,
         history,
         outcomes,
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
     );
     prism.replace_coordination_snapshot_and_plan_graphs(
@@ -4067,7 +4067,7 @@ fn task_backed_native_plan_node_completion_uses_continuity_review_state() {
         graph,
         history,
         outcomes,
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
     );
     let node_id = PlanNodeId::new(task_id.0.clone());
@@ -4313,7 +4313,7 @@ fn native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges() {
         graph,
         history,
         outcomes,
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
         vec![native_graph],
         BTreeMap::new(),
@@ -4493,7 +4493,7 @@ fn native_plan_metadata_survives_compatibility_write_and_reload() {
         graph,
         history,
         outcomes,
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
         vec![native_graph],
         BTreeMap::new(),
@@ -4528,7 +4528,7 @@ fn native_plan_metadata_survives_compatibility_write_and_reload() {
         Graph::new(),
         HistoryStore::new(),
         OutcomeMemory::new(),
-        CoordinationStore::from_snapshot(snapshot),
+        snapshot,
         ProjectionIndex::default(),
     );
 
@@ -4786,7 +4786,7 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
         graph,
         history,
         outcomes,
-        coordination,
+        coordination.snapshot(),
         projections,
     );
 
@@ -4909,7 +4909,7 @@ fn exposes_intent_links_and_task_intent() {
         graph,
         HistoryStore::new(),
         OutcomeMemory::new(),
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
     );
 
@@ -5050,7 +5050,7 @@ fn policy_violations_expose_rejected_coordination_mutations() {
         Graph::new(),
         HistoryStore::new(),
         OutcomeMemory::new(),
-        coordination,
+        coordination.snapshot(),
         ProjectionIndex::default(),
     );
     let violations = prism.policy_violations(Some(&plan_id), Some(&task_id), 10);

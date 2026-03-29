@@ -22,9 +22,8 @@ use std::time::Instant;
 use anyhow::Result;
 use prism_coordination::{
     Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
-    CoordinationConflict, CoordinationRuntimeState, CoordinationSnapshot, CoordinationStore,
-    CoordinationTask, HandoffAcceptInput, HandoffInput, TaskCreateInput, TaskUpdateInput,
-    WorkClaim,
+    CoordinationConflict, CoordinationRuntimeState, CoordinationSnapshot, CoordinationTask,
+    HandoffAcceptInput, HandoffInput, TaskCreateInput, TaskUpdateInput, WorkClaim,
 };
 use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
@@ -67,22 +66,6 @@ pub struct Prism {
     coordination_context: RwLock<Option<CoordinationPersistContext>>,
     projections: RwLock<ProjectionIndex>,
     intent: RwLock<IntentIndex>,
-}
-
-pub trait CoordinationInput {
-    fn into_snapshot(self) -> CoordinationSnapshot;
-}
-
-impl CoordinationInput for CoordinationSnapshot {
-    fn into_snapshot(self) -> CoordinationSnapshot {
-        self
-    }
-}
-
-impl CoordinationInput for CoordinationStore {
-    fn into_snapshot(self) -> CoordinationSnapshot {
-        self.snapshot()
-    }
 }
 
 impl Prism {
@@ -138,17 +121,15 @@ impl Prism {
         )
     }
 
-    pub fn with_history_outcomes_coordination_and_projections<C: CoordinationInput>(
+    pub fn with_history_outcomes_coordination_and_projections(
         graph: Graph,
         history: HistoryStore,
         outcomes: OutcomeMemory,
-        coordination: C,
+        coordination: CoordinationSnapshot,
         projections: ProjectionIndex,
     ) -> Self {
-        let coordination_snapshot = coordination.into_snapshot();
-        let native_plans =
-            NativePlanRuntimeState::from_coordination_snapshot(&coordination_snapshot);
-        let continuity_runtime = CoordinationRuntimeState::from_snapshot(coordination_snapshot);
+        let native_plans = NativePlanRuntimeState::from_coordination_snapshot(&coordination);
+        let continuity_runtime = CoordinationRuntimeState::from_snapshot(coordination);
         Self::with_history_outcomes_coordination_projections_and_native_plans(
             graph,
             history,
@@ -159,27 +140,26 @@ impl Prism {
         )
     }
 
-    pub fn with_history_outcomes_coordination_projections_and_plan_graphs<C: CoordinationInput>(
+    pub fn with_history_outcomes_coordination_projections_and_plan_graphs(
         graph: Graph,
         history: HistoryStore,
         outcomes: OutcomeMemory,
-        coordination: C,
+        coordination: CoordinationSnapshot,
         projections: ProjectionIndex,
         plan_graphs: Vec<PlanGraph>,
         execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     ) -> Self {
-        let coordination_snapshot = coordination.into_snapshot();
         Self::with_history_outcomes_coordination_projections_and_native_plans(
             graph,
             history,
             outcomes,
             projections,
             NativePlanRuntimeState::from_snapshot_with_graphs_and_overlays(
-                &coordination_snapshot,
+                &coordination,
                 plan_graphs,
                 execution_overlays,
             ),
-            CoordinationRuntimeState::from_snapshot(coordination_snapshot),
+            CoordinationRuntimeState::from_snapshot(coordination),
         )
     }
 
