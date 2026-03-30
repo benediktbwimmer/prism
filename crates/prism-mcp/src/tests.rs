@@ -3112,6 +3112,211 @@ return {
 }
 
 #[test]
+fn validation_plan_surfaces_contract_validations_and_related_targets() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn runtime_status() {}
+pub fn inspect_runtime() {}
+pub fn runtime_status_contract_test() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session_and_limits_and_features(
+        index_workspace_session(&root).unwrap(),
+        QueryLimits::default(),
+        PrismMcpFeatures::full().with_query_view(QueryViewFeatureFlag::ValidationPlan, true),
+    );
+    let session = test_session(&host);
+
+    host.store_contract(
+        session.as_ref(),
+        PrismContractMutationArgs {
+            operation: ContractMutationOperationInput::Promote,
+            handle: Some("contract://runtime_status_surface".to_string()),
+            name: Some("runtime status surface".to_string()),
+            summary: Some(
+                "The runtime status entry point remains available for diagnostics consumers."
+                    .to_string(),
+            ),
+            aliases: Some(vec!["runtime status".to_string()]),
+            kind: Some(ContractKindInput::Interface),
+            subject: Some(ContractTargetInput {
+                anchors: Some(vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::runtime_status".to_string(),
+                    kind: "function".to_string(),
+                }]),
+                concept_handles: None,
+            }),
+            guarantees: Some(vec![ContractGuaranteeInput {
+                statement: "Diagnostics callers can query the runtime status entry point."
+                    .to_string(),
+                scope: None,
+                strength: None,
+                evidence_refs: None,
+            }]),
+            assumptions: None,
+            consumers: Some(vec![ContractTargetInput {
+                anchors: Some(vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::inspect_runtime".to_string(),
+                    kind: "function".to_string(),
+                }]),
+                concept_handles: None,
+            }]),
+            validations: Some(vec![ContractValidationInput {
+                id: "cargo test -p prism-mcp runtime_status_contract".to_string(),
+                summary: Some("Covers the runtime status contract.".to_string()),
+                anchors: Some(vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::runtime_status_contract_test".to_string(),
+                    kind: "function".to_string(),
+                }]),
+            }]),
+            stability: Some(ContractStabilityInput::Internal),
+            compatibility: None,
+            evidence: Some(vec![
+                "Promoted from repeated runtime inspection work.".to_string()
+            ]),
+            status: Some(ContractStatusInput::Active),
+            scope: Some(ConceptScopeInput::Session),
+            supersedes: None,
+            retirement_reason: None,
+            task_id: Some("task:contract-validation-plan".to_string()),
+        },
+    )
+    .expect("contract should store");
+
+    let envelope = host
+        .execute(
+            test_session(&host),
+            r#"
+const sym = prism.symbol("runtime_status");
+return sym ? prism.validationPlan({ target: sym }) : null;
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("validationPlan should succeed");
+
+    assert!(envelope.result["fast"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| {
+            item["label"]
+                == Value::String("cargo test -p prism-mcp runtime_status_contract".to_string())
+        })));
+    assert!(envelope.result["relatedTargets"]
+        .as_array()
+        .is_some_and(|items| items
+            .iter()
+            .any(|item| { item["path"] == Value::String("demo::inspect_runtime".to_string()) })));
+    assert!(envelope.result["notes"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|note| note
+            .as_str()
+            .is_some_and(|text| text.contains("Contracts contributed")))));
+}
+
+#[test]
+fn compact_workset_prioritizes_contract_consumers_and_validation_targets() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn runtime_status() {}
+pub fn inspect_runtime() {}
+pub fn runtime_status_contract_test() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    host.store_contract(
+        session.as_ref(),
+        PrismContractMutationArgs {
+            operation: ContractMutationOperationInput::Promote,
+            handle: Some("contract://runtime_status_surface".to_string()),
+            name: Some("runtime status surface".to_string()),
+            summary: Some(
+                "The runtime status entry point remains available for diagnostics consumers."
+                    .to_string(),
+            ),
+            aliases: Some(vec!["runtime status".to_string()]),
+            kind: Some(ContractKindInput::Interface),
+            subject: Some(ContractTargetInput {
+                anchors: Some(vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::runtime_status".to_string(),
+                    kind: "function".to_string(),
+                }]),
+                concept_handles: None,
+            }),
+            guarantees: Some(vec![ContractGuaranteeInput {
+                statement: "Diagnostics callers can query the runtime status entry point."
+                    .to_string(),
+                scope: None,
+                strength: None,
+                evidence_refs: None,
+            }]),
+            assumptions: None,
+            consumers: Some(vec![ContractTargetInput {
+                anchors: Some(vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::inspect_runtime".to_string(),
+                    kind: "function".to_string(),
+                }]),
+                concept_handles: None,
+            }]),
+            validations: Some(vec![ContractValidationInput {
+                id: "cargo test -p prism-mcp runtime_status_contract".to_string(),
+                summary: Some("Covers the runtime status contract.".to_string()),
+                anchors: Some(vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::runtime_status_contract_test".to_string(),
+                    kind: "function".to_string(),
+                }]),
+            }]),
+            stability: Some(ContractStabilityInput::Internal),
+            compatibility: None,
+            evidence: Some(vec![
+                "Promoted from repeated runtime inspection work.".to_string()
+            ]),
+            status: Some(ContractStatusInput::Active),
+            scope: Some(ConceptScopeInput::Session),
+            supersedes: None,
+            retirement_reason: None,
+            task_id: Some("task:contract-workset".to_string()),
+        },
+    )
+    .expect("contract should store");
+
+    let workset = host
+        .compact_workset(
+            Arc::clone(&session),
+            PrismWorksetArgs {
+                handle: None,
+                query: Some("runtime_status".to_string()),
+            },
+        )
+        .expect("workset should succeed");
+
+    assert_eq!(workset.supporting_reads[0].path, "demo::inspect_runtime");
+    assert!(
+        workset
+            .likely_tests
+            .iter()
+            .chain(workset.supporting_reads.iter())
+            .any(|target| target.path == "demo::runtime_status_contract_test")
+            || workset
+                .why
+                .contains("cargo test -p prism-mcp runtime_status_contract")
+            || workset.why.contains("anchors 1 validation target")
+    );
+}
+
+#[test]
 fn curator_proposals_query_flattens_pending_proposals_across_jobs() {
     let root = temp_workspace();
 

@@ -1,3 +1,4 @@
+use prism_ir::{AnchorRef, NodeId};
 use prism_js::AgentSuggestedActionView;
 
 use super::concept::compact_concept_workset_result;
@@ -384,52 +385,298 @@ fn workset_context_for_target(
     prism: &Prism,
     target: &SessionHandleTarget,
 ) -> Result<WorksetContext> {
-    if is_text_fragment_target(target) {
-        return compact_text_fragment_workset_context(host, session, target);
-    }
-    if is_spec_like_kind(target.kind) || target.file_path.as_deref().is_some_and(is_docs_path) {
-        return compact_spec_workset_context(host, session, prism, target);
-    }
-    if is_structured_config_target(target.kind) {
+    let mut context = if is_text_fragment_target(target) {
+        compact_text_fragment_workset_context(host, session, target)?
+    } else if is_spec_like_kind(target.kind)
+        || target.file_path.as_deref().is_some_and(is_docs_path)
+    {
+        compact_spec_workset_context(host, session, prism, target)?
+    } else if is_structured_config_target(target.kind) {
         let supporting_reads =
             structured_symbol_followups(host, session, prism, target, WORKSET_SUPPORTING_LIMIT)?;
         if !supporting_reads.is_empty() {
-            return Ok(WorksetContext {
+            WorksetContext {
                 supporting_reads,
                 likely_tests: Vec::new(),
                 why: format!(
                     "{} Same-file structured follow-ups prioritized for config maintenance.",
                     workset_why(target)
                 ),
-            });
+            }
+        } else {
+            let supporting_reads = edit_ready_symbol_followups(
+                host,
+                session,
+                prism,
+                target,
+                WORKSET_SUPPORTING_LIMIT,
+            )?;
+            WorksetContext {
+                supporting_reads,
+                likely_tests: owner_views_for_target(
+                    prism,
+                    target_symbol_id(target)?,
+                    Some("test"),
+                    WORKSET_TEST_LIMIT,
+                )?
+                .into_iter()
+                .take(WORKSET_TEST_LIMIT)
+                .map(|candidate| {
+                    compact_target_view(
+                        session,
+                        &candidate.symbol,
+                        target.query.as_deref(),
+                        Some(candidate.why),
+                    )
+                })
+                .collect(),
+                why: format!(
+                    "{} Same-file and graph-adjacent follow-ups are prioritized before broader read owners.",
+                    workset_why(target)
+                ),
+            }
+        }
+    } else {
+        let supporting_reads =
+            edit_ready_symbol_followups(host, session, prism, target, WORKSET_SUPPORTING_LIMIT)?;
+        WorksetContext {
+            supporting_reads,
+            likely_tests: owner_views_for_target(
+                prism,
+                target_symbol_id(target)?,
+                Some("test"),
+                WORKSET_TEST_LIMIT,
+            )?
+            .into_iter()
+            .take(WORKSET_TEST_LIMIT)
+            .map(|candidate| {
+                compact_target_view(
+                    session,
+                    &candidate.symbol,
+                    target.query.as_deref(),
+                    Some(candidate.why),
+                )
+            })
+            .collect(),
+            why: format!(
+                "{} Same-file and graph-adjacent follow-ups are prioritized before broader read owners.",
+                workset_why(target)
+            ),
+        }
+    };
+    augment_contract_workset_context(session, prism, target, &mut context)?;
+    Ok(context)
+}
+
+fn augment_contract_workset_context(
+    session: &SessionState,
+    prism: &Prism,
+    target: &SessionHandleTarget,
+    context: &mut WorksetContext,
+) -> Result<()> {
+    let Ok(id) = target_symbol_id(target) else {
+        return Ok(());
+    };
+
+    let mut contract_supporting = Vec::<AgentTargetHandleView>::new();
+    let mut contract_tests = Vec::<AgentTargetHandleView>::new();
+    let mut hint_lines = Vec::<String>::new();
+
+    for packet in prism.contracts_for_target(id) {
+        let subject_match = prism.contract_subject_matches_target(id, &packet);
+        let consumer_match = prism.contract_consumer_matches_target(id, &packet);
+        let mut anchored_validation_count = 0usize;
+        let validation_labels = packet
+            .validations
+            .iter()
+            .map(|validation| validation.id.clone())
+            .collect::<Vec<_>>();
+
+        if subject_match {
+            for consumer in &packet.consumers {
+                for node in prism.contract_target_nodes(consumer, WORKSET_SUPPORTING_LIMIT) {
+                    if node == *id {
+                        continue;
+                    }
+                    if let Some(view) = contract_target_handle_view(
+                        session,
+                        prism,
+                        &node,
+                        target.query.as_deref(),
+                        format!("Known contract consumer recorded on `{}`.", packet.handle),
+                    )? {
+                        contract_supporting.push(view);
+                    }
+                }
+            }
+        }
+        if consumer_match {
+            for node in prism.contract_target_nodes(&packet.subject, WORKSET_SUPPORTING_LIMIT) {
+                if node == *id {
+                    continue;
+                }
+                if let Some(view) = contract_target_handle_view(
+                    session,
+                    prism,
+                    &node,
+                    target.query.as_deref(),
+                    format!("Provider-side subject recorded on `{}`.", packet.handle),
+                )? {
+                    contract_supporting.push(view);
+                }
+            }
+        }
+
+        for validation in &packet.validations {
+            for node in contract_validation_anchor_nodes(
+                prism,
+                validation.anchors.as_ref(),
+                WORKSET_TEST_LIMIT,
+            ) {
+                if node == *id {
+                    continue;
+                }
+                if let Some(view) = contract_target_handle_view(
+                    session,
+                    prism,
+                    &node,
+                    target.query.as_deref(),
+                    format!("Validation anchor for contract `{}`.", packet.handle),
+                )? {
+                    anchored_validation_count += 1;
+                    contract_tests.push(view);
+                }
+            }
+        }
+
+        if let Some(hint) = contract_workset_hint(
+            &packet.handle,
+            subject_match,
+            consumer_match,
+            anchored_validation_count,
+            &validation_labels,
+        ) {
+            hint_lines.push(hint);
         }
     }
-    let supporting_reads =
-        edit_ready_symbol_followups(host, session, prism, target, WORKSET_SUPPORTING_LIMIT)?;
-    Ok(WorksetContext {
-        supporting_reads,
-        likely_tests: owner_views_for_target(
-            prism,
-            target_symbol_id(target)?,
-            Some("test"),
+
+    if !contract_supporting.is_empty() {
+        context.supporting_reads = merge_prioritized_targets(
+            contract_supporting,
+            std::mem::take(&mut context.supporting_reads),
+            WORKSET_SUPPORTING_LIMIT,
+        );
+    }
+    if !contract_tests.is_empty() {
+        context.likely_tests = merge_prioritized_targets(
+            contract_tests,
+            std::mem::take(&mut context.likely_tests),
             WORKSET_TEST_LIMIT,
-        )?
-        .into_iter()
-        .take(WORKSET_TEST_LIMIT)
-        .map(|candidate| {
-            compact_target_view(
-                session,
-                &candidate.symbol,
-                target.query.as_deref(),
-                Some(candidate.why),
-            )
-        })
-        .collect(),
-        why: format!(
-            "{} Same-file and graph-adjacent follow-ups are prioritized before broader read owners.",
-            workset_why(target)
-        ),
-    })
+        );
+    }
+    if !hint_lines.is_empty() {
+        context.why = clamp_string(
+            &format!(
+                "{} {}",
+                context.why,
+                compact_string_list(&hint_lines, 2, 72).join(" ")
+            ),
+            WORKSET_WHY_MAX_CHARS,
+        );
+    }
+    Ok(())
+}
+
+fn contract_target_handle_view(
+    session: &SessionState,
+    prism: &Prism,
+    node: &NodeId,
+    query: Option<&str>,
+    why: String,
+) -> Result<Option<AgentTargetHandleView>> {
+    let Ok(symbol) = symbol_for(prism, node) else {
+        return Ok(None);
+    };
+    let symbol = symbol_view(prism, &symbol)?;
+    Ok(Some(compact_target_view(
+        session,
+        &symbol,
+        query,
+        Some(why),
+    )))
+}
+
+fn contract_validation_anchor_nodes(
+    prism: &Prism,
+    anchors: &[AnchorRef],
+    limit: usize,
+) -> Vec<NodeId> {
+    let mut nodes = Vec::<NodeId>::new();
+    for anchor in prism.anchors_for(anchors) {
+        match anchor {
+            AnchorRef::Node(node) => nodes.push(node),
+            AnchorRef::Lineage(lineage) => nodes.extend(prism.current_nodes_for_lineage(&lineage)),
+            AnchorRef::File { .. } | AnchorRef::Kind { .. } => {}
+        }
+    }
+    nodes.sort_by(|left, right| {
+        left.path
+            .cmp(&right.path)
+            .then_with(|| left.crate_name.cmp(&right.crate_name))
+            .then_with(|| format!("{:?}", left.kind).cmp(&format!("{:?}", right.kind)))
+    });
+    nodes.dedup();
+    nodes.truncate(limit);
+    nodes
+}
+
+fn merge_prioritized_targets(
+    prioritized: Vec<AgentTargetHandleView>,
+    existing: Vec<AgentTargetHandleView>,
+    limit: usize,
+) -> Vec<AgentTargetHandleView> {
+    let mut merged = Vec::<AgentTargetHandleView>::new();
+    let mut seen = HashSet::<String>::new();
+
+    for target in prioritized.into_iter().chain(existing.into_iter()) {
+        if !seen.insert(target.handle.clone()) {
+            continue;
+        }
+        merged.push(target);
+        if merged.len() >= limit {
+            break;
+        }
+    }
+
+    merged
+}
+
+fn contract_workset_hint(
+    handle: &str,
+    subject_match: bool,
+    consumer_match: bool,
+    anchored_validation_count: usize,
+    validation_labels: &[String],
+) -> Option<String> {
+    let mut parts = Vec::<String>::new();
+    if subject_match {
+        parts.push(format!("`{handle}` adds known consumers."));
+    }
+    if consumer_match {
+        parts.push(format!("`{handle}` links back to its provider."));
+    }
+    if anchored_validation_count > 0 {
+        parts.push(format!(
+            "`{handle}` anchors {anchored_validation_count} validation target(s)."
+        ));
+    } else if let Some(validation) = validation_labels.first() {
+        parts.push(format!("`{handle}` expects `{validation}`."));
+    }
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join(" "))
+    }
 }
 
 pub(super) fn is_structured_config_target(kind: NodeKind) -> bool {

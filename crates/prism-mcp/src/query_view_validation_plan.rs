@@ -21,6 +21,9 @@ use prism_ir::CoordinationTaskId;
 const FAST_CHECK_LIMIT: usize = 3;
 const BROADER_CHECK_LIMIT: usize = 4;
 const PATH_TARGET_LIMIT: usize = 16;
+const CONTRACT_FOCUS_TARGET_LIMIT: usize = 8;
+const CONTRACT_CONSUMER_TARGET_LIMIT: usize = 2;
+const CONTRACT_PROVIDER_TARGET_LIMIT: usize = 1;
 
 #[derive(Debug, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -98,6 +101,9 @@ pub(crate) fn validation_plan_view(execution: &QueryExecution, input: Value) -> 
             notes.push(format!(
                 "No recorded task validation recipe was found for `{task_id}`; falling back to repo-wide workflow guidance."
             ));
+        }
+        if let Some(impact) = execution.prism().task_blast_radius(&coordination_task_id) {
+            related_targets.extend(impact.direct_nodes);
         }
         ValidationPlanSubjectView {
             kind: "task".to_string(),
@@ -228,6 +234,14 @@ pub(crate) fn validation_plan_view(execution: &QueryExecution, input: Value) -> 
             unresolved_paths,
         }
     };
+
+    augment_contract_validation_guidance(
+        execution,
+        &mut related_targets,
+        &mut scored,
+        &mut broader,
+        &mut notes,
+    );
 
     let mut fast = collect_ranked_checks(scored, FAST_CHECK_LIMIT);
     let mut broader_checks = collect_ranked_checks(broader, FAST_CHECK_LIMIT + BROADER_CHECK_LIMIT);
@@ -392,4 +406,109 @@ fn resolve_targets_for_paths(
 
 fn node_id_from_view(view: NodeIdView) -> NodeId {
     NodeId::new(&view.crate_name, &view.path, view.kind)
+}
+
+fn augment_contract_validation_guidance(
+    execution: &QueryExecution,
+    related_targets: &mut Vec<NodeId>,
+    scored: &mut Vec<CheckSeed>,
+    broader: &mut Vec<CheckSeed>,
+    notes: &mut Vec<String>,
+) {
+    let focus_targets = related_targets
+        .iter()
+        .take(CONTRACT_FOCUS_TARGET_LIMIT)
+        .cloned()
+        .collect::<Vec<_>>();
+    if focus_targets.is_empty() {
+        return;
+    }
+
+    let mut contract_count = 0usize;
+    let mut explicit_validation_count = 0usize;
+    let mut missing_validation_count = 0usize;
+
+    for target in focus_targets {
+        for packet in execution.prism().contracts_for_target(&target) {
+            contract_count += 1;
+            let subject_match = execution
+                .prism()
+                .contract_subject_matches_target(&target, &packet);
+            let consumer_match = execution
+                .prism()
+                .contract_consumer_matches_target(&target, &packet);
+
+            if packet.validations.is_empty() && subject_match {
+                missing_validation_count += 1;
+            }
+
+            for validation in &packet.validations {
+                explicit_validation_count += 1;
+                let seed = CheckSeed {
+                    label: validation.id.clone(),
+                    why: contract_validation_reason(&target, &packet.handle, subject_match),
+                    provenance: vec![QueryEvidenceView {
+                        kind: "contract_validation".to_string(),
+                        detail: format!("Validation recorded on contract `{}`.", packet.handle),
+                        path: None,
+                        line: None,
+                        target: Some(node_id_view(target.clone())),
+                    }],
+                    score: Some(if subject_match { 0.98 } else { 0.84 }),
+                    last_seen: None,
+                };
+                if subject_match {
+                    scored.push(seed);
+                } else if consumer_match {
+                    broader.push(seed);
+                }
+            }
+
+            if subject_match {
+                for consumer in &packet.consumers {
+                    related_targets.extend(
+                        execution
+                            .prism()
+                            .contract_target_nodes(consumer, CONTRACT_CONSUMER_TARGET_LIMIT)
+                            .into_iter()
+                            .filter(|node| *node != target),
+                    );
+                }
+            }
+            if consumer_match {
+                related_targets.extend(
+                    execution
+                        .prism()
+                        .contract_target_nodes(&packet.subject, CONTRACT_PROVIDER_TARGET_LIMIT)
+                        .into_iter()
+                        .filter(|node| *node != target),
+                );
+            }
+        }
+    }
+
+    if contract_count > 0 {
+        notes.push(format!(
+            "Contracts contributed {explicit_validation_count} explicit promise validation(s) across {contract_count} matched contract packet(s)."
+        ));
+    }
+    if missing_validation_count > 0 {
+        notes.push(format!(
+            "{missing_validation_count} governing contract(s) matched this subject set without explicit validations."
+        ));
+    }
+}
+
+fn contract_validation_reason(target: &NodeId, handle: &str, subject_match: bool) -> String {
+    if subject_match {
+        format!(
+            "Validation tied to contract `{handle}` governing `{}`.",
+            target.path
+        )
+    } else {
+        format!(
+            "Validation tied to contract `{handle}` consumed by `{}`.",
+            target.path
+        )
+    }
 }
