@@ -3534,6 +3534,176 @@ return sym ? prism.validationPlan({ target: sym }) : null;
 }
 
 #[test]
+fn validation_plan_accepts_native_plan_node_task_ids() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "goal": "Validate native milestone",
+                    "policy": { "requireValidationForCompletion": true }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let required_test =
+        "test:cargo test -p prism-js api_reference_mentions_primary_tool -- --nocapture";
+    let required_build = "build:cargo build --release -p prism-cli -p prism-mcp";
+    let node = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "kind": "validate",
+                    "title": "Validate native milestone",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::main",
+                        "kind": "function"
+                    }],
+                    "acceptance": [{
+                        "label": "native milestone is validated",
+                        "requiredChecks": [
+                            { "id": required_test },
+                            { "id": required_build }
+                        ],
+                        "evidencePolicy": "validation-only"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let node_id = node.state["id"].as_str().unwrap().to_string();
+
+    let envelope = host
+        .execute(
+            test_session(&host),
+            &format!(r#"return prism.validationPlan({{ taskId: "{node_id}" }});"#),
+            QueryLanguage::Ts,
+        )
+        .expect("validationPlan should accept native plan node ids");
+
+    assert_eq!(envelope.result["subject"]["taskId"], Value::String(node_id));
+    assert!(envelope.result["fast"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| {
+            item["label"] == Value::String(required_test.to_string())
+                || item["label"] == Value::String(required_build.to_string())
+        })));
+    assert!(envelope.result["notes"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|note| note
+            .as_str()
+            .is_some_and(|text| text.contains("native plan node requirements")))));
+}
+
+#[test]
+fn task_surfaces_accept_native_plan_node_task_ids() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "goal": "Route native task-shaped queries",
+                    "policy": {
+                        "requireValidationForCompletion": true,
+                        "reviewRequiredAboveRiskScore": 0.0
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let required_test = "test:cargo test -p prism-mcp native_task_surfaces_accept_plan_nodes";
+    let required_build = "build:cargo build --release -p prism-cli -p prism-mcp";
+    let node = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "kind": "validate",
+                    "title": "Validate native task-shaped queries",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::main",
+                        "kind": "function"
+                    }],
+                    "validationRefs": [{ "id": required_build }],
+                    "acceptance": [{
+                        "label": "native task-shaped queries are validated",
+                        "requiredChecks": [{ "id": required_test }],
+                        "evidencePolicy": "validation-only"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let node_id = node.state["id"].as_str().unwrap().to_string();
+
+    let envelope = host
+        .execute(
+            test_session(&host),
+            &format!(
+                r#"
+return {{
+  blastRadius: prism.taskBlastRadius("{node_id}"),
+  taskRecipe: prism.taskValidationRecipe("{node_id}"),
+  taskRisk: prism.taskRisk("{node_id}")
+}};
+"#
+            ),
+            QueryLanguage::Ts,
+        )
+        .expect("task-shaped query runtime should accept native plan node ids");
+
+    assert!(envelope.result["blastRadius"]["likelyValidations"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item == required_test)));
+    assert!(envelope.result["blastRadius"]["likelyValidations"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item == required_build)));
+    assert_eq!(
+        envelope.result["taskRecipe"]["taskId"],
+        Value::String(node_id.clone())
+    );
+    assert!(envelope.result["taskRecipe"]["checks"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item == required_test)));
+    assert!(envelope.result["taskRecipe"]["checks"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item == required_build)));
+    assert_eq!(
+        envelope.result["taskRisk"]["taskId"],
+        Value::String(node_id)
+    );
+    assert!(envelope.result["taskRisk"]["likelyValidations"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item == required_test)));
+    assert!(envelope.result["taskRisk"]["missingValidations"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item == required_build)));
+    assert_eq!(
+        envelope.result["taskRisk"]["reviewRequired"],
+        Value::Bool(true)
+    );
+}
+
+#[test]
 fn compact_workset_prioritizes_contract_consumers_and_validation_targets() {
     let root = temp_workspace();
     fs::write(
@@ -10195,11 +10365,17 @@ fn coordination_mutation_trace_records_persistence_subphases() {
         .iter()
         .map(|phase| phase.operation.as_str())
         .collect::<Vec<_>>();
+    assert!(operations.contains(&"mutation.coordination.refreshWorkspace"));
+    assert!(operations.contains(&"mutation.coordination.syncLoadedRevisionBefore"));
+    assert!(operations.contains(&"mutation.coordination.waitRefreshLock"));
+    assert!(operations.contains(&"mutation.coordination.readRevision"));
+    assert!(operations.contains(&"mutation.coordination.applyMutation"));
     assert!(operations.contains(&"mutation.coordination.captureDelta"));
     assert!(operations.contains(&"mutation.coordination.commitPersistBatch"));
     assert!(operations.contains(&"mutation.coordination.syncPublishedPlans"));
     assert!(operations.contains(&"mutation.coordination.publishedPlans.writeLogs"));
     assert!(operations.contains(&"mutation.coordination.publishedPlans.writeIndex"));
+    assert!(operations.contains(&"mutation.coordination.syncLoadedRevisionAfter"));
 }
 
 #[tokio::test]

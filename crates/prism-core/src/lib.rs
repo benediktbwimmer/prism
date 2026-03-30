@@ -6,6 +6,7 @@ mod curator;
 mod curator_support;
 mod indexer;
 mod indexer_support;
+mod invalidation;
 mod layout;
 mod memory_events;
 mod memory_refresh;

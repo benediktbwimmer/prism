@@ -1,3 +1,5 @@
+use std::sync::atomic::Ordering;
+
 use anyhow::{anyhow, Result};
 use prism_coordination::{
     HandoffAcceptInput, HandoffInput, PolicyViolation, TaskCreateInput, TaskUpdateInput,
@@ -930,8 +932,69 @@ impl QueryHost {
     ) -> Result<CoordinationMutationResult> {
         self.ensure_tool_enabled("prism_coordination", "coordination workflow mutations")?;
         if let Some(workspace) = &self.workspace {
-            self.refresh_workspace_for_mutation()?;
-            self.sync_coordination_revision(workspace)?;
+            let refresh_started = std::time::Instant::now();
+            match self.refresh_workspace_for_mutation() {
+                Ok(report) => {
+                    if let Some(trace) = trace {
+                        trace.record_phase(
+                            "mutation.coordination.refreshWorkspace",
+                            &json!({
+                                "refreshPath": report.refresh_path,
+                                "deferred": report.deferred,
+                                "episodicReloaded": report.episodic_reloaded,
+                                "inferenceReloaded": report.inference_reloaded,
+                                "coordinationReloaded": report.coordination_reloaded,
+                                "metrics": report.metrics.as_json(),
+                            }),
+                            refresh_started.elapsed(),
+                            true,
+                            None,
+                        );
+                    }
+                }
+                Err(error) => {
+                    if let Some(trace) = trace {
+                        trace.record_phase(
+                            "mutation.coordination.refreshWorkspace",
+                            &json!({ "refreshPath": "error" }),
+                            refresh_started.elapsed(),
+                            false,
+                            Some(error.to_string()),
+                        );
+                    }
+                    return Err(error);
+                }
+            }
+            let sync_started = std::time::Instant::now();
+            match self.sync_coordination_revision(workspace) {
+                Ok(()) => {
+                    if let Some(trace) = trace {
+                        trace.record_phase(
+                            "mutation.coordination.syncLoadedRevisionBefore",
+                            &json!({
+                                "loadedRevision": self
+                                    .loaded_coordination_revision
+                                    .load(Ordering::Relaxed),
+                            }),
+                            sync_started.elapsed(),
+                            true,
+                            None,
+                        );
+                    }
+                }
+                Err(error) => {
+                    if let Some(trace) = trace {
+                        trace.record_phase(
+                            "mutation.coordination.syncLoadedRevisionBefore",
+                            &json!({}),
+                            sync_started.elapsed(),
+                            false,
+                            Some(error.to_string()),
+                        );
+                    }
+                    return Err(error);
+                }
+            }
         }
         let prism = self.current_prism();
         let before_events = prism.coordination_events().len();
@@ -960,7 +1023,36 @@ impl QueryHost {
             };
             match result {
                 Ok(state) => {
-                    self.sync_coordination_revision(workspace)?;
+                    let sync_started = std::time::Instant::now();
+                    match self.sync_coordination_revision(workspace) {
+                        Ok(()) => {
+                            if let Some(trace) = trace {
+                                trace.record_phase(
+                                    "mutation.coordination.syncLoadedRevisionAfter",
+                                    &json!({
+                                        "loadedRevision": self
+                                            .loaded_coordination_revision
+                                            .load(Ordering::Relaxed),
+                                    }),
+                                    sync_started.elapsed(),
+                                    true,
+                                    None,
+                                );
+                            }
+                        }
+                        Err(error) => {
+                            if let Some(trace) = trace {
+                                trace.record_phase(
+                                    "mutation.coordination.syncLoadedRevisionAfter",
+                                    &json!({}),
+                                    sync_started.elapsed(),
+                                    false,
+                                    Some(error.to_string()),
+                                );
+                            }
+                            return Err(error);
+                        }
+                    }
                     let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     return Ok(CoordinationMutationResult {
@@ -975,7 +1067,36 @@ impl QueryHost {
                     let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     if audit.rejected && !audit.event_ids.is_empty() {
-                        self.sync_coordination_revision(workspace)?;
+                        let sync_started = std::time::Instant::now();
+                        match self.sync_coordination_revision(workspace) {
+                            Ok(()) => {
+                                if let Some(trace) = trace {
+                                    trace.record_phase(
+                                        "mutation.coordination.syncLoadedRevisionAfter",
+                                        &json!({
+                                            "loadedRevision": self
+                                                .loaded_coordination_revision
+                                                .load(Ordering::Relaxed),
+                                        }),
+                                        sync_started.elapsed(),
+                                        true,
+                                        None,
+                                    );
+                                }
+                            }
+                            Err(sync_error) => {
+                                if let Some(trace) = trace {
+                                    trace.record_phase(
+                                        "mutation.coordination.syncLoadedRevisionAfter",
+                                        &json!({}),
+                                        sync_started.elapsed(),
+                                        false,
+                                        Some(sync_error.to_string()),
+                                    );
+                                }
+                                return Err(sync_error);
+                            }
+                        }
                         return Ok(CoordinationMutationResult {
                             event_id: audit
                                 .event_ids

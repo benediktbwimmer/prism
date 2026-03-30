@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -3565,6 +3566,38 @@ fn index_with_scope_refreshes_only_dirty_paths_and_removals() {
         .graph()
         .file_record(&root.join("src/b.rs"))
         .is_none());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn refresh_invalidation_scope_preserves_monotonic_scope_expansion() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/a.rs"), "pub fn alpha() -> i32 { 1 }\n").unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "mod a;\npub fn uses_alpha() -> i32 { a::alpha() }\n",
+    )
+    .unwrap();
+
+    let mut indexer = WorkspaceIndexer::with_store(&root, MemoryStore::default()).unwrap();
+    indexer.index().unwrap();
+
+    let changed = root.join("src/a.rs");
+    let scope = crate::invalidation::RefreshInvalidationScope::from_graph(
+        indexer.graph(),
+        &HashSet::from([changed.clone()]),
+    );
+
+    assert!(scope.direct_paths.contains(&changed));
+    assert!(scope.dependency_paths.is_superset(&scope.direct_paths));
+    assert!(scope.edge_resolution_paths.is_superset(&scope.dependency_paths));
 
     let _ = fs::remove_dir_all(root);
 }

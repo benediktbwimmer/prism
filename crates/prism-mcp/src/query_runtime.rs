@@ -4,7 +4,8 @@ use std::time::Instant;
 
 use anyhow::{anyhow, Context, Result};
 use prism_ir::{
-    AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, LineageId, NodeId, PlanId, PlanNodeId,
+    AnchorRef, ArtifactId, CoordinationTaskId, EdgeKind, LineageId, NodeId, PlanId, PlanNode,
+    PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId,
 };
 use prism_js::{
     ChangedFileView, ChangedSymbolView, ConceptDecodeView, ConceptPacketView, ConnectionInfoView,
@@ -16,7 +17,10 @@ use prism_js::{
     ValidationFeedbackView,
 };
 use prism_memory::{MemoryEventQuery, MemoryModule, OutcomeKind, OutcomeRecallQuery, RecallQuery};
-use prism_query::{ConceptDecodeLens, EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
+use prism_query::{
+    ChangeImpact, ConceptDecodeLens, EditSliceOptions, Prism, SourceExcerptOptions, Symbol,
+    TaskRisk, TaskValidationRecipe,
+};
 use serde_json::{json, Value};
 
 use crate::file_queries::{
@@ -154,6 +158,163 @@ fn parse_contract_kind_filter(value: &str) -> Result<&'static str> {
             ),
         )),
     }
+}
+
+struct NativePlanTaskQuerySubject {
+    task_id: CoordinationTaskId,
+    plan_id: PlanId,
+    node: PlanNode,
+    blockers: Vec<PlanNodeBlocker>,
+}
+
+struct TaskQuerySubject {
+    coordination_task_id: Option<CoordinationTaskId>,
+    native_plan: Option<NativePlanTaskQuerySubject>,
+}
+
+fn resolve_task_query_subject(prism: &Prism, task_id: &str) -> Option<TaskQuerySubject> {
+    let coordination_task_id = CoordinationTaskId::new(task_id.to_string());
+    let coordination_task_id = prism
+        .coordination_task(&coordination_task_id)
+        .map(|_| coordination_task_id);
+    let native_plan = prism.plan_graphs().into_iter().find_map(|graph| {
+        graph.nodes.into_iter().find_map(|node| {
+            (node.id.0 == task_id).then(|| {
+                let blockers = prism.plan_node_blockers(&graph.id, &node.id);
+                NativePlanTaskQuerySubject {
+                    task_id: CoordinationTaskId::new(node.id.0.clone()),
+                    plan_id: graph.id.clone(),
+                    node,
+                    blockers,
+                }
+            })
+        })
+    });
+    (coordination_task_id.is_some() || native_plan.is_some()).then_some(TaskQuerySubject {
+        coordination_task_id,
+        native_plan,
+    })
+}
+
+fn native_plan_task_checks(node: &PlanNode, blockers: &[PlanNodeBlocker]) -> Vec<String> {
+    let mut checks = Vec::new();
+    for validation in &node.validation_refs {
+        push_unique_task_check(&mut checks, validation.id.clone());
+    }
+    for criterion in &node.acceptance {
+        for validation in &criterion.required_checks {
+            push_unique_task_check(&mut checks, validation.id.clone());
+        }
+    }
+    for blocker in blockers {
+        if matches!(
+            blocker.kind,
+            PlanNodeBlockerKind::ValidationGate | PlanNodeBlockerKind::ValidationRequired
+        ) {
+            for validation in &blocker.validation_checks {
+                push_unique_task_check(&mut checks, validation.clone());
+            }
+        }
+    }
+    checks
+}
+
+fn native_plan_missing_checks(node: &PlanNode, blockers: &[PlanNodeBlocker]) -> Vec<String> {
+    let mut checks = native_plan_task_checks(node, blockers);
+    for blocker in blockers {
+        if matches!(
+            blocker.kind,
+            PlanNodeBlockerKind::ValidationGate | PlanNodeBlockerKind::ValidationRequired
+        ) {
+            merge_task_checks(&mut checks, blocker.validation_checks.clone());
+        }
+    }
+    checks
+}
+
+fn push_unique_task_check(target: &mut Vec<String>, value: String) {
+    if !target.iter().any(|existing| existing == &value) {
+        target.push(value);
+    }
+}
+
+fn merge_task_checks(target: &mut Vec<String>, values: impl IntoIterator<Item = String>) {
+    for value in values {
+        push_unique_task_check(target, value);
+    }
+}
+
+fn native_plan_task_blast_radius(
+    prism: &Prism,
+    subject: &NativePlanTaskQuerySubject,
+) -> ChangeImpact {
+    let mut impact = prism.task_blast_radius_for_anchors(&subject.node.bindings.anchors);
+    merge_task_checks(
+        &mut impact.likely_validations,
+        native_plan_task_checks(&subject.node, &subject.blockers),
+    );
+    impact
+}
+
+fn native_plan_task_validation_recipe(
+    prism: &Prism,
+    subject: &NativePlanTaskQuerySubject,
+) -> TaskValidationRecipe {
+    let mut recipe =
+        prism.task_validation_recipe_for_anchors(&subject.task_id, &subject.node.bindings.anchors);
+    merge_task_checks(
+        &mut recipe.checks,
+        native_plan_task_checks(&subject.node, &subject.blockers),
+    );
+    recipe
+}
+
+fn native_plan_task_risk(prism: &Prism, subject: &NativePlanTaskQuerySubject) -> TaskRisk {
+    let stale_task = subject.blockers.iter().any(|blocker| {
+        matches!(
+            blocker.kind,
+            PlanNodeBlockerKind::StaleRevision | PlanNodeBlockerKind::ArtifactStale
+        )
+    });
+    let review_required_above_risk_score = prism
+        .coordination_plan(&subject.plan_id)
+        .and_then(|plan| plan.policy.review_required_above_risk_score);
+    let mut risk = prism.task_risk_for_anchors(
+        &subject.task_id,
+        &subject.node.bindings.anchors,
+        review_required_above_risk_score,
+        stale_task,
+    );
+    merge_task_checks(
+        &mut risk.likely_validations,
+        native_plan_task_checks(&subject.node, &subject.blockers),
+    );
+    risk.missing_validations = risk.likely_validations.clone();
+    risk.review_required = risk.review_required
+        || subject.blockers.iter().any(|blocker| {
+            matches!(
+                blocker.kind,
+                PlanNodeBlockerKind::ReviewRequired | PlanNodeBlockerKind::RiskReviewRequired
+            )
+        });
+    risk
+}
+
+fn task_query_subject_anchors(prism: &Prism, subject: &TaskQuerySubject) -> Vec<AnchorRef> {
+    let coordination_anchors = subject
+        .coordination_task_id
+        .as_ref()
+        .and_then(|task_id| prism.coordination_task(task_id))
+        .map(|task| task.anchors)
+        .unwrap_or_default();
+    if !coordination_anchors.is_empty() || subject.native_plan.is_none() {
+        return coordination_anchors;
+    }
+    subject
+        .native_plan
+        .as_ref()
+        .map(|native| native.node.bindings.anchors.clone())
+        .unwrap_or_default()
 }
 
 impl QueryHost {
@@ -1112,36 +1273,65 @@ impl QueryExecution {
                 }
                 "taskBlastRadius" => {
                     let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
-                    let task_id = CoordinationTaskId::new(args.task_id);
                     Ok(serde_json::to_value(
-                        self.prism.task_blast_radius(&task_id).map(|impact| {
-                            let anchors = self
-                                .prism
-                                .coordination_task(&task_id)
-                                .map(|task| task.anchors)
-                                .unwrap_or_default();
-                            let mut view = change_impact_view(impact);
-                            view.promoted_summaries = promoted_summary_texts(
-                                self.session.as_ref(),
-                                self.prism.as_ref(),
-                                &anchors,
-                            );
-                            view
-                        }),
+                        resolve_task_query_subject(self.prism.as_ref(), &args.task_id).and_then(
+                            |subject| {
+                                let mut impact = subject
+                                    .coordination_task_id
+                                    .as_ref()
+                                    .and_then(|task_id| self.prism.task_blast_radius(task_id))
+                                    .or_else(|| {
+                                        subject.native_plan.as_ref().map(|native| {
+                                            native_plan_task_blast_radius(
+                                                self.prism.as_ref(),
+                                                native,
+                                            )
+                                        })
+                                    })?;
+                                if let Some(native) = subject.native_plan.as_ref() {
+                                    merge_task_checks(
+                                        &mut impact.likely_validations,
+                                        native_plan_task_checks(&native.node, &native.blockers),
+                                    );
+                                }
+                                let anchors =
+                                    task_query_subject_anchors(self.prism.as_ref(), &subject);
+                                let mut view = change_impact_view(impact);
+                                view.promoted_summaries = promoted_summary_texts(
+                                    self.session.as_ref(),
+                                    self.prism.as_ref(),
+                                    &anchors,
+                                );
+                                Some(view)
+                            },
+                        ),
                     )?)
                 }
                 "taskValidationRecipe" => {
                     let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
-                    let task_id = CoordinationTaskId::new(args.task_id);
                     Ok(serde_json::to_value(
-                        self.prism
-                            .task_validation_recipe(&task_id)
-                            .map(|mut recipe| {
-                                let anchors = self
-                                    .prism
-                                    .coordination_task(&task_id)
-                                    .map(|task| task.anchors)
-                                    .unwrap_or_default();
+                        resolve_task_query_subject(self.prism.as_ref(), &args.task_id).and_then(
+                            |subject| {
+                                let mut recipe = subject
+                                    .coordination_task_id
+                                    .as_ref()
+                                    .and_then(|task_id| self.prism.task_validation_recipe(task_id))
+                                    .or_else(|| {
+                                        subject.native_plan.as_ref().map(|native| {
+                                            native_plan_task_validation_recipe(
+                                                self.prism.as_ref(),
+                                                native,
+                                            )
+                                        })
+                                    })?;
+                                if let Some(native) = subject.native_plan.as_ref() {
+                                    merge_task_checks(
+                                        &mut recipe.checks,
+                                        native_plan_task_checks(&native.node, &native.blockers),
+                                    );
+                                }
+                                let anchors =
+                                    task_query_subject_anchors(self.prism.as_ref(), &subject);
                                 merge_promoted_checks(
                                     &mut recipe.scored_checks,
                                     promoted_validation_checks(
@@ -1150,29 +1340,64 @@ impl QueryExecution {
                                         &anchors,
                                     ),
                                 );
-                                recipe.checks = recipe
-                                    .scored_checks
-                                    .iter()
-                                    .map(|check| check.label.clone())
-                                    .collect::<Vec<_>>();
+                                recipe.checks.extend(
+                                    recipe.scored_checks.iter().map(|check| check.label.clone()),
+                                );
                                 recipe.checks.sort();
                                 recipe.checks.dedup();
-                                task_validation_recipe_view(recipe)
-                            }),
+                                Some(task_validation_recipe_view(recipe))
+                            },
+                        ),
                     )?)
                 }
                 "taskRisk" => {
                     let args: CoordinationTaskTargetArgs = serde_json::from_value(args)?;
-                    let task_id = CoordinationTaskId::new(args.task_id);
                     Ok(serde_json::to_value(
-                        self.prism
-                            .task_risk(&task_id, current_timestamp())
-                            .map(|risk| {
-                                let task = self.prism.coordination_task(&task_id);
-                                let anchors = task
+                        resolve_task_query_subject(self.prism.as_ref(), &args.task_id).and_then(
+                            |subject| {
+                                let task = subject
+                                    .coordination_task_id
                                     .as_ref()
-                                    .map(|task| task.anchors.clone())
-                                    .unwrap_or_default();
+                                    .and_then(|task_id| self.prism.coordination_task(task_id));
+                                let anchors =
+                                    task_query_subject_anchors(self.prism.as_ref(), &subject);
+                                let mut risk = subject
+                                    .coordination_task_id
+                                    .as_ref()
+                                    .and_then(|task_id| {
+                                        self.prism.task_risk(task_id, current_timestamp())
+                                    })
+                                    .or_else(|| {
+                                        subject.native_plan.as_ref().map(|native| {
+                                            native_plan_task_risk(self.prism.as_ref(), native)
+                                        })
+                                    })?;
+                                if let Some(native) = subject.native_plan.as_ref() {
+                                    merge_task_checks(
+                                        &mut risk.likely_validations,
+                                        native_plan_task_checks(&native.node, &native.blockers),
+                                    );
+                                    merge_task_checks(
+                                        &mut risk.missing_validations,
+                                        native_plan_missing_checks(&native.node, &native.blockers),
+                                    );
+                                    risk.review_required = risk.review_required
+                                        || native.blockers.iter().any(|blocker| {
+                                            matches!(
+                                                blocker.kind,
+                                                PlanNodeBlockerKind::ReviewRequired
+                                                    | PlanNodeBlockerKind::RiskReviewRequired
+                                            )
+                                        });
+                                    risk.stale_task = risk.stale_task
+                                        || native.blockers.iter().any(|blocker| {
+                                            matches!(
+                                                blocker.kind,
+                                                PlanNodeBlockerKind::StaleRevision
+                                                    | PlanNodeBlockerKind::ArtifactStale
+                                            )
+                                        });
+                                }
                                 let promoted_summaries = promoted_summary_texts(
                                     self.session.as_ref(),
                                     self.prism.as_ref(),
@@ -1202,7 +1427,7 @@ impl QueryExecution {
                                 .min(0.25);
                                 let boosted_risk_score =
                                     (risk.risk_score + promoted_risk_boost).min(1.0);
-                                let review_required = risk.review_required
+                                risk.review_required = risk.review_required
                                     || task
                                         .as_ref()
                                         .and_then(|task| self.prism.coordination_plan(&task.plan))
@@ -1214,9 +1439,9 @@ impl QueryExecution {
                                 let mut view =
                                     task_risk_view(self.prism.as_ref(), risk, promoted_summaries);
                                 view.risk_score = boosted_risk_score;
-                                view.review_required = review_required;
-                                view
-                            }),
+                                Some(view)
+                            },
+                        ),
                     )?)
                 }
                 "artifactRisk" => {

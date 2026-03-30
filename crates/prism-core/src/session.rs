@@ -1135,14 +1135,52 @@ impl WorkspaceSession {
                 "coordination is disabled for this workspace session"
             ));
         }
+        let lock_wait_started = Instant::now();
         let _guard = self
             .refresh_lock
             .lock()
             .expect("workspace refresh lock poisoned");
-        let expected_revision = self.coordination_revision()?;
+        observe_phase(
+            "mutation.coordination.waitRefreshLock",
+            lock_wait_started.elapsed(),
+            json!({}),
+            true,
+            None,
+        );
+        let revision_started = Instant::now();
+        let expected_revision = match self.coordination_revision() {
+            Ok(revision) => {
+                observe_phase(
+                    "mutation.coordination.readRevision",
+                    revision_started.elapsed(),
+                    json!({ "revision": revision }),
+                    true,
+                    None,
+                );
+                revision
+            }
+            Err(error) => {
+                observe_phase(
+                    "mutation.coordination.readRevision",
+                    revision_started.elapsed(),
+                    json!({}),
+                    false,
+                    Some(error.to_string()),
+                );
+                return Err(error);
+            }
+        };
         let prism = self.prism_arc();
         let before = prism.coordination_snapshot();
+        let mutate_started = Instant::now();
         let result = mutate(prism.as_ref());
+        observe_phase(
+            "mutation.coordination.applyMutation",
+            mutate_started.elapsed(),
+            json!({ "workspaceRevision": prism.workspace_revision() }),
+            result.is_ok(),
+            result.as_ref().err().map(|error| error.to_string()),
+        );
         let delta_started = Instant::now();
         let snapshot = prism.coordination_snapshot();
         let appended_events = snapshot

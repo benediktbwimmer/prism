@@ -17,6 +17,10 @@ impl Prism {
         self.impact_for_anchors(&[AnchorRef::Node(node.clone())])
     }
 
+    pub fn task_blast_radius_for_anchors(&self, anchors: &[AnchorRef]) -> ChangeImpact {
+        self.impact_for_anchors(anchors)
+    }
+
     pub fn validation_recipe_for_anchors(
         &self,
         target: &NodeId,
@@ -40,22 +44,64 @@ impl Prism {
 
     pub fn task_blast_radius(&self, task_id: &CoordinationTaskId) -> Option<ChangeImpact> {
         let task = self.coordination_task(task_id)?;
-        Some(self.impact_for_anchors(&task.anchors))
+        Some(self.task_blast_radius_for_anchors(&task.anchors))
     }
 
     pub fn task_validation_recipe(
         &self,
         task_id: &CoordinationTaskId,
     ) -> Option<TaskValidationRecipe> {
-        let impact = self.task_blast_radius(task_id)?;
-        Some(TaskValidationRecipe {
+        let task = self.coordination_task(task_id)?;
+        Some(self.task_validation_recipe_for_anchors(task_id, &task.anchors))
+    }
+
+    pub fn task_validation_recipe_for_anchors(
+        &self,
+        task_id: &CoordinationTaskId,
+        anchors: &[AnchorRef],
+    ) -> TaskValidationRecipe {
+        let impact = self.task_blast_radius_for_anchors(anchors);
+        TaskValidationRecipe {
             task_id: task_id.clone(),
             checks: impact.likely_validations,
             scored_checks: impact.validation_checks,
             related_nodes: impact.direct_nodes,
             co_change_neighbors: impact.co_change_neighbors,
             recent_failures: impact.risk_events,
-        })
+        }
+    }
+
+    pub fn task_risk_for_anchors(
+        &self,
+        task_id: &CoordinationTaskId,
+        anchors: &[AnchorRef],
+        review_required_above_risk_score: Option<f32>,
+        stale_task: bool,
+    ) -> TaskRisk {
+        let impact = self.task_blast_radius_for_anchors(anchors);
+        let (contracts, contract_review_notes) = review_contract_context(self, anchors);
+        let risk_score = score_change_impact(&impact, stale_task);
+        let review_required = review_required_above_risk_score
+            .map(|threshold| risk_score >= threshold)
+            .unwrap_or(false);
+        let risk_events = impact.risk_events.clone();
+
+        TaskRisk {
+            task_id: task_id.clone(),
+            risk_score,
+            review_required,
+            stale_task,
+            has_approved_artifact: false,
+            likely_validations: impact.likely_validations.clone(),
+            missing_validations: impact.likely_validations,
+            validation_checks: impact.validation_checks,
+            co_change_neighbors: impact.co_change_neighbors,
+            risk_events,
+            contracts,
+            contract_review_notes,
+            approved_artifact_ids: Vec::new(),
+            stale_artifact_ids: Vec::new(),
+        }
     }
 
     pub fn task_risk(&self, task_id: &CoordinationTaskId, _now: Timestamp) -> Option<TaskRisk> {

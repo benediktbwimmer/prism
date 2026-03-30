@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use prism_history::HistorySnapshot;
 use prism_ir::{AnchorRef, LineageEvent, LineageId, NodeId};
@@ -10,7 +10,8 @@ use crate::concept_relations::{
 };
 use crate::concepts::{
     concept_by_handle, curated_concepts_from_events, hydrate_curated_concepts,
-    merge_concept_packets, resolve_concepts, resolve_curated_concepts,
+    merge_concept_packets, resolve_concepts, resolve_curated_concept_members,
+    resolve_curated_concepts,
 };
 use crate::contracts::{
     contract_by_handle, curated_contracts_from_events, merge_contract_packets, resolve_contracts,
@@ -292,6 +293,15 @@ impl ProjectionIndex {
 
     pub fn apply_lineage_events(&mut self, events: &[LineageEvent]) {
         self.apply_co_change_deltas(&co_change_deltas_for_events(events));
+        let dirty_lineages = events
+            .iter()
+            .map(|event| event.lineage.clone())
+            .collect::<HashSet<_>>();
+        let dirty_nodes = events
+            .iter()
+            .flat_map(|event| event.before.iter().chain(event.after.iter()))
+            .cloned()
+            .collect::<HashSet<_>>();
         for event in events {
             for before in &event.before {
                 self.node_to_lineage.remove(before);
@@ -301,7 +311,7 @@ impl ProjectionIndex {
                     .insert(after.clone(), event.lineage.clone());
             }
         }
-        self.rebuild_concepts();
+        self.refresh_concepts_for_invalidation(&dirty_lineages, &dirty_nodes);
         self.history_hydrated = true;
     }
 
@@ -309,8 +319,13 @@ impl ProjectionIndex {
     where
         F: FnMut(&NodeId) -> Option<LineageId>,
     {
-        self.apply_validation_deltas(&validation_deltas_for_event(event, &mut lineage_of));
-        self.rebuild_concepts();
+        let validation_deltas = validation_deltas_for_event(event, &mut lineage_of);
+        let dirty_lineages = validation_deltas
+            .iter()
+            .map(|delta| delta.lineage.clone())
+            .collect::<HashSet<_>>();
+        self.apply_validation_deltas(&validation_deltas);
+        self.refresh_concepts_for_invalidation(&dirty_lineages, &HashSet::new());
     }
 
     pub fn apply_co_change_deltas(&mut self, deltas: &[CoChangeDelta]) {
@@ -513,6 +528,54 @@ impl ProjectionIndex {
             &self.curated_concepts,
             &self.node_to_lineage,
         ));
+        self.prune_concept_relations();
+    }
+
+    fn refresh_concepts_for_invalidation(
+        &mut self,
+        dirty_lineages: &HashSet<LineageId>,
+        dirty_nodes: &HashSet<NodeId>,
+    ) {
+        let dirty_handles = self
+            .curated_concepts
+            .iter()
+            .filter(|concept| concept_touches_invalidation(concept, dirty_lineages, dirty_nodes))
+            .map(|concept| crate::concept_relations::normalize_handle(&concept.handle))
+            .collect::<HashSet<_>>();
+
+        if dirty_handles.is_empty() {
+            return;
+        }
+
+        let mut packets = self
+            .concept_packets
+            .iter()
+            .cloned()
+            .map(|packet| {
+                (
+                    crate::concept_relations::normalize_handle(&packet.handle),
+                    packet,
+                )
+            })
+            .collect::<HashMap<_, _>>();
+
+        for concept in &self.curated_concepts {
+            let normalized = crate::concept_relations::normalize_handle(&concept.handle);
+            if dirty_handles.contains(&normalized) {
+                packets.insert(
+                    normalized,
+                    resolve_curated_concept_members(concept.clone(), &self.node_to_lineage),
+                );
+            }
+        }
+
+        let mut packets = packets.into_values().collect::<Vec<_>>();
+        packets.sort_by(|left, right| left.handle.cmp(&right.handle));
+        self.concept_packets = merge_concept_packets(&packets);
+        self.prune_concept_relations();
+    }
+
+    fn prune_concept_relations(&mut self) {
         let known_handles = self
             .concept_packets
             .iter()
@@ -875,6 +938,26 @@ fn collect_member_slots(packet: &ConceptPacket) -> Vec<MemberSlot> {
         &packet.likely_test_lineages,
     ));
     slots
+}
+
+fn concept_touches_invalidation(
+    concept: &ConceptPacket,
+    dirty_lineages: &HashSet<LineageId>,
+    dirty_nodes: &HashSet<NodeId>,
+) -> bool {
+    concept
+        .core_members
+        .iter()
+        .chain(concept.supporting_members.iter())
+        .chain(concept.likely_tests.iter())
+        .any(|member| dirty_nodes.contains(member))
+        || concept
+            .core_member_lineages
+            .iter()
+            .chain(concept.supporting_member_lineages.iter())
+            .chain(concept.likely_test_lineages.iter())
+            .filter_map(|lineage| lineage.as_ref())
+            .any(|lineage| dirty_lineages.contains(lineage))
 }
 
 fn member_slots(members: &[NodeId], lineages: &[Option<LineageId>]) -> Vec<MemberSlot> {

@@ -330,7 +330,7 @@ fn hydrate_curated_concept(
     resolve_curated_concept_members(concept, node_to_lineage)
 }
 
-fn resolve_curated_concept_members(
+pub(crate) fn resolve_curated_concept_members(
     mut concept: ConceptPacket,
     node_to_lineage: &HashMap<NodeId, LineageId>,
 ) -> ConceptPacket {

@@ -655,6 +655,146 @@ fn concept_health_reports_drift_for_unvalidated_test_heavy_concepts() {
 }
 
 #[test]
+fn lineage_and_validation_updates_only_refresh_affected_concepts() {
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    let alpha_renamed = NodeId::new("demo", "demo::alpha_renamed", NodeKind::Function);
+    let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
+    let alpha_lineage = LineageId::new("lineage:alpha");
+    let beta_lineage = LineageId::new("lineage:beta");
+    let history = history_snapshot(
+        vec![
+            (alpha.clone(), alpha_lineage.clone()),
+            (beta.clone(), beta_lineage.clone()),
+        ],
+        Vec::new(),
+        2,
+        0,
+    );
+    let mut index =
+        ProjectionIndex::derive(&history, &OutcomeMemorySnapshot { events: Vec::new() });
+    index.replace_curated_concepts_from_events(&[
+        ConceptEvent {
+            id: "concept-event:alpha".to_string(),
+            recorded_at: 10,
+            task_id: Some("task:alpha".to_string()),
+            action: ConceptEventAction::Promote,
+            patch: None,
+            concept: ConceptPacket {
+                handle: "concept://alpha".to_string(),
+                canonical_name: "alpha".to_string(),
+                summary: "Alpha concept.".to_string(),
+                aliases: vec!["alpha".to_string()],
+                confidence: 0.9,
+                core_members: vec![alpha.clone()],
+                core_member_lineages: vec![Some(alpha_lineage.clone())],
+                supporting_members: Vec::new(),
+                supporting_member_lineages: Vec::new(),
+                likely_tests: Vec::new(),
+                likely_test_lineages: Vec::new(),
+                evidence: vec!["Curated in test.".to_string()],
+                risk_hint: None,
+                decode_lenses: vec![ConceptDecodeLens::Validation],
+                scope: ConceptScope::Session,
+                provenance: ConceptProvenance {
+                    origin: "test".to_string(),
+                    kind: "curated".to_string(),
+                    task_id: Some("task:alpha".to_string()),
+                },
+                publication: None,
+            },
+        },
+        ConceptEvent {
+            id: "concept-event:beta".to_string(),
+            recorded_at: 10,
+            task_id: Some("task:beta".to_string()),
+            action: ConceptEventAction::Promote,
+            patch: None,
+            concept: ConceptPacket {
+                handle: "concept://beta".to_string(),
+                canonical_name: "beta".to_string(),
+                summary: "Beta concept.".to_string(),
+                aliases: vec!["beta".to_string()],
+                confidence: 0.9,
+                core_members: vec![beta.clone()],
+                core_member_lineages: vec![Some(beta_lineage.clone())],
+                supporting_members: Vec::new(),
+                supporting_member_lineages: Vec::new(),
+                likely_tests: Vec::new(),
+                likely_test_lineages: Vec::new(),
+                evidence: vec!["Curated in test.".to_string()],
+                risk_hint: None,
+                decode_lenses: vec![ConceptDecodeLens::Validation],
+                scope: ConceptScope::Session,
+                provenance: ConceptProvenance {
+                    origin: "test".to_string(),
+                    kind: "curated".to_string(),
+                    task_id: Some("task:beta".to_string()),
+                },
+                publication: None,
+            },
+        },
+    ]);
+
+    index.apply_lineage_events(&[LineageEvent {
+        meta: EventMeta {
+            id: EventId::new("lineage:event:rename"),
+            ts: 11,
+            actor: EventActor::System,
+            correlation: None,
+            causation: Some(EventId::new("change-set:rename")),
+        },
+        lineage: alpha_lineage.clone(),
+        kind: LineageEventKind::Updated,
+        before: vec![alpha.clone()],
+        after: vec![alpha_renamed.clone()],
+        confidence: 1.0,
+        evidence: Vec::new(),
+    }]);
+
+    let alpha_packet = index
+        .concept_by_handle("concept://alpha")
+        .expect("alpha concept should still resolve");
+    let beta_packet = index
+        .concept_by_handle("concept://beta")
+        .expect("beta concept should still resolve");
+    assert_eq!(alpha_packet.core_members, vec![alpha_renamed.clone()]);
+    assert_eq!(beta_packet.core_members, vec![beta.clone()]);
+
+    let outcome = OutcomeEvent {
+        meta: EventMeta {
+            id: EventId::new("outcome:event:beta"),
+            ts: 12,
+            actor: EventActor::Agent,
+            correlation: Some(TaskId::new("task:beta-validate")),
+            causation: None,
+        },
+        kind: OutcomeKind::TestRan,
+        result: OutcomeResult::Success,
+        summary: "Validated beta.".to_string(),
+        anchors: vec![AnchorRef::Node(beta.clone())],
+        evidence: vec![OutcomeEvidence::Test {
+            name: "beta validation".to_string(),
+            passed: true,
+        }],
+        metadata: serde_json::Value::Null,
+    };
+    index.apply_outcome_event(&outcome, |node| match node {
+        current if current == &alpha_renamed => Some(alpha_lineage.clone()),
+        current if current == &beta => Some(beta_lineage.clone()),
+        _ => None,
+    });
+
+    let alpha_after_validation = index
+        .concept_by_handle("concept://alpha")
+        .expect("alpha concept should still resolve");
+    let beta_after_validation = index
+        .concept_by_handle("concept://beta")
+        .expect("beta concept should still resolve");
+    assert_eq!(alpha_after_validation.core_members, vec![alpha_renamed]);
+    assert_eq!(beta_after_validation.core_members, vec![beta]);
+}
+
+#[test]
 fn concept_updates_replay_from_typed_patch_payload() {
     let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
     let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
