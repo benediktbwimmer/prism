@@ -835,6 +835,14 @@ impl Prism {
             .replace_curated_concepts(concepts);
     }
 
+    pub fn curated_concepts_snapshot(&self) -> Vec<ConceptPacket> {
+        self.projections
+            .read()
+            .expect("projection lock poisoned")
+            .curated_concepts()
+            .to_vec()
+    }
+
     pub fn upsert_curated_concept(&self, concept: ConceptPacket) {
         self.projections
             .write()
@@ -861,6 +869,14 @@ impl Prism {
             .write()
             .expect("projection lock poisoned")
             .replace_concept_relations(relations);
+    }
+
+    pub fn concept_relations_snapshot(&self) -> Vec<ConceptRelation> {
+        self.projections
+            .read()
+            .expect("projection lock poisoned")
+            .concept_relations()
+            .to_vec()
     }
 
     pub fn upsert_concept_relation(&self, relation: ConceptRelation) {

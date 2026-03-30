@@ -36,6 +36,7 @@ use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorH
 use crate::memory_events::{
     append_repo_memory_event, filter_memory_events, load_repo_memory_events,
 };
+use crate::prism_doc::{sync_repo_prism_doc, PrismDocSyncResult};
 use crate::published_knowledge::{
     validate_repo_concept_event, validate_repo_concept_relation_event,
     validate_repo_contract_event, validate_repo_memory_event,
@@ -282,6 +283,13 @@ impl WorkspaceSession {
             .read()
             .expect("workspace prism lock poisoned")
             .clone()
+    }
+
+    pub fn sync_prism_doc(&self) -> Result<PrismDocSyncResult> {
+        let prism = self.prism_arc();
+        let concepts = prism.curated_concepts_snapshot();
+        let relations = prism.concept_relations_snapshot();
+        sync_repo_prism_doc(&self.root, &concepts, &relations)
     }
 
     pub fn refresh_fs(&self) -> Result<Vec<ObservedChangeSet>> {
@@ -738,7 +746,8 @@ impl WorkspaceSession {
             .refresh_lock
             .lock()
             .expect("workspace refresh lock poisoned");
-        if event.concept.scope == prism_projections::ConceptScope::Repo {
+        let should_sync_prism_doc = event.concept.scope == prism_projections::ConceptScope::Repo;
+        if should_sync_prism_doc {
             validate_repo_concept_event(&event)?;
             append_repo_concept_event(&self.root, &event)?;
         }
@@ -754,6 +763,9 @@ impl WorkspaceSession {
                     .expect("projection target store lock poisoned")
                     .upsert_projection_concept(&concept)?;
             }
+        }
+        if should_sync_prism_doc {
+            self.sync_prism_doc()?;
         }
         Ok(())
     }
@@ -779,7 +791,8 @@ impl WorkspaceSession {
             .refresh_lock
             .lock()
             .expect("workspace refresh lock poisoned");
-        if event.relation.scope == prism_projections::ConceptScope::Repo {
+        let should_sync_prism_doc = event.relation.scope == prism_projections::ConceptScope::Repo;
+        if should_sync_prism_doc {
             validate_repo_concept_relation_event(&event)?;
             append_repo_concept_relation_event(&self.root, &event)?;
         }
@@ -807,6 +820,9 @@ impl WorkspaceSession {
                     .expect("projection target store lock poisoned")
                     .upsert_projection_concept_relation(&relation)?;
             }
+        }
+        if should_sync_prism_doc {
+            self.sync_prism_doc()?;
         }
         Ok(())
     }

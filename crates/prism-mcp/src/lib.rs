@@ -48,6 +48,7 @@ mod query_errors;
 mod query_helpers;
 mod query_log;
 mod query_runtime;
+mod query_typecheck;
 mod query_types;
 mod query_view_after_edit;
 mod query_view_command_memory;

@@ -26,7 +26,8 @@ use prism_memory::{
 use prism_projections::ProjectionSnapshot;
 use prism_query::{
     ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptPacket,
-    ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptScope,
+    ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptRelation,
+    ConceptRelationEvent, ConceptRelationEventAction, ConceptRelationKind, ConceptScope,
     ContractCompatibility, ContractEvent, ContractEventAction, ContractGuarantee, ContractKind,
     ContractPacket, ContractStatus, ContractTarget,
 };
@@ -35,7 +36,7 @@ use serde_json::json;
 
 use super::{
     hydrate_workspace_session_with_options, index_workspace, index_workspace_session,
-    index_workspace_session_with_curator, index_workspace_session_with_options,
+    index_workspace_session_with_curator, index_workspace_session_with_options, PrismDocSyncStatus,
     SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
     ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
 };
@@ -1323,6 +1324,227 @@ fn repo_concept_event_patch_trace_round_trips_through_jsonl() {
         Some("Updated alpha concept with cleared risk guidance.")
     );
     assert_eq!(patch.risk_hint, None);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_concept_events_auto_sync_prism_doc() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { beta(); gamma(); }\npub fn beta() {}\npub fn gamma() {}\n",
+    )
+    .unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+    let beta = session
+        .prism()
+        .symbol("beta")
+        .into_iter()
+        .next()
+        .expect("beta should be indexed")
+        .id()
+        .clone();
+    let gamma = session
+        .prism()
+        .symbol("gamma")
+        .into_iter()
+        .next()
+        .expect("gamma should be indexed")
+        .id()
+        .clone();
+
+    session
+        .append_concept_event(ConceptEvent {
+            id: "concept-event:repo-prism-doc".to_string(),
+            recorded_at: 31,
+            task_id: Some("task:repo-prism-doc".to_string()),
+            action: ConceptEventAction::Promote,
+            patch: None,
+            concept: ConceptPacket {
+                handle: "concept://alpha_flow".to_string(),
+                canonical_name: "alpha_flow".to_string(),
+                summary: "Explains how alpha delegates work into beta.".to_string(),
+                aliases: vec!["alpha flow".to_string()],
+                confidence: 0.92,
+                core_members: vec![alpha.clone(), beta.clone()],
+                core_member_lineages: Vec::new(),
+                supporting_members: vec![gamma],
+                supporting_member_lineages: Vec::new(),
+                likely_tests: vec![beta],
+                likely_test_lineages: Vec::new(),
+                evidence: vec!["Promoted from repo curation.".to_string()],
+                risk_hint: Some("Touch beta when changing alpha.".to_string()),
+                decode_lenses: vec![ConceptDecodeLens::Open, ConceptDecodeLens::Workset],
+                scope: ConceptScope::Repo,
+                provenance: ConceptProvenance {
+                    origin: "manual".to_string(),
+                    kind: "manual_concept".to_string(),
+                    task_id: Some("task:repo-prism-doc".to_string()),
+                },
+                publication: Some(ConceptPublication {
+                    published_at: 31,
+                    last_reviewed_at: Some(31),
+                    status: ConceptPublicationStatus::Active,
+                    supersedes: Vec::new(),
+                    retired_at: None,
+                    retirement_reason: None,
+                }),
+            },
+        })
+        .unwrap();
+
+    let prism_doc = fs::read_to_string(root.join("PRISM.md")).unwrap();
+    assert!(prism_doc.contains("# PRISM"));
+    assert!(prism_doc.contains("- Active repo concepts: 1"));
+    assert!(prism_doc.contains("`alpha_flow` (`concept://alpha_flow`)"));
+    assert!(prism_doc.contains("Explains how alpha delegates work into beta."));
+    assert!(prism_doc.contains("### Core Members"));
+    assert!(prism_doc.contains("demo::alpha"));
+    assert!(prism_doc.contains("### Supporting Members"));
+    assert!(prism_doc.contains("demo::gamma"));
+    assert!(prism_doc.contains("### Risk Hint"));
+
+    let sync = session.sync_prism_doc().unwrap();
+    assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_concept_relations_auto_sync_prism_doc() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { beta(); gamma(); }\npub fn beta() {}\npub fn gamma() {}\n",
+    )
+    .unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+    let beta = session
+        .prism()
+        .symbol("beta")
+        .into_iter()
+        .next()
+        .expect("beta should be indexed")
+        .id()
+        .clone();
+    let gamma = session
+        .prism()
+        .symbol("gamma")
+        .into_iter()
+        .next()
+        .expect("gamma should be indexed")
+        .id()
+        .clone();
+
+    for (handle, canonical_name, members) in [
+        (
+            "concept://alpha_flow",
+            "alpha_flow",
+            vec![alpha, beta.clone()],
+        ),
+        ("concept://beta_system", "beta_system", vec![beta, gamma]),
+    ] {
+        session
+            .append_concept_event(ConceptEvent {
+                id: format!("concept-event:{canonical_name}"),
+                recorded_at: 37,
+                task_id: Some("task:repo-prism-relations".to_string()),
+                action: ConceptEventAction::Promote,
+                patch: None,
+                concept: ConceptPacket {
+                    handle: handle.to_string(),
+                    canonical_name: canonical_name.to_string(),
+                    summary: format!("Published concept for {canonical_name}."),
+                    aliases: Vec::new(),
+                    confidence: 0.9,
+                    core_members: members,
+                    core_member_lineages: Vec::new(),
+                    supporting_members: Vec::new(),
+                    supporting_member_lineages: Vec::new(),
+                    likely_tests: Vec::new(),
+                    likely_test_lineages: Vec::new(),
+                    evidence: vec![format!("Published concept for {canonical_name}.")],
+                    risk_hint: None,
+                    decode_lenses: vec![ConceptDecodeLens::Open],
+                    scope: ConceptScope::Repo,
+                    provenance: ConceptProvenance {
+                        origin: "manual".to_string(),
+                        kind: "manual_concept".to_string(),
+                        task_id: Some("task:repo-prism-relations".to_string()),
+                    },
+                    publication: Some(ConceptPublication {
+                        published_at: 37,
+                        last_reviewed_at: Some(37),
+                        status: ConceptPublicationStatus::Active,
+                        supersedes: Vec::new(),
+                        retired_at: None,
+                        retirement_reason: None,
+                    }),
+                },
+            })
+            .unwrap();
+    }
+
+    session
+        .append_concept_relation_event(ConceptRelationEvent {
+            id: "concept-relation:alpha-beta".to_string(),
+            recorded_at: 41,
+            task_id: Some("task:repo-prism-relations".to_string()),
+            action: ConceptRelationEventAction::Upsert,
+            relation: ConceptRelation {
+                source_handle: "concept://alpha_flow".to_string(),
+                target_handle: "concept://beta_system".to_string(),
+                kind: ConceptRelationKind::DependsOn,
+                confidence: 0.88,
+                evidence: vec!["Observed through repo curation.".to_string()],
+                scope: ConceptScope::Repo,
+                provenance: ConceptProvenance {
+                    origin: "manual".to_string(),
+                    kind: "manual_concept_relation".to_string(),
+                    task_id: Some("task:repo-prism-relations".to_string()),
+                },
+            },
+        })
+        .unwrap();
+
+    let prism_doc = fs::read_to_string(root.join("PRISM.md")).unwrap();
+    assert!(prism_doc.contains("- Active repo concepts: 2"));
+    assert!(prism_doc.contains("- Active repo relations: 1"));
+    assert!(prism_doc.contains("depends on: `beta_system` (`concept://beta_system`)"));
+
+    let sync = session.sync_prism_doc().unwrap();
+    assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);
 
     let _ = fs::remove_dir_all(root);
 }

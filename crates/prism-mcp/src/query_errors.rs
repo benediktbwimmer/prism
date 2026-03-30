@@ -215,6 +215,48 @@ pub(crate) fn result_decode_error(error: anyhow::Error, raw_result: &str) -> any
     .into()
 }
 
+pub(crate) fn static_typecheck_error(
+    detail: impl Into<String>,
+    attempted_mode: &'static str,
+    line: usize,
+    column: usize,
+    extra_data: Value,
+) -> anyhow::Error {
+    let detail = detail.into();
+    let attempted_label = attempted_mode_label(attempted_mode);
+    let next_action = extra_data["nextAction"]
+        .as_str()
+        .unwrap_or(
+            "Fix the reported PRISM query API usage and retry. Check `prism://api-reference` for the exact surface shape.",
+        )
+        .to_string();
+    let mut data = json!({
+        "code": "query_typecheck_failed",
+        "category": "typecheck",
+        "error": detail,
+        "nextAction": next_action,
+        "attemptedMode": attempted_mode,
+        "attemptedModeLabel": attempted_label,
+        "examples": valid_query_examples(),
+    });
+    if let Some(fields) = data.as_object_mut() {
+        if let Some(extra_fields) = extra_data.as_object() {
+            for (key, value) in extra_fields {
+                fields.insert(key.clone(), value.clone());
+            }
+        }
+    }
+    attach_location(&mut data, &SnippetLocation { line, column });
+    QueryExecutionError {
+        summary: "prism_query typecheck failed",
+        message: format!(
+            "prism_query typecheck failed while interpreting the snippet as {attempted_label} at user snippet line {line}, column {column}: {detail}\nHint: {next_action}"
+        ),
+        data,
+    }
+    .into()
+}
+
 pub(crate) fn is_query_parse_error(error: &anyhow::Error) -> bool {
     query_execution_error(error).and_then(|error| error.data()["code"].as_str())
         == Some("query_parse_failed")
@@ -474,27 +516,68 @@ fn extract_prism_api_path(value: &str) -> Option<String> {
         .map(|matched| matched.as_str().to_string())
 }
 
-fn closest_prism_api_path(path: &str) -> Option<String> {
-    let candidates = if path.starts_with("prism.runtime.") {
+pub(crate) fn closest_prism_api_path(path: &str) -> Option<String> {
+    let candidates = known_prism_api_paths(path);
+    let normalized = normalize_api_path(path);
+    let mut best: Option<(&str, usize)> = None;
+    for candidate in candidates {
+        let distance = levenshtein(&normalized, &normalize_api_path(candidate));
+        match best {
+            Some((_, best_distance)) if distance >= best_distance => {}
+            _ => best = Some((candidate, distance)),
+        }
+    }
+    let (candidate, distance) = best?;
+    let threshold = normalized.len().max(6) / 3;
+    (distance <= threshold.max(2)).then(|| candidate.to_string())
+}
+
+pub(crate) fn is_known_prism_api_path(path: &str) -> bool {
+    known_prism_api_paths(path).contains(&path)
+}
+
+pub(crate) fn suggest_api_token(value: &str, candidates: &[&str]) -> Option<String> {
+    let normalized_value = normalize_api_path(value);
+    let mut best: Option<(&str, usize)> = None;
+    for candidate in candidates {
+        let distance = levenshtein(&normalized_value, &normalize_api_path(candidate));
+        match best {
+            Some((_, best_distance)) if distance >= best_distance => {}
+            _ => best = Some((candidate, distance)),
+        }
+    }
+    let (candidate, distance) = best?;
+    let threshold = normalized_value.len().max(6) / 3;
+    (distance <= threshold.max(2)).then(|| candidate.to_string())
+}
+
+fn known_prism_api_paths(path: &str) -> &'static [&'static str] {
+    if path.starts_with("prism.runtime.") {
         &[
             "prism.runtime.status",
             "prism.runtime.logs",
             "prism.runtime.timeline",
-        ][..]
+        ]
     } else if path.starts_with("prism.memory.") {
         &[
             "prism.memory.recall",
             "prism.memory.outcomes",
             "prism.memory.events",
-        ][..]
+        ]
     } else if path.starts_with("prism.connection.") {
-        &["prism.connection.info"][..]
+        &["prism.connection.info"]
     } else if path.starts_with("prism.curator.") {
         &[
             "prism.curator.jobs",
             "prism.curator.proposals",
             "prism.curator.job",
-        ][..]
+        ]
+    } else if path.starts_with("prism.file(") {
+        &[
+            "prism.file(path)",
+            "prism.file(path).read",
+            "prism.file(path).around",
+        ]
     } else {
         &[
             "prism.symbol",
@@ -593,20 +676,8 @@ fn closest_prism_api_path(path: &str) -> Option<String> {
             "prism.slowQueries",
             "prism.queryTrace",
             "prism.diagnostics",
-        ][..]
-    };
-    let normalized = normalize_api_path(path);
-    let mut best: Option<(&str, usize)> = None;
-    for candidate in candidates {
-        let distance = levenshtein(&normalized, &normalize_api_path(candidate));
-        match best {
-            Some((_, best_distance)) if distance >= best_distance => {}
-            _ => best = Some((candidate, distance)),
-        }
+        ]
     }
-    let (candidate, distance) = best?;
-    let threshold = normalized.len().max(6) / 3;
-    (distance <= threshold.max(2)).then(|| candidate.to_string())
 }
 
 fn normalize_api_path(value: &str) -> String {

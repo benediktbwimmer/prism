@@ -18,6 +18,10 @@ pub enum Command {
         #[command(subcommand)]
         command: McpCommand,
     },
+    Docs {
+        #[command(subcommand)]
+        command: DocsCommand,
+    },
     Entrypoints,
     Symbol {
         name: String,
@@ -147,6 +151,11 @@ pub enum TaskCommand {
 }
 
 #[derive(Subcommand)]
+pub enum DocsCommand {
+    Generate,
+}
+
+#[derive(Subcommand)]
 pub enum MemoryCommand {
     Recall {
         name: String,
@@ -194,7 +203,7 @@ pub enum MemoryCommand {
 mod tests {
     use clap::Parser;
 
-    use super::{Cli, Command, McpCommand};
+    use super::{Cli, Command, DocsCommand, McpCommand};
 
     #[test]
     fn mcp_restart_preserves_bridges_by_default() {
@@ -273,6 +282,17 @@ mod tests {
         match cli.command {
             Command::Mcp {
                 command: McpCommand::Endpoint,
+            } => {}
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn docs_generate_parses() {
+        let cli = Cli::parse_from(["prism", "docs", "generate"]);
+        match cli.command {
+            Command::Docs {
+                command: DocsCommand::Generate,
             } => {}
             _ => panic!("unexpected command"),
         }

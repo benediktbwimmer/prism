@@ -11,6 +11,7 @@ mod memory_events;
 mod memory_refresh;
 mod parse_pipeline;
 mod patch_outcomes;
+mod prism_doc;
 mod published_knowledge;
 mod published_plans;
 mod reanchor;
@@ -34,6 +35,7 @@ use session_bootstrap::hydrate_workspace_session_with_options as bootstrap_works
 
 pub(crate) use indexer::PendingFileParse;
 pub use indexer::WorkspaceIndexer;
+pub use prism_doc::{PrismDocSyncResult, PrismDocSyncStatus};
 pub use session::{
     CoordinationPlanState, FsRefreshStatus, WorkspaceFsRefreshOutcome, WorkspaceSession,
     WorkspaceSnapshotRevisions,

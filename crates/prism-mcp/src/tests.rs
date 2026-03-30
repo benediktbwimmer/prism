@@ -5220,6 +5220,33 @@ fn compact_open_rejects_unsupported_exact_path_modes() {
 }
 
 #[test]
+fn compact_open_rejects_prism_resource_uris_as_exact_paths() {
+    let root = temp_workspace();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let error = host
+        .compact_open(
+            test_session(&host),
+            PrismOpenArgs {
+                handle: None,
+                path: Some("prism://session".to_string()),
+                mode: Some(PrismOpenModeInput::Raw),
+                line: None,
+                before_lines: None,
+                after_lines: None,
+                max_chars: None,
+            },
+        )
+        .expect_err("resource URIs should not be treated as workspace file paths");
+
+    assert!(error
+        .to_string()
+        .contains("PRISM resource URI, not a workspace file path"));
+    assert!(error.to_string().contains("MCP resource surface"));
+}
+
+#[test]
 fn compact_workset_for_text_fragment_handles_surfaces_related_slices() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("benchmarks/scripts")).unwrap();
@@ -10014,7 +10041,7 @@ return prism.seach("alpha");
         )
         .expect_err("query should fail");
     let error = error.downcast::<crate::QueryExecutionError>().unwrap();
-    assert_eq!(error.data()["code"], "query_runtime_failed");
+    assert_eq!(error.data()["code"], "query_typecheck_failed");
     assert!(error.data()["nextAction"]
         .as_str()
         .is_some_and(|value| value.contains("prism.search")));
@@ -10038,12 +10065,11 @@ return prism.search("alpha", { limt: 1 });
         )
         .expect_err("query should fail");
     let error = error.downcast::<crate::QueryExecutionError>().unwrap();
-    assert_eq!(error.data()["code"], "query_invalid_argument");
+    assert_eq!(error.data()["code"], "query_typecheck_failed");
     assert_eq!(error.data()["invalidKeys"][0], "limt");
     assert_eq!(error.data()["didYouMean"]["limt"], "limit");
-    assert!(error
-        .to_string()
-        .contains("unknown key `limt` in `options`"));
+    assert!(error.to_string().contains("unknown key `limt`"));
+    assert!(error.to_string().contains("prism.search"));
 }
 
 #[test]
@@ -10065,11 +10091,11 @@ return prism.afterEdit({ taret: [] });
         )
         .expect_err("query should fail");
     let error = error.downcast::<crate::QueryExecutionError>().unwrap();
-    assert_eq!(error.data()["code"], "query_invalid_argument");
-    assert_eq!(error.data()["operation"], "afterEdit");
-    assert_eq!(error.data()["invalidField"], "taret");
-    assert_eq!(error.data()["didYouMean"], "target");
-    assert!(error.to_string().contains("unknown field"));
+    assert_eq!(error.data()["code"], "query_typecheck_failed");
+    assert_eq!(error.data()["method"], "prism.afterEdit");
+    assert_eq!(error.data()["invalidKeys"][0], "taret");
+    assert_eq!(error.data()["didYouMean"]["taret"], "target");
+    assert!(error.to_string().contains("unknown key"));
     assert!(error.to_string().contains("taret"));
 }
 

@@ -24,6 +24,9 @@ pub(crate) fn same_workspace_file(
 
 pub(crate) fn workspace_scoped_path(workspace_root: Option<&Path>, path: &str) -> String {
     let path = normalize_path(path);
+    if path.starts_with("prism://") {
+        return path;
+    }
     if is_absolute_like(&path) {
         return path;
     }

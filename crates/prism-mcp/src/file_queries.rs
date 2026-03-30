@@ -75,6 +75,11 @@ fn resolve_workspace_path(host: &QueryHost, path: &str) -> Result<PathBuf> {
     if trimmed.is_empty() {
         return Err(anyhow!("path must be a non-empty string"));
     }
+    if trimmed.starts_with("prism://") {
+        return Err(anyhow!(
+            "`{trimmed}` is a PRISM resource URI, not a workspace file path. Read it through the MCP resource surface instead."
+        ));
+    }
 
     let candidate = if Path::new(trimmed).is_absolute() {
         PathBuf::from(trimmed)

@@ -1,12 +1,16 @@
 use anyhow::Result;
-use prism_core::{index_workspace_session, ValidationFeedbackRecord, WorkspaceSession};
+use prism_core::{
+    index_workspace_session, PrismDocSyncStatus, ValidationFeedbackRecord, WorkspaceSession,
+};
 use prism_ir::{AnchorRef, EventActor, EventMeta, TaskId};
 use prism_memory::{
     MemoryEventQuery, MemoryId, MemoryModule, OutcomeEvent, OutcomeEvidence, OutcomeKind,
     OutcomeResult,
 };
 
-use crate::cli::{Cli, Command, FeedbackCommand, MemoryCommand, OutcomeCommand, TaskCommand};
+use crate::cli::{
+    Cli, Command, DocsCommand, FeedbackCommand, MemoryCommand, OutcomeCommand, TaskCommand,
+};
 use crate::display::{
     print_lineage, print_memory_event, print_relation_section, print_relations,
     print_scored_memory, print_symbol, print_validation_feedback,
@@ -35,6 +39,7 @@ pub fn run(cli: Cli) -> Result<()> {
 
     match command {
         Command::Mcp { .. } => unreachable!("handled above"),
+        Command::Docs { command } => handle_docs_command(&session, command)?,
         Command::Entrypoints => {
             for symbol in prism.entrypoints() {
                 println!("{}", symbol.signature());
@@ -224,6 +229,19 @@ pub fn run(cli: Cli) -> Result<()> {
         Command::Outcome { command } => handle_outcome_command(&session, prism.as_ref(), command)?,
     }
 
+    Ok(())
+}
+
+fn handle_docs_command(session: &WorkspaceSession, command: DocsCommand) -> Result<()> {
+    match command {
+        DocsCommand::Generate => {
+            let sync = session.sync_prism_doc()?;
+            match sync.status {
+                PrismDocSyncStatus::Updated => println!("updated {}", sync.path.display()),
+                PrismDocSyncStatus::Unchanged => println!("unchanged {}", sync.path.display()),
+            }
+        }
+    }
     Ok(())
 }
 

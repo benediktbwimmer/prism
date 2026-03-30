@@ -61,7 +61,8 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("truncation?: ConceptPacketTruncationView;"));
     assert!(docs.contains("`prism.concepts(...)` defaults to `summary`"));
     assert!(docs.contains("`prism.decodeConcept(...)` defaults to `standard`"));
-    assert!(docs.contains("includes repair data such as `didYouMean`"));
+    assert!(docs.contains("`query_typecheck_failed`"));
+    assert!(docs.contains("repair data such as `didYouMean`"));
     assert!(docs.contains("bindingMetadata?: {"));
     assert!(docs.contains("discovery(target: QueryTarget): DiscoveryBundleView | null;"));
     assert!(docs

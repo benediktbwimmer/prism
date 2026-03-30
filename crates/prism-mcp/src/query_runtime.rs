@@ -23,6 +23,7 @@ use crate::file_queries::{
     file_around, file_read, DEFAULT_FILE_AROUND_CONTEXT_LINES, DEFAULT_FILE_AROUND_MAX_CHARS,
     DEFAULT_FILE_READ_MAX_CHARS,
 };
+use crate::query_typecheck::StaticCheckMode;
 use crate::runtime_views::{connection_info, runtime_logs, runtime_status, runtime_timeline};
 use crate::text_search::search_text;
 use crate::{
@@ -79,6 +80,13 @@ impl TsSnippetMode {
         match self {
             TsSnippetMode::StatementBody => "statement_body",
             TsSnippetMode::ImplicitExpression => "implicit_expression",
+        }
+    }
+
+    fn static_check_mode(self) -> StaticCheckMode {
+        match self {
+            TsSnippetMode::StatementBody => StaticCheckMode::StatementBody,
+            TsSnippetMode::ImplicitExpression => StaticCheckMode::ImplicitExpression,
         }
     }
 }
@@ -251,6 +259,9 @@ impl QueryHost {
             ) {
                 Ok(attempt) => attempt,
                 Err(statement_error) => {
+                    if !is_query_parse_error(&statement_error) {
+                        return Err(statement_error);
+                    }
                     match self.execute_typescript_attempt(
                         Arc::clone(&session),
                         code,
@@ -354,6 +365,25 @@ impl QueryHost {
             &format!("typescript.{}.prepare", mode.code()),
             &json!({ "mode": mode.code() }),
             prepared_started.elapsed(),
+            true,
+            None,
+        );
+        let typecheck_started = Instant::now();
+        if let Err(error) = crate::query_typecheck::typecheck_query(code, mode.static_check_mode())
+        {
+            query_run.record_phase(
+                &format!("typescript.{}.typecheck", mode.code()),
+                &json!({ "mode": mode.code() }),
+                typecheck_started.elapsed(),
+                false,
+                Some(error.to_string()),
+            );
+            return Err(error);
+        }
+        query_run.record_phase(
+            &format!("typescript.{}.typecheck", mode.code()),
+            &json!({ "mode": mode.code() }),
+            typecheck_started.elapsed(),
             true,
             None,
         );

@@ -75,6 +75,7 @@ Diagnostics are how the server tells you a query was ambiguous, truncated, or ca
 Tool-level failures from `prism_query` now separate the main query failure classes:
 
 - `query_parse_failed` for TypeScript parse/transpile errors
+- `query_typecheck_failed` for pre-execution PRISM API shape errors on the stable `prism.*` surface
 - `query_runtime_failed` for runtime exceptions from the snippet itself
 - `query_result_not_serializable` when the final returned value cannot be JSON-serialized
 - `query_result_decode_failed` when PRISM itself fails to decode the JS result envelope
@@ -82,8 +83,9 @@ Tool-level failures from `prism_query` now separate the main query failure class
 When PRISM can map a failure back to the submitted snippet, the MCP error payload includes
 `line`, `column`, and `nextAction`.
 
-For stable `prism.*` helpers, PRISM now also rejects misspelled option keys before host dispatch
-and includes repair data such as `didYouMean` when it can confidently suggest the intended key.
+For stable `prism.*` helpers, PRISM now preflights common API mistakes before execution,
+including misspelled helpers, wrong record shapes, and misspelled option keys, and includes
+repair data such as `didYouMean` when it can confidently suggest the intended key.
 
 ## Type surface
 
