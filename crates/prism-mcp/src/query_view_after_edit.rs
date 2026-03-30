@@ -24,7 +24,7 @@ const RISK_LIMIT: usize = 4;
 const PATH_TARGET_LIMIT: usize = 16;
 
 #[derive(Debug, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct AfterEditInput {
     task_id: Option<String>,
     target: Option<SymbolTargetArgs>,

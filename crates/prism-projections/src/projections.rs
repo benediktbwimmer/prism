@@ -18,8 +18,8 @@ use crate::contracts::{
 use crate::types::{
     CoChangeDelta, CoChangeRecord, ConceptEvent, ConceptHealth, ConceptHealthSignals,
     ConceptHealthStatus, ConceptPacket, ConceptRelation, ConceptResolution, ConceptScope,
-    ContractEvent, ContractPacket, ContractResolution, ContractStatus, ProjectionSnapshot,
-    ValidationCheck, ValidationDelta,
+    ContractEvent, ContractHealth, ContractHealthSignals, ContractHealthStatus, ContractPacket,
+    ContractResolution, ContractStatus, ProjectionSnapshot, ValidationCheck, ValidationDelta,
 };
 
 pub const MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE: usize = 32;
@@ -512,6 +512,11 @@ impl ProjectionIndex {
         contract_by_handle(&self.contract_packets, handle)
     }
 
+    pub fn contract_health(&self, handle: &str) -> Option<ContractHealth> {
+        let packet = contract_by_handle(&self.contract_packets, handle)?;
+        Some(self.compute_contract_health(&packet))
+    }
+
     pub fn contract_packets(&self) -> &[ContractPacket] {
         &self.contract_packets
     }
@@ -687,6 +692,110 @@ impl ProjectionIndex {
         }
     }
 
+    fn compute_contract_health(&self, packet: &ContractPacket) -> ContractHealth {
+        let guarantee_count = packet.guarantees.len();
+        let validation_count = packet.validations.len();
+        let consumer_count = packet.consumers.len();
+        let validation_coverage_ratio = if guarantee_count == 0 {
+            0.0
+        } else {
+            (validation_count as f32 / guarantee_count as f32).clamp(0.0, 1.0)
+        };
+        let guarantees_with_evidence = packet
+            .guarantees
+            .iter()
+            .filter(|guarantee| !guarantee.evidence_refs.is_empty())
+            .count();
+        let guarantee_evidence_ratio = if guarantee_count == 0 {
+            0.0
+        } else {
+            (guarantees_with_evidence as f32 / guarantee_count as f32).clamp(0.0, 1.0)
+        };
+        let stale_validation_links = packet.validations.iter().any(|validation| {
+            !validation.anchors.is_empty()
+                && validation
+                    .anchors
+                    .iter()
+                    .all(|anchor| !self.contract_anchor_is_live(anchor))
+        });
+        let superseded_by = self.active_contract_superseders(&packet.handle);
+
+        let mut reasons = Vec::new();
+        if !superseded_by.is_empty() {
+            reasons.push(format!(
+                "Superseded by active contract(s): {}.",
+                superseded_by.join(", ")
+            ));
+        }
+        if packet.status == ContractStatus::Retired {
+            reasons.push(
+                "Contract is retired and should no longer be treated as a live promise."
+                    .to_string(),
+            );
+        }
+        if validation_count == 0 {
+            reasons.push("Contract has no explicit validation links yet.".to_string());
+        } else if validation_coverage_ratio < 1.0 {
+            reasons.push(format!(
+                "Only {} validation link(s) cover {} guarantee clause(s).",
+                validation_count, guarantee_count
+            ));
+        }
+        if guarantee_evidence_ratio < 1.0 {
+            reasons.push(format!(
+                "{} of {} guarantee clause(s) have clause-level evidence refs.",
+                guarantees_with_evidence, guarantee_count
+            ));
+        }
+        if stale_validation_links {
+            reasons.push(
+                "At least one contract validation anchor no longer resolves cleanly.".to_string(),
+            );
+        }
+        if reasons.is_empty() {
+            reasons.push(
+                "Contract guarantees, validations, and publication state look healthy.".to_string(),
+            );
+        }
+
+        let signals = ContractHealthSignals {
+            guarantee_count,
+            validation_count,
+            consumer_count,
+            validation_coverage_ratio,
+            guarantee_evidence_ratio,
+            stale_validation_links,
+        };
+        let score = (0.45 * validation_coverage_ratio
+            + 0.30 * guarantee_evidence_ratio
+            + if stale_validation_links { 0.0 } else { 0.15 }
+            + if superseded_by.is_empty() { 0.10 } else { 0.0 })
+        .clamp(0.0, 1.0);
+
+        let status = if packet.status == ContractStatus::Retired {
+            ContractHealthStatus::Retired
+        } else if !superseded_by.is_empty() {
+            ContractHealthStatus::Superseded
+        } else if stale_validation_links || validation_count == 0 {
+            ContractHealthStatus::Stale
+        } else if validation_coverage_ratio < 0.5 || guarantee_evidence_ratio < 0.5 {
+            ContractHealthStatus::Degraded
+        } else if validation_coverage_ratio < 1.0 || guarantee_evidence_ratio < 1.0 {
+            ContractHealthStatus::Watch
+        } else {
+            ContractHealthStatus::Healthy
+        };
+
+        ContractHealth {
+            handle: packet.handle.clone(),
+            status,
+            score,
+            reasons,
+            signals,
+            superseded_by,
+        }
+    }
+
     fn concept_ambiguity_ratio(&self, concept: &ConceptPacket) -> f32 {
         let mut queries = vec![concept.canonical_name.clone()];
         queries.extend(concept.aliases.iter().cloned());
@@ -728,6 +837,37 @@ impl ProjectionIndex {
             .collect::<Vec<_>>();
         handles.sort();
         handles
+    }
+
+    fn active_contract_superseders(&self, handle: &str) -> Vec<String> {
+        let mut handles = self
+            .contract_packets
+            .iter()
+            .filter(|contract| {
+                contract.handle != handle
+                    && contract.status != ContractStatus::Retired
+                    && contract.publication.as_ref().is_some_and(|publication| {
+                        publication.status == crate::ContractPublicationStatus::Active
+                            && publication
+                                .supersedes
+                                .iter()
+                                .any(|candidate| candidate.eq_ignore_ascii_case(handle))
+                    })
+            })
+            .map(|contract| contract.handle.clone())
+            .collect::<Vec<_>>();
+        handles.sort();
+        handles
+    }
+
+    fn contract_anchor_is_live(&self, anchor: &AnchorRef) -> bool {
+        match anchor {
+            AnchorRef::Node(node) => self.node_to_lineage.contains_key(node),
+            AnchorRef::Lineage(lineage) => {
+                self.node_to_lineage.values().any(|value| value == lineage)
+            }
+            AnchorRef::File(_) | AnchorRef::Kind(_) => true,
+        }
     }
 }
 

@@ -111,7 +111,7 @@ fn query_method_capabilities(features: &PrismMcpFeatures) -> Vec<QueryMethodCapa
         .collect()
 }
 
-fn query_method_specs() -> Vec<(
+pub(crate) fn query_method_specs() -> Vec<(
     &'static str,
     &'static str,
     Option<&'static str>,

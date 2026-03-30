@@ -10,11 +10,12 @@ use prism_js::{
     ConceptPublicationStatusView, ConceptPublicationView, ConceptRelationDirectionView,
     ConceptRelationKindView, ConceptRelationView, ConceptResolutionView, ConceptScopeView,
     ConflictView, ContractCompatibilityView, ContractGuaranteeStrengthView, ContractGuaranteeView,
-    ContractKindView, ContractPacketView, ContractResolutionView, ContractStabilityView,
-    ContractStatusView, ContractTargetView, ContractValidationView, CoordinationTaskView,
-    CuratorJobView, CuratorProposalRecordView, CuratorProposalView, DriftCandidateView, EdgeView,
-    MemoryEntryView, MemoryEventView, NodeIdView, PlanAcceptanceCriterionView, PlanBindingView,
-    PlanEdgeView, PlanExecutionOverlayView, PlanGraphView, PlanListEntryView, PlanNodeBlockerView,
+    ContractHealthSignalsView, ContractHealthStatusView, ContractHealthView, ContractKindView,
+    ContractPacketView, ContractResolutionView, ContractStabilityView, ContractStatusView,
+    ContractTargetView, ContractValidationView, CoordinationTaskView, CuratorJobView,
+    CuratorProposalRecordView, CuratorProposalView, DriftCandidateView, EdgeView, MemoryEntryView,
+    MemoryEventView, NodeIdView, PlanAcceptanceCriterionView, PlanBindingView, PlanEdgeView,
+    PlanExecutionOverlayView, PlanGraphView, PlanListEntryView, PlanNodeBlockerView,
     PlanNodeRecommendationView, PlanNodeView, PlanSummaryView, PlanView, PolicyViolationRecordView,
     PolicyViolationView, QueryDiagnostic, ScoredMemoryView, TaskIntentView, TaskRiskView,
     TaskValidationRecipeView, ValidationCheckView, ValidationRecipeView, ValidationRefView,
@@ -25,10 +26,11 @@ use prism_query::{
     ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens, ConceptPacket, ConceptProvenance,
     ConceptPublication, ConceptPublicationStatus, ConceptRelation, ConceptRelationKind,
     ConceptResolution, ConceptScope, ContractCompatibility, ContractGuarantee,
-    ContractGuaranteeStrength, ContractKind, ContractPacket, ContractResolution, ContractStability,
-    ContractStatus, ContractTarget, ContractValidation, DriftCandidate, PlanListEntry,
-    PlanNodeRecommendation, PlanSummary, Prism, TaskIntent, TaskRisk, TaskValidationRecipe,
-    ValidationCheck, ValidationRecipe,
+    ContractGuaranteeStrength, ContractHealth, ContractHealthSignals, ContractHealthStatus,
+    ContractKind, ContractPacket, ContractResolution, ContractStability, ContractStatus,
+    ContractTarget, ContractValidation, DriftCandidate, PlanListEntry, PlanNodeRecommendation,
+    PlanSummary, Prism, TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck,
+    ValidationRecipe,
 };
 use serde_json::Value;
 use std::path::Path;
@@ -532,6 +534,7 @@ pub(crate) fn contract_packet_view(
     packet: ContractPacket,
     resolution: Option<ContractResolution>,
 ) -> ContractPacketView {
+    let health = prism.contract_health_by_handle(&packet.handle);
     ContractPacketView {
         handle: packet.handle,
         name: packet.name,
@@ -559,6 +562,7 @@ pub(crate) fn contract_packet_view(
         compatibility: contract_compatibility_view(packet.compatibility),
         evidence: packet.evidence,
         status: contract_status_view(packet.status),
+        health: health.map(contract_health_view),
         scope: concept_scope_view(packet.scope),
         provenance: concept_provenance_view(packet.provenance),
         publication: packet.publication.map(concept_publication_view),
@@ -614,6 +618,7 @@ fn contract_target_view(
 
 fn contract_guarantee_view(guarantee: ContractGuarantee) -> ContractGuaranteeView {
     ContractGuaranteeView {
+        id: guarantee.id,
         statement: guarantee.statement,
         scope: guarantee.scope,
         strength: guarantee.strength.map(contract_guarantee_strength_view),
@@ -628,6 +633,38 @@ fn contract_guarantee_strength_view(
         ContractGuaranteeStrength::Hard => ContractGuaranteeStrengthView::Hard,
         ContractGuaranteeStrength::Soft => ContractGuaranteeStrengthView::Soft,
         ContractGuaranteeStrength::Conditional => ContractGuaranteeStrengthView::Conditional,
+    }
+}
+
+fn contract_health_view(health: ContractHealth) -> ContractHealthView {
+    ContractHealthView {
+        status: contract_health_status_view(health.status),
+        score: health.score,
+        reasons: health.reasons,
+        signals: contract_health_signals_view(health.signals),
+        superseded_by: health.superseded_by,
+    }
+}
+
+fn contract_health_signals_view(signals: ContractHealthSignals) -> ContractHealthSignalsView {
+    ContractHealthSignalsView {
+        guarantee_count: signals.guarantee_count,
+        validation_count: signals.validation_count,
+        consumer_count: signals.consumer_count,
+        validation_coverage_ratio: signals.validation_coverage_ratio,
+        guarantee_evidence_ratio: signals.guarantee_evidence_ratio,
+        stale_validation_links: signals.stale_validation_links,
+    }
+}
+
+fn contract_health_status_view(status: ContractHealthStatus) -> ContractHealthStatusView {
+    match status {
+        ContractHealthStatus::Healthy => ContractHealthStatusView::Healthy,
+        ContractHealthStatus::Watch => ContractHealthStatusView::Watch,
+        ContractHealthStatus::Degraded => ContractHealthStatusView::Degraded,
+        ContractHealthStatus::Stale => ContractHealthStatusView::Stale,
+        ContractHealthStatus::Superseded => ContractHealthStatusView::Superseded,
+        ContractHealthStatus::Retired => ContractHealthStatusView::Retired,
     }
 }
 

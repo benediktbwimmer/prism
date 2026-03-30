@@ -228,10 +228,13 @@ Guarantees should be explicit, structured, and ideally list-shaped rather than o
 
 A guarantee entry may include:
 
+* id
 * statement
 * scope
 * strength
 * evidenceRefs
+
+Each guarantee clause should have a stable sub-ID so validations, evidence, compatibility notes, and later policies can attach to a specific promise rather than only the contract as a whole.
 
 The first version can represent guarantees as compact structured text objects rather than a formal logic language.
 
@@ -279,6 +282,30 @@ Validation references may include:
 * observed failures that sharpened the boundary
 
 Evidence should remain anchored, inspectable, and separate from the contract summary itself.
+
+## 6.9 Contract Health
+
+Contracts will drift just like concepts do.
+
+The first implementation should include a compact derived health model so contracts do not become elegant but stale prose.
+
+A reasonable first status vocabulary is:
+
+* `healthy`
+* `watch`
+* `degraded`
+* `stale`
+* `superseded`
+* `retired`
+
+The first health signals can stay narrow:
+
+* validation coverage across guarantee clauses
+* clause-level evidence coverage
+* stale validation anchors
+* superseded-by relationships
+
+This does not need a full rule engine in V1. A small derived health view is enough if it keeps contracts inspectable and prompts refresh work before they rot.
 
 ## 7. Change Semantics
 
@@ -501,6 +528,7 @@ Open questions that should be resolved during implementation:
 5. When should a contract split into multiple contracts instead of accreting clauses?
 6. How should contracts interact with lineage drift when symbols move or split?
 7. Which contract surfaces deserve compact tools, and which should stay under `prism_query` first?
+8. When should contract health move from a compact derived view into stronger review or policy gates?
 
 ## 16. Success Criteria
 

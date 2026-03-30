@@ -407,6 +407,7 @@ fn curated_contract_events_resolve_by_handle_and_query() {
                 concept_handles: Vec::new(),
             },
             guarantees: vec![ContractGuarantee {
+                id: "alpha_name_stable".to_string(),
                 statement: "Callers may rely on the alpha function name staying stable."
                     .to_string(),
                 scope: Some("internal callers".to_string()),
@@ -446,6 +447,12 @@ fn curated_contract_events_resolve_by_handle_and_query() {
         .expect("curated contract should resolve");
     assert_eq!(contract.kind, ContractKind::Interface);
     assert_eq!(contract.guarantees.len(), 1);
+    assert_eq!(contract.guarantees[0].id, "alpha_name_stable");
+    let health = index
+        .contract_health("contract://alpha_api")
+        .expect("contract health should resolve");
+    assert_eq!(health.status, crate::ContractHealthStatus::Stale);
+    assert_eq!(health.signals.validation_count, 0);
     assert_eq!(
         index.contracts("alpha contract", 1)[0].handle,
         "contract://alpha_api"

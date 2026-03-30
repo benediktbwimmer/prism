@@ -2787,6 +2787,7 @@ fn contract_mutation_and_contracts_resource_surface_packets() {
                     concept_handles: Some(vec!["concept://runtime_surface".to_string()]),
                 }),
                 guarantees: Some(vec![ContractGuaranteeInput {
+                    id: None,
                     statement:
                         "Internal diagnostics callers can query runtime status without reconstructing daemon state."
                             .to_string(),
@@ -2897,6 +2898,7 @@ fn contract_views_surface_file_anchor_paths_for_round_trip_safety() {
                     concept_handles: None,
                 }),
                 guarantees: Some(vec![ContractGuaranteeInput {
+                    id: None,
                     statement: "Consumers can reason about the anchored file directly from the contract payload.".to_string(),
                     scope: None,
                     strength: Some(ContractGuaranteeStrengthInput::Hard),
@@ -2939,6 +2941,18 @@ fn contract_views_surface_file_anchor_paths_for_round_trip_safety() {
         }
         other => panic!("expected file anchor view, got {other:?}"),
     }
+    assert_eq!(
+        stored.packet.guarantees[0].id,
+        "consumers_can_reason_about_the_anchored_file_directly_from_the_contract_payload"
+    );
+    assert_eq!(
+        stored
+            .packet
+            .health
+            .as_ref()
+            .and_then(|health| Some(&health.status)),
+        Some(&prism_js::ContractHealthStatusView::Degraded)
+    );
 
     let result = host
         .execute(
@@ -2989,6 +3003,7 @@ pub fn inspect_runtime() {}
                 concept_handles: None,
             }),
             guarantees: Some(vec![ContractGuaranteeInput {
+                id: None,
                 statement: "Diagnostics callers can query runtime status.".to_string(),
                 scope: Some("internal".to_string()),
                 strength: Some(ContractGuaranteeStrengthInput::Hard),
@@ -3103,6 +3118,7 @@ pub fn inspect_runtime() {}
                 concept_handles: None,
             }),
             guarantees: Some(vec![ContractGuaranteeInput {
+                id: None,
                 statement: "Diagnostics callers can query runtime status.".to_string(),
                 scope: Some("internal".to_string()),
                 strength: Some(ContractGuaranteeStrengthInput::Hard),
@@ -3232,6 +3248,7 @@ pub fn runtime_status_contract_test() {}
                 concept_handles: None,
             }),
             guarantees: Some(vec![ContractGuaranteeInput {
+                id: None,
                 statement: "Diagnostics callers can query the runtime status entry point."
                     .to_string(),
                 scope: None,
@@ -3335,6 +3352,7 @@ pub fn runtime_status_contract_test() {}
                 concept_handles: None,
             }),
             guarantees: Some(vec![ContractGuaranteeInput {
+                id: None,
                 statement: "Diagnostics callers can query the runtime status entry point."
                     .to_string(),
                 scope: None,
@@ -9982,6 +10000,80 @@ throw new Error("boom");
 }
 
 #[test]
+fn prism_query_misspelled_method_names_suggest_repair() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let error = host
+        .execute(
+            test_session(&host),
+            r#"
+return prism.seach("alpha");
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect_err("query should fail");
+    let error = error.downcast::<crate::QueryExecutionError>().unwrap();
+    assert_eq!(error.data()["code"], "query_runtime_failed");
+    assert!(error.data()["nextAction"]
+        .as_str()
+        .is_some_and(|value| value.contains("prism.search")));
+    assert!(error.data()["nextAction"]
+        .as_str()
+        .is_some_and(|value| value.contains("prism://api-reference")));
+}
+
+#[test]
+fn prism_query_rejects_unknown_option_keys_before_host_dispatch() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let error = host
+        .execute(
+            test_session(&host),
+            r#"
+return prism.search("alpha", { limt: 1 });
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect_err("query should fail");
+    let error = error.downcast::<crate::QueryExecutionError>().unwrap();
+    assert_eq!(error.data()["code"], "query_invalid_argument");
+    assert_eq!(error.data()["invalidKeys"][0], "limt");
+    assert_eq!(error.data()["didYouMean"]["limt"], "limit");
+    assert!(error
+        .to_string()
+        .contains("unknown key `limt` in `options`"));
+}
+
+#[test]
+fn prism_query_dynamic_views_reject_unknown_input_keys() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session_and_limits_and_features(
+        index_workspace_session(&root).unwrap(),
+        QueryLimits::default(),
+        PrismMcpFeatures::full().with_query_view(QueryViewFeatureFlag::AfterEdit, true),
+    );
+
+    let error = host
+        .execute(
+            test_session(&host),
+            r#"
+return prism.afterEdit({ taret: [] });
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect_err("query should fail");
+    let error = error.downcast::<crate::QueryExecutionError>().unwrap();
+    assert_eq!(error.data()["code"], "query_invalid_argument");
+    assert_eq!(error.data()["operation"], "afterEdit");
+    assert_eq!(error.data()["invalidField"], "taret");
+    assert_eq!(error.data()["didYouMean"], "target");
+    assert!(error.to_string().contains("unknown field"));
+    assert!(error.to_string().contains("taret"));
+}
+
+#[test]
 fn prism_query_serialization_failures_have_actionable_hints() {
     let root = temp_workspace();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
@@ -11646,6 +11738,35 @@ fn unknown_host_operations_return_actionable_diagnostics() {
         .as_ref()
         .and_then(|data| data["nextAction"].as_str())
         .is_some_and(|value| value.contains("prism://capabilities")));
+}
+
+#[test]
+fn unknown_host_operations_suggest_closest_known_operation() {
+    let host = host_with_node(demo_node());
+    let execution = QueryExecution::new(
+        host.clone(),
+        test_session(&host),
+        host.current_prism(),
+        host.begin_query_run(
+            test_session(&host).as_ref(),
+            "test",
+            "test",
+            "dispatch misspelled operation",
+        ),
+    );
+
+    execution
+        .dispatch("serach", r#"{}"#)
+        .expect_err("misspelled operation should fail");
+
+    assert_eq!(execution.diagnostics().len(), 1);
+    assert_eq!(
+        execution.diagnostics()[0]
+            .data
+            .as_ref()
+            .and_then(|data| data["didYouMean"].as_str()),
+        Some("search")
+    );
 }
 
 #[test]

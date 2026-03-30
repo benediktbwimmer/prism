@@ -82,6 +82,9 @@ Tool-level failures from `prism_query` now separate the main query failure class
 When PRISM can map a failure back to the submitted snippet, the MCP error payload includes
 `line`, `column`, and `nextAction`.
 
+For stable `prism.*` helpers, PRISM now also rejects misspelled option keys before host dispatch
+and includes repair data such as `didYouMean` when it can confidently suggest the intended key.
+
 ## Type surface
 
 ```ts
@@ -973,16 +976,42 @@ type ContractStabilityView =
 
 type ContractGuaranteeStrengthView = "hard" | "soft" | "conditional";
 
+type ContractHealthStatusView =
+  | "healthy"
+  | "watch"
+  | "degraded"
+  | "stale"
+  | "superseded"
+  | "retired";
+
 type ContractTargetView = {
   anchors: AnchorRefView[];
   conceptHandles: string[];
 };
 
 type ContractGuaranteeView = {
+  id: string;
   statement: string;
   scope?: string;
   strength?: ContractGuaranteeStrengthView;
   evidenceRefs: string[];
+};
+
+type ContractHealthSignalsView = {
+  guaranteeCount: number;
+  validationCount: number;
+  consumerCount: number;
+  validationCoverageRatio: number;
+  guaranteeEvidenceRatio: number;
+  staleValidationLinks: boolean;
+};
+
+type ContractHealthView = {
+  status: ContractHealthStatusView;
+  score: number;
+  reasons: string[];
+  signals: ContractHealthSignalsView;
+  supersededBy: string[];
 };
 
 type ContractValidationView = {
@@ -1019,6 +1048,7 @@ type ContractPacketView = {
   compatibility: ContractCompatibilityView;
   evidence: string[];
   status: ContractStatusView;
+  health?: ContractHealthView;
   scope: ConceptScopeView;
   provenance: ConceptProvenanceView;
   publication?: ConceptPublicationView;

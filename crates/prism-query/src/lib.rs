@@ -56,11 +56,12 @@ pub use crate::types::{
     ConceptPublication, ConceptPublicationStatus, ConceptRelation, ConceptRelationEvent,
     ConceptRelationEventAction, ConceptRelationKind, ConceptScope, ContractCompatibility,
     ContractEvent, ContractEventAction, ContractEventPatch, ContractGuarantee,
-    ContractGuaranteeStrength, ContractKind, ContractPacket, ContractProvenance,
-    ContractPublication, ContractPublicationStatus, ContractResolution, ContractScope,
-    ContractStability, ContractStatus, ContractTarget, ContractValidation, DriftCandidate,
-    PlanListEntry, PlanNodeRecommendation, PlanSummary, QueryLimits, TaskIntent, TaskRisk,
-    TaskValidationRecipe, ValidationCheck, ValidationRecipe,
+    ContractGuaranteeStrength, ContractHealth, ContractHealthSignals, ContractHealthStatus,
+    ContractKind, ContractPacket, ContractProvenance, ContractPublication,
+    ContractPublicationStatus, ContractResolution, ContractScope, ContractStability,
+    ContractStatus, ContractTarget, ContractValidation, DriftCandidate, PlanListEntry,
+    PlanNodeRecommendation, PlanSummary, QueryLimits, TaskIntent, TaskRisk, TaskValidationRecipe,
+    ValidationCheck, ValidationRecipe,
 };
 
 pub struct Prism {
@@ -1028,6 +1029,18 @@ impl Prism {
             .read()
             .expect("projection lock poisoned")
             .contract_by_handle(handle)
+    }
+
+    pub fn contract_health(&self, query: &str) -> Option<ContractHealth> {
+        let handle = self.resolve_contract(query)?.packet.handle;
+        self.contract_health_by_handle(&handle)
+    }
+
+    pub fn contract_health_by_handle(&self, handle: &str) -> Option<ContractHealth> {
+        self.projections
+            .read()
+            .expect("projection lock poisoned")
+            .contract_health(handle)
     }
 
     pub fn concept_health(&self, query: &str) -> Option<ConceptHealth> {

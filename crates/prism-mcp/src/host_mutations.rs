@@ -3264,6 +3264,11 @@ fn convert_contract_guarantees(
                 return Err(anyhow!("contract guarantees require non-empty statements"));
             }
             Ok(ContractGuarantee {
+                id: guarantee
+                    .id
+                    .map(|value| value.trim().to_string())
+                    .filter(|value| !value.is_empty())
+                    .unwrap_or_default(),
                 statement,
                 scope: guarantee
                     .scope
@@ -3274,10 +3279,55 @@ fn convert_contract_guarantees(
             })
         })
         .collect::<Result<Vec<_>>>()?;
+    let guarantees = normalize_contract_guarantees(guarantees);
     if guarantees.is_empty() {
         return Err(anyhow!("contract guarantees cannot be empty"));
     }
     Ok(guarantees)
+}
+
+fn normalize_contract_guarantees(guarantees: Vec<ContractGuarantee>) -> Vec<ContractGuarantee> {
+    let mut seen = std::collections::HashMap::<String, usize>::new();
+    guarantees
+        .into_iter()
+        .map(|mut guarantee| {
+            let base = normalize_contract_guarantee_id(if guarantee.id.trim().is_empty() {
+                &guarantee.statement
+            } else {
+                &guarantee.id
+            });
+            let counter = seen.entry(base.clone()).or_insert(0);
+            *counter += 1;
+            guarantee.id = if *counter == 1 {
+                base
+            } else {
+                format!("{base}_{}", *counter)
+            };
+            guarantee
+        })
+        .collect()
+}
+
+fn normalize_contract_guarantee_id(value: &str) -> String {
+    let mut slug = String::new();
+    let mut last_was_sep = false;
+    for ch in value.chars() {
+        if ch.is_ascii_alphanumeric() {
+            slug.push(ch.to_ascii_lowercase());
+            last_was_sep = false;
+        } else if !last_was_sep && !slug.is_empty() {
+            slug.push('_');
+            last_was_sep = true;
+        }
+    }
+    while slug.ends_with('_') {
+        slug.pop();
+    }
+    if slug.is_empty() {
+        "guarantee".to_string()
+    } else {
+        slug
+    }
 }
 
 fn convert_contract_validations(
@@ -3740,10 +3790,20 @@ fn validate_contract_packet(packet: &ContractPacket) -> Result<()> {
     if packet
         .guarantees
         .iter()
-        .any(|guarantee| guarantee.statement.trim().is_empty())
+        .any(|guarantee| guarantee.statement.trim().is_empty() || guarantee.id.trim().is_empty())
     {
         return Err(anyhow!(
-            "contract guarantees must contain non-empty statements"
+            "contract guarantees must contain non-empty ids and statements"
+        ));
+    }
+    let unique_guarantee_ids = packet
+        .guarantees
+        .iter()
+        .map(|guarantee| guarantee.id.to_ascii_lowercase())
+        .collect::<std::collections::HashSet<_>>();
+    if unique_guarantee_ids.len() != packet.guarantees.len() {
+        return Err(anyhow!(
+            "contract guarantee ids must be unique within a packet"
         ));
     }
     if packet.subject.anchors.is_empty() && packet.subject.concept_handles.is_empty() {

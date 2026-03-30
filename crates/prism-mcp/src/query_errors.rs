@@ -48,17 +48,31 @@ pub(crate) fn invalid_query_argument_error(
     detail: impl Into<String>,
 ) -> anyhow::Error {
     let detail = detail.into();
+    let suggestion = invalid_argument_suggestion(&detail);
+    let next_action = suggestion
+        .as_ref()
+        .map(|(field, candidate)| {
+            format!(
+                "Use the documented argument spelling `{candidate}` instead of `{field}` and retry. Check `prism://api-reference` for the exact surface shape."
+            )
+        })
+        .unwrap_or_else(|| {
+            "Check the query method argument names, required fields, and enum spellings, then retry."
+                .to_string()
+        });
     QueryExecutionError {
         summary: "prism_query arguments invalid",
         message: format!(
-            "prism_query arguments invalid for `{operation}`: {detail}\nHint: Check the query method argument names, required fields, and enum spellings, then retry."
+            "prism_query arguments invalid for `{operation}`: {detail}\nHint: {next_action}"
         ),
         data: json!({
             "code": "query_invalid_argument",
             "category": "invalid_argument",
             "operation": operation,
             "error": detail,
-            "nextAction": "Check the query method argument names, required fields, and enum spellings, then retry.",
+            "invalidField": suggestion.as_ref().map(|(field, _)| field.clone()),
+            "didYouMean": suggestion.as_ref().map(|(_, candidate)| candidate.clone()),
+            "nextAction": next_action,
             "examples": valid_query_examples(),
         }),
     }
@@ -400,7 +414,233 @@ fn runtime_repair_hint(detail: &str, code: &str) -> Option<String> {
             "Use `prism.memory.recall(...)`, `prism.memory.outcomes(...)`, or `prism.memory.events(...)`. The flat aliases `prism.memoryRecall(...)`, `prism.memoryOutcomes(...)`, and `prism.memoryEvents(...)` are accepted for compatibility too.".to_string(),
         );
     }
+    if let Some((observed, suggested)) = suggest_prism_api_path(detail, code) {
+        return Some(format!(
+            "`{observed}` is not a PRISM query helper. Did you mean `{suggested}`? Check `prism://api-reference` for the exact method signature and retry."
+        ));
+    }
     None
+}
+
+fn invalid_argument_suggestion(detail: &str) -> Option<(String, String)> {
+    let (field, candidates) = parse_unknown_field_detail(detail)?;
+    let normalized_field = normalize_api_path(&field);
+    let mut best: Option<(&str, usize)> = None;
+    for candidate in &candidates {
+        let distance = levenshtein(&normalized_field, &normalize_api_path(candidate));
+        match best {
+            Some((_, best_distance)) if distance >= best_distance => {}
+            _ => best = Some((candidate.as_str(), distance)),
+        }
+    }
+    let (candidate, distance) = best?;
+    let threshold = normalized_field.len().max(6) / 3;
+    (distance <= threshold.max(2)).then(|| (field, candidate.to_string()))
+}
+
+fn parse_unknown_field_detail(detail: &str) -> Option<(String, Vec<String>)> {
+    static UNKNOWN_FIELD_RE: OnceLock<Regex> = OnceLock::new();
+    let regex = UNKNOWN_FIELD_RE.get_or_init(|| {
+        Regex::new(r"unknown field `([^`]+)`, expected one of (.+)$")
+            .expect("valid unknown-field regex")
+    });
+    let captures = regex.captures(detail)?;
+    let field = captures.get(1)?.as_str().to_string();
+    let candidates = captures
+        .get(2)?
+        .as_str()
+        .split(',')
+        .map(|candidate| candidate.trim().trim_matches('`').trim_matches('"'))
+        .filter(|candidate| !candidate.is_empty())
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    (!candidates.is_empty()).then_some((field, candidates))
+}
+
+fn suggest_prism_api_path(detail: &str, code: &str) -> Option<(String, String)> {
+    let observed = extract_prism_api_path(detail).or_else(|| extract_prism_api_path(code))?;
+    let suggestion = closest_prism_api_path(&observed)?;
+    (normalize_api_path(&observed) != normalize_api_path(&suggestion))
+        .then_some((observed, suggestion))
+}
+
+fn extract_prism_api_path(value: &str) -> Option<String> {
+    static PATH_RE: OnceLock<Regex> = OnceLock::new();
+    let regex = PATH_RE.get_or_init(|| {
+        Regex::new(r"prism(?:\.[A-Za-z_][A-Za-z0-9_]*)+").expect("valid prism api path regex")
+    });
+    regex
+        .find(value)
+        .map(|matched| matched.as_str().to_string())
+}
+
+fn closest_prism_api_path(path: &str) -> Option<String> {
+    let candidates = if path.starts_with("prism.runtime.") {
+        &[
+            "prism.runtime.status",
+            "prism.runtime.logs",
+            "prism.runtime.timeline",
+        ][..]
+    } else if path.starts_with("prism.memory.") {
+        &[
+            "prism.memory.recall",
+            "prism.memory.outcomes",
+            "prism.memory.events",
+        ][..]
+    } else if path.starts_with("prism.connection.") {
+        &["prism.connection.info"][..]
+    } else if path.starts_with("prism.curator.") {
+        &[
+            "prism.curator.jobs",
+            "prism.curator.proposals",
+            "prism.curator.job",
+        ][..]
+    } else {
+        &[
+            "prism.symbol",
+            "prism.symbolBundle",
+            "prism.symbols",
+            "prism.search",
+            "prism.concepts",
+            "prism.concept",
+            "prism.conceptByHandle",
+            "prism.contract",
+            "prism.contractsFor",
+            "prism.conceptRelations",
+            "prism.decodeConcept",
+            "prism.searchText",
+            "prism.tools",
+            "prism.tool",
+            "prism.validateToolInput",
+            "prism.entrypoints",
+            "prism.file",
+            "prism.plans",
+            "prism.plan",
+            "prism.planGraph",
+            "prism.planExecution",
+            "prism.planReadyNodes",
+            "prism.planNodeBlockers",
+            "prism.planSummary",
+            "prism.planNext",
+            "prism.task",
+            "prism.readyTasks",
+            "prism.claims",
+            "prism.conflicts",
+            "prism.blockers",
+            "prism.pendingReviews",
+            "prism.artifacts",
+            "prism.policyViolations",
+            "prism.taskBlastRadius",
+            "prism.taskValidationRecipe",
+            "prism.taskRisk",
+            "prism.repoPlaybook",
+            "prism.validationPlan",
+            "prism.impact",
+            "prism.afterEdit",
+            "prism.commandMemory",
+            "prism.artifactRisk",
+            "prism.taskIntent",
+            "prism.coordinationInbox",
+            "prism.taskContext",
+            "prism.claimPreview",
+            "prism.simulateClaim",
+            "prism.full",
+            "prism.excerpt",
+            "prism.editSlice",
+            "prism.focusedBlock",
+            "prism.lineage",
+            "prism.coChangeNeighbors",
+            "prism.relatedFailures",
+            "prism.blastRadius",
+            "prism.validationRecipe",
+            "prism.readContext",
+            "prism.editContext",
+            "prism.validationContext",
+            "prism.recentChangeContext",
+            "prism.discovery",
+            "prism.searchBundle",
+            "prism.textSearchBundle",
+            "prism.targetBundle",
+            "prism.nextReads",
+            "prism.whereUsed",
+            "prism.entrypointsFor",
+            "prism.specFor",
+            "prism.implementationFor",
+            "prism.owners",
+            "prism.driftCandidates",
+            "prism.specCluster",
+            "prism.explainDrift",
+            "prism.resumeTask",
+            "prism.taskJournal",
+            "prism.changedFiles",
+            "prism.changedSymbols",
+            "prism.recentPatches",
+            "prism.diffFor",
+            "prism.taskChanges",
+            "prism.connectionInfo",
+            "prism.runtimeStatus",
+            "prism.runtimeLogs",
+            "prism.runtimeTimeline",
+            "prism.validationFeedback",
+            "prism.memoryRecall",
+            "prism.memoryOutcomes",
+            "prism.memoryEvents",
+            "prism.mcpLog",
+            "prism.slowMcpCalls",
+            "prism.mcpTrace",
+            "prism.mcpStats",
+            "prism.queryLog",
+            "prism.slowQueries",
+            "prism.queryTrace",
+            "prism.diagnostics",
+        ][..]
+    };
+    let normalized = normalize_api_path(path);
+    let mut best: Option<(&str, usize)> = None;
+    for candidate in candidates {
+        let distance = levenshtein(&normalized, &normalize_api_path(candidate));
+        match best {
+            Some((_, best_distance)) if distance >= best_distance => {}
+            _ => best = Some((candidate, distance)),
+        }
+    }
+    let (candidate, distance) = best?;
+    let threshold = normalized.len().max(6) / 3;
+    (distance <= threshold.max(2)).then(|| candidate.to_string())
+}
+
+fn normalize_api_path(value: &str) -> String {
+    value
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric())
+        .flat_map(|ch| ch.to_lowercase())
+        .collect()
+}
+
+fn levenshtein(left: &str, right: &str) -> usize {
+    if left == right {
+        return 0;
+    }
+    if left.is_empty() {
+        return right.chars().count();
+    }
+    if right.is_empty() {
+        return left.chars().count();
+    }
+    let right_chars: Vec<char> = right.chars().collect();
+    let mut previous: Vec<usize> = (0..=right_chars.len()).collect();
+    let mut current = vec![0usize; right_chars.len() + 1];
+    for (row, left_char) in left.chars().enumerate() {
+        current[0] = row + 1;
+        for (column, right_char) in right_chars.iter().enumerate() {
+            let substitution_cost = usize::from(left_char != *right_char);
+            current[column + 1] = (current[column] + 1)
+                .min(previous[column + 1] + 1)
+                .min(previous[column] + substitution_cost);
+        }
+        previous.clone_from_slice(&current);
+    }
+    previous[right_chars.len()]
 }
 
 fn attach_location(target: &mut Value, location: &SnippetLocation) {
@@ -722,5 +962,23 @@ mod tests {
             .expect("nextAction should be present");
         assert!(next_action.contains("prism.memory.recall(...)"));
         assert!(next_action.contains("prism.memoryRecall(...)"));
+    }
+
+    #[test]
+    fn mistyped_top_level_method_suggests_closest_prism_helper() {
+        let runtime = runtime_or_serialization_error(
+            anyhow!(format!(
+                "javascript query evaluation failed: {QUERY_RUNTIME_ERROR_MARKER}\n{USER_SNIPPET_LOCATION_MARKER} 1:14\nTypeError: prism.seach is not a function\n    at __prismUserQuery (eval_script:4:14)"
+            )),
+            "return prism.seach(\"main\");",
+            4,
+            STATEMENT_BODY_MODE,
+        );
+        let runtime = runtime.downcast::<super::QueryExecutionError>().unwrap();
+        let next_action = runtime.data()["nextAction"]
+            .as_str()
+            .expect("nextAction should be present");
+        assert!(next_action.contains("prism.search"));
+        assert!(next_action.contains("prism://api-reference"));
     }
 }

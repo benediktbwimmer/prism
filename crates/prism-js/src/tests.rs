@@ -61,6 +61,7 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("truncation?: ConceptPacketTruncationView;"));
     assert!(docs.contains("`prism.concepts(...)` defaults to `summary`"));
     assert!(docs.contains("`prism.decodeConcept(...)` defaults to `standard`"));
+    assert!(docs.contains("includes repair data such as `didYouMean`"));
     assert!(docs.contains("bindingMetadata?: {"));
     assert!(docs.contains("discovery(target: QueryTarget): DiscoveryBundleView | null;"));
     assert!(docs
@@ -287,6 +288,8 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("connection: Object.freeze({"));
     assert!(prelude.contains("memoryRecall(options = {})"));
     assert!(prelude.contains("return prism.memory.recall(options);"));
+    assert!(prelude.contains("function __prismValidateOptions(methodPath, options, allowedKeys)"));
+    assert!(prelude.contains("didYouMean"));
     assert!(prelude.contains("verbosity: options?.verbosity ?? \"summary\""));
     assert!(prelude.contains("verbosity: options?.verbosity ?? \"standard\""));
     assert!(prelude.contains("verbosity: input?.verbosity ?? \"standard\""));

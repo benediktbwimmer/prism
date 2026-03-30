@@ -42,7 +42,7 @@ use crate::{
     parse_typescript_error, plan_execution_overlay_view, plan_graph_view, plan_node_blocker_view,
     plan_node_recommendation_view, plan_node_view, plan_summary_view, plan_view,
     policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
-    promoted_validation_checks, query_diagnostic, query_feature_disabled_error,
+    promoted_validation_checks, query_diagnostic, query_feature_disabled_error, query_method_specs,
     rank_search_results, read_context_view_cached, recent_change_context_view_cached,
     recent_patches, relations_view, resolve_concepts_for_session, result_decode_error,
     runtime_or_serialization_error, scored_memory_view, search_queries, source_excerpt_for_symbol,
@@ -638,14 +638,19 @@ impl QueryExecution {
                         "queryError": {
                             "summary": "prism_query arguments invalid",
                             "message": format!(
-                                "prism_query arguments invalid: {}\nHint: Check the query method argument names, required fields, and value types, then retry.",
-                                json_error
+                                "prism_query arguments invalid for `{}`: {}\nHint: Check the query method argument names, required fields, and value types, then retry.",
+                                operation,
+                                json_error,
                             ),
                             "data": {
                                 "code": "query_invalid_argument",
                                 "category": "invalid_argument",
+                                "operation": operation,
                                 "error": json_error.to_string(),
-                                "nextAction": "Check the query method argument names, required fields, and value types, then retry.",
+                                "nextAction": format!(
+                                    "Check the query method argument names, required fields, and value types for `{}` and retry. See `prism://api-reference` for the exact surface shape.",
+                                    operation,
+                                ),
                             },
                         },
                     })
@@ -1511,10 +1516,25 @@ impl QueryExecution {
                 }
                 "diagnostics" => Ok(serde_json::to_value(self.diagnostics())?),
                 other => {
+                    let suggestion = suggest_query_operation(other);
+                    let next_action = suggestion
+                        .as_deref()
+                        .map(|suggested| {
+                            format!(
+                                "Retry with `{suggested}` or inspect `prism://capabilities` for the canonical query methods."
+                            )
+                        })
+                        .unwrap_or_else(|| {
+                            "Inspect `prism://capabilities` for the canonical query methods and retry with one of the listed operations.".to_string()
+                        });
                     self.push_diagnostic(
                         "unknown_method",
                         format!("Unknown Prism host operation `{other}`."),
-                        Some(json!({ "operation": other })),
+                        Some(json!({
+                            "operation": other,
+                            "didYouMean": suggestion,
+                            "nextAction": next_action,
+                        })),
                     );
                     Err(anyhow!("unsupported host operation `{other}`"))
                 }
@@ -3147,6 +3167,55 @@ impl QueryExecution {
             .map(|symbol| symbol_view(self.prism.as_ref(), &symbol))
             .collect()
     }
+}
+
+fn suggest_query_operation(operation: &str) -> Option<String> {
+    let normalized = normalize_operation_label(operation);
+    let mut best: Option<(&str, usize)> = None;
+    for (candidate, _, _, _) in query_method_specs() {
+        let distance = levenshtein_distance(&normalized, &normalize_operation_label(candidate));
+        match best {
+            Some((_, best_distance)) if distance >= best_distance => {}
+            _ => best = Some((candidate, distance)),
+        }
+    }
+    let (candidate, distance) = best?;
+    let threshold = normalized.len().max(6) / 3;
+    (distance <= threshold.max(2)).then(|| candidate.to_string())
+}
+
+fn normalize_operation_label(value: &str) -> String {
+    value
+        .chars()
+        .filter(|ch| ch.is_ascii_alphanumeric())
+        .flat_map(|ch| ch.to_lowercase())
+        .collect()
+}
+
+fn levenshtein_distance(left: &str, right: &str) -> usize {
+    if left == right {
+        return 0;
+    }
+    if left.is_empty() {
+        return right.chars().count();
+    }
+    if right.is_empty() {
+        return left.chars().count();
+    }
+    let right_chars: Vec<char> = right.chars().collect();
+    let mut previous: Vec<usize> = (0..=right_chars.len()).collect();
+    let mut current = vec![0usize; right_chars.len() + 1];
+    for (row, left_char) in left.chars().enumerate() {
+        current[0] = row + 1;
+        for (column, right_char) in right_chars.iter().enumerate() {
+            let substitution_cost = usize::from(left_char != *right_char);
+            current[column + 1] = (current[column] + 1)
+                .min(previous[column + 1] + 1)
+                .min(previous[column] + substitution_cost);
+        }
+        previous.clone_from_slice(&current);
+    }
+    previous[right_chars.len()]
 }
 
 fn parse_concept_lens(value: &str) -> Result<ConceptDecodeLens> {

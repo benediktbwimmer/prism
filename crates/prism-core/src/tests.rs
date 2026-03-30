@@ -1368,6 +1368,7 @@ fn repo_contract_events_round_trip_through_committed_jsonl_and_reload() {
                     concept_handles: Vec::new(),
                 },
                 guarantees: vec![ContractGuarantee {
+                    id: "alpha_name_stable".to_string(),
                     statement: "Internal callers may rely on the alpha function name.".to_string(),
                     scope: Some("internal callers".to_string()),
                     strength: None,

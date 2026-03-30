@@ -17,7 +17,7 @@ const COMMAND_LIMIT: usize = 8;
 const OBSERVED_LIMIT: usize = 64;
 
 #[derive(Debug, Default, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct CommandMemoryInput {
     #[serde(alias = "task_id")]
     task_id: Option<String>,

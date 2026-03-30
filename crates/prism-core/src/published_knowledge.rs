@@ -238,10 +238,20 @@ fn validate_repo_contract_packet(packet: &ContractPacket) -> Result<()> {
     if packet
         .guarantees
         .iter()
-        .any(|guarantee| guarantee.statement.trim().is_empty())
+        .any(|guarantee| guarantee.statement.trim().is_empty() || guarantee.id.trim().is_empty())
     {
         return Err(anyhow!(
-            "repo-published contract guarantees must have non-empty statements"
+            "repo-published contract guarantees must have non-empty ids and statements"
+        ));
+    }
+    let unique_guarantee_ids = packet
+        .guarantees
+        .iter()
+        .map(|guarantee| guarantee.id.to_ascii_lowercase())
+        .collect::<std::collections::HashSet<_>>();
+    if unique_guarantee_ids.len() != packet.guarantees.len() {
+        return Err(anyhow!(
+            "repo-published contract guarantee ids must be unique within a packet"
         ));
     }
     if packet.evidence.is_empty() {

@@ -12,9 +12,10 @@ pub use prism_projections::{
     ConceptHealthStatus, ConceptPacket, ConceptProvenance, ConceptPublication,
     ConceptPublicationStatus, ConceptRelation, ConceptRelationEvent, ConceptRelationEventAction,
     ConceptRelationKind, ConceptScope, ContractCompatibility, ContractEvent, ContractEventAction,
-    ContractEventPatch, ContractGuarantee, ContractGuaranteeStrength, ContractKind, ContractPacket,
-    ContractProvenance, ContractPublication, ContractPublicationStatus, ContractResolution,
-    ContractScope, ContractStability, ContractStatus, ContractTarget, ContractValidation,
+    ContractEventPatch, ContractGuarantee, ContractGuaranteeStrength, ContractHealth,
+    ContractHealthSignals, ContractHealthStatus, ContractKind, ContractPacket, ContractProvenance,
+    ContractPublication, ContractPublicationStatus, ContractResolution, ContractScope,
+    ContractStability, ContractStatus, ContractTarget, ContractValidation,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

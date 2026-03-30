@@ -26,7 +26,7 @@ const CONTRACT_CONSUMER_TARGET_LIMIT: usize = 2;
 const CONTRACT_PROVIDER_TARGET_LIMIT: usize = 1;
 
 #[derive(Debug, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ValidationPlanInput {
     task_id: Option<String>,
     target: Option<SymbolTargetArgs>,

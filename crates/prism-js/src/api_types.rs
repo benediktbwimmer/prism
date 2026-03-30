@@ -1087,6 +1087,17 @@ pub enum ContractGuaranteeStrengthView {
     Conditional,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ContractHealthStatusView {
+    Healthy,
+    Watch,
+    Degraded,
+    Stale,
+    Superseded,
+    Retired,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ContractTargetView {
@@ -1097,10 +1108,32 @@ pub struct ContractTargetView {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ContractGuaranteeView {
+    pub id: String,
     pub statement: String,
     pub scope: Option<String>,
     pub strength: Option<ContractGuaranteeStrengthView>,
     pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractHealthSignalsView {
+    pub guarantee_count: usize,
+    pub validation_count: usize,
+    pub consumer_count: usize,
+    pub validation_coverage_ratio: f32,
+    pub guarantee_evidence_ratio: f32,
+    pub stale_validation_links: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractHealthView {
+    pub status: ContractHealthStatusView,
+    pub score: f32,
+    pub reasons: Vec<String>,
+    pub signals: ContractHealthSignalsView,
+    pub superseded_by: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -1145,6 +1178,8 @@ pub struct ContractPacketView {
     pub compatibility: ContractCompatibilityView,
     pub evidence: Vec<String>,
     pub status: ContractStatusView,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub health: Option<ContractHealthView>,
     pub scope: ConceptScopeView,
     pub provenance: ConceptProvenanceView,
     pub publication: Option<ConceptPublicationView>,

@@ -17,6 +17,131 @@ function __prismHost(operation, args) {
   return __prismDecode(__prismHostCall(operation, payload));
 }
 
+function __prismThrowQueryUserError(summary, message, data = {}) {
+  throw new Error(
+    `__PRISM_QUERY_USER_ERROR__${JSON.stringify({ summary, message, data })}`
+  );
+}
+
+function __prismNormalizedApiToken(value) {
+  return typeof value === "string" ? value.replace(/[_-]/g, "").toLowerCase() : "";
+}
+
+function __prismLevenshtein(left, right) {
+  if (left === right) {
+    return 0;
+  }
+  if (left.length === 0) {
+    return right.length;
+  }
+  if (right.length === 0) {
+    return left.length;
+  }
+  const previous = new Array(right.length + 1);
+  const current = new Array(right.length + 1);
+  for (let index = 0; index <= right.length; index += 1) {
+    previous[index] = index;
+  }
+  for (let row = 0; row < left.length; row += 1) {
+    current[0] = row + 1;
+    for (let column = 0; column < right.length; column += 1) {
+      const cost = left[row] === right[column] ? 0 : 1;
+      current[column + 1] = Math.min(
+        current[column] + 1,
+        previous[column + 1] + 1,
+        previous[column] + cost
+      );
+    }
+    for (let index = 0; index <= right.length; index += 1) {
+      previous[index] = current[index];
+    }
+  }
+  return previous[right.length];
+}
+
+function __prismSuggestApiToken(value, candidates) {
+  const normalized = __prismNormalizedApiToken(value);
+  if (!normalized) {
+    return null;
+  }
+  let bestCandidate = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string" || candidate.length === 0) {
+      continue;
+    }
+    const candidateNormalized = __prismNormalizedApiToken(candidate);
+    if (candidateNormalized === normalized) {
+      return candidate;
+    }
+    const distance = __prismLevenshtein(normalized, candidateNormalized);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestCandidate = candidate;
+    }
+  }
+  if (bestCandidate == null) {
+    return null;
+  }
+  const threshold = Math.max(2, Math.floor(normalized.length / 3));
+  return bestDistance <= threshold ? bestCandidate : null;
+}
+
+function __prismValidateRecordShape(methodPath, value, argumentName, allowedKeys) {
+  if (value == null) {
+    return {};
+  }
+  if (typeof value !== "object" || Array.isArray(value)) {
+    __prismThrowQueryUserError(
+      "prism_query arguments invalid",
+      `prism_query arguments invalid for \`${methodPath}\`: \`${argumentName}\` must be an object when provided.\nHint: Pass a plain object with the documented keys, or omit \`${argumentName}\` entirely.`,
+      {
+        code: "query_invalid_argument",
+        category: "invalid_argument",
+        method: methodPath,
+        error: `\`${argumentName}\` must be an object when provided.`,
+        nextAction: `Pass a plain object for \`${argumentName}\`, or omit it entirely. Check \`prism://api-reference\` for the exact shape.`,
+      }
+    );
+  }
+  const unknownKeys = Object.keys(value).filter((key) => !allowedKeys.includes(key));
+  if (unknownKeys.length === 0) {
+    return value;
+  }
+  const didYouMean = {};
+  for (const key of unknownKeys) {
+    const suggestion = __prismSuggestApiToken(key, allowedKeys);
+    if (suggestion != null) {
+      didYouMean[key] = suggestion;
+    }
+  }
+  const unknownSummary = unknownKeys.map((key) => `\`${key}\``).join(", ");
+  const suggestionSummary = Object.entries(didYouMean)
+    .map(([key, suggestion]) => `\`${key}\` -> \`${suggestion}\``)
+    .join(", ");
+  const hint =
+    suggestionSummary.length > 0
+      ? `Use the documented key spelling instead (${suggestionSummary}) and retry.`
+      : `Use only documented keys for \`${methodPath}\` and retry.`;
+  __prismThrowQueryUserError(
+    "prism_query arguments invalid",
+    `prism_query arguments invalid for \`${methodPath}\`: unknown ${unknownKeys.length === 1 ? "key" : "keys"} ${unknownSummary} in \`${argumentName}\`.\nHint: ${hint} Check \`prism://api-reference\` for the exact shape.`,
+    {
+      code: "query_invalid_argument",
+      category: "invalid_argument",
+      method: methodPath,
+      invalidKeys: unknownKeys,
+      didYouMean,
+      error: `Unknown ${unknownKeys.length === 1 ? "key" : "keys"} ${unknownSummary} in \`${argumentName}\`.`,
+      nextAction: `${hint} Check \`prism://api-reference\` for the exact shape.`,
+    }
+  );
+}
+
+function __prismValidateOptions(methodPath, options, allowedKeys) {
+  return __prismValidateRecordShape(methodPath, options, "options", allowedKeys);
+}
+
 function __prismNormalizeTarget(target) {
   if (target == null) {
     return null;
@@ -91,6 +216,201 @@ function __prismIncludeDiscovery(options = {}) {
 function __prismSuggestedReadLimit(options = {}) {
   return options?.suggestedReadLimit ?? options?.suggested_read_limit ?? 5;
 }
+
+const __prismOptionKeys = Object.freeze({
+  claimPreview: Object.freeze(["anchors", "anchor", "capability", "mode", "taskId", "task_id"]),
+  changedFiles: Object.freeze(["since", "limit", "taskId", "task_id", "path"]),
+  changedSymbols: Object.freeze(["since", "limit", "taskId", "task_id"]),
+  concept: Object.freeze(["limit", "verbosity", "includeBindingMetadata", "include_binding_metadata"]),
+  curatorJob: Object.freeze(["status", "trigger", "limit"]),
+  curatorProposals: Object.freeze([
+    "status",
+    "trigger",
+    "kind",
+    "disposition",
+    "taskId",
+    "task_id",
+    "limit",
+  ]),
+  diffFor: Object.freeze(["since", "limit", "taskId", "task_id"]),
+  excerpt: Object.freeze(["contextLines", "maxLines", "maxChars"]),
+  editSlice: Object.freeze(["beforeLines", "afterLines", "maxLines", "maxChars"]),
+  fileAround: Object.freeze(["line", "before", "after", "beforeLines", "afterLines", "maxChars"]),
+  fileRead: Object.freeze(["startLine", "endLine", "maxChars"]),
+  implementationFor: Object.freeze(["mode", "ownerKind", "owner_kind"]),
+  mcpLog: Object.freeze([
+    "limit",
+    "since",
+    "callType",
+    "call_type",
+    "name",
+    "taskId",
+    "task_id",
+    "sessionId",
+    "session_id",
+    "success",
+    "minDurationMs",
+    "min_duration_ms",
+    "contains",
+  ]),
+  memoryEvents: Object.freeze([
+    "memoryId",
+    "focus",
+    "text",
+    "limit",
+    "kinds",
+    "actions",
+    "scope",
+    "taskId",
+    "task_id",
+    "since",
+  ]),
+  memoryOutcomes: Object.freeze([
+    "focus",
+    "taskId",
+    "task_id",
+    "kinds",
+    "result",
+    "actor",
+    "since",
+    "limit",
+  ]),
+  memoryRecall: Object.freeze(["focus", "text", "limit", "kinds", "since"]),
+  nextReads: Object.freeze(["limit"]),
+  owners: Object.freeze(["kind", "limit"]),
+  plans: Object.freeze(["status", "scope", "contains", "limit"]),
+  policyViolations: Object.freeze(["planId", "plan_id", "taskId", "task_id", "limit"]),
+  queryLog: Object.freeze([
+    "limit",
+    "since",
+    "target",
+    "operation",
+    "taskId",
+    "task_id",
+    "minDurationMs",
+    "min_duration_ms",
+  ]),
+  recentPatches: Object.freeze(["target", "since", "limit", "taskId", "task_id", "path"]),
+  runtimeLogs: Object.freeze(["limit", "level", "target", "contains"]),
+  runtimeTimeline: Object.freeze(["limit", "contains"]),
+  search: Object.freeze([
+    "limit",
+    "kind",
+    "path",
+    "module",
+    "taskId",
+    "task_id",
+    "pathMode",
+    "path_mode",
+    "strategy",
+    "structuredPath",
+    "structured_path",
+    "topLevelOnly",
+    "top_level_only",
+    "preferCallableCode",
+    "prefer_callable_code",
+    "preferEditableTargets",
+    "prefer_editable_targets",
+    "preferBehavioralOwners",
+    "prefer_behavioral_owners",
+    "ownerKind",
+    "owner_kind",
+    "includeInferred",
+    "include_inferred",
+  ]),
+  searchBundle: Object.freeze([
+    "limit",
+    "kind",
+    "path",
+    "module",
+    "taskId",
+    "task_id",
+    "pathMode",
+    "path_mode",
+    "strategy",
+    "structuredPath",
+    "structured_path",
+    "topLevelOnly",
+    "top_level_only",
+    "preferCallableCode",
+    "prefer_callable_code",
+    "preferEditableTargets",
+    "prefer_editable_targets",
+    "preferBehavioralOwners",
+    "prefer_behavioral_owners",
+    "ownerKind",
+    "owner_kind",
+    "includeInferred",
+    "include_inferred",
+    "includeDiscovery",
+    "suggestedReadLimit",
+    "suggested_read_limit",
+  ]),
+  searchText: Object.freeze([
+    "regex",
+    "caseSensitive",
+    "case_sensitive",
+    "path",
+    "glob",
+    "limit",
+    "contextLines",
+    "context_lines",
+  ]),
+  taskChanges: Object.freeze(["since", "limit", "path"]),
+  taskJournal: Object.freeze(["eventLimit", "event_limit", "memoryLimit", "memory_limit"]),
+  targetBundle: Object.freeze([
+    "since",
+    "limit",
+    "taskId",
+    "task_id",
+    "path",
+    "includeDiscovery",
+    "suggestedReadLimit",
+    "suggested_read_limit",
+  ]),
+  textSearchBundle: Object.freeze([
+    "regex",
+    "caseSensitive",
+    "case_sensitive",
+    "path",
+    "glob",
+    "limit",
+    "contextLines",
+    "context_lines",
+    "semanticQuery",
+    "semanticLimit",
+    "semanticKind",
+    "ownerKind",
+    "owner_kind",
+    "strategy",
+    "includeDiscovery",
+    "includeInferred",
+    "include_inferred",
+    "aroundBefore",
+    "aroundAfter",
+    "aroundMaxChars",
+    "preferCallableCode",
+    "prefer_callable_code",
+    "preferEditableTargets",
+    "prefer_editable_targets",
+    "preferBehavioralOwners",
+    "prefer_behavioral_owners",
+    "suggestedReadLimit",
+    "suggested_read_limit",
+  ]),
+  validationFeedback: Object.freeze([
+    "limit",
+    "since",
+    "taskId",
+    "task_id",
+    "verdict",
+    "category",
+    "contains",
+    "correctedManually",
+    "corrected_manually",
+  ]),
+  whereUsed: Object.freeze(["mode", "limit"]),
+});
 
 function __prismTextSearchSemanticQuery(query, options = {}) {
   if (typeof options?.semanticQuery === "string" && options.semanticQuery.trim() !== "") {
@@ -473,6 +793,7 @@ function __prismFile(path) {
   return Object.freeze({
     path: filePath,
     read(options = {}) {
+      options = __prismValidateOptions("prism.file(path).read", options, __prismOptionKeys.fileRead);
       return __prismHost("fileRead", {
         path: filePath,
         startLine: options?.startLine,
@@ -481,6 +802,11 @@ function __prismFile(path) {
       });
     },
     around(options = {}) {
+      options = __prismValidateOptions(
+        "prism.file(path).around",
+        options,
+        __prismOptionKeys.fileAround
+      );
       return __prismHost("fileAround", {
         path: filePath,
         line: options?.line,
@@ -592,6 +918,7 @@ const __prismBase = Object.freeze({
     return __prismEnrichSymbols(__prismHost("symbols", { query }));
   },
   search(query, options = {}) {
+    options = __prismValidateOptions("prism.search", options, __prismOptionKeys.search);
     return __prismEnrichSymbols(
       __prismHost("search", {
         query,
@@ -616,6 +943,7 @@ const __prismBase = Object.freeze({
     );
   },
   concepts(query, options = {}) {
+    options = __prismValidateOptions("prism.concepts", options, __prismOptionKeys.concept);
     return __prismHost("concepts", {
       query,
       limit: options?.limit,
@@ -625,6 +953,7 @@ const __prismBase = Object.freeze({
     });
   },
   concept(query, options = {}) {
+    options = __prismValidateOptions("prism.concept", options, __prismOptionKeys.concept);
     return __prismHost("concept", {
       query,
       limit: 1,
@@ -634,6 +963,11 @@ const __prismBase = Object.freeze({
     });
   },
   conceptByHandle(handle, options = {}) {
+    options = __prismValidateOptions(
+      "prism.conceptByHandle",
+      options,
+      __prismOptionKeys.concept
+    );
     return __prismHost("conceptByHandle", {
       handle,
       verbosity: options?.verbosity ?? "standard",
@@ -664,6 +998,12 @@ const __prismBase = Object.freeze({
         })
       );
     }
+    input = __prismValidateRecordShape(
+      "prism.decodeConcept",
+      input,
+      "input",
+      ["handle", "query", "lens", "verbosity", "includeBindingMetadata", "include_binding_metadata"]
+    );
     return __prismEnrichConceptDecode(
       __prismHost("decodeConcept", {
         handle: input?.handle,
@@ -676,6 +1016,7 @@ const __prismBase = Object.freeze({
     );
   },
   searchText(query, options = {}) {
+    options = __prismValidateOptions("prism.searchText", options, __prismOptionKeys.searchText);
     return __prismHost("searchText", {
       query,
       regex: options?.regex,
@@ -702,6 +1043,7 @@ const __prismBase = Object.freeze({
     return __prismFile(path);
   },
   plans(options = {}) {
+    options = __prismValidateOptions("prism.plans", options, __prismOptionKeys.plans);
     return __prismHost("plans", {
       status: options?.status,
       scope: options?.scope,
@@ -752,6 +1094,12 @@ const __prismBase = Object.freeze({
     return __prismHost("artifacts", { taskId });
   },
   policyViolations(input = {}) {
+    input = __prismValidateRecordShape(
+      "prism.policyViolations",
+      input,
+      "input",
+      __prismOptionKeys.policyViolations
+    );
     return __prismHost("policyViolations", {
       planId: input?.planId ?? input?.plan_id,
       taskId: input?.taskId ?? input?.task_id,
@@ -812,6 +1160,12 @@ const __prismBase = Object.freeze({
     };
   },
   claimPreview(input) {
+    input = __prismValidateRecordShape(
+      "prism.claimPreview",
+      input,
+      "input",
+      __prismOptionKeys.claimPreview
+    );
     const conflicts = prism.simulateClaim(input);
     return {
       conflicts,
@@ -820,6 +1174,12 @@ const __prismBase = Object.freeze({
     };
   },
   simulateClaim(input) {
+    input = __prismValidateRecordShape(
+      "prism.simulateClaim",
+      input,
+      "input",
+      __prismOptionKeys.claimPreview
+    );
     return __prismHost("simulateClaim", {
       anchors: __prismNormalizeAnchors(input?.anchors ?? input?.anchor ?? []),
       capability: input?.capability,
@@ -839,6 +1199,7 @@ const __prismBase = Object.freeze({
     if (targetPayload == null) {
       return null;
     }
+    options = __prismValidateOptions("prism.excerpt", options, __prismOptionKeys.excerpt);
     return __prismHost("excerpt", {
       ...targetPayload,
       contextLines: options?.contextLines,
@@ -851,6 +1212,7 @@ const __prismBase = Object.freeze({
     if (targetPayload == null) {
       return null;
     }
+    options = __prismValidateOptions("prism.editSlice", options, __prismOptionKeys.editSlice);
     return __prismHost("editSlice", {
       ...targetPayload,
       beforeLines: options?.beforeLines,
@@ -864,6 +1226,11 @@ const __prismBase = Object.freeze({
     if (targetPayload == null) {
       return null;
     }
+    options = __prismValidateOptions(
+      "prism.focusedBlock",
+      options,
+      __prismOptionKeys.editSlice
+    );
     return __prismEnrichFocusedBlock(
       __prismHost("focusedBlock", {
         ...targetPayload,
@@ -945,6 +1312,11 @@ const __prismBase = Object.freeze({
     return __prismEnrichDiscoveryBundle(__prismHost("discoveryBundle", targetPayload));
   },
   searchBundle(query, options = {}) {
+    options = __prismValidateOptions(
+      "prism.searchBundle",
+      options,
+      __prismOptionKeys.searchBundle
+    );
     const scoped = __prismWithLocalDiagnostics(() => {
       const results = prism.search(query, options);
       const topResult = Array.isArray(results) && results.length > 0 ? results[0] : null;
@@ -975,6 +1347,11 @@ const __prismBase = Object.freeze({
     };
   },
   textSearchBundle(query, options = {}) {
+    options = __prismValidateOptions(
+      "prism.textSearchBundle",
+      options,
+      __prismOptionKeys.textSearchBundle
+    );
     const scoped = __prismWithLocalDiagnostics(() => {
       const matches = prism.searchText(query, options);
       const topMatch = Array.isArray(matches) && matches.length > 0 ? matches[0] : null;
@@ -1033,6 +1410,11 @@ const __prismBase = Object.freeze({
     };
   },
   targetBundle(target, options = {}) {
+    options = __prismValidateOptions(
+      "prism.targetBundle",
+      options,
+      __prismOptionKeys.targetBundle
+    );
     const scoped = __prismWithLocalDiagnostics(() => {
       const providedDiscovery = __prismDiscoveryFromBundle(target);
       const targetPayload = __prismNormalizeTargetPayload(__prismBundleSeedTarget(target));
@@ -1074,6 +1456,7 @@ const __prismBase = Object.freeze({
     if (targetPayload == null) {
       return [];
     }
+    options = __prismValidateOptions("prism.nextReads", options, __prismOptionKeys.nextReads);
     return __prismEnrichInsightCandidates(
       __prismHost("nextReads", {
         ...targetPayload,
@@ -1086,6 +1469,7 @@ const __prismBase = Object.freeze({
     if (targetPayload == null) {
       return [];
     }
+    options = __prismValidateOptions("prism.whereUsed", options, __prismOptionKeys.whereUsed);
     return __prismEnrichSymbols(
       __prismHost("whereUsed", {
         ...targetPayload,
@@ -1099,6 +1483,11 @@ const __prismBase = Object.freeze({
     if (targetPayload == null) {
       return [];
     }
+    options = __prismValidateOptions(
+      "prism.entrypointsFor",
+      options,
+      __prismOptionKeys.nextReads
+    );
     return __prismEnrichSymbols(
       __prismHost("entrypointsFor", {
         ...targetPayload,
@@ -1118,6 +1507,11 @@ const __prismBase = Object.freeze({
     if (targetPayload == null) {
       return [];
     }
+    options = __prismValidateOptions(
+      "prism.implementationFor",
+      options,
+      __prismOptionKeys.implementationFor
+    );
     return __prismEnrichSymbols(
       __prismHost("implementationFor", {
         ...targetPayload,
@@ -1131,6 +1525,7 @@ const __prismBase = Object.freeze({
     if (targetPayload == null) {
       return [];
     }
+    options = __prismValidateOptions("prism.owners", options, __prismOptionKeys.owners);
     return __prismEnrichInsightCandidates(
       __prismHost("owners", {
         ...targetPayload,
@@ -1160,6 +1555,11 @@ const __prismBase = Object.freeze({
     return __prismHost("resumeTask", { taskId });
   },
   taskJournal(taskId, options = {}) {
+    options = __prismValidateOptions(
+      "prism.taskJournal",
+      options,
+      __prismOptionKeys.taskJournal
+    );
     return __prismHost("taskJournal", {
       taskId,
       eventLimit: options.eventLimit ?? options.event_limit,
@@ -1167,6 +1567,11 @@ const __prismBase = Object.freeze({
     });
   },
   changedFiles(options = {}) {
+    options = __prismValidateOptions(
+      "prism.changedFiles",
+      options,
+      __prismOptionKeys.changedFiles
+    );
     return __prismHost("changedFiles", {
       since: options?.since,
       limit: options?.limit,
@@ -1175,6 +1580,11 @@ const __prismBase = Object.freeze({
     });
   },
   changedSymbols(path, options = {}) {
+    options = __prismValidateOptions(
+      "prism.changedSymbols",
+      options,
+      __prismOptionKeys.changedSymbols
+    );
     return __prismHost("changedSymbols", {
       path: __prismNormalizePath(path),
       since: options?.since,
@@ -1183,6 +1593,11 @@ const __prismBase = Object.freeze({
     });
   },
   recentPatches(options = {}) {
+    options = __prismValidateOptions(
+      "prism.recentPatches",
+      options,
+      __prismOptionKeys.recentPatches
+    );
     return __prismHost("recentPatches", {
       target: __prismNormalizeTarget(options?.target),
       since: options?.since,
@@ -1196,6 +1611,7 @@ const __prismBase = Object.freeze({
     if (targetPayload == null) {
       return [];
     }
+    options = __prismValidateOptions("prism.diffFor", options, __prismOptionKeys.diffFor);
     return __prismHost("diffFor", {
       ...targetPayload,
       since: options?.since,
@@ -1204,6 +1620,11 @@ const __prismBase = Object.freeze({
     });
   },
   taskChanges(taskId, options = {}) {
+    options = __prismValidateOptions(
+      "prism.taskChanges",
+      options,
+      __prismOptionKeys.taskChanges
+    );
     return __prismHost("taskChanges", {
       taskId,
       since: options?.since,
@@ -1218,6 +1639,11 @@ const __prismBase = Object.freeze({
     return __prismHost("runtimeStatus", {});
   },
   runtimeLogs(options = {}) {
+    options = __prismValidateOptions(
+      "prism.runtimeLogs",
+      options,
+      __prismOptionKeys.runtimeLogs
+    );
     return __prismHost("runtimeLogs", {
       limit: options?.limit,
       level: options?.level,
@@ -1226,12 +1652,22 @@ const __prismBase = Object.freeze({
     });
   },
   runtimeTimeline(options = {}) {
+    options = __prismValidateOptions(
+      "prism.runtimeTimeline",
+      options,
+      __prismOptionKeys.runtimeTimeline
+    );
     return __prismHost("runtimeTimeline", {
       limit: options?.limit,
       contains: options?.contains,
     });
   },
   validationFeedback(options = {}) {
+    options = __prismValidateOptions(
+      "prism.validationFeedback",
+      options,
+      __prismOptionKeys.validationFeedback
+    );
     return __prismHost("validationFeedback", {
       limit: options?.limit,
       since: options?.since,
@@ -1261,6 +1697,11 @@ const __prismBase = Object.freeze({
   }),
   memory: Object.freeze({
     recall(options = {}) {
+      options = __prismValidateOptions(
+        "prism.memory.recall",
+        options,
+        __prismOptionKeys.memoryRecall
+      );
       return __prismHost("memoryRecall", {
         focus: __prismNormalizeFocus(options.focus),
         text: options.text,
@@ -1270,6 +1711,11 @@ const __prismBase = Object.freeze({
       });
     },
     outcomes(options = {}) {
+      options = __prismValidateOptions(
+        "prism.memory.outcomes",
+        options,
+        __prismOptionKeys.memoryOutcomes
+      );
       return __prismHost("memoryOutcomes", {
         focus: __prismNormalizeFocus(options.focus),
         taskId: options.taskId,
@@ -1281,6 +1727,11 @@ const __prismBase = Object.freeze({
       });
     },
     events(options = {}) {
+      options = __prismValidateOptions(
+        "prism.memory.events",
+        options,
+        __prismOptionKeys.memoryEvents
+      );
       return __prismHost("memoryEvents", {
         memoryId: options.memoryId,
         focus: __prismNormalizeFocus(options.focus),
@@ -1305,9 +1756,19 @@ const __prismBase = Object.freeze({
   },
   curator: Object.freeze({
     jobs(options = {}) {
+      options = __prismValidateOptions(
+        "prism.curator.jobs",
+        options,
+        __prismOptionKeys.curatorJob
+      );
       return __prismHost("curatorJobs", options);
     },
     proposals(options = {}) {
+      options = __prismValidateOptions(
+        "prism.curator.proposals",
+        options,
+        __prismOptionKeys.curatorProposals
+      );
       return __prismHost("curatorProposals", {
         status: options?.status,
         trigger: options?.trigger,
@@ -1325,6 +1786,7 @@ const __prismBase = Object.freeze({
     },
   }),
   mcpLog(options = {}) {
+    options = __prismValidateOptions("prism.mcpLog", options, __prismOptionKeys.mcpLog);
     return __prismHost("mcpLog", {
       limit: options?.limit,
       since: options?.since,
@@ -1338,6 +1800,11 @@ const __prismBase = Object.freeze({
     });
   },
   slowMcpCalls(options = {}) {
+    options = __prismValidateOptions(
+      "prism.slowMcpCalls",
+      options,
+      __prismOptionKeys.mcpLog
+    );
     return __prismHost("slowMcpCalls", {
       limit: options?.limit,
       since: options?.since,
@@ -1357,6 +1824,7 @@ const __prismBase = Object.freeze({
     return __prismHost("mcpTrace", { id });
   },
   mcpStats(options = {}) {
+    options = __prismValidateOptions("prism.mcpStats", options, __prismOptionKeys.mcpLog);
     return __prismHost("mcpStats", {
       since: options?.since,
       callType: options?.callType ?? options?.call_type,
@@ -1369,6 +1837,7 @@ const __prismBase = Object.freeze({
     });
   },
   queryLog(options = {}) {
+    options = __prismValidateOptions("prism.queryLog", options, __prismOptionKeys.queryLog);
     return __prismHost("queryLog", {
       limit: options?.limit,
       since: options?.since,
@@ -1379,6 +1848,11 @@ const __prismBase = Object.freeze({
     });
   },
   slowQueries(options = {}) {
+    options = __prismValidateOptions(
+      "prism.slowQueries",
+      options,
+      __prismOptionKeys.queryLog
+    );
     return __prismHost("slowQueries", {
       limit: options?.limit,
       since: options?.since,

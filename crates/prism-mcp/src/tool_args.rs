@@ -1090,6 +1090,7 @@ pub(crate) struct ContractTargetInput {
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ContractGuaranteeInput {
+    pub(crate) id: Option<String>,
     pub(crate) statement: String,
     pub(crate) scope: Option<String>,
     pub(crate) strength: Option<ContractGuaranteeStrengthInput>,

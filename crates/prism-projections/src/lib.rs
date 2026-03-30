@@ -26,8 +26,9 @@ pub use crate::types::{
     ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptRelation,
     ConceptRelationEvent, ConceptRelationEventAction, ConceptRelationKind, ConceptResolution,
     ConceptScope, ContractCompatibility, ContractEvent, ContractEventAction, ContractEventPatch,
-    ContractGuarantee, ContractGuaranteeStrength, ContractKind, ContractPacket, ContractProvenance,
-    ContractPublication, ContractPublicationStatus, ContractResolution, ContractScope,
-    ContractStability, ContractStatus, ContractTarget, ContractValidation, IntentDriftRecord,
-    IntentSpecProjection, ProjectionSnapshot, ValidationCheck, ValidationDelta,
+    ContractGuarantee, ContractGuaranteeStrength, ContractHealth, ContractHealthSignals,
+    ContractHealthStatus, ContractKind, ContractPacket, ContractProvenance, ContractPublication,
+    ContractPublicationStatus, ContractResolution, ContractScope, ContractStability,
+    ContractStatus, ContractTarget, ContractValidation, IntentDriftRecord, IntentSpecProjection,
+    ProjectionSnapshot, ValidationCheck, ValidationDelta,
 };

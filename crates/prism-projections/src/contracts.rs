@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
 use crate::types::{
-    ContractEvent, ContractEventAction, ContractPacket, ContractProvenance, ContractPublication,
-    ContractPublicationStatus, ContractResolution, ContractScope, ContractStatus,
+    ContractEvent, ContractEventAction, ContractGuarantee, ContractPacket, ContractProvenance,
+    ContractPublication, ContractPublicationStatus, ContractResolution, ContractScope,
+    ContractStatus,
 };
 
 pub(crate) fn resolve_contracts(
@@ -125,6 +126,8 @@ fn normalize_curated_contract(
         contract.status = ContractStatus::Active;
     }
 
+    contract.guarantees = normalize_contract_guarantees(contract.guarantees);
+
     if contract.scope == ContractScope::Repo || contract.status == ContractStatus::Retired {
         let mut publication = contract
             .publication
@@ -157,6 +160,28 @@ fn normalize_curated_contract(
         contract.publication = None;
     }
     contract
+}
+
+fn normalize_contract_guarantees(guarantees: Vec<ContractGuarantee>) -> Vec<ContractGuarantee> {
+    let mut seen = HashMap::<String, usize>::new();
+    guarantees
+        .into_iter()
+        .map(|mut guarantee| {
+            let base = normalize_guarantee_slug(if guarantee.id.trim().is_empty() {
+                &guarantee.statement
+            } else {
+                &guarantee.id
+            });
+            let counter = seen.entry(base.clone()).or_insert(0);
+            *counter += 1;
+            guarantee.id = if *counter == 1 {
+                base
+            } else {
+                format!("{base}_{}", *counter)
+            };
+            guarantee
+        })
+        .collect()
 }
 
 fn contract_event_post_image(
@@ -463,6 +488,15 @@ fn normalize_slug(value: &str) -> String {
         slug.pop();
     }
     slug
+}
+
+fn normalize_guarantee_slug(value: &str) -> String {
+    let slug = normalize_slug(value);
+    if slug.is_empty() {
+        "guarantee".to_string()
+    } else {
+        slug
+    }
 }
 
 fn trigrams(value: &str) -> Vec<String> {

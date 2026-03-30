@@ -93,6 +93,40 @@ pub enum ContractGuaranteeStrength {
     Conditional,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContractHealthStatus {
+    Healthy,
+    Watch,
+    Degraded,
+    Stale,
+    Superseded,
+    Retired,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractHealthSignals {
+    pub guarantee_count: usize,
+    pub validation_count: usize,
+    pub consumer_count: usize,
+    pub validation_coverage_ratio: f32,
+    pub guarantee_evidence_ratio: f32,
+    pub stale_validation_links: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractHealth {
+    pub handle: String,
+    pub status: ContractHealthStatus,
+    pub score: f32,
+    pub reasons: Vec<String>,
+    pub signals: ContractHealthSignals,
+    #[serde(default)]
+    pub superseded_by: Vec<String>,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContractTarget {
@@ -105,6 +139,7 @@ pub struct ContractTarget {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContractGuarantee {
+    pub id: String,
     pub statement: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scope: Option<String>,
