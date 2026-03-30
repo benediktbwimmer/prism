@@ -1,4 +1,4 @@
-use prism_ir::{LineageId, NodeId};
+use prism_ir::{AnchorRef, LineageId, NodeId};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -45,6 +45,138 @@ pub struct ConceptPacket {
     pub provenance: ConceptProvenance,
     #[serde(default)]
     pub publication: Option<ConceptPublication>,
+}
+
+pub type ContractScope = ConceptScope;
+pub type ContractProvenance = ConceptProvenance;
+pub type ContractPublication = ConceptPublication;
+pub type ContractPublicationStatus = ConceptPublicationStatus;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContractKind {
+    Interface,
+    Behavioral,
+    DataShape,
+    DependencyBoundary,
+    Lifecycle,
+    Protocol,
+    Operational,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ContractStatus {
+    #[default]
+    Candidate,
+    Active,
+    Deprecated,
+    Retired,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ContractStability {
+    Experimental,
+    #[default]
+    Internal,
+    Public,
+    Deprecated,
+    Migrating,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContractGuaranteeStrength {
+    Hard,
+    Soft,
+    Conditional,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractTarget {
+    #[serde(default)]
+    pub anchors: Vec<AnchorRef>,
+    #[serde(default)]
+    pub concept_handles: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractGuarantee {
+    pub statement: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strength: Option<ContractGuaranteeStrength>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractValidation {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub anchors: Vec<AnchorRef>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractCompatibility {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub compatible: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub additive: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub risky: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub breaking: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub migrating: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractPacket {
+    pub handle: String,
+    pub name: String,
+    pub summary: String,
+    pub aliases: Vec<String>,
+    pub kind: ContractKind,
+    pub subject: ContractTarget,
+    pub guarantees: Vec<ContractGuarantee>,
+    #[serde(default)]
+    pub assumptions: Vec<String>,
+    #[serde(default)]
+    pub consumers: Vec<ContractTarget>,
+    #[serde(default)]
+    pub validations: Vec<ContractValidation>,
+    #[serde(default)]
+    pub stability: ContractStability,
+    #[serde(default)]
+    pub compatibility: ContractCompatibility,
+    #[serde(default)]
+    pub evidence: Vec<String>,
+    #[serde(default)]
+    pub status: ContractStatus,
+    #[serde(default)]
+    pub scope: ContractScope,
+    #[serde(default)]
+    pub provenance: ContractProvenance,
+    #[serde(default)]
+    pub publication: Option<ContractPublication>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ContractResolution {
+    pub packet: ContractPacket,
+    pub score: i32,
+    #[serde(default)]
+    pub reasons: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -200,6 +332,64 @@ pub struct ConceptEvent {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub patch: Option<ConceptEventPatch>,
     pub concept: ConceptPacket,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContractEventAction {
+    Promote,
+    Update,
+    Retire,
+    AttachEvidence,
+    AttachValidation,
+    RecordConsumer,
+    SetStatus,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractEventPatch {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub set_fields: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cleared_fields: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aliases: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subject: Option<ContractTarget>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub guarantees: Option<Vec<ContractGuarantee>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assumptions: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub consumers: Option<Vec<ContractTarget>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub validations: Option<Vec<ContractValidation>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stability: Option<ContractStability>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub compatibility: Option<ContractCompatibility>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evidence: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<ContractStatus>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope: Option<ContractScope>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ContractEvent {
+    pub id: String,
+    pub recorded_at: u64,
+    pub task_id: Option<String>,
+    pub action: ContractEventAction,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub patch: Option<ContractEventPatch>,
+    pub contract: ContractPacket,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

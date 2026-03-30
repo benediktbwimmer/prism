@@ -7,10 +7,14 @@ use serde::{Deserialize, Serialize};
 
 pub use prism_projections::ValidationCheck;
 pub use prism_projections::{
-    canonical_concept_handle, ConceptDecodeLens, ConceptEvent, ConceptEventAction,
-    ConceptEventPatch, ConceptHealth, ConceptHealthSignals, ConceptHealthStatus, ConceptPacket,
-    ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptRelation,
-    ConceptRelationEvent, ConceptRelationEventAction, ConceptRelationKind, ConceptScope,
+    canonical_concept_handle, canonical_contract_handle, ConceptDecodeLens, ConceptEvent,
+    ConceptEventAction, ConceptEventPatch, ConceptHealth, ConceptHealthSignals,
+    ConceptHealthStatus, ConceptPacket, ConceptProvenance, ConceptPublication,
+    ConceptPublicationStatus, ConceptRelation, ConceptRelationEvent, ConceptRelationEventAction,
+    ConceptRelationKind, ConceptScope, ContractCompatibility, ContractEvent, ContractEventAction,
+    ContractEventPatch, ContractGuarantee, ContractGuaranteeStrength, ContractKind, ContractPacket,
+    ContractProvenance, ContractPublication, ContractPublicationStatus, ContractResolution,
+    ContractScope, ContractStability, ContractStatus, ContractTarget, ContractValidation,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

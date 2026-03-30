@@ -16,8 +16,8 @@ use prism_ir::{
 use prism_memory::OutcomeMemory;
 use prism_memory::{EpisodicMemorySnapshot, MemoryEvent, MemoryEventQuery, OutcomeEvent};
 use prism_projections::{
-    concept_from_event, validation_deltas_for_event, ConceptEvent, ConceptRelationEvent,
-    ConceptRelationEventAction, ConceptScope,
+    concept_from_event, contract_from_event, validation_deltas_for_event, ConceptEvent,
+    ConceptRelationEvent, ConceptRelationEventAction, ConceptScope, ContractEvent,
 };
 use prism_query::Prism;
 use prism_store::{AuxiliaryPersistBatch, SqliteStore, Store, WorkspaceTreeSnapshot};
@@ -30,13 +30,15 @@ use crate::concept_events::{append_repo_concept_event, load_repo_curated_concept
 use crate::concept_relation_events::{
     append_repo_concept_relation_event, load_repo_concept_relations,
 };
+use crate::contract_events::{append_repo_contract_event, load_repo_curated_contracts};
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorHandleRef};
 use crate::memory_events::{
     append_repo_memory_event, filter_memory_events, load_repo_memory_events,
 };
 use crate::published_knowledge::{
-    validate_repo_concept_event, validate_repo_concept_relation_event, validate_repo_memory_event,
+    validate_repo_concept_event, validate_repo_concept_relation_event,
+    validate_repo_contract_event, validate_repo_memory_event,
 };
 use crate::shared_runtime::{
     composite_workspace_revision, merge_episodic_snapshots, merge_memory_events,
@@ -490,6 +492,7 @@ impl WorkspaceSession {
                 None
             },
             load_repo_curated_concepts(&self.root)?,
+            load_repo_curated_contracts(&self.root)?,
             load_repo_concept_relations(&self.root)?,
             &history.snapshot(),
             &outcomes.snapshot(),
@@ -752,6 +755,22 @@ impl WorkspaceSession {
                     .upsert_projection_concept(&concept)?;
             }
         }
+        Ok(())
+    }
+
+    pub fn append_contract_event(&self, event: ContractEvent) -> Result<()> {
+        let _guard = self
+            .refresh_lock
+            .lock()
+            .expect("workspace refresh lock poisoned");
+        if event.contract.scope == prism_projections::ContractScope::Repo {
+            validate_repo_contract_event(&event)?;
+            append_repo_contract_event(&self.root, &event)?;
+        }
+        let prism = self.prism_arc();
+        let previous = prism.contract_by_handle(&event.contract.handle);
+        let contract = contract_from_event(previous.as_ref(), &event);
+        prism.upsert_curated_contract(contract);
         Ok(())
     }
 

@@ -5,6 +5,7 @@ use std::time::Instant;
 
 use crate::concept_events::load_repo_curated_concepts;
 use crate::concept_relation_events::load_repo_concept_relations;
+use crate::contract_events::load_repo_curated_contracts;
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::indexer_support::{
     build_workspace_session, collect_pending_file_parses, path_matches_refresh_scope,
@@ -124,6 +125,7 @@ impl WorkspaceIndexer<SqliteStore> {
                     None
                 },
                 load_repo_curated_concepts(&root)?,
+                load_repo_curated_contracts(&root)?,
                 load_repo_concept_relations(&root)?,
                 &indexer.history.snapshot(),
                 &indexer.outcomes.snapshot(),
@@ -227,6 +229,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             Some(prism.projection_snapshot()),
             None,
             load_repo_curated_concepts(&root)?,
+            load_repo_curated_contracts(&root)?,
             load_repo_concept_relations(&root)?,
             &history_snapshot,
             &outcomes.snapshot(),
@@ -330,6 +333,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             stored_projection_snapshot,
             None,
             load_repo_curated_concepts(&root)?,
+            load_repo_curated_contracts(&root)?,
             load_repo_concept_relations(&root)?,
             &history.snapshot(),
             &outcomes.snapshot(),

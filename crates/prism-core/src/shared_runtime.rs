@@ -90,6 +90,7 @@ pub(crate) fn merged_projection_index(
     local_snapshot: Option<ProjectionSnapshot>,
     shared_snapshot: Option<ProjectionSnapshot>,
     repo_concepts: Vec<ConceptPacket>,
+    repo_contracts: Vec<prism_projections::ContractPacket>,
     repo_relations: Vec<ConceptRelation>,
     history: &HistorySnapshot,
     outcomes: &OutcomeMemorySnapshot,
@@ -136,6 +137,7 @@ pub(crate) fn merged_projection_index(
         combined_relations.extend(shared_snapshot.concept_relations);
     }
     projections.replace_concept_relations(combined_relations);
+    projections.replace_curated_contracts(repo_contracts);
     projections
 }
 

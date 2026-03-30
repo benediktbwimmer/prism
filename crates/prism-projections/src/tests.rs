@@ -11,7 +11,8 @@ use crate::projections::{ProjectionIndex, MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE};
 use crate::{
     ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptPacket,
     ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptRelation,
-    ConceptRelationKind, ConceptScope,
+    ConceptRelationKind, ConceptScope, ContractCompatibility, ContractEvent, ContractEventAction,
+    ContractGuarantee, ContractKind, ContractPacket, ContractStatus, ContractTarget,
 };
 
 #[test]
@@ -373,6 +374,81 @@ fn curated_concept_events_resolve_by_handle_and_query() {
     assert_eq!(
         index.concepts("validation", 1)[0].summary,
         "Curated validation concept"
+    );
+}
+
+#[test]
+fn curated_contract_events_resolve_by_handle_and_query() {
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    let history = HistorySnapshot {
+        node_to_lineage: vec![(alpha.clone(), LineageId::new("lineage:alpha"))],
+        events: Vec::new(),
+        co_change_counts: Vec::new(),
+        tombstones: Vec::new(),
+        next_lineage: 1,
+        next_event: 0,
+    };
+    let mut index =
+        ProjectionIndex::derive(&history, &OutcomeMemorySnapshot { events: Vec::new() });
+    index.replace_curated_contracts_from_events(&[ContractEvent {
+        id: "contract-event:1".to_string(),
+        recorded_at: 7,
+        task_id: Some("task:contract".to_string()),
+        action: ContractEventAction::Promote,
+        patch: None,
+        contract: ContractPacket {
+            handle: "contract://alpha_api".to_string(),
+            name: "alpha_api".to_string(),
+            summary: "The alpha surface preserves a stable internal callable contract.".to_string(),
+            aliases: vec!["alpha api".to_string(), "alpha contract".to_string()],
+            kind: ContractKind::Interface,
+            subject: ContractTarget {
+                anchors: vec![AnchorRef::Node(alpha)],
+                concept_handles: Vec::new(),
+            },
+            guarantees: vec![ContractGuarantee {
+                statement: "Callers may rely on the alpha function name staying stable."
+                    .to_string(),
+                scope: Some("internal callers".to_string()),
+                strength: None,
+                evidence_refs: vec!["validation:test-alpha".to_string()],
+            }],
+            assumptions: vec!["Only internal callers rely on this surface.".to_string()],
+            consumers: Vec::new(),
+            validations: Vec::new(),
+            stability: crate::ContractStability::Internal,
+            compatibility: ContractCompatibility {
+                additive: vec!["Adding optional parameters is additive.".to_string()],
+                breaking: vec!["Renaming alpha is breaking.".to_string()],
+                ..ContractCompatibility::default()
+            },
+            evidence: vec!["Seeded from a contract test.".to_string()],
+            status: ContractStatus::Active,
+            scope: crate::ContractScope::Repo,
+            provenance: crate::ContractProvenance {
+                origin: "test".to_string(),
+                kind: "curated_contract_event".to_string(),
+                task_id: Some("task:contract".to_string()),
+            },
+            publication: Some(crate::ContractPublication {
+                published_at: 7,
+                last_reviewed_at: Some(7),
+                status: crate::ContractPublicationStatus::Active,
+                supersedes: Vec::new(),
+                retired_at: None,
+                retirement_reason: None,
+            }),
+        },
+    }]);
+
+    let contract = index
+        .contract_by_handle("contract://alpha_api")
+        .expect("curated contract should resolve");
+    assert_eq!(contract.kind, ContractKind::Interface);
+    assert_eq!(contract.guarantees.len(), 1);
+    assert_eq!(
+        index.contracts("alpha contract", 1)[0].handle,
+        "contract://alpha_api"
     );
 }
 

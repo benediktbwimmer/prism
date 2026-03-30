@@ -12,10 +12,14 @@ use crate::concepts::{
     concept_by_handle, curated_concepts_from_events, hydrate_curated_concepts,
     merge_concept_packets, resolve_concepts, resolve_curated_concepts,
 };
+use crate::contracts::{
+    contract_by_handle, curated_contracts_from_events, merge_contract_packets, resolve_contracts,
+};
 use crate::types::{
     CoChangeDelta, CoChangeRecord, ConceptEvent, ConceptHealth, ConceptHealthSignals,
     ConceptHealthStatus, ConceptPacket, ConceptRelation, ConceptResolution, ConceptScope,
-    ProjectionSnapshot, ValidationCheck, ValidationDelta,
+    ContractEvent, ContractPacket, ContractResolution, ContractStatus, ProjectionSnapshot,
+    ValidationCheck, ValidationDelta,
 };
 
 pub const MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE: usize = 32;
@@ -28,6 +32,8 @@ pub struct ProjectionIndex {
     curated_concepts: Vec<ConceptPacket>,
     concept_relations: Vec<ConceptRelation>,
     concept_packets: Vec<ConceptPacket>,
+    curated_contracts: Vec<ContractPacket>,
+    contract_packets: Vec<ContractPacket>,
     history_hydrated: bool,
 }
 
@@ -79,6 +85,8 @@ impl ProjectionIndex {
             curated_concepts,
             concept_relations,
             concept_packets,
+            curated_contracts: Vec::new(),
+            contract_packets: Vec::new(),
             history_hydrated: history.is_some(),
         }
     }
@@ -187,6 +195,8 @@ impl ProjectionIndex {
             curated_concepts,
             concept_relations,
             concept_packets,
+            curated_contracts: Vec::new(),
+            contract_packets: Vec::new(),
             history_hydrated: true,
         }
     }
@@ -226,6 +236,27 @@ impl ProjectionIndex {
         self.rebuild_concepts();
     }
 
+    pub fn replace_curated_contracts(&mut self, curated_contracts: Vec<ContractPacket>) {
+        self.curated_contracts = curated_contracts;
+        self.rebuild_contracts();
+    }
+
+    pub fn replace_curated_contracts_from_events(&mut self, events: &[ContractEvent]) {
+        self.replace_curated_contracts(curated_contracts_from_events(events));
+    }
+
+    pub fn upsert_curated_contract(&mut self, contract: ContractPacket) {
+        let normalized = contract.handle.to_ascii_lowercase();
+        self.curated_contracts
+            .retain(|candidate| candidate.handle.to_ascii_lowercase() != normalized);
+        if contract.status != ContractStatus::Retired {
+            self.curated_contracts.push(contract);
+        }
+        self.curated_contracts
+            .sort_by(|left, right| left.handle.cmp(&right.handle));
+        self.rebuild_contracts();
+    }
+
     pub fn remove_concept_relation(
         &mut self,
         source_handle: &str,
@@ -248,6 +279,10 @@ impl ProjectionIndex {
 
     pub fn concept_relations(&self) -> &[ConceptRelation] {
         &self.concept_relations
+    }
+
+    pub fn curated_contracts(&self) -> &[ContractPacket] {
+        &self.curated_contracts
     }
 
     pub fn reseed_from_history(&mut self, history: &HistorySnapshot) {
@@ -462,6 +497,21 @@ impl ProjectionIndex {
         concept_relations_for_handle(&self.concept_relations, handle)
     }
 
+    pub fn contracts(&self, query: &str, limit: usize) -> Vec<ContractPacket> {
+        self.resolve_contracts(query, limit)
+            .into_iter()
+            .map(|resolution| resolution.packet)
+            .collect()
+    }
+
+    pub fn resolve_contracts(&self, query: &str, limit: usize) -> Vec<ContractResolution> {
+        resolve_contracts(&self.contract_packets, query, limit)
+    }
+
+    pub fn contract_by_handle(&self, handle: &str) -> Option<ContractPacket> {
+        contract_by_handle(&self.contract_packets, handle)
+    }
+
     fn rebuild_concepts(&mut self) {
         self.concept_packets = merge_concept_packets(&resolve_curated_concepts(
             &self.curated_concepts,
@@ -480,6 +530,10 @@ impl ProjectionIndex {
             ))
         });
         self.concept_relations = merge_concept_relations(&self.concept_relations);
+    }
+
+    fn rebuild_contracts(&mut self) {
+        self.contract_packets = merge_contract_packets(&self.curated_contracts);
     }
 
     fn compute_concept_health(

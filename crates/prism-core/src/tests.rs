@@ -27,6 +27,8 @@ use prism_projections::ProjectionSnapshot;
 use prism_query::{
     ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptPacket,
     ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptScope,
+    ContractCompatibility, ContractEvent, ContractEventAction, ContractGuarantee, ContractKind,
+    ContractPacket, ContractStatus, ContractTarget,
 };
 use prism_store::{MemoryStore, Store};
 use serde_json::json;
@@ -1321,6 +1323,95 @@ fn repo_concept_event_patch_trace_round_trips_through_jsonl() {
         Some("Updated alpha concept with cleared risk guidance.")
     );
     assert_eq!(patch.risk_hint, None);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_contract_events_round_trip_through_committed_jsonl_and_reload() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    session
+        .append_contract_event(ContractEvent {
+            id: "contract-event:repo-test".to_string(),
+            recorded_at: 29,
+            task_id: Some("task:repo-contract".to_string()),
+            action: ContractEventAction::Promote,
+            patch: None,
+            contract: ContractPacket {
+                handle: "contract://alpha_api".to_string(),
+                name: "alpha_api".to_string(),
+                summary:
+                    "The alpha surface preserves a stable callable contract for internal users."
+                        .to_string(),
+                aliases: vec!["alpha api".to_string()],
+                kind: ContractKind::Interface,
+                subject: ContractTarget {
+                    anchors: vec![AnchorRef::Node(alpha)],
+                    concept_handles: Vec::new(),
+                },
+                guarantees: vec![ContractGuarantee {
+                    statement: "Internal callers may rely on the alpha function name.".to_string(),
+                    scope: Some("internal callers".to_string()),
+                    strength: None,
+                    evidence_refs: vec!["validation:test-alpha".to_string()],
+                }],
+                assumptions: vec!["The surface remains internal-only.".to_string()],
+                consumers: Vec::new(),
+                validations: Vec::new(),
+                stability: prism_query::ContractStability::Internal,
+                compatibility: ContractCompatibility {
+                    breaking: vec!["Renaming alpha is breaking.".to_string()],
+                    ..ContractCompatibility::default()
+                },
+                evidence: vec!["Promoted from repo task work.".to_string()],
+                status: ContractStatus::Active,
+                scope: prism_query::ContractScope::Repo,
+                provenance: prism_query::ContractProvenance {
+                    origin: "test".to_string(),
+                    kind: "repo_contract_round_trip".to_string(),
+                    task_id: Some("task:repo-contract".to_string()),
+                },
+                publication: Some(prism_query::ContractPublication {
+                    published_at: 29,
+                    last_reviewed_at: Some(29),
+                    status: prism_query::ContractPublicationStatus::Active,
+                    supersedes: Vec::new(),
+                    retired_at: None,
+                    retirement_reason: None,
+                }),
+            },
+        })
+        .unwrap();
+
+    let repo_log = root.join(".prism").join("contracts").join("events.jsonl");
+    assert!(repo_log.exists());
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let contract = reloaded
+        .prism()
+        .contract_by_handle("contract://alpha_api")
+        .expect("repo contract should reload");
+    assert_eq!(contract.kind, ContractKind::Interface);
+    assert_eq!(contract.guarantees.len(), 1);
+    assert_eq!(contract.status, ContractStatus::Active);
 
     let _ = fs::remove_dir_all(root);
 }

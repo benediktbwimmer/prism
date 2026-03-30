@@ -1,6 +1,7 @@
 mod common;
 mod concept_relations;
 mod concepts;
+mod contracts;
 mod intent;
 mod projections;
 #[cfg(test)]
@@ -10,6 +11,9 @@ mod types;
 pub use crate::concept_relations::concept_relations_from_events;
 pub use crate::concepts::{
     canonical_concept_handle, concept_from_event, curated_concepts_from_events,
+};
+pub use crate::contracts::{
+    canonical_contract_handle, contract_from_event, curated_contracts_from_events,
 };
 pub use crate::intent::IntentIndex;
 pub use crate::projections::{
@@ -21,6 +25,9 @@ pub use crate::types::{
     ConceptEventPatch, ConceptHealth, ConceptHealthSignals, ConceptHealthStatus, ConceptPacket,
     ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptRelation,
     ConceptRelationEvent, ConceptRelationEventAction, ConceptRelationKind, ConceptResolution,
-    ConceptScope, IntentDriftRecord, IntentSpecProjection, ProjectionSnapshot, ValidationCheck,
-    ValidationDelta,
+    ConceptScope, ContractCompatibility, ContractEvent, ContractEventAction, ContractEventPatch,
+    ContractGuarantee, ContractGuaranteeStrength, ContractKind, ContractPacket, ContractProvenance,
+    ContractPublication, ContractPublicationStatus, ContractResolution, ContractScope,
+    ContractStability, ContractStatus, ContractTarget, ContractValidation, IntentDriftRecord,
+    IntentSpecProjection, ProjectionSnapshot, ValidationCheck, ValidationDelta,
 };

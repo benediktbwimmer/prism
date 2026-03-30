@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use prism_memory::{MemoryEvent, MemoryScope};
 use prism_projections::{
     ConceptEvent, ConceptPacket, ConceptProvenance, ConceptPublicationStatus, ConceptRelation,
-    ConceptRelationEvent,
+    ConceptRelationEvent, ContractEvent, ContractPacket, ContractStatus, ContractTarget,
 };
 use serde_json::Value;
 
@@ -55,6 +55,13 @@ pub(crate) fn validate_repo_concept_relation_event(event: &ConceptRelationEvent)
         return Ok(());
     }
     validate_repo_concept_relation(&event.relation)
+}
+
+pub(crate) fn validate_repo_contract_event(event: &ContractEvent) -> Result<()> {
+    if event.contract.scope != prism_projections::ContractScope::Repo {
+        return Ok(());
+    }
+    validate_repo_contract_packet(&event.contract)
 }
 
 fn validate_repo_memory_metadata(metadata: &Value) -> Result<()> {
@@ -204,4 +211,81 @@ fn validate_repo_concept_relation(relation: &ConceptRelation) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+fn validate_repo_contract_packet(packet: &ContractPacket) -> Result<()> {
+    if packet.handle.trim().is_empty() {
+        return Err(anyhow!("repo-published contract handle cannot be empty"));
+    }
+    if packet.name.trim().is_empty() {
+        return Err(anyhow!("repo-published contract name cannot be empty"));
+    }
+    if packet.summary.trim().chars().count() < 24 {
+        return Err(anyhow!(
+            "repo-published contract summary must contain at least 24 characters"
+        ));
+    }
+    if !contract_target_has_refs(&packet.subject) {
+        return Err(anyhow!(
+            "repo-published contract subject must include at least one anchor or concept handle"
+        ));
+    }
+    if packet.guarantees.is_empty() {
+        return Err(anyhow!(
+            "repo-published contract must include at least one guarantee"
+        ));
+    }
+    if packet
+        .guarantees
+        .iter()
+        .any(|guarantee| guarantee.statement.trim().is_empty())
+    {
+        return Err(anyhow!(
+            "repo-published contract guarantees must have non-empty statements"
+        ));
+    }
+    if packet.evidence.is_empty() {
+        return Err(anyhow!("repo-published contract evidence cannot be empty"));
+    }
+    if packet.status == ContractStatus::Candidate {
+        return Err(anyhow!(
+            "repo-published contract status cannot remain candidate"
+        ));
+    }
+    let Some(publication) = packet.publication.as_ref() else {
+        return Err(anyhow!(
+            "repo-published contract must include publication metadata"
+        ));
+    };
+    if publication.published_at == 0 {
+        return Err(anyhow!(
+            "repo-published contract publication must include publishedAt"
+        ));
+    }
+    if publication.status == ConceptPublicationStatus::Retired
+        && publication
+            .retirement_reason
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .is_empty()
+    {
+        return Err(anyhow!(
+            "retired repo-published contract must include retirementReason"
+        ));
+    }
+    if packet.provenance == ConceptProvenance::default() {
+        return Err(anyhow!(
+            "repo-published contract must include provenance metadata"
+        ));
+    }
+    Ok(())
+}
+
+fn contract_target_has_refs(target: &ContractTarget) -> bool {
+    !target.anchors.is_empty()
+        || target
+            .concept_handles
+            .iter()
+            .any(|handle| !handle.trim().is_empty())
 }

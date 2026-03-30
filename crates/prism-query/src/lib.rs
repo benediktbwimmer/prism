@@ -49,13 +49,17 @@ pub use crate::source::{
 };
 pub use crate::symbol::{Relations, Symbol};
 pub use crate::types::{
-    canonical_concept_handle, ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens,
-    ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptHealth, ConceptHealthSignals,
-    ConceptHealthStatus, ConceptPacket, ConceptProvenance, ConceptPublication,
-    ConceptPublicationStatus, ConceptRelation, ConceptRelationEvent, ConceptRelationEventAction,
-    ConceptRelationKind, ConceptScope, DriftCandidate, PlanListEntry, PlanNodeRecommendation,
-    PlanSummary, QueryLimits, TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck,
-    ValidationRecipe,
+    canonical_concept_handle, canonical_contract_handle, ArtifactRisk, ChangeImpact, CoChange,
+    ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptHealth,
+    ConceptHealthSignals, ConceptHealthStatus, ConceptPacket, ConceptProvenance,
+    ConceptPublication, ConceptPublicationStatus, ConceptRelation, ConceptRelationEvent,
+    ConceptRelationEventAction, ConceptRelationKind, ConceptScope, ContractCompatibility,
+    ContractEvent, ContractEventAction, ContractEventPatch, ContractGuarantee,
+    ContractGuaranteeStrength, ContractKind, ContractPacket, ContractProvenance,
+    ContractPublication, ContractPublicationStatus, ContractResolution, ContractScope,
+    ContractStability, ContractStatus, ContractTarget, ContractValidation, DriftCandidate,
+    PlanListEntry, PlanNodeRecommendation, PlanSummary, QueryLimits, TaskIntent, TaskRisk,
+    TaskValidationRecipe, ValidationCheck, ValidationRecipe,
 };
 
 pub struct Prism {
@@ -806,12 +810,19 @@ impl Prism {
             .expect("projection lock poisoned")
             .concept_relations()
             .to_vec();
-        let next = ProjectionIndex::derive_with_knowledge(
+        let contracts = self
+            .projections
+            .read()
+            .expect("projection lock poisoned")
+            .curated_contracts()
+            .to_vec();
+        let mut next = ProjectionIndex::derive_with_knowledge(
             &self.history.snapshot(),
             &self.outcomes.snapshot(),
             curated,
             relations,
         );
+        next.replace_curated_contracts(contracts);
         *self.projections.write().expect("projection lock poisoned") = next;
     }
 
@@ -827,6 +838,20 @@ impl Prism {
             .write()
             .expect("projection lock poisoned")
             .upsert_curated_concept(concept);
+    }
+
+    pub fn replace_curated_contracts(&self, contracts: Vec<ContractPacket>) {
+        self.projections
+            .write()
+            .expect("projection lock poisoned")
+            .replace_curated_contracts(contracts);
+    }
+
+    pub fn upsert_curated_contract(&self, contract: ContractPacket) {
+        self.projections
+            .write()
+            .expect("projection lock poisoned")
+            .upsert_curated_contract(contract);
     }
 
     pub fn replace_concept_relations(&self, relations: Vec<ConceptRelation>) {
@@ -965,6 +990,35 @@ impl Prism {
             .read()
             .expect("projection lock poisoned")
             .concept_relations_for_handle(handle)
+    }
+
+    pub fn contracts(&self, query: &str, limit: usize) -> Vec<ContractPacket> {
+        self.projections
+            .read()
+            .expect("projection lock poisoned")
+            .contracts(query, limit)
+    }
+
+    pub fn resolve_contracts(&self, query: &str, limit: usize) -> Vec<ContractResolution> {
+        self.projections
+            .read()
+            .expect("projection lock poisoned")
+            .resolve_contracts(query, limit)
+    }
+
+    pub fn contract(&self, query: &str) -> Option<ContractPacket> {
+        self.contracts(query, 1).into_iter().next()
+    }
+
+    pub fn resolve_contract(&self, query: &str) -> Option<ContractResolution> {
+        self.resolve_contracts(query, 1).into_iter().next()
+    }
+
+    pub fn contract_by_handle(&self, handle: &str) -> Option<ContractPacket> {
+        self.projections
+            .read()
+            .expect("projection lock poisoned")
+            .contract_by_handle(handle)
     }
 
     pub fn concept_health(&self, query: &str) -> Option<ConceptHealth> {
