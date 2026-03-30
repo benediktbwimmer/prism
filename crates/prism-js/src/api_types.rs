@@ -1013,8 +1013,10 @@ pub enum AnchorRefView {
         lineage_id: String,
     },
     File {
-        #[serde(rename = "fileId")]
-        file_id: u32,
+        #[serde(rename = "fileId", default, skip_serializing_if = "Option::is_none")]
+        file_id: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        path: Option<String>,
     },
     Kind {
         kind: String,

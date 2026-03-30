@@ -431,13 +431,21 @@ function __prismNormalizeAnchor(value) {
   if (typeof value === "object" && value.File != null) {
     return {
       type: "file",
-      fileId: value.File.fileId ?? value.File.file_id ?? value.File,
+      path: value.File.path,
+      fileId: value.File.fileId ?? value.File.file_id ?? (typeof value.File === "number" ? value.File : undefined),
     };
   }
   if (typeof value === "object" && value.Kind != null) {
     return { type: "kind", kind: value.Kind.kind ?? value.Kind };
   }
   if (typeof value === "object" && typeof value.type === "string") {
+    if (value.type === "file") {
+      return {
+        ...value,
+        path: value.path,
+        fileId: value.fileId ?? value.file_id,
+      };
+    }
     return value;
   }
   return null;

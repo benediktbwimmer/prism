@@ -417,7 +417,7 @@ pub(crate) fn concept_resolution_view(resolution: ConceptResolution) -> ConceptR
     }
 }
 
-pub(crate) fn anchor_ref_view(anchor: AnchorRef) -> AnchorRefView {
+pub(crate) fn anchor_ref_view(prism: &Prism, anchor: AnchorRef) -> AnchorRefView {
     match anchor {
         AnchorRef::Node(node) => AnchorRefView::Node {
             crate_name: node.crate_name.to_string(),
@@ -427,7 +427,13 @@ pub(crate) fn anchor_ref_view(anchor: AnchorRef) -> AnchorRefView {
         AnchorRef::Lineage(lineage) => AnchorRefView::Lineage {
             lineage_id: lineage.0.to_string(),
         },
-        AnchorRef::File(file) => AnchorRefView::File { file_id: file.0 },
+        AnchorRef::File(file) => AnchorRefView::File {
+            file_id: Some(file.0),
+            path: prism
+                .graph()
+                .file_path(file)
+                .map(|path| path.display().to_string()),
+        },
         AnchorRef::Kind(kind) => AnchorRefView::Kind {
             kind: kind.to_string(),
         },
@@ -435,6 +441,7 @@ pub(crate) fn anchor_ref_view(anchor: AnchorRef) -> AnchorRefView {
 }
 
 pub(crate) fn contract_packet_view(
+    prism: &Prism,
     packet: ContractPacket,
     resolution: Option<ContractResolution>,
 ) -> ContractPacketView {
@@ -444,7 +451,7 @@ pub(crate) fn contract_packet_view(
         summary: packet.summary,
         aliases: packet.aliases,
         kind: contract_kind_view(packet.kind),
-        subject: contract_target_view(packet.subject),
+        subject: contract_target_view(prism, packet.subject),
         guarantees: packet
             .guarantees
             .into_iter()
@@ -454,12 +461,12 @@ pub(crate) fn contract_packet_view(
         consumers: packet
             .consumers
             .into_iter()
-            .map(contract_target_view)
+            .map(|target| contract_target_view(prism, target))
             .collect(),
         validations: packet
             .validations
             .into_iter()
-            .map(contract_validation_view)
+            .map(|validation| contract_validation_view(prism, validation))
             .collect(),
         stability: contract_stability_view(packet.stability),
         compatibility: contract_compatibility_view(packet.compatibility),
@@ -503,9 +510,13 @@ fn contract_stability_view(stability: ContractStability) -> ContractStabilityVie
     }
 }
 
-fn contract_target_view(target: ContractTarget) -> ContractTargetView {
+fn contract_target_view(prism: &Prism, target: ContractTarget) -> ContractTargetView {
     ContractTargetView {
-        anchors: target.anchors.into_iter().map(anchor_ref_view).collect(),
+        anchors: target
+            .anchors
+            .into_iter()
+            .map(|anchor| anchor_ref_view(prism, anchor))
+            .collect(),
         concept_handles: target.concept_handles,
     }
 }
@@ -529,14 +540,17 @@ fn contract_guarantee_strength_view(
     }
 }
 
-fn contract_validation_view(validation: ContractValidation) -> ContractValidationView {
+fn contract_validation_view(
+    prism: &Prism,
+    validation: ContractValidation,
+) -> ContractValidationView {
     ContractValidationView {
         id: validation.id,
         summary: validation.summary,
         anchors: validation
             .anchors
             .into_iter()
-            .map(anchor_ref_view)
+            .map(|anchor| anchor_ref_view(prism, anchor))
             .collect(),
     }
 }

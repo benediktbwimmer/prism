@@ -576,7 +576,11 @@ fn collect_contract_impact(
     }
 
     for packet in packets {
-        contracts.push(contract_packet_view(packet.clone(), None));
+        contracts.push(contract_packet_view(
+            execution.prism(),
+            packet.clone(),
+            None,
+        ));
 
         for consumer in &packet.consumers {
             for node in execution.prism().contract_target_nodes(consumer, 4) {

@@ -782,7 +782,7 @@ impl QueryHost {
             event_id: event.id,
             contract_handle: packet.handle.clone(),
             task_id: task_id.0.to_string(),
-            packet: contract_packet_view(packet, None),
+            packet: contract_packet_view(prism.as_ref(), packet, None),
         })
     }
 

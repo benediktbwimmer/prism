@@ -941,7 +941,7 @@ type ConceptPublicationView = {
 type AnchorRefView =
   | { type: "node"; crateName: string; path: string; kind: string; }
   | { type: "lineage"; lineageId: string; }
-  | { type: "file"; fileId: number; }
+  | { type: "file"; path?: string; fileId?: number; }
   | { type: "kind"; kind: string; };
 
 type ContractKindView =

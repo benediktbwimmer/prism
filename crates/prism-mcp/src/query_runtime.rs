@@ -2780,7 +2780,7 @@ impl QueryExecution {
         }
         let contract = resolutions.into_iter().next().map(|resolution| {
             let packet = resolution.packet.clone();
-            contract_packet_view(packet, Some(resolution))
+            contract_packet_view(self.prism.as_ref(), packet, Some(resolution))
         });
         if contract.is_none() {
             self.push_diagnostic(
@@ -2798,7 +2798,7 @@ impl QueryExecution {
             .prism
             .contracts_for_target(&id)
             .into_iter()
-            .map(|packet| contract_packet_view(packet, None))
+            .map(|packet| contract_packet_view(self.prism.as_ref(), packet, None))
             .collect())
     }
 

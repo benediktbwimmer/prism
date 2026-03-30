@@ -30,7 +30,7 @@ use prism_ir::{
     Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, PlanEdgeKind, PlanId, Span,
     SymbolFingerprint, TaskId,
 };
-use prism_js::{ContractKindView, ContractStabilityView, ContractStatusView};
+use prism_js::{AnchorRefView, ContractKindView, ContractStabilityView, ContractStatusView};
 use prism_memory::{
     MemoryEntry, MemoryId, MemoryKind, MemoryModule, MemorySource, OutcomeEvent, OutcomeEvidence,
     OutcomeKind, OutcomeMemory, OutcomeResult, RecallQuery,
@@ -2871,6 +2871,90 @@ fn contract_mutation_and_contracts_resource_surface_packets() {
     assert_eq!(payload.kind.as_deref(), Some("interface"));
     assert!(payload.related_resources.iter().any(|resource| resource.uri
         == "prism://contracts?contains=runtime&status=active&scope=session&kind=interface"));
+}
+
+#[test]
+fn contract_views_surface_file_anchor_paths_for_round_trip_safety() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let stored = host
+        .store_contract(
+            session.as_ref(),
+            PrismContractMutationArgs {
+                operation: ContractMutationOperationInput::Promote,
+                handle: Some("contract://source_file_surface".to_string()),
+                name: Some("source file surface".to_string()),
+                summary: Some("The source file contract should round-trip through MCP without internal id guesswork.".to_string()),
+                aliases: None,
+                kind: Some(ContractKindInput::Behavioral),
+                subject: Some(ContractTargetInput {
+                    anchors: Some(vec![AnchorRefInput::File {
+                        file_id: None,
+                        path: Some("src/lib.rs".to_string()),
+                    }]),
+                    concept_handles: None,
+                }),
+                guarantees: Some(vec![ContractGuaranteeInput {
+                    statement: "Consumers can reason about the anchored file directly from the contract payload.".to_string(),
+                    scope: None,
+                    strength: Some(ContractGuaranteeStrengthInput::Hard),
+                    evidence_refs: None,
+                }]),
+                assumptions: None,
+                consumers: None,
+                validations: Some(vec![ContractValidationInput {
+                    id: "cargo test -p prism-mcp contract_views_surface_file_anchor_paths_for_round_trip_safety".to_string(),
+                    summary: Some("Covers file-anchor output ergonomics.".to_string()),
+                    anchors: Some(vec![AnchorRefInput::File {
+                        file_id: None,
+                        path: Some("src/lib.rs".to_string()),
+                    }]),
+                }]),
+                stability: Some(ContractStabilityInput::Internal),
+                compatibility: None,
+                evidence: None,
+                status: Some(ContractStatusInput::Active),
+                scope: Some(ConceptScopeInput::Session),
+                supersedes: None,
+                retirement_reason: None,
+                task_id: Some("task:contract-file-anchor-view".to_string()),
+            },
+        )
+        .expect("contract should store");
+
+    let expected_path = fs::canonicalize(root.join("src/lib.rs"))
+        .expect("file path should canonicalize")
+        .display()
+        .to_string();
+    match &stored.packet.subject.anchors[0] {
+        AnchorRefView::File { file_id, path } => {
+            assert_eq!(path.as_deref(), Some(expected_path.as_str()));
+            assert!(file_id.is_some());
+        }
+        other => panic!("expected file anchor view, got {other:?}"),
+    }
+    match &stored.packet.validations[0].anchors[0] {
+        AnchorRefView::File { file_id, path } => {
+            assert_eq!(path.as_deref(), Some(expected_path.as_str()));
+            assert!(file_id.is_some());
+        }
+        other => panic!("expected file anchor view, got {other:?}"),
+    }
+
+    let result = host
+        .execute(
+            session.clone(),
+            r#"
+return prism.contract("contract://source_file_surface")?.subject.anchors[0] ?? null;
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed");
+    assert_eq!(result.result["type"], "file");
+    assert_eq!(result.result["path"], expected_path);
+    assert!(result.result["fileId"].as_u64().is_some());
 }
 
 #[test]

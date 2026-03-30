@@ -301,14 +301,14 @@ impl QueryHost {
                 .into_iter()
                 .map(|resolution| {
                     let packet = resolution.packet.clone();
-                    contract_packet_view(packet, Some(resolution))
+                    contract_packet_view(prism.as_ref(), packet, Some(resolution))
                 })
                 .collect::<Vec<_>>()
         } else {
             prism
                 .curated_contracts()
                 .into_iter()
-                .map(|packet| contract_packet_view(packet, None))
+                .map(|packet| contract_packet_view(prism.as_ref(), packet, None))
                 .collect::<Vec<_>>()
         };
         let contracts = contracts

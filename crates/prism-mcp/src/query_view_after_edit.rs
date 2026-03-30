@@ -424,7 +424,11 @@ fn collect_contract_followups(
         let consumer_match = execution
             .prism()
             .contract_consumer_matches_target(id, &packet);
-        contracts.push(contract_packet_view(packet.clone(), None));
+        contracts.push(contract_packet_view(
+            execution.prism(),
+            packet.clone(),
+            None,
+        ));
 
         if subject_match {
             for consumer in &packet.consumers {
