@@ -960,7 +960,7 @@ impl QueryHost {
     }
 }
 
-fn contract_kind_label(kind: &crate::ContractKindView) -> &'static str {
+pub(crate) fn contract_kind_label(kind: &crate::ContractKindView) -> &'static str {
     match kind {
         crate::ContractKindView::Interface => "interface",
         crate::ContractKindView::Behavioral => "behavioral",
@@ -972,7 +972,7 @@ fn contract_kind_label(kind: &crate::ContractKindView) -> &'static str {
     }
 }
 
-fn contract_status_label(status: &crate::ContractStatusView) -> &'static str {
+pub(crate) fn contract_status_label(status: &crate::ContractStatusView) -> &'static str {
     match status {
         crate::ContractStatusView::Candidate => "candidate",
         crate::ContractStatusView::Active => "active",
@@ -981,7 +981,7 @@ fn contract_status_label(status: &crate::ContractStatusView) -> &'static str {
     }
 }
 
-fn contract_scope_label(scope: &prism_js::ConceptScopeView) -> &'static str {
+pub(crate) fn contract_scope_label(scope: &prism_js::ConceptScopeView) -> &'static str {
     match scope {
         prism_js::ConceptScopeView::Local => "local",
         prism_js::ConceptScopeView::Session => "session",

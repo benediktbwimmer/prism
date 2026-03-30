@@ -2083,6 +2083,16 @@ pub(crate) struct PlansQueryArgs {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct ContractsQueryArgs {
+    pub(crate) status: Option<String>,
+    pub(crate) scope: Option<String>,
+    pub(crate) contains: Option<String>,
+    pub(crate) kind: Option<String>,
+    pub(crate) limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct PlanTargetArgs {
     #[serde(alias = "plan_id")]
     pub(crate) plan_id: String,

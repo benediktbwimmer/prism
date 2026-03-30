@@ -798,6 +798,16 @@ const __prismBase = Object.freeze({
   contract(query) {
     return __prismHost("contract", { query });
   },
+  contracts(options = {}) {
+    options = __prismValidateOptions("prism.contracts", options, __prismOptionKeys.contracts);
+    return __prismHost("contracts", {
+      status: options?.status,
+      scope: options?.scope,
+      contains: options?.contains,
+      kind: options?.kind,
+      limit: options?.limit,
+    });
+  },
   contractsFor(target) {
     const targetPayload = __prismNormalizeTargetPayload(target);
     if (targetPayload == null) {

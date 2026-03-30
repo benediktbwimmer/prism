@@ -167,6 +167,12 @@ pub(crate) fn query_method_specs() -> Vec<(
             "Resolve the strongest contract packet for a query or stable handle.",
         ),
         (
+            "contracts",
+            "core",
+            None,
+            "List contract packets with typed filters matching the contracts resource surface.",
+        ),
+        (
             "contractsFor",
             "core",
             None,

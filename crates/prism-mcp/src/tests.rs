@@ -3050,6 +3050,7 @@ pub fn inspect_runtime() {}
 const sym = prism.symbol("runtime_status");
 return {
   contract: prism.contract("runtime status surface"),
+  contracts: prism.contracts({ scope: "session", status: "active", kind: "interface", contains: "runtime", limit: 1 }),
   contractsFor: sym ? prism.contractsFor(sym) : [],
   read: sym ? prism.readContext(sym) : null,
 };
@@ -3060,6 +3061,10 @@ return {
 
     assert_eq!(
         envelope.result["contract"]["handle"],
+        Value::String("contract://runtime_status_surface".to_string())
+    );
+    assert_eq!(
+        envelope.result["contracts"][0]["handle"],
         Value::String("contract://runtime_status_surface".to_string())
     );
     assert_eq!(

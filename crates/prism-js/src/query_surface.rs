@@ -95,6 +95,7 @@ const CONCEPT_KEYS: &[&str] = &[
     "includeBindingMetadata",
     "include_binding_metadata",
 ];
+const CONTRACTS_KEYS: &[&str] = &["status", "scope", "contains", "kind", "limit"];
 const CURATOR_JOB_KEYS: &[&str] = &["status", "trigger", "limit"];
 const CURATOR_PROPOSALS_KEYS: &[&str] = &[
     "status",
@@ -295,6 +296,7 @@ pub fn prism_api_method_specs() -> &'static [PrismApiMethodSpec] {
         method!("prism.concept", "concept(query: string, options?: ConceptQueryOptions): ConceptPacketView | null;", PrismSurfaceTypeRef::NullableNamed("ConceptPacketView"), PrismRecordArgBundle { bundle_name: "concept", arg_name: "options", arg_index: 1, allowed_keys: CONCEPT_KEYS }),
         method!("prism.conceptByHandle", "conceptByHandle(handle: string, options?: { verbosity?: \"summary\" | \"standard\" | \"full\"; includeBindingMetadata?: boolean }): ConceptPacketView | null;", PrismSurfaceTypeRef::NullableNamed("ConceptPacketView"), PrismRecordArgBundle { bundle_name: "concept", arg_name: "options", arg_index: 1, allowed_keys: CONCEPT_KEYS }),
         method!("prism.contract", "contract(query: string): ContractPacketView | null;", PrismSurfaceTypeRef::NullableNamed("ContractPacketView")),
+        method!("prism.contracts", "contracts(options?: ContractListOptions): ContractPacketView[];", PrismSurfaceTypeRef::ArrayOfNamed("ContractPacketView"), PrismRecordArgBundle { bundle_name: "contracts", arg_name: "options", arg_index: 0, allowed_keys: CONTRACTS_KEYS }),
         method!("prism.contractsFor", "contractsFor(target: QueryTarget): ContractPacketView[];", PrismSurfaceTypeRef::ArrayOfNamed("ContractPacketView")),
         method!("prism.conceptRelations", "conceptRelations(handle: string): ConceptRelationView[];", PrismSurfaceTypeRef::ArrayOfNamed("ConceptRelationView")),
         method!("prism.decodeConcept", "decodeConcept(input: { handle?: string; query?: string; lens?: \"open\" | \"workset\" | \"validation\" | \"timeline\" | \"memory\"; verbosity?: \"summary\" | \"standard\" | \"full\"; includeBindingMetadata?: boolean }): ConceptDecodeView | null;", PrismSurfaceTypeRef::NullableNamed("ConceptDecodeView"), PrismRecordArgBundle { bundle_name: "decodeConcept", arg_name: "input", arg_index: 0, allowed_keys: DECODE_CONCEPT_KEYS }),

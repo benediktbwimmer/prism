@@ -51,7 +51,11 @@ fn api_reference_mentions_primary_tool() {
         "conceptByHandle(handle: string, options?: { verbosity?: \"summary\" | \"standard\" | \"full\"; includeBindingMetadata?: boolean }): ConceptPacketView | null;"
     ));
     assert!(docs.contains("contract(query: string): ContractPacketView | null;"));
+    assert!(docs.contains("contracts(options?: ContractListOptions): ContractPacketView[];"));
     assert!(docs.contains("contractsFor(target: QueryTarget): ContractPacketView[];"));
+    assert!(docs.contains("type ContractListOptions = {"));
+    assert!(docs.contains("status?: \"candidate\" | \"active\" | \"deprecated\" | \"retired\";"));
+    assert!(docs.contains("scope?: \"local\" | \"session\" | \"repo\";"));
     assert!(docs.contains("conceptRelations(handle: string): ConceptRelationView[];"));
     assert!(docs.contains("decodeConcept(input:"));
     assert!(docs.contains("verbosity?: \"summary\" | \"standard\" | \"full\";"));
@@ -246,6 +250,7 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("concept(query, options = {})"));
     assert!(prelude.contains("conceptByHandle(handle, options = {})"));
     assert!(prelude.contains("contract(query)"));
+    assert!(prelude.contains("contracts(options = {})"));
     assert!(prelude.contains("contractsFor(target)"));
     assert!(prelude.contains("conceptRelations(handle)"));
     assert!(prelude.contains("decodeConcept(input)"));

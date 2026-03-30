@@ -53,17 +53,17 @@ use crate::{
     validation_context_view_cached, validation_recipe_view_with, weak_concept_match_reason,
     weak_search_match_diagnostic_data, weak_search_match_reason, where_used, AnchorListArgs,
     CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs, ConceptHandleArgs, ConceptQueryArgs,
-    ConceptVerbosity, ContractQueryArgs, CoordinationTaskTargetArgs, CuratorJobArgs,
-    CuratorJobsArgs, CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs, DiscoveryTargetArgs,
-    EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs, McpLogArgs,
-    McpTraceArgs, MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput,
-    OwnerLookupArgs, PendingReviewsArgs, PlanNextArgs, PlanNodeTargetArgs, PlanTargetArgs,
-    PlansQueryArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun,
-    QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchAmbiguityContext,
-    SearchArgs, SearchTextArgs, SemanticContextCache, SessionState, SimulateClaimArgs,
-    SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs,
-    TaskScopeMode, TaskTargetArgs, ToolNameArgs, ToolValidationArgs, ValidationFeedbackArgs,
-    WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
+    ConceptVerbosity, ContractQueryArgs, ContractsQueryArgs, CoordinationTaskTargetArgs,
+    CuratorJobArgs, CuratorJobsArgs, CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs,
+    DiscoveryTargetArgs, EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs,
+    LimitArgs, McpLogArgs, McpTraceArgs, MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs,
+    NodeIdInput, OwnerLookupArgs, PendingReviewsArgs, PlanNextArgs, PlanNodeTargetArgs,
+    PlanTargetArgs, PlansQueryArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage,
+    QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs,
+    SearchAmbiguityContext, SearchArgs, SearchTextArgs, SemanticContextCache, SessionState,
+    SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs,
+    TaskJournalArgs, TaskScopeMode, TaskTargetArgs, ToolNameArgs, ToolValidationArgs,
+    ValidationFeedbackArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
     DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
     QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER,
     USER_SNIPPET_MARKER,
@@ -109,6 +109,51 @@ fn contract_resolution_is_ambiguous(resolutions: &[prism_query::ContractResoluti
     };
     second.score.saturating_add(35) >= top.score
         || (top.score > 0 && second.score.saturating_mul(100) >= top.score.saturating_mul(85))
+}
+
+fn parse_contract_status_filter(value: &str) -> Result<&'static str> {
+    match value {
+        "candidate" => Ok("candidate"),
+        "active" => Ok("active"),
+        "deprecated" => Ok("deprecated"),
+        "retired" => Ok("retired"),
+        _ => Err(invalid_query_argument_error(
+            "status",
+            format!(
+                "Unsupported contract status `{value}`. Expected one of: candidate, active, deprecated, retired."
+            ),
+        )),
+    }
+}
+
+fn parse_contract_scope_filter(value: &str) -> Result<&'static str> {
+    match value {
+        "local" => Ok("local"),
+        "session" => Ok("session"),
+        "repo" => Ok("repo"),
+        _ => Err(invalid_query_argument_error(
+            "scope",
+            format!("Unsupported contract scope `{value}`. Expected one of: local, session, repo."),
+        )),
+    }
+}
+
+fn parse_contract_kind_filter(value: &str) -> Result<&'static str> {
+    match value {
+        "interface" => Ok("interface"),
+        "behavioral" => Ok("behavioral"),
+        "data_shape" => Ok("data_shape"),
+        "dependency_boundary" => Ok("dependency_boundary"),
+        "lifecycle" => Ok("lifecycle"),
+        "protocol" => Ok("protocol"),
+        "operational" => Ok("operational"),
+        _ => Err(invalid_query_argument_error(
+            "kind",
+            format!(
+                "Unsupported contract kind `{value}`. Expected one of: interface, behavioral, data_shape, dependency_boundary, lifecycle, protocol, operational."
+            ),
+        )),
+    }
 }
 
 impl QueryHost {
@@ -817,6 +862,10 @@ impl QueryExecution {
                 "contract" => {
                     let args: ContractQueryArgs = serde_json::from_value(args)?;
                     Ok(serde_json::to_value(self.contract(args)?)?)
+                }
+                "contracts" => {
+                    let args: ContractsQueryArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.contracts(args)?)?)
                 }
                 "contractsFor" => {
                     let args: SymbolTargetArgs = serde_json::from_value(args)?;
@@ -2861,6 +2910,89 @@ impl QueryExecution {
             );
         }
         Ok(contract)
+    }
+
+    fn contracts(&self, args: ContractsQueryArgs) -> Result<Vec<ContractPacketView>> {
+        let status = args
+            .status
+            .as_deref()
+            .map(parse_contract_status_filter)
+            .transpose()?;
+        let scope = args
+            .scope
+            .as_deref()
+            .map(parse_contract_scope_filter)
+            .transpose()?;
+        let kind = args
+            .kind
+            .as_deref()
+            .map(parse_contract_kind_filter)
+            .transpose()?;
+        let requested = args.limit.unwrap_or(DEFAULT_SEARCH_LIMIT);
+        let applied = requested.min(self.session.limits().max_result_nodes);
+        let mut results = if let Some(query) = args.contains.as_deref() {
+            self.prism
+                .resolve_contracts(query, self.session.limits().max_result_nodes)
+                .into_iter()
+                .map(|resolution| {
+                    let packet = resolution.packet.clone();
+                    contract_packet_view(
+                        self.prism.as_ref(),
+                        self.workspace_root(),
+                        packet,
+                        Some(resolution),
+                    )
+                })
+                .collect::<Vec<_>>()
+        } else {
+            self.prism
+                .curated_contracts()
+                .into_iter()
+                .map(|packet| {
+                    contract_packet_view(self.prism.as_ref(), self.workspace_root(), packet, None)
+                })
+                .collect::<Vec<_>>()
+        };
+        results.retain(|contract| {
+            status.is_none_or(|value| {
+                crate::host_resources::contract_status_label(&contract.status) == value
+            }) && scope.is_none_or(|value| {
+                crate::host_resources::contract_scope_label(&contract.scope) == value
+            }) && kind.is_none_or(|value| {
+                crate::host_resources::contract_kind_label(&contract.kind) == value
+            })
+        });
+        if requested > applied {
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Contract-list limit was capped at {} instead of {requested}. Next action: narrow with `status`, `scope`, `kind`, or `contains` before raising the limit.",
+                    applied
+                ),
+                Some(json!({
+                    "requested": requested,
+                    "applied": applied,
+                    "nextAction": "Use prism.contracts({ status: ..., scope: ..., kind: ..., contains: ..., limit: ... }) to narrow the result set.",
+                })),
+            );
+        }
+        if results.len() > applied {
+            let total = results.len();
+            results.truncate(applied);
+            self.push_diagnostic(
+                "result_truncated",
+                format!(
+                    "Contract discovery results were truncated at {} entries. Next action: narrow with `status`, `scope`, `kind`, or `contains`, then inspect one contract with `prism.contract(...)`.",
+                    applied
+                ),
+                Some(json!({
+                    "count": total,
+                    "applied": applied,
+                    "nextAction": "Use prism.contract(query) after narrowing prism.contracts(...).",
+                })),
+            );
+        }
+        Ok(results)
     }
 
     fn contracts_for(&self, args: SymbolTargetArgs) -> Result<Vec<ContractPacketView>> {

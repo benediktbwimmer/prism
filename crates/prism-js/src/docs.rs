@@ -315,6 +315,21 @@ type PlanListOptions = {
   limit?: number;
 };
 
+type ContractListOptions = {
+  status?: "candidate" | "active" | "deprecated" | "retired";
+  scope?: "local" | "session" | "repo";
+  contains?: string;
+  kind?:
+    | "interface"
+    | "behavioral"
+    | "data_shape"
+    | "dependency_boundary"
+    | "lifecycle"
+    | "protocol"
+    | "operational";
+  limit?: number;
+};
+
 __PRISM_API_DECLARATION_BLOCK__
 
 type QueryTarget = SymbolView | NodeId | { lineageId: string };
