@@ -3,9 +3,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use prism_ir::NodeId;
+use prism_ir::{AnchorRef, NodeId};
 use prism_projections::{
     ConceptPacket, ConceptPublicationStatus, ConceptRelation, ConceptRelationKind, ConceptScope,
+    ContractCompatibility, ContractGuarantee, ContractGuaranteeStrength, ContractKind,
+    ContractPacket, ContractPublicationStatus, ContractStability, ContractStatus, ContractTarget,
+    ContractValidation,
 };
 
 use crate::util::prism_doc_path;
@@ -36,8 +39,9 @@ pub(crate) fn sync_repo_prism_doc(
     root: &Path,
     concepts: &[ConceptPacket],
     relations: &[ConceptRelation],
+    contracts: &[ContractPacket],
 ) -> Result<PrismDocSyncResult> {
-    let catalog = PrismDocCatalog::new(concepts, relations);
+    let catalog = PrismDocCatalog::new(concepts, relations, contracts);
     let prism_docs_dir = root.join("docs").join("prism");
     fs::create_dir_all(&prism_docs_dir)?;
 
@@ -53,6 +57,10 @@ pub(crate) fn sync_repo_prism_doc(
     files.push(write_generated_file(
         prism_docs_dir.join("relations.md"),
         render_relations_doc(&catalog),
+    )?);
+    files.push(write_generated_file(
+        prism_docs_dir.join("contracts.md"),
+        render_contracts_doc(&catalog),
     )?);
 
     let status = if files
@@ -71,12 +79,17 @@ pub(crate) fn sync_repo_prism_doc(
 struct PrismDocCatalog {
     concepts: Vec<ConceptPacket>,
     relations: Vec<ConceptRelation>,
+    contracts: Vec<ContractPacket>,
     concept_names: HashMap<String, String>,
     relation_degree: HashMap<String, usize>,
 }
 
 impl PrismDocCatalog {
-    fn new(concepts: &[ConceptPacket], relations: &[ConceptRelation]) -> Self {
+    fn new(
+        concepts: &[ConceptPacket],
+        relations: &[ConceptRelation],
+        contracts: &[ContractPacket],
+    ) -> Self {
         let concepts = active_repo_concepts(concepts);
         let concept_names = concepts
             .iter()
@@ -88,10 +101,12 @@ impl PrismDocCatalog {
             })
             .collect::<HashMap<_, _>>();
         let relations = visible_repo_relations(relations, &concept_names);
+        let contracts = active_repo_contracts(contracts);
         let relation_degree = relation_degree_map(&relations);
         Self {
             concepts,
             relations,
+            contracts,
             concept_names,
             relation_degree,
         }
@@ -183,8 +198,13 @@ fn render_root_prism_doc(catalog: &PrismDocCatalog) -> String {
         "- Active repo relations: {}\n",
         catalog.relations.len()
     ));
+    markdown.push_str(&format!(
+        "- Active repo contracts: {}\n",
+        catalog.contracts.len()
+    ));
     markdown.push_str("- Full concept catalog: `docs/prism/concepts.md`\n");
     markdown.push_str("- Full relation catalog: `docs/prism/relations.md`\n\n");
+    markdown.push_str("- Full contract catalog: `docs/prism/contracts.md`\n\n");
 
     markdown.push_str("## How to Read This Repo\n\n");
     markdown.push_str("- Start with this file for the main architecture map and the most central repo concepts.\n");
@@ -195,7 +215,10 @@ fn render_root_prism_doc(catalog: &PrismDocCatalog) -> String {
         "- Use `docs/prism/relations.md` when you need the typed concept-to-concept graph.\n",
     );
     markdown.push_str(
-        "- Treat `.prism/concepts/events.jsonl` and `.prism/concepts/relations.jsonl` as the source of truth; these markdown files are derived artifacts.\n\n",
+        "- Use `docs/prism/contracts.md` when you need published guarantees, assumptions, validations, and compatibility guidance.\n",
+    );
+    markdown.push_str(
+        "- Treat `.prism/concepts/events.jsonl`, `.prism/concepts/relations.jsonl`, and `.prism/contracts/events.jsonl` as the source of truth; these markdown files are derived artifacts.\n\n",
     );
 
     if let Some(architecture) = catalog.architecture_concept() {
@@ -235,6 +258,9 @@ fn render_root_prism_doc(catalog: &PrismDocCatalog) -> String {
     markdown.push_str(
         "- `docs/prism/relations.md`: full typed relation catalog with evidence and confidence.\n",
     );
+    markdown.push_str(
+        "- `docs/prism/contracts.md`: full contract catalog with guarantees, assumptions, validations, and compatibility guidance.\n",
+    );
     markdown
 }
 
@@ -252,6 +278,10 @@ fn render_concepts_doc(catalog: &PrismDocCatalog) -> String {
     markdown.push_str(&format!(
         "- Active repo relations: {}\n\n",
         catalog.relations.len()
+    ));
+    markdown.push_str(&format!(
+        "- Active repo contracts: {}\n\n",
+        catalog.contracts.len()
     ));
 
     if catalog.concepts.is_empty() {
@@ -334,6 +364,10 @@ fn render_relations_doc(catalog: &PrismDocCatalog) -> String {
         "- Active repo concepts covered: {}\n\n",
         catalog.concepts.len()
     ));
+    markdown.push_str(&format!(
+        "- Active repo contracts: {}\n\n",
+        catalog.contracts.len()
+    ));
 
     if catalog.relations.is_empty() {
         markdown.push_str("No active repo-scoped concept relations are currently published.\n");
@@ -390,6 +424,69 @@ fn render_relations_doc(catalog: &PrismDocCatalog) -> String {
     markdown
 }
 
+fn render_contracts_doc(catalog: &PrismDocCatalog) -> String {
+    let mut markdown = String::new();
+    markdown.push_str("# PRISM Contracts\n\n");
+    markdown.push_str("> Generated from repo-scoped PRISM contract knowledge.\n");
+    markdown.push_str("> Return to the concise entrypoint in `../../PRISM.md`.\n\n");
+
+    markdown.push_str("## Overview\n\n");
+    markdown.push_str(&format!(
+        "- Active repo contracts: {}\n",
+        catalog.contracts.len()
+    ));
+    markdown.push_str(&format!(
+        "- Active repo concepts: {}\n",
+        catalog.concepts.len()
+    ));
+    markdown.push_str(&format!(
+        "- Active repo relations: {}\n\n",
+        catalog.relations.len()
+    ));
+
+    if catalog.contracts.is_empty() {
+        markdown.push_str("No active repo-scoped contracts are currently published.\n");
+        return markdown;
+    }
+
+    markdown.push_str("## Published Contracts\n\n");
+    for contract in &catalog.contracts {
+        markdown.push_str(&format!(
+            "- `{}` (`{}`): {}\n",
+            contract.name, contract.handle, contract.summary
+        ));
+    }
+    markdown.push('\n');
+
+    for contract in &catalog.contracts {
+        markdown.push_str(&format!("## {}\n\n", contract.name));
+        markdown.push_str(&format!("Handle: `{}`\n\n", contract.handle));
+        markdown.push_str(&format!("{}\n\n", contract.summary));
+        markdown.push_str(&format!(
+            "Kind: {}  \nStatus: {}  \nStability: {}\n\n",
+            contract_kind_label(contract.kind),
+            contract_status_label(contract.status),
+            contract_stability_label(contract.stability)
+        ));
+
+        if !contract.aliases.is_empty() {
+            markdown.push_str("Aliases: ");
+            markdown.push_str(&join_inline_code(&contract.aliases));
+            markdown.push_str("\n\n");
+        }
+
+        write_contract_target_section(&mut markdown, "Subject", &contract.subject);
+        write_contract_guarantees_section(&mut markdown, &contract.guarantees);
+        write_string_section(&mut markdown, "Assumptions", &contract.assumptions);
+        write_contract_targets_section(&mut markdown, "Consumers", &contract.consumers);
+        write_contract_validations_section(&mut markdown, &contract.validations);
+        write_contract_compatibility_section(&mut markdown, &contract.compatibility);
+        write_string_section(&mut markdown, "Evidence", &contract.evidence);
+    }
+
+    markdown
+}
+
 fn write_generated_file(path: PathBuf, rendered: String) -> Result<PrismDocFileSync> {
     let existing = fs::read_to_string(&path).ok();
     if existing.as_deref() == Some(rendered.as_str()) {
@@ -426,6 +523,27 @@ fn active_repo_concepts(concepts: &[ConceptPacket]) -> Vec<ConceptPacket> {
             .then_with(|| left.handle.cmp(&right.handle))
     });
     concepts
+}
+
+fn active_repo_contracts(contracts: &[ContractPacket]) -> Vec<ContractPacket> {
+    let mut contracts = contracts
+        .iter()
+        .filter(|contract| {
+            contract.scope == ConceptScope::Repo
+                && contract.status != ContractStatus::Retired
+                && contract.publication.as_ref().is_none_or(|publication| {
+                    publication.status != ContractPublicationStatus::Retired
+                })
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    contracts.sort_by(|left, right| {
+        left.name
+            .to_ascii_lowercase()
+            .cmp(&right.name.to_ascii_lowercase())
+            .then_with(|| left.handle.cmp(&right.handle))
+    });
+    contracts
 }
 
 fn visible_repo_relations(
@@ -519,12 +637,222 @@ fn write_node_section(markdown: &mut String, title: &str, nodes: &[NodeId]) {
     markdown.push('\n');
 }
 
+fn write_contract_target_section(markdown: &mut String, title: &str, target: &ContractTarget) {
+    if target.anchors.is_empty() && target.concept_handles.is_empty() {
+        return;
+    }
+    markdown.push_str("### ");
+    markdown.push_str(title);
+    markdown.push_str("\n\n");
+    if !target.anchors.is_empty() {
+        markdown.push_str("Anchors:\n");
+        for anchor in &target.anchors {
+            markdown.push_str("- `");
+            markdown.push_str(&anchor_label(anchor));
+            markdown.push_str("`\n");
+        }
+    }
+    if !target.concept_handles.is_empty() {
+        markdown.push_str("Concept Handles:\n");
+        for handle in &target.concept_handles {
+            markdown.push_str("- `");
+            markdown.push_str(handle);
+            markdown.push_str("`\n");
+        }
+    }
+    markdown.push('\n');
+}
+
+fn write_contract_targets_section(markdown: &mut String, title: &str, targets: &[ContractTarget]) {
+    if targets.is_empty() {
+        return;
+    }
+    markdown.push_str("### ");
+    markdown.push_str(title);
+    markdown.push_str("\n\n");
+    for (index, target) in targets.iter().enumerate() {
+        markdown.push_str(&format!("#### Target {}\n\n", index + 1));
+        write_contract_target_contents(markdown, target);
+    }
+}
+
+fn write_contract_target_contents(markdown: &mut String, target: &ContractTarget) {
+    if !target.anchors.is_empty() {
+        markdown.push_str("Anchors:\n");
+        for anchor in &target.anchors {
+            markdown.push_str("- `");
+            markdown.push_str(&anchor_label(anchor));
+            markdown.push_str("`\n");
+        }
+    }
+    if !target.concept_handles.is_empty() {
+        markdown.push_str("Concept Handles:\n");
+        for handle in &target.concept_handles {
+            markdown.push_str("- `");
+            markdown.push_str(handle);
+            markdown.push_str("`\n");
+        }
+    }
+    markdown.push('\n');
+}
+
+fn write_contract_guarantees_section(markdown: &mut String, guarantees: &[ContractGuarantee]) {
+    if guarantees.is_empty() {
+        return;
+    }
+    markdown.push_str("### Guarantees\n\n");
+    for guarantee in guarantees {
+        markdown.push_str("- `");
+        markdown.push_str(&guarantee.id);
+        markdown.push_str("`: ");
+        markdown.push_str(&guarantee.statement);
+        if let Some(scope) = guarantee.scope.as_ref() {
+            markdown.push_str(" (scope: ");
+            markdown.push_str(scope);
+            markdown.push(')');
+        }
+        if let Some(strength) = guarantee.strength {
+            markdown.push_str(" [");
+            markdown.push_str(contract_guarantee_strength_label(strength));
+            markdown.push(']');
+        }
+        markdown.push('\n');
+        for evidence_ref in &guarantee.evidence_refs {
+            markdown.push_str("  evidence ref: `");
+            markdown.push_str(evidence_ref);
+            markdown.push_str("`\n");
+        }
+    }
+    markdown.push('\n');
+}
+
+fn write_contract_validations_section(markdown: &mut String, validations: &[ContractValidation]) {
+    if validations.is_empty() {
+        return;
+    }
+    markdown.push_str("### Validations\n\n");
+    for validation in validations {
+        markdown.push_str("- `");
+        markdown.push_str(&validation.id);
+        markdown.push('`');
+        if let Some(summary) = validation.summary.as_ref() {
+            markdown.push_str(": ");
+            markdown.push_str(summary);
+        }
+        markdown.push('\n');
+        for anchor in &validation.anchors {
+            markdown.push_str("  anchor: `");
+            markdown.push_str(&anchor_label(anchor));
+            markdown.push_str("`\n");
+        }
+    }
+    markdown.push('\n');
+}
+
+fn write_contract_compatibility_section(
+    markdown: &mut String,
+    compatibility: &ContractCompatibility,
+) {
+    if compatibility.compatible.is_empty()
+        && compatibility.additive.is_empty()
+        && compatibility.risky.is_empty()
+        && compatibility.breaking.is_empty()
+        && compatibility.migrating.is_empty()
+    {
+        return;
+    }
+    markdown.push_str("### Compatibility\n\n");
+    write_string_subsection(markdown, "Compatible", &compatibility.compatible);
+    write_string_subsection(markdown, "Additive", &compatibility.additive);
+    write_string_subsection(markdown, "Risky", &compatibility.risky);
+    write_string_subsection(markdown, "Breaking", &compatibility.breaking);
+    write_string_subsection(markdown, "Migrating", &compatibility.migrating);
+}
+
+fn write_string_section(markdown: &mut String, title: &str, values: &[String]) {
+    if values.is_empty() {
+        return;
+    }
+    markdown.push_str("### ");
+    markdown.push_str(title);
+    markdown.push_str("\n\n");
+    for value in values {
+        markdown.push_str("- ");
+        markdown.push_str(value);
+        markdown.push('\n');
+    }
+    markdown.push('\n');
+}
+
+fn write_string_subsection(markdown: &mut String, title: &str, values: &[String]) {
+    if values.is_empty() {
+        return;
+    }
+    markdown.push_str("#### ");
+    markdown.push_str(title);
+    markdown.push_str("\n\n");
+    for value in values {
+        markdown.push_str("- ");
+        markdown.push_str(value);
+        markdown.push('\n');
+    }
+    markdown.push('\n');
+}
+
 fn join_inline_code(values: &[String]) -> String {
     values
         .iter()
         .map(|value| format!("`{value}`"))
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+fn anchor_label(anchor: &AnchorRef) -> String {
+    match anchor {
+        AnchorRef::Node(node) => format!("node:{}:{}:{}", node.crate_name, node.path, node.kind),
+        AnchorRef::Lineage(lineage) => format!("lineage:{}", lineage.0),
+        AnchorRef::File(file) => format!("file:{}", file.0),
+        AnchorRef::Kind(kind) => format!("kind:{kind}"),
+    }
+}
+
+fn contract_kind_label(kind: ContractKind) -> &'static str {
+    match kind {
+        ContractKind::Interface => "interface",
+        ContractKind::Behavioral => "behavioral",
+        ContractKind::DataShape => "data shape",
+        ContractKind::DependencyBoundary => "dependency boundary",
+        ContractKind::Lifecycle => "lifecycle",
+        ContractKind::Protocol => "protocol",
+        ContractKind::Operational => "operational",
+    }
+}
+
+fn contract_status_label(status: ContractStatus) -> &'static str {
+    match status {
+        ContractStatus::Candidate => "candidate",
+        ContractStatus::Active => "active",
+        ContractStatus::Deprecated => "deprecated",
+        ContractStatus::Retired => "retired",
+    }
+}
+
+fn contract_stability_label(stability: ContractStability) -> &'static str {
+    match stability {
+        ContractStability::Experimental => "experimental",
+        ContractStability::Internal => "internal",
+        ContractStability::Public => "public",
+        ContractStability::Deprecated => "deprecated",
+        ContractStability::Migrating => "migrating",
+    }
+}
+
+fn contract_guarantee_strength_label(strength: ContractGuaranteeStrength) -> &'static str {
+    match strength {
+        ContractGuaranteeStrength::Hard => "hard",
+        ContractGuaranteeStrength::Soft => "soft",
+        ContractGuaranteeStrength::Conditional => "conditional",
+    }
 }
 
 fn relation_kind_label(kind: ConceptRelationKind) -> &'static str {

@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
@@ -500,6 +500,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         let parse_apply_started = Instant::now();
         let prepare_parse_started = Instant::now();
         let mut prepared_jobs = Vec::new();
+        let mut unsupported_pending = Vec::new();
 
         for pending_file in pending {
             if pending_file.previous_path.is_none()
@@ -513,27 +514,27 @@ impl<S: Store> WorkspaceIndexer<S> {
                 continue;
             }
 
-            let Some((adapter_index, adapter)) = self
+            let previous_path = pending_file.previous_path.as_deref();
+            if let Some((adapter_index, adapter)) = self
                 .adapters
                 .iter()
                 .enumerate()
                 .find(|(_, adapter)| adapter.supports_path(&pending_file.path))
-            else {
-                continue;
-            };
-
-            let previous_path = pending_file.previous_path.as_deref();
-            let file_id = previous_path
-                .and_then(|path| self.graph.file_record(path).map(|record| record.file_id))
-                .unwrap_or_else(|| self.graph.ensure_file(&pending_file.path));
-            let package = self.layout.package_for(&pending_file.path).clone();
-            prepared_jobs.push(PreparedParseJob {
-                pending: pending_file,
-                file_id,
-                package,
-                adapter_index,
-                language: adapter.language(),
-            });
+            {
+                let file_id = previous_path
+                    .and_then(|path| self.graph.file_record(path).map(|record| record.file_id))
+                    .unwrap_or_else(|| self.graph.ensure_file(&pending_file.path));
+                let package = self.layout.package_for(&pending_file.path).clone();
+                prepared_jobs.push(PreparedParseJob {
+                    pending: pending_file,
+                    file_id,
+                    package,
+                    adapter_index,
+                    language: adapter.language(),
+                });
+            } else {
+                unsupported_pending.push(pending_file);
+            }
         }
         let prepare_parse_ms = prepare_parse_started.elapsed().as_millis();
         let prepared_file_count = prepared_jobs.len();
@@ -602,7 +603,32 @@ impl<S: Store> WorkspaceIndexer<S> {
                 );
             }
         }
-        let apply_parsed_ms = apply_parsed_started.elapsed().as_millis();
+        let apply_unsupported_started = Instant::now();
+        let unsupported_file_count = unsupported_pending.len();
+        for pending_file in unsupported_pending {
+            let previous_path = pending_file.previous_path.as_deref();
+            let update = self.upsert_unparsed_file(
+                previous_path,
+                &pending_file.path,
+                pending_file.hash,
+                trigger.clone(),
+            );
+            self.apply_file_update(
+                update,
+                &pending_file.path,
+                &mut all_lineage_events,
+                &mut co_change_deltas,
+                &mut validation_deltas,
+                &mut observed_changes,
+                &mut changes,
+                &mut upserted_paths,
+            )?;
+        }
+        let apply_unsupported_ms = apply_unsupported_started.elapsed().as_millis();
+        let apply_parsed_ms = apply_parsed_started
+            .elapsed()
+            .as_millis()
+            .saturating_sub(apply_unsupported_ms);
         let parse_apply_ms = parse_apply_started.elapsed().as_millis();
         info!(
             root = %self.root.display(),
@@ -615,6 +641,8 @@ impl<S: Store> WorkspaceIndexer<S> {
             prepare_parse_ms,
             parallel_parse_ms,
             apply_parsed_ms,
+            unsupported_file_count,
+            apply_unsupported_ms,
             skipped_unchanged_count,
             moved_file_count,
             parse_apply_ms,
@@ -1000,5 +1028,53 @@ impl<S: Store> WorkspaceIndexer<S> {
             default_outcome_meta("observed"),
             trigger,
         )
+    }
+
+    fn upsert_unparsed_file(
+        &mut self,
+        previous_path: Option<&Path>,
+        path: &Path,
+        hash: u64,
+        trigger: ChangeTrigger,
+    ) -> prism_store::FileUpdate {
+        self.graph.upsert_file_from_with_observed_without_rebuild(
+            previous_path,
+            path,
+            hash,
+            Vec::new(),
+            Vec::new(),
+            HashMap::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            &[],
+            default_outcome_meta("observed"),
+            trigger,
+        )
+    }
+
+    fn apply_file_update(
+        &mut self,
+        update: prism_store::FileUpdate,
+        path: &Path,
+        all_lineage_events: &mut Vec<LineageEvent>,
+        co_change_deltas: &mut Vec<CoChangeDelta>,
+        validation_deltas: &mut Vec<ValidationDelta>,
+        observed_changes: &mut Vec<ObservedChangeSet>,
+        changes: &mut Vec<prism_ir::GraphChange>,
+        upserted_paths: &mut Vec<PathBuf>,
+    ) -> Result<()> {
+        let new_lineage_events = self.history.apply(&update.observed);
+        let change_set_deltas = co_change_deltas_for_events(&new_lineage_events);
+        self.projections.apply_lineage_events(&new_lineage_events);
+        co_change_deltas.extend(change_set_deltas);
+        self.outcomes.apply_lineage(&new_lineage_events)?;
+        all_lineage_events.extend(new_lineage_events.iter().cloned());
+        validation_deltas.extend(self.record_patch_outcome(&update.observed));
+        observed_changes.push(update.observed.clone());
+        changes.extend(update.changes);
+        upserted_paths.push(path.to_path_buf());
+        Ok(())
     }
 }

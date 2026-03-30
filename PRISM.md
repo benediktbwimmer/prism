@@ -7,15 +7,19 @@
 
 - Active repo concepts: 94
 - Active repo relations: 203
+- Active repo contracts: 8
 - Full concept catalog: `docs/prism/concepts.md`
 - Full relation catalog: `docs/prism/relations.md`
+
+- Full contract catalog: `docs/prism/contracts.md`
 
 ## How to Read This Repo
 
 - Start with this file for the main architecture map and the most central repo concepts.
 - Use `docs/prism/concepts.md` when you need the full generated concept encyclopedia.
 - Use `docs/prism/relations.md` when you need the typed concept-to-concept graph.
-- Treat `.prism/concepts/events.jsonl` and `.prism/concepts/relations.jsonl` as the source of truth; these markdown files are derived artifacts.
+- Use `docs/prism/contracts.md` when you need published guarantees, assumptions, validations, and compatibility guidance.
+- Treat `.prism/concepts/events.jsonl`, `.prism/concepts/relations.jsonl`, and `.prism/contracts/events.jsonl` as the source of truth; these markdown files are derived artifacts.
 
 ## Architecture
 
@@ -57,3 +61,4 @@
 
 - `docs/prism/concepts.md`: full concept catalog with members, evidence, and risk hints.
 - `docs/prism/relations.md`: full typed relation catalog with evidence and confidence.
+- `docs/prism/contracts.md`: full contract catalog with guarantees, assumptions, validations, and compatibility guidance.

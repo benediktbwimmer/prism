@@ -155,14 +155,16 @@ pub(crate) fn collect_pending_file_parses(
     };
 
     for path in paths {
-        let Some(_adapter) = adapters.iter().find(|adapter| adapter.supports_path(&path)) else {
-            continue;
-        };
-
         if !seen_files.insert(path.clone()) {
             continue;
         }
-        let source = fs::read_to_string(&path)?;
+
+        let supported_by_adapter = adapters.iter().any(|adapter| adapter.supports_path(&path));
+        let source = match fs::read_to_string(&path) {
+            Ok(source) => source,
+            Err(error) if supported_by_adapter => return Err(error.into()),
+            Err(_) => continue,
+        };
         let hash = persisted_file_hash(&source);
         pending.push(PendingFileParse {
             path,

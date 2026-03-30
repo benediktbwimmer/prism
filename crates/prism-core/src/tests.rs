@@ -1412,10 +1412,12 @@ fn repo_concept_events_auto_sync_prism_doc() {
     let prism_doc = fs::read_to_string(root.join("PRISM.md")).unwrap();
     let concepts_doc = fs::read_to_string(root.join("docs/prism/concepts.md")).unwrap();
     let relations_doc = fs::read_to_string(root.join("docs/prism/relations.md")).unwrap();
+    let contracts_doc = fs::read_to_string(root.join("docs/prism/contracts.md")).unwrap();
     assert!(prism_doc.contains("# PRISM"));
     assert!(prism_doc.contains("## How to Read This Repo"));
     assert!(prism_doc.contains("docs/prism/concepts.md"));
     assert!(prism_doc.contains("docs/prism/relations.md"));
+    assert!(prism_doc.contains("docs/prism/contracts.md"));
     assert!(prism_doc.contains("- Active repo concepts: 1"));
     assert!(concepts_doc.contains("# PRISM Concepts"));
     assert!(concepts_doc.contains("`alpha_flow` (`concept://alpha_flow`)"));
@@ -1426,6 +1428,8 @@ fn repo_concept_events_auto_sync_prism_doc() {
     assert!(concepts_doc.contains("demo::gamma"));
     assert!(concepts_doc.contains("### Risk Hint"));
     assert!(relations_doc.contains("# PRISM Relations"));
+    assert!(contracts_doc.contains("# PRISM Contracts"));
+    assert!(contracts_doc.contains("No active repo-scoped contracts are currently published."));
 
     let sync = session.sync_prism_doc().unwrap();
     assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);
@@ -1553,6 +1557,119 @@ fn repo_concept_relations_auto_sync_prism_doc() {
     assert!(relations_doc.contains("# PRISM Relations"));
     assert!(relations_doc.contains("depends on: `beta_system` (`concept://beta_system`)"));
     assert!(relations_doc.contains("confidence 0.88"));
+
+    let sync = session.sync_prism_doc().unwrap();
+    assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn repo_contract_events_auto_sync_prism_doc() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    session
+        .append_contract_event(ContractEvent {
+            id: "contract-event:repo-prism-doc".to_string(),
+            recorded_at: 43,
+            task_id: Some("task:repo-contract-prism-doc".to_string()),
+            action: ContractEventAction::Promote,
+            patch: None,
+            contract: ContractPacket {
+                handle: "contract://alpha_api".to_string(),
+                name: "alpha_api".to_string(),
+                summary: "Preserves a stable callable surface for alpha consumers.".to_string(),
+                aliases: vec!["alpha api".to_string()],
+                kind: ContractKind::Interface,
+                subject: ContractTarget {
+                    anchors: vec![AnchorRef::Node(alpha.clone())],
+                    concept_handles: vec!["concept://alpha_flow".to_string()],
+                },
+                guarantees: vec![ContractGuarantee {
+                    id: "alpha_name_stable".to_string(),
+                    statement: "Internal callers may rely on the alpha function name.".to_string(),
+                    scope: Some("internal callers".to_string()),
+                    strength: Some(prism_query::ContractGuaranteeStrength::Hard),
+                    evidence_refs: vec!["validation:test-alpha".to_string()],
+                }],
+                assumptions: vec!["The alpha surface remains internal-only.".to_string()],
+                consumers: vec![ContractTarget {
+                    anchors: vec![AnchorRef::Node(alpha.clone())],
+                    concept_handles: vec!["concept://alpha_flow".to_string()],
+                }],
+                validations: vec![prism_query::ContractValidation {
+                    id: "alpha-smoke".to_string(),
+                    summary: Some("Run the alpha smoke path after interface changes.".to_string()),
+                    anchors: vec![AnchorRef::Node(alpha)],
+                }],
+                stability: prism_query::ContractStability::Internal,
+                compatibility: ContractCompatibility {
+                    additive: vec!["Adding optional behavior is safe.".to_string()],
+                    breaking: vec!["Renaming alpha is breaking.".to_string()],
+                    ..ContractCompatibility::default()
+                },
+                evidence: vec!["Promoted from repo curation.".to_string()],
+                status: ContractStatus::Active,
+                scope: prism_query::ContractScope::Repo,
+                provenance: prism_query::ContractProvenance {
+                    origin: "manual".to_string(),
+                    kind: "manual_contract".to_string(),
+                    task_id: Some("task:repo-contract-prism-doc".to_string()),
+                },
+                publication: Some(prism_query::ContractPublication {
+                    published_at: 43,
+                    last_reviewed_at: Some(43),
+                    status: prism_query::ContractPublicationStatus::Active,
+                    supersedes: Vec::new(),
+                    retired_at: None,
+                    retirement_reason: None,
+                }),
+            },
+        })
+        .unwrap();
+
+    let prism_doc = fs::read_to_string(root.join("PRISM.md")).unwrap();
+    let contracts_doc = fs::read_to_string(root.join("docs/prism/contracts.md")).unwrap();
+    assert!(prism_doc.contains("- Active repo contracts: 1"));
+    assert!(prism_doc.contains("docs/prism/contracts.md"));
+    assert!(contracts_doc.contains("# PRISM Contracts"));
+    assert!(contracts_doc.contains("`alpha_api` (`contract://alpha_api`)"));
+    assert!(contracts_doc.contains("Preserves a stable callable surface for alpha consumers."));
+    assert!(contracts_doc.contains("Kind: interface"));
+    assert!(contracts_doc.contains("Status: active"));
+    assert!(contracts_doc.contains("Stability: internal"));
+    assert!(contracts_doc.contains("### Subject"));
+    assert!(contracts_doc.contains("node:demo:demo::alpha:function"));
+    assert!(contracts_doc.contains("`concept://alpha_flow`"));
+    assert!(contracts_doc.contains("### Guarantees"));
+    assert!(contracts_doc.contains("alpha_name_stable"));
+    assert!(contracts_doc.contains("validation:test-alpha"));
+    assert!(contracts_doc.contains("### Assumptions"));
+    assert!(contracts_doc.contains("The alpha surface remains internal-only."));
+    assert!(contracts_doc.contains("### Consumers"));
+    assert!(contracts_doc.contains("### Validations"));
+    assert!(contracts_doc.contains("alpha-smoke"));
+    assert!(contracts_doc.contains("### Compatibility"));
+    assert!(contracts_doc.contains("Renaming alpha is breaking."));
+    assert!(contracts_doc.contains("### Evidence"));
+    assert!(contracts_doc.contains("Promoted from repo curation."));
 
     let sync = session.sync_prism_doc().unwrap();
     assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);
@@ -3332,6 +3449,37 @@ fn refresh_fs_preserves_live_projection_state_and_coordination_context() {
         .any(|symbol| symbol.id().path.ends_with("::beta")));
 
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn index_workspace_tracks_unsupported_text_files_for_file_anchors() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("www/dashboard/src")).unwrap();
+    fs::write(
+        root.join("www/dashboard/src/App.tsx"),
+        "export const app = 1;\n",
+    )
+    .unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let app_path = root
+        .join("www/dashboard/src/App.tsx")
+        .canonicalize()
+        .unwrap();
+    let file_id = session
+        .prism()
+        .graph()
+        .file_record(&app_path)
+        .map(|record| record.file_id)
+        .expect("unsupported text files should still produce file records");
+    assert_eq!(
+        session.prism().graph().file_path(file_id),
+        Some(&app_path),
+        "file ids for unsupported text files should round-trip to paths"
+    );
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    assert!(reloaded.prism().graph().file_record(&app_path).is_some());
 }
 
 #[test]

@@ -8,6 +8,8 @@
 - Active repo concepts: 94
 - Active repo relations: 203
 
+- Active repo contracts: 8
+
 ## Published Concepts
 
 - `agent inference and curation` (`concept://agent_inference_and_curation`): Inference and curator stack that records inferred edges, synthesizes curator output, and promotes reviewed knowledge into persistent PRISM state.

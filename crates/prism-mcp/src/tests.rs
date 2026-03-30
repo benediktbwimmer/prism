@@ -12756,6 +12756,64 @@ fn validation_feedback_mutation_accepts_file_anchor_paths() {
 }
 
 #[test]
+fn validation_feedback_mutation_accepts_unsupported_text_file_anchor_paths() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("www/dashboard/src")).unwrap();
+    fs::write(
+        root.join("www/dashboard/src/App.tsx"),
+        "export const app = 1;\n",
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .store_validation_feedback(
+            test_session(&host).as_ref(),
+            PrismValidationFeedbackArgs {
+                anchors: Some(vec![AnchorRefInput::File {
+                    file_id: None,
+                    path: Some("www/dashboard/src/App.tsx".to_string()),
+                }]),
+                context: "frontend file-anchor dogfood".to_string(),
+                prism_said: "frontend files must already be parser-indexed".to_string(),
+                actually_true:
+                    "unsupported text files should still resolve as workspace file anchors"
+                        .to_string(),
+                category: ValidationFeedbackCategoryInput::Projection,
+                verdict: ValidationFeedbackVerdictInput::Wrong,
+                corrected_manually: Some(false),
+                correction: None,
+                metadata: Some(json!({
+                    "tool": "prism_mutate",
+                    "action": "validation_feedback",
+                    "surface": "frontend",
+                })),
+                task_id: Some("task:frontend-file-anchor-feedback".to_string()),
+            },
+        )
+        .expect("unsupported text file path anchors should persist");
+
+    assert!(result.entry_id.starts_with("feedback:"));
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let app_path = root
+        .join("www/dashboard/src/App.tsx")
+        .canonicalize()
+        .unwrap();
+    let entries = reloaded.validation_feedback(Some(5)).unwrap();
+    assert_eq!(entries.len(), 1);
+    assert!(matches!(
+        &entries[0].anchors[0],
+        AnchorRef::File(file_id)
+            if reloaded
+                .prism()
+                .graph()
+                .file_path(*file_id)
+                .is_some_and(|path| path == &app_path)
+    ));
+}
+
+#[test]
 fn validation_feedback_query_reads_internal_feedback_stream() {
     let root = temp_workspace();
     let workspace = index_workspace_session(&root).unwrap();

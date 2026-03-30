@@ -8,6 +8,8 @@
 - Active repo relations: 203
 - Active repo concepts covered: 94
 
+- Active repo contracts: 8
+
 ## agent inference and curation
 
 Source Handle: `concept://agent_inference_and_curation`

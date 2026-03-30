@@ -289,7 +289,8 @@ impl WorkspaceSession {
         let prism = self.prism_arc();
         let concepts = prism.curated_concepts_snapshot();
         let relations = prism.concept_relations_snapshot();
-        sync_repo_prism_doc(&self.root, &concepts, &relations)
+        let contracts = prism.curated_contracts();
+        sync_repo_prism_doc(&self.root, &concepts, &relations, &contracts)
     }
 
     pub fn refresh_fs(&self) -> Result<Vec<ObservedChangeSet>> {
@@ -775,7 +776,8 @@ impl WorkspaceSession {
             .refresh_lock
             .lock()
             .expect("workspace refresh lock poisoned");
-        if event.contract.scope == prism_projections::ContractScope::Repo {
+        let should_sync_prism_doc = event.contract.scope == prism_projections::ContractScope::Repo;
+        if should_sync_prism_doc {
             validate_repo_contract_event(&event)?;
             append_repo_contract_event(&self.root, &event)?;
         }
@@ -783,6 +785,9 @@ impl WorkspaceSession {
         let previous = prism.contract_by_handle(&event.contract.handle);
         let contract = contract_from_event(previous.as_ref(), &event);
         prism.upsert_curated_contract(contract);
+        if should_sync_prism_doc {
+            self.sync_prism_doc()?;
+        }
         Ok(())
     }
 

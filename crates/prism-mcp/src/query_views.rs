@@ -136,6 +136,13 @@ fn query_view_definitions() -> Vec<QueryViewDefinition> {
     }
 }
 
+pub(crate) fn known_query_view_names() -> Vec<&'static str> {
+    query_view_definitions()
+        .into_iter()
+        .map(|view| view.name)
+        .collect()
+}
+
 impl QueryHost {
     pub(crate) fn query_view_capabilities(&self) -> Vec<QueryViewCapabilityView> {
         query_view_definitions()

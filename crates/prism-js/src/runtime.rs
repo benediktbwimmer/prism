@@ -155,6 +155,19 @@ function __prismValidateOptions(methodPath, options, allowedKeys) {
   return __prismValidateRecordShape(methodPath, options, "options", allowedKeys);
 }
 
+function __prismPickOptions(options, allowedKeys) {
+  if (options == null || typeof options !== "object" || Array.isArray(options)) {
+    return {};
+  }
+  const picked = {};
+  for (const key of allowedKeys) {
+    if (Object.prototype.hasOwnProperty.call(options, key)) {
+      picked[key] = options[key];
+    }
+  }
+  return picked;
+}
+
 function __prismNormalizeTarget(target) {
   if (target == null) {
     return null;
@@ -1148,7 +1161,10 @@ const __prismBase = Object.freeze({
       __prismOptionKeys.searchBundle
     );
     const scoped = __prismWithLocalDiagnostics(() => {
-      const results = prism.search(query, options);
+      const results = prism.search(
+        query,
+        __prismPickOptions(options, __prismOptionKeys.search)
+      );
       const topResult = Array.isArray(results) && results.length > 0 ? results[0] : null;
       const discovery =
         topResult != null && __prismIncludeDiscovery(options) ? prism.discovery(topResult) : null;
@@ -1183,7 +1199,10 @@ const __prismBase = Object.freeze({
       __prismOptionKeys.textSearchBundle
     );
     const scoped = __prismWithLocalDiagnostics(() => {
-      const matches = prism.searchText(query, options);
+      const matches = prism.searchText(
+        query,
+        __prismPickOptions(options, __prismOptionKeys.searchText)
+      );
       const topMatch = Array.isArray(matches) && matches.length > 0 ? matches[0] : null;
       const rawContext =
         topMatch != null
@@ -1265,7 +1284,10 @@ const __prismBase = Object.freeze({
         target: targetSymbol,
         discovery,
         focusedBlock,
-        diff: prism.diffFor(targetPayload, options),
+        diff: prism.diffFor(
+          targetPayload,
+          __prismPickOptions(options, __prismOptionKeys.diffFor)
+        ),
         editContext,
         readContext,
         suggestedReads: __prismResolveSuggestedReads(targetPayload, discovery, readContext, options),

@@ -13,7 +13,10 @@ use prism_js::{
 };
 use serde_json::{json, Map, Value};
 
-use crate::{closest_prism_api_path, static_typecheck_error, suggest_api_token};
+use crate::{
+    closest_prism_api_path, query_views::known_query_view_names, static_typecheck_error,
+    suggest_api_token,
+};
 
 const ARRAY_BUILTINS: &[&str] = &[
     "length", "map", "filter", "find", "some", "every", "flatMap", "at", "slice", "join",
@@ -76,6 +79,15 @@ struct PrismApiTypechecker<'a> {
 }
 
 impl PrismApiTypechecker<'_> {
+    fn is_dynamic_query_view_method(&self, method_path: &str) -> bool {
+        let Some(name) = method_path.strip_prefix("prism.") else {
+            return false;
+        };
+        known_query_view_names()
+            .into_iter()
+            .any(|candidate| candidate == name)
+    }
+
     fn push_issue(&mut self, error: anyhow::Error) {
         if self.issue.is_none() {
             self.issue = Some(error);
@@ -255,6 +267,12 @@ impl PrismApiTypechecker<'_> {
             return PrismSurfaceType::Unknown;
         };
         let Some(method) = prism_method_spec(&method_path) else {
+            if self.is_dynamic_query_view_method(&method_path) {
+                for arg in &call.args {
+                    self.infer_expr(&arg.expr);
+                }
+                return PrismSurfaceType::Unknown;
+            }
             self.push_issue(self.unknown_method_error(&method_path, call.span.lo));
             return PrismSurfaceType::Unknown;
         };
@@ -288,6 +306,12 @@ impl PrismApiTypechecker<'_> {
             return PrismSurfaceType::Unknown;
         };
         let Some(method) = prism_method_spec(&method_path) else {
+            if self.is_dynamic_query_view_method(&method_path) {
+                for arg in &call.args {
+                    self.infer_expr(&arg.expr);
+                }
+                return PrismSurfaceType::Unknown;
+            }
             self.push_issue(self.unknown_method_error(&method_path, call.span.lo));
             return PrismSurfaceType::Unknown;
         };
