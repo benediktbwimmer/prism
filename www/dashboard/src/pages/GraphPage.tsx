@@ -1,5 +1,15 @@
+import { useState, type ReactNode } from 'react'
+
+import { PrismFlowCanvas } from '../components/graph/PrismFlowCanvas'
+import {
+  buildConceptFlow,
+  focusNodeId,
+  planNodeIdFor,
+  relatedConceptNodeId,
+  relationEdgeId,
+} from '../graph/conceptFlowModel'
 import { useGraphData } from '../hooks/useGraphData'
-import type { ConceptPacketView, ConceptRelationView, GraphPlanTouchpointView } from '../types'
+import type { ConceptRelationView, GraphPlanTouchpointView } from '../types'
 
 type GraphPageProps = {
   search: string
@@ -9,6 +19,9 @@ type GraphPageProps = {
 export function GraphPage({ search, onNavigate }: GraphPageProps) {
   const requestedConceptHandle = new URLSearchParams(search).get('concept')
   const graph = useGraphData(requestedConceptHandle)
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
 
   if (!graph) {
     return (
@@ -20,9 +33,31 @@ export function GraphPage({ search, onNavigate }: GraphPageProps) {
     )
   }
 
+  const relationByEdgeId = new Map(
+    graph.focus.relations.map((relation) => [relationEdgeId(relation), relation]),
+  )
+  const planByNodeId = new Map(graph.relatedPlans.map((plan) => [planNodeIdFor(plan), plan]))
+  const relationByNodeId = new Map(
+    graph.focus.relations.map((relation) => [relatedConceptNodeId(relation), relation]),
+  )
+  const flow = buildConceptFlow(graph, {
+    hoveredNodeId,
+    selectedEdgeId,
+    hoveredEdgeId,
+  })
+
+  const activeRelation = selectedEdgeId
+    ? relationByEdgeId.get(selectedEdgeId)
+    : hoveredEdgeId
+      ? relationByEdgeId.get(hoveredEdgeId)
+      : null
+  const hoveredPlan = hoveredNodeId ? planByNodeId.get(hoveredNodeId) ?? null : null
+  const hoveredRelationNode = hoveredNodeId ? relationByNodeId.get(hoveredNodeId) ?? null : null
+  const hoveringFocus = hoveredNodeId === focusNodeId(graph.focus)
+
   return (
-    <div className="page-stack">
-      <section className="hero-bar panel">
+    <div className="page-stack flow-page">
+      <section className="hero-bar panel flow-hero">
         <div>
           <p className="eyebrow">Prism Graph</p>
           <h2>{graph.focus.canonicalName}</h2>
@@ -30,268 +65,307 @@ export function GraphPage({ search, onNavigate }: GraphPageProps) {
         </div>
         <div className="hero-actions">
           <span className="connection-pill">{graph.focus.relations.length} relations</span>
-          <span className="connection-pill">{graph.relatedPlans.length} plan touchpoints</span>
+          <span className="connection-pill">{graph.relatedPlans.length} plan overlays</span>
+          <span className="connection-pill">{graph.focus.evidence.length} evidence</span>
         </div>
       </section>
 
-      <section className="plans-layout">
-        <aside className="panel plans-sidebar">
+      <section className="panel flow-selector-panel">
+        <div className="panel-header">
+          <h3>Semantic Zoom</h3>
+          <span>{graph.entryConcepts.length}</span>
+        </div>
+        <div className="panel-body flow-selector-row">
+          {graph.entryConcepts.map((concept) => (
+            <button
+              key={concept.handle}
+              type="button"
+              className={`flow-selector ${concept.handle === graph.selectedConceptHandle ? 'flow-selector-active' : ''}`}
+              onClick={() => onNavigate(`/graph?concept=${encodeURIComponent(concept.handle)}`)}
+            >
+              <span className="flow-selector-title">{concept.canonicalName}</span>
+              <span className="flow-selector-meta">
+                <strong>{concept.relations.length}</strong> relations
+              </span>
+              <span className="flow-selector-meta">
+                <strong>{concept.evidence.length}</strong> evidence
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="flow-layout">
+        <section className="panel flow-stage-panel">
           <div className="panel-header">
-            <h3>Semantic Zoom</h3>
-            <span>{graph.entryConcepts.length}</span>
+            <h3>Architecture Graph</h3>
+            <span>{flow.nodes.length} nodes / {flow.edges.length} edges</span>
           </div>
-          <div className="panel-body plans-list">
-            {graph.entryConcepts.map((concept) => (
-              <button
-                key={concept.handle}
-                type="button"
-                className={`plan-list-button ${concept.handle === graph.selectedConceptHandle ? 'plan-list-button-active' : ''}`}
-                onClick={() => onNavigate(`/graph?concept=${encodeURIComponent(concept.handle)}`)}
-              >
-                <div className="plan-list-topline">
-                  <strong>{concept.canonicalName}</strong>
-                  <span className="status-chip status-warn">{concept.relations.length} edges</span>
-                </div>
-                <p>{concept.summary}</p>
-              </button>
-            ))}
+          <div className="flow-stage-meta">
+            <span>Concept-first neighborhood</span>
+            <span>Click concept nodes to focus</span>
+            <span>Hover nodes for preview</span>
+          </div>
+          <div className="flow-stage">
+            <PrismFlowCanvas
+              nodes={flow.nodes}
+              edges={flow.edges}
+              onNodeActivate={(node) => {
+                if (node.id === focusNodeId(graph.focus)) {
+                  return
+                }
+                const plan = planByNodeId.get(node.id)
+                if (plan) {
+                  onNavigate(`/plans?plan=${encodeURIComponent(plan.plan.planId)}`)
+                  return
+                }
+                const relation = relationByNodeId.get(node.id)
+                if (relation) {
+                  onNavigate(`/graph?concept=${encodeURIComponent(relation.relatedHandle)}`)
+                }
+              }}
+              onEdgeActivate={(edge) => {
+                setSelectedEdgeId(edge.id)
+              }}
+              onNodeHoverChange={setHoveredNodeId}
+              onEdgeHoverChange={setHoveredEdgeId}
+              onPaneActivate={() => setSelectedEdgeId(null)}
+            />
+          </div>
+        </section>
+
+        <aside className="panel flow-inspector">
+          <div className="panel-header">
+            <h3>Inspector</h3>
+            <span>{activeRelation ? 'edge' : hoveredPlan ? 'plan' : hoveredRelationNode ? 'concept' : 'focus'}</span>
+          </div>
+          <div className="panel-body flow-inspector-body">
+            {activeRelation ? (
+              <RelationInspector relation={activeRelation} />
+            ) : hoveredPlan ? (
+              <PlanOverlayInspector plan={hoveredPlan} onNavigate={onNavigate} />
+            ) : hoveredRelationNode ? (
+              <ConceptPreviewInspector relation={hoveredRelationNode} />
+            ) : hoveringFocus ? (
+              <FocusConceptInspector graph={graph} />
+            ) : (
+              <FocusConceptInspector graph={graph} />
+            )}
           </div>
         </aside>
+      </section>
 
-        <div className="plans-main">
-          <section className="status-grid">
-            <article className="panel stat-card">
-              <p className="stat-label">Focus Concept</p>
-              <h3>{graph.focus.canonicalName}</h3>
-              <p>{graph.focus.handle}</p>
+      <section className="flow-support-grid">
+        <CompactGraphPanel
+          title="Evidence"
+          count={graph.focus.evidence.length}
+          emptyMessage="No evidence is attached to this focus concept."
+          items={graph.focus.evidence.slice(0, 4).map((item) => (
+            <article key={item} className="compact-item">
+              <strong>Evidence</strong>
+              <p>{item}</p>
             </article>
-            <article className="panel stat-card">
-              <p className="stat-label">Evidence</p>
-              <h3>{graph.focus.evidence.length}</h3>
-              <p>{graph.focus.coreMembers.length} core members and {graph.focus.likelyTests.length} likely tests.</p>
+          ))}
+        />
+        <CompactGraphPanel
+          title="Plan Touchpoints"
+          count={graph.relatedPlans.length}
+          emptyMessage="No active plans currently touch this concept."
+          items={graph.relatedPlans.slice(0, 4).map((plan) => (
+            <button
+              key={plan.plan.planId}
+              type="button"
+              className="compact-item"
+              onClick={() => onNavigate(`/plans?plan=${encodeURIComponent(plan.plan.planId)}`)}
+            >
+              <strong>{plan.plan.title}</strong>
+              <p>{plan.touchedNodes.length} touched nodes</p>
+            </button>
+          ))}
+        />
+        <CompactGraphPanel
+          title="Concept Payload"
+          count={graph.focus.aliases.length}
+          emptyMessage="No aliases are attached to this concept."
+          items={graph.focus.aliases.slice(0, 4).map((alias) => (
+            <article key={alias} className="compact-item">
+              <strong>Alias</strong>
+              <p>{alias}</p>
             </article>
-            <article className="panel stat-card">
-              <p className="stat-label">Relations</p>
-              <h3>{graph.focus.relations.length}</h3>
-              <p>Typed edges drive navigation instead of a whole-repo hairball.</p>
-            </article>
-            <article className="panel stat-card">
-              <p className="stat-label">Plan Overlay</p>
-              <h3>{graph.relatedPlans.length} plans</h3>
-              <p>Active work touching this concept appears as a first overlay.</p>
-            </article>
-          </section>
-
-          <section className="plans-main-grid">
-            <article className="panel">
-              <div className="panel-header">
-                <h3>Neighborhood</h3>
-                <span>{graph.focus.relations.length}</span>
-              </div>
-              <div className="panel-body signal-list">
-                {graph.focus.relations.length === 0 ? (
-                  <p className="empty-state">No typed relations are available for this concept yet.</p>
-                ) : (
-                  graph.focus.relations.map((relation) => (
-                    <RelationCard
-                      key={`${relation.kind}-${relation.relatedHandle}`}
-                      relation={relation}
-                      onNavigate={onNavigate}
-                    />
-                  ))
-                )}
-              </div>
-            </article>
-
-            <article className="panel">
-              <div className="panel-header">
-                <h3>Plans Touching This Concept</h3>
-                <span>{graph.relatedPlans.length}</span>
-              </div>
-              <div className="panel-body signal-list">
-                {graph.relatedPlans.length === 0 ? (
-                  <p className="empty-state">No active plans are currently bound to this concept.</p>
-                ) : (
-                  graph.relatedPlans.map((touchpoint) => (
-                    <TouchpointCard
-                      key={touchpoint.plan.planId}
-                      touchpoint={touchpoint}
-                      onNavigate={onNavigate}
-                    />
-                  ))
-                )}
-              </div>
-            </article>
-
-            <article className="panel">
-              <div className="panel-header">
-                <h3>Evidence</h3>
-                <span>{graph.focus.evidence.length}</span>
-              </div>
-              <div className="panel-body signal-list">
-                {graph.focus.evidence.length === 0 ? (
-                  <p className="empty-state">No evidence snippets are attached to this concept yet.</p>
-                ) : (
-                  graph.focus.evidence.map((item) => (
-                    <article key={item} className="plan-card">
-                      <p>{item}</p>
-                    </article>
-                  ))
-                )}
-              </div>
-            </article>
-
-            <article className="panel">
-              <div className="panel-header">
-                <h3>Core Members</h3>
-                <span>{graph.focus.coreMembers.length}</span>
-              </div>
-              <div className="panel-body signal-list">
-                <MemberSection
-                  members={graph.focus.coreMembers}
-                  emptyMessage="No core members are attached to this concept."
-                />
-              </div>
-            </article>
-
-            <article className="panel">
-              <div className="panel-header">
-                <h3>Supporting Members</h3>
-                <span>{graph.focus.supportingMembers.length}</span>
-              </div>
-              <div className="panel-body signal-list">
-                <MemberSection
-                  members={graph.focus.supportingMembers}
-                  emptyMessage="No supporting members are attached to this concept."
-                />
-              </div>
-            </article>
-
-            <article className="panel">
-              <div className="panel-header">
-                <h3>Likely Tests</h3>
-                <span>{graph.focus.likelyTests.length}</span>
-              </div>
-              <div className="panel-body signal-list">
-                <MemberSection
-                  members={graph.focus.likelyTests}
-                  emptyMessage="No likely tests are attached to this concept."
-                />
-              </div>
-            </article>
-          </section>
-        </div>
+          ))}
+        />
       </section>
     </div>
   )
 }
 
-function RelationCard({
-  relation,
-  onNavigate,
-}: {
-  relation: ConceptRelationView
-  onNavigate: (path: string) => void
-}) {
+function FocusConceptInspector({ graph }: { graph: NonNullable<ReturnType<typeof useGraphData>> }) {
   return (
-    <button
-      type="button"
-      className="plan-card graph-relation-card"
-      onClick={() => onNavigate(`/graph?concept=${encodeURIComponent(relation.relatedHandle)}`)}
-    >
-      <div className="plan-list-topline">
-        <strong>{relation.relatedCanonicalName ?? relation.relatedHandle}</strong>
-        <span className="status-chip status-warn">{formatLabel(relation.kind)}</span>
+    <div className="inspector-stack">
+      <section className="inspector-hero">
+        <p className="eyebrow">Focus Concept</p>
+        <h3>{graph.focus.canonicalName}</h3>
+        <p>{graph.focus.summary}</p>
+      </section>
+      <div className="inspector-stat-grid">
+        <StatPill label="Relations" value={graph.focus.relations.length} />
+        <StatPill label="Evidence" value={graph.focus.evidence.length} />
+        <StatPill label="Plans" value={graph.relatedPlans.length} />
+        <StatPill label="Aliases" value={graph.focus.aliases.length} />
       </div>
-      <p>{relation.relatedSummary ?? 'No summary is available for this related concept yet.'}</p>
-      <div className="plan-inline-list">
-        <span>{formatLabel(relation.direction)}</span>
-        <span>{relation.scope}</span>
-        <span>{Math.round(relation.confidence * 100)}%</span>
-      </div>
-    </button>
+      <InspectorSection title="How to use this graph">
+        <ul className="inspector-list">
+          <li>Hover a related concept node to preview it.</li>
+          <li>Click a concept node to drill into that neighborhood.</li>
+          <li>Click an edge to inspect the typed architectural relation.</li>
+        </ul>
+      </InspectorSection>
+      <InspectorSection title="Risk hint">
+        <p>{graph.focus.riskHint ?? 'No explicit risk hint is attached to this concept right now.'}</p>
+      </InspectorSection>
+    </div>
   )
 }
 
-function TouchpointCard({
-  touchpoint,
-  onNavigate,
-}: {
-  touchpoint: GraphPlanTouchpointView
-  onNavigate: (path: string) => void
-}) {
+function ConceptPreviewInspector({ relation }: { relation: ConceptRelationView }) {
   return (
-    <button
-      type="button"
-      className="plan-card graph-relation-card"
-      onClick={() => onNavigate(`/plans?plan=${encodeURIComponent(touchpoint.plan.planId)}`)}
-    >
-      <div className="plan-list-topline">
-        <strong>{touchpoint.plan.title}</strong>
-        <span className={`status-chip status-${statusTone(touchpoint.plan.status)}`}>
-          {formatLabel(touchpoint.plan.status)}
-        </span>
+    <div className="inspector-stack">
+      <section className="inspector-hero">
+        <p className="eyebrow">Hover Preview</p>
+        <h3>{relation.relatedCanonicalName ?? relation.relatedHandle}</h3>
+        <p>{relation.relatedSummary ?? 'No summary is available for this related concept yet.'}</p>
+      </section>
+      <div className="inspector-stat-grid">
+        <StatPill label="Relation" value={formatLabel(relation.kind)} />
+        <StatPill label="Direction" value={formatLabel(relation.direction)} />
+        <StatPill label="Scope" value={relation.scope} />
+        <StatPill label="Confidence" value={`${Math.round(relation.confidence * 100)}%`} />
       </div>
-      <p>{touchpoint.plan.goal}</p>
-      <div className="signal-list">
-        {touchpoint.touchedNodes.map((node) => (
-          <div key={node.nodeId} className="plan-inline-list">
-            <span>{node.title}</span>
-            <span className={`status-chip status-${statusTone(node.status)}`}>{formatLabel(node.status)}</span>
-          </div>
-        ))}
-      </div>
-    </button>
+      <InspectorSection title="Interaction">
+        <p>Click this node to refocus the graph on this concept and load its own neighborhood.</p>
+      </InspectorSection>
+    </div>
   )
 }
 
-function MemberSection({
-  members,
+function RelationInspector({ relation }: { relation: ConceptRelationView }) {
+  return (
+    <div className="inspector-stack">
+      <section className="inspector-hero">
+        <p className="eyebrow">Typed Relation</p>
+        <h3>{formatLabel(relation.kind)}</h3>
+        <p>{relation.relatedCanonicalName ?? relation.relatedHandle}</p>
+      </section>
+      <div className="inspector-stat-grid">
+        <StatPill label="Direction" value={formatLabel(relation.direction)} />
+        <StatPill label="Scope" value={relation.scope} />
+        <StatPill label="Confidence" value={`${Math.round(relation.confidence * 100)}%`} />
+        <StatPill label="Evidence" value={relation.evidence.length} />
+      </div>
+      <InspectorSection title="Relation evidence">
+        {relation.evidence.length > 0 ? (
+          <ul className="inspector-list">
+            {relation.evidence.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        ) : (
+          <p>No explicit evidence snippets were attached to this relation.</p>
+        )}
+      </InspectorSection>
+    </div>
+  )
+}
+
+function PlanOverlayInspector({
+  plan,
+  onNavigate,
+}: {
+  plan: GraphPlanTouchpointView
+  onNavigate: (path: string) => void
+}) {
+  return (
+    <div className="inspector-stack">
+      <section className="inspector-hero">
+        <p className="eyebrow">Plan Overlay</p>
+        <h3>{plan.plan.title}</h3>
+        <p>{plan.plan.goal}</p>
+      </section>
+      <div className="inspector-stat-grid">
+        <StatPill label="Ready" value={plan.plan.summary.actionableNodes} />
+        <StatPill label="Blocked" value={plan.plan.summary.executionBlockedNodes} />
+        <StatPill label="Touched" value={plan.touchedNodes.length} />
+        <StatPill label="Status" value={formatLabel(plan.plan.status)} />
+      </div>
+      <InspectorSection title="Touched nodes">
+        <ul className="inspector-list">
+          {plan.touchedNodes.map((node) => (
+            <li key={node.nodeId}>{node.title} · {formatLabel(node.status)}</li>
+          ))}
+        </ul>
+      </InspectorSection>
+      <button
+        type="button"
+        className="ghost-button"
+        onClick={() => onNavigate(`/plans?plan=${encodeURIComponent(plan.plan.planId)}`)}
+      >
+        Open plan
+      </button>
+    </div>
+  )
+}
+
+function CompactGraphPanel({
+  title,
+  count,
   emptyMessage,
+  items,
 }: {
-  members: ConceptPacketView['coreMembers']
+  title: string
+  count: number
   emptyMessage: string
+  items: ReactNode[]
 }) {
-  if (members.length === 0) {
-    return <p className="empty-state">{emptyMessage}</p>
-  }
-
   return (
-    <>
-      {members.map((member) => (
-        <article key={member.path} className="plan-card">
-          <div className="plan-list-topline">
-            <strong>{member.path}</strong>
-            {member.kind ? <span className="status-chip status-warn">{member.kind}</span> : null}
-          </div>
-        </article>
-      ))}
-    </>
+    <article className="panel compact-panel">
+      <div className="panel-header">
+        <h3>{title}</h3>
+        <span>{count}</span>
+      </div>
+      <div className="panel-body compact-panel-body">
+        {items.length > 0 ? items : <p className="empty-state">{emptyMessage}</p>}
+      </div>
+    </article>
+  )
+}
+
+function InspectorSection({
+  title,
+  children,
+}: {
+  title: string
+  children: ReactNode
+}) {
+  return (
+    <section className="inspector-section">
+      <h4>{title}</h4>
+      {children}
+    </section>
+  )
+}
+
+function StatPill({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="inspector-pill">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   )
 }
 
 function formatLabel(value: string) {
-  return value.replaceAll('_', ' ')
-}
-
-function statusTone(value: string) {
-  const normalized = value.toLowerCase()
-  if (
-    normalized.includes('fail') ||
-    normalized.includes('reject') ||
-    normalized.includes('blocked') ||
-    normalized.includes('abandoned')
-  ) {
-    return 'error'
-  }
-  if (
-    normalized.includes('ready') ||
-    normalized.includes('complete') ||
-    normalized.includes('approved') ||
-    normalized.includes('success') ||
-    normalized.includes('active')
-  ) {
-    return 'ok'
-  }
-  return 'warn'
+  return value
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (character) => character.toUpperCase())
 }

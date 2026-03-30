@@ -13,6 +13,10 @@
   --success: #157347;
   --shadow: 0 20px 50px rgba(24, 39, 75, 0.12);
   --hero: linear-gradient(135deg, rgba(10, 91, 166, 0.92), rgba(16, 44, 87, 0.96));
+  --flow-grid: rgba(23, 32, 51, 0.08);
+  --edge: rgba(63, 79, 109, 0.44);
+  --edge-soft: rgba(22, 104, 199, 0.32);
+  --focus-ring: rgba(22, 104, 199, 0.3);
 }
 
 :root[data-theme='dark'] {
@@ -29,6 +33,10 @@
   --success: #56d364;
   --shadow: 0 24px 70px rgba(0, 0, 0, 0.36);
   --hero: linear-gradient(135deg, rgba(13, 49, 96, 0.96), rgba(6, 16, 34, 0.98));
+  --flow-grid: rgba(154, 165, 186, 0.12);
+  --edge: rgba(154, 165, 186, 0.38);
+  --edge-soft: rgba(124, 196, 255, 0.36);
+  --focus-ring: rgba(124, 196, 255, 0.34);
 }
 
 * {
@@ -687,6 +695,393 @@ pre {
   align-items: start;
 }
 
+.flow-page {
+  gap: 18px;
+}
+
+.flow-hero {
+  margin-bottom: 0;
+}
+
+.flow-selector-panel {
+  overflow: hidden;
+}
+
+.flow-selector-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(220px, 280px);
+  gap: 14px;
+  overflow-x: auto;
+  padding-top: 10px;
+}
+
+.flow-selector {
+  display: grid;
+  gap: 8px;
+  height: 140px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent),
+    var(--panel-muted);
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.flow-selector:hover {
+  transform: translateY(-1px);
+  border-color: var(--focus-ring);
+}
+
+.flow-selector-active {
+  border-color: var(--focus-ring);
+  background:
+    linear-gradient(180deg, rgba(22, 104, 199, 0.18), rgba(22, 104, 199, 0.02)),
+    var(--panel-strong);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.flow-selector-title {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.flow-selector-caption {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.flow-selector-meta {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.flow-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.8fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.flow-stage-panel,
+.flow-inspector,
+.compact-panel {
+  overflow: hidden;
+}
+
+.flow-stage-panel {
+  min-height: 720px;
+}
+
+.flow-hero-subtitle {
+  max-width: 72ch;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.flow-stage-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 20px 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.flow-stage-meta span {
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: var(--panel-muted);
+  border: 1px solid var(--border);
+}
+
+.flow-stage {
+  height: 620px;
+  padding: 14px;
+}
+
+.prism-flow-shell {
+  height: 100%;
+  border-radius: 24px;
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(circle at top left, rgba(22, 104, 199, 0.08), transparent 26%),
+    radial-gradient(circle at bottom right, rgba(234, 88, 12, 0.08), transparent 22%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    rgba(255, 255, 255, 0.22);
+  overflow: hidden;
+}
+
+:root[data-theme='dark'] .prism-flow-shell {
+  background:
+    radial-gradient(circle at top left, rgba(124, 196, 255, 0.12), transparent 24%),
+    radial-gradient(circle at bottom right, rgba(250, 204, 21, 0.08), transparent 18%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent),
+    rgba(2, 8, 23, 0.34);
+}
+
+.prism-flow-shell .react-flow__controls {
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.prism-flow-shell .react-flow__controls-button {
+  background: var(--panel-strong);
+  border-bottom-color: var(--border);
+  color: var(--text);
+}
+
+.prism-flow-shell .react-flow__edge-textbg {
+  fill: var(--panel-strong);
+}
+
+.prism-flow-node {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 24px;
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent 44%),
+    var(--panel-strong);
+  box-shadow: 0 18px 32px rgba(23, 32, 51, 0.14);
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.prism-flow-node-hovered,
+.prism-flow-node-selected {
+  transform: translateY(-2px);
+  border-color: var(--focus-ring);
+  box-shadow:
+    0 24px 42px rgba(23, 32, 51, 0.18),
+    0 0 0 1px var(--focus-ring);
+}
+
+.prism-flow-node-focus {
+  background:
+    linear-gradient(180deg, rgba(22, 104, 199, 0.24), rgba(22, 104, 199, 0.05) 48%, transparent),
+    var(--panel-strong);
+}
+
+.prism-flow-node-plan_overlay {
+  background:
+    linear-gradient(180deg, rgba(16, 185, 129, 0.16), rgba(16, 185, 129, 0.03) 45%, transparent),
+    var(--panel-strong);
+}
+
+.prism-flow-tone-accent {
+  border-color: rgba(22, 104, 199, 0.26);
+}
+
+.prism-flow-tone-success {
+  border-color: rgba(21, 115, 71, 0.3);
+}
+
+.prism-flow-tone-warn {
+  border-color: rgba(217, 119, 6, 0.28);
+}
+
+.prism-flow-tone-danger {
+  border-color: rgba(180, 35, 24, 0.28);
+}
+
+.prism-flow-node-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+}
+
+.prism-flow-node-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.14;
+  letter-spacing: -0.02em;
+}
+
+.prism-flow-node-eyebrow {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.73rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+
+.prism-flow-node-badge {
+  flex-shrink: 0;
+  max-width: 110px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.48);
+  border: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.prism-flow-node-body {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.42;
+}
+
+.prism-flow-node-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: auto;
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.prism-flow-handle {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--panel-strong);
+  background: var(--accent);
+}
+
+.flow-inspector {
+  min-height: 720px;
+}
+
+.flow-inspector-body {
+  height: calc(100% - 56px);
+  min-height: 652px;
+}
+
+.inspector-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.inspector-hero {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(22, 104, 199, 0.12), rgba(22, 104, 199, 0.03)),
+    var(--panel-muted);
+  border: 1px solid var(--border);
+}
+
+.inspector-hero h3,
+.inspector-section h4 {
+  margin: 0;
+}
+
+.inspector-hero p,
+.inspector-section p,
+.compact-item p {
+  margin: 0;
+}
+
+.inspector-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.inspector-pill {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--panel-muted);
+  border: 1px solid var(--border);
+}
+
+.inspector-pill span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.inspector-pill strong {
+  font-size: 1rem;
+  line-height: 1.12;
+}
+
+.inspector-section {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: var(--panel-muted);
+  border: 1px solid var(--border);
+}
+
+.inspector-section h4 {
+  font-size: 0.84rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.inspector-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.flow-support-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.compact-panel-body {
+  display: grid;
+  gap: 12px;
+}
+
+.compact-item {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--panel-muted);
+}
+
+.compact-meta {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .plans-sidebar {
   position: sticky;
   top: 24px;
@@ -788,7 +1183,9 @@ pre {
   }
 
   .content-grid,
-  .plans-layout {
+  .plans-layout,
+  .flow-layout,
+  .flow-support-grid {
     grid-template-columns: 1fr;
   }
 
@@ -834,5 +1231,28 @@ pre {
   .hero-bar {
     flex-direction: column;
     align-items: start;
+  }
+
+  .flow-selector-row {
+    grid-auto-columns: minmax(220px, 86vw);
+  }
+
+  .flow-stage {
+    height: 520px;
+    padding: 10px;
+  }
+
+  .flow-stage-panel,
+  .flow-inspector {
+    min-height: auto;
+  }
+
+  .flow-inspector-body {
+    min-height: auto;
+    height: auto;
+  }
+
+  .inspector-stat-grid {
+    grid-template-columns: 1fr;
   }
 }

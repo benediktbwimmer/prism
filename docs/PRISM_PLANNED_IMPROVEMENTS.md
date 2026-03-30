@@ -2,24 +2,7 @@
 
 This note captures the highest-signal improvement areas surfaced while using PRISM MCP to implement the first Prism UI control-plane slice.
 
-## 1. Freshness And New-File Anchoring
-
-Problem:
-Newly created files can exist on disk and be part of the active worktree, but still fail PRISM mutation anchoring immediately after edits or restart flows. During the UI work, `prism_mutate memory` rejected anchors for brand-new frontend files as "not indexed workspace file".
-
-Why it matters:
-This breaks the repo-native workflow right at the moment when fresh implementation context should be easiest to record.
-
-Suggested work:
-- Make file-anchor acceptance more tolerant for newly materialized workspace files.
-- Clarify whether anchor validation should consult the live filesystem, the indexed graph, or both.
-- Add a fast refresh/materialization path after new-file edits so mutations can anchor to them without a full rebuild cycle.
-
-Validation:
-- Create a new file, edit it, then immediately store memory and coordination mutations anchored to that file.
-- Verify the same flow works both before and after daemon restart.
-
-## 2. Ownership-Aware First-Hop Ranking
+## 1. Ownership-Aware First-Hop Ranking
 
 Problem:
 Compact discovery can still over-rank nearby text hits instead of the actual owner module for the task. During routing work, suggestions leaned toward operation-detail code instead of the shell/router boundary that actually owned the change.
@@ -35,7 +18,7 @@ Suggested work:
 Validation:
 - Use the same query family on known routing or shell tasks and confirm the top result is the owning module, not a nearby consumer.
 
-## 3. Better Semantic-To-Exact Edit Handoff
+## 2. Better Semantic-To-Exact Edit Handoff
 
 Problem:
 PRISM is strong at semantic orientation, but once a file becomes large or monolithic, compact slices stop being enough and the workflow falls back to raw shell reads.
@@ -51,7 +34,7 @@ Suggested work:
 Validation:
 - Run the flow on known large files and confirm the agent can stay inside PRISM-native reads longer before needing shell fallback.
 
-## 4. Large-File And Monolith Pressure Signals
+## 3. Large-File And Monolith Pressure Signals
 
 Problem:
 When a target file is too large, the compact surface degrades quietly instead of clearly signaling that the file itself is the real issue.
