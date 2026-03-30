@@ -81,6 +81,12 @@ pub(crate) struct ConceptHandleArgs {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct ContractQueryArgs {
+    pub(crate) query: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct DecodeConceptArgs {
     pub(crate) handle: Option<String>,
     pub(crate) query: Option<String>,

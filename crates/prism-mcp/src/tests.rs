@@ -30,6 +30,7 @@ use prism_ir::{
     Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode, PlanEdgeKind, PlanId, Span,
     SymbolFingerprint, TaskId,
 };
+use prism_js::{ContractKindView, ContractStabilityView, ContractStatusView};
 use prism_memory::{
     MemoryEntry, MemoryId, MemoryKind, MemoryModule, MemorySource, OutcomeEvent, OutcomeEvidence,
     OutcomeKind, OutcomeMemory, OutcomeResult, RecallQuery,
@@ -2870,6 +2871,244 @@ fn contract_mutation_and_contracts_resource_surface_packets() {
     assert_eq!(payload.kind.as_deref(), Some("interface"));
     assert!(payload.related_resources.iter().any(|resource| resource.uri
         == "prism://contracts?contains=runtime&status=active&scope=session&kind=interface"));
+}
+
+#[test]
+fn contract_query_helpers_and_read_context_surface_contract_packets() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn runtime_status() {}
+pub fn inspect_runtime() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    host.store_contract(
+        session.as_ref(),
+        PrismContractMutationArgs {
+            operation: ContractMutationOperationInput::Promote,
+            handle: Some("contract://runtime_status_surface".to_string()),
+            name: Some("runtime status surface".to_string()),
+            summary: Some(
+                "The runtime status entry point remains available for diagnostics consumers."
+                    .to_string(),
+            ),
+            aliases: Some(vec!["runtime status".to_string()]),
+            kind: Some(ContractKindInput::Interface),
+            subject: Some(ContractTargetInput {
+                anchors: Some(vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::runtime_status".to_string(),
+                    kind: "function".to_string(),
+                }]),
+                concept_handles: None,
+            }),
+            guarantees: Some(vec![ContractGuaranteeInput {
+                statement: "Diagnostics callers can query runtime status.".to_string(),
+                scope: Some("internal".to_string()),
+                strength: Some(ContractGuaranteeStrengthInput::Hard),
+                evidence_refs: Some(vec!["runtime-status-tests".to_string()]),
+            }]),
+            assumptions: Some(vec!["The daemon is running.".to_string()]),
+            consumers: Some(vec![ContractTargetInput {
+                anchors: Some(vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::inspect_runtime".to_string(),
+                    kind: "function".to_string(),
+                }]),
+                concept_handles: None,
+            }]),
+            validations: Some(vec![ContractValidationInput {
+                id: "cargo test -p prism-mcp runtime_status".to_string(),
+                summary: Some("Covers the runtime status surface.".to_string()),
+                anchors: None,
+            }]),
+            stability: Some(ContractStabilityInput::Internal),
+            compatibility: Some(ContractCompatibilityInput {
+                compatible: None,
+                additive: None,
+                risky: None,
+                breaking: Some(vec!["Removing the runtime status surface.".to_string()]),
+                migrating: None,
+            }),
+            evidence: Some(vec![
+                "Promoted from repeated runtime inspection work.".to_string()
+            ]),
+            status: Some(ContractStatusInput::Active),
+            scope: Some(ConceptScopeInput::Session),
+            supersedes: None,
+            retirement_reason: None,
+            task_id: Some("task:contract-query".to_string()),
+        },
+    )
+    .expect("contract should store");
+
+    let envelope = host
+        .execute(
+            test_session(&host),
+            r#"
+const sym = prism.symbol("runtime_status");
+return {
+  contract: prism.contract("runtime status surface"),
+  contractsFor: sym ? prism.contractsFor(sym) : [],
+  read: sym ? prism.readContext(sym) : null,
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("contract query should succeed");
+
+    assert_eq!(
+        envelope.result["contract"]["handle"],
+        Value::String("contract://runtime_status_surface".to_string())
+    );
+    assert_eq!(
+        envelope.result["contractsFor"][0]["handle"],
+        Value::String("contract://runtime_status_surface".to_string())
+    );
+    assert_eq!(
+        envelope.result["read"]["contracts"][0]["handle"],
+        Value::String("contract://runtime_status_surface".to_string())
+    );
+    assert!(envelope.result["read"]["suggestedQueries"]
+        .as_array()
+        .is_some_and(|items| items
+            .iter()
+            .any(|query| query["label"] == Value::String("Contracts".to_string()))));
+}
+
+#[test]
+fn impact_and_after_edit_surface_contract_guidance() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn runtime_status() {}
+pub fn inspect_runtime() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session_and_limits_and_features(
+        index_workspace_session(&root).unwrap(),
+        QueryLimits::default(),
+        PrismMcpFeatures::full()
+            .with_query_view(QueryViewFeatureFlag::Impact, true)
+            .with_query_view(QueryViewFeatureFlag::AfterEdit, true),
+    );
+    let session = test_session(&host);
+
+    host.store_contract(
+        session.as_ref(),
+        PrismContractMutationArgs {
+            operation: ContractMutationOperationInput::Promote,
+            handle: Some("contract://runtime_status_surface".to_string()),
+            name: Some("runtime status surface".to_string()),
+            summary: Some(
+                "The runtime status entry point remains available for diagnostics consumers."
+                    .to_string(),
+            ),
+            aliases: Some(vec!["runtime status".to_string()]),
+            kind: Some(ContractKindInput::Interface),
+            subject: Some(ContractTargetInput {
+                anchors: Some(vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::runtime_status".to_string(),
+                    kind: "function".to_string(),
+                }]),
+                concept_handles: None,
+            }),
+            guarantees: Some(vec![ContractGuaranteeInput {
+                statement: "Diagnostics callers can query runtime status.".to_string(),
+                scope: Some("internal".to_string()),
+                strength: Some(ContractGuaranteeStrengthInput::Hard),
+                evidence_refs: Some(vec!["runtime-status-tests".to_string()]),
+            }]),
+            assumptions: Some(vec!["The daemon is running.".to_string()]),
+            consumers: Some(vec![ContractTargetInput {
+                anchors: Some(vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::inspect_runtime".to_string(),
+                    kind: "function".to_string(),
+                }]),
+                concept_handles: None,
+            }]),
+            validations: Some(vec![ContractValidationInput {
+                id: "cargo test -p prism-mcp runtime_status".to_string(),
+                summary: Some("Covers the runtime status surface.".to_string()),
+                anchors: None,
+            }]),
+            stability: Some(ContractStabilityInput::Internal),
+            compatibility: Some(ContractCompatibilityInput {
+                compatible: None,
+                additive: None,
+                risky: Some(vec!["Changing the status payload shape.".to_string()]),
+                breaking: Some(vec!["Removing the runtime status surface.".to_string()]),
+                migrating: Some(vec![
+                    "Update diagnostics callers before widening the payload.".to_string(),
+                ]),
+            }),
+            evidence: Some(vec![
+                "Promoted from repeated runtime inspection work.".to_string()
+            ]),
+            status: Some(ContractStatusInput::Active),
+            scope: Some(ConceptScopeInput::Session),
+            supersedes: None,
+            retirement_reason: None,
+            task_id: Some("task:contract-views".to_string()),
+        },
+    )
+    .expect("contract should store");
+
+    let envelope = host
+        .execute(
+            test_session(&host),
+            r#"
+const sym = prism.symbol("runtime_status");
+return {
+  impact: sym ? prism.impact({ target: sym }) : null,
+  afterEdit: sym ? prism.afterEdit({ target: sym }) : null,
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query views should succeed");
+
+    assert_eq!(
+        envelope.result["impact"]["contracts"][0]["handle"],
+        Value::String("contract://runtime_status_surface".to_string())
+    );
+    assert!(envelope.result["impact"]["downstream"]
+        .as_array()
+        .is_some_and(|items| items
+            .iter()
+            .any(|item| item["label"] == Value::String("demo::inspect_runtime".to_string()))));
+    assert!(envelope.result["impact"]["recommendedChecks"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item["label"]
+            == Value::String("cargo test -p prism-mcp runtime_status".to_string()))));
+
+    assert_eq!(
+        envelope.result["afterEdit"]["contracts"][0]["handle"],
+        Value::String("contract://runtime_status_surface".to_string())
+    );
+    assert!(envelope.result["afterEdit"]["nextReads"]
+        .as_array()
+        .is_some_and(|items| items
+            .iter()
+            .any(|item| item["label"] == Value::String("demo::inspect_runtime".to_string()))));
+    assert!(envelope.result["afterEdit"]["tests"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item["label"]
+            == Value::String("cargo test -p prism-mcp runtime_status".to_string()))));
+    assert!(envelope.result["afterEdit"]["notes"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|note| note
+            .as_str()
+            .is_some_and(|value| value.contains("contract://runtime_status_surface")))));
 }
 
 #[test]

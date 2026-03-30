@@ -839,6 +839,7 @@ pub struct ImpactView {
     pub downstream: Vec<QueryRecommendationView>,
     pub risks: Vec<QueryRiskHintView>,
     pub recommended_checks: Vec<QueryRecommendationView>,
+    pub contracts: Vec<ContractPacketView>,
     pub notes: Vec<String>,
 }
 
@@ -850,6 +851,7 @@ pub struct AfterEditView {
     pub tests: Vec<QueryRecommendationView>,
     pub docs: Vec<QueryRecommendationView>,
     pub risk_checks: Vec<QueryRecommendationView>,
+    pub contracts: Vec<ContractPacketView>,
     pub notes: Vec<String>,
 }
 
@@ -995,6 +997,132 @@ pub struct ConceptDecodeView {
     pub recent_patches: Vec<PatchEventView>,
     pub validation_recipe: Option<ValidationRecipeView>,
     pub evidence: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum AnchorRefView {
+    Node {
+        #[serde(rename = "crateName")]
+        crate_name: String,
+        path: String,
+        kind: String,
+    },
+    Lineage {
+        #[serde(rename = "lineageId")]
+        lineage_id: String,
+    },
+    File {
+        #[serde(rename = "fileId")]
+        file_id: u32,
+    },
+    Kind {
+        kind: String,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ContractKindView {
+    Interface,
+    Behavioral,
+    DataShape,
+    DependencyBoundary,
+    Lifecycle,
+    Protocol,
+    Operational,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ContractStatusView {
+    Candidate,
+    Active,
+    Deprecated,
+    Retired,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ContractStabilityView {
+    Experimental,
+    Internal,
+    Public,
+    Deprecated,
+    Migrating,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ContractGuaranteeStrengthView {
+    Hard,
+    Soft,
+    Conditional,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractTargetView {
+    pub anchors: Vec<AnchorRefView>,
+    pub concept_handles: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractGuaranteeView {
+    pub statement: String,
+    pub scope: Option<String>,
+    pub strength: Option<ContractGuaranteeStrengthView>,
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractValidationView {
+    pub id: String,
+    pub summary: Option<String>,
+    pub anchors: Vec<AnchorRefView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractCompatibilityView {
+    pub compatible: Vec<String>,
+    pub additive: Vec<String>,
+    pub risky: Vec<String>,
+    pub breaking: Vec<String>,
+    pub migrating: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractResolutionView {
+    pub score: i32,
+    pub reasons: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ContractPacketView {
+    pub handle: String,
+    pub name: String,
+    pub summary: String,
+    pub aliases: Vec<String>,
+    pub kind: ContractKindView,
+    pub subject: ContractTargetView,
+    pub guarantees: Vec<ContractGuaranteeView>,
+    pub assumptions: Vec<String>,
+    pub consumers: Vec<ContractTargetView>,
+    pub validations: Vec<ContractValidationView>,
+    pub stability: ContractStabilityView,
+    pub compatibility: ContractCompatibilityView,
+    pub evidence: Vec<String>,
+    pub status: ContractStatusView,
+    pub scope: ConceptScopeView,
+    pub provenance: ConceptProvenanceView,
+    pub publication: Option<ConceptPublicationView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolution: Option<ContractResolutionView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -1487,6 +1615,7 @@ pub struct ReadContextView {
     pub related_memory: Vec<ScoredMemoryView>,
     pub recent_failures: Vec<OutcomeEvent>,
     pub validation_recipe: ValidationRecipeView,
+    pub contracts: Vec<ContractPacketView>,
     pub why: Vec<String>,
     pub suggested_queries: Vec<SuggestedQueryView>,
 }

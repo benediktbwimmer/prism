@@ -13,10 +13,10 @@ use prism_query::Prism;
 use serde_json::json;
 
 use crate::{
-    blast_radius_view, co_change_view, context_target_block, focused_blocks_for_symbol_views,
-    grouped_owner_views_for_target, lineage_view, promoted_summary_texts, relations_view,
-    scored_memory_view, symbol_for, symbol_view, GroupedOwnerCandidateViews, SessionState,
-    CONTEXT_BLOCK_LIMIT, INSIGHT_LIMIT,
+    blast_radius_view, co_change_view, context_target_block, contract_packet_view,
+    focused_blocks_for_symbol_views, grouped_owner_views_for_target, lineage_view,
+    promoted_summary_texts, relations_view, scored_memory_view, symbol_for, symbol_view,
+    GroupedOwnerCandidateViews, SessionState, CONTEXT_BLOCK_LIMIT, INSIGHT_LIMIT,
 };
 
 const MEMORY_CONTEXT_LIMIT: usize = 5;
@@ -79,6 +79,11 @@ pub(crate) fn read_context_view_cached(
     let related_memory = cached_related_memory(prism, session, cache, target)?;
     let recent_failures = cached_recent_failures(prism, cache, target);
     let validation_recipe = cached_validation_recipe(prism, session, cache, target);
+    let contracts = prism
+        .contracts_for_target(target)
+        .into_iter()
+        .map(|packet| contract_packet_view(packet, None))
+        .collect::<Vec<_>>();
 
     let mut why = vec![
         "Direct links come from exact graph edges around the requested target.".to_string(),
@@ -95,6 +100,12 @@ pub(crate) fn read_context_view_cached(
             "Related memory is recalled from session notes anchored to this target.".to_string(),
         );
     }
+    if !contracts.is_empty() {
+        why.push(
+            "Contracts surface explicit promises, consumers, assumptions, and validations tied to this target."
+                .to_string(),
+        );
+    }
 
     Ok(ReadContextView {
         target: target_symbol,
@@ -107,6 +118,7 @@ pub(crate) fn read_context_view_cached(
         related_memory,
         recent_failures,
         validation_recipe,
+        contracts,
         why,
         suggested_queries: read_context_queries(target),
     })
@@ -694,6 +706,11 @@ pub(crate) fn read_context_queries(target: &NodeId) -> Vec<SuggestedQueryView> {
             label: "Validation Recipe".to_string(),
             query: format!("return prism.validationRecipe({target_json});"),
             why: "See the tests and checks most likely to validate a change here.".to_string(),
+        },
+        SuggestedQueryView {
+            label: "Contracts".to_string(),
+            query: format!("return prism.contractsFor({target_json});"),
+            why: "Inspect the contract packets that govern or consume this target.".to_string(),
         },
     ]
 }

@@ -161,6 +161,18 @@ fn query_method_specs() -> Vec<(
             "Validate a PRISM MCP tool payload, normalize tagged shorthand, and return actionable issues plus exact schema URIs.",
         ),
         (
+            "contract",
+            "core",
+            None,
+            "Resolve the strongest contract packet for a query or stable handle.",
+        ),
+        (
+            "contractsFor",
+            "core",
+            None,
+            "List contract packets that govern or consume a target.",
+        ),
+        (
             "entrypoints",
             "core",
             None,

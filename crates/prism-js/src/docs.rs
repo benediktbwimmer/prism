@@ -295,6 +295,8 @@ type PrismApi = {
   concepts(query: string, options?: ConceptQueryOptions): ConceptPacketView[];
   concept(query: string, options?: ConceptQueryOptions): ConceptPacketView | null;
   conceptByHandle(handle: string, options?: { includeBindingMetadata?: boolean }): ConceptPacketView | null;
+  contract(query: string): ContractPacketView | null;
+  contractsFor(target: QueryTarget): ContractPacketView[];
   conceptRelations(handle: string): ConceptRelationView[];
   decodeConcept(input: { handle?: string; query?: string; lens?: "open" | "workset" | "validation" | "timeline" | "memory"; includeBindingMetadata?: boolean }): ConceptDecodeView | null;
   searchText(query: string, options?: SearchTextOptions): TextSearchMatchView[];
@@ -882,6 +884,7 @@ type ImpactView = {
   downstream: QueryRecommendationView[];
   risks: QueryRiskHintView[];
   recommendedChecks: QueryRecommendationView[];
+  contracts: ContractPacketView[];
   notes: string[];
 };
 
@@ -891,6 +894,7 @@ type AfterEditView = {
   tests: QueryRecommendationView[];
   docs: QueryRecommendationView[];
   riskChecks: QueryRecommendationView[];
+  contracts: ContractPacketView[];
   notes: string[];
 };
 
@@ -928,6 +932,84 @@ type ConceptPublicationView = {
   supersedes: string[];
   retiredAt?: number;
   retirementReason?: string;
+};
+
+type AnchorRefView =
+  | { type: "node"; crateName: string; path: string; kind: string; }
+  | { type: "lineage"; lineageId: string; }
+  | { type: "file"; fileId: number; }
+  | { type: "kind"; kind: string; };
+
+type ContractKindView =
+  | "interface"
+  | "behavioral"
+  | "data_shape"
+  | "dependency_boundary"
+  | "lifecycle"
+  | "protocol"
+  | "operational";
+
+type ContractStatusView = "candidate" | "active" | "deprecated" | "retired";
+
+type ContractStabilityView =
+  | "experimental"
+  | "internal"
+  | "public"
+  | "deprecated"
+  | "migrating";
+
+type ContractGuaranteeStrengthView = "hard" | "soft" | "conditional";
+
+type ContractTargetView = {
+  anchors: AnchorRefView[];
+  conceptHandles: string[];
+};
+
+type ContractGuaranteeView = {
+  statement: string;
+  scope?: string;
+  strength?: ContractGuaranteeStrengthView;
+  evidenceRefs: string[];
+};
+
+type ContractValidationView = {
+  id: string;
+  summary?: string;
+  anchors: AnchorRefView[];
+};
+
+type ContractCompatibilityView = {
+  compatible: string[];
+  additive: string[];
+  risky: string[];
+  breaking: string[];
+  migrating: string[];
+};
+
+type ContractResolutionView = {
+  score: number;
+  reasons: string[];
+};
+
+type ContractPacketView = {
+  handle: string;
+  name: string;
+  summary: string;
+  aliases: string[];
+  kind: ContractKindView;
+  subject: ContractTargetView;
+  guarantees: ContractGuaranteeView[];
+  assumptions: string[];
+  consumers: ContractTargetView[];
+  validations: ContractValidationView[];
+  stability: ContractStabilityView;
+  compatibility: ContractCompatibilityView;
+  evidence: string[];
+  status: ContractStatusView;
+  scope: ConceptScopeView;
+  provenance: ConceptProvenanceView;
+  publication?: ConceptPublicationView;
+  resolution?: ContractResolutionView;
 };
 
 type ConceptPacketView = {
@@ -984,6 +1066,7 @@ type ReadContextView = {
   relatedMemory: ScoredMemoryView[];
   recentFailures: OutcomeEvent[];
   validationRecipe: ValidationRecipeView;
+  contracts: ContractPacketView[];
   why: string[];
   suggestedQueries: SuggestedQueryView[];
 };

@@ -8,11 +8,12 @@ use prism_ir::{
 };
 use prism_js::{
     ChangedFileView, ChangedSymbolView, ConceptDecodeView, ConceptPacketView, ConnectionInfoView,
-    DiffHunkView, DiscoveryBundleView, EditContextView, FocusedBlockView, MemoryEventView,
-    PatchEventView, QueryDiagnostic, QueryEnvelope, ReadContextView, RecentChangeContextView,
-    RuntimeLogEventView, RuntimeStatusView, ScoredMemoryView, SourceExcerptView, SourceSliceView,
-    SubgraphView, SymbolView, TextSearchMatchView, ToolCatalogEntryView, ToolInputValidationView,
-    ToolSchemaView, ValidationContextView, ValidationFeedbackView,
+    ContractPacketView, DiffHunkView, DiscoveryBundleView, EditContextView, FocusedBlockView,
+    MemoryEventView, PatchEventView, QueryDiagnostic, QueryEnvelope, ReadContextView,
+    RecentChangeContextView, RuntimeLogEventView, RuntimeStatusView, ScoredMemoryView,
+    SourceExcerptView, SourceSliceView, SubgraphView, SymbolView, TextSearchMatchView,
+    ToolCatalogEntryView, ToolInputValidationView, ToolSchemaView, ValidationContextView,
+    ValidationFeedbackView,
 };
 use prism_memory::{MemoryEventQuery, MemoryModule, OutcomeKind, OutcomeRecallQuery, RecallQuery};
 use prism_query::{ConceptDecodeLens, EditSliceOptions, Prism, SourceExcerptOptions, Symbol};
@@ -29,41 +30,41 @@ use crate::{
     artifact_risk_view, artifact_view, blast_radius_view, blocker_view, change_impact_view,
     changed_files, changed_symbols, claim_view, co_change_view, combined_parse_typescript_error,
     concept_decode_lens_view, concept_packet_view, concept_relation_view,
-    concept_resolution_is_ambiguous, conflict_view, convert_anchors, convert_capability,
-    convert_claim_mode, convert_node_id, coordination_task_view, current_timestamp, diff_for,
-    drift_candidate_view, edge_kind_label, edge_view, edit_slice_for_symbol, entrypoints_for,
-    focused_block_for_symbol, invalid_query_argument_error, is_query_parse_error, js_runtime,
-    lineage_view, memory_event_view, merge_node_ids, merge_promoted_checks, missing_return_hint,
-    next_reads, owner_symbol_views_for_query, owner_symbol_views_for_target,
-    owner_views_for_target, parse_event_actor, parse_memory_event_action, parse_memory_kind,
-    parse_memory_scope, parse_node_kind, parse_outcome_kind, parse_outcome_result,
-    parse_plan_scope, parse_plan_status, parse_typescript_error, plan_execution_overlay_view,
-    plan_graph_view, plan_node_blocker_view, plan_node_recommendation_view, plan_node_view,
-    plan_summary_view, plan_view, policy_violation_record_view, promoted_memory_entries,
-    promoted_summary_texts, promoted_validation_checks, query_diagnostic,
-    query_feature_disabled_error, rank_search_results, read_context_view_cached,
-    recent_change_context_view_cached, recent_patches, relations_view,
-    resolve_concepts_for_session, result_decode_error, runtime_or_serialization_error,
-    scored_memory_view, search_queries, source_excerpt_for_symbol, spec_cluster_view,
-    spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids, task_intent_view,
-    task_journal_view, task_risk_view, task_validation_recipe_view, tool_catalog_views,
-    tool_schema_view, validate_tool_input_value, validation_context_view_cached,
-    validation_recipe_view_with, weak_concept_match_reason, weak_search_match_diagnostic_data,
-    weak_search_match_reason, where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs,
-    ChangedSymbolsArgs, ConceptHandleArgs, ConceptQueryArgs, CoordinationTaskTargetArgs,
-    CuratorJobArgs, CuratorJobsArgs, CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs,
-    DiscoveryTargetArgs, EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs,
-    LimitArgs, McpLogArgs, McpTraceArgs, MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs,
-    NodeIdInput, OwnerLookupArgs, PendingReviewsArgs, PlanNextArgs, PlanNodeTargetArgs,
-    PlanTargetArgs, PlansQueryArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage,
-    QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs,
-    SearchAmbiguityContext, SearchArgs, SearchTextArgs, SemanticContextCache, SessionState,
-    SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs,
-    TaskJournalArgs, TaskScopeMode, TaskTargetArgs, ToolNameArgs, ToolValidationArgs,
-    ValidationFeedbackArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
-    QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER,
-    USER_SNIPPET_MARKER,
+    concept_resolution_is_ambiguous, conflict_view, contract_packet_view, convert_anchors,
+    convert_capability, convert_claim_mode, convert_node_id, coordination_task_view,
+    current_timestamp, diff_for, drift_candidate_view, edge_kind_label, edge_view,
+    edit_slice_for_symbol, entrypoints_for, focused_block_for_symbol, invalid_query_argument_error,
+    is_query_parse_error, js_runtime, lineage_view, memory_event_view, merge_node_ids,
+    merge_promoted_checks, missing_return_hint, next_reads, owner_symbol_views_for_query,
+    owner_symbol_views_for_target, owner_views_for_target, parse_event_actor,
+    parse_memory_event_action, parse_memory_kind, parse_memory_scope, parse_node_kind,
+    parse_outcome_kind, parse_outcome_result, parse_plan_scope, parse_plan_status,
+    parse_typescript_error, plan_execution_overlay_view, plan_graph_view, plan_node_blocker_view,
+    plan_node_recommendation_view, plan_node_view, plan_summary_view, plan_view,
+    policy_violation_record_view, promoted_memory_entries, promoted_summary_texts,
+    promoted_validation_checks, query_diagnostic, query_feature_disabled_error,
+    rank_search_results, read_context_view_cached, recent_change_context_view_cached,
+    recent_patches, relations_view, resolve_concepts_for_session, result_decode_error,
+    runtime_or_serialization_error, scored_memory_view, search_queries, source_excerpt_for_symbol,
+    spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
+    task_intent_view, task_journal_view, task_risk_view, task_validation_recipe_view,
+    tool_catalog_views, tool_schema_view, validate_tool_input_value,
+    validation_context_view_cached, validation_recipe_view_with, weak_concept_match_reason,
+    weak_search_match_diagnostic_data, weak_search_match_reason, where_used, AnchorListArgs,
+    CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs, ConceptHandleArgs, ConceptQueryArgs,
+    ContractQueryArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs,
+    CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs, DiscoveryTargetArgs, EditSliceArgs,
+    FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs, McpLogArgs, McpTraceArgs,
+    MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
+    PendingReviewsArgs, PlanNextArgs, PlanNodeTargetArgs, PlanTargetArgs, PlansQueryArgs,
+    PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs,
+    RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchAmbiguityContext, SearchArgs,
+    SearchTextArgs, SemanticContextCache, SessionState, SimulateClaimArgs, SourceExcerptArgs,
+    SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode,
+    TaskTargetArgs, ToolNameArgs, ToolValidationArgs, ValidationFeedbackArgs, WhereUsedArgs,
+    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER,
+    QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -91,6 +92,14 @@ struct TypescriptAttempt {
     result: Value,
     json_bytes: usize,
     output_cap_hit: bool,
+}
+
+fn contract_resolution_is_ambiguous(resolutions: &[prism_query::ContractResolution]) -> bool {
+    let [top, second, ..] = resolutions else {
+        return false;
+    };
+    second.score.saturating_add(35) >= top.score
+        || (top.score > 0 && second.score.saturating_mul(100) >= top.score.saturating_mul(85))
 }
 
 impl QueryHost {
@@ -768,6 +777,14 @@ impl QueryExecution {
                 "conceptByHandle" => {
                     let args: ConceptHandleArgs = serde_json::from_value(args)?;
                     Ok(serde_json::to_value(self.concept_by_handle(args)?)?)
+                }
+                "contract" => {
+                    let args: ContractQueryArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.contract(args)?)?)
+                }
+                "contractsFor" => {
+                    let args: SymbolTargetArgs = serde_json::from_value(args)?;
+                    Ok(serde_json::to_value(self.contracts_for(args)?)?)
                 }
                 "conceptRelations" => {
                     let args: ConceptHandleArgs = serde_json::from_value(args)?;
@@ -2722,6 +2739,53 @@ impl QueryExecution {
             );
         }
         Ok(concept)
+    }
+
+    fn contract(&self, args: ContractQueryArgs) -> Result<Option<ContractPacketView>> {
+        let resolutions = self.prism.resolve_contracts(&args.query, 3);
+        if contract_resolution_is_ambiguous(&resolutions) {
+            self.push_diagnostic(
+                "ambiguous_contract",
+                format!(
+                    "Contract query `{}` matched multiple plausible contracts.",
+                    args.query
+                ),
+                Some(json!({
+                    "query": args.query,
+                    "candidates": resolutions
+                        .iter()
+                        .take(3)
+                        .map(|resolution| json!({
+                            "handle": resolution.packet.handle,
+                            "score": resolution.score,
+                            "reasons": resolution.reasons,
+                        }))
+                        .collect::<Vec<_>>(),
+                })),
+            );
+        }
+        let contract = resolutions.into_iter().next().map(|resolution| {
+            let packet = resolution.packet.clone();
+            contract_packet_view(packet, Some(resolution))
+        });
+        if contract.is_none() {
+            self.push_diagnostic(
+                "anchor_unresolved",
+                format!("No contract packet matched `{}`.", args.query),
+                Some(json!({ "query": args.query })),
+            );
+        }
+        Ok(contract)
+    }
+
+    fn contracts_for(&self, args: SymbolTargetArgs) -> Result<Vec<ContractPacketView>> {
+        let id = self.resolve_target_id(args.id, args.lineage_id)?;
+        Ok(self
+            .prism
+            .contracts_for_target(&id)
+            .into_iter()
+            .map(|packet| contract_packet_view(packet, None))
+            .collect())
     }
 
     fn concept_relations(

@@ -1,4 +1,5 @@
 mod common;
+mod contracts;
 mod coordination;
 mod impact;
 mod intent;

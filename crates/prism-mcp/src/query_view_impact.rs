@@ -4,7 +4,8 @@ use std::path::Path;
 use anyhow::Result;
 use prism_ir::{CoordinationTaskId, NodeId, TaskId};
 use prism_js::{
-    ImpactView, QueryEvidenceView, QueryRecommendationView, QueryRiskHintView, QueryViewSubjectView,
+    ContractPacketView, ImpactView, QueryEvidenceView, QueryRecommendationView, QueryRiskHintView,
+    QueryViewSubjectView,
 };
 use serde::Deserialize;
 use serde_json::Value;
@@ -12,8 +13,9 @@ use serde_json::Value;
 use crate::compact_followups::same_workspace_file;
 use crate::query_view_playbook::collect_repo_playbook;
 use crate::{
-    blast_radius_view, change_impact_view, changed_files, invalid_query_argument_error,
-    node_id_view, promoted_summary_texts, QueryExecution, SymbolTargetArgs,
+    blast_radius_view, change_impact_view, changed_files, contract_packet_view,
+    invalid_query_argument_error, node_id_view, promoted_summary_texts, QueryExecution,
+    SymbolTargetArgs,
 };
 
 const DOWNSTREAM_LIMIT: usize = 6;
@@ -65,6 +67,7 @@ pub(crate) fn impact_view(execution: &QueryExecution, input: Value) -> Result<Va
     let mut downstream = Vec::<RecommendationSeed>::new();
     let mut recommended_checks = Vec::<RecommendationSeed>::new();
     let mut risks = Vec::<RiskSeed>::new();
+    let mut contracts = Vec::<ContractPacketView>::new();
 
     let subject = if let Some(task_id) = input.task_id {
         collect_task_impact(
@@ -73,6 +76,7 @@ pub(crate) fn impact_view(execution: &QueryExecution, input: Value) -> Result<Va
             &mut downstream,
             &mut recommended_checks,
             &mut risks,
+            &mut contracts,
             &mut notes,
         )?;
         QueryViewSubjectView {
@@ -90,6 +94,8 @@ pub(crate) fn impact_view(execution: &QueryExecution, input: Value) -> Result<Va
             &mut downstream,
             &mut recommended_checks,
             &mut risks,
+            &mut contracts,
+            &mut notes,
         );
         QueryViewSubjectView {
             kind: "target".to_string(),
@@ -121,6 +127,8 @@ pub(crate) fn impact_view(execution: &QueryExecution, input: Value) -> Result<Va
                 &mut downstream,
                 &mut recommended_checks,
                 &mut risks,
+                &mut contracts,
+                &mut notes,
             );
         }
         QueryViewSubjectView {
@@ -173,6 +181,7 @@ pub(crate) fn impact_view(execution: &QueryExecution, input: Value) -> Result<Va
         downstream,
         risks,
         recommended_checks,
+        contracts: collect_contracts(contracts),
         notes,
     })?)
 }
@@ -183,6 +192,7 @@ fn collect_task_impact(
     downstream: &mut Vec<RecommendationSeed>,
     recommended_checks: &mut Vec<RecommendationSeed>,
     risks: &mut Vec<RiskSeed>,
+    contracts: &mut Vec<ContractPacketView>,
     notes: &mut Vec<String>,
 ) -> Result<()> {
     let task = TaskId::new(task_id.to_string());
@@ -206,6 +216,19 @@ fn collect_task_impact(
                 recommended_checks,
                 risks,
             );
+            for anchor in &anchors {
+                if let prism_ir::AnchorRef::Node(node) = anchor {
+                    collect_contract_impact(
+                        execution,
+                        node,
+                        downstream,
+                        recommended_checks,
+                        risks,
+                        contracts,
+                        notes,
+                    );
+                }
+            }
             handled = true;
         } else {
             notes.push(format!(
@@ -246,7 +269,15 @@ fn collect_task_impact(
         return Ok(());
     }
     for target in &targets {
-        collect_target_impact(execution, target, downstream, recommended_checks, risks);
+        collect_target_impact(
+            execution,
+            target,
+            downstream,
+            recommended_checks,
+            risks,
+            contracts,
+            notes,
+        );
     }
     Ok(())
 }
@@ -257,6 +288,8 @@ fn collect_target_impact(
     downstream: &mut Vec<RecommendationSeed>,
     recommended_checks: &mut Vec<RecommendationSeed>,
     risks: &mut Vec<RiskSeed>,
+    contracts: &mut Vec<ContractPacketView>,
+    notes: &mut Vec<String>,
 ) {
     let view = blast_radius_view(execution.prism(), execution.session(), id);
     collect_from_impact_view(
@@ -266,6 +299,15 @@ fn collect_target_impact(
         downstream,
         recommended_checks,
         risks,
+    );
+    collect_contract_impact(
+        execution,
+        id,
+        downstream,
+        recommended_checks,
+        risks,
+        contracts,
+        notes,
     );
 }
 
@@ -490,6 +532,149 @@ fn append_check_fallbacks(
             });
         }
     }
+}
+
+fn collect_contract_impact(
+    execution: &QueryExecution,
+    id: &NodeId,
+    downstream: &mut Vec<RecommendationSeed>,
+    recommended_checks: &mut Vec<RecommendationSeed>,
+    risks: &mut Vec<RiskSeed>,
+    contracts: &mut Vec<ContractPacketView>,
+    notes: &mut Vec<String>,
+) {
+    let packets = execution.prism().contracts_for_target(id);
+    if packets.is_empty() {
+        return;
+    }
+
+    let subject_match = packets.iter().any(|packet| {
+        execution
+            .prism()
+            .contract_subject_matches_target(id, packet)
+    });
+    let consumer_match = packets.iter().any(|packet| {
+        execution
+            .prism()
+            .contract_consumer_matches_target(id, packet)
+    });
+    if subject_match && consumer_match {
+        notes.push(format!(
+            "Target `{}` is both a contract subject and a known consumer, so this change may affect a promise boundary directly.",
+            id.path
+        ));
+    } else if subject_match {
+        notes.push(format!(
+            "Target `{}` appears in a contract subject, so behavior changes may be contract-affecting.",
+            id.path
+        ));
+    } else if consumer_match {
+        notes.push(format!(
+            "Target `{}` is a known contract consumer; validate compatibility against the governing promise.",
+            id.path
+        ));
+    }
+
+    for packet in packets {
+        contracts.push(contract_packet_view(packet.clone(), None));
+
+        for consumer in &packet.consumers {
+            for node in execution.prism().contract_target_nodes(consumer, 4) {
+                if node == *id {
+                    continue;
+                }
+                downstream.push(RecommendationSeed {
+                    kind: "contract_consumer".to_string(),
+                    label: node.path.to_string(),
+                    why: format!(
+                        "Known consumer of contract `{}` relevant to `{}`.",
+                        packet.handle, id.path
+                    ),
+                    provenance: vec![QueryEvidenceView {
+                        kind: "contract_consumer".to_string(),
+                        detail: format!("Consumer captured on contract `{}`.", packet.handle),
+                        path: None,
+                        line: None,
+                        target: Some(node_id_view(node.clone())),
+                    }],
+                    target: Some(node_id_view(node)),
+                    path: None,
+                    score: None,
+                    last_seen: None,
+                });
+            }
+        }
+
+        for validation in &packet.validations {
+            recommended_checks.push(RecommendationSeed {
+                kind: "contract_check".to_string(),
+                label: validation.id.clone(),
+                why: format!(
+                    "Validation linked to contract `{}` for target `{}`.",
+                    packet.handle, id.path
+                ),
+                provenance: vec![QueryEvidenceView {
+                    kind: "contract_validation".to_string(),
+                    detail: format!("Validation recorded on contract `{}`.", packet.handle),
+                    path: None,
+                    line: None,
+                    target: Some(node_id_view(id.clone())),
+                }],
+                target: None,
+                path: None,
+                score: None,
+                last_seen: None,
+            });
+        }
+
+        for detail in packet
+            .compatibility
+            .breaking
+            .iter()
+            .chain(packet.compatibility.risky.iter())
+            .chain(packet.compatibility.migrating.iter())
+            .take(3)
+        {
+            risks.push(RiskSeed {
+                summary: detail.clone(),
+                why: format!(
+                    "Compatibility guidance recorded on contract `{}` relevant to `{}`.",
+                    packet.handle, id.path
+                ),
+                provenance: vec![QueryEvidenceView {
+                    kind: "contract_compatibility".to_string(),
+                    detail: format!("Compatibility note on contract `{}`.", packet.handle),
+                    path: None,
+                    line: None,
+                    target: Some(node_id_view(id.clone())),
+                }],
+            });
+        }
+        for assumption in packet.assumptions.iter().take(2) {
+            risks.push(RiskSeed {
+                summary: assumption.clone(),
+                why: format!(
+                    "Assumption that limits when contract `{}` holds for `{}`.",
+                    packet.handle, id.path
+                ),
+                provenance: vec![QueryEvidenceView {
+                    kind: "contract_assumption".to_string(),
+                    detail: format!("Assumption recorded on contract `{}`.", packet.handle),
+                    path: None,
+                    line: None,
+                    target: Some(node_id_view(id.clone())),
+                }],
+            });
+        }
+    }
+}
+
+fn collect_contracts(contracts: Vec<ContractPacketView>) -> Vec<ContractPacketView> {
+    let mut merged = BTreeMap::<String, ContractPacketView>::new();
+    for contract in contracts {
+        merged.entry(contract.handle.clone()).or_insert(contract);
+    }
+    merged.into_values().collect()
 }
 
 fn recommendation_key(seed: &RecommendationSeed) -> String {

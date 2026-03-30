@@ -3,15 +3,18 @@ use std::path::Path;
 
 use anyhow::Result;
 use prism_ir::{NodeId, TaskId};
-use prism_js::{AfterEditView, QueryEvidenceView, QueryRecommendationView, QueryViewSubjectView};
+use prism_js::{
+    AfterEditView, ContractPacketView, QueryEvidenceView, QueryRecommendationView,
+    QueryViewSubjectView,
+};
 use serde::Deserialize;
 use serde_json::Value;
 
 use crate::compact_followups::same_workspace_file;
 use crate::query_view_playbook::collect_repo_playbook;
 use crate::{
-    blast_radius_view, changed_files, invalid_query_argument_error, next_reads, node_id_view,
-    validation_recipe_view_with, QueryExecution, SymbolTargetArgs,
+    blast_radius_view, changed_files, contract_packet_view, invalid_query_argument_error,
+    next_reads, node_id_view, validation_recipe_view_with, QueryExecution, SymbolTargetArgs,
 };
 
 const NEXT_READ_LIMIT: usize = 5;
@@ -60,6 +63,7 @@ pub(crate) fn after_edit_view(execution: &QueryExecution, input: Value) -> Resul
     let mut notes = Vec::<String>::new();
     let mut targets = Vec::<NodeId>::new();
     let mut docs = Vec::<RecommendationSeed>::new();
+    let mut contracts = Vec::<ContractPacketView>::new();
 
     let subject = if let Some(task_id) = input.task_id {
         targets = targets_for_task(execution, &task_id, &mut notes)?;
@@ -135,6 +139,8 @@ pub(crate) fn after_edit_view(execution: &QueryExecution, input: Value) -> Resul
             &mut tests,
             &mut docs,
             &mut risk_checks,
+            &mut contracts,
+            &mut notes,
         )?;
     }
 
@@ -147,6 +153,7 @@ pub(crate) fn after_edit_view(execution: &QueryExecution, input: Value) -> Resul
         tests: collect_recommendations(tests, TEST_LIMIT),
         docs: collect_recommendations(docs, DOC_LIMIT),
         risk_checks: collect_recommendations(risk_checks, RISK_LIMIT),
+        contracts: collect_contracts(contracts),
         notes,
     })?)
 }
@@ -193,6 +200,8 @@ fn collect_target_followups(
     tests: &mut Vec<RecommendationSeed>,
     docs: &mut Vec<RecommendationSeed>,
     risk_checks: &mut Vec<RecommendationSeed>,
+    contracts: &mut Vec<ContractPacketView>,
+    notes: &mut Vec<String>,
 ) -> Result<()> {
     for candidate in next_reads(execution.prism(), id, 3)? {
         next_reads_out.push(RecommendationSeed {
@@ -320,6 +329,16 @@ fn collect_target_followups(
         });
     }
 
+    collect_contract_followups(
+        execution,
+        id,
+        next_reads_out,
+        tests,
+        risk_checks,
+        contracts,
+        notes,
+    );
+
     Ok(())
 }
 
@@ -382,6 +401,159 @@ fn append_validation_fallbacks(
             });
         }
     }
+}
+
+fn collect_contract_followups(
+    execution: &QueryExecution,
+    id: &NodeId,
+    next_reads_out: &mut Vec<RecommendationSeed>,
+    tests: &mut Vec<RecommendationSeed>,
+    risk_checks: &mut Vec<RecommendationSeed>,
+    contracts: &mut Vec<ContractPacketView>,
+    notes: &mut Vec<String>,
+) {
+    let packets = execution.prism().contracts_for_target(id);
+    if packets.is_empty() {
+        return;
+    }
+
+    for packet in packets {
+        let subject_match = execution
+            .prism()
+            .contract_subject_matches_target(id, &packet);
+        let consumer_match = execution
+            .prism()
+            .contract_consumer_matches_target(id, &packet);
+        contracts.push(contract_packet_view(packet.clone(), None));
+
+        if subject_match {
+            for consumer in &packet.consumers {
+                for node in execution.prism().contract_target_nodes(consumer, 3) {
+                    if node == *id {
+                        continue;
+                    }
+                    next_reads_out.push(RecommendationSeed {
+                        kind: "contract_read".to_string(),
+                        label: node.path.to_string(),
+                        why: format!(
+                            "Known consumer of contract `{}` after editing `{}`.",
+                            packet.handle, id.path
+                        ),
+                        provenance: vec![QueryEvidenceView {
+                            kind: "contract_consumer".to_string(),
+                            detail: format!("Consumer recorded on contract `{}`.", packet.handle),
+                            path: None,
+                            line: None,
+                            target: Some(node_id_view(node.clone())),
+                        }],
+                        target: Some(node_id_view(node)),
+                        path: None,
+                        score: None,
+                        last_seen: None,
+                    });
+                }
+            }
+        }
+        if consumer_match {
+            for node in execution.prism().contract_target_nodes(&packet.subject, 3) {
+                if node == *id {
+                    continue;
+                }
+                next_reads_out.push(RecommendationSeed {
+                    kind: "contract_read".to_string(),
+                    label: node.path.to_string(),
+                    why: format!(
+                        "Provider-side subject for contract `{}` after editing consumer `{}`.",
+                        packet.handle, id.path
+                    ),
+                    provenance: vec![QueryEvidenceView {
+                        kind: "contract_subject".to_string(),
+                        detail: format!("Subject recorded on contract `{}`.", packet.handle),
+                        path: None,
+                        line: None,
+                        target: Some(node_id_view(node.clone())),
+                    }],
+                    target: Some(node_id_view(node)),
+                    path: None,
+                    score: None,
+                    last_seen: None,
+                });
+            }
+        }
+
+        for validation in &packet.validations {
+            tests.push(RecommendationSeed {
+                kind: "contract_test".to_string(),
+                label: validation.id.clone(),
+                why: format!(
+                    "Validation tied to contract `{}` after editing `{}`.",
+                    packet.handle, id.path
+                ),
+                provenance: vec![QueryEvidenceView {
+                    kind: "contract_validation".to_string(),
+                    detail: format!("Validation recorded on contract `{}`.", packet.handle),
+                    path: None,
+                    line: None,
+                    target: Some(node_id_view(id.clone())),
+                }],
+                target: None,
+                path: None,
+                score: None,
+                last_seen: None,
+            });
+        }
+
+        for detail in packet
+            .compatibility
+            .migrating
+            .iter()
+            .chain(packet.compatibility.risky.iter())
+            .chain(packet.compatibility.breaking.iter())
+            .take(3)
+        {
+            risk_checks.push(RecommendationSeed {
+                kind: "contract_risk".to_string(),
+                label: detail.clone(),
+                why: format!(
+                    "Compatibility or migration guidance from contract `{}`.",
+                    packet.handle
+                ),
+                provenance: vec![QueryEvidenceView {
+                    kind: "contract_compatibility".to_string(),
+                    detail: format!("Compatibility note on contract `{}`.", packet.handle),
+                    path: None,
+                    line: None,
+                    target: Some(node_id_view(id.clone())),
+                }],
+                target: None,
+                path: None,
+                score: None,
+                last_seen: None,
+            });
+        }
+
+        if !packet.compatibility.migrating.is_empty()
+            || !packet.compatibility.risky.is_empty()
+            || !packet.compatibility.breaking.is_empty()
+        {
+            let mut details = packet.compatibility.migrating.clone();
+            details.extend(packet.compatibility.risky.clone());
+            details.extend(packet.compatibility.breaking.clone());
+            notes.push(format!(
+                "Contract `{}` compatibility notes: {}.",
+                packet.handle,
+                details.into_iter().take(3).collect::<Vec<_>>().join(" ")
+            ));
+        }
+    }
+}
+
+fn collect_contracts(contracts: Vec<ContractPacketView>) -> Vec<ContractPacketView> {
+    let mut merged = BTreeMap::<String, ContractPacketView>::new();
+    for contract in contracts {
+        merged.entry(contract.handle.clone()).or_insert(contract);
+    }
+    merged.into_values().collect()
 }
 
 fn collect_recommendations(

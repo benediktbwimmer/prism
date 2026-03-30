@@ -630,6 +630,16 @@ const __prismBase = Object.freeze({
         options?.includeBindingMetadata ?? options?.include_binding_metadata,
     });
   },
+  contract(query) {
+    return __prismHost("contract", { query });
+  },
+  contractsFor(target) {
+    const targetPayload = __prismNormalizeTargetPayload(target);
+    if (targetPayload == null) {
+      return [];
+    }
+    return __prismHost("contractsFor", targetPayload);
+  },
   conceptRelations(handle) {
     return __prismHost("conceptRelations", { handle });
   },

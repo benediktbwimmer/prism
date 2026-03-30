@@ -512,6 +512,10 @@ impl ProjectionIndex {
         contract_by_handle(&self.contract_packets, handle)
     }
 
+    pub fn contract_packets(&self) -> &[ContractPacket] {
+        &self.contract_packets
+    }
+
     fn rebuild_concepts(&mut self) {
         self.concept_packets = merge_concept_packets(&resolve_curated_concepts(
             &self.curated_concepts,

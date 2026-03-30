@@ -1093,6 +1093,7 @@ fn sample_read_context() -> Value {
         "relatedMemory": [sample_scored_memory()],
         "recentFailures": [sample_outcome_event()],
         "validationRecipe": sample_validation_recipe(),
+        "contracts": [sample_contract_packet()],
         "why": ["This symbol is the top behavioral read owner for the query."],
         "suggestedQueries": [sample_suggested_query()],
     })
@@ -1138,6 +1139,62 @@ fn sample_recent_change_context() -> Value {
         "lineage": sample_lineage(),
         "why": ["Recent change context keeps outcomes, co-change signals, and lineage together."],
         "suggestedQueries": [sample_suggested_query()],
+    })
+}
+
+fn sample_contract_packet() -> Value {
+    json!({
+        "handle": "contract://runtime_status_surface",
+        "name": "runtime status surface",
+        "summary": "Internal diagnostics callers can query runtime status without reconstructing daemon state.",
+        "aliases": ["runtime status"],
+        "kind": "interface",
+        "subject": {
+            "anchors": [{
+                "type": "node",
+                "crateName": "demo",
+                "path": "demo::runtime_status",
+                "kind": "function"
+            }],
+            "conceptHandles": ["concept://runtime_surface"]
+        },
+        "guarantees": [{
+            "statement": "Internal diagnostics callers can query runtime status without reconstructing daemon state.",
+            "scope": "internal",
+            "strength": "hard",
+            "evidenceRefs": ["runtime-status-tests"]
+        }],
+        "assumptions": ["The daemon is running."],
+        "consumers": [{
+            "anchors": [{
+                "type": "node",
+                "crateName": "demo",
+                "path": "demo::inspect_runtime",
+                "kind": "function"
+            }],
+            "conceptHandles": []
+        }],
+        "validations": [{
+            "id": "cargo test -p prism-mcp runtime_status",
+            "summary": "Covers the runtime status surface.",
+            "anchors": []
+        }],
+        "stability": "internal",
+        "compatibility": {
+            "compatible": ["Internal implementation changes behind the same surface."],
+            "additive": [],
+            "risky": [],
+            "breaking": ["Removing the runtime status surface."],
+            "migrating": []
+        },
+        "evidence": ["Promoted from repeated runtime-inspection work."],
+        "status": "active",
+        "scope": "session",
+        "provenance": {
+            "origin": "manual_store",
+            "kind": "manual_contract_promote",
+            "taskId": "task:contract-surface"
+        }
     })
 }
 
