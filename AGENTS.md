@@ -35,26 +35,30 @@ When the PRISM MCP server is available for this repo, use it as the primary repo
   - `prism://vocab` to confirm canonical enums, action names, status values, edge kinds, and other closed vocabularies before guessing payload spellings.
   - `prism://tool-schemas` and `prism://schema/tool/{toolName}` when the task will rely on exact MCP mutation or tool payloads.
   - `prism://api-reference` for the typed query surface and usage recipes after the basic server shape is clear.
-- The default agent path is compact and staged:
-  - `prism_locate`
-  - `prism_gather`
-  - `prism_open`
-  - `prism_workset`
-  - `prism_expand`
-  - `prism_concept`
-  - `prism_query` only when the compact surface cannot express the needed read
+- The default agent path is PRISM-first and staged:
+  - orient with `prism://session`, `prism://capabilities`, and `prism://vocab`
+  - use compact tools for edit targeting and bounded context: `prism_locate`, `prism_gather`, `prism_open`, `prism_workset`, `prism_expand`
+  - use `prism_concept` when the unit of thought is a broad repo-native subsystem or multi-artifact cluster
+  - use the typed query views when the task is semantic guidance rather than raw code lookup
+  - use ad hoc read-only `prism_query` snippets only when the compact surface and typed views cannot express the needed read
 - Use `prism_gather` for bounded exact-text slices, especially config/schema/script work or when you know the literal text to inspect and a symbol handle is not the right first hop.
 - Use `prism_concept` when the user asks about a broad repo-native term or subsystem concept such as `validation`, `runtime`, `session`, `memory`, `status`, `compact tools`, or `task continuity`.
 - Prefer concept retrieval before symbol or text search when the likely unit is a multi-artifact repo concept rather than one file, symbol, or exact text match.
-- Treat `prism_query` as the rich semantic escape hatch, not the default first hop.
+- Treat the typed query views as first-class workflow tools:
+  - `repoPlaybook()` for repo workflow, build, test, lint, format, and gotcha guidance
+  - `validationPlan(...)` for fast and broader validation recommendations after a change
+  - `impact(...)` for downstream blast radius, affected surfaces, and recommended checks
+  - `afterEdit(...)` for immediate next reads, tests, docs, and risk follow-through after an edit
+  - `commandMemory(...)` for recalled command evidence merged with current repo playbook guidance
+- Treat custom `prism_query` snippets as the rich semantic escape hatch, not the default first hop.
 - Prefer checking `prism://vocab` before guessing enum spellings or mutation action names.
 - Prefer checking `prism.tool("...")`, `prism://tool-schemas`, and `prism://schema/tool/{toolName}` before hand-writing non-trivial mutation payloads.
-- Prefer the compact top-level tools over ad hoc query snippets whenever they can express the task.
+- Prefer compact top-level tools and typed query views over ad hoc query snippets whenever they can express the task.
 - Prefer PRISM-native file inspection and bounded context retrieval when they can replace multiple shell reads with one staged call, especially `prism_locate`, `prism_gather`, `prism_open`, `prism_workset`, `prism_expand`, `prism.file(path).read(...)`, `prism.file(path).around(...)`, and `prism.searchText(...)`.
 - Prefer the compact PRISM tools and bounded PRISM-native reads over manual line-window shell reads such as `sed` and `cat` when the work can be expressed in one staged PRISM flow.
 - Targeted `rg` is still acceptable for exact-text narrowing, test-name lookup, or fast filename discrimination before returning to PRISM for the actual edit/read context.
 - Keep shell reads as a fallback for raw bytes, command output, or cases where PRISM cannot yet express the needed inspection precisely. Treat `sed` as a last resort when PRISM cannot provide the surrounding slice you need without manual line-window guessing.
-- Keep `prism_query` read-only. Do not try to encode writes or side effects inside query snippets.
+- Keep `prism_query` read-only. Do not try to encode writes or side effects inside typed query views or custom query snippets.
 - After meaningful changes to PRISM MCP behavior or query/runtime behavior, rebuild the release binaries and restart the MCP daemon so the live PRISM server reflects the current code during the same Codex session.
 - From the repo root, use these exact commands:
   - `cargo build --release -p prism-cli -p prism-mcp`
