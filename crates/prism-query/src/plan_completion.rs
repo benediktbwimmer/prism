@@ -3,10 +3,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::{anyhow, Result};
 use prism_coordination::{Artifact, CoordinationPolicy};
 use prism_ir::{
-    ArtifactId, ArtifactStatus, ConflictSeverity, CoordinationTaskId, PlanExecutionOverlay,
-    PlanGraph, PlanId, PlanNode, PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId, PlanNodeStatus,
-    Timestamp,
+    AnchorRef, ArtifactId, ArtifactStatus, ConflictSeverity, CoordinationTaskId,
+    PlanExecutionOverlay, PlanGraph, PlanId, PlanNode, PlanNodeBlocker, PlanNodeBlockerKind,
+    PlanNodeId, PlanNodeStatus, TaskId, Timestamp,
 };
+use prism_memory::{OutcomeRecallQuery, OutcomeResult};
+use prism_projections::validation_labels;
 
 use crate::impact::score_change_impact;
 use crate::plan_runtime::{
@@ -103,10 +105,11 @@ impl Prism {
             })
             .cloned()
             .collect::<Vec<_>>();
-        let validated_checks = approved_artifacts
+        let mut validated_checks = approved_artifacts
             .iter()
             .flat_map(|artifact| artifact.validated_checks.iter().cloned())
             .collect::<Vec<_>>();
+        validated_checks.extend(self.validated_checks_from_successful_outcomes(&graph.id, node));
         let validated_checks = dedupe_strings(validated_checks);
         let stale_artifact_ids = approved_artifacts
             .iter()
@@ -261,6 +264,48 @@ impl Prism {
         artifacts.dedup_by(|left, right| left.id == right.id);
         artifacts
     }
+
+    fn validated_checks_from_successful_outcomes(
+        &self,
+        plan_id: &PlanId,
+        node: &PlanNode,
+    ) -> Vec<String> {
+        let anchors = plan_node_validation_anchors(node);
+        let mut events = if anchors.is_empty() {
+            Vec::new()
+        } else {
+            self.outcomes.query_events(&OutcomeRecallQuery {
+                anchors,
+                result: Some(OutcomeResult::Success),
+                limit: 0,
+                ..OutcomeRecallQuery::default()
+            })
+        };
+
+        let task_id = TaskId::new(node.id.0.clone());
+        let coordination_task_id = CoordinationTaskId::new(node.id.0.clone());
+        let allow_task_correlated_events = match self.coordination_task(&coordination_task_id) {
+            Some(task) => task.plan == *plan_id,
+            None => true,
+        };
+        if allow_task_correlated_events {
+            events.extend(self.outcomes.query_events(&OutcomeRecallQuery {
+                task: Some(task_id),
+                result: Some(OutcomeResult::Success),
+                limit: 0,
+                ..OutcomeRecallQuery::default()
+            }));
+        }
+
+        events.sort_by(|left, right| left.meta.id.0.cmp(&right.meta.id.0));
+        events.dedup_by(|left, right| left.meta.id == right.meta.id);
+        dedupe_strings(
+            events
+                .into_iter()
+                .flat_map(|event| validation_labels(&event.evidence))
+                .collect(),
+        )
+    }
 }
 
 fn node_is_workspace_bound(node: &PlanNode) -> bool {
@@ -269,6 +314,18 @@ fn node_is_workspace_bound(node: &PlanNode) -> bool {
             .acceptance
             .iter()
             .any(|criterion| !criterion.anchors.is_empty())
+}
+
+fn plan_node_validation_anchors(node: &PlanNode) -> Vec<AnchorRef> {
+    let mut anchors = node.bindings.anchors.clone();
+    for criterion in &node.acceptance {
+        for anchor in &criterion.anchors {
+            if !anchors.iter().any(|existing| existing == anchor) {
+                anchors.push(anchor.clone());
+            }
+        }
+    }
+    anchors
 }
 
 fn acceptance_blockers(

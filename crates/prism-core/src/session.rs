@@ -226,6 +226,32 @@ impl WorkspaceRefreshState {
             .expect("workspace last refresh lock poisoned") = Some(record);
     }
 
+    pub(crate) fn record_runtime_refresh_observation(
+        &self,
+        path: &str,
+        duration_ms: u64,
+        workspace_revision: u64,
+    ) {
+        let record = WorkspaceLastRefresh {
+            path: path.to_string(),
+            timestamp: current_timestamp().to_string(),
+            duration_ms,
+            fs_observed_revision: self.observed_fs_revision(),
+            fs_applied_revision: self.applied_fs_revision(),
+            workspace_revision,
+            changed_files: Vec::new(),
+            removed_files: Vec::new(),
+            changed_directories: Vec::new(),
+            changed_packages: Vec::new(),
+            unaffected_directories: Vec::new(),
+            unaffected_packages: Vec::new(),
+        };
+        *self
+            .last_refresh
+            .lock()
+            .expect("workspace last refresh lock poisoned") = Some(record);
+    }
+
     pub(crate) fn last_refresh(&self) -> Option<WorkspaceLastRefresh> {
         self.last_refresh
             .lock()
@@ -431,6 +457,23 @@ impl WorkspaceSession {
         Ok(merge_episodic_snapshots(local_snapshot, shared_snapshot))
     }
 
+    pub fn load_episodic_snapshot_for_runtime(&self) -> Result<Option<EpisodicMemorySnapshot>> {
+        let local_snapshot = self
+            .store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .load_episodic_snapshot()?;
+        let shared_snapshot = if let Some(shared_runtime_store) = self.shared_runtime_store() {
+            shared_runtime_store
+                .lock()
+                .expect("shared runtime store lock poisoned")
+                .load_episodic_snapshot()?
+        } else {
+            None
+        };
+        Ok(merge_episodic_snapshots(local_snapshot, shared_snapshot))
+    }
+
     #[allow(dead_code)]
     pub(crate) fn try_recover_runtime_from_persisted_state(&self) -> Result<bool> {
         let Ok(guard) = self.refresh_lock.try_lock() else {
@@ -571,6 +614,14 @@ impl WorkspaceSession {
         Arc::clone(&self.loaded_workspace_revision)
     }
 
+    pub fn record_runtime_refresh_observation(&self, path: &str, duration_ms: u64) {
+        self.refresh_state.record_runtime_refresh_observation(
+            path,
+            duration_ms,
+            self.loaded_workspace_revision(),
+        );
+    }
+
     pub fn snapshot_revisions(&self) -> Result<WorkspaceSnapshotRevisions> {
         let mut revisions = self
             .store
@@ -591,6 +642,28 @@ impl WorkspaceSession {
             let mut store = self.store.lock().expect("workspace store lock poisoned");
             self.sync_repo_memory_events_locked(&mut store)?;
             revisions = store.snapshot_revisions()?;
+        }
+        if !self.coordination_enabled {
+            revisions.coordination = 0;
+        }
+        Ok(revisions)
+    }
+
+    pub fn snapshot_revisions_for_runtime(&self) -> Result<WorkspaceSnapshotRevisions> {
+        let mut revisions = self
+            .store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .snapshot_revisions()?;
+        if let Some(shared_runtime_store) = self.shared_runtime_store() {
+            let shared_revisions = shared_runtime_store
+                .lock()
+                .expect("shared runtime store lock poisoned")
+                .snapshot_revisions()?;
+            revisions.workspace =
+                composite_workspace_revision(revisions.workspace, Some(shared_revisions.workspace));
+            revisions.episodic = revisions.episodic.max(shared_revisions.episodic);
+            revisions.coordination = shared_revisions.coordination;
         }
         if !self.coordination_enabled {
             revisions.coordination = 0;

@@ -4313,6 +4313,324 @@ fn task_backed_native_plan_node_completion_uses_continuity_review_state() {
 }
 
 #[test]
+fn native_plan_node_completion_accepts_successful_outcome_validations_without_artifact() {
+    let mut graph = Graph::new();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha.clone(),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+
+    let mut history = HistoryStore::new();
+    history.seed_nodes([alpha.clone()]);
+
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:native-validation"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Complete with direct validation evidence".into(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        history,
+        outcomes,
+        coordination.snapshot(),
+        ProjectionIndex::default(),
+    );
+
+    let required_test =
+        "test:cargo test -p prism-projections curated_contract_events_resolve_by_handle_and_query -- --nocapture";
+    let required_build = "build:cargo build --release -p prism-cli -p prism-mcp";
+    let node_id = prism
+        .create_native_plan_node(
+            &plan_id,
+            PlanNodeKind::Edit,
+            "Ship validation fix".into(),
+            None,
+            Some(PlanNodeStatus::Ready),
+            None,
+            false,
+            prism_ir::PlanBinding {
+                anchors: vec![AnchorRef::Node(alpha.clone())],
+                ..prism_ir::PlanBinding::default()
+            },
+            Vec::new(),
+            vec![prism_ir::PlanAcceptanceCriterion {
+                label: "required validations passed".into(),
+                anchors: vec![AnchorRef::Node(alpha.clone())],
+                required_checks: vec![
+                    prism_ir::ValidationRef {
+                        id: required_test.into(),
+                    },
+                    prism_ir::ValidationRef {
+                        id: required_build.into(),
+                    },
+                ],
+                evidence_policy: prism_ir::AcceptanceEvidencePolicy::ValidationOnly,
+            }],
+            Vec::new(),
+            WorkspaceRevision {
+                graph_version: 1,
+                git_commit: None,
+            },
+            None,
+            Vec::new(),
+        )
+        .unwrap();
+
+    let before = prism.plan_node_blockers(&plan_id, &node_id);
+    assert!(before
+        .iter()
+        .any(|blocker| blocker.kind == PlanNodeBlockerKind::ValidationRequired));
+
+    prism
+        .outcome_memory()
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:native-validation:test"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:native-validation")),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(alpha.clone())],
+            kind: OutcomeKind::TestRan,
+            result: OutcomeResult::Success,
+            summary: "exact required test passed".into(),
+            evidence: vec![OutcomeEvidence::Test {
+                name: required_test.into(),
+                passed: true,
+            }],
+            metadata: serde_json::Value::Null,
+        })
+        .unwrap();
+    prism
+        .outcome_memory()
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:native-validation:build"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:native-validation")),
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(alpha.clone())],
+            kind: OutcomeKind::FixValidated,
+            result: OutcomeResult::Success,
+            summary: "required build passed".into(),
+            evidence: vec![OutcomeEvidence::Command {
+                argv: vec![
+                    "cargo".into(),
+                    "build".into(),
+                    "--release".into(),
+                    "-p".into(),
+                    "prism-cli".into(),
+                    "-p".into(),
+                    "prism-mcp".into(),
+                ],
+                passed: true,
+            }],
+            metadata: serde_json::Value::Null,
+        })
+        .unwrap();
+
+    let after = prism.plan_node_blockers(&plan_id, &node_id);
+    assert!(!after
+        .iter()
+        .any(|blocker| blocker.kind == PlanNodeBlockerKind::ValidationRequired));
+    prism
+        .update_native_plan_node(
+            &node_id,
+            None,
+            Some(PlanNodeStatus::Completed),
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+        )
+        .expect("successful outcome evidence should satisfy native validation gate");
+}
+
+#[test]
+fn native_plan_node_completion_accepts_task_correlated_validations_without_anchors() {
+    let mut graph = Graph::new();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    graph.add_node(Node {
+        id: alpha,
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    });
+
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:native-validation-task"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Complete with task-correlated validation evidence".into(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let prism = Prism::with_history_outcomes_coordination_and_projections(
+        graph,
+        history,
+        outcomes,
+        coordination.snapshot(),
+        ProjectionIndex::default(),
+    );
+
+    let required_test =
+        "test:cargo test -p prism-js api_reference_mentions_primary_tool -- --nocapture";
+    let required_build = "build:cargo build --release -p prism-cli -p prism-mcp";
+    let node_id = prism
+        .create_native_plan_node(
+            &plan_id,
+            PlanNodeKind::Validate,
+            "Validate migration".into(),
+            None,
+            Some(PlanNodeStatus::Ready),
+            None,
+            false,
+            prism_ir::PlanBinding::default(),
+            Vec::new(),
+            vec![prism_ir::PlanAcceptanceCriterion {
+                label: "required validations passed".into(),
+                anchors: Vec::new(),
+                required_checks: vec![
+                    prism_ir::ValidationRef {
+                        id: required_test.into(),
+                    },
+                    prism_ir::ValidationRef {
+                        id: required_build.into(),
+                    },
+                ],
+                evidence_policy: prism_ir::AcceptanceEvidencePolicy::ValidationOnly,
+            }],
+            Vec::new(),
+            WorkspaceRevision {
+                graph_version: 1,
+                git_commit: None,
+            },
+            None,
+            Vec::new(),
+        )
+        .unwrap();
+
+    prism
+        .outcome_memory()
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:native-validation-task:test"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new(node_id.0.clone())),
+                causation: None,
+            },
+            anchors: Vec::new(),
+            kind: OutcomeKind::TestRan,
+            result: OutcomeResult::Success,
+            summary: "exact required test passed".into(),
+            evidence: vec![OutcomeEvidence::Test {
+                name: required_test.into(),
+                passed: true,
+            }],
+            metadata: serde_json::Value::Null,
+        })
+        .unwrap();
+    prism
+        .outcome_memory()
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:native-validation-task:build"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new(node_id.0.clone())),
+                causation: None,
+            },
+            anchors: Vec::new(),
+            kind: OutcomeKind::FixValidated,
+            result: OutcomeResult::Success,
+            summary: "required build passed".into(),
+            evidence: vec![OutcomeEvidence::Command {
+                argv: vec![
+                    "cargo".into(),
+                    "build".into(),
+                    "--release".into(),
+                    "-p".into(),
+                    "prism-cli".into(),
+                    "-p".into(),
+                    "prism-mcp".into(),
+                ],
+                passed: true,
+            }],
+            metadata: serde_json::Value::Null,
+        })
+        .unwrap();
+
+    let blockers = prism.plan_node_blockers(&plan_id, &node_id);
+    assert!(!blockers
+        .iter()
+        .any(|blocker| blocker.kind == PlanNodeBlockerKind::ValidationRequired));
+    prism
+        .update_native_plan_node(
+            &node_id,
+            None,
+            Some(PlanNodeStatus::Completed),
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+        )
+        .expect("task-correlated validation evidence should satisfy native validation gate");
+}
+
+#[test]
 fn native_claim_and_artifact_mutations_preserve_non_dependency_plan_edges() {
     let graph = Graph::new();
     let history = HistoryStore::new();

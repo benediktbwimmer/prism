@@ -553,6 +553,141 @@ fn native_plan_node_completion_rejects_missing_review_and_validation() {
 }
 
 #[test]
+fn native_plan_node_completion_accepts_current_task_validation_events_without_anchors() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "goal": "Require validation evidence",
+                    "policy": { "requireValidationForCompletion": true }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+    let required_test =
+        "test:cargo test -p prism-js api_reference_mentions_primary_tool -- --nocapture";
+    let required_build = "build:cargo build --release -p prism-cli -p prism-mcp";
+
+    let node = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "kind": "validate",
+                    "title": "Validate migration",
+                    "acceptance": [{
+                        "label": "migration is validated",
+                        "requiredChecks": [
+                            { "id": required_test },
+                            { "id": required_build }
+                        ],
+                        "evidencePolicy": "validation-only"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let node_id = node.state["id"].as_str().unwrap().to_string();
+
+    host.configure_session(
+        test_session(&host).as_ref(),
+        PrismConfigureSessionArgs {
+            limits: None,
+            current_task_id: Some(node_id.clone()),
+            coordination_task_id: None,
+            current_task_description: Some("Validate migration".to_string()),
+            current_task_tags: None,
+            clear_current_task: None,
+            current_agent: None,
+            clear_current_agent: None,
+        },
+    )
+    .unwrap();
+
+    host.store_outcome(
+        test_session(&host).as_ref(),
+        PrismOutcomeArgs {
+            kind: OutcomeKindInput::TestRan,
+            anchors: Vec::new(),
+            summary: "api reference validation passed".to_string(),
+            result: Some(OutcomeResultInput::Success),
+            evidence: Some(vec![OutcomeEvidenceInput::Test {
+                name: required_test.to_string(),
+                passed: true,
+            }]),
+            task_id: None,
+        },
+    )
+    .unwrap();
+    host.store_outcome(
+        test_session(&host).as_ref(),
+        PrismOutcomeArgs {
+            kind: OutcomeKindInput::FixValidated,
+            anchors: Vec::new(),
+            summary: "release build passed".to_string(),
+            result: Some(OutcomeResultInput::Success),
+            evidence: Some(vec![OutcomeEvidenceInput::Command {
+                argv: vec![
+                    "cargo".to_string(),
+                    "build".to_string(),
+                    "--release".to_string(),
+                    "-p".to_string(),
+                    "prism-cli".to_string(),
+                    "-p".to_string(),
+                    "prism-mcp".to_string(),
+                ],
+                passed: true,
+            }]),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let execution = QueryExecution::new(
+        host.clone(),
+        test_session(&host),
+        host.current_prism(),
+        host.begin_query_run(
+            test_session(&host).as_ref(),
+            "test",
+            "test",
+            "native completion accepts current task evidence",
+        ),
+    );
+    let blockers = execution
+        .dispatch(
+            "planNodeBlockers",
+            &format!(r#"{{ "planId": "{plan_id}", "nodeId": "{node_id}" }}"#),
+        )
+        .unwrap();
+    assert!(blockers.as_array().unwrap().is_empty());
+
+    let completed = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeUpdate,
+                payload: json!({
+                    "nodeId": node_id,
+                    "status": "completed"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(completed.state["status"], "Completed");
+}
+
+#[test]
 fn plan_edge_mutations_update_projected_dependency_graph() {
     let host = host_with_node(demo_node());
 
@@ -1772,6 +1907,69 @@ fn mcp_plan_update_completes_plan_and_closed_plan_rejects_new_claims() {
         .violations
         .iter()
         .any(|violation| violation.code == "plan_closed"));
+}
+
+#[test]
+fn mcp_plan_update_rehydrates_stale_coordination_runtime_before_mutating() {
+    let root = temp_workspace();
+    let workspace = index_workspace_session(&root).unwrap();
+    let plan_id = workspace
+        .mutate_coordination(|prism| {
+            prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:published-runtime-split"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:published-runtime-split")),
+                    causation: None,
+                },
+                "Mutation should rehydrate current published plans".into(),
+                None,
+                Some(Default::default()),
+            )
+        })
+        .unwrap();
+
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let workspace = host.workspace.as_ref().expect("workspace host");
+    let state = workspace
+        .load_coordination_plan_state()
+        .unwrap()
+        .expect("coordination plan state");
+    workspace
+        .prism_arc()
+        .replace_coordination_snapshot_and_plan_graphs(
+            prism_coordination::CoordinationSnapshot::default(),
+            state.plan_graphs.clone(),
+            state.execution_overlays.clone(),
+        );
+    host.sync_coordination_revision(workspace).unwrap();
+
+    let prism = host.current_prism();
+    assert!(
+        prism.coordination_plan(&plan_id).is_none(),
+        "continuity runtime should be stale for this regression setup"
+    );
+    assert!(
+        prism.plan_graph(&plan_id).is_some(),
+        "plan runtime should still have the published plan graph"
+    );
+
+    let result = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanUpdate,
+                payload: json!({
+                    "planId": plan_id.0,
+                    "status": "abandoned",
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert!(!result.rejected);
+    assert_eq!(result.state["status"], "Abandoned");
 }
 
 #[test]
@@ -13118,6 +13316,12 @@ return prism.symbol("alpha")?.id.path ?? null;
         reload_work.get("workspaceReloaded"),
         Some(&Value::Bool(false))
     );
+
+    let freshness = crate::runtime_views::runtime_status(&host)
+        .expect("runtime status should succeed while refresh is deferred")
+        .freshness;
+    assert_eq!(freshness.status, "deferred");
+    assert_eq!(freshness.last_refresh_path.as_deref(), Some("deferred"));
 }
 
 #[test]

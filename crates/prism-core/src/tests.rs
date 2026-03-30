@@ -2437,6 +2437,56 @@ fn repo_published_plans_merge_into_existing_coordination_snapshot() {
 }
 
 #[test]
+fn repo_published_plan_state_merges_snapshot_and_published_views() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let published_plan_id = session
+        .mutate_coordination(|prism| {
+            prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:plan-state-merge-plan"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:plan-state-merge-plan")),
+                    causation: None,
+                },
+                "Published plan must exist in both runtimes".into(),
+                None,
+                Some(Default::default()),
+            )
+        })
+        .unwrap();
+    drop(session);
+
+    let coordination = CoordinationStore::new();
+    let snapshot = coordination.snapshot();
+    let state =
+        crate::published_plans::load_hydrated_coordination_plan_state(&root, Some(snapshot))
+            .unwrap()
+            .expect("hydrated coordination plan state");
+    assert!(state
+        .snapshot
+        .plans
+        .iter()
+        .any(|plan| plan.id == published_plan_id
+            && plan.goal == "Published plan must exist in both runtimes"));
+    assert!(state
+        .plan_graphs
+        .iter()
+        .any(|graph| graph.id == published_plan_id));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn replayed_coordination_snapshot_stays_authoritative_over_published_plan_exports() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

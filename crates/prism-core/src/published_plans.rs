@@ -459,6 +459,7 @@ pub(crate) fn load_hydrated_coordination_plan_state(
                 &mut state.plan_graphs,
                 &mut state.execution_overlays,
             );
+            let snapshot = merge_published_plans_into_snapshot(snapshot, state.snapshot);
             Ok(Some(HydratedCoordinationPlanState {
                 snapshot,
                 plan_graphs: state.plan_graphs,

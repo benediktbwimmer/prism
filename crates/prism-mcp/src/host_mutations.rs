@@ -1579,17 +1579,8 @@ impl QueryHost {
                 for event_id in &evidence {
                     if let Some(event) = prism.outcome_memory().event(event_id) {
                         if matches!(event.result, prism_memory::OutcomeResult::Success) {
-                            inferred_validated_checks.extend(event.evidence.iter().filter_map(
-                                |evidence| match evidence {
-                                    OutcomeEvidence::Test { name, passed } if *passed => {
-                                        Some(format!("test:{name}"))
-                                    }
-                                    OutcomeEvidence::Build { target, passed } if *passed => {
-                                        Some(format!("build:{target}"))
-                                    }
-                                    _ => None,
-                                },
-                            ));
+                            inferred_validated_checks
+                                .extend(outcome_validation_labels(&event.evidence));
                         }
                     }
                 }
@@ -2343,6 +2334,44 @@ impl QueryHost {
             .find(|record| record.id.0 == job_id)
             .map(crate::curator_job_view)
             .transpose()
+    }
+}
+
+fn outcome_validation_labels(evidence: &[OutcomeEvidence]) -> Vec<String> {
+    let mut labels = evidence
+        .iter()
+        .filter_map(|evidence| match evidence {
+            OutcomeEvidence::Test { name, .. } => Some(normalize_validation_label(name, "test:")),
+            OutcomeEvidence::Build { target, .. } => {
+                Some(normalize_validation_label(target, "build:"))
+            }
+            OutcomeEvidence::Command { argv, passed } if *passed => match argv.as_slice() {
+                [tool, subcommand, ..] if tool == "cargo" && subcommand == "test" => {
+                    Some(format!("test:{}", argv.join(" ")))
+                }
+                [tool, subcommand, ..] if tool == "cargo" && subcommand == "build" => {
+                    Some(format!("build:{}", argv.join(" ")))
+                }
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    labels.sort();
+    labels.dedup();
+    labels
+}
+
+fn normalize_validation_label(value: &str, default_prefix: &str) -> String {
+    let value = value.trim();
+    if value.starts_with("test:")
+        || value.starts_with("build:")
+        || value.starts_with("validation:")
+        || value.starts_with("command:")
+    {
+        value.to_string()
+    } else {
+        format!("{default_prefix}{value}")
     }
 }
 

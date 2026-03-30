@@ -83,6 +83,17 @@ impl WorkspaceRuntime {
                 break;
             }
             if let Err(error) = sync_workspace_runtime(&config) {
+                if is_transient_sqlite_lock(&error) {
+                    config
+                        .workspace
+                        .record_runtime_refresh_observation("deferred", 0);
+                    debug!(
+                        root = %config.workspace.root().display(),
+                        error = %error,
+                        "prism-mcp background workspace refresh deferred by sqlite lock contention"
+                    );
+                    continue;
+                }
                 error!(
                     root = %config.workspace.root().display(),
                     error = %error,
@@ -153,7 +164,7 @@ fn sync_workspace_runtime_with_guard(
     let fs_refresh_ms = elapsed_ms(fs_refresh_started);
     let deferred = refresh_path == "deferred";
     let revisions_started = Instant::now();
-    let revisions = config.workspace.snapshot_revisions()?;
+    let revisions = config.workspace.snapshot_revisions_for_runtime()?;
     let snapshot_revisions_ms = elapsed_ms(revisions_started);
     let (
         episodic_reload,
@@ -216,6 +227,11 @@ fn sync_workspace_runtime_with_guard(
         full_rebuild_count: u64::from(refresh_path == "full"),
         workspace_reloaded: refresh_path == "full",
     };
+    if deferred {
+        config
+            .workspace
+            .record_runtime_refresh_observation(refresh_path, metrics.lock_hold_ms);
+    }
     log_refresh_workspace(
         refresh_path,
         config.loaded_workspace_revision.load(Ordering::Relaxed),
@@ -296,7 +312,7 @@ fn sync_workspace_runtime_for_read_with_guard(
 ) -> Result<WorkspaceRefreshReport> {
     let started = Instant::now();
     let revisions_started = Instant::now();
-    let revisions = config.workspace.snapshot_revisions()?;
+    let revisions = config.workspace.snapshot_revisions_for_runtime()?;
     let snapshot_revisions_ms = elapsed_ms(revisions_started);
     config.loaded_workspace_revision.store(
         config.workspace.loaded_workspace_revision(),
@@ -341,6 +357,11 @@ fn sync_workspace_runtime_for_read_with_guard(
         full_rebuild_count: 0,
         workspace_reloaded: false,
     };
+    if deferred {
+        config
+            .workspace
+            .record_runtime_refresh_observation(refresh_path, metrics.lock_hold_ms);
+    }
     log_refresh_workspace(
         refresh_path,
         config.loaded_workspace_revision.load(Ordering::Relaxed),
@@ -464,7 +485,7 @@ pub(crate) fn sync_persisted_workspace_state(
         Ordering::Relaxed,
     );
     let revisions_started = Instant::now();
-    let revisions = config.workspace.snapshot_revisions()?;
+    let revisions = config.workspace.snapshot_revisions_for_runtime()?;
     let snapshot_revisions_ms = elapsed_ms(revisions_started);
     let episodic_started = Instant::now();
     let episodic_reload = reload_episodic_snapshot_if_needed(config, revisions.episodic)?;
@@ -479,7 +500,7 @@ pub(crate) fn sync_persisted_workspace_state(
     let episodic_reloaded = episodic_reload.is_some();
     let inference_reloaded = inference_reload.is_some();
     let coordination_reloaded = coordination_reload.is_some();
-    let deferred = false;
+    let deferred = refresh_path == "deferred";
     let refresh_path = if refresh_path == "none"
         && (episodic_reloaded || inference_reloaded || coordination_reloaded)
     {
@@ -505,6 +526,11 @@ pub(crate) fn sync_persisted_workspace_state(
         full_rebuild_count: u64::from(workspace_reloaded),
         workspace_reloaded,
     };
+    if deferred {
+        config
+            .workspace
+            .record_runtime_refresh_observation(refresh_path, metrics.lock_hold_ms);
+    }
     log_refresh_workspace(
         refresh_path,
         config.loaded_workspace_revision.load(Ordering::Relaxed),
@@ -590,7 +616,7 @@ fn reload_episodic_snapshot_if_needed(
 
     let snapshot = config
         .workspace
-        .load_episodic_snapshot()?
+        .load_episodic_snapshot_for_runtime()?
         .unwrap_or(EpisodicMemorySnapshot {
             entries: Vec::new(),
         });
@@ -743,6 +769,9 @@ impl QueryHost {
             } else {
                 "none"
             };
+            if refresh_path == "deferred" {
+                workspace.record_runtime_refresh_observation(refresh_path, 0);
+            }
             return Ok(WorkspaceRefreshReport {
                 refresh_path,
                 deferred: refresh_path == "deferred",
@@ -766,6 +795,7 @@ impl QueryHost {
         };
         let Some(report) = try_sync_workspace_runtime_for_read(&config)? else {
             runtime.request_refresh();
+            workspace.record_runtime_refresh_observation("deferred", 0);
             return Ok(WorkspaceRefreshReport {
                 refresh_path: "deferred",
                 deferred: true,
@@ -790,6 +820,7 @@ impl QueryHost {
         };
         let Some(runtime) = &self.workspace_runtime else {
             let _ = workspace.refresh_fs()?;
+            let _ = workspace.hydrate_coordination_runtime()?;
             self.sync_workspace_revision(workspace)?;
             self.sync_episodic_revision(workspace)?;
             self.sync_inference_revision(workspace)?;
@@ -809,6 +840,8 @@ impl QueryHost {
             loaded_coordination_revision: Arc::clone(&self.loaded_coordination_revision),
         };
         let report = sync_persisted_workspace_state(&config)?;
+        let _ = workspace.hydrate_coordination_runtime()?;
+        self.sync_coordination_revision(workspace)?;
         if report.coordination_reloaded {
             let _ = self.publish_dashboard_coordination_update();
         }
@@ -817,4 +850,15 @@ impl QueryHost {
         }
         Ok(report)
     }
+}
+
+fn is_transient_sqlite_lock(error: &anyhow::Error) -> bool {
+    error.chain().any(|cause| {
+        let text = cause.to_string().to_ascii_lowercase();
+        text.contains("database is locked")
+            || text.contains("database table is locked")
+            || text.contains("database schema is locked")
+            || text.contains("locked database")
+            || text.contains("sql busy")
+    })
 }

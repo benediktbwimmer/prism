@@ -243,10 +243,11 @@ fn runtime_freshness(
     let workspace = host.workspace.as_ref().ok_or_else(|| {
         anyhow!("runtime introspection requires a workspace-backed PRISM session")
     })?;
-    let snapshot_revisions = workspace.snapshot_revisions()?;
+    let snapshot_revisions = workspace.snapshot_revisions_for_runtime()?;
     let fs_observed_revision = workspace.observed_fs_revision();
     let fs_applied_revision = workspace.applied_fs_revision();
     let fs_dirty = fs_observed_revision != fs_applied_revision;
+    let last_refresh = workspace.last_refresh();
     let materialization = RuntimeMaterializationView {
         workspace: materialization_item(
             host.loaded_workspace_revision.load(Ordering::Relaxed),
@@ -254,18 +255,17 @@ fn runtime_freshness(
         ),
         episodic: materialization_item(
             host.loaded_episodic_revision.load(Ordering::Relaxed),
-            workspace.episodic_revision().ok(),
+            Some(snapshot_revisions.episodic),
         ),
         inference: materialization_item(
             host.loaded_inference_revision.load(Ordering::Relaxed),
-            workspace.inference_revision().ok(),
+            Some(snapshot_revisions.inference),
         ),
         coordination: materialization_item(
             host.loaded_coordination_revision.load(Ordering::Relaxed),
-            workspace.coordination_revision().ok(),
+            Some(snapshot_revisions.coordination),
         ),
     };
-    let last_refresh = workspace.last_refresh();
     let last_build = latest_runtime_event(runtime_state, "built prism-mcp workspace server");
     let last_ready = latest_runtime_event(runtime_state, "prism-mcp daemon ready");
 
@@ -281,7 +281,12 @@ fn runtime_freshness(
         last_workspace_build_ms: event_field_u64(last_build, "buildMs"),
         last_daemon_ready_ms: event_field_u64(last_ready, "startupMs"),
         materialization: materialization.clone(),
-        status: freshness_status(fs_dirty, &materialization).to_string(),
+        status: freshness_status(
+            fs_dirty,
+            &materialization,
+            last_refresh.as_ref().map(|refresh| refresh.path.as_str()),
+        )
+        .to_string(),
         error: None,
     })
 }
@@ -305,9 +310,16 @@ fn materialization_status(loaded_revision: u64, current_revision: Option<u64>) -
     }
 }
 
-fn freshness_status(fs_dirty: bool, materialization: &RuntimeMaterializationView) -> &'static str {
+fn freshness_status(
+    fs_dirty: bool,
+    materialization: &RuntimeMaterializationView,
+    last_refresh_path: Option<&str>,
+) -> &'static str {
     if fs_dirty {
         return "refresh-queued";
+    }
+    if last_refresh_path == Some("deferred") {
+        return "deferred";
     }
     let statuses = [
         materialization.workspace.status.as_str(),

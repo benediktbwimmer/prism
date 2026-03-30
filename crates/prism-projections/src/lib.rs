@@ -8,6 +8,7 @@ mod projections;
 mod tests;
 mod types;
 
+pub use crate::common::validation_labels;
 pub use crate::concept_relations::concept_relations_from_events;
 pub use crate::concepts::{
     canonical_concept_handle, concept_from_event, curated_concepts_from_events,
