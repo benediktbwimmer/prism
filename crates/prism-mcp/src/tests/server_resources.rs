@@ -54,6 +54,17 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
     for tool in tools["result"]["tools"].as_array().unwrap() {
         assert_eq!(tool["inputSchema"]["type"], "object");
     }
+    let mutate_tool = tools["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["name"] == "prism_mutate")
+        .expect("prism_mutate tool should exist");
+    let mutate_schema = mutate_tool["inputSchema"].to_string();
+    assert!(mutate_schema.contains("\"plan_node_create\""));
+    assert!(mutate_schema.contains("\"claimId\""));
+    assert!(mutate_schema.contains("\"artifactId\""));
+    assert!(mutate_schema.contains("\"content\""));
 
     client.send(list_resources_request(3)).await.unwrap();
     let resources = response_json(client.receive().await.unwrap());

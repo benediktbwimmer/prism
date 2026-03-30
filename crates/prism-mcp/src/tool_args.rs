@@ -2,9 +2,10 @@ use prism_js::{
     ConceptPacketView, ConceptRelationView, TaskJournalView, ToolActionSchemaView,
     ToolInputValidationView, ToolValidationIssueView,
 };
-use rmcp::schemars::{JsonSchema, Schema};
+use rmcp::schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{de, Deserialize, Deserializer};
 use serde_json::Value;
+use std::borrow::Cow;
 
 use crate::{
     tool_schema_resource_uri, tool_schema_view, vocabulary_error, ContractPacketView, SessionView,
@@ -30,6 +31,24 @@ where
             error
         )
     })
+}
+
+macro_rules! impl_schema_from_wire {
+    ($target:ty, $wire:ty, $name:literal) => {
+        impl JsonSchema for $target {
+            fn inline_schema() -> bool {
+                <$wire>::inline_schema()
+            }
+
+            fn schema_name() -> Cow<'static, str> {
+                Cow::Borrowed($name)
+            }
+
+            fn json_schema(generator: &mut SchemaGenerator) -> Schema {
+                <$wire>::json_schema(generator)
+            }
+        }
+    };
 }
 
 pub(crate) fn is_flat_tagged_tool_input(value: &Value) -> bool {
@@ -304,18 +323,69 @@ fn validate_prism_mutate_input(
     value: Value,
     required_fields: &[String],
 ) -> Result<(), ToolValidationIssueView> {
-    let parsed =
-        deserialize_or_issue::<PrismMutationArgsWire>(value, Some("input"), required_fields)?;
-    match parsed {
-        PrismMutationArgsWire::Memory(args) => validate_memory_payload(args),
-        PrismMutationArgsWire::Coordination(args) => validate_coordination_payload(args),
-        PrismMutationArgsWire::Claim(args) => validate_claim_payload(args),
-        PrismMutationArgsWire::Artifact(args) => validate_artifact_payload(args),
-        _ => Ok(()),
+    let action = value.get("action").and_then(Value::as_str);
+    let input = value.get("input").cloned().unwrap_or(Value::Null);
+    match action {
+        Some("memory") => deserialize_or_issue::<PrismMemoryArgsValidationWire>(
+            input,
+            Some("input"),
+            required_fields,
+        )
+        .and_then(validate_memory_payload),
+        Some("coordination") => deserialize_or_issue::<PrismCoordinationArgsValidationWire>(
+            input,
+            Some("input"),
+            required_fields,
+        )
+        .and_then(validate_coordination_payload),
+        Some("claim") => deserialize_or_issue::<PrismClaimArgsValidationWire>(
+            input,
+            Some("input"),
+            required_fields,
+        )
+        .and_then(validate_claim_payload),
+        Some("artifact") => deserialize_or_issue::<PrismArtifactArgsValidationWire>(
+            input,
+            Some("input"),
+            required_fields,
+        )
+        .and_then(validate_artifact_payload),
+        _ => deserialize_or_issue::<PrismMutationArgsWire>(value, Some("input"), required_fields)
+            .map(|_| ()),
     }
 }
 
-fn validate_memory_payload(args: PrismMemoryArgs) -> Result<(), ToolValidationIssueView> {
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PrismMemoryArgsValidationWire {
+    action: MemoryMutationActionInput,
+    payload: Value,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PrismCoordinationArgsValidationWire {
+    kind: CoordinationMutationKindInput,
+    payload: Value,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PrismClaimArgsValidationWire {
+    action: ClaimActionInput,
+    payload: Value,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PrismArtifactArgsValidationWire {
+    action: ArtifactActionInput,
+    payload: Value,
+}
+
+fn validate_memory_payload(
+    args: PrismMemoryArgsValidationWire,
+) -> Result<(), ToolValidationIssueView> {
     let tag = match args.action {
         MemoryMutationActionInput::Store => "store",
     };
@@ -331,7 +401,7 @@ fn validate_memory_payload(args: PrismMemoryArgs) -> Result<(), ToolValidationIs
 }
 
 fn validate_coordination_payload(
-    args: PrismCoordinationArgs,
+    args: PrismCoordinationArgsValidationWire,
 ) -> Result<(), ToolValidationIssueView> {
     let tag = coordination_kind_tag(&args.kind);
     let required_fields = payload_required_fields("prism_mutate", "coordination", tag);
@@ -409,7 +479,9 @@ fn validate_coordination_payload(
     }
 }
 
-fn validate_claim_payload(args: PrismClaimArgs) -> Result<(), ToolValidationIssueView> {
+fn validate_claim_payload(
+    args: PrismClaimArgsValidationWire,
+) -> Result<(), ToolValidationIssueView> {
     let tag = claim_action_tag(&args.action);
     let required_fields = payload_required_fields("prism_mutate", "claim", tag);
     match args.action {
@@ -434,7 +506,9 @@ fn validate_claim_payload(args: PrismClaimArgs) -> Result<(), ToolValidationIssu
     }
 }
 
-fn validate_artifact_payload(args: PrismArtifactArgs) -> Result<(), ToolValidationIssueView> {
+fn validate_artifact_payload(
+    args: PrismArtifactArgsValidationWire,
+) -> Result<(), ToolValidationIssueView> {
     let tag = artifact_action_tag(&args.action);
     let required_fields = payload_required_fields("prism_mutate", "artifact", tag);
     match args.action {
@@ -1242,12 +1316,51 @@ pub(crate) enum ValidationFeedbackVerdictInput {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case", tag = "action", content = "payload")]
+#[allow(dead_code)]
+enum PrismMemoryArgsWirePayload {
+    Store(MemoryStorePayload),
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+struct PrismMemoryArgsWire {
+    #[serde(flatten)]
+    mutation: PrismMemoryArgsWirePayload,
+    #[serde(alias = "task_id")]
+    task_id: Option<String>,
+}
+
+#[derive(Debug)]
 pub(crate) struct PrismMemoryArgs {
     pub(crate) action: MemoryMutationActionInput,
     pub(crate) payload: Value,
-    #[serde(alias = "task_id")]
     pub(crate) task_id: Option<String>,
+}
+
+impl_schema_from_wire!(PrismMemoryArgs, PrismMemoryArgsWire, "PrismMemoryArgs");
+
+impl<'de> Deserialize<'de> for PrismMemoryArgs {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        let wire = serde_json::from_value::<PrismMemoryArgsWire>(value.clone())
+            .map_err(serde::de::Error::custom)?;
+        let payload = value
+            .get("payload")
+            .cloned()
+            .ok_or_else(|| de::Error::custom("missing field `payload`"))?;
+        let action = match wire.mutation {
+            PrismMemoryArgsWirePayload::Store(_) => MemoryMutationActionInput::Store,
+        };
+        Ok(Self {
+            action,
+            payload,
+            task_id: wire.task_id,
+        })
+    }
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -1724,30 +1837,199 @@ impl_vocab_deserialize!(
 );
 
 #[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case", tag = "kind", content = "payload")]
+#[allow(dead_code)]
+enum PrismCoordinationArgsWirePayload {
+    PlanCreate(PlanCreatePayload),
+    PlanUpdate(PlanUpdatePayload),
+    TaskCreate(TaskCreatePayload),
+    TaskUpdate(TaskUpdatePayload),
+    PlanNodeCreate(PlanNodeCreatePayload),
+    PlanNodeUpdate(PlanNodeUpdatePayload),
+    PlanEdgeCreate(PlanEdgeCreatePayload),
+    PlanEdgeDelete(PlanEdgeDeletePayload),
+    Handoff(HandoffPayload),
+    HandoffAccept(HandoffAcceptPayload),
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+struct PrismCoordinationArgsWire {
+    #[serde(flatten)]
+    mutation: PrismCoordinationArgsWirePayload,
+    #[serde(alias = "task_id")]
+    task_id: Option<String>,
+}
+
+#[derive(Debug)]
 pub(crate) struct PrismCoordinationArgs {
     pub(crate) kind: CoordinationMutationKindInput,
     pub(crate) payload: Value,
-    #[serde(alias = "task_id")]
     pub(crate) task_id: Option<String>,
+}
+
+impl_schema_from_wire!(
+    PrismCoordinationArgs,
+    PrismCoordinationArgsWire,
+    "PrismCoordinationArgs"
+);
+
+impl<'de> Deserialize<'de> for PrismCoordinationArgs {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        let wire = serde_json::from_value::<PrismCoordinationArgsWire>(value.clone())
+            .map_err(serde::de::Error::custom)?;
+        let payload = value
+            .get("payload")
+            .cloned()
+            .ok_or_else(|| de::Error::custom("missing field `payload`"))?;
+        let kind = match wire.mutation {
+            PrismCoordinationArgsWirePayload::PlanCreate(_) => {
+                CoordinationMutationKindInput::PlanCreate
+            }
+            PrismCoordinationArgsWirePayload::PlanUpdate(_) => {
+                CoordinationMutationKindInput::PlanUpdate
+            }
+            PrismCoordinationArgsWirePayload::TaskCreate(_) => {
+                CoordinationMutationKindInput::TaskCreate
+            }
+            PrismCoordinationArgsWirePayload::TaskUpdate(_) => {
+                CoordinationMutationKindInput::TaskUpdate
+            }
+            PrismCoordinationArgsWirePayload::PlanNodeCreate(_) => {
+                CoordinationMutationKindInput::PlanNodeCreate
+            }
+            PrismCoordinationArgsWirePayload::PlanNodeUpdate(_) => {
+                CoordinationMutationKindInput::PlanNodeUpdate
+            }
+            PrismCoordinationArgsWirePayload::PlanEdgeCreate(_) => {
+                CoordinationMutationKindInput::PlanEdgeCreate
+            }
+            PrismCoordinationArgsWirePayload::PlanEdgeDelete(_) => {
+                CoordinationMutationKindInput::PlanEdgeDelete
+            }
+            PrismCoordinationArgsWirePayload::Handoff(_) => CoordinationMutationKindInput::Handoff,
+            PrismCoordinationArgsWirePayload::HandoffAccept(_) => {
+                CoordinationMutationKindInput::HandoffAccept
+            }
+        };
+        Ok(Self {
+            kind,
+            payload,
+            task_id: wire.task_id,
+        })
+    }
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case", tag = "action", content = "payload")]
+#[allow(dead_code)]
+enum PrismClaimArgsWirePayload {
+    Acquire(ClaimAcquirePayload),
+    Renew(ClaimRenewPayload),
+    Release(ClaimReleasePayload),
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+struct PrismClaimArgsWire {
+    #[serde(flatten)]
+    mutation: PrismClaimArgsWirePayload,
+    #[serde(alias = "task_id")]
+    task_id: Option<String>,
+}
+
+#[derive(Debug)]
 pub(crate) struct PrismClaimArgs {
     pub(crate) action: ClaimActionInput,
     pub(crate) payload: Value,
-    #[serde(alias = "task_id")]
     pub(crate) task_id: Option<String>,
+}
+
+impl_schema_from_wire!(PrismClaimArgs, PrismClaimArgsWire, "PrismClaimArgs");
+
+impl<'de> Deserialize<'de> for PrismClaimArgs {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        let wire = serde_json::from_value::<PrismClaimArgsWire>(value.clone())
+            .map_err(serde::de::Error::custom)?;
+        let payload = value
+            .get("payload")
+            .cloned()
+            .ok_or_else(|| de::Error::custom("missing field `payload`"))?;
+        let action = match wire.mutation {
+            PrismClaimArgsWirePayload::Acquire(_) => ClaimActionInput::Acquire,
+            PrismClaimArgsWirePayload::Renew(_) => ClaimActionInput::Renew,
+            PrismClaimArgsWirePayload::Release(_) => ClaimActionInput::Release,
+        };
+        Ok(Self {
+            action,
+            payload,
+            task_id: wire.task_id,
+        })
+    }
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case", tag = "action", content = "payload")]
+#[allow(dead_code)]
+enum PrismArtifactArgsWirePayload {
+    Propose(ArtifactProposePayload),
+    Supersede(ArtifactSupersedePayload),
+    Review(ArtifactReviewPayload),
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+struct PrismArtifactArgsWire {
+    #[serde(flatten)]
+    mutation: PrismArtifactArgsWirePayload,
+    #[serde(alias = "task_id")]
+    task_id: Option<String>,
+}
+
+#[derive(Debug)]
 pub(crate) struct PrismArtifactArgs {
     pub(crate) action: ArtifactActionInput,
     pub(crate) payload: Value,
-    #[serde(alias = "task_id")]
     pub(crate) task_id: Option<String>,
+}
+
+impl_schema_from_wire!(
+    PrismArtifactArgs,
+    PrismArtifactArgsWire,
+    "PrismArtifactArgs"
+);
+
+impl<'de> Deserialize<'de> for PrismArtifactArgs {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        let wire = serde_json::from_value::<PrismArtifactArgsWire>(value.clone())
+            .map_err(serde::de::Error::custom)?;
+        let payload = value
+            .get("payload")
+            .cloned()
+            .ok_or_else(|| de::Error::custom("missing field `payload`"))?;
+        let action = match wire.mutation {
+            PrismArtifactArgsWirePayload::Propose(_) => ArtifactActionInput::Propose,
+            PrismArtifactArgsWirePayload::Supersede(_) => ArtifactActionInput::Supersede,
+            PrismArtifactArgsWirePayload::Review(_) => ArtifactActionInput::Review,
+        };
+        Ok(Self {
+            action,
+            payload,
+            task_id: wire.task_id,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

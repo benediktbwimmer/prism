@@ -128,6 +128,21 @@ fn prism_mutate_validation_feedback_accepts_flat_snake_case_fields() {
     assert_eq!(args.task_id.as_deref(), Some("task:dogfood-memory"));
 }
 
+#[test]
+fn prism_mutate_coordination_rejects_missing_typed_payload_fields() {
+    let error = serde_json::from_value::<PrismMutationArgs>(json!({
+        "action": "coordination",
+        "input": {
+            "kind": "plan_create",
+            "payload": {}
+        }
+    }))
+    .expect_err("missing typed payload fields should fail");
+
+    let message = error.to_string();
+    assert!(message.contains("goal"), "{message}");
+}
+
 #[tokio::test]
 async fn mcp_server_accepts_prism_session_start_task_aliases() {
     let server = server_with_node(demo_node());
