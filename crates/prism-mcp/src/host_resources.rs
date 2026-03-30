@@ -4,15 +4,16 @@ use prism_ir::{AnchorRef, EventId, LineageId, NodeId, TaskId};
 use prism_memory::{MemoryEventQuery, MemoryId};
 use std::sync::Arc;
 
+use crate::file_queries::file_read;
 use crate::{
     anchor_resource_view_links, capabilities_resource_value, capabilities_resource_view_link,
     co_change_view, compact_discovery_bundle_candidate_excerpts, compact_owner_candidate_excerpts,
     contract_packet_view, contracts_resource_view_link_with_options, dedupe_resource_link_views,
     derive_task_metadata, discovery_bundle_view, edge_resource_uri, edge_resource_view_link,
-    event_resource_view_link, inferred_edge_record_view, lineage_event_view,
-    lineage_resource_view_link, lineage_status, memory_entry_view, memory_event_view,
-    memory_resource_uri, memory_resource_view_link, owner_views_for_query, paginate_items,
-    parse_resource_page, parse_resource_query_param, plans_resource_view_link,
+    event_resource_view_link, file_resource_view_link, inferred_edge_record_view,
+    lineage_event_view, lineage_resource_view_link, lineage_status, memory_entry_view,
+    memory_event_view, memory_resource_uri, memory_resource_view_link, owner_views_for_query,
+    paginate_items, parse_resource_page, parse_resource_query_param, plans_resource_view_link,
     plans_resource_view_link_with_options, resource_link_view, resource_schema_catalog_entries,
     schema_resource_uri, schema_resource_view_link, schemas_resource_uri,
     schemas_resource_view_link, search_ambiguity_from_diagnostics,
@@ -23,12 +24,13 @@ use crate::{
     tool_schemas_resource_view_link, vocab_resource_value, vocab_resource_view_link,
     workspace_revision_view, CapabilitiesResourcePayload, ContractsResourcePayload,
     CoordinationFeaturesView, EdgeResourcePayload, EntrypointsResourcePayload,
-    EventResourcePayload, FeatureFlagsView, InferredEdgeRecordView, LineageResourcePayload,
-    MemoryResourcePayload, PlansQueryArgs, PlansResourcePayload, QueryExecution, QueryHost,
-    ResourceSchemaCatalogPayload, SearchArgs, SearchResourcePayload, SessionLimitsView,
-    SessionResourcePayload, SessionState, SessionTaskView, SessionView, SymbolResourcePayload,
-    TaskResourcePayload, VocabularyResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
+    EventResourcePayload, FeatureFlagsView, FileResourcePayload, InferredEdgeRecordView,
+    LineageResourcePayload, MemoryResourcePayload, PlansQueryArgs, PlansResourcePayload,
+    QueryExecution, QueryHost, ResourceSchemaCatalogPayload, SearchArgs, SearchResourcePayload,
+    SessionLimitsView, SessionResourcePayload, SessionState, SessionTaskView, SessionView,
+    SymbolResourcePayload, TaskResourcePayload, VocabularyResourcePayload,
+    DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
 };
 
 impl QueryHost {
@@ -205,6 +207,33 @@ impl QueryHost {
         })
     }
 
+    pub(crate) fn file_resource_value(
+        &self,
+        session: &SessionState,
+        uri: &str,
+        args: crate::FileReadArgs,
+    ) -> Result<FileResourcePayload> {
+        self.observe_workspace_for_read()?;
+        let schema_uri = schema_resource_uri("file");
+        let prism = self.current_prism();
+        let excerpt = file_read(self, args.clone())?;
+        let related_resources = dedupe_resource_link_views(vec![
+            session_resource_view_link(),
+            schema_resource_view_link("file"),
+            schemas_resource_view_link(),
+            file_resource_view_link(&args.path),
+        ]);
+        let _ = session;
+        Ok(FileResourcePayload {
+            uri: uri.to_string(),
+            schema_uri,
+            workspace_revision: workspace_revision_view(prism.workspace_revision()),
+            path: args.path,
+            excerpt,
+            related_resources,
+        })
+    }
+
     pub(crate) fn plans_resource_value(
         &self,
         session: Arc<SessionState>,
@@ -301,14 +330,26 @@ impl QueryHost {
                 .into_iter()
                 .map(|resolution| {
                     let packet = resolution.packet.clone();
-                    contract_packet_view(prism.as_ref(), packet, Some(resolution))
+                    contract_packet_view(
+                        prism.as_ref(),
+                        self.workspace.as_ref().map(|workspace| workspace.root()),
+                        packet,
+                        Some(resolution),
+                    )
                 })
                 .collect::<Vec<_>>()
         } else {
             prism
                 .curated_contracts()
                 .into_iter()
-                .map(|packet| contract_packet_view(prism.as_ref(), packet, None))
+                .map(|packet| {
+                    contract_packet_view(
+                        prism.as_ref(),
+                        self.workspace.as_ref().map(|workspace| workspace.root()),
+                        packet,
+                        None,
+                    )
+                })
                 .collect::<Vec<_>>()
         };
         let contracts = contracts
@@ -367,7 +408,10 @@ impl QueryHost {
                     crate::AnchorRefView::Lineage { lineage_id } => {
                         Some(lineage_resource_view_link(lineage_id))
                     }
-                    crate::AnchorRefView::File { .. } | crate::AnchorRefView::Kind { .. } => None,
+                    crate::AnchorRefView::File { path, .. } => {
+                        path.as_deref().map(file_resource_view_link)
+                    }
+                    crate::AnchorRefView::Kind { .. } => None,
                 })
         }));
         Ok(ContractsResourcePayload {
@@ -764,12 +808,13 @@ impl QueryHost {
                 .iter()
                 .map(|event| event_resource_view_link(event.meta.id.0.as_str())),
         );
-        related_resources.extend(
-            paged
-                .items
-                .iter()
-                .flat_map(|event| anchor_resource_view_links(&event.anchors)),
-        );
+        related_resources.extend(paged.items.iter().flat_map(|event| {
+            anchor_resource_view_links(
+                prism.as_ref(),
+                self.workspace.as_ref().map(|workspace| workspace.root()),
+                &event.anchors,
+            )
+        }));
         Ok(TaskResourcePayload {
             uri: uri.to_string(),
             schema_uri,
@@ -785,6 +830,7 @@ impl QueryHost {
     pub(crate) fn event_resource_value(&self, event_id: &EventId) -> Result<EventResourcePayload> {
         self.observe_workspace_for_read()?;
         let schema_uri = schema_resource_uri("event");
+        let prism = self.current_prism();
         let event = self
             .current_prism()
             .outcome_memory()
@@ -799,7 +845,11 @@ impl QueryHost {
         if let Some(task_id) = &event.meta.correlation {
             related_resources.push(task_resource_view_link(task_id.0.as_str()));
         }
-        related_resources.extend(anchor_resource_view_links(&event.anchors));
+        related_resources.extend(anchor_resource_view_links(
+            prism.as_ref(),
+            self.workspace.as_ref().map(|workspace| workspace.root()),
+            &event.anchors,
+        ));
         Ok(EventResourcePayload {
             uri: crate::event_resource_uri(event_id.0.as_str()),
             schema_uri,
@@ -815,6 +865,7 @@ impl QueryHost {
     ) -> Result<MemoryResourcePayload> {
         self.observe_workspace_for_read()?;
         let schema_uri = schema_resource_uri("memory");
+        let prism = self.current_prism();
         let entry = session
             .notes
             .entry(memory_id)
@@ -854,7 +905,11 @@ impl QueryHost {
         if let Some(task_id) = &task_id {
             related_resources.push(task_resource_view_link(task_id));
         }
-        related_resources.extend(anchor_resource_view_links(&entry.anchors));
+        related_resources.extend(anchor_resource_view_links(
+            prism.as_ref(),
+            self.workspace.as_ref().map(|workspace| workspace.root()),
+            &entry.anchors,
+        ));
         Ok(MemoryResourcePayload {
             uri: memory_resource_uri(&memory_id.0),
             schema_uri,

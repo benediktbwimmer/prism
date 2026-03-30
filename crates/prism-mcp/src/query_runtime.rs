@@ -2629,7 +2629,11 @@ impl QueryExecution {
     }
 
     fn concepts(&self, args: ConceptQueryArgs) -> Result<Vec<ConceptPacketView>> {
-        let verbosity = parse_concept_verbosity(args.verbosity.as_deref(), "prism.concepts")?;
+        let verbosity = parse_concept_verbosity(
+            args.verbosity.as_deref(),
+            "prism.concepts",
+            ConceptVerbosity::Summary,
+        )?;
         let requested = args.limit.unwrap_or(5);
         let applied = requested.min(self.session.limits().max_result_nodes);
         if requested > applied {
@@ -2671,7 +2675,11 @@ impl QueryExecution {
     }
 
     fn concept(&self, args: ConceptQueryArgs) -> Result<Option<ConceptPacketView>> {
-        let verbosity = parse_concept_verbosity(args.verbosity.as_deref(), "prism.concept")?;
+        let verbosity = parse_concept_verbosity(
+            args.verbosity.as_deref(),
+            "prism.concept",
+            ConceptVerbosity::Standard,
+        )?;
         let resolutions = resolve_concepts_for_session(
             self.prism.as_ref(),
             self.session.as_ref(),
@@ -2734,8 +2742,11 @@ impl QueryExecution {
     }
 
     fn concept_by_handle(&self, args: ConceptHandleArgs) -> Result<Option<ConceptPacketView>> {
-        let verbosity =
-            parse_concept_verbosity(args.verbosity.as_deref(), "prism.conceptByHandle")?;
+        let verbosity = parse_concept_verbosity(
+            args.verbosity.as_deref(),
+            "prism.conceptByHandle",
+            ConceptVerbosity::Standard,
+        )?;
         let concept = self.prism.concept_by_handle(&args.handle).map(|packet| {
             concept_packet_view(
                 self.prism.as_ref(),
@@ -2780,7 +2791,12 @@ impl QueryExecution {
         }
         let contract = resolutions.into_iter().next().map(|resolution| {
             let packet = resolution.packet.clone();
-            contract_packet_view(self.prism.as_ref(), packet, Some(resolution))
+            contract_packet_view(
+                self.prism.as_ref(),
+                self.workspace_root(),
+                packet,
+                Some(resolution),
+            )
         });
         if contract.is_none() {
             self.push_diagnostic(
@@ -2798,7 +2814,9 @@ impl QueryExecution {
             .prism
             .contracts_for_target(&id)
             .into_iter()
-            .map(|packet| contract_packet_view(self.prism.as_ref(), packet, None))
+            .map(|packet| {
+                contract_packet_view(self.prism.as_ref(), self.workspace_root(), packet, None)
+            })
             .collect())
     }
 
@@ -2824,7 +2842,11 @@ impl QueryExecution {
 
     fn decode_concept(&self, args: DecodeConceptArgs) -> Result<Option<ConceptDecodeView>> {
         let lens = parse_concept_lens(&args.lens)?;
-        let verbosity = parse_concept_verbosity(args.verbosity.as_deref(), "prism.decodeConcept")?;
+        let verbosity = parse_concept_verbosity(
+            args.verbosity.as_deref(),
+            "prism.decodeConcept",
+            ConceptVerbosity::Standard,
+        )?;
         let packet: Option<prism_query::ConceptPacket> =
             match (args.handle.as_deref(), args.query.as_deref()) {
                 (Some(handle), _) => self.prism.concept_by_handle(handle),
@@ -3141,8 +3163,19 @@ fn parse_concept_lens(value: &str) -> Result<ConceptDecodeLens> {
     }
 }
 
-fn parse_concept_verbosity(value: Option<&str>, operation: &str) -> Result<ConceptVerbosity> {
-    match value.unwrap_or("full").trim().to_ascii_lowercase().as_str() {
+fn parse_concept_verbosity(
+    value: Option<&str>,
+    operation: &str,
+    default: ConceptVerbosity,
+) -> Result<ConceptVerbosity> {
+    let normalized = value
+        .map(|value| value.trim().to_ascii_lowercase())
+        .unwrap_or_else(|| match default {
+            ConceptVerbosity::Summary => "summary".to_string(),
+            ConceptVerbosity::Standard => "standard".to_string(),
+            ConceptVerbosity::Full => "full".to_string(),
+        });
+    match normalized.as_str() {
         "summary" => Ok(ConceptVerbosity::Summary),
         "standard" => Ok(ConceptVerbosity::Standard),
         "full" => Ok(ConceptVerbosity::Full),

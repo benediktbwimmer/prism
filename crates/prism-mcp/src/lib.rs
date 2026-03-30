@@ -124,6 +124,8 @@ const CAPABILITIES_URI: &str = "prism://capabilities";
 const SESSION_URI: &str = "prism://session";
 const PLANS_URI: &str = "prism://plans";
 const CONTRACTS_URI: &str = "prism://contracts";
+const FILE_RESOURCE_TEMPLATE_URI: &str =
+    "prism://file/{path}?startLine={startLine}&endLine={endLine}&maxChars={maxChars}";
 const VOCAB_URI: &str = "prism://vocab";
 const SCHEMAS_URI: &str = "prism://schemas";
 const TOOL_SCHEMAS_URI: &str = "prism://tool-schemas";

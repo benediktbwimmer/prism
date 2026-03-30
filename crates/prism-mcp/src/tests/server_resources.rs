@@ -8,8 +8,9 @@ use super::*;
 use crate::tests_support::{
     demo_node, initialize_client, initialized_notification, list_resources_request,
     list_tools_request, read_resource_request, response_json, server_with_node,
-    server_with_node_and_features,
+    server_with_node_and_features, temp_workspace,
 };
+use prism_core::index_workspace_session;
 
 #[tokio::test]
 async fn mcp_server_advertises_tools_and_api_reference_resource() {
@@ -304,6 +305,72 @@ async fn mcp_server_lists_and_reads_tool_schema_resources() {
     assert!(validation_feedback_schema_text.contains("\"fileId\""));
     assert!(validation_feedback_schema_text.contains("\"path\""));
     assert!(validation_feedback_schema_text.contains("Preferred over `fileId`"));
+
+    client
+        .send(read_resource_request(8, "prism://schema/file"))
+        .await
+        .unwrap();
+    let file_schema = response_json(client.receive().await.unwrap());
+    let file_schema_payload = serde_json::from_str::<Value>(
+        file_schema["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("file schema should be text"),
+    )
+    .unwrap();
+    assert_eq!(file_schema_payload["$id"], "prism://schema/file");
+    assert_eq!(file_schema_payload["title"], "PRISM File Resource Schema");
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_server_reads_file_resource_templates_for_workspace_paths() {
+    let root = temp_workspace();
+    let server = PrismMcpServer::with_session(index_workspace_session(&root).unwrap());
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client.send(list_resources_request(2)).await.unwrap();
+    let resources = response_json(client.receive().await.unwrap());
+    assert!(resources["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == SESSION_URI));
+
+    client
+        .send(read_resource_request(
+            3,
+            "prism://file/src%2Flib.rs?startLine=1&endLine=1&maxChars=200",
+        ))
+        .await
+        .unwrap();
+    let resource = response_json(client.receive().await.unwrap());
+    let payload = serde_json::from_str::<Value>(
+        resource["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("file resource should be text"),
+    )
+    .unwrap();
+    assert_eq!(payload["path"], "src/lib.rs");
+    assert_eq!(payload["excerpt"]["startLine"], 1);
+    assert!(payload["excerpt"]["text"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("pub fn alpha"));
+    assert!(payload["relatedResources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == "prism://schema/file"));
 
     running.cancel().await.unwrap();
 }

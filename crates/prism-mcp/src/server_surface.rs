@@ -1689,6 +1689,18 @@ impl ServerHandler for PrismMcpServer {
                         None,
                     )),
                 )?
+            } else if let Some(args) = parse_file_resource_uri(uri)? {
+                json_resource_contents_with_meta(
+                    self.host
+                        .file_resource_value(self.session.as_ref(), uri, args)
+                        .map_err(map_query_error)?,
+                    request.uri.clone(),
+                    Some(resource_meta(
+                        "file",
+                        Some(schema_resource_uri("file")),
+                        None,
+                    )),
+                )?
             } else if let Some(query) = parse_search_resource_uri(uri) {
                 json_resource_contents_with_meta(
                     self.host
@@ -1832,6 +1844,12 @@ impl ServerHandler for PrismMcpServer {
                         "PRISM Search Resource Schema",
                         "JSON Schema for the PRISM search resource payload.",
                         "search",
+                    )?,
+                    "file" => schema_resource_contents::<FileResourcePayload>(
+                        uri,
+                        "PRISM File Resource Schema",
+                        "JSON Schema for read-only workspace file excerpt resources.",
+                        "file",
                     )?,
                     "symbol" => schema_resource_contents::<SymbolResourcePayload>(
                         uri,
@@ -1977,6 +1995,12 @@ impl ServerHandler for PrismMcpServer {
                 RawResourceTemplate::new(SEARCH_RESOURCE_TEMPLATE_URI, "PRISM Search")
                     .with_description(
                         "Read structured PRISM search results and diagnostics for a query string with optional `limit`, `cursor`, `strategy`, `ownerKind`, `kind`, `path`, `module`, `taskId`, and `includeInferred` options",
+                    )
+                    .with_mime_type("application/json")
+                    .no_annotation(),
+                RawResourceTemplate::new(FILE_RESOURCE_TEMPLATE_URI, "PRISM File")
+                    .with_description(
+                        "Read a workspace file excerpt by path with optional `startLine`, `endLine`, and `maxChars` narrowing",
                     )
                     .with_mime_type("application/json")
                     .no_annotation(),

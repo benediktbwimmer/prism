@@ -18,9 +18,10 @@ use super::workset::budgeted_workset_result_with_followups;
 use super::*;
 use crate::{
     concept_decode_lens_view, concept_packet_view, concept_relation_view,
-    concept_resolution_is_ambiguous, recent_patches, resolve_concepts_for_session,
-    scored_memory_view, symbol_views_for_ids, truncate_concept_relations, truncate_vec,
-    validation_recipe_view_with, ConceptVerbosity,
+    concept_resolution_is_ambiguous, concept_verbosity_view, recent_patches,
+    resolve_concepts_for_session, scored_memory_view, symbol_views_for_ids,
+    truncate_concept_relations, truncate_vec_with_omitted, validation_recipe_view_with,
+    ConceptPacketTruncationStats, ConceptVerbosity,
 };
 
 const CONCEPT_PATCH_LIMIT: usize = 4;
@@ -123,20 +124,44 @@ fn agent_concept_packet_view(
     resolution: Option<prism_query::ConceptResolution>,
     include_binding_metadata: bool,
 ) -> Result<AgentConceptPacketView> {
-    let core_members = truncate_vec(
+    let (core_members, core_members_omitted) = truncate_vec_with_omitted(
         compact_handles_for_ids(session, prism, &packet.core_members)?,
         verbosity.max_member_count(),
     );
-    let supporting_members = truncate_vec(
+    let (supporting_members, supporting_members_omitted) = truncate_vec_with_omitted(
         compact_handles_for_ids(session, prism, &packet.supporting_members)?,
         verbosity.max_member_count(),
     );
-    let likely_tests = truncate_vec(
+    let (likely_tests, likely_tests_omitted) = truncate_vec_with_omitted(
         compact_handles_for_ids(session, prism, &packet.likely_tests)?,
         verbosity.max_member_count(),
     );
+    let (evidence, evidence_omitted) =
+        truncate_vec_with_omitted(packet.evidence.clone(), verbosity.max_evidence_count());
+    let (relations, relation_truncation) = truncate_concept_relations(
+        prism
+            .concept_relations_for_handle(&packet.handle)
+            .into_iter()
+            .map(|relation| concept_relation_view(prism, &packet.handle, relation))
+            .collect(),
+        verbosity,
+    );
+    let truncation = ConceptPacketTruncationStats {
+        core_members_omitted,
+        supporting_members_omitted,
+        likely_tests_omitted,
+        evidence_omitted,
+        relations_omitted: relation_truncation.relations_omitted,
+        relation_evidence_omitted: relation_truncation.relation_evidence_omitted,
+    }
+    .into_view();
     let primary_handle = core_members.first().map(|member| member.handle.clone());
     let suggested_actions = compact_concept_suggested_actions(primary_handle.as_deref(), packet);
+    let next_action = if truncation.is_some() {
+        "This concept packet was trimmed for context. Open the strongest member now, or retry with `verbosity`: `full` if you need the complete packet.".to_string()
+    } else {
+        "Open the strongest core member or decode the concept with a lens.".to_string()
+    };
     Ok(AgentConceptPacketView {
         handle: packet.handle.clone(),
         canonical_name: packet.canonical_name.clone(),
@@ -146,7 +171,7 @@ fn agent_concept_packet_view(
         core_members,
         supporting_members,
         likely_tests,
-        evidence: truncate_vec(packet.evidence.clone(), verbosity.max_evidence_count()),
+        evidence,
         risk_hint: packet.risk_hint.clone(),
         decode_lenses: packet
             .decode_lenses
@@ -154,6 +179,8 @@ fn agent_concept_packet_view(
             .copied()
             .map(concept_decode_lens_view)
             .collect(),
+        verbosity_applied: concept_verbosity_view(verbosity),
+        truncation,
         scope: match packet.scope {
             ConceptScope::Local => ConceptScopeView::Local,
             ConceptScope::Session => ConceptScopeView::Session,
@@ -178,14 +205,7 @@ fn agent_concept_packet_view(
                 retired_at: publication.retired_at,
                 retirement_reason: publication.retirement_reason,
             }),
-        relations: truncate_concept_relations(
-            prism
-                .concept_relations_for_handle(&packet.handle)
-                .into_iter()
-                .map(|relation| concept_relation_view(prism, &packet.handle, relation))
-                .collect(),
-            verbosity,
-        ),
+        relations,
         resolution: resolution.map(|resolution| ConceptResolutionView {
             score: resolution.score,
             reasons: resolution.reasons,
@@ -210,9 +230,7 @@ fn agent_concept_packet_view(
                 .map(|lineage| lineage.map(|lineage| lineage.0.to_string()))
                 .collect(),
         }),
-        next_action: Some(
-            "Open the strongest core member or decode the concept with a lens.".to_string(),
-        ),
+        next_action: Some(next_action),
         suggested_actions,
     })
 }
@@ -478,7 +496,7 @@ fn decode_concept(
 }
 
 fn concept_verbosity(input: Option<crate::PrismConceptVerbosityInput>) -> ConceptVerbosity {
-    match input.unwrap_or(crate::PrismConceptVerbosityInput::Standard) {
+    match input.unwrap_or(crate::PrismConceptVerbosityInput::Summary) {
         crate::PrismConceptVerbosityInput::Summary => ConceptVerbosity::Summary,
         crate::PrismConceptVerbosityInput::Standard => ConceptVerbosity::Standard,
         crate::PrismConceptVerbosityInput::Full => ConceptVerbosity::Full,

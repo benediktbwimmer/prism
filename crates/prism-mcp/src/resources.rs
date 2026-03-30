@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use prism_agent::EdgeId;
 use prism_ir::{AnchorRef, EventId, LineageId, NodeId, TaskId};
 use prism_js::{NodeIdView, SymbolView};
@@ -10,9 +12,10 @@ use rmcp::{
 use serde_json::{json, Value};
 
 use crate::{
-    parse_node_kind, resource_example_uri, schema_examples, ResourceLinkView, ResourcePageView,
-    ResourceSchemaCatalogEntry, CAPABILITIES_URI, CONTRACTS_RESOURCE_TEMPLATE_URI, CONTRACTS_URI,
-    EDGE_RESOURCE_TEMPLATE_URI, ENTRYPOINTS_RESOURCE_TEMPLATE_URI, EVENT_RESOURCE_TEMPLATE_URI,
+    compact_followups::workspace_display_path, parse_node_kind, resource_example_uri,
+    schema_examples, ResourceLinkView, ResourcePageView, ResourceSchemaCatalogEntry,
+    CAPABILITIES_URI, CONTRACTS_RESOURCE_TEMPLATE_URI, CONTRACTS_URI, EDGE_RESOURCE_TEMPLATE_URI,
+    ENTRYPOINTS_RESOURCE_TEMPLATE_URI, EVENT_RESOURCE_TEMPLATE_URI, FILE_RESOURCE_TEMPLATE_URI,
     LINEAGE_RESOURCE_TEMPLATE_URI, MEMORY_RESOURCE_TEMPLATE_URI, PLANS_RESOURCE_TEMPLATE_URI,
     PLANS_URI, SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI,
     SYMBOL_RESOURCE_TEMPLATE_URI, TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI, VOCAB_URI,
@@ -231,6 +234,61 @@ pub(crate) fn parse_search_resource_uri(uri: &str) -> Option<String> {
     base.strip_prefix("prism://search/")
         .map(percent_decode_lossy)
         .filter(|query| !query.trim().is_empty())
+}
+
+pub(crate) fn parse_file_resource_uri(uri: &str) -> Result<Option<crate::FileReadArgs>, McpError> {
+    let (base, query) = split_resource_uri(uri);
+    let Some(path) = base.strip_prefix("prism://file/") else {
+        return Ok(None);
+    };
+    let path = percent_decode_lossy(path);
+    if path.trim().is_empty() {
+        return Ok(None);
+    }
+
+    let mut args = crate::FileReadArgs {
+        path,
+        start_line: None,
+        end_line: None,
+        max_chars: None,
+    };
+
+    if let Some(query) = query {
+        for part in query.split('&').filter(|part| !part.is_empty()) {
+            let (raw_key, raw_value) = part.split_once('=').unwrap_or((part, ""));
+            let key = percent_decode_lossy(raw_key);
+            let value = percent_decode_lossy(raw_value);
+            match key.as_str() {
+                "startLine" => {
+                    args.start_line = Some(value.parse::<usize>().map_err(|_| {
+                        McpError::invalid_params(
+                            "invalid file resource startLine",
+                            Some(json!({ "uri": uri, "value": value })),
+                        )
+                    })?);
+                }
+                "endLine" => {
+                    args.end_line = Some(value.parse::<usize>().map_err(|_| {
+                        McpError::invalid_params(
+                            "invalid file resource endLine",
+                            Some(json!({ "uri": uri, "value": value })),
+                        )
+                    })?);
+                }
+                "maxChars" => {
+                    args.max_chars = Some(value.parse::<usize>().map_err(|_| {
+                        McpError::invalid_params(
+                            "invalid file resource maxChars",
+                            Some(json!({ "uri": uri, "value": value })),
+                        )
+                    })?);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    Ok(Some(args))
 }
 
 pub(crate) fn parse_resource_query_param(uri: &str, name: &str) -> Option<String> {
@@ -766,6 +824,42 @@ pub(crate) fn search_resource_view_link_with_options(
     )
 }
 
+pub(crate) fn file_resource_uri(path: &str) -> String {
+    format!("prism://file/{}", percent_encode_component(path))
+}
+
+pub(crate) fn file_resource_uri_with_options(
+    path: &str,
+    start_line: Option<usize>,
+    end_line: Option<usize>,
+    max_chars: Option<usize>,
+) -> String {
+    let mut uri = file_resource_uri(path);
+    let mut params = Vec::new();
+    if let Some(start_line) = start_line {
+        params.push(format!("startLine={start_line}"));
+    }
+    if let Some(end_line) = end_line {
+        params.push(format!("endLine={end_line}"));
+    }
+    if let Some(max_chars) = max_chars {
+        params.push(format!("maxChars={max_chars}"));
+    }
+    if !params.is_empty() {
+        uri.push('?');
+        uri.push_str(&params.join("&"));
+    }
+    uri
+}
+
+pub(crate) fn file_resource_view_link(path: &str) -> ResourceLinkView {
+    resource_link_view(
+        file_resource_uri(path),
+        format!("PRISM File: {path}"),
+        "Workspace file excerpt with optional line-range narrowing",
+    )
+}
+
 pub(crate) fn symbol_resource_view_link(symbol: &SymbolView) -> ResourceLinkView {
     resource_link_view(
         symbol_resource_uri(&symbol.id),
@@ -909,6 +1003,14 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             description: "Schema for browseable search results and diagnostics.".to_string(),
         },
         ResourceSchemaCatalogEntry {
+            resource_kind: "file".to_string(),
+            schema_uri: schema_resource_uri("file"),
+            resource_uri: Some(FILE_RESOURCE_TEMPLATE_URI.to_string()),
+            example_uri: resource_example_uri("file"),
+            description: "Schema for read-only workspace file excerpts addressed by path."
+                .to_string(),
+        },
+        ResourceSchemaCatalogEntry {
             resource_kind: "symbol".to_string(),
             schema_uri: schema_resource_uri("symbol"),
             resource_uri: Some(SYMBOL_RESOURCE_TEMPLATE_URI.to_string()),
@@ -955,7 +1057,11 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
     ]
 }
 
-pub(crate) fn anchor_resource_view_links(anchors: &[AnchorRef]) -> Vec<ResourceLinkView> {
+pub(crate) fn anchor_resource_view_links(
+    prism: &prism_query::Prism,
+    workspace_root: Option<&Path>,
+    anchors: &[AnchorRef],
+) -> Vec<ResourceLinkView> {
     let mut links = Vec::new();
     for anchor in anchors {
         match anchor {
@@ -963,7 +1069,15 @@ pub(crate) fn anchor_resource_view_links(anchors: &[AnchorRef]) -> Vec<ResourceL
             AnchorRef::Lineage(lineage_id) => {
                 links.push(lineage_resource_view_link(lineage_id.0.as_str()))
             }
-            AnchorRef::File(_) | AnchorRef::Kind(_) => {}
+            AnchorRef::File(file_id) => {
+                if let Some(path) = prism.graph().file_path(*file_id) {
+                    links.push(file_resource_view_link(&workspace_display_path(
+                        workspace_root,
+                        path,
+                    )));
+                }
+            }
+            AnchorRef::Kind(_) => {}
         }
     }
     dedupe_resource_link_views(links)

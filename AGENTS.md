@@ -38,10 +38,11 @@ When the PRISM MCP server is available for this repo, use it as the primary repo
 - The default agent path is PRISM-first and staged:
   - orient with `prism://session`, `prism://capabilities`, and `prism://vocab`
   - use compact tools for edit targeting and bounded context: `prism_locate`, `prism_gather`, `prism_open`, `prism_workset`, `prism_expand`
-  - use `prism_concept` when the unit of thought is a broad repo-native subsystem or multi-artifact cluster
+  - use `prism_concept` (defaulting to `summary` verbosity) when the unit of thought is a broad repo-native subsystem or multi-artifact cluster
   - use `prism_concept` with a decode `lens` (especially `memory`) to inherit tribal knowledge from previous agent sessions before starting substantial work in an unfamiliar subsystem
   - use the typed query views when the task is semantic guidance rather than raw code lookup
   - use `prism.plans()` or `prism_task_brief` early when you need to understand what work is in progress, what is blocked, and what the next actionable step is
+  - use `verbosity: "full"` on concept reads only when the `summary` or `standard` results are insufficient for a concrete decision
   - use ad hoc read-only `prism_query` snippets only when the compact surface and typed views cannot express the needed read
 - Use `prism_gather` for bounded exact-text slices, especially config/schema/script work or when you know the literal text to inspect and a symbol handle is not the right first hop.
 - Use `prism_concept` when the user asks about a broad repo-native term or subsystem concept such as `validation`, `runtime`, `session`, `memory`, `status`, `compact tools`, or `task continuity`.
@@ -106,6 +107,10 @@ Concept packs are repo-native concept objects. They capture what belongs togethe
 
 - Treat concept packs as a reusable repo vocabulary layer, not as a taxonomy exercise.
 - Use semantic pathfinding to navigate the codebase from high-level abstractions down to specific implementations. Instead of guessing file locations or repeatedly searching for terms, start by querying a broad concept (like `prism_architecture` or `memory_system`) using `prism_concept` and follow its `relations` (e.g., `part_of`, `depends_on`) down to more concrete sub-concepts until you hit actual code handles.
+- Use `verbosity` levels to manage context window space:
+  - `summary` (default for discovery): Fast, low-token overview. Check the `truncation` object for omitted data.
+  - `standard`: Balanced view with common relations and evidence.
+  - `full`: Complete packet including all relations, evidence, members, and checks. Use this only when deep architectural reasoning or historical context is required for a commit.
 - When entering an unfamiliar subsystem, decode the governing concept with `lens: "memory"` before writing code. The memory lens surfaces scored episodic memories from previous agent sessions, giving you tribal knowledge about gotchas, workarounds, and architectural decisions that are not visible in the source code alone.
 - Prefer carrying forward an existing concept handle when it matches the task instead of rediscovering the same cluster through repeated search, locate, or open calls.
 - When a concept packet needs inspection or curation help, request binding detail explicitly rather than assuming from prose alone. Use `includeBindingMetadata` on concept reads when you need to inspect lineage-backed member bindings, drift, or rebinding behavior.

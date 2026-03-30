@@ -250,6 +250,9 @@ pub struct AgentConceptPacketView {
     pub evidence: Vec<String>,
     pub risk_hint: Option<String>,
     pub decode_lenses: Vec<ConceptDecodeLensView>,
+    pub verbosity_applied: ConceptPacketVerbosityView,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub truncation: Option<ConceptPacketTruncationView>,
     pub scope: ConceptScopeView,
     pub provenance: ConceptProvenanceView,
     pub publication: Option<ConceptPublicationView>,
@@ -271,6 +274,25 @@ pub enum ConceptScopeView {
     Local,
     Session,
     Repo,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ConceptPacketVerbosityView {
+    Summary,
+    Standard,
+    Full,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ConceptPacketTruncationView {
+    pub core_members_omitted: usize,
+    pub supporting_members_omitted: usize,
+    pub likely_tests_omitted: usize,
+    pub evidence_omitted: usize,
+    pub relations_omitted: usize,
+    pub relation_evidence_omitted: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -972,6 +994,9 @@ pub struct ConceptPacketView {
     pub evidence: Vec<String>,
     pub risk_hint: Option<String>,
     pub decode_lenses: Vec<ConceptDecodeLensView>,
+    pub verbosity_applied: ConceptPacketVerbosityView,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub truncation: Option<ConceptPacketTruncationView>,
     pub scope: ConceptScopeView,
     pub provenance: ConceptProvenanceView,
     pub publication: Option<ConceptPublicationView>,

@@ -32,6 +32,15 @@ pub(crate) fn workspace_scoped_path(workspace_root: Option<&Path>, path: &str) -
         .unwrap_or(path)
 }
 
+pub(crate) fn workspace_display_path(workspace_root: Option<&Path>, path: &Path) -> String {
+    if let Some(root) = workspace_root {
+        if let Ok(relative) = path.strip_prefix(root) {
+            return normalize_path(relative.to_string_lossy().as_ref());
+        }
+    }
+    normalize_path(path.to_string_lossy().as_ref())
+}
+
 pub(crate) fn spec_body_identifier_terms(text: &str, limit: usize) -> Vec<String> {
     let mut terms = Vec::<String>::new();
     for raw in text.split(|ch: char| {
@@ -198,6 +207,24 @@ mod tests {
         assert_eq!(
             workspace_scoped_path(Some(root), "/Users/bene/code/prism/Cargo.toml"),
             "/Users/bene/code/prism/Cargo.toml"
+        );
+    }
+
+    #[test]
+    fn workspace_display_path_prefers_repo_relative_paths() {
+        let root = Path::new("/Users/bene/code/prism");
+        assert_eq!(
+            workspace_display_path(Some(root), &root.join("src/lib.rs")),
+            "src/lib.rs"
+        );
+    }
+
+    #[test]
+    fn workspace_display_path_keeps_external_absolute_paths() {
+        let root = Path::new("/Users/bene/code/prism");
+        assert_eq!(
+            workspace_display_path(Some(root), Path::new("/tmp/elsewhere.rs")),
+            "/tmp/elsewhere.rs"
         );
     }
 

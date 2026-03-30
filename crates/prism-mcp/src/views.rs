@@ -5,16 +5,16 @@ use prism_curator::{
 use prism_ir::{AnchorRef, Edge, NodeId, WorkspaceRevision};
 use prism_js::{
     AnchorRefView, ArtifactRiskView, ArtifactView, BlockerView, ChangeImpactView, ClaimView,
-    CoChangeView, ConceptBindingMetadataView, ConceptDecodeLensView, ConceptPacketView,
-    ConceptProvenanceView, ConceptPublicationStatusView, ConceptPublicationView,
-    ConceptRelationDirectionView, ConceptRelationKindView, ConceptRelationView,
-    ConceptResolutionView, ConceptScopeView, ConflictView, ContractCompatibilityView,
-    ContractGuaranteeStrengthView, ContractGuaranteeView, ContractKindView, ContractPacketView,
-    ContractResolutionView, ContractStabilityView, ContractStatusView, ContractTargetView,
-    ContractValidationView, CoordinationTaskView, CuratorJobView, CuratorProposalRecordView,
-    CuratorProposalView, DriftCandidateView, EdgeView, MemoryEntryView, MemoryEventView,
-    NodeIdView, PlanAcceptanceCriterionView, PlanBindingView, PlanEdgeView,
-    PlanExecutionOverlayView, PlanGraphView, PlanListEntryView, PlanNodeBlockerView,
+    CoChangeView, ConceptBindingMetadataView, ConceptDecodeLensView, ConceptPacketTruncationView,
+    ConceptPacketVerbosityView, ConceptPacketView, ConceptProvenanceView,
+    ConceptPublicationStatusView, ConceptPublicationView, ConceptRelationDirectionView,
+    ConceptRelationKindView, ConceptRelationView, ConceptResolutionView, ConceptScopeView,
+    ConflictView, ContractCompatibilityView, ContractGuaranteeStrengthView, ContractGuaranteeView,
+    ContractKindView, ContractPacketView, ContractResolutionView, ContractStabilityView,
+    ContractStatusView, ContractTargetView, ContractValidationView, CoordinationTaskView,
+    CuratorJobView, CuratorProposalRecordView, CuratorProposalView, DriftCandidateView, EdgeView,
+    MemoryEntryView, MemoryEventView, NodeIdView, PlanAcceptanceCriterionView, PlanBindingView,
+    PlanEdgeView, PlanExecutionOverlayView, PlanGraphView, PlanListEntryView, PlanNodeBlockerView,
     PlanNodeRecommendationView, PlanNodeView, PlanSummaryView, PlanView, PolicyViolationRecordView,
     PolicyViolationView, QueryDiagnostic, ScoredMemoryView, TaskIntentView, TaskRiskView,
     TaskValidationRecipeView, ValidationCheckView, ValidationRecipeView, ValidationRefView,
@@ -31,8 +31,12 @@ use prism_query::{
     ValidationCheck, ValidationRecipe,
 };
 use serde_json::Value;
+use std::path::Path;
 
-use crate::{normalize_query_diagnostic, InferredEdgeRecordView, SessionState};
+use crate::{
+    compact_followups::workspace_display_path, normalize_query_diagnostic, InferredEdgeRecordView,
+    SessionState,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ConceptVerbosity {
@@ -72,6 +76,46 @@ impl ConceptVerbosity {
             Self::Standard => Some(1),
             Self::Full => None,
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct ConceptPacketTruncationStats {
+    pub(crate) core_members_omitted: usize,
+    pub(crate) supporting_members_omitted: usize,
+    pub(crate) likely_tests_omitted: usize,
+    pub(crate) evidence_omitted: usize,
+    pub(crate) relations_omitted: usize,
+    pub(crate) relation_evidence_omitted: usize,
+}
+
+impl ConceptPacketTruncationStats {
+    pub(crate) fn is_empty(self) -> bool {
+        self.core_members_omitted == 0
+            && self.supporting_members_omitted == 0
+            && self.likely_tests_omitted == 0
+            && self.evidence_omitted == 0
+            && self.relations_omitted == 0
+            && self.relation_evidence_omitted == 0
+    }
+
+    pub(crate) fn into_view(self) -> Option<ConceptPacketTruncationView> {
+        (!self.is_empty()).then_some(ConceptPacketTruncationView {
+            core_members_omitted: self.core_members_omitted,
+            supporting_members_omitted: self.supporting_members_omitted,
+            likely_tests_omitted: self.likely_tests_omitted,
+            evidence_omitted: self.evidence_omitted,
+            relations_omitted: self.relations_omitted,
+            relation_evidence_omitted: self.relation_evidence_omitted,
+        })
+    }
+}
+
+pub(crate) fn concept_verbosity_view(verbosity: ConceptVerbosity) -> ConceptPacketVerbosityView {
+    match verbosity {
+        ConceptVerbosity::Summary => ConceptPacketVerbosityView::Summary,
+        ConceptVerbosity::Standard => ConceptPacketVerbosityView::Standard,
+        ConceptVerbosity::Full => ConceptPacketVerbosityView::Full,
     }
 }
 
@@ -299,46 +343,63 @@ pub(crate) fn concept_packet_view(
     resolution: Option<ConceptResolution>,
 ) -> ConceptPacketView {
     let handle = packet.handle.clone();
+    let (core_members, core_members_omitted) = truncate_vec_with_omitted(
+        packet.core_members.into_iter().map(node_id_view).collect(),
+        verbosity.max_member_count(),
+    );
+    let (supporting_members, supporting_members_omitted) = truncate_vec_with_omitted(
+        packet
+            .supporting_members
+            .into_iter()
+            .map(node_id_view)
+            .collect(),
+        verbosity.max_member_count(),
+    );
+    let (likely_tests, likely_tests_omitted) = truncate_vec_with_omitted(
+        packet.likely_tests.into_iter().map(node_id_view).collect(),
+        verbosity.max_member_count(),
+    );
+    let (evidence, evidence_omitted) =
+        truncate_vec_with_omitted(packet.evidence, verbosity.max_evidence_count());
+    let (relations, relation_truncation) = truncate_concept_relations(
+        prism
+            .concept_relations_for_handle(&handle)
+            .into_iter()
+            .map(|relation| concept_relation_view(prism, &handle, relation))
+            .collect(),
+        verbosity,
+    );
+    let truncation = ConceptPacketTruncationStats {
+        core_members_omitted,
+        supporting_members_omitted,
+        likely_tests_omitted,
+        evidence_omitted,
+        relations_omitted: relation_truncation.relations_omitted,
+        relation_evidence_omitted: relation_truncation.relation_evidence_omitted,
+    }
+    .into_view();
     ConceptPacketView {
         handle: handle.clone(),
         canonical_name: packet.canonical_name,
         summary: packet.summary,
         aliases: packet.aliases,
         confidence: packet.confidence,
-        core_members: truncate_vec(
-            packet.core_members.into_iter().map(node_id_view).collect(),
-            verbosity.max_member_count(),
-        ),
-        supporting_members: truncate_vec(
-            packet
-                .supporting_members
-                .into_iter()
-                .map(node_id_view)
-                .collect(),
-            verbosity.max_member_count(),
-        ),
-        likely_tests: truncate_vec(
-            packet.likely_tests.into_iter().map(node_id_view).collect(),
-            verbosity.max_member_count(),
-        ),
-        evidence: truncate_vec(packet.evidence, verbosity.max_evidence_count()),
+        core_members,
+        supporting_members,
+        likely_tests,
+        evidence,
         risk_hint: packet.risk_hint,
         decode_lenses: packet
             .decode_lenses
             .into_iter()
             .map(concept_decode_lens_view)
             .collect(),
+        verbosity_applied: concept_verbosity_view(verbosity),
+        truncation,
         scope: concept_scope_view(packet.scope),
         provenance: concept_provenance_view(packet.provenance),
         publication: packet.publication.map(concept_publication_view),
-        relations: truncate_concept_relations(
-            prism
-                .concept_relations_for_handle(&handle)
-                .into_iter()
-                .map(|relation| concept_relation_view(prism, &handle, relation))
-                .collect(),
-            verbosity,
-        ),
+        relations,
         resolution: resolution.map(concept_resolution_view),
         binding_metadata: include_binding_metadata.then(|| ConceptBindingMetadataView {
             core_member_lineages: packet
@@ -363,22 +424,43 @@ pub(crate) fn concept_packet_view(
 pub(crate) fn truncate_concept_relations(
     relations: Vec<ConceptRelationView>,
     verbosity: ConceptVerbosity,
-) -> Vec<ConceptRelationView> {
-    truncate_vec(relations, verbosity.max_relation_count())
+) -> (Vec<ConceptRelationView>, ConceptPacketTruncationStats) {
+    let (relations, relations_omitted) =
+        truncate_vec_with_omitted(relations, verbosity.max_relation_count());
+    let mut relation_evidence_omitted = 0;
+    let relations = relations
         .into_iter()
         .map(|mut relation| {
-            relation.evidence =
-                truncate_vec(relation.evidence, verbosity.max_relation_evidence_count());
+            let (evidence, omitted) = truncate_vec_with_omitted(
+                relation.evidence,
+                verbosity.max_relation_evidence_count(),
+            );
+            relation.evidence = evidence;
+            relation_evidence_omitted += omitted;
             relation
         })
-        .collect()
+        .collect();
+    (
+        relations,
+        ConceptPacketTruncationStats {
+            relations_omitted,
+            relation_evidence_omitted,
+            ..ConceptPacketTruncationStats::default()
+        },
+    )
 }
 
-pub(crate) fn truncate_vec<T>(mut items: Vec<T>, limit: Option<usize>) -> Vec<T> {
+pub(crate) fn truncate_vec_with_omitted<T>(
+    mut items: Vec<T>,
+    limit: Option<usize>,
+) -> (Vec<T>, usize) {
+    let omitted = limit
+        .map(|limit| items.len().saturating_sub(limit))
+        .unwrap_or(0);
     if let Some(limit) = limit {
         items.truncate(limit);
     }
-    items
+    (items, omitted)
 }
 
 pub(crate) fn concept_relation_view(
@@ -417,7 +499,11 @@ pub(crate) fn concept_resolution_view(resolution: ConceptResolution) -> ConceptR
     }
 }
 
-pub(crate) fn anchor_ref_view(prism: &Prism, anchor: AnchorRef) -> AnchorRefView {
+pub(crate) fn anchor_ref_view(
+    prism: &Prism,
+    workspace_root: Option<&Path>,
+    anchor: AnchorRef,
+) -> AnchorRefView {
     match anchor {
         AnchorRef::Node(node) => AnchorRefView::Node {
             crate_name: node.crate_name.to_string(),
@@ -432,7 +518,7 @@ pub(crate) fn anchor_ref_view(prism: &Prism, anchor: AnchorRef) -> AnchorRefView
             path: prism
                 .graph()
                 .file_path(file)
-                .map(|path| path.display().to_string()),
+                .map(|path| workspace_display_path(workspace_root, path)),
         },
         AnchorRef::Kind(kind) => AnchorRefView::Kind {
             kind: kind.to_string(),
@@ -442,6 +528,7 @@ pub(crate) fn anchor_ref_view(prism: &Prism, anchor: AnchorRef) -> AnchorRefView
 
 pub(crate) fn contract_packet_view(
     prism: &Prism,
+    workspace_root: Option<&Path>,
     packet: ContractPacket,
     resolution: Option<ContractResolution>,
 ) -> ContractPacketView {
@@ -451,7 +538,7 @@ pub(crate) fn contract_packet_view(
         summary: packet.summary,
         aliases: packet.aliases,
         kind: contract_kind_view(packet.kind),
-        subject: contract_target_view(prism, packet.subject),
+        subject: contract_target_view(prism, workspace_root, packet.subject),
         guarantees: packet
             .guarantees
             .into_iter()
@@ -461,12 +548,12 @@ pub(crate) fn contract_packet_view(
         consumers: packet
             .consumers
             .into_iter()
-            .map(|target| contract_target_view(prism, target))
+            .map(|target| contract_target_view(prism, workspace_root, target))
             .collect(),
         validations: packet
             .validations
             .into_iter()
-            .map(|validation| contract_validation_view(prism, validation))
+            .map(|validation| contract_validation_view(prism, workspace_root, validation))
             .collect(),
         stability: contract_stability_view(packet.stability),
         compatibility: contract_compatibility_view(packet.compatibility),
@@ -510,12 +597,16 @@ fn contract_stability_view(stability: ContractStability) -> ContractStabilityVie
     }
 }
 
-fn contract_target_view(prism: &Prism, target: ContractTarget) -> ContractTargetView {
+fn contract_target_view(
+    prism: &Prism,
+    workspace_root: Option<&Path>,
+    target: ContractTarget,
+) -> ContractTargetView {
     ContractTargetView {
         anchors: target
             .anchors
             .into_iter()
-            .map(|anchor| anchor_ref_view(prism, anchor))
+            .map(|anchor| anchor_ref_view(prism, workspace_root, anchor))
             .collect(),
         concept_handles: target.concept_handles,
     }
@@ -542,6 +633,7 @@ fn contract_guarantee_strength_view(
 
 fn contract_validation_view(
     prism: &Prism,
+    workspace_root: Option<&Path>,
     validation: ContractValidation,
 ) -> ContractValidationView {
     ContractValidationView {
@@ -550,7 +642,7 @@ fn contract_validation_view(
         anchors: validation
             .anchors
             .into_iter()
-            .map(|anchor| anchor_ref_view(prism, anchor))
+            .map(|anchor| anchor_ref_view(prism, workspace_root, anchor))
             .collect(),
     }
 }

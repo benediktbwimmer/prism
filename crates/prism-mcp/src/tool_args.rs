@@ -655,13 +655,32 @@ fn format_tool_validation_error(validation: &ToolInputValidationView) -> String 
             validation.tool_name, validation.tool_name
         ),
     };
-    format!("{} {}", validation.summary, inspect_hint)
+    let example_hint = validation
+        .example_inputs
+        .first()
+        .map(format_inline_example_hint)
+        .unwrap_or_default();
+    format!("{} {}{}", validation.summary, inspect_hint, example_hint)
 }
 
 fn missing_field_name(parse_error: &str) -> Option<&str> {
     let (_, tail) = parse_error.split_once("missing field `")?;
     let (field, _) = tail.split_once('`')?;
     Some(field)
+}
+
+fn format_inline_example_hint(example: &Value) -> String {
+    let rendered =
+        serde_json::to_string(example).unwrap_or_else(|_| "<unserializable example>".to_string());
+    let max_chars = 320;
+    let compact = if rendered.chars().count() > max_chars {
+        let mut truncated = rendered.chars().take(max_chars).collect::<String>();
+        truncated.push_str("...");
+        truncated
+    } else {
+        rendered
+    };
+    format!(" Minimal valid example: {compact}")
 }
 
 fn normalize_vocab_token(value: &str) -> String {

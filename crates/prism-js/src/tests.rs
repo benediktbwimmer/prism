@@ -57,6 +57,10 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("verbosity?: \"summary\" | \"standard\" | \"full\";"));
     assert!(docs.contains("includeBindingMetadata?: boolean;"));
     assert!(docs.contains("memoryRecall(options?: MemoryRecallOptions): ScoredMemoryView[];"));
+    assert!(docs.contains("verbosityApplied: \"summary\" | \"standard\" | \"full\";"));
+    assert!(docs.contains("truncation?: ConceptPacketTruncationView;"));
+    assert!(docs.contains("`prism.concepts(...)` defaults to `summary`"));
+    assert!(docs.contains("`prism.decodeConcept(...)` defaults to `standard`"));
     assert!(docs.contains("bindingMetadata?: {"));
     assert!(docs.contains("discovery(target: QueryTarget): DiscoveryBundleView | null;"));
     assert!(docs
@@ -283,8 +287,9 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("connection: Object.freeze({"));
     assert!(prelude.contains("memoryRecall(options = {})"));
     assert!(prelude.contains("return prism.memory.recall(options);"));
-    assert!(prelude.contains("verbosity: options?.verbosity"));
-    assert!(prelude.contains("verbosity: input?.verbosity"));
+    assert!(prelude.contains("verbosity: options?.verbosity ?? \"summary\""));
+    assert!(prelude.contains("verbosity: options?.verbosity ?? \"standard\""));
+    assert!(prelude.contains("verbosity: input?.verbosity ?? \"standard\""));
     assert!(prelude.contains("return prism.connectionInfo();"));
     assert!(prelude.contains("status() {"));
     assert!(prelude.contains("return prism.runtimeStatus();"));

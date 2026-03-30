@@ -426,6 +426,7 @@ fn collect_contract_followups(
             .contract_consumer_matches_target(id, &packet);
         contracts.push(contract_packet_view(
             execution.prism(),
+            execution.workspace_root(),
             packet.clone(),
             None,
         ));

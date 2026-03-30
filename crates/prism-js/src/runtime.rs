@@ -619,7 +619,7 @@ const __prismBase = Object.freeze({
     return __prismHost("concepts", {
       query,
       limit: options?.limit,
-      verbosity: options?.verbosity,
+      verbosity: options?.verbosity ?? "summary",
       includeBindingMetadata:
         options?.includeBindingMetadata ?? options?.include_binding_metadata,
     });
@@ -628,7 +628,7 @@ const __prismBase = Object.freeze({
     return __prismHost("concept", {
       query,
       limit: 1,
-      verbosity: options?.verbosity,
+      verbosity: options?.verbosity ?? "standard",
       includeBindingMetadata:
         options?.includeBindingMetadata ?? options?.include_binding_metadata,
     });
@@ -636,7 +636,7 @@ const __prismBase = Object.freeze({
   conceptByHandle(handle, options = {}) {
     return __prismHost("conceptByHandle", {
       handle,
-      verbosity: options?.verbosity,
+      verbosity: options?.verbosity ?? "standard",
       includeBindingMetadata:
         options?.includeBindingMetadata ?? options?.include_binding_metadata,
     });
@@ -657,7 +657,11 @@ const __prismBase = Object.freeze({
   decodeConcept(input) {
     if (typeof input === "string") {
       return __prismEnrichConceptDecode(
-        __prismHost("decodeConcept", { query: input, lens: "open" })
+        __prismHost("decodeConcept", {
+          query: input,
+          lens: "open",
+          verbosity: "standard",
+        })
       );
     }
     return __prismEnrichConceptDecode(
@@ -665,7 +669,7 @@ const __prismBase = Object.freeze({
         handle: input?.handle,
         query: input?.query,
         lens: input?.lens ?? "open",
-        verbosity: input?.verbosity,
+        verbosity: input?.verbosity ?? "standard",
         includeBindingMetadata:
           input?.includeBindingMetadata ?? input?.include_binding_metadata,
       })

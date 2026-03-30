@@ -114,6 +114,15 @@ type ConceptQueryOptions = {
   includeBindingMetadata?: boolean;
 };
 
+type ConceptPacketTruncationView = {
+  coreMembersOmitted: number;
+  supportingMembersOmitted: number;
+  likelyTestsOmitted: number;
+  evidenceOmitted: number;
+  relationsOmitted: number;
+  relationEvidenceOmitted: number;
+};
+
 type ConceptResolutionView = {
   score: number;
   reasons: string[];
@@ -1028,6 +1037,8 @@ type ConceptPacketView = {
   evidence: string[];
   riskHint?: string;
   decodeLenses: ConceptDecodeLensView[];
+  verbosityApplied: "summary" | "standard" | "full";
+  truncation?: ConceptPacketTruncationView;
   scope: ConceptScopeView;
   provenance: ConceptProvenanceView;
   publication?: ConceptPublicationView;
@@ -1038,6 +1049,18 @@ type ConceptPacketView = {
     likelyTestLineages: Array<string | null>;
   };
 };
+
+Concept packet default density:
+
+- `prism.concepts(...)` defaults to `summary`
+- `prism.concept(...)` defaults to `standard`
+- `prism.conceptByHandle(...)` defaults to `standard`
+- `prism.decodeConcept(...)` defaults to `standard`
+- top-level `prism_concept` defaults to `summary`
+
+When PRISM trims a concept packet for context, `verbosityApplied` tells you which density you got
+and `truncation` reports what was omitted. Retry with `verbosity: "full"` only when you need the
+complete packet.
 
 type ConceptDecodeView = {
   concept: ConceptPacketView;

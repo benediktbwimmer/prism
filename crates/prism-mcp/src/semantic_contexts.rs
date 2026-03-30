@@ -82,7 +82,7 @@ pub(crate) fn read_context_view_cached(
     let contracts = prism
         .contracts_for_target(target)
         .into_iter()
-        .map(|packet| contract_packet_view(prism, packet, None))
+        .map(|packet| contract_packet_view(prism, None, packet, None))
         .collect::<Vec<_>>();
 
     let mut why = vec![

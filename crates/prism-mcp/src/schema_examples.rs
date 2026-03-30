@@ -2,8 +2,8 @@ use serde_json::{json, Value};
 
 use crate::{
     capabilities_resource_uri, contracts_resource_uri_with_options, edge_resource_uri,
-    event_resource_uri, memory_resource_uri, plans_resource_uri, schema_resource_uri,
-    session_resource_uri, symbol_resource_uri_from_node_id, task_resource_uri,
+    event_resource_uri, file_resource_uri_with_options, memory_resource_uri, plans_resource_uri,
+    schema_resource_uri, session_resource_uri, symbol_resource_uri_from_node_id, task_resource_uri,
     tool_schema_resource_uri, vocab_resource_uri, API_REFERENCE_URI,
 };
 use prism_ir::{EdgeKind, NodeId};
@@ -33,6 +33,12 @@ pub(crate) fn resource_example_uri(resource_kind: &str) -> Option<String> {
         "search" => Some(
             "prism://search/read%20context?strategy=behavioral&ownerKind=read&kind=function&path=src&pathMode=exact&structuredPath=workspace&topLevelOnly=true&includeInferred=true".to_string(),
         ),
+        "file" => Some(file_resource_uri_with_options(
+            "crates/prism-mcp/src/views.rs",
+            Some(420),
+            Some(445),
+            Some(1400),
+        )),
         "symbol" => Some(symbol_resource_uri_from_node_id(&sample_node_id())),
         "lineage" => Some("prism://lineage/lineage%3Ademo%3A%3Amain?limit=5".to_string()),
         "task" => Some(task_resource_uri("task:demo-main")),
@@ -75,7 +81,7 @@ pub(crate) fn tool_input_example(tool_name: &str) -> Option<Value> {
         "prism_concept" => Some(json!({
             "query": "validation pipeline",
             "lens": "validation",
-            "verbosity": "standard",
+            "verbosity": "summary",
         })),
         "prism_query" => Some(json!({
             "code": "return prism.search(\"read context\", { limit: 5, strategy: \"behavioral\", ownerKind: \"read\" });",
@@ -533,6 +539,7 @@ fn resource_payload_example(resource_kind: &str) -> Option<Value> {
         "contracts" => Some(contracts_payload_example()),
         "entrypoints" => Some(entrypoints_payload_example()),
         "search" => Some(search_payload_example()),
+        "file" => Some(file_payload_example()),
         "symbol" => Some(symbol_payload_example()),
         "lineage" => Some(lineage_payload_example()),
         "task" => Some(task_payload_example()),
@@ -827,6 +834,25 @@ fn search_payload_example() -> Value {
         "page": sample_page(),
         "truncated": false,
         "diagnostics": [sample_diagnostic()],
+        "relatedResources": sample_related_resources(),
+    })
+}
+
+fn file_payload_example() -> Value {
+    json!({
+        "uri": resource_example_uri("file"),
+        "schemaUri": schema_resource_uri("file"),
+        "workspaceRevision": {
+            "graphVersion": 42,
+            "gitCommit": "abc123def456"
+        },
+        "path": "crates/prism-mcp/src/views.rs",
+        "excerpt": {
+            "text": "pub(crate) fn anchor_ref_view(prism: &Prism, anchor: AnchorRef) -> AnchorRefView {",
+            "startLine": 420,
+            "endLine": 420,
+            "truncated": false
+        },
         "relatedResources": sample_related_resources(),
     })
 }

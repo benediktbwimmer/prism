@@ -578,6 +578,7 @@ fn collect_contract_impact(
     for packet in packets {
         contracts.push(contract_packet_view(
             execution.prism(),
+            execution.workspace_root(),
             packet.clone(),
             None,
         ));

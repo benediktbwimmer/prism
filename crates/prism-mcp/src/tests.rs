@@ -2924,20 +2924,17 @@ fn contract_views_surface_file_anchor_paths_for_round_trip_safety() {
         )
         .expect("contract should store");
 
-    let expected_path = fs::canonicalize(root.join("src/lib.rs"))
-        .expect("file path should canonicalize")
-        .display()
-        .to_string();
+    let expected_path = "src/lib.rs";
     match &stored.packet.subject.anchors[0] {
         AnchorRefView::File { file_id, path } => {
-            assert_eq!(path.as_deref(), Some(expected_path.as_str()));
+            assert_eq!(path.as_deref(), Some(expected_path));
             assert!(file_id.is_some());
         }
         other => panic!("expected file anchor view, got {other:?}"),
     }
     match &stored.packet.validations[0].anchors[0] {
         AnchorRefView::File { file_id, path } => {
-            assert_eq!(path.as_deref(), Some(expected_path.as_str()));
+            assert_eq!(path.as_deref(), Some(expected_path));
             assert!(file_id.is_some());
         }
         other => panic!("expected file anchor view, got {other:?}"),
@@ -5584,11 +5581,22 @@ pub fn task_risk() {}
     assert!(concept.packet.supporting_members.len() <= 3);
     assert!(concept.packet.evidence.len() <= 2);
     assert!(concept.packet.relations.len() <= 1);
+    assert_eq!(
+        concept.packet.verbosity_applied,
+        prism_js::ConceptPacketVerbosityView::Summary
+    );
+    assert!(concept.packet.truncation.is_some());
     assert!(concept.packet.relations[0].evidence.is_empty());
     assert!(concept
-        .decode
-        .as_ref()
-        .is_some_and(|decode| decode.concept.relations[0].evidence.is_empty()));
+        .packet
+        .next_action
+        .as_deref()
+        .is_some_and(|text| text.contains("trimmed for context")));
+    assert!(concept.decode.as_ref().is_some_and(|decode| {
+        decode.concept.relations[0].evidence.is_empty()
+            && decode.concept.verbosity_applied == prism_js::ConceptPacketVerbosityView::Summary
+            && decode.concept.truncation.is_some()
+    }));
 }
 
 #[test]
@@ -5633,6 +5641,128 @@ return prism.memoryRecall({
     assert_eq!(
         result.result[0]["entry"]["content"],
         "main previously regressed on null handling"
+    );
+}
+
+#[test]
+fn query_concept_defaults_are_conservative_and_report_truncation() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn validation_recipe() {}
+pub fn runtime_status() {}
+pub fn start_task() {}
+pub fn read_context() {}
+pub fn edit_context() {}
+pub fn validation_context() {}
+pub fn task_journal() {}
+pub fn task_risk() {}
+pub fn plan_summary() {}
+pub fn blockers() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+    host.store_concept(
+        session.as_ref(),
+        PrismConceptMutationArgs {
+            operation: ConceptMutationOperationInput::Promote,
+            handle: Some("concept://query_defaults_validation".to_string()),
+            canonical_name: Some("query_defaults_validation".to_string()),
+            summary: Some("Validation concept used to test query defaults.".to_string()),
+            aliases: Some(vec!["validation".to_string(), "checks".to_string()]),
+            core_members: Some(vec![
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::validation_recipe".to_string(),
+                    kind: "function".to_string(),
+                },
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::runtime_status".to_string(),
+                    kind: "function".to_string(),
+                },
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::start_task".to_string(),
+                    kind: "function".to_string(),
+                },
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::read_context".to_string(),
+                    kind: "function".to_string(),
+                },
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::edit_context".to_string(),
+                    kind: "function".to_string(),
+                },
+            ]),
+            supporting_members: None,
+            likely_tests: None,
+            evidence: Some(vec![
+                "Curated in test.".to_string(),
+                "Second evidence string.".to_string(),
+                "Third evidence string.".to_string(),
+                "Fourth evidence string.".to_string(),
+                "Fifth evidence string.".to_string(),
+            ]),
+            risk_hint: None,
+            confidence: Some(0.91),
+            decode_lenses: Some(vec![PrismConceptLensInput::Validation]),
+            scope: Some(ConceptScopeInput::Session),
+            supersedes: None,
+            retirement_reason: None,
+            task_id: Some("task:query-concept-defaults".to_string()),
+        },
+    )
+    .expect("concept setup should succeed");
+
+    let envelope = host
+        .execute(
+            test_session(&host),
+            r#"
+return {
+  list: prism.concepts("validation"),
+  single: prism.concept("validation"),
+  byHandle: prism.conceptByHandle("concept://query_defaults_validation"),
+  decoded: prism.decodeConcept({ query: "validation", lens: "validation" }),
+};
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("concept query should succeed");
+
+    assert_eq!(envelope.result["list"][0]["verbosityApplied"], "summary");
+    assert_eq!(envelope.result["single"]["verbosityApplied"], "standard");
+    assert_eq!(envelope.result["byHandle"]["verbosityApplied"], "standard");
+    assert_eq!(
+        envelope.result["decoded"]["concept"]["verbosityApplied"],
+        "standard"
+    );
+    assert_eq!(
+        envelope.result["list"][0]["coreMembers"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+    assert_eq!(
+        envelope.result["single"]["coreMembers"]
+            .as_array()
+            .unwrap()
+            .len(),
+        5
+    );
+    assert_eq!(
+        envelope.result["list"][0]["truncation"]["coreMembersOmitted"],
+        Value::from(2)
+    );
+    assert_eq!(
+        envelope.result["single"]["truncation"]["evidenceOmitted"],
+        Value::from(1)
     );
 }
 
@@ -12066,6 +12196,44 @@ fn repo_memory_store_rejects_weak_published_memory() {
         .expect_err("weak repo memory should be rejected");
 
     assert!(error.to_string().contains("repo-published memory"));
+}
+
+#[test]
+fn memory_resource_related_resources_include_file_anchor_links() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .store_memory(
+            test_session(&host).as_ref(),
+            PrismMemoryArgs {
+                action: MemoryMutationActionInput::Store,
+                payload: json!({
+                    "anchors": [{
+                        "type": "file",
+                        "path": "src/lib.rs"
+                    }],
+                    "kind": "episodic",
+                    "scope": "session",
+                    "content": "File-anchored memory for resource-link safety.",
+                    "trust": 0.82
+                }),
+                task_id: Some("task:file-anchor-memory".to_string()),
+            },
+        )
+        .expect("memory should persist");
+
+    let payload = host
+        .memory_resource_value(
+            test_session(&host).as_ref(),
+            &MemoryId(result.memory_id.clone()),
+        )
+        .expect("memory resource should load");
+    let expected_uri = file_resource_uri("src/lib.rs");
+    assert!(payload
+        .related_resources
+        .iter()
+        .any(|resource| resource.uri == expected_uri));
 }
 
 #[test]

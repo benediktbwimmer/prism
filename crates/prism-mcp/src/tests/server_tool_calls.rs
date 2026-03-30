@@ -54,6 +54,8 @@ async fn mcp_server_reports_actionable_tool_input_errors() {
     );
     assert!(message.contains("prism.validateToolInput(\"prism_mutate\", <input>)"));
     assert!(message.contains("prism://schema/tool/prism_mutate/action/validation_feedback"));
+    assert!(message.contains("Minimal valid example:"));
+    assert!(message.contains("\"action\":\"validation_feedback\""));
 
     running.cancel().await.unwrap();
 }

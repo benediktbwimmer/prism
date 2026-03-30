@@ -10,11 +10,11 @@ use crate::{
     QueryMethodCapabilityView, ResourceCapabilityView, ResourceTemplateCapabilityView,
     ToolCapabilityView, API_REFERENCE_URI, CAPABILITIES_URI, CONTRACTS_RESOURCE_TEMPLATE_URI,
     CONTRACTS_URI, EDGE_RESOURCE_TEMPLATE_URI, ENTRYPOINTS_RESOURCE_TEMPLATE_URI,
-    EVENT_RESOURCE_TEMPLATE_URI, LINEAGE_RESOURCE_TEMPLATE_URI, MEMORY_RESOURCE_TEMPLATE_URI,
-    PLANS_RESOURCE_TEMPLATE_URI, PLANS_URI, SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI,
-    SYMBOL_RESOURCE_TEMPLATE_URI, TASK_RESOURCE_TEMPLATE_URI,
-    TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI, TOOL_SCHEMA_RESOURCE_TEMPLATE_URI,
-    VOCAB_URI,
+    EVENT_RESOURCE_TEMPLATE_URI, FILE_RESOURCE_TEMPLATE_URI, LINEAGE_RESOURCE_TEMPLATE_URI,
+    MEMORY_RESOURCE_TEMPLATE_URI, PLANS_RESOURCE_TEMPLATE_URI, PLANS_URI, SCHEMAS_URI,
+    SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI, SYMBOL_RESOURCE_TEMPLATE_URI,
+    TASK_RESOURCE_TEMPLATE_URI, TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI,
+    TOOL_SCHEMA_RESOURCE_TEMPLATE_URI, VOCAB_URI,
 };
 
 pub(crate) fn capabilities_resource_value(
@@ -716,6 +716,15 @@ fn resource_template_capabilities() -> Vec<ResourceTemplateCapabilityView> {
             mime_type: "application/json".to_string(),
             description: "Read structured search results and diagnostics for a query.".to_string(),
             example_uri: resource_example_uri("search"),
+        },
+        ResourceTemplateCapabilityView {
+            name: "PRISM File".to_string(),
+            uri_template: FILE_RESOURCE_TEMPLATE_URI.to_string(),
+            mime_type: "application/json".to_string(),
+            description:
+                "Read a workspace file excerpt by path with optional line-range narrowing."
+                    .to_string(),
+            example_uri: resource_example_uri("file"),
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Symbol Snapshot".to_string(),
