@@ -1,17 +1,19 @@
 use std::collections::{BTreeSet, HashSet};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use prism_coordination::coordination_read_model_from_snapshot;
-use prism_ir::{PlanId, TaskId};
+use prism_ir::{PlanId, PlanStatus, TaskId};
 use prism_memory::OutcomeRecallQuery;
 
 use crate::ui_types::{
-    OverviewConceptSpotlightView, OverviewPlanSignalsView, OverviewPlanSpotlightView,
-    PrismOverviewView, PrismPlanDetailView, PrismPlansView,
+    GraphPlanTouchpointView, GraphTouchedNodeView, OverviewConceptSpotlightView,
+    OverviewPlanSignalsView, OverviewPlanSpotlightView, PrismGraphView, PrismOverviewView,
+    PrismPlanDetailView, PrismPlansView,
 };
 use crate::views::{
-    artifact_view, plan_execution_overlay_view, plan_graph_view, plan_list_entry_view,
-    plan_node_recommendation_view, plan_summary_view, policy_violation_record_view,
+    artifact_view, concept_packet_view, plan_execution_overlay_view, plan_graph_view,
+    plan_list_entry_view, plan_node_recommendation_view, plan_summary_view,
+    policy_violation_record_view, ConceptVerbosity,
 };
 use crate::QueryHost;
 
@@ -28,10 +30,15 @@ const PLAN_DETAIL_HANDOFF_LIMIT: usize = 6;
 const PLAN_DETAIL_VIOLATION_LIMIT: usize = 6;
 const PLAN_DETAIL_OUTCOME_LIMIT: usize = 8;
 const PLAN_DETAIL_OUTCOMES_PER_TASK: usize = 2;
+const GRAPH_ENTRY_LIMIT: usize = 8;
+const GRAPH_PLAN_LIMIT: usize = 6;
+const GRAPH_TOUCHED_NODE_LIMIT: usize = 4;
+const GRAPH_DEFAULT_CONCEPT_HANDLE: &str = "concept://prism_architecture";
 
 pub(crate) trait QueryHostUiReadModelsExt {
     fn ui_overview_view(&self) -> Result<PrismOverviewView>;
     fn ui_plans_view(&self, selected_plan_id: Option<&str>) -> Result<PrismPlansView>;
+    fn ui_graph_view(&self, selected_concept_handle: Option<&str>) -> Result<PrismGraphView>;
 }
 
 impl QueryHostUiReadModelsExt for QueryHost {
@@ -188,6 +195,44 @@ impl QueryHostUiReadModelsExt for QueryHost {
             selected_plan,
         })
     }
+
+    fn ui_graph_view(&self, selected_concept_handle: Option<&str>) -> Result<PrismGraphView> {
+        let prism = self.current_prism();
+        let root_packet = prism
+            .concept_by_handle(GRAPH_DEFAULT_CONCEPT_HANDLE)
+            .or_else(|| prism.concept("prism architecture"))
+            .ok_or_else(|| anyhow!("no architecture concept packet is available"))?;
+        let root_handle = root_packet.handle.clone();
+        let selected_concept_handle = selected_concept_handle
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .filter(|value| prism.concept_by_handle(value).is_some())
+            .map(str::to_string)
+            .unwrap_or_else(|| root_handle.clone());
+        let focus_packet = if selected_concept_handle == root_handle {
+            root_packet.clone()
+        } else {
+            prism
+                .concept_by_handle(&selected_concept_handle)
+                .unwrap_or_else(|| root_packet.clone())
+        };
+        let focus = concept_packet_view(
+            &prism,
+            focus_packet,
+            ConceptVerbosity::Standard,
+            false,
+            None,
+        );
+        let entry_concepts = graph_entry_concepts(&prism, &root_packet);
+        let related_plans = graph_plan_touchpoints(&prism, &selected_concept_handle);
+
+        Ok(PrismGraphView {
+            selected_concept_handle,
+            focus,
+            entry_concepts,
+            related_plans,
+        })
+    }
 }
 
 fn clamp_overview_text(text: &str) -> String {
@@ -257,7 +302,8 @@ fn build_plan_detail_view(
         .into_iter()
         .map(policy_violation_record_view)
         .collect::<Vec<_>>();
-    let recent_outcomes = plan_recent_outcomes(prism, &ready_tasks, &pending_handoffs, &pending_reviews);
+    let recent_outcomes =
+        plan_recent_outcomes(prism, &ready_tasks, &pending_handoffs, &pending_reviews);
 
     Ok(Some(PrismPlanDetailView {
         plan,
@@ -283,7 +329,11 @@ fn plan_recent_outcomes(
         .iter()
         .map(|task| task.id.clone())
         .chain(pending_handoffs.iter().map(|task| task.id.clone()))
-        .chain(pending_reviews.iter().map(|artifact| artifact.task_id.clone()))
+        .chain(
+            pending_reviews
+                .iter()
+                .map(|artifact| artifact.task_id.clone()),
+        )
         .collect::<BTreeSet<_>>();
     let mut seen_event_ids = HashSet::<String>::new();
     let mut outcomes = task_ids
@@ -316,4 +366,87 @@ fn plan_recent_outcomes(
             summary: clamp_overview_text(&event.summary),
         })
         .collect()
+}
+
+fn graph_entry_concepts(
+    prism: &prism_query::Prism,
+    root_packet: &prism_query::ConceptPacket,
+) -> Vec<prism_js::ConceptPacketView> {
+    let mut handles = std::iter::once(root_packet.handle.clone())
+        .chain(
+            prism
+                .concept_relations_for_handle(&root_packet.handle)
+                .into_iter()
+                .map(|relation| {
+                    if relation.source_handle == root_packet.handle {
+                        relation.target_handle
+                    } else {
+                        relation.source_handle
+                    }
+                }),
+        )
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    handles.truncate(GRAPH_ENTRY_LIMIT);
+
+    handles
+        .into_iter()
+        .filter_map(|handle| prism.concept_by_handle(&handle))
+        .map(|packet| concept_packet_view(prism, packet, ConceptVerbosity::Summary, false, None))
+        .collect()
+}
+
+fn graph_plan_touchpoints(
+    prism: &prism_query::Prism,
+    selected_concept_handle: &str,
+) -> Vec<GraphPlanTouchpointView> {
+    let mut touchpoints = prism
+        .plans(Some(PlanStatus::Active), None, None)
+        .into_iter()
+        .filter_map(|plan| {
+            let plan_id = plan.plan_id.clone();
+            let graph = prism.plan_graph(&plan_id)?;
+            let touched_nodes = graph
+                .nodes
+                .into_iter()
+                .filter(|node| {
+                    node.bindings
+                        .concept_handles
+                        .iter()
+                        .any(|handle| handle == selected_concept_handle)
+                })
+                .take(GRAPH_TOUCHED_NODE_LIMIT)
+                .map(|node| GraphTouchedNodeView {
+                    node_id: node.id.0.to_string(),
+                    title: node.title,
+                    status: format!("{:?}", node.status),
+                })
+                .collect::<Vec<_>>();
+            if touched_nodes.is_empty() {
+                return None;
+            }
+            Some(GraphPlanTouchpointView {
+                plan: plan_list_entry_view(plan),
+                touched_nodes,
+            })
+        })
+        .collect::<Vec<_>>();
+
+    touchpoints.sort_by(|left, right| {
+        right
+            .touched_nodes
+            .len()
+            .cmp(&left.touched_nodes.len())
+            .then_with(|| {
+                right
+                    .plan
+                    .summary
+                    .in_progress_nodes
+                    .cmp(&left.plan.summary.in_progress_nodes)
+            })
+            .then_with(|| left.plan.plan_id.cmp(&right.plan.plan_id))
+    });
+    touchpoints.truncate(GRAPH_PLAN_LIMIT);
+    touchpoints
 }

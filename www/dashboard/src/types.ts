@@ -196,12 +196,21 @@ export type ArtifactView = {
 export type PolicyViolationView = {
   code: string
   summary: string
+  planId?: string | null
+  taskId?: string | null
+  claimId?: string | null
+  artifactId?: string | null
+  details?: unknown
 }
 
 export type PolicyViolationRecordView = {
   eventId: string
   ts: number
   summary: string
+  planId?: string | null
+  taskId?: string | null
+  claimId?: string | null
+  artifactId?: string | null
   violations: PolicyViolationView[]
 }
 
@@ -452,4 +461,49 @@ export type PrismPlansView = {
   plans: PlanListEntryView[]
   selectedPlanId?: string | null
   selectedPlan?: PrismPlanDetailView | null
+}
+
+export type ConceptRelationView = {
+  kind: string
+  direction: string
+  relatedHandle: string
+  relatedCanonicalName?: string | null
+  relatedSummary?: string | null
+  confidence: number
+  evidence: string[]
+  scope: string
+}
+
+export type ConceptPacketView = {
+  handle: string
+  canonicalName: string
+  summary: string
+  aliases: string[]
+  confidence: number
+  coreMembers: Array<{ path: string; kind?: string | null }>
+  supportingMembers: Array<{ path: string; kind?: string | null }>
+  likelyTests: Array<{ path: string; kind?: string | null }>
+  evidence: string[]
+  riskHint?: string | null
+  decodeLenses: string[]
+  verbosityApplied: string
+  relations: ConceptRelationView[]
+}
+
+export type GraphTouchedNodeView = {
+  nodeId: string
+  title: string
+  status: string
+}
+
+export type GraphPlanTouchpointView = {
+  plan: PlanListEntryView
+  touchedNodes: GraphTouchedNodeView[]
+}
+
+export type PrismGraphView = {
+  selectedConceptHandle: string
+  focus: ConceptPacketView
+  entryConcepts: ConceptPacketView[]
+  relatedPlans: GraphPlanTouchpointView[]
 }

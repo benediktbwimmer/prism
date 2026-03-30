@@ -1,7 +1,7 @@
 use prism_js::{
-    AgentOutcomeSummaryView, ArtifactView, CoordinationTaskView, PlanExecutionOverlayView,
-    PlanGraphView, PlanListEntryView, PlanNodeRecommendationView, PlanSummaryView,
-    PolicyViolationRecordView,
+    AgentOutcomeSummaryView, ArtifactView, ConceptPacketView, CoordinationTaskView,
+    PlanExecutionOverlayView, PlanGraphView, PlanListEntryView, PlanNodeRecommendationView,
+    PlanSummaryView, PolicyViolationRecordView,
 };
 use serde::Serialize;
 
@@ -70,4 +70,28 @@ pub(crate) struct PrismPlanDetailView {
     pub(crate) pending_handoffs: Vec<CoordinationTaskView>,
     pub(crate) recent_violations: Vec<PolicyViolationRecordView>,
     pub(crate) recent_outcomes: Vec<AgentOutcomeSummaryView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismGraphView {
+    pub(crate) selected_concept_handle: String,
+    pub(crate) focus: ConceptPacketView,
+    pub(crate) entry_concepts: Vec<ConceptPacketView>,
+    pub(crate) related_plans: Vec<GraphPlanTouchpointView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct GraphPlanTouchpointView {
+    pub(crate) plan: PlanListEntryView,
+    pub(crate) touched_nodes: Vec<GraphTouchedNodeView>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct GraphTouchedNodeView {
+    pub(crate) node_id: String,
+    pub(crate) title: String,
+    pub(crate) status: String,
 }

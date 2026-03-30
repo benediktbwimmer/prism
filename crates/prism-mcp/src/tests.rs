@@ -2953,6 +2953,20 @@ fn contract_views_surface_file_anchor_paths_for_round_trip_safety() {
             .and_then(|health| Some(&health.status)),
         Some(&prism_js::ContractHealthStatusView::Degraded)
     );
+    assert!(stored
+        .packet
+        .health
+        .as_ref()
+        .and_then(|health| health.next_action.as_deref())
+        .is_some_and(|value| value.contains("evidenceRefs")));
+    assert!(stored
+        .packet
+        .health
+        .as_ref()
+        .and_then(|health| health.next_action.as_deref())
+        .is_some_and(|value| value.contains(
+            "consumers_can_reason_about_the_anchored_file_directly_from_the_contract_payload"
+        )));
 
     let result = host
         .execute(
@@ -5588,6 +5602,7 @@ fn compact_concept_returns_validation_packet_and_decode() {
 pub fn validation_recipe() {}
 pub fn runtime_status() {}
 pub fn start_task() {}
+pub fn validation_recipe_test() {}
 "#,
     )
     .unwrap();
@@ -5618,7 +5633,11 @@ pub fn start_task() {}
                 path: "demo::start_task".to_string(),
                 kind: "function".to_string(),
             }]),
-            likely_tests: None,
+            likely_tests: Some(vec![NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::runtime_status".to_string(),
+                kind: "function".to_string(),
+            }]),
             evidence: Some(vec!["Curated in test.".to_string()]),
             risk_hint: None,
             confidence: Some(0.91),
@@ -6126,7 +6145,7 @@ pub fn validation_recipe_test() {}
             supporting_members: None,
             likely_tests: Some(vec![NodeIdInput {
                 crate_name: "demo".to_string(),
-                path: "demo::validation_recipe_test".to_string(),
+                path: "demo::runtime_status".to_string(),
                 kind: "function".to_string(),
             }]),
             evidence: Some(vec!["Curated in test.".to_string()]),
@@ -6383,7 +6402,11 @@ pub fn start_task() {}
                 path: "demo::start_task".to_string(),
                 kind: "function".to_string(),
             }]),
-            likely_tests: None,
+            likely_tests: Some(vec![NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::runtime_status".to_string(),
+                kind: "function".to_string(),
+            }]),
             evidence: Some(vec!["Curated in test.".to_string()]),
             risk_hint: None,
             confidence: Some(0.91),
@@ -6413,6 +6436,21 @@ return {
         envelope.result["concept"]["handle"],
         Value::String("concept://custom_validation".to_string())
     );
+    assert_eq!(
+        envelope.result["concept"]["curationHints"]["inspectFirst"]["path"],
+        Value::String("demo::validation_recipe".to_string())
+    );
+    assert_eq!(
+        envelope.result["concept"]["curationHints"]["supportingRead"]["path"],
+        Value::String("demo::start_task".to_string())
+    );
+    assert_eq!(
+        envelope.result["concept"]["curationHints"]["likelyTest"]["path"],
+        Value::String("demo::runtime_status".to_string())
+    );
+    assert!(envelope.result["concept"]["curationHints"]["nextAction"]
+        .as_str()
+        .is_some_and(|value| value.contains("runtime_status")));
     assert!(envelope.result["concept"]["resolution"].is_object());
     assert!(envelope.result["concept"]["bindingMetadata"].is_object());
     assert!(envelope.result["byHandle"]["bindingMetadata"].is_object());

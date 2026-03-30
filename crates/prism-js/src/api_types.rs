@@ -297,6 +297,18 @@ pub struct ConceptPacketTruncationView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct ConceptCurationHintsView {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inspect_first: Option<NodeIdView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supporting_read: Option<NodeIdView>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub likely_test: Option<NodeIdView>,
+    pub next_action: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentConceptResultView {
     pub packet: AgentConceptPacketView,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -997,6 +1009,7 @@ pub struct ConceptPacketView {
     pub verbosity_applied: ConceptPacketVerbosityView,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub truncation: Option<ConceptPacketTruncationView>,
+    pub curation_hints: ConceptCurationHintsView,
     pub scope: ConceptScopeView,
     pub provenance: ConceptProvenanceView,
     pub publication: Option<ConceptPublicationView>,
@@ -1134,6 +1147,8 @@ pub struct ContractHealthView {
     pub reasons: Vec<String>,
     pub signals: ContractHealthSignalsView,
     pub superseded_by: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_action: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

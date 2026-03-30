@@ -63,6 +63,10 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("memoryRecall(options?: MemoryRecallOptions): ScoredMemoryView[];"));
     assert!(docs.contains("verbosityApplied: \"summary\" | \"standard\" | \"full\";"));
     assert!(docs.contains("truncation?: ConceptPacketTruncationView;"));
+    assert!(docs.contains("type ConceptCurationHintsView = {"));
+    assert!(docs.contains("curationHints: ConceptCurationHintsView;"));
+    assert!(docs.contains("inspectFirst?: NodeId;"));
+    assert!(docs.contains("nextAction?: string;"));
     assert!(docs.contains("`prism.concepts(...)` defaults to `summary`"));
     assert!(docs.contains("`prism.decodeConcept(...)` defaults to `standard`"));
     assert!(docs.contains("`query_typecheck_failed`"));

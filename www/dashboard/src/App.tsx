@@ -5,9 +5,9 @@ import { AppFrame } from './components/AppFrame'
 import { useDashboardData } from './hooks/useDashboardData'
 import { useThemeChoice } from './hooks/useThemeChoice'
 import { DashboardPage } from './pages/DashboardPage'
+import { GraphPage } from './pages/GraphPage'
 import { OverviewPage } from './pages/OverviewPage'
 import { PlansPage } from './pages/PlansPage'
-import { PlaceholderPage } from './pages/PlaceholderPage'
 
 export function App() {
   const [locationState, setLocationState] = useState(() => ({
@@ -62,22 +62,7 @@ export function App() {
   } else if (route.key === 'plans') {
     page = <PlansPage search={locationState.search} onNavigate={navigate} />
   } else if (route.key === 'graph') {
-    page = (
-      <PlaceholderPage
-        title="Architecture Graph"
-        eyebrow="Prism Graph"
-        description="This route establishes the future explorer surface. The first implementation pass should start with subsystem-level navigation, typed relations, and evidence-backed drill-downs instead of freeform editing."
-        highlights={[
-          'Semantic zoom matters more than showing the whole graph at once.',
-          'The best early overlays are plan touchpoints, health, risk, and recent changes.',
-          'Concept updates will land after the UI is real, so the graph can reflect the new product shape honestly.',
-        ]}
-        ctaLabel="Back To Overview"
-        ctaPath="/"
-        focusLabel={new URLSearchParams(locationState.search).get('concept')}
-        onNavigate={navigate}
-      />
-    )
+    page = <GraphPage search={locationState.search} onNavigate={navigate} />
   }
 
   return (

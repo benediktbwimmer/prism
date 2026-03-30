@@ -141,6 +141,13 @@ type ConceptPacketTruncationView = {
   relationEvidenceOmitted: number;
 };
 
+type ConceptCurationHintsView = {
+  inspectFirst?: NodeId;
+  supportingRead?: NodeId;
+  likelyTest?: NodeId;
+  nextAction: string;
+};
+
 type ConceptResolutionView = {
   score: number;
   reasons: string[];
@@ -917,6 +924,7 @@ type ContractHealthView = {
   reasons: string[];
   signals: ContractHealthSignalsView;
   supersededBy: string[];
+  nextAction?: string;
 };
 
 type ContractValidationView = {
@@ -974,6 +982,7 @@ type ConceptPacketView = {
   decodeLenses: ConceptDecodeLensView[];
   verbosityApplied: "summary" | "standard" | "full";
   truncation?: ConceptPacketTruncationView;
+  curationHints: ConceptCurationHintsView;
   scope: ConceptScopeView;
   provenance: ConceptProvenanceView;
   publication?: ConceptPublicationView;
@@ -995,7 +1004,8 @@ Concept packet default density:
 
 When PRISM trims a concept packet for context, `verbosityApplied` tells you which density you got
 and `truncation` reports what was omitted. Retry with `verbosity: "full"` only when you need the
-complete packet.
+complete packet. `curationHints` points at the first concrete member or likely test to inspect so
+you do not have to reconstruct the next read manually.
 
 type ConceptDecodeView = {
   concept: ConceptPacketView;

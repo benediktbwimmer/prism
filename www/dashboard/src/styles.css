@@ -680,6 +680,89 @@ pre {
   color: var(--danger);
 }
 
+.plans-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.plans-sidebar {
+  position: sticky;
+  top: 24px;
+}
+
+.plans-list,
+.plans-main,
+.plans-main-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.plans-main-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.plan-list-button,
+.plan-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--panel-muted);
+}
+
+.plan-list-button-active {
+  border-color: rgba(22, 104, 199, 0.3);
+  background: linear-gradient(180deg, rgba(22, 104, 199, 0.14), rgba(22, 104, 199, 0.04));
+}
+
+.plan-list-topline,
+.plan-inline-list {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.plan-list-topline strong,
+.plan-card strong {
+  font-size: 1rem;
+}
+
+.plan-list-button p,
+.plan-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: var(--panel);
+  border: 1px solid var(--border);
+}
+
+.status-ok {
+  color: var(--success);
+}
+
+.status-error {
+  color: var(--danger);
+}
+
+.status-warn {
+  color: var(--accent);
+}
+
 @media (max-width: 1320px) {
   .dashboard-page {
     padding-right: 0;
@@ -695,7 +778,8 @@ pre {
   .overview-grid,
   .route-grid,
   .spotlight-grid,
-  .placeholder-grid {
+  .placeholder-grid,
+  .plans-main-grid {
     grid-template-columns: 1fr;
   }
 
@@ -703,7 +787,8 @@ pre {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .content-grid {
+  .content-grid,
+  .plans-layout {
     grid-template-columns: 1fr;
   }
 

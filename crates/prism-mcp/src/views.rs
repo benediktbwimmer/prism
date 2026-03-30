@@ -5,16 +5,17 @@ use prism_curator::{
 use prism_ir::{AnchorRef, Edge, NodeId, WorkspaceRevision};
 use prism_js::{
     AnchorRefView, ArtifactRiskView, ArtifactView, BlockerView, ChangeImpactView, ClaimView,
-    CoChangeView, ConceptBindingMetadataView, ConceptDecodeLensView, ConceptPacketTruncationView,
-    ConceptPacketVerbosityView, ConceptPacketView, ConceptProvenanceView,
-    ConceptPublicationStatusView, ConceptPublicationView, ConceptRelationDirectionView,
-    ConceptRelationKindView, ConceptRelationView, ConceptResolutionView, ConceptScopeView,
-    ConflictView, ContractCompatibilityView, ContractGuaranteeStrengthView, ContractGuaranteeView,
-    ContractHealthSignalsView, ContractHealthStatusView, ContractHealthView, ContractKindView,
-    ContractPacketView, ContractResolutionView, ContractStabilityView, ContractStatusView,
-    ContractTargetView, ContractValidationView, CoordinationTaskView, CuratorJobView,
-    CuratorProposalRecordView, CuratorProposalView, DriftCandidateView, EdgeView, MemoryEntryView,
-    MemoryEventView, NodeIdView, PlanAcceptanceCriterionView, PlanBindingView, PlanEdgeView,
+    CoChangeView, ConceptBindingMetadataView, ConceptCurationHintsView, ConceptDecodeLensView,
+    ConceptPacketTruncationView, ConceptPacketVerbosityView, ConceptPacketView,
+    ConceptProvenanceView, ConceptPublicationStatusView, ConceptPublicationView,
+    ConceptRelationDirectionView, ConceptRelationKindView, ConceptRelationView,
+    ConceptResolutionView, ConceptScopeView, ConflictView, ContractCompatibilityView,
+    ContractGuaranteeStrengthView, ContractGuaranteeView, ContractHealthSignalsView,
+    ContractHealthStatusView, ContractHealthView, ContractKindView, ContractPacketView,
+    ContractResolutionView, ContractStabilityView, ContractStatusView, ContractTargetView,
+    ContractValidationView, CoordinationTaskView, CuratorJobView, CuratorProposalRecordView,
+    CuratorProposalView, DriftCandidateView, EdgeView, MemoryEntryView, MemoryEventView,
+    NodeIdView, PlanAcceptanceCriterionView, PlanBindingView, PlanEdgeView,
     PlanExecutionOverlayView, PlanGraphView, PlanListEntryView, PlanNodeBlockerView,
     PlanNodeRecommendationView, PlanNodeView, PlanSummaryView, PlanView, PolicyViolationRecordView,
     PolicyViolationView, QueryDiagnostic, ScoredMemoryView, TaskIntentView, TaskRiskView,
@@ -345,6 +346,7 @@ pub(crate) fn concept_packet_view(
     resolution: Option<ConceptResolution>,
 ) -> ConceptPacketView {
     let handle = packet.handle.clone();
+    let curation_hints = concept_curation_hints_view_from_packet(&packet, verbosity);
     let (core_members, core_members_omitted) = truncate_vec_with_omitted(
         packet.core_members.into_iter().map(node_id_view).collect(),
         verbosity.max_member_count(),
@@ -398,6 +400,7 @@ pub(crate) fn concept_packet_view(
             .collect(),
         verbosity_applied: concept_verbosity_view(verbosity),
         truncation,
+        curation_hints,
         scope: concept_scope_view(packet.scope),
         provenance: concept_provenance_view(packet.provenance),
         publication: packet.publication.map(concept_publication_view),
@@ -420,6 +423,88 @@ pub(crate) fn concept_packet_view(
                 .map(|lineage| lineage.map(|lineage| lineage.0.to_string()))
                 .collect(),
         }),
+    }
+}
+
+fn concept_curation_hints_view_from_packet(
+    packet: &ConceptPacket,
+    verbosity: ConceptVerbosity,
+) -> ConceptCurationHintsView {
+    let inspect_first = packet
+        .core_members
+        .first()
+        .cloned()
+        .map(node_id_view)
+        .or_else(|| packet.supporting_members.first().cloned().map(node_id_view))
+        .or_else(|| packet.likely_tests.first().cloned().map(node_id_view));
+    let supporting_read = packet.supporting_members.first().cloned().map(node_id_view);
+    let likely_test = packet.likely_tests.first().cloned().map(node_id_view);
+    let next_action = concept_packet_next_action(
+        packet,
+        inspect_first.as_ref(),
+        likely_test.as_ref(),
+        verbosity,
+    );
+    ConceptCurationHintsView {
+        inspect_first,
+        supporting_read,
+        likely_test,
+        next_action,
+    }
+}
+
+fn concept_packet_next_action(
+    packet: &ConceptPacket,
+    inspect_first: Option<&NodeIdView>,
+    likely_test: Option<&NodeIdView>,
+    verbosity: ConceptVerbosity,
+) -> String {
+    let inspect_target = inspect_first.map(|node| format!("`{}`", node.path));
+    let likely_test = likely_test.map(|node| format!("`{}`", node.path));
+    let validation_lens = packet
+        .decode_lenses
+        .iter()
+        .any(|lens| matches!(lens, ConceptDecodeLens::Validation));
+
+    match (inspect_target, likely_test, validation_lens, verbosity) {
+        (Some(target), Some(test), _, ConceptVerbosity::Summary) => format!(
+            "Inspect {target} first, verify it with likely test {test}, then retry with `verbosity: \"full\"` if you need the remaining members."
+        ),
+        (Some(target), Some(test), _, _) => {
+            format!("Inspect {target} first, then verify it with likely test {test}.")
+        }
+        (Some(target), None, true, ConceptVerbosity::Summary) => format!(
+            "Inspect {target} first, then use `prism.decodeConcept({{ handle: \"{}\", lens: \"validation\" }})` for broader validation context or retry with `verbosity: \"full\"`.",
+            packet.handle
+        ),
+        (Some(target), None, true, _) => format!(
+            "Inspect {target} first, then use `prism.decodeConcept({{ handle: \"{}\", lens: \"validation\" }})` for broader validation context.",
+            packet.handle
+        ),
+        (Some(target), None, false, ConceptVerbosity::Summary) => format!(
+            "Inspect {target} first, then retry with `verbosity: \"full\"` if you need the remaining members or tests."
+        ),
+        (Some(target), None, false, _) => {
+            format!("Inspect {target} first, then expand outward from the remaining concept members.")
+        }
+        (None, Some(test), _, _) => format!(
+            "Start with likely test {test}, then add or refresh stronger concept member bindings before relying on this packet."
+        ),
+        (None, None, _, _) => {
+            "Retry with `verbosity: \"full\"` or refresh the concept bindings so the packet exposes a concrete member to inspect.".to_string()
+        }
+    }
+}
+
+fn contract_health_view(packet: &ContractPacket, health: ContractHealth) -> ContractHealthView {
+    let next_action = contract_health_next_action(packet, &health);
+    ContractHealthView {
+        status: contract_health_status_view(health.status),
+        score: health.score,
+        reasons: health.reasons,
+        signals: contract_health_signals_view(health.signals),
+        superseded_by: health.superseded_by,
+        next_action,
     }
 }
 
@@ -535,6 +620,7 @@ pub(crate) fn contract_packet_view(
     resolution: Option<ContractResolution>,
 ) -> ContractPacketView {
     let health = prism.contract_health_by_handle(&packet.handle);
+    let health = health.map(|health| contract_health_view(&packet, health));
     ContractPacketView {
         handle: packet.handle,
         name: packet.name,
@@ -562,7 +648,7 @@ pub(crate) fn contract_packet_view(
         compatibility: contract_compatibility_view(packet.compatibility),
         evidence: packet.evidence,
         status: contract_status_view(packet.status),
-        health: health.map(contract_health_view),
+        health,
         scope: concept_scope_view(packet.scope),
         provenance: concept_provenance_view(packet.provenance),
         publication: packet.publication.map(concept_publication_view),
@@ -636,13 +722,82 @@ fn contract_guarantee_strength_view(
     }
 }
 
-fn contract_health_view(health: ContractHealth) -> ContractHealthView {
-    ContractHealthView {
-        status: contract_health_status_view(health.status),
-        score: health.score,
-        reasons: health.reasons,
-        signals: contract_health_signals_view(health.signals),
-        superseded_by: health.superseded_by,
+fn contract_health_next_action(packet: &ContractPacket, health: &ContractHealth) -> Option<String> {
+    let missing_evidence_ids = packet
+        .guarantees
+        .iter()
+        .filter(|guarantee| guarantee.evidence_refs.is_empty())
+        .map(|guarantee| format!("`{}`", guarantee.id))
+        .collect::<Vec<_>>();
+
+    match health.status {
+        ContractHealthStatus::Healthy => None,
+        ContractHealthStatus::Retired => Some(
+            "Do not rely on this retired contract as a live promise; inspect an active replacement or publish a new active contract if the guarantee still matters."
+                .to_string(),
+        ),
+        ContractHealthStatus::Superseded => health.superseded_by.first().map_or_else(
+            || {
+                Some(
+                    "Inspect the active superseding contract and migrate callers, validations, and evidence to it before editing this retired promise surface."
+                        .to_string(),
+                )
+            },
+            |handle| {
+                Some(format!(
+                    "Inspect superseding contract `{handle}` and migrate callers, validations, and evidence to it before relying on this older promise."
+                ))
+            },
+        ),
+        ContractHealthStatus::Stale => {
+            if health.signals.stale_validation_links {
+                Some(
+                    "Repair or replace the stale validation anchors with `prism_mutate` action `contract`, operation `attach_validation`, so the contract points at live checks again."
+                        .to_string(),
+                )
+            } else if health.signals.validation_count == 0 {
+                Some(
+                    "Attach at least one explicit validation with `prism_mutate` action `contract`, operation `attach_validation`, before treating this contract as a dependable review signal."
+                        .to_string(),
+                )
+            } else if !missing_evidence_ids.is_empty() {
+                Some(format!(
+                    "Add clause-level `evidenceRefs` for guarantee ids {} with `prism_mutate` action `contract`, operation `update`.",
+                    missing_evidence_ids.join(", ")
+                ))
+            } else {
+                Some(
+                    "Refresh this contract's validations or evidence before treating it as a dependable review signal."
+                        .to_string(),
+                )
+            }
+        }
+        ContractHealthStatus::Degraded | ContractHealthStatus::Watch => {
+            let mut steps = Vec::new();
+            if health.signals.validation_coverage_ratio < 1.0 {
+                steps.push(format!(
+                    "attach more explicit validations with `prism_mutate` action `contract`, operation `attach_validation` ({} validation link(s) for {} guarantee clause(s))",
+                    health.signals.validation_count, health.signals.guarantee_count
+                ));
+            }
+            if !missing_evidence_ids.is_empty() {
+                steps.push(format!(
+                    "add clause-level `evidenceRefs` for guarantee ids {} with `prism_mutate` action `contract`, operation `update`",
+                    missing_evidence_ids.join(", ")
+                ));
+            }
+            if steps.is_empty() {
+                Some(
+                    "Review this contract's validations and evidence before relying on it in impact or review flows."
+                        .to_string(),
+                )
+            } else {
+                Some(format!(
+                    "Next repair step: {}.",
+                    steps.join(", then ")
+                ))
+            }
+        }
     }
 }
 

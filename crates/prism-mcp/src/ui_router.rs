@@ -10,7 +10,7 @@ use serde::Deserialize;
 
 use crate::ui_assets::{prism_ui_index_html, prism_ui_unbuilt_html};
 use crate::ui_read_models::QueryHostUiReadModelsExt;
-use crate::ui_types::{PrismOverviewView, PrismPlansView};
+use crate::ui_types::{PrismGraphView, PrismOverviewView, PrismPlansView};
 use crate::QueryHost;
 
 #[derive(Clone)]
@@ -23,6 +23,7 @@ pub(crate) fn routes(state: PrismUiState) -> Router {
     Router::new()
         .route("/api/overview", get(prism_ui_overview))
         .route("/api/plans", get(prism_ui_plans))
+        .route("/api/graph", get(prism_ui_graph))
         .route("/", get(prism_ui_index))
         .route("/dashboard", get(prism_ui_index))
         .route("/dashboard/", get(prism_ui_index))
@@ -37,6 +38,12 @@ pub(crate) fn routes(state: PrismUiState) -> Router {
 #[serde(rename_all = "camelCase")]
 struct PlansQuery {
     plan_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GraphQuery {
+    concept_handle: Option<String>,
 }
 
 async fn prism_ui_index(
@@ -66,6 +73,17 @@ async fn prism_ui_plans(
     state
         .host
         .ui_plans_view(query.plan_id.as_deref())
+        .map(Json)
+        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
+}
+
+async fn prism_ui_graph(
+    State(state): State<PrismUiState>,
+    Query(query): Query<GraphQuery>,
+) -> std::result::Result<Json<PrismGraphView>, (StatusCode, String)> {
+    state
+        .host
+        .ui_graph_view(query.concept_handle.as_deref())
         .map(Json)
         .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
 }
