@@ -9,9 +9,9 @@ use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
 use prism_js::{
-    ConnectionInfoView, RuntimeFreshnessView, RuntimeHealthView, RuntimeLogEventView,
-    RuntimeMaterializationItemView, RuntimeMaterializationView, RuntimeProcessView,
-    RuntimeStatusView,
+    ConnectionInfoView, RuntimeBoundaryRegionView, RuntimeFreshnessView, RuntimeHealthView,
+    RuntimeLogEventView, RuntimeMaterializationCoverageView, RuntimeMaterializationItemView,
+    RuntimeMaterializationView, RuntimeProcessView, RuntimeStatusView,
 };
 use serde::Deserialize;
 use serde_json::{Map, Value};
@@ -248,10 +248,12 @@ fn runtime_freshness(
     let fs_applied_revision = workspace.applied_fs_revision();
     let fs_dirty = fs_observed_revision != fs_applied_revision;
     let last_refresh = workspace.last_refresh();
+    let workspace_summary = workspace.workspace_materialization_summary();
     let materialization = RuntimeMaterializationView {
-        workspace: materialization_item(
+        workspace: workspace_materialization_item(
             host.loaded_workspace_revision.load(Ordering::Relaxed),
             Some(snapshot_revisions.workspace),
+            &workspace_summary,
         ),
         episodic: materialization_item(
             host.loaded_episodic_revision.load(Ordering::Relaxed),
@@ -297,8 +299,44 @@ fn materialization_item(
 ) -> RuntimeMaterializationItemView {
     RuntimeMaterializationItemView {
         status: materialization_status(loaded_revision, current_revision).to_string(),
+        depth: materialization_depth(loaded_revision, current_revision).to_string(),
         loaded_revision,
         current_revision,
+        coverage: None,
+        boundaries: Vec::new(),
+    }
+}
+
+fn workspace_materialization_item(
+    loaded_revision: u64,
+    current_revision: Option<u64>,
+    summary: &prism_core::WorkspaceMaterializationSummary,
+) -> RuntimeMaterializationItemView {
+    RuntimeMaterializationItemView {
+        status: materialization_status(loaded_revision, current_revision).to_string(),
+        depth: summary.depth().to_string(),
+        loaded_revision,
+        current_revision,
+        coverage: Some(RuntimeMaterializationCoverageView {
+            known_files: summary.known_files,
+            known_directories: summary.known_directories,
+            materialized_files: summary.materialized_files,
+            materialized_nodes: summary.materialized_nodes,
+            materialized_edges: summary.materialized_edges,
+        }),
+        boundaries: summary
+            .boundaries
+            .iter()
+            .map(|boundary| RuntimeBoundaryRegionView {
+                id: boundary.id.clone(),
+                path: boundary.path.display().to_string(),
+                provenance: boundary.provenance.clone(),
+                materialization_state: boundary.materialization_state.clone(),
+                scope_state: boundary.scope_state.clone(),
+                known_file_count: boundary.known_file_count,
+                materialized_file_count: boundary.materialized_file_count,
+            })
+            .collect(),
     }
 }
 
@@ -307,6 +345,14 @@ fn materialization_status(loaded_revision: u64, current_revision: Option<u64>) -
         Some(current_revision) if loaded_revision == current_revision => "current",
         Some(_) => "stale",
         None => "unknown",
+    }
+}
+
+fn materialization_depth(loaded_revision: u64, current_revision: Option<u64>) -> &'static str {
+    if loaded_revision == 0 && current_revision.unwrap_or(0) == 0 {
+        "shallow"
+    } else {
+        "medium"
     }
 }
 

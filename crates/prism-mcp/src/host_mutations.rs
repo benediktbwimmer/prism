@@ -551,35 +551,28 @@ impl QueryHost {
             .ok_or_else(|| anyhow!("stored memory `{}` could not be reloaded", memory_id.0))?;
         if stored_entry.scope != MemoryScope::Local {
             if let Some(workspace) = &self.workspace {
-                let action = if payload
+                let promoted_from = payload
                     .promoted_from
-                    .as_ref()
-                    .is_some_and(|values| !values.is_empty())
-                    || payload
-                        .supersedes
-                        .as_ref()
-                        .is_some_and(|values| !values.is_empty())
-                {
-                    MemoryEventKind::Promoted
-                } else {
-                    MemoryEventKind::Stored
-                };
+                    .clone()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(prism_memory::MemoryId)
+                    .collect::<Vec<_>>();
+                let supersedes = payload
+                    .supersedes
+                    .clone()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(prism_memory::MemoryId)
+                    .collect::<Vec<_>>();
+                let action =
+                    memory_event_kind_for_store(promoted_from.as_slice(), supersedes.as_slice());
                 workspace.append_memory_event(MemoryEvent::from_entry(
                     action,
                     stored_entry.clone(),
                     Some(task_id.0.to_string()),
-                    payload
-                        .promoted_from
-                        .unwrap_or_default()
-                        .into_iter()
-                        .map(prism_memory::MemoryId)
-                        .collect(),
-                    payload
-                        .supersedes
-                        .unwrap_or_default()
-                        .into_iter()
-                        .map(prism_memory::MemoryId)
-                        .collect(),
+                    promoted_from,
+                    supersedes,
                 ))?;
                 self.sync_episodic_revision(workspace)?;
             } else if stored_entry.scope == MemoryScope::Repo {
@@ -2455,6 +2448,19 @@ impl QueryHost {
             .find(|record| record.id.0 == job_id)
             .map(crate::curator_job_view)
             .transpose()
+    }
+}
+
+fn memory_event_kind_for_store(
+    promoted_from: &[prism_memory::MemoryId],
+    supersedes: &[prism_memory::MemoryId],
+) -> MemoryEventKind {
+    if !supersedes.is_empty() && promoted_from.is_empty() {
+        MemoryEventKind::Superseded
+    } else if !promoted_from.is_empty() || !supersedes.is_empty() {
+        MemoryEventKind::Promoted
+    } else {
+        MemoryEventKind::Stored
     }
 }
 

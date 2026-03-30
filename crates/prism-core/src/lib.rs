@@ -8,6 +8,7 @@ mod indexer;
 mod indexer_support;
 mod invalidation;
 mod layout;
+mod materialization;
 mod memory_events;
 mod memory_refresh;
 mod parse_pipeline;
@@ -36,6 +37,7 @@ use session_bootstrap::hydrate_workspace_session_with_options as bootstrap_works
 
 pub(crate) use indexer::PendingFileParse;
 pub use indexer::WorkspaceIndexer;
+pub use materialization::{WorkspaceBoundaryRegion, WorkspaceMaterializationSummary};
 pub use prism_doc::{PrismDocSyncResult, PrismDocSyncStatus};
 pub use session::{
     CoordinationPlanState, FsRefreshStatus, WorkspaceFsRefreshOutcome, WorkspaceSession,

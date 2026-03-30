@@ -42,7 +42,9 @@ use super::{
     ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
 };
 use crate::coordination_persistence::CoordinationPersistenceBackend;
+use crate::materialization::summarize_workspace_materialization;
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
+use crate::workspace_tree::build_workspace_tree_snapshot;
 
 static NEXT_TEMP_WORKSPACE: AtomicU64 = AtomicU64::new(0);
 
@@ -3597,9 +3599,45 @@ fn refresh_invalidation_scope_preserves_monotonic_scope_expansion() {
 
     assert!(scope.direct_paths.contains(&changed));
     assert!(scope.dependency_paths.is_superset(&scope.direct_paths));
-    assert!(scope.edge_resolution_paths.is_superset(&scope.dependency_paths));
+    assert!(scope
+        .edge_resolution_paths
+        .is_superset(&scope.dependency_paths));
 
     let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn workspace_materialization_summary_reports_sparse_boundary_regions() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { helper(); }\nfn helper() {}\n",
+    )
+    .unwrap();
+
+    let prism = index_workspace(&root).unwrap();
+    let mut snapshot = build_workspace_tree_snapshot(&root, None).unwrap();
+    let extra_path = root.join("src/extra.rs");
+    let template_fingerprint = snapshot
+        .files
+        .get(&root.join("src/lib.rs"))
+        .cloned()
+        .expect("lib file fingerprint should exist");
+    snapshot.files.insert(extra_path, template_fingerprint);
+
+    let summary = summarize_workspace_materialization(&root, &snapshot, prism.graph());
+
+    assert_eq!(summary.known_files, summary.materialized_files + 1);
+    assert_eq!(summary.boundaries.len(), 1);
+    let boundary = &summary.boundaries[0];
+    assert_eq!(boundary.id, "boundary:src");
+    assert_eq!(boundary.path, PathBuf::from("src"));
+    assert_eq!(boundary.provenance, "workspace_tree");
+    assert_eq!(boundary.materialization_state, "known_unmaterialized");
+    assert_eq!(boundary.scope_state, "in_scope");
+    assert_eq!(boundary.known_file_count, 2);
+    assert_eq!(boundary.materialized_file_count, 0);
 }
 
 #[test]

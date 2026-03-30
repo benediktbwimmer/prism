@@ -73,7 +73,7 @@ impl McpCallLogStore {
             process_id: std::process::id(),
             workspace_root: root.map(|path| path.display().to_string()),
         };
-        let path = root.map(|path| default_mcp_call_log_path(path, &runtime.instance_id));
+        let path = root.map(default_mcp_call_log_path);
         Self {
             path,
             max_bytes: configured_max_bytes(),
@@ -302,10 +302,8 @@ impl McpCallFilter {
     }
 }
 
-pub(crate) fn default_mcp_call_log_path(root: &Path, instance_id: &str) -> PathBuf {
-    let file_suffix = instance_id.replace(':', "-");
-    root.join(".prism")
-        .join(format!("prism-mcp-call-log-{file_suffix}.jsonl"))
+pub(crate) fn default_mcp_call_log_path(root: &Path) -> PathBuf {
+    root.join(".prism").join("prism-mcp-call-log.jsonl")
 }
 
 pub(crate) fn summarize_query(query_text: &str, kind: &str) -> String {
@@ -948,5 +946,14 @@ mod tests {
                 > 0
         );
         assert!(store.file_len().unwrap_or_default() <= 1_600);
+    }
+
+    #[test]
+    fn default_mcp_call_log_path_is_stable_across_restarts() {
+        let root = Path::new("/tmp/prism-mcp-log-tests");
+        assert_eq!(
+            default_mcp_call_log_path(root),
+            root.join(".prism").join("prism-mcp-call-log.jsonl")
+        );
     }
 }

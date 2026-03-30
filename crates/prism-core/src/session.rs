@@ -33,6 +33,9 @@ use crate::concept_relation_events::{
 use crate::contract_events::{append_repo_contract_event, load_repo_curated_contracts};
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorHandleRef};
+use crate::materialization::{
+    summarize_workspace_materialization, WorkspaceMaterializationSummary,
+};
 use crate::memory_events::{
     append_repo_memory_event, filter_memory_events, load_repo_memory_events,
 };
@@ -412,6 +415,16 @@ impl WorkspaceSession {
 
     pub fn last_refresh(&self) -> Option<WorkspaceLastRefresh> {
         self.refresh_state.last_refresh()
+    }
+
+    pub fn workspace_materialization_summary(&self) -> WorkspaceMaterializationSummary {
+        let snapshot = self
+            .fs_snapshot
+            .lock()
+            .expect("workspace fs snapshot lock poisoned")
+            .clone();
+        let prism = self.prism_arc();
+        summarize_workspace_materialization(self.root(), &snapshot, prism.graph())
     }
 
     pub fn persist_outcomes(&self) -> Result<()> {

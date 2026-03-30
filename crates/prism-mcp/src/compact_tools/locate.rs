@@ -373,8 +373,23 @@ fn rank_locate_candidate(
     let path_normalized = normalize_locate_text(&symbol.id.path);
     let file_normalized = normalize_locate_text(symbol.file_path.as_deref().unwrap_or_default());
     let semantic_label_normalized = normalize_locate_text(semantic_match_label(&symbol));
+    let ownership_query_terms = locate_ownership_query_terms(tokens);
     let mut score = 0_i32;
     let mut reasons = Vec::<String>::new();
+
+    if let Some(owner_boost) = ownership_locate_boost(
+        &symbol,
+        &ownership_query_terms,
+        profile,
+        &name_normalized,
+        &path_normalized,
+        &file_normalized,
+    ) {
+        score += owner_boost;
+        reasons.push(format!(
+            "Ownership-style query favored this owner-like boundary target (+{owner_boost})."
+        ));
+    }
 
     for term in identifier_terms {
         if name_raw == *term {
@@ -520,6 +535,7 @@ fn rank_text_locate_candidate(
         .to_ascii_lowercase();
     let file_normalized = normalize_locate_text(&file_raw);
     let matched_text_normalized = normalize_locate_text(&candidate.matched_text);
+    let ownership_query_terms = locate_ownership_query_terms(tokens);
     let mut score = if query_uses_identifiers { 245 } else { 208 };
     let mut reasons = vec![format!(
         "Exact text hit in {} near line {}.",
@@ -579,6 +595,18 @@ fn rank_text_locate_candidate(
     }
     if text_candidate_shadowed_by_semantic_result(semantic_results, &candidate, query_normalized) {
         score -= 220;
+    }
+    if !ownership_query_terms.is_empty() {
+        let owner_hits = ownership_term_hit_count(
+            &matched_text_normalized,
+            &file_normalized,
+            &ownership_query_terms,
+        );
+        if owner_hits == 0 {
+            score -= 120;
+        } else {
+            score -= 24 * (ownership_query_terms.len().saturating_sub(owner_hits) as i32);
+        }
     }
 
     score -= index as i32;
@@ -665,10 +693,14 @@ fn locate_resolved_confidently(
     let top = &ranked[0];
     let runner_up = ranked.get(1).map(|candidate| candidate.score).unwrap_or(0);
     let score_gap = top.score - runner_up;
+    if top.why.starts_with("Ownership-style query favored") {
+        return score_gap >= 24;
+    }
     score_gap >= 60
         && (top.why.starts_with("Exact identifier")
             || top.why.starts_with("Exact query matched")
-            || top.why.starts_with("Matched the requested path scope"))
+            || top.why.starts_with("Matched the requested path scope")
+            || top.why.starts_with("Ownership-style query favored"))
 }
 
 fn locate_diversity_bonus(
@@ -742,6 +774,119 @@ fn locate_intent_profile(args: &PrismLocateArgs) -> LocateIntentProfile {
             docs_bias: if docs_path_bias { 80 } else { 20 },
             test_penalty: 64,
         },
+    }
+}
+
+fn locate_ownership_query_terms(tokens: &[String]) -> Vec<&'static str> {
+    let mut terms = Vec::new();
+    if tokens
+        .iter()
+        .any(|token| matches!(token.as_str(), "route" | "routes" | "routing" | "router"))
+    {
+        terms.push("route");
+    }
+    if tokens
+        .iter()
+        .any(|token| matches!(token.as_str(), "shell" | "app" | "layout" | "page"))
+    {
+        terms.push("shell");
+    }
+    if tokens.iter().any(|token| {
+        matches!(
+            token.as_str(),
+            "entry" | "entrypoint" | "entrypoints" | "asset" | "assets" | "boundary"
+        )
+    }) {
+        terms.push("entry");
+    }
+    terms
+}
+
+fn ownership_locate_boost(
+    symbol: &SymbolView,
+    ownership_query_terms: &[&'static str],
+    profile: LocateIntentProfile,
+    name_normalized: &str,
+    path_normalized: &str,
+    file_normalized: &str,
+) -> Option<i32> {
+    if ownership_query_terms.is_empty() {
+        return None;
+    }
+    if !matches!(
+        effective_owner_friendly_kind(symbol.kind),
+        OwnerFriendlyKind::Callable | OwnerFriendlyKind::Module
+    ) {
+        return None;
+    }
+    let owner_hits =
+        ownership_term_hit_count(path_normalized, file_normalized, ownership_query_terms).max(
+            ownership_term_hit_count(name_normalized, path_normalized, ownership_query_terms),
+        );
+    let owner_hint_boost = symbol
+        .owner_hint
+        .as_ref()
+        .map(|hint| hint.score.min(28) as i32)
+        .unwrap_or(0);
+    if owner_hits == 0 && owner_hint_boost == 0 {
+        return None;
+    }
+
+    let kind_boost = match effective_owner_friendly_kind(symbol.kind) {
+        OwnerFriendlyKind::Module => 22,
+        OwnerFriendlyKind::Callable => 12,
+        OwnerFriendlyKind::Other => 0,
+    };
+    Some(120 + (owner_hits as i32 * 44) + owner_hint_boost + kind_boost + profile.code_bias / 6)
+}
+
+#[derive(Clone, Copy)]
+enum OwnerFriendlyKind {
+    Module,
+    Callable,
+    Other,
+}
+
+fn effective_owner_friendly_kind(kind: NodeKind) -> OwnerFriendlyKind {
+    match kind {
+        NodeKind::Module => OwnerFriendlyKind::Module,
+        NodeKind::Function | NodeKind::Method => OwnerFriendlyKind::Callable,
+        _ => OwnerFriendlyKind::Other,
+    }
+}
+
+fn ownership_term_hit_count(
+    primary: &str,
+    secondary: &str,
+    ownership_query_terms: &[&'static str],
+) -> usize {
+    ownership_query_terms
+        .iter()
+        .filter(|term| {
+            ownership_term_matches(primary, term) || ownership_term_matches(secondary, term)
+        })
+        .count()
+}
+
+fn ownership_term_matches(candidate: &str, term: &str) -> bool {
+    match term {
+        "route" => {
+            candidate.contains("route")
+                || candidate.contains("router")
+                || candidate.contains("routing")
+        }
+        "shell" => {
+            candidate.contains("shell")
+                || candidate.contains("layout")
+                || candidate.contains("page")
+                || candidate.contains("app")
+        }
+        "entry" => {
+            candidate.contains("entry")
+                || candidate.contains("asset")
+                || candidate.contains("boundary")
+        }
+        _ => false,
     }
 }
 

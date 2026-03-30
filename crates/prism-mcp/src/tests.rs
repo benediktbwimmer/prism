@@ -5231,6 +5231,67 @@ pub fn locate_query_tokens() {}
 }
 
 #[test]
+fn compact_locate_prefers_owner_like_boundaries_for_routing_queries() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub mod app_shell;
+pub mod operation_detail;
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/app_shell.rs"),
+        r#"
+pub fn route_page_shell() {
+    render_page_layout();
+}
+
+fn render_page_layout() {}
+"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/operation_detail.rs"),
+        r#"
+pub fn render_operation_detail() {
+    let note = "routing page shell";
+    println!("{note}");
+}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "routing page shell".to_string(),
+                path: None,
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                limit: Some(3),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+
+    assert_eq!(locate.status, prism_js::AgentLocateStatus::Ok);
+    assert_eq!(locate.candidates[0].kind, NodeKind::Function);
+    assert_eq!(
+        locate.candidates[0].path,
+        "demo::app_shell::route_page_shell"
+    );
+    assert!(locate.candidates[0]
+        .why_short
+        .to_ascii_lowercase()
+        .contains("ownership-style query"));
+}
+
+#[test]
 fn compact_locate_can_include_top_preview() {
     let root = temp_workspace();
     fs::write(
@@ -5572,6 +5633,67 @@ pub fn edit_target() {
     assert!(open.text.contains("let alpha = helper_value(1);"));
     assert!(open.text.contains("let theta = eta + 1;"));
     assert!(open.text.contains("println!(\"{iota}\");"));
+}
+
+#[test]
+fn compact_open_edit_surfaces_monolith_pressure_and_owner_followup_guidance() {
+    let root = temp_workspace();
+    let mut source = String::from(
+        r#"
+fn helper_region() -> i32 {
+    7
+}
+
+pub fn giant_target() {
+"#,
+    );
+    for idx in 0..48 {
+        source.push_str(&format!(
+            "    let segment_{idx} = helper_region() + {idx}; // padding padding padding padding padding padding padding padding\n"
+        ));
+    }
+    source.push_str("}\n");
+    fs::write(root.join("src/lib.rs"), source).unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "giant_target".to_string(),
+                path: Some("src/lib.rs".to_string()),
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                limit: Some(1),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+
+    let open = host
+        .compact_open(
+            Arc::clone(&session),
+            PrismOpenArgs {
+                handle: Some(locate.candidates[0].handle.clone()),
+                path: None,
+                mode: Some(PrismOpenModeInput::Edit),
+                line: None,
+                before_lines: None,
+                after_lines: None,
+                max_chars: None,
+            },
+        )
+        .expect("edit open should succeed");
+
+    let next_action = open
+        .next_action
+        .as_deref()
+        .expect("edit open should return follow-through guidance");
+    assert!(open.truncated);
+    assert!(next_action.contains("large or mixed-purpose target"));
+    assert!(next_action.contains("prism_workset"));
+    assert!(next_action.contains("prism_open") || next_action.contains("prism_expand `neighbors`"));
 }
 
 #[test]
@@ -10633,6 +10755,95 @@ fn first_mutation_after_workspace_refresh_skips_persisted_reload() {
 }
 
 #[test]
+fn mutation_on_dirty_workspace_defers_refresh_instead_of_reloading_runtime() {
+    let root = temp_workspace();
+    let session = index_workspace_session(&root).unwrap();
+    let server = PrismMcpServer::with_session_and_features(
+        session,
+        PrismMcpFeatures::full().with_internal_developer(true),
+    );
+
+    std::fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() {}\npub fn beta() {}\n",
+    )
+    .expect("workspace edit should succeed");
+
+    let result = server
+        .execute_logged_mutation(
+            "mutate.outcome",
+            MutationRefreshPolicy::PersistedOnly,
+            || {
+                server.host.store_outcome_without_refresh(
+                    test_session(&server.host).as_ref(),
+                    PrismOutcomeArgs {
+                        kind: OutcomeKindInput::FixValidated,
+                        anchors: vec![AnchorRefInput::Node {
+                            crate_name: "demo".to_string(),
+                            path: "demo::alpha".to_string(),
+                            kind: "function".to_string(),
+                        }],
+                        summary: "validated alpha".to_string(),
+                        result: Some(OutcomeResultInput::Success),
+                        evidence: None,
+                        task_id: None,
+                    },
+                )
+            },
+            |result| {
+                MutationDashboardMeta::task(
+                    Some(result.task_id.clone()),
+                    vec![result.task_id.clone(), result.event_id.clone()],
+                    0,
+                )
+            },
+        )
+        .expect("mutation should succeed on live runtime state");
+
+    assert!(result.event_id.starts_with("outcome:"));
+
+    let detail = server
+        .host
+        .dashboard_operation_detail("mutation:1")
+        .expect("mutation detail should exist");
+    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+        panic!("expected mutation trace");
+    };
+    let refresh_phase = trace
+        .phases
+        .iter()
+        .find(|phase| phase.operation == "mutation.refreshWorkspace")
+        .expect("refresh phase should exist");
+    let args = refresh_phase
+        .args_summary
+        .as_ref()
+        .and_then(Value::as_object)
+        .expect("refresh args");
+    let refresh_path = args
+        .get("refreshPath")
+        .and_then(Value::as_str)
+        .expect("refreshPath should be a string");
+    assert!(matches!(refresh_path, "none" | "deferred"));
+    let metrics = args
+        .get("metrics")
+        .and_then(Value::as_object)
+        .expect("refresh metrics");
+    assert_eq!(metrics.get("fsRefreshMs"), Some(&Value::Number(0.into())));
+    let reload_work = metrics
+        .get("reloadWork")
+        .and_then(Value::as_object)
+        .expect("refresh reload-work metrics");
+    assert_eq!(
+        reload_work.get("fullRebuildCount"),
+        Some(&Value::Number(0.into()))
+    );
+    assert_eq!(
+        reload_work.get("workspaceReloaded"),
+        Some(&Value::Bool(false))
+    );
+}
+
+#[test]
 fn prism_query_errors_include_js_message_and_stack() {
     let root = temp_workspace();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
@@ -13050,6 +13261,71 @@ return prism.memory.events({
 }
 
 #[test]
+fn repo_memory_events_surface_superseded_publications() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .store_memory(
+            test_session(&host).as_ref(),
+            PrismMemoryArgs {
+                action: MemoryMutationActionInput::Store,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }],
+                    "kind": "structural",
+                    "scope": "repo",
+                    "content": "alpha routing ownership supersedes the older shared note",
+                    "supersedes": ["memory:legacy-routing-note"],
+                    "trust": 0.9
+                }),
+                task_id: Some("task:repo-memory-supersede".to_string()),
+            },
+        )
+        .expect("repo memory supersede should persist");
+
+    let queried = host
+        .execute(
+            test_session(&host),
+            r#"
+const sym = prism.symbol("alpha");
+return prism.memory.events({
+  focus: sym ? [sym] : [],
+  scope: "repo",
+  actions: ["superseded"],
+  limit: 5,
+});
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("superseded memory events query should succeed");
+
+    assert_eq!(queried.result[0]["scope"], "Repo");
+    assert_eq!(queried.result[0]["action"], "Superseded");
+    assert_eq!(
+        queried.result[0]["supersedes"][0],
+        "memory:legacy-routing-note"
+    );
+
+    let payload = host
+        .memory_resource_value(
+            test_session(&host).as_ref(),
+            &MemoryId(result.memory_id.clone()),
+        )
+        .expect("memory resource should load");
+    assert_eq!(payload.history.len(), 1);
+    assert_eq!(payload.history[0].action, "Superseded");
+    assert_eq!(
+        payload.history[0].supersedes[0],
+        "memory:legacy-routing-note"
+    );
+}
+
+#[test]
 fn repo_memory_store_rejects_weak_published_memory() {
     let root = temp_workspace();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
@@ -13595,6 +13871,27 @@ return prism.symbol("alpha")?.id.path ?? null;
         .freshness;
     assert_eq!(freshness.status, "deferred");
     assert_eq!(freshness.last_refresh_path.as_deref(), Some("deferred"));
+}
+
+#[test]
+fn runtime_status_reports_workspace_materialization_depth_and_coverage() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let freshness = crate::runtime_views::runtime_status(&host)
+        .expect("runtime status should succeed")
+        .freshness;
+    let workspace = freshness.materialization.workspace;
+
+    assert_eq!(workspace.status, "current");
+    assert_eq!(workspace.depth, "medium");
+
+    let coverage = workspace.coverage.expect("workspace coverage should exist");
+    assert!(coverage.known_files >= coverage.materialized_files);
+    assert!(coverage.known_directories > 0);
+    assert!(coverage.materialized_files > 0);
+    assert!(coverage.materialized_nodes > 0);
+    assert!(workspace.boundaries.is_empty());
 }
 
 #[test]

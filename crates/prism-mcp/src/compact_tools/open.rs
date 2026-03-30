@@ -143,7 +143,7 @@ fn compact_open_symbol_result(
     mode: AgentOpenMode,
     target: &SessionHandleTarget,
     remapped: bool,
-    next_action: &str,
+    _next_action: &str,
     promoted_handle: Option<AgentTargetHandleView>,
     related_handles: Option<Vec<AgentTargetHandleView>>,
     suggested_actions: Vec<AgentSuggestedActionView>,
@@ -155,6 +155,7 @@ fn compact_open_symbol_result(
         .file_path
         .clone()
         .ok_or_else(|| anyhow!("target `{}` has no workspace file path", target.id.path))?;
+    let base_next_action = compact_open_next_action(target);
 
     match mode {
         AgentOpenMode::Focus => {
@@ -177,7 +178,13 @@ fn compact_open_symbol_result(
                             truncated: preview.truncated,
                         },
                         remapped,
-                        next_action,
+                        &compact_open_adaptive_next_action(
+                            target,
+                            mode,
+                            preview.truncated,
+                            &base_next_action,
+                            related_handles.as_deref(),
+                        ),
                         promoted_handle,
                         related_handles,
                         suggested_actions,
@@ -185,6 +192,11 @@ fn compact_open_symbol_result(
                 }
             }
             let block = focused_block_for_symbol(prism, &symbol, FOCUS_OPEN_OPTIONS)?;
+            let block_truncated = block.slice.as_ref().is_some_and(|slice| slice.truncated)
+                || block
+                    .excerpt
+                    .as_ref()
+                    .is_some_and(|excerpt| excerpt.truncated);
             compact_open_result_from_block(
                 display_handle,
                 handle_category,
@@ -192,7 +204,13 @@ fn compact_open_symbol_result(
                 block.slice,
                 block.excerpt,
                 remapped,
-                next_action,
+                &compact_open_adaptive_next_action(
+                    target,
+                    mode,
+                    block_truncated,
+                    &base_next_action,
+                    related_handles.as_deref(),
+                ),
                 promoted_handle,
                 related_handles,
                 suggested_actions,
@@ -205,13 +223,20 @@ fn compact_open_symbol_result(
                 .ok_or_else(|| {
                     anyhow!("target `{}` did not produce an edit slice", target.id.path)
                 })?;
+            let slice_truncated = slice.truncated;
             compact_open_result_from_slice(
                 display_handle,
                 handle_category,
                 &file_path,
                 slice,
                 remapped,
-                next_action,
+                &compact_open_adaptive_next_action(
+                    target,
+                    mode,
+                    slice_truncated,
+                    &base_next_action,
+                    related_handles.as_deref(),
+                ),
                 promoted_handle,
                 related_handles,
                 suggested_actions,
@@ -248,13 +273,20 @@ fn compact_open_symbol_result(
                     },
                 )?
             };
+            let excerpt_truncated = excerpt.truncated;
             compact_open_result_from_excerpt(
                 display_handle,
                 handle_category,
                 &file_path,
                 excerpt,
                 remapped,
-                next_action,
+                &compact_open_adaptive_next_action(
+                    target,
+                    mode,
+                    excerpt_truncated,
+                    &base_next_action,
+                    related_handles.as_deref(),
+                ),
                 promoted_handle,
                 related_handles,
                 suggested_actions,
@@ -507,6 +539,37 @@ fn compact_open_next_action(target: &SessionHandleTarget) -> String {
     }
 }
 
+fn compact_open_adaptive_next_action(
+    target: &SessionHandleTarget,
+    mode: AgentOpenMode,
+    truncated: bool,
+    base_next_action: &str,
+    related_handles: Option<&[AgentTargetHandleView]>,
+) -> String {
+    if !truncated || is_text_fragment_target(target) {
+        return base_next_action.to_string();
+    }
+    if matches!(mode, AgentOpenMode::Edit) {
+        if let Some(related) = related_handles.and_then(|handles| handles.first()) {
+            return format!(
+                "Edit slice hit compact limits for a large or mixed-purpose target. Open related owner block `{}` with prism_open, or use prism_workset for tighter follow-through.",
+                related.path
+            );
+        }
+        return "Edit slice hit compact limits for a large or mixed-purpose target. Use prism_workset for decomposition-aware follow-through, or prism_expand `neighbors` to narrow the edit scope.".to_string();
+    }
+    if let Some(related) = related_handles.and_then(|handles| handles.first()) {
+        return format!(
+            "Open hit compact limits for a large or mixed-purpose target. Use prism_open on related handle `{}`, or continue with {}",
+            related.path, base_next_action
+        );
+    }
+    format!(
+        "Open hit compact limits for a large or mixed-purpose target. Continue with {}",
+        base_next_action
+    )
+}
+
 fn compact_concept_open_next_action(packet: &prism_query::ConceptPacket) -> String {
     if packet
         .decode_lenses
@@ -544,19 +607,19 @@ pub(super) fn budgeted_open_result(mut result: AgentOpenResultView) -> Result<Ag
         }
     }
     while open_json_bytes(&result)? > OPEN_MAX_JSON_BYTES {
-        if let Some(related_handles) = result.related_handles.as_mut() {
-            related_handles.pop();
-            if related_handles.is_empty() {
-                result.related_handles = None;
-            }
+        if result.suggested_actions.len() > 1 {
+            result.suggested_actions.pop();
             continue;
         }
         if result.promoted_handle.is_some() {
             result.promoted_handle = None;
             continue;
         }
-        if result.suggested_actions.len() > 1 {
-            result.suggested_actions.pop();
+        if let Some(related_handles) = result.related_handles.as_mut() {
+            related_handles.pop();
+            if related_handles.is_empty() {
+                result.related_handles = None;
+            }
             continue;
         }
         break;

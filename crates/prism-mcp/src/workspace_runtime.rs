@@ -819,13 +819,22 @@ impl QueryHost {
             return Ok(WorkspaceRefreshReport::none());
         };
         let Some(runtime) = &self.workspace_runtime else {
-            let _ = workspace.refresh_fs()?;
-            let _ = workspace.hydrate_coordination_runtime()?;
-            self.sync_workspace_revision(workspace)?;
-            self.sync_episodic_revision(workspace)?;
-            self.sync_inference_revision(workspace)?;
-            self.sync_coordination_revision(workspace)?;
-            return Ok(WorkspaceRefreshReport::none());
+            let refresh_path = if workspace.needs_refresh() {
+                "deferred"
+            } else {
+                "none"
+            };
+            if refresh_path == "deferred" {
+                workspace.record_runtime_refresh_observation(refresh_path, 0);
+            }
+            return Ok(WorkspaceRefreshReport {
+                refresh_path,
+                deferred: refresh_path == "deferred",
+                episodic_reloaded: false,
+                inference_reloaded: false,
+                coordination_reloaded: false,
+                metrics: WorkspaceRefreshMetrics::default(),
+            });
         };
 
         let config = WorkspaceRuntimeConfig {
@@ -839,9 +848,16 @@ impl QueryHost {
             loaded_inference_revision: Arc::clone(&self.loaded_inference_revision),
             loaded_coordination_revision: Arc::clone(&self.loaded_coordination_revision),
         };
-        let report = sync_persisted_workspace_state(&config)?;
-        let _ = workspace.hydrate_coordination_runtime()?;
-        self.sync_coordination_revision(workspace)?;
+        let lock_wait_started = Instant::now();
+        let guard = config
+            .sync_lock
+            .lock()
+            .expect("workspace runtime sync lock poisoned");
+        let report = sync_workspace_runtime_for_read_with_guard(
+            &config,
+            guard,
+            elapsed_ms(lock_wait_started),
+        )?;
         if report.coordination_reloaded {
             let _ = self.publish_dashboard_coordination_update();
         }

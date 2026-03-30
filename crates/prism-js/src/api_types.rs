@@ -514,10 +514,37 @@ pub struct RuntimeProcessView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct RuntimeMaterializationCoverageView {
+    pub known_files: usize,
+    pub known_directories: usize,
+    pub materialized_files: usize,
+    pub materialized_nodes: usize,
+    pub materialized_edges: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeBoundaryRegionView {
+    pub id: String,
+    pub path: String,
+    pub provenance: String,
+    pub materialization_state: String,
+    pub scope_state: String,
+    pub known_file_count: usize,
+    pub materialized_file_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct RuntimeMaterializationItemView {
     pub status: String,
+    pub depth: String,
     pub loaded_revision: u64,
     pub current_revision: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coverage: Option<RuntimeMaterializationCoverageView>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub boundaries: Vec<RuntimeBoundaryRegionView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

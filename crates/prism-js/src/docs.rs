@@ -582,8 +582,29 @@ type RuntimeProcessView = {
 
 type RuntimeMaterializationItemView = {
   status: string;
+  depth: string;
   loadedRevision: number;
   currentRevision?: number;
+  coverage?: RuntimeMaterializationCoverageView;
+  boundaries?: RuntimeBoundaryRegionView[];
+};
+
+type RuntimeMaterializationCoverageView = {
+  knownFiles: number;
+  knownDirectories: number;
+  materializedFiles: number;
+  materializedNodes: number;
+  materializedEdges: number;
+};
+
+type RuntimeBoundaryRegionView = {
+  id: string;
+  path: string;
+  provenance: string;
+  materializationState: string;
+  scopeState: string;
+  knownFileCount: number;
+  materializedFileCount: number;
 };
 
 type RuntimeMaterializationView = {

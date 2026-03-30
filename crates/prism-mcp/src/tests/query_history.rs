@@ -893,7 +893,7 @@ return {
     assert!(status["mcpCallLogPath"]
         .as_str()
         .unwrap_or_default()
-        .contains(".prism/prism-mcp-call-log-"));
+        .ends_with(".prism/prism-mcp-call-log.jsonl"));
     assert!(status["mcpCallLogBytes"].as_u64().unwrap_or_default() > 0);
 }
 
