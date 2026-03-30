@@ -732,10 +732,15 @@ fn fs_watch_refresh_enqueues_curator_with_patch_outcomes_and_projection_context(
             .into_iter()
             .find(|symbol| symbol.id().path == "demo::delta")
             .map(|symbol| symbol.id().clone());
-        completed = session.curator_snapshot().records.iter().any(|record| {
-            record.status == prism_curator::CuratorJobStatus::Completed
-                && record.job.trigger == prism_curator::CuratorTrigger::HotspotChanged
-        });
+        completed = session
+            .curator_snapshot()
+            .unwrap()
+            .records
+            .iter()
+            .any(|record| {
+                record.status == prism_curator::CuratorJobStatus::Completed
+                    && record.job.trigger == prism_curator::CuratorTrigger::HotspotChanged
+            });
         if gamma.is_some() && delta.is_some() && completed {
             break;
         }
@@ -777,7 +782,7 @@ fn fs_watch_refresh_enqueues_curator_with_patch_outcomes_and_projection_context(
     drop(session);
 
     let reloaded = index_workspace_session(&root).unwrap();
-    let snapshot = reloaded.curator_snapshot();
+    let snapshot = reloaded.curator_snapshot().unwrap();
     assert!(snapshot.records.iter().any(|record| {
         record.job.trigger == prism_curator::CuratorTrigger::HotspotChanged
             && matches!(
@@ -3850,7 +3855,7 @@ fn curator_backend_processes_and_persists_task_boundary_jobs() {
 
     let mut completed = false;
     for _ in 0..40 {
-        let snapshot = session.curator_snapshot();
+        let snapshot = session.curator_snapshot().unwrap();
         if snapshot
             .records
             .iter()
@@ -3867,7 +3872,9 @@ fn curator_backend_processes_and_persists_task_boundary_jobs() {
     drop(session);
 
     let reloaded = index_workspace_session(&root).unwrap();
-    let snapshot = reloaded.curator_snapshot();
+    assert!(!reloaded.is_curator_snapshot_loaded());
+    let snapshot = reloaded.curator_snapshot().unwrap();
+    assert!(reloaded.is_curator_snapshot_loaded());
     assert_eq!(snapshot.records.len(), 1);
     assert!(matches!(
         snapshot.records[0].run.as_ref().and_then(|run| run.proposals.first()),
@@ -3929,7 +3936,7 @@ fn default_curator_synthesizes_memory_proposals_without_backend() {
 
     let mut proposals = Vec::new();
     for _ in 0..40 {
-        let snapshot = session.curator_snapshot();
+        let snapshot = session.curator_snapshot().unwrap();
         if let Some(run) = snapshot
             .records
             .iter()

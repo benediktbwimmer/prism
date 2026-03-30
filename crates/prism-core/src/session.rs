@@ -1203,11 +1203,26 @@ impl WorkspaceSession {
         result
     }
 
-    pub fn curator_snapshot(&self) -> CuratorSnapshot {
+    pub fn curator_snapshot(&self) -> Result<CuratorSnapshot> {
         self.curator
             .as_ref()
             .map(CuratorHandle::snapshot)
-            .unwrap_or_default()
+            .transpose()
+            .map(|snapshot| snapshot.unwrap_or_default())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_curator_snapshot_loaded(&self) -> bool {
+        self.curator
+            .as_ref()
+            .map(|curator| {
+                curator
+                    .state
+                    .lock()
+                    .expect("curator state lock poisoned")
+                    .loaded
+            })
+            .unwrap_or(false)
     }
 
     pub fn set_curator_proposal_state(
@@ -1228,6 +1243,7 @@ impl WorkspaceSession {
             return Ok(());
         };
         let mut state = curator.state.lock().expect("curator state lock poisoned");
+        state.ensure_loaded(&mut *store)?;
         let record = state
             .snapshot
             .records

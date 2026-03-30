@@ -1317,6 +1317,190 @@ fn sqlite_store_migrates_snapshot_backed_outcomes_to_append_only_log() {
 }
 
 #[test]
+fn sqlite_store_compacts_hot_patch_outcomes_when_loading_event_log() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-hot-patch-compaction-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let changed_symbols = (0..400_u32)
+        .map(|index| {
+            serde_json::json!({
+                "status": "updated_after",
+                "id": {
+                    "crate_name": "demo",
+                    "path": format!("demo::symbol_{index}"),
+                    "kind": "Function",
+                },
+                "name": format!("symbol_{index}"),
+                "kind": "Function",
+                "filePath": "src/lib.rs",
+                "span": {
+                    "start": index * 8,
+                    "end": index * 8 + 7,
+                },
+            })
+        })
+        .collect::<Vec<_>>();
+    let outcomes = OutcomeMemorySnapshot {
+        events: vec![prism_memory::OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:hot-patch"),
+                ts: 7,
+                actor: EventActor::System,
+                correlation: None,
+                causation: None,
+            },
+            anchors: Vec::new(),
+            kind: prism_memory::OutcomeKind::PatchApplied,
+            result: prism_memory::OutcomeResult::Success,
+            summary: "large patch".to_string(),
+            evidence: Vec::new(),
+            metadata: serde_json::json!({
+                "trigger": "FsWatch",
+                "filePaths": ["src/lib.rs"],
+                "changedSymbols": changed_symbols,
+            }),
+        }],
+    };
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    store.save_outcome_snapshot(&outcomes).unwrap();
+
+    let loaded = store.load_outcome_snapshot().unwrap().unwrap();
+    let metadata = loaded.events[0].metadata.as_object().unwrap();
+    assert_eq!(
+        metadata["changedSymbols"].as_array().unwrap().len(),
+        256,
+        "hot patch payload should be capped in memory"
+    );
+    assert_eq!(metadata["changedSymbolsTotalCount"].as_u64().unwrap(), 400);
+    assert!(metadata["changedSymbolsTruncated"].as_bool().unwrap());
+    let file_summary = metadata["changedFilesSummary"]
+        .as_array()
+        .unwrap()
+        .first()
+        .unwrap();
+    assert_eq!(file_summary["filePath"].as_str().unwrap(), "src/lib.rs");
+    assert_eq!(file_summary["changedSymbolCount"].as_u64().unwrap(), 400);
+    assert_eq!(file_summary["updatedCount"].as_u64().unwrap(), 400);
+
+    drop(store);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(path.with_extension("db-shm"));
+}
+
+#[test]
+fn sqlite_store_compacts_hot_patch_outcomes_on_open_and_rewrites_payload() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-hot-patch-open-compaction-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let changed_symbols = (0..400_u32)
+        .map(|index| {
+            serde_json::json!({
+                "status": "updated_after",
+                "id": {
+                    "crate_name": "demo",
+                    "path": format!("demo::symbol_{index}"),
+                    "kind": "Function",
+                },
+                "name": format!("symbol_{index}"),
+                "kind": "Function",
+                "filePath": "src/lib.rs",
+                "span": {
+                    "start": index * 8,
+                    "end": index * 8 + 7,
+                },
+            })
+        })
+        .collect::<Vec<_>>();
+    let raw_event = serde_json::json!({
+        "meta": {
+            "id": "outcome:legacy-hot-patch",
+            "ts": 7,
+            "actor": "System",
+            "correlation": null,
+            "causation": null
+        },
+        "anchors": [],
+        "kind": "PatchApplied",
+        "result": "Success",
+        "summary": "large patch",
+        "evidence": [],
+        "metadata": {
+            "trigger": "FsWatch",
+            "filePaths": ["src/lib.rs"],
+            "changedSymbols": changed_symbols
+        }
+    });
+
+    {
+        let conn = Connection::open(&path).unwrap();
+        conn.execute_batch(
+            r#"
+            CREATE TABLE metadata (
+                key TEXT PRIMARY KEY,
+                value INTEGER NOT NULL
+            );
+            CREATE TABLE outcome_event_log (
+                sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id TEXT NOT NULL UNIQUE,
+                ts INTEGER NOT NULL,
+                payload TEXT NOT NULL
+            );
+            PRAGMA user_version = 16;
+            "#,
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO outcome_event_log(event_id, ts, payload) VALUES (?1, ?2, ?3)",
+            (
+                "outcome:legacy-hot-patch",
+                7_i64,
+                serde_json::to_string(&raw_event).unwrap(),
+            ),
+        )
+        .unwrap();
+    }
+
+    let store = SqliteStore::open(&path).unwrap();
+    let payload: String = store
+        .conn
+        .query_row(
+            "SELECT payload FROM outcome_event_log WHERE event_id = 'outcome:legacy-hot-patch'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let value: serde_json::Value = serde_json::from_str(&payload).unwrap();
+    let metadata = value["metadata"].as_object().unwrap();
+    assert_eq!(metadata["changedSymbols"].as_array().unwrap().len(), 256);
+    assert_eq!(metadata["changedSymbolsTotalCount"].as_u64().unwrap(), 400);
+    assert!(metadata["changedSymbolsTruncated"].as_bool().unwrap());
+    let compacted: i64 = store
+        .conn
+        .query_row(
+            "SELECT value FROM metadata WHERE key = 'outcomes:hot_patch_payloads_compacted'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(compacted, 1);
+
+    drop(store);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(path.with_extension("db-shm"));
+}
+
+#[test]
 fn sqlite_store_reconciles_inference_snapshot_updates_and_removals() {
     let path = std::env::temp_dir().join(format!(
         "prism-store-inference-reconcile-test-{}.db",

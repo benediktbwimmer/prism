@@ -1685,7 +1685,7 @@ impl QueryHost {
             .as_ref()
             .ok_or_else(|| anyhow!("curator mutations require a workspace-backed session"))?;
         let job_id = CuratorJobId(args.job_id.clone());
-        let snapshot = workspace.curator_snapshot();
+        let snapshot = workspace.curator_snapshot()?;
         let record = snapshot
             .records
             .iter()
@@ -1777,7 +1777,7 @@ impl QueryHost {
             .as_ref()
             .ok_or_else(|| anyhow!("curator mutations require a workspace-backed session"))?;
         let job_id = CuratorJobId(args.job_id.clone());
-        let snapshot = workspace.curator_snapshot();
+        let snapshot = workspace.curator_snapshot()?;
         let record = snapshot
             .records
             .iter()
@@ -1870,7 +1870,7 @@ impl QueryHost {
             .as_ref()
             .ok_or_else(|| anyhow!("curator mutations require a workspace-backed session"))?;
         let job_id = CuratorJobId(args.job_id.clone());
-        let snapshot = workspace.curator_snapshot();
+        let snapshot = workspace.curator_snapshot()?;
         let record = snapshot
             .records
             .iter()
@@ -1940,7 +1940,7 @@ impl QueryHost {
             .as_ref()
             .ok_or_else(|| anyhow!("curator mutations require a workspace-backed session"))?;
         let job_id = CuratorJobId(args.job_id.clone());
-        let snapshot = workspace.curator_snapshot();
+        let snapshot = workspace.curator_snapshot()?;
         let record = snapshot
             .records
             .iter()
@@ -2186,7 +2186,7 @@ impl QueryHost {
             .as_ref()
             .ok_or_else(|| anyhow!("curator mutations require a workspace-backed session"))?;
         let job_id = CuratorJobId(args.job_id.clone());
-        let snapshot = workspace.curator_snapshot();
+        let snapshot = workspace.curator_snapshot()?;
         let record = snapshot
             .records
             .iter()
@@ -2240,7 +2240,7 @@ impl QueryHost {
             return Ok(Vec::new());
         };
         let mut jobs = workspace
-            .curator_snapshot()
+            .curator_snapshot()?
             .records
             .into_iter()
             .filter(|record| {
@@ -2271,7 +2271,7 @@ impl QueryHost {
             return Ok(Vec::new());
         };
         let mut proposals = Vec::new();
-        for record in workspace.curator_snapshot().records {
+        for record in workspace.curator_snapshot()?.records {
             if args
                 .status
                 .as_deref()
@@ -2328,7 +2328,7 @@ impl QueryHost {
             return Ok(None);
         };
         workspace
-            .curator_snapshot()
+            .curator_snapshot()?
             .records
             .into_iter()
             .find(|record| record.id.0 == job_id)

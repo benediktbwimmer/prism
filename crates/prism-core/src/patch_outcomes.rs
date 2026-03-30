@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use prism_ir::{new_prefixed_id, AnchorRef, EventActor, EventId, EventMeta, ObservedChangeSet};
 use prism_memory::{OutcomeEvent, OutcomeKind, OutcomeResult};
@@ -6,6 +6,8 @@ use prism_projections::ValidationDelta;
 
 use crate::util::current_timestamp;
 use crate::WorkspaceIndexer;
+
+const MAX_PATCH_CHANGED_SYMBOLS: usize = 256;
 
 pub(crate) fn default_outcome_meta(prefix: &str) -> EventMeta {
     EventMeta {
@@ -54,6 +56,62 @@ fn patch_file_paths<S: prism_store::Store>(
         .collect()
 }
 
+#[derive(Debug, Clone)]
+struct PatchChangedFileSummary {
+    file_path: String,
+    changed_symbol_count: usize,
+    added_count: usize,
+    removed_count: usize,
+    updated_count: usize,
+}
+
+#[derive(Default)]
+struct PatchMetadataBuilder {
+    changed_symbols: Vec<serde_json::Value>,
+    file_summaries: BTreeMap<String, PatchChangedFileSummary>,
+    total_changed_symbol_count: usize,
+}
+
+impl PatchMetadataBuilder {
+    fn push<S: prism_store::Store>(
+        &mut self,
+        indexer: &WorkspaceIndexer<S>,
+        status: &str,
+        node: &prism_ir::ObservedNode,
+    ) {
+        self.total_changed_symbol_count += 1;
+        if let Some(file_path) = indexer
+            .graph
+            .file_path(node.node.file)
+            .map(|path| path.to_string_lossy().into_owned())
+        {
+            let summary = self
+                .file_summaries
+                .entry(file_path.clone())
+                .or_insert_with(|| PatchChangedFileSummary {
+                    file_path,
+                    changed_symbol_count: 0,
+                    added_count: 0,
+                    removed_count: 0,
+                    updated_count: 0,
+                });
+            summary.changed_symbol_count += 1;
+            if status == "added" {
+                summary.added_count += 1;
+            } else if status == "removed" {
+                summary.removed_count += 1;
+            } else {
+                summary.updated_count += 1;
+            }
+        }
+
+        if self.changed_symbols.len() < MAX_PATCH_CHANGED_SYMBOLS {
+            self.changed_symbols
+                .push(changed_symbol_metadata(indexer, status, node));
+        }
+    }
+}
+
 fn changed_symbol_metadata<S: prism_store::Store>(
     indexer: &WorkspaceIndexer<S>,
     status: &str,
@@ -70,17 +128,6 @@ fn changed_symbol_metadata<S: prism_store::Store>(
             .map(|path| path.to_string_lossy().into_owned()),
         "span": node.node.span,
     })
-}
-
-fn updated_symbol_metadata<S: prism_store::Store>(
-    indexer: &WorkspaceIndexer<S>,
-    before: &prism_ir::ObservedNode,
-    after: &prism_ir::ObservedNode,
-) -> [serde_json::Value; 2] {
-    [
-        changed_symbol_metadata(indexer, "updated_before", before),
-        changed_symbol_metadata(indexer, "updated_after", after),
-    ]
 }
 
 pub(crate) fn dedupe_anchors(anchors: Vec<AnchorRef>) -> Vec<AnchorRef> {
@@ -129,6 +176,18 @@ impl<S: prism_store::Store> WorkspaceIndexer<S> {
             ]
         }));
 
+        let mut patch_metadata = PatchMetadataBuilder::default();
+        for node in &observed.added {
+            patch_metadata.push(self, "added", node);
+        }
+        for node in &observed.removed {
+            patch_metadata.push(self, "removed", node);
+        }
+        for (before, after) in &observed.updated {
+            patch_metadata.push(self, "updated_before", before);
+            patch_metadata.push(self, "updated_after", after);
+        }
+
         let event = OutcomeEvent {
             meta: EventMeta {
                 id: auto_outcome_event_id("outcome"),
@@ -146,23 +205,21 @@ impl<S: prism_store::Store> WorkspaceIndexer<S> {
                 "trigger": format!("{:?}", observed.trigger),
                 "files": observed.files.iter().map(|file_id| file_id.0).collect::<Vec<_>>(),
                 "filePaths": patch_file_paths(self, observed),
-                "changedSymbols": observed
-                    .added
-                    .iter()
-                    .map(|node| changed_symbol_metadata(self, "added", node))
-                    .chain(
-                        observed
-                            .removed
-                            .iter()
-                            .map(|node| changed_symbol_metadata(self, "removed", node))
-                    )
-                    .chain(
-                        observed
-                            .updated
-                            .iter()
-                            .flat_map(|(before, after)| updated_symbol_metadata(self, before, after))
-                    )
+                "changedFilesSummary": patch_metadata
+                    .file_summaries
+                    .values()
+                    .map(|summary| serde_json::json!({
+                        "filePath": summary.file_path,
+                        "changedSymbolCount": summary.changed_symbol_count,
+                        "addedCount": summary.added_count,
+                        "removedCount": summary.removed_count,
+                        "updatedCount": summary.updated_count,
+                    }))
                     .collect::<Vec<_>>(),
+                "changedSymbols": patch_metadata.changed_symbols,
+                "changedSymbolsTotalCount": patch_metadata.total_changed_symbol_count,
+                "changedSymbolsTruncated":
+                    patch_metadata.total_changed_symbol_count > MAX_PATCH_CHANGED_SYMBOLS,
             }),
         };
         let deltas = prism_projections::validation_deltas_for_event(&event, |node| {

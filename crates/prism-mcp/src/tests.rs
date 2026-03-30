@@ -117,7 +117,7 @@ fn coordination_mutations_flow_through_query_runtime() {
                     "anchors": [{
                         "type": "node",
                         "crateName": "demo",
-                        "path": "demo::main",
+                        "path": "demo::alpha",
                         "kind": "function"
                     }],
                     "capability": "Edit",
@@ -376,7 +376,7 @@ fn plan_node_mutations_return_graph_native_views() {
                     "anchors": [{
                         "type": "node",
                         "crateName": "demo",
-                        "path": "demo::main",
+                        "path": "demo::alpha",
                         "kind": "function"
                     }],
                     "bindings": {
@@ -1468,7 +1468,7 @@ fn mcp_returns_structured_coordination_rejections_and_persists_them() {
                     "anchors": [{
                         "type": "node",
                         "crateName": "demo",
-                        "path": "demo::alpha",
+                        "path": "demo::main",
                         "kind": "function"
                     }]
                 }),
@@ -1891,7 +1891,7 @@ fn mcp_plan_update_completes_plan_and_closed_plan_rejects_new_claims() {
                     "anchors": [{
                         "type": "node",
                         "crateName": "demo",
-                        "path": "demo::alpha",
+                        "path": "demo::main",
                         "kind": "function"
                     }],
                     "capability": "Edit",
@@ -8707,6 +8707,103 @@ fn compact_task_brief_prefers_refresh_for_stale_current_task() {
         .next_action
         .as_deref()
         .is_some_and(|value| value.contains("Refresh this task")));
+}
+
+#[test]
+fn compact_task_brief_accepts_native_plan_node_current_task_ids() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "goal": "Track a native milestone node",
+                    "policy": { "requireValidationForCompletion": true }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+    let required_test =
+        "test:cargo test -p prism-js api_reference_mentions_primary_tool -- --nocapture";
+    let required_build = "build:cargo build --release -p prism-cli -p prism-mcp";
+    let node = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan_id,
+                    "kind": "validate",
+                    "title": "Validate migration milestone",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::main",
+                        "kind": "function"
+                    }],
+                    "acceptance": [{
+                        "label": "migration is validated",
+                        "requiredChecks": [
+                            { "id": required_test },
+                            { "id": required_build }
+                        ],
+                        "evidencePolicy": "validation-only"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let node_id = node.state["id"].as_str().unwrap().to_string();
+
+    host.configure_session(
+        test_session(&host).as_ref(),
+        PrismConfigureSessionArgs {
+            limits: None,
+            current_task_id: Some(node_id.clone()),
+            coordination_task_id: None,
+            current_task_description: Some("Validate migration milestone".to_string()),
+            current_task_tags: Some(vec!["milestone".to_string()]),
+            clear_current_task: None,
+            current_agent: None,
+            clear_current_agent: None,
+        },
+    )
+    .unwrap();
+    host.store_outcome(
+        test_session(&host).as_ref(),
+        PrismOutcomeArgs {
+            kind: OutcomeKindInput::NoteAdded,
+            anchors: Vec::new(),
+            summary: "Started milestone validation".to_string(),
+            result: Some(OutcomeResultInput::Success),
+            evidence: None,
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let brief = host
+        .compact_task_brief(
+            test_session(&host),
+            PrismTaskBriefArgs {
+                task_id: node_id.clone(),
+            },
+        )
+        .expect("native current-task plan node should resolve in task brief");
+
+    assert_eq!(brief.task_id, node_id);
+    assert_eq!(brief.title, "Validate migration milestone");
+    assert_eq!(brief.status, prism_ir::CoordinationTaskStatus::Ready);
+    assert!(brief
+        .recent_outcomes
+        .iter()
+        .any(|event| event.summary == "Started milestone validation"));
+    assert!(brief.next_action.is_some());
 }
 
 #[test]

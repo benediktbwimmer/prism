@@ -73,6 +73,10 @@ impl SqliteStore {
         let schema_started = Instant::now();
         schema::init_schema(&conn)?;
         let schema_ms = schema_started.elapsed().as_millis();
+        let compact_patch_payloads_started = Instant::now();
+        let compacted_patch_payloads =
+            outcome_events::compact_hot_patch_payloads_on_open(&mut conn)?;
+        let compact_patch_payloads_ms = compact_patch_payloads_started.elapsed().as_millis();
         let retire_legacy_started = Instant::now();
         let retired_legacy_co_change = history_io::retire_legacy_history_co_change(&mut conn)?;
         let retire_legacy_ms = retire_legacy_started.elapsed().as_millis();
@@ -86,6 +90,11 @@ impl SqliteStore {
             open_connection_ms,
             configure_ms,
             schema_ms,
+            compact_patch_payloads_ms,
+            compacted_hot_patch_payload_rows = compacted_patch_payloads.updated_rows,
+            compacted_hot_patch_payload_reclaim_bytes =
+                compacted_patch_payloads.reclaimed_bytes_before_vacuum,
+            compacted_hot_patch_payload_vacuumed = compacted_patch_payloads.vacuumed,
             retire_legacy_ms,
             retired_legacy_history_co_change_rows = retired_legacy_co_change.deleted_rows,
             retired_legacy_history_co_change_reclaim_bytes =

@@ -21,6 +21,7 @@ use crate::util::current_timestamp;
 
 pub(crate) struct CuratorHandle {
     pub(crate) state: Arc<Mutex<CuratorQueueState>>,
+    store: Arc<Mutex<SqliteStore>>,
     tx: Option<mpsc::Sender<CuratorMessage>>,
     handle: Option<thread::JoinHandle<()>>,
 }
@@ -35,6 +36,7 @@ pub(crate) struct CuratorHandleRef {
 pub(crate) struct CuratorQueueState {
     pub(crate) snapshot: CuratorSnapshot,
     next_sequence: u64,
+    pub(crate) loaded: bool,
 }
 
 struct CuratorWorkItem {
@@ -50,15 +52,11 @@ enum CuratorMessage {
 
 impl CuratorHandle {
     pub(crate) fn new(
-        snapshot: CuratorSnapshot,
         backend: Option<Arc<dyn CuratorBackend>>,
         store: Arc<Mutex<SqliteStore>>,
         refresh_lock: Arc<Mutex<()>>,
     ) -> Self {
-        let state = Arc::new(Mutex::new(CuratorQueueState {
-            next_sequence: next_curator_sequence(&snapshot),
-            snapshot,
-        }));
+        let state = Arc::new(Mutex::new(CuratorQueueState::default()));
 
         let (tx, rx) = mpsc::channel::<CuratorMessage>();
         let worker_state = Arc::clone(&state);
@@ -128,17 +126,17 @@ impl CuratorHandle {
 
         Self {
             state,
+            store,
             tx: Some(tx),
             handle: Some(handle),
         }
     }
 
-    pub(crate) fn snapshot(&self) -> CuratorSnapshot {
-        self.state
-            .lock()
-            .expect("curator state lock poisoned")
-            .snapshot
-            .clone()
+    pub(crate) fn snapshot(&self) -> Result<CuratorSnapshot> {
+        let mut store = self.store.lock().expect("workspace store lock poisoned");
+        let mut state = self.state.lock().expect("curator state lock poisoned");
+        state.ensure_loaded(&mut *store)?;
+        Ok(state.snapshot.clone())
     }
 
     pub(crate) fn enqueue_locked(
@@ -168,6 +166,7 @@ impl CuratorHandleRef {
         store: &mut SqliteStore,
     ) -> Result<CuratorJobId> {
         let mut state = self.state.lock().expect("curator state lock poisoned");
+        state.ensure_loaded(store)?;
         state.next_sequence += 1;
         let id = CuratorJobId(new_prefixed_id("curator").to_string());
         let record = CuratorJobRecord {
@@ -221,38 +220,41 @@ pub(crate) fn update_curator_record(
     let _guard = refresh_lock
         .lock()
         .expect("workspace refresh lock poisoned");
-    let mut state = state.lock().expect("curator state lock poisoned");
-    if let Some(record) = state
-        .snapshot
-        .records
-        .iter_mut()
-        .find(|record| &record.id == id)
-    {
-        record.status = status;
-        if matches!(status, CuratorJobStatus::Running) {
-            record.started_at = Some(current_timestamp());
-        } else if matches!(
-            status,
-            CuratorJobStatus::Completed | CuratorJobStatus::Failed | CuratorJobStatus::Skipped
-        ) {
-            if record.started_at.is_none() {
-                record.started_at = Some(current_timestamp());
-            }
-            record.finished_at = Some(current_timestamp());
-        }
-        if let Some(run) = run {
-            if record.proposal_states.is_empty() {
-                record
-                    .proposal_states
-                    .resize(run.proposals.len(), CuratorProposalState::default());
-            }
-            record.run = Some(run);
-        }
-        if let Some(error) = error {
-            record.error = Some(error);
-        }
-    }
     if let Ok(mut store) = store.lock() {
+        let mut state = state.lock().expect("curator state lock poisoned");
+        if state.ensure_loaded(&mut *store).is_err() {
+            return;
+        }
+        if let Some(record) = state
+            .snapshot
+            .records
+            .iter_mut()
+            .find(|record| &record.id == id)
+        {
+            record.status = status;
+            if matches!(status, CuratorJobStatus::Running) {
+                record.started_at = Some(current_timestamp());
+            } else if matches!(
+                status,
+                CuratorJobStatus::Completed | CuratorJobStatus::Failed | CuratorJobStatus::Skipped
+            ) {
+                if record.started_at.is_none() {
+                    record.started_at = Some(current_timestamp());
+                }
+                record.finished_at = Some(current_timestamp());
+            }
+            if let Some(run) = run {
+                if record.proposal_states.is_empty() {
+                    record
+                        .proposal_states
+                        .resize(run.proposals.len(), CuratorProposalState::default());
+                }
+                record.run = Some(run);
+            }
+            if let Some(error) = error {
+                record.error = Some(error);
+            }
+        }
         let _ = store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
             curator_snapshot: Some(state.snapshot.clone()),
             ..AuxiliaryPersistBatch::default()
@@ -315,4 +317,16 @@ pub(crate) fn enqueue_curator_for_outcome_locked(
     };
     let _ = curator.enqueue_locked(job, context, store)?;
     Ok(())
+}
+
+impl CuratorQueueState {
+    pub(crate) fn ensure_loaded(&mut self, store: &mut SqliteStore) -> Result<()> {
+        if self.loaded {
+            return Ok(());
+        }
+        self.snapshot = store.load_curator_snapshot()?.unwrap_or_default();
+        self.next_sequence = next_curator_sequence(&self.snapshot);
+        self.loaded = true;
+        Ok(())
+    }
 }

@@ -14,7 +14,7 @@ use prism_memory::OutcomeMemory;
 use prism_parser::LanguageAdapter;
 use prism_projections::ProjectionIndex;
 use prism_query::Prism;
-use prism_store::{Graph, SqliteStore, Store, WorkspaceTreeSnapshot};
+use prism_store::{Graph, SqliteStore, WorkspaceTreeSnapshot};
 use tracing::info;
 
 use crate::curator::{CuratorHandle, CuratorHandleRef};
@@ -74,18 +74,8 @@ pub(crate) fn build_workspace_session(
     let refresh_lock = Arc::new(Mutex::new(()));
     let refresh_state = Arc::new(WorkspaceRefreshState::new());
     let fs_snapshot = Arc::new(Mutex::new(workspace_tree_snapshot));
-    let curator_snapshot_started = Instant::now();
-    let curator_snapshot = {
-        let mut store = store.lock().expect("workspace store lock poisoned");
-        store.load_curator_snapshot()?.unwrap_or_default()
-    };
-    let load_curator_snapshot_ms = curator_snapshot_started.elapsed().as_millis();
-    let curator = CuratorHandle::new(
-        curator_snapshot,
-        backend,
-        Arc::clone(&store),
-        Arc::clone(&refresh_lock),
-    );
+    let load_curator_snapshot_ms = 0_u128;
+    let curator = CuratorHandle::new(backend, Arc::clone(&store), Arc::clone(&refresh_lock));
     let watch_started = Instant::now();
     let watch = Some(spawn_fs_watch(
         root.clone(),

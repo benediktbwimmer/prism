@@ -25,7 +25,18 @@ struct PatchMetadata {
     trigger: Option<String>,
     files: Option<Vec<u32>>,
     file_paths: Option<Vec<String>>,
+    changed_files_summary: Option<Vec<PatchChangedFileSummary>>,
     changed_symbols: Option<Vec<PatchChangedSymbol>>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PatchChangedFileSummary {
+    file_path: String,
+    changed_symbol_count: usize,
+    added_count: usize,
+    removed_count: usize,
+    updated_count: usize,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -47,6 +58,7 @@ struct ParsedPatchEvent {
     summary: String,
     trigger: Option<String>,
     files: Vec<String>,
+    changed_files_summary: Vec<PatchChangedFileSummary>,
     changed_symbols: Vec<PatchChangedSymbol>,
 }
 
@@ -68,7 +80,12 @@ pub(crate) fn changed_files(
             if !seen.insert(file_path.clone()) {
                 continue;
             }
-            let counts = changed_file_counts(prism, &parsed.changed_symbols, file_path);
+            let counts = parsed
+                .changed_files_summary
+                .iter()
+                .find(|summary| summary.file_path == *file_path)
+                .map(changed_file_counts_from_summary)
+                .unwrap_or_else(|| changed_file_counts(prism, &parsed.changed_symbols, file_path));
             views.push(ChangedFileView {
                 path: file_path.clone(),
                 event_id: parsed.event_id.clone(),
@@ -200,6 +217,7 @@ fn parse_patch_event(prism: &Prism, event: &OutcomeEvent) -> ParsedPatchEvent {
         summary: event.summary.clone(),
         trigger: metadata.trigger.clone(),
         files: patch_files(prism, event, &metadata),
+        changed_files_summary: metadata.changed_files_summary.clone().unwrap_or_default(),
         changed_symbols: patch_changed_symbols(prism, event, &metadata),
     }
 }
@@ -318,6 +336,15 @@ struct ChangedFileCounts {
     added_count: usize,
     removed_count: usize,
     updated_count: usize,
+}
+
+fn changed_file_counts_from_summary(summary: &PatchChangedFileSummary) -> ChangedFileCounts {
+    ChangedFileCounts {
+        changed_symbol_count: summary.changed_symbol_count,
+        added_count: summary.added_count,
+        removed_count: summary.removed_count,
+        updated_count: summary.updated_count,
+    }
 }
 
 fn changed_file_counts(

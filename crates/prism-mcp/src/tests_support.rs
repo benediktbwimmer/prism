@@ -91,7 +91,9 @@ pub(crate) fn repo_workspace_root() -> PathBuf {
 
 pub(crate) fn wait_for_completed_curator_job(session: &WorkspaceSession) -> String {
     for _ in 0..200 {
-        let snapshot = session.curator_snapshot();
+        let snapshot = session
+            .curator_snapshot()
+            .expect("curator snapshot should load");
         if let Some(record) = snapshot
             .records
             .iter()
@@ -101,7 +103,9 @@ pub(crate) fn wait_for_completed_curator_job(session: &WorkspaceSession) -> Stri
         }
         thread::sleep(Duration::from_millis(50));
     }
-    let snapshot = session.curator_snapshot();
+    let snapshot = session
+        .curator_snapshot()
+        .expect("curator snapshot should load");
     panic!(
         "timed out waiting for completed curator job; statuses: {:?}",
         snapshot
