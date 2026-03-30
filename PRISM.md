@@ -5,7 +5,7 @@
 
 ## Overview
 
-- Active repo concepts: 92
+- Active repo concepts: 94
 - Active repo relations: 203
 - Full concept catalog: `docs/prism/concepts.md`
 - Full relation catalog: `docs/prism/relations.md`

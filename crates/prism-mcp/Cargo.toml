@@ -37,3 +37,4 @@ tracing-subscriber.workspace = true
 [dev-dependencies]
 prism-history = { path = "../prism-history" }
 prism-store = { path = "../prism-store" }
+tower = { version = "0.5", features = ["util"] }

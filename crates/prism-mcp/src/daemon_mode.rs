@@ -19,6 +19,7 @@ use tracing::{debug, info, warn};
 use crate::dashboard_router::{routes as dashboard_routes, DashboardAppState};
 use crate::proxy_server::ProxyMcpServer;
 use crate::runtime_state;
+use crate::ui_router::{routes as prism_ui_routes, PrismUiState};
 use crate::{PrismMcpCli, PrismMcpServer};
 
 const DEFAULT_DAEMON_START_TIMEOUT_MS: u64 = 60_000;
@@ -100,9 +101,13 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         host: Arc::clone(&server.host),
         root: root.to_path_buf(),
     };
+    let prism_ui_state = PrismUiState {
+        root: root.to_path_buf(),
+    };
     let router = Router::new()
         .route(&health_path, get(http_health))
         .nest_service(&mcp_path, service)
+        .merge(prism_ui_routes(prism_ui_state))
         .merge(dashboard_routes(dashboard_state));
 
     axum::serve(listener, router)

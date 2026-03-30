@@ -4,7 +4,7 @@ use std::sync::Arc;
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::sse::{KeepAlive, Sse};
-use axum::response::{Html, IntoResponse};
+use axum::response::IntoResponse;
 use axum::routing::{get, get_service};
 use axum::{Json, Router};
 use serde::Deserialize;
@@ -17,9 +17,7 @@ use crate::dashboard_types::{
 };
 use crate::runtime_views::runtime_status;
 use crate::{
-    dashboard_assets::{
-        dashboard_assets_dir, dashboard_dist_dir, dashboard_index_html, dashboard_unbuilt_html,
-    },
+    ui_assets::{prism_ui_assets_dir, prism_ui_dist_dir},
     QueryHost,
 };
 
@@ -36,10 +34,9 @@ struct OperationsQuery {
 }
 
 pub(crate) fn routes(state: DashboardAppState) -> Router {
-    let assets_dir = dashboard_assets_dir(&state.root);
-    let favicon_path = dashboard_dist_dir(&state.root).join("favicon.svg");
+    let assets_dir = prism_ui_assets_dir(&state.root);
+    let favicon_path = prism_ui_dist_dir(&state.root).join("favicon.svg");
     Router::new()
-        .route("/dashboard", get(dashboard_index))
         .route_service(
             "/dashboard/favicon.svg",
             get_service(ServeFile::new(favicon_path)),
@@ -61,16 +58,6 @@ pub(crate) fn routes(state: DashboardAppState) -> Router {
         .route("/dashboard/events", get(dashboard_events))
         .nest_service("/dashboard/assets", get_service(ServeDir::new(assets_dir)))
         .with_state(state)
-}
-
-async fn dashboard_index(
-    State(state): State<DashboardAppState>,
-) -> std::result::Result<Html<String>, (StatusCode, String)> {
-    match dashboard_index_html(&state.root) {
-        Ok(Some(html)) => Ok(Html(html)),
-        Ok(None) => Ok(Html(dashboard_unbuilt_html(&state.root))),
-        Err(error) => Err(internal_error(error)),
-    }
 }
 
 async fn dashboard_bootstrap(

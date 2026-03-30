@@ -5,7 +5,7 @@
 
 ## Overview
 
-- Active repo concepts: 92
+- Active repo concepts: 94
 - Active repo relations: 203
 
 ## Published Concepts
@@ -42,6 +42,7 @@
 - `dashboard routing and assets` (`concept://dashboard_routing_and_assets`): dashboard modules inside prism-mcp that define browser-facing routes, static assets, and typed payload boundaries for the PRISM dashboard surface.
 - `dashboard surface` (`concept://dashboard_surface`): First-class observability and UI surface inside prism-mcp that publishes dashboard read models, event streams, and router endpoints instead of reusing the raw MCP tool catalog.
 - `document and config adapters` (`concept://document_and_config_adapters`): Markdown, JSON, TOML, and YAML adapter modules that map documents and configuration files into PRISM IR and intent surfaces.
+- `facade_modularity_rule` (`concept://facade_modularity_rule`): Repo-wide architectural rule that keeps `main.rs` and `lib.rs` as thin facades and pushes substantive logic into dedicated modules.
 - `graph, identity, and parse IR` (`concept://graph_identity_and_parse_ir`): Core prism-ir modules that define graph objects, stable ids, primitive spans/types, and parser-side unresolved payloads consumed by the rest of PRISM.
 - `history snapshot and resolution` (`concept://history_snapshot_and_resolution`): prism-history modules that resolve lineage, materialize snapshots, and expose the history store used to replay temporal identity over time.
 - `impact and outcome queries` (`concept://impact_and_outcome_queries`): prism-query modules that compute blast radius, co-change, validation recipes, and outcome history context over projected and historical PRISM state.
@@ -68,6 +69,7 @@
 - `parse, resolution, and reanchor flow` (`concept://parse_resolution_and_reanchor_flow`): prism-core modules that parse files, resolve static edges, and infer lineage-preserving reanchors across file moves and symbol changes during refresh.
 - `parser contract and fingerprint utilities` (`concept://parser_contract_and_fingerprint_utilities`): Shared prism-parser contract that defines parse inputs/results, language adapter behavior, intent extraction, document naming, and stable fingerprint helpers reused by every adapter crate.
 - `persistence and history layer` (`concept://persistence_and_history`): SQLite-backed graph and temporal persistence layer that stores structural state, history snapshots, memory projections, and other durable PRISM artifacts.
+- `persistence_split` (`concept://persistence_split`): The target three-plane persistence model that separates repo-published `.prism` truth, shared mutable backend state, and process-local cache/materializations.
 - `plan and coordination IR` (`concept://plan_and_coordination_ir`): prism-ir modules that define plan graphs, blockers, validation refs, claims, capabilities, review states, and other shared coordination schema used above the raw graph layer.
 - `plan and repo-layout publication` (`concept://plan_and_repo_layout_publication`): prism-core modules that govern published plan material, repo layout paths, and supporting helpers used when durable artifacts are written back into the workspace.
 - `plan completion and insight queries` (`concept://plan_completion_and_insight_queries`): prism-query modules that evaluate plan completion, blockers, recommendations, and higher-level plan insights beyond raw runtime overlays.
@@ -1114,6 +1116,28 @@ Aliases: `document adapters`, `config adapters`
 
 - Quality issues here degrade architecture/spec grounding and config search even when code parsing still looks healthy.
 
+## facade_modularity_rule
+
+Handle: `concept://facade_modularity_rule`
+
+Repo-wide architectural rule that keeps `main.rs` and `lib.rs` as thin facades and pushes substantive logic into dedicated modules.
+
+Aliases: `modularity rule`, `facade-only entrypoints`, `lib/main facade rule`
+
+### Core Members
+
+- `prism::document::AGENTS_md::architectural_rule`
+- `prism::document::AGENTS_md::modularity_expectations`
+
+### Evidence
+
+- AGENTS.md defines `main.rs` and `lib.rs` as facade-only files and forbids core logic from accumulating there.
+- The same document requires narrowly scoped modules, explicit ownership, and refactoring away from mixed-purpose entrypoint files.
+
+### Risk Hint
+
+- If this rule drifts, crate boundaries become harder to reason about and the repo architecture degrades into large facade files with hidden business logic.
+
 ## graph, identity, and parse IR
 
 Handle: `concept://graph_identity_and_parse_ir`
@@ -1920,6 +1944,28 @@ Aliases: `storage layer`, `sqlite store`, `history store`
 ### Risk Hint
 
 - Schema or snapshot drift here can invalidate indexing, replay, query correctness, and knowledge hydration.
+
+## persistence_split
+
+Handle: `concept://persistence_split`
+
+The target three-plane persistence model that separates repo-published `.prism` truth, shared mutable backend state, and process-local cache/materializations.
+
+Aliases: `three state planes`, `three-plane persistence`, `persistence split`
+
+### Core Members
+
+- `prism::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::three_state_planes`
+- `prism::document::docs::PERSISTENCE_STATE_CLASSIFICATION_md::boundary_guidance`
+
+### Evidence
+
+- docs/PERSISTENCE_STATE_CLASSIFICATION.md defines the three state planes and states that a shared database complements `.prism`; it does not replace it.
+- The same document distinguishes repo-published knowledge, shared runtime continuity, and process-local cache so derived views and snapshots do not become a second semantic authority.
+
+### Risk Hint
+
+- If this split collapses, PRISM recreates dual truth between published repo knowledge, shared runtime state, and derived snapshots or overlays.
 
 ## plan and coordination IR
 

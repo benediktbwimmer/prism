@@ -43,7 +43,7 @@ body,
 
 body {
   margin: 0;
-  font-family: "SF Pro Display", "Inter", system-ui, sans-serif;
+  font-family: "Avenir Next", "SF Pro Display", "Segoe UI", sans-serif;
   background:
     radial-gradient(circle at top left, rgba(22, 104, 199, 0.12), transparent 28%),
     radial-gradient(circle at bottom right, rgba(234, 88, 12, 0.08), transparent 24%),
@@ -70,7 +70,7 @@ pre {
 .app-shell {
   max-width: 1440px;
   margin: 0 auto;
-  padding: 24px 400px 24px 24px;
+  padding: 24px;
 }
 
 .loading-shell {
@@ -86,6 +86,73 @@ pre {
   border-radius: 24px;
   box-shadow: var(--shadow);
   backdrop-filter: blur(16px);
+}
+
+.shell-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.1fr) auto;
+  gap: 18px;
+  padding: 24px 28px;
+  margin-bottom: 18px;
+}
+
+.brand-stack h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 3vw, 2.8rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+}
+
+.shell-copy {
+  margin: 10px 0 0;
+  color: var(--muted);
+}
+
+.shell-nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-content: start;
+}
+
+.nav-link {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--panel-muted);
+  color: inherit;
+  text-decoration: none;
+}
+
+.nav-link span {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.nav-link small {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.nav-link-active {
+  border-color: rgba(22, 104, 199, 0.28);
+  background: linear-gradient(180deg, rgba(22, 104, 199, 0.14), rgba(22, 104, 199, 0.04));
+}
+
+.shell-controls {
+  display: flex;
+  gap: 12px;
+  align-items: start;
+  justify-content: end;
+  flex-wrap: wrap;
+}
+
+.shell-content,
+.page-stack {
+  display: grid;
+  gap: 16px;
 }
 
 .hero-bar {
@@ -107,6 +174,14 @@ pre {
 .hero-panel h1 {
   margin: 0;
   font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+}
+
+.hero-bar h2,
+.hero-panel h2 {
+  margin: 0;
+  font-size: clamp(1.85rem, 3.6vw, 3rem);
   line-height: 0.98;
   letter-spacing: -0.04em;
 }
@@ -168,7 +243,6 @@ pre {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
-  margin-bottom: 16px;
 }
 
 .stat-card {
@@ -189,9 +263,60 @@ pre {
   line-height: 1.1;
 }
 
+.stat-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.35rem;
+  line-height: 1.1;
+}
+
 .stat-card p {
   margin: 0;
   color: var(--muted);
+}
+
+.overview-grid,
+.route-grid,
+.placeholder-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.route-grid,
+.placeholder-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.route-card,
+.callout-card {
+  padding: 20px;
+}
+
+.route-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.4rem;
+}
+
+.route-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.route-card-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: end;
+  margin-top: 22px;
+}
+
+.placeholder-layout .page-hero,
+.overview-hero {
+  margin-bottom: 0;
+}
+
+.dashboard-page {
+  padding-right: 400px;
 }
 
 .content-grid {
@@ -244,6 +369,24 @@ pre {
   padding: 10px 14px;
   border-radius: 999px;
   background: var(--accent-soft);
+}
+
+.signal-list,
+.placeholder-list {
+  display: grid;
+  gap: 12px;
+}
+
+.signal-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.signal-row:first-child {
+  border-top: 0;
 }
 
 .operation-row,
@@ -497,8 +640,8 @@ pre {
 }
 
 @media (max-width: 1320px) {
-  .app-shell {
-    padding-right: 24px;
+  .dashboard-page {
+    padding-right: 0;
   }
 
   .operation-drawer {
@@ -507,6 +650,13 @@ pre {
 }
 
 @media (max-width: 1100px) {
+  .shell-header,
+  .overview-grid,
+  .route-grid,
+  .placeholder-grid {
+    grid-template-columns: 1fr;
+  }
+
   .status-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -536,15 +686,26 @@ pre {
     padding: 16px;
   }
 
+  .shell-header,
   .hero-bar {
     padding: 24px;
-    flex-direction: column;
-    align-items: start;
   }
 
+  .hero-bar,
   .status-grid,
   .metric-grid,
   .drawer-metrics {
     grid-template-columns: 1fr;
+  }
+
+  .shell-controls,
+  .hero-actions,
+  .route-card-footer {
+    justify-content: start;
+  }
+
+  .hero-bar {
+    flex-direction: column;
+    align-items: start;
   }
 }
