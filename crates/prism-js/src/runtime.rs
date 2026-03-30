@@ -611,6 +611,7 @@ const __prismBase = Object.freeze({
     return __prismHost("concepts", {
       query,
       limit: options?.limit,
+      verbosity: options?.verbosity,
       includeBindingMetadata:
         options?.includeBindingMetadata ?? options?.include_binding_metadata,
     });
@@ -619,6 +620,7 @@ const __prismBase = Object.freeze({
     return __prismHost("concept", {
       query,
       limit: 1,
+      verbosity: options?.verbosity,
       includeBindingMetadata:
         options?.includeBindingMetadata ?? options?.include_binding_metadata,
     });
@@ -626,6 +628,7 @@ const __prismBase = Object.freeze({
   conceptByHandle(handle, options = {}) {
     return __prismHost("conceptByHandle", {
       handle,
+      verbosity: options?.verbosity,
       includeBindingMetadata:
         options?.includeBindingMetadata ?? options?.include_binding_metadata,
     });
@@ -654,6 +657,7 @@ const __prismBase = Object.freeze({
         handle: input?.handle,
         query: input?.query,
         lens: input?.lens ?? "open",
+        verbosity: input?.verbosity,
         includeBindingMetadata:
           input?.includeBindingMetadata ?? input?.include_binding_metadata,
       })
@@ -1278,6 +1282,15 @@ const __prismBase = Object.freeze({
       });
     },
   }),
+  memoryRecall(options = {}) {
+    return prism.memory.recall(options);
+  },
+  memoryOutcomes(options = {}) {
+    return prism.memory.outcomes(options);
+  },
+  memoryEvents(options = {}) {
+    return prism.memory.events(options);
+  },
   curator: Object.freeze({
     jobs(options = {}) {
       return __prismHost("curatorJobs", options);

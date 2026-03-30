@@ -119,6 +119,10 @@ impl Graph {
         self.file_paths.get(&file_id)
     }
 
+    pub fn file_id(&self, path: &Path) -> Option<FileId> {
+        self.path_to_file.get(path).copied()
+    }
+
     pub fn file_record(&self, path: &Path) -> Option<&FileRecord> {
         self.file_records.get(path)
     }

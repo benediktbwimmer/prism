@@ -52,19 +52,20 @@ use crate::{
     validation_context_view_cached, validation_recipe_view_with, weak_concept_match_reason,
     weak_search_match_diagnostic_data, weak_search_match_reason, where_used, AnchorListArgs,
     CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs, ConceptHandleArgs, ConceptQueryArgs,
-    ContractQueryArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs,
-    CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs, DiscoveryTargetArgs, EditSliceArgs,
-    FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs, McpLogArgs, McpTraceArgs,
-    MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
-    PendingReviewsArgs, PlanNextArgs, PlanNodeTargetArgs, PlanTargetArgs, PlansQueryArgs,
-    PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs,
-    RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchAmbiguityContext, SearchArgs,
-    SearchTextArgs, SemanticContextCache, SessionState, SimulateClaimArgs, SourceExcerptArgs,
-    SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode,
-    TaskTargetArgs, ToolNameArgs, ToolValidationArgs, ValidationFeedbackArgs, WhereUsedArgs,
-    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER,
-    QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
+    ConceptVerbosity, ContractQueryArgs, CoordinationTaskTargetArgs, CuratorJobArgs,
+    CuratorJobsArgs, CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs, DiscoveryTargetArgs,
+    EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs, McpLogArgs,
+    McpTraceArgs, MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput,
+    OwnerLookupArgs, PendingReviewsArgs, PlanNextArgs, PlanNodeTargetArgs, PlanTargetArgs,
+    PlansQueryArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun,
+    QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchAmbiguityContext,
+    SearchArgs, SearchTextArgs, SemanticContextCache, SessionState, SimulateClaimArgs,
+    SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs,
+    TaskScopeMode, TaskTargetArgs, ToolNameArgs, ToolValidationArgs, ValidationFeedbackArgs,
+    WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
+    QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER,
+    USER_SNIPPET_MARKER,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -910,7 +911,10 @@ impl QueryExecution {
                     let args: AnchorListArgs = serde_json::from_value(args)?;
                     Ok(serde_json::to_value(
                         self.prism
-                            .claims(&convert_anchors(args.anchors)?, current_timestamp())
+                            .claims(
+                                &convert_anchors(&self.prism, self.workspace_root(), args.anchors)?,
+                                current_timestamp(),
+                            )
                             .into_iter()
                             .map(claim_view)
                             .collect::<Vec<_>>(),
@@ -920,7 +924,10 @@ impl QueryExecution {
                     let args: AnchorListArgs = serde_json::from_value(args)?;
                     Ok(serde_json::to_value(
                         self.prism
-                            .conflicts(&convert_anchors(args.anchors)?, current_timestamp())
+                            .conflicts(
+                                &convert_anchors(&self.prism, self.workspace_root(), args.anchors)?,
+                                current_timestamp(),
+                            )
                             .into_iter()
                             .map(conflict_view)
                             .collect::<Vec<_>>(),
@@ -1188,7 +1195,7 @@ impl QueryExecution {
                         self.prism
                             .simulate_claim(
                                 &self.session.session_id(),
-                                &convert_anchors(args.anchors)?,
+                                &convert_anchors(&self.prism, self.workspace_root(), args.anchors)?,
                                 convert_capability(args.capability),
                                 args.mode.map(convert_claim_mode),
                                 args.task_id
@@ -2622,6 +2629,7 @@ impl QueryExecution {
     }
 
     fn concepts(&self, args: ConceptQueryArgs) -> Result<Vec<ConceptPacketView>> {
+        let verbosity = parse_concept_verbosity(args.verbosity.as_deref(), "prism.concepts")?;
         let requested = args.limit.unwrap_or(5);
         let applied = requested.min(self.session.limits().max_result_nodes);
         if requested > applied {
@@ -2646,6 +2654,7 @@ impl QueryExecution {
             concept_packet_view(
                 self.prism.as_ref(),
                 packet,
+                verbosity,
                 args.include_binding_metadata.unwrap_or(false),
                 Some(resolution),
             )
@@ -2662,6 +2671,7 @@ impl QueryExecution {
     }
 
     fn concept(&self, args: ConceptQueryArgs) -> Result<Option<ConceptPacketView>> {
+        let verbosity = parse_concept_verbosity(args.verbosity.as_deref(), "prism.concept")?;
         let resolutions = resolve_concepts_for_session(
             self.prism.as_ref(),
             self.session.as_ref(),
@@ -2708,6 +2718,7 @@ impl QueryExecution {
             concept_packet_view(
                 self.prism.as_ref(),
                 packet,
+                verbosity,
                 args.include_binding_metadata.unwrap_or(false),
                 Some(resolution),
             )
@@ -2723,10 +2734,13 @@ impl QueryExecution {
     }
 
     fn concept_by_handle(&self, args: ConceptHandleArgs) -> Result<Option<ConceptPacketView>> {
+        let verbosity =
+            parse_concept_verbosity(args.verbosity.as_deref(), "prism.conceptByHandle")?;
         let concept = self.prism.concept_by_handle(&args.handle).map(|packet| {
             concept_packet_view(
                 self.prism.as_ref(),
                 packet,
+                verbosity,
                 args.include_binding_metadata.unwrap_or(false),
                 None,
             )
@@ -2810,6 +2824,7 @@ impl QueryExecution {
 
     fn decode_concept(&self, args: DecodeConceptArgs) -> Result<Option<ConceptDecodeView>> {
         let lens = parse_concept_lens(&args.lens)?;
+        let verbosity = parse_concept_verbosity(args.verbosity.as_deref(), "prism.decodeConcept")?;
         let packet: Option<prism_query::ConceptPacket> =
             match (args.handle.as_deref(), args.query.as_deref()) {
                 (Some(handle), _) => self.prism.concept_by_handle(handle),
@@ -2842,6 +2857,7 @@ impl QueryExecution {
         let concept_view = concept_packet_view(
             self.prism.as_ref(),
             packet.clone(),
+            verbosity,
             args.include_binding_metadata.unwrap_or(false),
             None,
         );
@@ -3121,6 +3137,20 @@ fn parse_concept_lens(value: &str) -> Result<ConceptDecodeLens> {
         other => Err(invalid_query_argument_error(
             "prism.concept",
             format!("unknown concept lens `{other}`"),
+        )),
+    }
+}
+
+fn parse_concept_verbosity(value: Option<&str>, operation: &str) -> Result<ConceptVerbosity> {
+    match value.unwrap_or("full").trim().to_ascii_lowercase().as_str() {
+        "summary" => Ok(ConceptVerbosity::Summary),
+        "standard" => Ok(ConceptVerbosity::Standard),
+        "full" => Ok(ConceptVerbosity::Full),
+        other => Err(invalid_query_argument_error(
+            operation,
+            format!(
+                "unknown concept verbosity `{other}`; expected `summary`, `standard`, or `full`"
+            ),
         )),
     }
 }

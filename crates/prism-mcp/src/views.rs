@@ -34,6 +34,47 @@ use serde_json::Value;
 
 use crate::{normalize_query_diagnostic, InferredEdgeRecordView, SessionState};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ConceptVerbosity {
+    Summary,
+    Standard,
+    Full,
+}
+
+impl ConceptVerbosity {
+    pub(crate) fn max_member_count(self) -> Option<usize> {
+        match self {
+            Self::Summary => Some(3),
+            Self::Standard => Some(8),
+            Self::Full => None,
+        }
+    }
+
+    pub(crate) fn max_evidence_count(self) -> Option<usize> {
+        match self {
+            Self::Summary => Some(2),
+            Self::Standard => Some(4),
+            Self::Full => None,
+        }
+    }
+
+    pub(crate) fn max_relation_count(self) -> Option<usize> {
+        match self {
+            Self::Summary => Some(6),
+            Self::Standard => Some(12),
+            Self::Full => None,
+        }
+    }
+
+    pub(crate) fn max_relation_evidence_count(self) -> Option<usize> {
+        match self {
+            Self::Summary => Some(0),
+            Self::Standard => Some(1),
+            Self::Full => None,
+        }
+    }
+}
+
 pub(crate) fn curator_job_view(record: CuratorJobRecord) -> Result<CuratorJobView> {
     let id = record.id.0.clone();
     let trigger = curator_trigger_label(&record.job.trigger).to_owned();
@@ -253,6 +294,7 @@ pub(crate) fn concept_decode_lens_view(lens: ConceptDecodeLens) -> ConceptDecode
 pub(crate) fn concept_packet_view(
     prism: &Prism,
     packet: ConceptPacket,
+    verbosity: ConceptVerbosity,
     include_binding_metadata: bool,
     resolution: Option<ConceptResolution>,
 ) -> ConceptPacketView {
@@ -263,14 +305,23 @@ pub(crate) fn concept_packet_view(
         summary: packet.summary,
         aliases: packet.aliases,
         confidence: packet.confidence,
-        core_members: packet.core_members.into_iter().map(node_id_view).collect(),
-        supporting_members: packet
-            .supporting_members
-            .into_iter()
-            .map(node_id_view)
-            .collect(),
-        likely_tests: packet.likely_tests.into_iter().map(node_id_view).collect(),
-        evidence: packet.evidence,
+        core_members: truncate_vec(
+            packet.core_members.into_iter().map(node_id_view).collect(),
+            verbosity.max_member_count(),
+        ),
+        supporting_members: truncate_vec(
+            packet
+                .supporting_members
+                .into_iter()
+                .map(node_id_view)
+                .collect(),
+            verbosity.max_member_count(),
+        ),
+        likely_tests: truncate_vec(
+            packet.likely_tests.into_iter().map(node_id_view).collect(),
+            verbosity.max_member_count(),
+        ),
+        evidence: truncate_vec(packet.evidence, verbosity.max_evidence_count()),
         risk_hint: packet.risk_hint,
         decode_lenses: packet
             .decode_lenses
@@ -280,11 +331,14 @@ pub(crate) fn concept_packet_view(
         scope: concept_scope_view(packet.scope),
         provenance: concept_provenance_view(packet.provenance),
         publication: packet.publication.map(concept_publication_view),
-        relations: prism
-            .concept_relations_for_handle(&handle)
-            .into_iter()
-            .map(|relation| concept_relation_view(prism, &handle, relation))
-            .collect(),
+        relations: truncate_concept_relations(
+            prism
+                .concept_relations_for_handle(&handle)
+                .into_iter()
+                .map(|relation| concept_relation_view(prism, &handle, relation))
+                .collect(),
+            verbosity,
+        ),
         resolution: resolution.map(concept_resolution_view),
         binding_metadata: include_binding_metadata.then(|| ConceptBindingMetadataView {
             core_member_lineages: packet
@@ -304,6 +358,27 @@ pub(crate) fn concept_packet_view(
                 .collect(),
         }),
     }
+}
+
+pub(crate) fn truncate_concept_relations(
+    relations: Vec<ConceptRelationView>,
+    verbosity: ConceptVerbosity,
+) -> Vec<ConceptRelationView> {
+    truncate_vec(relations, verbosity.max_relation_count())
+        .into_iter()
+        .map(|mut relation| {
+            relation.evidence =
+                truncate_vec(relation.evidence, verbosity.max_relation_evidence_count());
+            relation
+        })
+        .collect()
+}
+
+pub(crate) fn truncate_vec<T>(mut items: Vec<T>, limit: Option<usize>) -> Vec<T> {
+    if let Some(limit) = limit {
+        items.truncate(limit);
+    }
+    items
 }
 
 pub(crate) fn concept_relation_view(

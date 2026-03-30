@@ -5331,6 +5331,7 @@ pub fn start_task() {}
                 handle: None,
                 query: Some("validation".to_string()),
                 lens: Some(PrismConceptLensInput::Validation),
+                verbosity: None,
                 include_binding_metadata: Some(true),
             },
         )
@@ -5349,6 +5350,206 @@ pub fn start_task() {}
         .as_ref()
         .and_then(|decode| decode.validation_recipe.as_ref())
         .is_some());
+}
+
+#[test]
+fn compact_concept_summary_verbosity_trims_relations_and_evidence() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn validation_recipe() {}
+pub fn runtime_status() {}
+pub fn start_task() {}
+pub fn read_context() {}
+pub fn edit_context() {}
+pub fn validation_context() {}
+pub fn task_journal() {}
+pub fn task_risk() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+    host.store_concept(
+        session.as_ref(),
+        PrismConceptMutationArgs {
+            operation: ConceptMutationOperationInput::Promote,
+            handle: Some("concept://summary_validation".to_string()),
+            canonical_name: Some("summary_validation".to_string()),
+            summary: Some("Validation concept used to test compact verbosity.".to_string()),
+            aliases: Some(vec!["validation".to_string(), "checks".to_string()]),
+            core_members: Some(vec![
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::validation_recipe".to_string(),
+                    kind: "function".to_string(),
+                },
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::runtime_status".to_string(),
+                    kind: "function".to_string(),
+                },
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::start_task".to_string(),
+                    kind: "function".to_string(),
+                },
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::read_context".to_string(),
+                    kind: "function".to_string(),
+                },
+            ]),
+            supporting_members: Some(vec![
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::edit_context".to_string(),
+                    kind: "function".to_string(),
+                },
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::validation_context".to_string(),
+                    kind: "function".to_string(),
+                },
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::task_journal".to_string(),
+                    kind: "function".to_string(),
+                },
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::task_risk".to_string(),
+                    kind: "function".to_string(),
+                },
+            ]),
+            likely_tests: None,
+            evidence: Some(vec![
+                "Curated in test.".to_string(),
+                "Second evidence string.".to_string(),
+                "Third evidence string.".to_string(),
+            ]),
+            risk_hint: None,
+            confidence: Some(0.91),
+            decode_lenses: Some(vec![PrismConceptLensInput::Validation]),
+            scope: Some(ConceptScopeInput::Session),
+            supersedes: None,
+            retirement_reason: None,
+            task_id: Some("task:compact-concept-summary".to_string()),
+        },
+    )
+    .expect("concept setup should succeed");
+    host.store_concept(
+        session.as_ref(),
+        PrismConceptMutationArgs {
+            operation: ConceptMutationOperationInput::Promote,
+            handle: Some("concept://runtime_surface".to_string()),
+            canonical_name: Some("runtime_surface".to_string()),
+            summary: Some("Runtime-facing status helpers.".to_string()),
+            aliases: Some(vec!["runtime".to_string()]),
+            core_members: Some(vec![NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::runtime_status".to_string(),
+                kind: "function".to_string(),
+            }]),
+            supporting_members: None,
+            likely_tests: None,
+            evidence: Some(vec!["Seeded as the relation target in test.".to_string()]),
+            risk_hint: None,
+            confidence: Some(0.85),
+            decode_lenses: Some(vec![PrismConceptLensInput::Open]),
+            scope: Some(ConceptScopeInput::Session),
+            supersedes: None,
+            retirement_reason: None,
+            task_id: Some("task:compact-concept-summary".to_string()),
+        },
+    )
+    .expect("target concept setup should succeed");
+    host.store_concept_relation(
+        session.as_ref(),
+        PrismConceptRelationMutationArgs {
+            operation: ConceptRelationMutationOperationInput::Upsert,
+            source_handle: "concept://summary_validation".to_string(),
+            target_handle: "concept://runtime_surface".to_string(),
+            kind: ConceptRelationKindInput::DependsOn,
+            confidence: Some(0.9),
+            evidence: Some(vec![
+                "Depends on runtime status plumbing.".to_string(),
+                "Second relation evidence.".to_string(),
+            ]),
+            scope: Some(ConceptScopeInput::Session),
+            task_id: Some("task:compact-concept-summary".to_string()),
+        },
+    )
+    .expect("relation setup should succeed");
+
+    let concept = host
+        .compact_concept(
+            Arc::clone(&session),
+            PrismConceptArgs {
+                handle: None,
+                query: Some("validation".to_string()),
+                lens: Some(PrismConceptLensInput::Validation),
+                verbosity: Some(PrismConceptVerbosityInput::Summary),
+                include_binding_metadata: Some(false),
+            },
+        )
+        .expect("concept tool should succeed");
+
+    assert!(concept.packet.core_members.len() <= 3);
+    assert!(concept.packet.supporting_members.len() <= 3);
+    assert!(concept.packet.evidence.len() <= 2);
+    assert!(concept.packet.relations.len() <= 1);
+    assert!(concept.packet.relations[0].evidence.is_empty());
+    assert!(concept
+        .decode
+        .as_ref()
+        .is_some_and(|decode| decode.concept.relations[0].evidence.is_empty()));
+}
+
+#[test]
+fn prism_query_memory_flat_aliases_remain_compatible() {
+    let host = host_with_node(demo_node());
+
+    host.store_memory(
+        test_session(&host).as_ref(),
+        PrismMemoryArgs {
+            action: MemoryMutationActionInput::Store,
+            payload: json!({
+                "anchors": [{
+                    "type": "node",
+                    "crateName": "demo",
+                    "path": "demo::main",
+                    "kind": "function"
+                }],
+                "kind": "episodic",
+                "content": "main previously regressed on null handling",
+                "trust": 0.9
+            }),
+            task_id: None,
+        },
+    )
+    .expect("note should store");
+
+    let result = host
+        .execute(
+            test_session(&host),
+            r#"
+const sym = prism.symbol("main");
+return prism.memoryRecall({
+  focus: sym ? [sym] : [],
+  text: "null",
+  limit: 5,
+});
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("flat memory alias should succeed");
+
+    assert_eq!(
+        result.result[0]["entry"]["content"],
+        "main previously regressed on null handling"
+    );
 }
 
 #[test]
@@ -5435,6 +5636,7 @@ pub fn healthcheck_status() {}
                 handle: None,
                 query: Some("validation".to_string()),
                 lens: None,
+                verbosity: None,
                 include_binding_metadata: Some(false),
             },
         )
@@ -11856,6 +12058,44 @@ fn validation_feedback_mutation_allows_workspace_level_feedback_without_anchors(
     assert_eq!(entries.len(), 1);
     assert!(entries[0].anchors.is_empty());
     assert_eq!(entries[0].metadata["tool"], "prism_locate");
+}
+
+#[test]
+fn validation_feedback_mutation_accepts_file_anchor_paths() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .store_validation_feedback(
+            test_session(&host).as_ref(),
+            PrismValidationFeedbackArgs {
+                anchors: Some(vec![AnchorRefInput::File {
+                    file_id: None,
+                    path: Some("src/lib.rs".to_string()),
+                }]),
+                context: "direct file-anchor dogfood".to_string(),
+                prism_said: "file anchors require internal ids".to_string(),
+                actually_true: "workspace-relative file paths should resolve safely".to_string(),
+                category: ValidationFeedbackCategoryInput::Projection,
+                verdict: ValidationFeedbackVerdictInput::Wrong,
+                corrected_manually: Some(true),
+                correction: Some("resolved the file through the workspace index".to_string()),
+                metadata: Some(json!({
+                    "tool": "prism_mutate",
+                    "action": "validation_feedback",
+                })),
+                task_id: Some("task:file-anchor-feedback".to_string()),
+            },
+        )
+        .expect("file path anchors should persist");
+
+    assert!(result.entry_id.starts_with("feedback:"));
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let entries = reloaded.validation_feedback(Some(5)).unwrap();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].anchors, vec![AnchorRef::File(FileId(1))]);
+    assert_eq!(entries[0].metadata["action"], "validation_feedback");
 }
 
 #[test]

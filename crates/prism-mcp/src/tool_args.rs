@@ -857,6 +857,14 @@ pub(crate) enum PrismConceptLensInput {
     Memory,
 }
 
+#[derive(Debug, Clone, Copy, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum PrismConceptVerbosityInput {
+    Summary,
+    Standard,
+    Full,
+}
+
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PrismConceptArgs {
@@ -868,6 +876,10 @@ pub(crate) struct PrismConceptArgs {
         description = "Optional decode lens. When provided, also decode the concept into supporting context."
     )]
     pub(crate) lens: Option<PrismConceptLensInput>,
+    #[schemars(
+        description = "Optional concept-packet density. Use `summary` for the lightest packet, `standard` for compact orientation, or `full` for the complete concept payload."
+    )]
+    pub(crate) verbosity: Option<PrismConceptVerbosityInput>,
     #[schemars(
         description = "When true, include lineage-backed binding metadata aligned with the concept member lists."
     )]
@@ -1170,8 +1182,16 @@ pub(crate) enum AnchorRefInput {
         lineage_id: String,
     },
     File {
-        #[serde(rename = "fileId", alias = "file_id")]
-        file_id: u32,
+        #[serde(rename = "fileId", alias = "file_id", default)]
+        #[schemars(
+            description = "Internal file id. Prefer `path` when calling MCP tools directly."
+        )]
+        file_id: Option<u32>,
+        #[serde(default)]
+        #[schemars(
+            description = "Workspace-relative or absolute file path. Preferred over `fileId` for direct MCP tool calls."
+        )]
+        path: Option<String>,
     },
     Kind {
         kind: String,

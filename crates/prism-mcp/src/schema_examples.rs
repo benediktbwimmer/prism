@@ -75,6 +75,7 @@ pub(crate) fn tool_input_example(tool_name: &str) -> Option<Value> {
         "prism_concept" => Some(json!({
             "query": "validation pipeline",
             "lens": "validation",
+            "verbosity": "standard",
         })),
         "prism_query" => Some(json!({
             "code": "return prism.search(\"read context\", { limit: 5, strategy: \"behavioral\", ownerKind: \"read\" });",

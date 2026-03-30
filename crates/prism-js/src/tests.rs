@@ -48,13 +48,15 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs
         .contains("concepts(query: string, options?: ConceptQueryOptions): ConceptPacketView[];"));
     assert!(docs.contains(
-        "conceptByHandle(handle: string, options?: { includeBindingMetadata?: boolean }): ConceptPacketView | null;"
+        "conceptByHandle(handle: string, options?: { verbosity?: \"summary\" | \"standard\" | \"full\"; includeBindingMetadata?: boolean }): ConceptPacketView | null;"
     ));
     assert!(docs.contains("contract(query: string): ContractPacketView | null;"));
     assert!(docs.contains("contractsFor(target: QueryTarget): ContractPacketView[];"));
     assert!(docs.contains("conceptRelations(handle: string): ConceptRelationView[];"));
     assert!(docs.contains("decodeConcept(input:"));
+    assert!(docs.contains("verbosity?: \"summary\" | \"standard\" | \"full\";"));
     assert!(docs.contains("includeBindingMetadata?: boolean;"));
+    assert!(docs.contains("memoryRecall(options?: MemoryRecallOptions): ScoredMemoryView[];"));
     assert!(docs.contains("bindingMetadata?: {"));
     assert!(docs.contains("discovery(target: QueryTarget): DiscoveryBundleView | null;"));
     assert!(docs
@@ -188,6 +190,7 @@ fn api_reference_mentions_primary_tool() {
     assert!(docs.contains("read(options?: FileReadOptions): SourceExcerptView;"));
     assert!(docs.contains("around(options: FileAroundOptions): SourceSliceView;"));
     assert!(docs.contains("prism.memory.recall"));
+    assert!(docs.contains("prism.memoryRecall(...)"));
     assert!(docs.contains("owners(target"));
     assert!(docs.contains("strategy?: \"direct\" | \"behavioral\""));
     assert!(docs.contains("specCluster"));
@@ -278,6 +281,10 @@ fn prelude_exposes_global_prism() {
     assert!(prelude.contains("runtimeTimeline(options = {})"));
     assert!(prelude.contains("runtime: Object.freeze({"));
     assert!(prelude.contains("connection: Object.freeze({"));
+    assert!(prelude.contains("memoryRecall(options = {})"));
+    assert!(prelude.contains("return prism.memory.recall(options);"));
+    assert!(prelude.contains("verbosity: options?.verbosity"));
+    assert!(prelude.contains("verbosity: input?.verbosity"));
     assert!(prelude.contains("return prism.connectionInfo();"));
     assert!(prelude.contains("status() {"));
     assert!(prelude.contains("return prism.runtimeStatus();"));

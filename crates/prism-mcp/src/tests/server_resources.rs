@@ -229,6 +229,8 @@ async fn mcp_server_lists_and_reads_tool_schema_resources() {
     );
     assert!(schema_payload.to_string().contains("\"action\""));
     assert!(schema_payload.to_string().contains("validation_feedback"));
+    assert!(schema_payload.to_string().contains("\"fileId\""));
+    assert!(schema_payload.to_string().contains("\"path\""));
 
     client
         .send(read_resource_request(
@@ -282,6 +284,26 @@ async fn mcp_server_lists_and_reads_tool_schema_resources() {
         .expect("action schema examples")
         .iter()
         .any(|example| example["input"]["kind"] == "task_create"));
+
+    client
+        .send(read_resource_request(
+            7,
+            "prism://schema/tool/prism_mutate/action/validation_feedback",
+        ))
+        .await
+        .unwrap();
+    let validation_feedback_schema = response_json(client.receive().await.unwrap());
+    let validation_feedback_schema_text = validation_feedback_schema["result"]["contents"][0]
+        ["text"]
+        .as_str()
+        .unwrap_or_else(|| {
+            panic!(
+                "validation feedback action schema should be text: {validation_feedback_schema:#?}"
+            )
+        });
+    assert!(validation_feedback_schema_text.contains("\"fileId\""));
+    assert!(validation_feedback_schema_text.contains("\"path\""));
+    assert!(validation_feedback_schema_text.contains("Preferred over `fileId`"));
 
     running.cancel().await.unwrap();
 }

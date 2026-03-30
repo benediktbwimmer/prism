@@ -110,6 +110,7 @@ type SearchOptions = {
 
 type ConceptQueryOptions = {
   limit?: number;
+  verbosity?: "summary" | "standard" | "full";
   includeBindingMetadata?: boolean;
 };
 
@@ -294,11 +295,11 @@ type PrismApi = {
   search(query: string, options?: SearchOptions): SymbolView[];
   concepts(query: string, options?: ConceptQueryOptions): ConceptPacketView[];
   concept(query: string, options?: ConceptQueryOptions): ConceptPacketView | null;
-  conceptByHandle(handle: string, options?: { includeBindingMetadata?: boolean }): ConceptPacketView | null;
+  conceptByHandle(handle: string, options?: { verbosity?: "summary" | "standard" | "full"; includeBindingMetadata?: boolean }): ConceptPacketView | null;
   contract(query: string): ContractPacketView | null;
   contractsFor(target: QueryTarget): ContractPacketView[];
   conceptRelations(handle: string): ConceptRelationView[];
-  decodeConcept(input: { handle?: string; query?: string; lens?: "open" | "workset" | "validation" | "timeline" | "memory"; includeBindingMetadata?: boolean }): ConceptDecodeView | null;
+  decodeConcept(input: { handle?: string; query?: string; lens?: "open" | "workset" | "validation" | "timeline" | "memory"; verbosity?: "summary" | "standard" | "full"; includeBindingMetadata?: boolean }): ConceptDecodeView | null;
   searchText(query: string, options?: SearchTextOptions): TextSearchMatchView[];
   textSearchBundle(query: string, options?: TextSearchBundleOptions): TextSearchBundleView;
   tools(): ToolCatalogEntryView[];
@@ -383,6 +384,9 @@ type PrismApi = {
   runtimeLogs(options?: RuntimeLogOptions): RuntimeLogEventView[];
   runtimeTimeline(options?: RuntimeTimelineOptions): RuntimeLogEventView[];
   validationFeedback(options?: ValidationFeedbackOptions): ValidationFeedbackView[];
+  memoryRecall(options?: MemoryRecallOptions): ScoredMemoryView[];
+  memoryOutcomes(options?: MemoryOutcomeOptions): OutcomeEvent[];
+  memoryEvents(options?: MemoryEventOptions): MemoryEventView[];
   connection: {
     info(): ConnectionInfoView;
   };
@@ -2249,6 +2253,10 @@ return prism.memory.recall({
   limit: 5,
 });
 ```
+
+The flat aliases `prism.memoryRecall(...)`, `prism.memoryOutcomes(...)`, and
+`prism.memoryEvents(...)` are also accepted for compatibility, but prefer the namespaced
+`prism.memory.*(...)` form.
 
 ### 28. Query outcome history with filters
 

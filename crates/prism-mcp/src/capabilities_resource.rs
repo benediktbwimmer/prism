@@ -309,19 +309,19 @@ fn query_method_specs() -> Vec<(
             "memoryRecall",
             "memory",
             None,
-            "Recall anchored session memory.",
+            "Recall anchored session memory. In prism_query TypeScript, call `prism.memory.recall(...)`.",
         ),
         (
             "memoryOutcomes",
             "memory",
             None,
-            "Query outcome history with filters.",
+            "Query outcome history with filters. In prism_query TypeScript, call `prism.memory.outcomes(...)`.",
         ),
         (
             "memoryEvents",
             "memory",
             None,
-            "Inspect raw memory event history with scope and provenance filters.",
+            "Inspect raw memory event history with scope and provenance filters. In prism_query TypeScript, call `prism.memory.events(...)`.",
         ),
         (
             "curatorJobs",

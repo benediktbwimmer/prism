@@ -19,7 +19,8 @@ use super::*;
 use crate::{
     concept_decode_lens_view, concept_packet_view, concept_relation_view,
     concept_resolution_is_ambiguous, recent_patches, resolve_concepts_for_session,
-    scored_memory_view, symbol_views_for_ids, validation_recipe_view_with,
+    scored_memory_view, symbol_views_for_ids, truncate_concept_relations, truncate_vec,
+    validation_recipe_view_with, ConceptVerbosity,
 };
 
 const CONCEPT_PATCH_LIMIT: usize = 4;
@@ -55,10 +56,12 @@ impl QueryHost {
                 let prism = host.current_prism();
                 let resolution = resolve_concept_packet(prism.as_ref(), session.as_ref(), &args)?;
                 let packet = resolution.packet.clone();
+                let verbosity = concept_verbosity(args.verbosity);
                 let packet_view = agent_concept_packet_view(
                     session.as_ref(),
                     prism.as_ref(),
                     &packet,
+                    verbosity,
                     Some(resolution.clone()),
                     args.include_binding_metadata.unwrap_or(false),
                 )?;
@@ -67,12 +70,15 @@ impl QueryHost {
                     session.as_ref(),
                     &args,
                     packet.handle.as_str(),
+                    verbosity,
                     args.include_binding_metadata.unwrap_or(false),
                 )?;
                 let decode = args
                     .lens
                     .as_ref()
-                    .map(|lens| decode_concept(session.as_ref(), prism.as_ref(), &packet, lens))
+                    .map(|lens| {
+                        decode_concept(session.as_ref(), prism.as_ref(), &packet, lens, verbosity)
+                    })
                     .transpose()?;
                 Ok((
                     AgentConceptResultView {
@@ -113,12 +119,22 @@ fn agent_concept_packet_view(
     session: &SessionState,
     prism: &Prism,
     packet: &ConceptPacket,
+    verbosity: ConceptVerbosity,
     resolution: Option<prism_query::ConceptResolution>,
     include_binding_metadata: bool,
 ) -> Result<AgentConceptPacketView> {
-    let core_members = compact_handles_for_ids(session, prism, &packet.core_members)?;
-    let supporting_members = compact_handles_for_ids(session, prism, &packet.supporting_members)?;
-    let likely_tests = compact_handles_for_ids(session, prism, &packet.likely_tests)?;
+    let core_members = truncate_vec(
+        compact_handles_for_ids(session, prism, &packet.core_members)?,
+        verbosity.max_member_count(),
+    );
+    let supporting_members = truncate_vec(
+        compact_handles_for_ids(session, prism, &packet.supporting_members)?,
+        verbosity.max_member_count(),
+    );
+    let likely_tests = truncate_vec(
+        compact_handles_for_ids(session, prism, &packet.likely_tests)?,
+        verbosity.max_member_count(),
+    );
     let primary_handle = core_members.first().map(|member| member.handle.clone());
     let suggested_actions = compact_concept_suggested_actions(primary_handle.as_deref(), packet);
     Ok(AgentConceptPacketView {
@@ -130,7 +146,7 @@ fn agent_concept_packet_view(
         core_members,
         supporting_members,
         likely_tests,
-        evidence: packet.evidence.clone(),
+        evidence: truncate_vec(packet.evidence.clone(), verbosity.max_evidence_count()),
         risk_hint: packet.risk_hint.clone(),
         decode_lenses: packet
             .decode_lenses
@@ -162,11 +178,14 @@ fn agent_concept_packet_view(
                 retired_at: publication.retired_at,
                 retirement_reason: publication.retirement_reason,
             }),
-        relations: prism
-            .concept_relations_for_handle(&packet.handle)
-            .into_iter()
-            .map(|relation| concept_relation_view(prism, &packet.handle, relation))
-            .collect(),
+        relations: truncate_concept_relations(
+            prism
+                .concept_relations_for_handle(&packet.handle)
+                .into_iter()
+                .map(|relation| concept_relation_view(prism, &packet.handle, relation))
+                .collect(),
+            verbosity,
+        ),
         resolution: resolution.map(|resolution| ConceptResolutionView {
             score: resolution.score,
             reasons: resolution.reasons,
@@ -203,6 +222,7 @@ fn resolve_concept_alternates(
     session: &SessionState,
     args: &PrismConceptArgs,
     selected_handle: &str,
+    verbosity: ConceptVerbosity,
     include_binding_metadata: bool,
 ) -> Result<Vec<AgentConceptPacketView>> {
     let Some(query) = args.query.as_deref() else {
@@ -221,6 +241,7 @@ fn resolve_concept_alternates(
                 session,
                 prism,
                 &packet,
+                verbosity,
                 Some(resolution),
                 include_binding_metadata,
             )
@@ -399,8 +420,9 @@ fn decode_concept(
     prism: &Prism,
     packet: &ConceptPacket,
     lens: &crate::PrismConceptLensInput,
+    verbosity: ConceptVerbosity,
 ) -> Result<ConceptDecodeView> {
-    let concept = concept_packet_view(prism, packet.clone(), false, None);
+    let concept = concept_packet_view(prism, packet.clone(), verbosity, false, None);
     let members = symbol_views_for_ids(prism, packet.core_members.clone())?;
     let primary = members.first().cloned();
     let supporting_reads = symbol_views_for_ids(prism, packet.supporting_members.clone())?;
@@ -453,6 +475,14 @@ fn decode_concept(
         validation_recipe,
         evidence: packet.evidence.clone(),
     })
+}
+
+fn concept_verbosity(input: Option<crate::PrismConceptVerbosityInput>) -> ConceptVerbosity {
+    match input.unwrap_or(crate::PrismConceptVerbosityInput::Standard) {
+        crate::PrismConceptVerbosityInput::Summary => ConceptVerbosity::Summary,
+        crate::PrismConceptVerbosityInput::Standard => ConceptVerbosity::Standard,
+        crate::PrismConceptVerbosityInput::Full => ConceptVerbosity::Full,
+    }
 }
 
 fn concept_recent_patches(

@@ -9,7 +9,9 @@ use prism_ir::{
 use prism_memory::{
     MemoryEventKind, MemoryKind, MemoryScope, OutcomeEvidence, OutcomeKind, OutcomeResult,
 };
+use prism_query::Prism;
 use serde::Deserialize;
+use std::path::{Path, PathBuf};
 
 use crate::tool_args::ValidationRefPayload;
 use crate::{
@@ -69,6 +71,7 @@ pub(crate) struct SearchArgs {
 pub(crate) struct ConceptQueryArgs {
     pub(crate) query: String,
     pub(crate) limit: Option<usize>,
+    pub(crate) verbosity: Option<String>,
     pub(crate) include_binding_metadata: Option<bool>,
 }
 
@@ -76,6 +79,7 @@ pub(crate) struct ConceptQueryArgs {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ConceptHandleArgs {
     pub(crate) handle: String,
+    pub(crate) verbosity: Option<String>,
     pub(crate) include_binding_metadata: Option<bool>,
 }
 
@@ -91,6 +95,7 @@ pub(crate) struct DecodeConceptArgs {
     pub(crate) handle: Option<String>,
     pub(crate) query: Option<String>,
     pub(crate) lens: String,
+    pub(crate) verbosity: Option<String>,
     pub(crate) include_binding_metadata: Option<bool>,
 }
 
@@ -476,7 +481,25 @@ pub(crate) fn convert_node_id(input: NodeIdInput) -> Result<NodeId> {
     ))
 }
 
-pub(crate) fn convert_anchors(inputs: Vec<AnchorRefInput>) -> Result<Vec<AnchorRef>> {
+fn resolve_anchor_file_path(path: &str, workspace_root: Option<&Path>) -> Result<PathBuf> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return Err(anyhow!("file anchors require a non-empty `path`"));
+    }
+    let candidate = PathBuf::from(trimmed);
+    if candidate.is_absolute() {
+        return Ok(candidate);
+    }
+    let root = workspace_root
+        .ok_or_else(|| anyhow!("relative file anchors require a workspace-backed PRISM session"))?;
+    Ok(root.join(candidate))
+}
+
+pub(crate) fn convert_anchors(
+    prism: &Prism,
+    workspace_root: Option<&Path>,
+    inputs: Vec<AnchorRefInput>,
+) -> Result<Vec<AnchorRef>> {
     inputs
         .into_iter()
         .map(|input| match input {
@@ -492,7 +515,39 @@ pub(crate) fn convert_anchors(inputs: Vec<AnchorRefInput>) -> Result<Vec<AnchorR
             AnchorRefInput::Lineage { lineage_id } => {
                 Ok(AnchorRef::Lineage(prism_ir::LineageId::new(lineage_id)))
             }
-            AnchorRefInput::File { file_id } => Ok(AnchorRef::File(prism_ir::FileId(file_id))),
+            AnchorRefInput::File { file_id, path } => {
+                let resolved_from_path = match path {
+                    Some(path) => {
+                        let file_path = resolve_anchor_file_path(&path, workspace_root)?;
+                        let file_id = prism.graph().file_id(&file_path).ok_or_else(|| {
+                            anyhow!(
+                                "file anchor path `{}` does not match any indexed workspace file",
+                                file_path.display()
+                            )
+                        })?;
+                        Some((file_path, file_id))
+                    }
+                    None => None,
+                };
+                match (file_id, resolved_from_path) {
+                    (Some(file_id), Some((file_path, resolved_file_id))) => {
+                        if resolved_file_id.0 != file_id {
+                            return Err(anyhow!(
+                                "file anchor `fileId` {} does not match resolved path `{}` (expected fileId {}).",
+                                file_id,
+                                file_path.display(),
+                                resolved_file_id.0
+                            ));
+                        }
+                        Ok(AnchorRef::File(prism_ir::FileId(file_id)))
+                    }
+                    (Some(file_id), None) => Ok(AnchorRef::File(prism_ir::FileId(file_id))),
+                    (None, Some((_, resolved_file_id))) => Ok(AnchorRef::File(resolved_file_id)),
+                    (None, None) => Err(anyhow!(
+                        "file anchors require either `fileId` or `path`"
+                    )),
+                }
+            }
             AnchorRefInput::Kind { kind } => Ok(AnchorRef::Kind(parse_node_kind(&kind)?)),
         })
         .collect()
@@ -723,6 +778,8 @@ pub(crate) fn convert_policy(
 }
 
 pub(crate) fn convert_acceptance(
+    prism: &Prism,
+    workspace_root: Option<&Path>,
     payload: Option<Vec<AcceptanceCriterionPayload>>,
 ) -> Result<Vec<AcceptanceCriterion>> {
     payload
@@ -731,13 +788,19 @@ pub(crate) fn convert_acceptance(
         .map(|criterion| {
             Ok(AcceptanceCriterion {
                 label: criterion.label,
-                anchors: convert_anchors(criterion.anchors.unwrap_or_default())?,
+                anchors: convert_anchors(
+                    prism,
+                    workspace_root,
+                    criterion.anchors.unwrap_or_default(),
+                )?,
             })
         })
         .collect()
 }
 
 pub(crate) fn convert_plan_acceptance(
+    prism: &Prism,
+    workspace_root: Option<&Path>,
     payload: Option<Vec<AcceptanceCriterionPayload>>,
 ) -> Result<Vec<PlanAcceptanceCriterion>> {
     payload
@@ -746,7 +809,11 @@ pub(crate) fn convert_plan_acceptance(
         .map(|criterion| {
             Ok(PlanAcceptanceCriterion {
                 label: criterion.label,
-                anchors: convert_anchors(criterion.anchors.unwrap_or_default())?,
+                anchors: convert_anchors(
+                    prism,
+                    workspace_root,
+                    criterion.anchors.unwrap_or_default(),
+                )?,
                 required_checks: criterion
                     .required_checks
                     .unwrap_or_default()
@@ -773,6 +840,8 @@ pub(crate) fn convert_validation_refs(
 }
 
 pub(crate) fn convert_plan_binding(
+    prism: &Prism,
+    workspace_root: Option<&Path>,
     explicit_anchors: Option<Vec<AnchorRefInput>>,
     payload: Option<PlanBindingPayload>,
 ) -> Result<Option<PlanBinding>> {
@@ -781,14 +850,17 @@ pub(crate) fn convert_plan_binding(
     }
     let mut binding = PlanBinding::default();
     if let Some(payload) = payload {
-        binding.anchors = convert_anchors(payload.anchors.unwrap_or_default())?;
+        binding.anchors =
+            convert_anchors(prism, workspace_root, payload.anchors.unwrap_or_default())?;
         binding.concept_handles = payload.concept_handles.unwrap_or_default();
         binding.artifact_refs = payload.artifact_refs.unwrap_or_default();
         binding.memory_refs = payload.memory_refs.unwrap_or_default();
         binding.outcome_refs = payload.outcome_refs.unwrap_or_default();
     }
     if let Some(explicit) = explicit_anchors {
-        binding.anchors.extend(convert_anchors(explicit)?);
+        binding
+            .anchors
+            .extend(convert_anchors(prism, workspace_root, explicit)?);
     }
     Ok(Some(binding))
 }

@@ -388,6 +388,18 @@ fn runtime_repair_hint(detail: &str, code: &str) -> Option<String> {
             "Use `prism.runtime.status()`, `prism.runtime.logs(...)`, or `prism.runtime.timeline(...)`. The flat aliases `prism.runtimeStatus()`, `prism.runtimeLogs(...)`, and `prism.runtimeTimeline(...)` still work too.".to_string(),
         );
     }
+    if (code.contains("prism.memory.")
+        || code.contains("prism.memoryRecall")
+        || code.contains("prism.memoryOutcomes")
+        || code.contains("prism.memoryEvents"))
+        && (detail_lower.contains("not a function")
+            || detail_lower.contains("cannot read properties of undefined")
+            || detail_lower.contains("undefined"))
+    {
+        return Some(
+            "Use `prism.memory.recall(...)`, `prism.memory.outcomes(...)`, or `prism.memory.events(...)`. The flat aliases `prism.memoryRecall(...)`, `prism.memoryOutcomes(...)`, and `prism.memoryEvents(...)` are accepted for compatibility too.".to_string(),
+        );
+    }
     None
 }
 
@@ -692,5 +704,23 @@ mod tests {
             .expect("nextAction should be present");
         assert!(next_action.contains("prism.runtime.status()"));
         assert!(next_action.contains("prism.runtimeLogs(...)"));
+    }
+
+    #[test]
+    fn memory_namespace_hint_suggests_valid_memory_helpers() {
+        let runtime = runtime_or_serialization_error(
+            anyhow!(format!(
+                "javascript query evaluation failed: {QUERY_RUNTIME_ERROR_MARKER}\n{USER_SNIPPET_LOCATION_MARKER} 1:21\nTypeError: prism.memoryRecall is not a function\n    at __prismUserQuery (eval_script:4:21)"
+            )),
+            "return prism.memoryRecall({ limit: 1 });",
+            4,
+            STATEMENT_BODY_MODE,
+        );
+        let runtime = runtime.downcast::<super::QueryExecutionError>().unwrap();
+        let next_action = runtime.data()["nextAction"]
+            .as_str()
+            .expect("nextAction should be present");
+        assert!(next_action.contains("prism.memory.recall(...)"));
+        assert!(next_action.contains("prism.memoryRecall(...)"));
     }
 }
