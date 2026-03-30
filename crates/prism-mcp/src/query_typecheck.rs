@@ -1,223 +1,24 @@
+use std::collections::HashMap;
+
 use anyhow::Result;
 use deno_ast::swc::ast::{
-    CallExpr, Callee, Expr, ExprOrSpread, Lit, MemberProp, ObjectLit, Program, Prop, PropName,
-    PropOrSpread,
+    BlockStmt, CallExpr, Callee, Expr, ExprOrSpread, Lit, MemberExpr, MemberProp, ObjectLit,
+    OptCall, Pat, Program, Prop, PropName, PropOrSpread, VarDeclarator,
 };
 use deno_ast::swc::common::Spanned;
 use deno_ast::swc::ecma_visit::{Visit, VisitWith};
 use deno_ast::{parse_program, MediaType, ModuleSpecifier, ParseParams, ParsedSource, SourcePos};
+use prism_js::{
+    prism_method_spec, prism_object_property_type, prism_surface_type_for_method, PrismSurfaceType,
+};
 use serde_json::{json, Map, Value};
 
-use crate::{
-    closest_prism_api_path, is_known_prism_api_path, static_typecheck_error, suggest_api_token,
-};
+use crate::{closest_prism_api_path, static_typecheck_error, suggest_api_token};
 
-const CLAIM_PREVIEW_KEYS: &[&str] = &[
-    "anchors",
-    "anchor",
-    "capability",
-    "mode",
-    "taskId",
-    "task_id",
+const ARRAY_BUILTINS: &[&str] = &[
+    "length", "map", "filter", "find", "some", "every", "flatMap", "at", "slice", "join",
+    "includes", "forEach",
 ];
-const CHANGED_FILES_KEYS: &[&str] = &["since", "limit", "taskId", "task_id", "path"];
-const CHANGED_SYMBOLS_KEYS: &[&str] = &["since", "limit", "taskId", "task_id"];
-const COMMAND_MEMORY_KEYS: &[&str] = &["taskId", "task_id"];
-const CONCEPT_KEYS: &[&str] = &[
-    "limit",
-    "verbosity",
-    "includeBindingMetadata",
-    "include_binding_metadata",
-];
-const CURATOR_JOB_KEYS: &[&str] = &["status", "trigger", "limit"];
-const CURATOR_PROPOSALS_KEYS: &[&str] = &[
-    "status",
-    "trigger",
-    "kind",
-    "disposition",
-    "taskId",
-    "task_id",
-    "limit",
-];
-const DECODE_CONCEPT_KEYS: &[&str] = &[
-    "handle",
-    "query",
-    "lens",
-    "verbosity",
-    "includeBindingMetadata",
-    "include_binding_metadata",
-];
-const DIFF_FOR_KEYS: &[&str] = &["since", "limit", "taskId", "task_id"];
-const EXCERPT_KEYS: &[&str] = &["contextLines", "maxLines", "maxChars"];
-const EDIT_SLICE_KEYS: &[&str] = &["beforeLines", "afterLines", "maxLines", "maxChars"];
-const FILE_AROUND_KEYS: &[&str] = &[
-    "line",
-    "before",
-    "after",
-    "beforeLines",
-    "afterLines",
-    "maxChars",
-];
-const FILE_READ_KEYS: &[&str] = &["startLine", "endLine", "maxChars"];
-const IMPLEMENTATION_FOR_KEYS: &[&str] = &["mode", "ownerKind", "owner_kind"];
-const IMPACT_KEYS: &[&str] = &["taskId", "task_id", "target", "paths"];
-const MCP_LOG_KEYS: &[&str] = &[
-    "limit",
-    "since",
-    "callType",
-    "call_type",
-    "name",
-    "taskId",
-    "task_id",
-    "sessionId",
-    "session_id",
-    "success",
-    "minDurationMs",
-    "min_duration_ms",
-    "contains",
-];
-const MEMORY_EVENTS_KEYS: &[&str] = &[
-    "memoryId", "focus", "text", "limit", "kinds", "actions", "scope", "taskId", "task_id", "since",
-];
-const MEMORY_OUTCOMES_KEYS: &[&str] = &[
-    "focus", "taskId", "task_id", "kinds", "result", "actor", "since", "limit",
-];
-const MEMORY_RECALL_KEYS: &[&str] = &["focus", "text", "limit", "kinds", "since"];
-const NEXT_READS_KEYS: &[&str] = &["limit"];
-const OWNERS_KEYS: &[&str] = &["kind", "limit"];
-const PLANS_KEYS: &[&str] = &["status", "scope", "contains", "limit"];
-const POLICY_VIOLATIONS_KEYS: &[&str] = &["planId", "plan_id", "taskId", "task_id", "limit"];
-const QUERY_LOG_KEYS: &[&str] = &[
-    "limit",
-    "since",
-    "target",
-    "operation",
-    "taskId",
-    "task_id",
-    "minDurationMs",
-    "min_duration_ms",
-];
-const RECENT_PATCHES_KEYS: &[&str] = &["target", "since", "limit", "taskId", "task_id", "path"];
-const RUNTIME_LOGS_KEYS: &[&str] = &["limit", "level", "target", "contains"];
-const RUNTIME_TIMELINE_KEYS: &[&str] = &["limit", "contains"];
-const SEARCH_KEYS: &[&str] = &[
-    "limit",
-    "kind",
-    "path",
-    "module",
-    "taskId",
-    "task_id",
-    "pathMode",
-    "path_mode",
-    "strategy",
-    "structuredPath",
-    "structured_path",
-    "topLevelOnly",
-    "top_level_only",
-    "preferCallableCode",
-    "prefer_callable_code",
-    "preferEditableTargets",
-    "prefer_editable_targets",
-    "preferBehavioralOwners",
-    "prefer_behavioral_owners",
-    "ownerKind",
-    "owner_kind",
-    "includeInferred",
-    "include_inferred",
-];
-const SEARCH_BUNDLE_KEYS: &[&str] = &[
-    "limit",
-    "kind",
-    "path",
-    "module",
-    "taskId",
-    "task_id",
-    "pathMode",
-    "path_mode",
-    "strategy",
-    "structuredPath",
-    "structured_path",
-    "topLevelOnly",
-    "top_level_only",
-    "preferCallableCode",
-    "prefer_callable_code",
-    "preferEditableTargets",
-    "prefer_editable_targets",
-    "preferBehavioralOwners",
-    "prefer_behavioral_owners",
-    "ownerKind",
-    "owner_kind",
-    "includeInferred",
-    "include_inferred",
-    "includeDiscovery",
-    "suggestedReadLimit",
-    "suggested_read_limit",
-];
-const SEARCH_TEXT_KEYS: &[&str] = &[
-    "regex",
-    "caseSensitive",
-    "case_sensitive",
-    "path",
-    "glob",
-    "limit",
-    "contextLines",
-    "context_lines",
-];
-const TARGET_BUNDLE_KEYS: &[&str] = &[
-    "since",
-    "limit",
-    "taskId",
-    "task_id",
-    "path",
-    "includeDiscovery",
-    "suggestedReadLimit",
-    "suggested_read_limit",
-];
-const TASK_CHANGES_KEYS: &[&str] = &["since", "limit", "path"];
-const TASK_JOURNAL_KEYS: &[&str] = &["eventLimit", "event_limit", "memoryLimit", "memory_limit"];
-const TEXT_SEARCH_BUNDLE_KEYS: &[&str] = &[
-    "regex",
-    "caseSensitive",
-    "case_sensitive",
-    "path",
-    "glob",
-    "limit",
-    "contextLines",
-    "context_lines",
-    "semanticQuery",
-    "semanticLimit",
-    "semanticKind",
-    "ownerKind",
-    "owner_kind",
-    "strategy",
-    "includeDiscovery",
-    "includeInferred",
-    "include_inferred",
-    "aroundBefore",
-    "aroundAfter",
-    "aroundMaxChars",
-    "preferCallableCode",
-    "prefer_callable_code",
-    "preferEditableTargets",
-    "prefer_editable_targets",
-    "preferBehavioralOwners",
-    "prefer_behavioral_owners",
-    "suggestedReadLimit",
-    "suggested_read_limit",
-];
-const VALIDATION_FEEDBACK_KEYS: &[&str] = &[
-    "limit",
-    "since",
-    "taskId",
-    "task_id",
-    "verdict",
-    "category",
-    "contains",
-    "correctedManually",
-    "corrected_manually",
-];
-const VALIDATION_PLAN_KEYS: &[&str] = &["taskId", "task_id", "target", "paths"];
-const WHERE_USED_KEYS: &[&str] = &["mode", "limit"];
 
 #[derive(Clone, Copy)]
 pub(crate) enum StaticCheckMode {
@@ -241,311 +42,6 @@ impl StaticCheckMode {
     }
 }
 
-#[derive(Clone, Copy)]
-struct RecordArgSpec {
-    method_path: &'static str,
-    arg_index: usize,
-    arg_name: &'static str,
-    allowed_keys: &'static [&'static str],
-}
-
-const RECORD_ARG_SPECS: &[RecordArgSpec] = &[
-    RecordArgSpec {
-        method_path: "prism.search",
-        arg_index: 1,
-        arg_name: "options",
-        allowed_keys: SEARCH_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.concepts",
-        arg_index: 1,
-        arg_name: "options",
-        allowed_keys: CONCEPT_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.concept",
-        arg_index: 1,
-        arg_name: "options",
-        allowed_keys: CONCEPT_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.conceptByHandle",
-        arg_index: 1,
-        arg_name: "options",
-        allowed_keys: CONCEPT_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.decodeConcept",
-        arg_index: 0,
-        arg_name: "input",
-        allowed_keys: DECODE_CONCEPT_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.searchText",
-        arg_index: 1,
-        arg_name: "options",
-        allowed_keys: SEARCH_TEXT_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.plans",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: PLANS_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.policyViolations",
-        arg_index: 0,
-        arg_name: "input",
-        allowed_keys: POLICY_VIOLATIONS_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.claimPreview",
-        arg_index: 0,
-        arg_name: "input",
-        allowed_keys: CLAIM_PREVIEW_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.simulateClaim",
-        arg_index: 0,
-        arg_name: "input",
-        allowed_keys: CLAIM_PREVIEW_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.excerpt",
-        arg_index: 1,
-        arg_name: "options",
-        allowed_keys: EXCERPT_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.editSlice",
-        arg_index: 1,
-        arg_name: "options",
-        allowed_keys: EDIT_SLICE_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.focusedBlock",
-        arg_index: 1,
-        arg_name: "options",
-        allowed_keys: EDIT_SLICE_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.searchBundle",
-        arg_index: 1,
-        arg_name: "options",
-        allowed_keys: SEARCH_BUNDLE_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.textSearchBundle",
-        arg_index: 1,
-        arg_name: "options",
-        allowed_keys: TEXT_SEARCH_BUNDLE_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.targetBundle",
-        arg_index: 1,
-        arg_name: "options",
-        allowed_keys: TARGET_BUNDLE_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.nextReads",
-        arg_index: 1,
-        arg_name: "options",
-        allowed_keys: NEXT_READS_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.whereUsed",
-        arg_index: 1,
-        arg_name: "options",
-        allowed_keys: WHERE_USED_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.implementationFor",
-        arg_index: 1,
-        arg_name: "options",
-        allowed_keys: IMPLEMENTATION_FOR_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.owners",
-        arg_index: 1,
-        arg_name: "options",
-        allowed_keys: OWNERS_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.taskJournal",
-        arg_index: 1,
-        arg_name: "options",
-        allowed_keys: TASK_JOURNAL_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.changedFiles",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: CHANGED_FILES_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.changedSymbols",
-        arg_index: 1,
-        arg_name: "options",
-        allowed_keys: CHANGED_SYMBOLS_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.recentPatches",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: RECENT_PATCHES_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.diffFor",
-        arg_index: 1,
-        arg_name: "options",
-        allowed_keys: DIFF_FOR_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.taskChanges",
-        arg_index: 1,
-        arg_name: "options",
-        allowed_keys: TASK_CHANGES_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.runtimeLogs",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: RUNTIME_LOGS_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.runtimeTimeline",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: RUNTIME_TIMELINE_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.validationFeedback",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: VALIDATION_FEEDBACK_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.memory.recall",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: MEMORY_RECALL_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.memory.outcomes",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: MEMORY_OUTCOMES_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.memory.events",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: MEMORY_EVENTS_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.memoryRecall",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: MEMORY_RECALL_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.memoryOutcomes",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: MEMORY_OUTCOMES_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.memoryEvents",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: MEMORY_EVENTS_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.curator.job",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: CURATOR_JOB_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.curator.jobs",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: CURATOR_JOB_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.curator.proposals",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: CURATOR_PROPOSALS_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.mcpLog",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: MCP_LOG_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.slowMcpCalls",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: MCP_LOG_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.mcpStats",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: MCP_LOG_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.queryLog",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: QUERY_LOG_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.slowQueries",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: QUERY_LOG_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.file(path).read",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: FILE_READ_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.file(path).around",
-        arg_index: 0,
-        arg_name: "options",
-        allowed_keys: FILE_AROUND_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.validationPlan",
-        arg_index: 0,
-        arg_name: "input",
-        allowed_keys: VALIDATION_PLAN_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.impact",
-        arg_index: 0,
-        arg_name: "input",
-        allowed_keys: IMPACT_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.afterEdit",
-        arg_index: 0,
-        arg_name: "input",
-        allowed_keys: IMPACT_KEYS,
-    },
-    RecordArgSpec {
-        method_path: "prism.commandMemory",
-        arg_index: 0,
-        arg_name: "input",
-        allowed_keys: COMMAND_MEMORY_KEYS,
-    },
-];
-
 pub(crate) fn typecheck_query(code: &str, mode: StaticCheckMode) -> Result<()> {
     let wrapped = mode.wrapped_source(code);
     let parsed = match parse_program(ParseParams {
@@ -563,6 +59,7 @@ pub(crate) fn typecheck_query(code: &str, mode: StaticCheckMode) -> Result<()> {
         parsed: &parsed,
         attempted_mode: mode.attempted_mode(),
         issue: None,
+        scopes: vec![HashMap::new()],
     };
     parsed.program_ref().visit_with(&mut checker);
     match checker.issue {
@@ -575,6 +72,7 @@ struct PrismApiTypechecker<'a> {
     parsed: &'a ParsedSource,
     attempted_mode: &'static str,
     issue: Option<anyhow::Error>,
+    scopes: Vec<HashMap<String, PrismSurfaceType>>,
 }
 
 impl PrismApiTypechecker<'_> {
@@ -584,10 +82,43 @@ impl PrismApiTypechecker<'_> {
         }
     }
 
+    fn push_scope(&mut self) {
+        self.scopes.push(HashMap::new());
+    }
+
+    fn pop_scope(&mut self) {
+        if self.scopes.len() > 1 {
+            self.scopes.pop();
+        }
+    }
+
+    fn bind(&mut self, name: String, ty: PrismSurfaceType) {
+        if let Some(scope) = self.scopes.last_mut() {
+            scope.insert(name, ty);
+        }
+    }
+
+    fn lookup(&self, name: &str) -> Option<PrismSurfaceType> {
+        self.scopes
+            .iter()
+            .rev()
+            .find_map(|scope| scope.get(name).cloned())
+    }
+
     fn line_column(&self, span_lo: deno_ast::swc::common::BytePos) -> (usize, usize) {
         let pos = SourcePos::unsafely_from_byte_pos(span_lo);
         let display = self.parsed.text_info_lazy().line_and_column_display(pos);
         (display.line_number.saturating_sub(1), display.column_number)
+    }
+
+    fn typecheck_error(
+        &self,
+        span_lo: deno_ast::swc::common::BytePos,
+        detail: impl Into<String>,
+        data: Value,
+    ) -> anyhow::Error {
+        let (line, column) = self.line_column(span_lo);
+        static_typecheck_error(detail, self.attempted_mode, line, column, data)
     }
 
     fn unknown_method_error(
@@ -595,7 +126,6 @@ impl PrismApiTypechecker<'_> {
         observed: &str,
         span_lo: deno_ast::swc::common::BytePos,
     ) -> anyhow::Error {
-        let (line, column) = self.line_column(span_lo);
         let suggestion = closest_prism_api_path(observed);
         let next_action = suggestion.as_ref().map_or_else(
             || {
@@ -608,11 +138,9 @@ impl PrismApiTypechecker<'_> {
                 )
             },
         );
-        static_typecheck_error(
+        self.typecheck_error(
+            span_lo,
             format!("`{observed}` is not part of the stable PRISM query API."),
-            self.attempted_mode,
-            line,
-            column,
             json!({
                 "observedPath": observed,
                 "didYouMean": suggestion,
@@ -626,94 +154,189 @@ impl PrismApiTypechecker<'_> {
         method_path: &str,
         argument_name: &str,
         span_lo: deno_ast::swc::common::BytePos,
-        extra_data: Value,
         detail: String,
         next_action: String,
+        extra_data: Map<String, Value>,
     ) -> anyhow::Error {
-        let (line, column) = self.line_column(span_lo);
-        let mut data = Map::new();
+        let mut data = extra_data;
         data.insert("method".to_string(), json!(method_path));
         data.insert("argumentName".to_string(), json!(argument_name));
+        data.insert("error".to_string(), json!(detail));
         data.insert("nextAction".to_string(), json!(next_action));
-        if let Some(extra) = extra_data.as_object() {
-            for (key, value) in extra {
-                data.insert(key.clone(), value.clone());
-            }
-        }
-        static_typecheck_error(
-            detail,
-            self.attempted_mode,
-            line,
-            column,
-            Value::Object(data),
+        self.typecheck_error(span_lo, detail, Value::Object(data))
+    }
+
+    fn invalid_property_error(
+        &self,
+        property: &str,
+        span_lo: deno_ast::swc::common::BytePos,
+        candidates: &[String],
+    ) -> anyhow::Error {
+        let candidate_refs = candidates.iter().map(String::as_str).collect::<Vec<_>>();
+        let suggestion = suggest_api_token(property, &candidate_refs);
+        let next_action = suggestion.as_ref().map_or_else(
+            || {
+                "Use a documented property on the returned PRISM view or inspect `prism://api-reference` for the result shape."
+                    .to_string()
+            },
+            |suggested| {
+                format!(
+                    "Use the documented property `{suggested}` instead of `{property}` and retry. Check `prism://api-reference` for the result shape."
+                )
+            },
+        );
+        self.typecheck_error(
+            span_lo,
+            format!("unknown property `{property}` on a typed PRISM query result."),
+            json!({
+                "property": property,
+                "didYouMean": suggestion,
+                "nextAction": next_action,
+            }),
         )
     }
 
-    fn check_call_expr(&mut self, call: &CallExpr) {
+    fn infer_expr(&mut self, expr: &Expr) -> PrismSurfaceType {
+        if self.issue.is_some() {
+            return PrismSurfaceType::Unknown;
+        }
+        match expr {
+            Expr::Ident(ident) => self.lookup(ident.sym.as_ref()).unwrap_or(PrismSurfaceType::Unknown),
+            Expr::Lit(Lit::Str(_)) => PrismSurfaceType::Primitive("string"),
+            Expr::Lit(Lit::Num(_)) | Expr::Lit(Lit::BigInt(_)) => {
+                PrismSurfaceType::Primitive("number")
+            }
+            Expr::Lit(Lit::Bool(_)) => PrismSurfaceType::Primitive("boolean"),
+            Expr::Lit(Lit::Null(_)) => PrismSurfaceType::Unknown,
+            Expr::Paren(paren) => self.infer_expr(&paren.expr),
+            Expr::Await(await_expr) => self.infer_expr(&await_expr.arg),
+            Expr::Object(object) => self.infer_object(object),
+            Expr::Array(array) => {
+                let item = array
+                    .elems
+                    .iter()
+                    .flatten()
+                    .map(|element| self.infer_expr(&element.expr))
+                    .find(|ty| !matches!(ty, PrismSurfaceType::Unknown))
+                    .unwrap_or(PrismSurfaceType::Unknown);
+                PrismSurfaceType::Array(Box::new(item))
+            }
+            Expr::Call(call) => self.infer_call_expr(call),
+            Expr::Member(member) => self.infer_member_expr(member),
+            Expr::OptChain(chain) => match &*chain.base {
+                deno_ast::swc::ast::OptChainBase::Member(member) => self.infer_member_expr(member),
+                deno_ast::swc::ast::OptChainBase::Call(call) => self.infer_opt_call_expr(call),
+            },
+            _ => PrismSurfaceType::Unknown,
+        }
+    }
+
+    fn infer_object(&mut self, object: &ObjectLit) -> PrismSurfaceType {
+        let mut properties = HashMap::new();
+        for prop in &object.props {
+            let Some(name) = property_name(prop) else {
+                continue;
+            };
+            let Some(value_expr) = property_value(prop) else {
+                continue;
+            };
+            properties.insert(name, self.infer_expr(value_expr));
+        }
+        PrismSurfaceType::Object(properties.into_iter().collect())
+    }
+
+    fn infer_call_expr(&mut self, call: &CallExpr) -> PrismSurfaceType {
+        let Some(method_path) = call_path(call) else {
+            for arg in &call.args {
+                self.infer_expr(&arg.expr);
+            }
+            return PrismSurfaceType::Unknown;
+        };
+        let Some(method) = prism_method_spec(&method_path) else {
+            self.push_issue(self.unknown_method_error(&method_path, call.span.lo));
+            return PrismSurfaceType::Unknown;
+        };
+        if let Some(record) = method.record_arg {
+            if method.path == "prism.decodeConcept"
+                && call.args.first().is_some_and(|arg| matches!(&*arg.expr, Expr::Lit(Lit::Str(_))))
+            {
+                return prism_surface_type_for_method(method.path)
+                    .unwrap_or(PrismSurfaceType::Unknown);
+            }
+            if let Some(argument) = call.args.get(record.arg_index) {
+                self.validate_record_argument(method.path, record.arg_name, argument, record.allowed_keys);
+            }
+        }
+        prism_surface_type_for_method(method.path).unwrap_or(PrismSurfaceType::Unknown)
+    }
+
+    fn infer_opt_call_expr(&mut self, call: &OptCall) -> PrismSurfaceType {
+        let Some(method_path) = expr_path(&call.callee) else {
+            for arg in &call.args {
+                self.infer_expr(&arg.expr);
+            }
+            return PrismSurfaceType::Unknown;
+        };
+        let Some(method) = prism_method_spec(&method_path) else {
+            self.push_issue(self.unknown_method_error(&method_path, call.span.lo));
+            return PrismSurfaceType::Unknown;
+        };
+        if let Some(record) = method.record_arg {
+            if method.path == "prism.decodeConcept"
+                && call.args.first().is_some_and(|arg| matches!(&*arg.expr, Expr::Lit(Lit::Str(_))))
+            {
+                return prism_surface_type_for_method(method.path)
+                    .unwrap_or(PrismSurfaceType::Unknown);
+            }
+            if let Some(argument) = call.args.get(record.arg_index) {
+                self.validate_record_argument(method.path, record.arg_name, argument, record.allowed_keys);
+            }
+        }
+        prism_surface_type_for_method(method.path).unwrap_or(PrismSurfaceType::Unknown)
+    }
+
+    fn validate_record_argument(
+        &mut self,
+        method_path: &str,
+        argument_name: &str,
+        argument: &ExprOrSpread,
+        allowed_keys: &[&str],
+    ) {
         if self.issue.is_some() {
             return;
         }
-        let Some(method_path) = call_path(call) else {
-            return;
-        };
-        if !is_known_prism_api_path(&method_path) {
-            self.push_issue(self.unknown_method_error(&method_path, call.span.lo));
-            return;
-        }
-        let Some(spec) = RECORD_ARG_SPECS
-            .iter()
-            .find(|spec| spec.method_path == method_path)
-        else {
-            return;
-        };
-        if spec.method_path == "prism.decodeConcept"
-            && call
-                .args
-                .first()
-                .is_some_and(|arg| matches!(&*arg.expr, Expr::Lit(Lit::Str(_))))
-        {
-            return;
-        }
-        let Some(argument) = call.args.get(spec.arg_index) else {
-            return;
-        };
-        match record_arg_keys(argument, spec.allowed_keys) {
-            RecordArgCheck::Ok => {}
-            RecordArgCheck::Skip => {}
-            RecordArgCheck::InvalidType(detail) => {
-                let next_action = format!(
-                    "Pass a plain object for `{}` on `{}` or omit it entirely. Check `prism://api-reference` for the exact shape.",
-                    spec.arg_name, spec.method_path
-                );
-                self.push_issue(self.invalid_record_error(
-                    spec.method_path,
-                    spec.arg_name,
-                    argument.expr.span().lo,
-                    json!({ "error": detail }),
-                    detail,
-                    next_action,
-                ));
-            }
-            RecordArgCheck::UnknownKeys {
-                invalid_keys,
-                did_you_mean,
-            } => {
+        match &*argument.expr {
+            Expr::Object(object) => {
+                let mut invalid_keys = Vec::new();
+                let mut did_you_mean = Map::new();
+                for prop in &object.props {
+                    let Some(name) = property_name(prop) else {
+                        continue;
+                    };
+                    if allowed_keys.contains(&name.as_str()) {
+                        continue;
+                    }
+                    if let Some(suggestion) = suggest_api_token(&name, allowed_keys) {
+                        did_you_mean.insert(name.clone(), Value::String(suggestion));
+                    }
+                    invalid_keys.push(name);
+                }
+                if invalid_keys.is_empty() {
+                    return;
+                }
                 let invalid_summary = invalid_keys
                     .iter()
                     .map(|key| format!("`{key}`"))
                     .collect::<Vec<_>>()
                     .join(", ");
                 let suggestion_summary = did_you_mean
-                    .as_object()
-                    .into_iter()
-                    .flat_map(|map| map.iter())
+                    .iter()
                     .map(|(key, value)| format!("`{key}` -> `{}`", value.as_str().unwrap_or("")))
                     .collect::<Vec<_>>()
                     .join(", ");
                 let next_action = if suggestion_summary.is_empty() {
                     format!(
-                        "Use only documented keys for `{}` and retry. Check `prism://api-reference` for the exact shape.",
-                        spec.method_path
+                        "Use only documented keys for `{method_path}` and retry. Check `prism://api-reference` for the exact shape."
                     )
                 } else {
                     format!(
@@ -721,29 +344,97 @@ impl PrismApiTypechecker<'_> {
                     )
                 };
                 let detail = format!(
-                    "unknown {} {invalid_summary} in `{}` for `{}`.",
-                    if invalid_keys.len() == 1 {
-                        "key"
-                    } else {
-                        "keys"
-                    },
-                    spec.arg_name,
-                    spec.method_path
+                    "unknown {} {invalid_summary} in `{argument_name}` for `{method_path}`.",
+                    if invalid_keys.len() == 1 { "key" } else { "keys" },
                 );
                 self.push_issue(self.invalid_record_error(
-                    spec.method_path,
-                    spec.arg_name,
+                    method_path,
+                    argument_name,
                     argument.expr.span().lo,
-                    json!({
-                        "invalidKeys": invalid_keys,
-                        "didYouMean": did_you_mean,
-                        "error": detail,
-                    }),
                     detail,
                     next_action,
+                    Map::from_iter([
+                        ("invalidKeys".to_string(), json!(invalid_keys)),
+                        ("didYouMean".to_string(), Value::Object(did_you_mean)),
+                    ]),
+                ));
+            }
+            Expr::Lit(Lit::Null(_)) | Expr::Ident(_) | Expr::Member(_) | Expr::Call(_) => {}
+            Expr::Paren(paren) => self.validate_record_argument(
+                method_path,
+                argument_name,
+                &ExprOrSpread {
+                    spread: None,
+                    expr: paren.expr.clone(),
+                },
+                allowed_keys,
+            ),
+            _ => {
+                let next_action = format!(
+                    "Pass a plain object for `{argument_name}` on `{method_path}` or omit it entirely. Check `prism://api-reference` for the exact shape."
+                );
+                self.push_issue(self.invalid_record_error(
+                    method_path,
+                    argument_name,
+                    argument.expr.span().lo,
+                    "record-shaped arguments must be plain objects when provided.".to_string(),
+                    next_action,
+                    Map::new(),
                 ));
             }
         }
+    }
+
+    fn infer_member_expr(&mut self, member: &MemberExpr) -> PrismSurfaceType {
+        if expr_path_from_member(member).is_some_and(|path| path.starts_with("prism.")) {
+            return PrismSurfaceType::Unknown;
+        }
+        let object_type = self.infer_expr(&member.obj);
+        match &member.prop {
+            MemberProp::Computed(computed) => {
+                if let Expr::Lit(Lit::Num(_)) = &*computed.expr {
+                    if let PrismSurfaceType::Array(item) = unwrap_nullable(&object_type) {
+                        return item.as_ref().clone();
+                    }
+                    return PrismSurfaceType::Unknown;
+                }
+                if let Expr::Lit(Lit::Str(value)) = &*computed.expr {
+                    return self.lookup_property(
+                        &object_type,
+                        &value.value.to_string_lossy(),
+                        computed.expr.span().lo,
+                    );
+                }
+                PrismSurfaceType::Unknown
+            }
+            MemberProp::Ident(ident) => {
+                let name = ident.sym.to_string();
+                if matches!(unwrap_nullable(&object_type), PrismSurfaceType::Array(_))
+                    && ARRAY_BUILTINS.contains(&name.as_str())
+                {
+                    return PrismSurfaceType::Unknown;
+                }
+                self.lookup_property(&object_type, &name, ident.span.lo)
+            }
+            MemberProp::PrivateName(_) => PrismSurfaceType::Unknown,
+        }
+    }
+
+    fn lookup_property(
+        &mut self,
+        object_type: &PrismSurfaceType,
+        property: &str,
+        span_lo: deno_ast::swc::common::BytePos,
+    ) -> PrismSurfaceType {
+        if let Some(value) = prism_object_property_type(object_type, property) {
+            return value;
+        }
+        let candidates = match unwrap_nullable(object_type) {
+            PrismSurfaceType::Object(properties) => properties.keys().cloned().collect::<Vec<_>>(),
+            _ => return PrismSurfaceType::Unknown,
+        };
+        self.push_issue(self.invalid_property_error(property, span_lo, &candidates));
+        PrismSurfaceType::Unknown
     }
 }
 
@@ -754,62 +445,37 @@ impl Visit for PrismApiTypechecker<'_> {
         }
     }
 
-    fn visit_call_expr(&mut self, call: &CallExpr) {
-        self.check_call_expr(call);
+    fn visit_block_stmt(&mut self, block: &BlockStmt) {
+        self.push_scope();
         if self.issue.is_none() {
-            call.visit_children_with(self);
+            block.visit_children_with(self);
+        }
+        self.pop_scope();
+    }
+
+    fn visit_var_declarator(&mut self, declarator: &VarDeclarator) {
+        if self.issue.is_some() {
+            return;
+        }
+        if let (Pat::Ident(ident), Some(init)) = (&declarator.name, &declarator.init) {
+            let ty = self.infer_expr(init);
+            self.bind(ident.id.sym.to_string(), ty);
+        } else if let Some(init) = &declarator.init {
+            self.infer_expr(init);
+        }
+    }
+
+    fn visit_expr(&mut self, expr: &Expr) {
+        if self.issue.is_none() {
+            self.infer_expr(expr);
         }
     }
 }
 
-enum RecordArgCheck {
-    Ok,
-    Skip,
-    InvalidType(String),
-    UnknownKeys {
-        invalid_keys: Vec<String>,
-        did_you_mean: Value,
-    },
-}
-
-fn record_arg_keys(argument: &ExprOrSpread, allowed_keys: &[&str]) -> RecordArgCheck {
-    match &*argument.expr {
-        Expr::Object(object) => validate_object_keys(object, allowed_keys),
-        Expr::Lit(Lit::Null(_)) | Expr::Ident(_) | Expr::Member(_) | Expr::Call(_) => {
-            RecordArgCheck::Skip
-        }
-        Expr::Paren(paren) => match &*paren.expr {
-            Expr::Object(object) => validate_object_keys(object, allowed_keys),
-            _ => RecordArgCheck::Skip,
-        },
-        _ => RecordArgCheck::InvalidType(
-            "record-shaped arguments must be plain objects when provided.".to_string(),
-        ),
-    }
-}
-
-fn validate_object_keys(object: &ObjectLit, allowed_keys: &[&str]) -> RecordArgCheck {
-    let mut invalid_keys = Vec::new();
-    let mut did_you_mean = Map::new();
-    for prop in &object.props {
-        let Some(name) = property_name(prop) else {
-            continue;
-        };
-        if allowed_keys.contains(&name.as_str()) {
-            continue;
-        }
-        if let Some(suggestion) = suggest_api_token(&name, allowed_keys) {
-            did_you_mean.insert(name.clone(), Value::String(suggestion));
-        }
-        invalid_keys.push(name);
-    }
-    if invalid_keys.is_empty() {
-        RecordArgCheck::Ok
-    } else {
-        RecordArgCheck::UnknownKeys {
-            invalid_keys,
-            did_you_mean: Value::Object(did_you_mean),
-        }
+fn unwrap_nullable(surface: &PrismSurfaceType) -> &PrismSurfaceType {
+    match surface {
+        PrismSurfaceType::Nullable(inner) => unwrap_nullable(inner),
+        other => other,
     }
 }
 
@@ -823,6 +489,18 @@ fn property_name(prop: &PropOrSpread) -> Option<String> {
             Prop::Getter(getter) => prop_name(&getter.key),
             Prop::Setter(setter) => prop_name(&setter.key),
             Prop::Method(method) => prop_name(&method.key),
+        },
+    }
+}
+
+fn property_value(prop: &PropOrSpread) -> Option<&Expr> {
+    match prop {
+        PropOrSpread::Spread(_) => None,
+        PropOrSpread::Prop(prop) => match &**prop {
+            Prop::KeyValue(key_value) => Some(&key_value.value),
+            Prop::Shorthand(_) => None,
+            Prop::Assign(assign) => Some(&assign.value),
+            Prop::Getter(_) | Prop::Setter(_) | Prop::Method(_) => None,
         },
     }
 }
@@ -847,24 +525,22 @@ fn call_path(call: &CallExpr) -> Option<String> {
 fn expr_path(expr: &Expr) -> Option<String> {
     match expr {
         Expr::Ident(ident) if ident.sym == "prism" => Some("prism".to_string()),
-        Expr::Member(member) => {
-            let object_path = match &*member.obj {
-                Expr::Call(call) => {
-                    let base = call_path(call)?;
-                    (base == "prism.file").then(|| "prism.file(path)".to_string())
-                }
-                other => expr_path(other),
-            }?;
-            let prop = member_prop_name(&member.prop)?;
-            Some(format!("{object_path}.{prop}"))
-        }
+        Expr::Member(member) => expr_path_from_member(member),
         _ => None,
     }
 }
 
-fn member_prop_name(prop: &MemberProp) -> Option<String> {
-    match prop {
-        MemberProp::Ident(ident) => Some(ident.sym.to_string()),
-        MemberProp::PrivateName(_) | MemberProp::Computed(_) => None,
-    }
+fn expr_path_from_member(member: &MemberExpr) -> Option<String> {
+    let object_path = match &*member.obj {
+        Expr::Call(call) => {
+            let base = call_path(call)?;
+            (base == "prism.file").then(|| "prism.file(path)".to_string())
+        }
+        other => expr_path(other),
+    }?;
+    let prop = match &member.prop {
+        MemberProp::Ident(ident) => ident.sym.to_string(),
+        MemberProp::PrivateName(_) | MemberProp::Computed(_) => return None,
+    };
+    Some(format!("{object_path}.{prop}"))
 }

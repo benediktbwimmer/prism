@@ -193,7 +193,7 @@ pub struct OutcomeEvent {
     pub metadata: Value,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct TaskReplay {
     pub task: TaskId,
     pub events: Vec<OutcomeEvent>,

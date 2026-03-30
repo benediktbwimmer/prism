@@ -237,8 +237,15 @@ fn handle_docs_command(session: &WorkspaceSession, command: DocsCommand) -> Resu
         DocsCommand::Generate => {
             let sync = session.sync_prism_doc()?;
             match sync.status {
-                PrismDocSyncStatus::Updated => println!("updated {}", sync.path.display()),
-                PrismDocSyncStatus::Unchanged => println!("unchanged {}", sync.path.display()),
+                PrismDocSyncStatus::Updated => println!("updated generated docs"),
+                PrismDocSyncStatus::Unchanged => println!("generated docs unchanged"),
+            }
+            for file in sync.files {
+                let status = match file.status {
+                    PrismDocSyncStatus::Updated => "updated",
+                    PrismDocSyncStatus::Unchanged => "unchanged",
+                };
+                println!("{status} {}", file.path.display());
             }
         }
     }

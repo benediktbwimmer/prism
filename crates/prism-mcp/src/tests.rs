@@ -10100,6 +10100,45 @@ return prism.afterEdit({ taret: [] });
 }
 
 #[test]
+fn prism_query_rejects_unknown_result_properties_before_execution() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let error = host
+        .execute(
+            test_session(&host),
+            r#"
+return prism.search("alpha", { limit: 1 })[0].idd;
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect_err("query should fail");
+    let error = error.downcast::<crate::QueryExecutionError>().unwrap();
+    assert_eq!(error.data()["code"], "query_typecheck_failed");
+    assert_eq!(error.data()["property"], "idd");
+    assert_eq!(error.data()["didYouMean"], "id");
+    assert!(error.to_string().contains("unknown property `idd`"));
+}
+
+#[test]
+fn prism_query_allows_valid_nested_result_properties() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let result = host
+        .execute(
+            test_session(&host),
+            r#"
+return prism.search("alpha", { limit: 1 })[0].id.path;
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("query should succeed");
+
+    assert_eq!(result.result, Value::String("demo::alpha".to_string()));
+}
+
+#[test]
 fn prism_query_serialization_failures_have_actionable_hints() {
     let root = temp_workspace();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());

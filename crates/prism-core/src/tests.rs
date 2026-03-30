@@ -1410,15 +1410,22 @@ fn repo_concept_events_auto_sync_prism_doc() {
         .unwrap();
 
     let prism_doc = fs::read_to_string(root.join("PRISM.md")).unwrap();
+    let concepts_doc = fs::read_to_string(root.join("docs/prism/concepts.md")).unwrap();
+    let relations_doc = fs::read_to_string(root.join("docs/prism/relations.md")).unwrap();
     assert!(prism_doc.contains("# PRISM"));
+    assert!(prism_doc.contains("## How to Read This Repo"));
+    assert!(prism_doc.contains("docs/prism/concepts.md"));
+    assert!(prism_doc.contains("docs/prism/relations.md"));
     assert!(prism_doc.contains("- Active repo concepts: 1"));
-    assert!(prism_doc.contains("`alpha_flow` (`concept://alpha_flow`)"));
-    assert!(prism_doc.contains("Explains how alpha delegates work into beta."));
-    assert!(prism_doc.contains("### Core Members"));
-    assert!(prism_doc.contains("demo::alpha"));
-    assert!(prism_doc.contains("### Supporting Members"));
-    assert!(prism_doc.contains("demo::gamma"));
-    assert!(prism_doc.contains("### Risk Hint"));
+    assert!(concepts_doc.contains("# PRISM Concepts"));
+    assert!(concepts_doc.contains("`alpha_flow` (`concept://alpha_flow`)"));
+    assert!(concepts_doc.contains("Explains how alpha delegates work into beta."));
+    assert!(concepts_doc.contains("### Core Members"));
+    assert!(concepts_doc.contains("demo::alpha"));
+    assert!(concepts_doc.contains("### Supporting Members"));
+    assert!(concepts_doc.contains("demo::gamma"));
+    assert!(concepts_doc.contains("### Risk Hint"));
+    assert!(relations_doc.contains("# PRISM Relations"));
 
     let sync = session.sync_prism_doc().unwrap();
     assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);
@@ -1539,9 +1546,13 @@ fn repo_concept_relations_auto_sync_prism_doc() {
         .unwrap();
 
     let prism_doc = fs::read_to_string(root.join("PRISM.md")).unwrap();
+    let relations_doc = fs::read_to_string(root.join("docs/prism/relations.md")).unwrap();
     assert!(prism_doc.contains("- Active repo concepts: 2"));
     assert!(prism_doc.contains("- Active repo relations: 1"));
-    assert!(prism_doc.contains("depends on: `beta_system` (`concept://beta_system`)"));
+    assert!(prism_doc.contains("## Generated Docs"));
+    assert!(relations_doc.contains("# PRISM Relations"));
+    assert!(relations_doc.contains("depends on: `beta_system` (`concept://beta_system`)"));
+    assert!(relations_doc.contains("confidence 0.88"));
 
     let sync = session.sync_prism_doc().unwrap();
     assert_eq!(sync.status, PrismDocSyncStatus::Unchanged);

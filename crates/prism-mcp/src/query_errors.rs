@@ -532,10 +532,6 @@ pub(crate) fn closest_prism_api_path(path: &str) -> Option<String> {
     (distance <= threshold.max(2)).then(|| candidate.to_string())
 }
 
-pub(crate) fn is_known_prism_api_path(path: &str) -> bool {
-    known_prism_api_paths(path).contains(&path)
-}
-
 pub(crate) fn suggest_api_token(value: &str, candidates: &[&str]) -> Option<String> {
     let normalized_value = normalize_api_path(value);
     let mut best: Option<(&str, usize)> = None;
@@ -552,131 +548,38 @@ pub(crate) fn suggest_api_token(value: &str, candidates: &[&str]) -> Option<Stri
 }
 
 fn known_prism_api_paths(path: &str) -> &'static [&'static str] {
+    let paths = prism_js::prism_api_paths();
     if path.starts_with("prism.runtime.") {
-        &[
-            "prism.runtime.status",
-            "prism.runtime.logs",
-            "prism.runtime.timeline",
-        ]
+        &paths[paths
+            .iter()
+            .position(|candidate| *candidate == "prism.runtime.status")
+            .unwrap_or(0)..paths
+            .iter()
+            .position(|candidate| *candidate == "prism.memory.recall")
+            .unwrap_or(paths.len())]
     } else if path.starts_with("prism.memory.") {
-        &[
-            "prism.memory.recall",
-            "prism.memory.outcomes",
-            "prism.memory.events",
-        ]
+        &paths[paths
+            .iter()
+            .position(|candidate| *candidate == "prism.memory.recall")
+            .unwrap_or(0)..paths
+            .iter()
+            .position(|candidate| *candidate == "prism.curator.jobs")
+            .unwrap_or(paths.len())]
     } else if path.starts_with("prism.connection.") {
-        &["prism.connection.info"]
+        &paths[paths
+            .iter()
+            .position(|candidate| *candidate == "prism.connection.info")
+            .unwrap_or(0)..paths
+            .iter()
+            .position(|candidate| *candidate == "prism.runtime.status")
+            .unwrap_or(paths.len())]
     } else if path.starts_with("prism.curator.") {
-        &[
-            "prism.curator.jobs",
-            "prism.curator.proposals",
-            "prism.curator.job",
-        ]
-    } else if path.starts_with("prism.file(") {
-        &[
-            "prism.file(path)",
-            "prism.file(path).read",
-            "prism.file(path).around",
-        ]
+        &paths[paths
+            .iter()
+            .position(|candidate| *candidate == "prism.curator.jobs")
+            .unwrap_or(0)..]
     } else {
-        &[
-            "prism.symbol",
-            "prism.symbolBundle",
-            "prism.symbols",
-            "prism.search",
-            "prism.concepts",
-            "prism.concept",
-            "prism.conceptByHandle",
-            "prism.contract",
-            "prism.contractsFor",
-            "prism.conceptRelations",
-            "prism.decodeConcept",
-            "prism.searchText",
-            "prism.tools",
-            "prism.tool",
-            "prism.validateToolInput",
-            "prism.entrypoints",
-            "prism.file",
-            "prism.plans",
-            "prism.plan",
-            "prism.planGraph",
-            "prism.planExecution",
-            "prism.planReadyNodes",
-            "prism.planNodeBlockers",
-            "prism.planSummary",
-            "prism.planNext",
-            "prism.task",
-            "prism.readyTasks",
-            "prism.claims",
-            "prism.conflicts",
-            "prism.blockers",
-            "prism.pendingReviews",
-            "prism.artifacts",
-            "prism.policyViolations",
-            "prism.taskBlastRadius",
-            "prism.taskValidationRecipe",
-            "prism.taskRisk",
-            "prism.repoPlaybook",
-            "prism.validationPlan",
-            "prism.impact",
-            "prism.afterEdit",
-            "prism.commandMemory",
-            "prism.artifactRisk",
-            "prism.taskIntent",
-            "prism.coordinationInbox",
-            "prism.taskContext",
-            "prism.claimPreview",
-            "prism.simulateClaim",
-            "prism.full",
-            "prism.excerpt",
-            "prism.editSlice",
-            "prism.focusedBlock",
-            "prism.lineage",
-            "prism.coChangeNeighbors",
-            "prism.relatedFailures",
-            "prism.blastRadius",
-            "prism.validationRecipe",
-            "prism.readContext",
-            "prism.editContext",
-            "prism.validationContext",
-            "prism.recentChangeContext",
-            "prism.discovery",
-            "prism.searchBundle",
-            "prism.textSearchBundle",
-            "prism.targetBundle",
-            "prism.nextReads",
-            "prism.whereUsed",
-            "prism.entrypointsFor",
-            "prism.specFor",
-            "prism.implementationFor",
-            "prism.owners",
-            "prism.driftCandidates",
-            "prism.specCluster",
-            "prism.explainDrift",
-            "prism.resumeTask",
-            "prism.taskJournal",
-            "prism.changedFiles",
-            "prism.changedSymbols",
-            "prism.recentPatches",
-            "prism.diffFor",
-            "prism.taskChanges",
-            "prism.connectionInfo",
-            "prism.runtimeStatus",
-            "prism.runtimeLogs",
-            "prism.runtimeTimeline",
-            "prism.validationFeedback",
-            "prism.memoryRecall",
-            "prism.memoryOutcomes",
-            "prism.memoryEvents",
-            "prism.mcpLog",
-            "prism.slowMcpCalls",
-            "prism.mcpTrace",
-            "prism.mcpStats",
-            "prism.queryLog",
-            "prism.slowQueries",
-            "prism.queryTrace",
-            "prism.diagnostics",
-        ]
+        paths
     }
 }
 

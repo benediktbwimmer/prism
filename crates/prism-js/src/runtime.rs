@@ -1,5 +1,18 @@
+use std::sync::OnceLock;
+
+use crate::runtime_option_keys_js_object;
+
 pub fn runtime_prelude() -> &'static str {
-    r#""use strict";
+    static PRELUDE: OnceLock<String> = OnceLock::new();
+    PRELUDE.get_or_init(|| {
+        RUNTIME_PRELUDE_TEMPLATE.replace(
+            "__PRISM_OPTION_KEYS_OBJECT__",
+            runtime_option_keys_js_object(),
+        )
+    })
+}
+
+const RUNTIME_PRELUDE_TEMPLATE: &str = r#""use strict";
 
 function __prismDecode(raw) {
   const envelope = JSON.parse(raw);
@@ -217,200 +230,7 @@ function __prismSuggestedReadLimit(options = {}) {
   return options?.suggestedReadLimit ?? options?.suggested_read_limit ?? 5;
 }
 
-const __prismOptionKeys = Object.freeze({
-  claimPreview: Object.freeze(["anchors", "anchor", "capability", "mode", "taskId", "task_id"]),
-  changedFiles: Object.freeze(["since", "limit", "taskId", "task_id", "path"]),
-  changedSymbols: Object.freeze(["since", "limit", "taskId", "task_id"]),
-  concept: Object.freeze(["limit", "verbosity", "includeBindingMetadata", "include_binding_metadata"]),
-  curatorJob: Object.freeze(["status", "trigger", "limit"]),
-  curatorProposals: Object.freeze([
-    "status",
-    "trigger",
-    "kind",
-    "disposition",
-    "taskId",
-    "task_id",
-    "limit",
-  ]),
-  diffFor: Object.freeze(["since", "limit", "taskId", "task_id"]),
-  excerpt: Object.freeze(["contextLines", "maxLines", "maxChars"]),
-  editSlice: Object.freeze(["beforeLines", "afterLines", "maxLines", "maxChars"]),
-  fileAround: Object.freeze(["line", "before", "after", "beforeLines", "afterLines", "maxChars"]),
-  fileRead: Object.freeze(["startLine", "endLine", "maxChars"]),
-  implementationFor: Object.freeze(["mode", "ownerKind", "owner_kind"]),
-  mcpLog: Object.freeze([
-    "limit",
-    "since",
-    "callType",
-    "call_type",
-    "name",
-    "taskId",
-    "task_id",
-    "sessionId",
-    "session_id",
-    "success",
-    "minDurationMs",
-    "min_duration_ms",
-    "contains",
-  ]),
-  memoryEvents: Object.freeze([
-    "memoryId",
-    "focus",
-    "text",
-    "limit",
-    "kinds",
-    "actions",
-    "scope",
-    "taskId",
-    "task_id",
-    "since",
-  ]),
-  memoryOutcomes: Object.freeze([
-    "focus",
-    "taskId",
-    "task_id",
-    "kinds",
-    "result",
-    "actor",
-    "since",
-    "limit",
-  ]),
-  memoryRecall: Object.freeze(["focus", "text", "limit", "kinds", "since"]),
-  nextReads: Object.freeze(["limit"]),
-  owners: Object.freeze(["kind", "limit"]),
-  plans: Object.freeze(["status", "scope", "contains", "limit"]),
-  policyViolations: Object.freeze(["planId", "plan_id", "taskId", "task_id", "limit"]),
-  queryLog: Object.freeze([
-    "limit",
-    "since",
-    "target",
-    "operation",
-    "taskId",
-    "task_id",
-    "minDurationMs",
-    "min_duration_ms",
-  ]),
-  recentPatches: Object.freeze(["target", "since", "limit", "taskId", "task_id", "path"]),
-  runtimeLogs: Object.freeze(["limit", "level", "target", "contains"]),
-  runtimeTimeline: Object.freeze(["limit", "contains"]),
-  search: Object.freeze([
-    "limit",
-    "kind",
-    "path",
-    "module",
-    "taskId",
-    "task_id",
-    "pathMode",
-    "path_mode",
-    "strategy",
-    "structuredPath",
-    "structured_path",
-    "topLevelOnly",
-    "top_level_only",
-    "preferCallableCode",
-    "prefer_callable_code",
-    "preferEditableTargets",
-    "prefer_editable_targets",
-    "preferBehavioralOwners",
-    "prefer_behavioral_owners",
-    "ownerKind",
-    "owner_kind",
-    "includeInferred",
-    "include_inferred",
-  ]),
-  searchBundle: Object.freeze([
-    "limit",
-    "kind",
-    "path",
-    "module",
-    "taskId",
-    "task_id",
-    "pathMode",
-    "path_mode",
-    "strategy",
-    "structuredPath",
-    "structured_path",
-    "topLevelOnly",
-    "top_level_only",
-    "preferCallableCode",
-    "prefer_callable_code",
-    "preferEditableTargets",
-    "prefer_editable_targets",
-    "preferBehavioralOwners",
-    "prefer_behavioral_owners",
-    "ownerKind",
-    "owner_kind",
-    "includeInferred",
-    "include_inferred",
-    "includeDiscovery",
-    "suggestedReadLimit",
-    "suggested_read_limit",
-  ]),
-  searchText: Object.freeze([
-    "regex",
-    "caseSensitive",
-    "case_sensitive",
-    "path",
-    "glob",
-    "limit",
-    "contextLines",
-    "context_lines",
-  ]),
-  taskChanges: Object.freeze(["since", "limit", "path"]),
-  taskJournal: Object.freeze(["eventLimit", "event_limit", "memoryLimit", "memory_limit"]),
-  targetBundle: Object.freeze([
-    "since",
-    "limit",
-    "taskId",
-    "task_id",
-    "path",
-    "includeDiscovery",
-    "suggestedReadLimit",
-    "suggested_read_limit",
-  ]),
-  textSearchBundle: Object.freeze([
-    "regex",
-    "caseSensitive",
-    "case_sensitive",
-    "path",
-    "glob",
-    "limit",
-    "contextLines",
-    "context_lines",
-    "semanticQuery",
-    "semanticLimit",
-    "semanticKind",
-    "ownerKind",
-    "owner_kind",
-    "strategy",
-    "includeDiscovery",
-    "includeInferred",
-    "include_inferred",
-    "aroundBefore",
-    "aroundAfter",
-    "aroundMaxChars",
-    "preferCallableCode",
-    "prefer_callable_code",
-    "preferEditableTargets",
-    "prefer_editable_targets",
-    "preferBehavioralOwners",
-    "prefer_behavioral_owners",
-    "suggestedReadLimit",
-    "suggested_read_limit",
-  ]),
-  validationFeedback: Object.freeze([
-    "limit",
-    "since",
-    "taskId",
-    "task_id",
-    "verdict",
-    "category",
-    "contains",
-    "correctedManually",
-    "corrected_manually",
-  ]),
-  whereUsed: Object.freeze(["mode", "limit"]),
-});
+const __prismOptionKeys = __PRISM_OPTION_KEYS_OBJECT__;
 
 function __prismTextSearchSemanticQuery(query, options = {}) {
   if (typeof options?.semanticQuery === "string" && options.semanticQuery.trim() !== "") {
@@ -1917,5 +1737,4 @@ globalThis.prism = new Proxy(__prismBase, {
 });
 
 const __prismBaselineGlobals = Object.getOwnPropertyNames(globalThis);
-"#
-}
+"#;

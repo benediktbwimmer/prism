@@ -1,5 +1,6 @@
 mod api_types;
 mod docs;
+mod query_surface;
 mod runtime;
 
 #[cfg(test)]
@@ -7,4 +8,5 @@ mod tests;
 
 pub use crate::api_types::*;
 pub use crate::docs::{api_reference_markdown, API_REFERENCE_URI};
+pub use crate::query_surface::*;
 pub use crate::runtime::runtime_prelude;

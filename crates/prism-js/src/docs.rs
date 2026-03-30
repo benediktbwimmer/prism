@@ -1,7 +1,20 @@
+use std::sync::OnceLock;
+
+use crate::prism_api_declaration_block;
+
 pub const API_REFERENCE_URI: &str = "prism://api-reference";
 
 pub fn api_reference_markdown() -> &'static str {
-    r#"# PRISM Agent API
+    static DOCS: OnceLock<String> = OnceLock::new();
+    DOCS.get_or_init(|| {
+        API_REFERENCE_TEMPLATE.replace(
+            "__PRISM_API_DECLARATION_BLOCK__",
+            prism_api_declaration_block(),
+        )
+    })
+}
+
+const API_REFERENCE_TEMPLATE: &str = r#"# PRISM Agent API
 
 PRISM exposes a compact staged agent ABI over the existing semantic/query engine.
 
@@ -302,132 +315,7 @@ type PlanListOptions = {
   limit?: number;
 };
 
-type PrismApi = {
-  symbol(query: string): SymbolView | null;
-  symbolBundle(query: string, options?: SymbolBundleOptions): SymbolBundleView;
-  symbols(query: string): SymbolView[];
-  search(query: string, options?: SearchOptions): SymbolView[];
-  concepts(query: string, options?: ConceptQueryOptions): ConceptPacketView[];
-  concept(query: string, options?: ConceptQueryOptions): ConceptPacketView | null;
-  conceptByHandle(handle: string, options?: { verbosity?: "summary" | "standard" | "full"; includeBindingMetadata?: boolean }): ConceptPacketView | null;
-  contract(query: string): ContractPacketView | null;
-  contractsFor(target: QueryTarget): ContractPacketView[];
-  conceptRelations(handle: string): ConceptRelationView[];
-  decodeConcept(input: { handle?: string; query?: string; lens?: "open" | "workset" | "validation" | "timeline" | "memory"; verbosity?: "summary" | "standard" | "full"; includeBindingMetadata?: boolean }): ConceptDecodeView | null;
-  searchText(query: string, options?: SearchTextOptions): TextSearchMatchView[];
-  textSearchBundle(query: string, options?: TextSearchBundleOptions): TextSearchBundleView;
-  tools(): ToolCatalogEntryView[];
-  tool(name: string): ToolSchemaView | null;
-  validateToolInput(name: string, input: unknown): ToolInputValidationView;
-  entrypoints(): SymbolView[];
-  file(path: string): FileView;
-  plans(options?: PlanListOptions): PlanListEntryView[];
-  plan(planId: string): PlanView | null;
-  planGraph(planId: string): PlanGraphView | null;
-  planExecution(planId: string): PlanExecutionOverlayView[];
-  planReadyNodes(planId: string): PlanNodeView[];
-  planNodeBlockers(planId: string, nodeId: string): PlanNodeBlockerView[];
-  planSummary(planId: string): PlanSummaryView | null;
-  planNext(planId: string, limit?: number): PlanNodeRecommendationView[];
-  task(taskId: string): CoordinationTaskView | null;
-  readyTasks(planId: string): CoordinationTaskView[];
-  claims(target: SymbolView | NodeId | AnchorRef | Array<SymbolView | NodeId | AnchorRef>): ClaimView[];
-  conflicts(target: SymbolView | NodeId | AnchorRef | Array<SymbolView | NodeId | AnchorRef>): ConflictView[];
-  blockers(taskId: string): BlockerView[];
-  pendingReviews(planId?: string): ArtifactView[];
-  artifacts(taskId: string): ArtifactView[];
-  policyViolations(input?: { planId?: string; taskId?: string; limit?: number }): PolicyViolationRecordView[];
-  taskBlastRadius(taskId: string): ChangeImpactView | null;
-  taskValidationRecipe(taskId: string): TaskValidationRecipeView | null;
-  taskRisk(taskId: string): TaskRiskView | null;
-  repoPlaybook(): RepoPlaybookView;
-  validationPlan(input: { taskId?: string; target?: QueryTarget; paths?: string[] }): ValidationPlanView;
-  impact(input: { taskId?: string; target?: QueryTarget; paths?: string[] }): ImpactView;
-  afterEdit(input?: { taskId?: string; target?: QueryTarget; paths?: string[] }): AfterEditView;
-  commandMemory(input?: { taskId?: string }): CommandMemoryView;
-  artifactRisk(artifactId: string): ArtifactRiskView | null;
-  taskIntent(taskId: string): TaskIntentView | null;
-  coordinationInbox(planId: string): CoordinationInboxView;
-  taskContext(taskId: string): TaskContextView;
-  claimPreview(input: {
-    anchors: Array<SymbolView | NodeId | AnchorRef>;
-    capability: string;
-    mode?: string;
-    taskId?: string;
-  }): ClaimPreviewView;
-  simulateClaim(input: {
-    anchors: Array<SymbolView | NodeId | AnchorRef>;
-    capability: string;
-    mode?: string;
-    taskId?: string;
-  }): ConflictView[];
-  full(target: QueryTarget): string | null;
-  excerpt(target: QueryTarget, options?: SourceExcerptOptions): SourceExcerptView | null;
-  editSlice(target: QueryTarget, options?: EditSliceOptions): SourceSliceView | null;
-  focusedBlock(target: QueryTarget, options?: EditSliceOptions): FocusedBlockView | null;
-  lineage(target: QueryTarget): LineageView | null;
-  coChangeNeighbors(target: QueryTarget): CoChangeView[];
-  relatedFailures(target: QueryTarget): OutcomeEvent[];
-  blastRadius(target: QueryTarget): ChangeImpactView | null;
-  validationRecipe(target: QueryTarget): ValidationRecipeView | null;
-  readContext(target: QueryTarget): ReadContextView | null;
-  editContext(target: QueryTarget): EditContextView | null;
-  validationContext(target: QueryTarget): ValidationContextView | null;
-  recentChangeContext(target: QueryTarget): RecentChangeContextView | null;
-  discovery(target: QueryTarget): DiscoveryBundleView | null;
-  searchBundle(query: string, options?: SearchBundleOptions): SearchBundleView;
-  targetBundle(target: QueryTarget | SearchBundleView | DiscoveryBundleView, options?: TargetBundleOptions): TargetBundleView | null;
-  nextReads(target: QueryTarget, options?: NextReadsOptions): OwnerCandidateView[];
-  whereUsed(target: QueryTarget, options?: WhereUsedOptions): SymbolView[];
-  entrypointsFor(target: QueryTarget, options?: NextReadsOptions): SymbolView[];
-  specFor(target: QueryTarget): SymbolView[];
-  implementationFor(target: QueryTarget, options?: ImplementationOptions): SymbolView[];
-  owners(target: QueryTarget, options?: OwnerLookupOptions): OwnerCandidateView[];
-  driftCandidates(limit?: number): DriftCandidateView[];
-  specCluster(target: QueryTarget): SpecImplementationClusterView | null;
-  explainDrift(target: QueryTarget): SpecDriftExplanationView | null;
-  resumeTask(taskId: string): TaskReplay;
-  taskJournal(taskId: string, options?: TaskJournalOptions): TaskJournalView;
-  changedFiles(options?: ChangedFilesOptions): ChangedFileView[];
-  changedSymbols(path: string, options?: ChangedFilesOptions): ChangedSymbolView[];
-  recentPatches(options?: RecentPatchesOptions): PatchEventView[];
-  diffFor(target: QueryTarget, options?: DiffForOptions): DiffHunkView[];
-  taskChanges(taskId: string, options?: ChangedFilesOptions): PatchEventView[];
-  connectionInfo(): ConnectionInfoView;
-  runtimeStatus(): RuntimeStatusView;
-  runtimeLogs(options?: RuntimeLogOptions): RuntimeLogEventView[];
-  runtimeTimeline(options?: RuntimeTimelineOptions): RuntimeLogEventView[];
-  validationFeedback(options?: ValidationFeedbackOptions): ValidationFeedbackView[];
-  memoryRecall(options?: MemoryRecallOptions): ScoredMemoryView[];
-  memoryOutcomes(options?: MemoryOutcomeOptions): OutcomeEvent[];
-  memoryEvents(options?: MemoryEventOptions): MemoryEventView[];
-  connection: {
-    info(): ConnectionInfoView;
-  };
-  runtime: {
-    status(): RuntimeStatusView;
-    logs(options?: RuntimeLogOptions): RuntimeLogEventView[];
-    timeline(options?: RuntimeTimelineOptions): RuntimeLogEventView[];
-  };
-  memory: {
-    recall(options?: MemoryRecallOptions): ScoredMemoryView[];
-    outcomes(options?: MemoryOutcomeOptions): OutcomeEvent[];
-    events(options?: MemoryEventOptions): MemoryEventView[];
-  };
-  curator: {
-    jobs(options?: CuratorJobQueryOptions): CuratorJobView[];
-    proposals(options?: CuratorProposalQueryOptions): CuratorProposalRecordView[];
-    job(id: string): CuratorJobView | null;
-  };
-  mcpLog(options?: McpLogOptions): McpCallLogEntryView[];
-  slowMcpCalls(options?: McpLogOptions): McpCallLogEntryView[];
-  mcpTrace(id: string): McpCallTraceView | null;
-  mcpStats(options?: McpLogOptions): McpCallStatsView;
-  queryLog(options?: QueryLogOptions): QueryLogEntryView[];
-  slowQueries(options?: QueryLogOptions): QueryLogEntryView[];
-  queryTrace(id: string): QueryTraceView | null;
-  diagnostics(): QueryDiagnostic[];
-};
+__PRISM_API_DECLARATION_BLOCK__
 
 type QueryTarget = SymbolView | NodeId | { lineageId: string };
 
@@ -2601,5 +2489,4 @@ The query runtime is read-only. State changes happen through two coarse MCP muta
 Read current session state through `prism://session`.
 
 Patch observation is automatic. PRISM records file changes from `ObservedChangeSet` without requiring an explicit MCP call.
-"#
-}
+"#;

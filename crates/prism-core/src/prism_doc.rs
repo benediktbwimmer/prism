@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -10,6 +10,10 @@ use prism_projections::{
 
 use crate::util::prism_doc_path;
 
+const ARCHITECTURE_HANDLE: &str = "concept://prism_architecture";
+const ROOT_SUBSYSTEM_LIMIT: usize = 15;
+const ROOT_KEY_CONCEPT_LIMIT: usize = 12;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PrismDocSyncStatus {
     Updated,
@@ -17,9 +21,15 @@ pub enum PrismDocSyncStatus {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PrismDocSyncResult {
+pub struct PrismDocFileSync {
     pub path: PathBuf,
     pub status: PrismDocSyncStatus,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PrismDocSyncResult {
+    pub status: PrismDocSyncStatus,
+    pub files: Vec<PrismDocFileSync>,
 }
 
 pub(crate) fn sync_repo_prism_doc(
@@ -27,54 +37,230 @@ pub(crate) fn sync_repo_prism_doc(
     concepts: &[ConceptPacket],
     relations: &[ConceptRelation],
 ) -> Result<PrismDocSyncResult> {
-    let path = prism_doc_path(root);
-    let rendered = render_repo_prism_doc(concepts, relations);
-    let existing = fs::read_to_string(&path).ok();
-    if existing.as_deref() == Some(rendered.as_str()) {
-        return Ok(PrismDocSyncResult {
-            path,
-            status: PrismDocSyncStatus::Unchanged,
-        });
-    }
-    fs::write(&path, rendered)?;
-    Ok(PrismDocSyncResult {
-        path,
-        status: PrismDocSyncStatus::Updated,
-    })
+    let catalog = PrismDocCatalog::new(concepts, relations);
+    let prism_docs_dir = root.join("docs").join("prism");
+    fs::create_dir_all(&prism_docs_dir)?;
+
+    let mut files = Vec::new();
+    files.push(write_generated_file(
+        prism_doc_path(root),
+        render_root_prism_doc(&catalog),
+    )?);
+    files.push(write_generated_file(
+        prism_docs_dir.join("concepts.md"),
+        render_concepts_doc(&catalog),
+    )?);
+    files.push(write_generated_file(
+        prism_docs_dir.join("relations.md"),
+        render_relations_doc(&catalog),
+    )?);
+
+    let status = if files
+        .iter()
+        .any(|file| file.status == PrismDocSyncStatus::Updated)
+    {
+        PrismDocSyncStatus::Updated
+    } else {
+        PrismDocSyncStatus::Unchanged
+    };
+
+    Ok(PrismDocSyncResult { status, files })
 }
 
-fn render_repo_prism_doc(concepts: &[ConceptPacket], relations: &[ConceptRelation]) -> String {
-    let concepts = active_repo_concepts(concepts);
-    let concept_names = concepts
-        .iter()
-        .map(|concept| {
-            (
-                concept.handle.clone(),
-                format!("`{}` (`{}`)", concept.canonical_name, concept.handle),
-            )
-        })
-        .collect::<HashMap<_, _>>();
-    let relations = visible_repo_relations(relations, &concept_names);
+#[derive(Debug, Clone)]
+struct PrismDocCatalog {
+    concepts: Vec<ConceptPacket>,
+    relations: Vec<ConceptRelation>,
+    concept_names: HashMap<String, String>,
+    relation_degree: HashMap<String, usize>,
+}
 
+impl PrismDocCatalog {
+    fn new(concepts: &[ConceptPacket], relations: &[ConceptRelation]) -> Self {
+        let concepts = active_repo_concepts(concepts);
+        let concept_names = concepts
+            .iter()
+            .map(|concept| {
+                (
+                    concept.handle.clone(),
+                    format!("`{}` (`{}`)", concept.canonical_name, concept.handle),
+                )
+            })
+            .collect::<HashMap<_, _>>();
+        let relations = visible_repo_relations(relations, &concept_names);
+        let relation_degree = relation_degree_map(&relations);
+        Self {
+            concepts,
+            relations,
+            concept_names,
+            relation_degree,
+        }
+    }
+
+    fn architecture_concept(&self) -> Option<&ConceptPacket> {
+        self.concepts
+            .iter()
+            .find(|concept| concept.handle == ARCHITECTURE_HANDLE)
+    }
+
+    fn top_subsystems(&self) -> Vec<&ConceptPacket> {
+        let mut handles = self
+            .relations
+            .iter()
+            .filter_map(|relation| architecture_neighbor_handle(relation))
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .filter(|handle| *handle != ARCHITECTURE_HANDLE)
+            .collect::<Vec<_>>();
+        handles.sort_by(|left, right| {
+            self.relation_degree
+                .get(*right)
+                .copied()
+                .unwrap_or(0)
+                .cmp(&self.relation_degree.get(*left).copied().unwrap_or(0))
+                .then_with(|| {
+                    concept_name_for_handle(&self.concepts, left)
+                        .cmp(concept_name_for_handle(&self.concepts, right))
+                })
+        });
+        handles.truncate(ROOT_SUBSYSTEM_LIMIT);
+        handles
+            .into_iter()
+            .filter_map(|handle| {
+                self.concepts
+                    .iter()
+                    .find(|concept| concept.handle == handle)
+            })
+            .collect()
+    }
+
+    fn key_concepts(&self) -> Vec<&ConceptPacket> {
+        let subsystem_handles = self
+            .top_subsystems()
+            .into_iter()
+            .map(|concept| concept.handle.clone())
+            .collect::<HashSet<_>>();
+        let mut concepts = self
+            .concepts
+            .iter()
+            .filter(|concept| {
+                concept.handle != ARCHITECTURE_HANDLE
+                    && !subsystem_handles.contains(&concept.handle)
+            })
+            .collect::<Vec<_>>();
+        concepts.sort_by(|left, right| {
+            self.relation_degree
+                .get(&right.handle)
+                .copied()
+                .unwrap_or(0)
+                .cmp(&self.relation_degree.get(&left.handle).copied().unwrap_or(0))
+                .then_with(|| {
+                    left.canonical_name
+                        .to_ascii_lowercase()
+                        .cmp(&right.canonical_name.to_ascii_lowercase())
+                })
+                .then_with(|| left.handle.cmp(&right.handle))
+        });
+        concepts.truncate(ROOT_KEY_CONCEPT_LIMIT);
+        concepts
+    }
+}
+
+fn render_root_prism_doc(catalog: &PrismDocCatalog) -> String {
     let mut markdown = String::new();
     markdown.push_str("# PRISM\n\n");
     markdown.push_str(
-        "> This file is generated from repo-scoped PRISM knowledge in `.prism/concepts/events.jsonl`\n",
+        "> This file is generated from repo-scoped PRISM knowledge. The concise summary lives here,\n",
+    );
+    markdown.push_str("> while the full generated catalog lives under `docs/prism/`.\n\n");
+
+    markdown.push_str("## Overview\n\n");
+    markdown.push_str(&format!(
+        "- Active repo concepts: {}\n",
+        catalog.concepts.len()
+    ));
+    markdown.push_str(&format!(
+        "- Active repo relations: {}\n",
+        catalog.relations.len()
+    ));
+    markdown.push_str("- Full concept catalog: `docs/prism/concepts.md`\n");
+    markdown.push_str("- Full relation catalog: `docs/prism/relations.md`\n\n");
+
+    markdown.push_str("## How to Read This Repo\n\n");
+    markdown.push_str("- Start with this file for the main architecture map and the most central repo concepts.\n");
+    markdown.push_str(
+        "- Use `docs/prism/concepts.md` when you need the full generated concept encyclopedia.\n",
     );
     markdown.push_str(
-        "> and `.prism/concepts/relations.jsonl`. Regenerate on demand with `prism docs generate`.\n\n",
+        "- Use `docs/prism/relations.md` when you need the typed concept-to-concept graph.\n",
     );
-    markdown.push_str("## Overview\n\n");
-    markdown.push_str(&format!("- Active repo concepts: {}\n", concepts.len()));
-    markdown.push_str(&format!("- Active repo relations: {}\n\n", relations.len()));
+    markdown.push_str(
+        "- Treat `.prism/concepts/events.jsonl` and `.prism/concepts/relations.jsonl` as the source of truth; these markdown files are derived artifacts.\n\n",
+    );
 
-    if concepts.is_empty() {
+    if let Some(architecture) = catalog.architecture_concept() {
+        markdown.push_str("## Architecture\n\n");
+        markdown.push_str(&format!(
+            "- `{}` (`{}`): {}\n\n",
+            architecture.canonical_name, architecture.handle, architecture.summary
+        ));
+    }
+
+    let subsystems = catalog.top_subsystems();
+    if !subsystems.is_empty() {
+        markdown.push_str("## Subsystem Map\n\n");
+        for concept in subsystems {
+            markdown.push_str(&format!(
+                "- `{}` (`{}`): {}\n",
+                concept.canonical_name, concept.handle, concept.summary
+            ));
+        }
+        markdown.push('\n');
+    }
+
+    let key_concepts = catalog.key_concepts();
+    if !key_concepts.is_empty() {
+        markdown.push_str("## Key Concepts\n\n");
+        for concept in key_concepts {
+            markdown.push_str(&format!(
+                "- `{}` (`{}`): {}\n",
+                concept.canonical_name, concept.handle, concept.summary
+            ));
+        }
+        markdown.push('\n');
+    }
+
+    markdown.push_str("## Generated Docs\n\n");
+    markdown.push_str("- `docs/prism/concepts.md`: full concept catalog with members, evidence, and risk hints.\n");
+    markdown.push_str(
+        "- `docs/prism/relations.md`: full typed relation catalog with evidence and confidence.\n",
+    );
+    markdown
+}
+
+fn render_concepts_doc(catalog: &PrismDocCatalog) -> String {
+    let mut markdown = String::new();
+    markdown.push_str("# PRISM Concepts\n\n");
+    markdown.push_str("> Generated from repo-scoped PRISM concept and relation knowledge.\n");
+    markdown.push_str("> Return to the concise entrypoint in `../../PRISM.md`.\n\n");
+
+    markdown.push_str("## Overview\n\n");
+    markdown.push_str(&format!(
+        "- Active repo concepts: {}\n",
+        catalog.concepts.len()
+    ));
+    markdown.push_str(&format!(
+        "- Active repo relations: {}\n\n",
+        catalog.relations.len()
+    ));
+
+    if catalog.concepts.is_empty() {
         markdown.push_str("No active repo-scoped concepts are currently published.\n");
         return markdown;
     }
 
     markdown.push_str("## Published Concepts\n\n");
-    for concept in &concepts {
+    for concept in &catalog.concepts {
         markdown.push_str(&format!(
             "- `{}` (`{}`): {}\n",
             concept.canonical_name, concept.handle, concept.summary
@@ -82,7 +268,7 @@ fn render_repo_prism_doc(concepts: &[ConceptPacket], relations: &[ConceptRelatio
     }
     markdown.push('\n');
 
-    for concept in &concepts {
+    for concept in &catalog.concepts {
         markdown.push_str(&format!("## {}\n\n", concept.canonical_name));
         markdown.push_str(&format!("Handle: `{}`\n\n", concept.handle));
         markdown.push_str(&format!("{}\n\n", concept.summary));
@@ -101,7 +287,7 @@ fn render_repo_prism_doc(concepts: &[ConceptPacket], relations: &[ConceptRelatio
         );
         write_node_section(&mut markdown, "Likely Tests", &concept.likely_tests);
 
-        let related = concept_relation_lines(&concept.handle, &relations, &concept_names);
+        let related = concept_relation_lines(&concept.handle, catalog);
         if !related.is_empty() {
             markdown.push_str("### Related Concepts\n\n");
             for line in related {
@@ -131,6 +317,95 @@ fn render_repo_prism_doc(concepts: &[ConceptPacket], relations: &[ConceptRelatio
     }
 
     markdown
+}
+
+fn render_relations_doc(catalog: &PrismDocCatalog) -> String {
+    let mut markdown = String::new();
+    markdown.push_str("# PRISM Relations\n\n");
+    markdown.push_str("> Generated from repo-scoped PRISM concept relations.\n");
+    markdown.push_str("> Return to the concise entrypoint in `../../PRISM.md`.\n\n");
+
+    markdown.push_str("## Overview\n\n");
+    markdown.push_str(&format!(
+        "- Active repo relations: {}\n",
+        catalog.relations.len()
+    ));
+    markdown.push_str(&format!(
+        "- Active repo concepts covered: {}\n\n",
+        catalog.concepts.len()
+    ));
+
+    if catalog.relations.is_empty() {
+        markdown.push_str("No active repo-scoped concept relations are currently published.\n");
+        return markdown;
+    }
+
+    let mut concepts_with_relations = catalog
+        .concepts
+        .iter()
+        .filter(|concept| {
+            catalog
+                .relations
+                .iter()
+                .any(|relation| relation.source_handle == concept.handle)
+        })
+        .collect::<Vec<_>>();
+    concepts_with_relations.sort_by(|left, right| {
+        left.canonical_name
+            .to_ascii_lowercase()
+            .cmp(&right.canonical_name.to_ascii_lowercase())
+            .then_with(|| left.handle.cmp(&right.handle))
+    });
+
+    for concept in concepts_with_relations {
+        markdown.push_str(&format!("## {}\n\n", concept.canonical_name));
+        markdown.push_str(&format!("Source Handle: `{}`\n\n", concept.handle));
+        for relation in catalog
+            .relations
+            .iter()
+            .filter(|relation| relation.source_handle == concept.handle)
+        {
+            let target = catalog
+                .concept_names
+                .get(&relation.target_handle)
+                .cloned()
+                .unwrap_or_else(|| format!("`{}`", relation.target_handle));
+            markdown.push_str(&format!(
+                "- {}: {} (confidence {:.2})\n",
+                relation_kind_label(relation.kind),
+                target,
+                relation.confidence
+            ));
+            if !relation.evidence.is_empty() {
+                for evidence in &relation.evidence {
+                    markdown.push_str("  evidence: ");
+                    markdown.push_str(evidence);
+                    markdown.push('\n');
+                }
+            }
+        }
+        markdown.push('\n');
+    }
+
+    markdown
+}
+
+fn write_generated_file(path: PathBuf, rendered: String) -> Result<PrismDocFileSync> {
+    let existing = fs::read_to_string(&path).ok();
+    if existing.as_deref() == Some(rendered.as_str()) {
+        return Ok(PrismDocFileSync {
+            path,
+            status: PrismDocSyncStatus::Unchanged,
+        });
+    }
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(&path, rendered)?;
+    Ok(PrismDocFileSync {
+        path,
+        status: PrismDocSyncStatus::Updated,
+    })
 }
 
 fn active_repo_concepts(concepts: &[ConceptPacket]) -> Vec<ConceptPacket> {
@@ -175,19 +450,46 @@ fn visible_repo_relations(
     relations
 }
 
-fn concept_relation_lines(
-    handle: &str,
-    relations: &[ConceptRelation],
-    concepts_by_handle: &HashMap<String, String>,
-) -> Vec<String> {
-    let mut lines = relations
+fn relation_degree_map(relations: &[ConceptRelation]) -> HashMap<String, usize> {
+    let mut degrees = HashMap::<String, usize>::new();
+    for relation in relations {
+        *degrees.entry(relation.source_handle.clone()).or_insert(0) += 1;
+        *degrees.entry(relation.target_handle.clone()).or_insert(0) += 1;
+    }
+    degrees
+}
+
+fn architecture_neighbor_handle(relation: &ConceptRelation) -> Option<&str> {
+    if relation.kind != ConceptRelationKind::PartOf {
+        return None;
+    }
+    if relation.target_handle == ARCHITECTURE_HANDLE {
+        Some(relation.source_handle.as_str())
+    } else if relation.source_handle == ARCHITECTURE_HANDLE {
+        Some(relation.target_handle.as_str())
+    } else {
+        None
+    }
+}
+
+fn concept_name_for_handle<'a>(concepts: &'a [ConceptPacket], handle: &'a str) -> &'a str {
+    concepts
+        .iter()
+        .find(|concept| concept.handle == handle)
+        .map(|concept| concept.canonical_name.as_str())
+        .unwrap_or(handle)
+}
+
+fn concept_relation_lines(handle: &str, catalog: &PrismDocCatalog) -> Vec<String> {
+    let mut lines = catalog
+        .relations
         .iter()
         .filter_map(|relation| {
             if relation.source_handle == handle {
-                let other = concepts_by_handle.get(&relation.target_handle)?;
+                let other = catalog.concept_names.get(&relation.target_handle)?;
                 Some(format!("{}: {}", relation_kind_label(relation.kind), other))
             } else if relation.target_handle == handle {
-                let other = concepts_by_handle.get(&relation.source_handle)?;
+                let other = catalog.concept_names.get(&relation.source_handle)?;
                 Some(format!(
                     "{}: {}",
                     reverse_relation_kind_label(relation.kind),

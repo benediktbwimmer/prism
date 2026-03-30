@@ -1216,7 +1216,7 @@ pub struct TaskRiskView {
     pub stale_artifact_ids: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ArtifactRiskView {
     pub artifact_id: String,
