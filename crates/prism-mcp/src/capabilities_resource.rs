@@ -20,7 +20,6 @@ use crate::{
 pub(crate) fn capabilities_resource_value(
     host: &QueryHost,
 ) -> anyhow::Result<CapabilitiesResourcePayload> {
-    host.observe_workspace_for_read()?;
     let prism = host.current_prism();
     let mut related_resources = vec![
         capabilities_resource_view_link(),

@@ -40,6 +40,7 @@ use crate::materialization::{
 use crate::memory_events::{
     append_repo_memory_event, filter_memory_events, load_repo_memory_events,
 };
+use crate::mutation_trace;
 use crate::prism_doc::{sync_repo_prism_doc, PrismDocSyncResult};
 use crate::published_knowledge::{
     validate_repo_concept_event, validate_repo_concept_relation_event,
@@ -300,6 +301,39 @@ impl WorkspaceSession {
         self.shared_runtime_store.as_ref()
     }
 
+    fn lock_refresh_for_mutation(&self, reason: &'static str) -> MutexGuard<'_, ()> {
+        let wait_started = Instant::now();
+        let guard = self
+            .refresh_lock
+            .lock()
+            .expect("workspace refresh lock poisoned");
+        mutation_trace::record_phase(
+            "mutation.waitRefreshLock",
+            json!({ "reason": reason }),
+            wait_started.elapsed(),
+            true,
+            None,
+        );
+        guard
+    }
+
+    fn lock_store_for_mutation<'a>(
+        store: &'a Arc<Mutex<SqliteStore>>,
+        operation: &'static str,
+        reason: &'static str,
+    ) -> MutexGuard<'a, SqliteStore> {
+        let wait_started = Instant::now();
+        let guard = store.lock().expect("workspace store lock poisoned");
+        mutation_trace::record_phase(
+            operation,
+            json!({ "reason": reason }),
+            wait_started.elapsed(),
+            true,
+            None,
+        );
+        guard
+    }
+
     pub fn root(&self) -> &Path {
         &self.root
     }
@@ -436,26 +470,46 @@ impl WorkspaceSession {
     }
 
     pub fn persist_outcomes(&self) -> Result<()> {
-        let _guard = self
-            .refresh_lock
-            .lock()
-            .expect("workspace refresh lock poisoned");
+        let _guard = self.lock_refresh_for_mutation("persistOutcomes");
         let prism = self.prism_arc();
-        let mut store = self.store.lock().expect("workspace store lock poisoned");
-        store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+        let mut store = Self::lock_store_for_mutation(
+            &self.store,
+            "mutation.waitWorkspaceStoreLock",
+            "persistOutcomes",
+        );
+        let persist_started = Instant::now();
+        let result = store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
             outcome_snapshot: Some(prism.outcome_snapshot()),
             ..AuxiliaryPersistBatch::default()
-        })
+        });
+        mutation_trace::record_phase(
+            "mutation.persistOutcomes",
+            json!({}),
+            persist_started.elapsed(),
+            result.is_ok(),
+            result.as_ref().err().map(ToString::to_string),
+        );
+        result
     }
 
     pub fn persist_history(&self) -> Result<()> {
-        let _guard = self
-            .refresh_lock
-            .lock()
-            .expect("workspace refresh lock poisoned");
+        let _guard = self.lock_refresh_for_mutation("persistHistory");
         let prism = self.prism_arc();
-        let mut store = self.store.lock().expect("workspace store lock poisoned");
-        store.save_history_snapshot(&prism.history_snapshot())
+        let mut store = Self::lock_store_for_mutation(
+            &self.store,
+            "mutation.waitWorkspaceStoreLock",
+            "persistHistory",
+        );
+        let persist_started = Instant::now();
+        let result = store.save_history_snapshot(&prism.history_snapshot());
+        mutation_trace::record_phase(
+            "mutation.persistHistory",
+            json!({}),
+            persist_started.elapsed(),
+            result.is_ok(),
+            result.as_ref().err().map(ToString::to_string),
+        );
+        result
     }
 
     pub fn load_episodic_snapshot(&self) -> Result<Option<EpisodicMemorySnapshot>> {
@@ -712,28 +766,62 @@ impl WorkspaceSession {
     pub fn persist_episodic(&self, snapshot: &EpisodicMemorySnapshot) -> Result<()> {
         if let Some(shared_runtime_store) = self.shared_runtime_store() {
             let (local_snapshot, shared_snapshot) = split_episodic_snapshot_for_persist(snapshot);
-            self.store
-                .lock()
-                .expect("workspace store lock poisoned")
-                .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
-                    episodic_snapshot: Some(local_snapshot),
-                    ..AuxiliaryPersistBatch::default()
-                })?;
-            shared_runtime_store
-                .lock()
-                .expect("shared runtime store lock poisoned")
-                .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+            let mut store = Self::lock_store_for_mutation(
+                &self.store,
+                "mutation.waitWorkspaceStoreLock",
+                "persistEpisodicLocal",
+            );
+            let local_started = Instant::now();
+            let local_result = store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+                episodic_snapshot: Some(local_snapshot),
+                ..AuxiliaryPersistBatch::default()
+            });
+            mutation_trace::record_phase(
+                "mutation.persistEpisodic",
+                json!({ "target": "workspace" }),
+                local_started.elapsed(),
+                local_result.is_ok(),
+                local_result.as_ref().err().map(ToString::to_string),
+            );
+            local_result?;
+            let mut shared_store = Self::lock_store_for_mutation(
+                shared_runtime_store,
+                "mutation.waitSharedRuntimeStoreLock",
+                "persistEpisodicShared",
+            );
+            let shared_started = Instant::now();
+            let shared_result =
+                shared_store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
                     episodic_snapshot: Some(shared_snapshot),
                     ..AuxiliaryPersistBatch::default()
-                })?;
+                });
+            mutation_trace::record_phase(
+                "mutation.persistEpisodic",
+                json!({ "target": "sharedRuntime" }),
+                shared_started.elapsed(),
+                shared_result.is_ok(),
+                shared_result.as_ref().err().map(ToString::to_string),
+            );
+            shared_result?;
         } else {
-            self.store
-                .lock()
-                .expect("workspace store lock poisoned")
-                .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
-                    episodic_snapshot: Some(snapshot.clone()),
-                    ..AuxiliaryPersistBatch::default()
-                })?;
+            let mut store = Self::lock_store_for_mutation(
+                &self.store,
+                "mutation.waitWorkspaceStoreLock",
+                "persistEpisodic",
+            );
+            let persist_started = Instant::now();
+            let result = store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+                episodic_snapshot: Some(snapshot.clone()),
+                ..AuxiliaryPersistBatch::default()
+            });
+            mutation_trace::record_phase(
+                "mutation.persistEpisodic",
+                json!({ "target": "workspace" }),
+                persist_started.elapsed(),
+                result.is_ok(),
+                result.as_ref().err().map(ToString::to_string),
+            );
+            result?;
         }
         Ok(())
     }
@@ -745,22 +833,65 @@ impl WorkspaceSession {
         }
         match (event.scope, self.shared_runtime_store()) {
             (prism_memory::MemoryScope::Local, _) => {
-                self.store
-                    .lock()
-                    .expect("workspace store lock poisoned")
-                    .append_memory_events(&[event])?;
+                let mut store = Self::lock_store_for_mutation(
+                    &self.store,
+                    "mutation.waitWorkspaceStoreLock",
+                    "appendMemoryEventLocal",
+                );
+                let persist_started = Instant::now();
+                let result = store.append_memory_events(&[event]);
+                mutation_trace::record_phase(
+                    "mutation.appendMemoryEvent",
+                    json!({ "target": "workspace", "scope": "local" }),
+                    persist_started.elapsed(),
+                    result.is_ok(),
+                    result.as_ref().err().map(ToString::to_string),
+                );
+                result?;
             }
             (_, Some(shared_runtime_store)) => {
-                shared_runtime_store
-                    .lock()
-                    .expect("shared runtime store lock poisoned")
-                    .append_memory_events(&[event])?;
+                let scope = match event.scope {
+                    prism_memory::MemoryScope::Local => "local",
+                    prism_memory::MemoryScope::Session => "session",
+                    prism_memory::MemoryScope::Repo => "repo",
+                };
+                let mut store = Self::lock_store_for_mutation(
+                    shared_runtime_store,
+                    "mutation.waitSharedRuntimeStoreLock",
+                    "appendMemoryEventShared",
+                );
+                let persist_started = Instant::now();
+                let result = store.append_memory_events(&[event]);
+                mutation_trace::record_phase(
+                    "mutation.appendMemoryEvent",
+                    json!({ "target": "sharedRuntime", "scope": scope }),
+                    persist_started.elapsed(),
+                    result.is_ok(),
+                    result.as_ref().err().map(ToString::to_string),
+                );
+                result?;
             }
             (_, None) => {
-                self.store
-                    .lock()
-                    .expect("workspace store lock poisoned")
-                    .append_memory_events(&[event])?;
+                let scope = match event.scope {
+                    prism_memory::MemoryScope::Local => "local",
+                    prism_memory::MemoryScope::Session => "session",
+                    prism_memory::MemoryScope::Repo => "repo",
+                };
+                let mut store = Self::lock_store_for_mutation(
+                    &self.store,
+                    "mutation.waitWorkspaceStoreLock",
+                    "appendMemoryEvent",
+                );
+                let persist_started = Instant::now();
+                let result = store.append_memory_events(&[event]);
+                mutation_trace::record_phase(
+                    "mutation.appendMemoryEvent",
+                    json!({ "target": "workspace", "scope": scope }),
+                    persist_started.elapsed(),
+                    result.is_ok(),
+                    result.as_ref().err().map(ToString::to_string),
+                );
+                result?;
             }
         }
         Ok(())
@@ -1366,10 +1497,7 @@ impl WorkspaceSession {
         episodic_snapshot: Option<EpisodicMemorySnapshot>,
         inference_snapshot: Option<InferenceSnapshot>,
     ) -> Result<EventId> {
-        let _guard = self
-            .refresh_lock
-            .lock()
-            .expect("workspace refresh lock poisoned");
+        let _guard = self.lock_refresh_for_mutation("appendOutcomeWithAuxiliary");
         self.append_outcome_with_auxiliary_guarded(
             event,
             memory_events,
@@ -1409,8 +1537,13 @@ impl WorkspaceSession {
         prism.apply_outcome_event_to_projections(&event);
         let persisted_event = event.clone();
         let id = prism.outcome_memory().store_event(event)?;
-        let mut store = self.store.lock().expect("workspace store lock poisoned");
-        store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+        let mut store = Self::lock_store_for_mutation(
+            &self.store,
+            "mutation.waitWorkspaceStoreLock",
+            "appendOutcomeWithAuxiliary",
+        );
+        let persist_started = Instant::now();
+        let persist_result = store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
             outcome_snapshot: None,
             outcome_events: vec![persisted_event],
             validation_deltas: deltas,
@@ -1419,9 +1552,25 @@ impl WorkspaceSession {
             inference_records: Vec::new(),
             inference_snapshot,
             curator_snapshot: None,
-        })?;
+        });
+        mutation_trace::record_phase(
+            "mutation.appendOutcomePersist",
+            json!({}),
+            persist_started.elapsed(),
+            persist_result.is_ok(),
+            persist_result.as_ref().err().map(ToString::to_string),
+        );
+        persist_result?;
         if let Some(curator) = &self.curator {
+            let curator_started = Instant::now();
             enqueue_curator_for_outcome_locked(curator, prism.as_ref(), &mut store, id.clone())?;
+            mutation_trace::record_phase(
+                "mutation.enqueueCurator",
+                json!({}),
+                curator_started.elapsed(),
+                true,
+                None,
+            );
         }
         Ok(id)
     }

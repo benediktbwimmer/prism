@@ -695,13 +695,18 @@ fn prism_impact_and_after_edit_note_out_of_scope_boundaries_for_unresolved_paths
             QueryLanguage::Ts,
         )
         .expect("afterEdit should succeed");
-    assert_eq!(after_edit.result["subject"]["unresolvedPaths"][0], "www/app.js");
-    assert!(after_edit.result["notes"].as_array().is_some_and(|notes| notes
-        .iter()
-        .filter_map(|note| note.as_str())
-        .any(|note| note.contains("www/app.js")
-            && note.contains("outside the current indexed scope")
-            && note.contains("`www`"))));
+    assert_eq!(
+        after_edit.result["subject"]["unresolvedPaths"][0],
+        "www/app.js"
+    );
+    assert!(after_edit.result["notes"]
+        .as_array()
+        .is_some_and(|notes| notes
+            .iter()
+            .filter_map(|note| note.as_str())
+            .any(|note| note.contains("www/app.js")
+                && note.contains("outside the current indexed scope")
+                && note.contains("`www`"))));
 }
 
 #[test]

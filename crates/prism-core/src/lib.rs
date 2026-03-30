@@ -11,6 +11,7 @@ mod layout;
 mod materialization;
 mod memory_events;
 mod memory_refresh;
+pub mod mutation_trace;
 mod parse_pipeline;
 mod patch_outcomes;
 mod prism_doc;

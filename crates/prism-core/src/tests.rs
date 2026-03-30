@@ -29,9 +29,9 @@ use prism_projections::ProjectionSnapshot;
 use prism_query::{
     ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptPacket,
     ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptRelation,
-    ConceptRelationEvent, ConceptRelationEventAction, ConceptRelationKind, ConceptScope, Prism,
+    ConceptRelationEvent, ConceptRelationEventAction, ConceptRelationKind, ConceptScope,
     ContractCompatibility, ContractEvent, ContractEventAction, ContractGuarantee, ContractKind,
-    ContractPacket, ContractStatus, ContractTarget,
+    ContractPacket, ContractStatus, ContractTarget, Prism,
 };
 use prism_store::{Graph, MemoryStore, SqliteStore, Store};
 use serde_json::json;

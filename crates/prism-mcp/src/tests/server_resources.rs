@@ -423,6 +423,7 @@ async fn mcp_server_lists_and_reads_tool_schema_resources() {
 async fn mcp_server_reads_file_resource_templates_for_workspace_paths() {
     let root = temp_workspace();
     let server = PrismMcpServer::with_session(index_workspace_session(&root).unwrap());
+    let server_handle = server.clone();
     let (server_transport, client_transport) = tokio::io::duplex(4096);
     let server_task = tokio::spawn(async move { server.serve(server_transport).await });
     let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
@@ -443,8 +444,34 @@ async fn mcp_server_reads_file_resource_templates_for_workspace_paths() {
         .any(|resource| resource["uri"] == SESSION_URI));
 
     client
+        .send(read_resource_request(3, SESSION_URI))
+        .await
+        .unwrap();
+    let session_resource = response_json(client.receive().await.unwrap());
+    let session_payload = serde_json::from_str::<Value>(
+        session_resource["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("session resource should be text"),
+    )
+    .unwrap();
+    assert_eq!(session_payload["uri"], SESSION_URI);
+
+    client
+        .send(read_resource_request(4, CAPABILITIES_URI))
+        .await
+        .unwrap();
+    let capabilities_resource = response_json(client.receive().await.unwrap());
+    let capabilities_payload = serde_json::from_str::<Value>(
+        capabilities_resource["result"]["contents"][0]["text"]
+            .as_str()
+            .expect("capabilities resource should be text"),
+    )
+    .unwrap();
+    assert_eq!(capabilities_payload["uri"], CAPABILITIES_URI);
+
+    client
         .send(read_resource_request(
-            3,
+            5,
             "prism://file/src%2Flib.rs?startLine=1&endLine=1&maxChars=200",
         ))
         .await
@@ -467,6 +494,54 @@ async fn mcp_server_reads_file_resource_templates_for_workspace_paths() {
         .unwrap()
         .iter()
         .any(|resource| resource["uri"] == "prism://schema/file"));
+
+    let records = server_handle.host.mcp_call_log_store.records();
+    let session_read = records
+        .iter()
+        .find(|record| {
+            record.entry.call_type == "resource_read" && record.entry.name == SESSION_URI
+        })
+        .expect("session resource_read record should exist");
+    let capabilities_read = records
+        .iter()
+        .find(|record| {
+            record.entry.call_type == "resource_read" && record.entry.name == CAPABILITIES_URI
+        })
+        .expect("capabilities resource_read record should exist");
+    let file_read = records
+        .iter()
+        .find(|record| {
+            record.entry.call_type == "resource_read"
+                && record
+                    .metadata
+                    .get("uri")
+                    .and_then(Value::as_str)
+                    .map(|uri| uri.starts_with("prism://file/"))
+                    .unwrap_or(false)
+        })
+        .expect("file resource_read record should exist");
+    for record in [session_read, capabilities_read, file_read] {
+        let operations = record
+            .phases
+            .iter()
+            .map(|phase| phase.operation.as_str())
+            .collect::<Vec<_>>();
+        assert!(operations.contains(&"mcp.receiveRequest"));
+        assert!(operations.contains(&"mcp.routeRequest"));
+        assert!(operations.contains(&"resource.refreshWorkspace"));
+        assert!(operations.contains(&"resource.handler"));
+        assert!(
+            operations
+                .iter()
+                .any(|operation| operation.starts_with("resource_read.prism://file"))
+                || operations
+                    .iter()
+                    .any(|operation| operation.starts_with("resource_read.prism://session"))
+                || operations
+                    .iter()
+                    .any(|operation| operation.starts_with("resource_read.prism://capabilities"))
+        );
+    }
 
     running.cancel().await.unwrap();
 }

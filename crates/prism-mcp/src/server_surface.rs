@@ -77,6 +77,7 @@ impl PrismMcpServer {
         request_preview: Option<serde_json::Value>,
         response_preview: Option<serde_json::Value>,
         metadata: serde_json::Value,
+        extra_phases: Vec<QueryPhaseView>,
     ) {
         let mut duration_ms = crate::mcp_call_log::duration_to_ms(started.elapsed());
         let mut started_at = started_at;
@@ -85,7 +86,8 @@ impl PrismMcpServer {
             .map(crate::mcp_call_log::touches_for_value)
             .unwrap_or_default();
         let request_args = json!({ "callType": call_type, "name": name });
-        let mut phases = vec![QueryPhaseView {
+        let mut phases = extra_phases;
+        phases.push(QueryPhaseView {
             operation: "mcp.executeHandler".to_string(),
             started_at,
             duration_ms,
@@ -93,7 +95,7 @@ impl PrismMcpServer {
             touched: touched.clone(),
             success,
             error: error.clone(),
-        }];
+        });
         phases.push(QueryPhaseView {
             operation: format!("{call_type}.{name}"),
             started_at,
@@ -240,7 +242,18 @@ impl PrismMcpServer {
         }
 
         let operation_started = Instant::now();
-        match operation(&run) {
+        let (operation_result, traced_phases) =
+            prism_core::mutation_trace::scope(|| operation(&run));
+        for phase in traced_phases {
+            run.record_phase(
+                &phase.operation,
+                &phase.args,
+                phase.duration,
+                phase.success,
+                phase.error,
+            );
+        }
+        match operation_result {
             Ok(result) => {
                 run.record_phase(
                     "mutation.operation",
@@ -1485,6 +1498,7 @@ impl ServerHandler for PrismMcpServer {
                 request_preview,
                 None,
                 json!({ "name": tool_name }),
+                Vec::new(),
             );
             return Err(error);
         }
@@ -1529,6 +1543,7 @@ impl ServerHandler for PrismMcpServer {
                     .collect::<Vec<_>>(),
             })),
             json!({ "method": "list_tools" }),
+            Vec::new(),
         );
         Ok(result)
     }
@@ -1652,6 +1667,7 @@ impl ServerHandler for PrismMcpServer {
                     .collect::<Vec<_>>(),
             })),
             json!({ "method": "list_resources" }),
+            Vec::new(),
         );
         Ok(result)
     }
@@ -1665,202 +1681,209 @@ impl ServerHandler for PrismMcpServer {
         let started = Instant::now();
         let uri = request.uri.as_str();
         let (base_uri, _) = split_resource_uri(uri);
-        let contents_result = (|| -> Result<ResourceContents, McpError> {
-            Ok(if base_uri == API_REFERENCE_URI {
-                ResourceContents::text(self.host.api_reference_markdown(), request.uri.clone())
-                    .with_mime_type("text/markdown")
-            } else if base_uri == CAPABILITIES_URI {
-                json_resource_contents_with_meta(
-                    self.host
-                        .capabilities_resource_value()
-                        .map_err(map_query_error)?,
-                    request.uri.clone(),
-                    Some(resource_meta(
-                        "capabilities",
-                        Some(schema_resource_uri("capabilities")),
-                        None,
-                    )),
-                )?
-            } else if base_uri == VOCAB_URI {
-                json_resource_contents_with_meta(
-                    self.host.vocab_resource_value(),
-                    request.uri.clone(),
-                    Some(resource_meta(
-                        "vocab",
-                        Some(schema_resource_uri("vocab")),
-                        None,
-                    )),
-                )?
-            } else if base_uri == SCHEMAS_URI {
-                json_resource_contents_with_meta(
-                    self.host.schemas_resource_value(),
-                    request.uri.clone(),
-                    Some(resource_meta(
-                        "schemas",
-                        Some(schema_resource_uri("schemas")),
-                        None,
-                    )),
-                )?
-            } else if base_uri == TOOL_SCHEMAS_URI {
-                json_resource_contents_with_meta(
-                    self.host.tool_schemas_resource_value(),
-                    request.uri.clone(),
-                    Some(resource_meta(
-                        "tool-schemas",
-                        Some(schema_resource_uri("tool-schemas")),
-                        None,
-                    )),
-                )?
-            } else if base_uri == SESSION_URI {
-                json_resource_contents_with_meta(
-                    self.host
-                        .session_resource_value(self.session.as_ref())
-                        .map_err(map_query_error)?,
-                    request.uri.clone(),
-                    Some(resource_meta(
-                        "session",
-                        Some(schema_resource_uri("session")),
-                        None,
-                    )),
-                )?
-            } else if base_uri == PLANS_URI {
-                json_resource_contents_with_meta(
-                    self.host
-                        .plans_resource_value(Arc::clone(&self.session), uri)
-                        .map_err(map_query_error)?,
-                    request.uri.clone(),
-                    Some(resource_meta(
-                        "plans",
-                        Some(schema_resource_uri("plans")),
-                        None,
-                    )),
-                )?
-            } else if base_uri == CONTRACTS_URI {
-                json_resource_contents_with_meta(
-                    self.host
-                        .contracts_resource_value(Arc::clone(&self.session), uri)
-                        .map_err(map_query_error)?,
-                    request.uri.clone(),
-                    Some(resource_meta(
-                        "contracts",
-                        Some(schema_resource_uri("contracts")),
-                        None,
-                    )),
-                )?
-            } else if base_uri == ENTRYPOINTS_URI {
-                json_resource_contents_with_meta(
-                    self.host
-                        .entrypoints_resource_value(Arc::clone(&self.session), uri)
-                        .map_err(map_query_error)?,
-                    request.uri.clone(),
-                    Some(resource_meta(
-                        "entrypoints",
-                        Some(schema_resource_uri("entrypoints")),
-                        None,
-                    )),
-                )?
-            } else if let Some(args) = parse_file_resource_uri(uri)? {
-                json_resource_contents_with_meta(
-                    self.host
-                        .file_resource_value(self.session.as_ref(), uri, args)
-                        .map_err(map_query_error)?,
-                    request.uri.clone(),
-                    Some(resource_meta(
-                        "file",
-                        Some(schema_resource_uri("file")),
-                        None,
-                    )),
-                )?
-            } else if let Some(query) = parse_search_resource_uri(uri) {
-                json_resource_contents_with_meta(
-                    self.host
-                        .search_resource_value(Arc::clone(&self.session), uri, &query)
-                        .map_err(map_query_error)?,
-                    request.uri.clone(),
-                    Some(resource_meta(
-                        "search",
-                        Some(schema_resource_uri("search")),
-                        None,
-                    )),
-                )?
-            } else if let Some(id) = parse_symbol_resource_uri(uri)? {
-                json_resource_contents_with_meta(
-                    self.host
-                        .symbol_resource_value(Arc::clone(&self.session), &id)
-                        .map_err(map_query_error)?,
-                    request.uri.clone(),
-                    Some(resource_meta(
-                        "symbol",
-                        Some(schema_resource_uri("symbol")),
-                        None,
-                    )),
-                )?
-            } else if let Some(lineage) = parse_lineage_resource_uri(uri) {
-                json_resource_contents_with_meta(
-                    self.host
-                        .lineage_resource_value(self.session.as_ref(), uri, &lineage)
-                        .map_err(map_query_error)?,
-                    request.uri.clone(),
-                    Some(resource_meta(
-                        "lineage",
-                        Some(schema_resource_uri("lineage")),
-                        None,
-                    )),
-                )?
-            } else if let Some(task_id) = parse_task_resource_uri(uri) {
-                json_resource_contents_with_meta(
-                    self.host
-                        .task_resource_value(self.session.as_ref(), uri, &task_id)
-                        .map_err(map_query_error)?,
-                    request.uri.clone(),
-                    Some(resource_meta(
-                        "task",
-                        Some(schema_resource_uri("task")),
-                        None,
-                    )),
-                )?
-            } else if let Some(event_id) = parse_event_resource_uri(uri) {
-                json_resource_contents_with_meta(
-                    self.host
-                        .event_resource_value(&event_id)
-                        .map_err(map_query_error)?,
-                    request.uri.clone(),
-                    Some(resource_meta(
-                        "event",
-                        Some(schema_resource_uri("event")),
-                        None,
-                    )),
-                )?
-            } else if let Some(memory_id) = parse_memory_resource_uri(uri) {
-                json_resource_contents_with_meta(
-                    self.host
-                        .memory_resource_value(self.session.as_ref(), &memory_id)
-                        .map_err(map_query_error)?,
-                    request.uri.clone(),
-                    Some(resource_meta(
-                        "memory",
-                        Some(schema_resource_uri("memory")),
-                        None,
-                    )),
-                )?
-            } else if let Some(edge_id) = parse_edge_resource_uri(uri) {
-                json_resource_contents_with_meta(
-                    self.host
-                        .edge_resource_value(self.session.as_ref(), &edge_id)
-                        .map_err(map_query_error)?,
-                    request.uri.clone(),
-                    Some(resource_meta(
-                        "edge",
-                        Some(schema_resource_uri("edge")),
-                        None,
-                    )),
-                )?
-            } else if let Some((tool_name, action)) = parse_tool_action_schema_resource_uri(uri) {
-                tool_action_schema_resource_contents(&tool_name, &action, uri)?
-            } else if let Some(tool_name) = parse_tool_schema_resource_uri(uri) {
-                tool_schema_resource_contents(&tool_name, uri)?
-            } else if let Some(resource_kind) = parse_schema_resource_uri(uri) {
-                match resource_kind.as_str() {
+        let (contents_result, resource_trace) =
+            crate::resource_trace::ResourceTraceState::scope(async {
+                (|| -> Result<ResourceContents, McpError> {
+                    Ok(if base_uri == API_REFERENCE_URI {
+                        ResourceContents::text(
+                            self.host.api_reference_markdown(),
+                            request.uri.clone(),
+                        )
+                        .with_mime_type("text/markdown")
+                    } else if base_uri == CAPABILITIES_URI {
+                        json_resource_contents_with_meta(
+                            self.host
+                                .capabilities_resource_value()
+                                .map_err(map_query_error)?,
+                            request.uri.clone(),
+                            Some(resource_meta(
+                                "capabilities",
+                                Some(schema_resource_uri("capabilities")),
+                                None,
+                            )),
+                        )?
+                    } else if base_uri == VOCAB_URI {
+                        json_resource_contents_with_meta(
+                            self.host.vocab_resource_value(),
+                            request.uri.clone(),
+                            Some(resource_meta(
+                                "vocab",
+                                Some(schema_resource_uri("vocab")),
+                                None,
+                            )),
+                        )?
+                    } else if base_uri == SCHEMAS_URI {
+                        json_resource_contents_with_meta(
+                            self.host.schemas_resource_value(),
+                            request.uri.clone(),
+                            Some(resource_meta(
+                                "schemas",
+                                Some(schema_resource_uri("schemas")),
+                                None,
+                            )),
+                        )?
+                    } else if base_uri == TOOL_SCHEMAS_URI {
+                        json_resource_contents_with_meta(
+                            self.host.tool_schemas_resource_value(),
+                            request.uri.clone(),
+                            Some(resource_meta(
+                                "tool-schemas",
+                                Some(schema_resource_uri("tool-schemas")),
+                                None,
+                            )),
+                        )?
+                    } else if base_uri == SESSION_URI {
+                        json_resource_contents_with_meta(
+                            self.host
+                                .session_resource_value(self.session.as_ref())
+                                .map_err(map_query_error)?,
+                            request.uri.clone(),
+                            Some(resource_meta(
+                                "session",
+                                Some(schema_resource_uri("session")),
+                                None,
+                            )),
+                        )?
+                    } else if base_uri == PLANS_URI {
+                        json_resource_contents_with_meta(
+                            self.host
+                                .plans_resource_value(Arc::clone(&self.session), uri)
+                                .map_err(map_query_error)?,
+                            request.uri.clone(),
+                            Some(resource_meta(
+                                "plans",
+                                Some(schema_resource_uri("plans")),
+                                None,
+                            )),
+                        )?
+                    } else if base_uri == CONTRACTS_URI {
+                        json_resource_contents_with_meta(
+                            self.host
+                                .contracts_resource_value(Arc::clone(&self.session), uri)
+                                .map_err(map_query_error)?,
+                            request.uri.clone(),
+                            Some(resource_meta(
+                                "contracts",
+                                Some(schema_resource_uri("contracts")),
+                                None,
+                            )),
+                        )?
+                    } else if base_uri == ENTRYPOINTS_URI {
+                        json_resource_contents_with_meta(
+                            self.host
+                                .entrypoints_resource_value(Arc::clone(&self.session), uri)
+                                .map_err(map_query_error)?,
+                            request.uri.clone(),
+                            Some(resource_meta(
+                                "entrypoints",
+                                Some(schema_resource_uri("entrypoints")),
+                                None,
+                            )),
+                        )?
+                    } else if let Some(args) = parse_file_resource_uri(uri)? {
+                        json_resource_contents_with_meta(
+                            self.host
+                                .file_resource_value(self.session.as_ref(), uri, args)
+                                .map_err(map_query_error)?,
+                            request.uri.clone(),
+                            Some(resource_meta(
+                                "file",
+                                Some(schema_resource_uri("file")),
+                                None,
+                            )),
+                        )?
+                    } else if let Some(query) = parse_search_resource_uri(uri) {
+                        json_resource_contents_with_meta(
+                            self.host
+                                .search_resource_value(Arc::clone(&self.session), uri, &query)
+                                .map_err(map_query_error)?,
+                            request.uri.clone(),
+                            Some(resource_meta(
+                                "search",
+                                Some(schema_resource_uri("search")),
+                                None,
+                            )),
+                        )?
+                    } else if let Some(id) = parse_symbol_resource_uri(uri)? {
+                        json_resource_contents_with_meta(
+                            self.host
+                                .symbol_resource_value(Arc::clone(&self.session), &id)
+                                .map_err(map_query_error)?,
+                            request.uri.clone(),
+                            Some(resource_meta(
+                                "symbol",
+                                Some(schema_resource_uri("symbol")),
+                                None,
+                            )),
+                        )?
+                    } else if let Some(lineage) = parse_lineage_resource_uri(uri) {
+                        json_resource_contents_with_meta(
+                            self.host
+                                .lineage_resource_value(self.session.as_ref(), uri, &lineage)
+                                .map_err(map_query_error)?,
+                            request.uri.clone(),
+                            Some(resource_meta(
+                                "lineage",
+                                Some(schema_resource_uri("lineage")),
+                                None,
+                            )),
+                        )?
+                    } else if let Some(task_id) = parse_task_resource_uri(uri) {
+                        json_resource_contents_with_meta(
+                            self.host
+                                .task_resource_value(self.session.as_ref(), uri, &task_id)
+                                .map_err(map_query_error)?,
+                            request.uri.clone(),
+                            Some(resource_meta(
+                                "task",
+                                Some(schema_resource_uri("task")),
+                                None,
+                            )),
+                        )?
+                    } else if let Some(event_id) = parse_event_resource_uri(uri) {
+                        json_resource_contents_with_meta(
+                            self.host
+                                .event_resource_value(&event_id)
+                                .map_err(map_query_error)?,
+                            request.uri.clone(),
+                            Some(resource_meta(
+                                "event",
+                                Some(schema_resource_uri("event")),
+                                None,
+                            )),
+                        )?
+                    } else if let Some(memory_id) = parse_memory_resource_uri(uri) {
+                        json_resource_contents_with_meta(
+                            self.host
+                                .memory_resource_value(self.session.as_ref(), &memory_id)
+                                .map_err(map_query_error)?,
+                            request.uri.clone(),
+                            Some(resource_meta(
+                                "memory",
+                                Some(schema_resource_uri("memory")),
+                                None,
+                            )),
+                        )?
+                    } else if let Some(edge_id) = parse_edge_resource_uri(uri) {
+                        json_resource_contents_with_meta(
+                            self.host
+                                .edge_resource_value(self.session.as_ref(), &edge_id)
+                                .map_err(map_query_error)?,
+                            request.uri.clone(),
+                            Some(resource_meta(
+                                "edge",
+                                Some(schema_resource_uri("edge")),
+                                None,
+                            )),
+                        )?
+                    } else if let Some((tool_name, action)) =
+                        parse_tool_action_schema_resource_uri(uri)
+                    {
+                        tool_action_schema_resource_contents(&tool_name, &action, uri)?
+                    } else if let Some(tool_name) = parse_tool_schema_resource_uri(uri) {
+                        tool_schema_resource_contents(&tool_name, uri)?
+                    } else if let Some(resource_kind) = parse_schema_resource_uri(uri) {
+                        match resource_kind.as_str() {
                     "capabilities" => schema_resource_contents::<CapabilitiesResourcePayload>(
                         uri,
                         "PRISM Capabilities Resource Schema",
@@ -1963,14 +1986,16 @@ impl ServerHandler for PrismMcpServer {
                             Some(json!({ "uri": request.uri })),
                         ))
                     }
-                }
-            } else {
-                return Err(McpError::resource_not_found(
-                    "resource_not_found",
-                    Some(json!({ "uri": request.uri })),
-                ));
+                        }
+                    } else {
+                        return Err(McpError::resource_not_found(
+                            "resource_not_found",
+                            Some(json!({ "uri": request.uri })),
+                        ));
+                    })
+                })()
             })
-        })();
+            .await;
         let contents = match contents_result {
             Ok(contents) => contents,
             Err(error) => {
@@ -1985,6 +2010,7 @@ impl ServerHandler for PrismMcpServer {
                     Some(json!({ "uri": uri, "baseUri": base_uri })),
                     None,
                     json!({ "uri": uri, "baseUri": base_uri }),
+                    resource_trace.phases,
                 );
                 return Err(error);
             }
@@ -2008,6 +2034,7 @@ impl ServerHandler for PrismMcpServer {
                     .collect::<Vec<_>>(),
             })),
             json!({ "uri": uri, "baseUri": base_uri }),
+            resource_trace.phases,
         );
         Ok(result)
     }
@@ -2128,6 +2155,7 @@ impl ServerHandler for PrismMcpServer {
                     .collect::<Vec<_>>(),
             })),
             json!({ "method": "list_resource_templates" }),
+            Vec::new(),
         );
         Ok(result)
     }

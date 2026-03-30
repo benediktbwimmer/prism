@@ -10606,6 +10606,137 @@ fn mutation_trace_records_internal_phases_for_persisted_only_mutations() {
 }
 
 #[test]
+fn mutation_trace_surfaces_lock_waits_for_finish_task() {
+    let root = temp_workspace();
+    let server = PrismMcpServer::with_session_and_features(
+        index_workspace_session(&root).unwrap(),
+        PrismMcpFeatures::full().with_internal_developer(true),
+    );
+
+    server
+        .host
+        .start_task(
+            test_session(&server.host).as_ref(),
+            Some("Trace finish_task lock waits".to_string()),
+            Vec::new(),
+            None,
+        )
+        .expect("task should start");
+
+    let result = server
+        .execute_logged_mutation(
+            "session.finish_task",
+            MutationRefreshPolicy::None,
+            || {
+                server.host.finish_task_without_refresh(
+                    test_session(&server.host).as_ref(),
+                    PrismFinishTaskArgs {
+                        summary: "Finished the traced task".to_string(),
+                        anchors: Some(vec![AnchorRefInput::Node {
+                            crate_name: "demo".to_string(),
+                            path: "demo::alpha".to_string(),
+                            kind: "function".to_string(),
+                        }]),
+                        task_id: None,
+                    },
+                )
+            },
+            |result| {
+                MutationDashboardMeta::task(
+                    Some(result.task_id.clone()),
+                    vec![
+                        result.task_id.clone(),
+                        result.event_id.clone(),
+                        result.memory_id.clone(),
+                    ],
+                    0,
+                )
+            },
+        )
+        .expect("finish task mutation should succeed");
+
+    assert!(result.event_id.starts_with("outcome:"));
+
+    let detail = server
+        .host
+        .dashboard_operation_detail("mutation:1")
+        .expect("mutation detail should exist");
+    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+        panic!("expected mutation trace");
+    };
+    let operations = trace
+        .phases
+        .iter()
+        .map(|phase| phase.operation.as_str())
+        .collect::<Vec<_>>();
+    assert!(operations.contains(&"mutation.waitRefreshLock"));
+    assert!(operations.contains(&"mutation.waitWorkspaceStoreLock"));
+    assert!(operations.contains(&"mutation.appendOutcomePersist"));
+}
+
+#[test]
+fn mutation_trace_surfaces_lock_waits_for_memory_store() {
+    let root = temp_workspace();
+    let server = PrismMcpServer::with_session_and_features(
+        index_workspace_session(&root).unwrap(),
+        PrismMcpFeatures::full().with_internal_developer(true),
+    );
+
+    let result = server
+        .execute_logged_mutation(
+            "mutate.memory",
+            MutationRefreshPolicy::None,
+            || {
+                server.host.store_memory_without_refresh(
+                    test_session(&server.host).as_ref(),
+                    PrismMemoryArgs {
+                        action: MemoryMutationActionInput::Store,
+                        payload: json!({
+                            "anchors": [{
+                                "type": "node",
+                                "crateName": "demo",
+                                "path": "demo::alpha",
+                                "kind": "function"
+                            }],
+                            "kind": "episodic",
+                            "scope": "session",
+                            "content": "Store memory while tracing lock waits"
+                        }),
+                        task_id: Some("task:trace-memory-locks".to_string()),
+                    },
+                )
+            },
+            |result| {
+                MutationDashboardMeta::task(
+                    Some(result.task_id.clone()),
+                    vec![result.task_id.clone(), result.memory_id.clone()],
+                    0,
+                )
+            },
+        )
+        .expect("memory mutation should succeed");
+
+    assert!(result.memory_id.starts_with("memory:"));
+
+    let detail = server
+        .host
+        .dashboard_operation_detail("mutation:1")
+        .expect("mutation detail should exist");
+    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+        panic!("expected mutation trace");
+    };
+    let operations = trace
+        .phases
+        .iter()
+        .map(|phase| phase.operation.as_str())
+        .collect::<Vec<_>>();
+    assert!(operations.contains(&"mutation.waitWorkspaceStoreLock"));
+    assert!(operations.contains(&"mutation.appendMemoryEvent"));
+    assert!(operations.contains(&"mutation.waitRefreshLock"));
+    assert!(operations.contains(&"mutation.appendOutcomePersist"));
+}
+
+#[test]
 fn coordination_mutation_trace_records_persistence_subphases() {
     let root = temp_workspace();
     let server = PrismMcpServer::with_session_and_features(
