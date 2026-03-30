@@ -11,11 +11,11 @@ use serde_json::{json, Value};
 
 use crate::{
     parse_node_kind, resource_example_uri, schema_examples, ResourceLinkView, ResourcePageView,
-    ResourceSchemaCatalogEntry, CAPABILITIES_URI, EDGE_RESOURCE_TEMPLATE_URI,
-    ENTRYPOINTS_RESOURCE_TEMPLATE_URI, EVENT_RESOURCE_TEMPLATE_URI, LINEAGE_RESOURCE_TEMPLATE_URI,
-    MEMORY_RESOURCE_TEMPLATE_URI, PLANS_RESOURCE_TEMPLATE_URI, PLANS_URI, SCHEMAS_URI,
-    SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI, SYMBOL_RESOURCE_TEMPLATE_URI,
-    TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI, VOCAB_URI,
+    ResourceSchemaCatalogEntry, CAPABILITIES_URI, CONTRACTS_RESOURCE_TEMPLATE_URI, CONTRACTS_URI,
+    EDGE_RESOURCE_TEMPLATE_URI, ENTRYPOINTS_RESOURCE_TEMPLATE_URI, EVENT_RESOURCE_TEMPLATE_URI,
+    LINEAGE_RESOURCE_TEMPLATE_URI, MEMORY_RESOURCE_TEMPLATE_URI, PLANS_RESOURCE_TEMPLATE_URI,
+    PLANS_URI, SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI,
+    SYMBOL_RESOURCE_TEMPLATE_URI, TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI, VOCAB_URI,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -316,6 +316,10 @@ pub(crate) fn plans_resource_uri() -> String {
     PLANS_URI.to_string()
 }
 
+pub(crate) fn contracts_resource_uri() -> String {
+    CONTRACTS_URI.to_string()
+}
+
 pub(crate) fn vocab_resource_uri() -> String {
     VOCAB_URI.to_string()
 }
@@ -347,6 +351,33 @@ pub(crate) fn plans_resource_uri_with_options(
     }
     if let Some(contains) = contains.filter(|value| !value.is_empty()) {
         params.push(format!("contains={}", percent_encode_component(contains)));
+    }
+    if !params.is_empty() {
+        uri.push('?');
+        uri.push_str(&params.join("&"));
+    }
+    uri
+}
+
+pub(crate) fn contracts_resource_uri_with_options(
+    contains: Option<&str>,
+    status: Option<&str>,
+    scope: Option<&str>,
+    kind: Option<&str>,
+) -> String {
+    let mut uri = contracts_resource_uri();
+    let mut params = Vec::new();
+    if let Some(contains) = contains.filter(|value| !value.is_empty()) {
+        params.push(format!("contains={}", percent_encode_component(contains)));
+    }
+    if let Some(status) = status.filter(|value| !value.is_empty()) {
+        params.push(format!("status={}", percent_encode_component(status)));
+    }
+    if let Some(scope) = scope.filter(|value| !value.is_empty()) {
+        params.push(format!("scope={}", percent_encode_component(scope)));
+    }
+    if let Some(kind) = kind.filter(|value| !value.is_empty()) {
+        params.push(format!("kind={}", percent_encode_component(kind)));
     }
     if !params.is_empty() {
         uri.push('?');
@@ -525,6 +556,17 @@ pub(crate) fn plans_resource_link() -> RawResource {
         ))
 }
 
+pub(crate) fn contracts_resource_link() -> RawResource {
+    RawResource::new(contracts_resource_uri(), "PRISM Contracts")
+        .with_description("Browse contract packets with compact status and promise metadata")
+        .with_mime_type("application/json")
+        .with_meta(resource_meta(
+            "contracts",
+            Some(schema_resource_uri("contracts")),
+            None,
+        ))
+}
+
 pub(crate) fn task_resource_link(task_id: &str) -> RawResource {
     RawResource::new(task_resource_uri(task_id), "PRISM Task Replay")
         .with_description("Task-scoped outcome timeline and correlated events")
@@ -662,6 +704,19 @@ pub(crate) fn plans_resource_view_link_with_options(
         plans_resource_uri_with_options(status, scope, contains),
         "PRISM Plans",
         "Browse published and runtime-hydrated plans with compact progress summaries",
+    )
+}
+
+pub(crate) fn contracts_resource_view_link_with_options(
+    contains: Option<&str>,
+    status: Option<&str>,
+    scope: Option<&str>,
+    kind: Option<&str>,
+) -> ResourceLinkView {
+    resource_link_view(
+        contracts_resource_uri_with_options(contains, status, scope, kind),
+        "PRISM Contracts",
+        "Browse contract packets with compact status and promise metadata",
     )
 }
 
@@ -826,6 +881,15 @@ pub(crate) fn resource_schema_catalog_entries() -> Vec<ResourceSchemaCatalogEntr
             example_uri: resource_example_uri("plans"),
             description:
                 "Schema for compact plan discovery results, filters, and pagination metadata."
+                    .to_string(),
+        },
+        ResourceSchemaCatalogEntry {
+            resource_kind: "contracts".to_string(),
+            schema_uri: schema_resource_uri("contracts"),
+            resource_uri: Some(CONTRACTS_RESOURCE_TEMPLATE_URI.to_string()),
+            example_uri: resource_example_uri("contracts"),
+            description:
+                "Schema for contract discovery results, promise metadata, and pagination."
                     .to_string(),
         },
         ResourceSchemaCatalogEntry {

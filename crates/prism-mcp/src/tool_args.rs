@@ -6,7 +6,9 @@ use rmcp::schemars::{JsonSchema, Schema};
 use serde::{de, Deserialize, Deserializer};
 use serde_json::Value;
 
-use crate::{tool_schema_resource_uri, tool_schema_view, vocabulary_error, SessionView};
+use crate::{
+    tool_schema_resource_uri, tool_schema_view, vocabulary_error, ContractPacketView, SessionView,
+};
 
 fn ensure_root_object_input_schema(schema: &mut Schema) {
     if schema.get("type").is_none() {
@@ -808,6 +810,57 @@ pub(crate) enum ConceptMutationOperationInput {
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
+pub(crate) enum ContractMutationOperationInput {
+    Promote,
+    Update,
+    Retire,
+    AttachEvidence,
+    AttachValidation,
+    RecordConsumer,
+    SetStatus,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ContractKindInput {
+    Interface,
+    Behavioral,
+    DataShape,
+    DependencyBoundary,
+    Lifecycle,
+    Protocol,
+    Operational,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ContractStatusInput {
+    Candidate,
+    Active,
+    Deprecated,
+    Retired,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ContractStabilityInput {
+    Experimental,
+    Internal,
+    Public,
+    Deprecated,
+    Migrating,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ContractGuaranteeStrengthInput {
+    Hard,
+    Soft,
+    Conditional,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum ConceptScopeInput {
     Local,
     Session,
@@ -917,6 +970,89 @@ pub(crate) struct PrismConceptMutationArgs {
     #[schemars(description = "Optional concept handles this published concept supersedes.")]
     pub(crate) supersedes: Option<Vec<String>>,
     #[schemars(description = "Reason for retiring a concept. Required for `retire`.")]
+    pub(crate) retirement_reason: Option<String>,
+    #[serde(alias = "task_id")]
+    pub(crate) task_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ContractTargetInput {
+    pub(crate) anchors: Option<Vec<AnchorRefInput>>,
+    pub(crate) concept_handles: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ContractGuaranteeInput {
+    pub(crate) statement: String,
+    pub(crate) scope: Option<String>,
+    pub(crate) strength: Option<ContractGuaranteeStrengthInput>,
+    pub(crate) evidence_refs: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ContractValidationInput {
+    pub(crate) id: String,
+    pub(crate) summary: Option<String>,
+    pub(crate) anchors: Option<Vec<AnchorRefInput>>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ContractCompatibilityInput {
+    pub(crate) compatible: Option<Vec<String>>,
+    pub(crate) additive: Option<Vec<String>>,
+    pub(crate) risky: Option<Vec<String>>,
+    pub(crate) breaking: Option<Vec<String>>,
+    pub(crate) migrating: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismContractMutationArgs {
+    #[schemars(
+        description = "Contract lifecycle or maintenance operation such as promote, update, attach_evidence, or retire."
+    )]
+    pub(crate) operation: ContractMutationOperationInput,
+    #[schemars(
+        description = "Stable contract handle like `contract://query_runtime_surface`. Required for every operation except `promote`, where Prism derives one from `name` when omitted."
+    )]
+    pub(crate) handle: Option<String>,
+    #[schemars(description = "Canonical contract name. Required for `promote`.")]
+    pub(crate) name: Option<String>,
+    #[schemars(description = "Short explanation of the promise. Required for `promote`.")]
+    pub(crate) summary: Option<String>,
+    #[schemars(description = "Optional aliases for the contract.")]
+    pub(crate) aliases: Option<Vec<String>>,
+    #[schemars(description = "Contract type such as `interface` or `dependency_boundary`.")]
+    pub(crate) kind: Option<ContractKindInput>,
+    #[schemars(description = "Provider or governed surface making the promise.")]
+    pub(crate) subject: Option<ContractTargetInput>,
+    #[schemars(description = "Structured guarantees consumers may rely on.")]
+    pub(crate) guarantees: Option<Vec<ContractGuaranteeInput>>,
+    #[schemars(description = "Conditional assumptions under which the contract holds.")]
+    pub(crate) assumptions: Option<Vec<String>>,
+    #[schemars(description = "Known consumers or dependent surfaces.")]
+    pub(crate) consumers: Option<Vec<ContractTargetInput>>,
+    #[schemars(description = "Validation links that support the contract.")]
+    pub(crate) validations: Option<Vec<ContractValidationInput>>,
+    #[schemars(description = "Stability signal such as internal, public, or migrating.")]
+    pub(crate) stability: Option<ContractStabilityInput>,
+    #[schemars(description = "Compatibility guidance for additive, risky, or breaking edits.")]
+    pub(crate) compatibility: Option<ContractCompatibilityInput>,
+    #[schemars(description = "Anchored supporting evidence lines or summaries.")]
+    pub(crate) evidence: Option<Vec<String>>,
+    #[schemars(description = "Contract lifecycle status.")]
+    pub(crate) status: Option<ContractStatusInput>,
+    #[schemars(
+        description = "Contract persistence scope. `local` stays runtime-only, `session` persists in the workspace store, and `repo` exports to committed repo knowledge."
+    )]
+    pub(crate) scope: Option<ConceptScopeInput>,
+    #[schemars(description = "Optional handles this published contract supersedes.")]
+    pub(crate) supersedes: Option<Vec<String>>,
+    #[schemars(description = "Reason for retiring a contract.")]
     pub(crate) retirement_reason: Option<String>,
     #[serde(alias = "task_id")]
     pub(crate) task_id: Option<String>,
@@ -1196,6 +1332,15 @@ pub(crate) struct ConceptMutationResult {
 
 #[derive(Debug, Clone, serde::Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub(crate) struct ContractMutationResult {
+    pub(crate) event_id: String,
+    pub(crate) contract_handle: String,
+    pub(crate) task_id: String,
+    pub(crate) packet: ContractPacketView,
+}
+
+#[derive(Debug, Clone, serde::Serialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct ConceptRelationMutationResult {
     pub(crate) event_id: String,
     pub(crate) task_id: String,
@@ -1366,6 +1511,7 @@ pub(crate) enum PrismMutationArgs {
     Outcome(PrismOutcomeArgs),
     Memory(PrismMemoryArgs),
     Concept(PrismConceptMutationArgs),
+    Contract(PrismContractMutationArgs),
     ConceptRelation(PrismConceptRelationMutationArgs),
     ValidationFeedback(PrismValidationFeedbackArgs),
     InferEdge(PrismInferEdgeArgs),
@@ -1388,6 +1534,7 @@ enum PrismMutationArgsWire {
     Outcome(PrismOutcomeArgs),
     Memory(PrismMemoryArgs),
     Concept(PrismConceptMutationArgs),
+    Contract(PrismContractMutationArgs),
     ConceptRelation(PrismConceptRelationMutationArgs),
     ValidationFeedback(PrismValidationFeedbackArgs),
     InferEdge(PrismInferEdgeArgs),
@@ -1410,6 +1557,7 @@ impl From<PrismMutationArgsWire> for PrismMutationArgs {
             PrismMutationArgsWire::Outcome(args) => Self::Outcome(args),
             PrismMutationArgsWire::Memory(args) => Self::Memory(args),
             PrismMutationArgsWire::Concept(args) => Self::Concept(args),
+            PrismMutationArgsWire::Contract(args) => Self::Contract(args),
             PrismMutationArgsWire::ConceptRelation(args) => Self::ConceptRelation(args),
             PrismMutationArgsWire::ValidationFeedback(args) => Self::ValidationFeedback(args),
             PrismMutationArgsWire::InferEdge(args) => Self::InferEdge(args),
@@ -1446,6 +1594,7 @@ pub(crate) enum PrismMutationActionSchema {
     Outcome,
     Memory,
     Concept,
+    Contract,
     ConceptRelation,
     ValidationFeedback,
     InferEdge,

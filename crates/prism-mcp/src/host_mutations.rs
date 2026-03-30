@@ -17,19 +17,22 @@ use prism_memory::{
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeResult,
 };
 use prism_query::{
-    canonical_concept_handle, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptPacket,
-    ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptRelation,
-    ConceptRelationEvent, ConceptRelationEventAction, ConceptRelationKind, ConceptScope, Prism,
+    canonical_concept_handle, canonical_contract_handle, ConceptEvent, ConceptEventAction,
+    ConceptEventPatch, ConceptPacket, ConceptProvenance, ConceptPublication,
+    ConceptPublicationStatus, ConceptRelation, ConceptRelationEvent, ConceptRelationEventAction,
+    ConceptRelationKind, ConceptScope, ContractCompatibility, ContractEvent, ContractEventAction,
+    ContractEventPatch, ContractGuarantee, ContractGuaranteeStrength, ContractKind, ContractPacket,
+    ContractStability, ContractStatus, ContractTarget, ContractValidation, Prism,
 };
 use serde_json::{json, Value};
 
 use crate::dashboard_events::MutationRun;
 use crate::{
     artifact_view, claim_view, concept_packet_view, concept_relation_view, conflict_view,
-    convert_acceptance, convert_anchors, convert_capability, convert_claim_mode,
-    convert_completion_context, convert_coordination_task_status, convert_inferred_scope,
-    convert_memory_kind, convert_memory_scope, convert_memory_source, convert_node_id,
-    convert_outcome_evidence, convert_outcome_kind, convert_outcome_result,
+    contract_packet_view, convert_acceptance, convert_anchors, convert_capability,
+    convert_claim_mode, convert_completion_context, convert_coordination_task_status,
+    convert_inferred_scope, convert_memory_kind, convert_memory_scope, convert_memory_source,
+    convert_node_id, convert_outcome_evidence, convert_outcome_kind, convert_outcome_result,
     convert_plan_acceptance, convert_plan_binding, convert_plan_edge_kind, convert_plan_node_kind,
     convert_plan_node_status, convert_plan_status, convert_policy, convert_review_verdict,
     convert_validation_refs, coordination_task_view, curator_disposition_label,
@@ -41,20 +44,23 @@ use crate::{
     ClaimActionInput, ClaimMutationResult, ClaimReleasePayload, ClaimRenewPayload,
     ConceptMutationOperationInput, ConceptMutationResult, ConceptRelationKindInput,
     ConceptRelationMutationOperationInput, ConceptRelationMutationResult, ConceptScopeInput,
+    ContractCompatibilityInput, ContractGuaranteeInput, ContractGuaranteeStrengthInput,
+    ContractKindInput, ContractMutationOperationInput, ContractMutationResult,
+    ContractStabilityInput, ContractStatusInput, ContractTargetInput, ContractValidationInput,
     CoordinationMutationKindInput, CoordinationMutationResult, CuratorJobView,
     CuratorProposalCreatedResources, CuratorProposalDecision, CuratorProposalDecisionResult,
     EdgeMutationResult, EventMutationResult, HandoffAcceptPayload, MemoryMutationActionInput,
     MemoryMutationResult, MemoryStorePayload, MutationViolationView, NodeIdInput,
     PlanEdgeCreatePayload, PlanEdgeDeletePayload, PlanNodeCreatePayload, PlanNodeUpdatePayload,
     PlanUpdatePayload, PrismArtifactArgs, PrismClaimArgs, PrismConceptLensInput,
-    PrismConceptMutationArgs, PrismConceptRelationMutationArgs, PrismCoordinationArgs,
-    PrismCuratorApplyProposalArgs, PrismCuratorPromoteConceptArgs, PrismCuratorPromoteEdgeArgs,
-    PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs, PrismFinishTaskArgs,
-    PrismInferEdgeArgs, PrismMemoryArgs, PrismOutcomeArgs, PrismValidationFeedbackArgs, QueryHost,
-    SessionState, SparsePatch, SparsePatchInput, TaskCreatePayload, TaskUpdatePayload,
-    ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
-    ValidationFeedbackVerdictInput, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
+    PrismConceptMutationArgs, PrismConceptRelationMutationArgs, PrismContractMutationArgs,
+    PrismCoordinationArgs, PrismCuratorApplyProposalArgs, PrismCuratorPromoteConceptArgs,
+    PrismCuratorPromoteEdgeArgs, PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs,
+    PrismFinishTaskArgs, PrismInferEdgeArgs, PrismMemoryArgs, PrismOutcomeArgs,
+    PrismValidationFeedbackArgs, QueryHost, SessionState, SparsePatch, SparsePatchInput,
+    TaskCreatePayload, TaskUpdatePayload, ValidationFeedbackCategoryInput,
+    ValidationFeedbackMutationResult, ValidationFeedbackVerdictInput,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
 
 #[derive(Default)]
@@ -662,6 +668,98 @@ impl QueryHost {
             concept_handle: packet.handle.clone(),
             task_id: task_id.0.to_string(),
             packet: concept_packet_view(prism.as_ref(), packet, true, None),
+        })
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn store_contract(
+        &self,
+        session: &SessionState,
+        args: PrismContractMutationArgs,
+    ) -> Result<ContractMutationResult> {
+        self.store_contract_without_refresh(session, args)
+    }
+
+    pub(crate) fn store_contract_without_refresh(
+        &self,
+        session: &SessionState,
+        args: PrismContractMutationArgs,
+    ) -> Result<ContractMutationResult> {
+        let workspace = self.workspace.as_ref().ok_or_else(|| {
+            anyhow!("contract mutations require a workspace-backed PRISM session")
+        })?;
+        let prism = self.current_prism();
+        let task_id = session.task_for_mutation(args.task_id.clone().map(TaskId::new));
+        let operation = args.operation.clone();
+        let recorded_at = current_timestamp();
+        let packet = match operation {
+            ContractMutationOperationInput::Promote => {
+                build_promoted_contract_packet(prism.as_ref(), &task_id, recorded_at, args.clone())?
+            }
+            ContractMutationOperationInput::Update => {
+                build_updated_contract_packet(prism.as_ref(), &task_id, recorded_at, args.clone())?
+            }
+            ContractMutationOperationInput::Retire => {
+                build_retired_contract_packet(prism.as_ref(), &task_id, recorded_at, args.clone())?
+            }
+            ContractMutationOperationInput::AttachEvidence => {
+                build_contract_with_evidence_attached(
+                    prism.as_ref(),
+                    &task_id,
+                    recorded_at,
+                    args.clone(),
+                )?
+            }
+            ContractMutationOperationInput::AttachValidation => {
+                build_contract_with_validation_attached(
+                    prism.as_ref(),
+                    &task_id,
+                    recorded_at,
+                    args.clone(),
+                )?
+            }
+            ContractMutationOperationInput::RecordConsumer => {
+                build_contract_with_consumer_recorded(
+                    prism.as_ref(),
+                    &task_id,
+                    recorded_at,
+                    args.clone(),
+                )?
+            }
+            ContractMutationOperationInput::SetStatus => {
+                build_contract_with_status_set(prism.as_ref(), &task_id, recorded_at, args.clone())?
+            }
+        };
+        let patch = contract_event_patch(&args, &operation, &packet)?;
+        let event = ContractEvent {
+            id: next_contract_event_id(),
+            recorded_at,
+            task_id: Some(task_id.0.to_string()),
+            action: match operation {
+                ContractMutationOperationInput::Promote => ContractEventAction::Promote,
+                ContractMutationOperationInput::Update => ContractEventAction::Update,
+                ContractMutationOperationInput::Retire => ContractEventAction::Retire,
+                ContractMutationOperationInput::AttachEvidence => {
+                    ContractEventAction::AttachEvidence
+                }
+                ContractMutationOperationInput::AttachValidation => {
+                    ContractEventAction::AttachValidation
+                }
+                ContractMutationOperationInput::RecordConsumer => {
+                    ContractEventAction::RecordConsumer
+                }
+                ContractMutationOperationInput::SetStatus => ContractEventAction::SetStatus,
+            },
+            patch,
+            contract: packet.clone(),
+        };
+        workspace.append_contract_event(event.clone())?;
+        self.sync_workspace_revision(workspace)?;
+        Ok(ContractMutationResult {
+            event_id: event.id,
+            contract_handle: packet.handle.clone(),
+            task_id: task_id.0.to_string(),
+            packet: contract_packet_view(packet, None),
         })
     }
 
@@ -2277,6 +2375,366 @@ fn build_promoted_concept_packet(
     Ok(packet)
 }
 
+fn build_promoted_contract_packet(
+    _prism: &Prism,
+    task_id: &TaskId,
+    recorded_at: u64,
+    args: PrismContractMutationArgs,
+) -> Result<ContractPacket> {
+    let scope = args
+        .scope
+        .clone()
+        .map(convert_concept_scope)
+        .unwrap_or(ConceptScope::Session);
+    let name = args
+        .name
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| anyhow!("contract promote requires name"))?;
+    let summary = args
+        .summary
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| anyhow!("contract promote requires summary"))?;
+    let kind = args
+        .kind
+        .clone()
+        .map(convert_contract_kind)
+        .ok_or_else(|| anyhow!("contract promote requires kind"))?;
+    let subject = convert_contract_target(
+        args.subject
+            .clone()
+            .ok_or_else(|| anyhow!("contract promote requires subject"))?,
+    )?;
+    let guarantees = convert_contract_guarantees(
+        args.guarantees
+            .clone()
+            .ok_or_else(|| anyhow!("contract promote requires guarantees"))?,
+    )?;
+    let status = args
+        .status
+        .clone()
+        .map(convert_contract_status)
+        .unwrap_or_else(|| {
+            if scope == ConceptScope::Repo {
+                ContractStatus::Active
+            } else {
+                ContractStatus::Candidate
+            }
+        });
+
+    let packet = ContractPacket {
+        handle: normalize_contract_handle(args.handle.as_deref(), &name),
+        name,
+        summary,
+        aliases: sanitize_strings(args.aliases.unwrap_or_default()),
+        kind,
+        subject,
+        guarantees,
+        assumptions: sanitize_strings(args.assumptions.unwrap_or_default()),
+        consumers: convert_contract_targets(args.consumers)?,
+        validations: convert_contract_validations(args.validations)?,
+        stability: args
+            .stability
+            .clone()
+            .map(convert_contract_stability)
+            .unwrap_or(ContractStability::Internal),
+        compatibility: args
+            .compatibility
+            .map(convert_contract_compatibility)
+            .unwrap_or_default(),
+        evidence: sanitize_strings(args.evidence.unwrap_or_else(|| {
+            vec!["Promoted from live repo work through prism_mutate.".to_string()]
+        })),
+        status,
+        scope,
+        provenance: ConceptProvenance {
+            origin: match scope {
+                ConceptScope::Local => "local_mutation".to_string(),
+                ConceptScope::Session => "session_mutation".to_string(),
+                ConceptScope::Repo => "repo_mutation".to_string(),
+            },
+            kind: "manual_contract_promote".to_string(),
+            task_id: Some(task_id.0.to_string()),
+        },
+        publication: (scope == ConceptScope::Repo).then_some(ConceptPublication {
+            published_at: recorded_at,
+            last_reviewed_at: Some(recorded_at),
+            status: if status == ContractStatus::Retired {
+                ConceptPublicationStatus::Retired
+            } else {
+                ConceptPublicationStatus::Active
+            },
+            supersedes: normalize_contract_handles(args.supersedes.unwrap_or_default()),
+            retired_at: (status == ContractStatus::Retired).then_some(recorded_at),
+            retirement_reason: args.retirement_reason.clone(),
+        }),
+    };
+    validate_contract_packet(&packet)?;
+    Ok(packet)
+}
+
+fn build_updated_contract_packet(
+    prism: &Prism,
+    task_id: &TaskId,
+    recorded_at: u64,
+    args: PrismContractMutationArgs,
+) -> Result<ContractPacket> {
+    let handle =
+        required_contract_handle(args.handle.as_deref(), "contract update requires handle")?;
+    let mut packet = current_contract(prism, &handle)?;
+    let mut changed = false;
+
+    if let Some(name) = args
+        .name
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    {
+        packet.name = name;
+        changed = true;
+    }
+    if let Some(summary) = args
+        .summary
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    {
+        packet.summary = summary;
+        changed = true;
+    }
+    if let Some(aliases) = args.aliases {
+        packet.aliases = sanitize_strings(aliases);
+        changed = true;
+    }
+    if let Some(kind) = args.kind {
+        packet.kind = convert_contract_kind(kind);
+        changed = true;
+    }
+    if let Some(subject) = args.subject {
+        packet.subject = convert_contract_target(subject)?;
+        changed = true;
+    }
+    if let Some(guarantees) = args.guarantees {
+        packet.guarantees = convert_contract_guarantees(guarantees)?;
+        changed = true;
+    }
+    if let Some(assumptions) = args.assumptions {
+        packet.assumptions = sanitize_strings(assumptions);
+        changed = true;
+    }
+    if let Some(consumers) = args.consumers {
+        packet.consumers = convert_contract_targets(Some(consumers))?;
+        changed = true;
+    }
+    if let Some(validations) = args.validations {
+        packet.validations = convert_contract_validations(Some(validations))?;
+        changed = true;
+    }
+    if let Some(stability) = args.stability {
+        packet.stability = convert_contract_stability(stability);
+        changed = true;
+    }
+    if let Some(compatibility) = args.compatibility {
+        packet.compatibility = convert_contract_compatibility(compatibility);
+        changed = true;
+    }
+    if let Some(evidence) = args.evidence {
+        packet.evidence = sanitize_strings(evidence);
+        changed = true;
+    }
+    if let Some(status) = args.status {
+        packet.status = convert_contract_status(status);
+        changed = true;
+    }
+    if let Some(scope) = args.scope.map(convert_concept_scope) {
+        packet.scope = scope;
+        changed = true;
+    }
+    if let Some(supersedes) = args.supersedes {
+        let publication = packet
+            .publication
+            .get_or_insert_with(ConceptPublication::default);
+        publication.supersedes = normalize_contract_handles(supersedes);
+        changed = true;
+    }
+    if !changed {
+        return Err(anyhow!(
+            "contract update requires at least one changed field"
+        ));
+    }
+    packet.provenance = ConceptProvenance {
+        origin: match packet.scope {
+            ConceptScope::Local => "local_mutation".to_string(),
+            ConceptScope::Session => "session_mutation".to_string(),
+            ConceptScope::Repo => "repo_mutation".to_string(),
+        },
+        kind: "manual_contract_update".to_string(),
+        task_id: Some(task_id.0.to_string()),
+    };
+    packet.publication = update_contract_publication(
+        packet.publication,
+        packet.scope,
+        packet.status,
+        recorded_at,
+        None,
+    );
+    validate_contract_packet(&packet)?;
+    Ok(packet)
+}
+
+fn build_retired_contract_packet(
+    prism: &Prism,
+    task_id: &TaskId,
+    recorded_at: u64,
+    args: PrismContractMutationArgs,
+) -> Result<ContractPacket> {
+    let handle =
+        required_contract_handle(args.handle.as_deref(), "contract retire requires handle")?;
+    let mut packet = current_contract(prism, &handle)?;
+    packet.status = ContractStatus::Retired;
+    packet.provenance = ConceptProvenance {
+        origin: match packet.scope {
+            ConceptScope::Local => "local_mutation".to_string(),
+            ConceptScope::Session => "session_mutation".to_string(),
+            ConceptScope::Repo => "repo_mutation".to_string(),
+        },
+        kind: "manual_contract_retire".to_string(),
+        task_id: Some(task_id.0.to_string()),
+    };
+    packet.publication = update_contract_publication(
+        packet.publication,
+        packet.scope,
+        packet.status,
+        recorded_at,
+        args.retirement_reason.clone(),
+    );
+    validate_contract_packet(&packet)?;
+    Ok(packet)
+}
+
+fn build_contract_with_evidence_attached(
+    prism: &Prism,
+    task_id: &TaskId,
+    recorded_at: u64,
+    args: PrismContractMutationArgs,
+) -> Result<ContractPacket> {
+    let additions = sanitize_strings(
+        args.evidence
+            .clone()
+            .ok_or_else(|| anyhow!("attach_evidence requires evidence"))?,
+    );
+    if additions.is_empty() {
+        return Err(anyhow!("attach_evidence requires non-empty evidence"));
+    }
+    let handle =
+        required_contract_handle(args.handle.as_deref(), "attach_evidence requires handle")?;
+    let mut packet = current_contract(prism, &handle)?;
+    packet.evidence = merge_unique_strings(packet.evidence, additions);
+    packet.provenance = ConceptProvenance {
+        origin: origin_for_scope(packet.scope).to_string(),
+        kind: "manual_contract_attach_evidence".to_string(),
+        task_id: Some(task_id.0.to_string()),
+    };
+    packet.publication = update_contract_publication(
+        packet.publication,
+        packet.scope,
+        packet.status,
+        recorded_at,
+        None,
+    );
+    validate_contract_packet(&packet)?;
+    Ok(packet)
+}
+
+fn build_contract_with_validation_attached(
+    prism: &Prism,
+    task_id: &TaskId,
+    recorded_at: u64,
+    args: PrismContractMutationArgs,
+) -> Result<ContractPacket> {
+    let additions = convert_contract_validations(args.validations.clone())?;
+    if additions.is_empty() {
+        return Err(anyhow!("attach_validation requires validations"));
+    }
+    let handle =
+        required_contract_handle(args.handle.as_deref(), "attach_validation requires handle")?;
+    let mut packet = current_contract(prism, &handle)?;
+    packet.validations = merge_contract_validations(packet.validations, additions);
+    packet.provenance = ConceptProvenance {
+        origin: origin_for_scope(packet.scope).to_string(),
+        kind: "manual_contract_attach_validation".to_string(),
+        task_id: Some(task_id.0.to_string()),
+    };
+    packet.publication = update_contract_publication(
+        packet.publication,
+        packet.scope,
+        packet.status,
+        recorded_at,
+        None,
+    );
+    validate_contract_packet(&packet)?;
+    Ok(packet)
+}
+
+fn build_contract_with_consumer_recorded(
+    prism: &Prism,
+    task_id: &TaskId,
+    recorded_at: u64,
+    args: PrismContractMutationArgs,
+) -> Result<ContractPacket> {
+    let additions = convert_contract_targets(args.consumers.clone())?;
+    if additions.is_empty() {
+        return Err(anyhow!("record_consumer requires consumers"));
+    }
+    let handle =
+        required_contract_handle(args.handle.as_deref(), "record_consumer requires handle")?;
+    let mut packet = current_contract(prism, &handle)?;
+    packet.consumers = merge_contract_targets(packet.consumers, additions);
+    packet.provenance = ConceptProvenance {
+        origin: origin_for_scope(packet.scope).to_string(),
+        kind: "manual_contract_record_consumer".to_string(),
+        task_id: Some(task_id.0.to_string()),
+    };
+    packet.publication = update_contract_publication(
+        packet.publication,
+        packet.scope,
+        packet.status,
+        recorded_at,
+        None,
+    );
+    validate_contract_packet(&packet)?;
+    Ok(packet)
+}
+
+fn build_contract_with_status_set(
+    prism: &Prism,
+    task_id: &TaskId,
+    recorded_at: u64,
+    args: PrismContractMutationArgs,
+) -> Result<ContractPacket> {
+    let status = args
+        .status
+        .clone()
+        .map(convert_contract_status)
+        .ok_or_else(|| anyhow!("set_status requires status"))?;
+    let handle = required_contract_handle(args.handle.as_deref(), "set_status requires handle")?;
+    let mut packet = current_contract(prism, &handle)?;
+    packet.status = status;
+    packet.provenance = ConceptProvenance {
+        origin: origin_for_scope(packet.scope).to_string(),
+        kind: "manual_contract_set_status".to_string(),
+        task_id: Some(task_id.0.to_string()),
+    };
+    packet.publication = update_contract_publication(
+        packet.publication,
+        packet.scope,
+        packet.status,
+        recorded_at,
+        None,
+    );
+    validate_contract_packet(&packet)?;
+    Ok(packet)
+}
+
 fn concept_args_from_curator_candidate(
     candidate: &CandidateConcept,
     task_id: &TaskId,
@@ -2490,6 +2948,344 @@ fn concept_event_patch(
     } else {
         Ok(Some(patch))
     }
+}
+
+fn contract_event_patch(
+    args: &PrismContractMutationArgs,
+    operation: &ContractMutationOperationInput,
+    packet: &ContractPacket,
+) -> Result<Option<ContractEventPatch>> {
+    let mut patch = ContractEventPatch::default();
+    match operation {
+        ContractMutationOperationInput::Promote => return Ok(None),
+        ContractMutationOperationInput::Update => {
+            if args.name.is_some() {
+                patch.set_fields.push("name".to_string());
+                patch.name = Some(packet.name.clone());
+            }
+            if args.summary.is_some() {
+                patch.set_fields.push("summary".to_string());
+                patch.summary = Some(packet.summary.clone());
+            }
+            if args.aliases.is_some() {
+                patch.set_fields.push("aliases".to_string());
+                patch.aliases = Some(packet.aliases.clone());
+            }
+            if args.kind.is_some() {
+                patch.set_fields.push("kind".to_string());
+                patch.kind = Some(packet.kind);
+            }
+            if args.subject.is_some() {
+                patch.set_fields.push("subject".to_string());
+                patch.subject = Some(packet.subject.clone());
+            }
+            if args.guarantees.is_some() {
+                patch.set_fields.push("guarantees".to_string());
+                patch.guarantees = Some(packet.guarantees.clone());
+            }
+            if args.assumptions.is_some() {
+                patch.set_fields.push("assumptions".to_string());
+                patch.assumptions = Some(packet.assumptions.clone());
+            }
+            if args.consumers.is_some() {
+                patch.set_fields.push("consumers".to_string());
+                patch.consumers = Some(packet.consumers.clone());
+            }
+            if args.validations.is_some() {
+                patch.set_fields.push("validations".to_string());
+                patch.validations = Some(packet.validations.clone());
+            }
+            if args.stability.is_some() {
+                patch.set_fields.push("stability".to_string());
+                patch.stability = Some(packet.stability);
+            }
+            if args.compatibility.is_some() {
+                patch.set_fields.push("compatibility".to_string());
+                patch.compatibility = Some(packet.compatibility.clone());
+            }
+            if args.evidence.is_some() {
+                patch.set_fields.push("evidence".to_string());
+                patch.evidence = Some(packet.evidence.clone());
+            }
+            if args.status.is_some() {
+                patch.set_fields.push("status".to_string());
+                patch.status = Some(packet.status);
+            }
+            if args.scope.is_some() {
+                patch.set_fields.push("scope".to_string());
+                patch.scope = Some(packet.scope);
+            }
+            if args.supersedes.is_some() {
+                patch.set_fields.push("supersedes".to_string());
+                patch.supersedes = Some(
+                    packet
+                        .publication
+                        .as_ref()
+                        .map(|publication| publication.supersedes.clone())
+                        .unwrap_or_default(),
+                );
+            }
+        }
+        ContractMutationOperationInput::Retire => {
+            patch.set_fields.push("status".to_string());
+            patch.status = Some(packet.status);
+            if args.retirement_reason.is_some() {
+                patch.set_fields.push("retirementReason".to_string());
+                patch.retirement_reason = args.retirement_reason.clone();
+            }
+        }
+        ContractMutationOperationInput::AttachEvidence => {
+            patch.set_fields.push("evidence".to_string());
+            patch.evidence = Some(packet.evidence.clone());
+        }
+        ContractMutationOperationInput::AttachValidation => {
+            patch.set_fields.push("validations".to_string());
+            patch.validations = Some(packet.validations.clone());
+        }
+        ContractMutationOperationInput::RecordConsumer => {
+            patch.set_fields.push("consumers".to_string());
+            patch.consumers = Some(packet.consumers.clone());
+        }
+        ContractMutationOperationInput::SetStatus => {
+            patch.set_fields.push("status".to_string());
+            patch.status = Some(packet.status);
+            if args.retirement_reason.is_some() {
+                patch.set_fields.push("retirementReason".to_string());
+                patch.retirement_reason = args.retirement_reason.clone();
+            }
+        }
+    }
+    if patch.set_fields.is_empty() && patch.cleared_fields.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(patch))
+    }
+}
+
+fn required_contract_handle(handle: Option<&str>, message: &str) -> Result<String> {
+    handle
+        .map(|value| normalize_contract_handle(Some(value), value))
+        .ok_or_else(|| anyhow!("{message}"))
+}
+
+fn current_contract(prism: &Prism, handle: &str) -> Result<ContractPacket> {
+    prism
+        .contract_by_handle(handle)
+        .ok_or_else(|| anyhow!("no contract packet matched `{handle}`"))
+}
+
+fn normalize_contract_handle(handle: Option<&str>, name: &str) -> String {
+    handle
+        .map(|value| value.trim())
+        .filter(|value| !value.is_empty())
+        .map(|value| canonical_contract_handle(value.trim_start_matches("contract://")))
+        .unwrap_or_else(|| canonical_contract_handle(name))
+}
+
+fn normalize_contract_handles(handles: Vec<String>) -> Vec<String> {
+    let mut normalized = sanitize_strings(handles)
+        .into_iter()
+        .map(|handle| canonical_contract_handle(handle.trim_start_matches("contract://")))
+        .collect::<Vec<_>>();
+    normalized.sort();
+    normalized.dedup();
+    normalized
+}
+
+fn update_contract_publication(
+    publication: Option<ConceptPublication>,
+    scope: ConceptScope,
+    status: ContractStatus,
+    recorded_at: u64,
+    retirement_reason: Option<String>,
+) -> Option<ConceptPublication> {
+    if scope != ConceptScope::Repo && status != ContractStatus::Retired {
+        return None;
+    }
+    let mut publication = publication.unwrap_or_default();
+    if publication.published_at == 0 {
+        publication.published_at = recorded_at;
+    }
+    publication.last_reviewed_at = Some(recorded_at);
+    if status == ContractStatus::Retired {
+        publication.status = ConceptPublicationStatus::Retired;
+        publication.retired_at = Some(recorded_at);
+        if retirement_reason.is_some() {
+            publication.retirement_reason = retirement_reason;
+        } else if publication.retirement_reason.is_none() {
+            publication.retirement_reason = Some("retired".to_string());
+        }
+    } else {
+        publication.status = ConceptPublicationStatus::Active;
+        publication.retired_at = None;
+        publication.retirement_reason = None;
+    }
+    Some(publication)
+}
+
+fn origin_for_scope(scope: ConceptScope) -> &'static str {
+    match scope {
+        ConceptScope::Local => "local_mutation",
+        ConceptScope::Session => "session_mutation",
+        ConceptScope::Repo => "repo_mutation",
+    }
+}
+
+fn convert_contract_kind(kind: ContractKindInput) -> ContractKind {
+    match kind {
+        ContractKindInput::Interface => ContractKind::Interface,
+        ContractKindInput::Behavioral => ContractKind::Behavioral,
+        ContractKindInput::DataShape => ContractKind::DataShape,
+        ContractKindInput::DependencyBoundary => ContractKind::DependencyBoundary,
+        ContractKindInput::Lifecycle => ContractKind::Lifecycle,
+        ContractKindInput::Protocol => ContractKind::Protocol,
+        ContractKindInput::Operational => ContractKind::Operational,
+    }
+}
+
+fn convert_contract_status(status: ContractStatusInput) -> ContractStatus {
+    match status {
+        ContractStatusInput::Candidate => ContractStatus::Candidate,
+        ContractStatusInput::Active => ContractStatus::Active,
+        ContractStatusInput::Deprecated => ContractStatus::Deprecated,
+        ContractStatusInput::Retired => ContractStatus::Retired,
+    }
+}
+
+fn convert_contract_stability(stability: ContractStabilityInput) -> ContractStability {
+    match stability {
+        ContractStabilityInput::Experimental => ContractStability::Experimental,
+        ContractStabilityInput::Internal => ContractStability::Internal,
+        ContractStabilityInput::Public => ContractStability::Public,
+        ContractStabilityInput::Deprecated => ContractStability::Deprecated,
+        ContractStabilityInput::Migrating => ContractStability::Migrating,
+    }
+}
+
+fn convert_contract_guarantee_strength(
+    strength: ContractGuaranteeStrengthInput,
+) -> ContractGuaranteeStrength {
+    match strength {
+        ContractGuaranteeStrengthInput::Hard => ContractGuaranteeStrength::Hard,
+        ContractGuaranteeStrengthInput::Soft => ContractGuaranteeStrength::Soft,
+        ContractGuaranteeStrengthInput::Conditional => ContractGuaranteeStrength::Conditional,
+    }
+}
+
+fn convert_contract_target(target: ContractTargetInput) -> Result<ContractTarget> {
+    Ok(ContractTarget {
+        anchors: convert_anchors(target.anchors.unwrap_or_default())?,
+        concept_handles: normalize_concept_handles(target.concept_handles.unwrap_or_default()),
+    })
+}
+
+fn convert_contract_targets(
+    targets: Option<Vec<ContractTargetInput>>,
+) -> Result<Vec<ContractTarget>> {
+    targets
+        .unwrap_or_default()
+        .into_iter()
+        .map(convert_contract_target)
+        .collect()
+}
+
+fn convert_contract_guarantees(
+    guarantees: Vec<ContractGuaranteeInput>,
+) -> Result<Vec<ContractGuarantee>> {
+    let guarantees = guarantees
+        .into_iter()
+        .map(|guarantee| {
+            let statement = guarantee.statement.trim().to_string();
+            if statement.is_empty() {
+                return Err(anyhow!("contract guarantees require non-empty statements"));
+            }
+            Ok(ContractGuarantee {
+                statement,
+                scope: guarantee
+                    .scope
+                    .map(|value| value.trim().to_string())
+                    .filter(|value| !value.is_empty()),
+                strength: guarantee.strength.map(convert_contract_guarantee_strength),
+                evidence_refs: sanitize_strings(guarantee.evidence_refs.unwrap_or_default()),
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    if guarantees.is_empty() {
+        return Err(anyhow!("contract guarantees cannot be empty"));
+    }
+    Ok(guarantees)
+}
+
+fn convert_contract_validations(
+    validations: Option<Vec<ContractValidationInput>>,
+) -> Result<Vec<ContractValidation>> {
+    validations
+        .unwrap_or_default()
+        .into_iter()
+        .map(|validation| {
+            let id = validation.id.trim().to_string();
+            if id.is_empty() {
+                return Err(anyhow!("contract validations require non-empty ids"));
+            }
+            Ok(ContractValidation {
+                id,
+                summary: validation
+                    .summary
+                    .map(|value| value.trim().to_string())
+                    .filter(|value| !value.is_empty()),
+                anchors: convert_anchors(validation.anchors.unwrap_or_default())?,
+            })
+        })
+        .collect()
+}
+
+fn convert_contract_compatibility(
+    compatibility: ContractCompatibilityInput,
+) -> ContractCompatibility {
+    ContractCompatibility {
+        compatible: sanitize_strings(compatibility.compatible.unwrap_or_default()),
+        additive: sanitize_strings(compatibility.additive.unwrap_or_default()),
+        risky: sanitize_strings(compatibility.risky.unwrap_or_default()),
+        breaking: sanitize_strings(compatibility.breaking.unwrap_or_default()),
+        migrating: sanitize_strings(compatibility.migrating.unwrap_or_default()),
+    }
+}
+
+fn merge_unique_strings(mut current: Vec<String>, additions: Vec<String>) -> Vec<String> {
+    current.extend(additions);
+    current = sanitize_strings(current);
+    current.sort();
+    current.dedup();
+    current
+}
+
+fn merge_contract_targets(
+    current: Vec<ContractTarget>,
+    additions: Vec<ContractTarget>,
+) -> Vec<ContractTarget> {
+    let mut merged = current;
+    for target in additions {
+        if !merged.iter().any(|existing| existing == &target) {
+            merged.push(target);
+        }
+    }
+    merged
+}
+
+fn merge_contract_validations(
+    current: Vec<ContractValidation>,
+    additions: Vec<ContractValidation>,
+) -> Vec<ContractValidation> {
+    let mut merged = current;
+    for validation in additions {
+        if let Some(existing) = merged.iter_mut().find(|item| item.id == validation.id) {
+            *existing = validation;
+        } else {
+            merged.push(validation);
+        }
+    }
+    merged.sort_by(|left, right| left.id.cmp(&right.id));
+    merged
 }
 
 fn build_updated_concept_packet(
@@ -2858,6 +3654,67 @@ fn validate_concept_packet(packet: &ConceptPacket) -> Result<()> {
     Ok(())
 }
 
+fn validate_contract_packet(packet: &ContractPacket) -> Result<()> {
+    if packet.handle.trim().is_empty() {
+        return Err(anyhow!("contract handle cannot be empty"));
+    }
+    if packet.name.trim().is_empty() {
+        return Err(anyhow!("contract name cannot be empty"));
+    }
+    if packet.summary.trim().is_empty() {
+        return Err(anyhow!("contract summary cannot be empty"));
+    }
+    if packet.guarantees.is_empty() {
+        return Err(anyhow!("contract guarantees cannot be empty"));
+    }
+    if packet
+        .guarantees
+        .iter()
+        .any(|guarantee| guarantee.statement.trim().is_empty())
+    {
+        return Err(anyhow!(
+            "contract guarantees must contain non-empty statements"
+        ));
+    }
+    if packet.subject.anchors.is_empty() && packet.subject.concept_handles.is_empty() {
+        return Err(anyhow!(
+            "contract subject must include at least one anchor or concept handle"
+        ));
+    }
+    if packet.evidence.is_empty() {
+        return Err(anyhow!("contract evidence cannot be empty"));
+    }
+    if packet.scope == ConceptScope::Repo {
+        let Some(publication) = packet.publication.as_ref() else {
+            return Err(anyhow!(
+                "repo-published contract packet must include publication metadata"
+            ));
+        };
+        if publication.published_at == 0 {
+            return Err(anyhow!(
+                "repo-published contract publication metadata must include publishedAt"
+            ));
+        }
+    }
+    if packet.status == ContractStatus::Retired
+        && packet
+            .publication
+            .as_ref()
+            .and_then(|publication| publication.retirement_reason.as_deref())
+            .unwrap_or("")
+            .trim()
+            .is_empty()
+    {
+        return Err(anyhow!(
+            "retired contract publication metadata must include retirementReason"
+        ));
+    }
+    if packet.provenance == ConceptProvenance::default() {
+        return Err(anyhow!("contract packet must include provenance metadata"));
+    }
+    Ok(())
+}
+
 fn convert_concept_scope(scope: crate::ConceptScopeInput) -> ConceptScope {
     match scope {
         crate::ConceptScopeInput::Local => ConceptScope::Local,
@@ -2880,6 +3737,10 @@ fn convert_concept_relation_kind(kind: ConceptRelationKindInput) -> ConceptRelat
 
 fn next_concept_event_id() -> String {
     new_prefixed_id("concept-event").to_string()
+}
+
+fn next_contract_event_id() -> String {
+    new_prefixed_id("contract-event").to_string()
 }
 
 fn next_concept_relation_event_id() -> String {

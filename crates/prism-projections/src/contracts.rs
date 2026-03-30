@@ -125,8 +125,7 @@ fn normalize_curated_contract(
         contract.status = ContractStatus::Active;
     }
 
-    if contract.scope == ContractScope::Repo || matches!(event.action, ContractEventAction::Retire)
-    {
+    if contract.scope == ContractScope::Repo || contract.status == ContractStatus::Retired {
         let mut publication = contract
             .publication
             .clone()
@@ -139,19 +138,19 @@ fn normalize_curated_contract(
                 .unwrap_or(event.recorded_at);
         }
         publication.last_reviewed_at = Some(event.recorded_at);
-        match event.action {
-            ContractEventAction::Retire => {
-                publication.status = ContractPublicationStatus::Retired;
-                publication.retired_at = Some(event.recorded_at);
-                if publication.retirement_reason.is_none() {
-                    publication.retirement_reason = Some("retired".to_string());
-                }
-            }
-            _ => {
-                publication.status = ContractPublicationStatus::Active;
-                publication.retired_at = None;
-                publication.retirement_reason = None;
-            }
+        if contract.status == ContractStatus::Retired {
+            publication.status = ContractPublicationStatus::Retired;
+            publication.retired_at = Some(event.recorded_at);
+            publication.retirement_reason = event
+                .patch
+                .as_ref()
+                .and_then(|patch| patch.retirement_reason.clone())
+                .or_else(|| publication.retirement_reason.clone())
+                .or_else(|| Some("retired".to_string()));
+        } else {
+            publication.status = ContractPublicationStatus::Active;
+            publication.retired_at = None;
+            publication.retirement_reason = None;
         }
         contract.publication = Some(publication);
     } else {
@@ -172,6 +171,9 @@ fn contract_event_post_image(
     };
 
     let mut contract = previous.clone();
+    if has_patch_field(&patch.set_fields, "kind") {
+        contract.kind = patch.kind.unwrap_or(event.contract.kind);
+    }
     if has_patch_field(&patch.set_fields, "name") {
         contract.name = patch
             .name
@@ -240,6 +242,19 @@ fn contract_event_post_image(
     }
     if has_patch_field(&patch.set_fields, "scope") {
         contract.scope = patch.scope.unwrap_or(event.contract.scope);
+    }
+    if has_patch_field(&patch.set_fields, "supersedes") {
+        let publication = contract
+            .publication
+            .get_or_insert_with(|| event.contract.publication.clone().unwrap_or_default());
+        publication.supersedes = patch.supersedes.clone().unwrap_or_else(|| {
+            event
+                .contract
+                .publication
+                .as_ref()
+                .map(|publication| publication.supersedes.clone())
+                .unwrap_or_default()
+        });
     }
 
     contract

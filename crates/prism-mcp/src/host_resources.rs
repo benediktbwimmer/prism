@@ -7,11 +7,12 @@ use std::sync::Arc;
 use crate::{
     anchor_resource_view_links, capabilities_resource_value, capabilities_resource_view_link,
     co_change_view, compact_discovery_bundle_candidate_excerpts, compact_owner_candidate_excerpts,
-    dedupe_resource_link_views, derive_task_metadata, discovery_bundle_view, edge_resource_uri,
-    edge_resource_view_link, event_resource_view_link, inferred_edge_record_view,
-    lineage_event_view, lineage_resource_view_link, lineage_status, memory_entry_view,
-    memory_event_view, memory_resource_uri, memory_resource_view_link, owner_views_for_query,
-    paginate_items, parse_resource_page, parse_resource_query_param, plans_resource_view_link,
+    contract_packet_view, contracts_resource_view_link_with_options, dedupe_resource_link_views,
+    derive_task_metadata, discovery_bundle_view, edge_resource_uri, edge_resource_view_link,
+    event_resource_view_link, inferred_edge_record_view, lineage_event_view,
+    lineage_resource_view_link, lineage_status, memory_entry_view, memory_event_view,
+    memory_resource_uri, memory_resource_view_link, owner_views_for_query, paginate_items,
+    parse_resource_page, parse_resource_query_param, plans_resource_view_link,
     plans_resource_view_link_with_options, resource_link_view, resource_schema_catalog_entries,
     schema_resource_uri, schema_resource_view_link, schemas_resource_uri,
     schemas_resource_view_link, search_ambiguity_from_diagnostics,
@@ -20,14 +21,14 @@ use crate::{
     symbol_view, symbol_views_for_ids, task_journal_view, task_resource_view_link,
     task_resource_view_links_from_events, tool_schemas_resource_value,
     tool_schemas_resource_view_link, vocab_resource_value, vocab_resource_view_link,
-    workspace_revision_view, CapabilitiesResourcePayload, CoordinationFeaturesView,
-    EdgeResourcePayload, EntrypointsResourcePayload, EventResourcePayload, FeatureFlagsView,
-    InferredEdgeRecordView, LineageResourcePayload, MemoryResourcePayload, PlansQueryArgs,
-    PlansResourcePayload, QueryExecution, QueryHost, ResourceSchemaCatalogPayload, SearchArgs,
-    SearchResourcePayload, SessionLimitsView, SessionResourcePayload, SessionState,
-    SessionTaskView, SessionView, SymbolResourcePayload, TaskResourcePayload,
-    VocabularyResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
-    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
+    workspace_revision_view, CapabilitiesResourcePayload, ContractsResourcePayload,
+    CoordinationFeaturesView, EdgeResourcePayload, EntrypointsResourcePayload,
+    EventResourcePayload, FeatureFlagsView, InferredEdgeRecordView, LineageResourcePayload,
+    MemoryResourcePayload, PlansQueryArgs, PlansResourcePayload, QueryExecution, QueryHost,
+    ResourceSchemaCatalogPayload, SearchArgs, SearchResourcePayload, SessionLimitsView,
+    SessionResourcePayload, SessionState, SessionTaskView, SessionView, SymbolResourcePayload,
+    TaskResourcePayload, VocabularyResourcePayload, DEFAULT_RESOURCE_PAGE_LIMIT,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, ENTRYPOINTS_URI,
 };
 
 impl QueryHost {
@@ -262,6 +263,122 @@ impl QueryHost {
             scope,
             contains,
             plans: paged.items,
+            page: paged.page,
+            truncated: paged.truncated,
+            diagnostics: execution.diagnostics(),
+            related_resources: dedupe_resource_link_views(related_resources),
+        })
+    }
+
+    pub(crate) fn contracts_resource_value(
+        &self,
+        session: Arc<SessionState>,
+        uri: &str,
+    ) -> Result<ContractsResourcePayload> {
+        self.observe_workspace_for_read()?;
+        let schema_uri = schema_resource_uri("contracts");
+        let prism = self.current_prism();
+        let execution = QueryExecution::new(
+            self.clone(),
+            Arc::clone(&session),
+            prism.clone(),
+            self.begin_query_run(
+                session.as_ref(),
+                "read_resource",
+                "resource",
+                "prism://contracts",
+            ),
+        );
+        let contains =
+            parse_resource_query_param(uri, "contains").filter(|value| !value.is_empty());
+        let status = parse_resource_query_param(uri, "status").filter(|value| !value.is_empty());
+        let scope = parse_resource_query_param(uri, "scope").filter(|value| !value.is_empty());
+        let kind = parse_resource_query_param(uri, "kind").filter(|value| !value.is_empty());
+
+        let contracts = if let Some(query) = contains.as_deref() {
+            prism
+                .resolve_contracts(query, session.limits().max_result_nodes)
+                .into_iter()
+                .map(|resolution| {
+                    let packet = resolution.packet.clone();
+                    contract_packet_view(packet, Some(resolution))
+                })
+                .collect::<Vec<_>>()
+        } else {
+            prism
+                .curated_contracts()
+                .into_iter()
+                .map(|packet| contract_packet_view(packet, None))
+                .collect::<Vec<_>>()
+        };
+        let contracts = contracts
+            .into_iter()
+            .filter(|contract| {
+                status
+                    .as_deref()
+                    .is_none_or(|value| contract_status_label(&contract.status) == value)
+            })
+            .filter(|contract| {
+                scope
+                    .as_deref()
+                    .is_none_or(|value| contract_scope_label(&contract.scope) == value)
+            })
+            .filter(|contract| {
+                kind.as_deref()
+                    .is_none_or(|value| contract_kind_label(&contract.kind) == value)
+            })
+            .collect::<Vec<_>>();
+        let paged = paginate_items(
+            contracts,
+            parse_resource_page(
+                uri,
+                DEFAULT_RESOURCE_PAGE_LIMIT,
+                session.limits().max_result_nodes,
+            )?,
+        );
+        let mut related_resources = vec![
+            session_resource_view_link(),
+            schema_resource_view_link("contracts"),
+            schemas_resource_view_link(),
+            contracts_resource_view_link_with_options(
+                contains.as_deref(),
+                status.as_deref(),
+                scope.as_deref(),
+                kind.as_deref(),
+            ),
+        ];
+        related_resources.extend(paged.items.iter().flat_map(|contract| {
+            contract
+                .subject
+                .anchors
+                .iter()
+                .filter_map(|anchor| match anchor {
+                    crate::AnchorRefView::Node {
+                        crate_name,
+                        path,
+                        kind,
+                    } => crate::parse_node_kind(kind).ok().map(|kind| {
+                        symbol_resource_view_link_for_id(&NodeId::new(
+                            crate_name.clone(),
+                            path.clone(),
+                            kind,
+                        ))
+                    }),
+                    crate::AnchorRefView::Lineage { lineage_id } => {
+                        Some(lineage_resource_view_link(lineage_id))
+                    }
+                    crate::AnchorRefView::File { .. } | crate::AnchorRefView::Kind { .. } => None,
+                })
+        }));
+        Ok(ContractsResourcePayload {
+            uri: uri.to_string(),
+            schema_uri,
+            workspace_revision: workspace_revision_view(prism.workspace_revision()),
+            contains,
+            status,
+            scope,
+            kind,
+            contracts: paged.items,
             page: paged.page,
             truncated: paged.truncated,
             diagnostics: execution.diagnostics(),
@@ -785,5 +902,34 @@ impl QueryHost {
             edge,
             related_resources: dedupe_resource_link_views(related_resources),
         })
+    }
+}
+
+fn contract_kind_label(kind: &crate::ContractKindView) -> &'static str {
+    match kind {
+        crate::ContractKindView::Interface => "interface",
+        crate::ContractKindView::Behavioral => "behavioral",
+        crate::ContractKindView::DataShape => "data_shape",
+        crate::ContractKindView::DependencyBoundary => "dependency_boundary",
+        crate::ContractKindView::Lifecycle => "lifecycle",
+        crate::ContractKindView::Protocol => "protocol",
+        crate::ContractKindView::Operational => "operational",
+    }
+}
+
+fn contract_status_label(status: &crate::ContractStatusView) -> &'static str {
+    match status {
+        crate::ContractStatusView::Candidate => "candidate",
+        crate::ContractStatusView::Active => "active",
+        crate::ContractStatusView::Deprecated => "deprecated",
+        crate::ContractStatusView::Retired => "retired",
+    }
+}
+
+fn contract_scope_label(scope: &prism_js::ConceptScopeView) -> &'static str {
+    match scope {
+        prism_js::ConceptScopeView::Local => "local",
+        prism_js::ConceptScopeView::Session => "session",
+        prism_js::ConceptScopeView::Repo => "repo",
     }
 }

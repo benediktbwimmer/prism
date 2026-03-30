@@ -999,6 +999,14 @@ impl Prism {
             .contracts(query, limit)
     }
 
+    pub fn curated_contracts(&self) -> Vec<ContractPacket> {
+        self.projections
+            .read()
+            .expect("projection lock poisoned")
+            .curated_contracts()
+            .to_vec()
+    }
+
     pub fn resolve_contracts(&self, query: &str, limit: usize) -> Vec<ContractResolution> {
         self.projections
             .read()

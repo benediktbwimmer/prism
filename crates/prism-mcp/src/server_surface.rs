@@ -920,6 +920,35 @@ impl PrismMcpServer {
                     vec![task_resource_link(&result.task_id)],
                 )
             }
+            PrismMutationArgs::Contract(args) => {
+                let result = self.execute_logged_mutation(
+                    "mutate.contract",
+                    MutationRefreshPolicy::None,
+                    || {
+                        self.host
+                            .store_contract_without_refresh(self.session.as_ref(), args)
+                    },
+                    |result| {
+                        MutationDashboardMeta::task(
+                            Some(result.task_id.clone()),
+                            vec![
+                                result.task_id.clone(),
+                                result.event_id.clone(),
+                                result.contract_handle.clone(),
+                            ],
+                            0,
+                        )
+                    },
+                )?;
+                structured_tool_result_with_links(
+                    PrismMutationResult {
+                        action: PrismMutationActionSchema::Contract,
+                        result: serde_json::to_value(result.clone())
+                            .map_err(|err| map_query_error(err.into()))?,
+                    },
+                    vec![task_resource_link(&result.task_id)],
+                )
+            }
             PrismMutationArgs::ConceptRelation(args) => {
                 let result = self.execute_logged_mutation(
                     "mutate.concept_relation",
@@ -1481,6 +1510,9 @@ impl ServerHandler for PrismMcpServer {
                 plans_resource_link()
                     .with_title("PRISM Plans")
                     .no_annotation(),
+                contracts_resource_link()
+                    .with_title("PRISM Contracts")
+                    .no_annotation(),
                 RawResource::new(VOCAB_URI, "PRISM Vocabulary")
                     .with_description(
                         "Canonical enum and action vocabularies for PRISM MCP resources, query args, and mutation payloads",
@@ -1633,6 +1665,18 @@ impl ServerHandler for PrismMcpServer {
                         None,
                     )),
                 )?
+            } else if base_uri == CONTRACTS_URI {
+                json_resource_contents_with_meta(
+                    self.host
+                        .contracts_resource_value(Arc::clone(&self.session), uri)
+                        .map_err(map_query_error)?,
+                    request.uri.clone(),
+                    Some(resource_meta(
+                        "contracts",
+                        Some(schema_resource_uri("contracts")),
+                        None,
+                    )),
+                )?
             } else if base_uri == ENTRYPOINTS_URI {
                 json_resource_contents_with_meta(
                     self.host
@@ -1758,6 +1802,12 @@ impl ServerHandler for PrismMcpServer {
                         "PRISM Plans Resource Schema",
                         "JSON Schema for the PRISM plans discovery resource payload.",
                         "plans",
+                    )?,
+                    "contracts" => schema_resource_contents::<ContractsResourcePayload>(
+                        uri,
+                        "PRISM Contracts Resource Schema",
+                        "JSON Schema for the PRISM contracts discovery resource payload.",
+                        "contracts",
                     )?,
                     "schemas" => schema_resource_contents::<ResourceSchemaCatalogPayload>(
                         uri,

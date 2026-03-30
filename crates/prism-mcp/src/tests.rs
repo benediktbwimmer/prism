@@ -34,7 +34,10 @@ use prism_memory::{
     MemoryEntry, MemoryId, MemoryKind, MemoryModule, MemorySource, OutcomeEvent, OutcomeEvidence,
     OutcomeKind, OutcomeMemory, OutcomeResult, RecallQuery,
 };
-use prism_query::{ConceptDecodeLens, ConceptPacket, ConceptProvenance, ConceptScope};
+use prism_query::{
+    ConceptDecodeLens, ConceptPacket, ConceptProvenance, ConceptScope, ContractKind,
+    ContractStability, ContractStatus,
+};
 use prism_store::{Graph, SqliteStore, Store};
 use serde_json::json;
 use serde_json::Value;
@@ -2756,6 +2759,120 @@ return prism.memory.events({{
 }
 
 #[test]
+fn contract_mutation_and_contracts_resource_surface_packets() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let stored = host
+        .store_contract(
+            session.as_ref(),
+            PrismContractMutationArgs {
+                operation: ContractMutationOperationInput::Promote,
+                handle: Some("contract://runtime_status_surface".to_string()),
+                name: Some("runtime status surface".to_string()),
+                summary: Some(
+                    "The runtime status entry point remains available for internal diagnostics consumers."
+                        .to_string(),
+                ),
+                aliases: Some(vec!["runtime status".to_string()]),
+                kind: Some(ContractKindInput::Interface),
+                subject: Some(ContractTargetInput {
+                    anchors: Some(vec![AnchorRefInput::Node {
+                        crate_name: "demo".to_string(),
+                        path: "demo::main".to_string(),
+                        kind: "function".to_string(),
+                    }]),
+                    concept_handles: Some(vec!["concept://runtime_surface".to_string()]),
+                }),
+                guarantees: Some(vec![ContractGuaranteeInput {
+                    statement:
+                        "Internal diagnostics callers can query runtime status without reconstructing daemon state."
+                            .to_string(),
+                    scope: Some("internal".to_string()),
+                    strength: Some(ContractGuaranteeStrengthInput::Hard),
+                    evidence_refs: Some(vec!["runtime-status-tests".to_string()]),
+                }]),
+                assumptions: Some(vec!["The daemon is running.".to_string()]),
+                consumers: Some(vec![ContractTargetInput {
+                    anchors: None,
+                    concept_handles: Some(vec!["concept://runtime_surface".to_string()]),
+                }]),
+                validations: Some(vec![ContractValidationInput {
+                    id: "cargo test -p prism-mcp runtime_status".to_string(),
+                    summary: Some("Covers the runtime status surface.".to_string()),
+                    anchors: Some(vec![AnchorRefInput::Node {
+                        crate_name: "demo".to_string(),
+                        path: "demo::main".to_string(),
+                        kind: "function".to_string(),
+                    }]),
+                }]),
+                stability: Some(ContractStabilityInput::Internal),
+                compatibility: Some(ContractCompatibilityInput {
+                    compatible: Some(vec!["Internal implementation changes behind the same surface.".to_string()]),
+                    additive: None,
+                    risky: None,
+                    breaking: Some(vec!["Removing the runtime status surface.".to_string()]),
+                    migrating: None,
+                }),
+                evidence: Some(vec!["Promoted from repeated runtime-inspection work.".to_string()]),
+                status: Some(ContractStatusInput::Active),
+                scope: Some(ConceptScopeInput::Session),
+                supersedes: None,
+                retirement_reason: None,
+                task_id: Some("task:contract-surface".to_string()),
+            },
+        )
+        .expect("contract should store");
+
+    assert_eq!(stored.packet.kind, ContractKindView::Interface);
+    assert_eq!(stored.packet.status, ContractStatusView::Active);
+    assert_eq!(stored.packet.stability, ContractStabilityView::Internal);
+    assert_eq!(
+        stored.packet.subject.concept_handles,
+        vec!["concept://runtime_surface"]
+    );
+    assert_eq!(
+        host.current_prism()
+            .contract_by_handle("contract://runtime_status_surface")
+            .expect("contract should exist")
+            .kind,
+        ContractKind::Interface
+    );
+    assert_eq!(
+        host.current_prism()
+            .contract_by_handle("contract://runtime_status_surface")
+            .expect("contract should exist")
+            .status,
+        ContractStatus::Active
+    );
+    assert_eq!(
+        host.current_prism()
+            .contract_by_handle("contract://runtime_status_surface")
+            .expect("contract should exist")
+            .stability,
+        ContractStability::Internal
+    );
+
+    let payload = host
+        .contracts_resource_value(
+            session,
+            "prism://contracts?contains=runtime&status=active&scope=session&kind=interface",
+        )
+        .expect("contracts resource should load");
+    assert_eq!(payload.contracts.len(), 1);
+    assert_eq!(
+        payload.contracts[0].handle,
+        "contract://runtime_status_surface"
+    );
+    assert_eq!(payload.contracts[0].guarantees[0].statement, "Internal diagnostics callers can query runtime status without reconstructing daemon state.");
+    assert_eq!(payload.contracts[0].subject.anchors.len(), 1);
+    assert_eq!(payload.kind.as_deref(), Some("interface"));
+    assert!(payload.related_resources.iter().any(|resource| resource.uri
+        == "prism://contracts?contains=runtime&status=active&scope=session&kind=interface"));
+}
+
+#[test]
 fn curator_proposals_query_flattens_pending_proposals_across_jobs() {
     let root = temp_workspace();
 
@@ -3206,7 +3323,7 @@ return {
 
     let mutate = &result.result["mutateSummary"];
     assert_eq!(mutate["toolName"], "prism_mutate");
-    assert_eq!(mutate["actionCount"], 17);
+    assert_eq!(mutate["actionCount"], 18);
     assert_eq!(mutate["exampleAction"], "validation_feedback");
     assert_eq!(
         mutate["examplePrismSaid"],
@@ -3426,6 +3543,24 @@ fn prism_mutate_schema_surfaces_concept_action() {
 }
 
 #[test]
+fn prism_mutate_schema_surfaces_contract_action() {
+    let schema = crate::tool_schema_view("prism_mutate").expect("mutate schema should exist");
+    let contract = schema
+        .actions
+        .iter()
+        .find(|action| action.action == "contract")
+        .expect("contract action should exist");
+
+    assert!(contract.required_fields.contains(&"operation".to_string()));
+    assert!(contract.fields.iter().any(|field| field.name == "name"));
+    assert!(contract.fields.iter().any(|field| field.name == "subject"));
+    assert!(contract
+        .fields
+        .iter()
+        .any(|field| field.name == "guarantees"));
+}
+
+#[test]
 fn prism_mutate_schema_surfaces_action_specific_examples() {
     let schema = crate::tool_schema_view("prism_mutate").expect("mutate schema should exist");
     let missing_examples = schema
@@ -3510,6 +3645,7 @@ fn prism_mutate_schema_surfaces_action_specific_examples() {
         "outcome",
         "memory",
         "concept",
+        "contract",
         "concept_relation",
         "infer_edge",
         "coordination",

@@ -123,6 +123,7 @@ const ENTRYPOINTS_URI: &str = "prism://entrypoints";
 const CAPABILITIES_URI: &str = "prism://capabilities";
 const SESSION_URI: &str = "prism://session";
 const PLANS_URI: &str = "prism://plans";
+const CONTRACTS_URI: &str = "prism://contracts";
 const VOCAB_URI: &str = "prism://vocab";
 const SCHEMAS_URI: &str = "prism://schemas";
 const TOOL_SCHEMAS_URI: &str = "prism://tool-schemas";
@@ -135,6 +136,8 @@ const LINEAGE_RESOURCE_TEMPLATE_URI: &str =
 const TASK_RESOURCE_TEMPLATE_URI: &str = "prism://task/{taskId}?limit={limit}&cursor={cursor}";
 const PLANS_RESOURCE_TEMPLATE_URI: &str =
     "prism://plans?status={status}&scope={scope}&contains={contains}&limit={limit}&cursor={cursor}";
+const CONTRACTS_RESOURCE_TEMPLATE_URI: &str =
+    "prism://contracts?contains={contains}&status={status}&scope={scope}&kind={kind}&limit={limit}&cursor={cursor}";
 const EVENT_RESOURCE_TEMPLATE_URI: &str = "prism://event/{eventId}";
 const MEMORY_RESOURCE_TEMPLATE_URI: &str = "prism://memory/{memoryId}";
 const EDGE_RESOURCE_TEMPLATE_URI: &str = "prism://edge/{edgeId}";

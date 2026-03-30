@@ -1,10 +1,10 @@
 use serde_json::{json, Value};
 
 use crate::{
-    capabilities_resource_uri, edge_resource_uri, event_resource_uri, memory_resource_uri,
-    plans_resource_uri, schema_resource_uri, session_resource_uri,
-    symbol_resource_uri_from_node_id, task_resource_uri, tool_schema_resource_uri,
-    vocab_resource_uri, API_REFERENCE_URI,
+    capabilities_resource_uri, contracts_resource_uri_with_options, edge_resource_uri,
+    event_resource_uri, memory_resource_uri, plans_resource_uri, schema_resource_uri,
+    session_resource_uri, symbol_resource_uri_from_node_id, task_resource_uri,
+    tool_schema_resource_uri, vocab_resource_uri, API_REFERENCE_URI,
 };
 use prism_ir::{EdgeKind, NodeId};
 
@@ -23,6 +23,12 @@ pub(crate) fn resource_example_uri(resource_kind: &str) -> Option<String> {
         "vocab" => Some(vocab_resource_uri()),
         "tool-schemas" => Some("prism://tool-schemas".to_string()),
         "plans" => Some("prism://plans?contains=persistence&limit=5".to_string()),
+        "contracts" => Some(contracts_resource_uri_with_options(
+            Some("runtime"),
+            Some("active"),
+            Some("repo"),
+            Some("interface"),
+        )),
         "entrypoints" => Some("prism://entrypoints?limit=5".to_string()),
         "search" => Some(
             "prism://search/read%20context?strategy=behavioral&ownerKind=read&kind=function&path=src&pathMode=exact&structuredPath=workspace&topLevelOnly=true&includeInferred=true".to_string(),
@@ -152,6 +158,7 @@ fn prism_mutate_examples() -> Vec<Value> {
         "outcome",
         "memory",
         "concept",
+        "contract",
         "concept_relation",
         "infer_edge",
         "coordination",
@@ -231,6 +238,32 @@ fn prism_mutate_action_example(action: &str) -> Option<Value> {
                 ],
                 "aliases": ["validation", "checks"],
                 "evidence": ["Promoted from repeated validation worksets."]
+            }
+        })),
+        "contract" => Some(json!({
+            "action": "contract",
+            "input": {
+                "operation": "promote",
+                "name": "runtime status surface",
+                "summary": "The runtime status entry point remains available for internal diagnostics consumers.",
+                "kind": "interface",
+                "subject": {
+                    "anchors": [sample_node_anchor("demo", "demo::runtime_status", "function")]
+                },
+                "guarantees": [{
+                    "statement": "Internal diagnostics callers can query runtime status without reconstructing daemon state.",
+                    "strength": "hard",
+                    "evidenceRefs": ["runtime-status-tests"]
+                }],
+                "consumers": [{
+                    "conceptHandles": ["concept://runtime_surface"]
+                }],
+                "validations": [{
+                    "id": "cargo test -p prism-mcp runtime_status",
+                    "summary": "Covers the runtime status surface."
+                }],
+                "evidence": ["Promoted from repeated runtime-inspection work."],
+                "scope": "session"
             }
         })),
         "concept_relation" => Some(json!({
@@ -496,6 +529,7 @@ fn resource_payload_example(resource_kind: &str) -> Option<Value> {
         "vocab" => Some(vocab_payload_example()),
         "tool-schemas" => Some(tool_schema_catalog_payload_example()),
         "plans" => Some(plans_payload_example()),
+        "contracts" => Some(contracts_payload_example()),
         "entrypoints" => Some(entrypoints_payload_example()),
         "search" => Some(search_payload_example()),
         "symbol" => Some(symbol_payload_example()),
@@ -693,6 +727,74 @@ fn plans_payload_example() -> Value {
             "name": "PRISM Session",
             "description": "Active workspace root, current task context, and runtime query limits"
         }],
+    })
+}
+
+fn contracts_payload_example() -> Value {
+    json!({
+        "uri": resource_example_uri("contracts"),
+        "schemaUri": schema_resource_uri("contracts"),
+        "workspaceRevision": {
+            "graphVersion": 42,
+            "gitCommit": "abc123def456"
+        },
+        "contains": "runtime",
+        "status": "active",
+        "scope": "repo",
+        "kind": "interface",
+        "contracts": [{
+            "handle": "contract://runtime_status_surface",
+            "name": "runtime status surface",
+            "summary": "The runtime status entry point remains available for internal diagnostics consumers.",
+            "aliases": ["runtime status"],
+            "kind": "interface",
+            "subject": {
+                "anchors": [sample_node_anchor("demo", "demo::runtime_status", "function")],
+                "conceptHandles": ["concept://runtime_surface"]
+            },
+            "guarantees": [{
+                "statement": "Internal diagnostics callers can query runtime status without reconstructing daemon state.",
+                "scope": "internal",
+                "strength": "hard",
+                "evidenceRefs": ["runtime-status-tests"]
+            }],
+            "assumptions": ["The daemon is running."],
+            "consumers": [{
+                "conceptHandles": ["concept://runtime_surface"]
+            }],
+            "validations": [{
+                "id": "cargo test -p prism-mcp runtime_status",
+                "summary": "Covers the runtime status surface.",
+                "anchors": [sample_node_anchor("demo", "demo::runtime_status", "function")]
+            }],
+            "stability": "internal",
+            "compatibility": {
+                "compatible": ["Internal implementation changes behind the same surface."],
+                "breaking": ["Removing the runtime status surface."]
+            },
+            "evidence": ["Promoted from repeated runtime-inspection work."],
+            "status": "active",
+            "scope": "repo",
+            "provenance": {
+                "origin": "repo_mutation",
+                "kind": "manual_contract_promote",
+                "taskId": "task:demo-main"
+            },
+            "publication": {
+                "publishedAt": 1700000200,
+                "lastReviewedAt": 1700000200,
+                "status": "active",
+                "supersedes": []
+            },
+            "resolution": {
+                "score": 260,
+                "reasons": ["canonical name match", "linked to current task context"]
+            }
+        }],
+        "page": sample_page(),
+        "truncated": false,
+        "diagnostics": [],
+        "relatedResources": sample_related_resources(),
     })
 }
 

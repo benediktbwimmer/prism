@@ -8,12 +8,13 @@ use crate::{
     tool_schemas_resource_view_link, workspace_revision_view, CapabilitiesBuildInfoView,
     CapabilitiesResourcePayload, FeatureFlagsView, PrismMcpFeatures, QueryHost,
     QueryMethodCapabilityView, ResourceCapabilityView, ResourceTemplateCapabilityView,
-    ToolCapabilityView, API_REFERENCE_URI, CAPABILITIES_URI, EDGE_RESOURCE_TEMPLATE_URI,
-    ENTRYPOINTS_RESOURCE_TEMPLATE_URI, EVENT_RESOURCE_TEMPLATE_URI, LINEAGE_RESOURCE_TEMPLATE_URI,
-    MEMORY_RESOURCE_TEMPLATE_URI, PLANS_RESOURCE_TEMPLATE_URI, PLANS_URI, SCHEMAS_URI,
-    SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI, SYMBOL_RESOURCE_TEMPLATE_URI,
-    TASK_RESOURCE_TEMPLATE_URI, TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI,
-    TOOL_SCHEMA_RESOURCE_TEMPLATE_URI, VOCAB_URI,
+    ToolCapabilityView, API_REFERENCE_URI, CAPABILITIES_URI, CONTRACTS_RESOURCE_TEMPLATE_URI,
+    CONTRACTS_URI, EDGE_RESOURCE_TEMPLATE_URI, ENTRYPOINTS_RESOURCE_TEMPLATE_URI,
+    EVENT_RESOURCE_TEMPLATE_URI, LINEAGE_RESOURCE_TEMPLATE_URI, MEMORY_RESOURCE_TEMPLATE_URI,
+    PLANS_RESOURCE_TEMPLATE_URI, PLANS_URI, SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI,
+    SYMBOL_RESOURCE_TEMPLATE_URI, TASK_RESOURCE_TEMPLATE_URI,
+    TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI, TOOL_SCHEMA_RESOURCE_TEMPLATE_URI,
+    VOCAB_URI,
 };
 
 pub(crate) fn capabilities_resource_value(
@@ -617,6 +618,16 @@ fn resource_capabilities() -> Vec<ResourceCapabilityView> {
             example_uri: resource_example_uri("plans"),
         },
         ResourceCapabilityView {
+            name: "PRISM Contracts".to_string(),
+            uri: CONTRACTS_URI.to_string(),
+            mime_type: "application/json".to_string(),
+            description:
+                "Browse contract packets with compact status, scope, and promise metadata."
+                    .to_string(),
+            schema_uri: Some(schema_resource_uri("contracts")),
+            example_uri: resource_example_uri("contracts"),
+        },
+        ResourceCapabilityView {
             name: "PRISM Resource Schemas".to_string(),
             uri: SCHEMAS_URI.to_string(),
             mime_type: "application/json".to_string(),
@@ -653,6 +664,15 @@ fn resource_template_capabilities() -> Vec<ResourceTemplateCapabilityView> {
                 "Read plan discovery results with optional status, scope, text, and pagination filters."
                     .to_string(),
             example_uri: resource_example_uri("plans"),
+        },
+        ResourceTemplateCapabilityView {
+            name: "PRISM Contracts Page".to_string(),
+            uri_template: CONTRACTS_RESOURCE_TEMPLATE_URI.to_string(),
+            mime_type: "application/json".to_string(),
+            description:
+                "Read contract discovery results with optional text, status, scope, and kind filters."
+                    .to_string(),
+            example_uri: resource_example_uri("contracts"),
         },
         ResourceTemplateCapabilityView {
             name: "PRISM Resource Schema".to_string(),

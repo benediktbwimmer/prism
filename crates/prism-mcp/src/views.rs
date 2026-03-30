@@ -21,9 +21,11 @@ use prism_memory::{MemoryEntry, MemoryEvent, MemorySource, ScoredMemory};
 use prism_query::{
     ArtifactRisk, ChangeImpact, CoChange, ConceptDecodeLens, ConceptPacket, ConceptProvenance,
     ConceptPublication, ConceptPublicationStatus, ConceptRelation, ConceptRelationKind,
-    ConceptResolution, ConceptScope, DriftCandidate, PlanListEntry, PlanNodeRecommendation,
-    PlanSummary, Prism, TaskIntent, TaskRisk, TaskValidationRecipe, ValidationCheck,
-    ValidationRecipe,
+    ConceptResolution, ConceptScope, ContractCompatibility, ContractGuarantee,
+    ContractGuaranteeStrength, ContractKind, ContractPacket, ContractResolution, ContractStability,
+    ContractStatus, ContractTarget, ContractValidation, DriftCandidate, PlanListEntry,
+    PlanNodeRecommendation, PlanSummary, Prism, TaskIntent, TaskRisk, TaskValidationRecipe,
+    ValidationCheck, ValidationRecipe,
 };
 use serde_json::Value;
 
@@ -332,6 +334,149 @@ pub(crate) fn concept_relation_view(
 
 pub(crate) fn concept_resolution_view(resolution: ConceptResolution) -> ConceptResolutionView {
     ConceptResolutionView {
+        score: resolution.score,
+        reasons: resolution.reasons,
+    }
+}
+
+pub(crate) fn anchor_ref_view(anchor: AnchorRef) -> crate::AnchorRefView {
+    match anchor {
+        AnchorRef::Node(node) => crate::AnchorRefView::Node {
+            crate_name: node.crate_name.to_string(),
+            path: node.path.to_string(),
+            kind: node.kind.to_string(),
+        },
+        AnchorRef::Lineage(lineage) => crate::AnchorRefView::Lineage {
+            lineage_id: lineage.0.to_string(),
+        },
+        AnchorRef::File(file) => crate::AnchorRefView::File { file_id: file.0 },
+        AnchorRef::Kind(kind) => crate::AnchorRefView::Kind {
+            kind: kind.to_string(),
+        },
+    }
+}
+
+pub(crate) fn contract_packet_view(
+    packet: ContractPacket,
+    resolution: Option<ContractResolution>,
+) -> crate::ContractPacketView {
+    crate::ContractPacketView {
+        handle: packet.handle,
+        name: packet.name,
+        summary: packet.summary,
+        aliases: packet.aliases,
+        kind: contract_kind_view(packet.kind),
+        subject: contract_target_view(packet.subject),
+        guarantees: packet
+            .guarantees
+            .into_iter()
+            .map(contract_guarantee_view)
+            .collect(),
+        assumptions: packet.assumptions,
+        consumers: packet
+            .consumers
+            .into_iter()
+            .map(contract_target_view)
+            .collect(),
+        validations: packet
+            .validations
+            .into_iter()
+            .map(contract_validation_view)
+            .collect(),
+        stability: contract_stability_view(packet.stability),
+        compatibility: contract_compatibility_view(packet.compatibility),
+        evidence: packet.evidence,
+        status: contract_status_view(packet.status),
+        scope: concept_scope_view(packet.scope),
+        provenance: concept_provenance_view(packet.provenance),
+        publication: packet.publication.map(concept_publication_view),
+        resolution: resolution.map(contract_resolution_view),
+    }
+}
+
+fn contract_kind_view(kind: ContractKind) -> crate::ContractKindView {
+    match kind {
+        ContractKind::Interface => crate::ContractKindView::Interface,
+        ContractKind::Behavioral => crate::ContractKindView::Behavioral,
+        ContractKind::DataShape => crate::ContractKindView::DataShape,
+        ContractKind::DependencyBoundary => crate::ContractKindView::DependencyBoundary,
+        ContractKind::Lifecycle => crate::ContractKindView::Lifecycle,
+        ContractKind::Protocol => crate::ContractKindView::Protocol,
+        ContractKind::Operational => crate::ContractKindView::Operational,
+    }
+}
+
+fn contract_status_view(status: ContractStatus) -> crate::ContractStatusView {
+    match status {
+        ContractStatus::Candidate => crate::ContractStatusView::Candidate,
+        ContractStatus::Active => crate::ContractStatusView::Active,
+        ContractStatus::Deprecated => crate::ContractStatusView::Deprecated,
+        ContractStatus::Retired => crate::ContractStatusView::Retired,
+    }
+}
+
+fn contract_stability_view(stability: ContractStability) -> crate::ContractStabilityView {
+    match stability {
+        ContractStability::Experimental => crate::ContractStabilityView::Experimental,
+        ContractStability::Internal => crate::ContractStabilityView::Internal,
+        ContractStability::Public => crate::ContractStabilityView::Public,
+        ContractStability::Deprecated => crate::ContractStabilityView::Deprecated,
+        ContractStability::Migrating => crate::ContractStabilityView::Migrating,
+    }
+}
+
+fn contract_target_view(target: ContractTarget) -> crate::ContractTargetView {
+    crate::ContractTargetView {
+        anchors: target.anchors.into_iter().map(anchor_ref_view).collect(),
+        concept_handles: target.concept_handles,
+    }
+}
+
+fn contract_guarantee_view(guarantee: ContractGuarantee) -> crate::ContractGuaranteeView {
+    crate::ContractGuaranteeView {
+        statement: guarantee.statement,
+        scope: guarantee.scope,
+        strength: guarantee.strength.map(contract_guarantee_strength_view),
+        evidence_refs: guarantee.evidence_refs,
+    }
+}
+
+fn contract_guarantee_strength_view(
+    strength: ContractGuaranteeStrength,
+) -> crate::ContractGuaranteeStrengthView {
+    match strength {
+        ContractGuaranteeStrength::Hard => crate::ContractGuaranteeStrengthView::Hard,
+        ContractGuaranteeStrength::Soft => crate::ContractGuaranteeStrengthView::Soft,
+        ContractGuaranteeStrength::Conditional => crate::ContractGuaranteeStrengthView::Conditional,
+    }
+}
+
+fn contract_validation_view(validation: ContractValidation) -> crate::ContractValidationView {
+    crate::ContractValidationView {
+        id: validation.id,
+        summary: validation.summary,
+        anchors: validation
+            .anchors
+            .into_iter()
+            .map(anchor_ref_view)
+            .collect(),
+    }
+}
+
+fn contract_compatibility_view(
+    compatibility: ContractCompatibility,
+) -> crate::ContractCompatibilityView {
+    crate::ContractCompatibilityView {
+        compatible: compatibility.compatible,
+        additive: compatibility.additive,
+        risky: compatibility.risky,
+        breaking: compatibility.breaking,
+        migrating: compatibility.migrating,
+    }
+}
+
+fn contract_resolution_view(resolution: ContractResolution) -> crate::ContractResolutionView {
+    crate::ContractResolutionView {
         score: resolution.score,
         reasons: resolution.reasons,
     }

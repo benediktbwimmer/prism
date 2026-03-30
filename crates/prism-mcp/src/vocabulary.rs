@@ -58,6 +58,11 @@ const PRISM_MUTATE_ACTIONS: &[VocabularyValueSpec] = &[
         description: "Promote, update, or retire a concept packet.",
     },
     VocabularyValueSpec {
+        value: "contract",
+        aliases: &[],
+        description: "Promote, update, retire, or maintain a contract packet.",
+    },
+    VocabularyValueSpec {
         value: "concept_relation",
         aliases: &[],
         description: "Upsert or retire a concept relation.",
