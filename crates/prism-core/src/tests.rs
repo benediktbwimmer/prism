@@ -2312,6 +2312,131 @@ fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
 }
 
 #[test]
+fn repo_published_plans_merge_into_existing_coordination_snapshot() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let (published_plan_id, published_task_id) = session
+        .mutate_coordination(|prism| {
+            let base_revision = prism.workspace_revision();
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:published-merge-plan"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:published-merge-plan")),
+                    causation: None,
+                },
+                "Published plan should stay mutable".into(),
+                None,
+                Some(Default::default()),
+            )?;
+            let task = prism.create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:published-merge-task"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:published-merge-plan")),
+                    causation: None,
+                },
+                prism_coordination::TaskCreateInput {
+                    plan_id: plan_id.clone(),
+                    title: "Published task should be available to mutations".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision,
+                },
+            )?;
+            Ok((plan_id, task.id))
+        })
+        .unwrap();
+    drop(session);
+
+    let coordination = CoordinationStore::new();
+    let base_revision = prism_ir::WorkspaceRevision {
+        graph_version: 1,
+        git_commit: None,
+    };
+    let (snapshot_plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coordination:snapshot-plan"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:snapshot-plan")),
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Persisted snapshot should remain authoritative".into(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (snapshot_task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coordination:snapshot-task"),
+                ts: 4,
+                actor: EventActor::Agent,
+                correlation: Some(TaskId::new("task:snapshot-plan")),
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: snapshot_plan_id.clone(),
+                title: "Snapshot task should survive merge".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::InProgress),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision,
+            },
+        )
+        .unwrap();
+
+    let snapshot = coordination.snapshot();
+    let loaded = crate::published_plans::load_hydrated_coordination_snapshot(&root, Some(snapshot))
+        .unwrap()
+        .expect("merged coordination snapshot");
+    assert!(loaded.plans.iter().any(|plan| {
+        plan.id == published_plan_id && plan.goal == "Published plan should stay mutable"
+    }));
+    assert!(loaded.tasks.iter().any(|task| {
+        task.id == published_task_id
+            && task.plan == published_plan_id
+            && task.title == "Published task should be available to mutations"
+    }));
+    assert!(loaded.plans.iter().any(|plan| {
+        plan.id == snapshot_plan_id && plan.goal == "Persisted snapshot should remain authoritative"
+    }));
+    assert!(loaded.tasks.iter().any(|task| {
+        task.id == snapshot_task_id
+            && task.plan == snapshot_plan_id
+            && task.title == "Snapshot task should survive merge"
+            && task.status == prism_ir::CoordinationTaskStatus::InProgress
+    }));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn replayed_coordination_snapshot_stays_authoritative_over_published_plan_exports() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

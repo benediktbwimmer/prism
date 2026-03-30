@@ -23,6 +23,9 @@ use crate::types::{
 };
 
 pub const MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE: usize = 32;
+// Guard the hot path against quadratic co-change explosions on bulk edits.
+// 128 distinct lineages already implies 16,256 directed deltas.
+pub const MAX_CO_CHANGE_LINEAGES_PER_CHANGESET: usize = 128;
 
 #[derive(Debug, Clone, Default)]
 pub struct ProjectionIndex {
@@ -115,23 +118,7 @@ impl ProjectionIndex {
             .cloned()
             .collect::<HashMap<NodeId, LineageId>>();
 
-        let mut co_change_by_lineage = HashMap::<LineageId, Vec<CoChangeRecord>>::new();
-        for (left, right, count) in &history.co_change_counts {
-            co_change_by_lineage
-                .entry(left.clone())
-                .or_default()
-                .push(CoChangeRecord {
-                    lineage: right.clone(),
-                    count: *count,
-                });
-            co_change_by_lineage
-                .entry(right.clone())
-                .or_default()
-                .push(CoChangeRecord {
-                    lineage: left.clone(),
-                    count: *count,
-                });
-        }
+        let mut co_change_by_lineage = co_change_by_lineage_from_history_events(&history.events);
         normalize_co_change_by_lineage(&mut co_change_by_lineage);
 
         let mut validation_scores = HashMap::<LineageId, HashMap<String, (f32, u64)>>::new();
@@ -949,12 +936,9 @@ fn candidate_rank_for_health(candidate: &NodeId, original: &NodeId) -> (u8, u8, 
 }
 
 pub fn co_change_deltas_for_events(events: &[LineageEvent]) -> Vec<CoChangeDelta> {
-    let mut lineages = events
-        .iter()
-        .map(|event| event.lineage.clone())
-        .collect::<Vec<_>>();
-    lineages.sort_by(|left, right| left.0.cmp(&right.0));
-    lineages.dedup();
+    let Some(lineages) = distinct_change_set_lineages(events) else {
+        return Vec::new();
+    };
 
     let mut deltas = Vec::new();
     for (index, left) in lineages.iter().enumerate() {
@@ -972,6 +956,66 @@ pub fn co_change_deltas_for_events(events: &[LineageEvent]) -> Vec<CoChangeDelta
         }
     }
     deltas
+}
+
+fn co_change_by_lineage_from_history_events(
+    events: &[LineageEvent],
+) -> HashMap<LineageId, Vec<CoChangeRecord>> {
+    let mut change_sets = HashMap::<String, Vec<LineageId>>::new();
+    for event in events {
+        let change_set_id = event
+            .meta
+            .causation
+            .as_ref()
+            .map(|id| id.0.to_string())
+            .unwrap_or_else(|| event.meta.id.0.to_string());
+        change_sets
+            .entry(change_set_id)
+            .or_default()
+            .push(event.lineage.clone());
+    }
+
+    let mut counts = HashMap::<LineageId, HashMap<LineageId, u32>>::new();
+    for lineages in change_sets.into_values() {
+        let Some(lineages) = distinct_sorted_lineages(lineages) else {
+            continue;
+        };
+        for (index, left) in lineages.iter().enumerate() {
+            for right in lineages.iter().skip(index + 1) {
+                *counts
+                    .entry(left.clone())
+                    .or_default()
+                    .entry(right.clone())
+                    .or_default() += 1;
+                *counts
+                    .entry(right.clone())
+                    .or_default()
+                    .entry(left.clone())
+                    .or_default() += 1;
+            }
+        }
+    }
+
+    counts
+        .into_iter()
+        .map(|(source, neighbors)| {
+            let neighbors = neighbors
+                .into_iter()
+                .map(|(lineage, count)| CoChangeRecord { lineage, count })
+                .collect();
+            (source, neighbors)
+        })
+        .collect()
+}
+
+fn distinct_change_set_lineages(events: &[LineageEvent]) -> Option<Vec<LineageId>> {
+    distinct_sorted_lineages(events.iter().map(|event| event.lineage.clone()).collect())
+}
+
+fn distinct_sorted_lineages(mut lineages: Vec<LineageId>) -> Option<Vec<LineageId>> {
+    lineages.sort_by(|left, right| left.0.cmp(&right.0));
+    lineages.dedup();
+    (lineages.len() <= MAX_CO_CHANGE_LINEAGES_PER_CHANGESET).then_some(lineages)
 }
 
 pub fn validation_deltas_for_event<F>(

@@ -73,6 +73,9 @@ impl SqliteStore {
         let schema_started = Instant::now();
         schema::init_schema(&conn)?;
         let schema_ms = schema_started.elapsed().as_millis();
+        let retire_legacy_started = Instant::now();
+        let retired_legacy_co_change = history_io::retire_legacy_history_co_change(&mut conn)?;
+        let retire_legacy_ms = retire_legacy_started.elapsed().as_millis();
         let prune_started = Instant::now();
         let pruned_co_change_rows = projections::prune_projection_co_change(&mut conn)?;
         let prune_ms = prune_started.elapsed().as_millis();
@@ -83,6 +86,11 @@ impl SqliteStore {
             open_connection_ms,
             configure_ms,
             schema_ms,
+            retire_legacy_ms,
+            retired_legacy_history_co_change_rows = retired_legacy_co_change.deleted_rows,
+            retired_legacy_history_co_change_reclaim_bytes =
+                retired_legacy_co_change.reclaimed_bytes_before_vacuum,
+            retired_legacy_history_co_change_vacuumed = retired_legacy_co_change.vacuumed,
             prune_ms,
             pruned_co_change_rows,
             total_ms = started.elapsed().as_millis(),
@@ -199,7 +207,14 @@ impl Store for SqliteStore {
     }
 
     fn load_history_snapshot(&mut self) -> Result<Option<prism_history::HistorySnapshot>> {
-        if let Some(snapshot) = history_io::load_history_snapshot(&self.conn)? {
+        self.load_history_snapshot_with_options(true)
+    }
+
+    fn load_history_snapshot_with_options(
+        &mut self,
+        include_co_change: bool,
+    ) -> Result<Option<prism_history::HistorySnapshot>> {
+        if let Some(snapshot) = history_io::load_history_snapshot(&self.conn, include_co_change)? {
             Ok(Some(snapshot))
         } else {
             snapshots::load_snapshot_row(&self.conn, "history")

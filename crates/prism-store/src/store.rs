@@ -92,6 +92,12 @@ pub struct CoordinationEventStream {
 pub trait Store {
     fn load_graph(&mut self) -> Result<Option<Graph>>;
     fn load_history_snapshot(&mut self) -> Result<Option<HistorySnapshot>>;
+    fn load_history_snapshot_with_options(
+        &mut self,
+        _include_co_change: bool,
+    ) -> Result<Option<HistorySnapshot>> {
+        self.load_history_snapshot()
+    }
     fn save_history_snapshot(&mut self, snapshot: &HistorySnapshot) -> Result<()>;
     fn save_history_snapshot_with_co_change_deltas(
         &mut self,

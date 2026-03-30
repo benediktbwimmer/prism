@@ -7,8 +7,20 @@ use crate::sqlite::codecs::{decode_node_kind, encode_node_kind};
 
 const HISTORY_NEXT_LINEAGE_KEY: &str = "history:next_lineage";
 const HISTORY_NEXT_EVENT_KEY: &str = "history:next_event";
+const LEGACY_CO_CHANGE_RETIRED_KEY: &str = "history:legacy_co_change_retired";
+const MIN_VACUUM_RECLAIM_BYTES: u64 = 64 * 1024 * 1024;
 
-pub(super) fn load_history_snapshot(conn: &Connection) -> Result<Option<HistorySnapshot>> {
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub(super) struct LegacyCoChangeRetirement {
+    pub deleted_rows: usize,
+    pub reclaimed_bytes_before_vacuum: u64,
+    pub vacuumed: bool,
+}
+
+pub(super) fn load_history_snapshot(
+    conn: &Connection,
+    _include_co_change: bool,
+) -> Result<Option<HistorySnapshot>> {
     if !history_state_present(conn)? {
         return Ok(None);
     }
@@ -52,25 +64,6 @@ pub(super) fn load_history_snapshot(conn: &Connection) -> Result<Option<HistoryS
         }
     }
 
-    let mut co_change_counts = Vec::<(LineageId, LineageId, u32)>::new();
-    {
-        let mut stmt = conn.prepare(
-            "SELECT source_lineage, target_lineage, count
-             FROM history_co_change
-             ORDER BY source_lineage, target_lineage",
-        )?;
-        let rows = stmt.query_map([], |row| {
-            Ok((
-                LineageId::new(row.get::<_, String>(0)?),
-                LineageId::new(row.get::<_, String>(1)?),
-                row.get::<_, u32>(2)?,
-            ))
-        })?;
-        for row in rows {
-            co_change_counts.push(row?);
-        }
-    }
-
     let mut tombstones = Vec::<LineageTombstone>::new();
     {
         let mut stmt = conn.prepare(
@@ -91,11 +84,50 @@ pub(super) fn load_history_snapshot(conn: &Connection) -> Result<Option<HistoryS
     Ok(Some(HistorySnapshot {
         node_to_lineage,
         events,
-        co_change_counts,
         tombstones,
         next_lineage: metadata_value(conn, HISTORY_NEXT_LINEAGE_KEY)?.unwrap_or_default(),
         next_event: metadata_value(conn, HISTORY_NEXT_EVENT_KEY)?.unwrap_or_default(),
     }))
+}
+
+pub(super) fn retire_legacy_history_co_change(
+    conn: &mut Connection,
+) -> Result<LegacyCoChangeRetirement> {
+    if metadata_value(conn, LEGACY_CO_CHANGE_RETIRED_KEY)?.is_some() {
+        return Ok(LegacyCoChangeRetirement::default());
+    }
+    if !table_exists(conn, "history_co_change")? {
+        conn.execute(
+            "INSERT INTO metadata(key, value) VALUES (?1, 1)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params![LEGACY_CO_CHANGE_RETIRED_KEY],
+        )?;
+        return Ok(LegacyCoChangeRetirement::default());
+    }
+
+    let deleted_rows = {
+        let tx = conn.transaction()?;
+        let deleted_rows = tx.execute("DELETE FROM history_co_change", [])?;
+        set_metadata_value_tx(&tx, LEGACY_CO_CHANGE_RETIRED_KEY, 1)?;
+        tx.commit()?;
+        deleted_rows
+    };
+
+    let page_size = conn.pragma_query_value(None, "page_size", |row| row.get::<_, i64>(0))? as u64;
+    let freelist_count =
+        conn.pragma_query_value(None, "freelist_count", |row| row.get::<_, i64>(0))? as u64;
+    let reclaimed_bytes_before_vacuum = page_size.saturating_mul(freelist_count);
+
+    let vacuumed = reclaimed_bytes_before_vacuum >= MIN_VACUUM_RECLAIM_BYTES;
+    if vacuumed {
+        conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE); VACUUM;")?;
+    }
+
+    Ok(LegacyCoChangeRetirement {
+        deleted_rows,
+        reclaimed_bytes_before_vacuum,
+        vacuumed,
+    })
 }
 
 pub(super) fn replace_history_snapshot_tx(
@@ -135,16 +167,6 @@ pub(super) fn replace_history_snapshot_tx(
                 event.lineage.0.as_str(),
                 serde_json::to_string(event)?,
             ])?;
-        }
-    }
-
-    {
-        let mut stmt = tx.prepare_cached(
-            "INSERT INTO history_co_change(source_lineage, target_lineage, count)
-             VALUES (?1, ?2, ?3)",
-        )?;
-        for (source, target, count) in &snapshot.co_change_counts {
-            stmt.execute(params![source.0.as_str(), target.0.as_str(), count])?;
         }
     }
 
@@ -224,22 +246,6 @@ pub(super) fn apply_history_delta_tx(
 
     {
         let mut stmt = tx.prepare_cached(
-            "INSERT INTO history_co_change(source_lineage, target_lineage, count)
-             VALUES (?1, ?2, ?3)
-             ON CONFLICT(source_lineage, target_lineage)
-             DO UPDATE SET count = history_co_change.count + excluded.count",
-        )?;
-        for delta in &delta.co_change_deltas {
-            stmt.execute(params![
-                delta.source_lineage.0.as_str(),
-                delta.target_lineage.0.as_str(),
-                delta.count_delta,
-            ])?;
-        }
-    }
-
-    {
-        let mut stmt = tx.prepare_cached(
             "DELETE FROM history_tombstones
              WHERE lineage = ?1",
         )?;
@@ -278,7 +284,6 @@ fn history_state_present(conn: &Connection) -> Result<bool> {
     for table in [
         "history_node_lineages",
         "history_events",
-        "history_co_change",
         "history_tombstones",
     ] {
         let query = format!("SELECT 1 FROM {table} LIMIT 1");
@@ -293,10 +298,21 @@ fn history_state_present(conn: &Connection) -> Result<bool> {
     Ok(false)
 }
 
+fn table_exists(conn: &Connection, table: &str) -> Result<bool> {
+    let exists = conn
+        .query_row(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1 LIMIT 1",
+            params![table],
+            |row| row.get::<_, i64>(0),
+        )
+        .optional()?
+        .is_some();
+    Ok(exists)
+}
+
 fn clear_history_tables_tx(tx: &Transaction<'_>) -> Result<()> {
     tx.execute("DELETE FROM history_node_lineages", [])?;
     tx.execute("DELETE FROM history_events", [])?;
-    tx.execute("DELETE FROM history_co_change", [])?;
     tx.execute("DELETE FROM history_tombstones", [])?;
     Ok(())
 }

@@ -434,13 +434,17 @@ pub(crate) fn load_hydrated_coordination_snapshot(
     root: &Path,
     snapshot: Option<CoordinationSnapshot>,
 ) -> Result<Option<CoordinationSnapshot>> {
-    if snapshot.is_some() {
-        return Ok(snapshot);
+    match (snapshot, load_repo_published_plan_projection(root)?) {
+        (Some(snapshot), Some(published)) => Ok(Some(merge_published_plans_into_snapshot(
+            snapshot,
+            hydrated_plan_state_from_projection(published).snapshot,
+        ))),
+        (Some(snapshot), None) => Ok(Some(snapshot)),
+        (None, Some(published)) => Ok(Some(
+            hydrated_plan_state_from_projection(published).snapshot,
+        )),
+        (None, None) => Ok(None),
     }
-
-    Ok(load_repo_published_plan_projection(root)?
-        .map(hydrated_plan_state_from_projection)
-        .map(|state| state.snapshot))
 }
 
 pub(crate) fn load_hydrated_coordination_plan_state(
@@ -527,6 +531,41 @@ fn merge_snapshot_bootstrap_into_plan_state(
         graphs.push(graph);
     }
     graphs.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+}
+
+fn merge_published_plans_into_snapshot(
+    mut snapshot: CoordinationSnapshot,
+    published_snapshot: CoordinationSnapshot,
+) -> CoordinationSnapshot {
+    let existing_plan_ids = snapshot
+        .plans
+        .iter()
+        .map(|plan| plan.id.0.to_string())
+        .collect::<BTreeSet<_>>();
+    snapshot.plans.extend(
+        published_snapshot
+            .plans
+            .into_iter()
+            .filter(|plan| !existing_plan_ids.contains(plan.id.0.as_str())),
+    );
+    snapshot.tasks.extend(
+        published_snapshot
+            .tasks
+            .into_iter()
+            .filter(|task| !existing_plan_ids.contains(task.plan.0.as_str())),
+    );
+    snapshot
+        .plans
+        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    snapshot
+        .tasks
+        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    snapshot.next_plan = snapshot.next_plan.max(published_snapshot.next_plan);
+    snapshot.next_task = snapshot.next_task.max(published_snapshot.next_task);
+    snapshot.next_claim = snapshot.next_claim.max(published_snapshot.next_claim);
+    snapshot.next_artifact = snapshot.next_artifact.max(published_snapshot.next_artifact);
+    snapshot.next_review = snapshot.next_review.max(published_snapshot.next_review);
+    snapshot
 }
 
 fn load_repo_published_plan_projection(root: &Path) -> Result<Option<PublishedPlanProjection>> {

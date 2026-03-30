@@ -237,7 +237,6 @@ fn memory_store_round_trips_auxiliary_snapshots() {
     let history = HistorySnapshot {
         node_to_lineage: Vec::new(),
         events: Vec::new(),
-        co_change_counts: Vec::new(),
         tombstones: Vec::new(),
         next_lineage: 0,
         next_event: 0,
@@ -324,6 +323,13 @@ fn memory_store_round_trips_auxiliary_snapshots() {
     assert!(loaded_history.events.is_empty());
     assert_eq!(loaded_history.next_lineage, history.next_lineage);
     assert_eq!(loaded_history.next_event, history.next_event);
+    let shallow_history = store
+        .load_history_snapshot_with_options(false)
+        .unwrap()
+        .unwrap();
+    assert_eq!(shallow_history.events, history.events);
+    assert_eq!(shallow_history.next_lineage, history.next_lineage);
+    assert_eq!(shallow_history.next_event, history.next_event);
     assert_eq!(store.load_episodic_snapshot().unwrap(), Some(episodic));
     assert_eq!(store.load_inference_snapshot().unwrap(), Some(inference));
     assert_eq!(store.load_projection_snapshot().unwrap(), Some(projections));
@@ -643,7 +649,7 @@ fn sqlite_store_configures_connection_pragmas() {
     assert_eq!(synchronous, 1);
     assert_eq!(temp_store, 2);
     assert_eq!(wal_autocheckpoint, 1000);
-    assert_eq!(user_version, 18);
+    assert_eq!(user_version, 19);
     assert!(indexed_tables.into_iter().all(|count| count == 1));
 
     drop(store);
@@ -941,6 +947,55 @@ fn sqlite_store_prunes_legacy_co_change_rows_on_open() {
 }
 
 #[test]
+fn sqlite_store_retires_legacy_history_co_change_rows_on_open() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-legacy-history-co-change-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+
+    {
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        conn.execute_batch(
+            "
+            CREATE TABLE history_co_change (
+                source_lineage TEXT NOT NULL,
+                target_lineage TEXT NOT NULL,
+                count INTEGER NOT NULL,
+                PRIMARY KEY (source_lineage, target_lineage)
+            );
+            INSERT INTO history_co_change(source_lineage, target_lineage, count)
+            VALUES ('lineage:alpha', 'lineage:beta', 7);
+            ",
+        )
+        .unwrap();
+    }
+
+    let store = SqliteStore::open(&path).unwrap();
+    let row_count: i64 = store
+        .conn
+        .query_row("SELECT COUNT(*) FROM history_co_change", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(row_count, 0);
+    let retired: i64 = store
+        .conn
+        .query_row(
+            "SELECT value FROM metadata WHERE key = 'history:legacy_co_change_retired'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(retired, 1);
+
+    drop(store);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
 fn sqlite_store_commits_auxiliary_snapshots_with_projection_deltas() {
     let path = std::env::temp_dir().join(format!(
         "prism-store-aux-test-{}.db",
@@ -952,7 +1007,6 @@ fn sqlite_store_commits_auxiliary_snapshots_with_projection_deltas() {
     let history = HistorySnapshot {
         node_to_lineage: Vec::new(),
         events: Vec::new(),
-        co_change_counts: Vec::new(),
         tombstones: Vec::new(),
         next_lineage: 4,
         next_event: 9,
@@ -987,7 +1041,6 @@ fn sqlite_store_commits_auxiliary_snapshots_with_projection_deltas() {
     let loaded_history = store.load_history_snapshot().unwrap().unwrap();
     assert!(loaded_history.node_to_lineage.is_empty());
     assert!(loaded_history.events.is_empty());
-    assert_eq!(loaded_history.co_change_counts, history.co_change_counts);
     assert_eq!(loaded_history.next_lineage, history.next_lineage);
     assert_eq!(loaded_history.next_event, history.next_event);
 
@@ -1384,7 +1437,7 @@ fn sqlite_store_migrates_snapshot_backed_episodic_memory_to_append_only_log() {
         .conn
         .pragma_query_value(None, "user_version", |row| row.get(0))
         .unwrap();
-    assert_eq!(user_version, 18);
+    assert_eq!(user_version, 19);
 
     let logged_rows: i64 = store
         .conn
@@ -1429,7 +1482,6 @@ fn sqlite_store_commits_index_batches_atomically() {
         history_snapshot: HistorySnapshot {
             node_to_lineage: Vec::new(),
             events: Vec::new(),
-            co_change_counts: Vec::new(),
             tombstones: Vec::new(),
             next_lineage: 1,
             next_event: 2,
@@ -1532,7 +1584,6 @@ fn sqlite_store_applies_incremental_history_delta() {
     let initial_snapshot = HistorySnapshot {
         node_to_lineage: vec![(alpha.clone(), lineage.clone())],
         events: vec![born_event.clone()],
-        co_change_counts: vec![(lineage.clone(), neighbor.clone(), 1)],
         tombstones: Vec::new(),
         next_lineage: 1,
         next_event: 2,
@@ -1540,7 +1591,6 @@ fn sqlite_store_applies_incremental_history_delta() {
     let expected_snapshot = HistorySnapshot {
         node_to_lineage: vec![(beta.clone(), lineage.clone())],
         events: vec![born_event, renamed_event.clone()],
-        co_change_counts: vec![(lineage.clone(), neighbor.clone(), 2)],
         tombstones: Vec::new(),
         next_lineage: 1,
         next_event: 3,
@@ -1604,11 +1654,6 @@ fn sqlite_store_applies_incremental_history_delta() {
                     removed_nodes: vec![alpha],
                     upserted_node_lineages: vec![(beta, lineage.clone())],
                     appended_events: vec![renamed_event],
-                    co_change_deltas: vec![prism_history::HistoryCoChangeDelta {
-                        source_lineage: lineage.clone(),
-                        target_lineage: neighbor.clone(),
-                        count_delta: 1,
-                    }],
                     upserted_tombstones: Vec::<LineageTombstone>::new(),
                     removed_tombstone_lineages: Vec::new(),
                     next_lineage: 1,
@@ -1665,7 +1710,6 @@ fn sqlite_store_tolerates_duplicate_node_ids_in_single_file_state() {
         history_snapshot: HistorySnapshot {
             node_to_lineage: Vec::new(),
             events: Vec::new(),
-            co_change_counts: Vec::new(),
             tombstones: Vec::new(),
             next_lineage: 1,
             next_event: 2,

@@ -44,6 +44,13 @@ impl Store for MemoryStore {
         Ok(self.history_snapshot.clone())
     }
 
+    fn load_history_snapshot_with_options(
+        &mut self,
+        _include_co_change: bool,
+    ) -> anyhow::Result<Option<prism_history::HistorySnapshot>> {
+        Ok(self.history_snapshot.clone())
+    }
+
     fn save_history_snapshot(
         &mut self,
         snapshot: &prism_history::HistorySnapshot,

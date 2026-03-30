@@ -283,7 +283,6 @@ pub(crate) fn resolve_change_set(
         ));
     }
 
-    store.record_co_changes(&emitted);
     store.events.extend(emitted.iter().cloned());
     emitted
 }

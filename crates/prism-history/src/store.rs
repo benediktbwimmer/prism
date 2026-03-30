@@ -6,16 +6,13 @@ use prism_ir::{
 };
 
 use crate::resolver::resolve_change_set;
-use crate::snapshot::{
-    CoChangeNeighbor, HistoryCoChangeDelta, HistoryPersistDelta, HistorySnapshot, LineageTombstone,
-};
+use crate::snapshot::{HistoryPersistDelta, HistorySnapshot, LineageTombstone};
 
 #[derive(Debug, Clone, Default)]
 pub struct HistoryStore {
     pub(crate) node_to_lineage: HashMap<NodeId, LineageId>,
     pub(crate) lineage_to_nodes: HashMap<LineageId, Vec<NodeId>>,
     pub(crate) events: Vec<LineageEvent>,
-    pub(crate) co_change_counts: HashMap<(LineageId, LineageId), u32>,
     pub(crate) tombstones: HashMap<LineageId, LineageTombstone>,
     pub(crate) next_lineage: u64,
     pub(crate) next_event: u64,
@@ -65,38 +62,6 @@ impl HistoryStore {
             .collect()
     }
 
-    pub fn co_change_neighbors(&self, lineage: &LineageId, limit: usize) -> Vec<CoChangeNeighbor> {
-        let mut neighbors = self
-            .co_change_counts
-            .iter()
-            .filter_map(|((left, right), count)| {
-                if left == lineage {
-                    Some(CoChangeNeighbor {
-                        lineage: right.clone(),
-                        count: *count,
-                    })
-                } else if right == lineage {
-                    Some(CoChangeNeighbor {
-                        lineage: left.clone(),
-                        count: *count,
-                    })
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-        neighbors.sort_by(|left, right| {
-            right
-                .count
-                .cmp(&left.count)
-                .then_with(|| left.lineage.0.cmp(&right.lineage.0))
-        });
-        if limit > 0 {
-            neighbors.truncate(limit);
-        }
-        neighbors
-    }
-
     pub fn current_nodes_for_lineage(&self, lineage: &LineageId) -> Vec<NodeId> {
         self.lineage_to_nodes
             .get(lineage)
@@ -105,14 +70,6 @@ impl HistoryStore {
     }
 
     pub fn snapshot(&self) -> HistorySnapshot {
-        self.snapshot_with_co_change_counts(true)
-    }
-
-    pub fn snapshot_without_co_change_counts(&self) -> HistorySnapshot {
-        self.snapshot_with_co_change_counts(false)
-    }
-
-    fn snapshot_with_co_change_counts(&self, include_co_change_counts: bool) -> HistorySnapshot {
         HistorySnapshot {
             node_to_lineage: self
                 .node_to_lineage
@@ -120,14 +77,6 @@ impl HistoryStore {
                 .map(|(node, lineage)| (node.clone(), lineage.clone()))
                 .collect(),
             events: self.events.clone(),
-            co_change_counts: include_co_change_counts
-                .then(|| {
-                    self.co_change_counts
-                        .iter()
-                        .map(|((left, right), count)| (left.clone(), right.clone(), *count))
-                        .collect()
-                })
-                .unwrap_or_default(),
             tombstones: self.tombstones.values().cloned().collect(),
             next_lineage: self.next_lineage,
             next_event: self.next_event,
@@ -138,7 +87,6 @@ impl HistoryStore {
         &self,
         events: &[LineageEvent],
         seeded_node_lineages: &[(NodeId, LineageId)],
-        co_change_deltas: &[HistoryCoChangeDelta],
     ) -> HistoryPersistDelta {
         let mut removed_nodes = HashSet::<NodeId>::new();
         let mut upserted_node_lineages = HashMap::<NodeId, LineageId>::new();
@@ -182,7 +130,6 @@ impl HistoryStore {
             removed_nodes,
             upserted_node_lineages,
             appended_events: events.to_vec(),
-            co_change_deltas: co_change_deltas.to_vec(),
             upserted_tombstones,
             removed_tombstone_lineages,
             next_lineage: self.next_lineage,
@@ -194,7 +141,6 @@ impl HistoryStore {
         let HistorySnapshot {
             node_to_lineage,
             events,
-            co_change_counts,
             tombstones,
             next_lineage,
             next_event,
@@ -204,10 +150,6 @@ impl HistoryStore {
             lineage_to_nodes: lineage_to_nodes_index(&node_to_lineage),
             node_to_lineage,
             events,
-            co_change_counts: co_change_counts
-                .into_iter()
-                .map(|(left, right, count)| (normalize_lineage_pair(left, right), count))
-                .collect(),
             tombstones: tombstones
                 .into_iter()
                 .map(|tombstone| (tombstone.lineage.clone(), tombstone))
@@ -274,24 +216,6 @@ impl HistoryStore {
         LineageId::new(new_prefixed_id("lineage"))
     }
 
-    pub(crate) fn record_co_changes(&mut self, events: &[LineageEvent]) {
-        let mut lineages = events
-            .iter()
-            .map(|event| event.lineage.clone())
-            .collect::<Vec<_>>();
-        lineages.sort_by(|left, right| left.0.cmp(&right.0));
-        lineages.dedup();
-
-        for (index, left) in lineages.iter().enumerate() {
-            for right in lineages.iter().skip(index + 1) {
-                *self
-                    .co_change_counts
-                    .entry(normalize_lineage_pair(left.clone(), right.clone()))
-                    .or_insert(0) += 1;
-            }
-        }
-    }
-
     pub(crate) fn record_tombstone(&mut self, lineage: &LineageId, removed: &ObservedNode) {
         self.tombstones.insert(
             lineage.clone(),
@@ -311,14 +235,6 @@ fn sanitize_lineage_evidence(
     match kind {
         prism_ir::LineageEventKind::Born | prism_ir::LineageEventKind::Died => Vec::new(),
         _ => evidence,
-    }
-}
-
-pub(crate) fn normalize_lineage_pair(left: LineageId, right: LineageId) -> (LineageId, LineageId) {
-    if left.0 <= right.0 {
-        (left, right)
-    } else {
-        (right, left)
     }
 }
 

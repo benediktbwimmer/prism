@@ -465,8 +465,20 @@ impl WorkspaceSession {
         let workspace_revision =
             composite_workspace_revision(local_workspace_revision, shared_workspace_revision);
         let graph = store.load_graph()?.unwrap_or_default();
+        let local_projection_snapshot = store.load_projection_snapshot()?;
+        let shared_projection_snapshot =
+            if let Some(shared_runtime_store) = self.shared_runtime_store() {
+                shared_runtime_store
+                    .lock()
+                    .expect("shared runtime store lock poisoned")
+                    .load_projection_snapshot()?
+            } else {
+                None
+            };
         let mut history = store
-            .load_history_snapshot()?
+            .load_history_snapshot_with_options(
+                local_projection_snapshot.is_none() && shared_projection_snapshot.is_none(),
+            )?
             .map(HistoryStore::from_snapshot)
             .unwrap_or_else(HistoryStore::new);
         history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
@@ -491,15 +503,8 @@ impl WorkspaceSession {
             .map(|state| state.snapshot.clone())
             .unwrap_or_default();
         let projections = merged_projection_index(
-            store.load_projection_snapshot()?,
-            if let Some(shared_runtime_store) = self.shared_runtime_store() {
-                shared_runtime_store
-                    .lock()
-                    .expect("shared runtime store lock poisoned")
-                    .load_projection_snapshot()?
-            } else {
-                None
-            },
+            local_projection_snapshot,
+            shared_projection_snapshot,
             load_repo_curated_concepts(&self.root)?,
             load_repo_curated_contracts(&self.root)?,
             load_repo_concept_relations(&self.root)?,

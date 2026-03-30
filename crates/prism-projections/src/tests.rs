@@ -7,7 +7,10 @@ use prism_memory::{
     OutcomeEvent, OutcomeEvidence, OutcomeKind, OutcomeMemorySnapshot, OutcomeResult,
 };
 
-use crate::projections::{ProjectionIndex, MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE};
+use crate::projections::{
+    co_change_deltas_for_events, ProjectionIndex, MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
+    MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE,
+};
 use crate::{
     ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptPacket,
     ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptRelation,
@@ -15,23 +18,67 @@ use crate::{
     ContractGuarantee, ContractKind, ContractPacket, ContractStatus, ContractTarget,
 };
 
+fn history_snapshot(
+    node_to_lineage: Vec<(NodeId, LineageId)>,
+    events: Vec<LineageEvent>,
+    next_lineage: u64,
+    next_event: u64,
+) -> HistorySnapshot {
+    HistorySnapshot {
+        node_to_lineage,
+        events,
+        tombstones: Vec::new(),
+        next_lineage,
+        next_event,
+    }
+}
+
+fn updated_event(
+    change_set_id: &str,
+    event_id: &str,
+    ts: u64,
+    lineage: &LineageId,
+    node: &NodeId,
+) -> LineageEvent {
+    LineageEvent {
+        meta: EventMeta {
+            id: EventId::new(event_id),
+            ts,
+            actor: EventActor::System,
+            correlation: None,
+            causation: Some(EventId::new(change_set_id)),
+        },
+        lineage: lineage.clone(),
+        kind: LineageEventKind::Updated,
+        before: vec![node.clone()],
+        after: vec![node.clone()],
+        confidence: 1.0,
+        evidence: Vec::new(),
+    }
+}
+
 #[test]
 fn derives_validation_and_co_change_indexes() {
     let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
     let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
     let alpha_lineage = LineageId::new("lineage:1");
     let beta_lineage = LineageId::new("lineage:2");
-    let history = HistorySnapshot {
-        node_to_lineage: vec![
+    let history = history_snapshot(
+        vec![
             (alpha.clone(), alpha_lineage.clone()),
             (beta.clone(), beta_lineage.clone()),
         ],
-        events: Vec::new(),
-        co_change_counts: vec![(alpha_lineage.clone(), beta_lineage.clone(), 3)],
-        tombstones: Vec::new(),
-        next_lineage: 2,
-        next_event: 0,
-    };
+        vec![
+            updated_event("change-set:1", "lineage:1", 10, &alpha_lineage, &alpha),
+            updated_event("change-set:1", "lineage:2", 10, &beta_lineage, &beta),
+            updated_event("change-set:2", "lineage:3", 11, &alpha_lineage, &alpha),
+            updated_event("change-set:2", "lineage:4", 11, &beta_lineage, &beta),
+            updated_event("change-set:3", "lineage:5", 12, &alpha_lineage, &alpha),
+            updated_event("change-set:3", "lineage:6", 12, &beta_lineage, &beta),
+        ],
+        2,
+        6,
+    );
     let outcomes = OutcomeMemorySnapshot {
         events: vec![OutcomeEvent {
             meta: EventMeta {
@@ -65,14 +112,7 @@ fn derives_validation_and_co_change_indexes() {
 
 #[test]
 fn projection_index_tracks_direct_concept_relations() {
-    let history = HistorySnapshot {
-        node_to_lineage: Vec::new(),
-        events: Vec::new(),
-        co_change_counts: Vec::new(),
-        tombstones: Vec::new(),
-        next_lineage: 0,
-        next_event: 0,
-    };
+    let history = history_snapshot(Vec::new(), Vec::new(), 0, 0);
     let outcomes = OutcomeMemorySnapshot { events: Vec::new() };
     let validation = ConceptPacket {
         handle: "concept://validation_pipeline".to_string(),
@@ -160,17 +200,18 @@ fn incremental_updates_match_derived_index() {
     let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
     let alpha_lineage = LineageId::new("lineage:1");
     let beta_lineage = LineageId::new("lineage:2");
-    let history = HistorySnapshot {
-        node_to_lineage: vec![
+    let history = history_snapshot(
+        vec![
             (alpha.clone(), alpha_lineage.clone()),
             (beta.clone(), beta_lineage.clone()),
         ],
-        events: Vec::new(),
-        co_change_counts: vec![(alpha_lineage.clone(), beta_lineage.clone(), 1)],
-        tombstones: Vec::new(),
-        next_lineage: 2,
-        next_event: 0,
-    };
+        vec![
+            updated_event("change-set:1", "lineage:1", 10, &alpha_lineage, &alpha),
+            updated_event("change-set:1", "lineage:2", 10, &beta_lineage, &beta),
+        ],
+        2,
+        2,
+    );
     let event = OutcomeEvent {
         meta: EventMeta {
             id: EventId::new("outcome:2"),
@@ -245,22 +286,38 @@ fn incremental_updates_match_derived_index() {
 #[test]
 fn co_change_neighbors_are_pruned_to_top_k() {
     let source = LineageId::new("lineage:source");
-    let history = HistorySnapshot {
-        node_to_lineage: Vec::new(),
-        events: Vec::new(),
-        co_change_counts: (0..(MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 8))
-            .map(|index| {
-                (
-                    source.clone(),
-                    LineageId::new(format!("lineage:{index:03}")),
-                    (MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 8 - index) as u32,
-                )
-            })
-            .collect(),
-        tombstones: Vec::new(),
-        next_lineage: 0,
-        next_event: 0,
-    };
+    let source_node = NodeId::new("demo", "demo::source", NodeKind::Function);
+    let mut node_to_lineage = vec![(source_node.clone(), source.clone())];
+    let mut events = Vec::new();
+    let mut ts = 0u64;
+    for index in 0..(MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 8) {
+        let target = LineageId::new(format!("lineage:{index:03}"));
+        let target_node = NodeId::new(
+            "demo",
+            format!("demo::target_{index:03}"),
+            NodeKind::Function,
+        );
+        node_to_lineage.push((target_node.clone(), target.clone()));
+        for repeat in 0..(MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 8 - index) {
+            let change_set_id = format!("change-set:{index}:{repeat}");
+            events.push(updated_event(
+                &change_set_id,
+                &format!("lineage:source:{index}:{repeat}"),
+                ts,
+                &source,
+                &source_node,
+            ));
+            events.push(updated_event(
+                &change_set_id,
+                &format!("lineage:target:{index}:{repeat}"),
+                ts,
+                &target,
+                &target_node,
+            ));
+            ts += 1;
+        }
+    }
+    let history = history_snapshot(node_to_lineage, events, 0, ts);
 
     let index = ProjectionIndex::derive(&history, &OutcomeMemorySnapshot { events: Vec::new() });
     let neighbors = index.co_change_neighbors(&source, MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 16);
@@ -274,6 +331,29 @@ fn co_change_neighbors_are_pruned_to_top_k() {
 }
 
 #[test]
+fn co_change_deltas_skip_bulk_changesets_above_guardrail() {
+    let events = (0..(MAX_CO_CHANGE_LINEAGES_PER_CHANGESET + 1))
+        .map(|index| LineageEvent {
+            meta: EventMeta {
+                id: EventId::new(format!("lineage:{index}")),
+                ts: index as u64,
+                actor: EventActor::System,
+                correlation: None,
+                causation: None,
+            },
+            lineage: LineageId::new(format!("lineage:{index}")),
+            kind: LineageEventKind::Updated,
+            before: Vec::new(),
+            after: Vec::new(),
+            confidence: 1.0,
+            evidence: Vec::new(),
+        })
+        .collect::<Vec<_>>();
+
+    assert!(co_change_deltas_for_events(&events).is_empty());
+}
+
+#[test]
 fn projection_has_no_concepts_without_curated_packets() {
     let validation = NodeId::new(
         "demo",
@@ -281,17 +361,15 @@ fn projection_has_no_concepts_without_curated_packets() {
         NodeKind::Method,
     );
     let runtime = NodeId::new("demo", "demo::runtime::runtime_status", NodeKind::Function);
-    let history = HistorySnapshot {
-        node_to_lineage: vec![
+    let history = history_snapshot(
+        vec![
             (validation, LineageId::new("lineage:validation")),
             (runtime, LineageId::new("lineage:runtime")),
         ],
-        events: Vec::new(),
-        co_change_counts: Vec::new(),
-        tombstones: Vec::new(),
-        next_lineage: 2,
-        next_event: 0,
-    };
+        Vec::new(),
+        2,
+        0,
+    );
     let outcomes = OutcomeMemorySnapshot { events: Vec::new() };
 
     let index = ProjectionIndex::derive(&history, &outcomes);
@@ -312,17 +390,15 @@ fn curated_concept_events_resolve_by_handle_and_query() {
     let runtime = NodeId::new("demo", "demo::runtime_status", NodeKind::Function);
     let validation_lineage = LineageId::new("lineage:validation");
     let runtime_lineage = LineageId::new("lineage:runtime");
-    let history = HistorySnapshot {
-        node_to_lineage: vec![
+    let history = history_snapshot(
+        vec![
             (validation.clone(), validation_lineage),
             (runtime.clone(), runtime_lineage),
         ],
-        events: Vec::new(),
-        co_change_counts: Vec::new(),
-        tombstones: Vec::new(),
-        next_lineage: 1,
-        next_event: 0,
-    };
+        Vec::new(),
+        1,
+        0,
+    );
     let mut index =
         ProjectionIndex::derive(&history, &OutcomeMemorySnapshot { events: Vec::new() });
     index.replace_curated_concepts_from_events(&[ConceptEvent {
@@ -380,14 +456,12 @@ fn curated_concept_events_resolve_by_handle_and_query() {
 #[test]
 fn curated_contract_events_resolve_by_handle_and_query() {
     let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
-    let history = HistorySnapshot {
-        node_to_lineage: vec![(alpha.clone(), LineageId::new("lineage:alpha"))],
-        events: Vec::new(),
-        co_change_counts: Vec::new(),
-        tombstones: Vec::new(),
-        next_lineage: 1,
-        next_event: 0,
-    };
+    let history = history_snapshot(
+        vec![(alpha.clone(), LineageId::new("lineage:alpha"))],
+        Vec::new(),
+        1,
+        0,
+    );
     let mut index =
         ProjectionIndex::derive(&history, &OutcomeMemorySnapshot { events: Vec::new() });
     index.replace_curated_contracts_from_events(&[ContractEvent {
@@ -466,14 +540,12 @@ fn concept_resolution_handles_typo_tolerant_alias_queries() {
         "demo::impact::Prism::validation_recipe",
         NodeKind::Method,
     );
-    let history = HistorySnapshot {
-        node_to_lineage: vec![(validation.clone(), LineageId::new("lineage:validation"))],
-        events: Vec::new(),
-        co_change_counts: Vec::new(),
-        tombstones: Vec::new(),
-        next_lineage: 1,
-        next_event: 0,
-    };
+    let history = history_snapshot(
+        vec![(validation.clone(), LineageId::new("lineage:validation"))],
+        Vec::new(),
+        1,
+        0,
+    );
     let mut index =
         ProjectionIndex::derive(&history, &OutcomeMemorySnapshot { events: Vec::new() });
     index.replace_curated_concepts_from_events(&[ConceptEvent {
@@ -524,20 +596,18 @@ fn concept_resolution_handles_typo_tolerant_alias_queries() {
 fn concept_health_reports_drift_for_unvalidated_test_heavy_concepts() {
     let validation = NodeId::new("demo", "demo::validation_recipe", NodeKind::Function);
     let validation_test = NodeId::new("demo", "demo::validation_recipe_test", NodeKind::Function);
-    let history = HistorySnapshot {
-        node_to_lineage: vec![
+    let history = history_snapshot(
+        vec![
             (validation.clone(), LineageId::new("lineage:validation")),
             (
                 validation_test.clone(),
                 LineageId::new("lineage:validation_test"),
             ),
         ],
-        events: Vec::new(),
-        co_change_counts: Vec::new(),
-        tombstones: Vec::new(),
-        next_lineage: 1,
-        next_event: 0,
-    };
+        Vec::new(),
+        1,
+        0,
+    );
     let mut index =
         ProjectionIndex::derive(&history, &OutcomeMemorySnapshot { events: Vec::new() });
     index.replace_curated_concepts_from_events(&[ConceptEvent {
@@ -588,17 +658,15 @@ fn concept_health_reports_drift_for_unvalidated_test_heavy_concepts() {
 fn concept_updates_replay_from_typed_patch_payload() {
     let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
     let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
-    let history = HistorySnapshot {
-        node_to_lineage: vec![
+    let history = history_snapshot(
+        vec![
             (alpha.clone(), LineageId::new("lineage:alpha")),
             (beta.clone(), LineageId::new("lineage:beta")),
         ],
-        events: Vec::new(),
-        co_change_counts: Vec::new(),
-        tombstones: Vec::new(),
-        next_lineage: 1,
-        next_event: 0,
-    };
+        Vec::new(),
+        1,
+        0,
+    );
     let mut index =
         ProjectionIndex::derive(&history, &OutcomeMemorySnapshot { events: Vec::new() });
     index.replace_curated_concepts_from_events(&[
@@ -704,17 +772,15 @@ fn curated_concepts_rebind_members_from_lineage_after_rename() {
         confidence: 1.0,
         evidence: Vec::new(),
     };
-    let history = HistorySnapshot {
-        node_to_lineage: vec![
+    let history = history_snapshot(
+        vec![
             (renamed_alpha.clone(), alpha_lineage.clone()),
             (beta.clone(), beta_lineage.clone()),
         ],
-        events: vec![rename_event],
-        co_change_counts: Vec::new(),
-        tombstones: Vec::new(),
-        next_lineage: 2,
-        next_event: 1,
-    };
+        vec![rename_event],
+        2,
+        1,
+    );
     let concept = ConceptPacket {
         handle: "concept://alpha_flow".to_string(),
         canonical_name: "alpha_flow".to_string(),

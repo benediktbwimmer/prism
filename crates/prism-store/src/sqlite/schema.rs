@@ -1,13 +1,13 @@
 use anyhow::Result;
 use rusqlite::Connection;
 
-const SCHEMA_VERSION: i64 = 18;
+const SCHEMA_VERSION: i64 = 19;
 
 pub(super) fn init_schema(conn: &Connection) -> Result<()> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
     match version {
         0 | SCHEMA_VERSION => {}
-        11 | 12 | 13 | 14 | 15 | 16 | 17 => {}
+        11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 => {}
         _ => reset_schema(conn)?,
     }
 
@@ -18,7 +18,7 @@ pub(super) fn init_schema(conn: &Connection) -> Result<()> {
     if matches!(version, 11 | 12 | 13 | 14 | 15 | 16) {
         super::outcome_events::backfill_event_log_if_needed(conn)?;
     }
-    if matches!(version, 11 | 12 | 13 | 14 | 15 | 16 | 17) {
+    if matches!(version, 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18) {
         super::inference_records::backfill_record_log_if_needed(conn)?;
     }
     conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
@@ -217,13 +217,6 @@ fn current_schema_sql() -> &'static str {
             ts INTEGER NOT NULL,
             lineage TEXT NOT NULL,
             payload TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS history_co_change (
-            source_lineage TEXT NOT NULL,
-            target_lineage TEXT NOT NULL,
-            count INTEGER NOT NULL,
-            PRIMARY KEY (source_lineage, target_lineage)
         );
 
         CREATE TABLE IF NOT EXISTS history_tombstones (

@@ -19,7 +19,7 @@ use crate::reanchor::{detect_moved_files, infer_reanchors};
 use crate::session::WorkspaceSession;
 use crate::shared_runtime::{
     local_projection_snapshot_for_persist, merged_projection_index,
-    overlay_persisted_projection_knowledge,
+    overlay_persisted_projection_knowledge, projection_snapshot_without_knowledge,
 };
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::util::{cache_path, cleanup_legacy_cache, default_adapters};
@@ -31,7 +31,7 @@ use crate::WorkspaceSessionOptions;
 use anyhow::Result;
 use prism_coordination::CoordinationSnapshot;
 use prism_curator::CuratorBackend;
-use prism_history::{HistoryCoChangeDelta, HistoryStore};
+use prism_history::HistoryStore;
 use prism_ir::{
     ChangeTrigger, Edge, EdgeKind, EdgeOrigin, LineageEvent, ObservedChangeSet,
     PlanExecutionOverlay, PlanGraph,
@@ -40,12 +40,23 @@ use prism_memory::OutcomeMemory;
 use prism_parser::{LanguageAdapter, ParseResult};
 use prism_projections::{
     co_change_deltas_for_events, CoChangeDelta, ProjectionIndex, ValidationDelta,
+    MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
 };
 use prism_query::Prism;
 use prism_store::{Graph, IndexPersistBatch, SqliteStore, Store, WorkspaceTreeSnapshot};
 use tracing::{info, warn};
 
 const SLOW_FILE_PHASE_THRESHOLD_MS: u128 = 200;
+
+fn distinct_lineage_count(events: &[LineageEvent]) -> usize {
+    let mut lineages = events
+        .iter()
+        .map(|event| event.lineage.clone())
+        .collect::<Vec<_>>();
+    lineages.sort_by(|left, right| left.0.cmp(&right.0));
+    lineages.dedup();
+    lineages.len()
+}
 
 pub struct WorkspaceIndexer<S: Store> {
     pub(crate) root: PathBuf,
@@ -294,9 +305,20 @@ impl<S: Store> WorkspaceIndexer<S> {
         let had_prior_snapshot = stored_graph.is_some();
         let mut graph = stored_graph.unwrap_or_default();
         sync_root_nodes(&mut graph, &layout);
+        let load_projection_started = Instant::now();
+        let persisted_projection_snapshot = store.load_projection_snapshot()?;
+        let workspace_tree_snapshot = store.load_workspace_tree_snapshot()?;
+        let base_projection_snapshot = persisted_projection_snapshot.clone().map(|snapshot| {
+            if options.hydrate_persisted_projections {
+                snapshot
+            } else {
+                projection_snapshot_without_knowledge(snapshot)
+            }
+        });
+        let load_projection_ms = load_projection_started.elapsed().as_millis();
         let load_history_started = Instant::now();
         let mut history = store
-            .load_history_snapshot()?
+            .load_history_snapshot_with_options(base_projection_snapshot.is_none())?
             .map(HistoryStore::from_snapshot)
             .unwrap_or_else(HistoryStore::new);
         let load_history_ms = load_history_started.elapsed().as_millis();
@@ -318,19 +340,10 @@ impl<S: Store> WorkspaceIndexer<S> {
             .map(|state| state.snapshot.clone())
             .unwrap_or_default();
         let load_coordination_ms = load_coordination_started.elapsed().as_millis();
-        let load_projection_started = Instant::now();
-        let persisted_projection_snapshot = store.load_projection_snapshot()?;
-        let workspace_tree_snapshot = store.load_workspace_tree_snapshot()?;
-        let stored_projection_snapshot = if options.hydrate_persisted_projections {
-            persisted_projection_snapshot.clone()
-        } else {
-            None
-        };
-        let load_projection_ms = load_projection_started.elapsed().as_millis();
-        let had_projection_snapshot = stored_projection_snapshot.is_some();
+        let had_projection_snapshot = base_projection_snapshot.is_some();
         let derive_projection_started = Instant::now();
         let mut projections = merged_projection_index(
-            stored_projection_snapshot,
+            base_projection_snapshot,
             None,
             load_repo_curated_concepts(&root)?,
             load_repo_curated_contracts(&root)?,
@@ -559,7 +572,20 @@ impl<S: Store> WorkspaceIndexer<S> {
             let upsert_ms = upsert_started.elapsed().as_millis();
             parsed_file_count += 1;
             let new_lineage_events = self.history.apply(&update.observed);
+            let distinct_lineages = distinct_lineage_count(&new_lineage_events);
             let change_set_deltas = co_change_deltas_for_events(&new_lineage_events);
+            if change_set_deltas.is_empty()
+                && distinct_lineages > MAX_CO_CHANGE_LINEAGES_PER_CHANGESET
+            {
+                warn!(
+                    root = %self.root.display(),
+                    path = %parsed_job.pending.path.display(),
+                    lineage_event_count = new_lineage_events.len(),
+                    distinct_lineage_count = distinct_lineages,
+                    max_co_change_lineages_per_changeset = MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
+                    "skipping symbol-level co-change deltas for oversized change set"
+                );
+            }
             self.projections.apply_lineage_events(&new_lineage_events);
             co_change_deltas.extend(change_set_deltas);
             self.outcomes.apply_lineage(&new_lineage_events)?;
@@ -664,7 +690,20 @@ impl<S: Store> WorkspaceIndexer<S> {
                     trigger.clone(),
                 );
                 let new_lineage_events = self.history.apply(&update.observed);
+                let distinct_lineages = distinct_lineage_count(&new_lineage_events);
                 let change_set_deltas = co_change_deltas_for_events(&new_lineage_events);
+                if change_set_deltas.is_empty()
+                    && distinct_lineages > MAX_CO_CHANGE_LINEAGES_PER_CHANGESET
+                {
+                    warn!(
+                        root = %self.root.display(),
+                        path = %tracked.display(),
+                        lineage_event_count = new_lineage_events.len(),
+                        distinct_lineage_count = distinct_lineages,
+                        max_co_change_lineages_per_changeset = MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
+                        "skipping symbol-level co-change deltas for oversized change set"
+                    );
+                }
                 self.projections.apply_lineage_events(&new_lineage_events);
                 co_change_deltas.extend(change_set_deltas);
                 self.outcomes.apply_lineage(&new_lineage_events)?;
@@ -729,20 +768,9 @@ impl<S: Store> WorkspaceIndexer<S> {
                 snapshot
             }
         });
-        let history_co_change_deltas = co_change_deltas
-            .iter()
-            .map(|delta| HistoryCoChangeDelta {
-                source_lineage: delta.source_lineage.clone(),
-                target_lineage: delta.target_lineage.clone(),
-                count_delta: delta.count_delta,
-            })
-            .collect::<Vec<_>>();
         let history_delta = self.had_prior_snapshot.then(|| {
-            self.history.persistence_delta(
-                &all_lineage_events,
-                &seeded_node_lineages,
-                &history_co_change_deltas,
-            )
+            self.history
+                .persistence_delta(&all_lineage_events, &seeded_node_lineages)
         });
         let upserted_file_count = upserted_paths.len();
         let removed_file_count = removed_paths.len();
@@ -758,7 +786,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         let batch = IndexPersistBatch {
             upserted_paths,
             removed_paths,
-            history_snapshot: self.history.snapshot_without_co_change_counts(),
+            history_snapshot: self.history.snapshot(),
             history_delta,
             outcome_snapshot: self.outcomes.snapshot(),
             co_change_deltas,
@@ -1066,7 +1094,19 @@ impl<S: Store> WorkspaceIndexer<S> {
         upserted_paths: &mut Vec<PathBuf>,
     ) -> Result<()> {
         let new_lineage_events = self.history.apply(&update.observed);
+        let distinct_lineages = distinct_lineage_count(&new_lineage_events);
         let change_set_deltas = co_change_deltas_for_events(&new_lineage_events);
+        if change_set_deltas.is_empty() && distinct_lineages > MAX_CO_CHANGE_LINEAGES_PER_CHANGESET
+        {
+            warn!(
+                root = %self.root.display(),
+                path = %path.display(),
+                lineage_event_count = new_lineage_events.len(),
+                distinct_lineage_count = distinct_lineages,
+                max_co_change_lineages_per_changeset = MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
+                "skipping symbol-level co-change deltas for oversized change set"
+            );
+        }
         self.projections.apply_lineage_events(&new_lineage_events);
         co_change_deltas.extend(change_set_deltas);
         self.outcomes.apply_lineage(&new_lineage_events)?;

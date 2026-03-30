@@ -141,6 +141,17 @@ pub(crate) fn merged_projection_index(
     projections
 }
 
+pub(crate) fn projection_snapshot_without_knowledge(
+    snapshot: ProjectionSnapshot,
+) -> ProjectionSnapshot {
+    ProjectionSnapshot {
+        co_change_by_lineage: snapshot.co_change_by_lineage,
+        validation_by_lineage: snapshot.validation_by_lineage,
+        curated_concepts: Vec::new(),
+        concept_relations: Vec::new(),
+    }
+}
+
 pub(crate) fn split_episodic_snapshot_for_persist(
     snapshot: &EpisodicMemorySnapshot,
 ) -> (EpisodicMemorySnapshot, EpisodicMemorySnapshot) {

@@ -271,47 +271,6 @@ fn adds_git_rename_hint_for_git_triggered_moves() {
 }
 
 #[test]
-fn records_co_change_neighbors_from_single_change_set() {
-    let mut history = HistoryStore::new();
-    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
-    let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
-    history.seed_nodes([alpha.clone(), beta.clone()]);
-
-    history.apply(&ObservedChangeSet {
-        meta: EventMeta {
-            id: EventId::new("change:2"),
-            ts: 2,
-            actor: EventActor::System,
-            correlation: None,
-            causation: None,
-        },
-        trigger: ChangeTrigger::ManualReindex,
-        files: vec![FileId(1)],
-        previous_path: Some("/workspace/src/lib.rs".into()),
-        current_path: Some("/workspace/src/lib.rs".into()),
-        added: Vec::new(),
-        removed: Vec::new(),
-        updated: vec![
-            (
-                observed(function("demo::alpha", 1), 10, 20),
-                observed(function("demo::alpha", 1), 10, 21),
-            ),
-            (
-                observed(function("demo::beta", 1), 11, 30),
-                observed(function("demo::beta", 1), 11, 31),
-            ),
-        ],
-        edge_added: Vec::new(),
-        edge_removed: Vec::new(),
-    });
-
-    let lineage = history.lineage_of(&alpha).unwrap();
-    let neighbors = history.co_change_neighbors(&lineage, 10);
-    assert_eq!(neighbors.len(), 1);
-    assert_eq!(neighbors[0].count, 1);
-}
-
-#[test]
 fn snapshot_round_trip_preserves_tombstones() {
     let mut history = HistoryStore::new();
     history.seed_nodes([NodeId::new("demo", "demo::alpha", NodeKind::Function)]);
