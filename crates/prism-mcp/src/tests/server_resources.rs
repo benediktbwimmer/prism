@@ -528,6 +528,9 @@ async fn mcp_server_reads_file_resource_templates_for_workspace_paths() {
             .collect::<Vec<_>>();
         assert!(operations.contains(&"mcp.receiveRequest"));
         assert!(operations.contains(&"mcp.routeRequest"));
+        assert!(operations.contains(&"runtimeSync.waitLock"));
+        assert!(operations.contains(&"runtimeSync.refreshFs"));
+        assert!(operations.contains(&"runtimeSync.snapshotRevisions"));
         assert!(operations.contains(&"resource.refreshWorkspace"));
         assert!(operations.contains(&"resource.handler"));
         assert!(

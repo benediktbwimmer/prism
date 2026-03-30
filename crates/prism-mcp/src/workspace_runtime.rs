@@ -43,6 +43,7 @@ impl WorkspaceRefreshReport {
     pub(crate) fn none() -> Self {
         Self {
             refresh_path: "none",
+            runtime_sync_used: false,
             deferred: false,
             episodic_reloaded: false,
             inference_reloaded: false,
@@ -297,6 +298,7 @@ fn sync_workspace_runtime_with_guard(
     );
     Ok(WorkspaceRefreshReport {
         refresh_path,
+        runtime_sync_used: true,
         deferred,
         episodic_reloaded,
         inference_reloaded,
@@ -428,6 +430,7 @@ fn sync_workspace_runtime_for_read_with_guard(
     );
     Ok(WorkspaceRefreshReport {
         refresh_path,
+        runtime_sync_used: true,
         deferred,
         episodic_reloaded,
         inference_reloaded,
@@ -597,6 +600,7 @@ pub(crate) fn sync_persisted_workspace_state(
     );
     Ok(WorkspaceRefreshReport {
         refresh_path,
+        runtime_sync_used: true,
         deferred,
         episodic_reloaded,
         inference_reloaded,
@@ -774,6 +778,7 @@ impl QueryHost {
             }
             return Ok(WorkspaceRefreshReport {
                 refresh_path,
+                runtime_sync_used: false,
                 deferred: refresh_path == "deferred",
                 episodic_reloaded: false,
                 inference_reloaded: false,
@@ -798,6 +803,7 @@ impl QueryHost {
             workspace.record_runtime_refresh_observation("deferred", 0);
             return Ok(WorkspaceRefreshReport {
                 refresh_path: "deferred",
+                runtime_sync_used: false,
                 deferred: true,
                 episodic_reloaded: false,
                 inference_reloaded: false,
@@ -829,6 +835,7 @@ impl QueryHost {
             }
             return Ok(WorkspaceRefreshReport {
                 refresh_path,
+                runtime_sync_used: false,
                 deferred: refresh_path == "deferred",
                 episodic_reloaded: false,
                 inference_reloaded: false,

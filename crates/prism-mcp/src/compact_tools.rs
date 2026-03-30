@@ -168,6 +168,7 @@ impl QueryHost {
         match (|| -> Result<(T, Vec<QueryDiagnostic>, usize)> {
             let refresh_started = Instant::now();
             let refresh = self.observe_workspace_for_read()?;
+            crate::refresh_phases::record_query_runtime_sync_phases(&query_run, &refresh);
             query_run.record_phase(
                 "compact.refreshWorkspace",
                 &json!({

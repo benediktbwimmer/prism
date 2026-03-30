@@ -10593,6 +10593,9 @@ fn mutation_trace_records_internal_phases_for_persisted_only_mutations() {
         .collect::<Vec<_>>();
     assert!(operations.contains(&"mcp.executeHandler"));
     assert!(operations.contains(&"mcp.encodeResponse"));
+    assert!(operations.contains(&"runtimeSync.waitLock"));
+    assert!(operations.contains(&"runtimeSync.refreshFs"));
+    assert!(operations.contains(&"runtimeSync.snapshotRevisions"));
     assert!(operations.contains(&"mutation.refreshWorkspace"));
     assert!(operations.contains(&"mutation.operation"));
     assert!(operations.contains(&"mutation.encodeResult"));

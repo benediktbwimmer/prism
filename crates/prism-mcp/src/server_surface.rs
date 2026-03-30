@@ -125,6 +125,12 @@ impl PrismMcpServer {
             &mut duration_ms,
             &mut metadata,
         );
+        crate::slow_call_snapshot::attach_slow_call_snapshot(
+            &mut metadata,
+            duration_ms,
+            self.host.dashboard_state().as_ref(),
+            self.host.workspace_session().map(Arc::as_ref),
+        );
         let entry = crate::mcp_call_log::new_log_entry(
             self.host.mcp_call_log_store.runtime(),
             call_type,
@@ -211,20 +217,23 @@ impl PrismMcpServer {
             ),
             MutationRefreshPolicy::PersistedOnly => {
                 match self.host.refresh_workspace_for_mutation() {
-                    Ok(refresh) => run.record_phase(
-                        "mutation.refreshWorkspace",
-                        &json!({
-                            "refreshPath": refresh.refresh_path,
-                            "deferred": refresh.deferred,
-                            "episodicReloaded": refresh.episodic_reloaded,
-                            "inferenceReloaded": refresh.inference_reloaded,
-                            "coordinationReloaded": refresh.coordination_reloaded,
-                            "metrics": refresh.metrics.as_json(),
-                        }),
-                        refresh_started.elapsed(),
-                        true,
-                        None,
-                    ),
+                    Ok(refresh) => {
+                        crate::refresh_phases::record_mutation_runtime_sync_phases(&run, &refresh);
+                        run.record_phase(
+                            "mutation.refreshWorkspace",
+                            &json!({
+                                "refreshPath": refresh.refresh_path,
+                                "deferred": refresh.deferred,
+                                "episodicReloaded": refresh.episodic_reloaded,
+                                "inferenceReloaded": refresh.inference_reloaded,
+                                "coordinationReloaded": refresh.coordination_reloaded,
+                                "metrics": refresh.metrics.as_json(),
+                            }),
+                            refresh_started.elapsed(),
+                            true,
+                            None,
+                        )
+                    }
                     Err(error) => {
                         let message = error.to_string();
                         run.record_phase(

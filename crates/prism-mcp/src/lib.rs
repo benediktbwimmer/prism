@@ -61,6 +61,7 @@ mod query_view_materialization;
 mod query_view_playbook;
 mod query_view_validation_plan;
 mod query_views;
+mod refresh_phases;
 mod request_envelope;
 mod resource_schemas;
 mod resource_trace;
@@ -72,6 +73,7 @@ mod semantic_contexts;
 mod server_surface;
 mod session_seed;
 mod session_state;
+mod slow_call_snapshot;
 mod spec_insights;
 mod suggested_queries;
 mod task_journal;
@@ -534,27 +536,28 @@ struct QueryHost {
 
 #[derive(Debug, Clone, Copy)]
 struct WorkspaceRefreshReport {
-    refresh_path: &'static str,
-    deferred: bool,
-    episodic_reloaded: bool,
-    inference_reloaded: bool,
-    coordination_reloaded: bool,
-    metrics: WorkspaceRefreshMetrics,
+    pub(crate) refresh_path: &'static str,
+    pub(crate) runtime_sync_used: bool,
+    pub(crate) deferred: bool,
+    pub(crate) episodic_reloaded: bool,
+    pub(crate) inference_reloaded: bool,
+    pub(crate) coordination_reloaded: bool,
+    pub(crate) metrics: WorkspaceRefreshMetrics,
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 struct WorkspaceRefreshMetrics {
-    lock_wait_ms: u64,
-    lock_hold_ms: u64,
-    fs_refresh_ms: u64,
-    snapshot_revisions_ms: u64,
-    load_episodic_ms: u64,
-    load_inference_ms: u64,
-    load_coordination_ms: u64,
-    loaded_bytes: u64,
-    replay_volume: u64,
-    full_rebuild_count: u64,
-    workspace_reloaded: bool,
+    pub(crate) lock_wait_ms: u64,
+    pub(crate) lock_hold_ms: u64,
+    pub(crate) fs_refresh_ms: u64,
+    pub(crate) snapshot_revisions_ms: u64,
+    pub(crate) load_episodic_ms: u64,
+    pub(crate) load_inference_ms: u64,
+    pub(crate) load_coordination_ms: u64,
+    pub(crate) loaded_bytes: u64,
+    pub(crate) replay_volume: u64,
+    pub(crate) full_rebuild_count: u64,
+    pub(crate) workspace_reloaded: bool,
 }
 
 impl WorkspaceRefreshMetrics {
@@ -849,6 +852,10 @@ impl QueryHost {
             .as_ref()
             .map(|workspace| workspace.prism_arc())
             .unwrap_or_else(|| Arc::clone(&self.prism))
+    }
+
+    pub(crate) fn workspace_session(&self) -> Option<&Arc<WorkspaceSession>> {
+        self.workspace.as_ref()
     }
 
     fn sync_workspace_revision(&self, workspace: &WorkspaceSession) -> Result<()> {

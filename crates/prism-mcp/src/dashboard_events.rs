@@ -52,10 +52,11 @@ impl Default for DashboardState {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub(crate) struct MutationRun {
     dashboard: Arc<DashboardState>,
     mcp_call_log_store: Arc<McpCallLogStore>,
+    workspace: Option<Arc<prism_core::WorkspaceSession>>,
     id: String,
     tool_name: String,
     action: String,
@@ -206,6 +207,7 @@ impl QueryHost {
         let run = MutationRun {
             dashboard: Arc::clone(&self.dashboard_state),
             mcp_call_log_store: Arc::clone(&self.mcp_call_log_store),
+            workspace: self.workspace.as_ref().map(Arc::clone),
             id: format!(
                 "mutation:{}",
                 self.dashboard_state
@@ -340,6 +342,12 @@ impl MutationRun {
             &mut duration_ms,
             &mut metadata,
         );
+        crate::slow_call_snapshot::attach_slow_call_snapshot(
+            &mut metadata,
+            duration_ms,
+            self.dashboard.as_ref(),
+            self.workspace.as_deref(),
+        );
         let entry = MutationLogEntryView {
             id: self.id.clone(),
             action: self.action.clone(),
@@ -415,6 +423,12 @@ impl MutationRun {
             &mut started_at,
             &mut duration_ms,
             &mut metadata,
+        );
+        crate::slow_call_snapshot::attach_slow_call_snapshot(
+            &mut metadata,
+            duration_ms,
+            self.dashboard.as_ref(),
+            self.workspace.as_deref(),
         );
         let entry = MutationLogEntryView {
             id: self.id.clone(),

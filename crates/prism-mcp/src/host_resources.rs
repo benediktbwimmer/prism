@@ -49,6 +49,7 @@ impl QueryHost {
         let refresh_started = Instant::now();
         let refresh = match self.observe_workspace_for_read() {
             Ok(refresh) => {
+                crate::refresh_phases::record_resource_runtime_sync_phases(&refresh);
                 crate::resource_trace::record_phase(
                     "resource.refreshWorkspace",
                     &json!({

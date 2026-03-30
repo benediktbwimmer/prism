@@ -344,7 +344,8 @@ impl QueryHost {
         let mut execution = None;
         let execute_started = Instant::now();
         match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize, std::time::Duration, std::time::Duration)> {
-            self.observe_workspace_for_read()?;
+            let refresh = self.observe_workspace_for_read()?;
+            crate::refresh_phases::record_query_runtime_sync_phases(&query_run, &refresh);
             let created = QueryExecution::new(
                 self.clone(),
                 Arc::clone(&session),
@@ -430,7 +431,8 @@ impl QueryHost {
         let mut execution = None;
         let execute_started = Instant::now();
         match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize, std::time::Duration, std::time::Duration)> {
-            self.observe_workspace_for_read()?;
+            let refresh = self.observe_workspace_for_read()?;
+            crate::refresh_phases::record_query_runtime_sync_phases(&query_run, &refresh);
             let created = QueryExecution::new(
                 self.clone(),
                 Arc::clone(&session),
@@ -515,6 +517,7 @@ impl QueryHost {
         )> {
             let refresh_started = Instant::now();
             let refresh = self.observe_workspace_for_read()?;
+            crate::refresh_phases::record_query_runtime_sync_phases(&query_run, &refresh);
             query_run.record_phase(
                 "typescript.refreshWorkspace",
                 &json!({

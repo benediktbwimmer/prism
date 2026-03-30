@@ -4,8 +4,9 @@ use serde_json::{json, Value};
 use super::*;
 use crate::tests_support::{
     call_tool_request, demo_node, first_tool_content_json, initialize_client,
-    initialized_notification, response_json, server_with_node,
+    initialized_notification, response_json, server_with_node, temp_workspace,
 };
+use prism_core::index_workspace_session;
 
 #[tokio::test]
 async fn mcp_server_reports_actionable_tool_input_errors() {
@@ -106,7 +107,8 @@ async fn mcp_server_accepts_flat_prism_session_shorthand_input() {
 
 #[tokio::test]
 async fn mcp_tool_call_logs_inherit_request_envelope_phases() {
-    let server = server_with_node(demo_node());
+    let root = temp_workspace();
+    let server = PrismMcpServer::with_session(index_workspace_session(&root).unwrap());
     let server_handle = server.clone();
     let (server_transport, client_transport) = tokio::io::duplex(4096);
     let server_task = tokio::spawn(async move { server.serve(server_transport).await });
@@ -171,6 +173,14 @@ async fn mcp_tool_call_logs_inherit_request_envelope_phases() {
         assert!(operations.contains(&"mcp.executeHandler"));
         assert!(operations.contains(&"mcp.encodeResponse"));
     }
+    let query_operations = prism_query
+        .phases
+        .iter()
+        .map(|phase| phase.operation.as_str())
+        .collect::<Vec<_>>();
+    assert!(query_operations.contains(&"runtimeSync.waitLock"));
+    assert!(query_operations.contains(&"runtimeSync.refreshFs"));
+    assert!(query_operations.contains(&"runtimeSync.snapshotRevisions"));
 
     running.cancel().await.unwrap();
 }

@@ -22,7 +22,7 @@ const COMPACT_QUERY_KINDS: &[&str] = &[
     "prism_task_brief",
 ];
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub(crate) struct QueryRun {
     pub(crate) id: String,
     pub(crate) tool_name: String,
@@ -33,6 +33,7 @@ pub(crate) struct QueryRun {
     pub(crate) started: Instant,
     pub(crate) session_id: String,
     pub(crate) task_id: Option<String>,
+    workspace: Option<std::sync::Arc<prism_core::WorkspaceSession>>,
     view_name: std::sync::Arc<std::sync::Mutex<Option<String>>>,
     dashboard: std::sync::Arc<DashboardState>,
     phases: std::sync::Arc<std::sync::Mutex<Vec<QueryPhaseView>>>,
@@ -67,6 +68,7 @@ impl QueryHost {
             started: Instant::now(),
             session_id: session.session_id().0.to_string(),
             task_id: session.current_task().map(|task| task.0.to_string()),
+            workspace: self.workspace.as_ref().map(std::sync::Arc::clone),
             view_name: std::sync::Arc::new(std::sync::Mutex::new(None)),
             dashboard: std::sync::Arc::clone(&self.dashboard_state),
             phases: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
@@ -198,6 +200,12 @@ impl QueryRun {
             &mut duration_ms,
             &mut metadata,
         );
+        crate::slow_call_snapshot::attach_slow_call_snapshot(
+            &mut metadata,
+            duration_ms,
+            self.dashboard.as_ref(),
+            self.workspace.as_deref(),
+        );
         let query_entry = QueryLogEntryView {
             id: self.id.clone(),
             kind: self.kind.clone(),
@@ -284,6 +292,12 @@ impl QueryRun {
             &mut started_at,
             &mut duration_ms,
             &mut metadata,
+        );
+        crate::slow_call_snapshot::attach_slow_call_snapshot(
+            &mut metadata,
+            duration_ms,
+            self.dashboard.as_ref(),
+            self.workspace.as_deref(),
         );
         let query_entry = QueryLogEntryView {
             id: self.id.clone(),
