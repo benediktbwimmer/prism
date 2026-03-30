@@ -201,7 +201,9 @@ impl PrismApiTypechecker<'_> {
             return PrismSurfaceType::Unknown;
         }
         match expr {
-            Expr::Ident(ident) => self.lookup(ident.sym.as_ref()).unwrap_or(PrismSurfaceType::Unknown),
+            Expr::Ident(ident) => self
+                .lookup(ident.sym.as_ref())
+                .unwrap_or(PrismSurfaceType::Unknown),
             Expr::Lit(Lit::Str(_)) => PrismSurfaceType::Primitive("string"),
             Expr::Lit(Lit::Num(_)) | Expr::Lit(Lit::BigInt(_)) => {
                 PrismSurfaceType::Primitive("number")
@@ -258,13 +260,21 @@ impl PrismApiTypechecker<'_> {
         };
         if let Some(record) = method.record_arg {
             if method.path == "prism.decodeConcept"
-                && call.args.first().is_some_and(|arg| matches!(&*arg.expr, Expr::Lit(Lit::Str(_))))
+                && call
+                    .args
+                    .first()
+                    .is_some_and(|arg| matches!(&*arg.expr, Expr::Lit(Lit::Str(_))))
             {
                 return prism_surface_type_for_method(method.path)
                     .unwrap_or(PrismSurfaceType::Unknown);
             }
             if let Some(argument) = call.args.get(record.arg_index) {
-                self.validate_record_argument(method.path, record.arg_name, argument, record.allowed_keys);
+                self.validate_record_argument(
+                    method.path,
+                    record.arg_name,
+                    argument,
+                    record.allowed_keys,
+                );
             }
         }
         prism_surface_type_for_method(method.path).unwrap_or(PrismSurfaceType::Unknown)
@@ -283,13 +293,21 @@ impl PrismApiTypechecker<'_> {
         };
         if let Some(record) = method.record_arg {
             if method.path == "prism.decodeConcept"
-                && call.args.first().is_some_and(|arg| matches!(&*arg.expr, Expr::Lit(Lit::Str(_))))
+                && call
+                    .args
+                    .first()
+                    .is_some_and(|arg| matches!(&*arg.expr, Expr::Lit(Lit::Str(_))))
             {
                 return prism_surface_type_for_method(method.path)
                     .unwrap_or(PrismSurfaceType::Unknown);
             }
             if let Some(argument) = call.args.get(record.arg_index) {
-                self.validate_record_argument(method.path, record.arg_name, argument, record.allowed_keys);
+                self.validate_record_argument(
+                    method.path,
+                    record.arg_name,
+                    argument,
+                    record.allowed_keys,
+                );
             }
         }
         prism_surface_type_for_method(method.path).unwrap_or(PrismSurfaceType::Unknown)
@@ -345,7 +363,11 @@ impl PrismApiTypechecker<'_> {
                 };
                 let detail = format!(
                     "unknown {} {invalid_summary} in `{argument_name}` for `{method_path}`.",
-                    if invalid_keys.len() == 1 { "key" } else { "keys" },
+                    if invalid_keys.len() == 1 {
+                        "key"
+                    } else {
+                        "keys"
+                    },
                 );
                 self.push_issue(self.invalid_record_error(
                     method_path,

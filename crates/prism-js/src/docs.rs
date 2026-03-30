@@ -1219,6 +1219,8 @@ type TaskRiskView = {
   validationChecks: ValidationCheckView[];
   coChangeNeighbors: CoChangeView[];
   riskEvents: OutcomeEvent[];
+  contracts: ContractPacketView[];
+  contractReviewNotes: string[];
   promotedSummaries: string[];
   approvedArtifactIds: string[];
   staleArtifactIds: string[];
@@ -1373,6 +1375,8 @@ type ArtifactRiskView = {
   missingValidations: string[];
   coChangeNeighbors: CoChangeView[];
   riskEvents: OutcomeEvent[];
+  contracts: ContractPacketView[];
+  contractReviewNotes: string[];
   promotedSummaries: string[];
 };
 

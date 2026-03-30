@@ -1162,7 +1162,8 @@ impl QueryExecution {
                                         })
                                         .map(|threshold| boosted_risk_score >= threshold)
                                         .unwrap_or(false);
-                                let mut view = task_risk_view(risk, promoted_summaries);
+                                let mut view =
+                                    task_risk_view(self.prism.as_ref(), risk, promoted_summaries);
                                 view.risk_score = boosted_risk_score;
                                 view.review_required = review_required;
                                 view
@@ -1211,7 +1212,11 @@ impl QueryExecution {
                                 })
                                 .sum::<f32>()
                                 .min(0.25);
-                                let mut view = artifact_risk_view(risk, promoted_summaries);
+                                let mut view = artifact_risk_view(
+                                    self.prism.as_ref(),
+                                    risk,
+                                    promoted_summaries,
+                                );
                                 view.risk_score = (view.risk_score + promoted_risk_boost).min(1.0);
                                 view
                             }),

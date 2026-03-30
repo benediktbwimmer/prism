@@ -78,8 +78,14 @@ macro_rules! helper {
     };
 }
 
-const CLAIM_PREVIEW_KEYS: &[&str] =
-    &["anchors", "anchor", "capability", "mode", "taskId", "task_id"];
+const CLAIM_PREVIEW_KEYS: &[&str] = &[
+    "anchors",
+    "anchor",
+    "capability",
+    "mode",
+    "taskId",
+    "task_id",
+];
 const CHANGED_FILES_KEYS: &[&str] = &["since", "limit", "taskId", "task_id", "path"];
 const CHANGED_SYMBOLS_KEYS: &[&str] = &["since", "limit", "taskId", "task_id"];
 const COMMAND_MEMORY_KEYS: &[&str] = &["taskId", "task_id"];
@@ -137,26 +143,10 @@ const MCP_LOG_KEYS: &[&str] = &[
     "contains",
 ];
 const MEMORY_EVENTS_KEYS: &[&str] = &[
-    "memoryId",
-    "focus",
-    "text",
-    "limit",
-    "kinds",
-    "actions",
-    "scope",
-    "taskId",
-    "task_id",
-    "since",
+    "memoryId", "focus", "text", "limit", "kinds", "actions", "scope", "taskId", "task_id", "since",
 ];
 const MEMORY_OUTCOMES_KEYS: &[&str] = &[
-    "focus",
-    "taskId",
-    "task_id",
-    "kinds",
-    "result",
-    "actor",
-    "since",
-    "limit",
+    "focus", "taskId", "task_id", "kinds", "result", "actor", "since", "limit",
 ];
 const MEMORY_RECALL_KEYS: &[&str] = &["focus", "text", "limit", "kinds", "since"];
 const NEXT_READS_KEYS: &[&str] = &["limit"];
@@ -412,7 +402,12 @@ pub fn prism_api_method_specs() -> &'static [PrismApiMethodSpec] {
 pub fn prism_api_paths() -> &'static [&'static str] {
     static PATHS: OnceLock<Vec<&'static str>> = OnceLock::new();
     PATHS
-        .get_or_init(|| prism_api_method_specs().iter().map(|spec| spec.path).collect())
+        .get_or_init(|| {
+            prism_api_method_specs()
+                .iter()
+                .map(|spec| spec.path)
+                .collect()
+        })
         .as_slice()
 }
 
@@ -424,7 +419,9 @@ pub fn prism_record_arg_bundle(bundle_name: &str) -> Option<PrismRecordArgBundle
 }
 
 pub fn prism_method_spec(path: &str) -> Option<&'static PrismApiMethodSpec> {
-    prism_api_method_specs().iter().find(|spec| spec.path == path)
+    prism_api_method_specs()
+        .iter()
+        .find(|spec| spec.path == path)
 }
 
 pub fn prism_api_declaration_block() -> &'static str {
@@ -433,7 +430,10 @@ pub fn prism_api_declaration_block() -> &'static str {
         .get_or_init(|| {
             let mut top_level = Vec::new();
             let mut namespaced: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
-            for spec in prism_api_method_specs().iter().filter(|spec| spec.declaration.is_some()) {
+            for spec in prism_api_method_specs()
+                .iter()
+                .filter(|spec| spec.declaration.is_some())
+            {
                 let declaration = spec.declaration.unwrap();
                 let suffix = spec.path.strip_prefix("prism.").unwrap_or(spec.path);
                 let segments = suffix.split('.').collect::<Vec<_>>();
@@ -672,7 +672,12 @@ fn surface_type_from_schema(
         if !visiting_refs.insert(reference.to_string()) {
             return PrismSurfaceType::Unknown;
         }
-        let value = surface_type_from_schema(root, &resolve_schema_ref(root, resolved), visiting_refs, depth + 1);
+        let value = surface_type_from_schema(
+            root,
+            &resolve_schema_ref(root, resolved),
+            visiting_refs,
+            depth + 1,
+        );
         visiting_refs.remove(reference);
         return value;
     }
@@ -715,7 +720,11 @@ fn surface_type_from_schema(
             .filter_map(Value::as_str)
             .filter(|value| *value != "null")
             .collect::<Vec<_>>();
-        if type_names.iter().any(|value| value.as_str() == Some("null")) && non_null.len() == 1 {
+        if type_names
+            .iter()
+            .any(|value| value.as_str() == Some("null"))
+            && non_null.len() == 1
+        {
             let inner = surface_type_from_schema(
                 root,
                 &Value::Object(Map::from_iter([(
@@ -737,7 +746,11 @@ fn nullable_or_unknown(
     visiting_refs: &mut BTreeSet<String>,
     depth: usize,
 ) -> PrismSurfaceType {
-    if variants.len() == 2 && variants.iter().any(|value| value.get("type").and_then(Value::as_str) == Some("null")) {
+    if variants.len() == 2
+        && variants
+            .iter()
+            .any(|value| value.get("type").and_then(Value::as_str) == Some("null"))
+    {
         let inner = variants
             .iter()
             .find(|value| value.get("type").and_then(Value::as_str) != Some("null"))

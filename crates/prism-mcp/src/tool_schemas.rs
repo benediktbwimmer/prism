@@ -3,7 +3,7 @@ use prism_js::{
     ToolSchemaView,
 };
 use rmcp::schemars::JsonSchema;
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 
 use crate::{
     capabilities_resource_view_link, dedupe_resource_link_views, json_resource_contents_with_meta,
@@ -351,6 +351,77 @@ pub(crate) fn tool_input_schema_value(tool_name: &str) -> Option<Value> {
         )),
         _ => None,
     }
+}
+
+pub(crate) fn tool_transport_input_schema_value(tool_name: &str) -> Option<Value> {
+    let schema = tool_input_schema_value(tool_name)?;
+    Some(bind_transport_root_schema(tool_name, schema))
+}
+
+fn bind_transport_root_schema(tool_name: &str, schema: Value) -> Value {
+    let Some(variants) = schema.get("oneOf").and_then(Value::as_array) else {
+        return schema;
+    };
+
+    let actions = variants
+        .iter()
+        .filter_map(|variant| {
+            variant
+                .get("properties")
+                .and_then(Value::as_object)
+                .and_then(|properties| properties.get("action"))
+                .and_then(Value::as_object)
+                .and_then(|action| action.get("const"))
+                .and_then(Value::as_str)
+                .map(|action| Value::String(action.to_string()))
+        })
+        .collect::<Vec<_>>();
+    if actions.is_empty() {
+        return schema;
+    }
+
+    let mut output = Map::new();
+    for key in ["$id", "$schema", "title", "description", "examples"] {
+        if let Some(value) = schema.get(key) {
+            output.insert(key.to_string(), value.clone());
+        }
+    }
+    output.insert("type".to_string(), Value::String("object".to_string()));
+    output.insert(
+        "required".to_string(),
+        Value::Array(vec![
+            Value::String("action".to_string()),
+            Value::String("input".to_string()),
+        ]),
+    );
+    output.insert("additionalProperties".to_string(), Value::Bool(false));
+    output.insert(
+        "properties".to_string(),
+        Value::Object(Map::from_iter([
+            (
+                "action".to_string(),
+                json!({
+                    "type": "string",
+                    "enum": actions,
+                    "description": format!(
+                        "Tagged action for `{tool_name}`. Inspect `prism://schema/tool/{tool_name}/action/{{action}}` or `prism.tool(\"{tool_name}\")` for the exact action-specific payload."
+                    ),
+                }),
+            ),
+            (
+                "input".to_string(),
+                json!({
+                    "type": "object",
+                    "description": format!(
+                        "Action payload nested under `input`. The exact shape depends on `action`; use `prism://schema/tool/{tool_name}/action/{{action}}` for the exact schema."
+                    ),
+                }),
+            ),
+        ])),
+    );
+    output.insert("x-prismTaggedUnion".to_string(), Value::Bool(true));
+
+    Value::Object(output)
 }
 
 fn tool_input_schema_contents<T: JsonSchema + std::any::Any>(

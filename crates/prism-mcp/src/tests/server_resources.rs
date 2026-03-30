@@ -2,7 +2,7 @@ use rmcp::{
     model::ProtocolVersion,
     transport::{IntoTransport, Transport},
 };
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use super::*;
 use crate::tests_support::{
@@ -62,10 +62,38 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .find(|tool| tool["name"] == "prism_mutate")
         .expect("prism_mutate tool should exist");
     let mutate_schema = mutate_tool["inputSchema"].to_string();
-    assert!(mutate_schema.contains("\"plan_node_create\""));
-    assert!(mutate_schema.contains("\"claimId\""));
-    assert!(mutate_schema.contains("\"artifactId\""));
-    assert!(mutate_schema.contains("\"content\""));
+    assert_eq!(
+        mutate_tool["inputSchema"]["required"],
+        json!(["action", "input"])
+    );
+    assert!(mutate_tool["inputSchema"]["oneOf"].is_null());
+    assert!(mutate_tool["inputSchema"]["properties"]["action"]["enum"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|value| value == "coordination"));
+    assert_eq!(
+        mutate_tool["inputSchema"]["properties"]["input"]["type"],
+        "object"
+    );
+    assert!(mutate_schema.contains("schema/tool/prism_mutate/action/{action}"));
+
+    let session_tool = tools["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|tool| tool["name"] == "prism_session")
+        .expect("prism_session tool should exist");
+    assert_eq!(
+        session_tool["inputSchema"]["required"],
+        json!(["action", "input"])
+    );
+    assert!(session_tool["inputSchema"]["oneOf"].is_null());
+    assert!(session_tool["inputSchema"]["properties"]["action"]["enum"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|value| value == "start_task"));
 
     client.send(list_resources_request(3)).await.unwrap();
     let resources = response_json(client.receive().await.unwrap());

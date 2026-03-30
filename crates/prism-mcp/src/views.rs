@@ -770,7 +770,11 @@ pub(crate) fn task_validation_recipe_view(
     }
 }
 
-pub(crate) fn task_risk_view(value: TaskRisk, promoted_summaries: Vec<String>) -> TaskRiskView {
+pub(crate) fn task_risk_view(
+    prism: &Prism,
+    value: TaskRisk,
+    promoted_summaries: Vec<String>,
+) -> TaskRiskView {
     TaskRiskView {
         task_id: value.task_id.0.to_string(),
         risk_score: value.risk_score,
@@ -790,6 +794,12 @@ pub(crate) fn task_risk_view(value: TaskRisk, promoted_summaries: Vec<String>) -
             .map(co_change_view)
             .collect(),
         risk_events: value.risk_events,
+        contracts: value
+            .contracts
+            .into_iter()
+            .map(|packet| contract_packet_view(prism, None, packet, None))
+            .collect(),
+        contract_review_notes: value.contract_review_notes,
         promoted_summaries,
         approved_artifact_ids: value
             .approved_artifact_ids
@@ -805,6 +815,7 @@ pub(crate) fn task_risk_view(value: TaskRisk, promoted_summaries: Vec<String>) -
 }
 
 pub(crate) fn artifact_risk_view(
+    prism: &Prism,
     value: ArtifactRisk,
     promoted_summaries: Vec<String>,
 ) -> ArtifactRiskView {
@@ -823,6 +834,12 @@ pub(crate) fn artifact_risk_view(
             .map(co_change_view)
             .collect(),
         risk_events: value.risk_events,
+        contracts: value
+            .contracts
+            .into_iter()
+            .map(|packet| contract_packet_view(prism, None, packet, None))
+            .collect(),
+        contract_review_notes: value.contract_review_notes,
         promoted_summaries,
     }
 }

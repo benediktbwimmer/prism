@@ -9,7 +9,7 @@ use rmcp::{
     tool, tool_router, ErrorData as McpError, RoleServer, ServerHandler,
 };
 use serde::Serialize;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -132,6 +132,13 @@ impl PrismMcpServer {
         let _: fn(&Self, Parameters<PrismTaskBriefArgs>) -> Result<CallToolResult, McpError> =
             Self::prism_task_brief;
         Self::tool_router()
+    }
+
+    pub(crate) fn transport_bind_tool_schema(mut tool: Tool) -> Tool {
+        if let Some(Value::Object(schema)) = tool_transport_input_schema_value(tool.name.as_ref()) {
+            tool.input_schema = Arc::new(schema);
+        }
+        tool
     }
 
     pub(crate) fn execute_logged_mutation<T, F, G>(
@@ -1441,6 +1448,7 @@ impl ServerHandler for PrismMcpServer {
                 .list_all()
                 .into_iter()
                 .filter(|tool| self.host.features.is_tool_enabled(&tool.name))
+                .map(Self::transport_bind_tool_schema)
                 .collect(),
             next_cursor: None,
             meta: None,
@@ -1472,7 +1480,12 @@ impl ServerHandler for PrismMcpServer {
         self.host
             .features
             .is_tool_enabled(name)
-            .then(|| self.tool_router.get(name).cloned())
+            .then(|| {
+                self.tool_router
+                    .get(name)
+                    .cloned()
+                    .map(Self::transport_bind_tool_schema)
+            })
             .flatten()
     }
 

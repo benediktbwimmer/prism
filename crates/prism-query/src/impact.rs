@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use prism_ir::{
     AnchorRef, ArtifactId, ArtifactStatus, CoordinationTaskId, LineageId, NodeId, Timestamp,
 };
@@ -5,7 +7,8 @@ use prism_projections::CoChangeRecord;
 
 use crate::common::{dedupe_node_ids, dedupe_strings, sort_node_ids};
 use crate::types::{
-    ArtifactRisk, ChangeImpact, CoChange, TaskRisk, TaskValidationRecipe, ValidationRecipe,
+    ArtifactRisk, ChangeImpact, CoChange, ContractHealthStatus, ContractPacket, TaskRisk,
+    TaskValidationRecipe, ValidationRecipe,
 };
 use crate::Prism;
 
@@ -58,6 +61,7 @@ impl Prism {
     pub fn task_risk(&self, task_id: &CoordinationTaskId, _now: Timestamp) -> Option<TaskRisk> {
         let task = self.coordination_task(task_id)?;
         let impact = self.impact_for_anchors(&task.anchors);
+        let (contracts, contract_review_notes) = review_contract_context(self, &task.anchors);
         let approved_artifacts = self
             .artifacts(task_id)
             .into_iter()
@@ -112,6 +116,8 @@ impl Prism {
             validation_checks: impact.validation_checks,
             co_change_neighbors: impact.co_change_neighbors,
             risk_events,
+            contracts,
+            contract_review_notes,
             approved_artifact_ids,
             stale_artifact_ids,
         })
@@ -120,6 +126,17 @@ impl Prism {
     pub fn artifact_risk(&self, artifact_id: &ArtifactId, now: Timestamp) -> Option<ArtifactRisk> {
         let artifact = self.coordinating_artifact(artifact_id)?;
         let task_risk = self.task_risk(&artifact.task, now)?;
+        let (contracts, contract_review_notes) = if artifact.anchors.is_empty() {
+            (
+                task_risk.contracts.clone(),
+                task_risk.contract_review_notes.clone(),
+            )
+        } else {
+            let mut anchors = artifact.anchors.clone();
+            let task = self.coordination_task(&artifact.task)?;
+            anchors.extend(task.anchors);
+            review_contract_context(self, &anchors)
+        };
         let required_validations = if artifact.required_validations.is_empty() {
             task_risk.likely_validations.clone()
         } else {
@@ -142,6 +159,8 @@ impl Prism {
             missing_validations,
             co_change_neighbors: task_risk.co_change_neighbors,
             risk_events: task_risk.risk_events,
+            contracts,
+            contract_review_notes,
         })
     }
 
@@ -360,6 +379,109 @@ fn merge_change_impact(target: &mut ChangeImpact, other: ChangeImpact) {
     target
         .risk_events
         .dedup_by(|left, right| left.meta.id == right.meta.id);
+}
+
+fn review_contract_context(
+    prism: &Prism,
+    anchors: &[AnchorRef],
+) -> (Vec<ContractPacket>, Vec<String>) {
+    let expanded = prism.expand_anchors(anchors);
+    let nodes = prism.resolve_anchor_nodes(&expanded);
+    let contracts = review_contracts_for_nodes(prism, &nodes);
+    let notes = review_contract_notes(prism, &nodes, &contracts);
+    (contracts, notes)
+}
+
+fn review_contracts_for_nodes(prism: &Prism, nodes: &[NodeId]) -> Vec<ContractPacket> {
+    let mut contracts = BTreeMap::<String, ContractPacket>::new();
+    for node in nodes {
+        for packet in prism.contracts_for_target(node) {
+            contracts.entry(packet.handle.clone()).or_insert(packet);
+        }
+    }
+    contracts.into_values().collect()
+}
+
+fn review_contract_notes(
+    prism: &Prism,
+    nodes: &[NodeId],
+    contracts: &[ContractPacket],
+) -> Vec<String> {
+    let mut notes = Vec::<String>::new();
+    for packet in contracts {
+        let subject_match = nodes
+            .iter()
+            .any(|node| prism.contract_subject_matches_target(node, packet));
+        let consumer_match = nodes
+            .iter()
+            .any(|node| prism.contract_consumer_matches_target(node, packet));
+        let health = prism.contract_health_by_handle(&packet.handle);
+        let consumer_count = health
+            .as_ref()
+            .map(|health| health.signals.consumer_count)
+            .unwrap_or(packet.consumers.len());
+
+        if subject_match
+            && (!packet.compatibility.additive.is_empty()
+                || !packet.compatibility.risky.is_empty()
+                || !packet.compatibility.breaking.is_empty()
+                || !packet.compatibility.migrating.is_empty())
+        {
+            notes.push(format!(
+                "Subject-side edit touches contract `{}`; review compatibility guidance before widening, breaking, or migrating the promise.",
+                packet.handle
+            ));
+        }
+        if subject_match && packet.validations.is_empty() && !packet.guarantees.is_empty() {
+            notes.push(format!(
+                "Subject-side edit touches contract `{}` with guarantee clauses but no explicit validations.",
+                packet.handle
+            ));
+        }
+        if subject_match && consumer_count >= 2 {
+            notes.push(format!(
+                "Subject-side edit touches contract `{}` with {} recorded consumers.",
+                packet.handle, consumer_count
+            ));
+        }
+        if let Some(health) = health {
+            if matches!(
+                health.status,
+                ContractHealthStatus::Watch
+                    | ContractHealthStatus::Degraded
+                    | ContractHealthStatus::Stale
+            ) {
+                notes.push(format!(
+                    "Contract `{}` health is {}{}",
+                    packet.handle,
+                    contract_health_label(health.status),
+                    health
+                        .reasons
+                        .first()
+                        .map(|reason| format!(": {reason}"))
+                        .unwrap_or_default()
+                ));
+            }
+        }
+        if consumer_match && !subject_match {
+            notes.push(format!(
+                "Edit touches a recorded consumer governed by contract `{}`.",
+                packet.handle
+            ));
+        }
+    }
+    dedupe_strings(notes)
+}
+
+fn contract_health_label(status: ContractHealthStatus) -> &'static str {
+    match status {
+        ContractHealthStatus::Healthy => "healthy",
+        ContractHealthStatus::Watch => "watch",
+        ContractHealthStatus::Degraded => "degraded",
+        ContractHealthStatus::Stale => "stale",
+        ContractHealthStatus::Superseded => "superseded",
+        ContractHealthStatus::Retired => "retired",
+    }
 }
 
 pub(crate) fn score_change_impact(impact: &ChangeImpact, stale: bool) -> f32 {

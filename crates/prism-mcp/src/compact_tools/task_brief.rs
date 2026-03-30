@@ -277,6 +277,8 @@ fn compact_task_risk_hint(
                 "Risk {:.2} requires review before completion.",
                 risk.risk_score
             )
+        } else if !risk.contract_review_notes.is_empty() {
+            risk.contract_review_notes[0].clone()
         } else if !risk.missing_validations.is_empty() {
             format!(
                 "Missing validations: {}.",

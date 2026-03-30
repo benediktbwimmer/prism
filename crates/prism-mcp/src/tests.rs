@@ -3746,6 +3746,182 @@ return {{
 }
 
 #[test]
+fn task_and_artifact_risk_surface_contract_review_guidance() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn alpha() {}
+pub fn alpha_consumer_one() {}
+pub fn alpha_consumer_two() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session_and_limits_and_features(
+        index_workspace_session(&root).unwrap(),
+        QueryLimits::default(),
+        PrismMcpFeatures::full(),
+    );
+    let session = test_session(&host);
+
+    let plan = host
+        .store_coordination(
+            session.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "title": "Contract-aware risk",
+                    "goal": "Review contract-sensitive task risk",
+                    "policy": {
+                        "reviewRequiredAboveRiskScore": 0.2
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = host
+        .store_coordination(
+            session.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit alpha",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+    let artifact = host
+        .store_artifact(
+            session.as_ref(),
+            PrismArtifactArgs {
+                action: ArtifactActionInput::Propose,
+                payload: json!({
+                    "taskId": task_id,
+                    "diffRef": "patch:alpha-contract-risk"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let artifact_id = artifact.artifact_id.clone().unwrap();
+
+    host.store_contract(
+        session.as_ref(),
+        PrismContractMutationArgs {
+            operation: ContractMutationOperationInput::Promote,
+            handle: Some("contract://alpha_surface".to_string()),
+            name: Some("alpha surface".to_string()),
+            summary: Some("alpha remains callable for recorded consumers.".to_string()),
+            aliases: Some(vec!["alpha contract".to_string()]),
+            kind: Some(ContractKindInput::Interface),
+            subject: Some(ContractTargetInput {
+                anchors: Some(vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::alpha".to_string(),
+                    kind: "function".to_string(),
+                }]),
+                concept_handles: None,
+            }),
+            guarantees: Some(vec![ContractGuaranteeInput {
+                id: Some("alpha-callable".to_string()),
+                statement: "alpha stays callable for downstream consumers.".to_string(),
+                scope: Some("runtime".to_string()),
+                strength: Some(ContractGuaranteeStrengthInput::Hard),
+                evidence_refs: None,
+            }]),
+            assumptions: Some(vec!["consumers keep the expected call shape".to_string()]),
+            consumers: Some(vec![
+                ContractTargetInput {
+                    anchors: Some(vec![AnchorRefInput::Node {
+                        crate_name: "demo".to_string(),
+                        path: "demo::alpha_consumer_one".to_string(),
+                        kind: "function".to_string(),
+                    }]),
+                    concept_handles: None,
+                },
+                ContractTargetInput {
+                    anchors: Some(vec![AnchorRefInput::Node {
+                        crate_name: "demo".to_string(),
+                        path: "demo::alpha_consumer_two".to_string(),
+                        kind: "function".to_string(),
+                    }]),
+                    concept_handles: None,
+                },
+            ]),
+            validations: None,
+            stability: Some(ContractStabilityInput::Internal),
+            compatibility: Some(ContractCompatibilityInput {
+                compatible: None,
+                additive: Some(vec!["Adding optional parameters is additive.".to_string()]),
+                risky: Some(vec![
+                    "Changing the return payload shape is risky.".to_string()
+                ]),
+                breaking: Some(vec!["Removing alpha is breaking for consumers.".to_string()]),
+                migrating: None,
+            }),
+            evidence: Some(vec![
+                "Captured during contract-aware risk review.".to_string()
+            ]),
+            status: Some(ContractStatusInput::Active),
+            scope: Some(ConceptScopeInput::Session),
+            supersedes: None,
+            retirement_reason: None,
+            task_id: Some(task_id.clone()),
+        },
+    )
+    .expect("contract should store");
+
+    let envelope = host
+        .execute(
+            session,
+            &format!(
+                r#"
+return {{
+  taskRisk: prism.taskRisk("{task_id}"),
+  artifactRisk: prism.artifactRisk("{artifact_id}")
+}};
+"#
+            ),
+            QueryLanguage::Ts,
+        )
+        .expect("contract-aware risk query should succeed");
+
+    assert_eq!(
+        envelope.result["taskRisk"]["contracts"][0]["handle"],
+        Value::String("contract://alpha_surface".to_string())
+    );
+    assert_eq!(
+        envelope.result["artifactRisk"]["contracts"][0]["handle"],
+        Value::String("contract://alpha_surface".to_string())
+    );
+    assert!(envelope.result["taskRisk"]["contractReviewNotes"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|note| note
+            .as_str()
+            .is_some_and(|text| text.contains("review compatibility guidance")))));
+    assert!(envelope.result["taskRisk"]["contractReviewNotes"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|note| note
+            .as_str()
+            .is_some_and(|text| text.contains("2 recorded consumers")))));
+    assert!(envelope.result["artifactRisk"]["contractReviewNotes"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|note| note
+            .as_str()
+            .is_some_and(|text| text.contains("health is stale")))));
+}
+
+#[test]
 fn curator_rejection_is_a_distinct_mutation() {
     let root = temp_workspace();
 

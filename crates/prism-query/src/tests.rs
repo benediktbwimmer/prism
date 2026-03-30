@@ -18,7 +18,8 @@ use prism_memory::{
 };
 use prism_projections::{
     ConceptDecodeLens, ConceptPacket, ConceptProvenance, ConceptRelation, ConceptRelationKind,
-    ConceptScope, ProjectionIndex,
+    ConceptScope, ContractCompatibility, ContractGuarantee, ContractKind, ContractPacket,
+    ContractScope, ContractStatus, ContractTarget, ProjectionIndex,
 };
 use prism_store::{CoordinationPersistContext, Graph};
 
@@ -4802,6 +4803,8 @@ fn resume_task_returns_correlated_events() {
 fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
     let mut graph = Graph::new();
     let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    let alpha_consumer_one = NodeId::new("demo", "demo::alpha_consumer_one", NodeKind::Function);
+    let alpha_consumer_two = NodeId::new("demo", "demo::alpha_consumer_two", NodeKind::Function);
     graph.add_node(Node {
         id: alpha.clone(),
         name: "alpha".into(),
@@ -4810,9 +4813,29 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
         span: Span::line(1),
         language: Language::Rust,
     });
+    graph.add_node(Node {
+        id: alpha_consumer_one.clone(),
+        name: "alpha_consumer_one".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(3),
+        language: Language::Rust,
+    });
+    graph.add_node(Node {
+        id: alpha_consumer_two.clone(),
+        name: "alpha_consumer_two".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(5),
+        language: Language::Rust,
+    });
 
     let mut history = HistoryStore::new();
-    history.seed_nodes([alpha.clone()]);
+    history.seed_nodes([
+        alpha.clone(),
+        alpha_consumer_one.clone(),
+        alpha_consumer_two.clone(),
+    ]);
 
     let outcomes = OutcomeMemory::new();
     outcomes
@@ -4915,7 +4938,50 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
         )
         .unwrap();
 
-    let projections = ProjectionIndex::derive(&history.snapshot(), &outcomes.snapshot());
+    let mut projections = ProjectionIndex::derive(&history.snapshot(), &outcomes.snapshot());
+    projections.upsert_curated_contract(ContractPacket {
+        handle: "contract://alpha_surface".into(),
+        name: "alpha surface".into(),
+        summary: "alpha remains callable for recorded consumers.".into(),
+        aliases: vec!["alpha contract".into()],
+        kind: ContractKind::Interface,
+        subject: ContractTarget {
+            anchors: vec![AnchorRef::Node(alpha.clone())],
+            concept_handles: Vec::new(),
+        },
+        guarantees: vec![ContractGuarantee {
+            id: "alpha-callable".into(),
+            statement: "alpha stays callable for downstream consumers.".into(),
+            scope: Some("runtime".into()),
+            strength: None,
+            evidence_refs: Vec::new(),
+        }],
+        assumptions: vec!["consumers still pass the expected arguments".into()],
+        consumers: vec![
+            ContractTarget {
+                anchors: vec![AnchorRef::Node(alpha_consumer_one)],
+                concept_handles: Vec::new(),
+            },
+            ContractTarget {
+                anchors: vec![AnchorRef::Node(alpha_consumer_two)],
+                concept_handles: Vec::new(),
+            },
+        ],
+        validations: Vec::new(),
+        stability: Default::default(),
+        compatibility: ContractCompatibility {
+            compatible: Vec::new(),
+            additive: vec!["Adding optional parameters is additive.".into()],
+            risky: vec!["Changing the return payload shape is risky.".into()],
+            breaking: vec!["Removing alpha is breaking for consumers.".into()],
+            migrating: Vec::new(),
+        },
+        evidence: vec!["Captured from coordination risk investigation.".into()],
+        status: ContractStatus::Active,
+        scope: ContractScope::Session,
+        provenance: Default::default(),
+        publication: None,
+    });
     let prism = Prism::with_history_outcomes_coordination_and_projections(
         graph,
         history,
@@ -4931,6 +4997,19 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
         task_risk.missing_validations,
         vec!["test:alpha_integration"]
     );
+    assert_eq!(task_risk.contracts.len(), 1);
+    assert!(task_risk
+        .contract_review_notes
+        .iter()
+        .any(|note| note.contains("review compatibility guidance")));
+    assert!(task_risk
+        .contract_review_notes
+        .iter()
+        .any(|note| note.contains("2 recorded consumers")));
+    assert!(task_risk
+        .contract_review_notes
+        .iter()
+        .any(|note| note.contains("health is stale")));
 
     let artifact_risk = prism.artifact_risk(&artifact_id, 5).unwrap();
     assert!(artifact_risk.review_required);
@@ -4938,6 +5017,11 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
         artifact_risk.missing_validations,
         vec!["test:alpha_integration"]
     );
+    assert_eq!(artifact_risk.contracts.len(), 1);
+    assert!(artifact_risk
+        .contract_review_notes
+        .iter()
+        .any(|note| note.contains("review compatibility guidance")));
 
     let blockers = prism.blockers(&task_id, 5);
     assert!(blockers

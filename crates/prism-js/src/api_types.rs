@@ -1211,6 +1211,8 @@ pub struct TaskRiskView {
     pub validation_checks: Vec<ValidationCheckView>,
     pub co_change_neighbors: Vec<CoChangeView>,
     pub risk_events: Vec<OutcomeEvent>,
+    pub contracts: Vec<ContractPacketView>,
+    pub contract_review_notes: Vec<String>,
     pub promoted_summaries: Vec<String>,
     pub approved_artifact_ids: Vec<String>,
     pub stale_artifact_ids: Vec<String>,
@@ -1229,6 +1231,8 @@ pub struct ArtifactRiskView {
     pub missing_validations: Vec<String>,
     pub co_change_neighbors: Vec<CoChangeView>,
     pub risk_events: Vec<OutcomeEvent>,
+    pub contracts: Vec<ContractPacketView>,
+    pub contract_review_notes: Vec<String>,
     pub promoted_summaries: Vec<String>,
 }
 

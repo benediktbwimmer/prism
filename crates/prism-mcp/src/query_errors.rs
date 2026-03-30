@@ -553,26 +553,29 @@ fn known_prism_api_paths(path: &str) -> &'static [&'static str] {
         &paths[paths
             .iter()
             .position(|candidate| *candidate == "prism.runtime.status")
-            .unwrap_or(0)..paths
-            .iter()
-            .position(|candidate| *candidate == "prism.memory.recall")
-            .unwrap_or(paths.len())]
+            .unwrap_or(0)
+            ..paths
+                .iter()
+                .position(|candidate| *candidate == "prism.memory.recall")
+                .unwrap_or(paths.len())]
     } else if path.starts_with("prism.memory.") {
         &paths[paths
             .iter()
             .position(|candidate| *candidate == "prism.memory.recall")
-            .unwrap_or(0)..paths
-            .iter()
-            .position(|candidate| *candidate == "prism.curator.jobs")
-            .unwrap_or(paths.len())]
+            .unwrap_or(0)
+            ..paths
+                .iter()
+                .position(|candidate| *candidate == "prism.curator.jobs")
+                .unwrap_or(paths.len())]
     } else if path.starts_with("prism.connection.") {
         &paths[paths
             .iter()
             .position(|candidate| *candidate == "prism.connection.info")
-            .unwrap_or(0)..paths
-            .iter()
-            .position(|candidate| *candidate == "prism.runtime.status")
-            .unwrap_or(paths.len())]
+            .unwrap_or(0)
+            ..paths
+                .iter()
+                .position(|candidate| *candidate == "prism.runtime.status")
+                .unwrap_or(paths.len())]
     } else if path.starts_with("prism.curator.") {
         &paths[paths
             .iter()

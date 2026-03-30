@@ -84,6 +84,8 @@ pub struct TaskRisk {
     pub validation_checks: Vec<ValidationCheck>,
     pub co_change_neighbors: Vec<CoChange>,
     pub risk_events: Vec<OutcomeEvent>,
+    pub contracts: Vec<ContractPacket>,
+    pub contract_review_notes: Vec<String>,
     pub approved_artifact_ids: Vec<ArtifactId>,
     pub stale_artifact_ids: Vec<ArtifactId>,
 }
@@ -100,6 +102,8 @@ pub struct ArtifactRisk {
     pub missing_validations: Vec<String>,
     pub co_change_neighbors: Vec<CoChange>,
     pub risk_events: Vec<OutcomeEvent>,
+    pub contracts: Vec<ContractPacket>,
+    pub contract_review_notes: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
