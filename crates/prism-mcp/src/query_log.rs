@@ -176,20 +176,36 @@ impl QueryRun {
         json_bytes: usize,
         output_cap_hit: bool,
     ) {
-        let phases = self
+        let mut phases = self
             .phases
             .lock()
             .expect("query log phases lock poisoned")
             .clone();
         let view_name = self.view_name();
+        let mut started_at = self.started_at;
+        let mut duration_ms = crate::mcp_call_log::duration_to_ms(self.started.elapsed());
+        let mut metadata = json!({
+            "tool": self.tool_name,
+            "queryKind": self.kind,
+            "queryText": self.query_text,
+        });
+        if let Some(view_name) = view_name.clone() {
+            metadata["queryViewName"] = Value::String(view_name.clone());
+        }
+        crate::request_envelope::apply_current_request_envelope(
+            &mut phases,
+            &mut started_at,
+            &mut duration_ms,
+            &mut metadata,
+        );
         let query_entry = QueryLogEntryView {
             id: self.id.clone(),
             kind: self.kind.clone(),
             view_name: view_name.clone(),
             query_summary: self.query_summary.clone(),
             query_text: self.query_text.clone(),
-            started_at: self.started_at,
-            duration_ms: crate::mcp_call_log::duration_to_ms(self.started.elapsed()),
+            started_at,
+            duration_ms,
             session_id: self.session_id.clone(),
             task_id: self.task_id.clone(),
             success: true,
@@ -229,17 +245,7 @@ impl QueryRun {
             phases: phases.clone(),
             request_preview: preview_value(&request_value),
             response_preview: preview_value(result),
-            metadata: {
-                let mut metadata = json!({
-                    "tool": self.tool_name,
-                    "queryKind": self.kind,
-                    "queryText": self.query_text,
-                });
-                if let Some(view_name) = view_name {
-                    metadata["queryViewName"] = Value::String(view_name);
-                }
-                metadata
-            },
+            metadata,
             query_compat: Some(QueryTraceView {
                 entry: query_entry.clone(),
                 phases: phases.clone(),
@@ -257,20 +263,36 @@ impl QueryRun {
         error: impl Into<String>,
     ) {
         let error = error.into();
-        let phases = self
+        let mut phases = self
             .phases
             .lock()
             .expect("query log phases lock poisoned")
             .clone();
         let view_name = self.view_name();
+        let mut started_at = self.started_at;
+        let mut duration_ms = crate::mcp_call_log::duration_to_ms(self.started.elapsed());
+        let mut metadata = json!({
+            "tool": self.tool_name,
+            "queryKind": self.kind,
+            "queryText": self.query_text,
+        });
+        if let Some(view_name) = view_name.clone() {
+            metadata["queryViewName"] = Value::String(view_name.clone());
+        }
+        crate::request_envelope::apply_current_request_envelope(
+            &mut phases,
+            &mut started_at,
+            &mut duration_ms,
+            &mut metadata,
+        );
         let query_entry = QueryLogEntryView {
             id: self.id.clone(),
             kind: self.kind.clone(),
             view_name: view_name.clone(),
             query_summary: self.query_summary.clone(),
             query_text: self.query_text.clone(),
-            started_at: self.started_at,
-            duration_ms: crate::mcp_call_log::duration_to_ms(self.started.elapsed()),
+            started_at,
+            duration_ms,
             session_id: self.session_id.clone(),
             task_id: self.task_id.clone(),
             success: false,
@@ -310,17 +332,7 @@ impl QueryRun {
             phases: phases.clone(),
             request_preview: preview_value(&request_value),
             response_preview: None,
-            metadata: {
-                let mut metadata = json!({
-                    "tool": self.tool_name,
-                    "queryKind": self.kind,
-                    "queryText": self.query_text,
-                });
-                if let Some(view_name) = view_name {
-                    metadata["queryViewName"] = Value::String(view_name);
-                }
-                metadata
-            },
+            metadata,
             query_compat: Some(QueryTraceView {
                 entry: query_entry.clone(),
                 phases: phases.clone(),

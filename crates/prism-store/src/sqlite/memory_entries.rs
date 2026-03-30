@@ -241,5 +241,6 @@ fn memory_event_action_label(action: MemoryEventKind) -> &'static str {
         MemoryEventKind::Stored => "stored",
         MemoryEventKind::Promoted => "promoted",
         MemoryEventKind::Superseded => "superseded",
+        MemoryEventKind::Retired => "retired",
     }
 }

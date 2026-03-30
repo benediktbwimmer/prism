@@ -65,12 +65,14 @@ where
             by_id.remove(&superseded.0);
         }
         match event.action {
-            MemoryEventKind::Stored | MemoryEventKind::Promoted => {
+            MemoryEventKind::Stored | MemoryEventKind::Promoted | MemoryEventKind::Superseded => {
                 if let Some(entry) = event.entry {
                     by_id.insert(event.memory_id.0, entry);
                 }
             }
-            MemoryEventKind::Superseded => {}
+            MemoryEventKind::Retired => {
+                by_id.remove(&event.memory_id.0);
+            }
         }
     }
     finalize_snapshot(by_id.into_values().collect())

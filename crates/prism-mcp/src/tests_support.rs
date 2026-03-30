@@ -159,15 +159,14 @@ pub(crate) fn server_with_node_and_features(
 pub(crate) async fn spawn_http_upstream(
     server: PrismMcpServer,
 ) -> (String, tokio::task::JoinHandle<()>) {
-    let service: StreamableHttpService<PrismMcpServer, LocalSessionManager> =
-        StreamableHttpService::new(
-            move || Ok(server.clone()),
-            Default::default(),
-            StreamableHttpServerConfig {
-                sse_keep_alive: None,
-                ..Default::default()
-            },
-        );
+    let service: StreamableHttpService<_, LocalSessionManager> = StreamableHttpService::new(
+        move || Ok(server.clone().instrumented_service()),
+        Default::default(),
+        StreamableHttpServerConfig {
+            sse_keep_alive: None,
+            ..Default::default()
+        },
+    );
     let router = Router::new().nest_service("/mcp", service);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
@@ -211,6 +210,12 @@ pub(crate) fn list_tools_request(id: u64) -> ClientJsonRpcMessage {
 pub(crate) fn list_resources_request(id: u64) -> ClientJsonRpcMessage {
     client_message(&format!(
         r#"{{ "jsonrpc": "2.0", "id": {id}, "method": "resources/list" }}"#
+    ))
+}
+
+pub(crate) fn ping_request(id: u64) -> ClientJsonRpcMessage {
+    client_message(&format!(
+        r#"{{ "jsonrpc": "2.0", "id": {id}, "method": "ping" }}"#
     ))
 }
 

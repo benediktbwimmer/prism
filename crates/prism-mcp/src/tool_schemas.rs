@@ -14,11 +14,11 @@ use crate::{
     tool_schema_resource_view_link, tool_schemas_resource_view_link, vocab_resource_view_link,
     ArtifactProposePayload, ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload,
     ClaimReleasePayload, ClaimRenewPayload, HandoffAcceptPayload, HandoffPayload,
-    MemoryStorePayload, PlanCreatePayload, PlanEdgeCreatePayload, PlanEdgeDeletePayload,
-    PlanNodeCreatePayload, PlanNodeUpdatePayload, PlanUpdatePayload, PrismConceptArgs,
+    MemoryRetirePayload, MemoryStorePayload, PlanCreatePayload, PlanEdgeCreatePayload,
+    PlanEdgeDeletePayload, PlanNodeCreatePayload, PlanUpdatePayload, PrismConceptArgs,
     PrismExpandArgs, PrismGatherArgs, PrismLocateArgs, PrismMutationArgs, PrismOpenArgs,
     PrismQueryArgs, PrismSessionArgs, PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView,
-    TaskCreatePayload, TaskUpdatePayload, TOOL_SCHEMAS_URI,
+    TaskCreatePayload, WorkflowUpdatePayload, TOOL_SCHEMAS_URI,
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
@@ -566,8 +566,23 @@ fn action_payload_discriminator(tool_name: &str, action: &str) -> Option<&'stati
 
 fn action_payload_schema(tool_name: &str, action: &str) -> Option<Value> {
     match (tool_name, action) {
-        ("prism_mutate", "memory") => Some(described_schema::<MemoryStorePayload>(
-            "Payload for `prism_mutate` action `memory` when `input.action` is `store`.",
+        ("prism_mutate", "memory") => Some(tagged_union_payload_schema(
+            "Payload for `prism_mutate` action `memory`. Match this shape to `input.action`.",
+            "action",
+            vec![
+                (
+                    "store",
+                    described_schema::<MemoryStorePayload>(
+                        "Payload when `input.action` is `store`.",
+                    ),
+                ),
+                (
+                    "retire",
+                    described_schema::<MemoryRetirePayload>(
+                        "Payload when `input.action` is `retire`.",
+                    ),
+                ),
+            ],
         )),
         ("prism_mutate", "coordination") => Some(tagged_union_payload_schema(
             "Payload for `prism_mutate` action `coordination`. Match this shape to `input.kind`.",
@@ -592,21 +607,15 @@ fn action_payload_schema(tool_name: &str, action: &str) -> Option<Value> {
                     ),
                 ),
                 (
-                    "task_update",
-                    described_schema::<TaskUpdatePayload>(
-                        "Payload when `input.kind` is `task_update`.",
+                    "update",
+                    described_schema::<WorkflowUpdatePayload>(
+                        "Payload when `input.kind` is `update`.",
                     ),
                 ),
                 (
                     "plan_node_create",
                     described_schema::<PlanNodeCreatePayload>(
                         "Payload when `input.kind` is `plan_node_create`.",
-                    ),
-                ),
-                (
-                    "plan_node_update",
-                    described_schema::<PlanNodeUpdatePayload>(
-                        "Payload when `input.kind` is `plan_node_update`.",
                     ),
                 ),
                 (

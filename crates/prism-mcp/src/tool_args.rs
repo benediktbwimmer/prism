@@ -388,10 +388,17 @@ fn validate_memory_payload(
 ) -> Result<(), ToolValidationIssueView> {
     let tag = match args.action {
         MemoryMutationActionInput::Store => "store",
+        MemoryMutationActionInput::Retire => "retire",
     };
     let required_fields = payload_required_fields("prism_mutate", "memory", tag);
     match args.action {
         MemoryMutationActionInput::Store => deserialize_or_issue::<MemoryStorePayload>(
+            args.payload,
+            Some("input.payload"),
+            &required_fields,
+        )
+        .map(|_| ()),
+        MemoryMutationActionInput::Retire => deserialize_or_issue::<MemoryRetirePayload>(
             args.payload,
             Some("input.payload"),
             &required_fields,
@@ -424,7 +431,7 @@ fn validate_coordination_payload(
             &required_fields,
         )
         .map(|_| ()),
-        CoordinationMutationKindInput::TaskUpdate => deserialize_or_issue::<TaskUpdatePayload>(
+        CoordinationMutationKindInput::Update => deserialize_or_issue::<WorkflowUpdatePayload>(
             args.payload,
             Some("input.payload"),
             &required_fields,
@@ -432,14 +439,6 @@ fn validate_coordination_payload(
         .map(|_| ()),
         CoordinationMutationKindInput::PlanNodeCreate => {
             deserialize_or_issue::<PlanNodeCreatePayload>(
-                args.payload,
-                Some("input.payload"),
-                &required_fields,
-            )
-            .map(|_| ())
-        }
-        CoordinationMutationKindInput::PlanNodeUpdate => {
-            deserialize_or_issue::<PlanNodeUpdatePayload>(
                 args.payload,
                 Some("input.payload"),
                 &required_fields,
@@ -615,9 +614,8 @@ fn coordination_kind_tag(kind: &CoordinationMutationKindInput) -> &'static str {
         CoordinationMutationKindInput::PlanCreate => "plan_create",
         CoordinationMutationKindInput::PlanUpdate => "plan_update",
         CoordinationMutationKindInput::TaskCreate => "task_create",
-        CoordinationMutationKindInput::TaskUpdate => "task_update",
+        CoordinationMutationKindInput::Update => "update",
         CoordinationMutationKindInput::PlanNodeCreate => "plan_node_create",
-        CoordinationMutationKindInput::PlanNodeUpdate => "plan_node_update",
         CoordinationMutationKindInput::PlanEdgeCreate => "plan_edge_create",
         CoordinationMutationKindInput::PlanEdgeDelete => "plan_edge_delete",
         CoordinationMutationKindInput::Handoff => "handoff",
@@ -1309,10 +1307,20 @@ pub(crate) struct MemoryStorePayload {
     pub(crate) supersedes: Option<Vec<String>>,
 }
 
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct MemoryRetirePayload {
+    #[serde(alias = "memory_id")]
+    pub(crate) memory_id: String,
+    #[serde(alias = "retirement_reason", alias = "reason")]
+    pub(crate) retirement_reason: String,
+}
+
 #[derive(Debug, Clone, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum MemoryMutationActionInput {
     Store,
+    Retire,
 }
 
 impl_vocab_deserialize!(
@@ -1321,7 +1329,8 @@ impl_vocab_deserialize!(
     "memory mutation action",
     r#"{"action":"store"}"#,
     {
-        "store" => Store
+        "store" => Store,
+        "retire" => Retire
     }
 );
 
@@ -1360,6 +1369,7 @@ pub(crate) enum ValidationFeedbackVerdictInput {
 #[allow(dead_code)]
 enum PrismMemoryArgsWirePayload {
     Store(MemoryStorePayload),
+    Retire(MemoryRetirePayload),
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -1394,6 +1404,7 @@ impl<'de> Deserialize<'de> for PrismMemoryArgs {
             .ok_or_else(|| de::Error::custom("missing field `payload`"))?;
         let action = match wire.mutation {
             PrismMemoryArgsWirePayload::Store(_) => MemoryMutationActionInput::Store,
+            PrismMemoryArgsWirePayload::Retire(_) => MemoryMutationActionInput::Retire,
         };
         Ok(Self {
             action,
@@ -1808,9 +1819,8 @@ pub(crate) enum CoordinationMutationKindInput {
     PlanCreate,
     PlanUpdate,
     TaskCreate,
-    TaskUpdate,
+    Update,
     PlanNodeCreate,
-    PlanNodeUpdate,
     PlanEdgeCreate,
     PlanEdgeDelete,
     Handoff,
@@ -1826,9 +1836,8 @@ impl_vocab_deserialize!(
         "plancreate" => PlanCreate,
         "planupdate" => PlanUpdate,
         "taskcreate" => TaskCreate,
-        "taskupdate" => TaskUpdate,
+        "update" => Update,
         "plannodecreate" => PlanNodeCreate,
-        "plannodeupdate" => PlanNodeUpdate,
         "planedgecreate" => PlanEdgeCreate,
         "planedgedelete" => PlanEdgeDelete,
         "handoff" => Handoff,
@@ -1883,9 +1892,8 @@ enum PrismCoordinationArgsWirePayload {
     PlanCreate(PlanCreatePayload),
     PlanUpdate(PlanUpdatePayload),
     TaskCreate(TaskCreatePayload),
-    TaskUpdate(TaskUpdatePayload),
+    Update(WorkflowUpdatePayload),
     PlanNodeCreate(PlanNodeCreatePayload),
-    PlanNodeUpdate(PlanNodeUpdatePayload),
     PlanEdgeCreate(PlanEdgeCreatePayload),
     PlanEdgeDelete(PlanEdgeDeletePayload),
     Handoff(HandoffPayload),
@@ -1936,14 +1944,9 @@ impl<'de> Deserialize<'de> for PrismCoordinationArgs {
             PrismCoordinationArgsWirePayload::TaskCreate(_) => {
                 CoordinationMutationKindInput::TaskCreate
             }
-            PrismCoordinationArgsWirePayload::TaskUpdate(_) => {
-                CoordinationMutationKindInput::TaskUpdate
-            }
+            PrismCoordinationArgsWirePayload::Update(_) => CoordinationMutationKindInput::Update,
             PrismCoordinationArgsWirePayload::PlanNodeCreate(_) => {
                 CoordinationMutationKindInput::PlanNodeCreate
-            }
-            PrismCoordinationArgsWirePayload::PlanNodeUpdate(_) => {
-                CoordinationMutationKindInput::PlanNodeUpdate
             }
             PrismCoordinationArgsWirePayload::PlanEdgeCreate(_) => {
                 CoordinationMutationKindInput::PlanEdgeCreate
@@ -2238,6 +2241,39 @@ impl_vocab_deserialize!(
 
 #[derive(Debug, Clone, JsonSchema)]
 #[serde(rename_all = "snake_case")]
+pub(crate) enum WorkflowStatusInput {
+    Proposed,
+    Ready,
+    InProgress,
+    Blocked,
+    Waiting,
+    InReview,
+    Validating,
+    Completed,
+    Abandoned,
+}
+
+impl_vocab_deserialize!(
+    WorkflowStatusInput,
+    "workflowStatus",
+    "workflow status",
+    r#"{"status":"in_progress"}"#,
+    {
+        "proposed" => Proposed,
+        "todo" => Ready,
+        "ready" => Ready,
+        "inprogress" => InProgress,
+        "blocked" => Blocked,
+        "waiting" => Waiting,
+        "inreview" => InReview,
+        "validating" => Validating,
+        "completed" => Completed,
+        "abandoned" => Abandoned
+    }
+);
+
+#[derive(Debug, Clone, JsonSchema)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum PlanStatusInput {
     Draft,
     Active,
@@ -2464,14 +2500,27 @@ pub(crate) struct TaskCreatePayload {
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct TaskUpdatePayload {
-    pub(crate) task_id: String,
-    pub(crate) status: Option<CoordinationTaskStatusInput>,
+pub(crate) struct WorkflowUpdatePayload {
+    #[serde(
+        alias = "taskId",
+        alias = "nodeId",
+        alias = "task_id",
+        alias = "node_id"
+    )]
+    pub(crate) id: String,
+    pub(crate) kind: Option<PlanNodeKindInput>,
+    pub(crate) status: Option<WorkflowStatusInput>,
     pub(crate) assignee: Option<SparsePatchInput<String>>,
+    pub(crate) is_abstract: Option<bool>,
     pub(crate) title: Option<String>,
+    pub(crate) summary: Option<SparsePatchInput<String>>,
     pub(crate) anchors: Option<Vec<AnchorRefInput>>,
+    pub(crate) bindings: Option<PlanBindingPayload>,
     pub(crate) depends_on: Option<Vec<String>>,
     pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
+    pub(crate) validation_refs: Option<Vec<ValidationRefPayload>>,
+    pub(crate) priority: Option<SparsePatchInput<u8>>,
+    pub(crate) tags: Option<Vec<String>>,
     pub(crate) completion_context: Option<TaskCompletionContextPayload>,
 }
 
@@ -2492,27 +2541,6 @@ pub(crate) struct PlanNodeCreatePayload {
     pub(crate) validation_refs: Option<Vec<ValidationRefPayload>>,
     pub(crate) priority: Option<u8>,
     pub(crate) tags: Option<Vec<String>>,
-}
-
-#[derive(Debug, Clone, Deserialize, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct PlanNodeUpdatePayload {
-    pub(crate) node_id: String,
-    pub(crate) kind: Option<PlanNodeKindInput>,
-    pub(crate) status: Option<PlanNodeStatusInput>,
-    pub(crate) assignee: Option<SparsePatchInput<String>>,
-    pub(crate) is_abstract: Option<bool>,
-    pub(crate) title: Option<String>,
-    pub(crate) summary: Option<SparsePatchInput<String>>,
-    pub(crate) anchors: Option<Vec<AnchorRefInput>>,
-    pub(crate) bindings: Option<PlanBindingPayload>,
-    pub(crate) depends_on: Option<Vec<String>>,
-    pub(crate) acceptance: Option<Vec<AcceptanceCriterionPayload>>,
-    pub(crate) validation_refs: Option<Vec<ValidationRefPayload>>,
-    pub(crate) priority: Option<SparsePatchInput<u8>>,
-    pub(crate) tags: Option<Vec<String>>,
-    #[allow(dead_code)]
-    pub(crate) completion_context: Option<TaskCompletionContextPayload>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]

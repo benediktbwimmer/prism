@@ -7,9 +7,14 @@ use prism_core::{
 };
 use prism_ir::TaskId;
 use prism_js::{api_reference_markdown, CuratorJobView, API_REFERENCE_URI};
-use prism_memory::{OutcomeEvent, SessionMemory};
+use prism_memory::{EpisodicMemorySnapshot, OutcomeEvent, SessionMemory};
 use prism_query::{Prism, QueryLimits};
-use rmcp::{handler::server::router::tool::ToolRouter, transport::stdio, ServiceExt};
+use rmcp::{
+    handler::server::router::tool::ToolRouter,
+    service::{RoleServer, RunningService, ServerInitializeError},
+    transport::{stdio, IntoTransport},
+    ServiceExt,
+};
 use std::collections::HashMap;
 use std::env;
 use std::path::{Path, PathBuf};
@@ -47,6 +52,7 @@ mod query_errors;
 mod query_helpers;
 mod query_log;
 mod query_runtime;
+mod query_view_materialization;
 mod query_typecheck;
 mod query_types;
 mod query_view_after_edit;
@@ -55,6 +61,7 @@ mod query_view_impact;
 mod query_view_playbook;
 mod query_view_validation_plan;
 mod query_views;
+mod request_envelope;
 mod resource_schemas;
 mod resources;
 mod runtime_state;
@@ -101,6 +108,7 @@ use query_helpers::*;
 use query_log::*;
 use query_runtime::*;
 use query_types::*;
+use request_envelope::*;
 use resource_schemas::*;
 use resources::*;
 use runtime_state::*;
@@ -475,6 +483,24 @@ impl PrismMcpServer {
         }
     }
 
+    pub(crate) fn instrumented_service(self) -> InstrumentedServerService {
+        InstrumentedServerService::new(self)
+    }
+
+    pub(crate) async fn serve<T, E, A>(
+        self,
+        transport: T,
+    ) -> std::result::Result<
+        RunningService<RoleServer, InstrumentedServerService>,
+        ServerInitializeError,
+    >
+    where
+        T: IntoTransport<RoleServer, E, A>,
+        E: std::error::Error + Send + Sync + 'static,
+    {
+        self.instrumented_service().serve(transport).await
+    }
+
     pub async fn serve_stdio(self) -> Result<()> {
         let service = self.serve(stdio()).await?;
         service.waiting().await?;
@@ -834,6 +860,17 @@ impl QueryHost {
         let revision = workspace.episodic_revision()?;
         self.sync_episodic_revision_value(revision);
         Ok(())
+    }
+
+    pub(crate) fn reload_episodic_snapshot(&self, workspace: &WorkspaceSession) -> Result<()> {
+        let snapshot =
+            workspace
+                .load_episodic_snapshot_for_runtime()?
+                .unwrap_or(EpisodicMemorySnapshot {
+                    entries: Vec::new(),
+                });
+        self.notes.replace_from_snapshot(snapshot);
+        self.sync_episodic_revision(workspace)
     }
 
     pub(crate) fn sync_inference_revision(&self, workspace: &WorkspaceSession) -> Result<()> {

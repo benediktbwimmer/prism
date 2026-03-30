@@ -91,12 +91,11 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
     }
 
     let service_server = server.clone();
-    let service: StreamableHttpService<PrismMcpServer, LocalSessionManager> =
-        StreamableHttpService::new(
-            move || Ok(service_server.clone()),
-            Default::default(),
-            StreamableHttpServerConfig::default(),
-        );
+    let service: StreamableHttpService<_, LocalSessionManager> = StreamableHttpService::new(
+        move || Ok(service_server.clone().instrumented_service()),
+        Default::default(),
+        StreamableHttpServerConfig::default(),
+    );
     let dashboard_state = DashboardAppState {
         host: Arc::clone(&server.host),
         root: root.to_path_buf(),

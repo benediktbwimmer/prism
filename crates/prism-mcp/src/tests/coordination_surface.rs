@@ -437,9 +437,9 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
         .store_coordination(
             test_session(&host_b).as_ref(),
             PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::TaskUpdate,
+                kind: CoordinationMutationKindInput::Update,
                 payload: json!({
-                    "taskId": task_id.clone(),
+                    "id": task_id.clone(),
                     "status": "in-progress"
                 }),
                 task_id: None,
@@ -594,9 +594,9 @@ return {{
         .store_coordination(
             test_session(&host_b).as_ref(),
             PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::TaskUpdate,
+                kind: CoordinationMutationKindInput::Update,
                 payload: json!({
-                    "taskId": task_id.clone(),
+                    "id": task_id.clone(),
                     "status": "completed"
                 }),
                 task_id: None,

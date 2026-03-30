@@ -7,7 +7,7 @@ use prism_coordination::{CoordinationEvent, CoordinationSnapshot};
 use prism_history::{HistoryPersistDelta, HistorySnapshot, LineageTombstone};
 use prism_ir::{
     CoordinationEventKind, Edge, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta, FileId,
-    GraphChange, Language, Node, NodeId, NodeKind, Span,
+    GraphChange, Language, LineageEvent, LineageId, Node, NodeId, NodeKind, Span,
 };
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryId, MemoryKind, MemorySource, OutcomeMemorySnapshot,
@@ -398,6 +398,46 @@ fn coordination_persist_batch_is_revisioned_and_idempotent() {
         })
         .unwrap_err();
     assert!(err.to_string().contains("coordination revision mismatch"));
+}
+
+#[test]
+fn sqlite_store_load_lineage_history_reads_persisted_events_by_lineage() {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!("prism-store-lineage-history-{nanos}.db"));
+    let mut store = SqliteStore::open(&path).unwrap();
+
+    let node = NodeId::new("demo", "demo::alpha", prism_ir::NodeKind::Function);
+    let lineage = LineageId::new("lineage:alpha");
+    let event = LineageEvent {
+        meta: EventMeta {
+            id: EventId::new("event:lineage:alpha"),
+            ts: 7,
+            actor: EventActor::Agent,
+            correlation: None,
+            causation: None,
+        },
+        lineage: lineage.clone(),
+        kind: prism_ir::LineageEventKind::Updated,
+        before: vec![node.clone()],
+        after: vec![node.clone()],
+        confidence: 0.9,
+        evidence: vec![prism_ir::LineageEvidence::ExactNodeId],
+    };
+    store
+        .save_history_snapshot(&HistorySnapshot {
+            node_to_lineage: vec![(node, lineage.clone())],
+            events: vec![event.clone()],
+            tombstones: Vec::new(),
+            next_lineage: 1,
+            next_event: 1,
+        })
+        .unwrap();
+
+    let loaded = store.load_lineage_history(&lineage).unwrap();
+    assert_eq!(loaded, vec![event]);
 }
 
 #[test]

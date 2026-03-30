@@ -288,6 +288,10 @@ impl QueryHost {
 }
 
 impl MutationRun {
+    pub(crate) fn tool_name(&self) -> &str {
+        &self.tool_name
+    }
+
     pub(crate) fn record_phase(
         &self,
         operation: &str,
@@ -319,16 +323,28 @@ impl MutationRun {
         violation_count: usize,
         result: serde_json::Value,
     ) {
-        let phases = self
+        let mut phases = self
             .phases
             .lock()
             .expect("mutation log phases lock poisoned")
             .clone();
+        let mut started_at = self.started_at;
+        let mut duration_ms = self.started.elapsed().as_millis() as u64;
+        let mut metadata = json!({
+            "tool": self.tool_name,
+            "action": self.action,
+        });
+        crate::request_envelope::apply_current_request_envelope(
+            &mut phases,
+            &mut started_at,
+            &mut duration_ms,
+            &mut metadata,
+        );
         let entry = MutationLogEntryView {
             id: self.id.clone(),
             action: self.action.clone(),
-            started_at: self.started_at,
-            duration_ms: self.started.elapsed().as_millis() as u64,
+            started_at,
+            duration_ms,
             session_id: self.session_id.clone(),
             task_id: task_id.or(self.task_id.clone()),
             success: true,
@@ -364,12 +380,11 @@ impl MutationRun {
                 "action": self.action,
             })),
             response_preview: preview_value(&result),
-            metadata: json!({
-                "tool": self.tool_name,
-                "action": self.action,
-                "resultIds": entry.result_ids,
-                "violationCount": entry.violation_count,
-            }),
+            metadata: {
+                metadata["resultIds"] = json!(entry.result_ids.clone());
+                metadata["violationCount"] = json!(entry.violation_count);
+                metadata
+            },
             query_compat: None,
         };
         let _ = self.mcp_call_log_store.push(record);
@@ -384,16 +399,28 @@ impl MutationRun {
     }
 
     pub(crate) fn finish_error(self, error: impl Into<String>) {
-        let phases = self
+        let mut phases = self
             .phases
             .lock()
             .expect("mutation log phases lock poisoned")
             .clone();
+        let mut started_at = self.started_at;
+        let mut duration_ms = self.started.elapsed().as_millis() as u64;
+        let mut metadata = json!({
+            "tool": self.tool_name,
+            "action": self.action,
+        });
+        crate::request_envelope::apply_current_request_envelope(
+            &mut phases,
+            &mut started_at,
+            &mut duration_ms,
+            &mut metadata,
+        );
         let entry = MutationLogEntryView {
             id: self.id.clone(),
             action: self.action.clone(),
-            started_at: self.started_at,
-            duration_ms: self.started.elapsed().as_millis() as u64,
+            started_at,
+            duration_ms,
             session_id: self.session_id.clone(),
             task_id: self.task_id.clone(),
             success: false,
@@ -429,10 +456,7 @@ impl MutationRun {
                 "action": self.action,
             })),
             response_preview: None,
-            metadata: json!({
-                "tool": self.tool_name,
-                "action": self.action,
-            }),
+            metadata,
             query_compat: None,
         };
         let _ = self.mcp_call_log_store.push(record);

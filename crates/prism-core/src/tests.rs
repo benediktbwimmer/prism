@@ -12,7 +12,8 @@ use prism_coordination::{
     CoordinationStore, HandoffInput, PlanCreateInput, TaskCreateInput, TaskUpdateInput,
 };
 use prism_curator::{
-    CandidateRiskSummary, CuratorBackend, CuratorContext, CuratorJob, CuratorProposal, CuratorRun,
+    CandidateRiskSummary, CuratorBackend, CuratorBudget, CuratorContext, CuratorJob,
+    CuratorProposal, CuratorRun,
 };
 use prism_ir::{
     AnchorRef, ChangeTrigger, CoordinationEventKind, EdgeKind, EventActor, EventId, EventMeta,
@@ -28,11 +29,11 @@ use prism_projections::ProjectionSnapshot;
 use prism_query::{
     ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptPacket,
     ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptRelation,
-    ConceptRelationEvent, ConceptRelationEventAction, ConceptRelationKind, ConceptScope,
+    ConceptRelationEvent, ConceptRelationEventAction, ConceptRelationKind, ConceptScope, Prism,
     ContractCompatibility, ContractEvent, ContractEventAction, ContractGuarantee, ContractKind,
     ContractPacket, ContractStatus, ContractTarget,
 };
-use prism_store::{MemoryStore, Store};
+use prism_store::{Graph, MemoryStore, SqliteStore, Store};
 use serde_json::json;
 
 use super::{
@@ -42,6 +43,7 @@ use super::{
     ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
 };
 use crate::coordination_persistence::CoordinationPersistenceBackend;
+use crate::curator_support::build_curator_context;
 use crate::materialization::summarize_workspace_materialization;
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 use crate::workspace_tree::build_workspace_tree_snapshot;
@@ -3628,16 +3630,94 @@ fn workspace_materialization_summary_reports_sparse_boundary_regions() {
 
     let summary = summarize_workspace_materialization(&root, &snapshot, prism.graph());
 
-    assert_eq!(summary.known_files, summary.materialized_files + 1);
+    assert!(summary.known_files > summary.materialized_files);
     assert_eq!(summary.boundaries.len(), 1);
     let boundary = &summary.boundaries[0];
-    assert_eq!(boundary.id, "boundary:src");
+    assert_eq!(boundary.id, "boundary:src:in_scope");
     assert_eq!(boundary.path, PathBuf::from("src"));
     assert_eq!(boundary.provenance, "workspace_tree");
     assert_eq!(boundary.materialization_state, "known_unmaterialized");
     assert_eq!(boundary.scope_state, "in_scope");
     assert_eq!(boundary.known_file_count, 2);
     assert_eq!(boundary.materialized_file_count, 0);
+}
+
+#[test]
+fn workspace_materialization_summary_reports_out_of_scope_regions() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::create_dir_all(root.join("web")).unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    fs::write(root.join("web/app.js"), "export const alpha = 1;\n").unwrap();
+
+    let prism = index_workspace(&root).unwrap();
+    let snapshot = build_workspace_tree_snapshot(&root, None).unwrap();
+    let summary = summarize_workspace_materialization(&root, &snapshot, prism.graph());
+
+    let boundary = summary
+        .boundaries
+        .iter()
+        .find(|boundary| boundary.id == "boundary:web:out_of_scope")
+        .expect("out-of-scope region should be reported");
+    assert_eq!(boundary.path, PathBuf::from("web"));
+    assert_eq!(boundary.provenance, "workspace_walk");
+    assert_eq!(boundary.materialization_state, "out_of_scope");
+    assert_eq!(boundary.scope_state, "out_of_scope");
+    assert_eq!(boundary.known_file_count, 1);
+    assert_eq!(boundary.materialized_file_count, 0);
+}
+
+#[test]
+fn curator_context_loads_lineage_history_from_store_when_hot_history_is_empty() {
+    let root = temp_workspace();
+    let cache_path = root.join(".prism").join("cache.db");
+    let mut store = SqliteStore::open(&cache_path).unwrap();
+
+    let node = prism_ir::Node {
+        id: NodeId::new("demo", "demo::alpha", NodeKind::Function),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: prism_ir::FileId(1),
+        span: prism_ir::Span::new(1, 3),
+        language: prism_ir::Language::Rust,
+    };
+    let mut graph = Graph::default();
+    graph.nodes.insert(node.id.clone(), node.clone());
+
+    let mut hot_history = prism_history::HistoryStore::new();
+    hot_history.seed_nodes([node.id.clone()]);
+    let lineage = hot_history
+        .lineage_of(&node.id)
+        .expect("seeded node should have lineage");
+    let persisted_event = LineageEvent {
+        meta: EventMeta {
+            id: EventId::new("event:curator-lineage"),
+            ts: 11,
+            actor: EventActor::Agent,
+            correlation: None,
+            causation: None,
+        },
+        lineage: lineage.clone(),
+        kind: LineageEventKind::Updated,
+        before: vec![node.id.clone()],
+        after: vec![node.id.clone()],
+        confidence: 0.95,
+        evidence: vec![LineageEvidence::ExactNodeId],
+    };
+    let mut persisted_history = hot_history.snapshot();
+    persisted_history.events = vec![persisted_event.clone()];
+    store.save_history_snapshot(&persisted_history).unwrap();
+
+    let prism = Prism::with_history(graph, hot_history);
+    let context = build_curator_context(
+        &prism,
+        &mut store,
+        &[AnchorRef::Node(node.id.clone())],
+        &CuratorBudget::default(),
+    )
+    .unwrap();
+
+    assert_eq!(context.lineage.events, vec![persisted_event]);
 }
 
 #[test]

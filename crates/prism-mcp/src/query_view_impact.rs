@@ -11,6 +11,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::compact_followups::same_workspace_file;
+use crate::query_view_materialization::append_boundary_notes_for_paths;
 use crate::query_view_playbook::collect_repo_playbook;
 use crate::{
     blast_radius_view, change_impact_view, changed_files, contract_packet_view,
@@ -119,6 +120,7 @@ pub(crate) fn impact_view(execution: &QueryExecution, input: Value) -> Result<Va
                 "Some requested paths did not resolve to indexed targets: {}.",
                 unresolved_paths.join(", ")
             ));
+            append_boundary_notes_for_paths(execution, &unresolved_paths, &mut notes);
         }
         for id in &resolved_targets {
             collect_target_impact(
@@ -257,11 +259,14 @@ fn collect_task_impact(
         ));
         return Ok(());
     }
-    let (targets, _) = resolve_targets_for_paths(
+    let (targets, unresolved) = resolve_targets_for_paths(
         execution.workspace_root(),
         execution.prism(),
         &changed_paths,
     );
+    if !unresolved.is_empty() {
+        append_boundary_notes_for_paths(execution, &unresolved, notes);
+    }
     if targets.is_empty() {
         notes.push(format!(
             "Changed files for `{task_id}` did not resolve to indexed semantic targets."

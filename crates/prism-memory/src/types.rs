@@ -74,6 +74,7 @@ pub enum MemoryEventKind {
     Stored,
     Promoted,
     Superseded,
+    Retired,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

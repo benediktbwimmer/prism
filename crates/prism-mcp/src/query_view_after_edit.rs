@@ -11,6 +11,7 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use crate::compact_followups::same_workspace_file;
+use crate::query_view_materialization::append_boundary_notes_for_paths;
 use crate::query_view_playbook::collect_repo_playbook;
 use crate::{
     blast_radius_view, changed_files, contract_packet_view, invalid_query_argument_error,
@@ -98,6 +99,7 @@ pub(crate) fn after_edit_view(execution: &QueryExecution, input: Value) -> Resul
                 "Some requested paths did not resolve to indexed targets: {}.",
                 unresolved_paths.join(", ")
             ));
+            append_boundary_notes_for_paths(execution, &unresolved_paths, &mut notes);
         }
         targets = resolved_targets;
         QueryViewSubjectView {
@@ -189,6 +191,7 @@ fn targets_for_task(
             "Some changed task paths did not resolve to indexed targets: {}.",
             unresolved.join(", ")
         ));
+        append_boundary_notes_for_paths(execution, &unresolved, notes);
     }
     Ok(targets)
 }

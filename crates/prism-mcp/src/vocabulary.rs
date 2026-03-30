@@ -151,19 +151,14 @@ const COORDINATION_MUTATION_KINDS: &[VocabularyValueSpec] = &[
         description: "Create a coordination task.",
     },
     VocabularyValueSpec {
-        value: "task_update",
+        value: "update",
         aliases: &[],
-        description: "Update a coordination task.",
+        description: "Update a coordination task or first-class plan node by id.",
     },
     VocabularyValueSpec {
         value: "plan_node_create",
         aliases: &[],
         description: "Create a first-class plan node.",
-    },
-    VocabularyValueSpec {
-        value: "plan_node_update",
-        aliases: &[],
-        description: "Update a first-class plan node.",
     },
     VocabularyValueSpec {
         value: "plan_edge_create",

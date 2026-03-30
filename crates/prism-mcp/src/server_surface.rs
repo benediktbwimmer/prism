@@ -78,12 +78,23 @@ impl PrismMcpServer {
         response_preview: Option<serde_json::Value>,
         metadata: serde_json::Value,
     ) {
-        let duration_ms = crate::mcp_call_log::duration_to_ms(started.elapsed());
+        let mut duration_ms = crate::mcp_call_log::duration_to_ms(started.elapsed());
+        let mut started_at = started_at;
         let touched = request_preview
             .as_ref()
             .map(crate::mcp_call_log::touches_for_value)
             .unwrap_or_default();
-        let phase = QueryPhaseView {
+        let request_args = json!({ "callType": call_type, "name": name });
+        let mut phases = vec![QueryPhaseView {
+            operation: "mcp.executeHandler".to_string(),
+            started_at,
+            duration_ms,
+            args_summary: Some(crate::mcp_call_log::summarize_value(&request_args)),
+            touched: touched.clone(),
+            success,
+            error: error.clone(),
+        }];
+        phases.push(QueryPhaseView {
             operation: format!("{call_type}.{name}"),
             started_at,
             duration_ms,
@@ -93,7 +104,25 @@ impl PrismMcpServer {
             touched: touched.clone(),
             success,
             error: error.clone(),
-        };
+        });
+        if success {
+            phases.push(QueryPhaseView {
+                operation: "mcp.encodeResponse".to_string(),
+                started_at,
+                duration_ms: 0,
+                args_summary: Some(crate::mcp_call_log::summarize_value(&request_args)),
+                touched: Vec::new(),
+                success: true,
+                error: None,
+            });
+        }
+        let mut metadata = metadata;
+        crate::request_envelope::apply_current_request_envelope(
+            &mut phases,
+            &mut started_at,
+            &mut duration_ms,
+            &mut metadata,
+        );
         let entry = crate::mcp_call_log::new_log_entry(
             self.host.mcp_call_log_store.runtime(),
             call_type,
@@ -106,15 +135,15 @@ impl PrismMcpServer {
             self.session.current_task().map(|task| task.0.to_string()),
             success,
             error,
-            vec![phase.operation.clone()],
-            touched,
+            crate::mcp_call_log::unique_operations(&phases),
+            crate::mcp_call_log::unique_touches(&phases),
             Vec::new(),
             crate::mcp_call_log::payload_summary(request_preview.as_ref()),
             crate::mcp_call_log::payload_summary(response_preview.as_ref()),
         );
         let _ = self.host.mcp_call_log_store.push(PersistedMcpCallRecord {
             entry,
-            phases: vec![phase],
+            phases,
             request_preview: request_preview
                 .as_ref()
                 .and_then(crate::mcp_call_log::preview_value),
@@ -220,6 +249,13 @@ impl PrismMcpServer {
                     true,
                     None,
                 );
+                run.record_phase(
+                    "mcp.executeHandler",
+                    &json!({ "tool": run.tool_name(), "action": action }),
+                    operation_started.elapsed(),
+                    true,
+                    None,
+                );
                 let meta = finish(&result);
                 let encode_started = Instant::now();
                 let result_json = match serde_json::to_value(&result) {
@@ -231,6 +267,13 @@ impl PrismMcpServer {
                             true,
                             None,
                         );
+                        run.record_phase(
+                            "mcp.encodeResponse",
+                            &json!({ "tool": run.tool_name(), "action": action }),
+                            encode_started.elapsed(),
+                            true,
+                            None,
+                        );
                         result_json
                     }
                     Err(error) => {
@@ -238,6 +281,13 @@ impl PrismMcpServer {
                         run.record_phase(
                             "mutation.encodeResult",
                             &json!({ "action": action }),
+                            encode_started.elapsed(),
+                            false,
+                            Some(mapped.to_string()),
+                        );
+                        run.record_phase(
+                            "mcp.encodeResponse",
+                            &json!({ "tool": run.tool_name(), "action": action }),
                             encode_started.elapsed(),
                             false,
                             Some(mapped.to_string()),
@@ -283,6 +333,13 @@ impl PrismMcpServer {
                 run.record_phase(
                     "mutation.operation",
                     &json!({ "action": action }),
+                    operation_started.elapsed(),
+                    false,
+                    Some(message.clone()),
+                );
+                run.record_phase(
+                    "mcp.executeHandler",
+                    &json!({ "tool": run.tool_name(), "action": action }),
                     operation_started.elapsed(),
                     false,
                     Some(message.clone()),

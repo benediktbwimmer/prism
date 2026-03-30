@@ -90,6 +90,28 @@ pub(super) fn load_history_snapshot(
     }))
 }
 
+pub(super) fn load_lineage_history(
+    conn: &Connection,
+    lineage: &LineageId,
+) -> Result<Vec<LineageEvent>> {
+    let mut stmt = conn.prepare(
+        "SELECT payload
+         FROM history_events
+         WHERE lineage = ?1
+         ORDER BY ts, event_id",
+    )?;
+    let rows = stmt.query_map(params![lineage.0.as_str()], |row| row.get::<_, String>(0))?;
+    let mut events = Vec::new();
+    for row in rows {
+        let payload = row?;
+        events.push(
+            serde_json::from_str(&payload)
+                .context("failed to decode persisted lineage event from sqlite")?,
+        );
+    }
+    Ok(events)
+}
+
 pub(super) fn retire_legacy_history_co_change(
     conn: &mut Connection,
 ) -> Result<LegacyCoChangeRetirement> {

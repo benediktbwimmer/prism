@@ -128,10 +128,10 @@ pub(crate) fn build_curator_context(
         edges.truncate(max_edges);
     }
 
-    let mut lineage_events = lineages
-        .iter()
-        .flat_map(|lineage| prism.lineage_history(lineage))
-        .collect::<Vec<_>>();
+    let mut lineage_events = Vec::new();
+    for lineage in &lineages {
+        lineage_events.extend(store.load_lineage_history(lineage)?);
+    }
     lineage_events.sort_by(|left, right| {
         left.meta
             .ts
@@ -187,19 +187,7 @@ fn focus_nodes(prism: &Prism, focus: &[AnchorRef], limit: usize) -> Vec<Node> {
                 node_ids.insert(id.clone());
             }
             AnchorRef::Lineage(lineage) => {
-                for node in
-                    prism
-                        .history_snapshot()
-                        .node_to_lineage
-                        .iter()
-                        .filter_map(|(id, candidate)| {
-                            if candidate == lineage {
-                                Some(id.clone())
-                            } else {
-                                None
-                            }
-                        })
-                {
+                for node in prism.current_nodes_for_lineage(lineage) {
                     node_ids.insert(node);
                 }
             }

@@ -103,7 +103,6 @@ struct PreparedTypescriptQuery {
 struct TypescriptAttempt {
     execution: QueryExecution,
     result: Value,
-    json_bytes: usize,
     output_cap_hit: bool,
 }
 
@@ -341,8 +340,10 @@ impl QueryHost {
             "symbolQuery",
             format!("symbol({query})"),
         );
+        let phase_args = json!({ "tool": "prism_query", "queryKind": "symbolQuery" });
         let mut execution = None;
-        match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize)> {
+        let execute_started = Instant::now();
+        match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize, std::time::Duration, std::time::Duration)> {
             self.observe_workspace_for_read()?;
             let created = QueryExecution::new(
                 self.clone(),
@@ -353,10 +354,33 @@ impl QueryHost {
             execution = Some(created.clone());
             let result = serde_json::to_value(created.best_symbol(query)?)?;
             let diagnostics = created.diagnostics();
+            let execute_duration = execute_started.elapsed();
+            let encode_started = Instant::now();
             let json_bytes = serde_json::to_vec(&result)?.len();
-            Ok((result, diagnostics, json_bytes))
+            let encode_duration = encode_started.elapsed();
+            Ok((
+                result,
+                diagnostics,
+                json_bytes,
+                execute_duration,
+                encode_duration,
+            ))
         })() {
-            Ok((result, diagnostics, json_bytes)) => {
+            Ok((result, diagnostics, json_bytes, execute_duration, encode_duration)) => {
+                query_run.record_phase(
+                    "mcp.executeHandler",
+                    &phase_args,
+                    execute_duration,
+                    true,
+                    None,
+                );
+                query_run.record_phase(
+                    "mcp.encodeResponse",
+                    &phase_args,
+                    encode_duration,
+                    true,
+                    None,
+                );
                 query_run.finish_success(
                     self.mcp_call_log_store.as_ref(),
                     &result,
@@ -370,6 +394,13 @@ impl QueryHost {
                 })
             }
             Err(error) => {
+                query_run.record_phase(
+                    "mcp.executeHandler",
+                    &phase_args,
+                    execute_started.elapsed(),
+                    false,
+                    Some(error.to_string()),
+                );
                 query_run.finish_error(
                     self.mcp_call_log_store.as_ref(),
                     execution
@@ -395,8 +426,10 @@ impl QueryHost {
             "searchQuery",
             format!("search({})", args.query),
         );
+        let phase_args = json!({ "tool": "prism_query", "queryKind": "searchQuery" });
         let mut execution = None;
-        match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize)> {
+        let execute_started = Instant::now();
+        match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize, std::time::Duration, std::time::Duration)> {
             self.observe_workspace_for_read()?;
             let created = QueryExecution::new(
                 self.clone(),
@@ -407,10 +440,33 @@ impl QueryHost {
             execution = Some(created.clone());
             let result = serde_json::to_value(created.search(args)?)?;
             let diagnostics = created.diagnostics();
+            let execute_duration = execute_started.elapsed();
+            let encode_started = Instant::now();
             let json_bytes = serde_json::to_vec(&result)?.len();
-            Ok((result, diagnostics, json_bytes))
+            let encode_duration = encode_started.elapsed();
+            Ok((
+                result,
+                diagnostics,
+                json_bytes,
+                execute_duration,
+                encode_duration,
+            ))
         })() {
-            Ok((result, diagnostics, json_bytes)) => {
+            Ok((result, diagnostics, json_bytes, execute_duration, encode_duration)) => {
+                query_run.record_phase(
+                    "mcp.executeHandler",
+                    &phase_args,
+                    execute_duration,
+                    true,
+                    None,
+                );
+                query_run.record_phase(
+                    "mcp.encodeResponse",
+                    &phase_args,
+                    encode_duration,
+                    true,
+                    None,
+                );
                 query_run.finish_success(
                     self.mcp_call_log_store.as_ref(),
                     &result,
@@ -424,6 +480,13 @@ impl QueryHost {
                 })
             }
             Err(error) => {
+                query_run.record_phase(
+                    "mcp.executeHandler",
+                    &phase_args,
+                    execute_started.elapsed(),
+                    false,
+                    Some(error.to_string()),
+                );
                 query_run.finish_error(
                     self.mcp_call_log_store.as_ref(),
                     execution
@@ -439,8 +502,17 @@ impl QueryHost {
 
     fn execute_typescript(&self, session: Arc<SessionState>, code: &str) -> Result<QueryEnvelope> {
         let query_run = self.begin_query_run(session.as_ref(), "prism_query", "typescript", code);
+        let phase_args = json!({ "tool": "prism_query", "queryKind": "typescript" });
         let mut execution = None;
-        match (|| -> Result<(Value, Vec<QueryDiagnostic>, usize, bool)> {
+        let execute_started = Instant::now();
+        match (|| -> Result<(
+            Value,
+            Vec<QueryDiagnostic>,
+            usize,
+            bool,
+            std::time::Duration,
+            std::time::Duration,
+        )> {
             let refresh_started = Instant::now();
             let refresh = self.observe_workspace_for_read()?;
             query_run.record_phase(
@@ -512,14 +584,41 @@ impl QueryHost {
                 }
             }
             let diagnostics = statement_attempt.execution.diagnostics();
+            let execute_duration = execute_started.elapsed();
+            let encode_started = Instant::now();
+            let json_bytes = serde_json::to_vec(&statement_attempt.result)?.len();
+            let encode_duration = encode_started.elapsed();
             Ok((
                 statement_attempt.result,
                 diagnostics,
-                statement_attempt.json_bytes,
+                json_bytes,
                 statement_attempt.output_cap_hit,
+                execute_duration,
+                encode_duration,
             ))
         })() {
-            Ok((result, diagnostics, json_bytes, output_cap_hit)) => {
+            Ok((
+                result,
+                diagnostics,
+                json_bytes,
+                output_cap_hit,
+                execute_duration,
+                encode_duration,
+            )) => {
+                query_run.record_phase(
+                    "mcp.executeHandler",
+                    &phase_args,
+                    execute_duration,
+                    true,
+                    None,
+                );
+                query_run.record_phase(
+                    "mcp.encodeResponse",
+                    &phase_args,
+                    encode_duration,
+                    true,
+                    None,
+                );
                 query_run.finish_success(
                     self.mcp_call_log_store.as_ref(),
                     &result,
@@ -533,6 +632,13 @@ impl QueryHost {
                 })
             }
             Err(error) => {
+                query_run.record_phase(
+                    "mcp.executeHandler",
+                    &phase_args,
+                    execute_started.elapsed(),
+                    false,
+                    Some(error.to_string()),
+                );
                 query_run.finish_error(
                     self.mcp_call_log_store.as_ref(),
                     execution
@@ -746,7 +852,6 @@ impl QueryHost {
         Ok(TypescriptAttempt {
             execution,
             result,
-            json_bytes: raw_result.len(),
             output_cap_hit,
         })
     }
@@ -825,6 +930,15 @@ impl QueryExecution {
             .workspace
             .as_ref()
             .map(|workspace| workspace.root())
+    }
+
+    pub(crate) fn workspace_materialization_summary(
+        &self,
+    ) -> Option<prism_core::WorkspaceMaterializationSummary> {
+        self.host
+            .workspace
+            .as_ref()
+            .map(|workspace| workspace.workspace_materialization_summary())
     }
 
     pub(crate) fn diagnostics(&self) -> Vec<QueryDiagnostic> {

@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use super::*;
 use crate::tests_support::{
     demo_node, initialize_client, initialized_notification, list_resources_request,
-    list_tools_request, read_resource_request, response_json, server_with_node,
+    list_tools_request, ping_request, read_resource_request, response_json, server_with_node,
     server_with_node_and_features, temp_workspace,
 };
 use prism_core::index_workspace_session;
@@ -166,6 +166,74 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .unwrap()
         .iter()
         .any(|resource| resource["uri"] == VOCAB_URI));
+
+    running.cancel().await.unwrap();
+}
+
+#[tokio::test]
+async fn mcp_surface_request_logs_include_common_envelope_phases() {
+    let server = server_with_node(demo_node());
+    let server_handle = server.clone();
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client.send(list_tools_request(2)).await.unwrap();
+    let _ = response_json(client.receive().await.unwrap());
+
+    client
+        .send(read_resource_request(3, API_REFERENCE_URI))
+        .await
+        .unwrap();
+    let _ = response_json(client.receive().await.unwrap());
+
+    client.send(ping_request(4)).await.unwrap();
+    let _ = response_json(client.receive().await.unwrap());
+
+    let records = server_handle.host.mcp_call_log_store.records();
+    let tool_list = records
+        .iter()
+        .find(|record| record.entry.call_type == "tool_list")
+        .expect("tool_list record should exist");
+    let resource_read = records
+        .iter()
+        .find(|record| {
+            record.entry.call_type == "resource_read" && record.entry.name == API_REFERENCE_URI
+        })
+        .expect("resource_read record should exist");
+
+    for record in [tool_list, resource_read] {
+        let operations = record
+            .phases
+            .iter()
+            .map(|phase| phase.operation.as_str())
+            .collect::<Vec<_>>();
+        assert!(operations.contains(&"mcp.receiveRequest"));
+        assert!(operations.contains(&"mcp.routeRequest"));
+        assert!(operations.contains(&"mcp.executeHandler"));
+        assert!(operations.contains(&"mcp.encodeResponse"));
+    }
+
+    let ping = records
+        .iter()
+        .find(|record| record.entry.call_type == "request" && record.entry.name == "ping")
+        .expect("ping fallback request record should exist");
+    let ping_operations = ping
+        .phases
+        .iter()
+        .map(|phase| phase.operation.as_str())
+        .collect::<Vec<_>>();
+    assert!(ping_operations.contains(&"mcp.receiveRequest"));
+    assert!(ping_operations.contains(&"mcp.routeRequest"));
+    assert!(ping_operations.contains(&"mcp.executeHandler"));
+    assert!(ping_operations.contains(&"mcp.encodeResponse"));
 
     running.cancel().await.unwrap();
 }

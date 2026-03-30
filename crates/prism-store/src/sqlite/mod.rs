@@ -150,6 +150,13 @@ impl SqliteStore {
         Ok(revisions)
     }
 
+    pub fn load_lineage_history(
+        &self,
+        lineage: &prism_ir::LineageId,
+    ) -> Result<Vec<prism_ir::LineageEvent>> {
+        history_io::load_lineage_history(&self.conn, lineage)
+    }
+
     pub fn append_inference_records(&mut self, records: &[InferredEdgeRecord]) -> Result<usize> {
         let tx = self.conn.transaction()?;
         let inserted = inference_records::append_records_tx(&tx, records)?;

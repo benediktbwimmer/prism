@@ -381,6 +381,7 @@ pub(crate) fn parse_memory_event_action(value: &str) -> Result<MemoryEventKind> 
         "stored" | "store" => Ok(MemoryEventKind::Stored),
         "promoted" | "promote" => Ok(MemoryEventKind::Promoted),
         "superseded" | "supersede" => Ok(MemoryEventKind::Superseded),
+        "retired" | "retire" => Ok(MemoryEventKind::Retired),
         other => Err(anyhow!("unknown memory event action `{other}`")),
     }
 }

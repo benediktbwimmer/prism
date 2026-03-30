@@ -41,28 +41,28 @@ use crate::{
     curator_job_status_label, curator_memory_metadata, curator_proposal, curator_proposal_state,
     curator_trigger_label, current_timestamp, ensure_repo_publication_metadata,
     manual_memory_metadata, parse_edge_kind, plan_edge_view, plan_node_view, plan_view,
-    task_journal_memory_metadata, task_journal_view, ArtifactActionInput, ArtifactMutationResult,
-    ArtifactProposePayload, ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload,
-    ClaimActionInput, ClaimMutationResult, ClaimReleasePayload, ClaimRenewPayload,
-    ConceptMutationOperationInput, ConceptMutationResult, ConceptRelationKindInput,
-    ConceptRelationMutationOperationInput, ConceptRelationMutationResult, ConceptScopeInput,
-    ConceptVerbosity, ContractCompatibilityInput, ContractGuaranteeInput,
+    retire_repo_publication_metadata, task_journal_memory_metadata, task_journal_view,
+    ArtifactActionInput, ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
+    ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput, ClaimMutationResult,
+    ClaimReleasePayload, ClaimRenewPayload, ConceptMutationOperationInput, ConceptMutationResult,
+    ConceptRelationKindInput, ConceptRelationMutationOperationInput, ConceptRelationMutationResult,
+    ConceptScopeInput, ConceptVerbosity, ContractCompatibilityInput, ContractGuaranteeInput,
     ContractGuaranteeStrengthInput, ContractKindInput, ContractMutationOperationInput,
     ContractMutationResult, ContractStabilityInput, ContractStatusInput, ContractTargetInput,
     ContractValidationInput, CoordinationMutationKindInput, CoordinationMutationResult,
     CuratorJobView, CuratorProposalCreatedResources, CuratorProposalDecision,
     CuratorProposalDecisionResult, EdgeMutationResult, EventMutationResult, HandoffAcceptPayload,
-    MemoryMutationActionInput, MemoryMutationResult, MemoryStorePayload, MutationViolationView,
-    NodeIdInput, PlanEdgeCreatePayload, PlanEdgeDeletePayload, PlanNodeCreatePayload,
-    PlanNodeUpdatePayload, PlanUpdatePayload, PrismArtifactArgs, PrismClaimArgs,
+    MemoryMutationActionInput, MemoryMutationResult, MemoryRetirePayload, MemoryStorePayload,
+    MutationViolationView, NodeIdInput, PlanEdgeCreatePayload, PlanEdgeDeletePayload,
+    PlanNodeCreatePayload, PlanUpdatePayload, PrismArtifactArgs, PrismClaimArgs,
     PrismConceptLensInput, PrismConceptMutationArgs, PrismConceptRelationMutationArgs,
     PrismContractMutationArgs, PrismCoordinationArgs, PrismCuratorApplyProposalArgs,
     PrismCuratorPromoteConceptArgs, PrismCuratorPromoteEdgeArgs, PrismCuratorPromoteMemoryArgs,
     PrismCuratorRejectProposalArgs, PrismFinishTaskArgs, PrismInferEdgeArgs, PrismMemoryArgs,
     PrismOutcomeArgs, PrismValidationFeedbackArgs, QueryHost, SessionState, SparsePatch,
-    SparsePatchInput, TaskCreatePayload, TaskUpdatePayload, ValidationFeedbackCategoryInput,
-    ValidationFeedbackMutationResult, ValidationFeedbackVerdictInput,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
+    SparsePatchInput, TaskCreatePayload, ValidationFeedbackCategoryInput,
+    ValidationFeedbackMutationResult, ValidationFeedbackVerdictInput, WorkflowStatusInput,
+    WorkflowUpdatePayload, DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
 
 #[derive(Default)]
@@ -209,6 +209,82 @@ fn plan_edge_kind_slug(kind: PlanEdgeKind) -> &'static str {
         PlanEdgeKind::HandoffTo => "handoff-to",
         PlanEdgeKind::ChildOf => "child-of",
         PlanEdgeKind::RelatedTo => "related-to",
+    }
+}
+
+fn resolve_native_plan_node(prism: &Prism, node_id: &str) -> Option<(PlanId, prism_ir::PlanNode)> {
+    prism.plan_graphs().into_iter().find_map(|graph| {
+        graph
+            .nodes
+            .into_iter()
+            .find_map(|node| (node.id.0 == node_id).then(|| (graph.id.clone(), node)))
+    })
+}
+
+enum WorkflowUpdateTarget {
+    CoordinationTask(CoordinationTaskId),
+    PlanNode {
+        plan_id: PlanId,
+        node_id: PlanNodeId,
+    },
+}
+
+fn resolve_workflow_update_target_with_preference(
+    prism: &Prism,
+    id: &str,
+    prefer_plan_node: bool,
+) -> Result<WorkflowUpdateTarget> {
+    let task_id = CoordinationTaskId::new(id.to_string());
+    let plan_node = resolve_native_plan_node(prism, id);
+    if prefer_plan_node {
+        if let Some((plan_id, node)) = plan_node.clone() {
+            return Ok(WorkflowUpdateTarget::PlanNode {
+                plan_id,
+                node_id: node.id,
+            });
+        }
+    }
+    if prism.coordination_task(&task_id).is_some() {
+        return Ok(WorkflowUpdateTarget::CoordinationTask(task_id));
+    }
+    if let Some((plan_id, node)) = plan_node {
+        return Ok(WorkflowUpdateTarget::PlanNode {
+            plan_id,
+            node_id: node.id,
+        });
+    }
+    Err(anyhow!("unknown coordination task or plan node `{id}`"))
+}
+
+fn convert_workflow_status_for_task(
+    value: WorkflowStatusInput,
+) -> Result<prism_ir::CoordinationTaskStatus> {
+    match value {
+        WorkflowStatusInput::Proposed => Ok(prism_ir::CoordinationTaskStatus::Proposed),
+        WorkflowStatusInput::Ready => Ok(prism_ir::CoordinationTaskStatus::Ready),
+        WorkflowStatusInput::InProgress => Ok(prism_ir::CoordinationTaskStatus::InProgress),
+        WorkflowStatusInput::Blocked => Ok(prism_ir::CoordinationTaskStatus::Blocked),
+        WorkflowStatusInput::Waiting => Err(anyhow!(
+            "status `waiting` is only supported for native plan nodes"
+        )),
+        WorkflowStatusInput::InReview => Ok(prism_ir::CoordinationTaskStatus::InReview),
+        WorkflowStatusInput::Validating => Ok(prism_ir::CoordinationTaskStatus::Validating),
+        WorkflowStatusInput::Completed => Ok(prism_ir::CoordinationTaskStatus::Completed),
+        WorkflowStatusInput::Abandoned => Ok(prism_ir::CoordinationTaskStatus::Abandoned),
+    }
+}
+
+fn convert_workflow_status_for_plan_node(value: WorkflowStatusInput) -> prism_ir::PlanNodeStatus {
+    match value {
+        WorkflowStatusInput::Proposed => prism_ir::PlanNodeStatus::Proposed,
+        WorkflowStatusInput::Ready => prism_ir::PlanNodeStatus::Ready,
+        WorkflowStatusInput::InProgress => prism_ir::PlanNodeStatus::InProgress,
+        WorkflowStatusInput::Blocked => prism_ir::PlanNodeStatus::Blocked,
+        WorkflowStatusInput::Waiting => prism_ir::PlanNodeStatus::Waiting,
+        WorkflowStatusInput::InReview => prism_ir::PlanNodeStatus::InReview,
+        WorkflowStatusInput::Validating => prism_ir::PlanNodeStatus::Validating,
+        WorkflowStatusInput::Completed => prism_ir::PlanNodeStatus::Completed,
+        WorkflowStatusInput::Abandoned => prism_ir::PlanNodeStatus::Abandoned,
     }
 }
 
@@ -516,13 +592,28 @@ impl QueryHost {
         session: &SessionState,
         args: PrismMemoryArgs,
     ) -> Result<MemoryMutationResult> {
-        let prism = self.current_prism();
         let task_id = session.task_for_mutation(args.task_id.map(TaskId::new));
-        let payload = match args.action {
-            MemoryMutationActionInput::Store => {
-                serde_json::from_value::<MemoryStorePayload>(args.payload)?
-            }
-        };
+        match args.action {
+            MemoryMutationActionInput::Store => self.store_memory_payload(
+                session,
+                task_id,
+                serde_json::from_value::<MemoryStorePayload>(args.payload)?,
+            ),
+            MemoryMutationActionInput::Retire => self.retire_memory_payload(
+                session,
+                task_id,
+                serde_json::from_value::<MemoryRetirePayload>(args.payload)?,
+            ),
+        }
+    }
+
+    fn store_memory_payload(
+        &self,
+        session: &SessionState,
+        task_id: TaskId,
+        payload: MemoryStorePayload,
+    ) -> Result<MemoryMutationResult> {
+        let prism = self.current_prism();
         let anchors = prism.anchors_for(&convert_anchors(
             prism.as_ref(),
             self.workspace.as_ref().map(|workspace| workspace.root()),
@@ -544,6 +635,23 @@ impl QueryHost {
         if entry.scope == MemoryScope::Repo {
             entry.metadata = ensure_repo_publication_metadata(entry.metadata, current_timestamp());
         }
+
+        let promoted_from = payload
+            .promoted_from
+            .clone()
+            .unwrap_or_default()
+            .into_iter()
+            .map(prism_memory::MemoryId)
+            .collect::<Vec<_>>();
+        let supersedes = payload
+            .supersedes
+            .clone()
+            .unwrap_or_default()
+            .into_iter()
+            .map(prism_memory::MemoryId)
+            .collect::<Vec<_>>();
+        ensure_repo_memory_publication_is_not_duplicate(session, &entry, supersedes.as_slice())?;
+
         let memory_id = session.notes.store(entry)?;
         let stored_entry = session
             .notes
@@ -551,20 +659,6 @@ impl QueryHost {
             .ok_or_else(|| anyhow!("stored memory `{}` could not be reloaded", memory_id.0))?;
         if stored_entry.scope != MemoryScope::Local {
             if let Some(workspace) = &self.workspace {
-                let promoted_from = payload
-                    .promoted_from
-                    .clone()
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(prism_memory::MemoryId)
-                    .collect::<Vec<_>>();
-                let supersedes = payload
-                    .supersedes
-                    .clone()
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(prism_memory::MemoryId)
-                    .collect::<Vec<_>>();
                 let action =
                     memory_event_kind_for_store(promoted_from.as_slice(), supersedes.as_slice());
                 workspace.append_memory_event(MemoryEvent::from_entry(
@@ -574,7 +668,11 @@ impl QueryHost {
                     promoted_from,
                     supersedes,
                 ))?;
-                self.sync_episodic_revision(workspace)?;
+                if stored_entry.scope == MemoryScope::Repo {
+                    self.reload_episodic_snapshot(workspace)?;
+                } else {
+                    self.sync_episodic_revision(workspace)?;
+                }
             } else if stored_entry.scope == MemoryScope::Repo {
                 return Err(anyhow!(
                     "repo-published memory requires a workspace-backed PRISM session"
@@ -619,6 +717,55 @@ impl QueryHost {
         }
         Ok(MemoryMutationResult {
             memory_id: memory_id.0,
+            task_id: task_id.0.to_string(),
+        })
+    }
+
+    fn retire_memory_payload(
+        &self,
+        session: &SessionState,
+        task_id: TaskId,
+        payload: MemoryRetirePayload,
+    ) -> Result<MemoryMutationResult> {
+        let workspace = self.workspace.as_ref().ok_or_else(|| {
+            anyhow!("retiring repo-published memory requires a workspace-backed session")
+        })?;
+        let memory_id = prism_memory::MemoryId(payload.memory_id.clone());
+        let existing = session
+            .notes
+            .entry(&memory_id)
+            .ok_or_else(|| anyhow!("unknown memory `{}`", payload.memory_id))?;
+        if existing.scope != MemoryScope::Repo {
+            return Err(anyhow!(
+                "only repo-published memory can be retired through prism_mutate"
+            ));
+        }
+        let already_retired = existing
+            .metadata
+            .get("publication")
+            .and_then(|value| value.get("status"))
+            .and_then(Value::as_str)
+            .is_some_and(|status| status.eq_ignore_ascii_case("retired"));
+        if already_retired {
+            return Err(anyhow!("memory `{}` is already retired", payload.memory_id));
+        }
+
+        let mut retired_entry = existing;
+        retired_entry.metadata = retire_repo_publication_metadata(
+            retired_entry.metadata,
+            current_timestamp(),
+            &payload.retirement_reason,
+        );
+        workspace.append_memory_event(MemoryEvent::from_entry(
+            MemoryEventKind::Retired,
+            retired_entry,
+            Some(task_id.0.to_string()),
+            Vec::new(),
+            Vec::new(),
+        ))?;
+        self.reload_episodic_snapshot(workspace)?;
+        Ok(MemoryMutationResult {
+            memory_id: payload.memory_id,
             task_id: task_id.0.to_string(),
         })
     }
@@ -1374,58 +1521,157 @@ impl QueryHost {
                 )?;
                 Ok(serde_json::to_value(coordination_task_view(task))?)
             }
-            CoordinationMutationKindInput::TaskUpdate => {
-                let payload: TaskUpdatePayload = serde_json::from_value(args.payload)?;
-                let task_id = CoordinationTaskId::new(payload.task_id.clone());
-                let status = payload.status.map(convert_coordination_task_status);
-                let assignee = match parse_sparse_patch(payload.assignee, "assignee")? {
-                    SparsePatch::Keep => None,
-                    SparsePatch::Set(value) => Some(Some(AgentId::new(value))),
-                    SparsePatch::Clear => Some(None),
-                };
-                let completion_context = convert_completion_context(payload.completion_context)
-                    .or_else(|| {
-                        status
-                            .filter(|status| *status == prism_ir::CoordinationTaskStatus::Completed)
-                            .and_then(|_| prism.task_risk(&task_id, meta.ts))
-                            .map(|risk| prism_coordination::TaskCompletionContext {
-                                risk_score: Some(risk.risk_score),
-                                required_validations: risk.likely_validations,
-                            })
-                    });
-                let task = prism.update_native_task(
-                    meta,
-                    TaskUpdateInput {
-                        task_id,
-                        status,
-                        assignee,
-                        session: None,
-                        worktree_id: None,
-                        branch_ref: None,
-                        title: payload.title,
-                        anchors: payload
-                            .anchors
-                            .map(|anchors| convert_anchors(prism, workspace_root, anchors))
-                            .transpose()?,
-                        depends_on: payload.depends_on.map(|depends_on| {
-                            depends_on
-                                .into_iter()
-                                .map(CoordinationTaskId::new)
-                                .collect::<Vec<_>>()
-                        }),
-                        acceptance: payload
-                            .acceptance
-                            .map(|acceptance| {
-                                convert_acceptance(prism, workspace_root, Some(acceptance))
-                            })
-                            .transpose()?,
-                        base_revision: Some(prism.workspace_revision()),
-                        completion_context,
-                    },
-                    prism.workspace_revision(),
-                    current_timestamp(),
-                )?;
-                Ok(serde_json::to_value(coordination_task_view(task))?)
+            CoordinationMutationKindInput::Update => {
+                let payload: WorkflowUpdatePayload = serde_json::from_value(args.payload)?;
+                let WorkflowUpdatePayload {
+                    id,
+                    kind,
+                    status,
+                    assignee,
+                    is_abstract,
+                    title,
+                    summary,
+                    anchors,
+                    bindings,
+                    depends_on,
+                    acceptance,
+                    validation_refs,
+                    priority,
+                    tags,
+                    completion_context,
+                } = payload;
+                let prefer_plan_node = kind.is_some()
+                    || is_abstract.is_some()
+                    || bindings.is_some()
+                    || validation_refs.is_some()
+                    || tags.is_some()
+                    || !matches!(
+                        parse_sparse_patch(summary.clone(), "summary")?,
+                        SparsePatch::Keep
+                    )
+                    || !matches!(
+                        parse_sparse_patch(priority.clone(), "priority")?,
+                        SparsePatch::Keep
+                    );
+                match resolve_workflow_update_target_with_preference(prism, &id, prefer_plan_node)?
+                {
+                    WorkflowUpdateTarget::CoordinationTask(task_id) => {
+                        let summary_patch = parse_sparse_patch(summary, "summary")?;
+                        if !matches!(summary_patch, SparsePatch::Keep) {
+                            return Err(anyhow!(
+                                "field `summary` is only supported when `id` resolves to a native plan node"
+                            ));
+                        }
+                        let priority_patch = parse_sparse_patch(priority, "priority")?;
+                        if !matches!(priority_patch, SparsePatch::Keep) {
+                            return Err(anyhow!(
+                                "field `priority` is only supported when `id` resolves to a native plan node"
+                            ));
+                        }
+                        if kind.is_some()
+                            || is_abstract.is_some()
+                            || bindings.is_some()
+                            || validation_refs.is_some()
+                            || tags.is_some()
+                        {
+                            return Err(anyhow!(
+                                "fields `kind`, `isAbstract`, `bindings`, `validationRefs`, and `tags` are only supported when `id` resolves to a native plan node"
+                            ));
+                        }
+                        let status = status.map(convert_workflow_status_for_task).transpose()?;
+                        let assignee = match parse_sparse_patch(assignee, "assignee")? {
+                            SparsePatch::Keep => None,
+                            SparsePatch::Set(value) => Some(Some(AgentId::new(value))),
+                            SparsePatch::Clear => Some(None),
+                        };
+                        let completion_context = convert_completion_context(completion_context)
+                            .or_else(|| {
+                                status
+                                    .filter(|status| {
+                                        *status == prism_ir::CoordinationTaskStatus::Completed
+                                    })
+                                    .and_then(|_| prism.task_risk(&task_id, meta.ts))
+                                    .map(|risk| prism_coordination::TaskCompletionContext {
+                                        risk_score: Some(risk.risk_score),
+                                        required_validations: risk.likely_validations,
+                                    })
+                            });
+                        let task = prism.update_native_task(
+                            meta,
+                            TaskUpdateInput {
+                                task_id,
+                                status,
+                                assignee,
+                                session: None,
+                                worktree_id: None,
+                                branch_ref: None,
+                                title,
+                                anchors: anchors
+                                    .map(|anchors| convert_anchors(prism, workspace_root, anchors))
+                                    .transpose()?,
+                                depends_on: depends_on.map(|depends_on| {
+                                    depends_on
+                                        .into_iter()
+                                        .map(CoordinationTaskId::new)
+                                        .collect::<Vec<_>>()
+                                }),
+                                acceptance: acceptance
+                                    .map(|acceptance| {
+                                        convert_acceptance(prism, workspace_root, Some(acceptance))
+                                    })
+                                    .transpose()?,
+                                base_revision: Some(prism.workspace_revision()),
+                                completion_context,
+                            },
+                            prism.workspace_revision(),
+                            current_timestamp(),
+                        )?;
+                        Ok(serde_json::to_value(coordination_task_view(task))?)
+                    }
+                    WorkflowUpdateTarget::PlanNode { plan_id, node_id } => {
+                        let status = status.map(convert_workflow_status_for_plan_node);
+                        let assignee = match parse_sparse_patch(assignee, "assignee")? {
+                            SparsePatch::Keep => None,
+                            SparsePatch::Set(value) => Some(Some(AgentId::new(value))),
+                            SparsePatch::Clear => Some(None),
+                        };
+                        let (summary, clear_summary) = match parse_sparse_patch(summary, "summary")?
+                        {
+                            SparsePatch::Keep => (None, false),
+                            SparsePatch::Set(value) => (Some(value), false),
+                            SparsePatch::Clear => (None, true),
+                        };
+                        let (priority, clear_priority) =
+                            match parse_sparse_patch(priority, "priority")? {
+                                SparsePatch::Keep => (None, false),
+                                SparsePatch::Set(value) => (Some(value), false),
+                                SparsePatch::Clear => (None, true),
+                            };
+                        prism.update_native_plan_node(
+                            &node_id,
+                            kind.map(convert_plan_node_kind),
+                            status,
+                            assignee,
+                            is_abstract,
+                            title,
+                            summary,
+                            clear_summary,
+                            convert_plan_binding(prism, workspace_root, anchors, bindings)?,
+                            depends_on,
+                            acceptance
+                                .map(|acceptance| {
+                                    convert_plan_acceptance(prism, workspace_root, Some(acceptance))
+                                })
+                                .transpose()?,
+                            validation_refs.map(|refs| convert_validation_refs(Some(refs))),
+                            Some(prism.workspace_revision()),
+                            priority,
+                            clear_priority,
+                            tags,
+                        )?;
+                        current_plan_node_state(prism, &plan_id, &node_id.0)
+                    }
+                }
             }
             CoordinationMutationKindInput::PlanNodeCreate => {
                 let payload: PlanNodeCreatePayload = serde_json::from_value(args.payload)?;
@@ -1454,55 +1700,6 @@ impl QueryHost {
                     prism.workspace_revision(),
                     payload.priority,
                     payload.tags.unwrap_or_default(),
-                )?;
-                current_plan_node_state(prism, &plan_id, &node_id.0)
-            }
-            CoordinationMutationKindInput::PlanNodeUpdate => {
-                let payload: PlanNodeUpdatePayload = serde_json::from_value(args.payload)?;
-                let kind = payload.kind.map(convert_plan_node_kind);
-                let status = payload.status.map(convert_plan_node_status);
-                let assignee = match parse_sparse_patch(payload.assignee, "assignee")? {
-                    SparsePatch::Keep => None,
-                    SparsePatch::Set(value) => Some(Some(AgentId::new(value))),
-                    SparsePatch::Clear => Some(None),
-                };
-                let (summary, clear_summary) = match parse_sparse_patch(payload.summary, "summary")?
-                {
-                    SparsePatch::Keep => (None, false),
-                    SparsePatch::Set(value) => (Some(value), false),
-                    SparsePatch::Clear => (None, true),
-                };
-                let (priority, clear_priority) =
-                    match parse_sparse_patch(payload.priority, "priority")? {
-                        SparsePatch::Keep => (None, false),
-                        SparsePatch::Set(value) => (Some(value), false),
-                        SparsePatch::Clear => (None, true),
-                    };
-                let node_id = PlanNodeId::new(payload.node_id.clone());
-                let plan_id = prism.update_native_plan_node(
-                    &node_id,
-                    kind,
-                    status,
-                    assignee,
-                    payload.is_abstract,
-                    payload.title,
-                    summary,
-                    clear_summary,
-                    convert_plan_binding(prism, workspace_root, payload.anchors, payload.bindings)?,
-                    payload.depends_on,
-                    payload
-                        .acceptance
-                        .map(|acceptance| {
-                            convert_plan_acceptance(prism, workspace_root, Some(acceptance))
-                        })
-                        .transpose()?,
-                    payload
-                        .validation_refs
-                        .map(|refs| convert_validation_refs(Some(refs))),
-                    Some(prism.workspace_revision()),
-                    priority,
-                    clear_priority,
-                    payload.tags,
                 )?;
                 current_plan_node_state(prism, &plan_id, &node_id.0)
             }
@@ -2213,6 +2410,7 @@ impl QueryHost {
         };
         let memory_summary = entry.content.clone();
         let memory_anchors = entry.anchors.clone();
+        ensure_repo_memory_publication_is_not_duplicate(session, &entry, &[])?;
         let memory_id = session.notes.store(entry)?;
         let stored_entry = session
             .notes
@@ -2225,7 +2423,7 @@ impl QueryHost {
             promoted_from,
             Vec::new(),
         ))?;
-        self.sync_episodic_revision(workspace)?;
+        self.reload_episodic_snapshot(workspace)?;
         let note_event = OutcomeEvent {
             meta: EventMeta {
                 id: session.next_event_id("outcome"),
@@ -2462,6 +2660,60 @@ fn memory_event_kind_for_store(
     } else {
         MemoryEventKind::Stored
     }
+}
+
+fn ensure_repo_memory_publication_is_not_duplicate(
+    session: &SessionState,
+    entry: &MemoryEntry,
+    supersedes: &[prism_memory::MemoryId],
+) -> Result<()> {
+    if entry.scope != MemoryScope::Repo {
+        return Ok(());
+    }
+    let duplicate_ids = session
+        .notes
+        .snapshot()
+        .entries
+        .into_iter()
+        .filter(|existing| existing.scope == MemoryScope::Repo)
+        .filter(|existing| existing.kind == entry.kind)
+        .filter(|existing| !supersedes.iter().any(|id| id == &existing.id))
+        .filter(|existing| memory_publication_status(existing) != Some("retired"))
+        .filter(|existing| entries_share_anchor(existing, entry))
+        .filter(|existing| {
+            normalize_memory_content(&existing.content) == normalize_memory_content(&entry.content)
+        })
+        .map(|existing| existing.id.0)
+        .collect::<Vec<_>>();
+    if duplicate_ids.is_empty() {
+        return Ok(());
+    }
+    Err(anyhow!(
+        "repo-published memory duplicates active published memory {}. Add `supersedes` to publish a reviewed replacement, or retire the older memory first.",
+        duplicate_ids.join(", ")
+    ))
+}
+
+fn entries_share_anchor(left: &MemoryEntry, right: &MemoryEntry) -> bool {
+    left.anchors
+        .iter()
+        .any(|anchor| right.anchors.iter().any(|candidate| candidate == anchor))
+}
+
+fn memory_publication_status(entry: &MemoryEntry) -> Option<&str> {
+    entry
+        .metadata
+        .get("publication")
+        .and_then(|value| value.get("status"))
+        .and_then(Value::as_str)
+}
+
+fn normalize_memory_content(content: &str) -> String {
+    content
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_ascii_lowercase()
 }
 
 fn outcome_validation_labels(evidence: &[OutcomeEvidence]) -> Vec<String> {

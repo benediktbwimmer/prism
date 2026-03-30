@@ -223,6 +223,8 @@ return {
     assert!(operations.contains(&"typescript.statement_body.prepare"));
     assert!(operations.contains(&"typescript.statement_body.transpile"));
     assert!(operations.contains(&"typescript.statement_body.workerRoundTrip"));
+    assert!(operations.contains(&"mcp.executeHandler"));
+    assert!(operations.contains(&"mcp.encodeResponse"));
     assert!(operations.contains(&"fileAround"));
     assert!(phases
         .iter()
@@ -649,6 +651,57 @@ return {
         .expect("stats should be array");
     assert!(stats.iter().any(|entry| entry["key"] == "impact"));
     assert!(stats.iter().any(|entry| entry["key"] == "afterEdit"));
+}
+
+#[test]
+fn prism_impact_and_after_edit_note_out_of_scope_boundaries_for_unresolved_paths() {
+    let root = temp_workspace();
+    write_long_excerpt_workspace(&root);
+    fs::create_dir_all(root.join("www")).unwrap();
+    fs::write(
+        root.join("www/app.js"),
+        "export function boot() { console.log('boot'); }\n",
+    )
+    .unwrap();
+
+    let host = QueryHost::with_session_and_limits_and_features(
+        index_workspace_session(&root).unwrap(),
+        QueryLimits::default(),
+        PrismMcpFeatures::full()
+            .with_internal_developer(true)
+            .with_query_view(QueryViewFeatureFlag::Impact, true)
+            .with_query_view(QueryViewFeatureFlag::AfterEdit, true),
+    );
+
+    let impact = host
+        .execute(
+            test_session(&host),
+            r#"return prism.impact({ paths: ["www/app.js"] });"#,
+            QueryLanguage::Ts,
+        )
+        .expect("impact should succeed");
+    assert_eq!(impact.result["subject"]["unresolvedPaths"][0], "www/app.js");
+    assert!(impact.result["notes"].as_array().is_some_and(|notes| notes
+        .iter()
+        .filter_map(|note| note.as_str())
+        .any(|note| note.contains("www/app.js")
+            && note.contains("outside the current indexed scope")
+            && note.contains("`www`"))));
+
+    let after_edit = host
+        .execute(
+            test_session(&host),
+            r#"return prism.afterEdit({ paths: ["www/app.js"] });"#,
+            QueryLanguage::Ts,
+        )
+        .expect("afterEdit should succeed");
+    assert_eq!(after_edit.result["subject"]["unresolvedPaths"][0], "www/app.js");
+    assert!(after_edit.result["notes"].as_array().is_some_and(|notes| notes
+        .iter()
+        .filter_map(|note| note.as_str())
+        .any(|note| note.contains("www/app.js")
+            && note.contains("outside the current indexed scope")
+            && note.contains("`www`"))));
 }
 
 #[test]

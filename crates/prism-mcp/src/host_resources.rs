@@ -713,13 +713,12 @@ impl QueryHost {
         self.observe_workspace_for_read()?;
         let schema_uri = schema_resource_uri("lineage");
         let prism = self.current_prism();
-        let history = prism.history_snapshot();
-        let events = prism.lineage_history(lineage);
-        let mut current_node_ids = history
-            .node_to_lineage
-            .into_iter()
-            .filter_map(|(node, current)| (current == *lineage).then_some(node))
-            .collect::<Vec<_>>();
+        let events = if let Some(workspace) = self.workspace.as_ref() {
+            workspace.load_lineage_history(lineage)?
+        } else {
+            prism.lineage_history(lineage)
+        };
+        let mut current_node_ids = prism.current_nodes_for_lineage(lineage);
         current_node_ids.sort_by(|left, right| {
             left.crate_name
                 .cmp(&right.crate_name)
@@ -866,16 +865,7 @@ impl QueryHost {
         self.observe_workspace_for_read()?;
         let schema_uri = schema_resource_uri("memory");
         let prism = self.current_prism();
-        let entry = session
-            .notes
-            .entry(memory_id)
-            .ok_or_else(|| anyhow!("unknown memory `{}`", memory_id.0))?;
-        let task_id = entry
-            .metadata
-            .get("task_id")
-            .and_then(|value| value.as_str())
-            .map(ToOwned::to_owned);
-        let history = self
+        let history_events = self
             .workspace
             .as_ref()
             .map(|workspace| {
@@ -892,10 +882,27 @@ impl QueryHost {
                 })
             })
             .transpose()?
-            .unwrap_or_default()
-            .into_iter()
-            .map(memory_event_view)
-            .collect();
+            .unwrap_or_default();
+        let entry = session
+            .notes
+            .entry(memory_id)
+            .or_else(|| {
+                history_events
+                    .iter()
+                    .find_map(|event| event.entry.as_ref().cloned())
+            })
+            .ok_or_else(|| anyhow!("unknown memory `{}`", memory_id.0))?;
+        let task_id = entry
+            .metadata
+            .get("task_id")
+            .and_then(|value| value.as_str())
+            .map(ToOwned::to_owned)
+            .or_else(|| {
+                history_events
+                    .iter()
+                    .find_map(|event| event.task_id.clone())
+            });
+        let history = history_events.into_iter().map(memory_event_view).collect();
         let mut related_resources = vec![
             session_resource_view_link(),
             memory_resource_view_link(&memory_id.0),

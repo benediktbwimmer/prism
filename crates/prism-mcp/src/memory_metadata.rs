@@ -48,6 +48,28 @@ pub(crate) fn ensure_repo_publication_metadata(existing: Value, published_at: u6
     Value::Object(metadata)
 }
 
+pub(crate) fn retire_repo_publication_metadata(
+    existing: Value,
+    retired_at: u64,
+    retirement_reason: &str,
+) -> Value {
+    let mut metadata = ensure_object(existing);
+    let publication = metadata.remove("publication").unwrap_or(Value::Null);
+    let mut publication = ensure_object(publication);
+    publication
+        .entry("publishedAt".to_string())
+        .or_insert_with(|| Value::from(retired_at));
+    publication.insert("lastReviewedAt".to_string(), Value::from(retired_at));
+    publication.insert("status".to_string(), Value::String("retired".to_string()));
+    publication.insert("retiredAt".to_string(), Value::from(retired_at));
+    publication.insert(
+        "retirementReason".to_string(),
+        Value::String(retirement_reason.to_string()),
+    );
+    metadata.insert("publication".to_string(), Value::Object(publication));
+    Value::Object(metadata)
+}
+
 pub(crate) fn curator_memory_metadata(
     proposal: &CuratorProposal,
     candidate: &CandidateMemory,

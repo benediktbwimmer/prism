@@ -822,7 +822,7 @@ Add actions for:
 - `plan_update`
 - `plan_archive`
 - `plan_node_add`
-- `plan_node_update`
+- `update`
 - `plan_node_remove`
 - `plan_node_status`
 - `plan_edge_add`

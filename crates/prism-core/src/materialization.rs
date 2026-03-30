@@ -3,6 +3,8 @@ use std::path::{Path, PathBuf};
 
 use prism_store::{Graph, WorkspaceTreeSnapshot};
 
+use crate::util::{is_relevant_workspace_file, workspace_walk};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkspaceBoundaryRegion {
     pub id: String,
@@ -40,10 +42,15 @@ pub(crate) fn summarize_workspace_materialization(
     graph: &Graph,
 ) -> WorkspaceMaterializationSummary {
     let boundaries = summarize_boundary_regions(root, snapshot, graph);
+    let materialized_files = snapshot
+        .files
+        .keys()
+        .filter(|path| graph.file_record(path).is_some())
+        .count();
     WorkspaceMaterializationSummary {
         known_files: snapshot.files.len(),
         known_directories: snapshot.directories.len(),
-        materialized_files: graph.file_count(),
+        materialized_files,
         materialized_nodes: graph.node_count(),
         materialized_edges: graph.edge_count(),
         boundaries,
@@ -55,22 +62,22 @@ fn summarize_boundary_regions(
     snapshot: &WorkspaceTreeSnapshot,
     graph: &Graph,
 ) -> Vec<WorkspaceBoundaryRegion> {
-    let mut regions = BTreeMap::<PathBuf, (usize, usize)>::new();
+    let mut in_scope_regions = BTreeMap::<PathBuf, (usize, usize)>::new();
     for path in snapshot.files.keys() {
         let region = boundary_region_path(root, path);
-        let counts = regions.entry(region).or_insert((0, 0));
+        let counts = in_scope_regions.entry(region).or_insert((0, 0));
         counts.0 += 1;
         if graph.file_record(path).is_some() {
             counts.1 += 1;
         }
     }
 
-    regions
+    let mut boundaries = in_scope_regions
         .into_iter()
         .filter(|(_, (known, materialized))| materialized < known)
         .map(
             |(path, (known_file_count, materialized_file_count))| WorkspaceBoundaryRegion {
-                id: format!("boundary:{}", path.display()),
+                id: format!("boundary:{}:in_scope", path.display()),
                 path,
                 provenance: "workspace_tree".to_string(),
                 materialization_state: boundary_materialization_state(
@@ -83,6 +90,39 @@ fn summarize_boundary_regions(
                 materialized_file_count,
             },
         )
+        .collect::<Vec<_>>();
+
+    boundaries.extend(summarize_out_of_scope_regions(root));
+    boundaries.sort_by(|left, right| left.id.cmp(&right.id));
+    boundaries
+}
+
+fn summarize_out_of_scope_regions(root: &Path) -> Vec<WorkspaceBoundaryRegion> {
+    let mut regions = BTreeMap::<PathBuf, usize>::new();
+    for entry in workspace_walk(root).filter_map(Result::ok) {
+        let path = entry.path();
+        let is_file = entry
+            .file_type()
+            .map(|file_type| file_type.is_file())
+            .unwrap_or(false);
+        if !is_file || is_relevant_workspace_file(path) {
+            continue;
+        }
+        let region = boundary_region_path(root, path);
+        *regions.entry(region).or_default() += 1;
+    }
+
+    regions
+        .into_iter()
+        .map(|(path, known_file_count)| WorkspaceBoundaryRegion {
+            id: format!("boundary:{}:out_of_scope", path.display()),
+            path,
+            provenance: "workspace_walk".to_string(),
+            materialization_state: "out_of_scope".to_string(),
+            scope_state: "out_of_scope".to_string(),
+            known_file_count,
+            materialized_file_count: 0,
+        })
         .collect()
 }
 

@@ -429,6 +429,17 @@ fn prism_mutate_action_example(action: &str) -> Option<Value> {
 fn extra_prism_mutate_examples() -> Vec<Value> {
     vec![
         json!({
+            "action": "memory",
+            "input": {
+                "action": "retire",
+                "payload": {
+                    "memoryId": "memory:demo-main",
+                    "retirementReason": "Superseded by a newer validated routing rule."
+                },
+                "taskId": "task:demo-main"
+            }
+        }),
+        json!({
             "action": "coordination",
             "input": {
                 "kind": "plan_create",
@@ -457,6 +468,18 @@ fn extra_prism_mutate_examples() -> Vec<Value> {
                         "label": "Captures no-op and one-file timings",
                         "evidencePolicy": "any"
                     }]
+                },
+                "taskId": "task:demo-main"
+            }
+        }),
+        json!({
+            "action": "coordination",
+            "input": {
+                "kind": "update",
+                "payload": {
+                    "id": "coord-task:1",
+                    "status": "in_progress",
+                    "title": "Validate compact mutate examples"
                 },
                 "taskId": "task:demo-main"
             }

@@ -4,10 +4,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use clap::Parser;
-use rmcp::{
-    transport::{IntoTransport, Transport},
-    ServiceExt,
-};
+use rmcp::transport::{IntoTransport, Transport};
 
 use super::query_replay_cases::{replay_cases, ReplayExpectation, ReplayHostProfile};
 use super::*;
@@ -364,9 +361,9 @@ fn plan_node_mutations_return_graph_native_views() {
         .store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::PlanNodeUpdate,
+                kind: CoordinationMutationKindInput::Update,
                 payload: json!({
-                    "nodeId": node_id.clone(),
+                    "id": node_id.clone(),
                     "kind": "review",
                     "title": "Edit main safely",
                     "summary": "Review the validation evidence",
@@ -455,9 +452,9 @@ fn plan_node_mutations_return_graph_native_views() {
         .store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::PlanNodeUpdate,
+                kind: CoordinationMutationKindInput::Update,
                 payload: json!({
-                    "nodeId": node_id,
+                    "id": node_id,
                     "assignee": { "op": "clear" },
                     "summary": { "op": "clear" },
                     "priority": { "op": "clear" }
@@ -540,9 +537,9 @@ fn native_plan_node_completion_rejects_missing_review_and_validation() {
         .store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::PlanNodeUpdate,
+                kind: CoordinationMutationKindInput::Update,
                 payload: json!({
-                    "nodeId": node_id,
+                    "id": node_id,
                     "status": "completed"
                 }),
                 task_id: None,
@@ -550,6 +547,170 @@ fn native_plan_node_completion_rejects_missing_review_and_validation() {
         )
         .expect_err("completion should reject without review/validation evidence");
     assert!(error.to_string().contains("cannot complete"));
+}
+
+#[test]
+fn coordination_update_routes_plain_ids_to_native_plan_nodes() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "goal": "Unify workflow updates"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let node = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanNodeCreate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "title": "Refine compact update semantics"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let node_id = node.state["id"].as_str().unwrap().to_string();
+
+    let updated = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::Update,
+                payload: json!({
+                    "id": node_id.clone(),
+                    "status": "waiting",
+                    "summary": "Blocked on a follow-up schema tweak",
+                    "priority": 5,
+                    "tags": ["compact", "workflow", "compact"]
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(updated.state["id"], node_id);
+    assert_eq!(updated.state["status"], "Waiting");
+    assert_eq!(
+        updated.state["summary"],
+        "Blocked on a follow-up schema tweak"
+    );
+    assert_eq!(updated.state["priority"], 5);
+    assert_eq!(updated.state["tags"], json!(["compact", "workflow"]));
+}
+
+#[test]
+fn coordination_update_routes_plain_ids_to_coordination_tasks() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "goal": "Unify workflow updates"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id,
+                    "title": "Update task through unified mutation"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    let updated = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::Update,
+                payload: json!({
+                    "id": task_id.clone(),
+                    "status": "in_review",
+                    "title": "Updated through unified mutation"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(updated.state["id"], task_id);
+    assert_eq!(updated.state["status"], "InReview");
+    assert_eq!(updated.state["title"], "Updated through unified mutation");
+}
+
+#[test]
+fn coordination_update_routes_task_backed_ids_to_plan_nodes_for_node_only_fields() {
+    let root = temp_workspace();
+    let host = host_with_session_internal(index_workspace_session(&root).unwrap());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "goal": "Unify workflow updates"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id,
+                    "title": "Update task through unified mutation"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+
+    let updated = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::Update,
+                payload: json!({
+                    "id": task.state["id"].as_str().unwrap(),
+                    "summary": "This should not be accepted for a task-backed id"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        updated.state["summary"],
+        "This should not be accepted for a task-backed id"
+    );
 }
 
 #[test]
@@ -675,9 +836,9 @@ fn native_plan_node_completion_accepts_current_task_validation_events_without_an
         .store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::PlanNodeUpdate,
+                kind: CoordinationMutationKindInput::Update,
                 payload: json!({
-                    "nodeId": node_id,
+                    "id": node_id,
                     "status": "completed"
                 }),
                 task_id: None,
@@ -1481,9 +1642,9 @@ fn mcp_returns_structured_coordination_rejections_and_persists_them() {
         .store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::TaskUpdate,
+                kind: CoordinationMutationKindInput::Update,
                 payload: json!({
-                    "taskId": task.state["id"].as_str().unwrap(),
+                    "id": task.state["id"].as_str().unwrap(),
                     "status": "completed"
                 }),
                 task_id: None,
@@ -1551,9 +1712,9 @@ fn mcp_exposes_policy_violations_through_prism_query() {
         .store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::TaskUpdate,
+                kind: CoordinationMutationKindInput::Update,
                 payload: json!({
-                    "taskId": task_id.clone(),
+                    "id": task_id.clone(),
                     "status": "completed"
                 }),
                 task_id: None,
@@ -1856,9 +2017,9 @@ fn mcp_plan_update_completes_plan_and_closed_plan_rejects_new_claims() {
     host.store_coordination(
         test_session(&host).as_ref(),
         PrismCoordinationArgs {
-            kind: CoordinationMutationKindInput::TaskUpdate,
+            kind: CoordinationMutationKindInput::Update,
             payload: json!({
-                "taskId": task_id.clone(),
+                "id": task_id.clone(),
                 "status": "completed"
             }),
             task_id: None,
@@ -4871,13 +5032,14 @@ fn prism_mutate_schema_expands_payload_shapes_for_structured_actions() {
         coordination_payload.schema["oneOf"]
             .as_array()
             .map(|variants| variants.len()),
-        Some(10)
+        Some(9)
     );
     let coordination_nested = coordination_payload
         .nested_fields
         .iter()
         .map(|field| field.name.as_str())
         .collect::<Vec<_>>();
+    assert!(coordination_nested.contains(&"id"));
     assert!(coordination_nested.contains(&"planId"));
     assert!(coordination_nested.contains(&"taskId"));
     assert!(coordination_nested.contains(&"title"));
@@ -10429,6 +10591,8 @@ fn mutation_trace_records_internal_phases_for_persisted_only_mutations() {
         .iter()
         .map(|phase| phase.operation.as_str())
         .collect::<Vec<_>>();
+    assert!(operations.contains(&"mcp.executeHandler"));
+    assert!(operations.contains(&"mcp.encodeResponse"));
     assert!(operations.contains(&"mutation.refreshWorkspace"));
     assert!(operations.contains(&"mutation.operation"));
     assert!(operations.contains(&"mutation.encodeResult"));
@@ -13326,6 +13490,209 @@ return prism.memory.events({
 }
 
 #[test]
+fn repo_memory_store_rejects_duplicate_active_publication_without_supersedes() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let first = host
+        .store_memory(
+            session.as_ref(),
+            PrismMemoryArgs {
+                action: MemoryMutationActionInput::Store,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }],
+                    "kind": "structural",
+                    "scope": "repo",
+                    "content": "alpha routing ownership belongs in committed repo knowledge",
+                    "trust": 0.9
+                }),
+                task_id: Some("task:repo-memory-duplicate".to_string()),
+            },
+        )
+        .expect("first repo memory should persist");
+
+    let error = host
+        .store_memory(
+            session.as_ref(),
+            PrismMemoryArgs {
+                action: MemoryMutationActionInput::Store,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }],
+                    "kind": "structural",
+                    "scope": "repo",
+                    "content": "alpha routing ownership belongs in committed repo knowledge",
+                    "trust": 0.92
+                }),
+                task_id: Some("task:repo-memory-duplicate".to_string()),
+            },
+        )
+        .expect_err("duplicate active repo memory should be rejected");
+
+    assert!(error
+        .to_string()
+        .contains("duplicates active published memory"));
+    assert!(error.to_string().contains(&first.memory_id));
+    assert!(error.to_string().contains("supersedes"));
+}
+
+#[test]
+fn repo_memory_supersede_reloads_live_snapshot() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let original = host
+        .store_memory(
+            session.as_ref(),
+            PrismMemoryArgs {
+                action: MemoryMutationActionInput::Store,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }],
+                    "kind": "structural",
+                    "scope": "repo",
+                    "content": "alpha routing ownership follows the old contract wording",
+                    "trust": 0.9
+                }),
+                task_id: Some("task:repo-memory-supersede".to_string()),
+            },
+        )
+        .expect("original repo memory should persist");
+
+    let replacement = host
+        .store_memory(
+            session.as_ref(),
+            PrismMemoryArgs {
+                action: MemoryMutationActionInput::Store,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }],
+                    "kind": "structural",
+                    "scope": "repo",
+                    "content": "alpha routing ownership follows the reviewed contract wording",
+                    "supersedes": [original.memory_id.clone()],
+                    "trust": 0.93
+                }),
+                task_id: Some("task:repo-memory-supersede".to_string()),
+            },
+        )
+        .expect("replacement repo memory should persist");
+
+    assert!(session
+        .notes
+        .entry(&MemoryId(original.memory_id.clone()))
+        .is_none());
+    assert!(session
+        .notes
+        .entry(&MemoryId(replacement.memory_id.clone()))
+        .is_some());
+
+    let original_payload = host
+        .memory_resource_value(session.as_ref(), &MemoryId(original.memory_id.clone()))
+        .expect("superseded memory resource should still load from history");
+    assert_eq!(original_payload.memory.id, original.memory_id);
+    assert_eq!(original_payload.history.len(), 1);
+}
+
+#[test]
+fn repo_memory_retire_removes_live_entry_and_keeps_history_resource() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let stored = host
+        .store_memory(
+            session.as_ref(),
+            PrismMemoryArgs {
+                action: MemoryMutationActionInput::Store,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::alpha",
+                        "kind": "function"
+                    }],
+                    "kind": "structural",
+                    "scope": "repo",
+                    "content": "alpha routing ownership was published before the boundary rewrite",
+                    "trust": 0.9
+                }),
+                task_id: Some("task:repo-memory-retire".to_string()),
+            },
+        )
+        .expect("repo memory should persist");
+
+    host.store_memory(
+        session.as_ref(),
+        PrismMemoryArgs {
+            action: MemoryMutationActionInput::Retire,
+            payload: json!({
+                "memoryId": stored.memory_id.clone(),
+                "retirementReason": "Boundary rewrite replaced this published routing rule."
+            }),
+            task_id: Some("task:repo-memory-retire".to_string()),
+        },
+    )
+    .expect("repo memory retire should succeed");
+
+    assert!(session
+        .notes
+        .entry(&MemoryId(stored.memory_id.clone()))
+        .is_none());
+
+    let queried = host
+        .execute(
+            session.clone(),
+            r#"
+const sym = prism.symbol("alpha");
+return prism.memory.events({
+  focus: sym ? [sym] : [],
+  scope: "repo",
+  actions: ["retired"],
+  limit: 5,
+});
+"#,
+            QueryLanguage::Ts,
+        )
+        .expect("retired memory events query should succeed");
+    assert_eq!(queried.result[0]["action"], "Retired");
+
+    let payload = host
+        .memory_resource_value(session.as_ref(), &MemoryId(stored.memory_id.clone()))
+        .expect("retired memory resource should load from history");
+    assert_eq!(payload.memory.id, stored.memory_id);
+    assert_eq!(payload.memory.metadata["publication"]["status"], "retired");
+    assert_eq!(payload.history[0].action, "Retired");
+    assert_eq!(
+        payload.history[0]
+            .entry
+            .as_ref()
+            .expect("retired event should keep the entry payload")
+            .metadata["publication"]["retirementReason"],
+        "Boundary rewrite replaced this published routing rule."
+    );
+}
+
+#[test]
 fn repo_memory_store_rejects_weak_published_memory() {
     let root = temp_workspace();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
@@ -13876,6 +14243,8 @@ return prism.symbol("alpha")?.id.path ?? null;
 #[test]
 fn runtime_status_reports_workspace_materialization_depth_and_coverage() {
     let root = temp_workspace();
+    fs::create_dir_all(root.join("web")).unwrap();
+    fs::write(root.join("web/app.js"), "export const alpha = 1;\n").unwrap();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
     let freshness = crate::runtime_views::runtime_status(&host)
@@ -13891,7 +14260,15 @@ fn runtime_status_reports_workspace_materialization_depth_and_coverage() {
     assert!(coverage.known_directories > 0);
     assert!(coverage.materialized_files > 0);
     assert!(coverage.materialized_nodes > 0);
-    assert!(workspace.boundaries.is_empty());
+    let boundary = workspace
+        .boundaries
+        .iter()
+        .find(|boundary| boundary.id == "boundary:web:out_of_scope")
+        .expect("out-of-scope boundary should exist");
+    assert_eq!(boundary.path, "web");
+    assert_eq!(boundary.provenance, "workspace_walk");
+    assert_eq!(boundary.materialization_state, "out_of_scope");
+    assert_eq!(boundary.scope_state, "out_of_scope");
 }
 
 #[test]
@@ -16732,9 +17109,9 @@ fn rejected_coordination_mutations_keep_mcp_session_scope_in_authoritative_persi
         .store_coordination(
             session.as_ref(),
             PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::TaskUpdate,
+                kind: CoordinationMutationKindInput::Update,
                 payload: json!({
-                    "taskId": task.state["id"].as_str().unwrap(),
+                    "id": task.state["id"].as_str().unwrap(),
                     "status": "completed"
                 }),
                 task_id: None,

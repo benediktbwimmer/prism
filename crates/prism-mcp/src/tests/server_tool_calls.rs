@@ -104,6 +104,77 @@ async fn mcp_server_accepts_flat_prism_session_shorthand_input() {
     running.cancel().await.unwrap();
 }
 
+#[tokio::test]
+async fn mcp_tool_call_logs_inherit_request_envelope_phases() {
+    let server = server_with_node(demo_node());
+    let server_handle = server.clone();
+    let (server_transport, client_transport) = tokio::io::duplex(4096);
+    let server_task = tokio::spawn(async move { server.serve(server_transport).await });
+    let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
+
+    let _ = initialize_client(&mut client).await;
+    client.send(initialized_notification()).await.unwrap();
+    let running = server_task
+        .await
+        .expect("server join should succeed")
+        .expect("server should initialize");
+
+    client
+        .send(call_tool_request(
+            2,
+            "prism_query",
+            json!({
+                "code": "return { ok: true };"
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let _ = first_tool_content_json(client.receive().await.unwrap());
+
+    client
+        .send(call_tool_request(
+            3,
+            "prism_session",
+            json!({
+                "action": "start_task",
+                "description": "Verify request envelope inheritance"
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ))
+        .await
+        .unwrap();
+    let _ = first_tool_content_json(client.receive().await.unwrap());
+
+    let records = server_handle.host.mcp_call_log_store.records();
+    let prism_query = records
+        .iter()
+        .find(|record| record.entry.call_type == "tool" && record.entry.name == "prism_query")
+        .expect("prism_query tool record should exist");
+    let prism_session = records
+        .iter()
+        .find(|record| record.entry.call_type == "tool" && record.entry.name == "prism_session")
+        .expect("prism_session tool record should exist");
+
+    for record in [prism_query, prism_session] {
+        let operations = record
+            .phases
+            .iter()
+            .map(|phase| phase.operation.as_str())
+            .collect::<Vec<_>>();
+        assert!(operations.contains(&"mcp.receiveRequest"));
+        assert!(operations.contains(&"mcp.routeRequest"));
+        assert!(operations.contains(&"mcp.executeHandler"));
+        assert!(operations.contains(&"mcp.encodeResponse"));
+    }
+
+    running.cancel().await.unwrap();
+}
+
 #[test]
 fn prism_mutate_validation_feedback_accepts_flat_snake_case_fields() {
     let args = serde_json::from_value::<PrismMutationArgs>(json!({

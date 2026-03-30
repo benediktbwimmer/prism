@@ -11,7 +11,8 @@ use prism_curator::{
 };
 use prism_history::HistoryStore;
 use prism_ir::{
-    ChangeTrigger, EventId, ObservedChangeSet, PlanExecutionOverlay, PlanGraph, SessionId, TaskId,
+    ChangeTrigger, EventId, LineageEvent, LineageId, ObservedChangeSet, PlanExecutionOverlay,
+    PlanGraph, SessionId, TaskId,
 };
 use prism_memory::OutcomeMemory;
 use prism_memory::{EpisodicMemorySnapshot, MemoryEvent, MemoryEventQuery, OutcomeEvent};
@@ -301,6 +302,13 @@ impl WorkspaceSession {
 
     pub fn root(&self) -> &Path {
         &self.root
+    }
+
+    pub fn load_lineage_history(&self, lineage: &LineageId) -> Result<Vec<LineageEvent>> {
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .load_lineage_history(lineage)
     }
 
     pub fn prism(&self) -> Arc<Prism> {

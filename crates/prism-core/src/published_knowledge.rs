@@ -116,6 +116,30 @@ fn validate_repo_memory_metadata(metadata: &Value) -> Result<()> {
             "repo-published memory publication must include status"
         ));
     }
+    if publication
+        .get("status")
+        .and_then(Value::as_str)
+        .is_some_and(|value| value.eq_ignore_ascii_case("retired"))
+    {
+        if publication
+            .get("retiredAt")
+            .and_then(Value::as_u64)
+            .is_none_or(|value| value == 0)
+        {
+            return Err(anyhow!(
+                "retired repo-published memory publication must include retiredAt"
+            ));
+        }
+        if publication
+            .get("retirementReason")
+            .and_then(Value::as_str)
+            .is_none_or(|value| value.trim().is_empty())
+        {
+            return Err(anyhow!(
+                "retired repo-published memory publication must include retirementReason"
+            ));
+        }
+    }
     Ok(())
 }
 
