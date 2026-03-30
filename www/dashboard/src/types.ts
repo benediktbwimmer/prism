@@ -174,10 +174,20 @@ export type TaskJournalView = {
   summary: TaskLifecycleSummaryView
 }
 
+export type AnchorRef = unknown
+
+export type WorkspaceRevisionView = {
+  graphVersion: number
+  gitCommit?: string | null
+}
+
 export type ArtifactView = {
   id: string
   taskId: string
   status: string
+  anchors?: AnchorRef[]
+  baseRevision?: WorkspaceRevisionView
+  diffRef?: string | null
   requiredValidations: string[]
   validatedChecks: string[]
   riskScore?: number | null
@@ -207,6 +217,18 @@ export type DashboardSummaryView = {
 export type DashboardTaskSnapshotView = {
   session: SessionView
   journal?: TaskJournalView | null
+}
+
+export type CoordinationTaskView = {
+  id: string
+  planId: string
+  title: string
+  status: string
+  assignee?: string | null
+  pendingHandoffTo?: string | null
+  anchors?: AnchorRef[]
+  dependsOn: string[]
+  baseRevision?: WorkspaceRevisionView
 }
 
 export type DashboardCoordinationSummaryView = {
@@ -255,4 +277,179 @@ export type RuntimeRefreshEvent = {
   coordinationReloaded?: boolean
   episodicReloaded?: boolean
   inferenceReloaded?: boolean
+}
+
+export type PlanSummaryView = {
+  planId: string
+  status: string
+  totalNodes: number
+  completedNodes: number
+  abandonedNodes: number
+  inProgressNodes: number
+  actionableNodes: number
+  executionBlockedNodes: number
+  completionGatedNodes: number
+  reviewGatedNodes: number
+  validationGatedNodes: number
+  staleNodes: number
+  claimConflictedNodes: number
+}
+
+export type PlanListEntryView = {
+  planId: string
+  title: string
+  goal: string
+  status: string
+  scope: string
+  kind: string
+  rootNodeIds: string[]
+  summary: PlanSummaryView
+}
+
+export type ValidationRefView = {
+  id: string
+}
+
+export type PlanBindingView = {
+  anchors: AnchorRef[]
+  conceptHandles: string[]
+  artifactRefs: string[]
+  memoryRefs: string[]
+  outcomeRefs: string[]
+}
+
+export type PlanAcceptanceCriterionView = {
+  label: string
+  anchors: AnchorRef[]
+  requiredChecks: ValidationRefView[]
+  evidencePolicy: string
+}
+
+export type PlanNodeView = {
+  id: string
+  planId: string
+  kind?: string
+  title: string
+  summary?: string | null
+  status: string
+  bindings: PlanBindingView
+  acceptance?: PlanAcceptanceCriterionView[]
+  validationRefs?: ValidationRefView[]
+  isAbstract?: boolean
+  assignee?: string | null
+  baseRevision?: WorkspaceRevisionView
+  priority?: number | null
+  tags?: string[]
+  metadata?: unknown
+}
+
+export type PlanEdgeView = {
+  id: string
+  planId: string
+  from: string
+  to: string
+  kind: string
+  summary?: string | null
+  metadata?: unknown
+}
+
+export type PlanGraphView = {
+  id: string
+  scope: string
+  kind: string
+  title: string
+  goal: string
+  status: string
+  revision: number
+  rootNodeIds: string[]
+  tags: string[]
+  createdFrom?: string | null
+  metadata?: unknown
+  nodes: PlanNodeView[]
+  edges: PlanEdgeView[]
+}
+
+export type PlanExecutionOverlayView = {
+  nodeId: string
+  pendingHandoffTo?: string | null
+  session?: string | null
+  effectiveAssignee?: string | null
+  awaitingHandoffFrom?: string | null
+}
+
+export type PlanNodeBlockerView = {
+  kind: string
+  summary: string
+  relatedNodeId?: string | null
+  relatedArtifactId?: string | null
+  riskScore?: number | null
+  validationChecks: string[]
+}
+
+export type PlanNodeRecommendationView = {
+  node: PlanNodeView
+  actionable: boolean
+  effectiveAssignee?: string | null
+  score?: number
+  reasons: string[]
+  blockers?: PlanNodeBlockerView[]
+  unblocks?: string[]
+}
+
+export type OverviewPlanSignalsView = {
+  blockedNodes: number
+  reviewGatedNodes: number
+  validationGatedNodes: number
+  claimConflictedNodes: number
+}
+
+export type OverviewPlanSpotlightView = {
+  planId: string
+  title: string
+  goal: string
+  summary: PlanSummaryView
+  nextNodes: PlanNodeRecommendationView[]
+}
+
+export type OverviewConceptSpotlightView = {
+  handle: string
+  canonicalName: string
+  summary: string
+}
+
+export type OutcomeSummaryView = {
+  ts: number
+  kind: string
+  result: string
+  summary: string
+}
+
+export type PrismOverviewView = {
+  summary: DashboardSummaryView
+  task: DashboardTaskSnapshotView
+  coordination: DashboardCoordinationSummaryView
+  planSignals: OverviewPlanSignalsView
+  spotlightPlans: OverviewPlanSpotlightView[]
+  hotConcepts: OverviewConceptSpotlightView[]
+  recentOutcomes: OutcomeSummaryView[]
+  pendingHandoffs: CoordinationTaskView[]
+}
+
+export type PrismPlanDetailView = {
+  plan: PlanListEntryView
+  summary: PlanSummaryView
+  graph: PlanGraphView
+  execution: PlanExecutionOverlayView[]
+  nextNodes: PlanNodeRecommendationView[]
+  readyTasks: CoordinationTaskView[]
+  pendingReviews: ArtifactView[]
+  pendingHandoffs: CoordinationTaskView[]
+  recentViolations: PolicyViolationRecordView[]
+  recentOutcomes: OutcomeSummaryView[]
+}
+
+export type PrismPlansView = {
+  plans: PlanListEntryView[]
+  selectedPlanId?: string | null
+  selectedPlan?: PrismPlanDetailView | null
 }

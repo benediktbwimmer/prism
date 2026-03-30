@@ -6,11 +6,15 @@ import { useDashboardData } from './hooks/useDashboardData'
 import { useThemeChoice } from './hooks/useThemeChoice'
 import { DashboardPage } from './pages/DashboardPage'
 import { OverviewPage } from './pages/OverviewPage'
+import { PlansPage } from './pages/PlansPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 
 export function App() {
-  const [pathname, setPathname] = useState(() => window.location.pathname)
-  const route = resolveRoute(pathname)
+  const [locationState, setLocationState] = useState(() => ({
+    pathname: window.location.pathname,
+    search: window.location.search,
+  }))
+  const route = resolveRoute(locationState.pathname)
   const dashboardState = useDashboardData()
   const { themeChoice, setThemeChoice } = useThemeChoice()
 
@@ -20,7 +24,10 @@ export function App() {
 
   useEffect(() => {
     function handlePopState() {
-      setPathname(window.location.pathname)
+      setLocationState({
+        pathname: window.location.pathname,
+        search: window.location.search,
+      })
     }
 
     window.addEventListener('popstate', handlePopState)
@@ -30,39 +37,30 @@ export function App() {
   }, [])
 
   function navigate(path: string) {
-    if (path === window.location.pathname) {
+    const current = `${window.location.pathname}${window.location.search}`
+    if (path === current) {
       return
     }
     window.history.pushState({}, '', path)
-    setPathname(window.location.pathname)
+    setLocationState({
+      pathname: window.location.pathname,
+      search: window.location.search,
+    })
   }
 
   let page = (
     <OverviewPage
       dashboard={dashboardState.dashboard}
       connection={dashboardState.connection}
+      search={locationState.search}
       onNavigate={navigate}
     />
   )
 
   if (route.key === 'dashboard') {
-    page = <DashboardPage {...dashboardState} />
+    page = <DashboardPage {...dashboardState} search={locationState.search} />
   } else if (route.key === 'plans') {
-    page = (
-      <PlaceholderPage
-        title="Plans View"
-        eyebrow="Prism Plans"
-        description="The route and shell are now live. The next implementation step is the graph-native plan surface with blockers, ready nodes, claims, validations, and manual interventions."
-        highlights={[
-          `${dashboardState.dashboard?.coordination.activePlanCount ?? 0} active plans visible in current dashboard bootstrap`,
-          `${dashboardState.dashboard?.coordination.readyTaskCount ?? 0} ready coordination tasks already available for the first focused view`,
-          'Manual editing should stay structured: inspect, propose, confirm, then mutate through PRISM actions.',
-        ]}
-        ctaLabel="Open Dashboard"
-        ctaPath="/dashboard"
-        onNavigate={navigate}
-      />
-    )
+    page = <PlansPage search={locationState.search} onNavigate={navigate} />
   } else if (route.key === 'graph') {
     page = (
       <PlaceholderPage
@@ -76,6 +74,7 @@ export function App() {
         ]}
         ctaLabel="Back To Overview"
         ctaPath="/"
+        focusLabel={new URLSearchParams(locationState.search).get('concept')}
         onNavigate={navigate}
       />
     )

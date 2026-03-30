@@ -5,6 +5,7 @@ type PlaceholderPageProps = {
   highlights: string[]
   ctaLabel: string
   ctaPath: string
+  focusLabel?: string | null
   onNavigate: (path: string) => void
 }
 
@@ -15,6 +16,7 @@ export function PlaceholderPage({
   highlights,
   ctaLabel,
   ctaPath,
+  focusLabel,
   onNavigate,
 }: PlaceholderPageProps) {
   return (
@@ -24,6 +26,7 @@ export function PlaceholderPage({
           <p className="eyebrow">{eyebrow}</p>
           <h2>{title}</h2>
           <p className="lede">{description}</p>
+          {focusLabel ? <p className="focus-note">Focused from overview: {focusLabel}</p> : null}
         </div>
         <div className="hero-actions">
           <button type="button" className="ghost-button" onClick={() => onNavigate(ctaPath)}>

@@ -1,13 +1,32 @@
+import { useOverviewData } from '../hooks/useOverviewData'
 import type { DashboardBootstrapView } from '../types'
 
 type OverviewPageProps = {
   dashboard: DashboardBootstrapView | null
   connection: 'connecting' | 'open' | 'closed'
+  search: string
   onNavigate: (path: string) => void
 }
 
 export function OverviewPage({ dashboard, connection, onNavigate }: OverviewPageProps) {
-  if (!dashboard) {
+  const overview = useOverviewData()
+  const activeOverview = overview ?? (dashboard ? {
+    summary: dashboard.summary,
+    task: dashboard.task,
+    coordination: dashboard.coordination,
+    planSignals: {
+      blockedNodes: 0,
+      reviewGatedNodes: dashboard.coordination.inReviewTaskCount,
+      validationGatedNodes: 0,
+      claimConflictedNodes: 0,
+    },
+    spotlightPlans: [],
+    hotConcepts: [],
+    recentOutcomes: [],
+    pendingHandoffs: [],
+  } : null)
+
+  if (!activeOverview) {
     return (
       <section className="panel hero-panel">
         <p className="eyebrow">PRISM Overview</p>
@@ -17,7 +36,8 @@ export function OverviewPage({ dashboard, connection, onNavigate }: OverviewPage
     )
   }
 
-  const { summary, operations, task, coordination } = dashboard
+  const { summary, task, coordination, planSignals, spotlightPlans, hotConcepts, recentOutcomes, pendingHandoffs } = activeOverview
+  const operations = dashboard?.operations
 
   return (
     <div className="page-stack">
@@ -46,9 +66,9 @@ export function OverviewPage({ dashboard, connection, onNavigate }: OverviewPage
           <p>{task.session.currentTask?.taskId ?? 'Session is idle'}</p>
         </article>
         <article className="panel stat-card">
-          <p className="stat-label">Coordination</p>
-          <h3>{coordination.activePlanCount} plans / {coordination.readyTaskCount} ready</h3>
-          <p>{coordination.activeClaimCount} active claims and {coordination.pendingReviewCount} pending reviews.</p>
+          <p className="stat-label">Execution Pressure</p>
+          <h3>{planSignals.blockedNodes} blocked / {coordination.readyTaskCount} ready</h3>
+          <p>{planSignals.reviewGatedNodes} review-gated, {planSignals.validationGatedNodes} validation-gated.</p>
         </article>
         <article className="panel stat-card">
           <p className="stat-label">Live Runtime</p>
@@ -62,8 +82,8 @@ export function OverviewPage({ dashboard, connection, onNavigate }: OverviewPage
           eyebrow="Operational"
           title="Dashboard"
           description="Inspect live MCP activity, runtime refreshes, task focus, and operation traces."
-          metric={`${operations.active.length} active`}
-          path="/dashboard"
+          metric={`${operations?.active.length ?? 0} active`}
+          path="/dashboard?section=operations"
           onNavigate={onNavigate}
         />
         <RouteCard
@@ -71,7 +91,7 @@ export function OverviewPage({ dashboard, connection, onNavigate }: OverviewPage
           title="Plans"
           description="Track blockers, ready nodes, handoffs, validations, and human interventions."
           metric={`${coordination.activePlanCount} plans`}
-          path="/plans"
+          path={spotlightPlans[0] ? `/plans?plan=${encodeURIComponent(spotlightPlans[0].planId)}` : '/plans'}
           onNavigate={onNavigate}
         />
         <RouteCard
@@ -79,9 +99,52 @@ export function OverviewPage({ dashboard, connection, onNavigate }: OverviewPage
           title="Graph"
           description="Explore subsystems, typed relations, evidence, and future overlays."
           metric={`${coordination.taskCount} linked tasks`}
-          path="/graph"
+          path={hotConcepts[0] ? `/graph?concept=${encodeURIComponent(hotConcepts[0].handle)}` : '/graph'}
           onNavigate={onNavigate}
         />
+      </section>
+
+      <section className="spotlight-grid">
+        {spotlightPlans.map((plan) => (
+          <article key={plan.planId} className="panel spotlight-card">
+            <div className="panel-header">
+              <h3>{plan.title}</h3>
+              <span>{plan.summary.actionableNodes} ready</span>
+            </div>
+            <div className="panel-body spotlight-body">
+              <p>{plan.goal}</p>
+              <div className="metric-grid spotlight-metrics">
+                <OverviewMetric label="Blocked" value={plan.summary.executionBlockedNodes} />
+                <OverviewMetric label="In Progress" value={plan.summary.inProgressNodes} />
+                <OverviewMetric label="Completed" value={plan.summary.completedNodes} />
+                <OverviewMetric label="Review" value={plan.summary.reviewGatedNodes} />
+              </div>
+              <div className="spotlight-next">
+                <h4>Next nodes</h4>
+                {plan.nextNodes.length === 0 ? (
+                  <p className="empty-state">No recommended next nodes yet.</p>
+                ) : (
+                  plan.nextNodes.map((node) => (
+                    <button
+                      key={node.node.id}
+                      type="button"
+                      className="table-button spotlight-next-button"
+                      onClick={() => onNavigate(`/plans?plan=${encodeURIComponent(plan.planId)}`)}
+                    >
+                      <div className="table-row">
+                        <div className="table-primary">
+                          <h4>{node.node.title}</h4>
+                          <p>{node.reasons[0] ?? node.node.status}</p>
+                        </div>
+                        <div className="table-status ok">{node.node.status}</div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          </article>
+        ))}
       </section>
 
       <section className="content-grid">
@@ -103,34 +166,77 @@ export function OverviewPage({ dashboard, connection, onNavigate }: OverviewPage
             ) : (
               <p className="empty-state">Attach a task to surface journal state, validations, and outcomes here.</p>
             )}
+            <button type="button" className="ghost-button" onClick={() => onNavigate('/dashboard?section=task')}>
+              Inspect task in dashboard
+            </button>
           </div>
         </article>
 
         <article className="panel">
           <div className="panel-header">
-            <h3>Recent Signals</h3>
-            <span>{operations.recentQueries.length + operations.recentMutations.length}</span>
+            <h3>Recent Outcomes</h3>
+            <span>{recentOutcomes.length}</span>
           </div>
           <div className="signal-list">
-            {operations.recentQueries.slice(0, 3).map((query) => (
-              <div key={query.id} className="signal-row">
+            {recentOutcomes.length === 0 ? (
+              <p className="panel-body empty-state">No recent outcomes recorded yet.</p>
+            ) : recentOutcomes.map((outcome) => (
+              <div key={`${outcome.ts}-${outcome.summary}`} className="signal-row">
                 <div>
-                  <p className="operation-kind">query</p>
-                  <h4>{query.querySummary}</h4>
+                  <p className="operation-kind">{outcome.kind}</p>
+                  <h4>{outcome.summary}</h4>
                 </div>
-                <span className="runtime-metric">{query.durationMs} ms</span>
+                <span className="runtime-metric">{outcome.result}</span>
               </div>
             ))}
-            {operations.recentMutations.slice(0, 2).map((mutation) => (
-              <div key={mutation.id} className="signal-row">
-                <div>
-                  <p className="operation-kind">mutation</p>
-                  <h4>{mutation.action}</h4>
+          </div>
+        </article>
+
+        <article className="panel">
+          <div className="panel-header">
+            <h3>Hot Concepts</h3>
+            <span>{hotConcepts.length}</span>
+          </div>
+          <div className="panel-body concept-list">
+            {hotConcepts.length === 0 ? (
+              <p className="empty-state">No concept-linked active work yet.</p>
+            ) : hotConcepts.map((concept) => (
+              <button
+                key={concept.handle}
+                type="button"
+                className="concept-button"
+                onClick={() => onNavigate(`/graph?concept=${encodeURIComponent(concept.handle)}`)}
+              >
+                <strong>{concept.canonicalName}</strong>
+                <span>{concept.summary}</span>
+              </button>
+            ))}
+          </div>
+        </article>
+
+        <article className="panel">
+          <div className="panel-header">
+            <h3>Coordination Queue</h3>
+            <span>{pendingHandoffs.length}</span>
+          </div>
+          <div className="panel-body">
+            {pendingHandoffs.length === 0 ? (
+              <p className="empty-state">No pending handoffs.</p>
+            ) : pendingHandoffs.map((taskItem) => (
+              <button
+                key={taskItem.id}
+                type="button"
+                className="table-button"
+                onClick={() => onNavigate(`/plans?plan=${encodeURIComponent(taskItem.planId)}`)}
+              >
+                <div className="table-row">
+                  <div className="table-primary">
+                    <h4>{taskItem.title}</h4>
+                    <p>{taskItem.pendingHandoffTo ?? taskItem.status}</p>
+                  </div>
+                  <div className="table-metric">{taskItem.planId}</div>
                 </div>
-                <span className={`table-status ${mutation.success ? 'ok' : 'error'}`}>
-                  {mutation.success ? 'ok' : 'error'}
-                </span>
-              </div>
+              </button>
             ))}
           </div>
         </article>

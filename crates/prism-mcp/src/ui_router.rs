@@ -1,20 +1,28 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Html;
 use axum::routing::get;
-use axum::Router;
+use axum::{Json, Router};
+use serde::Deserialize;
 
 use crate::ui_assets::{prism_ui_index_html, prism_ui_unbuilt_html};
+use crate::ui_read_models::QueryHostUiReadModelsExt;
+use crate::ui_types::{PrismOverviewView, PrismPlansView};
+use crate::QueryHost;
 
 #[derive(Clone)]
 pub(crate) struct PrismUiState {
+    pub(crate) host: Arc<QueryHost>,
     pub(crate) root: PathBuf,
 }
 
 pub(crate) fn routes(state: PrismUiState) -> Router {
     Router::new()
+        .route("/api/overview", get(prism_ui_overview))
+        .route("/api/plans", get(prism_ui_plans))
         .route("/", get(prism_ui_index))
         .route("/dashboard", get(prism_ui_index))
         .route("/dashboard/", get(prism_ui_index))
@@ -23,6 +31,12 @@ pub(crate) fn routes(state: PrismUiState) -> Router {
         .route("/graph", get(prism_ui_index))
         .route("/graph/", get(prism_ui_index))
         .with_state(state)
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PlansQuery {
+    plan_id: Option<String>,
 }
 
 async fn prism_ui_index(
@@ -35,6 +49,27 @@ async fn prism_ui_index(
     }
 }
 
+async fn prism_ui_overview(
+    State(state): State<PrismUiState>,
+) -> std::result::Result<Json<PrismOverviewView>, (StatusCode, String)> {
+    state
+        .host
+        .ui_overview_view()
+        .map(Json)
+        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
+}
+
+async fn prism_ui_plans(
+    State(state): State<PrismUiState>,
+    Query(query): Query<PlansQuery>,
+) -> std::result::Result<Json<PrismPlansView>, (StatusCode, String)> {
+    state
+        .host
+        .ui_plans_view(query.plan_id.as_deref())
+        .map(Json)
+        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -42,7 +77,8 @@ mod tests {
     use axum::http::{Request, StatusCode};
     use tower::util::ServiceExt;
 
-    use crate::tests_support::temp_workspace;
+    use crate::tests_support::{host_with_session, temp_workspace};
+    use prism_core::index_workspace_session;
 
     #[tokio::test]
     async fn ui_routes_share_the_same_shell_document() {
@@ -55,7 +91,8 @@ mod tests {
         )
         .unwrap();
 
-        let router = routes(PrismUiState { root });
+        let host = Arc::new(host_with_session(index_workspace_session(&root).unwrap()));
+        let router = routes(PrismUiState { host, root });
 
         for path in ["/", "/dashboard", "/plans", "/graph"] {
             let response = router

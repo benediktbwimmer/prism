@@ -102,6 +102,7 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         root: root.to_path_buf(),
     };
     let prism_ui_state = PrismUiState {
+        host: Arc::clone(&server.host),
         root: root.to_path_buf(),
     };
     let router = Router::new()

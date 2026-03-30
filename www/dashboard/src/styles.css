@@ -292,6 +292,12 @@ pre {
   padding: 20px;
 }
 
+.spotlight-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
 .route-card h3 {
   margin: 0 0 8px;
   font-size: 1.4rem;
@@ -372,9 +378,17 @@ pre {
 }
 
 .signal-list,
-.placeholder-list {
+.placeholder-list,
+.concept-list,
+.spotlight-body,
+.spotlight-next {
   display: grid;
   gap: 12px;
+}
+
+.focus-note {
+  margin: 12px 0 0;
+  color: rgba(248, 251, 255, 0.82);
 }
 
 .signal-row {
@@ -387,6 +401,33 @@ pre {
 
 .signal-row:first-child {
   border-top: 0;
+}
+
+.concept-button {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 14px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--panel-muted);
+}
+
+.concept-button span {
+  color: var(--muted);
+}
+
+.spotlight-card {
+  display: grid;
+}
+
+.spotlight-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.spotlight-next-button {
+  border-radius: 14px;
 }
 
 .operation-row,
@@ -653,6 +694,7 @@ pre {
   .shell-header,
   .overview-grid,
   .route-grid,
+  .spotlight-grid,
   .placeholder-grid {
     grid-template-columns: 1fr;
   }

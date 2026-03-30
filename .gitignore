@@ -7,6 +7,9 @@
 /.prism/concepts/*
 !/.prism/concepts/events.jsonl
 !/.prism/concepts/relations.jsonl
+!/.prism/contracts/
+/.prism/contracts/*
+!/.prism/contracts/events.jsonl
 !/.prism/plans/
 !/.prism/plans/**
 .DS_Store

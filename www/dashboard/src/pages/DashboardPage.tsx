@@ -2,7 +2,9 @@ import { LatencySparkline } from '../components/LatencySparkline'
 import { OperationDrawer } from '../components/OperationDrawer'
 import { useDashboardData } from '../hooks/useDashboardData'
 
-type DashboardPageProps = ReturnType<typeof useDashboardData>
+type DashboardPageProps = ReturnType<typeof useDashboardData> & {
+  search: string
+}
 
 export function DashboardPage({
   clearSelectedOperation,
@@ -10,9 +12,12 @@ export function DashboardPage({
   dashboard,
   detailStatus,
   selectOperation,
+  search,
   selectedOperation,
   selectedOperationId,
 }: DashboardPageProps) {
+  const focusSection = new URLSearchParams(search).get('section')
+
   if (!dashboard) {
     return (
       <section className="panel hero-panel">
@@ -35,6 +40,9 @@ export function DashboardPage({
             <p className="lede">
               {summary.session.workspaceRoot ?? 'Unknown workspace'}
             </p>
+            {focusSection ? (
+              <p className="focus-note">Focused section: {focusSection}</p>
+            ) : null}
           </div>
           <div className="hero-actions">
             <span className={`connection-pill connection-${connection}`}>{connection}</span>
