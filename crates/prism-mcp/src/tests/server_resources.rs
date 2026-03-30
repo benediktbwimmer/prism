@@ -109,7 +109,7 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .as_array()
         .unwrap()
         .iter()
-        .any(|view| view["name"] == "repoPlaybook" && view["enabled"] == false));
+        .any(|view| view["name"] == "repoPlaybook" && view["enabled"] == true));
     assert!(!capabilities_payload["queryMethods"]
         .as_array()
         .unwrap()

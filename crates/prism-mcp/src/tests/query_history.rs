@@ -238,7 +238,7 @@ fn prism_dynamic_query_views_follow_runtime_feature_flags() {
     let disabled_host = QueryHost::with_session_and_limits_and_features(
         index_workspace_session(&root).unwrap(),
         QueryLimits::default(),
-        PrismMcpFeatures::full(),
+        PrismMcpFeatures::full().with_query_view(QueryViewFeatureFlag::TestEcho, false),
     );
     let disabled_error = disabled_host
         .execute(
@@ -345,7 +345,9 @@ fn prism_new_query_views_follow_independent_runtime_feature_flags() {
     let playbook_only = QueryHost::with_session_and_limits_and_features(
         index_workspace_session(&root).unwrap(),
         QueryLimits::default(),
-        PrismMcpFeatures::full().with_query_view(QueryViewFeatureFlag::RepoPlaybook, true),
+        PrismMcpFeatures::full()
+            .with_query_view(QueryViewFeatureFlag::All, false)
+            .with_query_view(QueryViewFeatureFlag::RepoPlaybook, true),
     );
     let playbook = playbook_only
         .execute(
@@ -370,7 +372,9 @@ fn prism_new_query_views_follow_independent_runtime_feature_flags() {
     let validation_only = QueryHost::with_session_and_limits_and_features(
         index_workspace_session(&root).unwrap(),
         QueryLimits::default(),
-        PrismMcpFeatures::full().with_query_view(QueryViewFeatureFlag::ValidationPlan, true),
+        PrismMcpFeatures::full()
+            .with_query_view(QueryViewFeatureFlag::All, false)
+            .with_query_view(QueryViewFeatureFlag::ValidationPlan, true),
     );
     let validation = validation_only
         .execute(
@@ -393,7 +397,9 @@ fn prism_new_query_views_follow_independent_runtime_feature_flags() {
     let impact_only = QueryHost::with_session_and_limits_and_features(
         index_workspace_session(&root).unwrap(),
         QueryLimits::default(),
-        PrismMcpFeatures::full().with_query_view(QueryViewFeatureFlag::Impact, true),
+        PrismMcpFeatures::full()
+            .with_query_view(QueryViewFeatureFlag::All, false)
+            .with_query_view(QueryViewFeatureFlag::Impact, true),
     );
     let impact = impact_only
         .execute(
@@ -418,7 +424,9 @@ fn prism_new_query_views_follow_independent_runtime_feature_flags() {
     let after_edit_only = QueryHost::with_session_and_limits_and_features(
         index_workspace_session(&root).unwrap(),
         QueryLimits::default(),
-        PrismMcpFeatures::full().with_query_view(QueryViewFeatureFlag::AfterEdit, true),
+        PrismMcpFeatures::full()
+            .with_query_view(QueryViewFeatureFlag::All, false)
+            .with_query_view(QueryViewFeatureFlag::AfterEdit, true),
     );
     let after_edit = after_edit_only
         .execute(
@@ -443,7 +451,9 @@ fn prism_new_query_views_follow_independent_runtime_feature_flags() {
     let command_only = QueryHost::with_session_and_limits_and_features(
         index_workspace_session(&root).unwrap(),
         QueryLimits::default(),
-        PrismMcpFeatures::full().with_query_view(QueryViewFeatureFlag::CommandMemory, true),
+        PrismMcpFeatures::full()
+            .with_query_view(QueryViewFeatureFlag::All, false)
+            .with_query_view(QueryViewFeatureFlag::CommandMemory, true),
     );
     let command_memory = command_only
         .execute(

@@ -72,6 +72,18 @@ pub(crate) struct QueryViewFeatureSet {
 }
 
 impl QueryViewFeatureSet {
+    pub(crate) fn full() -> Self {
+        Self {
+            repo_playbook: true,
+            validation_plan: true,
+            impact: true,
+            after_edit: true,
+            command_memory: true,
+            #[cfg(test)]
+            test_echo: false,
+        }
+    }
+
     pub(crate) fn apply(&mut self, flag: QueryViewFeatureFlag, enabled: bool) {
         match flag {
             QueryViewFeatureFlag::RepoPlaybook => self.repo_playbook = enabled,
@@ -142,7 +154,7 @@ impl PrismMcpFeatures {
     pub fn full() -> Self {
         Self {
             coordination: CoordinationFeatureSet::full(),
-            query_views: QueryViewFeatureSet::default(),
+            query_views: QueryViewFeatureSet::full(),
             internal_developer: false,
         }
     }
