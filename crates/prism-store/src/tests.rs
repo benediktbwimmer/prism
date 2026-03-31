@@ -483,6 +483,64 @@ fn sqlite_store_load_task_replay_reads_persisted_events_by_task() {
 }
 
 #[test]
+fn sqlite_store_append_outcome_events_persists_authoritative_events_and_validation_deltas() {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!("prism-store-outcome-journal-{nanos}.db"));
+    let mut store = SqliteStore::open(&path).unwrap();
+
+    let lineage = LineageId::new("lineage:alpha");
+    let event = prism_memory::OutcomeEvent {
+        meta: EventMeta {
+            id: EventId::new("outcome:journal"),
+            ts: 10,
+            actor: EventActor::Agent,
+            correlation: Some(TaskId::new("task:journal")),
+            causation: None,
+        },
+        anchors: vec![prism_ir::AnchorRef::Lineage(lineage.clone())],
+        kind: prism_memory::OutcomeKind::FailureObserved,
+        result: prism_memory::OutcomeResult::Failure,
+        summary: "journaled failure".into(),
+        evidence: Vec::new(),
+        metadata: serde_json::Value::Null,
+    };
+
+    let inserted = store
+        .append_outcome_events(
+            &[event.clone()],
+            &[ValidationDelta {
+                lineage: lineage.clone(),
+                label: "test:journal".to_string(),
+                score_delta: 1.0,
+                last_seen: 10,
+            }],
+        )
+        .unwrap();
+    assert_eq!(inserted, 1);
+
+    let loaded = store
+        .load_task_replay(&TaskId::new("task:journal"))
+        .unwrap();
+    assert_eq!(loaded.events, vec![event]);
+
+    let projection = store.load_projection_snapshot().unwrap().unwrap();
+    assert_eq!(
+        projection.validation_by_lineage,
+        vec![(
+            lineage,
+            vec![ValidationCheck {
+                label: "test:journal".to_string(),
+                score: 1.0,
+                last_seen: 10,
+            }],
+        )]
+    );
+}
+
+#[test]
 fn sqlite_store_load_outcomes_reads_anchored_events_from_sqlite_index() {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -556,6 +614,70 @@ fn sqlite_store_load_outcomes_reads_anchored_events_from_sqlite_index() {
         })
         .unwrap();
     assert_eq!(task_loaded, vec![events[1].clone()]);
+}
+
+#[test]
+fn memory_store_apply_history_delta_updates_authoritative_history_state() {
+    let mut store = MemoryStore::default();
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
+    let lineage = LineageId::new("lineage:alpha");
+    let born = LineageEvent {
+        meta: EventMeta {
+            id: EventId::new("event:born"),
+            ts: 1,
+            actor: EventActor::System,
+            correlation: None,
+            causation: None,
+        },
+        lineage: lineage.clone(),
+        kind: prism_ir::LineageEventKind::Born,
+        before: Vec::new(),
+        after: vec![alpha.clone()],
+        confidence: 1.0,
+        evidence: Vec::new(),
+    };
+    store
+        .save_history_snapshot(&HistorySnapshot {
+            node_to_lineage: vec![(alpha.clone(), lineage.clone())],
+            events: vec![born.clone()],
+            tombstones: Vec::new(),
+            next_lineage: 1,
+            next_event: 2,
+        })
+        .unwrap();
+
+    let updated = LineageEvent {
+        meta: EventMeta {
+            id: EventId::new("event:updated"),
+            ts: 2,
+            actor: EventActor::System,
+            correlation: None,
+            causation: None,
+        },
+        lineage: lineage.clone(),
+        kind: prism_ir::LineageEventKind::Updated,
+        before: vec![alpha],
+        after: vec![beta.clone()],
+        confidence: 1.0,
+        evidence: Vec::new(),
+    };
+    store
+        .apply_history_delta(&HistoryPersistDelta {
+            removed_nodes: vec![NodeId::new("demo", "demo::alpha", NodeKind::Function)],
+            upserted_node_lineages: vec![(beta.clone(), lineage.clone())],
+            appended_events: vec![updated.clone()],
+            upserted_tombstones: Vec::<LineageTombstone>::new(),
+            removed_tombstone_lineages: Vec::new(),
+            next_lineage: 1,
+            next_event: 3,
+        })
+        .unwrap();
+
+    let snapshot = store.load_history_snapshot().unwrap().unwrap();
+    assert_eq!(snapshot.node_to_lineage, vec![(beta, lineage)]);
+    assert_eq!(snapshot.events, vec![born, updated]);
+    assert_eq!(snapshot.next_event, 3);
 }
 
 #[test]

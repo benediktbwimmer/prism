@@ -115,6 +115,7 @@ pub trait Store {
             .collect())
     }
     fn save_history_snapshot(&mut self, snapshot: &HistorySnapshot) -> Result<()>;
+    fn apply_history_delta(&mut self, delta: &HistoryPersistDelta) -> Result<()>;
     fn save_history_snapshot_with_co_change_deltas(
         &mut self,
         snapshot: &HistorySnapshot,
@@ -160,6 +161,11 @@ pub trait Store {
         })
     }
     fn save_outcome_snapshot(&mut self, snapshot: &OutcomeMemorySnapshot) -> Result<()>;
+    fn append_outcome_events(
+        &mut self,
+        events: &[OutcomeEvent],
+        validation_deltas: &[ValidationDelta],
+    ) -> Result<usize>;
     fn save_outcome_snapshot_with_validation_deltas(
         &mut self,
         snapshot: &OutcomeMemorySnapshot,

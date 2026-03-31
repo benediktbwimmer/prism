@@ -9,7 +9,8 @@ mod store;
 pub use graph::{FileRecord, FileState, FileUpdate, Graph, GraphSnapshot};
 pub use memory_store::MemoryStore;
 pub use persistence::{
-    ColdQueryStore, CoordinationCheckpointStore, CoordinationJournal, MaterializationStore,
+    ColdQueryStore, CoordinationCheckpointStore, CoordinationJournal, EventJournalStore,
+    MaterializationStore,
 };
 pub use sqlite::{SnapshotRevisions, SqliteStore};
 pub use store::{

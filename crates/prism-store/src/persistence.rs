@@ -4,7 +4,7 @@ use anyhow::Result;
 use prism_coordination::{
     CoordinationEvent, CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
 };
-use prism_history::HistorySnapshot;
+use prism_history::{HistoryPersistDelta, HistorySnapshot};
 use prism_ir::{EventId, LineageEvent, LineageId, TaskId};
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEvent, OutcomeEvent, OutcomeMemorySnapshot, OutcomeRecallQuery,
@@ -69,6 +69,17 @@ pub trait ColdQueryStore {
     fn load_memory_events(&mut self) -> Result<Vec<MemoryEvent>>;
 }
 
+/// Authoritative append-only journal operations for mutable runtime facts.
+pub trait EventJournalStore {
+    fn apply_history_delta(&mut self, delta: &HistoryPersistDelta) -> Result<()>;
+    fn append_outcome_events(
+        &mut self,
+        events: &[OutcomeEvent],
+        validation_deltas: &[ValidationDelta],
+    ) -> Result<usize>;
+    fn append_memory_events(&mut self, events: &[MemoryEvent]) -> Result<usize>;
+}
+
 /// Derived checkpoints and materializations that may lag behind hot runtime state and should move
 /// off the request path when correctness allows.
 pub trait MaterializationStore {
@@ -85,7 +96,6 @@ pub trait MaterializationStore {
         snapshot: &OutcomeMemorySnapshot,
         deltas: &[ValidationDelta],
     ) -> Result<()>;
-    fn append_memory_events(&mut self, events: &[MemoryEvent]) -> Result<usize>;
     fn load_episodic_snapshot(&mut self) -> Result<Option<EpisodicMemorySnapshot>>;
     fn save_episodic_snapshot(&mut self, snapshot: &EpisodicMemorySnapshot) -> Result<()>;
     fn load_inference_snapshot(&mut self) -> Result<Option<prism_agent::InferenceSnapshot>>;
@@ -206,6 +216,24 @@ impl<T: Store + ?Sized> ColdQueryStore for T {
     }
 }
 
+impl<T: Store + ?Sized> EventJournalStore for T {
+    fn apply_history_delta(&mut self, delta: &HistoryPersistDelta) -> Result<()> {
+        Store::apply_history_delta(self, delta)
+    }
+
+    fn append_outcome_events(
+        &mut self,
+        events: &[OutcomeEvent],
+        validation_deltas: &[ValidationDelta],
+    ) -> Result<usize> {
+        Store::append_outcome_events(self, events, validation_deltas)
+    }
+
+    fn append_memory_events(&mut self, events: &[MemoryEvent]) -> Result<usize> {
+        Store::append_memory_events(self, events)
+    }
+}
+
 impl<T: Store + ?Sized> MaterializationStore for T {
     fn load_graph(&mut self) -> Result<Option<Graph>> {
         Store::load_graph(self)
@@ -233,10 +261,6 @@ impl<T: Store + ?Sized> MaterializationStore for T {
         deltas: &[ValidationDelta],
     ) -> Result<()> {
         Store::save_outcome_snapshot_with_validation_deltas(self, snapshot, deltas)
-    }
-
-    fn append_memory_events(&mut self, events: &[MemoryEvent]) -> Result<usize> {
-        Store::append_memory_events(self, events)
     }
 
     fn load_episodic_snapshot(&mut self) -> Result<Option<EpisodicMemorySnapshot>> {

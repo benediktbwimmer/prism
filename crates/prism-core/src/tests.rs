@@ -1088,6 +1088,65 @@ fn reload_bounds_hot_outcomes_but_queries_cold_outcomes_from_store() {
 }
 
 #[test]
+fn workspace_session_load_methods_prefer_hot_outcomes_over_unpersisted_store_state() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::alpha")
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+    let task_id = TaskId::new("task:hot-session");
+    let event_id = EventId::new("outcome:hot-session");
+    let event = OutcomeEvent {
+        meta: EventMeta {
+            id: event_id.clone(),
+            ts: 1,
+            actor: EventActor::Agent,
+            correlation: Some(task_id.clone()),
+            causation: None,
+        },
+        anchors: vec![AnchorRef::Node(alpha.clone())],
+        kind: OutcomeKind::FailureObserved,
+        result: OutcomeResult::Failure,
+        summary: "hot only failure".into(),
+        evidence: Vec::new(),
+        metadata: serde_json::Value::Null,
+    };
+    session.prism().outcome_memory().store_event(event.clone()).unwrap();
+
+    let replay = session.load_task_replay(&task_id).unwrap();
+    assert_eq!(replay.task, task_id);
+    assert_eq!(replay.events, vec![event.clone()]);
+
+    let loaded = session
+        .load_outcomes(&OutcomeRecallQuery {
+            anchors: vec![AnchorRef::Node(alpha)],
+            kinds: Some(vec![OutcomeKind::FailureObserved]),
+            result: Some(OutcomeResult::Failure),
+            limit: 10,
+            ..OutcomeRecallQuery::default()
+        })
+        .unwrap();
+    assert_eq!(loaded, vec![event.clone()]);
+
+    assert_eq!(session.load_outcome_event(&event_id).unwrap(), Some(event));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn reload_queries_cold_lineage_history_from_store() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

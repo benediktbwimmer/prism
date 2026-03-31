@@ -338,6 +338,14 @@ impl Store for SqliteStore {
         Ok(())
     }
 
+    fn apply_history_delta(&mut self, delta: &prism_history::HistoryPersistDelta) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        history_io::apply_history_delta_tx(&tx, delta)?;
+        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        tx.commit()?;
+        Ok(())
+    }
+
     fn save_history_snapshot_with_co_change_deltas(
         &mut self,
         snapshot: &prism_history::HistorySnapshot,
@@ -419,6 +427,45 @@ impl Store for SqliteStore {
         };
         self.update_outcome_snapshot_cache(outcome_revision, merged);
         Ok(())
+    }
+
+    fn append_outcome_events(
+        &mut self,
+        events: &[prism_memory::OutcomeEvent],
+        validation_deltas: &[prism_projections::ValidationDelta],
+    ) -> Result<usize> {
+        if events.is_empty() && validation_deltas.is_empty() {
+            return Ok(0);
+        }
+        let outcome_cache = self.outcome_snapshot_cache.clone();
+        let tx = self.conn.transaction()?;
+        let outcome_revision_before = metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?;
+        let mut tracked_outcome_snapshot = if events.is_empty() {
+            None
+        } else {
+            cached_snapshot_for_revision(&outcome_cache, outcome_revision_before)
+        };
+        let inserted = outcome_events::append_events_tx(&tx, events)?;
+        let outcome_revision = if inserted > 0 {
+            bump_metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?
+        } else {
+            outcome_revision_before
+        };
+        if inserted > 0 {
+            if let Some(current) = tracked_outcome_snapshot.take() {
+                tracked_outcome_snapshot =
+                    Some(crate::outcome_projection::apply_events(current, events));
+            }
+        }
+        projections::apply_projection_validation_deltas_tx(&tx, validation_deltas)?;
+        if inserted > 0 || !validation_deltas.is_empty() {
+            bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        }
+        tx.commit()?;
+        if let Some(snapshot) = tracked_outcome_snapshot {
+            self.update_outcome_snapshot_cache(outcome_revision, snapshot);
+        }
+        Ok(inserted)
     }
 
     fn save_outcome_snapshot_with_validation_deltas(

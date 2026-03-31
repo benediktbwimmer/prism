@@ -391,34 +391,22 @@ impl WorkspaceSession {
     }
 
     pub fn load_lineage_history(&self, lineage: &LineageId) -> Result<Vec<LineageEvent>> {
-        self.store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .load_lineage_history(lineage)
+        Ok(self.prism_arc().lineage_history(lineage))
     }
 
     pub fn load_task_replay(&self, task_id: &TaskId) -> Result<TaskReplay> {
-        self.store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .load_task_replay(task_id)
+        Ok(self.prism_arc().resume_task(task_id))
     }
 
     pub fn load_outcomes(
         &self,
         query: &prism_memory::OutcomeRecallQuery,
     ) -> Result<Vec<OutcomeEvent>> {
-        self.store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .load_outcomes(query)
+        Ok(self.prism_arc().query_outcomes(query))
     }
 
     pub fn load_outcome_event(&self, event_id: &EventId) -> Result<Option<OutcomeEvent>> {
-        self.store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .load_outcome_event(event_id)
+        Ok(self.prism_arc().outcome_event(event_id))
     }
 
     pub fn prism(&self) -> Arc<Prism> {
@@ -1795,11 +1783,15 @@ impl WorkspaceSession {
     }
 
     pub fn append_outcome(&self, event: OutcomeEvent) -> Result<EventId> {
-        self.append_outcome_with_auxiliary(event, Vec::new(), None, None)
+        let _guard = self.lock_refresh_for_mutation("appendOutcome");
+        self.append_outcome_guarded(event)
     }
 
     pub fn try_append_outcome(&self, event: OutcomeEvent) -> Result<Option<EventId>> {
-        self.try_append_outcome_with_auxiliary(event, Vec::new(), None, None)
+        let Some(_guard) = self.try_lock_refresh_for_mutation("appendOutcome")? else {
+            return Ok(None);
+        };
+        self.append_outcome_guarded(event).map(Some)
     }
 
     pub fn append_validation_feedback(
@@ -1884,6 +1876,41 @@ impl WorkspaceSession {
             inference_snapshot,
             curator_snapshot: None,
         });
+        mutation_trace::record_phase(
+            "mutation.appendOutcomePersist",
+            json!({}),
+            persist_started.elapsed(),
+            persist_result.is_ok(),
+            persist_result.as_ref().err().map(ToString::to_string),
+        );
+        persist_result?;
+        if let Some(curator) = &self.curator {
+            let curator_started = Instant::now();
+            enqueue_curator_for_outcome_locked(curator, prism.as_ref(), &mut store, id.clone())?;
+            mutation_trace::record_phase(
+                "mutation.enqueueCurator",
+                json!({}),
+                curator_started.elapsed(),
+                true,
+                None,
+            );
+        }
+        Ok(id)
+    }
+
+    fn append_outcome_guarded(&self, event: OutcomeEvent) -> Result<EventId> {
+        let prism = self.prism_arc();
+        let deltas = validation_deltas_for_event(&event, |node| prism.lineage_of(node));
+        prism.apply_outcome_event_to_projections(&event);
+        let persisted_event = event.clone();
+        let id = prism.outcome_memory().store_event(event)?;
+        let mut store = Self::lock_store_for_mutation(
+            &self.store,
+            "mutation.waitWorkspaceStoreLock",
+            "appendOutcome",
+        );
+        let persist_started = Instant::now();
+        let persist_result = store.append_outcome_events(&[persisted_event], &deltas);
         mutation_trace::record_phase(
             "mutation.appendOutcomePersist",
             json!({}),

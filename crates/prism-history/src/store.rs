@@ -137,6 +137,25 @@ impl HistoryStore {
         }
     }
 
+    pub fn apply_persistence_delta(&mut self, delta: &HistoryPersistDelta) {
+        for node in &delta.removed_nodes {
+            self.remove_node_lineage(node);
+        }
+        for (node, lineage) in &delta.upserted_node_lineages {
+            self.assign_node_lineage(node.clone(), lineage.clone());
+        }
+        self.events.extend(delta.appended_events.clone());
+        for lineage in &delta.removed_tombstone_lineages {
+            self.tombstones.remove(lineage);
+        }
+        for tombstone in &delta.upserted_tombstones {
+            self.tombstones
+                .insert(tombstone.lineage.clone(), tombstone.clone());
+        }
+        self.next_lineage = delta.next_lineage;
+        self.next_event = delta.next_event;
+    }
+
     pub fn from_snapshot(snapshot: HistorySnapshot) -> Self {
         let HistorySnapshot {
             node_to_lineage,

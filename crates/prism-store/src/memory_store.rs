@@ -59,6 +59,26 @@ impl Store for MemoryStore {
         Ok(())
     }
 
+    fn apply_history_delta(
+        &mut self,
+        delta: &prism_history::HistoryPersistDelta,
+    ) -> anyhow::Result<()> {
+        let mut history = prism_history::HistoryStore::from_snapshot(
+            self.history_snapshot
+                .clone()
+                .unwrap_or(prism_history::HistorySnapshot {
+                    node_to_lineage: Vec::new(),
+                    events: Vec::new(),
+                    tombstones: Vec::new(),
+                    next_lineage: 0,
+                    next_event: 0,
+                }),
+        );
+        history.apply_persistence_delta(delta);
+        self.history_snapshot = Some(history.snapshot());
+        Ok(())
+    }
+
     fn save_history_snapshot_with_co_change_deltas(
         &mut self,
         snapshot: &prism_history::HistorySnapshot,
@@ -94,6 +114,36 @@ impl Store for MemoryStore {
             .extend(outcome_append_only_delta(current, snapshot));
         self.outcome_snapshot = merge_outcome_snapshot(self.outcome_snapshot.clone(), snapshot);
         Ok(())
+    }
+
+    fn append_outcome_events(
+        &mut self,
+        events: &[prism_memory::OutcomeEvent],
+        validation_deltas: &[prism_projections::ValidationDelta],
+    ) -> anyhow::Result<usize> {
+        let mut inserted = 0;
+        for event in events {
+            if self
+                .outcome_events
+                .iter()
+                .any(|existing| existing.meta.id == event.meta.id)
+            {
+                continue;
+            }
+            self.outcome_events.push(event.clone());
+            inserted += 1;
+        }
+        if inserted > 0 {
+            self.outcome_snapshot = outcome_snapshot_from_events(self.outcome_events.clone());
+        }
+        if !validation_deltas.is_empty() {
+            let mut snapshot = self.projection_snapshot.clone().unwrap_or_default();
+            let mut index = ProjectionIndex::from_snapshot(snapshot);
+            index.apply_validation_deltas(validation_deltas);
+            snapshot = index.snapshot();
+            self.projection_snapshot = Some(snapshot);
+        }
+        Ok(inserted)
     }
 
     fn save_outcome_snapshot_with_validation_deltas(
