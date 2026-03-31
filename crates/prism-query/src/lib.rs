@@ -887,6 +887,14 @@ impl Prism {
             .snapshot()
     }
 
+    pub fn projection_lineage_counts(&self) -> (usize, usize) {
+        let projections = self.projections.read().expect("projection lock poisoned");
+        (
+            projections.co_change_lineage_count(),
+            projections.validation_lineage_count(),
+        )
+    }
+
     pub fn refresh_projections(&self) {
         let curated = self
             .projections

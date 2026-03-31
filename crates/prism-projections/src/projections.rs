@@ -273,6 +273,14 @@ impl ProjectionIndex {
         &self.curated_contracts
     }
 
+    pub fn co_change_lineage_count(&self) -> usize {
+        self.co_change_by_lineage.len()
+    }
+
+    pub fn validation_lineage_count(&self) -> usize {
+        self.validation_by_lineage.len()
+    }
+
     pub fn reseed_from_history(&mut self, history: &HistorySnapshot) {
         if self.history_hydrated {
             return;

@@ -1,10 +1,14 @@
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::path::PathBuf;
 
 use super::context::WorkspaceRuntimeContext;
 use super::generation::{
     RuntimeDomain, RuntimeDomainState, WorkspaceGenerationId, WorkspacePublishedGeneration,
     WorkspaceRuntimeDeltaBatch, WorkspaceRuntimeDeltaSequence,
+};
+use super::queue::{
+    WorkspaceRuntimeCoalescingKey, WorkspaceRuntimeCommand, WorkspaceRuntimeCommandKind,
+    WorkspaceRuntimeQueueDepth, WorkspaceRuntimeQueueSnapshot,
 };
 
 #[derive(Debug, Clone)]
@@ -14,6 +18,8 @@ pub struct WorkspaceRuntimeEngine {
     next_generation_id: WorkspaceGenerationId,
     next_delta_sequence: WorkspaceRuntimeDeltaSequence,
     recent_deltas: VecDeque<WorkspaceRuntimeDeltaBatch>,
+    active_command: Option<WorkspaceRuntimeCommand>,
+    queued_commands: VecDeque<WorkspaceRuntimeCommand>,
 }
 
 impl WorkspaceRuntimeEngine {
@@ -26,6 +32,8 @@ impl WorkspaceRuntimeEngine {
             next_generation_id: WorkspaceGenerationId(1),
             next_delta_sequence: WorkspaceRuntimeDeltaSequence(1),
             recent_deltas: VecDeque::with_capacity(Self::RECENT_DELTA_LIMIT),
+            active_command: None,
+            queued_commands: VecDeque::new(),
         }
     }
 
@@ -43,6 +51,86 @@ impl WorkspaceRuntimeEngine {
 
     pub fn recent_deltas(&self) -> Vec<WorkspaceRuntimeDeltaBatch> {
         self.recent_deltas.iter().cloned().collect()
+    }
+
+    pub fn queue_snapshot(&self) -> WorkspaceRuntimeQueueSnapshot {
+        let mut seen = BTreeSet::new();
+        let mut queued = self
+            .queued_commands
+            .iter()
+            .filter_map(|command| {
+                if seen.insert(command.queue_class) {
+                    Some(WorkspaceRuntimeQueueDepth {
+                        queue_class: command.queue_class,
+                        depth: self
+                            .queued_commands
+                            .iter()
+                            .filter(|queued| queued.queue_class == command.queue_class)
+                            .count(),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        queued.sort_by_key(|depth| depth.queue_class.priority_rank());
+        WorkspaceRuntimeQueueSnapshot {
+            active: self.active_command.clone(),
+            total_depth: self.queued_commands.len(),
+            queued,
+        }
+    }
+
+    pub fn enqueue_command(&mut self, command: WorkspaceRuntimeCommand) -> bool {
+        if !matches!(command.coalescing_key, WorkspaceRuntimeCoalescingKey::None) {
+            if let Some(existing) = self
+                .queued_commands
+                .iter_mut()
+                .find(|existing| existing.coalescing_key == command.coalescing_key)
+            {
+                *existing = command;
+                return false;
+            }
+        }
+        self.queued_commands.push_back(command);
+        true
+    }
+
+    pub fn start_next_command(&mut self) -> Option<WorkspaceRuntimeCommand> {
+        if self.active_command.is_some() {
+            return None;
+        }
+        let next_index = self
+            .queued_commands
+            .iter()
+            .enumerate()
+            .min_by_key(|(_, command)| command.queue_class.priority_rank())
+            .map(|(index, _)| index)?;
+        let command = self.queued_commands.remove(next_index)?;
+        self.active_command = Some(command.clone());
+        Some(command)
+    }
+
+    pub fn begin_ad_hoc_command(&mut self, command: WorkspaceRuntimeCommand) -> bool {
+        if self.active_command.is_some() {
+            return false;
+        }
+        self.active_command = Some(command);
+        true
+    }
+
+    pub fn finish_active_command(&mut self) {
+        self.active_command = None;
+    }
+
+    pub fn has_pending_command_kind(&self, kind: WorkspaceRuntimeCommandKind) -> bool {
+        self.active_command
+            .as_ref()
+            .is_some_and(|command| command.kind == kind)
+            || self
+                .queued_commands
+                .iter()
+                .any(|command| command.kind == kind)
     }
 
     pub fn record_commit(
@@ -84,7 +172,8 @@ mod tests {
 
     use super::*;
     use crate::runtime_engine::{
-        RuntimeFreshnessState, RuntimeMaterializationDepth, WorkspaceRuntimeQueueClass,
+        RuntimeFreshnessState, RuntimeMaterializationDepth, WorkspaceRuntimeCoalescingKey,
+        WorkspaceRuntimeCommand, WorkspaceRuntimeCommandKind, WorkspaceRuntimeQueueClass,
     };
 
     #[test]
@@ -136,5 +225,32 @@ mod tests {
         assert_eq!(engine.published_generation().parent_id.unwrap().0, 1);
         assert_eq!(engine.published_generation().committed_delta.unwrap().0, 2);
         assert_eq!(engine.recent_deltas().len(), 2);
+    }
+
+    #[test]
+    fn runtime_engine_coalesces_worktree_refresh_commands() {
+        let root = std::env::current_dir().expect("cwd");
+        let context = WorkspaceRuntimeContext::from_root(&root);
+        let mut engine = WorkspaceRuntimeEngine::new(context);
+        assert!(engine.enqueue_command(WorkspaceRuntimeCommand::new(
+            WorkspaceRuntimeCommandKind::PreparePaths,
+            WorkspaceRuntimeQueueClass::FastPrepare,
+            WorkspaceRuntimeCoalescingKey::WorktreeContext,
+        )));
+        assert!(!engine.enqueue_command(WorkspaceRuntimeCommand::new(
+            WorkspaceRuntimeCommandKind::PreparePaths,
+            WorkspaceRuntimeQueueClass::FastPrepare,
+            WorkspaceRuntimeCoalescingKey::WorktreeContext,
+        )));
+        let snapshot = engine.queue_snapshot();
+        assert_eq!(snapshot.total_depth, 1);
+        assert_eq!(snapshot.queued[0].depth, 1);
+        let active = engine
+            .start_next_command()
+            .expect("queued command should start");
+        assert_eq!(active.kind, WorkspaceRuntimeCommandKind::PreparePaths);
+        assert!(engine.has_pending_command_kind(WorkspaceRuntimeCommandKind::PreparePaths));
+        engine.finish_active_command();
+        assert!(!engine.has_pending_command_kind(WorkspaceRuntimeCommandKind::PreparePaths));
     }
 }

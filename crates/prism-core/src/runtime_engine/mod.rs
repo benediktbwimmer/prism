@@ -12,5 +12,5 @@ pub use generation::{
 };
 pub use queue::{
     WorkspaceRuntimeCoalescingKey, WorkspaceRuntimeCommand, WorkspaceRuntimeCommandKind,
-    WorkspaceRuntimeQueueClass,
+    WorkspaceRuntimeQueueClass, WorkspaceRuntimeQueueDepth, WorkspaceRuntimeQueueSnapshot,
 };

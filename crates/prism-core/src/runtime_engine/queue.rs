@@ -61,3 +61,16 @@ impl WorkspaceRuntimeCommand {
         }
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkspaceRuntimeQueueDepth {
+    pub queue_class: WorkspaceRuntimeQueueClass,
+    pub depth: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkspaceRuntimeQueueSnapshot {
+    pub active: Option<WorkspaceRuntimeCommand>,
+    pub queued: Vec<WorkspaceRuntimeQueueDepth>,
+    pub total_depth: usize,
+}

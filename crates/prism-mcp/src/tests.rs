@@ -15380,6 +15380,7 @@ fn runtime_status_surfaces_published_generation_and_domain_freshness() {
         .domains
         .iter()
         .any(|domain| domain.domain == "coordination"));
+    assert!(initial.queue_depth <= initial.queued_by_class.iter().map(|item| item.depth).sum());
 
     fs::write(
         root.join("src/lib.rs"),
@@ -15403,6 +15404,14 @@ fn runtime_status_surfaces_published_generation_and_domain_freshness() {
             .committed_delta_sequence
             .expect("delta sequence should still exist")
             > initial_delta
+    );
+    assert!(
+        refreshed.queue_depth
+            <= refreshed
+                .queued_by_class
+                .iter()
+                .map(|item| item.depth)
+                .sum()
     );
     assert!(refreshed
         .domains

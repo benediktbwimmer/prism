@@ -632,6 +632,10 @@ type RuntimeFreshnessView = {
   lastDaemonReadyMs?: number;
   materialization: RuntimeMaterializationView;
   domains: RuntimeDomainFreshnessView[];
+  activeCommand?: string;
+  activeQueueClass?: string;
+  queueDepth: number;
+  queuedByClass: RuntimeQueueDepthView[];
   status: string;
   error?: string;
 };
@@ -640,6 +644,11 @@ type RuntimeDomainFreshnessView = {
   domain: string;
   freshness: string;
   materializationDepth: string;
+};
+
+type RuntimeQueueDepthView = {
+  queueClass: string;
+  depth: number;
 };
 
 type ConnectionInfoView = {

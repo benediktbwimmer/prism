@@ -603,6 +603,10 @@ pub struct RuntimeFreshnessView {
     pub last_daemon_ready_ms: Option<u64>,
     pub materialization: RuntimeMaterializationView,
     pub domains: Vec<RuntimeDomainFreshnessView>,
+    pub active_command: Option<String>,
+    pub active_queue_class: Option<String>,
+    pub queue_depth: usize,
+    pub queued_by_class: Vec<RuntimeQueueDepthView>,
     pub status: String,
     pub error: Option<String>,
 }
@@ -613,6 +617,13 @@ pub struct RuntimeDomainFreshnessView {
     pub domain: String,
     pub freshness: String,
     pub materialization_depth: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeQueueDepthView {
+    pub queue_class: String,
+    pub depth: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

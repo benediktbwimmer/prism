@@ -11,7 +11,8 @@ use anyhow::Result;
 use prism_agent::InferenceStore;
 use prism_core::runtime_engine::{
     RuntimeDomain, RuntimeDomainState, RuntimeFreshnessState, RuntimeMaterializationDepth,
-    WorkspaceRuntimeEngine,
+    WorkspaceRuntimeCoalescingKey, WorkspaceRuntimeCommand, WorkspaceRuntimeCommandKind,
+    WorkspaceRuntimeEngine, WorkspaceRuntimeQueueClass, WorkspaceRuntimeQueueSnapshot,
 };
 use prism_core::{
     AdmissionBusyError, FsRefreshStatus, WorkspaceRefreshWork, WorkspaceSession,
@@ -45,6 +46,7 @@ pub(crate) struct WorkspaceRuntimeConfig {
 }
 
 pub(crate) struct WorkspaceRuntime {
+    engine: Arc<Mutex<WorkspaceRuntimeEngine>>,
     wake: SyncSender<()>,
     stop: mpsc::Sender<()>,
     handle: Mutex<Option<JoinHandle<()>>>,
@@ -168,21 +170,60 @@ impl ReloadMaterialization {
 
 impl WorkspaceRuntime {
     pub(crate) fn spawn(config: WorkspaceRuntimeConfig) -> Self {
+        let engine = Arc::clone(&config.runtime_engine);
         let (wake_tx, wake_rx) = mpsc::sync_channel::<()>(1);
         let (stop_tx, stop_rx) = mpsc::channel::<()>();
         let handle = thread::spawn(move || loop {
             if stop_rx.try_recv().is_ok() {
                 break;
             }
-            match wake_rx.recv_timeout(BACKGROUND_REFRESH_INTERVAL) {
-                Ok(()) | Err(RecvTimeoutError::Timeout) => {}
+            let timed_out = match wake_rx.recv_timeout(BACKGROUND_REFRESH_INTERVAL) {
+                Ok(()) => false,
+                Err(RecvTimeoutError::Timeout) => true,
                 Err(RecvTimeoutError::Disconnected) => break,
-            }
+            };
             if stop_rx.try_recv().is_ok() {
                 break;
             }
-            if let Err(error) = sync_workspace_runtime(&config) {
+            let command = {
+                let mut engine = config
+                    .runtime_engine
+                    .lock()
+                    .expect("workspace runtime engine lock poisoned");
+                if let Some(command) = engine.start_next_command() {
+                    Some(command)
+                } else if timed_out
+                    && engine.begin_ad_hoc_command(WorkspaceRuntimeCommand::new(
+                        WorkspaceRuntimeCommandKind::MaterializeCheckpoint,
+                        WorkspaceRuntimeQueueClass::CheckpointMaterialization,
+                        WorkspaceRuntimeCoalescingKey::WorktreeContext,
+                    ))
+                {
+                    Some(WorkspaceRuntimeCommand::new(
+                        WorkspaceRuntimeCommandKind::MaterializeCheckpoint,
+                        WorkspaceRuntimeQueueClass::CheckpointMaterialization,
+                        WorkspaceRuntimeCoalescingKey::WorktreeContext,
+                    ))
+                } else {
+                    None
+                }
+            };
+            let Some(command) = command else {
+                continue;
+            };
+            let sync_result = match command.kind {
+                WorkspaceRuntimeCommandKind::MaterializeCheckpoint => {
+                    sync_workspace_runtime_materialization(&config)
+                }
+                _ => sync_workspace_runtime(&config),
+            };
+            if let Err(error) = sync_result {
                 if is_transient_sqlite_lock(&error) {
+                    config
+                        .runtime_engine
+                        .lock()
+                        .expect("workspace runtime engine lock poisoned")
+                        .finish_active_command();
                     config
                         .workspace
                         .record_runtime_refresh_observation_with_work(
@@ -197,15 +238,27 @@ impl WorkspaceRuntime {
                     );
                     continue;
                 }
+                config
+                    .runtime_engine
+                    .lock()
+                    .expect("workspace runtime engine lock poisoned")
+                    .finish_active_command();
                 error!(
                     root = %config.workspace.root().display(),
                     error = %error,
                     error_chain = %crate::logging::format_error_chain(&error),
                     "prism-mcp background workspace refresh failed"
                 );
+                continue;
             }
+            config
+                .runtime_engine
+                .lock()
+                .expect("workspace runtime engine lock poisoned")
+                .finish_active_command();
         });
         Self {
+            engine,
             wake: wake_tx,
             stop: stop_tx,
             handle: Mutex::new(Some(handle)),
@@ -213,6 +266,15 @@ impl WorkspaceRuntime {
     }
 
     pub(crate) fn request_refresh(&self) {
+        let _ = self
+            .engine
+            .lock()
+            .expect("workspace runtime engine lock poisoned")
+            .enqueue_command(WorkspaceRuntimeCommand::new(
+                WorkspaceRuntimeCommandKind::PreparePaths,
+                WorkspaceRuntimeQueueClass::FastPrepare,
+                WorkspaceRuntimeCoalescingKey::WorktreeContext,
+            ));
         match self.wake.try_send(()) {
             Ok(()) | Err(TrySendError::Full(())) => {}
             Err(TrySendError::Disconnected(())) => {
@@ -220,6 +282,24 @@ impl WorkspaceRuntime {
             }
         }
     }
+
+    pub(crate) fn queue_snapshot(&self) -> WorkspaceRuntimeQueueSnapshot {
+        self.engine
+            .lock()
+            .expect("workspace runtime engine lock poisoned")
+            .queue_snapshot()
+    }
+}
+
+fn sync_workspace_runtime_materialization(
+    config: &WorkspaceRuntimeConfig,
+) -> Result<WorkspaceRefreshReport> {
+    let lock_wait_started = Instant::now();
+    let guard = config
+        .sync_lock
+        .lock()
+        .expect("workspace runtime sync lock poisoned");
+    sync_workspace_runtime_for_read_with_guard(config, guard, elapsed_ms(lock_wait_started))
 }
 
 impl Drop for WorkspaceRuntime {
