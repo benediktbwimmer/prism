@@ -30,6 +30,8 @@ use crate::{
 };
 
 const BACKGROUND_REFRESH_INTERVAL: Duration = Duration::from_millis(250);
+const MUTATION_RUNTIME_SYNC_WAIT_TIMEOUT: Duration = Duration::from_millis(1500);
+const MUTATION_RUNTIME_SYNC_RETRY_INTERVAL: Duration = Duration::from_millis(10);
 
 #[derive(Clone)]
 pub(crate) struct WorkspaceRuntimeConfig {
@@ -680,6 +682,35 @@ fn try_sync_workspace_runtime_for_read(
     }
 }
 
+fn try_sync_workspace_runtime_for_mutation(
+    config: &WorkspaceRuntimeConfig,
+) -> Result<Option<WorkspaceRefreshReport>> {
+    let wait_started = Instant::now();
+    loop {
+        match config.sync_lock.try_lock() {
+            Ok(guard) => {
+                return sync_workspace_runtime_for_read_with_guard(
+                    config,
+                    guard,
+                    elapsed_ms(wait_started),
+                )
+                .map(Some);
+            }
+            Err(TryLockError::WouldBlock) => {
+                let elapsed = wait_started.elapsed();
+                if elapsed >= MUTATION_RUNTIME_SYNC_WAIT_TIMEOUT {
+                    return Ok(None);
+                }
+                let remaining = MUTATION_RUNTIME_SYNC_WAIT_TIMEOUT.saturating_sub(elapsed);
+                thread::sleep(remaining.min(MUTATION_RUNTIME_SYNC_RETRY_INTERVAL));
+            }
+            Err(TryLockError::Poisoned(_)) => {
+                panic!("workspace runtime sync lock poisoned");
+            }
+        }
+    }
+}
+
 pub(crate) fn sync_persisted_workspace_state(
     config: &WorkspaceRuntimeConfig,
 ) -> Result<WorkspaceRefreshReport> {
@@ -1147,7 +1178,7 @@ impl QueryHost {
         let workspace = binding.workspace();
         let runtime = binding.runtime();
         let config = binding.runtime_config();
-        let Some(report) = try_sync_workspace_runtime_for_read(&config)? else {
+        let Some(report) = try_sync_workspace_runtime_for_mutation(&config)? else {
             runtime.request_refresh();
             workspace.record_runtime_refresh_observation_with_work(
                 "deferred",

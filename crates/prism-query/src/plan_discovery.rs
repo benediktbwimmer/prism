@@ -120,5 +120,6 @@ fn plan_status_rank(status: PlanStatus) -> u8 {
         PlanStatus::Draft => 2,
         PlanStatus::Completed => 3,
         PlanStatus::Abandoned => 4,
+        PlanStatus::Archived => 5,
     }
 }

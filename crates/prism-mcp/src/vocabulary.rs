@@ -343,6 +343,11 @@ const PLAN_STATUSES: &[VocabularyValueSpec] = &[
         aliases: &[],
         description: "Plan was intentionally abandoned.",
     },
+    VocabularyValueSpec {
+        value: "archived",
+        aliases: &[],
+        description: "Plan is retained in published history but no longer active.",
+    },
 ];
 
 const PLAN_SCOPES: &[VocabularyValueSpec] = &[

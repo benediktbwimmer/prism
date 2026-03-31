@@ -75,8 +75,9 @@ pub(crate) fn validate_plan_transition(previous: PlanStatus, next: PlanStatus) -
         Draft => matches!(next, Draft | Active | Abandoned),
         Active => matches!(next, Active | Blocked | Completed | Abandoned),
         Blocked => matches!(next, Blocked | Active | Abandoned),
-        Completed => matches!(next, Completed),
-        Abandoned => matches!(next, Abandoned),
+        Completed => matches!(next, Completed | Archived),
+        Abandoned => matches!(next, Abandoned | Archived),
+        Archived => matches!(next, Archived),
     };
 
     if allowed {
@@ -88,6 +89,13 @@ pub(crate) fn validate_plan_transition(previous: PlanStatus, next: PlanStatus) -
             next
         ))
     }
+}
+
+pub(crate) fn plan_status_is_closed(status: PlanStatus) -> bool {
+    matches!(
+        status,
+        PlanStatus::Completed | PlanStatus::Abandoned | PlanStatus::Archived
+    )
 }
 
 pub(crate) fn policy_violation(

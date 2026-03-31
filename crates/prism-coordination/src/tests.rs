@@ -1691,6 +1691,91 @@ fn closed_plan_rejects_new_task_and_records_violation() {
 }
 
 #[test]
+fn archived_plan_transition_requires_terminal_status_and_stays_closed() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                goal: "Archive repo work".to_string(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+
+    let invalid = store
+        .update_plan(
+            meta("event:2", 2),
+            PlanUpdateInput {
+                plan_id: plan_id.clone(),
+                status: Some(prism_ir::PlanStatus::Archived),
+                goal: None,
+                policy: None,
+            },
+        )
+        .unwrap_err();
+    assert!(invalid
+        .to_string()
+        .contains("invalid coordination plan transition"));
+
+    let abandoned = store
+        .update_plan(
+            meta("event:3", 3),
+            PlanUpdateInput {
+                plan_id: plan_id.clone(),
+                status: Some(prism_ir::PlanStatus::Abandoned),
+                goal: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(abandoned.status, prism_ir::PlanStatus::Abandoned);
+
+    let archived = store
+        .update_plan(
+            meta("event:4", 4),
+            PlanUpdateInput {
+                plan_id: plan_id.clone(),
+                status: Some(prism_ir::PlanStatus::Archived),
+                goal: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    assert_eq!(archived.status, prism_ir::PlanStatus::Archived);
+
+    let error = store
+        .create_task(
+            meta("event:5", 5),
+            TaskCreateInput {
+                plan_id,
+                title: "Should not exist".to_string(),
+                status: None,
+                assignee: None,
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("coordination task creation rejected"));
+
+    let rejection = store.events().last().unwrap().clone();
+    assert_eq!(
+        rejection.kind,
+        prism_ir::CoordinationEventKind::MutationRejected
+    );
+    assert_eq!(rejection.metadata["violations"][0]["code"], "plan_closed");
+}
+
+#[test]
 fn plan_update_events_record_patch_metadata() {
     let store = CoordinationStore::new();
     let (plan_id, _) = store

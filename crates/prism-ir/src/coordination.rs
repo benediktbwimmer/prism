@@ -8,6 +8,7 @@ pub enum PlanStatus {
     Blocked,
     Completed,
     Abandoned,
+    Archived,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
@@ -54,7 +55,12 @@ pub(crate) fn read_runtime_state(root: &Path) -> Result<Option<RuntimeState>> {
     let bytes = fs::read(&path)
         .with_context(|| format!("failed to read runtime state {}", path.display()))?;
     match serde_json::from_slice::<RuntimeState>(&bytes) {
-        Ok(state) => Ok(Some(state)),
+        Ok(mut state) => {
+            if prune_runtime_state_processes(root, &mut state.processes)? {
+                write_runtime_state(&path, &state)?;
+            }
+            Ok(Some(state))
+        }
         Err(_) => Ok(None),
     }
 }
@@ -339,15 +345,78 @@ fn dedupe_processes(processes: &mut Vec<RuntimeProcessRecord>) {
     processes.retain(|process| seen.insert((process.pid, process.kind.clone())));
 }
 
+fn prune_runtime_state_processes(
+    root: &Path,
+    processes: &mut Vec<RuntimeProcessRecord>,
+) -> Result<bool> {
+    let original_len = processes.len();
+    let mut retained = Vec::with_capacity(processes.len());
+    for process in processes.drain(..) {
+        if runtime_process_record_is_live(root, &process)? {
+            retained.push(process);
+        }
+    }
+    *processes = retained;
+    Ok(processes.len() != original_len)
+}
+
+fn runtime_process_record_is_live(root: &Path, process: &RuntimeProcessRecord) -> Result<bool> {
+    let Some(command) = process_command(process.pid)? else {
+        return Ok(false);
+    };
+    Ok(matches_prism_process_command(
+        process.pid,
+        &command,
+        root,
+        process.kind.as_str(),
+    ))
+}
+
+fn process_command(pid: u32) -> Result<Option<String>> {
+    let output = Command::new("ps")
+        .args(["-p", &pid.to_string(), "-o", "command="])
+        .output()
+        .context("failed to inspect process command with ps")?;
+    if !output.status.success() {
+        return Ok(None);
+    }
+    let command = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if command.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(command))
+}
+
+fn matches_prism_process_command(pid: u32, command: &str, root: &Path, kind: &str) -> bool {
+    if cfg!(test) && pid == std::process::id() && kind == "daemon" {
+        return true;
+    }
+    let Some(command_root) = command_option_value(command, "--root") else {
+        return false;
+    };
+    command.contains("prism-mcp")
+        && Path::new(&command_root) == root
+        && command_option_value(command, "--mode").as_deref() == Some(kind)
+}
+
+fn command_option_value(command: &str, option: &str) -> Option<String> {
+    let tokens = command.split_whitespace().collect::<Vec<_>>();
+    tokens
+        .windows(2)
+        .find_map(|window| (window[0] == option).then(|| window[1].to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use std::env;
     use std::fs;
     use std::path::PathBuf;
+    use std::process::{Command, Stdio};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
-        read_runtime_state, record_daemon_ready, record_process_start, runtime_state_temp_path,
+        default_runtime_state_path, read_runtime_state, record_daemon_ready, record_process_start,
+        runtime_state_temp_path, write_runtime_state, RuntimeProcessRecord, RuntimeState,
     };
     use crate::{PrismMcpCli, PrismMcpMode};
 
@@ -426,6 +495,47 @@ mod tests {
             .find(|process| process.pid == std::process::id() && process.kind == "daemon")
             .expect("daemon process should be recorded");
         assert_eq!(daemon.restart_nonce.as_deref(), Some("restart-1"));
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn read_runtime_state_prunes_live_non_prism_process_records() {
+        let root = test_dir("prune-live-non-prism");
+        let path = default_runtime_state_path(&root);
+        let mut child = Command::new("sleep")
+            .arg("30")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+
+        write_runtime_state(
+            &path,
+            &RuntimeState {
+                processes: vec![RuntimeProcessRecord {
+                    pid: child.id(),
+                    kind: "daemon".to_string(),
+                    started_at: 1,
+                    health_path: Some("/healthz".to_string()),
+                    http_uri: Some("http://127.0.0.1:41000/mcp".to_string()),
+                    upstream_uri: None,
+                    restart_nonce: None,
+                }],
+                events: Vec::new(),
+            },
+        )
+        .unwrap();
+
+        let state = read_runtime_state(&root)
+            .unwrap()
+            .expect("runtime state should exist");
+        assert!(state.processes.is_empty());
+
+        let persisted = serde_json::from_slice::<RuntimeState>(&fs::read(&path).unwrap()).unwrap();
+        assert!(persisted.processes.is_empty());
+
+        child.kill().ok();
+        child.wait().ok();
         fs::remove_dir_all(root).ok();
     }
 }

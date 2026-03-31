@@ -324,8 +324,8 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
         )
         .unwrap();
 
-    let plan = host_a
-        .store_coordination(
+    let plan = retry_on_runtime_sync_busy(|| {
+        host_a.store_coordination(
             test_session(&host_a).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
@@ -339,11 +339,12 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     let plan_id = plan.state["id"].as_str().unwrap().to_string();
 
-    let task = host_a
-        .store_coordination(
+    let task = retry_on_runtime_sync_busy(|| {
+        host_a.store_coordination(
             test_session(&host_a).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::TaskCreate,
@@ -360,11 +361,12 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     let task_id = task.state["id"].as_str().unwrap().to_string();
 
-    let first_claim = host_a
-        .store_claim(
+    let first_claim = retry_on_runtime_sync_busy(|| {
+        host_a.store_claim(
             test_session(&host_a).as_ref(),
             PrismClaimArgs {
                 action: ClaimActionInput::Acquire,
@@ -382,11 +384,12 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     assert!(first_claim.claim_id.is_some());
 
-    let blocked_neighbor_claim = host_b
-        .store_claim(
+    let blocked_neighbor_claim = retry_on_runtime_sync_busy(|| {
+        host_b.store_claim(
             test_session(&host_b).as_ref(),
             PrismClaimArgs {
                 action: ClaimActionInput::Acquire,
@@ -403,7 +406,8 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     assert!(blocked_neighbor_claim.claim_id.is_none());
     assert!(blocked_neighbor_claim
         .conflicts
@@ -416,8 +420,8 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
             .unwrap_or(false)
     }));
 
-    host_a
-        .store_coordination(
+    retry_on_runtime_sync_busy(|| {
+        host_a.store_coordination(
             test_session(&host_a).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::Handoff,
@@ -429,7 +433,8 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
 
     let handed_off = host_b
         .execute(
@@ -442,8 +447,8 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
     assert_eq!(handed_off.result["pendingHandoffTo"], "agent-b");
     assert_eq!(handed_off.result["status"], "Blocked");
 
-    let blocked_update = host_b
-        .store_coordination(
+    let blocked_update = retry_on_runtime_sync_busy(|| {
+        host_b.store_coordination(
             test_session(&host_b).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::Update,
@@ -454,7 +459,8 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     assert!(blocked_update.rejected);
     assert!(blocked_update
         .violations
@@ -562,8 +568,8 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
     .unwrap();
     assert!(second_claim.claim_id.is_some());
 
-    let artifact = host_b
-        .store_artifact(
+    let artifact = retry_on_runtime_sync_busy(|| {
+        host_b.store_artifact(
             test_session(&host_b).as_ref(),
             PrismArtifactArgs {
                 action: ArtifactActionInput::Propose,
@@ -574,11 +580,12 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     let artifact_id = artifact.artifact_id.clone().unwrap();
 
-    host_a
-        .store_artifact(
+    retry_on_runtime_sync_busy(|| {
+        host_a.store_artifact(
             test_session(&host_a).as_ref(),
             PrismArtifactArgs {
                 action: ArtifactActionInput::Review,
@@ -590,7 +597,8 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
 
     let reviewed_state = host_b
         .execute(
@@ -611,8 +619,8 @@ return {{
         "reviewed artifact did not reload into host_b: {reviewed_state:#?}"
     );
 
-    let completed = host_b
-        .store_coordination(
+    let completed = retry_on_runtime_sync_busy(|| {
+        host_b.store_coordination(
             test_session(&host_b).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::Update,
@@ -623,7 +631,8 @@ return {{
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     assert!(
         !completed.rejected,
         "completion unexpectedly rejected: {completed:#?}"

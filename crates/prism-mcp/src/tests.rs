@@ -1,5 +1,5 @@
 use std::fs;
-use std::sync::Arc;
+use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -2283,6 +2283,103 @@ fn mcp_plan_update_rehydrates_stale_coordination_runtime_before_mutating() {
         .unwrap();
     assert!(!result.rejected);
     assert_eq!(result.state["status"], "Abandoned");
+}
+
+#[test]
+fn mcp_plan_update_accepts_archived_status_and_archived_plan_rejects_new_claims() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Archive repo work" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id,
+                    "title": "Edit main",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::main",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    let abandoned = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanUpdate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "status": "abandoned",
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert!(!abandoned.rejected);
+    assert_eq!(abandoned.state["status"], "Abandoned");
+
+    let archived = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanUpdate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "status": "archived",
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert!(!archived.rejected);
+    assert_eq!(archived.state["status"], "Archived");
+
+    let rejected_claim = host
+        .store_claim(
+            test_session(&host).as_ref(),
+            PrismClaimArgs {
+                action: ClaimActionInput::Acquire,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::main",
+                        "kind": "function"
+                    }],
+                    "capability": "Edit",
+                    "mode": "SoftExclusive",
+                    "coordinationTaskId": task_id
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert!(rejected_claim.rejected);
+    assert!(rejected_claim
+        .violations
+        .iter()
+        .any(|violation| violation.code == "plan_closed"));
 }
 
 #[test]
@@ -9969,6 +10066,111 @@ fn compact_workset_for_product_surface_spec_headings_lifts_body_identifiers() {
 }
 
 #[test]
+fn spec_drift_validation_matrix_covers_current_spec_doc_patterns() {
+    let root = temp_workspace();
+    write_spec_drift_validation_matrix_workspace(&root);
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let cases = [
+        ("docs/SPEC.md", "11.2 Compact Default Tools", "prism_locate"),
+        (
+            "docs/DASHBOARD_IMPLEMENTATION_SPEC.md",
+            "Validation view",
+            "validation_feedback_view",
+        ),
+        (
+            "docs/CONTRACTS_SPEC.md",
+            "6.9 Contract Health",
+            "contract_health_report",
+        ),
+        (
+            "docs/PRISM_FIRST_CLASS_PLANS_SPEC.md",
+            "16.1 Ready node calculation",
+            "compute_ready_nodes",
+        ),
+        (
+            "docs/VALIDATION.md",
+            "8.7 PRISM MCP / Query Surface Validation",
+            "query_surface_validation_report",
+        ),
+    ];
+
+    let contains_fragment = |value: &Value, fragment: &str| {
+        value["path"]
+            .as_str()
+            .is_some_and(|path| path.contains(fragment))
+            || value["id"]["path"]
+                .as_str()
+                .is_some_and(|path| path.contains(fragment))
+            || value["symbol"]["id"]["path"]
+                .as_str()
+                .is_some_and(|path| path.contains(fragment))
+            || value["symbol"]["filePath"]
+                .as_str()
+                .is_some_and(|path| path.contains(fragment))
+    };
+
+    for (path, heading, expected_fragment) in cases {
+        let query = format!(
+            r#"
+const spec = prism.search({heading:?}, {{
+  path: {path:?},
+  kind: "markdown-heading",
+  limit: 1,
+}})[0];
+return spec ? {{
+  cluster: prism.specCluster(spec),
+  drift: prism.explainDrift(spec),
+}} : null;
+"#
+        );
+        let result = host
+            .execute(test_session(&host), &query, QueryLanguage::Ts)
+            .expect("query should succeed");
+        assert!(
+            !result.result.is_null(),
+            "expected a spec heading match for {path} / {heading}"
+        );
+        assert!(result.result["cluster"]["spec"].is_object());
+        assert!(result.result["drift"]["cluster"].is_object());
+        assert!(result.result["drift"]["expectations"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()));
+        assert!(result.result["drift"]["observations"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()));
+        assert!(result.result["drift"]["nextReads"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()));
+        assert!(result.result["cluster"]["tests"]
+            .as_array()
+            .is_some_and(|items| !items.is_empty()));
+
+        let surfaced = [
+            &result.result["cluster"]["implementations"],
+            &result.result["cluster"]["validations"],
+            &result.result["cluster"]["related"],
+            &result.result["cluster"]["readPath"],
+            &result.result["cluster"]["writePath"],
+            &result.result["cluster"]["persistencePath"],
+            &result.result["cluster"]["tests"],
+            &result.result["drift"]["nextReads"],
+        ]
+        .into_iter()
+        .any(|value| {
+            value.as_array().is_some_and(|items| {
+                items
+                    .iter()
+                    .any(|item| contains_fragment(item, expected_fragment))
+            })
+        });
+        assert!(
+            surfaced,
+            "expected {path} / {heading} to surface {expected_fragment}"
+        );
+    }
+}
+
+#[test]
 fn compact_open_for_product_surface_spec_headings_prefers_identifier_owners() {
     let root = temp_workspace();
     write_compact_default_tools_workspace(&root);
@@ -15105,8 +15307,28 @@ return prism.symbol("alpha")?.id.path ?? null;
     assert_eq!(freshness.last_refresh_path.as_deref(), Some("deferred"));
 }
 
+fn hold_runtime_sync_lock_for(
+    sync_lock: Arc<std::sync::Mutex<()>>,
+    duration: Duration,
+) -> thread::JoinHandle<()> {
+    let (ready_tx, ready_rx) = mpsc::channel();
+    let handle = thread::spawn(move || {
+        let _guard = sync_lock
+            .lock()
+            .expect("workspace runtime sync lock should be available");
+        ready_tx
+            .send(())
+            .expect("lock holder should signal readiness");
+        thread::sleep(duration);
+    });
+    ready_rx
+        .recv_timeout(Duration::from_secs(1))
+        .expect("lock holder should acquire the sync lock");
+    handle
+}
+
 #[test]
-fn persisted_only_mutations_fail_fast_when_runtime_sync_is_busy() {
+fn persisted_only_mutations_wait_for_runtime_sync_and_then_succeed() {
     let root = temp_workspace();
     let server = PrismMcpServer::with_session_and_features(
         index_workspace_session(&root).unwrap(),
@@ -15116,13 +15338,10 @@ fn persisted_only_mutations_fail_fast_when_runtime_sync_is_busy() {
         .host
         .workspace_runtime_binding()
         .expect("workspace runtime binding should exist");
-    let _sync_guard = binding
-        .sync_lock()
-        .lock()
-        .expect("workspace runtime sync lock should be available");
+    let release = hold_runtime_sync_lock_for(Arc::clone(binding.sync_lock()), Duration::from_millis(75));
 
     let started = Instant::now();
-    let error = server
+    let result = server
         .execute_logged_mutation(
             "mutate.outcome",
             MutationRefreshPolicy::PersistedOnly,
@@ -15151,13 +15370,18 @@ fn persisted_only_mutations_fail_fast_when_runtime_sync_is_busy() {
                 )
             },
         )
-        .expect_err("persisted-only mutation should fail fast while runtime sync is busy");
+        .expect("persisted-only mutation should wait for runtime sync and succeed");
+    release.join().expect("lock holder thread should finish");
 
     assert!(
-        started.elapsed() < Duration::from_millis(200),
+        started.elapsed() >= Duration::from_millis(50),
+        "persisted-only mutation should have waited briefly on the runtime sync lock"
+    );
+    assert!(
+        started.elapsed() < Duration::from_millis(1500),
         "persisted-only mutation spent too long waiting on the runtime sync lock"
     );
-    assert!(error.to_string().contains("request admission busy"));
+    assert!(!result.event_id.is_empty());
 
     let detail = server
         .host
@@ -15171,20 +15395,25 @@ fn persisted_only_mutations_fail_fast_when_runtime_sync_is_busy() {
         .iter()
         .find(|phase| phase.operation == "mutation.refreshWorkspace")
         .expect("refresh phase should exist");
-    assert!(!refresh_phase.success);
+    assert!(refresh_phase.success);
     let args = refresh_phase
         .args_summary
         .as_ref()
         .and_then(Value::as_object)
         .expect("refresh args should exist");
-    assert_eq!(
-        args.get("refreshPath"),
-        Some(&Value::String("busy".to_string()))
+    assert_ne!(args.get("refreshPath"), Some(&Value::String("busy".to_string())));
+    assert!(
+        args.get("metrics")
+            .and_then(Value::as_object)
+            .and_then(|metrics| metrics.get("lockWaitMs"))
+            .and_then(Value::as_u64)
+            .unwrap_or_default()
+            >= 50
     );
 }
 
 #[test]
-fn coordination_mutations_fail_fast_when_runtime_sync_is_busy() {
+fn coordination_mutations_wait_for_runtime_sync_and_then_succeed() {
     let root = temp_workspace();
     let server = PrismMcpServer::with_session_and_features(
         index_workspace_session(&root).unwrap(),
@@ -15194,13 +15423,10 @@ fn coordination_mutations_fail_fast_when_runtime_sync_is_busy() {
         .host
         .workspace_runtime_binding()
         .expect("workspace runtime binding should exist");
-    let _sync_guard = binding
-        .sync_lock()
-        .lock()
-        .expect("workspace runtime sync lock should be available");
+    let release = hold_runtime_sync_lock_for(Arc::clone(binding.sync_lock()), Duration::from_millis(75));
 
     let started = Instant::now();
-    let error = server
+    let result = server
         .execute_logged_mutation_with_run(
             "mutate.coordination",
             MutationRefreshPolicy::None,
@@ -15217,13 +15443,18 @@ fn coordination_mutations_fail_fast_when_runtime_sync_is_busy() {
             },
             |result| MutationDashboardMeta::coordination(result.event_ids.clone(), 0),
         )
-        .expect_err("coordination mutation should fail fast while runtime sync is busy");
+        .expect("coordination mutation should wait for runtime sync and succeed");
+    release.join().expect("lock holder thread should finish");
 
     assert!(
-        started.elapsed() < Duration::from_millis(200),
+        started.elapsed() >= Duration::from_millis(50),
+        "coordination mutation should have waited briefly on the runtime sync lock"
+    );
+    assert!(
+        started.elapsed() < Duration::from_millis(1500),
         "coordination mutation spent too long waiting on the runtime sync lock"
     );
-    assert!(error.to_string().contains("request admission busy"));
+    assert!(!result.rejected);
 
     let detail = server
         .host
@@ -15237,20 +15468,17 @@ fn coordination_mutations_fail_fast_when_runtime_sync_is_busy() {
         .iter()
         .find(|phase| phase.operation == "mutation.coordination.refreshWorkspace")
         .expect("coordination refresh phase should exist");
-    assert!(!refresh_phase.success);
+    assert!(refresh_phase.success);
     let args = refresh_phase
         .args_summary
         .as_ref()
         .and_then(Value::as_object)
         .expect("refresh args should exist");
-    assert_eq!(
-        args.get("refreshPath"),
-        Some(&Value::String("busy".to_string()))
-    );
+    assert_ne!(args.get("refreshPath"), Some(&Value::String("busy".to_string())));
 }
 
 #[test]
-fn claim_mutations_fail_fast_when_runtime_sync_is_busy() {
+fn claim_mutations_return_busy_after_runtime_sync_wait_timeout() {
     let root = temp_workspace();
     let server = PrismMcpServer::with_session_and_features(
         index_workspace_session(&root).unwrap(),
@@ -15292,10 +15520,8 @@ fn claim_mutations_fail_fast_when_runtime_sync_is_busy() {
         .host
         .workspace_runtime_binding()
         .expect("workspace runtime binding should exist");
-    let _sync_guard = binding
-        .sync_lock()
-        .lock()
-        .expect("workspace runtime sync lock should be available");
+    let release =
+        hold_runtime_sync_lock_for(Arc::clone(binding.sync_lock()), Duration::from_millis(1700));
     let started = Instant::now();
     let error = server
         .host
@@ -15317,10 +15543,15 @@ fn claim_mutations_fail_fast_when_runtime_sync_is_busy() {
                 task_id: None,
             },
         )
-        .expect_err("claim mutation should fail fast while runtime sync is busy");
+        .expect_err("claim mutation should return busy after the runtime sync wait times out");
+    release.join().expect("lock holder thread should finish");
 
     assert!(
-        started.elapsed() < Duration::from_millis(200),
+        started.elapsed() >= Duration::from_millis(1000),
+        "claim mutation should have waited before returning busy"
+    );
+    assert!(
+        started.elapsed() < Duration::from_millis(2200),
         "claim mutation spent too long waiting on the runtime sync lock"
     );
     assert!(error.to_string().contains("request admission busy"));

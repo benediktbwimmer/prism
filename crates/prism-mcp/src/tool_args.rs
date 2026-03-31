@@ -2280,6 +2280,7 @@ pub(crate) enum PlanStatusInput {
     Blocked,
     Completed,
     Abandoned,
+    Archived,
 }
 
 impl_vocab_deserialize!(
@@ -2292,7 +2293,8 @@ impl_vocab_deserialize!(
         "active" => Active,
         "blocked" => Blocked,
         "completed" => Completed,
-        "abandoned" => Abandoned
+        "abandoned" => Abandoned,
+        "archived" => Archived
     }
 );
 

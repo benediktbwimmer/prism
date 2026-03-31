@@ -668,6 +668,7 @@ pub(crate) fn parse_plan_status(value: &str) -> Result<PlanStatus> {
         "blocked" => Ok(PlanStatus::Blocked),
         "completed" => Ok(PlanStatus::Completed),
         "abandoned" => Ok(PlanStatus::Abandoned),
+        "archived" => Ok(PlanStatus::Archived),
         other => Err(anyhow!(vocabulary_error(
             "planStatus",
             "coordination plan status",
@@ -684,6 +685,7 @@ pub(crate) fn convert_plan_status(value: PlanStatusInput) -> PlanStatus {
         PlanStatusInput::Blocked => PlanStatus::Blocked,
         PlanStatusInput::Completed => PlanStatus::Completed,
         PlanStatusInput::Abandoned => PlanStatus::Abandoned,
+        PlanStatusInput::Archived => PlanStatus::Archived,
     }
 }
 

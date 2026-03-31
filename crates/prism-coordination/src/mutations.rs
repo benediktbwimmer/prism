@@ -13,8 +13,8 @@ use crate::helpers::{
     claim_is_active, claim_matches_worktree_scope, dedupe_anchors, dedupe_conflicts,
     dedupe_event_ids, dedupe_ids, dedupe_strings, derived_event_meta, editor_capacity_conflicts,
     expire_claims_locked, missing_validations_for_artifact, normalize_acceptance,
-    plan_policy_for_task, policy_violation, policy_violation_from_blocker, record_rejection,
-    simulate_conflicts, validate_plan_transition, validate_task_transition,
+    plan_policy_for_task, plan_status_is_closed, policy_violation, policy_violation_from_blocker,
+    record_rejection, simulate_conflicts, validate_plan_transition, validate_task_transition,
 };
 use crate::state::CoordinationState;
 use crate::state::CoordinationStore;
@@ -208,7 +208,7 @@ pub(crate) fn acquire_claim_mutation(
         .and_then(|plan_id| state.plans.get(plan_id))
         .cloned();
     if let Some(plan) = plan {
-        if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
+        if plan_status_is_closed(plan.status) {
             let violations = vec![policy_violation(
                 PolicyViolationCode::PlanClosed,
                 format!(
@@ -545,7 +545,7 @@ pub(crate) fn propose_artifact_mutation(
     };
     let plan = state.plans.get(&task.plan).cloned();
     if let Some(plan) = plan.as_ref() {
-        if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
+        if plan_status_is_closed(plan.status) {
             let violations = vec![policy_violation(
                 PolicyViolationCode::PlanClosed,
                 format!(
@@ -659,7 +659,7 @@ pub(crate) fn supersede_artifact_mutation(
         .and_then(|plan_id| state.plans.get(plan_id))
         .cloned();
     if let Some(plan) = plan {
-        if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
+        if plan_status_is_closed(plan.status) {
             let violations = vec![policy_violation(
                 PolicyViolationCode::PlanClosed,
                 format!(
@@ -733,7 +733,7 @@ pub(crate) fn review_artifact_mutation(
         (plan, artifact)
     };
     if let Some(plan) = plan.as_ref() {
-        if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
+        if plan_status_is_closed(plan.status) {
             let violations = vec![policy_violation(
                 PolicyViolationCode::PlanClosed,
                 format!(
@@ -942,11 +942,7 @@ pub(crate) fn update_plan_mutation(
         .get(&input.plan_id)
         .cloned()
         .ok_or_else(|| anyhow!("unknown plan `{}`", input.plan_id.0))?;
-    if matches!(
-        previous.status,
-        PlanStatus::Completed | PlanStatus::Abandoned
-    ) && (input.goal.is_some() || input.policy.is_some())
-    {
+    if plan_status_is_closed(previous.status) && (input.goal.is_some() || input.policy.is_some()) {
         let violations = vec![policy_violation(
             PolicyViolationCode::TerminalPlanEdit,
             format!(
@@ -1078,7 +1074,7 @@ pub(crate) fn create_task_mutation(
     let Some(plan) = state.plans.get(&input.plan_id).cloned() else {
         return Err(anyhow!("unknown plan `{}`", input.plan_id.0));
     };
-    if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
+    if plan_status_is_closed(plan.status) {
         let violations = vec![policy_violation(
             PolicyViolationCode::PlanClosed,
             format!(
@@ -1323,7 +1319,7 @@ pub(crate) fn update_task_mutation(
     let Some(plan) = state.plans.get(&previous.plan).cloned() else {
         return Err(anyhow!("unknown plan `{}`", previous.plan.0));
     };
-    if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
+    if plan_status_is_closed(plan.status) {
         let violations = vec![policy_violation(
             PolicyViolationCode::PlanClosed,
             format!(
@@ -1774,7 +1770,7 @@ pub(crate) fn handoff_mutation(
         state.plans.get(&task.plan).cloned()
     };
     if let Some(plan) = plan.as_ref() {
-        if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
+        if plan_status_is_closed(plan.status) {
             let violations = vec![policy_violation(
                 PolicyViolationCode::PlanClosed,
                 format!(
@@ -1948,7 +1944,7 @@ pub(crate) fn accept_handoff_mutation(
     let Some(plan) = state.plans.get(&previous.plan).cloned() else {
         return Err(anyhow!("unknown plan `{}`", previous.plan.0));
     };
-    if matches!(plan.status, PlanStatus::Completed | PlanStatus::Abandoned) {
+    if plan_status_is_closed(plan.status) {
         let violations = vec![policy_violation(
             PolicyViolationCode::PlanClosed,
             format!(

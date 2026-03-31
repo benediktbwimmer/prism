@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{Read, Write};
 use std::net::TcpStream;
@@ -95,7 +95,7 @@ pub(crate) fn runtime_status(host: &QueryHost) -> Result<RuntimeStatusView> {
     let bridges = select_kind(&processes, McpProcessKind::Bridge);
     let uri = read_uri_file(&paths.uri_file)?
         .or_else(|| daemons.iter().find_map(|process| process.http_uri.clone()));
-    let connected_bridge_pids = if !bridges.is_empty() && runtime_state.is_none() {
+    let connected_bridge_pids = if !bridges.is_empty() {
         uri.as_deref()
             .and_then(|uri| connected_process_ids_for_uri(uri).ok())
             .unwrap_or_default()
@@ -757,9 +757,10 @@ fn list_runtime_processes(
     state_processes: &[RuntimeProcessRecord],
 ) -> Result<Vec<McpProcess>> {
     if !state_processes.is_empty() {
-        let processes = runtime_state_processes(root, state_processes);
-        if !processes.is_empty() {
-            return Ok(processes);
+        if let Ok(processes) = runtime_state_processes(root, state_processes) {
+            if !processes.is_empty() {
+                return Ok(processes);
+            }
         }
     }
     list_processes(root)
@@ -768,32 +769,67 @@ fn list_runtime_processes(
 fn runtime_state_processes(
     root: &Path,
     state_processes: &[RuntimeProcessRecord],
-) -> Vec<McpProcess> {
-    state_processes
+) -> Result<Vec<McpProcess>> {
+    let pids = state_processes
         .iter()
-        .filter(|record| pid_is_live(record.pid))
-        .filter_map(|record| {
-            let kind = process_kind(record.kind.as_str())?;
-            Some(McpProcess {
-                pid: record.pid,
-                ppid: 0,
-                rss_kb: 0,
-                elapsed: elapsed_since(record.started_at),
-                command: format!("prism-mcp --mode {} --root {}", record.kind, root.display()),
-                kind,
-                health_path: record.health_path.clone(),
-                http_uri: record.http_uri.clone(),
-            })
-        })
-        .collect()
+        .map(|record| record.pid.to_string())
+        .collect::<Vec<_>>();
+    if pids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let output = Command::new("ps")
+        .args(["-p", &pids.join(","), "-o", "pid=,ppid=,rss=,etime=,command="])
+        .output()
+        .context("failed to inspect runtime-state processes with ps")?;
+    if !output.status.success() {
+        bail!(
+            "ps failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+
+    let mut parsed_by_pid = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(parse_ps_line)
+        .map(|process| (process.pid, process))
+        .collect::<BTreeMap<_, _>>();
+    let mut processes = Vec::new();
+    for record in state_processes {
+        let Some(mut process) = parsed_by_pid.remove(&record.pid).or_else(|| {
+            synthetic_test_runtime_process(root, record)
+        }) else {
+            continue;
+        };
+        if !matches_prism_process_command(process.pid, &process.command, root, &record.kind) {
+            continue;
+        }
+        process.health_path = process
+            .health_path
+            .or_else(|| record.health_path.clone());
+        process.http_uri = record.http_uri.clone();
+        processes.push(process);
+    }
+    Ok(processes)
 }
 
-fn pid_is_live(pid: u32) -> bool {
-    let result = unsafe { libc::kill(pid as i32, 0) };
-    if result == 0 {
-        return true;
+fn synthetic_test_runtime_process(
+    root: &Path,
+    record: &RuntimeProcessRecord,
+) -> Option<McpProcess> {
+    if !(cfg!(test) && record.pid == std::process::id() && record.kind == "daemon") {
+        return None;
     }
-    std::io::Error::last_os_error().raw_os_error() != Some(libc::ESRCH)
+    Some(McpProcess {
+        pid: record.pid,
+        ppid: 0,
+        rss_kb: 0,
+        elapsed: elapsed_since(record.started_at),
+        command: format!("prism-mcp --mode {} --root {}", record.kind, root.display()),
+        kind: McpProcessKind::Daemon,
+        health_path: record.health_path.clone(),
+        http_uri: record.http_uri.clone(),
+    })
 }
 
 fn list_processes(root: &Path) -> Result<Vec<McpProcess>> {
@@ -1007,21 +1043,15 @@ fn elapsed_since(started_at: u64) -> String {
     }
 }
 
-fn process_kind(kind: &str) -> Option<McpProcessKind> {
-    match kind {
-        "daemon" => Some(McpProcessKind::Daemon),
-        "bridge" => Some(McpProcessKind::Bridge),
-        _ => None,
-    }
-}
-
-#[cfg(test)]
 fn matches_prism_process_command(pid: u32, command: &str, root: &Path, kind: &str) -> bool {
-    if pid == std::process::id() && kind == "daemon" {
+    if cfg!(test) && pid == std::process::id() && kind == "daemon" {
         return true;
     }
+    let Some(command_root) = command_option_value(command, "--root") else {
+        return false;
+    };
     command.contains("prism-mcp")
-        && command.contains(&format!("--root {}", root.display()))
+        && Path::new(&command_root) == root
         && command_option_value(command, "--mode").as_deref() == Some(kind)
 }
 

@@ -62,6 +62,7 @@ where
 enum PublishedPlanEventKind {
     PlanCreated,
     PlanUpdated,
+    PlanArchived,
     NodeAdded,
     NodeUpdated,
     NodeRemoved,
@@ -807,9 +808,18 @@ fn append_plan_delta_events(
     let mut events = Vec::new();
     let previous_header = previous_record.map(|record| &record.header);
     if previous_header != Some(header) {
+        let kind = if previous_header
+            .map(|previous| previous.status != PlanStatus::Archived)
+            .unwrap_or(false)
+            && header.status == PlanStatus::Archived
+        {
+            PublishedPlanEventKind::PlanArchived
+        } else {
+            PublishedPlanEventKind::PlanUpdated
+        };
         events.push(PublishedPlanEvent {
             event_id: next_published_event_id(&header.id, &mut sequence),
-            kind: PublishedPlanEventKind::PlanUpdated,
+            kind,
             plan_id: header.id.clone(),
             node_id: None,
             edge_id: None,
@@ -1146,7 +1156,7 @@ fn legacy_dependency_edges_for_task(task: &LegacyPublishedPlanNode) -> Vec<PlanE
 }
 
 fn relative_plan_log_path(status: PlanStatus, plan_id: &PlanId) -> PathBuf {
-    let base = if matches!(status, PlanStatus::Completed | PlanStatus::Abandoned) {
+    let base = if matches!(status, PlanStatus::Archived) {
         PathBuf::from(".prism").join("plans").join("archived")
     } else {
         PathBuf::from(".prism").join("plans").join("active")

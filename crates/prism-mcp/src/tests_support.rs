@@ -409,6 +409,92 @@ pub(crate) fn write_compact_default_tools_workspace(root: &Path) {
     .unwrap();
 }
 
+pub(crate) fn write_spec_drift_validation_matrix_workspace(root: &Path) {
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::create_dir_all(root.join("tests")).unwrap();
+    fs::write(
+        root.join("docs/SPEC.md"),
+        "# PRISM\n\n## 11.2 Compact Default Tools\n\nThe compact default tools are `prism_locate`, `prism_open`, `prism_workset`, and `prism_expand`.\nThese tools should stay compact and chain through handles.\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("docs/DASHBOARD_IMPLEMENTATION_SPEC.md"),
+        "# Dashboard\n\n## Validation view\n\nThe validation view should surface `validation_feedback_view` and keep `store_validation_feedback` connected to live trust metrics.\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("docs/CONTRACTS_SPEC.md"),
+        "# Contracts\n\n## 6.9 Contract Health\n\nContract health should surface `contract_health_report` and persist durable state through `persist_contract_health`.\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("docs/PRISM_FIRST_CLASS_PLANS_SPEC.md"),
+        "# Plans\n\n### 16.1 Ready node calculation\n\nReady node calculation should rely on `compute_ready_nodes` and hydrate overlays through `hydrate_plan_overlay`.\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("docs/VALIDATION.md"),
+        "# Validation\n\n### 8.7 PRISM MCP / Query Surface Validation\n\nThe query validation path should report through `query_surface_validation_report` and persist feedback with `persist_validation_feedback`.\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "mod compact_tools;\nmod contracts;\nmod dashboard;\nmod plans;\nmod validation;\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/compact_tools.rs"),
+        "pub fn prism_locate() {}\npub fn prism_open() {}\npub fn prism_workset() {}\npub fn prism_expand() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/dashboard.rs"),
+        "pub fn validation_feedback_view() {}\n\npub fn store_validation_feedback() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/contracts.rs"),
+        "pub fn contract_health_report() {}\n\npub fn persist_contract_health() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/plans.rs"),
+        "pub fn compute_ready_nodes() {}\n\npub fn hydrate_plan_overlay() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/validation.rs"),
+        "pub fn query_surface_validation_report() {}\n\npub fn persist_validation_feedback() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("tests/compact_tools.rs"),
+        "#[test]\nfn compact_default_tools_stay_compact() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("tests/dashboard_validation.rs"),
+        "#[test]\nfn validation_view_stays_connected() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("tests/contracts_health.rs"),
+        "#[test]\nfn contract_health_retains_persistence_signal() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("tests/plans_ready_nodes.rs"),
+        "#[test]\nfn ready_node_calculation_remains_grounded() {}\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("tests/query_surface_validation.rs"),
+        "#[test]\nfn query_surface_validation_keeps_feedback_paths() {}\n",
+    )
+    .unwrap();
+}
+
 pub(crate) fn write_long_excerpt_workspace(root: &Path) {
     fs::create_dir_all(root.join("docs")).unwrap();
     fs::create_dir_all(root.join("src")).unwrap();

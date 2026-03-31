@@ -4089,6 +4089,132 @@ fn repo_published_plan_logs_append_deltas_instead_of_rewriting_full_state() {
 }
 
 #[test]
+fn repo_published_plans_archive_transition_emits_archive_event_and_moves_log() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let plan_id = session
+        .mutate_coordination(|prism| {
+            prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:archive-plan"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:archive-plan")),
+                    causation: None,
+                },
+                "Archive published plan logs explicitly".into(),
+                None,
+                Some(Default::default()),
+            )
+        })
+        .unwrap();
+
+    let active_log_path = root
+        .join(".prism")
+        .join("plans")
+        .join("active")
+        .join(format!("{}.jsonl", plan_id.0));
+    let archived_log_path = root
+        .join(".prism")
+        .join("plans")
+        .join("archived")
+        .join(format!("{}.jsonl", plan_id.0));
+
+    session
+        .mutate_coordination(|prism| {
+            prism.update_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:archive-plan-abandon"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:archive-plan")),
+                    causation: None,
+                },
+                &plan_id,
+                Some(prism_ir::PlanStatus::Abandoned),
+                None,
+                None,
+            )
+        })
+        .unwrap();
+    assert!(
+        active_log_path.exists(),
+        "abandoned plans should remain under the active log directory until archived"
+    );
+    assert!(
+        !archived_log_path.exists(),
+        "archive storage should not move on abandonment alone"
+    );
+    let abandoned_log = fs::read_to_string(&active_log_path).unwrap();
+    assert!(
+        abandoned_log.contains("\"kind\":\"plan_updated\""),
+        "abandoning the plan should stay a normal plan update"
+    );
+
+    session
+        .mutate_coordination(|prism| {
+            prism.update_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:archive-plan-archive"),
+                    ts: 3,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:archive-plan")),
+                    causation: None,
+                },
+                &plan_id,
+                Some(prism_ir::PlanStatus::Archived),
+                None,
+                None,
+            )
+        })
+        .unwrap();
+
+    assert!(
+        !active_log_path.exists(),
+        "archived plans should move out of the active log directory"
+    );
+    assert!(
+        archived_log_path.exists(),
+        "archived plans should persist under the archived log directory"
+    );
+    let archived_log = fs::read_to_string(&archived_log_path).unwrap();
+    assert!(
+        archived_log.contains("\"kind\":\"plan_archived\""),
+        "archiving the plan should emit a first-class archive event"
+    );
+
+    let index_contents = fs::read_to_string(root.join(".prism").join("plans").join("index.jsonl"))
+        .unwrap();
+    assert!(index_contents.contains(&format!(
+        "\"log_path\":\".prism/plans/archived/{}.jsonl\"",
+        plan_id.0
+    )));
+
+    drop(session);
+    fs::remove_file(root.join(".prism").join("cache.db")).unwrap();
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let snapshot = reloaded
+        .load_coordination_snapshot()
+        .unwrap()
+        .expect("archived published plans should hydrate a coordination snapshot");
+    assert!(snapshot
+        .plans
+        .iter()
+        .any(|plan| plan.id == plan_id && plan.status == prism_ir::PlanStatus::Archived));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn refresh_fs_skips_reindex_when_workspace_is_clean() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
