@@ -558,6 +558,7 @@ impl WorkspaceSession {
             &self.root,
             current_prism.as_ref(),
             Some(cached_snapshot.clone()),
+            self.checkpoint_materializer.clone(),
             crate::WorkspaceSessionOptions {
                 coordination: self.coordination_enabled,
                 shared_runtime: self.shared_runtime.sqlite_path().map_or(
@@ -2071,6 +2072,7 @@ impl WorkspaceSession {
             &self.refresh_state,
             &self.loaded_workspace_revision,
             &self.fs_snapshot,
+            self.checkpoint_materializer.clone(),
             self.coordination_enabled,
             curator.as_ref(),
             trigger,
@@ -2092,6 +2094,7 @@ impl WorkspaceSession {
             &self.refresh_state,
             &self.loaded_workspace_revision,
             &self.fs_snapshot,
+            self.checkpoint_materializer.clone(),
             self.coordination_enabled,
             self.curator.as_ref().map(CuratorHandleRef::from).as_ref(),
             trigger,

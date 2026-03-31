@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
+use crate::checkpoint_materializer::CheckpointMaterializerHandle;
 use crate::concept_events::load_repo_curated_concepts;
 use crate::concept_relation_events::load_repo_concept_relations;
 use crate::contract_events::load_repo_curated_contracts;
@@ -74,6 +75,7 @@ pub struct WorkspaceIndexer<S: Store> {
     pub(crate) had_projection_snapshot: bool,
     pub(crate) adapters: Vec<Box<dyn LanguageAdapter + Send + Sync>>,
     pub(crate) store: S,
+    pub(crate) checkpoint_materializer: Option<CheckpointMaterializerHandle>,
     pub(crate) workspace_tree_snapshot: Option<WorkspaceTreeSnapshot>,
     pub(crate) shared_runtime: SharedRuntimeBackend,
     pub(crate) shared_runtime_store: Option<SqliteStore>,
@@ -157,10 +159,11 @@ impl WorkspaceIndexer<SqliteStore> {
         Ok(indexer)
     }
 
-    pub fn new_from_live_prism_with_options(
+    pub(crate) fn new_from_live_prism_with_options(
         root: impl AsRef<Path>,
         prism: &Prism,
         workspace_tree_snapshot: Option<WorkspaceTreeSnapshot>,
+        checkpoint_materializer: Option<CheckpointMaterializerHandle>,
         options: WorkspaceSessionOptions,
     ) -> Result<Self> {
         let root = root.as_ref().canonicalize()?;
@@ -171,6 +174,7 @@ impl WorkspaceIndexer<SqliteStore> {
             store,
             prism,
             workspace_tree_snapshot,
+            checkpoint_materializer,
             options.clone(),
         )?;
         let shared_runtime_store = match &options.shared_runtime {
@@ -214,11 +218,12 @@ impl<S: Store> WorkspaceIndexer<S> {
         Self::with_store_and_options(root, store, WorkspaceSessionOptions::default())
     }
 
-    pub fn with_live_prism_and_options(
+    pub(crate) fn with_live_prism_and_options(
         root: impl AsRef<Path>,
         store: S,
         prism: &Prism,
         workspace_tree_snapshot: Option<WorkspaceTreeSnapshot>,
+        checkpoint_materializer: Option<CheckpointMaterializerHandle>,
         options: WorkspaceSessionOptions,
     ) -> Result<Self> {
         let started = Instant::now();
@@ -284,6 +289,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             had_projection_snapshot: true,
             adapters: default_adapters(),
             store,
+            checkpoint_materializer,
             workspace_tree_snapshot,
             shared_runtime,
             shared_runtime_store: None,
@@ -403,6 +409,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             had_projection_snapshot,
             adapters: default_adapters(),
             store,
+            checkpoint_materializer: None,
             workspace_tree_snapshot,
             shared_runtime: options.shared_runtime,
             shared_runtime_store: None,
@@ -838,16 +845,33 @@ impl<S: Store> WorkspaceIndexer<S> {
                 self.workspace_tree_snapshot.as_ref(),
             )?),
         };
+        let deferred_materializer = self.checkpoint_materializer.clone();
         let batch = IndexPersistBatch {
             upserted_paths,
             removed_paths,
             history_snapshot: self.history.snapshot(),
             history_delta,
             outcome_snapshot: self.outcomes.snapshot(),
-            co_change_deltas,
-            validation_deltas,
-            projection_snapshot,
-            workspace_tree_snapshot: workspace_tree_snapshot.clone(),
+            co_change_deltas: if deferred_materializer.is_some() {
+                Vec::new()
+            } else {
+                co_change_deltas.clone()
+            },
+            validation_deltas: if deferred_materializer.is_some() {
+                Vec::new()
+            } else {
+                validation_deltas.clone()
+            },
+            projection_snapshot: if deferred_materializer.is_some() {
+                None
+            } else {
+                projection_snapshot.clone()
+            },
+            workspace_tree_snapshot: if deferred_materializer.is_some() {
+                None
+            } else {
+                workspace_tree_snapshot.clone()
+            },
         };
         let skip_persist = self.had_prior_snapshot
             && self.had_projection_snapshot
@@ -883,6 +907,48 @@ impl<S: Store> WorkspaceIndexer<S> {
             );
             persist_ms
         };
+        if let Some(materializer) = deferred_materializer {
+            let materialize_started = Instant::now();
+            let projection_result = if let Some(snapshot) = projection_snapshot.clone() {
+                materializer.enqueue_projection_snapshot(snapshot)
+            } else {
+                materializer
+                    .enqueue_projection_deltas(co_change_deltas.clone(), validation_deltas.clone())
+            };
+            let tree_result = workspace_tree_snapshot
+                .clone()
+                .map(|snapshot| materializer.enqueue_workspace_tree_snapshot(snapshot))
+                .unwrap_or(Ok(()));
+            let enqueue_result = projection_result.and(tree_result);
+            if let Err(error) = enqueue_result {
+                if let Some(snapshot) = projection_snapshot.as_ref() {
+                    self.store.save_projection_snapshot(snapshot)?;
+                } else {
+                    self.store
+                        .apply_projection_deltas(&co_change_deltas, &validation_deltas)?;
+                }
+                if let Some(snapshot) = workspace_tree_snapshot.as_ref() {
+                    self.store.save_workspace_tree_snapshot(snapshot)?;
+                }
+                warn!(
+                    root = %self.root.display(),
+                    error = %error,
+                    materialize_ms = materialize_started.elapsed().as_millis(),
+                    "failed to enqueue prism index materializations; fell back to synchronous persistence"
+                );
+            } else {
+                info!(
+                    root = %self.root.display(),
+                    targeted_refresh,
+                    refresh_scope_path_count,
+                    dependency_refresh_scope_path_count,
+                    co_change_delta_count,
+                    validation_delta_count,
+                    materialize_ms = materialize_started.elapsed().as_millis(),
+                    "deferred prism index projection and workspace-tree materializations"
+                );
+            }
+        }
         let reanchor_started = Instant::now();
         reanchor_persisted_memory_snapshot(&mut self.store, &all_lineage_events)?;
         if let Some(shared_runtime_store) = self.shared_runtime_store.as_mut() {

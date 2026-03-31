@@ -578,7 +578,18 @@ impl Store for SqliteStore {
     ) -> Result<()> {
         let tx = self.conn.transaction()?;
         projections::save_projection_snapshot_tx(&tx, snapshot)?;
-        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    fn apply_projection_deltas(
+        &mut self,
+        co_change_deltas: &[prism_projections::CoChangeDelta],
+        validation_deltas: &[prism_projections::ValidationDelta],
+    ) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        projections::apply_projection_co_change_deltas_tx(&tx, co_change_deltas)?;
+        projections::apply_projection_validation_deltas_tx(&tx, validation_deltas)?;
         tx.commit()?;
         Ok(())
     }
@@ -590,7 +601,6 @@ impl Store for SqliteStore {
     fn save_workspace_tree_snapshot(&mut self, snapshot: &WorkspaceTreeSnapshot) -> Result<()> {
         let tx = self.conn.transaction()?;
         snapshots::save_snapshot_row_tx(&tx, "workspace_tree", snapshot)?;
-        bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
         tx.commit()?;
         Ok(())
     }

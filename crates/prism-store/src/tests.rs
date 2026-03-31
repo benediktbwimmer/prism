@@ -1564,6 +1564,114 @@ fn sqlite_store_apply_validation_deltas_materializes_without_bumping_workspace_r
 }
 
 #[test]
+fn sqlite_store_apply_projection_deltas_materializes_without_bumping_workspace_revision() {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!("prism-store-apply-projection-deltas-{nanos}.db"));
+    let mut store = SqliteStore::open(&path).unwrap();
+    let base_revision = store.workspace_revision().unwrap();
+
+    store
+        .apply_projection_deltas(
+            &[CoChangeDelta {
+                source_lineage: prism_ir::LineageId::new("lineage:alpha"),
+                target_lineage: prism_ir::LineageId::new("lineage:beta"),
+                count_delta: 3,
+            }],
+            &[ValidationDelta {
+                lineage: prism_ir::LineageId::new("lineage:alpha"),
+                label: "test:smoke".to_string(),
+                score_delta: 2.5,
+                last_seen: 41,
+            }],
+        )
+        .unwrap();
+
+    assert_eq!(store.workspace_revision().unwrap(), base_revision);
+    assert_eq!(
+        store.load_projection_snapshot().unwrap(),
+        Some(ProjectionSnapshot {
+            co_change_by_lineage: vec![(
+                prism_ir::LineageId::new("lineage:alpha"),
+                vec![CoChangeRecord {
+                    lineage: prism_ir::LineageId::new("lineage:beta"),
+                    count: 3,
+                }],
+            )],
+            validation_by_lineage: vec![(
+                prism_ir::LineageId::new("lineage:alpha"),
+                vec![ValidationCheck {
+                    label: "test:smoke".to_string(),
+                    score: 2.5,
+                    last_seen: 41,
+                }],
+            )],
+            curated_concepts: Vec::new(),
+            concept_relations: Vec::new(),
+        })
+    );
+}
+
+#[test]
+fn sqlite_store_checkpoint_snapshots_do_not_bump_workspace_revision() {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-checkpoint-snapshot-revision-{nanos}.db"
+    ));
+    let mut store = SqliteStore::open(&path).unwrap();
+    let base_revision = store.workspace_revision().unwrap();
+
+    store
+        .save_projection_snapshot(&ProjectionSnapshot {
+            co_change_by_lineage: vec![(
+                prism_ir::LineageId::new("lineage:alpha"),
+                vec![CoChangeRecord {
+                    lineage: prism_ir::LineageId::new("lineage:beta"),
+                    count: 1,
+                }],
+            )],
+            validation_by_lineage: Vec::new(),
+            curated_concepts: Vec::new(),
+            concept_relations: Vec::new(),
+        })
+        .unwrap();
+    store
+        .save_workspace_tree_snapshot(&WorkspaceTreeSnapshot {
+            root_hash: 7,
+            files: vec![(
+                PathBuf::from("src/lib.rs"),
+                WorkspaceTreeFileFingerprint {
+                    len: 12,
+                    modified_ns: Some(1),
+                    changed_ns: Some(1),
+                    content_hash: 42,
+                },
+            )]
+            .into_iter()
+            .collect(),
+            directories: vec![(
+                PathBuf::from("src"),
+                WorkspaceTreeDirectoryFingerprint {
+                    aggregate_hash: 43,
+                    file_count: 1,
+                    modified_ns: Some(1),
+                    changed_ns: Some(1),
+                },
+            )]
+            .into_iter()
+            .collect(),
+        })
+        .unwrap();
+
+    assert_eq!(store.workspace_revision().unwrap(), base_revision);
+}
+
+#[test]
 fn sqlite_store_commits_auxiliary_batches_atomically() {
     let path = std::env::temp_dir().join(format!(
         "prism-store-aux-batch-test-{}.db",

@@ -103,6 +103,11 @@ pub trait MaterializationStore {
     fn save_inference_snapshot(&mut self, snapshot: &prism_agent::InferenceSnapshot) -> Result<()>;
     fn load_projection_snapshot(&mut self) -> Result<Option<ProjectionSnapshot>>;
     fn save_projection_snapshot(&mut self, snapshot: &ProjectionSnapshot) -> Result<()>;
+    fn apply_projection_deltas(
+        &mut self,
+        co_change_deltas: &[CoChangeDelta],
+        validation_deltas: &[ValidationDelta],
+    ) -> Result<()>;
     fn load_workspace_tree_snapshot(&mut self) -> Result<Option<WorkspaceTreeSnapshot>>;
     fn save_workspace_tree_snapshot(&mut self, snapshot: &WorkspaceTreeSnapshot) -> Result<()>;
     fn load_curator_snapshot(&mut self) -> Result<Option<prism_curator::CuratorSnapshot>>;
@@ -288,6 +293,14 @@ impl<T: Store + ?Sized> MaterializationStore for T {
 
     fn save_projection_snapshot(&mut self, snapshot: &ProjectionSnapshot) -> Result<()> {
         Store::save_projection_snapshot(self, snapshot)
+    }
+
+    fn apply_projection_deltas(
+        &mut self,
+        co_change_deltas: &[CoChangeDelta],
+        validation_deltas: &[ValidationDelta],
+    ) -> Result<()> {
+        Store::apply_projection_deltas(self, co_change_deltas, validation_deltas)
     }
 
     fn load_workspace_tree_snapshot(&mut self) -> Result<Option<WorkspaceTreeSnapshot>> {

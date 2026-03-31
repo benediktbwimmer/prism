@@ -102,6 +102,7 @@ pub(crate) fn build_workspace_session(
         Arc::clone(&refresh_state),
         Arc::clone(&loaded_workspace_revision),
         Arc::clone(&fs_snapshot),
+        Some(checkpoint_materializer.clone()),
         coordination_enabled,
         Some(CuratorHandleRef::from(&curator)),
     )?);

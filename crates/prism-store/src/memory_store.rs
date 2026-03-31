@@ -255,6 +255,23 @@ impl Store for MemoryStore {
         Ok(())
     }
 
+    fn apply_projection_deltas(
+        &mut self,
+        co_change_deltas: &[prism_projections::CoChangeDelta],
+        validation_deltas: &[prism_projections::ValidationDelta],
+    ) -> anyhow::Result<()> {
+        if co_change_deltas.is_empty() && validation_deltas.is_empty() {
+            return Ok(());
+        }
+        let mut snapshot = self.projection_snapshot.clone().unwrap_or_default();
+        let mut index = ProjectionIndex::from_snapshot(snapshot);
+        index.apply_co_change_deltas(co_change_deltas);
+        index.apply_validation_deltas(validation_deltas);
+        snapshot = index.snapshot();
+        self.projection_snapshot = Some(snapshot);
+        Ok(())
+    }
+
     fn load_workspace_tree_snapshot(&mut self) -> anyhow::Result<Option<WorkspaceTreeSnapshot>> {
         Ok(self.workspace_tree_snapshot.clone())
     }

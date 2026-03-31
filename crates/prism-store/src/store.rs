@@ -180,6 +180,11 @@ pub trait Store {
     fn save_inference_snapshot(&mut self, snapshot: &InferenceSnapshot) -> Result<()>;
     fn load_projection_snapshot(&mut self) -> Result<Option<ProjectionSnapshot>>;
     fn save_projection_snapshot(&mut self, snapshot: &ProjectionSnapshot) -> Result<()>;
+    fn apply_projection_deltas(
+        &mut self,
+        co_change_deltas: &[CoChangeDelta],
+        validation_deltas: &[ValidationDelta],
+    ) -> Result<()>;
     fn load_workspace_tree_snapshot(&mut self) -> Result<Option<WorkspaceTreeSnapshot>>;
     fn save_workspace_tree_snapshot(&mut self, snapshot: &WorkspaceTreeSnapshot) -> Result<()>;
     fn load_curator_snapshot(&mut self) -> Result<Option<CuratorSnapshot>>;
