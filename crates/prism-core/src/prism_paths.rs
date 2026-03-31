@@ -1,0 +1,253 @@
+use std::env;
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use anyhow::{anyhow, Context, Result};
+
+use crate::workspace_identity::workspace_identity_for_root;
+
+const PRISM_HOME_ENV: &str = "PRISM_HOME";
+const SESSION_SEED_FILE_NAME: &str = "prism-mcp-session-seed.json";
+
+#[derive(Debug, Clone)]
+pub struct PrismPaths {
+    repo_prism_dir: PathBuf,
+    repo_home_dir: PathBuf,
+    shared_runtime_dir: PathBuf,
+    shared_runtime_db_path: PathBuf,
+    shared_backups_dir: PathBuf,
+    feedback_dir: PathBuf,
+    validation_feedback_path: PathBuf,
+    worktree_dir: PathBuf,
+    worktree_mcp_state_dir: PathBuf,
+    worktree_mcp_logs_dir: PathBuf,
+}
+
+impl PrismPaths {
+    pub fn for_workspace_root(root: &Path) -> Result<Self> {
+        let canonical_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+        let identity = workspace_identity_for_root(&canonical_root);
+        let home_root = prism_home_root()?;
+        let repo_home_dir = home_root.join("repos").join(storage_component(&identity.repo_id));
+        let worktree_dir = repo_home_dir
+            .join("worktrees")
+            .join(storage_component(&identity.worktree_id));
+        let shared_runtime_dir = repo_home_dir.join("shared").join("runtime");
+        let feedback_dir = repo_home_dir.join("feedback");
+        let worktree_mcp_state_dir = worktree_dir.join("mcp").join("state");
+        let worktree_mcp_logs_dir = worktree_dir.join("mcp").join("logs");
+        Ok(Self {
+            repo_prism_dir: canonical_root.join(".prism"),
+            shared_runtime_db_path: shared_runtime_dir.join("state.db"),
+            shared_backups_dir: repo_home_dir.join("shared").join("backups"),
+            validation_feedback_path: feedback_dir.join("validation_feedback.jsonl"),
+            repo_home_dir,
+            shared_runtime_dir,
+            feedback_dir,
+            worktree_dir,
+            worktree_mcp_state_dir,
+            worktree_mcp_logs_dir,
+        })
+    }
+
+    pub fn repo_prism_dir(&self) -> &Path {
+        &self.repo_prism_dir
+    }
+
+    pub fn repo_home_dir(&self) -> &Path {
+        &self.repo_home_dir
+    }
+
+    pub fn shared_runtime_dir(&self) -> &Path {
+        &self.shared_runtime_dir
+    }
+
+    pub fn shared_backups_dir(&self) -> &Path {
+        &self.shared_backups_dir
+    }
+
+    pub fn feedback_dir(&self) -> &Path {
+        &self.feedback_dir
+    }
+
+    pub fn worktree_dir(&self) -> &Path {
+        &self.worktree_dir
+    }
+
+    pub fn worktree_mcp_state_dir(&self) -> &Path {
+        &self.worktree_mcp_state_dir
+    }
+
+    pub fn worktree_mcp_logs_dir(&self) -> &Path {
+        &self.worktree_mcp_logs_dir
+    }
+
+    pub fn shared_runtime_db_path(&self) -> Result<PathBuf> {
+        fs::create_dir_all(&self.shared_runtime_dir)
+            .with_context(|| format!("failed to create {}", self.shared_runtime_dir.display()))?;
+        migrate_legacy_sqlite_store(
+            &self.shared_runtime_db_path,
+            &self.repo_prism_dir.join("cache.db"),
+        )?;
+        migrate_legacy_backups(
+            &self.shared_backups_dir,
+            &self.repo_prism_dir.join("backups"),
+            "cache.db",
+            "state.db",
+        )?;
+        Ok(self.shared_runtime_db_path.clone())
+    }
+
+    pub fn validation_feedback_path(&self) -> Result<PathBuf> {
+        migrate_legacy_file(
+            &self.validation_feedback_path,
+            &self.repo_prism_dir.join("validation_feedback.jsonl"),
+        )?;
+        Ok(self.validation_feedback_path.clone())
+    }
+
+    pub fn mcp_http_uri_path(&self) -> Result<PathBuf> {
+        let path = self.worktree_mcp_state_dir.join("prism-mcp-http-uri");
+        migrate_legacy_file(&path, &self.repo_prism_dir.join("prism-mcp-http-uri"))?;
+        Ok(path)
+    }
+
+    pub fn mcp_runtime_state_path(&self) -> Result<PathBuf> {
+        let path = self.worktree_mcp_state_dir.join("prism-mcp-runtime.json");
+        migrate_legacy_file(&path, &self.repo_prism_dir.join("prism-mcp-runtime.json"))?;
+        Ok(path)
+    }
+
+    pub fn mcp_session_seed_path(&self) -> Result<PathBuf> {
+        let path = self.worktree_mcp_state_dir.join(SESSION_SEED_FILE_NAME);
+        migrate_legacy_file(&path, &self.repo_prism_dir.join(SESSION_SEED_FILE_NAME))?;
+        Ok(path)
+    }
+
+    pub fn mcp_startup_marker_path(&self) -> Result<PathBuf> {
+        let path = self.worktree_mcp_state_dir.join("prism-mcp-startup");
+        migrate_legacy_file(&path, &self.repo_prism_dir.join("prism-mcp-startup"))?;
+        Ok(path)
+    }
+
+    pub fn mcp_daemon_log_path(&self) -> Result<PathBuf> {
+        let path = self.worktree_mcp_logs_dir.join("prism-mcp-daemon.log");
+        migrate_legacy_file(&path, &self.repo_prism_dir.join("prism-mcp-daemon.log"))?;
+        Ok(path)
+    }
+
+    pub fn mcp_call_log_path(&self) -> Result<PathBuf> {
+        let path = self.worktree_mcp_logs_dir.join("prism-mcp-call-log.jsonl");
+        migrate_legacy_file(&path, &self.repo_prism_dir.join("prism-mcp-call-log.jsonl"))?;
+        Ok(path)
+    }
+}
+
+fn prism_home_root() -> Result<PathBuf> {
+    if let Some(override_dir) = env::var_os(PRISM_HOME_ENV) {
+        return Ok(PathBuf::from(override_dir));
+    }
+    let home = env::var_os("HOME")
+        .map(PathBuf::from)
+        .ok_or_else(|| anyhow!("could not resolve home directory; set PRISM_HOME"))?;
+    Ok(home.join(".prism"))
+}
+
+fn storage_component(id: &str) -> String {
+    id.chars()
+        .map(|ch| match ch {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '-' | '_' => ch,
+            _ => '-',
+        })
+        .collect()
+}
+
+fn migrate_legacy_file(target: &Path, legacy: &Path) -> Result<()> {
+    if target.exists() || !legacy.exists() {
+        return Ok(());
+    }
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
+    }
+    rename_or_copy(legacy, target)
+}
+
+fn migrate_legacy_sqlite_store(target: &Path, legacy: &Path) -> Result<()> {
+    let legacy_exists = ["", "-shm", "-wal"]
+        .into_iter()
+        .map(|suffix| with_suffix(legacy, suffix))
+        .any(|path| path.exists());
+    if !legacy_exists || target.exists() {
+        return Ok(());
+    }
+    if let Some(parent) = target.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
+    }
+    for suffix in ["", "-shm", "-wal"] {
+        let legacy_path = with_suffix(legacy, suffix);
+        if !legacy_path.exists() {
+            continue;
+        }
+        let target_path = with_suffix(target, suffix);
+        rename_or_copy(&legacy_path, &target_path)?;
+    }
+    Ok(())
+}
+
+fn migrate_legacy_backups(
+    target_dir: &Path,
+    legacy_dir: &Path,
+    old_prefix: &str,
+    new_prefix: &str,
+) -> Result<()> {
+    if !legacy_dir.exists() {
+        return Ok(());
+    }
+    fs::create_dir_all(target_dir)
+        .with_context(|| format!("failed to create {}", target_dir.display()))?;
+    for entry in
+        fs::read_dir(legacy_dir).with_context(|| format!("failed to read {}", legacy_dir.display()))?
+    {
+        let entry = entry.with_context(|| format!("failed to read {}", legacy_dir.display()))?;
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else {
+            continue;
+        };
+        if !name.starts_with(old_prefix) {
+            continue;
+        }
+        let suffix = &name[old_prefix.len()..];
+        let target = target_dir.join(format!("{new_prefix}{suffix}"));
+        if target.exists() {
+            continue;
+        }
+        rename_or_copy(&entry.path(), &target)?;
+    }
+    Ok(())
+}
+
+fn rename_or_copy(source: &Path, target: &Path) -> Result<()> {
+    match fs::rename(source, target) {
+        Ok(()) => Ok(()),
+        Err(rename_error) => {
+            fs::copy(source, target).with_context(|| {
+                format!(
+                    "failed to copy legacy path {} to {} after rename error: {rename_error}",
+                    source.display(),
+                    target.display()
+                )
+            })?;
+            if source.is_file() {
+                fs::remove_file(source)
+                    .with_context(|| format!("failed to remove legacy file {}", source.display()))?;
+            }
+            Ok(())
+        }
+    }
+}
+
+fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
+    PathBuf::from(format!("{}{}", path.display(), suffix))
+}

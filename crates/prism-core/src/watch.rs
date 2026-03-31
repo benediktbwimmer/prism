@@ -42,6 +42,7 @@ pub(crate) fn spawn_fs_watch(
     prism: Arc<RwLock<Arc<Prism>>>,
     runtime_state: Arc<Mutex<WorkspaceRuntimeState>>,
     store: Arc<Mutex<SqliteStore>>,
+    cold_query_store: Arc<Mutex<SqliteStore>>,
     shared_runtime_sqlite: Option<PathBuf>,
     refresh_lock: Arc<Mutex<()>>,
     refresh_state: Arc<WorkspaceRefreshState>,
@@ -118,6 +119,7 @@ pub(crate) fn spawn_fs_watch(
                 &prism,
                 &runtime_state,
                 &store,
+                &cold_query_store,
                 shared_runtime_sqlite.as_deref(),
                 &refresh_lock,
                 &refresh_state,
@@ -153,6 +155,7 @@ pub(crate) fn refresh_prism_snapshot(
     prism: &Arc<RwLock<Arc<Prism>>>,
     runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
     store: &Arc<Mutex<SqliteStore>>,
+    cold_query_store: &Arc<Mutex<SqliteStore>>,
     shared_runtime_sqlite: Option<&Path>,
     refresh_lock: &Arc<Mutex<()>>,
     refresh_state: &Arc<WorkspaceRefreshState>,
@@ -173,6 +176,7 @@ pub(crate) fn refresh_prism_snapshot(
         prism,
         runtime_state,
         store,
+        cold_query_store,
         shared_runtime_sqlite,
         refresh_state,
         loaded_workspace_revision,
@@ -192,6 +196,7 @@ pub(crate) fn try_refresh_prism_snapshot(
     prism: &Arc<RwLock<Arc<Prism>>>,
     runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
     store: &Arc<Mutex<SqliteStore>>,
+    cold_query_store: &Arc<Mutex<SqliteStore>>,
     shared_runtime_sqlite: Option<&Path>,
     refresh_lock: &Arc<Mutex<()>>,
     refresh_state: &Arc<WorkspaceRefreshState>,
@@ -212,6 +217,7 @@ pub(crate) fn try_refresh_prism_snapshot(
         prism,
         runtime_state,
         store,
+        cold_query_store,
         shared_runtime_sqlite,
         refresh_state,
         loaded_workspace_revision,
@@ -232,6 +238,7 @@ fn refresh_prism_snapshot_with_guard(
     prism: &Arc<RwLock<Arc<Prism>>>,
     runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
     store: &Arc<Mutex<SqliteStore>>,
+    cold_query_store: &Arc<Mutex<SqliteStore>>,
     shared_runtime_sqlite: Option<&Path>,
     refresh_state: &Arc<WorkspaceRefreshState>,
     loaded_workspace_revision: &Arc<AtomicU64>,
@@ -351,7 +358,7 @@ fn refresh_prism_snapshot_with_guard(
         let mut store = store.lock().expect("workspace store lock poisoned");
         enqueue_curator_for_observed_locked(curator, next.as_ref(), &mut store, &observed)?;
     }
-    WorkspaceSession::attach_cold_query_backends(next.as_ref(), store);
+    WorkspaceSession::attach_cold_query_backends(next.as_ref(), cold_query_store);
     *runtime_state
         .lock()
         .expect("workspace runtime state lock poisoned") = next_state;

@@ -10,6 +10,7 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, bail, Context, Result};
+use prism_core::PrismPaths;
 
 use crate::cli::McpCommand;
 use crate::daemon_log;
@@ -176,7 +177,7 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             shared_runtime_sqlite,
             shared_runtime_uri,
         } => {
-            let paths = McpPaths::for_root(&root);
+            let paths = McpPaths::for_root(&root)?;
             let restart_nonce = next_restart_nonce();
             let Some(startup_marker) = StartupMarkerGuard::try_create(
                 &paths.startup_marker,
@@ -208,7 +209,7 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
 }
 
 fn status(root: &Path) -> Result<()> {
-    let paths = McpPaths::for_root(root);
+    let paths = McpPaths::for_root(root)?;
     let (processes, connection) = connection_snapshot_with_restart_grace(root, &paths)?;
     let daemons = select_kind(&processes, McpProcessKind::Daemon);
     let bridges = select_kind(&processes, McpProcessKind::Bridge);
@@ -267,7 +268,7 @@ fn status(root: &Path) -> Result<()> {
 }
 
 fn endpoint(root: &Path) -> Result<()> {
-    let paths = McpPaths::for_root(root);
+    let paths = McpPaths::for_root(root)?;
     let processes = list_processes(root)?;
     let daemons = select_kind(&processes, McpProcessKind::Daemon);
     let connection = daemon_connection_info(root, &paths, &daemons)?;
@@ -281,7 +282,7 @@ fn endpoint(root: &Path) -> Result<()> {
 }
 
 fn cleanup(root: &Path) -> Result<()> {
-    let paths = McpPaths::for_root(root);
+    let paths = McpPaths::for_root(root)?;
     let processes = list_processes(root)?;
     let daemons = select_kind(&processes, McpProcessKind::Daemon);
     let bridges = select_kind(&processes, McpProcessKind::Bridge);
@@ -311,7 +312,7 @@ fn start(
     restart_nonce: Option<&str>,
     startup_marker: Option<StartupMarkerGuard>,
 ) -> Result<()> {
-    let paths = McpPaths::for_root(root);
+    let paths = McpPaths::for_root(root)?;
     let mut processes = list_processes(root)?;
     let orphaned = orphaned_bridges(&processes);
     if !orphaned.is_empty() {
@@ -374,7 +375,7 @@ fn stop(root: &Path, kill_bridges: bool) -> Result<()> {
 }
 
 fn stop_impl(root: &Path, kill_bridges: bool, clear_startup_marker: bool) -> Result<()> {
-    let paths = McpPaths::for_root(root);
+    let paths = McpPaths::for_root(root)?;
     let processes = list_processes(root)?;
     let mut targets = select_kind(&processes, McpProcessKind::Daemon);
     if kill_bridges {
@@ -417,7 +418,7 @@ fn stop_impl(root: &Path, kill_bridges: bool, clear_startup_marker: bool) -> Res
 }
 
 fn health(root: &Path) -> Result<()> {
-    let paths = McpPaths::for_root(root);
+    let paths = McpPaths::for_root(root)?;
     let (_, connection) = connection_snapshot_with_restart_grace(root, &paths)?;
     let health = connection.health;
     println!("{}", health.detail);
@@ -428,7 +429,7 @@ fn health(root: &Path) -> Result<()> {
 }
 
 fn logs(root: &Path, lines: usize) -> Result<()> {
-    let paths = McpPaths::for_root(root);
+    let paths = McpPaths::for_root(root)?;
     let lines = daemon_log::tail_lines(&paths.log_path, lines)?;
     if lines.is_empty() {
         println!("log file is empty");
@@ -1282,13 +1283,14 @@ fn uri_authority(uri: &str) -> Option<&str> {
 }
 
 impl McpPaths {
-    fn for_root(root: &Path) -> Self {
-        Self {
+    fn for_root(root: &Path) -> Result<Self> {
+        let prism_paths = PrismPaths::for_workspace_root(root)?;
+        Ok(Self {
             uri_file: root.join(".prism").join("prism-mcp-http-uri"),
             log_path: root.join(".prism").join("prism-mcp-daemon.log"),
-            cache_path: root.join(".prism").join("cache.db"),
+            cache_path: prism_paths.shared_runtime_db_path()?,
             startup_marker: root.join(".prism").join("prism-mcp-startup"),
-        }
+        })
     }
 }
 
@@ -1412,7 +1414,7 @@ mod tests {
     #[test]
     fn daemon_connection_info_prefers_direct_daemon_endpoint() {
         let root = temp_root("daemon-connection");
-        let paths = McpPaths::for_root(&root);
+        let paths = McpPaths::for_root(&root).unwrap();
         fs::write(&paths.uri_file, "http://127.0.0.1:9/mcp\n").unwrap();
 
         let info = daemon_connection_info(&root, &paths, &[]).unwrap();
@@ -1538,7 +1540,7 @@ mod tests {
     #[test]
     fn daemon_connection_snapshot_ignores_daemons_without_matching_restart_nonce() {
         let root = temp_root("restart-snapshot-stale");
-        let paths = McpPaths::for_root(&root);
+        let paths = McpPaths::for_root(&root).unwrap();
         fs::write(
             root.join(".prism").join("prism-mcp-runtime.json"),
             r#"{
@@ -1584,7 +1586,7 @@ mod tests {
     #[test]
     fn daemon_connection_snapshot_uses_matching_restart_nonce() {
         let root = temp_root("restart-snapshot-current");
-        let paths = McpPaths::for_root(&root);
+        let paths = McpPaths::for_root(&root).unwrap();
         fs::write(
             root.join(".prism").join("prism-mcp-runtime.json"),
             r#"{

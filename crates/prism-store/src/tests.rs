@@ -2219,6 +2219,30 @@ fn sqlite_store_auxiliary_outcome_snapshot_reload_preserves_external_updates() {
 }
 
 #[test]
+fn runtime_reader_opens_while_writer_holds_immediate_transaction() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-runtime-reader-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+
+    let writer = SqliteStore::open(&path).unwrap();
+    writer.conn.execute_batch("BEGIN IMMEDIATE;").unwrap();
+
+    let reader = writer.reopen_runtime_reader().unwrap();
+    assert_eq!(reader.workspace_revision().unwrap(), 0);
+
+    writer.conn.execute_batch("ROLLBACK;").unwrap();
+    drop(reader);
+    drop(writer);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(path.with_extension("db-shm"));
+}
+
+#[test]
 fn sqlite_store_auxiliary_episodic_snapshot_reload_preserves_external_updates() {
     let path = std::env::temp_dir().join(format!(
         "prism-store-aux-episodic-cache-test-{}.db",

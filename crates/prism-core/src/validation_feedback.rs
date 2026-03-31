@@ -147,7 +147,7 @@ pub(crate) fn append_validation_feedback(
     root: &Path,
     record: ValidationFeedbackRecord,
 ) -> Result<ValidationFeedbackEntry> {
-    let path = validation_feedback_path(root);
+    let path = validation_feedback_path(root)?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -159,7 +159,7 @@ pub(crate) fn append_validation_feedback(
 }
 
 pub(crate) fn load_validation_feedback(root: &Path) -> Result<Vec<ValidationFeedbackEntry>> {
-    let path = validation_feedback_path(root);
+    let path = validation_feedback_path(root)?;
     if !path.exists() {
         return Ok(Vec::new());
     }

@@ -3,8 +3,8 @@ use std::path::PathBuf;
 
 use super::context::WorkspaceRuntimeContext;
 use super::generation::{
-    RuntimeDomain, RuntimeDomainState, WorkspaceGenerationId, WorkspacePublishedGeneration,
-    WorkspaceRuntimeDeltaBatch, WorkspaceRuntimeDeltaSequence,
+    RuntimeDomain, RuntimeDomainState, WorkspaceFileDelta, WorkspaceGenerationId,
+    WorkspacePublishedGeneration, WorkspaceRuntimeDeltaBatch, WorkspaceRuntimeDeltaSequence,
 };
 use super::queue::{
     WorkspaceRuntimeCoalescingKey, WorkspaceRuntimeCommand, WorkspaceRuntimeCommandKind,
@@ -136,6 +136,7 @@ impl WorkspaceRuntimeEngine {
     pub fn record_commit(
         &mut self,
         changed_paths: Vec<PathBuf>,
+        file_deltas: Vec<WorkspaceFileDelta>,
         domain_states: BTreeMap<RuntimeDomain, RuntimeDomainState>,
     ) -> WorkspaceRuntimeDeltaBatch {
         let parent_generation = self.published_generation.id;
@@ -155,6 +156,7 @@ impl WorkspaceRuntimeEngine {
             parent_generation,
             committed_generation,
             changed_paths,
+            file_deltas,
             domain_states,
         };
         if self.recent_deltas.len() == Self::RECENT_DELTA_LIMIT {
@@ -172,8 +174,9 @@ mod tests {
 
     use super::*;
     use crate::runtime_engine::{
-        RuntimeFreshnessState, RuntimeMaterializationDepth, WorkspaceRuntimeCoalescingKey,
-        WorkspaceRuntimeCommand, WorkspaceRuntimeCommandKind, WorkspaceRuntimeQueueClass,
+        RuntimeFreshnessState, RuntimeMaterializationDepth, WorkspaceFileDelta,
+        WorkspaceRuntimeCoalescingKey, WorkspaceRuntimeCommand, WorkspaceRuntimeCommandKind,
+        WorkspaceRuntimeQueueClass,
     };
 
     #[test]
@@ -209,15 +212,42 @@ mod tests {
             ),
         );
 
-        let first = engine.record_commit(vec![PathBuf::from("src/lib.rs")], domain_states.clone());
+        let first = engine.record_commit(
+            vec![PathBuf::from("src/lib.rs")],
+            vec![WorkspaceFileDelta {
+                previous_path: None,
+                current_path: Some(PathBuf::from("src/lib.rs")),
+                file_count: 1,
+                added_nodes: 1,
+                removed_nodes: 0,
+                updated_nodes: 0,
+                edge_added: 0,
+                edge_removed: 0,
+            }],
+            domain_states.clone(),
+        );
         assert_eq!(first.sequence.0, 1);
         assert_eq!(first.parent_generation.0, 0);
         assert_eq!(first.committed_generation.0, 1);
+        assert_eq!(first.file_deltas.len(), 1);
         assert_eq!(engine.published_generation().id.0, 1);
         assert_eq!(engine.published_generation().domain_states, domain_states);
         assert_eq!(engine.context(), &context);
 
-        let second = engine.record_commit(vec![PathBuf::from("src/main.rs")], domain_states);
+        let second = engine.record_commit(
+            vec![PathBuf::from("src/main.rs")],
+            vec![WorkspaceFileDelta {
+                previous_path: Some(PathBuf::from("src/lib.rs")),
+                current_path: Some(PathBuf::from("src/main.rs")),
+                file_count: 1,
+                added_nodes: 0,
+                removed_nodes: 0,
+                updated_nodes: 1,
+                edge_added: 1,
+                edge_removed: 1,
+            }],
+            domain_states,
+        );
         assert_eq!(second.sequence.0, 2);
         assert_eq!(second.parent_generation.0, 1);
         assert_eq!(second.committed_generation.0, 2);

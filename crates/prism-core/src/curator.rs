@@ -1,11 +1,11 @@
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 
 use anyhow::Result;
 use prism_curator::{
-    merge_curator_runs, synthesize_curator_run, CuratorBackend, CuratorBudget, CuratorContext,
-    CuratorJob, CuratorJobId, CuratorJobRecord, CuratorJobStatus, CuratorProposalState, CuratorRun,
+    merge_curator_runs, synthesize_curator_run, CuratorBackend, CuratorBudget, CuratorJob,
+    CuratorJobId, CuratorJobRecord, CuratorJobStatus, CuratorProposalState, CuratorRun,
     CuratorSnapshot,
 };
 use prism_ir::{new_prefixed_id, EventId};
@@ -42,7 +42,6 @@ pub(crate) struct CuratorQueueState {
 struct CuratorWorkItem {
     id: CuratorJobId,
     job: CuratorJob,
-    context: CuratorContext,
 }
 
 enum CuratorMessage {
@@ -53,7 +52,9 @@ enum CuratorMessage {
 impl CuratorHandle {
     pub(crate) fn new(
         backend: Option<Arc<dyn CuratorBackend>>,
+        prism: Arc<RwLock<Arc<Prism>>>,
         store: Arc<Mutex<SqliteStore>>,
+        context_store: Arc<Mutex<SqliteStore>>,
         refresh_lock: Arc<Mutex<()>>,
     ) -> Self {
         let state = Arc::new(Mutex::new(CuratorQueueState::default()));
@@ -61,6 +62,8 @@ impl CuratorHandle {
         let (tx, rx) = mpsc::channel::<CuratorMessage>();
         let worker_state = Arc::clone(&state);
         let worker_store = Arc::clone(&store);
+        let worker_context_store = Arc::clone(&context_store);
+        let worker_prism = Arc::clone(&prism);
         let worker_refresh_lock = Arc::clone(&refresh_lock);
         let worker_backend = backend.clone();
         let handle = thread::spawn(move || loop {
@@ -79,10 +82,35 @@ impl CuratorHandle {
                 None,
             );
 
-            let synthesized = synthesize_curator_run(&item.job, &item.context);
+            let context = {
+                let prism = worker_prism
+                    .read()
+                    .expect("workspace prism lock poisoned")
+                    .clone();
+                let mut store = worker_context_store
+                    .lock()
+                    .expect("curator context store lock poisoned");
+                build_curator_context(prism.as_ref(), &mut store, &item.job.focus, &item.job.budget)
+            };
+
+            let Ok(context) = context else {
+                let error = context.err().expect("context error must exist");
+                update_curator_record(
+                    &worker_state,
+                    &worker_store,
+                    &worker_refresh_lock,
+                    &item.id,
+                    CuratorJobStatus::Failed,
+                    None,
+                    Some(error.to_string()),
+                );
+                continue;
+            };
+
+            let synthesized = synthesize_curator_run(&item.job, &context);
             let backend_result = worker_backend
                 .as_ref()
-                .map(|backend| backend.run(&item.job, &item.context))
+                .map(|backend| backend.run(&item.job, &context))
                 .transpose();
 
             match backend_result {
@@ -142,10 +170,9 @@ impl CuratorHandle {
     pub(crate) fn enqueue_locked(
         &self,
         job: CuratorJob,
-        context: CuratorContext,
         store: &mut SqliteStore,
     ) -> Result<CuratorJobId> {
-        CuratorHandleRef::from(self).enqueue_locked(job, context, store)
+        CuratorHandleRef::from(self).enqueue_locked(job, store)
     }
 
     pub(crate) fn stop(&mut self) {
@@ -162,7 +189,6 @@ impl CuratorHandleRef {
     pub(crate) fn enqueue_locked(
         &self,
         job: CuratorJob,
-        context: CuratorContext,
         store: &mut SqliteStore,
     ) -> Result<CuratorJobId> {
         let mut state = self.state.lock().expect("curator state lock poisoned");
@@ -191,7 +217,6 @@ impl CuratorHandleRef {
             let _ = tx.send(CuratorMessage::Work(CuratorWorkItem {
                 id: id.clone(),
                 job,
-                context,
             }));
         }
 
@@ -271,7 +296,6 @@ pub(crate) fn enqueue_curator_for_observed_locked(
     for change in observed {
         if let Some((trigger, focus)) = curator_job_for_observed(change, prism) {
             let budget = CuratorBudget::default();
-            let context = build_curator_context(prism, store, &focus, &budget)?;
             let job = CuratorJob {
                 id: CuratorJobId("pending".to_string()),
                 trigger,
@@ -279,7 +303,7 @@ pub(crate) fn enqueue_curator_for_observed_locked(
                 focus,
                 budget,
             };
-            let _ = curator.enqueue_locked(job, context, store)?;
+            let _ = curator.enqueue_locked(job, store)?;
         }
     }
     Ok(())
@@ -307,7 +331,6 @@ pub(crate) fn enqueue_curator_for_outcome_locked(
         return Ok(());
     }
     let budget = CuratorBudget::default();
-    let context = build_curator_context(prism, store, &focus, &budget)?;
     let job = CuratorJob {
         id: CuratorJobId("curator:pending".to_string()),
         trigger,
@@ -315,7 +338,7 @@ pub(crate) fn enqueue_curator_for_outcome_locked(
         focus,
         budget,
     };
-    let _ = curator.enqueue_locked(job, context, store)?;
+    let _ = curator.enqueue_locked(job, store)?;
     Ok(())
 }
 

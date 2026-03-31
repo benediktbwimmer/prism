@@ -53,8 +53,11 @@ pub(crate) fn build_workspace_session(
             .map(SqliteStore::workspace_revision)
             .transpose()?,
     );
+    let cold_query_store = store.reopen_runtime_reader()?;
+    let curator_store = store.reopen_runtime_reader()?;
     let loaded_workspace_revision = Arc::new(AtomicU64::new(workspace_revision));
     let store = Arc::new(Mutex::new(store));
+    let cold_query_store = Arc::new(Mutex::new(cold_query_store));
     let shared_runtime_store = shared_runtime_store.map(|store| Arc::new(Mutex::new(store)));
     let shared_runtime_materializer = shared_runtime_store
         .as_ref()
@@ -83,7 +86,7 @@ pub(crate) fn build_workspace_session(
                 Some(coordination_persist_context_for_root(&root, None)),
             ),
     );
-    WorkspaceSession::attach_cold_query_backends(prism.as_ref(), &store);
+    WorkspaceSession::attach_cold_query_backends(prism.as_ref(), &cold_query_store);
     let prism = Arc::new(RwLock::new(prism));
     let refresh_lock = Arc::new(Mutex::new(()));
     let refresh_state = Arc::new(WorkspaceRefreshState::new());
@@ -97,7 +100,13 @@ pub(crate) fn build_workspace_session(
     }
     let fs_snapshot = Arc::new(Mutex::new(workspace_tree_snapshot));
     let load_curator_snapshot_ms = 0_u128;
-    let curator = CuratorHandle::new(backend, Arc::clone(&store), Arc::clone(&refresh_lock));
+    let curator = CuratorHandle::new(
+        backend,
+        Arc::clone(&prism),
+        Arc::clone(&store),
+        Arc::new(Mutex::new(curator_store)),
+        Arc::clone(&refresh_lock),
+    );
     let checkpoint_materializer =
         CheckpointMaterializerHandle::new(root.clone(), Arc::clone(&store));
     let watch_started = Instant::now();
@@ -106,6 +115,7 @@ pub(crate) fn build_workspace_session(
         Arc::clone(&prism),
         Arc::clone(&runtime_state),
         Arc::clone(&store),
+        Arc::clone(&cold_query_store),
         shared_runtime.sqlite_path().map(Path::to_path_buf),
         Arc::clone(&refresh_lock),
         Arc::clone(&refresh_state),
@@ -138,6 +148,7 @@ pub(crate) fn build_workspace_session(
         prism,
         runtime_state,
         store,
+        cold_query_store,
         shared_runtime,
         shared_runtime_store,
         refresh_lock,

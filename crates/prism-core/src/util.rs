@@ -14,6 +14,8 @@ use prism_lang_toml::TomlAdapter;
 use prism_lang_yaml::YamlAdapter;
 use prism_parser::LanguageAdapter;
 
+use crate::PrismPaths;
+
 const INDEX_FORMAT_VERSION: u64 = 1;
 
 pub(crate) fn current_timestamp() -> u64 {
@@ -138,12 +140,12 @@ mod tests {
     }
 }
 
-pub(crate) fn cache_path(root: &Path) -> PathBuf {
-    root.join(".prism").join("cache.db")
+pub(crate) fn cache_path(root: &Path) -> Result<PathBuf> {
+    PrismPaths::for_workspace_root(root)?.shared_runtime_db_path()
 }
 
-pub(crate) fn validation_feedback_path(root: &Path) -> PathBuf {
-    root.join(".prism").join("validation_feedback.jsonl")
+pub(crate) fn validation_feedback_path(root: &Path) -> Result<PathBuf> {
+    PrismPaths::for_workspace_root(root)?.validation_feedback_path()
 }
 
 pub(crate) fn repo_memory_events_path(root: &Path) -> PathBuf {

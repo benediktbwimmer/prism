@@ -11,8 +11,9 @@ use anyhow::Result;
 use prism_agent::InferenceStore;
 use prism_core::runtime_engine::{
     RuntimeDomain, RuntimeDomainState, RuntimeFreshnessState, RuntimeMaterializationDepth,
-    WorkspaceRuntimeCoalescingKey, WorkspaceRuntimeCommand, WorkspaceRuntimeCommandKind,
-    WorkspaceRuntimeEngine, WorkspaceRuntimeQueueClass, WorkspaceRuntimeQueueSnapshot,
+    WorkspaceFileDelta, WorkspaceRuntimeCoalescingKey, WorkspaceRuntimeCommand,
+    WorkspaceRuntimeCommandKind, WorkspaceRuntimeEngine, WorkspaceRuntimeQueueClass,
+    WorkspaceRuntimeQueueSnapshot,
 };
 use prism_core::{
     AdmissionBusyError, FsRefreshStatus, WorkspaceRefreshWork, WorkspaceSession,
@@ -810,7 +811,7 @@ pub(crate) fn sync_persisted_workspace_state(
         config,
         &revisions,
         refresh_path,
-        changed_paths_from_observed(&refresh_outcome.observed),
+        file_deltas_from_observed(&refresh_outcome.observed),
     );
     if deferred {
         config
@@ -1099,14 +1100,36 @@ fn runtime_domain_states(
     states
 }
 
-fn changed_paths_from_observed(observed: &[ObservedChangeSet]) -> Vec<PathBuf> {
+fn file_deltas_from_observed(observed: &[ObservedChangeSet]) -> Vec<WorkspaceFileDelta> {
+    observed
+        .iter()
+        .map(|change| WorkspaceFileDelta {
+            previous_path: change
+                .previous_path
+                .as_ref()
+                .map(|path| PathBuf::from(path.as_str())),
+            current_path: change
+                .current_path
+                .as_ref()
+                .map(|path| PathBuf::from(path.as_str())),
+            file_count: change.files.len(),
+            added_nodes: change.added.len(),
+            removed_nodes: change.removed.len(),
+            updated_nodes: change.updated.len(),
+            edge_added: change.edge_added.len(),
+            edge_removed: change.edge_removed.len(),
+        })
+        .collect()
+}
+
+fn changed_paths_from_file_deltas(file_deltas: &[WorkspaceFileDelta]) -> Vec<PathBuf> {
     let mut paths = BTreeSet::new();
-    for change in observed {
-        if let Some(path) = &change.previous_path {
-            paths.insert(PathBuf::from(path.as_str()));
+    for delta in file_deltas {
+        if let Some(path) = &delta.previous_path {
+            paths.insert(path.clone());
         }
-        if let Some(path) = &change.current_path {
-            paths.insert(PathBuf::from(path.as_str()));
+        if let Some(path) = &delta.current_path {
+            paths.insert(path.clone());
         }
     }
     paths.into_iter().collect()
@@ -1116,14 +1139,15 @@ fn publish_runtime_generation(
     config: &WorkspaceRuntimeConfig,
     revisions: &WorkspaceSnapshotRevisions,
     refresh_path: &str,
-    changed_paths: Vec<PathBuf>,
+    file_deltas: Vec<WorkspaceFileDelta>,
 ) {
     let domain_states = runtime_domain_states(config, revisions, refresh_path);
+    let changed_paths = changed_paths_from_file_deltas(&file_deltas);
     let _ = config
         .runtime_engine
         .lock()
         .expect("workspace runtime engine lock poisoned")
-        .record_commit(changed_paths, domain_states);
+        .record_commit(changed_paths, file_deltas, domain_states);
 }
 
 impl QueryHost {

@@ -87,6 +87,35 @@ where
     Err(last_error.expect("runtime sync busy retry should capture the final error"))
 }
 
+pub(crate) fn retry_on_transient_sqlite_lock<T, F>(mut op: F) -> Result<T>
+where
+    F: FnMut() -> Result<T>,
+{
+    let mut last_error = None;
+    for _ in 0..50 {
+        match op() {
+            Ok(value) => return Ok(value),
+            Err(error) if is_transient_sqlite_lock(&error) => {
+                last_error = Some(error);
+                thread::sleep(Duration::from_millis(100));
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    Err(last_error.expect("sqlite lock retry should capture the final error"))
+}
+
+fn is_transient_sqlite_lock(error: &anyhow::Error) -> bool {
+    error.chain().any(|cause| {
+        let text = cause.to_string().to_ascii_lowercase();
+        text.contains("database is locked")
+            || text.contains("database table is locked")
+            || text.contains("database schema is locked")
+            || text.contains("locked database")
+            || text.contains("sql busy")
+    })
+}
+
 pub(crate) fn temp_workspace() -> PathBuf {
     let suffix = new_sortable_token();
     let root = std::env::temp_dir().join(format!("prism-mcp-test-{suffix}"));

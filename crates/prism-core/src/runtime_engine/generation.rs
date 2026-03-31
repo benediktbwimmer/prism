@@ -76,10 +76,23 @@ impl WorkspacePublishedGeneration {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkspaceFileDelta {
+    pub previous_path: Option<PathBuf>,
+    pub current_path: Option<PathBuf>,
+    pub file_count: usize,
+    pub added_nodes: usize,
+    pub removed_nodes: usize,
+    pub updated_nodes: usize,
+    pub edge_added: usize,
+    pub edge_removed: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkspaceRuntimeDeltaBatch {
     pub sequence: WorkspaceRuntimeDeltaSequence,
     pub parent_generation: WorkspaceGenerationId,
     pub committed_generation: WorkspaceGenerationId,
     pub changed_paths: Vec<PathBuf>,
+    pub file_deltas: Vec<WorkspaceFileDelta>,
     pub domain_states: BTreeMap<RuntimeDomain, RuntimeDomainState>,
 }

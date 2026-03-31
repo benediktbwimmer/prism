@@ -15,7 +15,7 @@ use prism_coordination::{CoordinationPolicy, CoordinationStore, PlanCreateInput,
 use prism_core::{
     hydrate_workspace_session_with_options, index_workspace_session,
     index_workspace_session_with_curator, ValidationFeedbackCategory, ValidationFeedbackRecord,
-    ValidationFeedbackVerdict, WorkspaceSessionOptions,
+    ValidationFeedbackVerdict, WorkspaceSessionOptions, PrismPaths,
 };
 use prism_curator::{
     CandidateConcept, CandidateConceptOperation, CandidateEdge, CandidateMemory,
@@ -1828,7 +1828,9 @@ fn mcp_returns_structured_coordination_rejections_and_persists_them() {
         .iter()
         .any(|violation| violation.code == "review_required"));
 
-    let reloaded = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let reloaded = QueryHost::with_session(
+        retry_on_transient_sqlite_lock(|| index_workspace_session(&root)).unwrap(),
+    );
     let events = reloaded.current_prism().coordination_snapshot().events;
     assert_eq!(
         events.last().unwrap().kind,
@@ -12516,7 +12518,7 @@ return {
     assert!(status["cachePath"]
         .as_str()
         .unwrap_or_default()
-        .ends_with(".prism/cache.db"));
+        .ends_with("/shared/runtime/state.db"));
     assert_eq!(status["freshness"]["fsDirty"], false);
     assert!(
         status["freshness"]["materialization"]["workspace"]["status"]
@@ -18742,7 +18744,10 @@ fn workspace_coordination_persistence_records_mcp_session_scope() {
         },
     )
     .unwrap();
-    let cache = root.join(".prism").join("cache.db");
+    let cache = PrismPaths::for_workspace_root(&root)
+        .unwrap()
+        .shared_runtime_db_path()
+        .unwrap();
     let mut store = SqliteStore::open(&cache).unwrap();
     let context_after_a = store
         .load_latest_coordination_persist_context()
@@ -18833,7 +18838,10 @@ fn rejected_coordination_mutations_keep_mcp_session_scope_in_authoritative_persi
     assert!(rejected.rejected);
     assert!(!rejected.event_ids.is_empty());
 
-    let cache = root.join(".prism").join("cache.db");
+    let cache = PrismPaths::for_workspace_root(&root)
+        .unwrap()
+        .shared_runtime_db_path()
+        .unwrap();
     let mut store = SqliteStore::open(&cache).unwrap();
     let context = store
         .load_latest_coordination_persist_context()

@@ -10,7 +10,7 @@ use prism_core::runtime_engine::{
     RuntimeFreshnessState, RuntimeMaterializationDepth, WorkspacePublishedGeneration,
     WorkspaceRuntimeQueueSnapshot,
 };
-use prism_core::WorkspaceSession;
+use prism_core::{PrismPaths, WorkspaceSession};
 use prism_js::{
     ConnectionInfoView, RuntimeBoundaryRegionView, RuntimeDomainFreshnessView,
     RuntimeFreshnessView, RuntimeHealthView, RuntimeLogEventView,
@@ -167,7 +167,7 @@ struct RuntimeStatusInputs<'a> {
 
 pub(crate) fn connection_info(host: &QueryHost) -> Result<ConnectionInfoView> {
     let root = workspace_root(host)?;
-    let paths = RuntimePaths::for_root(root);
+    let paths = RuntimePaths::for_root(root)?;
     let runtime_state = read_runtime_state(root)?;
     let state_processes = runtime_state
         .as_ref()
@@ -186,7 +186,7 @@ pub(crate) fn runtime_logs(
     args: RuntimeLogArgs,
 ) -> Result<Vec<RuntimeLogEventView>> {
     let root = workspace_root(host)?;
-    let paths = RuntimePaths::for_root(root);
+    let paths = RuntimePaths::for_root(root)?;
     let limit = args.limit.unwrap_or(DEFAULT_RUNTIME_LOG_LIMIT);
     if limit == 0 {
         return Ok(Vec::new());
@@ -221,7 +221,7 @@ pub(crate) fn runtime_timeline(
     args: RuntimeTimelineArgs,
 ) -> Result<Vec<RuntimeLogEventView>> {
     let root = workspace_root(host)?;
-    let paths = RuntimePaths::for_root(root);
+    let paths = RuntimePaths::for_root(root)?;
     let limit = args.limit.unwrap_or(DEFAULT_RUNTIME_TIMELINE_LIMIT);
     if limit == 0 {
         return Ok(Vec::new());
@@ -276,7 +276,7 @@ fn runtime_status_from_inputs(
     inputs: &RuntimeStatusInputs<'_>,
     runtime_state: Option<&RuntimeState>,
 ) -> Result<RuntimeStatusView> {
-    let paths = RuntimePaths::for_root(inputs.root);
+    let paths = RuntimePaths::for_root(inputs.root)?;
     let state_processes = runtime_state
         .map(|state| state.processes.as_slice())
         .unwrap_or(&[]);
@@ -1118,12 +1118,13 @@ fn is_timeline_event(event: &RuntimeLogEventView) -> bool {
 }
 
 impl RuntimePaths {
-    fn for_root(root: &Path) -> Self {
-        Self {
+    fn for_root(root: &Path) -> Result<Self> {
+        let prism_paths = PrismPaths::for_workspace_root(root)?;
+        Ok(Self {
             uri_file: root.join(".prism").join("prism-mcp-http-uri"),
             log_path: root.join(".prism").join("prism-mcp-daemon.log"),
-            cache_path: root.join(".prism").join("cache.db"),
-        }
+            cache_path: prism_paths.shared_runtime_db_path()?,
+        })
     }
 }
 

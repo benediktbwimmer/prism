@@ -29,14 +29,15 @@ pub(crate) fn test_replace_derived_edges_touching_nodes_tx(
 }
 
 use std::collections::HashSet;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::thread;
 use std::time::{Duration, Instant};
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use prism_agent::InferredEdgeRecord;
 use prism_memory::{EpisodicMemorySnapshot, OutcomeMemorySnapshot};
 use prism_projections::{ConceptPacket, ConceptRelation, ConceptRelationKind};
-use rusqlite::{params, Connection, OptionalExtension, Transaction};
+use rusqlite::{params, Connection, OpenFlags, OptionalExtension, Transaction};
 use tracing::info;
 
 use crate::graph::Graph;
@@ -79,6 +80,7 @@ struct CachedSnapshot<T> {
 }
 
 pub struct SqliteStore {
+    path: PathBuf,
     pub(crate) conn: Connection,
     outcome_snapshot_cache: Option<CachedSnapshot<OutcomeMemorySnapshot>>,
     episodic_snapshot_cache: Option<CachedSnapshot<EpisodicMemorySnapshot>>,
@@ -86,8 +88,27 @@ pub struct SqliteStore {
 
 impl SqliteStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
+        Self::open_internal(path.as_ref(), true)
+    }
+
+    pub fn open_runtime_reader(path: impl AsRef<Path>) -> Result<Self> {
+        Self::open_runtime_reader_internal(path.as_ref())
+    }
+
+    pub fn reopen_runtime_reader(&self) -> Result<Self> {
+        Self::open_runtime_reader(&self.path)
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    fn open_internal(path: &Path, run_open_maintenance: bool) -> Result<Self> {
+        open_store_with_retry(|| Self::open_internal_once(path, run_open_maintenance))
+    }
+
+    fn open_internal_once(path: &Path, run_open_maintenance: bool) -> Result<Self> {
         let started = Instant::now();
-        let path = path.as_ref();
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -103,18 +124,30 @@ impl SqliteStore {
         graph_io::ensure_file_record_parse_depth_column(&mut conn)?;
         let schema_ms = schema_started.elapsed().as_millis();
         let compact_patch_payloads_started = Instant::now();
-        let compacted_patch_payloads =
-            outcome_events::compact_hot_patch_payloads_on_open(&mut conn)?;
+        let compacted_patch_payloads = if run_open_maintenance {
+            outcome_events::compact_hot_patch_payloads_on_open(&mut conn)?
+        } else {
+            outcome_events::PatchPayloadCompaction::default()
+        };
         let compact_patch_payloads_ms = compact_patch_payloads_started.elapsed().as_millis();
         let retire_legacy_started = Instant::now();
-        let retired_legacy_co_change = history_io::retire_legacy_history_co_change(&mut conn)?;
+        let retired_legacy_co_change = if run_open_maintenance {
+            history_io::retire_legacy_history_co_change(&mut conn)?
+        } else {
+            history_io::LegacyCoChangeRetirement::default()
+        };
         let retire_legacy_ms = retire_legacy_started.elapsed().as_millis();
         let prune_started = Instant::now();
-        let pruned_co_change_rows = projections::prune_projection_co_change(&mut conn)?;
+        let pruned_co_change_rows = if run_open_maintenance {
+            projections::prune_projection_co_change(&mut conn)?
+        } else {
+            0
+        };
         let prune_ms = prune_started.elapsed().as_millis();
         let db_bytes = std::fs::metadata(path).map(|metadata| metadata.len()).ok();
         info!(
             cache_path = %path.display(),
+            runtime_reader = !run_open_maintenance,
             db_bytes,
             open_connection_ms,
             configure_ms,
@@ -135,6 +168,44 @@ impl SqliteStore {
             "opened prism sqlite store"
         );
         Ok(Self {
+            path: path.to_path_buf(),
+            conn,
+            outcome_snapshot_cache: None,
+            episodic_snapshot_cache: None,
+        })
+    }
+
+    fn open_runtime_reader_internal(path: &Path) -> Result<Self> {
+        open_store_with_retry(|| Self::open_runtime_reader_internal_once(path))
+    }
+
+    fn open_runtime_reader_internal_once(path: &Path) -> Result<Self> {
+        let started = Instant::now();
+        if !path.exists() {
+            return Err(anyhow!(
+                "runtime reader requires an existing sqlite store at {}",
+                path.display()
+            ));
+        }
+
+        let open_started = Instant::now();
+        let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+        let open_connection_ms = open_started.elapsed().as_millis();
+        let configure_started = Instant::now();
+        configure_reader_connection(&conn)?;
+        let configure_ms = configure_started.elapsed().as_millis();
+        let db_bytes = std::fs::metadata(path).map(|metadata| metadata.len()).ok();
+        info!(
+            cache_path = %path.display(),
+            runtime_reader = true,
+            db_bytes,
+            open_connection_ms,
+            configure_ms,
+            total_ms = started.elapsed().as_millis(),
+            "opened prism sqlite runtime reader"
+        );
+        Ok(Self {
+            path: path.to_path_buf(),
             conn,
             outcome_snapshot_cache: None,
             episodic_snapshot_cache: None,
@@ -1190,4 +1261,37 @@ fn configure_connection(conn: &Connection) -> Result<()> {
     conn.pragma_update(None, "temp_store", "MEMORY")?;
     conn.pragma_update(None, "wal_autocheckpoint", 1000_i64)?;
     Ok(())
+}
+
+fn configure_reader_connection(conn: &Connection) -> Result<()> {
+    conn.busy_timeout(Duration::from_secs(5))?;
+    Ok(())
+}
+
+fn open_store_with_retry<T>(mut open: impl FnMut() -> Result<T>) -> Result<T> {
+    const MAX_ATTEMPTS: usize = 50;
+    const RETRY_DELAY_MS: u64 = 100;
+
+    let mut attempt = 0usize;
+    loop {
+        match open() {
+            Ok(value) => return Ok(value),
+            Err(error) if is_transient_sqlite_lock(&error) && attempt + 1 < MAX_ATTEMPTS => {
+                attempt += 1;
+                thread::sleep(Duration::from_millis(RETRY_DELAY_MS));
+            }
+            Err(error) => return Err(error),
+        }
+    }
+}
+
+fn is_transient_sqlite_lock(error: &anyhow::Error) -> bool {
+    error.chain().any(|cause| {
+        let text = cause.to_string().to_ascii_lowercase();
+        text.contains("database is locked")
+            || text.contains("database table is locked")
+            || text.contains("database schema is locked")
+            || text.contains("locked database")
+            || text.contains("sql busy")
+    })
 }

@@ -40,7 +40,7 @@ use serde_json::json;
 use super::{
     hydrate_workspace_session_with_options, index_workspace, index_workspace_session,
     index_workspace_session_with_curator, index_workspace_session_with_options, PrismDocSyncStatus,
-    SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
+    PrismPaths, SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
     ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
 };
 use crate::coordination_persistence::CoordinationPersistenceBackend;
@@ -284,7 +284,11 @@ fn reloads_graph_from_disk_cache() {
     first.index().unwrap();
     drop(first);
 
-    assert!(root.join(".prism/cache.db").exists());
+    let state_db = PrismPaths::for_workspace_root(&root)
+        .unwrap()
+        .shared_runtime_db_path()
+        .unwrap();
+    assert!(state_db.exists());
 
     let second = WorkspaceIndexer::new(&root).unwrap();
     assert!(second
@@ -292,6 +296,34 @@ fn reloads_graph_from_disk_cache() {
         .nodes_by_name("alpha")
         .into_iter()
         .any(|node| node.id.path.ends_with("::alpha")));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn migrates_legacy_repo_local_cache_db_to_state_db() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::create_dir_all(root.join(".prism")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let legacy_cache = root.join(".prism").join("cache.db");
+    SqliteStore::open(&legacy_cache).unwrap();
+    assert!(legacy_cache.exists());
+
+    let indexer = WorkspaceIndexer::new(&root).unwrap();
+    let state_db = PrismPaths::for_workspace_root(&root)
+        .unwrap()
+        .shared_runtime_db_path()
+        .unwrap();
+    assert!(state_db.exists());
+    assert!(!legacy_cache.exists());
+    drop(indexer);
 
     let _ = fs::remove_dir_all(root);
 }
@@ -2944,7 +2976,13 @@ fn repo_published_plans_hydrate_without_sqlite_coordination_snapshot() {
     );
 
     drop(session);
-    fs::remove_file(root.join(".prism").join("cache.db")).unwrap();
+    fs::remove_file(
+        PrismPaths::for_workspace_root(&root)
+            .unwrap()
+            .shared_runtime_db_path()
+            .unwrap(),
+    )
+    .unwrap();
 
     let reloaded = index_workspace_session(&root).unwrap();
     let snapshot = reloaded
@@ -4199,7 +4237,13 @@ fn repo_published_plans_archive_transition_emits_archive_event_and_moves_log() {
     )));
 
     drop(session);
-    fs::remove_file(root.join(".prism").join("cache.db")).unwrap();
+    fs::remove_file(
+        PrismPaths::for_workspace_root(&root)
+            .unwrap()
+            .shared_runtime_db_path()
+            .unwrap(),
+    )
+    .unwrap();
 
     let reloaded = index_workspace_session(&root).unwrap();
     let snapshot = reloaded
@@ -5011,7 +5055,10 @@ fn workspace_materialization_summary_reports_out_of_scope_regions() {
 #[test]
 fn curator_context_loads_lineage_history_from_store_when_hot_history_is_empty() {
     let root = temp_workspace();
-    let cache_path = root.join(".prism").join("cache.db");
+    let cache_path = PrismPaths::for_workspace_root(&root)
+        .unwrap()
+        .shared_runtime_db_path()
+        .unwrap();
     let mut store = SqliteStore::open(&cache_path).unwrap();
 
     let node = prism_ir::Node {
@@ -5080,7 +5127,10 @@ impl OutcomeReadBackend for PanicOutcomeBackend {
 #[test]
 fn curator_context_loads_outcomes_from_locked_store_without_backend_reentry() {
     let root = temp_workspace();
-    let cache_path = root.join(".prism").join("cache.db");
+    let cache_path = PrismPaths::for_workspace_root(&root)
+        .unwrap()
+        .shared_runtime_db_path()
+        .unwrap();
     let mut store = SqliteStore::open(&cache_path).unwrap();
 
     let node = prism_ir::Node {

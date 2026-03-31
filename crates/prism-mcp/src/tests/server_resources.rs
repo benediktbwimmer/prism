@@ -8,7 +8,7 @@ use super::*;
 use crate::tests_support::{
     demo_node, initialize_client, initialized_notification, list_resources_request,
     list_tools_request, ping_request, read_resource_request, response_json, server_with_node,
-    server_with_node_and_features, temp_workspace,
+    server_with_node_and_features, temp_workspace, wait_until,
 };
 use prism_core::index_workspace_session;
 
@@ -223,6 +223,42 @@ async fn mcp_surface_request_logs_include_common_envelope_phases() {
 
     client.send(ping_request(4)).await.unwrap();
     let _ = response_json(client.receive().await.unwrap());
+
+    wait_until("common request traces to record envelope phases", || {
+        let records = server_handle.host.mcp_call_log_store.records();
+        let tool_list = records
+            .iter()
+            .find(|record| record.entry.call_type == "tool_list");
+        let resource_read = records.iter().find(|record| {
+            record.entry.call_type == "resource_read" && record.entry.name == API_REFERENCE_URI
+        });
+        let ping = records
+            .iter()
+            .find(|record| record.entry.call_type == "request" && record.entry.name == "ping");
+        let Some(tool_list) = tool_list else {
+            return false;
+        };
+        let Some(resource_read) = resource_read else {
+            return false;
+        };
+        let Some(ping) = ping else {
+            return false;
+        };
+        let all_ready = [tool_list, resource_read, ping]
+            .into_iter()
+            .all(|record| {
+                let operations = record
+                    .phases
+                    .iter()
+                    .map(|phase| phase.operation.as_str())
+                    .collect::<Vec<_>>();
+                operations.contains(&"mcp.receiveRequest")
+                    && operations.contains(&"mcp.routeRequest")
+                    && operations.contains(&"mcp.executeHandler")
+                    && operations.contains(&"mcp.encodeResponse")
+            });
+        all_ready
+    });
 
     let records = server_handle.host.mcp_call_log_store.records();
     let tool_list = records
@@ -522,6 +558,49 @@ async fn mcp_server_reads_file_resource_templates_for_workspace_paths() {
         .unwrap()
         .iter()
         .any(|resource| resource["uri"] == "prism://schema/file"));
+
+    wait_until("resource read traces to include workspace refresh phases", || {
+        let records = server_handle.host.mcp_call_log_store.records();
+        let session_read = records.iter().find(|record| {
+            record.entry.call_type == "resource_read" && record.entry.name == SESSION_URI
+        });
+        let capabilities_read = records.iter().find(|record| {
+            record.entry.call_type == "resource_read" && record.entry.name == CAPABILITIES_URI
+        });
+        let file_read = records.iter().find(|record| {
+            record.entry.call_type == "resource_read"
+                && record
+                    .metadata
+                    .get("uri")
+                    .and_then(Value::as_str)
+                    .map(|uri| uri.starts_with("prism://file/"))
+                    .unwrap_or(false)
+        });
+        let Some(session_read) = session_read else {
+            return false;
+        };
+        let Some(capabilities_read) = capabilities_read else {
+            return false;
+        };
+        let Some(file_read) = file_read else {
+            return false;
+        };
+        let all_ready = [session_read, capabilities_read, file_read]
+            .into_iter()
+            .all(|record| {
+                let operations = record
+                    .phases
+                    .iter()
+                    .map(|phase| phase.operation.as_str())
+                    .collect::<Vec<_>>();
+                operations.contains(&"runtimeSync.waitLock")
+                    && operations.contains(&"runtimeSync.refreshFs")
+                    && operations.contains(&"runtimeSync.snapshotRevisions")
+                    && operations.contains(&"resource.refreshWorkspace")
+                    && operations.contains(&"resource.handler")
+            });
+        all_ready
+    });
 
     let records = server_handle.host.mcp_call_log_store.records();
     let session_read = records

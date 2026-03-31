@@ -18,6 +18,7 @@ pub mod mutation_trace;
 mod outcome_backend;
 mod parse_pipeline;
 mod patch_outcomes;
+mod prism_paths;
 mod prism_doc;
 mod published_knowledge;
 mod published_plans;
@@ -48,6 +49,7 @@ pub use indexer::WorkspaceIndexer;
 pub use materialization::{
     WorkspaceBoundaryRegion, WorkspaceMaterializationCoverage, WorkspaceMaterializationSummary,
 };
+pub use prism_paths::PrismPaths;
 pub use prism_doc::{PrismDocSyncResult, PrismDocSyncStatus};
 pub use session::{
     CoordinationPlanState, FsRefreshStatus, WorkspaceFsRefreshOutcome, WorkspaceRefreshWork,

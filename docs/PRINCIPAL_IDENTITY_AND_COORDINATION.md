@@ -31,6 +31,8 @@ The canonical design is:
 - durable provenance is recorded in the event log and projected into read models
 - the current `prism_session` tool is removed as a coordination surface
 - principals are machine-local by default, while coordination authority remains repo-scoped
+- principal identity must carry an explicit issuing authority/namespace, so machine-local identity
+  today can federate cleanly later
 
 ---
 
@@ -85,6 +87,25 @@ PRISM should model three distinct concepts:
 
 This separation is necessary because a logical actor may reconnect, restart, or spawn subagents
 without preserving a single live transport session.
+
+### 3.2.1 Distinguish principal identity from issuing authority
+
+Machine-local principals need an explicit authority or namespace so they remain unambiguous once
+multiple machines or runtimes contribute to shared storage.
+
+The principal model should therefore distinguish:
+
+- `principal_authority_id`
+  - identifies the issuing authority or namespace for the principal id
+- `principal_id`
+  - stable principal identity within that authority
+
+The externally visible representation may eventually combine them, for example:
+
+- `principal:<authority>:<id>`
+
+This keeps the design machine-local by default while making future multi-machine or Postgres-backed
+federation a compatible extension rather than a redesign.
 
 ### 3.3 Do not trust ambient MCP session state as authority
 
@@ -171,6 +192,43 @@ The model should support:
 - provenance showing parent-child relationships
 - later queries such as "which agents were spawned from this agent during this task"
 
+### 4.4 Credentials should carry minimal capabilities
+
+PRISM should include a small capability layer on credentials from the start, even if it is coarse.
+
+The goal is not a full ACL system. The goal is to avoid making every valid token equivalent to
+global root access forever.
+
+Examples of suitable coarse capabilities:
+
+- `mutate_coordination`
+- `mutate_repo_memory`
+- `mint_child_principal`
+- `admin_principals`
+- `all`
+
+This capability layer should be:
+
+- attached to credentials, not principals
+- checked at mutation boundaries
+- intentionally small in v1
+
+It exists to reduce blast radius, make child-principal minting safer, and leave room for later
+shared-runtime authorization without redesigning all mutation paths.
+
+### 4.5 Define the bootstrap trust root explicitly
+
+The design must specify how the first authenticated principal is minted.
+
+For the local-daemon deployment model, the default bootstrap should be:
+
+- machine-local bootstrap only
+- an explicitly trusted local CLI flow
+- first-run init mints the initial human owner principal
+- all later principal or credential minting happens through authenticated mutation
+
+This avoids leaving first-credential issuance as an implicit or ad hoc ceremony.
+
 ---
 
 ## 5. Principal model
@@ -181,6 +239,7 @@ The principal system should have a small shared core plus kind-specific optional
 
 Every principal should have at least:
 
+- `principal_authority_id`
 - `principal_id`
 - `kind`
 - `name` or equivalent human-readable label
@@ -244,6 +303,25 @@ The distinction should be:
 - kind-specific attributes
   - optional profile metadata
 
+### 5.3 CLI minting should be a first-class human path
+
+The canonical backend operation remains a mutation, but humans should not be expected to assemble
+raw mutation payloads by hand.
+
+The initial rollout should therefore include a practical CLI minting/auth path for humans, and UI
+support can follow later.
+
+Representative commands might include:
+
+- `prism auth init`
+- `prism auth login`
+- `prism principal mint --kind human --name <name>`
+- `prism principal mint --kind agent --name <name> --parent <principal>`
+
+The required human-readable `name` is distinct from an optional `role`. PRISM should require a
+real name or label at principal creation time and should not rely on anonymous fallback labels for
+durable principals.
+
 ---
 
 ## 6. Lease model
@@ -274,6 +352,8 @@ Lease refresh should be narrow, not broad:
 
 - one mutation should refresh only the specific task or claim lease it touches
 - a mutation on Task A must not silently keep an abandoned lease on Task B alive
+- default lease timings should remain policy values, not schema axioms, so later task or plan
+  classes can override them without redesign
 
 ### 6.3 Ambient activity must not refresh leases
 
@@ -351,7 +431,34 @@ PRISM should evolve this so authoritative mutation events record:
 - principal id
 - optional event-time snapshot fields where needed for audit stability
 
-### 8.3 Use projections for fast lookups
+### 8.3 Record execution context separately from actor identity
+
+Authoritative actor identity and non-authoritative runtime context should both be present in event
+metadata, but they must remain distinct.
+
+The actor portion should answer:
+
+- who authenticated and authored this mutation
+
+The execution-context portion should answer:
+
+- which daemon or runtime instance handled it
+- which worktree or repo context it came from
+- which request or correlation ids were involved
+- optionally which credential id or key id was used
+
+Representative execution-context fields may include:
+
+- `instance_id`
+- `daemon_id`
+- `worktree_id`
+- request or session correlation ids
+- `credential_id`
+
+This gives PRISM richer debugging and audit surfaces without re-elevating transport/session state
+into an authority boundary.
+
+### 8.4 Use projections for fast lookups
 
 Fast lookup surfaces should be derived from the event log, not treated as the canonical source of
 authorship truth.
@@ -392,6 +499,27 @@ PRISM should still remain correct because:
 
 This is the minimum robust design that does not require trusted client isolation.
 
+### 9.1 Keep room for authenticated reads and introspection later
+
+Read-only queries remain unauthenticated by default in the initial model, but the protocol shape
+should remain compatible with optional authenticated reads later.
+
+That leaves room for:
+
+- personalized views
+- richer audit access control
+- remote or shared deployment modes
+
+Separately, PRISM should still offer non-authoritative introspection surfaces for humans and agents,
+for example:
+
+- which principal a credential authenticates as
+- which daemon or runtime instance is being used
+- which worktree or repo context is active
+- which active leases are currently held by that principal
+
+These are debugging and ergonomics features, not authority mechanisms.
+
 ---
 
 ## 10. System and runtime principals
@@ -413,6 +541,17 @@ This keeps internal system behavior:
 - cheap for high-frequency runtime operations
 - clearly distinguishable from human or agent activity in audit trails
 
+This also reinforces the three-plane persistence split:
+
+- repo truth plane
+  - published plans, concepts, memory, and other repo-owned durable state
+- shared runtime plane
+  - principal registry, credential verifiers, lease state, and coordination continuity
+- hot in-process plane
+  - active runtime admission, live work execution, and transient request handling
+
+Identity authority belongs in the shared runtime plane, not in the hot in-process engine.
+
 ---
 
 ## 11. Non-goals
@@ -423,6 +562,9 @@ This design note does not attempt to specify:
 - the final on-disk schema for principal profile storage
 - the final dashboard or MCP query surfaces for identity exploration
 - a complete ACL or authorization model beyond mutation authorship and provenance
+
+The initial capability layer on credentials is intentionally minimal. Richer authorization policy
+can be layered later once the principal and credential substrate is stable.
 
 Those can be layered on top once the principal, credential, lease, and provenance foundations are in
 place.
@@ -440,6 +582,7 @@ The following points were previously open questions and are now resolved for the
 ### 12.1 Credential lifecycle
 
 - One principal may have multiple active credentials at once.
+- Credentials carry a small capability set rather than implying unrestricted authority.
 - Credential rotation should be zero-downtime:
   - mint a new credential through an authenticated mutation
   - revoke the old credential once the replacement is live
@@ -448,6 +591,7 @@ The following points were previously open questions and are now resolved for the
   principal, not to one specific credential.
 - A revoked credential simply loses the ability to authenticate future mutations, so any affected
   lease will naturally become stale and later expire if no other valid credential refreshes it.
+- Capabilities are checked at mutation boundaries and should be coarse, not fully general, in v1.
 
 ### 12.2 Parent-child principal semantics
 
@@ -493,17 +637,21 @@ The following points were previously open questions and are now resolved for the
 
 - `EventActor` should be enriched directly rather than leaving identity outside the actor shape.
 - The authoritative mutation actor should record at least:
+  - `principal_authority_id`
   - `principal_id`
   - principal kind
 - Mutation events should snapshot:
   - principal kind
   - human-readable name
+- Mutation events should also record non-authoritative execution context separately from actor
+  identity, including instance/worktree/correlation information where available.
 - Additional actor snapshot fields may be added later where audit stability materially benefits, but
   `kind` and `name` are the initial minimum.
 
 ### 12.6 Principal profile mutability
 
 - Immutable principal state:
+  - `principal_authority_id`
   - `principal_id`
   - `kind`
   - creation timestamp
@@ -529,6 +677,9 @@ The following points were previously open questions and are now resolved for the
 - Human credentials should be stored in a practical local mechanism such as:
   - `~/.prism/credentials.toml`
   - or a later OS-keychain-backed equivalent
+- The bootstrap trust root is an explicitly trusted local CLI flow that mints the initial human
+  owner principal for a machine-local daemon.
+- After bootstrap, further principal or credential issuance is authenticated mutation only.
 
 ### 12.8 Imported external identities
 
@@ -564,7 +715,7 @@ The following points were previously open questions and are now resolved for the
 
 The core design questions are now settled. Future work may still refine:
 
-- additional actor snapshot fields beyond `kind` and `name`
+- additional actor and execution-context snapshot fields beyond the initial minimum
 - optional `heartbeat_lease` ergonomics
 - stronger human credential storage such as OS keychain integration
 - richer query and UI surfaces for lineage and provenance exploration
@@ -576,11 +727,12 @@ The core design questions are now settled. Future work may still refine:
 When implementation starts, the safest sequence is:
 
 1. Define the principal core types, credential registry, and event metadata changes.
-2. Add mutation-envelope authentication for authoritative writes.
-3. Record canonical provenance in mutation events.
-4. Introduce explicit lease lifecycle and stale/reclaim semantics.
-5. Add projections and query surfaces for authorship and identity history.
-6. Add CLI principal mint/show/lineage flows and child-principal minting for multi-agent orchestration.
+2. Define principal authority/namespace handling and bootstrap trust-root semantics.
+3. Add mutation-envelope authentication and coarse credential capabilities for authoritative writes.
+4. Record canonical provenance plus non-authoritative execution context in mutation events.
+5. Introduce explicit lease lifecycle and stale/reclaim semantics.
+6. Add projections and query surfaces for authorship, identity history, and principal introspection.
+7. Add CLI principal mint/show/lineage flows and child-principal minting for multi-agent orchestration.
 
 This order minimizes the risk of building ad hoc ownership semantics before the identity substrate is
 stable.

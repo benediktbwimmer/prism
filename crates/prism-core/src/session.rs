@@ -355,6 +355,7 @@ pub struct WorkspaceSession {
     pub(crate) prism: Arc<RwLock<Arc<Prism>>>,
     pub(crate) runtime_state: Arc<Mutex<WorkspaceRuntimeState>>,
     pub(crate) store: Arc<Mutex<SqliteStore>>,
+    pub(crate) cold_query_store: Arc<Mutex<SqliteStore>>,
     pub(crate) shared_runtime: SharedRuntimeBackend,
     pub(crate) shared_runtime_store: Option<Arc<Mutex<SqliteStore>>>,
     pub(crate) refresh_lock: Arc<Mutex<()>>,
@@ -518,7 +519,10 @@ impl WorkspaceSession {
             .clone()
     }
 
-    pub(crate) fn attach_cold_query_backends(prism: &Prism, store: &Arc<Mutex<SqliteStore>>) {
+    pub(crate) fn attach_cold_query_backends(
+        prism: &Prism,
+        store: &Arc<Mutex<SqliteStore>>,
+    ) {
         prism.set_history_backend(Some(Arc::new(StoreHistoryReadBackend::new(Arc::clone(
             store,
         )))));
@@ -541,7 +545,7 @@ impl WorkspaceSession {
             },
             coordination_context,
         ));
-        Self::attach_cold_query_backends(next.as_ref(), &self.store);
+        Self::attach_cold_query_backends(next.as_ref(), &self.cold_query_store);
         *self
             .runtime_state
             .lock()
@@ -2390,6 +2394,7 @@ impl WorkspaceSession {
             &self.prism,
             &self.runtime_state,
             &self.store,
+            &self.cold_query_store,
             self.shared_runtime.sqlite_path(),
             &self.refresh_lock,
             &self.refresh_state,
@@ -2414,6 +2419,7 @@ impl WorkspaceSession {
             &self.prism,
             &self.runtime_state,
             &self.store,
+            &self.cold_query_store,
             self.shared_runtime.sqlite_path(),
             &self.refresh_lock,
             &self.refresh_state,
@@ -2441,11 +2447,7 @@ impl Drop for WorkspaceSession {
     fn drop(&mut self) {
         if let Some(watch) = self.watch.take() {
             let _ = watch.stop.send(WatchMessage::Stop);
-            let _ = std::thread::Builder::new()
-                .name("prism-watch-join".to_string())
-                .spawn(move || {
-                    let _ = watch.handle.join();
-                });
+            let _ = watch.handle.join();
         }
         if let Some(mut curator) = self.curator.take() {
             curator.stop();

@@ -111,7 +111,7 @@ impl WorkspaceIndexer<SqliteStore> {
     ) -> Result<Self> {
         let root = root.as_ref().canonicalize()?;
         cleanup_legacy_cache(&root)?;
-        let store = SqliteStore::open(cache_path(&root))?;
+        let store = SqliteStore::open(cache_path(&root)?)?;
         let mut indexer = Self::with_store_and_options(root.clone(), store, options.clone())?;
         let mut shared_runtime_store = match &options.shared_runtime {
             SharedRuntimeBackend::Disabled => None,
@@ -179,7 +179,7 @@ impl WorkspaceIndexer<SqliteStore> {
     ) -> Result<Self> {
         let root = root.as_ref().canonicalize()?;
         cleanup_legacy_cache(&root)?;
-        let store = SqliteStore::open(cache_path(&root))?;
+        let store = SqliteStore::open(cache_path(&root)?)?;
         let mut indexer = Self::with_live_prism_and_options(
             root.clone(),
             store,
@@ -209,7 +209,7 @@ impl WorkspaceIndexer<SqliteStore> {
     ) -> Result<Self> {
         let root = root.as_ref().canonicalize()?;
         cleanup_legacy_cache(&root)?;
-        let store = SqliteStore::open(cache_path(&root))?;
+        let store = SqliteStore::open(cache_path(&root)?)?;
         let mut indexer = Self::with_live_runtime_state_and_options(
             root.clone(),
             store,
