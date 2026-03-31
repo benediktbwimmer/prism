@@ -517,6 +517,11 @@ impl Store for MemoryStore {
         Ok(())
     }
 
+    fn save_graph_snapshot(&mut self, graph: &Graph) -> anyhow::Result<()> {
+        self.snapshot = Some(graph.snapshot());
+        Ok(())
+    }
+
     fn save_file_state(&mut self, _path: &std::path::Path, graph: &Graph) -> anyhow::Result<()> {
         self.snapshot = Some(graph.snapshot());
         Ok(())

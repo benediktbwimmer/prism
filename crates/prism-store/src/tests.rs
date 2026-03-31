@@ -1672,6 +1672,40 @@ fn sqlite_store_checkpoint_snapshots_do_not_bump_workspace_revision() {
 }
 
 #[test]
+fn sqlite_store_save_graph_snapshot_materializes_without_bumping_workspace_revision() {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!("prism-store-graph-snapshot-revision-{nanos}.db"));
+    let mut store = SqliteStore::open(&path).unwrap();
+    let base_revision = store.workspace_revision().unwrap();
+
+    let mut graph = Graph::new();
+    graph.upsert_file(
+        Path::new("src/lib.rs"),
+        1,
+        vec![node("alpha")],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+
+    store.save_graph_snapshot(&graph).unwrap();
+
+    assert_eq!(store.workspace_revision().unwrap(), base_revision);
+    let loaded_graph = store.load_graph().unwrap().unwrap();
+    assert!(loaded_graph.nodes.contains_key(&NodeId::new(
+        "demo",
+        "demo::alpha",
+        NodeKind::Function
+    )));
+}
+
+#[test]
 fn sqlite_store_commits_auxiliary_batches_atomically() {
     let path = std::env::temp_dir().join(format!(
         "prism-store-aux-batch-test-{}.db",
@@ -2463,6 +2497,7 @@ fn sqlite_store_commits_index_batches_atomically() {
         },
         history_delta: None,
         outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+        defer_graph_materialization: false,
         co_change_deltas: vec![CoChangeDelta {
             source_lineage: prism_ir::LineageId::new("lineage:1"),
             target_lineage: prism_ir::LineageId::new("lineage:2"),
@@ -2594,6 +2629,7 @@ fn sqlite_store_applies_incremental_history_delta() {
                 history_snapshot: initial_snapshot.clone(),
                 history_delta: None,
                 outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+                defer_graph_materialization: false,
                 co_change_deltas: vec![CoChangeDelta {
                     source_lineage: lineage.clone(),
                     target_lineage: neighbor.clone(),
@@ -2635,6 +2671,7 @@ fn sqlite_store_applies_incremental_history_delta() {
                     next_event: 3,
                 }),
                 outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+                defer_graph_materialization: false,
                 co_change_deltas: vec![CoChangeDelta {
                     source_lineage: lineage.clone(),
                     target_lineage: neighbor.clone(),
@@ -2691,6 +2728,7 @@ fn sqlite_store_tolerates_duplicate_node_ids_in_single_file_state() {
         },
         history_delta: None,
         outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+        defer_graph_materialization: false,
         co_change_deltas: Vec::new(),
         validation_deltas: Vec::new(),
         projection_snapshot: None,

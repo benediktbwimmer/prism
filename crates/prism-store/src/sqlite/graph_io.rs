@@ -600,12 +600,44 @@ pub(super) fn replace_derived_edges_touching_nodes_tx(
     Ok(rewritten_edge_count)
 }
 
-pub(super) fn finalize_tx(tx: &Transaction<'_>, graph: &Graph) -> Result<()> {
+pub(super) fn save_next_file_id_tx(tx: &Transaction<'_>, graph: &Graph) -> Result<()> {
     tx.execute(
         "INSERT INTO metadata(key, value) VALUES ('next_file_id', ?1)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         params![graph.next_file_id()],
     )?;
+    Ok(())
+}
+
+pub(super) fn replace_graph_snapshot_tx(tx: &Transaction<'_>, graph: &Graph) -> Result<()> {
+    tx.execute_batch(
+        "DELETE FROM file_nodes;
+         DELETE FROM node_fingerprints;
+         DELETE FROM unresolved_calls;
+         DELETE FROM unresolved_imports;
+         DELETE FROM unresolved_impls;
+         DELETE FROM unresolved_intents;
+         DELETE FROM edges;
+         DELETE FROM nodes;
+         DELETE FROM file_records;",
+    )?;
+
+    let mut file_state_writer = FileStateWriter::new(tx)?;
+    let mut tracked_files = graph.tracked_files();
+    tracked_files.sort();
+    for path in tracked_files {
+        if let Some(state) = graph.file_state(&path) {
+            file_state_writer.save_file_state(&state)?;
+        }
+    }
+    drop(file_state_writer);
+
+    replace_derived_edges_tx(tx, graph)?;
+    finalize_tx(tx, graph)
+}
+
+pub(super) fn finalize_tx(tx: &Transaction<'_>, graph: &Graph) -> Result<()> {
+    save_next_file_id_tx(tx, graph)?;
 
     let mut insert_root_node = tx.prepare_cached(
         "INSERT INTO nodes(crate_name, path, kind, name, file_id, span_start, span_end, language)

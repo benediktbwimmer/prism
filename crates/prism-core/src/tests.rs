@@ -138,6 +138,61 @@ fn reindexes_incrementally_across_file_changes() {
 }
 
 #[test]
+fn workspace_indexer_rebuilds_missing_derived_edges_from_persisted_file_state() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "fn alpha() { beta(); }\nfn beta() {}\n",
+    )
+    .unwrap();
+
+    let mut source_indexer = WorkspaceIndexer::with_store(&root, MemoryStore::default()).unwrap();
+    source_indexer.index().unwrap();
+    assert!(source_indexer
+        .graph()
+        .edges
+        .iter()
+        .any(|edge| edge.kind == EdgeKind::Calls));
+
+    let sqlite_path = std::env::temp_dir().join(format!(
+        "prism-derived-edge-reload-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let mut store = SqliteStore::open(&sqlite_path).unwrap();
+    for (path, _) in source_indexer.graph().file_records() {
+        store.save_file_state(path, source_indexer.graph()).unwrap();
+    }
+    store.finalize(source_indexer.graph()).unwrap();
+
+    let persisted_graph = store.load_graph().unwrap().unwrap();
+    assert!(persisted_graph
+        .edges
+        .iter()
+        .all(|edge| edge.kind != EdgeKind::Calls));
+
+    let reloaded = WorkspaceIndexer::with_store(&root, store).unwrap();
+    assert!(reloaded
+        .graph()
+        .edges
+        .iter()
+        .any(|edge| edge.kind == EdgeKind::Calls));
+
+    let _ = fs::remove_dir_all(root);
+    let _ = std::fs::remove_file(&sqlite_path);
+    let _ = std::fs::remove_file(sqlite_path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(sqlite_path.with_extension("db-shm"));
+}
+
+#[test]
 fn hydrated_workspace_session_marks_background_refresh_pending() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -1074,6 +1129,36 @@ fn reload_bounds_hot_outcomes_but_queries_cold_outcomes_from_store() {
         reloaded.prism().outcome_snapshot().events.len()
             <= crate::session::HOT_OUTCOME_HYDRATION_LIMIT
     );
+    let failure_query = OutcomeRecallQuery {
+        anchors: vec![AnchorRef::Node(alpha.clone())],
+        kinds: Some(vec![OutcomeKind::FailureObserved]),
+        result: Some(OutcomeResult::Failure),
+        limit: 10,
+        ..OutcomeRecallQuery::default()
+    };
+    assert!(reloaded
+        .load_hot_outcomes(&failure_query)
+        .unwrap()
+        .is_empty());
+    assert!(reloaded
+        .load_cold_outcomes(&failure_query)
+        .unwrap()
+        .iter()
+        .any(|event| event.meta.id == EventId::new("outcome:cold:0")));
+    assert!(reloaded
+        .prism()
+        .query_hot_outcomes(&failure_query)
+        .is_empty());
+    assert!(reloaded
+        .prism()
+        .query_cold_outcomes(&failure_query)
+        .iter()
+        .any(|event| event.meta.id == EventId::new("outcome:cold:0")));
+
+    let failures = reloaded.load_outcomes(&failure_query).unwrap();
+    assert!(failures
+        .iter()
+        .any(|event| event.meta.id == EventId::new("outcome:cold:0")));
 
     let failures = reloaded.prism().query_outcomes(&OutcomeRecallQuery {
         anchors: vec![AnchorRef::Node(alpha)],
@@ -1168,7 +1253,7 @@ fn workspace_session_load_methods_prefer_hot_outcomes_over_unpersisted_store_sta
         .clone();
     let task_id = TaskId::new("task:hot-session");
     let event_id = EventId::new("outcome:hot-session");
-    let event = OutcomeEvent {
+    let hot_event = OutcomeEvent {
         meta: EventMeta {
             id: event_id.clone(),
             ts: 1,
@@ -1186,25 +1271,87 @@ fn workspace_session_load_methods_prefer_hot_outcomes_over_unpersisted_store_sta
     session
         .prism()
         .outcome_memory()
-        .store_event(event.clone())
+        .store_event(hot_event.clone())
         .unwrap();
+    let cold_event = OutcomeEvent {
+        meta: EventMeta {
+            id: EventId::new("outcome:cold-session"),
+            ts: 2,
+            actor: EventActor::Agent,
+            correlation: Some(task_id.clone()),
+            causation: None,
+        },
+        anchors: vec![AnchorRef::Node(alpha.clone())],
+        kind: OutcomeKind::FailureObserved,
+        result: OutcomeResult::Failure,
+        summary: "cold only failure".into(),
+        evidence: Vec::new(),
+        metadata: serde_json::Value::Null,
+    };
+    session
+        .store
+        .lock()
+        .unwrap()
+        .append_outcome_events(std::slice::from_ref(&cold_event), &[])
+        .unwrap();
+
+    let hot_replay = session.load_hot_task_replay(&task_id).unwrap();
+    assert_eq!(hot_replay.task, task_id);
+    assert_eq!(hot_replay.events, vec![hot_event.clone()]);
+
+    let cold_replay = session.load_cold_task_replay(&task_id).unwrap();
+    assert_eq!(cold_replay.task, task_id);
+    assert_eq!(cold_replay.events, vec![cold_event.clone()]);
 
     let replay = session.load_task_replay(&task_id).unwrap();
     assert_eq!(replay.task, task_id);
-    assert_eq!(replay.events, vec![event.clone()]);
+    assert_eq!(replay.events.len(), 2);
+    assert_eq!(replay.events[0].meta.id, cold_event.meta.id);
+    assert_eq!(replay.events[1].meta.id, hot_event.meta.id);
 
-    let loaded = session
-        .load_outcomes(&OutcomeRecallQuery {
-            anchors: vec![AnchorRef::Node(alpha)],
-            kinds: Some(vec![OutcomeKind::FailureObserved]),
-            result: Some(OutcomeResult::Failure),
-            limit: 10,
-            ..OutcomeRecallQuery::default()
-        })
-        .unwrap();
-    assert_eq!(loaded, vec![event.clone()]);
+    let query = OutcomeRecallQuery {
+        anchors: vec![AnchorRef::Node(alpha)],
+        kinds: Some(vec![OutcomeKind::FailureObserved]),
+        result: Some(OutcomeResult::Failure),
+        limit: 10,
+        ..OutcomeRecallQuery::default()
+    };
+    assert_eq!(
+        session.load_hot_outcomes(&query).unwrap(),
+        vec![hot_event.clone()]
+    );
+    assert_eq!(
+        session.load_cold_outcomes(&query).unwrap(),
+        vec![cold_event.clone()]
+    );
+    let loaded = session.load_outcomes(&query).unwrap();
+    assert_eq!(loaded.len(), 2);
+    assert_eq!(loaded[0].meta.id, cold_event.meta.id);
+    assert_eq!(loaded[1].meta.id, hot_event.meta.id);
 
-    assert_eq!(session.load_outcome_event(&event_id).unwrap(), Some(event));
+    assert_eq!(
+        session.load_hot_outcome_event(&event_id).unwrap(),
+        Some(hot_event.clone())
+    );
+    assert_eq!(session.load_cold_outcome_event(&event_id).unwrap(), None);
+    assert_eq!(
+        session
+            .load_cold_outcome_event(&cold_event.meta.id)
+            .unwrap(),
+        Some(cold_event.clone())
+    );
+    assert_eq!(
+        session.load_hot_outcome_event(&cold_event.meta.id).unwrap(),
+        None
+    );
+    assert_eq!(
+        session.load_outcome_event(&event_id).unwrap(),
+        Some(hot_event)
+    );
+    assert_eq!(
+        session.load_outcome_event(&cold_event.meta.id).unwrap(),
+        Some(cold_event)
+    );
 
     let _ = fs::remove_dir_all(root);
 }
@@ -1260,7 +1407,20 @@ fn reload_queries_cold_lineage_history_from_store() {
     drop(session);
 
     let reloaded = index_workspace_session(&root).unwrap();
-    let events = reloaded.prism().lineage_history(&lineage);
+    assert!(reloaded
+        .load_hot_lineage_history(&lineage)
+        .unwrap()
+        .is_empty());
+    assert_eq!(
+        reloaded.load_cold_lineage_history(&lineage).unwrap(),
+        vec![persisted_event.clone()]
+    );
+    assert!(reloaded.prism().hot_lineage_history(&lineage).is_empty());
+    assert_eq!(
+        reloaded.prism().cold_lineage_history(&lineage),
+        vec![persisted_event.clone()]
+    );
+    let events = reloaded.load_lineage_history(&lineage).unwrap();
     assert_eq!(events, vec![persisted_event]);
 
     let _ = fs::remove_dir_all(root);
@@ -4524,6 +4684,62 @@ fn appended_outcome_flushes_projection_materialization_off_request_path() {
         .scored_checks
         .iter()
         .any(|check| check.label == "test:alpha_integration" && check.score > 0.0));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn refresh_fs_materializes_graph_snapshot_off_request_path() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "fn alpha() { helper(); }\nfn helper() {}\n",
+    )
+    .unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() { gamma(); }\npub fn gamma() {}\n",
+    )
+    .unwrap();
+    session
+        .refresh_state
+        .mark_fs_dirty_paths([root.join("src/lib.rs")]);
+    session.refresh_fs().unwrap();
+
+    let gamma = NodeId::new("demo", "demo::gamma", NodeKind::Function);
+    assert!(session
+        .prism()
+        .symbol("gamma")
+        .iter()
+        .any(|symbol| symbol.id() == &gamma));
+
+    {
+        let mut store = session.store.lock().expect("workspace store lock poisoned");
+        let persisted = store.load_graph().unwrap().unwrap();
+        assert!(
+            !persisted.nodes.contains_key(&gamma),
+            "graph checkpoint should still be deferred before flush"
+        );
+    }
+
+    session.flush_materializations().unwrap();
+
+    let mut store = session.store.lock().expect("workspace store lock poisoned");
+    let persisted = store.load_graph().unwrap().unwrap();
+    assert!(persisted.nodes.contains_key(&gamma));
+    assert!(persisted.edges.iter().any(|edge| {
+        edge.kind == EdgeKind::Calls
+            && edge.source == NodeId::new("demo", "demo::alpha", NodeKind::Function)
+            && edge.target == gamma
+    }));
 
     let _ = fs::remove_dir_all(root);
 }

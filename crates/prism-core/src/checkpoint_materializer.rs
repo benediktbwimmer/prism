@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, RecvTimeoutError, SyncSender};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -14,7 +15,8 @@ use prism_memory::{EpisodicMemorySnapshot, OutcomeMemorySnapshot};
 use prism_projections::{CoChangeDelta, ProjectionIndex, ProjectionSnapshot, ValidationDelta};
 use prism_store::WorkspaceTreeSnapshot;
 use prism_store::{
-    CoordinationCheckpointStore, CoordinationJournal, MaterializationStore, SqliteStore,
+    CoordinationCheckpointStore, CoordinationJournal, Graph, GraphSnapshot, MaterializationStore,
+    SqliteStore,
 };
 use tracing::warn;
 
@@ -40,6 +42,7 @@ struct PendingMaterializations {
     co_change_deltas: Vec<CoChangeDelta>,
     validation_deltas: Vec<ValidationDelta>,
     coordination_snapshot: Option<CoordinationSnapshot>,
+    graph_snapshot: Option<GraphSnapshot>,
     projection_snapshot: Option<ProjectionSnapshot>,
     outcome_snapshot: Option<OutcomeMemorySnapshot>,
     episodic_snapshot: Option<EpisodicMemorySnapshot>,
@@ -49,6 +52,7 @@ struct PendingMaterializations {
 
 enum CheckpointMaterializerMessage {
     CoordinationSnapshot(CoordinationSnapshot),
+    GraphSnapshot(GraphSnapshot),
     ProjectionDeltas(Vec<CoChangeDelta>, Vec<ValidationDelta>),
     ProjectionSnapshot(ProjectionSnapshot),
     ValidationDeltas(Vec<ValidationDelta>),
@@ -61,7 +65,7 @@ enum CheckpointMaterializerMessage {
 }
 
 impl CheckpointMaterializerHandle {
-    pub(crate) fn new(store: Arc<Mutex<SqliteStore>>) -> Self {
+    pub(crate) fn new(root: PathBuf, store: Arc<Mutex<SqliteStore>>) -> Self {
         let (tx, rx) = mpsc::channel::<CheckpointMaterializerMessage>();
         let handle = thread::spawn(move || {
             let mut pending = PendingMaterializations::default();
@@ -69,13 +73,16 @@ impl CheckpointMaterializerHandle {
                 let message = match rx.recv() {
                     Ok(message) => message,
                     Err(_) => {
-                        flush_pending_materializations(&store, &mut pending);
+                        flush_pending_materializations(&root, &store, &mut pending);
                         break;
                     }
                 };
                 match message {
                     CheckpointMaterializerMessage::CoordinationSnapshot(snapshot) => {
                         pending.coordination_snapshot = Some(snapshot);
+                    }
+                    CheckpointMaterializerMessage::GraphSnapshot(snapshot) => {
+                        pending.graph_snapshot = Some(snapshot);
                     }
                     CheckpointMaterializerMessage::ProjectionDeltas(
                         co_change_deltas,
@@ -103,12 +110,13 @@ impl CheckpointMaterializerHandle {
                         pending.workspace_tree_snapshot = Some(snapshot);
                     }
                     CheckpointMaterializerMessage::Flush(reply) => {
-                        let result = flush_pending_materializations_result(&store, &mut pending);
+                        let result =
+                            flush_pending_materializations_result(&root, &store, &mut pending);
                         let _ = reply.send(result);
                         continue;
                     }
                     CheckpointMaterializerMessage::Stop => {
-                        flush_pending_materializations(&store, &mut pending);
+                        flush_pending_materializations(&root, &store, &mut pending);
                         break;
                     }
                 }
@@ -116,6 +124,9 @@ impl CheckpointMaterializerHandle {
                     match rx.recv_timeout(VALIDATION_COALESCE_WINDOW) {
                         Ok(CheckpointMaterializerMessage::CoordinationSnapshot(snapshot)) => {
                             pending.coordination_snapshot = Some(snapshot);
+                        }
+                        Ok(CheckpointMaterializerMessage::GraphSnapshot(snapshot)) => {
+                            pending.graph_snapshot = Some(snapshot);
                         }
                         Ok(CheckpointMaterializerMessage::ProjectionDeltas(
                             co_change_deltas,
@@ -144,20 +155,20 @@ impl CheckpointMaterializerHandle {
                         }
                         Ok(CheckpointMaterializerMessage::Flush(reply)) => {
                             let result =
-                                flush_pending_materializations_result(&store, &mut pending);
+                                flush_pending_materializations_result(&root, &store, &mut pending);
                             let _ = reply.send(result);
                             break;
                         }
                         Ok(CheckpointMaterializerMessage::Stop) => {
-                            flush_pending_materializations(&store, &mut pending);
+                            flush_pending_materializations(&root, &store, &mut pending);
                             return;
                         }
                         Err(RecvTimeoutError::Timeout) => {
-                            flush_pending_materializations(&store, &mut pending);
+                            flush_pending_materializations(&root, &store, &mut pending);
                             break;
                         }
                         Err(RecvTimeoutError::Disconnected) => {
-                            flush_pending_materializations(&store, &mut pending);
+                            flush_pending_materializations(&root, &store, &mut pending);
                             return;
                         }
                     }
@@ -192,6 +203,14 @@ impl CheckpointMaterializerHandle {
             snapshot,
         ))
         .map_err(|_| anyhow!("checkpoint materializer dropped coordination snapshot flush"))
+    }
+
+    pub(crate) fn enqueue_graph_snapshot(&self, snapshot: GraphSnapshot) -> Result<()> {
+        let Some(tx) = &self.tx else {
+            return Err(anyhow!("checkpoint materializer is unavailable"));
+        };
+        tx.send(CheckpointMaterializerMessage::GraphSnapshot(snapshot))
+            .map_err(|_| anyhow!("checkpoint materializer dropped graph snapshot flush"))
     }
 
     pub(crate) fn enqueue_projection_deltas(
@@ -280,21 +299,24 @@ impl CheckpointMaterializerHandle {
 }
 
 fn flush_pending_materializations(
+    root: &Path,
     store: &Arc<Mutex<SqliteStore>>,
     pending: &mut PendingMaterializations,
 ) {
-    if let Err(error) = flush_pending_materializations_result(store, pending) {
+    if let Err(error) = flush_pending_materializations_result(root, store, pending) {
         warn!(error = %error, "checkpoint materializer flush failed");
     }
 }
 
 fn flush_pending_materializations_result(
-    store: &Arc<Mutex<SqliteStore>>,
+    _root: &Path,
+    store_handle: &Arc<Mutex<SqliteStore>>,
     pending: &mut PendingMaterializations,
 ) -> Result<()> {
     let co_change_deltas = std::mem::take(&mut pending.co_change_deltas);
     let validation_deltas = take_coalesced_validation_deltas(&mut pending.validation_deltas);
     let coordination_snapshot = pending.coordination_snapshot.take();
+    let graph_snapshot = pending.graph_snapshot.take();
     let projection_snapshot = pending.projection_snapshot.take();
     let outcome_snapshot = pending.outcome_snapshot.take();
     let episodic_snapshot = pending.episodic_snapshot.take();
@@ -303,6 +325,7 @@ fn flush_pending_materializations_result(
     if co_change_deltas.is_empty()
         && validation_deltas.is_empty()
         && coordination_snapshot.is_none()
+        && graph_snapshot.is_none()
         && projection_snapshot.is_none()
         && outcome_snapshot.is_none()
         && episodic_snapshot.is_none()
@@ -311,7 +334,7 @@ fn flush_pending_materializations_result(
     {
         return Ok(());
     }
-    let mut store = store.lock().expect("workspace store lock poisoned");
+    let mut store = store_handle.lock().expect("workspace store lock poisoned");
     if let Some(snapshot) = coordination_snapshot {
         let read_model = coordination_read_model_from_snapshot(&snapshot);
         let queue_model = coordination_queue_read_model_from_snapshot(&snapshot);
@@ -322,6 +345,9 @@ fn flush_pending_materializations_result(
         {
             store.save_coordination_compaction(&snapshot)?;
         }
+    }
+    if let Some(snapshot) = graph_snapshot {
+        store.save_graph_snapshot(&Graph::from_snapshot(snapshot))?;
     }
     if let Some(snapshot) = projection_snapshot {
         if co_change_deltas.is_empty() && validation_deltas.is_empty() {

@@ -118,6 +118,7 @@ pub trait MaterializationStore {
         graph: &Graph,
         batch: &IndexPersistBatch,
     ) -> Result<()>;
+    fn save_graph_snapshot(&mut self, graph: &Graph) -> Result<()>;
     fn save_file_state(&mut self, path: &Path, graph: &Graph) -> Result<()>;
     fn remove_file_state(&mut self, path: &Path) -> Result<()>;
     fn replace_derived_edges(&mut self, graph: &Graph) -> Result<()>;
@@ -329,6 +330,10 @@ impl<T: Store + ?Sized> MaterializationStore for T {
         batch: &IndexPersistBatch,
     ) -> Result<()> {
         Store::commit_index_persist_batch(self, graph, batch)
+    }
+
+    fn save_graph_snapshot(&mut self, graph: &Graph) -> Result<()> {
+        Store::save_graph_snapshot(self, graph)
     }
 
     fn save_file_state(&mut self, path: &Path, graph: &Graph) -> Result<()> {

@@ -253,15 +253,22 @@ impl Prism {
         self.history.lineage_of(node)
     }
 
-    pub fn lineage_history(&self, lineage: &LineageId) -> Vec<LineageEvent> {
-        let hot = self.history.lineage_history(lineage);
-        let cold = self
-            .history_backend
+    pub fn hot_lineage_history(&self, lineage: &LineageId) -> Vec<LineageEvent> {
+        self.history.lineage_history(lineage)
+    }
+
+    pub fn cold_lineage_history(&self, lineage: &LineageId) -> Vec<LineageEvent> {
+        self.history_backend
             .read()
             .expect("history backend lock poisoned")
             .as_ref()
             .and_then(|backend| backend.load_lineage_history(lineage).ok())
-            .unwrap_or_default();
+            .unwrap_or_default()
+    }
+
+    pub fn lineage_history(&self, lineage: &LineageId) -> Vec<LineageEvent> {
+        let hot = self.hot_lineage_history(lineage);
+        let cold = self.cold_lineage_history(lineage);
         merge_lineage_events(hot, cold)
     }
 
@@ -273,14 +280,21 @@ impl Prism {
         Arc::clone(&self.outcomes)
     }
 
+    pub fn hot_outcome_event(&self, event_id: &EventId) -> Option<OutcomeEvent> {
+        self.outcomes.event(event_id)
+    }
+
+    pub fn cold_outcome_event(&self, event_id: &EventId) -> Option<OutcomeEvent> {
+        self.outcome_backend
+            .read()
+            .expect("outcome backend lock poisoned")
+            .as_ref()
+            .and_then(|backend| backend.load_outcome_event(event_id).ok().flatten())
+    }
+
     pub fn outcome_event(&self, event_id: &EventId) -> Option<OutcomeEvent> {
-        self.outcomes.event(event_id).or_else(|| {
-            self.outcome_backend
-                .read()
-                .expect("outcome backend lock poisoned")
-                .as_ref()
-                .and_then(|backend| backend.load_outcome_event(event_id).ok().flatten())
-        })
+        self.hot_outcome_event(event_id)
+            .or_else(|| self.cold_outcome_event(event_id))
     }
 
     pub fn set_coordination_context(&self, context: Option<CoordinationPersistContext>) {
@@ -309,18 +323,24 @@ impl Prism {
     }
 
     pub fn history_snapshot(&self) -> HistorySnapshot {
-        let hot = self.history.snapshot();
-        if let Some(cold) = self
-            .history_backend
-            .read()
-            .expect("history backend lock poisoned")
-            .as_ref()
-            .and_then(|backend| backend.load_history_snapshot().ok().flatten())
-        {
+        let hot = self.hot_history_snapshot();
+        if let Some(cold) = self.cold_history_snapshot() {
             merge_history_snapshots(hot, cold)
         } else {
             hot
         }
+    }
+
+    pub fn hot_history_snapshot(&self) -> HistorySnapshot {
+        self.history.snapshot()
+    }
+
+    pub fn cold_history_snapshot(&self) -> Option<HistorySnapshot> {
+        self.history_backend
+            .read()
+            .expect("history backend lock poisoned")
+            .as_ref()
+            .and_then(|backend| backend.load_history_snapshot().ok().flatten())
     }
 
     pub fn outcome_snapshot(&self) -> OutcomeMemorySnapshot {

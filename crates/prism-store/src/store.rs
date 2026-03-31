@@ -57,6 +57,7 @@ pub struct IndexPersistBatch {
     pub history_snapshot: HistorySnapshot,
     pub history_delta: Option<HistoryPersistDelta>,
     pub outcome_snapshot: OutcomeMemorySnapshot,
+    pub defer_graph_materialization: bool,
     pub co_change_deltas: Vec<CoChangeDelta>,
     pub validation_deltas: Vec<ValidationDelta>,
     pub projection_snapshot: Option<ProjectionSnapshot>,
@@ -213,6 +214,7 @@ pub trait Store {
         graph: &Graph,
         batch: &IndexPersistBatch,
     ) -> Result<()>;
+    fn save_graph_snapshot(&mut self, graph: &Graph) -> Result<()>;
     fn save_file_state(&mut self, path: &Path, graph: &Graph) -> Result<()>;
     fn remove_file_state(&mut self, path: &Path) -> Result<()>;
     fn replace_derived_edges(&mut self, graph: &Graph) -> Result<()>;

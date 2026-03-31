@@ -66,6 +66,34 @@ The request path should prefer the cheapest class that preserves correctness:
 - treat checkpoints and materializations as optional lagging copies
 - keep transient overlays and handles in process-local memory only
 
+## Query Classes
+
+The runtime query surface should make query class explicit instead of relying on callers to infer it
+from backend wiring:
+
+- Hot-only queries read only in-memory authoritative runtime state and preserve bounded hot
+  hydration.
+- Hot-plus-cold queries merge hot runtime state with lagging persisted state when durable recall is
+  required.
+- Cold-backed queries consult persisted state directly and should be used intentionally for reload,
+  replay, or persisted-state inspection.
+
+Current code should converge on the following naming rule:
+
+- `hot_*`: hot-only
+- `cold_*`: cold-backed
+- unprefixed query methods: merged hot-plus-cold
+
+Representative surfaces:
+
+- [lib.rs](/Users/bene/code/prism/crates/prism-query/src/lib.rs): `hot_lineage_history`,
+  `cold_lineage_history`, `lineage_history`, `hot_history_snapshot`, `cold_history_snapshot`,
+  `history_snapshot`, `hot_outcome_event`, `cold_outcome_event`, `outcome_event`
+- [outcomes.rs](/Users/bene/code/prism/crates/prism-query/src/outcomes.rs): `query_hot_outcomes`,
+  `query_cold_outcomes`, `query_outcomes`, `hot_task_replay`, `cold_task_replay`, `resume_task`
+- [session.rs](/Users/bene/code/prism/crates/prism-core/src/session.rs): `load_hot_*`,
+  `load_cold_*`, and merged `load_*` wrappers for runtime-facing callers
+
 ## Classification
 
 | Domain | Authoritative persisted state | Derived / compatibility / export state | Notes |

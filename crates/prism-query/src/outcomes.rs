@@ -12,17 +12,20 @@ impl Prism {
         self.outcomes.query_events(&expanded)
     }
 
-    pub fn query_outcomes(&self, query: &OutcomeRecallQuery) -> Vec<OutcomeEvent> {
+    pub fn query_cold_outcomes(&self, query: &OutcomeRecallQuery) -> Vec<OutcomeEvent> {
         let mut expanded = query.clone();
         expanded.anchors = self.expand_anchors(&query.anchors);
-        let hot = self.query_hot_outcomes(query);
-        let cold = self
-            .outcome_backend
+        self.outcome_backend
             .read()
             .expect("outcome backend lock poisoned")
             .as_ref()
             .and_then(|backend| backend.query_outcomes(&expanded).ok())
-            .unwrap_or_default();
+            .unwrap_or_default()
+    }
+
+    pub fn query_outcomes(&self, query: &OutcomeRecallQuery) -> Vec<OutcomeEvent> {
+        let hot = self.query_hot_outcomes(query);
+        let cold = self.query_cold_outcomes(query);
         merge_outcome_events(hot, cold, query.limit)
     }
 
@@ -47,10 +50,12 @@ impl Prism {
         })
     }
 
-    pub fn resume_task(&self, task: &TaskId) -> TaskReplay {
-        let hot = self.outcomes.resume_task(task);
-        let cold = self
-            .outcome_backend
+    pub fn hot_task_replay(&self, task: &TaskId) -> TaskReplay {
+        self.outcomes.resume_task(task)
+    }
+
+    pub fn cold_task_replay(&self, task: &TaskId) -> TaskReplay {
+        self.outcome_backend
             .read()
             .expect("outcome backend lock poisoned")
             .as_ref()
@@ -58,7 +63,12 @@ impl Prism {
             .unwrap_or(TaskReplay {
                 task: task.clone(),
                 events: Vec::new(),
-            });
+            })
+    }
+
+    pub fn resume_task(&self, task: &TaskId) -> TaskReplay {
+        let hot = self.hot_task_replay(task);
+        let cold = self.cold_task_replay(task);
         TaskReplay {
             task: task.clone(),
             events: merge_outcome_events(hot.events, cold.events, 0),

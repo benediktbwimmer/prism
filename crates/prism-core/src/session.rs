@@ -46,6 +46,8 @@ use crate::contract_events::{append_repo_contract_event, load_repo_curated_contr
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorHandleRef};
 use crate::indexer::WorkspaceIndexer;
+use crate::indexer_support::resolve_graph_edges;
+use crate::layout::{discover_layout, sync_root_nodes};
 use crate::materialization::{
     summarize_workspace_materialization, WorkspaceMaterializationSummary,
 };
@@ -396,12 +398,42 @@ impl WorkspaceSession {
         &self.root
     }
 
+    pub fn load_hot_lineage_history(&self, lineage: &LineageId) -> Result<Vec<LineageEvent>> {
+        Ok(self.prism_arc().hot_lineage_history(lineage))
+    }
+
+    pub fn load_cold_lineage_history(&self, lineage: &LineageId) -> Result<Vec<LineageEvent>> {
+        Ok(self.prism_arc().cold_lineage_history(lineage))
+    }
+
     pub fn load_lineage_history(&self, lineage: &LineageId) -> Result<Vec<LineageEvent>> {
         Ok(self.prism_arc().lineage_history(lineage))
     }
 
+    pub fn load_hot_task_replay(&self, task_id: &TaskId) -> Result<TaskReplay> {
+        Ok(self.prism_arc().hot_task_replay(task_id))
+    }
+
+    pub fn load_cold_task_replay(&self, task_id: &TaskId) -> Result<TaskReplay> {
+        Ok(self.prism_arc().cold_task_replay(task_id))
+    }
+
     pub fn load_task_replay(&self, task_id: &TaskId) -> Result<TaskReplay> {
         Ok(self.prism_arc().resume_task(task_id))
+    }
+
+    pub fn load_hot_outcomes(
+        &self,
+        query: &prism_memory::OutcomeRecallQuery,
+    ) -> Result<Vec<OutcomeEvent>> {
+        Ok(self.prism_arc().query_hot_outcomes(query))
+    }
+
+    pub fn load_cold_outcomes(
+        &self,
+        query: &prism_memory::OutcomeRecallQuery,
+    ) -> Result<Vec<OutcomeEvent>> {
+        Ok(self.prism_arc().query_cold_outcomes(query))
     }
 
     pub fn load_outcomes(
@@ -409,6 +441,14 @@ impl WorkspaceSession {
         query: &prism_memory::OutcomeRecallQuery,
     ) -> Result<Vec<OutcomeEvent>> {
         Ok(self.prism_arc().query_outcomes(query))
+    }
+
+    pub fn load_hot_outcome_event(&self, event_id: &EventId) -> Result<Option<OutcomeEvent>> {
+        Ok(self.prism_arc().hot_outcome_event(event_id))
+    }
+
+    pub fn load_cold_outcome_event(&self, event_id: &EventId) -> Result<Option<OutcomeEvent>> {
+        Ok(self.prism_arc().cold_outcome_event(event_id))
     }
 
     pub fn load_outcome_event(&self, event_id: &EventId) -> Result<Option<OutcomeEvent>> {
@@ -754,7 +794,10 @@ impl WorkspaceSession {
             };
         let workspace_revision =
             composite_workspace_revision(local_workspace_revision, shared_workspace_revision);
-        let graph = store.load_graph()?.unwrap_or_default();
+        let mut graph = store.load_graph()?.unwrap_or_default();
+        let layout = discover_layout(&self.root)?;
+        sync_root_nodes(&mut graph, &layout);
+        resolve_graph_edges(&mut graph, None);
         let local_projection_snapshot = store.load_projection_snapshot()?;
         let shared_projection_snapshot =
             if let Some(shared_runtime_store) = self.shared_runtime_store() {

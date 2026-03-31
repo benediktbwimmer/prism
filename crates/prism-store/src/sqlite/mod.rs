@@ -845,67 +845,100 @@ impl Store for SqliteStore {
         let tx = self.conn.transaction()?;
         let (_, current_outcome_snapshot) = current_outcome_snapshot_tx(&tx, &outcome_cache)?;
 
-        let remove_started = Instant::now();
         let mut touched_derived_nodes = HashSet::<prism_ir::NodeId>::new();
-        {
-            let mut file_state_writer = graph_io::FileStateWriter::new(&tx)?;
-            for path in &batch.removed_paths {
-                touched_derived_nodes
-                    .extend(file_state_writer.delete_file_state_returning_nodes(path)?);
+        let delete_file_state_ms = if batch.defer_graph_materialization {
+            0
+        } else {
+            let remove_started = Instant::now();
+            {
+                let mut file_state_writer = graph_io::FileStateWriter::new(&tx)?;
+                for path in &batch.removed_paths {
+                    touched_derived_nodes
+                        .extend(file_state_writer.delete_file_state_returning_nodes(path)?);
+                }
             }
-        }
-        let delete_file_state_ms = remove_started.elapsed().as_millis();
+            remove_started.elapsed().as_millis()
+        };
 
-        let upsert_started = Instant::now();
         let mut file_state_totals = FileStatePersistTotals::default();
-        {
-            let mut file_state_writer = graph_io::FileStateWriter::new(&tx)?;
-            for path in &batch.upserted_paths {
-                let Some(state) = graph.file_state(path) else {
-                    file_state_totals.skipped_missing_upsert_count += 1;
-                    continue;
-                };
-                file_state_totals.persisted_file_state_count += 1;
-                file_state_totals.node_count += state.nodes.len();
-                file_state_totals.edge_count += state.edges.len();
-                file_state_totals.fingerprint_count += state.record.fingerprints.len();
-                file_state_totals.unresolved_call_count += state.record.unresolved_calls.len();
-                file_state_totals.unresolved_import_count += state.record.unresolved_imports.len();
-                file_state_totals.unresolved_impl_count += state.record.unresolved_impls.len();
-                file_state_totals.unresolved_intent_count += state.record.unresolved_intents.len();
-                touched_derived_nodes.extend(file_state_writer.save_file_state(&state)?);
-                touched_derived_nodes.extend(state.record.nodes.iter().cloned());
+        let save_file_state_ms = if batch.defer_graph_materialization {
+            0
+        } else {
+            let upsert_started = Instant::now();
+            {
+                let mut file_state_writer = graph_io::FileStateWriter::new(&tx)?;
+                for path in &batch.upserted_paths {
+                    let Some(state) = graph.file_state(path) else {
+                        file_state_totals.skipped_missing_upsert_count += 1;
+                        continue;
+                    };
+                    file_state_totals.persisted_file_state_count += 1;
+                    file_state_totals.node_count += state.nodes.len();
+                    file_state_totals.edge_count += state.edges.len();
+                    file_state_totals.fingerprint_count += state.record.fingerprints.len();
+                    file_state_totals.unresolved_call_count += state.record.unresolved_calls.len();
+                    file_state_totals.unresolved_import_count +=
+                        state.record.unresolved_imports.len();
+                    file_state_totals.unresolved_impl_count += state.record.unresolved_impls.len();
+                    file_state_totals.unresolved_intent_count +=
+                        state.record.unresolved_intents.len();
+                    touched_derived_nodes.extend(file_state_writer.save_file_state(&state)?);
+                    touched_derived_nodes.extend(state.record.nodes.iter().cloned());
+                }
             }
-        }
-        let save_file_state_ms = upsert_started.elapsed().as_millis();
+            upsert_started.elapsed().as_millis()
+        };
 
-        let replace_derived_started = Instant::now();
-        let rewritten_derived_edge_count =
-            graph_io::replace_derived_edges_touching_nodes_tx(&tx, graph, &touched_derived_nodes)?;
-        let replace_derived_edges_ms = replace_derived_started.elapsed().as_millis();
+        let (rewritten_derived_edge_count, replace_derived_edges_ms) = if batch
+            .defer_graph_materialization
+        {
+            (0, 0)
+        } else {
+            let replace_derived_started = Instant::now();
+            let rewritten_derived_edge_count = graph_io::replace_derived_edges_touching_nodes_tx(
+                &tx,
+                graph,
+                &touched_derived_nodes,
+            )?;
+            (
+                rewritten_derived_edge_count,
+                replace_derived_started.elapsed().as_millis(),
+            )
+        };
 
-        let rewritten_root_node_count = graph
-            .nodes
-            .values()
-            .filter(|node| {
-                matches!(
-                    node.kind,
-                    prism_ir::NodeKind::Workspace | prism_ir::NodeKind::Package
+        let (rewritten_root_node_count, rewritten_root_edge_count, finalize_ms) =
+            if batch.defer_graph_materialization {
+                let finalize_started = Instant::now();
+                graph_io::save_next_file_id_tx(&tx, graph)?;
+                (0, 0, finalize_started.elapsed().as_millis())
+            } else {
+                let rewritten_root_node_count = graph
+                    .nodes
+                    .values()
+                    .filter(|node| {
+                        matches!(
+                            node.kind,
+                            prism_ir::NodeKind::Workspace | prism_ir::NodeKind::Package
+                        )
+                    })
+                    .count();
+                let rewritten_root_edge_count = graph
+                    .edges
+                    .iter()
+                    .filter(|edge| {
+                        edge.kind == prism_ir::EdgeKind::Contains
+                            && edge.source.kind == prism_ir::NodeKind::Workspace
+                            && edge.target.kind == prism_ir::NodeKind::Package
+                    })
+                    .count();
+                let finalize_started = Instant::now();
+                graph_io::finalize_tx(&tx, graph)?;
+                (
+                    rewritten_root_node_count,
+                    rewritten_root_edge_count,
+                    finalize_started.elapsed().as_millis(),
                 )
-            })
-            .count();
-        let rewritten_root_edge_count = graph
-            .edges
-            .iter()
-            .filter(|edge| {
-                edge.kind == prism_ir::EdgeKind::Contains
-                    && edge.source.kind == prism_ir::NodeKind::Workspace
-                    && edge.target.kind == prism_ir::NodeKind::Package
-            })
-            .count();
-        let finalize_started = Instant::now();
-        graph_io::finalize_tx(&tx, graph)?;
-        let finalize_ms = finalize_started.elapsed().as_millis();
+            };
 
         let save_history_started = Instant::now();
         if let Some(history_delta) = &batch.history_delta {
@@ -1007,6 +1040,13 @@ impl Store for SqliteStore {
             total_ms = started.elapsed().as_millis(),
             "persisted prism sqlite index batch"
         );
+        Ok(())
+    }
+
+    fn save_graph_snapshot(&mut self, graph: &Graph) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        graph_io::replace_graph_snapshot_tx(&tx, graph)?;
+        tx.commit()?;
         Ok(())
     }
 

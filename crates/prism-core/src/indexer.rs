@@ -313,6 +313,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         let had_prior_snapshot = stored_graph.is_some();
         let mut graph = stored_graph.unwrap_or_default();
         sync_root_nodes(&mut graph, &layout);
+        resolve_graph_edges(&mut graph, None);
         let load_projection_started = Instant::now();
         let persisted_projection_snapshot = store.load_projection_snapshot()?;
         let workspace_tree_snapshot = store.load_workspace_tree_snapshot()?;
@@ -852,6 +853,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             history_snapshot: self.history.snapshot(),
             history_delta,
             outcome_snapshot: self.outcomes.snapshot(),
+            defer_graph_materialization: deferred_materializer.is_some(),
             co_change_deltas: if deferred_materializer.is_some() {
                 Vec::new()
             } else {
@@ -909,6 +911,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         };
         if let Some(materializer) = deferred_materializer {
             let materialize_started = Instant::now();
+            let graph_result = materializer.enqueue_graph_snapshot(self.graph.snapshot());
             let projection_result = if let Some(snapshot) = projection_snapshot.clone() {
                 materializer.enqueue_projection_snapshot(snapshot)
             } else {
@@ -919,8 +922,9 @@ impl<S: Store> WorkspaceIndexer<S> {
                 .clone()
                 .map(|snapshot| materializer.enqueue_workspace_tree_snapshot(snapshot))
                 .unwrap_or(Ok(()));
-            let enqueue_result = projection_result.and(tree_result);
+            let enqueue_result = graph_result.and(projection_result).and(tree_result);
             if let Err(error) = enqueue_result {
+                self.store.save_graph_snapshot(&self.graph)?;
                 if let Some(snapshot) = projection_snapshot.as_ref() {
                     self.store.save_projection_snapshot(snapshot)?;
                 } else {
@@ -945,7 +949,7 @@ impl<S: Store> WorkspaceIndexer<S> {
                     co_change_delta_count,
                     validation_delta_count,
                     materialize_ms = materialize_started.elapsed().as_millis(),
-                    "deferred prism index projection and workspace-tree materializations"
+                    "deferred prism index graph, projection, and workspace-tree materializations"
                 );
             }
         }
