@@ -233,6 +233,7 @@ fn sync_workspace_runtime_with_guard(
     let refresh_path = match config.workspace.refresh_fs_nonblocking()? {
         FsRefreshStatus::Clean => "none",
         FsRefreshStatus::Incremental => "incremental",
+        FsRefreshStatus::Rescan => "rescan",
         FsRefreshStatus::Full => "full",
         FsRefreshStatus::DeferredBusy => "deferred",
     };
@@ -576,6 +577,7 @@ pub(crate) fn sync_persisted_workspace_state(
     let refresh_path = match refresh_outcome.status {
         FsRefreshStatus::Clean => "none",
         FsRefreshStatus::Incremental => "incremental",
+        FsRefreshStatus::Rescan => "rescan",
         FsRefreshStatus::Full => "full",
         FsRefreshStatus::DeferredBusy => "deferred",
     };
@@ -1051,6 +1053,62 @@ mod tests {
                 .as_ref()
                 .map(|refresh| refresh.path.as_str()),
             Some("deferred")
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn sync_persisted_workspace_state_reports_rescan_for_fallback_scan() {
+        let root = temp_workspace();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+        let workspace = Arc::new(index_workspace_session(&root).unwrap());
+        let config = WorkspaceRuntimeConfig {
+            workspace: Arc::clone(&workspace),
+            notes: Arc::new(SessionMemory::new()),
+            inferred_edges: Arc::new(InferenceStore::new()),
+            dashboard_state: Arc::new(DashboardState::default()),
+            sync_lock: Arc::new(Mutex::new(())),
+            loaded_workspace_revision: Arc::new(AtomicU64::new(
+                workspace.loaded_workspace_revision(),
+            )),
+            loaded_episodic_revision: Arc::new(AtomicU64::new(
+                workspace.episodic_revision().unwrap_or(0),
+            )),
+            loaded_inference_revision: Arc::new(AtomicU64::new(
+                workspace.inference_revision().unwrap_or(0),
+            )),
+            loaded_coordination_revision: Arc::new(AtomicU64::new(
+                workspace.coordination_revision().unwrap_or(0),
+            )),
+        };
+
+        std::fs::create_dir_all(root.join("docs")).unwrap();
+        std::fs::write(
+            root.join("docs/created.md"),
+            "# Watcher Created Doc\n\nThis document was added after startup.\n",
+        )
+        .unwrap();
+
+        let report = sync_persisted_workspace_state(&config).unwrap();
+
+        assert_eq!(report.refresh_path, "rescan");
+        assert!(!report.deferred);
+        assert_eq!(report.metrics.full_rebuild_count, 0);
+        assert!(!report.metrics.workspace_reloaded);
+        assert_eq!(
+            workspace
+                .last_refresh()
+                .as_ref()
+                .map(|refresh| refresh.path.as_str()),
+            Some("rescan")
         );
 
         let _ = std::fs::remove_dir_all(root);

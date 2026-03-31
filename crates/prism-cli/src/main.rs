@@ -1,5 +1,6 @@
 mod cli;
 mod commands;
+mod daemon_log;
 mod display;
 mod mcp;
 mod parsing;

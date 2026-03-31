@@ -29,6 +29,7 @@ mod common;
 mod compact_followups;
 mod compact_tools;
 mod concept_resolution;
+mod daemon_log;
 mod daemon_mode;
 mod dashboard_events;
 mod dashboard_read_models;
@@ -324,6 +325,8 @@ impl PrismMcpCli {
         args.push(self.health_path.clone());
         args.push("--http-uri-file".to_string());
         args.push(self.http_uri_file_path(root).display().to_string());
+        args.push("--daemon-log".to_string());
+        args.push(self.log_path(root).display().to_string());
         if let Some(path) = &self.shared_runtime_sqlite {
             args.push("--shared-runtime-sqlite".to_string());
             args.push(path.display().to_string());
@@ -1202,7 +1205,7 @@ fn should_record_workspace_refresh_event(
     coordination_reloaded: bool,
     duration_ms: u128,
 ) -> bool {
-    matches!(refresh_path, "full" | "incremental" | "deferred")
+    matches!(refresh_path, "full" | "incremental" | "rescan" | "deferred")
         || episodic_reloaded
         || inference_reloaded
         || coordination_reloaded

@@ -16,6 +16,7 @@ use crate::util::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum WorkspaceRefreshMode {
     Incremental,
+    Rescan,
     Full,
 }
 
@@ -23,8 +24,17 @@ impl WorkspaceRefreshMode {
     pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::Incremental => "incremental",
+            Self::Rescan => "rescan",
             Self::Full => "full",
         }
+    }
+}
+
+fn fallback_refresh_mode(cached: &WorkspaceTreeSnapshot) -> WorkspaceRefreshMode {
+    if cached.files.is_empty() && cached.directories.is_empty() {
+        WorkspaceRefreshMode::Full
+    } else {
+        WorkspaceRefreshMode::Rescan
     }
 }
 
@@ -65,6 +75,10 @@ pub(crate) fn build_workspace_tree_snapshot(
     root: &Path,
     cached: Option<&WorkspaceTreeSnapshot>,
 ) -> Result<WorkspaceTreeSnapshot> {
+    if let Some(cached) = cached {
+        return build_workspace_tree_snapshot_from_cached(root, cached);
+    }
+
     let mut files = BTreeMap::new();
     for entry in workspace_walk(root).filter_map(Result::ok) {
         let path = entry.path();
@@ -85,6 +99,26 @@ pub(crate) fn build_workspace_tree_snapshot(
     Ok(snapshot_from_files(root, files))
 }
 
+fn build_workspace_tree_snapshot_from_cached(
+    root: &Path,
+    cached: &WorkspaceTreeSnapshot,
+) -> Result<WorkspaceTreeSnapshot> {
+    let mut next_snapshot = cached.clone();
+
+    for path in cached.files.keys().cloned().collect::<Vec<_>>() {
+        refresh_file_entry(&path, &mut next_snapshot, cached, false)?;
+    }
+
+    for directory in changed_directory_scan_roots(root, cached)? {
+        let seen =
+            collect_subtree_files_with_options(&directory, cached, &mut next_snapshot, false)?;
+        remove_missing_subtree_files(&directory, &seen, &mut next_snapshot);
+    }
+
+    rebuild_directory_fingerprints(root, &mut next_snapshot);
+    Ok(next_snapshot)
+}
+
 pub(crate) fn plan_full_refresh(
     root: &Path,
     cached: &WorkspaceTreeSnapshot,
@@ -92,7 +126,7 @@ pub(crate) fn plan_full_refresh(
     let next_snapshot = build_workspace_tree_snapshot(root, Some(cached))?;
     let delta = diff_workspace_tree_snapshot(root, cached, &next_snapshot);
     Ok(WorkspaceRefreshPlan {
-        mode: WorkspaceRefreshMode::Full,
+        mode: fallback_refresh_mode(cached),
         delta,
         next_snapshot,
     })
@@ -176,6 +210,15 @@ fn collect_subtree_files(
     cached_snapshot: &WorkspaceTreeSnapshot,
     next_snapshot: &mut WorkspaceTreeSnapshot,
 ) -> Result<BTreeSet<PathBuf>> {
+    collect_subtree_files_with_options(root, cached_snapshot, next_snapshot, true)
+}
+
+fn collect_subtree_files_with_options(
+    root: &Path,
+    cached_snapshot: &WorkspaceTreeSnapshot,
+    next_snapshot: &mut WorkspaceTreeSnapshot,
+    force_rehash: bool,
+) -> Result<BTreeSet<PathBuf>> {
     let mut seen = BTreeSet::new();
     for entry in workspace_walk(root).filter_map(Result::ok) {
         let path = entry.path();
@@ -186,7 +229,7 @@ fn collect_subtree_files(
         if !is_file || !is_relevant_workspace_file(path) {
             continue;
         }
-        refresh_file_entry(path, next_snapshot, cached_snapshot, true)?;
+        refresh_file_entry(path, next_snapshot, cached_snapshot, force_rehash)?;
         seen.insert(path.to_path_buf());
     }
     Ok(seen)
@@ -341,15 +384,73 @@ fn directory_fingerprints(
                 path.hash(&mut hasher);
                 content_hash.hash(&mut hasher);
             }
+            let modified_ns = directory_modified_ns(&directory);
+            let changed_ns = directory_changed_ns(&directory);
             (
                 directory,
                 WorkspaceTreeDirectoryFingerprint {
                     aggregate_hash: hasher.finish(),
                     file_count: entries.len(),
+                    modified_ns,
+                    changed_ns,
                 },
             )
         })
         .collect()
+}
+
+fn changed_directory_scan_roots(
+    root: &Path,
+    cached: &WorkspaceTreeSnapshot,
+) -> Result<Vec<PathBuf>> {
+    let mut changed = Vec::new();
+    for (path, fingerprint) in &cached.directories {
+        if directory_scan_changed(path, fingerprint)? {
+            changed.push(path.clone());
+        }
+    }
+    changed.sort_by_key(|path| path.components().count());
+
+    let mut roots = Vec::new();
+    for path in changed {
+        if path == root
+            || !roots
+                .iter()
+                .any(|parent: &PathBuf| path.starts_with(parent))
+        {
+            roots.push(path);
+        }
+    }
+    Ok(roots)
+}
+
+fn directory_scan_changed(path: &Path, cached: &WorkspaceTreeDirectoryFingerprint) -> Result<bool> {
+    let metadata = match fs::metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(true),
+        Err(error) => return Err(error.into()),
+    };
+    let modified_ns = metadata
+        .modified()
+        .ok()
+        .and_then(|value| value.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|value| value.as_nanos());
+    let changed_ns = metadata_changed_ns(&metadata);
+    Ok(cached.modified_ns != modified_ns || cached.changed_ns != changed_ns)
+}
+
+fn directory_modified_ns(path: &Path) -> Option<u128> {
+    fs::metadata(path)
+        .ok()
+        .and_then(|metadata| metadata.modified().ok())
+        .and_then(|value| value.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|value| value.as_nanos())
+}
+
+fn directory_changed_ns(path: &Path) -> Option<u128> {
+    fs::metadata(path)
+        .ok()
+        .and_then(|metadata| metadata_changed_ns(&metadata))
 }
 
 pub(crate) fn diff_workspace_tree_snapshot(
@@ -413,7 +514,7 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::{build_workspace_tree_snapshot, plan_incremental_refresh};
+    use super::{build_workspace_tree_snapshot, plan_full_refresh, plan_incremental_refresh};
 
     static NEXT_TEMP_WORKSPACE: AtomicU64 = AtomicU64::new(0);
 
@@ -465,6 +566,49 @@ mod tests {
             plan.delta.removed_files,
             [root.join("src/bin.rs")].into_iter().collect()
         );
+        assert!(plan.delta.changed_directories.contains(&root.join("src")));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn full_refresh_detects_in_place_file_edits_from_cached_snapshot() {
+        let root = temp_workspace();
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+        let snapshot = build_workspace_tree_snapshot(&root, None).unwrap();
+        fs::write(
+            root.join("src/lib.rs"),
+            "pub fn alpha() { println!(\"updated\"); }\n",
+        )
+        .unwrap();
+
+        let plan = plan_full_refresh(&root, &snapshot).unwrap();
+
+        assert_eq!(plan.mode, super::WorkspaceRefreshMode::Rescan);
+        assert_eq!(
+            plan.delta.changed_files,
+            [root.join("src/lib.rs")].into_iter().collect()
+        );
+        assert!(plan.delta.changed_directories.contains(&root.join("src")));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn full_refresh_detects_new_files_from_changed_directories() {
+        let root = temp_workspace();
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+        let snapshot = build_workspace_tree_snapshot(&root, None).unwrap();
+        fs::write(root.join("src/new.rs"), "pub fn beta() {}\n").unwrap();
+
+        let plan = plan_full_refresh(&root, &snapshot).unwrap();
+
+        assert_eq!(plan.mode, super::WorkspaceRefreshMode::Rescan);
+        assert!(plan.delta.changed_files.contains(&root.join("src/new.rs")));
         assert!(plan.delta.changed_directories.contains(&root.join("src")));
 
         let _ = fs::remove_dir_all(root);

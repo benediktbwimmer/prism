@@ -37,6 +37,8 @@ pub struct WorkspaceTreeFileFingerprint {
 pub struct WorkspaceTreeDirectoryFingerprint {
     pub aggregate_hash: u64,
     pub file_count: usize,
+    pub modified_ns: Option<u128>,
+    pub changed_ns: Option<u128>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

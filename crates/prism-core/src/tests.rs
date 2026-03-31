@@ -3537,12 +3537,52 @@ fn refresh_fs_nonblocking_detects_out_of_band_changes_via_fallback_scan() {
 
     let status = session.refresh_fs_nonblocking().unwrap();
 
-    assert_eq!(status, crate::FsRefreshStatus::Full);
+    assert_eq!(status, crate::FsRefreshStatus::Rescan);
+    assert_eq!(
+        session
+            .last_refresh()
+            .as_ref()
+            .map(|refresh| refresh.path.as_str()),
+        Some("rescan")
+    );
     assert!(session
         .prism()
         .symbol("Watcher Created Doc")
         .iter()
         .any(|symbol| symbol.id().kind == NodeKind::MarkdownHeading));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn refresh_fs_with_status_reports_rescan_for_fallback_scan() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::write(
+        root.join("docs/created.md"),
+        "# Watcher Created Doc\n\nThis document was added after startup.\n",
+    )
+    .unwrap();
+
+    let outcome = session.refresh_fs_with_status().unwrap();
+
+    assert_eq!(outcome.status, crate::FsRefreshStatus::Rescan);
+    assert_eq!(
+        session
+            .last_refresh()
+            .as_ref()
+            .map(|refresh| refresh.path.as_str()),
+        Some("rescan")
+    );
 
     let _ = fs::remove_dir_all(root);
 }

@@ -1,6 +1,6 @@
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -18,6 +18,7 @@ use prism_js::{
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
+use crate::daemon_log;
 use crate::runtime_state::{
     read_runtime_state, RuntimeEventRecord, RuntimeProcessRecord, RuntimeState,
 };
@@ -106,7 +107,7 @@ pub(crate) fn runtime_status(host: &QueryHost) -> Result<RuntimeStatusView> {
         uri: connection.uri.clone(),
         uri_file: paths.uri_file.display().to_string(),
         log_path: paths.log_path.display().to_string(),
-        log_bytes: file_len(&paths.log_path),
+        log_bytes: daemon_log::total_log_bytes(&paths.log_path).ok(),
         mcp_call_log_path: host
             .mcp_call_log_store
             .path()
@@ -157,7 +158,7 @@ pub(crate) fn runtime_logs(
         return Ok(Vec::new());
     }
 
-    let lines = tail_lines(&paths.log_path, scan_limit(limit))?;
+    let lines = daemon_log::tail_lines(&paths.log_path, scan_limit(limit))?;
     let level = args
         .level
         .as_deref()
@@ -215,7 +216,7 @@ pub(crate) fn runtime_timeline(
         }
     }
 
-    let mut events = tail_lines(&paths.log_path, scan_limit(limit))?
+    let mut events = daemon_log::tail_lines(&paths.log_path, scan_limit(limit))?
         .into_iter()
         .map(|line| (line.clone(), parse_log_event(&line)))
         .filter(|(line, event)| {
@@ -903,24 +904,6 @@ fn read_uri_file(path: &Path) -> Result<Option<String>> {
         return Ok(None);
     }
     Ok(Some(value.to_string()))
-}
-
-fn tail_lines(path: &Path, limit: usize) -> Result<Vec<String>> {
-    if limit == 0 || !path.exists() {
-        return Ok(Vec::new());
-    }
-    let file = fs::File::open(path)
-        .with_context(|| format!("failed to open log file {}", path.display()))?;
-    let reader = BufReader::new(file);
-    let mut lines = VecDeque::with_capacity(limit);
-    for line in reader.lines() {
-        let line = line?;
-        if lines.len() == limit {
-            lines.pop_front();
-        }
-        lines.push_back(line);
-    }
-    Ok(lines.into_iter().collect())
 }
 
 fn scan_limit(limit: usize) -> usize {

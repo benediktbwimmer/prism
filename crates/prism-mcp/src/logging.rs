@@ -6,10 +6,13 @@ use anyhow::{Context, Error, Result};
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
+use crate::daemon_log;
 use crate::runtime_state;
 use crate::{PrismMcpCli, PrismMcpMode};
 
 pub fn init_logging(cli: &PrismMcpCli) -> Result<()> {
+    let root = cli.root.canonicalize().unwrap_or_else(|_| cli.root.clone());
+    let log_writer = daemon_log::make_writer(cli.log_path(&root))?;
     let env_filter = env_filter(default_filter(cli.mode))?;
     let use_json = match env::var("PRISM_LOG_FORMAT") {
         Ok(value) if value.eq_ignore_ascii_case("json") => true,
@@ -31,7 +34,7 @@ pub fn init_logging(cli: &PrismMcpCli) -> Result<()> {
             .flatten_event(true)
             .with_current_span(false)
             .with_span_list(true)
-            .with_writer(io::stderr)
+            .with_writer(log_writer.clone())
             .try_init()
             .map_err(|error| anyhow::anyhow!("failed to initialize JSON logger: {error}"))?;
     } else {
@@ -40,9 +43,9 @@ pub fn init_logging(cli: &PrismMcpCli) -> Result<()> {
             .with_target(true)
             .with_file(true)
             .with_line_number(true)
-            .with_ansi(io::stderr().is_terminal())
+            .with_ansi(false)
             .compact()
-            .with_writer(io::stderr)
+            .with_writer(log_writer)
             .try_init()
             .map_err(|error| anyhow::anyhow!("failed to initialize text logger: {error}"))?;
     }

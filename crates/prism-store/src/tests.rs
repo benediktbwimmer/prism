@@ -310,6 +310,8 @@ fn memory_store_round_trips_auxiliary_snapshots() {
             WorkspaceTreeDirectoryFingerprint {
                 aggregate_hash: 29,
                 file_count: 1,
+                modified_ns: Some(31),
+                changed_ns: Some(37),
             },
         )]
         .into_iter()
@@ -731,6 +733,8 @@ fn sqlite_store_round_trips_workspace_tree_snapshot() {
             WorkspaceTreeDirectoryFingerprint {
                 aggregate_hash: 109,
                 file_count: 1,
+                modified_ns: Some(113),
+                changed_ns: Some(127),
             },
         )]
         .into_iter()

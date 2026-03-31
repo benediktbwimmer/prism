@@ -325,16 +325,11 @@ shift
 exe="$1"
 shift
 nohup /bin/sh -c '
-log_path="$1"
-shift
 exe="$1"
 shift
-printf "%s prism-mcp-launch child_start exe=%s\n" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" "$exe" >>"$log_path"
-"$exe" "$@" >>"$log_path" 2>&1 </dev/null
-status=$?
-printf "%s prism-mcp-launch child_exit status=%s\n" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" "$status" >>"$log_path"
-' prism-mcp-daemon-child "$log_path" "$exe" "$@" </dev/null &
-"#,
+exec "$exe" "$@" </dev/null >/dev/null 2>/dev/null
+' prism-mcp-daemon-child "$exe" "$@" &
+' prism-mcp-daemon-child "$log_path" "$exe" "$@" "#,
         )
         .arg("prism-mcp-daemon-launcher")
         .arg(&log_path)

@@ -236,7 +236,11 @@ fn refresh_prism_snapshot_with_guard(
         plan_incremental_refresh(root, &cached_snapshot, &dirty_paths)?
     } else if let Some(next_snapshot) = known_fingerprint {
         crate::workspace_tree::WorkspaceRefreshPlan {
-            mode: WorkspaceRefreshMode::Full,
+            mode: if cached_snapshot.files.is_empty() && cached_snapshot.directories.is_empty() {
+                WorkspaceRefreshMode::Full
+            } else {
+                WorkspaceRefreshMode::Rescan
+            },
             delta: diff_workspace_tree_snapshot(root, &cached_snapshot, &next_snapshot),
             next_snapshot,
         }

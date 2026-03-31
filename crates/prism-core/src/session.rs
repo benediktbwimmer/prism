@@ -75,6 +75,7 @@ use crate::workspace_tree::{
 pub enum FsRefreshStatus {
     Clean,
     Incremental,
+    Rescan,
     Full,
     DeferredBusy,
 }
@@ -475,6 +476,7 @@ impl WorkspaceSession {
         let status = match refreshed.mode {
             None => FsRefreshStatus::Clean,
             Some(WorkspaceRefreshMode::Incremental) => FsRefreshStatus::Incremental,
+            Some(WorkspaceRefreshMode::Rescan) => FsRefreshStatus::Rescan,
             Some(WorkspaceRefreshMode::Full) => FsRefreshStatus::Full,
         };
         Ok(WorkspaceFsRefreshOutcome {
@@ -498,6 +500,7 @@ impl WorkspaceSession {
             Some(result) => Ok(match result.mode {
                 None => FsRefreshStatus::Clean,
                 Some(WorkspaceRefreshMode::Incremental) => FsRefreshStatus::Incremental,
+                Some(WorkspaceRefreshMode::Rescan) => FsRefreshStatus::Rescan,
                 Some(WorkspaceRefreshMode::Full) => FsRefreshStatus::Full,
             }),
             None if needs_refresh || !dirty_paths.is_empty() => Ok(FsRefreshStatus::DeferredBusy),

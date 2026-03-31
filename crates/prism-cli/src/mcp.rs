@@ -1,7 +1,6 @@
-use std::collections::{BTreeSet, VecDeque};
+use std::collections::BTreeSet;
 use std::fs;
-use std::fs::OpenOptions;
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -11,6 +10,7 @@ use std::time::{Duration, Instant};
 use anyhow::{anyhow, bail, Context, Result};
 
 use crate::cli::McpCommand;
+use crate::daemon_log;
 
 const START_TIMEOUT: Duration = Duration::from_secs(180);
 const STOP_TIMEOUT: Duration = Duration::from_secs(10);
@@ -173,12 +173,8 @@ fn status(root: &Path) -> Result<()> {
     );
     println!("health: {}", connection.health.detail);
     println!("bridge_role: {}", connection.bridge_role);
-    if let Ok(metadata) = fs::metadata(&paths.log_path) {
-        println!(
-            "log_path: {} ({} bytes)",
-            paths.log_path.display(),
-            metadata.len()
-        );
+    if let Ok(bytes) = daemon_log::total_log_bytes(&paths.log_path) {
+        println!("log_path: {} ({} bytes)", paths.log_path.display(), bytes);
     } else {
         println!("log_path: {} (missing)", paths.log_path.display());
     }
@@ -339,7 +335,7 @@ fn health(root: &Path) -> Result<()> {
 
 fn logs(root: &Path, lines: usize) -> Result<()> {
     let paths = McpPaths::for_root(root);
-    let lines = tail_lines(&paths.log_path, lines)?;
+    let lines = daemon_log::tail_lines(&paths.log_path, lines)?;
     if lines.is_empty() {
         println!("log file is empty");
         return Ok(());
@@ -564,33 +560,22 @@ fn spawn_daemon(
         args.push(shared_runtime_uri.to_string());
     }
 
-    let log_file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&paths.log_path)
-        .with_context(|| format!("failed to open daemon log {}", paths.log_path.display()))?;
-    let stderr_file = log_file
-        .try_clone()
-        .with_context(|| format!("failed to clone daemon log {}", paths.log_path.display()))?;
-
     let child = Command::new(binary)
         .args(args)
         .stdin(Stdio::null())
-        .stdout(Stdio::from(log_file))
-        .stderr(Stdio::from(stderr_file))
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .spawn()
         .with_context(|| format!("failed to spawn daemon via {}", binary.display()))?;
 
     let pid = child.id();
-    writeln!(
-        &mut OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&paths.log_path)
-            .with_context(|| format!("failed to reopen daemon log {}", paths.log_path.display()))?,
-        "{} prism-cli mcp start spawned pid={pid} binary={}",
-        chrono_like_timestamp(),
-        binary.display()
+    daemon_log::append_log_line(
+        &paths.log_path,
+        &format!(
+            "{} prism-cli mcp start spawned pid={pid} binary={}",
+            chrono_like_timestamp(),
+            binary.display()
+        ),
     )
     .ok();
     Ok(())
@@ -620,7 +605,7 @@ fn wait_for_healthy_uri(root: &Path, paths: &McpPaths, health_path: &str) -> Res
         thread::sleep(POLL_INTERVAL);
     }
 
-    let tail = tail_lines(&paths.log_path, 20)
+    let tail = daemon_log::tail_lines(&paths.log_path, 20)
         .unwrap_or_default()
         .join("\n");
     bail!(
@@ -916,24 +901,6 @@ fn uri_authority(uri: &str) -> Option<&str> {
         .or_else(|| uri.strip_prefix("https://"))
         .and_then(|rest| rest.split('/').next())
         .filter(|value| !value.is_empty())
-}
-
-fn tail_lines(path: &Path, limit: usize) -> Result<Vec<String>> {
-    if limit == 0 {
-        return Ok(Vec::new());
-    }
-    let file = fs::File::open(path)
-        .with_context(|| format!("failed to open log file {}", path.display()))?;
-    let reader = BufReader::new(file);
-    let mut lines = VecDeque::with_capacity(limit);
-    for line in reader.lines() {
-        let line = line?;
-        if lines.len() == limit {
-            lines.pop_front();
-        }
-        lines.push_back(line);
-    }
-    Ok(lines.into_iter().collect())
 }
 
 impl McpPaths {
