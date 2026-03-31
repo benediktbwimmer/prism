@@ -1,6 +1,11 @@
 use anyhow::{Context, Result};
-use prism_memory::{OutcomeEvent, OutcomeKind, OutcomeMemorySnapshot};
-use rusqlite::{params, Connection, OptionalExtension, Transaction};
+use prism_ir::{AnchorRef, EventActor, EventId, TaskId};
+use prism_memory::{
+    OutcomeEvent, OutcomeKind, OutcomeMemorySnapshot, OutcomeRecallQuery, OutcomeResult, TaskReplay,
+};
+use rusqlite::{
+    params, params_from_iter, types::Value as SqlValue, Connection, OptionalExtension, Transaction,
+};
 use serde_json::{Map, Value};
 
 use crate::outcome_projection::{append_only_delta, snapshot_from_events};
@@ -9,6 +14,7 @@ use super::snapshots;
 
 const MAX_HOT_PATCH_CHANGED_SYMBOLS: usize = 256;
 const PATCH_PAYLOADS_COMPACTED_KEY: &str = "outcomes:hot_patch_payloads_compacted";
+const OUTCOME_ANCHOR_INDEX_BACKFILLED_KEY: &str = "outcomes:anchor_index_backfilled";
 const MIN_VACUUM_RECLAIM_BYTES: u64 = 64 * 1024 * 1024;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -24,6 +30,127 @@ pub(super) fn load_snapshot(conn: &Connection) -> Result<Option<OutcomeMemorySna
         return Ok(snapshot_from_events(events));
     }
     snapshots::load_snapshot_row(conn, "outcomes")
+}
+
+pub(super) fn load_task_replay(conn: &Connection, task_id: &TaskId) -> Result<TaskReplay> {
+    let mut stmt = conn.prepare(
+        "SELECT payload FROM outcome_event_log
+         WHERE json_extract(payload, '$.meta.correlation') = ?1
+         ORDER BY ts DESC, sequence DESC",
+    )?;
+    let rows = stmt.query_map(params![task_id.0.as_str()], |row| row.get::<_, String>(0))?;
+    let events = decode_event_rows(rows)?;
+    Ok(TaskReplay {
+        task: task_id.clone(),
+        events,
+    })
+}
+
+pub(super) fn load_recent_snapshot(
+    conn: &Connection,
+    limit: usize,
+) -> Result<Option<OutcomeMemorySnapshot>> {
+    if limit == 0 {
+        return Ok(None);
+    }
+    let mut stmt = conn.prepare(
+        "SELECT payload FROM outcome_event_log
+         ORDER BY ts DESC, sequence DESC
+         LIMIT ?1",
+    )?;
+    let rows = stmt.query_map(params![i64::try_from(limit)?], |row| {
+        row.get::<_, String>(0)
+    })?;
+    Ok(snapshot_from_events(decode_event_rows(rows)?))
+}
+
+pub(super) fn load_outcomes(
+    conn: &Connection,
+    query: &OutcomeRecallQuery,
+) -> Result<Vec<OutcomeEvent>> {
+    let mut sql = String::from("SELECT o.payload FROM outcome_event_log o");
+    let mut params = Vec::<SqlValue>::new();
+    if !query.anchors.is_empty() {
+        sql.push_str(" JOIN outcome_event_anchor a ON a.event_id = o.event_id WHERE (");
+        for (index, anchor) in query.anchors.iter().enumerate() {
+            if index > 0 {
+                sql.push_str(" OR ");
+            }
+            sql.push_str("(a.anchor_kind = ? AND a.anchor_value = ?)");
+            let (kind, value) = anchor_key(anchor);
+            params.push(SqlValue::from(kind.to_string()));
+            params.push(SqlValue::from(value));
+        }
+        sql.push(')');
+    } else {
+        sql.push_str(" WHERE 1 = 1");
+    }
+    if let Some(task) = query.task.as_ref() {
+        sql.push_str(" AND json_extract(o.payload, '$.meta.correlation') = ?");
+        params.push(SqlValue::from(task.0.to_string()));
+    }
+    if let Some(kinds) = query.kinds.as_ref() {
+        sql.push_str(" AND json_extract(o.payload, '$.kind') IN (");
+        for (index, kind) in kinds.iter().enumerate() {
+            if index > 0 {
+                sql.push_str(", ");
+            }
+            sql.push('?');
+            params.push(SqlValue::from(outcome_kind_key(kind.clone())));
+        }
+        sql.push(')');
+    }
+    if let Some(result) = query.result {
+        sql.push_str(" AND json_extract(o.payload, '$.result') = ?");
+        params.push(SqlValue::from(outcome_result_key(result)));
+    }
+    if let Some(since) = query.since {
+        sql.push_str(" AND o.ts >= ?");
+        params.push(SqlValue::from(i64::try_from(since)?));
+    }
+    sql.push_str(" ORDER BY o.ts DESC, o.sequence DESC");
+
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params_from_iter(params.iter()), |row| {
+        row.get::<_, String>(0)
+    })?;
+    let mut seen = std::collections::HashSet::<EventId>::new();
+    let mut events = Vec::new();
+    for mut event in decode_event_rows(rows)? {
+        if !seen.insert(event.meta.id.clone()) {
+            continue;
+        }
+        if query
+            .actor
+            .as_ref()
+            .is_some_and(|actor| actor_key(&event.meta.actor) != actor_key(actor))
+        {
+            continue;
+        }
+        compact_hot_patch_metadata(&mut event);
+        events.push(event);
+        if query.limit > 0 && events.len() >= query.limit {
+            break;
+        }
+    }
+    Ok(events)
+}
+
+pub(super) fn load_event(conn: &Connection, event_id: &EventId) -> Result<Option<OutcomeEvent>> {
+    let raw = conn
+        .query_row(
+            "SELECT payload FROM outcome_event_log WHERE event_id = ?1",
+            params![event_id.0.as_str()],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()?;
+    raw.map(|raw| {
+        let mut event = serde_json::from_str::<OutcomeEvent>(&raw)
+            .with_context(|| "failed to decode outcome event payload from sqlite")?;
+        compact_hot_patch_metadata(&mut event);
+        Ok(event)
+    })
+    .transpose()
 }
 
 pub(super) fn save_snapshot_tx(
@@ -52,6 +179,7 @@ pub(super) fn append_events_tx(tx: &Transaction<'_>, events: &[OutcomeEvent]) ->
                 serde_json::to_string(event)?
             ],
         )?;
+        append_anchor_rows_tx(tx, event)?;
     }
     Ok(inserted)
 }
@@ -73,6 +201,48 @@ pub(super) fn backfill_event_log_if_needed(conn: &Connection) -> Result<()> {
 
     let tx = conn.unchecked_transaction()?;
     append_events_tx(&tx, &snapshot.events)?;
+    tx.commit()?;
+    Ok(())
+}
+
+pub(super) fn backfill_anchor_index_if_needed(conn: &Connection) -> Result<()> {
+    if metadata_value(conn, OUTCOME_ANCHOR_INDEX_BACKFILLED_KEY)?.is_some() {
+        return Ok(());
+    }
+    if !table_exists(conn, "outcome_event_log")? {
+        set_metadata_value(conn, OUTCOME_ANCHOR_INDEX_BACKFILLED_KEY, 1)?;
+        return Ok(());
+    }
+
+    let mut rows = Vec::<(String, String)>::new();
+    {
+        let mut stmt =
+            conn.prepare("SELECT event_id, payload FROM outcome_event_log ORDER BY sequence ASC")?;
+        let mapped = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?;
+        for row in mapped {
+            rows.push(row?);
+        }
+    }
+
+    let tx = conn.unchecked_transaction()?;
+    {
+        let mut stmt = tx.prepare_cached(
+            "INSERT OR IGNORE INTO outcome_event_anchor(event_id, anchor_kind, anchor_value)
+             VALUES (?1, ?2, ?3)",
+        )?;
+        for (event_id, raw) in rows {
+            let event = serde_json::from_str::<OutcomeEvent>(&raw).with_context(|| {
+                "failed to decode outcome event payload from sqlite during anchor index backfill"
+            })?;
+            for anchor in &event.anchors {
+                let (kind, value) = anchor_key(anchor);
+                stmt.execute(params![event_id, kind, value])?;
+            }
+        }
+    }
+    set_metadata_value_tx(&tx, OUTCOME_ANCHOR_INDEX_BACKFILLED_KEY, 1)?;
     tx.commit()?;
     Ok(())
 }
@@ -191,6 +361,18 @@ where
     Ok(events)
 }
 
+fn append_anchor_rows_tx(tx: &Transaction<'_>, event: &OutcomeEvent) -> Result<()> {
+    let mut stmt = tx.prepare_cached(
+        "INSERT OR IGNORE INTO outcome_event_anchor(event_id, anchor_kind, anchor_value)
+         VALUES (?1, ?2, ?3)",
+    )?;
+    for anchor in &event.anchors {
+        let (kind, value) = anchor_key(anchor);
+        stmt.execute(params![event.meta.id.0.as_str(), kind, value])?;
+    }
+    Ok(())
+}
+
 fn compact_hot_patch_metadata(event: &mut OutcomeEvent) {
     if event.kind != OutcomeKind::PatchApplied {
         return;
@@ -221,6 +403,44 @@ fn compact_hot_patch_metadata(event: &mut OutcomeEvent) {
     {
         changed_symbols.truncate(MAX_HOT_PATCH_CHANGED_SYMBOLS);
         metadata.insert("changedSymbolsTruncated".to_string(), Value::Bool(true));
+    }
+}
+
+fn anchor_key(anchor: &AnchorRef) -> (&'static str, String) {
+    match anchor {
+        AnchorRef::Node(node) => (
+            "node",
+            format!("{}:{}:{}", node.crate_name, node.path, node.kind),
+        ),
+        AnchorRef::Lineage(lineage) => ("lineage", lineage.0.to_string()),
+        AnchorRef::File(file) => ("file", file.0.to_string()),
+        AnchorRef::Kind(kind) => ("kind", kind.to_string()),
+    }
+}
+
+fn outcome_kind_key(kind: OutcomeKind) -> String {
+    serde_json::to_value(kind)
+        .ok()
+        .and_then(|value| value.as_str().map(ToOwned::to_owned))
+        .unwrap_or_default()
+}
+
+fn outcome_result_key(result: OutcomeResult) -> String {
+    serde_json::to_value(result)
+        .ok()
+        .and_then(|value| value.as_str().map(ToOwned::to_owned))
+        .unwrap_or_default()
+}
+
+fn actor_key(actor: &EventActor) -> String {
+    match actor {
+        EventActor::User => "User".to_string(),
+        EventActor::Agent => "Agent".to_string(),
+        EventActor::System => "System".to_string(),
+        EventActor::CI => "CI".to_string(),
+        EventActor::GitAuthor { name, email } => {
+            format!("GitAuthor:{}:{}", name, email.as_deref().unwrap_or(""))
+        }
     }
 }
 

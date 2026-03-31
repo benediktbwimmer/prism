@@ -31,9 +31,10 @@ use prism_history::{HistorySnapshot, HistoryStore};
 use prism_ir::{
     AgentId, AnchorRef, ArtifactId, ClaimId, EventId, EventMeta, LineageEvent, LineageId, NodeId,
     PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanNodeId, PlanNodeKind,
-    PlanNodeStatus, ReviewId, SessionId, WorkspaceRevision,
+    PlanNodeStatus, ReviewId, SessionId, TaskId, WorkspaceRevision,
 };
 use prism_memory::{OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot};
+use prism_memory::{OutcomeRecallQuery, TaskReplay};
 pub use prism_projections::ConceptResolution;
 use prism_projections::{IntentIndex, ProjectionIndex, ProjectionSnapshot};
 use prism_store::{CoordinationPersistContext, Graph};
@@ -68,12 +69,19 @@ pub struct Prism {
     graph: Arc<Graph>,
     history: Arc<HistoryStore>,
     outcomes: Arc<OutcomeMemory>,
+    outcome_backend: RwLock<Option<Arc<dyn OutcomeReadBackend>>>,
     workspace_revision: RwLock<WorkspaceRevision>,
     plan_runtime: RwLock<NativePlanRuntimeState>,
     continuity_runtime: RwLock<CoordinationRuntimeState>,
     coordination_context: RwLock<Option<CoordinationPersistContext>>,
     projections: RwLock<ProjectionIndex>,
     intent: RwLock<IntentIndex>,
+}
+
+pub trait OutcomeReadBackend: Send + Sync {
+    fn query_outcomes(&self, query: &OutcomeRecallQuery) -> Result<Vec<OutcomeEvent>>;
+    fn load_outcome_event(&self, event_id: &EventId) -> Result<Option<OutcomeEvent>>;
+    fn load_task_replay(&self, task_id: &TaskId) -> Result<TaskReplay>;
 }
 
 impl Prism {
@@ -85,7 +93,7 @@ impl Prism {
                 self.coordination_artifact(&ArtifactId::new(artifact_ref))
                     .is_some()
             },
-            |outcome_ref| self.outcomes.event(&EventId::new(outcome_ref)).is_some(),
+            |outcome_ref| self.outcome_event(&EventId::new(outcome_ref)).is_some(),
         )
     }
 
@@ -206,6 +214,7 @@ impl Prism {
             graph: Arc::new(graph),
             history: Arc::new(history),
             outcomes: Arc::new(outcomes),
+            outcome_backend: RwLock::new(None),
             workspace_revision: RwLock::new(default_workspace_revision),
             plan_runtime: RwLock::new(native_plans),
             continuity_runtime: RwLock::new(continuity_runtime),
@@ -217,6 +226,13 @@ impl Prism {
 
     pub fn graph(&self) -> &Graph {
         self.graph.as_ref()
+    }
+
+    pub fn set_outcome_backend(&self, backend: Option<Arc<dyn OutcomeReadBackend>>) {
+        *self
+            .outcome_backend
+            .write()
+            .expect("outcome backend lock poisoned") = backend;
     }
 
     pub fn lineage_of(&self, node: &NodeId) -> Option<LineageId> {
@@ -233,6 +249,16 @@ impl Prism {
 
     pub fn outcome_memory(&self) -> Arc<OutcomeMemory> {
         Arc::clone(&self.outcomes)
+    }
+
+    pub fn outcome_event(&self, event_id: &EventId) -> Option<OutcomeEvent> {
+        self.outcomes.event(event_id).or_else(|| {
+            self.outcome_backend
+                .read()
+                .expect("outcome backend lock poisoned")
+                .as_ref()
+                .and_then(|backend| backend.load_outcome_event(event_id).ok().flatten())
+        })
     }
 
     pub fn set_coordination_context(&self, context: Option<CoordinationPersistContext>) {

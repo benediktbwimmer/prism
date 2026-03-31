@@ -7,10 +7,11 @@ use prism_coordination::{CoordinationEvent, CoordinationSnapshot};
 use prism_history::{HistoryPersistDelta, HistorySnapshot, LineageTombstone};
 use prism_ir::{
     CoordinationEventKind, Edge, EdgeKind, EdgeOrigin, EventActor, EventId, EventMeta, FileId,
-    GraphChange, Language, LineageEvent, LineageId, Node, NodeId, NodeKind, Span,
+    GraphChange, Language, LineageEvent, LineageId, Node, NodeId, NodeKind, Span, TaskId,
 };
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryId, MemoryKind, MemorySource, OutcomeMemorySnapshot,
+    OutcomeRecallQuery,
 };
 use prism_projections::{
     CoChangeDelta, CoChangeRecord, ConceptProvenance, ConceptRelation, ConceptRelationKind,
@@ -438,6 +439,118 @@ fn sqlite_store_load_lineage_history_reads_persisted_events_by_lineage() {
 
     let loaded = store.load_lineage_history(&lineage).unwrap();
     assert_eq!(loaded, vec![event]);
+}
+
+#[test]
+fn sqlite_store_load_task_replay_reads_persisted_events_by_task() {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!("prism-store-task-replay-{nanos}.db"));
+    let mut store = SqliteStore::open(&path).unwrap();
+
+    let task = TaskId::new("task:lazy-replay");
+    let event = prism_memory::OutcomeEvent {
+        meta: EventMeta {
+            id: EventId::new("outcome:task:lazy-replay"),
+            ts: 9,
+            actor: EventActor::Agent,
+            correlation: Some(task.clone()),
+            causation: None,
+        },
+        anchors: Vec::new(),
+        kind: prism_memory::OutcomeKind::PlanCreated,
+        result: prism_memory::OutcomeResult::Success,
+        summary: "Investigate replay".into(),
+        evidence: Vec::new(),
+        metadata: serde_json::Value::Null,
+    };
+    store
+        .save_outcome_snapshot(&OutcomeMemorySnapshot {
+            events: vec![event.clone()],
+        })
+        .unwrap();
+
+    let loaded = store.load_task_replay(&task).unwrap();
+    assert_eq!(loaded.task, task);
+    assert_eq!(loaded.events, vec![event]);
+}
+
+#[test]
+fn sqlite_store_load_outcomes_reads_anchored_events_from_sqlite_index() {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!("prism-store-outcome-query-{nanos}.db"));
+    let mut store = SqliteStore::open(&path).unwrap();
+
+    let alpha = NodeId::new("demo", "demo::alpha", prism_ir::NodeKind::Function);
+    let beta = NodeId::new("demo", "demo::beta", prism_ir::NodeKind::Function);
+    let alpha_lineage = LineageId::new("lineage:alpha");
+    let beta_task = TaskId::new("task:beta");
+    let events = vec![
+        prism_memory::OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:alpha"),
+                ts: 5,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            anchors: vec![
+                prism_ir::AnchorRef::Node(alpha),
+                prism_ir::AnchorRef::Lineage(alpha_lineage.clone()),
+            ],
+            kind: prism_memory::OutcomeKind::FailureObserved,
+            result: prism_memory::OutcomeResult::Failure,
+            summary: "alpha failed".into(),
+            evidence: Vec::new(),
+            metadata: serde_json::Value::Null,
+        },
+        prism_memory::OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:beta"),
+                ts: 6,
+                actor: EventActor::Agent,
+                correlation: Some(beta_task.clone()),
+                causation: None,
+            },
+            anchors: vec![prism_ir::AnchorRef::Node(beta)],
+            kind: prism_memory::OutcomeKind::TestRan,
+            result: prism_memory::OutcomeResult::Success,
+            summary: "beta passed".into(),
+            evidence: Vec::new(),
+            metadata: serde_json::Value::Null,
+        },
+    ];
+    store
+        .save_outcome_snapshot(&OutcomeMemorySnapshot {
+            events: events.clone(),
+        })
+        .unwrap();
+
+    let loaded = store
+        .load_outcomes(&OutcomeRecallQuery {
+            anchors: vec![prism_ir::AnchorRef::Lineage(alpha_lineage)],
+            kinds: Some(vec![prism_memory::OutcomeKind::FailureObserved]),
+            result: Some(prism_memory::OutcomeResult::Failure),
+            limit: 10,
+            ..OutcomeRecallQuery::default()
+        })
+        .unwrap();
+    assert_eq!(loaded, vec![events[0].clone()]);
+
+    let task_loaded = store
+        .load_outcomes(&OutcomeRecallQuery {
+            task: Some(beta_task),
+            kinds: Some(vec![prism_memory::OutcomeKind::TestRan]),
+            limit: 10,
+            ..OutcomeRecallQuery::default()
+        })
+        .unwrap();
+    assert_eq!(task_loaded, vec![events[1].clone()]);
 }
 
 #[test]

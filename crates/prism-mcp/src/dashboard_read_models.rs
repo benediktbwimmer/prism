@@ -13,8 +13,8 @@ use crate::dashboard_types::{
 use crate::runtime_views::{runtime_status, runtime_timeline};
 use crate::{
     artifact_view, claim_view, coordination_task_view, current_timestamp,
-    policy_violation_record_view, task_journal_view, CoordinationFeaturesView, FeatureFlagsView,
-    QueryHost, RuntimeTimelineArgs, SessionLimitsView, SessionState, SessionTaskView, SessionView,
+    policy_violation_record_view, CoordinationFeaturesView, FeatureFlagsView, QueryHost,
+    RuntimeTimelineArgs, SessionLimitsView, SessionState, SessionTaskView, SessionView,
 };
 
 const DASHBOARD_TASK_EVENT_LIMIT: usize = 12;
@@ -260,10 +260,15 @@ fn current_task_journal(
 ) -> Result<TaskJournalView> {
     let prism = host.current_prism();
     let task_id = TaskId::new(task_id.to_string());
-    task_journal_view(
-        session,
+    let replay = crate::load_task_replay(
+        host.workspace.as_ref().map(|workspace| workspace.as_ref()),
         prism.as_ref(),
         &task_id,
+    )?;
+    crate::task_journal_view_from_replay(
+        session,
+        prism.as_ref(),
+        replay,
         None,
         DASHBOARD_TASK_EVENT_LIMIT,
         DASHBOARD_TASK_MEMORY_LIMIT,

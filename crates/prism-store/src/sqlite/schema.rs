@@ -1,13 +1,13 @@
 use anyhow::Result;
 use rusqlite::Connection;
 
-const SCHEMA_VERSION: i64 = 19;
+const SCHEMA_VERSION: i64 = 20;
 
 pub(super) fn init_schema(conn: &Connection) -> Result<()> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
     match version {
         0 | SCHEMA_VERSION => {}
-        11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 => {}
+        11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 => {}
         _ => reset_schema(conn)?,
     }
 
@@ -18,6 +18,7 @@ pub(super) fn init_schema(conn: &Connection) -> Result<()> {
     if matches!(version, 11 | 12 | 13 | 14 | 15 | 16) {
         super::outcome_events::backfill_event_log_if_needed(conn)?;
     }
+    super::outcome_events::backfill_anchor_index_if_needed(conn)?;
     if matches!(version, 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18) {
         super::inference_records::backfill_record_log_if_needed(conn)?;
     }
@@ -162,6 +163,16 @@ fn current_schema_sql() -> &'static str {
 
         CREATE INDEX IF NOT EXISTS idx_outcome_event_log_ts_sequence
             ON outcome_event_log(ts DESC, sequence DESC);
+
+        CREATE TABLE IF NOT EXISTS outcome_event_anchor (
+            event_id TEXT NOT NULL,
+            anchor_kind TEXT NOT NULL,
+            anchor_value TEXT NOT NULL,
+            PRIMARY KEY (event_id, anchor_kind, anchor_value)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_outcome_event_anchor_lookup
+            ON outcome_event_anchor(anchor_kind, anchor_value, event_id);
 
         CREATE TABLE IF NOT EXISTS inference_record_log (
             sequence INTEGER PRIMARY KEY AUTOINCREMENT,

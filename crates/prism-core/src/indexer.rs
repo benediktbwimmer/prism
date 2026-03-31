@@ -17,7 +17,7 @@ use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 use crate::parse_pipeline::{parse_jobs_in_parallel, PreparedParseJob};
 use crate::patch_outcomes::default_outcome_meta;
 use crate::reanchor::{detect_moved_files, infer_reanchors};
-use crate::session::WorkspaceSession;
+use crate::session::{WorkspaceSession, HOT_OUTCOME_HYDRATION_LIMIT};
 use crate::shared_runtime::{
     local_projection_snapshot_for_persist, merged_projection_index,
     overlay_persisted_projection_knowledge, projection_snapshot_without_knowledge,
@@ -325,10 +325,13 @@ impl<S: Store> WorkspaceIndexer<S> {
         let load_history_ms = load_history_started.elapsed().as_millis();
         history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
         let load_outcomes_started = Instant::now();
-        let outcomes = store
-            .load_outcome_snapshot()?
-            .map(OutcomeMemory::from_snapshot)
-            .unwrap_or_else(OutcomeMemory::new);
+        let outcomes = if base_projection_snapshot.is_some() {
+            store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
+        } else {
+            store.load_outcome_snapshot()?
+        }
+        .map(OutcomeMemory::from_snapshot)
+        .unwrap_or_else(OutcomeMemory::new);
         let load_outcomes_ms = load_outcomes_started.elapsed().as_millis();
         let load_coordination_started = Instant::now();
         let plan_state = if options.coordination {

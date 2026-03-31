@@ -11,7 +11,6 @@ use prism_query::{PlanNodeRecommendation, PlanSummary, Prism};
 
 use super::suggested_actions::{dedupe_suggested_actions, suggested_open_action};
 use super::*;
-use crate::task_journal_view;
 use crate::PrismTaskBriefArgs;
 
 impl QueryHost {
@@ -42,10 +41,16 @@ impl QueryHost {
                     .find(|overlay| overlay.node_id == subject.node_id);
                 let claims = prism.claims(&subject.anchors, now);
                 let conflicts = prism.conflicts(&subject.anchors, now);
-                let journal = task_journal_view(
+                let task_id = TaskId::new(subject.task_id.clone());
+                let replay = crate::load_task_replay(
+                    host.workspace.as_ref().map(|workspace| workspace.as_ref()),
+                    prism.as_ref(),
+                    &task_id,
+                )?;
+                let journal = crate::task_journal_view_from_replay(
                     session.as_ref(),
                     prism.as_ref(),
-                    &TaskId::new(subject.task_id.clone()),
+                    replay,
                     Some((Some(subject.title.clone()), Vec::new())),
                     TASK_BRIEF_OUTCOME_LIMIT,
                     0,

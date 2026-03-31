@@ -19,6 +19,7 @@ use tracing::info;
 
 use crate::curator::{CuratorHandle, CuratorHandleRef};
 use crate::indexer::PendingFileParse;
+use crate::outcome_backend::StoreOutcomeReadBackend;
 use crate::resolution::{resolve_calls, resolve_impls, resolve_imports, resolve_intents};
 use crate::session::{WorkspaceRefreshState, WorkspaceSession};
 use crate::shared_runtime::composite_workspace_revision;
@@ -52,6 +53,8 @@ pub(crate) fn build_workspace_session(
             .transpose()?,
     );
     let loaded_workspace_revision = Arc::new(AtomicU64::new(workspace_revision));
+    let store = Arc::new(Mutex::new(store));
+    let shared_runtime_store = shared_runtime_store.map(|store| Arc::new(Mutex::new(store)));
     let prism = Arc::new(
         Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
             graph,
@@ -64,13 +67,17 @@ pub(crate) fn build_workspace_session(
         ),
     );
     prism.set_workspace_revision(prism_ir::WorkspaceRevision {
-        graph_version: store.workspace_revision()?,
+        graph_version: store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .workspace_revision()?,
         git_commit: None,
     });
     prism.set_coordination_context(Some(coordination_persist_context_for_root(&root, None)));
+    prism.set_outcome_backend(Some(Arc::new(StoreOutcomeReadBackend::new(Arc::clone(
+        &store,
+    )))));
     let prism = Arc::new(RwLock::new(prism));
-    let store = Arc::new(Mutex::new(store));
-    let shared_runtime_store = shared_runtime_store.map(|store| Arc::new(Mutex::new(store)));
     let refresh_lock = Arc::new(Mutex::new(()));
     let refresh_state = Arc::new(WorkspaceRefreshState::new());
     let fs_snapshot = Arc::new(Mutex::new(workspace_tree_snapshot));

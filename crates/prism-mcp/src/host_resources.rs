@@ -22,7 +22,7 @@ use crate::{
     schemas_resource_view_link, search_ambiguity_from_diagnostics,
     search_resource_view_link_with_options, session_resource_uri, session_resource_view_link,
     symbol_for, symbol_resource_uri, symbol_resource_view_link, symbol_resource_view_link_for_id,
-    symbol_view, symbol_views_for_ids, task_journal_view, task_resource_view_link,
+    symbol_view, symbol_views_for_ids, task_resource_view_link,
     task_resource_view_links_from_events, tool_schemas_resource_value,
     tool_schemas_resource_view_link, vocab_resource_value, vocab_resource_view_link,
     workspace_revision_view, CapabilitiesResourcePayload, ContractsResourcePayload,
@@ -231,7 +231,12 @@ impl QueryHost {
         task_id: &TaskId,
     ) -> crate::ResolvedTaskMetadata {
         let prism = self.current_prism();
-        let replay = prism.resume_task(task_id);
+        let replay = crate::load_task_replay(
+            self.workspace.as_ref().map(|workspace| workspace.as_ref()),
+            prism.as_ref(),
+            task_id,
+        )
+        .unwrap_or_else(|_| prism.resume_task(task_id));
         derive_task_metadata(
             session.current_task_state().as_ref(),
             prism.as_ref(),
@@ -874,11 +879,16 @@ impl QueryHost {
         self.execute_traced_resource_read("task", uri, || {
             let schema_uri = schema_resource_uri("task");
             let prism = self.current_prism();
-            let replay = prism.resume_task(task_id);
-            let journal = task_journal_view(
-                session,
+            let replay = crate::load_task_replay(
+                self.workspace.as_ref().map(|workspace| workspace.as_ref()),
                 prism.as_ref(),
                 task_id,
+            )
+            .unwrap_or_else(|_| prism.resume_task(task_id));
+            let journal = crate::task_journal_view_from_replay(
+                session,
+                prism.as_ref(),
+                replay.clone(),
                 None,
                 DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
                 DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
@@ -928,10 +938,8 @@ impl QueryHost {
         self.execute_traced_resource_read("event", &uri, || {
             let schema_uri = schema_resource_uri("event");
             let prism = self.current_prism();
-            let event = self
-                .current_prism()
-                .outcome_memory()
-                .event(event_id)
+            let event = prism
+                .outcome_event(event_id)
                 .ok_or_else(|| anyhow!("unknown event `{}`", event_id.0))?;
             let mut related_resources = vec![
                 session_resource_view_link(),

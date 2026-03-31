@@ -15,7 +15,9 @@ use prism_ir::{
     PlanGraph, SessionId, TaskId,
 };
 use prism_memory::OutcomeMemory;
-use prism_memory::{EpisodicMemorySnapshot, MemoryEvent, MemoryEventQuery, OutcomeEvent};
+use prism_memory::{
+    EpisodicMemorySnapshot, MemoryEvent, MemoryEventQuery, OutcomeEvent, TaskReplay,
+};
 use prism_projections::{
     concept_from_event, contract_from_event, validation_deltas_for_event, ConceptEvent,
     ConceptRelationEvent, ConceptRelationEventAction, ConceptScope, ContractEvent,
@@ -26,6 +28,8 @@ use serde_json::{json, Value};
 use std::time::{Duration, Instant};
 
 pub use prism_store::SnapshotRevisions as WorkspaceSnapshotRevisions;
+
+pub(crate) const HOT_OUTCOME_HYDRATION_LIMIT: usize = 256;
 
 use crate::concept_events::{append_repo_concept_event, load_repo_curated_concepts};
 use crate::concept_relation_events::{
@@ -345,6 +349,30 @@ impl WorkspaceSession {
             .load_lineage_history(lineage)
     }
 
+    pub fn load_task_replay(&self, task_id: &TaskId) -> Result<TaskReplay> {
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .load_task_replay(task_id)
+    }
+
+    pub fn load_outcomes(
+        &self,
+        query: &prism_memory::OutcomeRecallQuery,
+    ) -> Result<Vec<OutcomeEvent>> {
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .load_outcomes(query)
+    }
+
+    pub fn load_outcome_event(&self, event_id: &EventId) -> Result<Option<OutcomeEvent>> {
+        self.store
+            .lock()
+            .expect("workspace store lock poisoned")
+            .load_outcome_event(event_id)
+    }
+
     pub fn prism(&self) -> Arc<Prism> {
         self.prism_arc()
     }
@@ -600,8 +628,12 @@ impl WorkspaceSession {
             .map(HistoryStore::from_snapshot)
             .unwrap_or_else(HistoryStore::new);
         history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
-        let outcomes = store
-            .load_outcome_snapshot()?
+        let outcomes =
+            if local_projection_snapshot.is_some() || shared_projection_snapshot.is_some() {
+                store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
+            } else {
+                store.load_outcome_snapshot()?
+            }
             .map(OutcomeMemory::from_snapshot)
             .unwrap_or_else(OutcomeMemory::new);
         let plan_state = if self.coordination_enabled {
@@ -653,6 +685,9 @@ impl WorkspaceSession {
         });
         prism.set_coordination_context(Some(coordination_persist_context_for_root(
             &self.root, None,
+        )));
+        prism.set_outcome_backend(Some(Arc::new(
+            crate::outcome_backend::StoreOutcomeReadBackend::new(Arc::clone(&self.store)),
         )));
         *self.prism.write().expect("workspace prism lock poisoned") = prism;
         self.loaded_workspace_revision

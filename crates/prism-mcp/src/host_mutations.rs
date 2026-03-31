@@ -41,8 +41,8 @@ use crate::{
     curator_job_status_label, curator_memory_metadata, curator_proposal, curator_proposal_state,
     curator_trigger_label, current_timestamp, ensure_repo_publication_metadata,
     manual_memory_metadata, parse_edge_kind, plan_edge_view, plan_node_view, plan_view,
-    retire_repo_publication_metadata, task_journal_memory_metadata, task_journal_view,
-    ArtifactActionInput, ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
+    retire_repo_publication_metadata, task_journal_memory_metadata, ArtifactActionInput,
+    ArtifactMutationResult, ArtifactProposePayload, ArtifactReviewPayload,
     ArtifactSupersedePayload, ClaimAcquirePayload, ClaimActionInput, ClaimMutationResult,
     ClaimReleasePayload, ClaimRenewPayload, ConceptMutationOperationInput, ConceptMutationResult,
     ConceptRelationKindInput, ConceptRelationMutationOperationInput, ConceptRelationMutationResult,
@@ -422,7 +422,12 @@ impl QueryHost {
             .filter(|state| state.id == task)
             .map(|state| (state.description.clone(), state.tags.clone()));
         let prism = self.current_prism();
-        let replay = prism.resume_task(&task);
+        let replay = crate::load_task_replay(
+            self.workspace.as_ref().map(|workspace| workspace.as_ref()),
+            prism.as_ref(),
+            &task,
+        )
+        .unwrap_or_else(|_| prism.resume_task(&task));
         if replay.events.is_empty() && metadata_override.is_none() {
             return Err(anyhow!("unknown task `{}`", task.0));
         }
@@ -501,10 +506,16 @@ impl QueryHost {
         }
         self.persist_session_seed(session)?;
 
-        let journal = task_journal_view(
-            session,
+        let replay = crate::load_task_replay(
+            self.workspace.as_ref().map(|workspace| workspace.as_ref()),
             self.current_prism().as_ref(),
             &task,
+        )
+        .unwrap_or_else(|_| self.current_prism().resume_task(&task));
+        let journal = crate::task_journal_view_from_replay(
+            session,
+            self.current_prism().as_ref(),
+            replay,
             metadata_override,
             DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
             DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
@@ -1888,7 +1899,7 @@ impl QueryHost {
                     .collect::<Vec<_>>();
                 let mut inferred_validated_checks = payload.validated_checks.unwrap_or_default();
                 for event_id in &evidence {
-                    if let Some(event) = prism.outcome_memory().event(event_id) {
+                    if let Some(event) = prism.outcome_event(event_id) {
                         if matches!(event.result, prism_memory::OutcomeResult::Success) {
                             inferred_validated_checks
                                 .extend(outcome_validation_labels(&event.evidence));

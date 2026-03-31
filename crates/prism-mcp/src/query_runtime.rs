@@ -52,25 +52,24 @@ use crate::{
     recent_patches, relations_view, resolve_concepts_for_session, result_decode_error,
     runtime_or_serialization_error, scored_memory_view, search_queries, source_excerpt_for_symbol,
     spec_cluster_view, spec_drift_explanation_view, symbol_for, symbol_view, symbol_views_for_ids,
-    task_intent_view, task_journal_view, task_risk_view, task_validation_recipe_view,
-    tool_catalog_views, tool_schema_view, validate_tool_input_value,
-    validation_context_view_cached, validation_recipe_view_with, weak_concept_match_reason,
-    weak_search_match_diagnostic_data, weak_search_match_reason, where_used, AnchorListArgs,
-    CallGraphArgs, ChangedFilesArgs, ChangedSymbolsArgs, ConceptHandleArgs, ConceptQueryArgs,
-    ConceptVerbosity, ContractQueryArgs, ContractsQueryArgs, CoordinationTaskTargetArgs,
-    CuratorJobArgs, CuratorJobsArgs, CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs,
-    DiscoveryTargetArgs, EditSliceArgs, FileAroundArgs, FileReadArgs, ImplementationTargetArgs,
-    LimitArgs, McpLogArgs, McpTraceArgs, MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs,
-    NodeIdInput, OwnerLookupArgs, PendingReviewsArgs, PlanNextArgs, PlanNodeTargetArgs,
-    PlanTargetArgs, PlansQueryArgs, PolicyViolationQueryArgs, QueryHost, QueryLanguage,
-    QueryLogArgs, QueryRun, QueryTraceArgs, RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs,
-    SearchAmbiguityContext, SearchArgs, SearchTextArgs, SemanticContextCache, SessionState,
-    SimulateClaimArgs, SourceExcerptArgs, SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs,
-    TaskJournalArgs, TaskScopeMode, TaskTargetArgs, ToolNameArgs, ToolValidationArgs,
-    ValidationFeedbackArgs, WhereUsedArgs, DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT,
-    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT,
-    QUERY_RUNTIME_ERROR_MARKER, QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER,
-    USER_SNIPPET_MARKER,
+    task_intent_view, task_risk_view, task_validation_recipe_view, tool_catalog_views,
+    tool_schema_view, validate_tool_input_value, validation_context_view_cached,
+    validation_recipe_view_with, weak_concept_match_reason, weak_search_match_diagnostic_data,
+    weak_search_match_reason, where_used, AnchorListArgs, CallGraphArgs, ChangedFilesArgs,
+    ChangedSymbolsArgs, ConceptHandleArgs, ConceptQueryArgs, ConceptVerbosity, ContractQueryArgs,
+    ContractsQueryArgs, CoordinationTaskTargetArgs, CuratorJobArgs, CuratorJobsArgs,
+    CuratorProposalsArgs, DecodeConceptArgs, DiffForArgs, DiscoveryTargetArgs, EditSliceArgs,
+    FileAroundArgs, FileReadArgs, ImplementationTargetArgs, LimitArgs, McpLogArgs, McpTraceArgs,
+    MemoryEventArgs, MemoryOutcomeArgs, MemoryRecallArgs, NodeIdInput, OwnerLookupArgs,
+    PendingReviewsArgs, PlanNextArgs, PlanNodeTargetArgs, PlanTargetArgs, PlansQueryArgs,
+    PolicyViolationQueryArgs, QueryHost, QueryLanguage, QueryLogArgs, QueryRun, QueryTraceArgs,
+    RecentPatchesArgs, RuntimeLogArgs, RuntimeTimelineArgs, SearchAmbiguityContext, SearchArgs,
+    SearchTextArgs, SemanticContextCache, SessionState, SimulateClaimArgs, SourceExcerptArgs,
+    SymbolQueryArgs, SymbolTargetArgs, TaskChangesArgs, TaskJournalArgs, TaskScopeMode,
+    TaskTargetArgs, ToolNameArgs, ToolValidationArgs, ValidationFeedbackArgs, WhereUsedArgs,
+    DEFAULT_CALL_GRAPH_DEPTH, DEFAULT_SEARCH_LIMIT, DEFAULT_TASK_JOURNAL_EVENT_LIMIT,
+    DEFAULT_TASK_JOURNAL_MEMORY_LIMIT, INSIGHT_LIMIT, QUERY_RUNTIME_ERROR_MARKER,
+    QUERY_SERIALIZATION_ERROR_MARKER, USER_SNIPPET_LOCATION_MARKER, USER_SNIPPET_MARKER,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -2997,10 +2996,18 @@ impl QueryExecution {
             );
         }
 
-        let journal = task_journal_view(
-            self.session.as_ref(),
+        let replay = crate::load_task_replay(
+            self.host
+                .workspace
+                .as_ref()
+                .map(|workspace| workspace.as_ref()),
             self.prism.as_ref(),
             &args.task_id,
+        )?;
+        let journal = crate::task_journal_view_from_replay(
+            self.session.as_ref(),
+            self.prism.as_ref(),
+            replay,
             None,
             event_limit,
             memory_limit,

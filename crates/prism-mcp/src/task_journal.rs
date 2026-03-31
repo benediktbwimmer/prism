@@ -1,9 +1,10 @@
 use std::collections::HashSet;
 
 use anyhow::Result;
+use prism_core::WorkspaceSession;
 use prism_ir::{AnchorRef, CoordinationTaskId, TaskId};
 use prism_js::{QueryDiagnostic, TaskJournalView, TaskLifecycleSummaryView};
-use prism_memory::{MemoryModule, OutcomeEvent, OutcomeKind, RecallQuery};
+use prism_memory::{MemoryModule, OutcomeEvent, OutcomeKind, RecallQuery, TaskReplay};
 use prism_query::Prism;
 
 use crate::{query_diagnostic, scored_memory_view, session_state::SessionTaskState, SessionState};
@@ -18,6 +19,7 @@ pub(crate) struct ResolvedTaskMetadata {
     pub(crate) coordination_task_id: Option<String>,
 }
 
+#[allow(dead_code)]
 pub(crate) fn task_journal_view(
     session: &SessionState,
     prism: &Prism,
@@ -27,15 +29,45 @@ pub(crate) fn task_journal_view(
     memory_limit: usize,
 ) -> Result<TaskJournalView> {
     let replay = prism.resume_task(task_id);
+    task_journal_view_from_replay(
+        session,
+        prism,
+        replay,
+        metadata_override,
+        event_limit,
+        memory_limit,
+    )
+}
+
+pub(crate) fn load_task_replay(
+    workspace: Option<&WorkspaceSession>,
+    prism: &Prism,
+    task_id: &TaskId,
+) -> Result<TaskReplay> {
+    if let Some(workspace) = workspace {
+        return workspace
+            .load_task_replay(task_id)
+            .or_else(|_| Ok(prism.resume_task(task_id)));
+    }
+    Ok(prism.resume_task(task_id))
+}
+
+pub(crate) fn task_journal_view_from_replay(
+    session: &SessionState,
+    prism: &Prism,
+    replay: TaskReplay,
+    metadata_override: Option<(Option<String>, Vec<String>)>,
+    event_limit: usize,
+    memory_limit: usize,
+) -> Result<TaskJournalView> {
+    let task_id = replay.task;
     let events = replay.events;
     let current_task = session.current_task_state();
-    let active = current_task
-        .as_ref()
-        .is_some_and(|task| task.id == *task_id);
+    let active = current_task.as_ref().is_some_and(|task| task.id == task_id);
     let metadata = derive_task_metadata(
         current_task.as_ref(),
         prism,
-        task_id,
+        &task_id,
         &events,
         metadata_override,
     );

@@ -8,7 +8,11 @@ use prism_coordination::{
 };
 use prism_curator::CuratorSnapshot;
 use prism_history::{HistoryPersistDelta, HistorySnapshot};
-use prism_memory::{EpisodicMemorySnapshot, MemoryEvent, OutcomeEvent, OutcomeMemorySnapshot};
+use prism_ir::{EventId, TaskId};
+use prism_memory::{
+    EpisodicMemorySnapshot, MemoryEvent, OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot,
+    OutcomeRecallQuery, TaskReplay,
+};
 use prism_projections::{CoChangeDelta, ProjectionSnapshot, ValidationDelta};
 use serde::{Deserialize, Serialize};
 
@@ -105,6 +109,44 @@ pub trait Store {
         deltas: &[CoChangeDelta],
     ) -> Result<()>;
     fn load_outcome_snapshot(&mut self) -> Result<Option<OutcomeMemorySnapshot>>;
+    fn load_recent_outcome_snapshot(
+        &mut self,
+        limit: usize,
+    ) -> Result<Option<OutcomeMemorySnapshot>> {
+        let Some(snapshot) = self.load_outcome_snapshot()? else {
+            return Ok(None);
+        };
+        if limit == 0 || snapshot.events.len() <= limit {
+            return Ok(Some(snapshot));
+        }
+        Ok(Some(OutcomeMemorySnapshot {
+            events: snapshot.events.into_iter().take(limit).collect(),
+        }))
+    }
+    fn load_outcomes(&mut self, query: &OutcomeRecallQuery) -> Result<Vec<OutcomeEvent>> {
+        let Some(snapshot) = self.load_outcome_snapshot()? else {
+            return Ok(Vec::new());
+        };
+        Ok(OutcomeMemory::from_snapshot(snapshot).query_events(query))
+    }
+    fn load_outcome_event(&mut self, event_id: &EventId) -> Result<Option<OutcomeEvent>> {
+        Ok(self.load_outcome_snapshot()?.and_then(|snapshot| {
+            snapshot
+                .events
+                .into_iter()
+                .find(|event| event.meta.id == *event_id)
+        }))
+    }
+    fn load_task_replay(&mut self, task_id: &TaskId) -> Result<TaskReplay> {
+        Ok(TaskReplay {
+            task: task_id.clone(),
+            events: self.load_outcomes(&OutcomeRecallQuery {
+                task: Some(task_id.clone()),
+                limit: 0,
+                ..OutcomeRecallQuery::default()
+            })?,
+        })
+    }
     fn save_outcome_snapshot(&mut self, snapshot: &OutcomeMemorySnapshot) -> Result<()>;
     fn save_outcome_snapshot_with_validation_deltas(
         &mut self,

@@ -23,7 +23,7 @@ use prism_ir::{
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind, MemoryEventQuery, MemoryId,
     MemoryKind, MemoryModule, MemoryScope, MemorySource, OutcomeEvent, OutcomeEvidence,
-    OutcomeKind, OutcomeResult, SessionMemory,
+    OutcomeKind, OutcomeRecallQuery, OutcomeResult, SessionMemory,
 };
 use prism_projections::ProjectionSnapshot;
 use prism_query::{
@@ -953,6 +953,85 @@ fn reload_preserves_lineage_patch_outcomes_memory_and_projections_after_rename()
         .scored_checks
         .iter()
         .any(|check| check.label == "test:renamed_alpha_integration" && check.score > 0.0));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn reload_bounds_hot_outcomes_but_queries_cold_outcomes_from_store() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::alpha")
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    for idx in 0..(crate::session::HOT_OUTCOME_HYDRATION_LIMIT + 32) {
+        session
+            .prism()
+            .outcome_memory()
+            .store_event(OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new(format!("outcome:cold:{idx}")),
+                    ts: u64::try_from(idx + 1).unwrap(),
+                    actor: EventActor::Agent,
+                    correlation: None,
+                    causation: None,
+                },
+                anchors: vec![AnchorRef::Node(alpha.clone())],
+                kind: if idx == 0 {
+                    OutcomeKind::FailureObserved
+                } else {
+                    OutcomeKind::NoteAdded
+                },
+                result: if idx == 0 {
+                    OutcomeResult::Failure
+                } else {
+                    OutcomeResult::Success
+                },
+                summary: format!("event {idx}"),
+                evidence: Vec::new(),
+                metadata: serde_json::Value::Null,
+            })
+            .unwrap();
+    }
+    session
+        .store
+        .lock()
+        .unwrap()
+        .save_outcome_snapshot(&session.prism().outcome_snapshot())
+        .unwrap();
+
+    drop(session);
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    assert!(
+        reloaded.prism().outcome_snapshot().events.len()
+            <= crate::session::HOT_OUTCOME_HYDRATION_LIMIT
+    );
+
+    let failures = reloaded.prism().query_outcomes(&OutcomeRecallQuery {
+        anchors: vec![AnchorRef::Node(alpha)],
+        kinds: Some(vec![OutcomeKind::FailureObserved]),
+        result: Some(OutcomeResult::Failure),
+        limit: 10,
+        ..OutcomeRecallQuery::default()
+    });
+    assert!(failures
+        .iter()
+        .any(|event| event.meta.id == EventId::new("outcome:cold:0")));
 
     let _ = fs::remove_dir_all(root);
 }

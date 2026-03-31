@@ -157,6 +157,24 @@ impl SqliteStore {
         history_io::load_lineage_history(&self.conn, lineage)
     }
 
+    pub fn load_task_replay(&self, task_id: &prism_ir::TaskId) -> Result<prism_memory::TaskReplay> {
+        outcome_events::load_task_replay(&self.conn, task_id)
+    }
+
+    pub fn load_outcomes(
+        &self,
+        query: &prism_memory::OutcomeRecallQuery,
+    ) -> Result<Vec<prism_memory::OutcomeEvent>> {
+        outcome_events::load_outcomes(&self.conn, query)
+    }
+
+    pub fn load_outcome_event(
+        &self,
+        event_id: &prism_ir::EventId,
+    ) -> Result<Option<prism_memory::OutcomeEvent>> {
+        outcome_events::load_event(&self.conn, event_id)
+    }
+
     pub fn append_inference_records(&mut self, records: &[InferredEdgeRecord]) -> Result<usize> {
         let tx = self.conn.transaction()?;
         let inserted = inference_records::append_records_tx(&tx, records)?;
@@ -260,6 +278,31 @@ impl Store for SqliteStore {
 
     fn load_outcome_snapshot(&mut self) -> Result<Option<prism_memory::OutcomeMemorySnapshot>> {
         outcome_events::load_snapshot(&self.conn)
+    }
+
+    fn load_recent_outcome_snapshot(
+        &mut self,
+        limit: usize,
+    ) -> Result<Option<prism_memory::OutcomeMemorySnapshot>> {
+        outcome_events::load_recent_snapshot(&self.conn, limit)
+    }
+
+    fn load_outcomes(
+        &mut self,
+        query: &prism_memory::OutcomeRecallQuery,
+    ) -> Result<Vec<prism_memory::OutcomeEvent>> {
+        outcome_events::load_outcomes(&self.conn, query)
+    }
+
+    fn load_outcome_event(
+        &mut self,
+        event_id: &prism_ir::EventId,
+    ) -> Result<Option<prism_memory::OutcomeEvent>> {
+        outcome_events::load_event(&self.conn, event_id)
+    }
+
+    fn load_task_replay(&mut self, task_id: &prism_ir::TaskId) -> Result<prism_memory::TaskReplay> {
+        outcome_events::load_task_replay(&self.conn, task_id)
     }
 
     fn save_outcome_snapshot(
