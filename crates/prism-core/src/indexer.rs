@@ -11,7 +11,7 @@ use crate::contract_events::load_repo_curated_contracts;
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::indexer_support::{
     build_workspace_session, collect_pending_file_parses, path_matches_refresh_scope,
-    resolve_graph_edges,
+    resolve_graph_edges, ResolveGraphEdgesStats,
 };
 use crate::invalidation::{
     edge_resolution_paths_for_observed_changes,
@@ -661,6 +661,8 @@ impl<S: Store> WorkspaceIndexer<S> {
         let mut outcome_events = Vec::new();
         let mut co_change_deltas = Vec::<CoChangeDelta>::new();
         let mut validation_deltas = Vec::<ValidationDelta>::new();
+        let mut requires_graph_index_rebuild = false;
+        let mut requires_edge_resolution = false;
         let mut upserted_paths = Vec::<PathBuf>::new();
         let mut removed_paths = Vec::<PathBuf>::new();
         let refresh_scope =
@@ -783,6 +785,8 @@ impl<S: Store> WorkspaceIndexer<S> {
                 parsed_job.parsed,
                 trigger.clone(),
             );
+            requires_graph_index_rebuild |= update.requires_index_rebuild;
+            requires_edge_resolution |= update.requires_edge_resolution;
             let upsert_ms = upsert_started.elapsed().as_millis();
             parsed_file_count += 1;
             let new_lineage_events = self.history.apply(&update.observed);
@@ -866,6 +870,8 @@ impl<S: Store> WorkspaceIndexer<S> {
                 ),
                 trigger.clone(),
             );
+            requires_graph_index_rebuild |= update.requires_index_rebuild;
+            requires_edge_resolution |= update.requires_edge_resolution;
             self.apply_file_update(
                 update,
                 &pending_file.path,
@@ -917,6 +923,8 @@ impl<S: Store> WorkspaceIndexer<S> {
                     default_outcome_meta("observed"),
                     trigger.clone(),
                 );
+                requires_graph_index_rebuild |= update.requires_index_rebuild;
+                requires_edge_resolution |= update.requires_edge_resolution;
                 let new_lineage_events = self.history.apply(&update.observed);
                 let distinct_lineages = distinct_lineage_count(&new_lineage_events);
                 let change_set_deltas = co_change_deltas_for_events(&new_lineage_events);
@@ -1025,9 +1033,13 @@ impl<S: Store> WorkspaceIndexer<S> {
             );
             return Ok((observed_changes, changes));
         }
-        let rebuild_graph_indexes_started = Instant::now();
-        self.graph.rebuild_indexes();
-        let rebuild_graph_indexes_ms = rebuild_graph_indexes_started.elapsed().as_millis();
+        let rebuild_graph_indexes_ms = if requires_graph_index_rebuild {
+            let rebuild_graph_indexes_started = Instant::now();
+            self.graph.rebuild_indexes();
+            rebuild_graph_indexes_started.elapsed().as_millis()
+        } else {
+            0
+        };
         info!(
             root = %self.root.display(),
             targeted_refresh,
@@ -1040,22 +1052,30 @@ impl<S: Store> WorkspaceIndexer<S> {
         );
 
         let expand_dependency_edge_resolution =
-            observed_changes_require_dependent_edge_resolution(&observed_changes);
-        let resolved_edge_scope = invalidation_scope.as_ref().map(|scope| {
-            if expand_dependency_edge_resolution {
-                edge_resolution_paths_for_observed_changes(
-                    &self.graph,
-                    &scope.dependency_paths,
-                    &observed_changes,
-                )
-            } else {
-                scope.direct_paths.clone()
-            }
-        });
+            requires_edge_resolution && observed_changes_require_dependent_edge_resolution(&observed_changes);
+        let resolved_edge_scope = if requires_edge_resolution {
+            invalidation_scope.as_ref().map(|scope| {
+                if expand_dependency_edge_resolution {
+                    edge_resolution_paths_for_observed_changes(
+                        &self.graph,
+                        &scope.dependency_paths,
+                        &observed_changes,
+                    )
+                } else {
+                    scope.direct_paths.clone()
+                }
+            })
+        } else {
+            None
+        };
         let edge_resolution_scope = resolved_edge_scope.as_ref();
-        let resolve_edges_started = Instant::now();
-        let resolve_edge_stats = resolve_graph_edges(&mut self.graph, edge_resolution_scope);
-        let resolve_edges_ms = resolve_edges_started.elapsed().as_millis();
+        let (resolve_edge_stats, resolve_edges_ms) = if requires_edge_resolution {
+            let resolve_edges_started = Instant::now();
+            let stats = resolve_graph_edges(&mut self.graph, edge_resolution_scope);
+            (stats, resolve_edges_started.elapsed().as_millis())
+        } else {
+            (ResolveGraphEdgesStats::default(), 0)
+        };
         info!(
             root = %self.root.display(),
             targeted_refresh,

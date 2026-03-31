@@ -49,6 +49,8 @@ pub struct FileUpdate {
     pub file_id: FileId,
     pub observed: ObservedChangeSet,
     pub changes: Vec<GraphChange>,
+    pub requires_index_rebuild: bool,
+    pub requires_edge_resolution: bool,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -354,6 +356,53 @@ impl Graph {
             trigger,
         );
         let changes = self.compute_file_changes(previous.as_ref(), &nodes, reanchors);
+        let can_update_in_place = previous_path.unwrap_or(path) == path
+            && previous_state
+                .as_ref()
+                .is_some_and(|state| same_file_graph_shape(state, &nodes, &edges))
+            && previous
+                .as_ref()
+                .is_some_and(|record| {
+                    same_unresolved_call_shape(&record.unresolved_calls, &unresolved_calls)
+                        && same_unresolved_import_shape(
+                            &record.unresolved_imports,
+                            &unresolved_imports,
+                        )
+                        && same_unresolved_impl_shape(&record.unresolved_impls, &unresolved_impls)
+                        && same_unresolved_intent_shape(
+                            &record.unresolved_intents,
+                            &unresolved_intents,
+                        )
+                });
+        let node_ids: Vec<NodeId> = nodes.iter().map(|node| node.id.clone()).collect();
+        let record_edges = edges.clone();
+        if can_update_in_place {
+            for node in nodes {
+                self.nodes.insert(node.id.clone(), node);
+            }
+            self.file_records.insert(
+                path.to_path_buf(),
+                FileRecord {
+                    file_id,
+                    hash,
+                    parse_depth,
+                    nodes: node_ids,
+                    edges: record_edges,
+                    fingerprints,
+                    unresolved_calls,
+                    unresolved_imports,
+                    unresolved_impls,
+                    unresolved_intents,
+                },
+            );
+            return FileUpdate {
+                file_id,
+                observed,
+                changes,
+                requires_index_rebuild: false,
+                requires_edge_resolution: false,
+            };
+        }
         self.remove_file_nodes(baseline_path);
 
         if baseline_path != path {
@@ -364,8 +413,6 @@ impl Graph {
             self.path_to_file.insert(path.to_path_buf(), file_id);
         }
 
-        let node_ids: Vec<NodeId> = nodes.iter().map(|node| node.id.clone()).collect();
-        let record_edges = edges.clone();
         for node in nodes {
             self.nodes.insert(node.id.clone(), node);
         }
@@ -392,6 +439,8 @@ impl Graph {
             file_id,
             observed,
             changes,
+            requires_index_rebuild: true,
+            requires_edge_resolution: true,
         }
     }
 
@@ -672,6 +721,8 @@ impl Graph {
             file_id,
             observed,
             changes,
+            requires_index_rebuild: true,
+            requires_edge_resolution: true,
         }
     }
 
@@ -1067,6 +1118,55 @@ fn index_path(
 
 fn indexed_paths(index: &HashMap<String, HashSet<PathBuf>>, key: &str) -> HashSet<PathBuf> {
     index.get(key).cloned().unwrap_or_default()
+}
+
+fn same_file_graph_shape(previous: &FileState, nodes: &[Node], edges: &[Edge]) -> bool {
+    previous.nodes.len() == nodes.len()
+        && previous
+            .nodes
+            .iter()
+            .zip(nodes.iter())
+            .all(|(before, after)| {
+                before.id == after.id
+                    && before.name == after.name
+                    && before.kind == after.kind
+                    && before.file == after.file
+            })
+        && previous.edges == edges
+}
+
+fn same_unresolved_call_shape(before: &[UnresolvedCall], after: &[UnresolvedCall]) -> bool {
+    before.len() == after.len()
+        && before.iter().zip(after.iter()).all(|(lhs, rhs)| {
+            lhs.caller == rhs.caller
+                && lhs.name == rhs.name
+                && lhs.module_path == rhs.module_path
+        })
+}
+
+fn same_unresolved_import_shape(before: &[UnresolvedImport], after: &[UnresolvedImport]) -> bool {
+    before.len() == after.len()
+        && before.iter().zip(after.iter()).all(|(lhs, rhs)| {
+            lhs.importer == rhs.importer
+                && lhs.path == rhs.path
+                && lhs.module_path == rhs.module_path
+        })
+}
+
+fn same_unresolved_impl_shape(before: &[UnresolvedImpl], after: &[UnresolvedImpl]) -> bool {
+    before.len() == after.len()
+        && before.iter().zip(after.iter()).all(|(lhs, rhs)| {
+            lhs.impl_node == rhs.impl_node
+                && lhs.target == rhs.target
+                && lhs.module_path == rhs.module_path
+        })
+}
+
+fn same_unresolved_intent_shape(before: &[UnresolvedIntent], after: &[UnresolvedIntent]) -> bool {
+    before.len() == after.len()
+        && before.iter().zip(after.iter()).all(|(lhs, rhs)| {
+            lhs.source == rhs.source && lhs.kind == rhs.kind && lhs.target == rhs.target
+        })
 }
 
 fn is_derived_kind(kind: EdgeKind) -> bool {

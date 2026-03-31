@@ -217,6 +217,54 @@ fn extend_edges_updates_adjacency_and_derived_incidence_incrementally() {
 }
 
 #[test]
+fn structurally_unchanged_file_update_does_not_require_index_rebuild() {
+    let path = Path::new("src/lib.rs");
+    let mut graph = Graph::new();
+    let alpha = node("alpha");
+
+    graph.upsert_file(
+        path,
+        1,
+        vec![alpha.clone()],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+
+    let update = graph.upsert_file_from_with_observed_without_rebuild(
+        None,
+        path,
+        2,
+        ParseDepth::Deep,
+        vec![Node {
+            span: Span::line(3),
+            ..alpha.clone()
+        }],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        &[],
+        EventMeta {
+            id: EventId::new("observed:test".to_string()),
+            ts: 1,
+            actor: EventActor::System,
+            correlation: None,
+            causation: None,
+        },
+        prism_ir::ChangeTrigger::ManualReindex,
+    );
+
+    assert!(!update.requires_index_rebuild);
+    assert!(!update.requires_edge_resolution);
+}
+
+#[test]
 fn remove_file_with_changes_emits_removed_nodes() {
     let path = Path::new("src/lib.rs");
     let mut graph = Graph::new();
