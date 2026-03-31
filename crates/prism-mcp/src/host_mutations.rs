@@ -1575,34 +1575,28 @@ impl QueryHost {
                 } = payload;
                 match resolve_workflow_update_target(prism, &id)? {
                     WorkflowUpdateTarget::CoordinationTask(task_id) => {
-                        let summary_patch = parse_sparse_patch(summary, "summary")?;
-                        if !matches!(summary_patch, SparsePatch::Keep) {
-                            return Err(anyhow!(
-                                "field `summary` is only supported when `id` resolves to a native plan node"
-                            ));
-                        }
-                        let priority_patch = parse_sparse_patch(priority, "priority")?;
-                        if !matches!(priority_patch, SparsePatch::Keep) {
-                            return Err(anyhow!(
-                                "field `priority` is only supported when `id` resolves to a native plan node"
-                            ));
-                        }
-                        if kind.is_some()
-                            || is_abstract.is_some()
-                            || bindings.is_some()
-                            || validation_refs.is_some()
-                            || tags.is_some()
-                        {
-                            return Err(anyhow!(
-                                "fields `kind`, `isAbstract`, `bindings`, `validationRefs`, and `tags` are only supported when `id` resolves to a native plan node"
-                            ));
-                        }
+                        let summary = match parse_sparse_patch(summary, "summary")? {
+                            SparsePatch::Keep => None,
+                            SparsePatch::Set(value) => Some(Some(value)),
+                            SparsePatch::Clear => Some(None),
+                        };
+                        let priority = match parse_sparse_patch(priority, "priority")? {
+                            SparsePatch::Keep => None,
+                            SparsePatch::Set(value) => Some(Some(value)),
+                            SparsePatch::Clear => Some(None),
+                        };
                         let status = status.map(convert_workflow_status_for_task).transpose()?;
                         let assignee = match parse_sparse_patch(assignee, "assignee")? {
                             SparsePatch::Keep => None,
                             SparsePatch::Set(value) => Some(Some(AgentId::new(value))),
                             SparsePatch::Clear => Some(None),
                         };
+                        let task_anchors = anchors
+                            .clone()
+                            .map(|anchors| convert_anchors(prism, workspace_root, anchors))
+                            .transpose()?;
+                        let task_bindings =
+                            convert_plan_binding(prism, workspace_root, anchors, bindings)?;
                         let completion_context = convert_completion_context(completion_context)
                             .or_else(|| {
                                 status
@@ -1619,15 +1613,16 @@ impl QueryHost {
                             meta,
                             TaskUpdateInput {
                                 task_id,
+                                kind: kind.map(convert_plan_node_kind),
                                 status,
                                 assignee,
                                 session: None,
                                 worktree_id: None,
                                 branch_ref: None,
                                 title,
-                                anchors: anchors
-                                    .map(|anchors| convert_anchors(prism, workspace_root, anchors))
-                                    .transpose()?,
+                                summary,
+                                anchors: task_anchors,
+                                bindings: task_bindings,
                                 depends_on: depends_on.map(|depends_on| {
                                     depends_on
                                         .into_iter()
@@ -1639,7 +1634,12 @@ impl QueryHost {
                                         convert_acceptance(prism, workspace_root, Some(acceptance))
                                     })
                                     .transpose()?,
+                                validation_refs: validation_refs
+                                    .map(|refs| convert_validation_refs(Some(refs))),
+                                is_abstract,
                                 base_revision: Some(prism.workspace_revision()),
+                                priority,
+                                tags,
                                 completion_context,
                             },
                             prism.workspace_revision(),

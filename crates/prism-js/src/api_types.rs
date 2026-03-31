@@ -1503,13 +1503,20 @@ pub struct PlanNodeRecommendationView {
 pub struct CoordinationTaskView {
     pub id: String,
     pub plan_id: String,
+    pub kind: PlanNodeKind,
     pub title: String,
+    pub summary: Option<String>,
     pub status: CoordinationTaskStatus,
     pub assignee: Option<String>,
     pub pending_handoff_to: Option<String>,
     pub anchors: Vec<AnchorRef>,
+    pub bindings: PlanBindingView,
     pub depends_on: Vec<String>,
+    pub validation_refs: Vec<ValidationRefView>,
+    pub is_abstract: bool,
     pub base_revision: WorkspaceRevisionView,
+    pub priority: Option<u8>,
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

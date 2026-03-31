@@ -1398,17 +1398,28 @@ pub(crate) fn coordination_task_view(
     CoordinationTaskView {
         id: value.id.0.to_string(),
         plan_id: value.plan.0.to_string(),
+        kind: value.kind,
         title: value.title,
+        summary: value.summary,
         status: value.status,
         assignee: value.assignee.map(|agent| agent.0.to_string()),
         pending_handoff_to: value.pending_handoff_to.map(|agent| agent.0.to_string()),
         anchors: value.anchors,
+        bindings: plan_binding_view(value.bindings),
         depends_on: value
             .depends_on
             .into_iter()
             .map(|task_id| task_id.0.to_string())
             .collect(),
+        validation_refs: value
+            .validation_refs
+            .into_iter()
+            .map(|check| ValidationRefView { id: check.id })
+            .collect(),
+        is_abstract: value.is_abstract,
         base_revision: workspace_revision_view(value.base_revision),
+        priority: value.priority,
+        tags: value.tags,
     }
 }
 

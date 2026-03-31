@@ -212,9 +212,21 @@ fn apply_plan_patch(plan: &mut Plan, metadata: &Value) {
 }
 
 fn apply_task_patch(task: &mut CoordinationTask, metadata: &Value) {
+    if patch_is_set(metadata, "kind") {
+        if let Some(kind) =
+            metadata_path::<prism_ir::PlanNodeKind>(metadata, &["patchValues", "kind"])
+        {
+            task.kind = kind;
+        }
+    }
     if patch_is_set(metadata, "title") {
         if let Some(title) = metadata_path::<String>(metadata, &["patchValues", "title"]) {
             task.title = title;
+        }
+    }
+    if patch_is_set(metadata, "summary") || patch_is_clear(metadata, "summary") {
+        if let Some(summary) = metadata_optional_path(metadata, &["patchValues", "summary"]) {
+            task.summary = summary;
         }
     }
     if patch_is_set(metadata, "status") {
@@ -257,6 +269,11 @@ fn apply_task_patch(task: &mut CoordinationTask, metadata: &Value) {
             task.bindings.anchors = task.anchors.clone();
         }
     }
+    if patch_is_set(metadata, "bindings") {
+        if let Some(bindings) = metadata_path(metadata, &["patchValues", "bindings"]) {
+            task.bindings = bindings;
+        }
+    }
     if patch_is_set(metadata, "dependsOn") {
         if let Some(depends_on) = metadata_path(metadata, &["patchValues", "dependsOn"]) {
             task.depends_on = depends_on;
@@ -267,9 +284,29 @@ fn apply_task_patch(task: &mut CoordinationTask, metadata: &Value) {
             task.acceptance = acceptance;
         }
     }
+    if patch_is_set(metadata, "validationRefs") {
+        if let Some(validation_refs) = metadata_path(metadata, &["patchValues", "validationRefs"]) {
+            task.validation_refs = validation_refs;
+        }
+    }
+    if patch_is_set(metadata, "isAbstract") {
+        if let Some(is_abstract) = metadata_path(metadata, &["patchValues", "isAbstract"]) {
+            task.is_abstract = is_abstract;
+        }
+    }
     if patch_is_set(metadata, "baseRevision") {
         if let Some(base_revision) = metadata_path(metadata, &["patchValues", "baseRevision"]) {
             task.base_revision = base_revision;
+        }
+    }
+    if patch_is_set(metadata, "priority") || patch_is_clear(metadata, "priority") {
+        if let Some(priority) = metadata_optional_path(metadata, &["patchValues", "priority"]) {
+            task.priority = priority;
+        }
+    }
+    if patch_is_set(metadata, "tags") {
+        if let Some(tags) = metadata_path(metadata, &["patchValues", "tags"]) {
+            task.tags = tags;
         }
     }
     if task.bindings.anchors.is_empty() && !task.anchors.is_empty() {

@@ -668,7 +668,7 @@ fn coordination_update_routes_plain_ids_to_coordination_tasks() {
 }
 
 #[test]
-fn coordination_update_rejects_node_only_fields_for_task_backed_ids() {
+fn coordination_update_routes_shared_fields_for_task_backed_ids_through_coordination_tasks() {
     let root = temp_workspace();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
 
@@ -700,22 +700,33 @@ fn coordination_update_rejects_node_only_fields_for_task_backed_ids() {
         )
         .unwrap();
 
-    let error = host
+    let updated = host
         .store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::Update,
                 payload: json!({
                     "id": task.state["id"].as_str().unwrap(),
-                    "summary": "This should not be accepted for a task-backed id"
+                    "summary": "Task-owned summary",
+                    "kind": "validate",
+                    "isAbstract": true,
+                    "priority": 4,
+                    "tags": ["task", "workflow", "task"],
+                    "validationRefs": [{ "id": "validation:task-backed" }]
                 }),
                 task_id: None,
             },
         )
-        .expect_err("task-backed ids should not accept native-node-only update fields");
-    assert!(error
-        .to_string()
-        .contains("field `summary` is only supported when `id` resolves to a native plan node"));
+        .expect("task-backed ids should route shared fields through coordination tasks");
+    assert_eq!(updated.state["summary"], "Task-owned summary");
+    assert_eq!(updated.state["kind"], "Validate");
+    assert_eq!(updated.state["isAbstract"], true);
+    assert_eq!(updated.state["priority"], 4);
+    assert_eq!(updated.state["tags"], json!(["task", "workflow"]));
+    assert_eq!(
+        updated.state["validationRefs"][0]["id"],
+        "validation:task-backed"
+    );
 }
 
 #[test]
@@ -3897,33 +3908,59 @@ fn task_surfaces_accept_native_plan_node_task_ids() {
         .unwrap();
     let required_test = "test:cargo test -p prism-mcp native_task_surfaces_accept_plan_nodes";
     let required_build = "build:cargo build --release -p prism-cli -p prism-mcp";
-    let node = host
-        .store_coordination(
-            test_session(&host).as_ref(),
-            PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::PlanNodeCreate,
-                payload: json!({
-                    "planId": plan.state["id"].as_str().unwrap(),
-                    "kind": "validate",
-                    "title": "Validate native task-shaped queries",
-                    "anchors": [{
-                        "type": "node",
-                        "crateName": "demo",
-                        "path": "demo::main",
-                        "kind": "function"
-                    }],
-                    "validationRefs": [{ "id": required_build }],
-                    "acceptance": [{
-                        "label": "native task-shaped queries are validated",
-                        "requiredChecks": [{ "id": required_test }],
-                        "evidencePolicy": "validation-only"
-                    }]
-                }),
-                task_id: None,
+    let node_id = "plan-node:native-task-shaped".to_string();
+    let native_graph = prism_ir::PlanGraph {
+        id: prism_ir::PlanId::new(plan.state["id"].as_str().unwrap().to_string()),
+        scope: prism_ir::PlanScope::Repo,
+        kind: prism_ir::PlanKind::Migration,
+        title: "Standalone native graph".into(),
+        goal: "Standalone native graph".into(),
+        status: prism_ir::PlanStatus::Active,
+        revision: 1,
+        root_nodes: vec![prism_ir::PlanNodeId::new(node_id.clone())],
+        tags: Vec::new(),
+        created_from: None,
+        metadata: serde_json::Value::Null,
+        nodes: vec![prism_ir::PlanNode {
+            id: prism_ir::PlanNodeId::new(node_id.clone()),
+            plan_id: prism_ir::PlanId::new(plan.state["id"].as_str().unwrap().to_string()),
+            kind: prism_ir::PlanNodeKind::Validate,
+            title: "Validate native task-shaped queries".into(),
+            summary: None,
+            status: prism_ir::PlanNodeStatus::Ready,
+            bindings: prism_ir::PlanBinding {
+                anchors: vec![prism_ir::AnchorRef::Node(demo_node().id)],
+                artifact_refs: Vec::new(),
+                concept_handles: Vec::new(),
+                memory_refs: Vec::new(),
+                outcome_refs: Vec::new(),
             },
-        )
-        .unwrap();
-    let node_id = node.state["id"].as_str().unwrap().to_string();
+            acceptance: vec![prism_ir::PlanAcceptanceCriterion {
+                label: "native task-shaped queries are validated".into(),
+                anchors: Vec::new(),
+                evidence_policy: prism_ir::AcceptanceEvidencePolicy::ValidationOnly,
+                required_checks: vec![prism_ir::ValidationRef {
+                    id: required_test.into(),
+                }],
+            }],
+            validation_refs: vec![prism_ir::ValidationRef {
+                id: required_build.into(),
+            }],
+            is_abstract: false,
+            assignee: None,
+            base_revision: prism_ir::WorkspaceRevision::default(),
+            priority: None,
+            tags: Vec::new(),
+            metadata: serde_json::Value::Null,
+        }],
+        edges: Vec::new(),
+    };
+    let prism = host.current_prism();
+    prism.replace_coordination_snapshot_and_plan_graphs(
+        prism.coordination_snapshot(),
+        vec![native_graph],
+        std::collections::BTreeMap::new(),
+    );
 
     let envelope = host
         .execute(
@@ -3971,6 +4008,157 @@ return {{
         envelope.result["taskRisk"]["reviewRequired"],
         Value::Bool(true)
     );
+}
+
+#[test]
+fn task_backed_query_surfaces_ignore_native_plan_only_validation_fields() {
+    let host = host_with_node(demo_node());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({
+                    "goal": "Keep task-backed query surfaces task-owned",
+                    "policy": {
+                        "requireValidationForCompletion": true
+                    }
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let task = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan_id,
+                    "title": "Task-backed validation surface"
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+    let task_owned_check = "validation:task-owned";
+    let native_only_check = "validation:native-only";
+
+    host.store_coordination(
+        test_session(&host).as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::Update,
+            payload: json!({
+                "id": task_id,
+                "validationRefs": [{ "id": task_owned_check }]
+            }),
+            task_id: None,
+        },
+    )
+    .expect("task-backed ids should store validation refs on the coordination task");
+
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+    let plan_id = prism_ir::PlanId::new(plan.state["id"].as_str().unwrap().to_string());
+    let node_id = prism_ir::PlanNodeId::new(task_id.clone());
+    let native_graph = prism_ir::PlanGraph {
+        id: plan_id.clone(),
+        scope: prism_ir::PlanScope::Repo,
+        kind: prism_ir::PlanKind::Migration,
+        title: "Task-backed native graph".into(),
+        goal: "Task-backed native graph".into(),
+        status: prism_ir::PlanStatus::Active,
+        revision: 1,
+        root_nodes: vec![node_id.clone()],
+        tags: Vec::new(),
+        created_from: None,
+        metadata: serde_json::Value::Null,
+        nodes: vec![prism_ir::PlanNode {
+            id: node_id,
+            plan_id,
+            kind: prism_ir::PlanNodeKind::Validate,
+            title: "Native validation node".into(),
+            summary: None,
+            status: prism_ir::PlanNodeStatus::Ready,
+            bindings: prism_ir::PlanBinding::default(),
+            acceptance: vec![prism_ir::PlanAcceptanceCriterion {
+                label: "Native-only validation".into(),
+                anchors: Vec::new(),
+                evidence_policy: prism_ir::AcceptanceEvidencePolicy::ValidationOnly,
+                required_checks: vec![prism_ir::ValidationRef {
+                    id: native_only_check.into(),
+                }],
+            }],
+            validation_refs: vec![prism_ir::ValidationRef {
+                id: native_only_check.into(),
+            }],
+            is_abstract: false,
+            assignee: None,
+            base_revision: prism_ir::WorkspaceRevision::default(),
+            priority: None,
+            tags: Vec::new(),
+            metadata: serde_json::Value::Null,
+        }],
+        edges: Vec::new(),
+    };
+    let prism = host.current_prism();
+    prism.replace_coordination_snapshot_and_plan_graphs(
+        prism.coordination_snapshot(),
+        vec![native_graph],
+        std::collections::BTreeMap::new(),
+    );
+
+    let envelope = host
+        .execute(
+            test_session(&host),
+            &format!(
+                r#"
+return {{
+  taskRecipe: prism.taskValidationRecipe("{task_id}"),
+  taskRisk: prism.taskRisk("{task_id}"),
+  validationPlan: prism.validationPlan({{ taskId: "{task_id}" }})
+}};
+"#
+            ),
+            QueryLanguage::Ts,
+        )
+        .expect("task-backed query surfaces should prefer coordination-owned fields");
+
+    assert!(envelope.result["taskRecipe"]["checks"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item == task_owned_check)));
+    assert!(envelope.result["taskRisk"]["missingValidations"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item == task_owned_check)));
+    assert!(!envelope.result["taskRecipe"]["checks"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item == native_only_check)));
+    assert!(!envelope.result["taskRisk"]["missingValidations"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item == native_only_check)));
+    assert!(!envelope.result["validationPlan"]["fast"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item["label"] == native_only_check)));
+
+    let brief = host
+        .compact_task_brief(
+            test_session(&host),
+            PrismTaskBriefArgs {
+                task_id: task_id.clone(),
+            },
+        )
+        .expect("task brief should stay aligned with coordination-owned validation fields");
+    assert!(brief
+        .likely_validations
+        .iter()
+        .any(|check| check == task_owned_check));
+    assert!(!brief
+        .likely_validations
+        .iter()
+        .any(|check| check == native_only_check));
 }
 
 #[test]

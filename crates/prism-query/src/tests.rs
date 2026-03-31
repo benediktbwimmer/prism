@@ -1160,7 +1160,7 @@ fn coordination_queries_expand_into_neighboring_symbols() {
 }
 
 #[test]
-fn plan_graph_reads_native_runtime_state_before_coordination_projection() {
+fn task_execution_plan_graph_projects_task_backed_nodes_from_coordination() {
     let graph = Graph::new();
     let history = HistoryStore::new();
     let outcomes = OutcomeMemory::new();
@@ -1318,6 +1318,21 @@ fn plan_graph_reads_native_runtime_state_before_coordination_projection() {
     assert_eq!(runtime_graph.title, "Native graph");
     assert_eq!(runtime_graph.edges.len(), 1);
     assert_eq!(runtime_graph.edges[0].kind, PlanEdgeKind::Validates);
+    let runtime_node_a = runtime_graph
+        .nodes
+        .iter()
+        .find(|node| node.id == node_a)
+        .expect("task-backed node a should be projected");
+    assert_eq!(runtime_node_a.title, "Task A");
+    assert_eq!(runtime_node_a.kind, PlanNodeKind::Edit);
+    let runtime_node_b = runtime_graph
+        .nodes
+        .iter()
+        .find(|node| node.id == node_b)
+        .expect("task-backed node b should be projected");
+    assert_eq!(runtime_node_b.title, "Task B");
+    assert_eq!(runtime_node_b.kind, PlanNodeKind::Edit);
+    assert_eq!(runtime_node_b.status, PlanNodeStatus::Ready);
     let runtime_execution = prism.plan_execution(&plan_id);
     assert_eq!(runtime_execution.len(), 1);
     assert_eq!(
@@ -1667,16 +1682,23 @@ fn native_task_mutations_preserve_non_dependency_plan_edges() {
             },
             TaskUpdateInput {
                 task_id: prism_ir::CoordinationTaskId::new(task_a.0.clone()),
+                kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::InProgress),
                 assignee: None,
                 session: None,
                 worktree_id: None,
                 branch_ref: None,
                 title: None,
+                summary: None,
                 anchors: None,
+                bindings: None,
                 depends_on: None,
                 acceptance: None,
+                validation_refs: None,
+                is_abstract: None,
                 base_revision: Some(WorkspaceRevision::default()),
+                priority: None,
+                tags: None,
                 completion_context: None,
             },
             WorkspaceRevision::default(),
@@ -4304,16 +4326,23 @@ fn task_backed_plan_nodes_must_complete_through_coordination_tasks() {
             },
             TaskUpdateInput {
                 task_id: prism_ir::CoordinationTaskId::new(task_id.0.clone()),
+                kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::Completed),
                 assignee: None,
                 session: None,
                 worktree_id: None,
                 branch_ref: None,
                 title: None,
+                summary: None,
                 anchors: None,
+                bindings: None,
                 depends_on: None,
                 acceptance: None,
+                validation_refs: None,
+                is_abstract: None,
                 base_revision: None,
+                priority: None,
+                tags: None,
                 completion_context: None,
             },
             WorkspaceRevision {
@@ -5364,6 +5393,159 @@ fn task_and_artifact_risk_join_coordination_with_change_intelligence() {
 }
 
 #[test]
+fn task_backed_native_graph_blockers_follow_coordination_validation_fields() {
+    let graph = Graph::new();
+    let history = HistoryStore::new();
+    let outcomes = OutcomeMemory::new();
+    let coordination = CoordinationStore::new();
+    let (plan_id, _) = coordination
+        .create_plan(
+            EventMeta {
+                id: EventId::new("coord:plan:task-backed-native-validation"),
+                ts: 1,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            PlanCreateInput {
+                goal: "Use coordination validations for task-backed nodes".into(),
+                status: None,
+                policy: Some(CoordinationPolicy {
+                    require_validation_for_completion: true,
+                    ..CoordinationPolicy::default()
+                }),
+            },
+        )
+        .unwrap();
+    let (task_id, _) = coordination
+        .create_task(
+            EventMeta {
+                id: EventId::new("coord:task:task-backed-native-validation"),
+                ts: 2,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Validate ownership".into(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                anchors: Vec::new(),
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: WorkspaceRevision::default(),
+            },
+        )
+        .unwrap();
+    coordination
+        .update_task(
+            EventMeta {
+                id: EventId::new("coord:task:update-validation-owned"),
+                ts: 3,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskUpdateInput {
+                task_id: task_id.clone(),
+                kind: None,
+                status: None,
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                summary: None,
+                anchors: None,
+                bindings: None,
+                depends_on: None,
+                acceptance: None,
+                validation_refs: Some(vec![prism_ir::ValidationRef {
+                    id: "validation:task-owned".into(),
+                }]),
+                is_abstract: None,
+                base_revision: None,
+                priority: None,
+                tags: None,
+                completion_context: None,
+            },
+            WorkspaceRevision::default(),
+            3,
+        )
+        .unwrap();
+
+    let node_id = PlanNodeId::new(task_id.0.clone());
+    let native_graph = prism_ir::PlanGraph {
+        id: plan_id.clone(),
+        scope: prism_ir::PlanScope::Repo,
+        kind: prism_ir::PlanKind::Migration,
+        title: "Task-backed migration graph".into(),
+        goal: "Task-backed migration graph".into(),
+        status: prism_ir::PlanStatus::Active,
+        revision: 1,
+        root_nodes: vec![node_id.clone()],
+        tags: Vec::new(),
+        created_from: None,
+        metadata: serde_json::Value::Null,
+        nodes: vec![prism_ir::PlanNode {
+            id: node_id.clone(),
+            plan_id: plan_id.clone(),
+            kind: prism_ir::PlanNodeKind::Validate,
+            title: "Native validation".into(),
+            summary: None,
+            status: prism_ir::PlanNodeStatus::Ready,
+            bindings: prism_ir::PlanBinding::default(),
+            acceptance: Vec::new(),
+            validation_refs: vec![prism_ir::ValidationRef {
+                id: "validation:native-only".into(),
+            }],
+            is_abstract: false,
+            assignee: None,
+            base_revision: WorkspaceRevision::default(),
+            priority: None,
+            tags: Vec::new(),
+            metadata: serde_json::Value::Null,
+        }],
+        edges: Vec::new(),
+    };
+
+    let prism = Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
+        graph,
+        history,
+        outcomes,
+        coordination.snapshot(),
+        ProjectionIndex::default(),
+        vec![native_graph],
+        std::collections::BTreeMap::new(),
+    );
+
+    let blockers = prism.plan_node_blockers(&plan_id, &node_id);
+    let validation_blocker = blockers
+        .iter()
+        .find(|blocker| blocker.kind == PlanNodeBlockerKind::ValidationRequired)
+        .expect("task-backed node should report coordination-owned validation blockers");
+    assert_eq!(
+        validation_blocker.validation_checks,
+        vec!["validation:task-owned"]
+    );
+    assert!(!validation_blocker
+        .validation_checks
+        .iter()
+        .any(|check| check == "validation:native-only"));
+    assert_eq!(
+        prism
+            .plan_summary(&plan_id)
+            .expect("plan summary should exist")
+            .validation_gated_nodes,
+        1
+    );
+}
+
+#[test]
 fn exposes_intent_links_and_task_intent() {
     let mut graph = Graph::new();
     let spec = NodeId::new(
@@ -5575,16 +5757,23 @@ fn policy_violations_expose_rejected_coordination_mutations() {
             },
             TaskUpdateInput {
                 task_id: task_id.clone(),
+                kind: None,
                 status: Some(prism_ir::CoordinationTaskStatus::Completed),
                 assignee: None,
                 session: None,
                 worktree_id: None,
                 branch_ref: None,
                 title: None,
+                summary: None,
                 anchors: None,
+                bindings: None,
                 depends_on: None,
                 acceptance: None,
+                validation_refs: None,
+                is_abstract: None,
                 base_revision: None,
+                priority: None,
+                tags: None,
                 completion_context: Some(TaskCompletionContext::default()),
             },
             WorkspaceRevision {

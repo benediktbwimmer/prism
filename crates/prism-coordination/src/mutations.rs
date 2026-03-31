@@ -1214,17 +1214,27 @@ pub(crate) fn update_task_mutation(
     current_revision: WorkspaceRevision,
     now: Timestamp,
 ) -> Result<CoordinationTask> {
+    let update_kind = input.kind.is_some();
     let update_status = input.status.is_some();
     let update_assignee = input.assignee.is_some();
     let update_session = input.session.is_some();
     let update_worktree = input.worktree_id.is_some();
     let update_branch = input.branch_ref.is_some();
     let update_title = input.title.is_some();
+    let update_summary = input.summary.is_some();
     let update_anchors = input.anchors.is_some();
+    let update_bindings = input.bindings.is_some();
     let update_depends_on = input.depends_on.is_some();
     let update_acceptance = input.acceptance.is_some();
+    let update_validation_refs = input.validation_refs.is_some();
+    let update_is_abstract = input.is_abstract.is_some();
     let update_base_revision = input.base_revision.is_some();
+    let update_priority = input.priority.is_some();
+    let update_tags = input.tags.is_some();
     let mut patch = serde_json::Map::new();
+    if input.kind.is_some() {
+        push_patch_op(&mut patch, "kind", "set");
+    }
     if input.status.is_some() {
         push_patch_op(&mut patch, "status", "set");
     }
@@ -1263,8 +1273,18 @@ pub(crate) fn update_task_mutation(
     if input.title.is_some() {
         push_patch_op(&mut patch, "title", "set");
     }
+    if let Some(summary) = input.summary.as_ref() {
+        push_patch_op(
+            &mut patch,
+            "summary",
+            if summary.is_some() { "set" } else { "clear" },
+        );
+    }
     if input.anchors.is_some() {
         push_patch_op(&mut patch, "anchors", "set");
+    }
+    if input.bindings.is_some() {
+        push_patch_op(&mut patch, "bindings", "set");
     }
     if input.depends_on.is_some() {
         push_patch_op(&mut patch, "dependsOn", "set");
@@ -1272,8 +1292,24 @@ pub(crate) fn update_task_mutation(
     if input.acceptance.is_some() {
         push_patch_op(&mut patch, "acceptance", "set");
     }
+    if input.validation_refs.is_some() {
+        push_patch_op(&mut patch, "validationRefs", "set");
+    }
+    if input.is_abstract.is_some() {
+        push_patch_op(&mut patch, "isAbstract", "set");
+    }
     if input.base_revision.is_some() {
         push_patch_op(&mut patch, "baseRevision", "set");
+    }
+    if let Some(priority) = input.priority.as_ref() {
+        push_patch_op(
+            &mut patch,
+            "priority",
+            if priority.is_some() { "set" } else { "clear" },
+        );
+    }
+    if input.tags.is_some() {
+        push_patch_op(&mut patch, "tags", "set");
     }
     let patch = patch_metadata(patch);
     let completion_context = input.completion_context.clone();
@@ -1421,9 +1457,16 @@ pub(crate) fn update_task_mutation(
             previous.status,
             CoordinationTaskStatus::Completed | CoordinationTaskStatus::Abandoned
         ) && (input.title.is_some()
+            || input.summary.is_some()
             || input.anchors.is_some()
+            || input.bindings.is_some()
             || input.depends_on.is_some()
             || input.acceptance.is_some()
+            || input.validation_refs.is_some()
+            || input.is_abstract.is_some()
+            || input.kind.is_some()
+            || input.priority.is_some()
+            || input.tags.is_some()
             || input.assignee.is_some()
             || input.session.is_some())
         {
@@ -1452,9 +1495,16 @@ pub(crate) fn update_task_mutation(
         }
         if previous.pending_handoff_to.is_some()
             && (input.title.is_some()
+                || input.summary.is_some()
                 || input.anchors.is_some()
+                || input.bindings.is_some()
                 || input.depends_on.is_some()
                 || input.acceptance.is_some()
+                || input.validation_refs.is_some()
+                || input.is_abstract.is_some()
+                || input.kind.is_some()
+                || input.priority.is_some()
+                || input.tags.is_some()
                 || input.assignee.is_some()
                 || input.session.is_some()
                 || input.status.is_some())
@@ -1482,8 +1532,14 @@ pub(crate) fn update_task_mutation(
                 violations,
             ));
         }
+        if let Some(kind) = input.kind {
+            task.kind = kind;
+        }
         if let Some(title) = input.title {
             task.title = title;
+        }
+        if let Some(summary) = input.summary {
+            task.summary = summary;
         }
         if let Some(status) = input.status {
             task.status = status;
@@ -1504,6 +1560,9 @@ pub(crate) fn update_task_mutation(
             task.anchors = dedupe_anchors(anchors);
             task.bindings.anchors = task.anchors.clone();
         }
+        if let Some(bindings) = input.bindings {
+            task.bindings = bindings;
+        }
         if let Some(depends_on) = next_dependencies.clone() {
             let previous_root = task.depends_on.is_empty();
             let next_root = depends_on.is_empty();
@@ -1515,8 +1574,28 @@ pub(crate) fn update_task_mutation(
         if let Some(acceptance) = next_acceptance.clone() {
             task.acceptance = acceptance;
         }
+        if let Some(validation_refs) = input.validation_refs {
+            task.validation_refs = dedupe_strings(
+                validation_refs
+                    .into_iter()
+                    .map(|validation| validation.id)
+                    .collect::<Vec<_>>(),
+            )
+            .into_iter()
+            .map(|id| prism_ir::ValidationRef { id })
+            .collect();
+        }
+        if let Some(is_abstract) = input.is_abstract {
+            task.is_abstract = is_abstract;
+        }
         if let Some(base_revision) = input.base_revision {
             task.base_revision = base_revision;
+        }
+        if let Some(priority) = input.priority {
+            task.priority = priority;
+        }
+        if let Some(tags) = input.tags {
+            task.tags = dedupe_strings(tags);
         }
         if task.bindings.anchors.is_empty() && !task.anchors.is_empty() {
             task.bindings.anchors = task.anchors.clone();
@@ -1603,6 +1682,9 @@ pub(crate) fn update_task_mutation(
         metadata.insert("patch".to_string(), patch);
     }
     let mut patch_values = serde_json::Map::new();
+    if update_kind {
+        insert_serialized(&mut patch_values, "kind", task.kind);
+    }
     if update_status {
         insert_serialized(&mut patch_values, "status", task.status);
     }
@@ -1621,8 +1703,14 @@ pub(crate) fn update_task_mutation(
     if update_title {
         insert_serialized(&mut patch_values, "title", task.title.clone());
     }
+    if update_summary {
+        insert_serialized(&mut patch_values, "summary", task.summary.clone());
+    }
     if update_anchors {
         insert_serialized(&mut patch_values, "anchors", task.anchors.clone());
+    }
+    if update_bindings {
+        insert_serialized(&mut patch_values, "bindings", task.bindings.clone());
     }
     if update_depends_on {
         insert_serialized(&mut patch_values, "dependsOn", task.depends_on.clone());
@@ -1630,12 +1718,28 @@ pub(crate) fn update_task_mutation(
     if update_acceptance {
         insert_serialized(&mut patch_values, "acceptance", task.acceptance.clone());
     }
+    if update_validation_refs {
+        insert_serialized(
+            &mut patch_values,
+            "validationRefs",
+            task.validation_refs.clone(),
+        );
+    }
+    if update_is_abstract {
+        insert_serialized(&mut patch_values, "isAbstract", task.is_abstract);
+    }
     if update_base_revision {
         insert_serialized(
             &mut patch_values,
             "baseRevision",
             task.base_revision.clone(),
         );
+    }
+    if update_priority {
+        insert_serialized(&mut patch_values, "priority", task.priority);
+    }
+    if update_tags {
+        insert_serialized(&mut patch_values, "tags", task.tags.clone());
     }
     if !patch_values.is_empty() {
         metadata.insert("patchValues".to_string(), Value::Object(patch_values));

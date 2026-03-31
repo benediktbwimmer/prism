@@ -302,16 +302,23 @@ pub struct TaskCreateInput {
 #[derive(Debug, Clone)]
 pub struct TaskUpdateInput {
     pub task_id: CoordinationTaskId,
+    pub kind: Option<PlanNodeKind>,
     pub status: Option<CoordinationTaskStatus>,
     pub assignee: Option<Option<AgentId>>,
     pub session: Option<Option<SessionId>>,
     pub worktree_id: Option<Option<String>>,
     pub branch_ref: Option<Option<String>>,
     pub title: Option<String>,
+    pub summary: Option<Option<String>>,
     pub anchors: Option<Vec<AnchorRef>>,
+    pub bindings: Option<PlanBinding>,
     pub depends_on: Option<Vec<CoordinationTaskId>>,
     pub acceptance: Option<Vec<AcceptanceCriterion>>,
+    pub validation_refs: Option<Vec<ValidationRef>>,
+    pub is_abstract: Option<bool>,
     pub base_revision: Option<WorkspaceRevision>,
+    pub priority: Option<Option<u8>>,
+    pub tags: Option<Vec<String>>,
     pub completion_context: Option<TaskCompletionContext>,
 }
 

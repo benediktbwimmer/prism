@@ -7,9 +7,9 @@ use prism_coordination::{
 };
 use prism_ir::{
     new_prefixed_id, AgentId, AnchorRef, CoordinationTaskId, PlanAcceptanceCriterion, PlanBinding,
-    PlanEdge, PlanEdgeId, PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanNode,
-    PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId, PlanNodeKind, PlanNodeStatus, ValidationRef,
-    WorkspaceRevision,
+    PlanEdge, PlanEdgeId, PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanKind,
+    PlanNode, PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId, PlanNodeKind, PlanNodeStatus,
+    ValidationRef, WorkspaceRevision,
 };
 use serde_json::Value;
 
@@ -34,6 +34,7 @@ impl NativePlanRuntimeState {
         graphs: Vec<PlanGraph>,
         execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     ) -> Self {
+        let graphs = reconcile_plan_graphs_with_coordination(snapshot, graphs);
         let policies = snapshot
             .plans
             .iter()
@@ -450,12 +451,23 @@ impl NativePlanRuntimeState {
                 .graphs
                 .get_mut(task.plan.0.as_str())
                 .ok_or_else(|| anyhow!("unknown plan `{}`", task.plan.0))?;
-            let node = graph
-                .nodes
-                .iter_mut()
-                .find(|node| node.id == node_id)
-                .ok_or_else(|| anyhow!("unknown plan node `{}`", node_id.0))?;
-            populate_plan_node_from_coordination_task(node, task);
+            if graph.kind == PlanKind::TaskExecution {
+                if let Some(index) = graph.nodes.iter().position(|node| node.id == node_id) {
+                    graph.nodes[index] = plan_node_from_coordination_task(task);
+                } else {
+                    graph.nodes.push(plan_node_from_coordination_task(task));
+                    graph
+                        .nodes
+                        .sort_by(|left, right| left.id.0.cmp(&right.id.0));
+                }
+            } else {
+                let node = graph
+                    .nodes
+                    .iter_mut()
+                    .find(|node| node.id == node_id)
+                    .ok_or_else(|| anyhow!("unknown plan node `{}`", node_id.0))?;
+                populate_plan_node_from_coordination_task(node, task);
+            }
             sync_dependency_edges(graph, &node_id, &task.depends_on);
             recompute_root_nodes(graph);
             graph.id.clone()
@@ -597,6 +609,67 @@ fn execution_overlays_by_plan(
             )
         })
         .collect()
+}
+
+fn reconcile_plan_graphs_with_coordination(
+    snapshot: &CoordinationSnapshot,
+    graphs: Vec<PlanGraph>,
+) -> Vec<PlanGraph> {
+    let mut tasks_by_plan = BTreeMap::<String, Vec<CoordinationTask>>::new();
+    for task in &snapshot.tasks {
+        tasks_by_plan
+            .entry(task.plan.0.to_string())
+            .or_default()
+            .push(task.clone());
+    }
+    graphs
+        .into_iter()
+        .map(|graph| {
+            if graph.kind != PlanKind::TaskExecution {
+                return graph;
+            }
+            let plan_id = graph.id.0.to_string();
+            reconcile_task_execution_graph(
+                graph,
+                tasks_by_plan.remove(plan_id.as_str()).unwrap_or_default(),
+            )
+        })
+        .collect()
+}
+
+fn reconcile_task_execution_graph(
+    mut graph: PlanGraph,
+    mut tasks: Vec<CoordinationTask>,
+) -> PlanGraph {
+    tasks.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    let task_node_ids = tasks
+        .iter()
+        .map(|task| task.id.0.as_str())
+        .collect::<BTreeSet<_>>();
+
+    let mut nodes = graph
+        .nodes
+        .into_iter()
+        .filter(|node| !task_node_ids.contains(node.id.0.as_str()))
+        .collect::<Vec<_>>();
+    nodes.extend(tasks.iter().map(plan_node_from_coordination_task));
+    nodes.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    graph.nodes = nodes;
+
+    let mut edges = graph
+        .edges
+        .into_iter()
+        .filter(|edge| {
+            !(edge.kind == PlanEdgeKind::DependsOn && task_node_ids.contains(edge.from.0.as_str()))
+        })
+        .collect::<Vec<_>>();
+    edges.extend(tasks.iter().flat_map(task_dependency_edges));
+    edges.sort_by(|left, right| left.id.0.cmp(&right.id.0));
+    edges.dedup_by(|left, right| left.id == right.id);
+    graph.edges = edges;
+
+    recompute_root_nodes(&mut graph);
+    graph
 }
 
 fn plan_acceptance_from_coordination(criterion: AcceptanceCriterion) -> PlanAcceptanceCriterion {
@@ -1004,6 +1077,24 @@ fn sync_dependency_edges(
             metadata: Value::Null,
         });
     }
+}
+
+fn task_dependency_edges(task: &CoordinationTask) -> Vec<PlanEdge> {
+    task.depends_on
+        .iter()
+        .map(|dependency| PlanEdge {
+            id: dependency_edge_id(
+                &plan_node_id_from_task_id(task.id.clone()),
+                dependency.0.as_str(),
+            ),
+            plan_id: task.plan.clone(),
+            from: plan_node_id_from_task_id(task.id.clone()),
+            to: plan_node_id_from_task_id(dependency.clone()),
+            kind: PlanEdgeKind::DependsOn,
+            summary: None,
+            metadata: Value::Null,
+        })
+        .collect()
 }
 
 fn plan_node_id_from_task_id(task_id: CoordinationTaskId) -> PlanNodeId {

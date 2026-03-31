@@ -1,7 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Result};
-use prism_coordination::{Artifact, CoordinationPolicy};
+use prism_coordination::{Artifact, BlockerKind, CoordinationPolicy, TaskBlocker};
 use prism_ir::{
     AnchorRef, ArtifactId, ArtifactStatus, ConflictSeverity, CoordinationTaskId,
     PlanExecutionOverlay, PlanGraph, PlanId, PlanNode, PlanNodeBlocker, PlanNodeBlockerKind,
@@ -67,15 +67,39 @@ impl Prism {
         };
         let overlays = runtime.plan_execution(plan_id);
         let mut blockers = node_blockers_for_graph(&graph, &overlays, node_id);
-        blockers.extend(self.native_policy_blockers_for_node(
-            runtime.policy(plan_id),
-            &graph,
-            &node,
-            &overlays,
-            now,
-        ));
+        if let Some(task_blockers) = self.task_backed_policy_blockers(plan_id, node_id, now) {
+            blockers.retain(|blocker| blocker.kind != PlanNodeBlockerKind::Dependency);
+            blockers.extend(task_blockers);
+        } else {
+            blockers.extend(self.native_policy_blockers_for_node(
+                runtime.policy(plan_id),
+                &graph,
+                &node,
+                &overlays,
+                now,
+            ));
+        }
         sort_and_dedupe_plan_node_blockers(&mut blockers);
         blockers
+    }
+
+    fn task_backed_policy_blockers(
+        &self,
+        plan_id: &PlanId,
+        node_id: &PlanNodeId,
+        now: Timestamp,
+    ) -> Option<Vec<PlanNodeBlocker>> {
+        let task_id = CoordinationTaskId::new(node_id.0.clone());
+        let task = self.coordination_task(&task_id)?;
+        if task.plan != *plan_id {
+            return None;
+        }
+        Some(
+            self.blockers(&task_id, now)
+                .into_iter()
+                .map(|blocker| plan_node_blocker_from_task_blocker(&task_id, blocker))
+                .collect(),
+        )
     }
 
     fn native_policy_blockers_for_node(
@@ -445,6 +469,29 @@ fn acceptance_blockers(
     }
     sort_and_dedupe_plan_node_blockers(&mut blockers);
     blockers
+}
+
+fn plan_node_blocker_from_task_blocker(
+    task_id: &CoordinationTaskId,
+    blocker: TaskBlocker,
+) -> PlanNodeBlocker {
+    let related_task_id = blocker.related_task_id.unwrap_or_else(|| task_id.clone());
+    PlanNodeBlocker {
+        kind: match blocker.kind {
+            BlockerKind::Dependency => PlanNodeBlockerKind::Dependency,
+            BlockerKind::ClaimConflict => PlanNodeBlockerKind::ClaimConflict,
+            BlockerKind::ReviewRequired => PlanNodeBlockerKind::ReviewRequired,
+            BlockerKind::RiskReviewRequired => PlanNodeBlockerKind::RiskReviewRequired,
+            BlockerKind::ValidationRequired => PlanNodeBlockerKind::ValidationRequired,
+            BlockerKind::StaleRevision => PlanNodeBlockerKind::StaleRevision,
+            BlockerKind::ArtifactStale => PlanNodeBlockerKind::ArtifactStale,
+        },
+        summary: blocker.summary,
+        related_node_id: Some(PlanNodeId::new(related_task_id.0)),
+        related_artifact_id: blocker.related_artifact_id,
+        risk_score: blocker.risk_score,
+        validation_checks: blocker.validation_checks,
+    }
 }
 
 fn sort_and_dedupe_plan_node_blockers(blockers: &mut Vec<PlanNodeBlocker>) {

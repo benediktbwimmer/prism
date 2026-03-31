@@ -308,6 +308,12 @@ pub(crate) fn validation_plan_view(execution: &QueryExecution, input: Value) -> 
 }
 
 fn native_plan_node_for_task(prism: &prism_query::Prism, task_id: &str) -> Option<PlanNode> {
+    if prism
+        .coordination_task(&CoordinationTaskId::new(task_id.to_string()))
+        .is_some()
+    {
+        return None;
+    }
     prism
         .plan_graphs()
         .into_iter()

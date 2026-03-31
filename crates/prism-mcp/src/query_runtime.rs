@@ -175,19 +175,22 @@ fn resolve_task_query_subject(prism: &Prism, task_id: &str) -> Option<TaskQueryS
     let coordination_task_id = prism
         .coordination_task(&coordination_task_id)
         .map(|_| coordination_task_id);
-    let native_plan = prism.plan_graphs().into_iter().find_map(|graph| {
-        graph.nodes.into_iter().find_map(|node| {
-            (node.id.0 == task_id).then(|| {
-                let blockers = prism.plan_node_blockers(&graph.id, &node.id);
-                NativePlanTaskQuerySubject {
-                    task_id: CoordinationTaskId::new(node.id.0.clone()),
-                    plan_id: graph.id.clone(),
-                    node,
-                    blockers,
-                }
+    let native_plan = coordination_task_id.as_ref().is_none().then(|| {
+        prism.plan_graphs().into_iter().find_map(|graph| {
+            graph.nodes.into_iter().find_map(|node| {
+                (node.id.0 == task_id).then(|| {
+                    let blockers = prism.plan_node_blockers(&graph.id, &node.id);
+                    NativePlanTaskQuerySubject {
+                        task_id: CoordinationTaskId::new(node.id.0.clone()),
+                        plan_id: graph.id.clone(),
+                        node,
+                        blockers,
+                    }
+                })
             })
         })
     });
+    let native_plan = native_plan.flatten();
     (coordination_task_id.is_some() || native_plan.is_some()).then_some(TaskQuerySubject {
         coordination_task_id,
         native_plan,
