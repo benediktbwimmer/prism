@@ -86,13 +86,11 @@ impl QueryHost {
         let now = current_timestamp();
         let fallback_snapshot = prism.coordination_snapshot();
         let read_model = self
-            .workspace
-            .as_ref()
+            .workspace_session()
             .and_then(|workspace| workspace.load_coordination_read_model().ok().flatten())
             .unwrap_or_else(|| fallback_coordination_read_model(&fallback_snapshot));
         let queue_model = self
-            .workspace
-            .as_ref()
+            .workspace_session()
             .and_then(|workspace| {
                 workspace
                     .load_coordination_queue_read_model()
@@ -147,8 +145,7 @@ impl QueryHost {
         let prism = self.current_prism();
         let fallback_snapshot = prism.coordination_snapshot();
         let queue_model = self
-            .workspace
-            .as_ref()
+            .workspace_session()
             .and_then(|workspace| {
                 workspace
                     .load_coordination_queue_read_model()
@@ -216,8 +213,7 @@ fn dashboard_session_view(host: &QueryHost, session: Option<&SessionState>) -> S
         .unwrap_or(host.default_limits);
     SessionView {
         workspace_root: host
-            .workspace
-            .as_ref()
+            .workspace_session()
             .map(|workspace| workspace.root().display().to_string()),
         current_task: session.and_then(|session| {
             session.current_task_state().map(|task| SessionTaskView {
@@ -254,7 +250,7 @@ fn current_task_journal(
     let prism = host.current_prism();
     let task_id = TaskId::new(task_id.to_string());
     let replay = crate::load_task_replay(
-        host.workspace.as_ref().map(|workspace| workspace.as_ref()),
+        host.workspace_session_ref(),
         prism.as_ref(),
         &task_id,
     )?;

@@ -160,15 +160,6 @@ impl WorkspaceRuntimeHost {
         bindings.insert(binding.context().root().to_path_buf(), Arc::clone(&binding));
         binding
     }
-
-    pub(crate) fn binding_for_root(&self, root: &Path) -> Option<Arc<WorkspaceRuntimeBinding>> {
-        let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-        self.bindings
-            .lock()
-            .expect("workspace runtime host registry poisoned")
-            .get(&root)
-            .cloned()
-    }
 }
 
 fn shared_workspace_runtime_sync_lock(root: &Path) -> Arc<Mutex<()>> {

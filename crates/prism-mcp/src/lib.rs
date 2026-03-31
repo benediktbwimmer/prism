@@ -552,9 +552,7 @@ struct QueryHost {
     worker_pool: Arc<JsWorkerPool>,
     pub(crate) mcp_call_log_store: Arc<McpCallLogStore>,
     dashboard_state: Arc<DashboardState>,
-    workspace_runtime_host: Arc<WorkspaceRuntimeHost>,
     workspace_runtime_binding: Option<Arc<WorkspaceRuntimeBinding>>,
-    workspace: Option<Arc<WorkspaceSession>>,
     restored_session_seed: Option<PersistedSessionSeed>,
     features: PrismMcpFeatures,
     #[cfg(test)]
@@ -651,9 +649,7 @@ impl QueryHost {
             worker_pool: Arc::new(worker_pool),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(None)),
             dashboard_state: Arc::new(DashboardState::default()),
-            workspace_runtime_host: Arc::new(WorkspaceRuntimeHost::new()),
             workspace_runtime_binding: None,
-            workspace: None,
             restored_session_seed: None,
             features: features.clone(),
             #[cfg(test)]
@@ -718,9 +714,7 @@ impl QueryHost {
             worker_pool: Arc::new(worker_pool),
             mcp_call_log_store,
             dashboard_state,
-            workspace_runtime_host,
             workspace_runtime_binding: Some(Arc::clone(&workspace_runtime_binding)),
-            workspace: Some(Arc::clone(workspace_runtime_binding.workspace())),
             restored_session_seed,
             features,
             #[cfg(test)]
@@ -742,7 +736,7 @@ impl QueryHost {
     }
 
     fn persist_session_seed(&self, session: &SessionState) -> Result<()> {
-        if let Some(workspace) = &self.workspace {
+        if let Some(workspace) = self.workspace_session() {
             persist_session_seed(workspace.root(), session)?;
         }
         Ok(())
@@ -842,18 +836,27 @@ impl QueryHost {
     }
 
     fn current_prism(&self) -> Arc<Prism> {
-        self.workspace_runtime_binding()
-            .as_ref()
+        self.workspace_runtime_binding_ref()
             .map(|binding| binding.workspace().prism_arc())
             .unwrap_or_else(|| Arc::clone(&self.prism))
     }
 
+    pub(crate) fn workspace_runtime_binding_ref(&self) -> Option<&Arc<WorkspaceRuntimeBinding>> {
+        self.workspace_runtime_binding.as_ref()
+    }
+
     pub(crate) fn workspace_session(&self) -> Option<&Arc<WorkspaceSession>> {
-        self.workspace.as_ref()
+        self.workspace_runtime_binding_ref()
+            .map(|binding| binding.workspace())
     }
 
     pub(crate) fn workspace_session_ref(&self) -> Option<&WorkspaceSession> {
         self.workspace_session().map(Arc::as_ref)
+    }
+
+    pub(crate) fn workspace_session_arc(&self) -> Option<Arc<WorkspaceSession>> {
+        self.workspace_runtime_binding_ref()
+            .map(|binding| Arc::clone(binding.workspace()))
     }
 
     pub(crate) fn workspace_root(&self) -> Option<&Path> {
@@ -861,12 +864,7 @@ impl QueryHost {
     }
 
     pub(crate) fn workspace_runtime_binding(&self) -> Option<Arc<WorkspaceRuntimeBinding>> {
-        self.workspace_runtime_binding.clone().or_else(|| {
-            self.workspace.as_ref().and_then(|workspace| {
-                self.workspace_runtime_host
-                    .binding_for_root(workspace.root())
-            })
-        })
+        self.workspace_runtime_binding_ref().cloned()
     }
 
     pub(crate) fn loaded_workspace_revision_value(&self) -> u64 {

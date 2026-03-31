@@ -74,7 +74,7 @@ impl QueryHost {
             session_id: session.session_id().0.to_string(),
             task_id: session.current_task().map(|task| task.0.to_string()),
             mcp_call_log_store: Arc::clone(&self.mcp_call_log_store),
-            workspace: self.workspace.as_ref().map(std::sync::Arc::clone),
+            workspace: self.workspace_session_arc(),
             view_name: Arc::new(std::sync::Mutex::new(None)),
             dashboard: Arc::clone(&self.dashboard_state),
             phases: Arc::new(std::sync::Mutex::new(Vec::new())),

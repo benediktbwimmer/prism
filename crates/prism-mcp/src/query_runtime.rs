@@ -936,18 +936,14 @@ impl QueryExecution {
     }
 
     pub(crate) fn workspace_root(&self) -> Option<&Path> {
-        self.host
-            .workspace
-            .as_ref()
-            .map(|workspace| workspace.root())
+        self.host.workspace_root()
     }
 
     pub(crate) fn workspace_materialization_summary(
         &self,
     ) -> Option<prism_core::WorkspaceMaterializationSummary> {
         self.host
-            .workspace
-            .as_ref()
+            .workspace_session()
             .map(|workspace| workspace.workspace_materialization_summary())
     }
 
@@ -2199,10 +2195,7 @@ impl QueryExecution {
         }
         apply_search_post_filters(
             &mut results,
-            self.host
-                .workspace
-                .as_ref()
-                .map(|workspace| workspace.root()),
+            self.host.workspace_root(),
             args.path.as_deref(),
             path_mode,
             args.structured_path.as_deref(),
@@ -3005,10 +2998,7 @@ impl QueryExecution {
         }
 
         let replay = crate::load_task_replay(
-            self.host
-                .workspace
-                .as_ref()
-                .map(|workspace| workspace.as_ref()),
+            self.host.workspace_session_ref(),
             self.prism.as_ref(),
             &args.task_id,
         )?;

@@ -50,8 +50,7 @@ impl QueryHostUiReadModelsExt for QueryHost {
         let prism = self.current_prism();
 
         let read_model = self
-            .workspace
-            .as_ref()
+            .workspace_session()
             .and_then(|workspace| workspace.load_coordination_read_model().ok().flatten())
             .unwrap_or_else(|| {
                 coordination_read_model_from_snapshot(&prism.coordination_snapshot())

@@ -345,7 +345,7 @@ impl QueryHost {
                 "coordinationTaskId": coordination_task_id,
             }),
         };
-        if let Some(workspace) = &self.workspace {
+        if let Some(workspace) = self.workspace_session() {
             if workspace.try_append_outcome(event)?.is_some() {
                 self.sync_workspace_revision(workspace)?;
             }
@@ -415,7 +415,7 @@ impl QueryHost {
             .map(|state| (state.description.clone(), state.tags.clone()));
         let prism = self.current_prism();
         let replay = crate::load_task_replay(
-            self.workspace.as_ref().map(|workspace| workspace.as_ref()),
+            self.workspace_session_ref(),
             prism.as_ref(),
             &task,
         )
@@ -432,7 +432,7 @@ impl QueryHost {
         if let Some(explicit) = args.anchors {
             anchors.extend(convert_anchors(
                 prism.as_ref(),
-                self.workspace.as_ref().map(|workspace| workspace.root()),
+                self.workspace_root(),
                 explicit,
             )?);
         }
@@ -479,7 +479,7 @@ impl QueryHost {
                 }
             }),
         };
-        let event_id = if let Some(workspace) = &self.workspace {
+        let event_id = if let Some(workspace) = self.workspace_session() {
             let event_id =
                 workspace.append_outcome_with_auxiliary(event, vec![memory_event], None, None)?;
             self.sync_workspace_revision(workspace)?;
@@ -499,7 +499,7 @@ impl QueryHost {
         self.persist_session_seed(session)?;
 
         let replay = crate::load_task_replay(
-            self.workspace.as_ref().map(|workspace| workspace.as_ref()),
+            self.workspace_session_ref(),
             self.current_prism().as_ref(),
             &task,
         )
@@ -538,7 +538,7 @@ impl QueryHost {
         let prism = self.current_prism();
         let anchors = prism.anchors_for(&convert_anchors(
             prism.as_ref(),
-            self.workspace.as_ref().map(|workspace| workspace.root()),
+            self.workspace_root(),
             args.anchors,
         )?);
         let task_id = session.task_for_mutation(args.task_id.map(TaskId::new));
@@ -565,7 +565,7 @@ impl QueryHost {
                 .collect(),
             metadata: Value::Null,
         };
-        let event_id = if let Some(workspace) = &self.workspace {
+        let event_id = if let Some(workspace) = self.workspace_session() {
             let event_id = workspace.append_outcome(event)?;
             self.sync_workspace_revision(workspace)?;
             event_id
@@ -619,7 +619,7 @@ impl QueryHost {
         let prism = self.current_prism();
         let anchors = prism.anchors_for(&convert_anchors(
             prism.as_ref(),
-            self.workspace.as_ref().map(|workspace| workspace.root()),
+            self.workspace_root(),
             payload.anchors,
         )?);
         let kind = convert_memory_kind(payload.kind);
@@ -661,7 +661,7 @@ impl QueryHost {
             .entry(&memory_id)
             .ok_or_else(|| anyhow!("stored memory `{}` could not be reloaded", memory_id.0))?;
         if stored_entry.scope != MemoryScope::Local {
-            if let Some(workspace) = &self.workspace {
+            if let Some(workspace) = self.workspace_session() {
                 let action =
                     memory_event_kind_for_store(promoted_from.as_slice(), supersedes.as_slice());
                 workspace.append_memory_event(MemoryEvent::from_entry(
@@ -706,7 +706,7 @@ impl QueryHost {
                 evidence: Vec::new(),
                 metadata: Value::Null,
             };
-            if let Some(workspace) = &self.workspace {
+            if let Some(workspace) = self.workspace_session() {
                 let _ = workspace.append_outcome(note_event)?;
                 self.sync_workspace_revision(workspace)?;
             } else {
@@ -715,7 +715,7 @@ impl QueryHost {
                 self.persist_outcomes()?;
                 self.persist_notes()?;
             }
-        } else if self.workspace.is_none() && stored_entry.scope != MemoryScope::Local {
+        } else if self.workspace_session().is_none() && stored_entry.scope != MemoryScope::Local {
             self.persist_notes()?;
         }
         Ok(MemoryMutationResult {
@@ -730,7 +730,7 @@ impl QueryHost {
         task_id: TaskId,
         payload: MemoryRetirePayload,
     ) -> Result<MemoryMutationResult> {
-        let workspace = self.workspace.as_ref().ok_or_else(|| {
+        let workspace = self.workspace_session().ok_or_else(|| {
             anyhow!("retiring repo-published memory requires a workspace-backed session")
         })?;
         let memory_id = prism_memory::MemoryId(payload.memory_id.clone());
@@ -787,7 +787,7 @@ impl QueryHost {
         session: &SessionState,
         args: PrismConceptMutationArgs,
     ) -> Result<ConceptMutationResult> {
-        let workspace = self.workspace.as_ref().ok_or_else(|| {
+        let workspace = self.workspace_session().ok_or_else(|| {
             anyhow!("concept promotion requires a workspace-backed PRISM session")
         })?;
         let prism = self.current_prism();
@@ -842,7 +842,7 @@ impl QueryHost {
         session: &SessionState,
         args: PrismContractMutationArgs,
     ) -> Result<ContractMutationResult> {
-        let workspace = self.workspace.as_ref().ok_or_else(|| {
+        let workspace = self.workspace_session().ok_or_else(|| {
             anyhow!("contract mutations require a workspace-backed PRISM session")
         })?;
         let prism = self.current_prism();
@@ -929,7 +929,7 @@ impl QueryHost {
             task_id: task_id.0.to_string(),
             packet: contract_packet_view(
                 prism.as_ref(),
-                self.workspace.as_ref().map(|workspace| workspace.root()),
+                self.workspace_root(),
                 packet,
                 None,
             ),
@@ -941,7 +941,7 @@ impl QueryHost {
         session: &SessionState,
         args: PrismConceptRelationMutationArgs,
     ) -> Result<ConceptRelationMutationResult> {
-        let workspace = self.workspace.as_ref().ok_or_else(|| {
+        let workspace = self.workspace_session().ok_or_else(|| {
             anyhow!("concept relation mutations require a workspace-backed PRISM session")
         })?;
         let prism = self.current_prism();
@@ -985,10 +985,10 @@ impl QueryHost {
         let task_id = session.task_for_mutation(args.task_id.map(TaskId::new));
         let anchors = prism.anchors_for(&convert_anchors(
             prism.as_ref(),
-            self.workspace.as_ref().map(|workspace| workspace.root()),
+            self.workspace_root(),
             args.anchors.unwrap_or_default(),
         )?);
-        let workspace = self.workspace.as_ref().ok_or_else(|| {
+        let workspace = self.workspace_session().ok_or_else(|| {
             anyhow!("validation feedback logging requires a workspace-backed PRISM session")
         })?;
         let entry = workspace.append_validation_feedback(ValidationFeedbackRecord {
@@ -1033,7 +1033,7 @@ impl QueryHost {
             args.evidence.unwrap_or_default(),
         );
         if scope != prism_agent::InferredEdgeScope::SessionOnly {
-            if let Some(workspace) = &self.workspace {
+            if let Some(workspace) = self.workspace_session() {
                 let record = session.inferred_edges.record(&id).ok_or_else(|| {
                     anyhow!("stored inferred edge `{}` could not be reloaded", id.0)
                 })?;
@@ -1074,7 +1074,7 @@ impl QueryHost {
         trace: Option<&MutationRun>,
     ) -> Result<CoordinationMutationResult> {
         self.ensure_tool_enabled("prism_coordination", "coordination workflow mutations")?;
-        if let Some(workspace) = &self.workspace {
+        if let Some(workspace) = self.workspace_session() {
             let refresh_started = std::time::Instant::now();
             match self.refresh_workspace_for_mutation() {
                 Ok(report) => {
@@ -1160,7 +1160,7 @@ impl QueryHost {
             correlation: Some(task),
             causation: None,
         };
-        if let Some(workspace) = &self.workspace {
+        if let Some(workspace) = self.workspace_session() {
             let result = if let Some(trace) = trace {
                 match workspace.try_mutate_coordination_with_session_observed(
                     Some(&session.session_id()),
@@ -1310,7 +1310,7 @@ impl QueryHost {
         args: PrismClaimArgs,
     ) -> Result<ClaimMutationResult> {
         self.ensure_tool_enabled("prism_claim", "coordination claim mutations")?;
-        if let Some(workspace) = &self.workspace {
+        if let Some(workspace) = self.workspace_session() {
             self.refresh_workspace_for_mutation()?;
             self.sync_coordination_revision(workspace)?;
         }
@@ -1324,7 +1324,7 @@ impl QueryHost {
             correlation: Some(task),
             causation: None,
         };
-        if let Some(workspace) = &self.workspace {
+        if let Some(workspace) = self.workspace_session() {
             match workspace
                 .try_mutate_coordination_with_session(Some(&session.session_id()), |prism| {
                     self.apply_claim_mutation(session, prism, args, meta.clone())
@@ -1389,7 +1389,7 @@ impl QueryHost {
         args: PrismArtifactArgs,
     ) -> Result<ArtifactMutationResult> {
         self.ensure_tool_enabled("prism_artifact", "coordination artifact mutations")?;
-        if let Some(workspace) = &self.workspace {
+        if let Some(workspace) = self.workspace_session() {
             self.refresh_workspace_for_mutation()?;
             self.sync_coordination_revision(workspace)?;
         }
@@ -1403,7 +1403,7 @@ impl QueryHost {
             correlation: Some(task),
             causation: None,
         };
-        if let Some(workspace) = &self.workspace {
+        if let Some(workspace) = self.workspace_session() {
             match workspace
                 .try_mutate_coordination_with_session(Some(&session.session_id()), |prism| {
                     self.apply_artifact_mutation(prism, args, meta.clone())
@@ -1469,7 +1469,7 @@ impl QueryHost {
         args: PrismCoordinationArgs,
         meta: EventMeta,
     ) -> Result<Value> {
-        let workspace_root = self.workspace.as_ref().map(|workspace| workspace.root());
+        let workspace_root = self.workspace_root();
         match args.kind {
             CoordinationMutationKindInput::PlanCreate => {
                 let payload: crate::PlanCreatePayload = serde_json::from_value(args.payload)?;
@@ -1795,7 +1795,7 @@ impl QueryHost {
         args: PrismClaimArgs,
         meta: EventMeta,
     ) -> Result<ClaimMutationResult> {
-        let workspace_root = self.workspace.as_ref().map(|workspace| workspace.root());
+        let workspace_root = self.workspace_root();
         match args.action {
             ClaimActionInput::Acquire => {
                 let payload: ClaimAcquirePayload = serde_json::from_value(args.payload)?;
@@ -1882,7 +1882,7 @@ impl QueryHost {
         args: PrismArtifactArgs,
         meta: EventMeta,
     ) -> Result<ArtifactMutationResult> {
-        let workspace_root = self.workspace.as_ref().map(|workspace| workspace.root());
+        let workspace_root = self.workspace_root();
         match args.action {
             ArtifactActionInput::Propose => {
                 let payload: ArtifactProposePayload = serde_json::from_value(args.payload)?;
@@ -2006,8 +2006,7 @@ impl QueryHost {
         args: PrismCuratorPromoteEdgeArgs,
     ) -> Result<CuratorProposalDecisionResult> {
         let workspace = self
-            .workspace
-            .as_ref()
+            .workspace_session()
             .ok_or_else(|| anyhow!("curator mutations require a workspace-backed session"))?;
         let job_id = CuratorJobId(args.job_id.clone());
         let snapshot = workspace.curator_snapshot()?;
@@ -2098,8 +2097,7 @@ impl QueryHost {
         args: PrismCuratorPromoteConceptArgs,
     ) -> Result<CuratorProposalDecisionResult> {
         let workspace = self
-            .workspace
-            .as_ref()
+            .workspace_session()
             .ok_or_else(|| anyhow!("curator mutations require a workspace-backed session"))?;
         let job_id = CuratorJobId(args.job_id.clone());
         let snapshot = workspace.curator_snapshot()?;
@@ -2191,8 +2189,7 @@ impl QueryHost {
         args: PrismCuratorApplyProposalArgs,
     ) -> Result<CuratorProposalDecisionResult> {
         let workspace = self
-            .workspace
-            .as_ref()
+            .workspace_session()
             .ok_or_else(|| anyhow!("curator mutations require a workspace-backed session"))?;
         let job_id = CuratorJobId(args.job_id.clone());
         let snapshot = workspace.curator_snapshot()?;
@@ -2261,8 +2258,7 @@ impl QueryHost {
         args: PrismCuratorPromoteMemoryArgs,
     ) -> Result<CuratorProposalDecisionResult> {
         let workspace = self
-            .workspace
-            .as_ref()
+            .workspace_session()
             .ok_or_else(|| anyhow!("curator mutations require a workspace-backed session"))?;
         let job_id = CuratorJobId(args.job_id.clone());
         let snapshot = workspace.curator_snapshot()?;
@@ -2458,7 +2454,7 @@ impl QueryHost {
                 "proposalIndex": args.proposal_index,
             }),
         };
-        if let Some(workspace) = &self.workspace {
+        if let Some(workspace) = self.workspace_session() {
             let _ = workspace.append_outcome(note_event)?;
             self.sync_workspace_revision(workspace)?;
         } else {
@@ -2508,8 +2504,7 @@ impl QueryHost {
         args: PrismCuratorRejectProposalArgs,
     ) -> Result<CuratorProposalDecisionResult> {
         let workspace = self
-            .workspace
-            .as_ref()
+            .workspace_session()
             .ok_or_else(|| anyhow!("curator mutations require a workspace-backed session"))?;
         let job_id = CuratorJobId(args.job_id.clone());
         let snapshot = workspace.curator_snapshot()?;
@@ -2562,7 +2557,7 @@ impl QueryHost {
 
     pub(crate) fn curator_jobs(&self, args: crate::CuratorJobsArgs) -> Result<Vec<CuratorJobView>> {
         self.refresh_workspace()?;
-        let Some(workspace) = &self.workspace else {
+        let Some(workspace) = self.workspace_session() else {
             return Ok(Vec::new());
         };
         let mut jobs = workspace
@@ -2593,7 +2588,7 @@ impl QueryHost {
         args: crate::CuratorProposalsArgs,
     ) -> Result<Vec<CuratorProposalRecordView>> {
         self.refresh_workspace()?;
-        let Some(workspace) = &self.workspace else {
+        let Some(workspace) = self.workspace_session() else {
             return Ok(Vec::new());
         };
         let mut proposals = Vec::new();
@@ -2650,7 +2645,7 @@ impl QueryHost {
 
     pub(crate) fn curator_job(&self, job_id: &str) -> Result<Option<CuratorJobView>> {
         self.refresh_workspace()?;
-        let Some(workspace) = &self.workspace else {
+        let Some(workspace) = self.workspace_session() else {
             return Ok(None);
         };
         workspace

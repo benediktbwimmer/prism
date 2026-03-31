@@ -68,8 +68,7 @@ pub(crate) fn file_around(host: &QueryHost, args: FileAroundArgs) -> Result<Sour
 
 fn resolve_workspace_path(host: &QueryHost, path: &str) -> Result<PathBuf> {
     let workspace = host
-        .workspace
-        .as_ref()
+        .workspace_session()
         .ok_or_else(|| anyhow!("file queries require a workspace-backed PRISM session"))?;
     let trimmed = path.trim();
     if trimmed.is_empty() {

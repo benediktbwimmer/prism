@@ -119,10 +119,7 @@ impl QueryHost {
     pub(crate) fn session_view_without_refresh(&self, session: &SessionState) -> SessionView {
         let limits = session.limits();
         SessionView {
-            workspace_root: self
-                .workspace
-                .as_ref()
-                .map(|workspace| workspace.root().display().to_string()),
+            workspace_root: self.workspace_root().map(|root| root.display().to_string()),
             current_task: session.current_task_state().map(|task| SessionTaskView {
                 task_id: task.id.0.to_string(),
                 description: task.description,
@@ -426,7 +423,7 @@ impl QueryHost {
                         let packet = resolution.packet.clone();
                         contract_packet_view(
                             prism.as_ref(),
-                            self.workspace.as_ref().map(|workspace| workspace.root()),
+                            self.workspace_root(),
                             packet,
                             Some(resolution),
                         )
@@ -439,7 +436,7 @@ impl QueryHost {
                     .map(|packet| {
                         contract_packet_view(
                             prism.as_ref(),
-                            self.workspace.as_ref().map(|workspace| workspace.root()),
+                            self.workspace_root(),
                             packet,
                             None,
                         )
@@ -813,7 +810,7 @@ impl QueryHost {
         self.execute_traced_resource_read("lineage", uri, || {
             let schema_uri = schema_resource_uri("lineage");
             let prism = self.current_prism();
-            let events = if let Some(workspace) = self.workspace.as_ref() {
+            let events = if let Some(workspace) = self.workspace_session() {
                 workspace.load_lineage_history(lineage)?
             } else {
                 prism.lineage_history(lineage)
@@ -881,7 +878,7 @@ impl QueryHost {
             let schema_uri = schema_resource_uri("task");
             let prism = self.current_prism();
             let replay = crate::load_task_replay(
-                self.workspace.as_ref().map(|workspace| workspace.as_ref()),
+                self.workspace_session_ref(),
                 prism.as_ref(),
                 task_id,
             )
@@ -917,7 +914,7 @@ impl QueryHost {
             related_resources.extend(paged.items.iter().flat_map(|event| {
                 anchor_resource_view_links(
                     prism.as_ref(),
-                    self.workspace.as_ref().map(|workspace| workspace.root()),
+                    self.workspace_root(),
                     &event.anchors,
                 )
             }));
@@ -953,7 +950,7 @@ impl QueryHost {
             }
             related_resources.extend(anchor_resource_view_links(
                 prism.as_ref(),
-                self.workspace.as_ref().map(|workspace| workspace.root()),
+                self.workspace_root(),
                 &event.anchors,
             ));
             Ok(EventResourcePayload {
@@ -975,8 +972,7 @@ impl QueryHost {
             let schema_uri = schema_resource_uri("memory");
             let prism = self.current_prism();
             let history_events = self
-                .workspace
-                .as_ref()
+                .workspace_session()
                 .map(|workspace| {
                     workspace.memory_events(&MemoryEventQuery {
                         memory_id: Some(memory_id.clone()),
@@ -1023,7 +1019,7 @@ impl QueryHost {
             }
             related_resources.extend(anchor_resource_view_links(
                 prism.as_ref(),
-                self.workspace.as_ref().map(|workspace| workspace.root()),
+                self.workspace_root(),
                 &entry.anchors,
             ));
             Ok(MemoryResourcePayload {

@@ -208,7 +208,7 @@ impl QueryHost {
         let run = MutationRun {
             dashboard: Arc::clone(&self.dashboard_state),
             mcp_call_log_store: Arc::clone(&self.mcp_call_log_store),
-            workspace: self.workspace.as_ref().map(Arc::clone),
+            workspace: self.workspace_session_arc(),
             id: format!(
                 "mutation:{}",
                 self.dashboard_state

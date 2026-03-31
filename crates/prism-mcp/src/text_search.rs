@@ -26,8 +26,7 @@ pub(crate) fn search_text(
     max_limit: usize,
 ) -> Result<TextSearchOutcome> {
     let workspace = host
-        .workspace
-        .as_ref()
+        .workspace_session()
         .ok_or_else(|| anyhow!("text search requires a workspace-backed PRISM session"))?;
     if args.query.trim().is_empty() {
         return Err(anyhow!("query must be a non-empty string"));

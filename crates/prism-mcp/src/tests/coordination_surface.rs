@@ -299,11 +299,11 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
     let root = temp_workspace();
     let host_a = host_with_session_internal(index_workspace_session(&root).unwrap());
     let host_b = host_with_session_internal(index_workspace_session(&root).unwrap());
-    if let Some(workspace) = host_a.workspace.as_ref() {
+    if let Some(workspace) = host_a.workspace_session() {
         workspace.refresh_fs().unwrap();
         host_a.sync_workspace_revision(workspace).unwrap();
     }
-    if let Some(workspace) = host_b.workspace.as_ref() {
+    if let Some(workspace) = host_b.workspace_session() {
         workspace.refresh_fs().unwrap();
         host_b.sync_workspace_revision(workspace).unwrap();
     }
@@ -460,7 +460,7 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
         .violations
         .iter()
         .any(|violation| violation.code == "handoff_pending"));
-    if let Some(workspace) = host_b.workspace.as_ref() {
+    if let Some(workspace) = host_b.workspace_session() {
         host_b.sync_workspace_revision(workspace).unwrap();
     }
 
@@ -498,7 +498,7 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
         .violations
         .iter()
         .any(|violation| violation.code == "agent_identity_required"));
-    if let Some(workspace) = host_b.workspace.as_ref() {
+    if let Some(workspace) = host_b.workspace_session() {
         host_b.sync_workspace_revision(workspace).unwrap();
     }
 
@@ -535,7 +535,7 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
     assert_eq!(accepted.state["assignee"], "agent-b");
     assert_eq!(accepted.state["pendingHandoffTo"], Value::Null);
     assert_eq!(accepted.state["status"], "Ready");
-    if let Some(workspace) = host_b.workspace.as_ref() {
+    if let Some(workspace) = host_b.workspace_session() {
         host_b.sync_workspace_revision(workspace).unwrap();
     }
 

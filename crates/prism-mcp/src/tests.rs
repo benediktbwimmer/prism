@@ -1898,7 +1898,7 @@ fn mcp_exposes_policy_violations_through_prism_query() {
 fn configure_session_binds_current_agent_and_task_create_inherits_it() {
     let root = temp_workspace();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
-    if let Some(workspace) = host.workspace.as_ref() {
+    if let Some(workspace) = host.workspace_session() {
         workspace.refresh_fs().unwrap();
         host.sync_workspace_revision(workspace).unwrap();
     }
@@ -2239,7 +2239,7 @@ fn mcp_plan_update_rehydrates_stale_coordination_runtime_before_mutating() {
         .unwrap();
 
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
-    let workspace = host.workspace.as_ref().expect("workspace host");
+    let workspace = host.workspace_session().expect("workspace host");
     let state = workspace
         .load_coordination_plan_state()
         .unwrap()
@@ -11602,8 +11602,7 @@ fn first_mutation_after_workspace_refresh_skips_persisted_reload() {
     .expect("workspace edit should succeed");
     server
         .host
-        .workspace
-        .as_ref()
+        .workspace_session()
         .expect("workspace session")
         .refresh_fs()
         .expect("workspace refresh should succeed");
@@ -12313,7 +12312,7 @@ fn prism_runtime_views_prefer_structured_runtime_state() {
     .unwrap();
     fs::write(prism_dir.join("prism-mcp-daemon.log"), "").unwrap();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
-    let workspace = host.workspace.as_ref().expect("workspace-backed host");
+    let workspace = host.workspace_session().expect("workspace-backed host");
     let source_path = root.join("src/lib.rs");
     fs::write(&source_path, "pub fn runtime_status_refresh() {}\n").unwrap();
     thread::sleep(Duration::from_millis(300));
@@ -12500,8 +12499,7 @@ fn prism_runtime_views_do_not_source_freshness_from_runtime_state_refresh_events
         )
         .expect("runtime status query should succeed");
     let last_refresh = host
-        .workspace
-        .as_ref()
+        .workspace_session()
         .and_then(|workspace| workspace.last_refresh());
 
     assert_eq!(
@@ -12582,8 +12580,7 @@ fn prism_runtime_views_surface_startup_recovery_work() {
         )
         .expect("runtime status query should succeed");
     let last_refresh = host
-        .workspace
-        .as_ref()
+        .workspace_session()
         .and_then(|workspace| workspace.last_refresh())
         .expect("runtime query should preserve refresh metadata");
 
@@ -14919,8 +14916,7 @@ fn unchanged_query_skips_workspace_refresh() {
     let root = temp_workspace();
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
     let workspace = host
-        .workspace
-        .as_ref()
+        .workspace_session()
         .expect("workspace-backed host expected");
 
     assert_eq!(workspace.observed_fs_revision(), 0);
@@ -15574,8 +15570,7 @@ fn refresh_workspace_reloads_updated_persisted_notes() {
 
     let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
     let workspace = host
-        .workspace
-        .as_ref()
+        .workspace_session()
         .expect("workspace-backed host expected");
     let initial_applied_fs_revision = workspace.applied_fs_revision();
     let initial_observed_fs_revision = workspace.observed_fs_revision();
@@ -15697,8 +15692,7 @@ fn refresh_workspace_reloads_updated_persisted_inference_without_fs_refresh() {
     .expect("inferred edge should persist");
 
     let workspace = host
-        .workspace
-        .as_ref()
+        .workspace_session()
         .expect("workspace-backed host expected");
     let initial_applied_fs_revision = workspace.applied_fs_revision();
     let initial_observed_fs_revision = workspace.observed_fs_revision();
