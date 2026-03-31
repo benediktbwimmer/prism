@@ -508,7 +508,7 @@ mod tests {
     use std::path::Path;
 
     use prism_ir::{FileId, NodeKind};
-    use prism_parser::{LanguageAdapter, ParseInput};
+    use prism_parser::{LanguageAdapter, ParseDepth, ParseInput};
 
     use super::JsonAdapter;
 
@@ -521,6 +521,7 @@ mod tests {
             package_root: Path::new("/workspace"),
             path: Path::new("/workspace/config/app.json"),
             file_id: FileId(1),
+            parse_depth: ParseDepth::Deep,
             source: "{\n  \"service\": {\n    \"port\": 8080\n  }\n}",
         };
 
@@ -550,6 +551,7 @@ mod tests {
             package_root: Path::new("/workspace"),
             path: Path::new("/workspace/config/tsconfig.json"),
             file_id: FileId(1),
+            parse_depth: ParseDepth::Deep,
             source: r#"{
   "compilerOptions": {
     /* Bundler mode */

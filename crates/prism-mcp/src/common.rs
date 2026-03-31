@@ -1,5 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use prism_core::AdmissionBusyError;
 use prism_ir::NodeId;
 use rmcp::{model::*, ErrorData as McpError};
 use serde_json::json;
@@ -7,6 +8,19 @@ use serde_json::json;
 use crate::QueryExecutionError;
 
 pub(crate) fn map_query_error(error: anyhow::Error) -> McpError {
+    if let Some(admission_error) = error.downcast_ref::<AdmissionBusyError>() {
+        return McpError::internal_error(
+            admission_error.to_string(),
+            Some(json!({
+                "code": admission_error.code(),
+                "category": "busy",
+                "operation": admission_error.operation(),
+                "resource": admission_error.resource(),
+                "retryable": true,
+                "nextAction": admission_error.next_action(),
+            })),
+        );
+    }
     if let Some(query_error) = error.downcast_ref::<QueryExecutionError>() {
         if matches!(
             query_error.code(),

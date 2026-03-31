@@ -1,3 +1,4 @@
+use prism_core::AdmissionBusyError;
 use prism_js::{
     AgentConceptResultView, AgentExpandResultView, AgentGatherResultView, AgentLocateResultView,
     AgentOpenResultView, AgentWorksetResultView, QueryPhaseView,
@@ -236,9 +237,20 @@ impl PrismMcpServer {
                     }
                     Err(error) => {
                         let message = error.to_string();
+                        let args = error
+                            .downcast_ref::<AdmissionBusyError>()
+                            .map(|busy| {
+                                json!({
+                                    "refreshPath": "busy",
+                                    "operation": busy.operation(),
+                                    "resource": busy.resource(),
+                                    "retryable": true,
+                                })
+                            })
+                            .unwrap_or_else(|| json!({ "refreshPath": "error" }));
                         run.record_phase(
                             "mutation.refreshWorkspace",
-                            &json!({ "refreshPath": "error" }),
+                            &args,
                             refresh_started.elapsed(),
                             false,
                             Some(message.clone()),

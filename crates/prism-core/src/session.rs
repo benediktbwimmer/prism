@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, RwLock};
+use std::sync::{Arc, Mutex, MutexGuard, RwLock, TryLockError};
 
 use anyhow::{anyhow, Result};
 use prism_agent::{InferenceSnapshot, InferredEdgeRecord};
@@ -33,6 +33,7 @@ pub use prism_store::SnapshotRevisions as WorkspaceSnapshotRevisions;
 
 pub(crate) const HOT_OUTCOME_HYDRATION_LIMIT: usize = 256;
 
+use crate::admission::AdmissionBusyError;
 use crate::concept_events::{append_repo_concept_event, load_repo_curated_concepts};
 use crate::concept_relation_events::{
     append_repo_concept_relation_event, load_repo_concept_relations,
@@ -40,13 +41,13 @@ use crate::concept_relation_events::{
 use crate::contract_events::{append_repo_contract_event, load_repo_curated_contracts};
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorHandleRef};
+use crate::indexer::WorkspaceIndexer;
 use crate::materialization::{
     summarize_workspace_materialization, WorkspaceMaterializationSummary,
 };
 use crate::memory_events::{
     append_repo_memory_event, filter_memory_events, load_repo_memory_events,
 };
-use crate::indexer::WorkspaceIndexer;
 use crate::mutation_trace;
 use crate::prism_doc::{sync_repo_prism_doc, PrismDocSyncResult};
 use crate::published_knowledge::{
@@ -327,6 +328,46 @@ impl WorkspaceSession {
         guard
     }
 
+    fn try_lock_refresh_for_phase(
+        &self,
+        phase: &'static str,
+        reason: &'static str,
+    ) -> Result<Option<MutexGuard<'_, ()>>> {
+        match self.refresh_lock.try_lock() {
+            Ok(guard) => {
+                mutation_trace::record_phase(
+                    phase,
+                    json!({ "reason": reason }),
+                    Duration::ZERO,
+                    true,
+                    None,
+                );
+                Ok(Some(guard))
+            }
+            Err(TryLockError::WouldBlock) => {
+                let error = AdmissionBusyError::refresh_lock(reason);
+                mutation_trace::record_phase(
+                    phase,
+                    json!({ "reason": reason, "admission": "busy" }),
+                    Duration::ZERO,
+                    false,
+                    Some(error.to_string()),
+                );
+                Ok(None)
+            }
+            Err(TryLockError::Poisoned(_)) => {
+                panic!("workspace refresh lock poisoned");
+            }
+        }
+    }
+
+    fn try_lock_refresh_for_mutation(
+        &self,
+        reason: &'static str,
+    ) -> Result<Option<MutexGuard<'_, ()>>> {
+        self.try_lock_refresh_for_phase("mutation.waitRefreshLock", reason)
+    }
+
     fn lock_store_for_mutation<'a>(
         store: &'a Arc<Mutex<SqliteStore>>,
         operation: &'static str,
@@ -443,7 +484,8 @@ impl WorkspaceSession {
     }
 
     pub fn refresh_fs_nonblocking(&self) -> Result<FsRefreshStatus> {
-        if !self.refresh_state.needs_refresh()
+        let needs_refresh = self.refresh_state.needs_refresh();
+        if !needs_refresh
             && !self
                 .refresh_state
                 .should_run_fallback_check(current_timestamp_millis())
@@ -451,29 +493,15 @@ impl WorkspaceSession {
             return Ok(FsRefreshStatus::Clean);
         }
         let dirty_paths = self.refresh_state.dirty_paths_snapshot();
-        let known_snapshot = if self.refresh_state.needs_refresh() && !dirty_paths.is_empty() {
-            None
-        } else {
-            Some(
-                plan_full_refresh(
-                    &self.root,
-                    &self
-                        .fs_snapshot
-                        .lock()
-                        .expect("workspace tree snapshot lock poisoned")
-                        .clone(),
-                )?
-                .next_snapshot,
-            )
-        };
-        let refreshed = self.try_refresh_with_trigger(ChangeTrigger::FsWatch, known_snapshot)?;
+        let refreshed = self.try_refresh_with_trigger(ChangeTrigger::FsWatch, None)?;
         match refreshed {
             Some(result) => Ok(match result.mode {
                 None => FsRefreshStatus::Clean,
                 Some(WorkspaceRefreshMode::Incremental) => FsRefreshStatus::Incremental,
                 Some(WorkspaceRefreshMode::Full) => FsRefreshStatus::Full,
             }),
-            None => Ok(FsRefreshStatus::DeferredBusy),
+            None if needs_refresh || !dirty_paths.is_empty() => Ok(FsRefreshStatus::DeferredBusy),
+            None => Ok(FsRefreshStatus::Clean),
         }
     }
 
@@ -503,12 +531,15 @@ impl WorkspaceSession {
         summarize_workspace_materialization(self.root(), &snapshot, prism.graph())
     }
 
-    pub fn ensure_paths_deep<I>(&self, paths: I) -> Result<bool>
+    fn ensure_paths_deep_with_guard<I>(
+        &self,
+        _guard: MutexGuard<'_, ()>,
+        paths: I,
+        started: Instant,
+    ) -> Result<bool>
     where
         I: IntoIterator<Item = PathBuf>,
     {
-        let started = Instant::now();
-        let _guard = self.lock_refresh_for_mutation("ensurePathsDeep");
         let current_prism = self.prism_arc();
         let deep_paths = paths
             .into_iter()
@@ -585,6 +616,27 @@ impl WorkspaceSession {
             "deepened prism workspace files on demand"
         );
         Ok(true)
+    }
+
+    pub fn ensure_paths_deep<I>(&self, paths: I) -> Result<bool>
+    where
+        I: IntoIterator<Item = PathBuf>,
+    {
+        let started = Instant::now();
+        let guard = self.lock_refresh_for_mutation("ensurePathsDeep");
+        self.ensure_paths_deep_with_guard(guard, paths, started)
+    }
+
+    pub fn try_ensure_paths_deep<I>(&self, paths: I) -> Result<Option<bool>>
+    where
+        I: IntoIterator<Item = PathBuf>,
+    {
+        let started = Instant::now();
+        let Some(guard) = self.try_lock_refresh_for_mutation("ensurePathsDeep")? else {
+            return Ok(None);
+        };
+        self.ensure_paths_deep_with_guard(guard, paths, started)
+            .map(Some)
     }
 
     pub fn persist_outcomes(&self) -> Result<()> {
@@ -1101,10 +1153,26 @@ impl WorkspaceSession {
     }
 
     pub fn append_concept_event(&self, event: ConceptEvent) -> Result<()> {
-        let _guard = self
+        let guard = self
             .refresh_lock
             .lock()
             .expect("workspace refresh lock poisoned");
+        self.append_concept_event_guarded(event, guard)
+    }
+
+    pub fn try_append_concept_event(&self, event: ConceptEvent) -> Result<bool> {
+        let Some(guard) = self.try_lock_refresh_for_mutation("appendConceptEvent")? else {
+            return Ok(false);
+        };
+        self.append_concept_event_guarded(event, guard)?;
+        Ok(true)
+    }
+
+    fn append_concept_event_guarded(
+        &self,
+        event: ConceptEvent,
+        _guard: MutexGuard<'_, ()>,
+    ) -> Result<()> {
         let should_sync_prism_doc = event.concept.scope == prism_projections::ConceptScope::Repo;
         if should_sync_prism_doc {
             validate_repo_concept_event(&event)?;
@@ -1130,10 +1198,26 @@ impl WorkspaceSession {
     }
 
     pub fn append_contract_event(&self, event: ContractEvent) -> Result<()> {
-        let _guard = self
+        let guard = self
             .refresh_lock
             .lock()
             .expect("workspace refresh lock poisoned");
+        self.append_contract_event_guarded(event, guard)
+    }
+
+    pub fn try_append_contract_event(&self, event: ContractEvent) -> Result<bool> {
+        let Some(guard) = self.try_lock_refresh_for_mutation("appendContractEvent")? else {
+            return Ok(false);
+        };
+        self.append_contract_event_guarded(event, guard)?;
+        Ok(true)
+    }
+
+    fn append_contract_event_guarded(
+        &self,
+        event: ContractEvent,
+        _guard: MutexGuard<'_, ()>,
+    ) -> Result<()> {
         let should_sync_prism_doc = event.contract.scope == prism_projections::ContractScope::Repo;
         if should_sync_prism_doc {
             validate_repo_contract_event(&event)?;
@@ -1150,10 +1234,26 @@ impl WorkspaceSession {
     }
 
     pub fn append_concept_relation_event(&self, event: ConceptRelationEvent) -> Result<()> {
-        let _guard = self
+        let guard = self
             .refresh_lock
             .lock()
             .expect("workspace refresh lock poisoned");
+        self.append_concept_relation_event_guarded(event, guard)
+    }
+
+    pub fn try_append_concept_relation_event(&self, event: ConceptRelationEvent) -> Result<bool> {
+        let Some(guard) = self.try_lock_refresh_for_mutation("appendConceptRelationEvent")? else {
+            return Ok(false);
+        };
+        self.append_concept_relation_event_guarded(event, guard)?;
+        Ok(true)
+    }
+
+    fn append_concept_relation_event_guarded(
+        &self,
+        event: ConceptRelationEvent,
+        _guard: MutexGuard<'_, ()>,
+    ) -> Result<()> {
         let should_sync_prism_doc = event.relation.scope == prism_projections::ConceptScope::Repo;
         if should_sync_prism_doc {
             validate_repo_concept_relation_event(&event)?;
@@ -1400,33 +1500,17 @@ impl WorkspaceSession {
         )
     }
 
-    pub fn mutate_coordination_with_session_observed<T, F, O>(
+    fn mutate_coordination_with_session_guarded<T, F, O>(
         &self,
         session_id: Option<&SessionId>,
         mutate: F,
         mut observe_phase: O,
+        _guard: MutexGuard<'_, ()>,
     ) -> Result<T>
     where
         F: FnOnce(&Prism) -> Result<T>,
         O: FnMut(&str, Duration, Value, bool, Option<String>),
     {
-        if !self.coordination_enabled {
-            return Err(anyhow!(
-                "coordination is disabled for this workspace session"
-            ));
-        }
-        let lock_wait_started = Instant::now();
-        let _guard = self
-            .refresh_lock
-            .lock()
-            .expect("workspace refresh lock poisoned");
-        observe_phase(
-            "mutation.coordination.waitRefreshLock",
-            lock_wait_started.elapsed(),
-            json!({}),
-            true,
-            None,
-        );
         let revision_started = Instant::now();
         let expected_revision = match self.coordination_revision() {
             Ok(revision) => {
@@ -1521,6 +1605,77 @@ impl WorkspaceSession {
         result
     }
 
+    pub fn mutate_coordination_with_session_observed<T, F, O>(
+        &self,
+        session_id: Option<&SessionId>,
+        mutate: F,
+        mut observe_phase: O,
+    ) -> Result<T>
+    where
+        F: FnOnce(&Prism) -> Result<T>,
+        O: FnMut(&str, Duration, Value, bool, Option<String>),
+    {
+        if !self.coordination_enabled {
+            return Err(anyhow!(
+                "coordination is disabled for this workspace session"
+            ));
+        }
+        let lock_wait_started = Instant::now();
+        let guard = self
+            .refresh_lock
+            .lock()
+            .expect("workspace refresh lock poisoned");
+        observe_phase(
+            "mutation.coordination.waitRefreshLock",
+            lock_wait_started.elapsed(),
+            json!({}),
+            true,
+            None,
+        );
+        self.mutate_coordination_with_session_guarded(session_id, mutate, observe_phase, guard)
+    }
+
+    pub fn try_mutate_coordination_with_session<T, F>(
+        &self,
+        session_id: Option<&SessionId>,
+        mutate: F,
+    ) -> Result<Option<T>>
+    where
+        F: FnOnce(&Prism) -> Result<T>,
+    {
+        self.try_mutate_coordination_with_session_observed(
+            session_id,
+            mutate,
+            |_operation, _duration, _args, _success, _error| {},
+        )
+    }
+
+    pub fn try_mutate_coordination_with_session_observed<T, F, O>(
+        &self,
+        session_id: Option<&SessionId>,
+        mutate: F,
+        observe_phase: O,
+    ) -> Result<Option<T>>
+    where
+        F: FnOnce(&Prism) -> Result<T>,
+        O: FnMut(&str, Duration, Value, bool, Option<String>),
+    {
+        if !self.coordination_enabled {
+            return Err(anyhow!(
+                "coordination is disabled for this workspace session"
+            ));
+        }
+        let Some(guard) = self.try_lock_refresh_for_phase(
+            "mutation.coordination.waitRefreshLock",
+            "mutateCoordination",
+        )?
+        else {
+            return Ok(None);
+        };
+        self.mutate_coordination_with_session_guarded(session_id, mutate, observe_phase, guard)
+            .map(Some)
+    }
+
     pub fn curator_snapshot(&self) -> Result<CuratorSnapshot> {
         self.curator
             .as_ref()
@@ -1552,10 +1707,55 @@ impl WorkspaceSession {
         note: Option<String>,
         output: Option<String>,
     ) -> Result<()> {
-        let _guard = self
+        let guard = self
             .refresh_lock
             .lock()
             .expect("workspace refresh lock poisoned");
+        self.set_curator_proposal_state_guarded(
+            job_id,
+            proposal_index,
+            disposition,
+            task,
+            note,
+            output,
+            guard,
+        )
+    }
+
+    pub fn try_set_curator_proposal_state(
+        &self,
+        job_id: &CuratorJobId,
+        proposal_index: usize,
+        disposition: CuratorProposalDisposition,
+        task: Option<TaskId>,
+        note: Option<String>,
+        output: Option<String>,
+    ) -> Result<bool> {
+        let Some(guard) = self.try_lock_refresh_for_mutation("setCuratorProposalState")? else {
+            return Ok(false);
+        };
+        self.set_curator_proposal_state_guarded(
+            job_id,
+            proposal_index,
+            disposition,
+            task,
+            note,
+            output,
+            guard,
+        )?;
+        Ok(true)
+    }
+
+    fn set_curator_proposal_state_guarded(
+        &self,
+        job_id: &CuratorJobId,
+        proposal_index: usize,
+        disposition: CuratorProposalDisposition,
+        task: Option<TaskId>,
+        note: Option<String>,
+        output: Option<String>,
+        _guard: MutexGuard<'_, ()>,
+    ) -> Result<()> {
         let mut store = self.store.lock().expect("workspace store lock poisoned");
         let Some(curator) = &self.curator else {
             return Ok(());
@@ -1641,7 +1841,7 @@ impl WorkspaceSession {
         episodic_snapshot: Option<EpisodicMemorySnapshot>,
         inference_snapshot: Option<InferenceSnapshot>,
     ) -> Result<Option<EventId>> {
-        let Ok(_guard) = self.refresh_lock.try_lock() else {
+        let Some(_guard) = self.try_lock_refresh_for_mutation("appendOutcomeWithAuxiliary")? else {
             return Ok(None);
         };
         self.append_outcome_with_auxiliary_guarded(

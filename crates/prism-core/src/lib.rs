@@ -1,3 +1,4 @@
+mod admission;
 mod concept_events;
 mod concept_relation_events;
 mod contract_events;
@@ -38,6 +39,7 @@ use prism_curator::CuratorBackend;
 use prism_query::Prism;
 use session_bootstrap::hydrate_workspace_session_with_options as bootstrap_workspace_session;
 
+pub use admission::AdmissionBusyError;
 pub(crate) use indexer::PendingFileParse;
 pub use indexer::WorkspaceIndexer;
 pub use materialization::{WorkspaceBoundaryRegion, WorkspaceMaterializationSummary};

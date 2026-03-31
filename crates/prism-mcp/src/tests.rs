@@ -40,6 +40,7 @@ use prism_store::{Graph, SqliteStore, Store};
 use serde_json::json;
 use serde_json::Value;
 use std::collections::HashMap;
+use tracing::Level;
 
 #[test]
 fn cli_no_coordination_flag_disables_coordination_features() {
@@ -114,7 +115,7 @@ fn coordination_mutations_flow_through_query_runtime() {
                     "anchors": [{
                         "type": "node",
                         "crateName": "demo",
-                        "path": "demo::alpha",
+                        "path": "demo::main",
                         "kind": "function"
                     }],
                     "capability": "Edit",
@@ -373,7 +374,7 @@ fn plan_node_mutations_return_graph_native_views() {
                     "anchors": [{
                         "type": "node",
                         "crateName": "demo",
-                        "path": "demo::alpha",
+                        "path": "demo::main",
                         "kind": "function"
                     }],
                     "bindings": {
@@ -533,7 +534,7 @@ fn native_plan_node_completion_rejects_missing_review_and_validation() {
     assert!(kinds.contains(&"ReviewRequired".to_string()));
     assert!(kinds.contains(&"ValidationRequired".to_string()));
 
-    let error = host
+    let result = host
         .store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
@@ -545,8 +546,12 @@ fn native_plan_node_completion_rejects_missing_review_and_validation() {
                 task_id: None,
             },
         )
-        .expect_err("completion should reject without review/validation evidence");
-    assert!(error.to_string().contains("cannot complete"));
+        .expect("completion should return a structured rejection");
+    assert!(result.rejected);
+    assert!(result
+        .violations
+        .iter()
+        .any(|violation| violation.code == "review_required"));
 }
 
 #[test]
@@ -2104,7 +2109,10 @@ fn mcp_plan_update_rehydrates_stale_coordination_runtime_before_mutating() {
             state.plan_graphs.clone(),
             state.execution_overlays.clone(),
         );
-    host.sync_coordination_revision(workspace).unwrap();
+    host.loaded_coordination_revision.store(
+        workspace.coordination_revision().unwrap(),
+        std::sync::atomic::Ordering::Relaxed,
+    );
 
     let prism = host.current_prism();
     assert!(
@@ -4668,7 +4676,7 @@ return {
     let payload_variants = coordination["payloadVariants"]
         .as_array()
         .expect("payload variants");
-    assert_eq!(payload_variants.len(), 10);
+    assert_eq!(payload_variants.len(), 9);
     let task_create_variant = payload_variants
         .iter()
         .find(|variant| variant["tag"] == "task_create")
@@ -11995,10 +12003,6 @@ fn prism_runtime_views_do_not_source_freshness_from_runtime_state_refresh_events
     .unwrap();
     fs::write(prism_dir.join("prism-mcp-daemon.log"), "").unwrap();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
-    let last_refresh = host
-        .workspace
-        .as_ref()
-        .and_then(|workspace| workspace.last_refresh());
     fs::write(
         prism_dir.join("prism-mcp-runtime.json"),
         json!({
@@ -12030,6 +12034,10 @@ fn prism_runtime_views_do_not_source_freshness_from_runtime_state_refresh_events
             QueryLanguage::Ts,
         )
         .expect("runtime status query should succeed");
+    let last_refresh = host
+        .workspace
+        .as_ref()
+        .and_then(|workspace| workspace.last_refresh());
 
     assert_eq!(
         result.result["lastRefreshPath"],
@@ -12088,6 +12096,34 @@ fn prism_runtime_views_ignore_invalid_runtime_state_sidecar() {
     assert_eq!(result.result["daemonCount"], 0);
     assert_eq!(result.result["bridgeCount"], 0);
     assert!(result.result["freshness"]["status"].as_str().is_some());
+}
+
+#[test]
+fn workspace_refresh_policy_records_incremental_refresh_events() {
+    assert!(should_record_workspace_refresh_event(
+        "incremental",
+        false,
+        false,
+        false,
+        42,
+    ));
+}
+
+#[test]
+fn workspace_refresh_policy_logs_slow_refreshes_at_info_by_default() {
+    assert_eq!(
+        workspace_refresh_log_level("none", SLOW_WORKSPACE_REFRESH_LOG_MS, false),
+        Some(Level::INFO)
+    );
+    assert_eq!(workspace_refresh_log_level("none", 42, false), None);
+}
+
+#[test]
+fn workspace_refresh_policy_uses_debug_level_when_env_logging_is_enabled() {
+    assert_eq!(
+        workspace_refresh_log_level("none", 42, true),
+        Some(Level::DEBUG)
+    );
 }
 
 #[test]
@@ -14528,6 +14564,218 @@ return prism.symbol("alpha")?.id.path ?? null;
         .freshness;
     assert_eq!(freshness.status, "deferred");
     assert_eq!(freshness.last_refresh_path.as_deref(), Some("deferred"));
+}
+
+#[test]
+fn persisted_only_mutations_fail_fast_when_runtime_sync_is_busy() {
+    let root = temp_workspace();
+    let server = PrismMcpServer::with_session_and_features(
+        index_workspace_session(&root).unwrap(),
+        PrismMcpFeatures::full().with_internal_developer(true),
+    );
+    let _sync_guard = server
+        .host
+        .workspace_runtime_sync_lock
+        .lock()
+        .expect("workspace runtime sync lock should be available");
+
+    let started = Instant::now();
+    let error = server
+        .execute_logged_mutation(
+            "mutate.outcome",
+            MutationRefreshPolicy::PersistedOnly,
+            || {
+                server.host.store_outcome_without_refresh(
+                    test_session(&server.host).as_ref(),
+                    PrismOutcomeArgs {
+                        kind: OutcomeKindInput::FixValidated,
+                        anchors: vec![AnchorRefInput::Node {
+                            crate_name: "demo".to_string(),
+                            path: "demo::alpha".to_string(),
+                            kind: "function".to_string(),
+                        }],
+                        summary: "validated alpha".to_string(),
+                        result: Some(OutcomeResultInput::Success),
+                        evidence: None,
+                        task_id: None,
+                    },
+                )
+            },
+            |result| {
+                MutationDashboardMeta::task(
+                    Some(result.task_id.clone()),
+                    vec![result.task_id.clone(), result.event_id.clone()],
+                    0,
+                )
+            },
+        )
+        .expect_err("persisted-only mutation should fail fast while runtime sync is busy");
+
+    assert!(
+        started.elapsed() < Duration::from_millis(200),
+        "persisted-only mutation spent too long waiting on the runtime sync lock"
+    );
+    assert!(error.to_string().contains("request admission busy"));
+
+    let detail = server
+        .host
+        .dashboard_operation_detail("mutation:1")
+        .expect("mutation detail should exist");
+    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+        panic!("expected mutation trace");
+    };
+    let refresh_phase = trace
+        .phases
+        .iter()
+        .find(|phase| phase.operation == "mutation.refreshWorkspace")
+        .expect("refresh phase should exist");
+    assert!(!refresh_phase.success);
+    let args = refresh_phase
+        .args_summary
+        .as_ref()
+        .and_then(Value::as_object)
+        .expect("refresh args should exist");
+    assert_eq!(
+        args.get("refreshPath"),
+        Some(&Value::String("busy".to_string()))
+    );
+}
+
+#[test]
+fn coordination_mutations_fail_fast_when_runtime_sync_is_busy() {
+    let root = temp_workspace();
+    let server = PrismMcpServer::with_session_and_features(
+        index_workspace_session(&root).unwrap(),
+        PrismMcpFeatures::full().with_internal_developer(true),
+    );
+    let _sync_guard = server
+        .host
+        .workspace_runtime_sync_lock
+        .lock()
+        .expect("workspace runtime sync lock should be available");
+
+    let started = Instant::now();
+    let error = server
+        .execute_logged_mutation_with_run(
+            "mutate.coordination",
+            MutationRefreshPolicy::None,
+            |run| {
+                server.host.store_coordination_traced(
+                    test_session(&server.host).as_ref(),
+                    PrismCoordinationArgs {
+                        kind: CoordinationMutationKindInput::PlanCreate,
+                        payload: json!({ "goal": "Fail fast when runtime sync is busy" }),
+                        task_id: None,
+                    },
+                    run,
+                )
+            },
+            |result| MutationDashboardMeta::coordination(result.event_ids.clone(), 0),
+        )
+        .expect_err("coordination mutation should fail fast while runtime sync is busy");
+
+    assert!(
+        started.elapsed() < Duration::from_millis(200),
+        "coordination mutation spent too long waiting on the runtime sync lock"
+    );
+    assert!(error.to_string().contains("request admission busy"));
+
+    let detail = server
+        .host
+        .dashboard_operation_detail("mutation:1")
+        .expect("mutation detail should exist");
+    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+        panic!("expected mutation trace");
+    };
+    let refresh_phase = trace
+        .phases
+        .iter()
+        .find(|phase| phase.operation == "mutation.coordination.refreshWorkspace")
+        .expect("coordination refresh phase should exist");
+    assert!(!refresh_phase.success);
+    let args = refresh_phase
+        .args_summary
+        .as_ref()
+        .and_then(Value::as_object)
+        .expect("refresh args should exist");
+    assert_eq!(
+        args.get("refreshPath"),
+        Some(&Value::String("busy".to_string()))
+    );
+}
+
+#[test]
+fn claim_mutations_fail_fast_when_runtime_sync_is_busy() {
+    let root = temp_workspace();
+    let server = PrismMcpServer::with_session_and_features(
+        index_workspace_session(&root).unwrap(),
+        PrismMcpFeatures::full().with_internal_developer(true),
+    );
+    let plan = server
+        .host
+        .store_coordination(
+            test_session(&server.host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Claim admission busy coverage" }),
+                task_id: None,
+            },
+        )
+        .expect("plan creation should succeed");
+    let task = server
+        .host
+        .store_coordination(
+            test_session(&server.host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Acquire edit claim",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::main",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .expect("task creation should succeed");
+
+    let _sync_guard = server
+        .host
+        .workspace_runtime_sync_lock
+        .lock()
+        .expect("workspace runtime sync lock should be available");
+    let started = Instant::now();
+    let error = server
+        .host
+        .store_claim(
+            test_session(&server.host).as_ref(),
+            PrismClaimArgs {
+                action: ClaimActionInput::Acquire,
+                payload: json!({
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::main",
+                        "kind": "function"
+                    }],
+                    "capability": "Edit",
+                    "mode": "SoftExclusive",
+                    "coordinationTaskId": task.state["id"].as_str().unwrap()
+                }),
+                task_id: None,
+            },
+        )
+        .expect_err("claim mutation should fail fast while runtime sync is busy");
+
+    assert!(
+        started.elapsed() < Duration::from_millis(200),
+        "claim mutation spent too long waiting on the runtime sync lock"
+    );
+    assert!(error.to_string().contains("request admission busy"));
 }
 
 #[test]

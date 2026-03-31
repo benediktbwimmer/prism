@@ -224,7 +224,7 @@ mod tests {
     use std::path::Path;
 
     use prism_ir::{FileId, NodeKind, Span};
-    use prism_parser::{LanguageAdapter, ParseInput};
+    use prism_parser::{LanguageAdapter, ParseDepth, ParseInput};
 
     use super::MarkdownAdapter;
 
@@ -237,6 +237,7 @@ mod tests {
             package_root: Path::new("/workspace"),
             path: Path::new("/workspace/docs/spec.md"),
             file_id: FileId(1),
+            parse_depth: ParseDepth::Deep,
             source: "# Top\n## Child\n",
         };
 
@@ -258,6 +259,7 @@ mod tests {
             package_root: Path::new("/workspace"),
             path: Path::new("/workspace/docs/spec.md"),
             file_id: FileId(1),
+            parse_depth: ParseDepth::Deep,
             source: "# One\nalpha\n## Child\nbeta\n# Two\ngamma\n",
         };
 

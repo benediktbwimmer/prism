@@ -74,34 +74,39 @@ pub(crate) fn curator_job_for_observed(
 
 pub(crate) fn curator_trigger_for_outcome(
     prism: &Prism,
+    store: &mut SqliteStore,
     event: &OutcomeEvent,
-) -> Option<CuratorTrigger> {
+) -> Result<Option<CuratorTrigger>> {
     match event.kind {
         OutcomeKind::FailureObserved | OutcomeKind::RegressionObserved => {
-            let failures = prism.outcomes_for(&event.anchors, 8);
-            if failures
-                .iter()
-                .filter(|candidate| {
-                    matches!(
-                        candidate.kind,
-                        OutcomeKind::FailureObserved | OutcomeKind::RegressionObserved
-                    )
-                })
-                .count()
-                >= 2
-            {
-                Some(CuratorTrigger::RepeatedFailure)
+            let query = OutcomeRecallQuery {
+                anchors: event.anchors.clone(),
+                kinds: Some(vec![
+                    OutcomeKind::FailureObserved,
+                    OutcomeKind::RegressionObserved,
+                ]),
+                result: Some(OutcomeResult::Failure),
+                limit: 8,
+                ..OutcomeRecallQuery::default()
+            };
+            let failures = merge_curator_outcomes(
+                prism.query_hot_outcomes(&query),
+                store.load_outcomes(&query)?,
+                query.limit,
+            );
+            if failures.len() >= 2 {
+                Ok(Some(CuratorTrigger::RepeatedFailure))
             } else {
-                None
+                Ok(None)
             }
         }
-        OutcomeKind::FixValidated => Some(CuratorTrigger::TaskCompleted),
+        OutcomeKind::FixValidated => Ok(Some(CuratorTrigger::TaskCompleted)),
         OutcomeKind::BuildRan | OutcomeKind::TestRan
             if matches!(event.result, OutcomeResult::Failure) =>
         {
-            Some(CuratorTrigger::RepeatedFailure)
+            Ok(Some(CuratorTrigger::RepeatedFailure))
         }
-        _ => None,
+        _ => Ok(None),
     }
 }
 

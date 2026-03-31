@@ -299,7 +299,7 @@ pub(crate) fn enqueue_curator_for_outcome_locked(
     else {
         return Ok(());
     };
-    let Some(trigger) = curator_trigger_for_outcome(prism, &event) else {
+    let Some(trigger) = curator_trigger_for_outcome(prism, store, &event)? else {
         return Ok(());
     };
     let focus = dedupe_anchors(prism.anchors_for(&event.anchors));

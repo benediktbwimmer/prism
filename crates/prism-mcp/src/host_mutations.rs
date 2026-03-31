@@ -4,7 +4,10 @@ use anyhow::{anyhow, Result};
 use prism_coordination::{
     HandoffAcceptInput, HandoffInput, PolicyViolation, TaskCreateInput, TaskUpdateInput,
 };
-use prism_core::{ValidationFeedbackCategory, ValidationFeedbackRecord, ValidationFeedbackVerdict};
+use prism_core::{
+    AdmissionBusyError, ValidationFeedbackCategory, ValidationFeedbackRecord,
+    ValidationFeedbackVerdict,
+};
 use prism_curator::{
     CandidateConcept, CandidateConceptOperation, CuratorJobId, CuratorProposal,
     CuratorProposalDisposition,
@@ -139,6 +142,10 @@ fn coordination_audit_since(prism: &Prism, before_len: usize) -> CoordinationAud
         }
     }
     audit
+}
+
+fn coordination_mutation_busy_error() -> anyhow::Error {
+    AdmissionBusyError::refresh_lock("mutateCoordination").into()
 }
 
 fn current_plan_node_state(prism: &Prism, plan_id: &PlanId, node_id: &str) -> Result<Value> {
@@ -1104,10 +1111,21 @@ impl QueryHost {
                     }
                 }
                 Err(error) => {
+                    let args = error
+                        .downcast_ref::<AdmissionBusyError>()
+                        .map(|busy| {
+                            json!({
+                                "refreshPath": "busy",
+                                "operation": busy.operation(),
+                                "resource": busy.resource(),
+                                "retryable": true,
+                            })
+                        })
+                        .unwrap_or_else(|| json!({ "refreshPath": "error" }));
                     if let Some(trace) = trace {
                         trace.record_phase(
                             "mutation.coordination.refreshWorkspace",
-                            &json!({ "refreshPath": "error" }),
+                            &args,
                             refresh_started.elapsed(),
                             false,
                             Some(error.to_string()),
@@ -1160,17 +1178,26 @@ impl QueryHost {
         };
         if let Some(workspace) = &self.workspace {
             let result = if let Some(trace) = trace {
-                workspace.mutate_coordination_with_session_observed(
+                match workspace.try_mutate_coordination_with_session_observed(
                     Some(&session.session_id()),
                     |prism| self.apply_coordination_mutation(session, prism, args, meta.clone()),
                     |operation, duration, args, success, error| {
                         trace.record_phase(operation, &args, duration, success, error)
                     },
-                )
+                ) {
+                    Ok(Some(state)) => Ok(state),
+                    Ok(None) => Err(coordination_mutation_busy_error()),
+                    Err(error) => Err(error),
+                }
             } else {
-                workspace.mutate_coordination_with_session(Some(&session.session_id()), |prism| {
-                    self.apply_coordination_mutation(session, prism, args, meta.clone())
-                })
+                match workspace
+                    .try_mutate_coordination_with_session(Some(&session.session_id()), |prism| {
+                        self.apply_coordination_mutation(session, prism, args, meta.clone())
+                    }) {
+                    Ok(Some(state)) => Ok(state),
+                    Ok(None) => Err(coordination_mutation_busy_error()),
+                    Err(error) => Err(error),
+                }
             };
             match result {
                 Ok(state) => {
@@ -1316,10 +1343,11 @@ impl QueryHost {
             causation: None,
         };
         if let Some(workspace) = &self.workspace {
-            match workspace.mutate_coordination_with_session(Some(&session.session_id()), |prism| {
-                self.apply_claim_mutation(session, prism, args, meta.clone())
-            }) {
-                Ok(mut result) => {
+            match workspace
+                .try_mutate_coordination_with_session(Some(&session.session_id()), |prism| {
+                    self.apply_claim_mutation(session, prism, args, meta.clone())
+                }) {
+                Ok(Some(mut result)) => {
                     self.sync_coordination_revision(workspace)?;
                     let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
@@ -1327,6 +1355,7 @@ impl QueryHost {
                     result.violations.extend(audit.violations);
                     Ok(result)
                 }
+                Ok(None) => Err(coordination_mutation_busy_error()),
                 Err(error) => {
                     let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
@@ -1347,12 +1376,14 @@ impl QueryHost {
         } else {
             match self.apply_claim_mutation(session, prism.as_ref(), args, meta.clone()) {
                 Ok(mut result) => {
+                    let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     result.event_ids = audit.event_ids;
                     result.violations.extend(audit.violations);
                     Ok(result)
                 }
                 Err(error) => {
+                    let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     if audit.rejected && !audit.event_ids.is_empty() {
                         return Ok(ClaimMutationResult {
@@ -1391,10 +1422,11 @@ impl QueryHost {
             causation: None,
         };
         if let Some(workspace) = &self.workspace {
-            match workspace.mutate_coordination_with_session(Some(&session.session_id()), |prism| {
-                self.apply_artifact_mutation(prism, args, meta.clone())
-            }) {
-                Ok(mut result) => {
+            match workspace
+                .try_mutate_coordination_with_session(Some(&session.session_id()), |prism| {
+                    self.apply_artifact_mutation(prism, args, meta.clone())
+                }) {
+                Ok(Some(mut result)) => {
                     self.sync_coordination_revision(workspace)?;
                     let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
@@ -1402,6 +1434,7 @@ impl QueryHost {
                     result.violations.extend(audit.violations);
                     Ok(result)
                 }
+                Ok(None) => Err(coordination_mutation_busy_error()),
                 Err(error) => {
                     let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
@@ -1422,12 +1455,14 @@ impl QueryHost {
         } else {
             match self.apply_artifact_mutation(prism.as_ref(), args, meta.clone()) {
                 Ok(mut result) => {
+                    let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     result.event_ids = audit.event_ids;
                     result.violations.extend(audit.violations);
                     Ok(result)
                 }
                 Err(error) => {
+                    let prism = self.current_prism();
                     let audit = coordination_audit_since(prism.as_ref(), before_events);
                     if audit.rejected && !audit.event_ids.is_empty() {
                         return Ok(ArtifactMutationResult {

@@ -20,7 +20,7 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, Weak};
-use tracing::{debug, info};
+use tracing::{debug, info, Level};
 
 mod ambiguity;
 mod capabilities_resource;
@@ -134,6 +134,7 @@ use workspace_runtime::*;
 const DEFAULT_SEARCH_LIMIT: usize = 20;
 const DEFAULT_CALL_GRAPH_DEPTH: usize = 3;
 const DEFAULT_RESOURCE_PAGE_LIMIT: usize = 50;
+const SLOW_WORKSPACE_REFRESH_LOG_MS: u128 = 1_000;
 const INSTRUCTIONS_URI: &str = "prism://instructions";
 const ENTRYPOINTS_URI: &str = "prism://entrypoints";
 const CAPABILITIES_URI: &str = "prism://capabilities";
@@ -886,7 +887,9 @@ impl QueryHost {
         let Some(workspace) = &self.workspace else {
             return Ok(false);
         };
-        let changed = workspace.ensure_paths_deep(paths)?;
+        let Some(changed) = workspace.try_ensure_paths_deep(paths)? else {
+            return Ok(false);
+        };
         if changed {
             self.sync_workspace_revision(workspace)?;
         }
@@ -923,6 +926,7 @@ impl QueryHost {
     }
 
     pub(crate) fn sync_coordination_revision(&self, workspace: &WorkspaceSession) -> Result<()> {
+        let _ = workspace.hydrate_coordination_runtime()?;
         let revision = workspace.coordination_revision()?;
         self.sync_coordination_revision_value(revision);
         Ok(())
@@ -1100,9 +1104,13 @@ fn log_refresh_workspace(
     duration_ms: u128,
     metrics: WorkspaceRefreshMetrics,
 ) {
-    let meaningful_refresh =
-        refresh_path == "full" || episodic_reloaded || inference_reloaded || coordination_reloaded;
-    if meaningful_refresh {
+    if should_record_workspace_refresh_event(
+        refresh_path,
+        episodic_reloaded,
+        inference_reloaded,
+        coordination_reloaded,
+        duration_ms,
+    ) {
         if let Err(error) = record_workspace_refresh(
             workspace.root(),
             refresh_path,
@@ -1131,31 +1139,86 @@ fn log_refresh_workspace(
             );
         }
     }
-    if env::var_os("PRISM_MCP_REFRESH_LOG").is_none() {
+    let debug_refresh_logging = env::var_os("PRISM_MCP_REFRESH_LOG").is_some();
+    let Some(log_level) =
+        workspace_refresh_log_level(refresh_path, duration_ms, debug_refresh_logging)
+    else {
         return;
-    }
+    };
 
-    debug!(
-        refresh_path,
-        fs_observed = workspace.observed_fs_revision(),
-        fs_applied = workspace.applied_fs_revision(),
-        episodic_reloaded,
-        inference_reloaded,
-        coordination_reloaded,
-        duration_ms,
-        lock_wait_ms = metrics.lock_wait_ms,
-        lock_hold_ms = metrics.lock_hold_ms,
-        fs_refresh_ms = metrics.fs_refresh_ms,
-        snapshot_revisions_ms = metrics.snapshot_revisions_ms,
-        load_episodic_ms = metrics.load_episodic_ms,
-        load_inference_ms = metrics.load_inference_ms,
-        load_coordination_ms = metrics.load_coordination_ms,
-        loaded_bytes = metrics.loaded_bytes,
-        replay_volume = metrics.replay_volume,
-        full_rebuild_count = metrics.full_rebuild_count,
-        workspace_reloaded = metrics.workspace_reloaded,
-        "prism-mcp workspace refresh"
-    );
+    match log_level {
+        Level::DEBUG => debug!(
+            refresh_path,
+            fs_observed = workspace.observed_fs_revision(),
+            fs_applied = workspace.applied_fs_revision(),
+            episodic_reloaded,
+            inference_reloaded,
+            coordination_reloaded,
+            duration_ms,
+            lock_wait_ms = metrics.lock_wait_ms,
+            lock_hold_ms = metrics.lock_hold_ms,
+            fs_refresh_ms = metrics.fs_refresh_ms,
+            snapshot_revisions_ms = metrics.snapshot_revisions_ms,
+            load_episodic_ms = metrics.load_episodic_ms,
+            load_inference_ms = metrics.load_inference_ms,
+            load_coordination_ms = metrics.load_coordination_ms,
+            loaded_bytes = metrics.loaded_bytes,
+            replay_volume = metrics.replay_volume,
+            full_rebuild_count = metrics.full_rebuild_count,
+            workspace_reloaded = metrics.workspace_reloaded,
+            "prism-mcp workspace refresh"
+        ),
+        Level::INFO => info!(
+            refresh_path,
+            fs_observed = workspace.observed_fs_revision(),
+            fs_applied = workspace.applied_fs_revision(),
+            episodic_reloaded,
+            inference_reloaded,
+            coordination_reloaded,
+            duration_ms,
+            lock_wait_ms = metrics.lock_wait_ms,
+            lock_hold_ms = metrics.lock_hold_ms,
+            fs_refresh_ms = metrics.fs_refresh_ms,
+            snapshot_revisions_ms = metrics.snapshot_revisions_ms,
+            load_episodic_ms = metrics.load_episodic_ms,
+            load_inference_ms = metrics.load_inference_ms,
+            load_coordination_ms = metrics.load_coordination_ms,
+            loaded_bytes = metrics.loaded_bytes,
+            replay_volume = metrics.replay_volume,
+            full_rebuild_count = metrics.full_rebuild_count,
+            workspace_reloaded = metrics.workspace_reloaded,
+            "prism-mcp workspace refresh"
+        ),
+        _ => {}
+    }
+}
+
+fn should_record_workspace_refresh_event(
+    refresh_path: &str,
+    episodic_reloaded: bool,
+    inference_reloaded: bool,
+    coordination_reloaded: bool,
+    duration_ms: u128,
+) -> bool {
+    matches!(refresh_path, "full" | "incremental" | "deferred")
+        || episodic_reloaded
+        || inference_reloaded
+        || coordination_reloaded
+        || duration_ms >= SLOW_WORKSPACE_REFRESH_LOG_MS
+}
+
+fn workspace_refresh_log_level(
+    refresh_path: &str,
+    duration_ms: u128,
+    debug_refresh_logging: bool,
+) -> Option<Level> {
+    if debug_refresh_logging {
+        return Some(Level::DEBUG);
+    }
+    if refresh_path == "deferred" || duration_ms >= SLOW_WORKSPACE_REFRESH_LOG_MS {
+        return Some(Level::INFO);
+    }
+    None
 }
 
 #[cfg(test)]

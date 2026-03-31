@@ -86,8 +86,8 @@ pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
     let file_records_started = Instant::now();
     let mut file_records = HashMap::<PathBuf, FileRecord>::new();
     {
-        let mut stmt =
-            conn.prepare("SELECT path, file_id, hash, parse_depth FROM file_records ORDER BY path")?;
+        let mut stmt = conn
+            .prepare("SELECT path, file_id, hash, parse_depth FROM file_records ORDER BY path")?;
         let rows = stmt.query_map([], |row| {
             Ok((
                 PathBuf::from(row.get::<_, String>(0)?),

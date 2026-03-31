@@ -21,6 +21,7 @@ const DEFAULT_MCP_LOG_LIMIT: usize = 20;
 const DEFAULT_SLOW_MCP_LIMIT: usize = 20;
 const DEFAULT_SLOW_MCP_MIN_DURATION_MS: u64 = 100;
 const DEFAULT_MCP_CALL_LOG_MAX_BYTES: u64 = 64 * 1024 * 1024;
+const DEFAULT_MCP_CALL_LOG_SEGMENT_MAX_BYTES: u64 = 8 * 1024 * 1024;
 const MCP_CALL_LOG_MAX_BYTES_ENV: &str = "PRISM_MCP_CALL_LOG_MAX_BYTES";
 const MAX_SUMMARY_CHARS: usize = 160;
 const MAX_SUMMARY_ITEMS: usize = 8;
@@ -94,8 +95,7 @@ impl McpCallLogStore {
     pub(crate) fn file_len(&self) -> Option<u64> {
         self.path
             .as_ref()
-            .and_then(|path| fs::metadata(path).ok())
-            .map(|metadata| metadata.len())
+            .and_then(|path| total_log_bytes(path).ok())
     }
 
     pub(crate) fn push(&self, record: PersistedMcpCallRecord) -> Result<()> {
@@ -106,14 +106,9 @@ impl McpCallLogStore {
                     .with_context(|| format!("failed to create {}", parent.display()))?;
             }
             let line = serde_json::to_string(&record)?;
-            let mut file = OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(path)
-                .with_context(|| format!("failed to open {}", path.display()))?;
-            writeln!(file, "{line}")
-                .with_context(|| format!("failed to append {}", path.display()))?;
-            trim_file_to_max_bytes(path, self.max_bytes)?;
+            rotate_active_segment_if_needed(path, line.len() + 1, self.max_bytes)?;
+            append_line(path, &line)?;
+            prune_archived_segments(path, self.max_bytes)?;
             Ok(())
         } else {
             let mut records = self
@@ -532,44 +527,168 @@ fn configured_max_bytes() -> u64 {
         .unwrap_or(DEFAULT_MCP_CALL_LOG_MAX_BYTES)
 }
 
-fn trim_file_to_max_bytes(path: &Path, max_bytes: u64) -> Result<()> {
-    let metadata = fs::metadata(path)?;
-    if metadata.len() <= max_bytes {
+fn read_records_from_path(path: &Path) -> Result<Vec<PersistedMcpCallRecord>> {
+    let mut records = Vec::new();
+    for segment_path in segment_paths_in_read_order(path)? {
+        let file = File::open(&segment_path)
+            .with_context(|| format!("failed to open {}", segment_path.display()))?;
+        let reader = BufReader::new(file);
+        for line in reader.lines() {
+            let line =
+                line.with_context(|| format!("failed to read {}", segment_path.display()))?;
+            if line.trim().is_empty() {
+                continue;
+            }
+            if let Ok(record) = serde_json::from_str::<PersistedMcpCallRecord>(&line) {
+                records.push(record);
+            }
+        }
+    }
+    Ok(records)
+}
+
+#[derive(Debug, Clone)]
+struct SegmentFile {
+    path: PathBuf,
+    bytes: u64,
+}
+
+fn append_line(path: &Path, line: &str) -> Result<()> {
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .with_context(|| format!("failed to open {}", path.display()))?;
+    writeln!(file, "{line}").with_context(|| format!("failed to append {}", path.display()))?;
+    Ok(())
+}
+
+fn rotate_active_segment_if_needed(
+    path: &Path,
+    next_write_bytes: usize,
+    max_bytes: u64,
+) -> Result<()> {
+    let Ok(metadata) = fs::metadata(path) else {
+        return Ok(());
+    };
+    let active_len = metadata.len();
+    if active_len == 0 {
         return Ok(());
     }
-    let file = File::open(path)?;
-    let reader = BufReader::new(file);
-    let mut lines = reader
-        .lines()
-        .collect::<std::io::Result<Vec<_>>>()
-        .with_context(|| format!("failed to read {}", path.display()))?;
-    while serialized_lines_len(&lines) > max_bytes as usize && !lines.is_empty() {
-        lines.remove(0);
+    if active_len.saturating_add(next_write_bytes as u64) <= segment_max_bytes(max_bytes) {
+        return Ok(());
     }
-    let mut file = File::create(path)?;
-    for line in lines {
-        writeln!(file, "{line}")?;
+    let archive_path = archived_segment_path(path, &new_sortable_token());
+    fs::rename(path, &archive_path).with_context(|| {
+        format!(
+            "failed to rotate {} to {}",
+            path.display(),
+            archive_path.display()
+        )
+    })?;
+    Ok(())
+}
+
+fn prune_archived_segments(path: &Path, max_bytes: u64) -> Result<()> {
+    let mut total_bytes = total_log_bytes(path)?;
+    if total_bytes <= max_bytes {
+        return Ok(());
+    }
+    let prune_target = prune_target_bytes(max_bytes);
+    for segment in archived_segments(path)? {
+        if total_bytes <= prune_target {
+            break;
+        }
+        fs::remove_file(&segment.path)
+            .with_context(|| format!("failed to remove {}", segment.path.display()))?;
+        total_bytes = total_bytes.saturating_sub(segment.bytes);
     }
     Ok(())
 }
 
-fn read_records_from_path(path: &Path) -> Result<Vec<PersistedMcpCallRecord>> {
-    if !path.exists() {
+fn total_log_bytes(path: &Path) -> Result<u64> {
+    let mut total = 0u64;
+    for segment in archived_segments(path)? {
+        total = total.saturating_add(segment.bytes);
+    }
+    if let Ok(metadata) = fs::metadata(path) {
+        total = total.saturating_add(metadata.len());
+    }
+    Ok(total)
+}
+
+fn segment_paths_in_read_order(path: &Path) -> Result<Vec<PathBuf>> {
+    let mut paths = archived_segments(path)?
+        .into_iter()
+        .map(|segment| segment.path)
+        .collect::<Vec<_>>();
+    if path.exists() {
+        paths.push(path.to_path_buf());
+    }
+    Ok(paths)
+}
+
+fn archived_segments(path: &Path) -> Result<Vec<SegmentFile>> {
+    let Some(parent) = path.parent() else {
+        return Ok(Vec::new());
+    };
+    if !parent.exists() {
         return Ok(Vec::new());
     }
-    let file = File::open(path).with_context(|| format!("failed to open {}", path.display()))?;
-    let reader = BufReader::new(file);
-    let mut records = Vec::new();
-    for line in reader.lines() {
-        let line = line.with_context(|| format!("failed to read {}", path.display()))?;
-        if line.trim().is_empty() {
+    let (prefix, suffix) = archived_segment_name_parts(path);
+    let mut segments = Vec::new();
+    for entry in
+        fs::read_dir(parent).with_context(|| format!("failed to read {}", parent.display()))?
+    {
+        let entry = entry.with_context(|| format!("failed to read {}", parent.display()))?;
+        let entry_path = entry.path();
+        if entry_path == path {
             continue;
         }
-        if let Ok(record) = serde_json::from_str::<PersistedMcpCallRecord>(&line) {
-            records.push(record);
+        let Some(name) = entry.file_name().to_str().map(str::to_string) else {
+            continue;
+        };
+        if !name.starts_with(&prefix) || !name.ends_with(&suffix) {
+            continue;
         }
+        let bytes = entry
+            .metadata()
+            .with_context(|| format!("failed to stat {}", entry_path.display()))?
+            .len();
+        segments.push(SegmentFile {
+            path: entry_path,
+            bytes,
+        });
     }
-    Ok(records)
+    segments.sort_by(|left, right| left.path.file_name().cmp(&right.path.file_name()));
+    Ok(segments)
+}
+
+fn archived_segment_path(path: &Path, token: &str) -> PathBuf {
+    let (prefix, suffix) = archived_segment_name_parts(path);
+    path.with_file_name(format!("{prefix}{token}{suffix}"))
+}
+
+fn archived_segment_name_parts(path: &Path) -> (String, String) {
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("prism-mcp-call-log.jsonl");
+    match (
+        path.file_stem().and_then(|value| value.to_str()),
+        path.extension().and_then(|value| value.to_str()),
+    ) {
+        (Some(stem), Some(ext)) => (format!("{stem}."), format!(".{ext}")),
+        _ => (format!("{file_name}."), String::new()),
+    }
+}
+
+fn segment_max_bytes(max_bytes: u64) -> u64 {
+    DEFAULT_MCP_CALL_LOG_SEGMENT_MAX_BYTES.min((max_bytes / 4).max(1))
+}
+
+fn prune_target_bytes(max_bytes: u64) -> u64 {
+    max_bytes.saturating_mul(3).saturating_div(4).max(1)
 }
 
 fn aggregate_buckets(
@@ -640,10 +759,6 @@ fn aggregate_buckets(
     });
     views.truncate(10);
     views
-}
-
-fn serialized_lines_len(lines: &[String]) -> usize {
-    lines.iter().map(|line| line.len() + 1).sum()
 }
 
 fn entry_contains(entry: &McpCallLogEntryView, needle: &str) -> bool {
@@ -946,6 +1061,19 @@ mod tests {
                 > 0
         );
         assert!(store.file_len().unwrap_or_default() <= 1_600);
+    }
+
+    #[test]
+    fn mcp_call_log_store_rotates_into_archived_segments() {
+        let store = test_store(5_000);
+        for index in 0..4 {
+            store.push(test_record(index)).unwrap();
+        }
+
+        let log_path = store.path().expect("store path");
+        assert!(log_path.exists());
+        assert!(!archived_segments(log_path).unwrap().is_empty());
+        assert!(store.file_len().unwrap_or_default() > 0);
     }
 
     #[test]

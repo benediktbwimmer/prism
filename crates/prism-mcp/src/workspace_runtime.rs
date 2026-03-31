@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use prism_agent::InferenceStore;
-use prism_core::{FsRefreshStatus, WorkspaceSession};
+use prism_core::{AdmissionBusyError, FsRefreshStatus, WorkspaceSession};
 use prism_memory::{EpisodicMemorySnapshot, SessionMemory};
 use serde::Serialize;
 use serde_json::json;
@@ -50,6 +50,80 @@ impl WorkspaceRefreshReport {
             coordination_reloaded: false,
             metrics: WorkspaceRefreshMetrics::default(),
         }
+    }
+}
+
+fn dirty_workspace_deferred_report(
+    config: &WorkspaceRuntimeConfig,
+    runtime_sync_used: bool,
+    metrics: WorkspaceRefreshMetrics,
+) -> WorkspaceRefreshReport {
+    let loaded_workspace_revision = config.loaded_workspace_revision.load(Ordering::Relaxed);
+    let loaded_episodic_revision = config.loaded_episodic_revision.load(Ordering::Relaxed);
+    let loaded_inference_revision = config.loaded_inference_revision.load(Ordering::Relaxed);
+    let loaded_coordination_revision = config.loaded_coordination_revision.load(Ordering::Relaxed);
+    config
+        .workspace
+        .record_runtime_refresh_observation("deferred", metrics.lock_hold_ms);
+    config.dashboard_state.publish_value(
+        "runtime.refreshed",
+        json!({
+            "refreshPath": "deferred",
+            "durationMs": 0,
+            "coordinationReloaded": false,
+            "deferred": true,
+            "episodicReloaded": false,
+            "fsAppliedRevision": config.workspace.applied_fs_revision(),
+            "fsDirty": config.workspace.observed_fs_revision() != config.workspace.applied_fs_revision(),
+            "fsObservedRevision": config.workspace.observed_fs_revision(),
+            "lockWaitMs": metrics.lock_wait_ms,
+            "lockHoldMs": metrics.lock_hold_ms,
+            "fsRefreshMs": metrics.fs_refresh_ms,
+            "snapshotRevisionsMs": metrics.snapshot_revisions_ms,
+            "loadEpisodicMs": metrics.load_episodic_ms,
+            "loadInferenceMs": metrics.load_inference_ms,
+            "loadCoordinationMs": metrics.load_coordination_ms,
+            "loadedBytes": metrics.loaded_bytes,
+            "replayVolume": metrics.replay_volume,
+            "fullRebuildCount": metrics.full_rebuild_count,
+            "inferenceReloaded": false,
+            "loadedCoordinationRevision": loaded_coordination_revision,
+            "loadedEpisodicRevision": loaded_episodic_revision,
+            "loadedInferenceRevision": loaded_inference_revision,
+            "loadedWorkspaceRevision": loaded_workspace_revision,
+            "materialization": {
+                "workspace": {
+                    "currentRevision": loaded_workspace_revision,
+                    "loadedRevision": loaded_workspace_revision,
+                    "status": revision_status(loaded_workspace_revision, loaded_workspace_revision),
+                },
+                "episodic": {
+                    "currentRevision": loaded_episodic_revision,
+                    "loadedRevision": loaded_episodic_revision,
+                    "status": revision_status(loaded_episodic_revision, loaded_episodic_revision),
+                },
+                "inference": {
+                    "currentRevision": loaded_inference_revision,
+                    "loadedRevision": loaded_inference_revision,
+                    "status": revision_status(loaded_inference_revision, loaded_inference_revision),
+                },
+                "coordination": {
+                    "currentRevision": loaded_coordination_revision,
+                    "loadedRevision": loaded_coordination_revision,
+                    "status": revision_status(loaded_coordination_revision, loaded_coordination_revision),
+                }
+            },
+            "workspaceReloaded": false,
+        }),
+    );
+    WorkspaceRefreshReport {
+        refresh_path: "deferred",
+        runtime_sync_used,
+        deferred: true,
+        episodic_reloaded: false,
+        inference_reloaded: false,
+        coordination_reloaded: false,
+        metrics,
     }
 }
 
@@ -164,6 +238,19 @@ fn sync_workspace_runtime_with_guard(
     };
     let fs_refresh_ms = elapsed_ms(fs_refresh_started);
     let deferred = refresh_path == "deferred";
+    if deferred {
+        let duration_ms = started.elapsed().as_millis();
+        return Ok(dirty_workspace_deferred_report(
+            config,
+            true,
+            WorkspaceRefreshMetrics {
+                lock_wait_ms,
+                lock_hold_ms: u64::try_from(duration_ms).unwrap_or(u64::MAX),
+                fs_refresh_ms,
+                ..WorkspaceRefreshMetrics::default()
+            },
+        ));
+    }
     let revisions_started = Instant::now();
     let revisions = config.workspace.snapshot_revisions_for_runtime()?;
     let snapshot_revisions_ms = elapsed_ms(revisions_started);
@@ -312,6 +399,16 @@ fn sync_workspace_runtime_for_read_with_guard(
     _guard: MutexGuard<'_, ()>,
     lock_wait_ms: u64,
 ) -> Result<WorkspaceRefreshReport> {
+    if config.workspace.needs_refresh() {
+        return Ok(dirty_workspace_deferred_report(
+            config,
+            true,
+            WorkspaceRefreshMetrics {
+                lock_wait_ms,
+                ..WorkspaceRefreshMetrics::default()
+            },
+        ));
+    }
     let started = Instant::now();
     let revisions_started = Instant::now();
     let revisions = config.workspace.snapshot_revisions_for_runtime()?;
@@ -483,6 +580,19 @@ pub(crate) fn sync_persisted_workspace_state(
         FsRefreshStatus::DeferredBusy => "deferred",
     };
     let workspace_reloaded = refresh_path == "full";
+    if refresh_path == "deferred" {
+        let duration_ms = started.elapsed().as_millis();
+        return Ok(dirty_workspace_deferred_report(
+            config,
+            true,
+            WorkspaceRefreshMetrics {
+                lock_wait_ms,
+                lock_hold_ms: u64::try_from(duration_ms).unwrap_or(u64::MAX),
+                fs_refresh_ms,
+                ..WorkspaceRefreshMetrics::default()
+            },
+        ));
+    }
     config.loaded_workspace_revision.store(
         config.workspace.loaded_workspace_revision(),
         Ordering::Relaxed,
@@ -855,16 +965,11 @@ impl QueryHost {
             loaded_inference_revision: Arc::clone(&self.loaded_inference_revision),
             loaded_coordination_revision: Arc::clone(&self.loaded_coordination_revision),
         };
-        let lock_wait_started = Instant::now();
-        let guard = config
-            .sync_lock
-            .lock()
-            .expect("workspace runtime sync lock poisoned");
-        let report = sync_workspace_runtime_for_read_with_guard(
-            &config,
-            guard,
-            elapsed_ms(lock_wait_started),
-        )?;
+        let Some(report) = try_sync_workspace_runtime_for_read(&config)? else {
+            runtime.request_refresh();
+            workspace.record_runtime_refresh_observation("deferred", 0);
+            return Err(AdmissionBusyError::runtime_sync("refreshWorkspaceForMutation").into());
+        };
         if report.coordination_reloaded {
             let _ = self.publish_dashboard_coordination_update();
         }
@@ -884,4 +989,70 @@ fn is_transient_sqlite_lock(error: &anyhow::Error) -> bool {
             || text.contains("locked database")
             || text.contains("sql busy")
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::AtomicU64;
+
+    use prism_agent::InferenceStore;
+    use prism_core::index_workspace_session;
+    use prism_memory::SessionMemory;
+
+    use super::*;
+    use crate::tests_support::temp_workspace;
+
+    #[test]
+    fn dirty_workspace_deferred_report_skips_reload_metrics() {
+        let root = temp_workspace();
+        let workspace = Arc::new(index_workspace_session(&root).unwrap());
+        let config = WorkspaceRuntimeConfig {
+            workspace: Arc::clone(&workspace),
+            notes: Arc::new(SessionMemory::new()),
+            inferred_edges: Arc::new(InferenceStore::new()),
+            dashboard_state: Arc::new(DashboardState::default()),
+            sync_lock: Arc::new(Mutex::new(())),
+            loaded_workspace_revision: Arc::new(AtomicU64::new(
+                workspace.loaded_workspace_revision(),
+            )),
+            loaded_episodic_revision: Arc::new(AtomicU64::new(
+                workspace.episodic_revision().unwrap_or(0),
+            )),
+            loaded_inference_revision: Arc::new(AtomicU64::new(
+                workspace.inference_revision().unwrap_or(0),
+            )),
+            loaded_coordination_revision: Arc::new(AtomicU64::new(
+                workspace.coordination_revision().unwrap_or(0),
+            )),
+        };
+
+        let report = dirty_workspace_deferred_report(
+            &config,
+            true,
+            WorkspaceRefreshMetrics {
+                lock_wait_ms: 7,
+                ..WorkspaceRefreshMetrics::default()
+            },
+        );
+
+        assert_eq!(report.refresh_path, "deferred");
+        assert!(report.runtime_sync_used);
+        assert!(report.deferred);
+        assert_eq!(report.metrics.lock_wait_ms, 7);
+        assert_eq!(report.metrics.lock_hold_ms, 0);
+        assert_eq!(report.metrics.fs_refresh_ms, 0);
+        assert_eq!(report.metrics.snapshot_revisions_ms, 0);
+        assert_eq!(report.metrics.load_episodic_ms, 0);
+        assert_eq!(report.metrics.load_inference_ms, 0);
+        assert_eq!(report.metrics.load_coordination_ms, 0);
+        assert_eq!(
+            workspace
+                .last_refresh()
+                .as_ref()
+                .map(|refresh| refresh.path.as_str()),
+            Some("deferred")
+        );
+
+        let _ = std::fs::remove_dir_all(root);
+    }
 }

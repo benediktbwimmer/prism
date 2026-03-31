@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context, Result};
-use axum::{routing::get, Router};
+use axum::{middleware, routing::get, Router};
 use rmcp::transport::{
     streamable_http_server::session::local::LocalSessionManager, StreamableHttpServerConfig,
     StreamableHttpService,
@@ -104,9 +104,15 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         host: Arc::clone(&server.host),
         root: root.to_path_buf(),
     };
+    let mcp_router =
+        Router::new()
+            .nest_service(&mcp_path, service)
+            .route_layer(middleware::from_fn(
+                crate::request_envelope::instrument_mcp_http_request,
+            ));
     let router = Router::new()
         .route(&health_path, get(http_health))
-        .nest_service(&mcp_path, service)
+        .merge(mcp_router)
         .merge(prism_ui_routes(prism_ui_state))
         .merge(dashboard_routes(dashboard_state));
 

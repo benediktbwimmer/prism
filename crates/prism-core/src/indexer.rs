@@ -456,7 +456,8 @@ impl<S: Store> WorkspaceIndexer<S> {
         trigger: ChangeTrigger,
         plan: &WorkspaceRefreshPlan,
     ) -> Result<Vec<ObservedChangeSet>> {
-        let (observed, _) = self.index_impl(trigger, Some(plan), Some(&plan.next_snapshot), None)?;
+        let (observed, _) =
+            self.index_impl(trigger, Some(plan), Some(&plan.next_snapshot), None)?;
         Ok(observed)
     }
 
@@ -511,7 +512,11 @@ impl<S: Store> WorkspaceIndexer<S> {
         let targeted_refresh = refresh_scope.is_some();
         let workspace_file_count = next_tree_snapshot
             .map(|snapshot| snapshot.files.len())
-            .or_else(|| self.workspace_tree_snapshot.as_ref().map(|snapshot| snapshot.files.len()))
+            .or_else(|| {
+                self.workspace_tree_snapshot
+                    .as_ref()
+                    .map(|snapshot| snapshot.files.len())
+            })
             .unwrap_or(seen_files.len());
         let refresh_scope_path_count = invalidation_scope
             .as_ref()

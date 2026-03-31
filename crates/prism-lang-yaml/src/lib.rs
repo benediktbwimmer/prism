@@ -276,7 +276,7 @@ mod tests {
     use std::path::Path;
 
     use prism_ir::{FileId, NodeKind};
-    use prism_parser::{LanguageAdapter, ParseInput};
+    use prism_parser::{LanguageAdapter, ParseDepth, ParseInput};
 
     use super::YamlAdapter;
 
@@ -289,6 +289,7 @@ mod tests {
             package_root: Path::new("/workspace"),
             path: Path::new("/workspace/config/app.yaml"),
             file_id: FileId(1),
+            parse_depth: ParseDepth::Deep,
             source: "service:\n  port: 8080\n",
         };
 

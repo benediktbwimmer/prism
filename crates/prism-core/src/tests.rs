@@ -397,6 +397,56 @@ fn try_append_outcome_defers_when_refresh_is_in_progress() {
 }
 
 #[test]
+fn try_mutate_coordination_defers_when_refresh_is_in_progress() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let _guard = session
+        .refresh_lock
+        .lock()
+        .expect("workspace refresh lock poisoned");
+
+    assert!(session
+        .try_mutate_coordination_with_session(None, |_| Ok::<_, anyhow::Error>(()))
+        .unwrap()
+        .is_none());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn try_ensure_paths_deep_defers_when_refresh_is_in_progress() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let _guard = session
+        .refresh_lock
+        .lock()
+        .expect("workspace refresh lock poisoned");
+
+    assert!(session
+        .try_ensure_paths_deep([root.join("src/lib.rs")])
+        .unwrap()
+        .is_none());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn uses_member_package_identity_and_attaches_workspace_docs() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("crates/alpha/src")).unwrap();
@@ -3443,6 +3493,61 @@ fn refresh_fs_nonblocking_defers_when_refresh_is_in_progress() {
 }
 
 #[test]
+fn refresh_fs_nonblocking_keeps_clean_status_for_busy_fallback_probe() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let _guard = session
+        .refresh_lock
+        .lock()
+        .expect("workspace refresh lock poisoned");
+
+    let status = session.refresh_fs_nonblocking().unwrap();
+    assert_eq!(status, crate::FsRefreshStatus::Clean);
+    assert!(!session.needs_refresh());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn refresh_fs_nonblocking_detects_out_of_band_changes_via_fallback_scan() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    fs::create_dir_all(root.join("docs")).unwrap();
+    fs::write(
+        root.join("docs/created.md"),
+        "# Watcher Created Doc\n\nThis document was added after startup.\n",
+    )
+    .unwrap();
+
+    let status = session.refresh_fs_nonblocking().unwrap();
+
+    assert_eq!(status, crate::FsRefreshStatus::Full);
+    assert!(session
+        .prism()
+        .symbol("Watcher Created Doc")
+        .iter()
+        .any(|symbol| symbol.id().kind == NodeKind::MarkdownHeading));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn recovery_rebuild_from_persisted_state_defers_when_refresh_is_in_progress() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -3796,10 +3901,11 @@ fn workspace_session_can_deepen_unchanged_shallow_file_on_demand() {
         .file_record(&target_path)
         .expect("deepened file should remain indexed");
     assert_eq!(refreshed_record.parse_depth, ParseDepth::Deep);
-    assert!(refreshed_record
-        .unresolved_calls
-        .iter()
-        .any(|call| call.caller.path.ends_with("::alpha") && call.name == "beta"));
+    assert!(refreshed_record.unresolved_calls.iter().any(|call| call
+        .caller
+        .path
+        .ends_with("::alpha")
+        && call.name == "beta"));
 }
 
 #[test]

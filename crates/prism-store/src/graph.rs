@@ -8,8 +8,7 @@ use prism_ir::{
     EventMeta, FileId, GraphChange, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode,
 };
 use prism_parser::{
-    NodeFingerprint, ParseDepth, UnresolvedCall, UnresolvedImpl, UnresolvedImport,
-    UnresolvedIntent,
+    NodeFingerprint, ParseDepth, UnresolvedCall, UnresolvedImpl, UnresolvedImport, UnresolvedIntent,
 };
 use serde::{Deserialize, Serialize};
 

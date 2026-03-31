@@ -172,6 +172,13 @@ async fn mcp_tool_call_logs_inherit_request_envelope_phases() {
         assert!(operations.contains(&"mcp.routeRequest"));
         assert!(operations.contains(&"mcp.executeHandler"));
         assert!(operations.contains(&"mcp.encodeResponse"));
+        let receive_started_at = record
+            .phases
+            .iter()
+            .find(|phase| phase.operation == "mcp.receiveRequest")
+            .map(|phase| phase.started_at)
+            .expect("mcp.receiveRequest phase should exist");
+        assert_eq!(record.entry.started_at, receive_started_at);
     }
     let query_operations = prism_query
         .phases

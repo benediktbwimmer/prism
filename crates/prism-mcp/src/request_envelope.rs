@@ -1,7 +1,9 @@
+use std::future::Future;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
+use axum::{extract::Request, middleware::Next, response::Response};
 use prism_js::QueryPhaseView;
 use rmcp::{
     model::{ClientRequest, RequestId, ServerInfo},
@@ -20,6 +22,10 @@ tokio::task_local! {
     static CURRENT_MCP_REQUEST: RequestEnvelope;
 }
 
+tokio::task_local! {
+    static CURRENT_HTTP_REQUEST: HttpRequestTiming;
+}
+
 #[derive(Clone)]
 pub(crate) struct InstrumentedServerService {
     inner: PrismMcpServer,
@@ -28,6 +34,11 @@ pub(crate) struct InstrumentedServerService {
 #[derive(Clone)]
 struct RequestEnvelope {
     state: Arc<RequestEnvelopeState>,
+}
+
+#[derive(Clone)]
+struct HttpRequestTiming {
+    state: Arc<HttpRequestTimingState>,
 }
 
 struct RequestEnvelopeState {
@@ -47,9 +58,21 @@ struct RequestEnvelopeState {
     logged: AtomicBool,
 }
 
+struct HttpRequestTimingState {
+    started_at: u64,
+    started: Instant,
+    method: String,
+    path: String,
+}
+
 #[derive(Clone)]
 pub(crate) struct RequestEnvelopeSnapshot {
     state: Arc<RequestEnvelopeState>,
+}
+
+#[derive(Clone)]
+struct HttpRequestTimingSnapshot {
+    state: Arc<HttpRequestTimingState>,
 }
 
 impl InstrumentedServerService {
@@ -58,17 +81,38 @@ impl InstrumentedServerService {
     }
 }
 
+pub(crate) async fn with_http_request_timing<F, T>(method: String, path: String, future: F) -> T
+where
+    F: Future<Output = T>,
+{
+    let timing = HttpRequestTiming {
+        state: Arc::new(HttpRequestTimingState {
+            started_at: current_timestamp(),
+            started: Instant::now(),
+            method,
+            path,
+        }),
+    };
+    CURRENT_HTTP_REQUEST.scope(timing, future).await
+}
+
+pub(crate) async fn instrument_mcp_http_request(request: Request, next: Next) -> Response {
+    let method = request.method().to_string();
+    let path = request.uri().path().to_string();
+    with_http_request_timing(method, path, next.run(request)).await
+}
+
 impl Service<RoleServer> for InstrumentedServerService {
     async fn handle_request(
         &self,
         request: <RoleServer as ServiceRole>::PeerReq,
         context: RequestContext<RoleServer>,
     ) -> Result<<RoleServer as ServiceRole>::Resp, McpError> {
-        let inner = self.inner.clone();
-        let envelope = RequestEnvelope::new(&inner, &request, &context);
+        let inner = &self.inner;
+        let envelope = RequestEnvelope::new(inner, &request, &context);
         CURRENT_MCP_REQUEST
             .scope(envelope.clone(), async move {
-                let result = Service::handle_request(&inner, request, context).await;
+                let result = Service::handle_request(inner, request, context).await;
                 envelope.finish_if_unlogged(result.as_ref());
                 result
             })
@@ -120,13 +164,34 @@ impl RequestEnvelope {
         request: &ClientRequest,
         context: &RequestContext<RoleServer>,
     ) -> Self {
-        let started_at = current_timestamp();
-        let started = Instant::now();
-        let route_started = Instant::now();
+        let http_request = current_http_request_timing();
+        let fallback_started_at = current_timestamp();
+        let fallback_started = Instant::now();
         let request_id = request_id_value(&context.id);
         let request_id_for_meta = request_id.clone();
         let (name, summary, request_preview, mut metadata) = classify_request(request, request_id);
         metadata["requestId"] = request_id_for_meta;
+        let (started_at, started, route_started_at, route_duration_ms) =
+            if let Some(http_request) = http_request.as_ref() {
+                metadata["transport"] = json!({
+                    "kind": "streamable-http",
+                    "method": http_request.method(),
+                    "path": http_request.path(),
+                });
+                (
+                    http_request.started_at(),
+                    http_request.started(),
+                    http_request.started_at(),
+                    http_request.duration_ms(),
+                )
+            } else {
+                (
+                    fallback_started_at,
+                    fallback_started,
+                    current_timestamp(),
+                    0,
+                )
+            };
         let (session_id, task_id) = server.session_log_context();
         Self {
             state: Arc::new(RequestEnvelopeState {
@@ -136,8 +201,8 @@ impl RequestEnvelope {
                 metadata,
                 started_at,
                 started,
-                route_started_at: current_timestamp(),
-                route_duration_ms: duration_to_ms(route_started.elapsed()),
+                route_started_at,
+                route_duration_ms,
                 mcp_call_log_store: server.mcp_call_log_store(),
                 dashboard: server.dashboard_state(),
                 workspace: server.workspace_session().map(Arc::clone),
@@ -559,6 +624,14 @@ fn classify_request(request: &ClientRequest, request_id: Value) -> (String, Stri
     }
 }
 
+fn current_http_request_timing() -> Option<HttpRequestTimingSnapshot> {
+    CURRENT_HTTP_REQUEST
+        .try_with(|request| HttpRequestTimingSnapshot {
+            state: Arc::clone(&request.state),
+        })
+        .ok()
+}
+
 fn request_id_value(id: &RequestId) -> Value {
     serde_json::to_value(id).unwrap_or(Value::Null)
 }
@@ -590,6 +663,28 @@ fn phase_at(
         touched: touches_for_value(args),
         success,
         error,
+    }
+}
+
+impl HttpRequestTimingSnapshot {
+    fn started_at(&self) -> u64 {
+        self.state.started_at
+    }
+
+    fn started(&self) -> Instant {
+        self.state.started
+    }
+
+    fn duration_ms(&self) -> u64 {
+        duration_to_ms(self.state.started.elapsed())
+    }
+
+    fn method(&self) -> &str {
+        self.state.method.as_str()
+    }
+
+    fn path(&self) -> &str {
+        self.state.path.as_str()
     }
 }
 
@@ -648,5 +743,19 @@ mod tests {
         assert!(operations.contains(&"mcp.routeRequest"));
         assert!(operations.contains(&"mcp.executeHandler"));
         assert!(!operations.contains(&"mcp.encodeResponse"));
+    }
+
+    #[tokio::test]
+    async fn http_request_timing_scope_exposes_transport_start() {
+        let started_at = with_http_request_timing("POST".to_string(), "/mcp".to_string(), async {
+            let timing = current_http_request_timing()
+                .expect("http request timing should be present inside scope");
+            assert_eq!(timing.method(), "POST");
+            assert_eq!(timing.path(), "/mcp");
+            timing.started_at()
+        })
+        .await;
+        assert!(started_at > 0);
+        assert!(current_http_request_timing().is_none());
     }
 }

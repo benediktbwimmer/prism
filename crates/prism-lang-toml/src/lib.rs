@@ -288,7 +288,7 @@ mod tests {
     use std::path::Path;
 
     use prism_ir::{FileId, NodeKind};
-    use prism_parser::{LanguageAdapter, ParseInput};
+    use prism_parser::{LanguageAdapter, ParseDepth, ParseInput};
 
     use super::TomlAdapter;
 
@@ -301,6 +301,7 @@ mod tests {
             package_root: Path::new("/workspace"),
             path: Path::new("/workspace/Cargo.toml"),
             file_id: FileId(1),
+            parse_depth: ParseDepth::Deep,
             source: "[workspace]\nmembers = [\"crates/alpha\"]\n[dependencies]\nserde = \"1.0\"\n",
         };
 
