@@ -72,6 +72,7 @@ impl SqliteStore {
         let configure_ms = configure_started.elapsed().as_millis();
         let schema_started = Instant::now();
         schema::init_schema(&conn)?;
+        graph_io::ensure_file_record_parse_depth_column(&mut conn)?;
         let schema_ms = schema_started.elapsed().as_millis();
         let compact_patch_payloads_started = Instant::now();
         let compacted_patch_payloads =

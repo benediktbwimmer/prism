@@ -69,6 +69,7 @@ pub struct Prism {
     graph: Arc<Graph>,
     history: Arc<HistoryStore>,
     outcomes: Arc<OutcomeMemory>,
+    history_backend: RwLock<Option<Arc<dyn HistoryReadBackend>>>,
     outcome_backend: RwLock<Option<Arc<dyn OutcomeReadBackend>>>,
     workspace_revision: RwLock<WorkspaceRevision>,
     plan_runtime: RwLock<NativePlanRuntimeState>,
@@ -82,6 +83,11 @@ pub trait OutcomeReadBackend: Send + Sync {
     fn query_outcomes(&self, query: &OutcomeRecallQuery) -> Result<Vec<OutcomeEvent>>;
     fn load_outcome_event(&self, event_id: &EventId) -> Result<Option<OutcomeEvent>>;
     fn load_task_replay(&self, task_id: &TaskId) -> Result<TaskReplay>;
+}
+
+pub trait HistoryReadBackend: Send + Sync {
+    fn load_lineage_history(&self, lineage: &LineageId) -> Result<Vec<LineageEvent>>;
+    fn load_history_snapshot(&self) -> Result<Option<HistorySnapshot>>;
 }
 
 impl Prism {
@@ -214,6 +220,7 @@ impl Prism {
             graph: Arc::new(graph),
             history: Arc::new(history),
             outcomes: Arc::new(outcomes),
+            history_backend: RwLock::new(None),
             outcome_backend: RwLock::new(None),
             workspace_revision: RwLock::new(default_workspace_revision),
             plan_runtime: RwLock::new(native_plans),
@@ -235,12 +242,27 @@ impl Prism {
             .expect("outcome backend lock poisoned") = backend;
     }
 
+    pub fn set_history_backend(&self, backend: Option<Arc<dyn HistoryReadBackend>>) {
+        *self
+            .history_backend
+            .write()
+            .expect("history backend lock poisoned") = backend;
+    }
+
     pub fn lineage_of(&self, node: &NodeId) -> Option<LineageId> {
         self.history.lineage_of(node)
     }
 
     pub fn lineage_history(&self, lineage: &LineageId) -> Vec<LineageEvent> {
-        self.history.lineage_history(lineage)
+        let hot = self.history.lineage_history(lineage);
+        let cold = self
+            .history_backend
+            .read()
+            .expect("history backend lock poisoned")
+            .as_ref()
+            .and_then(|backend| backend.load_lineage_history(lineage).ok())
+            .unwrap_or_default();
+        merge_lineage_events(hot, cold)
     }
 
     pub fn current_nodes_for_lineage(&self, lineage: &LineageId) -> Vec<NodeId> {
@@ -287,7 +309,18 @@ impl Prism {
     }
 
     pub fn history_snapshot(&self) -> HistorySnapshot {
-        self.history.snapshot()
+        let hot = self.history.snapshot();
+        if let Some(cold) = self
+            .history_backend
+            .read()
+            .expect("history backend lock poisoned")
+            .as_ref()
+            .and_then(|backend| backend.load_history_snapshot().ok().flatten())
+        {
+            merge_history_snapshots(hot, cold)
+        } else {
+            hot
+        }
     }
 
     pub fn outcome_snapshot(&self) -> OutcomeMemorySnapshot {
@@ -1095,5 +1128,60 @@ impl Prism {
             .read()
             .expect("projection lock poisoned")
             .concept_health(handle)
+    }
+}
+
+fn merge_lineage_events(hot: Vec<LineageEvent>, cold: Vec<LineageEvent>) -> Vec<LineageEvent> {
+    let mut events = hot
+        .into_iter()
+        .chain(cold)
+        .fold(BTreeMap::<String, LineageEvent>::new(), |mut acc, event| {
+            acc.entry(event.meta.id.0.to_string()).or_insert(event);
+            acc
+        })
+        .into_values()
+        .collect::<Vec<_>>();
+    events.sort_by(|left, right| {
+        left.meta
+            .ts
+            .cmp(&right.meta.ts)
+            .then_with(|| left.meta.id.0.cmp(&right.meta.id.0))
+    });
+    events
+}
+
+fn merge_history_snapshots(hot: HistorySnapshot, cold: HistorySnapshot) -> HistorySnapshot {
+    let mut node_to_lineage = cold
+        .node_to_lineage
+        .into_iter()
+        .collect::<std::collections::HashMap<_, _>>();
+    for (node, lineage) in hot.node_to_lineage {
+        node_to_lineage.insert(node, lineage);
+    }
+
+    let mut tombstones = cold
+        .tombstones
+        .into_iter()
+        .map(|tombstone| (tombstone.lineage.clone(), tombstone))
+        .collect::<BTreeMap<_, _>>();
+    for tombstone in hot.tombstones {
+        tombstones.insert(tombstone.lineage.clone(), tombstone);
+    }
+
+    HistorySnapshot {
+        node_to_lineage: {
+            let mut merged = node_to_lineage.into_iter().collect::<Vec<_>>();
+            merged.sort_by(|left, right| {
+                anchor_sort_key(
+                    &AnchorRef::Node(left.0.clone()),
+                    &AnchorRef::Node(right.0.clone()),
+                )
+            });
+            merged
+        },
+        events: merge_lineage_events(hot.events, cold.events),
+        tombstones: tombstones.into_values().collect(),
+        next_lineage: hot.next_lineage.max(cold.next_lineage),
+        next_event: hot.next_event.max(cold.next_event),
     }
 }

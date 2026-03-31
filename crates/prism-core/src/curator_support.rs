@@ -5,8 +5,10 @@ use prism_curator::{
     CuratorBudget, CuratorContext, CuratorGraphSlice, CuratorLineageSlice, CuratorProjectionSlice,
     CuratorSnapshot, CuratorTrigger,
 };
-use prism_ir::{AnchorRef, Node, NodeId};
-use prism_memory::{EpisodicMemorySnapshot, OutcomeEvent, OutcomeKind, OutcomeResult};
+use prism_ir::{AnchorRef, EventId, Node, NodeId};
+use prism_memory::{
+    EpisodicMemorySnapshot, OutcomeEvent, OutcomeKind, OutcomeRecallQuery, OutcomeResult,
+};
 use prism_query::Prism;
 use prism_store::{SqliteStore, Store};
 
@@ -153,7 +155,7 @@ pub(crate) fn build_curator_context(
         }
     }
 
-    let outcomes = prism.outcomes_for(&focus, budget.max_outcomes);
+    let outcomes = load_curator_outcomes(prism, store, &focus, budget.max_outcomes)?;
     let memories = store
         .load_episodic_snapshot()?
         .unwrap_or(EpisodicMemorySnapshot {
@@ -177,6 +179,48 @@ pub(crate) fn build_curator_context(
             validation_checks,
         },
     })
+}
+
+fn load_curator_outcomes(
+    prism: &Prism,
+    store: &mut SqliteStore,
+    focus: &[AnchorRef],
+    limit: usize,
+) -> Result<Vec<OutcomeEvent>> {
+    let query = OutcomeRecallQuery {
+        anchors: focus.to_vec(),
+        limit,
+        ..OutcomeRecallQuery::default()
+    };
+    let hot = prism.query_hot_outcomes(&query);
+    let cold = store.load_outcomes(&query)?;
+    Ok(merge_curator_outcomes(hot, cold, limit))
+}
+
+fn merge_curator_outcomes(
+    hot: Vec<OutcomeEvent>,
+    cold: Vec<OutcomeEvent>,
+    limit: usize,
+) -> Vec<OutcomeEvent> {
+    let mut seen = HashSet::<EventId>::new();
+    let mut events = Vec::new();
+    for event in hot.into_iter().chain(cold) {
+        if !seen.insert(event.meta.id.clone()) {
+            continue;
+        }
+        events.push(event);
+    }
+    events.sort_by(|left, right| {
+        right
+            .meta
+            .ts
+            .cmp(&left.meta.ts)
+            .then_with(|| left.meta.id.0.cmp(&right.meta.id.0))
+    });
+    if limit > 0 {
+        events.truncate(limit);
+    }
+    events
 }
 
 fn focus_nodes(prism: &Prism, focus: &[AnchorRef], limit: usize) -> Vec<Node> {

@@ -134,6 +134,7 @@ use workspace_runtime::*;
 const DEFAULT_SEARCH_LIMIT: usize = 20;
 const DEFAULT_CALL_GRAPH_DEPTH: usize = 3;
 const DEFAULT_RESOURCE_PAGE_LIMIT: usize = 50;
+const INSTRUCTIONS_URI: &str = "prism://instructions";
 const ENTRYPOINTS_URI: &str = "prism://entrypoints";
 const CAPABILITIES_URI: &str = "prism://capabilities";
 const SESSION_URI: &str = "prism://session";
@@ -162,6 +163,7 @@ const SCHEMA_RESOURCE_TEMPLATE_URI: &str = "prism://schema/{resourceKind}";
 const TOOL_SCHEMA_RESOURCE_TEMPLATE_URI: &str = "prism://schema/tool/{toolName}";
 const TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI: &str =
     "prism://schema/tool/{toolName}/action/{action}";
+const AGENT_INSTRUCTIONS_MARKDOWN: &str = include_str!("../../../AGENT_INSTRUCTIONS.md");
 static WORKSPACE_RUNTIME_SYNC_LOCKS: OnceLock<Mutex<HashMap<PathBuf, Weak<Mutex<()>>>>> =
     OnceLock::new();
 
@@ -357,6 +359,25 @@ impl Clone for PrismMcpServer {
 }
 
 impl PrismMcpServer {
+    pub(crate) fn mcp_call_log_store(&self) -> Arc<McpCallLogStore> {
+        Arc::clone(&self.host.mcp_call_log_store)
+    }
+
+    pub(crate) fn dashboard_state(&self) -> Arc<DashboardState> {
+        self.host.dashboard_state()
+    }
+
+    pub(crate) fn workspace_session(&self) -> Option<&Arc<WorkspaceSession>> {
+        self.host.workspace_session()
+    }
+
+    pub(crate) fn session_log_context(&self) -> (String, Option<String>) {
+        (
+            self.session.session_id().0.to_string(),
+            self.session.current_task().map(|task| task.0.to_string()),
+        )
+    }
+
     pub fn from_workspace(root: impl AsRef<Path>) -> Result<Self> {
         Self::from_workspace_with_features_and_shared_runtime(
             root,
@@ -856,6 +877,20 @@ impl QueryHost {
 
     pub(crate) fn workspace_session(&self) -> Option<&Arc<WorkspaceSession>> {
         self.workspace.as_ref()
+    }
+
+    pub(crate) fn ensure_workspace_paths_deep<I>(&self, paths: I) -> Result<bool>
+    where
+        I: IntoIterator<Item = PathBuf>,
+    {
+        let Some(workspace) = &self.workspace else {
+            return Ok(false);
+        };
+        let changed = workspace.ensure_paths_deep(paths)?;
+        if changed {
+            self.sync_workspace_revision(workspace)?;
+        }
+        Ok(changed)
     }
 
     fn sync_workspace_revision(&self, workspace: &WorkspaceSession) -> Result<()> {

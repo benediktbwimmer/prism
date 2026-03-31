@@ -39,6 +39,11 @@ struct RequestEnvelopeState {
     started: Instant,
     route_started_at: u64,
     route_duration_ms: u64,
+    mcp_call_log_store: Arc<crate::mcp_call_log::McpCallLogStore>,
+    dashboard: Arc<crate::DashboardState>,
+    workspace: Option<Arc<prism_core::WorkspaceSession>>,
+    session_id: String,
+    task_id: Option<String>,
     logged: AtomicBool,
 }
 
@@ -60,11 +65,11 @@ impl Service<RoleServer> for InstrumentedServerService {
         context: RequestContext<RoleServer>,
     ) -> Result<<RoleServer as ServiceRole>::Resp, McpError> {
         let inner = self.inner.clone();
-        let envelope = RequestEnvelope::new(&request, &context);
+        let envelope = RequestEnvelope::new(&inner, &request, &context);
         CURRENT_MCP_REQUEST
             .scope(envelope.clone(), async move {
                 let result = Service::handle_request(&inner, request, context).await;
-                envelope.finish_if_unlogged(&inner, result.as_ref());
+                envelope.finish_if_unlogged(result.as_ref());
                 result
             })
             .await
@@ -110,7 +115,11 @@ pub(crate) fn current_request_envelope() -> Option<RequestEnvelopeSnapshot> {
 }
 
 impl RequestEnvelope {
-    fn new(request: &ClientRequest, context: &RequestContext<RoleServer>) -> Self {
+    fn new(
+        server: &PrismMcpServer,
+        request: &ClientRequest,
+        context: &RequestContext<RoleServer>,
+    ) -> Self {
         let started_at = current_timestamp();
         let started = Instant::now();
         let route_started = Instant::now();
@@ -118,6 +127,7 @@ impl RequestEnvelope {
         let request_id_for_meta = request_id.clone();
         let (name, summary, request_preview, mut metadata) = classify_request(request, request_id);
         metadata["requestId"] = request_id_for_meta;
+        let (session_id, task_id) = server.session_log_context();
         Self {
             state: Arc::new(RequestEnvelopeState {
                 name,
@@ -128,12 +138,17 @@ impl RequestEnvelope {
                 started,
                 route_started_at: current_timestamp(),
                 route_duration_ms: duration_to_ms(route_started.elapsed()),
+                mcp_call_log_store: server.mcp_call_log_store(),
+                dashboard: server.dashboard_state(),
+                workspace: server.workspace_session().map(Arc::clone),
+                session_id,
+                task_id,
                 logged: AtomicBool::new(false),
             }),
         }
     }
 
-    fn finish_if_unlogged<R>(&self, server: &PrismMcpServer, result: Result<&R, &McpError>)
+    fn finish_if_unlogged<R>(&self, result: Result<&R, &McpError>)
     where
         R: serde::Serialize,
     {
@@ -148,9 +163,10 @@ impl RequestEnvelope {
             .ok()
             .and_then(|value| serde_json::to_value(value).ok());
         let mut phases = self.outer_phases();
+        let mut metadata = self.state.metadata.clone();
         phases.push(phase(
             "mcp.executeHandler",
-            &self.state.metadata,
+            &metadata,
             duration_ms,
             success,
             error.clone(),
@@ -158,25 +174,29 @@ impl RequestEnvelope {
         ));
         phases.push(phase(
             "mcp.encodeResponse",
-            &self.state.metadata,
+            &metadata,
             0,
             success,
             error.clone(),
             current_timestamp(),
         ));
-        let session_id = Some(server.session.session_id().0.to_string());
-        let task_id = server.session.current_task().map(|task| task.0.to_string());
+        crate::slow_call_snapshot::attach_slow_call_snapshot(
+            &mut metadata,
+            duration_ms,
+            self.state.dashboard.as_ref(),
+            self.state.workspace.as_deref(),
+        );
         let record = PersistedMcpCallRecord {
             entry: new_log_entry(
-                server.host.mcp_call_log_store.runtime(),
+                self.state.mcp_call_log_store.runtime(),
                 "request",
                 &self.state.name,
                 None,
                 self.state.summary.clone(),
                 self.state.started_at,
                 duration_ms,
-                session_id,
-                task_id,
+                Some(self.state.session_id.clone()),
+                self.state.task_id.clone(),
                 success,
                 error.clone(),
                 unique_operations(&phases),
@@ -188,10 +208,10 @@ impl RequestEnvelope {
             phases,
             request_preview: preview_value(&self.state.request_preview),
             response_preview: response_value.as_ref().and_then(preview_value),
-            metadata: self.state.metadata.clone(),
+            metadata,
             query_compat: None,
         };
-        let _ = server.host.mcp_call_log_store.push(record);
+        let _ = self.state.mcp_call_log_store.push(record);
     }
 
     fn outer_phases(&self) -> Vec<QueryPhaseView> {
@@ -238,6 +258,63 @@ impl RequestEnvelopeSnapshot {
 
     fn mark_logged(&self) {
         self.state.logged.store(true, Ordering::SeqCst);
+    }
+}
+
+impl Drop for RequestEnvelope {
+    fn drop(&mut self) {
+        if self.state.logged.swap(true, Ordering::SeqCst) {
+            return;
+        }
+
+        let duration_ms = duration_to_ms(self.state.started.elapsed());
+        let error = "request dropped before completion".to_string();
+        let mut phases = self.outer_phases();
+        let mut metadata = self.state.metadata.clone();
+        metadata["lifecycle"] = json!({
+            "state": "dropped",
+            "finalized": false,
+        });
+        phases.push(phase(
+            "mcp.executeHandler",
+            &metadata,
+            duration_ms,
+            false,
+            Some(error.clone()),
+            self.state.started_at,
+        ));
+        crate::slow_call_snapshot::attach_slow_call_snapshot(
+            &mut metadata,
+            duration_ms,
+            self.state.dashboard.as_ref(),
+            self.state.workspace.as_deref(),
+        );
+        let record = PersistedMcpCallRecord {
+            entry: new_log_entry(
+                self.state.mcp_call_log_store.runtime(),
+                "request",
+                &self.state.name,
+                None,
+                self.state.summary.clone(),
+                self.state.started_at,
+                duration_ms,
+                Some(self.state.session_id.clone()),
+                self.state.task_id.clone(),
+                false,
+                Some(error.clone()),
+                unique_operations(&phases),
+                unique_touches(&phases),
+                Vec::new(),
+                payload_summary(Some(&self.state.request_preview)),
+                payload_summary(None),
+            ),
+            phases,
+            request_preview: preview_value(&self.state.request_preview),
+            response_preview: None,
+            metadata,
+            query_compat: None,
+        };
+        let _ = self.state.mcp_call_log_store.push(record);
     }
 }
 
@@ -513,5 +590,63 @@ fn phase_at(
         touched: touches_for_value(args),
         success,
         error,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dropped_request_envelope_persists_aborted_request_record() {
+        let store = Arc::new(crate::mcp_call_log::McpCallLogStore::for_root(None));
+        let dashboard = Arc::new(crate::DashboardState::default());
+
+        let envelope = RequestEnvelope {
+            state: Arc::new(RequestEnvelopeState {
+                name: "tools/list".to_string(),
+                summary: "list tools".to_string(),
+                request_preview: json!({
+                    "method": "tools/list",
+                    "requestId": 1,
+                }),
+                metadata: json!({
+                    "method": "tools/list",
+                    "requestId": 1,
+                }),
+                started_at: current_timestamp(),
+                started: Instant::now(),
+                route_started_at: current_timestamp(),
+                route_duration_ms: 0,
+                mcp_call_log_store: Arc::clone(&store),
+                dashboard,
+                workspace: None,
+                session_id: "session:test".to_string(),
+                task_id: Some("task:test".to_string()),
+                logged: AtomicBool::new(false),
+            }),
+        };
+
+        drop(envelope);
+
+        let records = store.records();
+        let record = records
+            .iter()
+            .find(|record| record.entry.name == "tools/list")
+            .expect("dropped request record should exist");
+        assert!(!record.entry.success);
+        assert_eq!(
+            record.entry.error.as_deref(),
+            Some("request dropped before completion")
+        );
+        let operations = record
+            .phases
+            .iter()
+            .map(|phase| phase.operation.as_str())
+            .collect::<Vec<_>>();
+        assert!(operations.contains(&"mcp.receiveRequest"));
+        assert!(operations.contains(&"mcp.routeRequest"));
+        assert!(operations.contains(&"mcp.executeHandler"));
+        assert!(!operations.contains(&"mcp.encodeResponse"));
     }
 }

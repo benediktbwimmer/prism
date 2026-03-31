@@ -19,7 +19,7 @@ pub(super) struct LegacyCoChangeRetirement {
 
 pub(super) fn load_history_snapshot(
     conn: &Connection,
-    _include_co_change: bool,
+    include_events: bool,
 ) -> Result<Option<HistorySnapshot>> {
     if !history_state_present(conn)? {
         return Ok(None);
@@ -48,7 +48,7 @@ pub(super) fn load_history_snapshot(
     }
 
     let mut events = Vec::<LineageEvent>::new();
-    {
+    if include_events {
         let mut stmt = conn.prepare(
             "SELECT payload
              FROM history_events

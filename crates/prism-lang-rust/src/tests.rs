@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use prism_ir::{FileId, NodeKind};
-use prism_parser::{LanguageAdapter, ParseInput};
+use prism_parser::{LanguageAdapter, ParseDepth, ParseInput};
 
 use crate::RustAdapter;
 
@@ -14,6 +14,7 @@ fn parses_top_level_function_and_call() {
         package_root: Path::new("/workspace"),
         path: Path::new("/workspace/src/lib.rs"),
         file_id: FileId(1),
+        parse_depth: ParseDepth::Deep,
         source: "fn alpha() { beta(); }\nfn beta() {}\n",
     };
 
@@ -41,6 +42,7 @@ fn parses_impls_nested_modules_and_fields() {
         package_root: Path::new("/workspace"),
         path: Path::new("/workspace/src/lib.rs"),
         file_id: FileId(1),
+        parse_depth: ParseDepth::Deep,
         source: r#"
 struct Config {
     value: usize,
@@ -100,6 +102,7 @@ fn collects_imports_and_trait_references() {
         package_root: Path::new("/workspace"),
         path: Path::new("/workspace/src/lib.rs"),
         file_id: FileId(1),
+        parse_depth: ParseDepth::Deep,
         source: r#"
 use crate::net::Client;
 use self::models::{User as AppUser, Account};
@@ -129,4 +132,25 @@ impl Runner for Job {}
         .unresolved_impls
         .iter()
         .any(|implementation| implementation.target == "demo::Runner"));
+}
+
+#[test]
+fn shallow_parse_skips_body_derived_calls() {
+    let adapter = RustAdapter;
+    let input = ParseInput {
+        package_name: "demo",
+        crate_name: "demo",
+        package_root: Path::new("/workspace"),
+        path: Path::new("/workspace/src/lib.rs"),
+        file_id: FileId(1),
+        parse_depth: ParseDepth::Shallow,
+        source: "fn alpha() { beta(); }\nfn beta() {}\n",
+    };
+
+    let result = adapter.parse(&input).unwrap();
+    assert!(result
+        .nodes
+        .iter()
+        .any(|node| node.kind == NodeKind::Function && node.id.path == "demo::alpha"));
+    assert!(result.unresolved_calls.is_empty());
 }

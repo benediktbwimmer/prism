@@ -61,7 +61,8 @@ fn current_schema_sql() -> &'static str {
         CREATE TABLE IF NOT EXISTS file_records (
             path TEXT PRIMARY KEY,
             file_id INTEGER NOT NULL,
-            hash INTEGER NOT NULL
+            hash INTEGER NOT NULL,
+            parse_depth INTEGER NOT NULL DEFAULT 1
         );
 
         CREATE TABLE IF NOT EXISTS file_nodes (

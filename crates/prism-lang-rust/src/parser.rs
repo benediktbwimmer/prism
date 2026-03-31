@@ -517,6 +517,9 @@ fn parse_function(
     let Some(body) = node.child_by_field_name("body") else {
         return;
     };
+    if !input.parse_depth.is_deep() {
+        return;
+    }
     for (call, span) in extract_calls(body, source) {
         result.unresolved_calls.push(UnresolvedCall {
             caller: id.clone(),

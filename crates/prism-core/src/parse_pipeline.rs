@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use anyhow::{anyhow, Result};
 use prism_ir::{FileId, Language};
-use prism_parser::{LanguageAdapter, ParseInput, ParseResult};
+use prism_parser::{LanguageAdapter, ParseDepth, ParseInput, ParseResult};
 
 use crate::layout::PackageInfo;
 use crate::PendingFileParse;
@@ -15,6 +15,7 @@ pub(crate) struct PreparedParseJob {
     pub(crate) package: PackageInfo,
     pub(crate) adapter_index: usize,
     pub(crate) language: Language,
+    pub(crate) parse_depth: ParseDepth,
 }
 
 #[derive(Debug)]
@@ -23,6 +24,7 @@ pub(crate) struct ParsedParseJob {
     pub(crate) package: PackageInfo,
     pub(crate) parsed: ParseResult,
     pub(crate) language: Language,
+    pub(crate) parse_depth: ParseDepth,
     pub(crate) parse_ms: u128,
 }
 
@@ -107,6 +109,7 @@ fn parse_job_chunk(
             package_root: &job.package.root,
             path: &job.pending.path,
             file_id: job.file_id,
+            parse_depth: job.parse_depth,
             source: &job.pending.source,
         };
         let parse_started = Instant::now();
@@ -116,6 +119,7 @@ fn parse_job_chunk(
             package: job.package,
             parsed,
             language: job.language,
+            parse_depth: job.parse_depth,
             parse_ms: parse_started.elapsed().as_millis(),
         });
     }
@@ -132,7 +136,7 @@ mod tests {
 
     use anyhow::Result;
     use prism_ir::{FileId, Language};
-    use prism_parser::{LanguageAdapter, ParseInput, ParseResult};
+    use prism_parser::{LanguageAdapter, ParseDepth, ParseInput, ParseResult};
 
     use super::{parse_jobs_in_parallel, PreparedParseJob};
     use crate::layout::PackageInfo;
@@ -187,6 +191,7 @@ mod tests {
                 package: package.clone(),
                 adapter_index: 0,
                 language: Language::Rust,
+                parse_depth: ParseDepth::Deep,
             })
             .collect::<Vec<_>>();
 

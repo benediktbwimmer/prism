@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
@@ -18,6 +18,7 @@ use prism_memory::OutcomeMemory;
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEvent, MemoryEventQuery, OutcomeEvent, TaskReplay,
 };
+use prism_parser::ParseDepth;
 use prism_projections::{
     concept_from_event, contract_from_event, validation_deltas_for_event, ConceptEvent,
     ConceptRelationEvent, ConceptRelationEventAction, ConceptScope, ContractEvent,
@@ -26,6 +27,7 @@ use prism_query::Prism;
 use prism_store::{AuxiliaryPersistBatch, SqliteStore, Store, WorkspaceTreeSnapshot};
 use serde_json::{json, Value};
 use std::time::{Duration, Instant};
+use tracing::info;
 
 pub use prism_store::SnapshotRevisions as WorkspaceSnapshotRevisions;
 
@@ -44,6 +46,7 @@ use crate::materialization::{
 use crate::memory_events::{
     append_repo_memory_event, filter_memory_events, load_repo_memory_events,
 };
+use crate::indexer::WorkspaceIndexer;
 use crate::mutation_trace;
 use crate::prism_doc::{sync_repo_prism_doc, PrismDocSyncResult};
 use crate::published_knowledge::{
@@ -62,7 +65,10 @@ use crate::validation_feedback::{
 };
 use crate::watch::{refresh_prism_snapshot, try_refresh_prism_snapshot, WatchHandle, WatchMessage};
 use crate::workspace_identity::coordination_persist_context_for_root;
-use crate::workspace_tree::{plan_full_refresh, WorkspaceRefreshDelta, WorkspaceRefreshMode};
+use crate::workspace_tree::{
+    plan_full_refresh, populate_package_regions, WorkspaceRefreshDelta, WorkspaceRefreshMode,
+    WorkspaceRefreshPlan,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FsRefreshStatus {
@@ -497,6 +503,90 @@ impl WorkspaceSession {
         summarize_workspace_materialization(self.root(), &snapshot, prism.graph())
     }
 
+    pub fn ensure_paths_deep<I>(&self, paths: I) -> Result<bool>
+    where
+        I: IntoIterator<Item = PathBuf>,
+    {
+        let started = Instant::now();
+        let _guard = self.lock_refresh_for_mutation("ensurePathsDeep");
+        let current_prism = self.prism_arc();
+        let deep_paths = paths
+            .into_iter()
+            .filter(|path| {
+                current_prism
+                    .graph()
+                    .file_record(path)
+                    .is_some_and(|record| record.parse_depth != ParseDepth::Deep)
+            })
+            .collect::<HashSet<_>>();
+        if deep_paths.is_empty() {
+            return Ok(false);
+        }
+
+        let cached_snapshot = self
+            .fs_snapshot
+            .lock()
+            .expect("workspace tree snapshot lock poisoned")
+            .clone();
+        let coordination_context = current_prism.coordination_context();
+        let mut indexer = WorkspaceIndexer::new_from_live_prism_with_options(
+            &self.root,
+            current_prism.as_ref(),
+            Some(cached_snapshot.clone()),
+            crate::WorkspaceSessionOptions {
+                coordination: self.coordination_enabled,
+                shared_runtime: self.shared_runtime.sqlite_path().map_or(
+                    SharedRuntimeBackend::Disabled,
+                    |path| SharedRuntimeBackend::Sqlite {
+                        path: path.to_path_buf(),
+                    },
+                ),
+                hydrate_persisted_projections: false,
+            },
+        )?;
+        let mut plan = WorkspaceRefreshPlan {
+            mode: WorkspaceRefreshMode::Incremental,
+            delta: WorkspaceRefreshDelta {
+                changed_files: deep_paths.iter().cloned().collect(),
+                ..WorkspaceRefreshDelta::default()
+            },
+            next_snapshot: cached_snapshot,
+        };
+        populate_package_regions(&mut plan.delta, &indexer.layout);
+        indexer.index_with_refresh_plan_and_deep_paths(
+            ChangeTrigger::ManualReindex,
+            &plan,
+            &deep_paths,
+        )?;
+
+        let local_workspace_revision = indexer.store.workspace_revision()?;
+        let workspace_revision = composite_workspace_revision(
+            local_workspace_revision,
+            indexer
+                .shared_runtime_store
+                .as_ref()
+                .map(SqliteStore::workspace_revision)
+                .transpose()?,
+        );
+        let next = Arc::new(indexer.into_prism());
+        next.set_workspace_revision(prism_ir::WorkspaceRevision {
+            graph_version: local_workspace_revision,
+            git_commit: None,
+        });
+        next.set_coordination_context(coordination_context);
+        *self.prism.write().expect("workspace prism lock poisoned") = next;
+        self.loaded_workspace_revision
+            .store(workspace_revision, Ordering::Relaxed);
+        info!(
+            root = %self.root.display(),
+            deepened_path_count = deep_paths.len(),
+            workspace_revision,
+            duration_ms = started.elapsed().as_millis(),
+            "deepened prism workspace files on demand"
+        );
+        Ok(true)
+    }
+
     pub fn persist_outcomes(&self) -> Result<()> {
         let _guard = self.lock_refresh_for_mutation("persistOutcomes");
         let prism = self.prism_arc();
@@ -685,6 +775,9 @@ impl WorkspaceSession {
         });
         prism.set_coordination_context(Some(coordination_persist_context_for_root(
             &self.root, None,
+        )));
+        prism.set_history_backend(Some(Arc::new(
+            crate::history_backend::StoreHistoryReadBackend::new(Arc::clone(&self.store)),
         )));
         prism.set_outcome_backend(Some(Arc::new(
             crate::outcome_backend::StoreOutcomeReadBackend::new(Arc::clone(&self.store)),

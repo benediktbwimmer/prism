@@ -8,7 +8,8 @@ use prism_ir::{
     EventMeta, FileId, GraphChange, Node, NodeId, NodeKind, ObservedChangeSet, ObservedNode,
 };
 use prism_parser::{
-    NodeFingerprint, UnresolvedCall, UnresolvedImpl, UnresolvedImport, UnresolvedIntent,
+    NodeFingerprint, ParseDepth, UnresolvedCall, UnresolvedImpl, UnresolvedImport,
+    UnresolvedIntent,
 };
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +19,7 @@ static NEXT_OBSERVED_EVENT_ID: AtomicU64 = AtomicU64::new(1);
 pub struct FileRecord {
     pub file_id: FileId,
     pub hash: u64,
+    pub parse_depth: ParseDepth,
     pub nodes: Vec<NodeId>,
     pub edges: Vec<Edge>,
     pub fingerprints: HashMap<NodeId, NodeFingerprint>,
@@ -143,6 +145,7 @@ impl Graph {
             None,
             path,
             hash,
+            ParseDepth::Deep,
             nodes,
             edges,
             fingerprints,
@@ -172,6 +175,7 @@ impl Graph {
             None,
             path,
             hash,
+            ParseDepth::Deep,
             nodes,
             edges,
             fingerprints,
@@ -190,6 +194,7 @@ impl Graph {
         previous_path: Option<&Path>,
         path: &Path,
         hash: u64,
+        parse_depth: ParseDepth,
         nodes: Vec<Node>,
         edges: Vec<Edge>,
         fingerprints: HashMap<NodeId, NodeFingerprint>,
@@ -203,6 +208,7 @@ impl Graph {
             previous_path,
             path,
             hash,
+            parse_depth,
             nodes,
             edges,
             fingerprints,
@@ -221,6 +227,7 @@ impl Graph {
         previous_path: Option<&Path>,
         path: &Path,
         hash: u64,
+        parse_depth: ParseDepth,
         nodes: Vec<Node>,
         edges: Vec<Edge>,
         fingerprints: HashMap<NodeId, NodeFingerprint>,
@@ -236,6 +243,7 @@ impl Graph {
             previous_path,
             path,
             hash,
+            parse_depth,
             nodes,
             edges,
             fingerprints,
@@ -255,6 +263,7 @@ impl Graph {
         previous_path: Option<&Path>,
         path: &Path,
         hash: u64,
+        parse_depth: ParseDepth,
         nodes: Vec<Node>,
         edges: Vec<Edge>,
         fingerprints: HashMap<NodeId, NodeFingerprint>,
@@ -270,6 +279,7 @@ impl Graph {
             previous_path,
             path,
             hash,
+            parse_depth,
             nodes,
             edges,
             fingerprints,
@@ -289,6 +299,7 @@ impl Graph {
         previous_path: Option<&Path>,
         path: &Path,
         hash: u64,
+        parse_depth: ParseDepth,
         nodes: Vec<Node>,
         edges: Vec<Edge>,
         fingerprints: HashMap<NodeId, NodeFingerprint>,
@@ -341,6 +352,7 @@ impl Graph {
             FileRecord {
                 file_id,
                 hash,
+                parse_depth,
                 nodes: node_ids,
                 edges: record_edges,
                 fingerprints,
@@ -810,6 +822,7 @@ impl Graph {
         let empty_record = FileRecord {
             file_id,
             hash: 0,
+            parse_depth: ParseDepth::Deep,
             nodes: Vec::new(),
             edges: Vec::new(),
             fingerprints: HashMap::new(),

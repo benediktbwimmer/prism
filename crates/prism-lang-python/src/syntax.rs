@@ -22,6 +22,7 @@ pub(crate) fn extract_class_field_names(node: TsNode<'_>, source: &[u8]) -> Vec<
     fields.into_iter().collect()
 }
 
+#[allow(dead_code)]
 pub(crate) fn extract_self_field_names(node: TsNode<'_>, source: &[u8]) -> Vec<(String, Span)> {
     let mut fields = BTreeMap::new();
     collect_self_field_assignments(node, source, &mut fields);
@@ -79,6 +80,7 @@ fn collect_class_field_targets(
     }
 }
 
+#[allow(dead_code)]
 fn collect_self_field_assignments(
     node: TsNode<'_>,
     source: &[u8],
@@ -100,6 +102,7 @@ fn collect_self_field_assignments(
     }
 }
 
+#[allow(dead_code)]
 fn collect_self_field_targets(
     node: TsNode<'_>,
     source: &[u8],

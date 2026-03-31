@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Instant;
 
 use prism_js::{QueryDiagnostic, QueryLogEntryView, QueryPhaseView, QueryTraceView};
@@ -33,10 +35,12 @@ pub(crate) struct QueryRun {
     pub(crate) started: Instant,
     pub(crate) session_id: String,
     pub(crate) task_id: Option<String>,
-    workspace: Option<std::sync::Arc<prism_core::WorkspaceSession>>,
-    view_name: std::sync::Arc<std::sync::Mutex<Option<String>>>,
-    dashboard: std::sync::Arc<DashboardState>,
-    phases: std::sync::Arc<std::sync::Mutex<Vec<QueryPhaseView>>>,
+    mcp_call_log_store: Arc<McpCallLogStore>,
+    workspace: Option<Arc<prism_core::WorkspaceSession>>,
+    view_name: Arc<std::sync::Mutex<Option<String>>>,
+    dashboard: Arc<DashboardState>,
+    phases: Arc<std::sync::Mutex<Vec<QueryPhaseView>>>,
+    finalized: Arc<AtomicBool>,
 }
 
 #[derive(Debug, Clone)]
@@ -68,10 +72,12 @@ impl QueryHost {
             started: Instant::now(),
             session_id: session.session_id().0.to_string(),
             task_id: session.current_task().map(|task| task.0.to_string()),
+            mcp_call_log_store: Arc::clone(&self.mcp_call_log_store),
             workspace: self.workspace.as_ref().map(std::sync::Arc::clone),
-            view_name: std::sync::Arc::new(std::sync::Mutex::new(None)),
-            dashboard: std::sync::Arc::clone(&self.dashboard_state),
-            phases: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
+            view_name: Arc::new(std::sync::Mutex::new(None)),
+            dashboard: Arc::clone(&self.dashboard_state),
+            phases: Arc::new(std::sync::Mutex::new(Vec::new())),
+            finalized: Arc::new(AtomicBool::new(false)),
         };
         run.dashboard_start(self.dashboard_state.as_ref());
         run
@@ -178,6 +184,9 @@ impl QueryRun {
         json_bytes: usize,
         output_cap_hit: bool,
     ) {
+        if self.finalized.swap(true, Ordering::SeqCst) {
+            return;
+        }
         let mut phases = self
             .phases
             .lock()
@@ -270,6 +279,9 @@ impl QueryRun {
         diagnostics: Vec<QueryDiagnostic>,
         error: impl Into<String>,
     ) {
+        if self.finalized.swap(true, Ordering::SeqCst) {
+            return;
+        }
         let error = error.into();
         let mut phases = self
             .phases
@@ -353,6 +365,107 @@ impl QueryRun {
             }),
         };
         let _ = store.push(record);
+        emit_compact_query_timing(&query_entry, &phases);
+        self.dashboard_finish(self.dashboard.as_ref(), &query_entry);
+    }
+}
+
+impl Drop for QueryRun {
+    fn drop(&mut self) {
+        if Arc::strong_count(&self.phases) != 1 {
+            return;
+        }
+        if self.finalized.swap(true, Ordering::SeqCst) {
+            return;
+        }
+
+        let mut phases = self
+            .phases
+            .lock()
+            .expect("query log phases lock poisoned")
+            .clone();
+        let view_name = self.view_name();
+        let mut started_at = self.started_at;
+        let mut duration_ms = crate::mcp_call_log::duration_to_ms(self.started.elapsed());
+        let error = "request dropped before query completed".to_string();
+        let mut metadata = json!({
+            "tool": self.tool_name,
+            "queryKind": self.kind,
+            "queryText": self.query_text,
+            "lifecycle": {
+                "state": "dropped",
+                "finalized": false,
+            },
+        });
+        if let Some(view_name) = view_name.clone() {
+            metadata["queryViewName"] = Value::String(view_name.clone());
+        }
+        crate::request_envelope::apply_current_request_envelope(
+            &mut phases,
+            &mut started_at,
+            &mut duration_ms,
+            &mut metadata,
+        );
+        crate::slow_call_snapshot::attach_slow_call_snapshot(
+            &mut metadata,
+            duration_ms,
+            self.dashboard.as_ref(),
+            self.workspace.as_deref(),
+        );
+        let query_entry = QueryLogEntryView {
+            id: self.id.clone(),
+            kind: self.kind.clone(),
+            view_name: view_name.clone(),
+            query_summary: self.query_summary.clone(),
+            query_text: self.query_text.clone(),
+            started_at,
+            duration_ms,
+            session_id: self.session_id.clone(),
+            task_id: self.task_id.clone(),
+            success: false,
+            error: Some(error.clone()),
+            operations: unique_operations(&phases),
+            touched: unique_touches(&phases),
+            diagnostics: Vec::new(),
+            result: query_result_summary(None, 0, false, &[]),
+        };
+        let mut request_value = json!({
+            "tool": self.tool_name,
+            "queryKind": self.kind,
+            "queryText": self.query_text,
+        });
+        if let Some(view_name) = view_name {
+            request_value["queryViewName"] = Value::String(view_name);
+        }
+        let record = PersistedMcpCallRecord {
+            entry: new_log_entry(
+                self.mcp_call_log_store.runtime(),
+                "tool",
+                &self.tool_name,
+                query_entry.view_name.clone(),
+                self.query_summary.clone(),
+                self.started_at,
+                query_entry.duration_ms,
+                Some(self.session_id.clone()),
+                self.task_id.clone(),
+                false,
+                Some(error.clone()),
+                query_entry.operations.clone(),
+                query_entry.touched.clone(),
+                Vec::new(),
+                payload_summary(Some(&request_value)),
+                payload_summary(None),
+            ),
+            phases: phases.clone(),
+            request_preview: preview_value(&request_value),
+            response_preview: None,
+            metadata,
+            query_compat: Some(QueryTraceView {
+                entry: query_entry.clone(),
+                phases: phases.clone(),
+            }),
+        };
+        let _ = self.mcp_call_log_store.push(record);
         emit_compact_query_timing(&query_entry, &phases);
         self.dashboard_finish(self.dashboard.as_ref(), &query_entry);
     }

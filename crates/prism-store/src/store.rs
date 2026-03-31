@@ -98,7 +98,7 @@ pub trait Store {
     fn load_history_snapshot(&mut self) -> Result<Option<HistorySnapshot>>;
     fn load_history_snapshot_with_options(
         &mut self,
-        _include_co_change: bool,
+        _include_events: bool,
     ) -> Result<Option<HistorySnapshot>> {
         self.load_history_snapshot()
     }

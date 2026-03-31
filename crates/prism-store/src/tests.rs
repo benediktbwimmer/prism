@@ -13,6 +13,7 @@ use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryId, MemoryKind, MemorySource, OutcomeMemorySnapshot,
     OutcomeRecallQuery,
 };
+use prism_parser::ParseDepth;
 use prism_projections::{
     CoChangeDelta, CoChangeRecord, ConceptProvenance, ConceptRelation, ConceptRelationKind,
     ConceptScope, ProjectionSnapshot, ValidationCheck, ValidationDelta,
@@ -189,6 +190,7 @@ fn deferred_file_updates_rebuild_indexes_once_at_batch_end() {
         None,
         alpha_path,
         1,
+        ParseDepth::Deep,
         vec![node("alpha")],
         Vec::new(),
         HashMap::new(),
@@ -204,6 +206,7 @@ fn deferred_file_updates_rebuild_indexes_once_at_batch_end() {
         None,
         beta_path,
         2,
+        ParseDepth::Deep,
         vec![node("beta")],
         Vec::new(),
         HashMap::new(),

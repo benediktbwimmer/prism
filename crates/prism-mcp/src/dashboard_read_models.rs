@@ -187,13 +187,6 @@ impl QueryHost {
         })
     }
 
-    pub(crate) fn publish_dashboard_task_update(&self, session: &SessionState) -> Result<()> {
-        let snapshot = self.dashboard_task_snapshot(Some(session))?;
-        self.dashboard_state()
-            .publish_value("task.updated", serde_json::to_value(snapshot)?);
-        Ok(())
-    }
-
     pub(crate) fn publish_dashboard_coordination_update(&self) -> Result<()> {
         let summary = self.dashboard_coordination_summary()?;
         self.dashboard_state()

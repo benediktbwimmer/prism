@@ -5736,6 +5736,82 @@ pub fn compact_open() {
 }
 
 #[test]
+fn compact_open_deepens_shallow_semantic_files_on_first_touch() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::create_dir_all(root.join("src")).unwrap();
+    for index in 0..64 {
+        fs::write(
+            root.join(format!("src/helper_{index}.rs")),
+            format!("pub fn helper_{index}() -> usize {{ {index} }}\n"),
+        )
+        .unwrap();
+    }
+    let target_path = root.join("src/lib.rs");
+    fs::write(
+        &target_path,
+        "pub fn alpha() {\n    beta();\n}\n\nfn beta() {}\n",
+    )
+    .unwrap();
+    let target_path = fs::canonicalize(target_path).unwrap();
+
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    let initial_record = host
+        .current_prism()
+        .graph()
+        .file_record(&target_path)
+        .expect("lib file should be indexed")
+        .clone();
+    assert!(initial_record.unresolved_calls.is_empty());
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "alpha".to_string(),
+                path: Some("src/lib.rs".to_string()),
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                limit: Some(1),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+
+    let open = host
+        .compact_open(
+            Arc::clone(&session),
+            PrismOpenArgs {
+                handle: Some(locate.candidates[0].handle.clone()),
+                path: None,
+                mode: Some(PrismOpenModeInput::Focus),
+                line: None,
+                before_lines: None,
+                after_lines: None,
+                max_chars: None,
+            },
+        )
+        .expect("open should succeed");
+    assert!(open.text.contains("pub fn alpha()"));
+
+    let deepened_prism = host.current_prism();
+    let deepened_record = deepened_prism
+        .graph()
+        .file_record(&target_path)
+        .expect("lib file should remain indexed");
+    assert!(deepened_record
+        .unresolved_calls
+        .iter()
+        .any(|call| call.caller.path == "demo::alpha" && call.name == "beta"));
+}
+
+#[test]
 fn compact_open_edit_returns_enough_body_context_to_start_editing() {
     let root = temp_workspace();
     fs::write(
@@ -10600,12 +10676,92 @@ fn mutation_trace_records_internal_phases_for_persisted_only_mutations() {
     assert!(operations.contains(&"mutation.operation"));
     assert!(operations.contains(&"mutation.encodeResult"));
     assert!(operations.contains(&"mutation.publishTaskUpdate"));
+    assert!(operations.contains(&"mutation.publishTaskUpdate.buildSnapshot"));
+    assert!(operations.contains(&"mutation.publishTaskUpdate.encode"));
+    assert!(operations.contains(&"mutation.publishTaskUpdate.publishEvent"));
     assert!(trace
         .phases
         .iter()
         .find(|phase| phase.operation == "mutation.refreshWorkspace")
         .and_then(|phase| phase.args_summary.as_ref())
         .is_some_and(|args| args["refreshPath"] != Value::String("skipped".to_string())));
+}
+
+#[test]
+fn dropped_query_run_persists_aborted_call_record() {
+    let host = host_with_node(demo_node());
+    let session = test_session(&host);
+
+    {
+        let query_run = host.begin_query_run(
+            session.as_ref(),
+            "prism_query",
+            "typescript",
+            "return { ok: true };",
+        );
+        query_run.record_phase(
+            "typescript.statement_body.prepare",
+            &json!({ "mode": "statement_body" }),
+            Duration::from_millis(3),
+            true,
+            None,
+        );
+    }
+
+    let records = host.mcp_call_log_store.records();
+    let record = records
+        .iter()
+        .find(|record| record.entry.call_type == "tool" && record.entry.name == "prism_query")
+        .expect("dropped query record should exist");
+    assert!(!record.entry.success);
+    assert_eq!(
+        record.entry.error.as_deref(),
+        Some("request dropped before query completed")
+    );
+    let operations = record
+        .phases
+        .iter()
+        .map(|phase| phase.operation.as_str())
+        .collect::<Vec<_>>();
+    assert!(operations.contains(&"typescript.statement_body.prepare"));
+}
+
+#[test]
+fn dropped_mutation_run_persists_aborted_call_record() {
+    let host = host_with_node(demo_node());
+    let session = test_session(&host);
+
+    {
+        let run = host.begin_mutation_run(session.as_ref(), "session.finish_task");
+        run.record_phase(
+            "mutation.operation",
+            &json!({ "action": "session.finish_task" }),
+            Duration::from_millis(4),
+            false,
+            Some("request dropped before mutation completed".to_string()),
+        );
+    }
+
+    let records = host.mcp_call_log_store.records();
+    let record = records
+        .iter()
+        .find(|record| record.entry.call_type == "tool" && record.entry.name == "prism_session")
+        .expect("dropped mutation record should exist");
+    assert!(!record.entry.success);
+    assert_eq!(
+        record.entry.error.as_deref(),
+        Some("request dropped before mutation completed")
+    );
+    let detail = host
+        .dashboard_operation_detail("mutation:1")
+        .expect("mutation detail should exist");
+    let crate::dashboard_types::DashboardOperationDetailView::Mutation { trace } = detail else {
+        panic!("expected mutation trace");
+    };
+    assert_eq!(
+        trace.entry.error.as_deref(),
+        Some("request dropped before mutation completed")
+    );
 }
 
 #[test]
@@ -14403,6 +14559,191 @@ fn runtime_status_reports_workspace_materialization_depth_and_coverage() {
     assert_eq!(boundary.provenance, "workspace_walk");
     assert_eq!(boundary.materialization_state, "out_of_scope");
     assert_eq!(boundary.scope_state, "out_of_scope");
+}
+
+#[test]
+fn runtime_status_reports_projection_and_overlay_scopes() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn validation_recipe() {}
+pub fn runtime_status() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+
+    host.store_concept(
+        session.as_ref(),
+        PrismConceptMutationArgs {
+            operation: ConceptMutationOperationInput::Promote,
+            handle: Some("concept://repo_runtime_scope".to_string()),
+            canonical_name: Some("repo_runtime_scope".to_string()),
+            summary: Some("Published runtime scope concept.".to_string()),
+            aliases: Some(vec!["runtime scope".to_string()]),
+            core_members: Some(vec![
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::validation_recipe".to_string(),
+                    kind: "function".to_string(),
+                },
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::runtime_status".to_string(),
+                    kind: "function".to_string(),
+                },
+            ]),
+            supporting_members: None,
+            likely_tests: None,
+            evidence: Some(vec!["Published for runtime scope reporting.".to_string()]),
+            risk_hint: None,
+            confidence: Some(0.93),
+            decode_lenses: Some(vec![PrismConceptLensInput::Open]),
+            scope: Some(ConceptScopeInput::Repo),
+            supersedes: None,
+            retirement_reason: None,
+            task_id: Some("task:repo-runtime-scope".to_string()),
+        },
+    )
+    .unwrap();
+    host.store_concept(
+        session.as_ref(),
+        PrismConceptMutationArgs {
+            operation: ConceptMutationOperationInput::Promote,
+            handle: Some("concept://session_runtime_scope".to_string()),
+            canonical_name: Some("session_runtime_scope".to_string()),
+            summary: Some("Session runtime scope concept.".to_string()),
+            aliases: Some(vec!["session runtime".to_string()]),
+            core_members: Some(vec![
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::validation_recipe".to_string(),
+                    kind: "function".to_string(),
+                },
+                NodeIdInput {
+                    crate_name: "demo".to_string(),
+                    path: "demo::runtime_status".to_string(),
+                    kind: "function".to_string(),
+                },
+            ]),
+            supporting_members: None,
+            likely_tests: None,
+            evidence: Some(vec!["Persisted for session scope reporting.".to_string()]),
+            risk_hint: None,
+            confidence: Some(0.86),
+            decode_lenses: Some(vec![PrismConceptLensInput::Validation]),
+            scope: Some(ConceptScopeInput::Session),
+            supersedes: None,
+            retirement_reason: None,
+            task_id: Some("task:session-runtime-scope".to_string()),
+        },
+    )
+    .unwrap();
+    host.store_concept(
+        session.as_ref(),
+        PrismConceptMutationArgs {
+            operation: ConceptMutationOperationInput::Promote,
+            handle: Some("concept://local_runtime_scope".to_string()),
+            canonical_name: Some("local_runtime_scope".to_string()),
+            summary: Some("Worktree runtime scope concept.".to_string()),
+            aliases: Some(vec!["local runtime".to_string()]),
+            core_members: Some(vec![NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::validation_recipe".to_string(),
+                kind: "function".to_string(),
+            }]),
+            supporting_members: None,
+            likely_tests: None,
+            evidence: Some(vec!["Retained only for the current worktree.".to_string()]),
+            risk_hint: None,
+            confidence: Some(0.6),
+            decode_lenses: Some(vec![PrismConceptLensInput::Open]),
+            scope: Some(ConceptScopeInput::Local),
+            supersedes: None,
+            retirement_reason: None,
+            task_id: Some("task:local-runtime-scope".to_string()),
+        },
+    )
+    .unwrap();
+
+    let plan = host
+        .store_coordination(
+            session.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Track scoped runtime overlays" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    host.store_coordination(
+        session.as_ref(),
+        PrismCoordinationArgs {
+            kind: CoordinationMutationKindInput::TaskCreate,
+            payload: json!({
+                "planId": plan.state["id"].as_str().unwrap(),
+                "title": "Inspect runtime scope overlays",
+                "anchors": [{
+                    "type": "node",
+                    "crateName": "demo",
+                    "path": "demo::runtime_status",
+                    "kind": "function"
+                }]
+            }),
+            task_id: None,
+        },
+    )
+    .unwrap();
+
+    let status =
+        crate::runtime_views::runtime_status(&host).expect("runtime status should succeed");
+    let repo_projection = status
+        .scopes
+        .projections
+        .iter()
+        .find(|scope| scope.scope == "repo")
+        .expect("repo projection scope should exist");
+    let worktree_projection = status
+        .scopes
+        .projections
+        .iter()
+        .find(|scope| scope.scope == "worktree")
+        .expect("worktree projection scope should exist");
+    let session_projection = status
+        .scopes
+        .projections
+        .iter()
+        .find(|scope| scope.scope == "session")
+        .expect("session projection scope should exist");
+    assert_eq!(repo_projection.concept_count, 1);
+    assert_eq!(worktree_projection.concept_count, 1);
+    assert_eq!(session_projection.concept_count, 1);
+    assert!(worktree_projection.co_change_lineage_count > 0);
+
+    let repo_overlay = status
+        .scopes
+        .overlays
+        .iter()
+        .find(|scope| scope.scope == "repo")
+        .expect("repo overlay scope should exist");
+    let worktree_overlay = status
+        .scopes
+        .overlays
+        .iter()
+        .find(|scope| scope.scope == "worktree")
+        .expect("worktree overlay scope should exist");
+    let session_overlay = status
+        .scopes
+        .overlays
+        .iter()
+        .find(|scope| scope.scope == "session")
+        .expect("session overlay scope should exist");
+    assert_eq!(repo_overlay.plan_count, 1);
+    assert!(repo_overlay.plan_node_count > 0);
+    assert_eq!(worktree_overlay.overlay_count, 1);
+    assert_eq!(session_overlay.overlay_count, 1);
 }
 
 #[test]

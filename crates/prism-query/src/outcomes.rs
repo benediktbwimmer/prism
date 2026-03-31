@@ -6,10 +6,16 @@ use prism_memory::{OutcomeEvent, OutcomeKind, OutcomeRecallQuery, OutcomeResult,
 use crate::Prism;
 
 impl Prism {
+    pub fn query_hot_outcomes(&self, query: &OutcomeRecallQuery) -> Vec<OutcomeEvent> {
+        let mut expanded = query.clone();
+        expanded.anchors = self.expand_anchors(&query.anchors);
+        self.outcomes.query_events(&expanded)
+    }
+
     pub fn query_outcomes(&self, query: &OutcomeRecallQuery) -> Vec<OutcomeEvent> {
         let mut expanded = query.clone();
         expanded.anchors = self.expand_anchors(&query.anchors);
-        let hot = self.outcomes.query_events(&expanded);
+        let hot = self.query_hot_outcomes(query);
         let cold = self
             .outcome_backend
             .read()

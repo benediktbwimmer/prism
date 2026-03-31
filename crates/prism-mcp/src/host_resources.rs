@@ -13,10 +13,10 @@ use crate::{
     compact_owner_candidate_excerpts, contract_packet_view,
     contracts_resource_view_link_with_options, dedupe_resource_link_views, derive_task_metadata,
     discovery_bundle_view, edge_resource_uri, edge_resource_view_link, event_resource_view_link,
-    file_resource_view_link, inferred_edge_record_view, lineage_event_view,
-    lineage_resource_view_link, lineage_status, memory_entry_view, memory_event_view,
-    memory_resource_uri, memory_resource_view_link, owner_views_for_query, paginate_items,
-    parse_resource_page, parse_resource_query_param, plans_resource_view_link,
+    file_resource_view_link, inferred_edge_record_view, instructions_resource_view_link,
+    lineage_event_view, lineage_resource_view_link, lineage_status, memory_entry_view,
+    memory_event_view, memory_resource_uri, memory_resource_view_link, owner_views_for_query,
+    paginate_items, parse_resource_page, parse_resource_query_param, plans_resource_view_link,
     plans_resource_view_link_with_options, resource_link_view, resource_schema_catalog_entries,
     schema_resource_uri, schema_resource_view_link, schemas_resource_uri,
     schemas_resource_view_link, search_ambiguity_from_diagnostics,
@@ -156,6 +156,7 @@ impl QueryHost {
             let schema_uri = schema_resource_uri("session");
             let session = self.session_view_without_refresh(session);
             let mut related_resources = vec![
+                instructions_resource_view_link(),
                 capabilities_resource_view_link(),
                 session_resource_view_link(),
                 vocab_resource_view_link(),

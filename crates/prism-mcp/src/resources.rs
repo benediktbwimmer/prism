@@ -16,8 +16,8 @@ use crate::{
     schema_examples, ResourceLinkView, ResourcePageView, ResourceSchemaCatalogEntry,
     CAPABILITIES_URI, CONTRACTS_RESOURCE_TEMPLATE_URI, CONTRACTS_URI, EDGE_RESOURCE_TEMPLATE_URI,
     ENTRYPOINTS_RESOURCE_TEMPLATE_URI, EVENT_RESOURCE_TEMPLATE_URI, FILE_RESOURCE_TEMPLATE_URI,
-    LINEAGE_RESOURCE_TEMPLATE_URI, MEMORY_RESOURCE_TEMPLATE_URI, PLANS_RESOURCE_TEMPLATE_URI,
-    PLANS_URI, SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI,
+    INSTRUCTIONS_URI, LINEAGE_RESOURCE_TEMPLATE_URI, MEMORY_RESOURCE_TEMPLATE_URI,
+    PLANS_RESOURCE_TEMPLATE_URI, PLANS_URI, SCHEMAS_URI, SEARCH_RESOURCE_TEMPLATE_URI, SESSION_URI,
     SYMBOL_RESOURCE_TEMPLATE_URI, TASK_RESOURCE_TEMPLATE_URI, TOOL_SCHEMAS_URI, VOCAB_URI,
 };
 
@@ -588,6 +588,12 @@ pub(crate) fn session_resource_link() -> RawResource {
         ))
 }
 
+pub(crate) fn instructions_resource_link() -> RawResource {
+    RawResource::new(instructions_resource_uri(), "PRISM Instructions")
+        .with_description("Canonical agent workflow guidance for PRISM MCP clients")
+        .with_mime_type("text/markdown")
+}
+
 pub(crate) fn capabilities_resource_link() -> RawResource {
     RawResource::new(capabilities_resource_uri(), "PRISM Capabilities")
         .with_description(
@@ -686,6 +692,14 @@ pub(crate) fn schemas_resource_view_link() -> ResourceLinkView {
     )
 }
 
+pub(crate) fn instructions_resource_view_link() -> ResourceLinkView {
+    resource_link_view(
+        instructions_resource_uri(),
+        "PRISM Instructions",
+        "Canonical agent workflow guidance for PRISM MCP clients",
+    )
+}
+
 pub(crate) fn capabilities_resource_view_link() -> ResourceLinkView {
     resource_link_view(
         capabilities_resource_uri(),
@@ -751,6 +765,10 @@ pub(crate) fn session_resource_view_link() -> ResourceLinkView {
         "PRISM Session",
         "Active workspace root, current task context, and runtime query limits",
     )
+}
+
+pub(crate) fn instructions_resource_uri() -> String {
+    INSTRUCTIONS_URI.to_string()
 }
 
 pub(crate) fn plans_resource_view_link_with_options(

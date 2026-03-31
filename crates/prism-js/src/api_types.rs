@@ -558,6 +558,33 @@ pub struct RuntimeMaterializationView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct RuntimeProjectionScopeView {
+    pub scope: String,
+    pub concept_count: usize,
+    pub relation_count: usize,
+    pub contract_count: usize,
+    pub co_change_lineage_count: usize,
+    pub validation_lineage_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeOverlayScopeView {
+    pub scope: String,
+    pub plan_count: usize,
+    pub plan_node_count: usize,
+    pub overlay_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeScopesView {
+    pub projections: Vec<RuntimeProjectionScopeView>,
+    pub overlays: Vec<RuntimeOverlayScopeView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct RuntimeFreshnessView {
     pub fs_observed_revision: u64,
     pub fs_applied_revision: u64,
@@ -593,6 +620,7 @@ pub struct RuntimeStatusView {
     pub orphan_bridge_count: usize,
     pub processes: Vec<RuntimeProcessView>,
     pub process_error: Option<String>,
+    pub scopes: RuntimeScopesView,
     pub freshness: RuntimeFreshnessView,
 }
 

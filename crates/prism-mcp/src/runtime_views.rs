@@ -8,10 +8,12 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
+use prism_coordination::{execution_overlays_from_tasks, snapshot_plan_graphs};
 use prism_js::{
     ConnectionInfoView, RuntimeBoundaryRegionView, RuntimeFreshnessView, RuntimeHealthView,
     RuntimeLogEventView, RuntimeMaterializationCoverageView, RuntimeMaterializationItemView,
-    RuntimeMaterializationView, RuntimeProcessView, RuntimeStatusView,
+    RuntimeMaterializationView, RuntimeOverlayScopeView, RuntimeProcessView,
+    RuntimeProjectionScopeView, RuntimeScopesView, RuntimeStatusView,
 };
 use serde::Deserialize;
 use serde_json::{Map, Value};
@@ -123,6 +125,7 @@ pub(crate) fn runtime_status(host: &QueryHost) -> Result<RuntimeStatusView> {
             .map(|process| runtime_process_view(process, &connected_bridge_pids))
             .collect(),
         process_error,
+        scopes: runtime_scopes(host)?,
         freshness: runtime_freshness(host, runtime_state.as_ref())?,
     })
 }
@@ -291,6 +294,115 @@ fn runtime_freshness(
         .to_string(),
         error: None,
     })
+}
+
+fn runtime_scopes(host: &QueryHost) -> Result<RuntimeScopesView> {
+    let prism = host.current_prism();
+    let projection_snapshot = prism.projection_snapshot();
+    let concepts = prism.curated_concepts_snapshot();
+    let relations = prism.concept_relations_snapshot();
+    let contracts = prism.curated_contracts();
+
+    let projections = vec![
+        RuntimeProjectionScopeView {
+            scope: "repo".to_string(),
+            concept_count: concepts
+                .iter()
+                .filter(|concept| scope_label(&concept.scope) == "repo")
+                .count(),
+            relation_count: relations
+                .iter()
+                .filter(|relation| scope_label(&relation.scope) == "repo")
+                .count(),
+            contract_count: contracts
+                .iter()
+                .filter(|contract| scope_label(&contract.scope) == "repo")
+                .count(),
+            co_change_lineage_count: 0,
+            validation_lineage_count: 0,
+        },
+        RuntimeProjectionScopeView {
+            scope: "worktree".to_string(),
+            concept_count: concepts
+                .iter()
+                .filter(|concept| scope_label(&concept.scope) == "local")
+                .count(),
+            relation_count: relations
+                .iter()
+                .filter(|relation| scope_label(&relation.scope) == "local")
+                .count(),
+            contract_count: contracts
+                .iter()
+                .filter(|contract| scope_label(&contract.scope) == "local")
+                .count(),
+            co_change_lineage_count: projection_snapshot.co_change_by_lineage.len(),
+            validation_lineage_count: projection_snapshot.validation_by_lineage.len(),
+        },
+        RuntimeProjectionScopeView {
+            scope: "session".to_string(),
+            concept_count: concepts
+                .iter()
+                .filter(|concept| scope_label(&concept.scope) == "session")
+                .count(),
+            relation_count: relations
+                .iter()
+                .filter(|relation| scope_label(&relation.scope) == "session")
+                .count(),
+            contract_count: contracts
+                .iter()
+                .filter(|contract| scope_label(&contract.scope) == "session")
+                .count(),
+            co_change_lineage_count: 0,
+            validation_lineage_count: 0,
+        },
+    ];
+    let coordination = prism.coordination_snapshot();
+    let overlays = overlay_scope_views(&coordination);
+
+    Ok(RuntimeScopesView {
+        projections,
+        overlays,
+    })
+}
+
+fn overlay_scope_views(
+    snapshot: &prism_coordination::CoordinationSnapshot,
+) -> Vec<RuntimeOverlayScopeView> {
+    let plan_graphs = snapshot_plan_graphs(snapshot);
+    let overlays = execution_overlays_from_tasks(&snapshot.tasks);
+    vec![
+        RuntimeOverlayScopeView {
+            scope: "repo".to_string(),
+            plan_count: plan_graphs.len(),
+            plan_node_count: plan_graphs.iter().map(|graph| graph.nodes.len()).sum(),
+            overlay_count: 0,
+        },
+        RuntimeOverlayScopeView {
+            scope: "worktree".to_string(),
+            plan_count: 0,
+            plan_node_count: 0,
+            overlay_count: overlays
+                .iter()
+                .filter(|overlay| overlay.worktree_id.is_some() || overlay.branch_ref.is_some())
+                .count(),
+        },
+        RuntimeOverlayScopeView {
+            scope: "session".to_string(),
+            plan_count: 0,
+            plan_node_count: 0,
+            overlay_count: overlays
+                .iter()
+                .filter(|overlay| overlay.session.is_some())
+                .count(),
+        },
+    ]
+}
+
+fn scope_label<T: serde::Serialize>(scope: &T) -> String {
+    serde_json::to_value(scope)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_string))
+        .unwrap_or_else(|| "unknown".to_string())
 }
 
 fn materialization_item(

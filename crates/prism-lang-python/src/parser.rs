@@ -15,8 +15,8 @@ use crate::paths::{
     simplify_symbol, split_relative_module_spec,
 };
 use crate::syntax::{
-    extract_calls, extract_class_field_names, extract_self_field_names, kind_label, node_name,
-    node_span, node_text, push_contains_edge, push_fingerprinted_node,
+    extract_calls, extract_class_field_names, kind_label, node_name, node_span, node_text,
+    push_contains_edge, push_fingerprinted_node,
 };
 
 pub struct PythonAdapter;
@@ -361,6 +361,9 @@ fn parse_function(
     let Some(body) = node.child_by_field_name("body") else {
         return;
     };
+    if !input.parse_depth.is_deep() {
+        return;
+    }
     for (call, span) in extract_calls(body, source) {
         result.unresolved_calls.push(UnresolvedCall {
             caller: id.clone(),
@@ -368,13 +371,6 @@ fn parse_function(
             span,
             module_path: SmolStr::new(scope.module_path.clone()),
         });
-    }
-
-    let mut seen_fields = HashSet::<String>::new();
-    for (field_name, span) in extract_self_field_names(body, source) {
-        if seen_fields.insert(field_name.clone()) {
-            push_field_node_if_missing(&field_name, span, scope, input, source, result);
-        }
     }
 }
 

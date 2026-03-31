@@ -25,13 +25,14 @@ use prism_memory::{
     MemoryKind, MemoryModule, MemoryScope, MemorySource, OutcomeEvent, OutcomeEvidence,
     OutcomeKind, OutcomeRecallQuery, OutcomeResult, SessionMemory,
 };
+use prism_parser::ParseDepth;
 use prism_projections::ProjectionSnapshot;
 use prism_query::{
     ConceptDecodeLens, ConceptEvent, ConceptEventAction, ConceptEventPatch, ConceptPacket,
     ConceptProvenance, ConceptPublication, ConceptPublicationStatus, ConceptRelation,
     ConceptRelationEvent, ConceptRelationEventAction, ConceptRelationKind, ConceptScope,
     ContractCompatibility, ContractEvent, ContractEventAction, ContractGuarantee, ContractKind,
-    ContractPacket, ContractStatus, ContractTarget, Prism,
+    ContractPacket, ContractStatus, ContractTarget, OutcomeReadBackend, Prism,
 };
 use prism_store::{Graph, MemoryStore, SqliteStore, Store};
 use serde_json::json;
@@ -1032,6 +1033,63 @@ fn reload_bounds_hot_outcomes_but_queries_cold_outcomes_from_store() {
     assert!(failures
         .iter()
         .any(|event| event.meta.id == EventId::new("outcome:cold:0")));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn reload_queries_cold_lineage_history_from_store() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::alpha")
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+    let lineage = session
+        .prism()
+        .lineage_of(&alpha)
+        .expect("alpha should have a lineage");
+
+    let mut persisted_history = session.prism().history_snapshot();
+    let persisted_event = LineageEvent {
+        meta: EventMeta {
+            id: EventId::new("event:lineage:cold"),
+            ts: 11,
+            actor: EventActor::Agent,
+            correlation: None,
+            causation: None,
+        },
+        lineage: lineage.clone(),
+        kind: prism_ir::LineageEventKind::Updated,
+        before: vec![alpha.clone()],
+        after: vec![alpha.clone()],
+        confidence: 0.9,
+        evidence: vec![prism_ir::LineageEvidence::ExactNodeId],
+    };
+    persisted_history.events = vec![persisted_event.clone()];
+    session
+        .store
+        .lock()
+        .unwrap()
+        .save_history_snapshot(&persisted_history)
+        .unwrap();
+    drop(session);
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let events = reloaded.prism().lineage_history(&lineage);
+    assert_eq!(events, vec![persisted_event]);
 
     let _ = fs::remove_dir_all(root);
 }
@@ -3654,6 +3712,97 @@ fn index_with_scope_refreshes_only_dirty_paths_and_removals() {
 }
 
 #[test]
+fn full_reindex_of_large_repo_defaults_to_shallow_parse_depth() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    for index in 0..64 {
+        fs::write(
+            root.join(format!("src/helper_{index}.rs")),
+            format!("pub fn helper_{index}() -> usize {{ {index} }}\n"),
+        )
+        .unwrap();
+    }
+    let target_path = root.join("src/lib.rs");
+    fs::write(
+        &target_path,
+        "pub fn alpha() {\n    beta();\n}\n\nfn beta() {}\n",
+    )
+    .unwrap();
+    let target_path = fs::canonicalize(target_path).unwrap();
+
+    let mut indexer = WorkspaceIndexer::with_store(&root, MemoryStore::default()).unwrap();
+    indexer.index().unwrap();
+
+    let tracked_files = indexer.graph().tracked_files();
+    let record = indexer
+        .graph()
+        .file_record(&target_path)
+        .unwrap_or_else(|| panic!("lib file should be indexed; tracked={tracked_files:?}"));
+    assert_eq!(record.parse_depth, ParseDepth::Shallow);
+    assert!(record.unresolved_calls.is_empty());
+    assert!(indexer
+        .graph()
+        .nodes_by_name("alpha")
+        .iter()
+        .any(|node| node.id.path.ends_with("::alpha")));
+}
+
+#[test]
+fn workspace_session_can_deepen_unchanged_shallow_file_on_demand() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    for index in 0..64 {
+        fs::write(
+            root.join(format!("src/helper_{index}.rs")),
+            format!("pub fn helper_{index}() -> usize {{ {index} }}\n"),
+        )
+        .unwrap();
+    }
+    let target_path = root.join("src/lib.rs");
+    fs::write(
+        &target_path,
+        "pub fn alpha() {\n    beta();\n}\n\nfn beta() {}\n",
+    )
+    .unwrap();
+    let target_path = fs::canonicalize(target_path).unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let initial = session.prism();
+    let tracked_files = initial.graph().tracked_files();
+    let initial_record = initial
+        .graph()
+        .file_record(&target_path)
+        .unwrap_or_else(|| panic!("lib file should be indexed; tracked={tracked_files:?}"));
+    assert_eq!(initial_record.parse_depth, ParseDepth::Shallow);
+    assert!(initial_record.unresolved_calls.is_empty());
+
+    assert!(session
+        .ensure_paths_deep([target_path.clone()])
+        .expect("deepening should succeed"));
+
+    let refreshed = session.prism();
+    let refreshed_record = refreshed
+        .graph()
+        .file_record(&target_path)
+        .expect("deepened file should remain indexed");
+    assert_eq!(refreshed_record.parse_depth, ParseDepth::Deep);
+    assert!(refreshed_record
+        .unresolved_calls
+        .iter()
+        .any(|call| call.caller.path.ends_with("::alpha") && call.name == "beta"));
+}
+
+#[test]
 fn refresh_invalidation_scope_preserves_monotonic_scope_expansion() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -3797,6 +3946,77 @@ fn curator_context_loads_lineage_history_from_store_when_hot_history_is_empty() 
     .unwrap();
 
     assert_eq!(context.lineage.events, vec![persisted_event]);
+}
+
+struct PanicOutcomeBackend;
+
+impl OutcomeReadBackend for PanicOutcomeBackend {
+    fn query_outcomes(&self, _query: &OutcomeRecallQuery) -> anyhow::Result<Vec<OutcomeEvent>> {
+        panic!("curator context should not re-enter the cold outcome backend while holding the store lock");
+    }
+
+    fn load_outcome_event(&self, _event_id: &EventId) -> anyhow::Result<Option<OutcomeEvent>> {
+        panic!("curator context should not load outcome events through the cold outcome backend");
+    }
+
+    fn load_task_replay(&self, _task_id: &TaskId) -> anyhow::Result<prism_memory::TaskReplay> {
+        panic!("curator context should not load task replay through the cold outcome backend");
+    }
+}
+
+#[test]
+fn curator_context_loads_outcomes_from_locked_store_without_backend_reentry() {
+    let root = temp_workspace();
+    let cache_path = root.join(".prism").join("cache.db");
+    let mut store = SqliteStore::open(&cache_path).unwrap();
+
+    let node = prism_ir::Node {
+        id: NodeId::new("demo", "demo::alpha", NodeKind::Function),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: prism_ir::FileId(1),
+        span: prism_ir::Span::new(1, 3),
+        language: prism_ir::Language::Rust,
+    };
+    let mut graph = Graph::default();
+    graph.nodes.insert(node.id.clone(), node.clone());
+
+    let mut hot_history = prism_history::HistoryStore::new();
+    hot_history.seed_nodes([node.id.clone()]);
+
+    let persisted_event = OutcomeEvent {
+        meta: EventMeta {
+            id: EventId::new("outcome:curator-store"),
+            ts: 12,
+            actor: EventActor::Agent,
+            correlation: None,
+            causation: None,
+        },
+        anchors: vec![AnchorRef::Node(node.id.clone())],
+        kind: OutcomeKind::FixValidated,
+        result: OutcomeResult::Success,
+        summary: "persisted outcome".into(),
+        evidence: Vec::new(),
+        metadata: serde_json::Value::Null,
+    };
+    store
+        .save_outcome_snapshot(&prism_memory::OutcomeMemorySnapshot {
+            events: vec![persisted_event.clone()],
+        })
+        .unwrap();
+
+    let prism = Prism::with_history(graph, hot_history);
+    prism.set_outcome_backend(Some(Arc::new(PanicOutcomeBackend)));
+
+    let context = build_curator_context(
+        &prism,
+        &mut store,
+        &[AnchorRef::Node(node.id.clone())],
+        &CuratorBudget::default(),
+    )
+    .unwrap();
+
+    assert_eq!(context.outcomes, vec![persisted_event]);
 }
 
 #[test]

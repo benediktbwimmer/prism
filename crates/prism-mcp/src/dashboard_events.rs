@@ -65,6 +65,7 @@ pub(crate) struct MutationRun {
     session_id: String,
     task_id: Option<String>,
     phases: Arc<Mutex<Vec<QueryPhaseView>>>,
+    finalized: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -221,6 +222,7 @@ impl QueryHost {
             session_id: session.session_id().0.to_string(),
             task_id: session.current_task().map(|task| task.0.to_string()),
             phases: Arc::new(Mutex::new(Vec::new())),
+            finalized: false,
         };
         let active = ActiveOperationView {
             id: run.id.clone(),
@@ -319,12 +321,13 @@ impl MutationRun {
     }
 
     pub(crate) fn finish_success(
-        self,
+        mut self,
         task_id: Option<String>,
         result_ids: Vec<String>,
         violation_count: usize,
         result: serde_json::Value,
     ) {
+        self.finalized = true;
         let mut phases = self
             .phases
             .lock()
@@ -406,7 +409,8 @@ impl MutationRun {
             .publish_value("mutation.finished", json!(entry));
     }
 
-    pub(crate) fn finish_error(self, error: impl Into<String>) {
+    pub(crate) fn finish_error(mut self, error: impl Into<String>) {
+        self.finalized = true;
         let mut phases = self
             .phases
             .lock()
@@ -500,6 +504,95 @@ impl MutationRun {
         self.dashboard.upsert_active(active.clone());
         self.dashboard
             .publish_value("mutation.phase", json!(active));
+    }
+}
+
+impl Drop for MutationRun {
+    fn drop(&mut self) {
+        if self.finalized {
+            return;
+        }
+
+        let mut phases = self
+            .phases
+            .lock()
+            .expect("mutation log phases lock poisoned")
+            .clone();
+        let mut started_at = self.started_at;
+        let mut duration_ms = self.started.elapsed().as_millis() as u64;
+        let error = "request dropped before mutation completed".to_string();
+        let mut metadata = json!({
+            "tool": self.tool_name,
+            "action": self.action,
+            "lifecycle": {
+                "state": "dropped",
+                "finalized": false,
+            },
+        });
+        crate::request_envelope::apply_current_request_envelope(
+            &mut phases,
+            &mut started_at,
+            &mut duration_ms,
+            &mut metadata,
+        );
+        crate::slow_call_snapshot::attach_slow_call_snapshot(
+            &mut metadata,
+            duration_ms,
+            self.dashboard.as_ref(),
+            self.workspace.as_deref(),
+        );
+        let entry = MutationLogEntryView {
+            id: self.id.clone(),
+            action: self.action.clone(),
+            started_at,
+            duration_ms,
+            session_id: self.session_id.clone(),
+            task_id: self.task_id.clone(),
+            success: false,
+            error: Some(error.clone()),
+            result_ids: Vec::new(),
+            violation_count: 0,
+        };
+        let record = PersistedMcpCallRecord {
+            entry: new_log_entry(
+                self.mcp_call_log_store.runtime(),
+                "tool",
+                &self.tool_name,
+                None,
+                self.action.clone(),
+                self.started_at,
+                entry.duration_ms,
+                Some(self.session_id.clone()),
+                entry.task_id.clone(),
+                false,
+                entry.error.clone(),
+                unique_operations(&phases),
+                unique_touches(&phases),
+                Vec::new(),
+                payload_summary(Some(&json!({
+                    "tool": self.tool_name,
+                    "action": self.action,
+                }))),
+                payload_summary(None),
+            ),
+            phases: phases.clone(),
+            request_preview: Some(json!({
+                "tool": self.tool_name,
+                "action": self.action,
+            })),
+            response_preview: None,
+            metadata,
+            query_compat: None,
+        };
+        let _ = self.mcp_call_log_store.push(record);
+        self.dashboard.remove_active(&self.id);
+        self.dashboard.push_mutation(MutationTraceRecord {
+            entry: entry.clone(),
+            phases,
+            result: serde_json::Value::Null,
+        });
+        self.dashboard
+            .publish_value("mutation.finished", json!(entry));
     }
 }
 

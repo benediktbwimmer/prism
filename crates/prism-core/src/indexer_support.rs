@@ -18,6 +18,7 @@ use prism_store::{Graph, SqliteStore, WorkspaceTreeSnapshot};
 use tracing::info;
 
 use crate::curator::{CuratorHandle, CuratorHandleRef};
+use crate::history_backend::StoreHistoryReadBackend;
 use crate::indexer::PendingFileParse;
 use crate::outcome_backend::StoreOutcomeReadBackend;
 use crate::resolution::{resolve_calls, resolve_impls, resolve_imports, resolve_intents};
@@ -74,6 +75,9 @@ pub(crate) fn build_workspace_session(
         git_commit: None,
     });
     prism.set_coordination_context(Some(coordination_persist_context_for_root(&root, None)));
+    prism.set_history_backend(Some(Arc::new(StoreHistoryReadBackend::new(Arc::clone(
+        &store,
+    )))));
     prism.set_outcome_backend(Some(Arc::new(StoreOutcomeReadBackend::new(Arc::clone(
         &store,
     )))));

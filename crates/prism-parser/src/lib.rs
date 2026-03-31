@@ -9,6 +9,19 @@ use serde::{Deserialize, Serialize};
 
 pub use prism_ir::{UnresolvedCall, UnresolvedImpl, UnresolvedImport, UnresolvedIntent};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum ParseDepth {
+    Shallow,
+    #[default]
+    Deep,
+}
+
+impl ParseDepth {
+    pub fn is_deep(self) -> bool {
+        matches!(self, Self::Deep)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ParseInput<'a> {
     pub package_name: &'a str,
@@ -16,6 +29,7 @@ pub struct ParseInput<'a> {
     pub package_root: &'a Path,
     pub path: &'a Path,
     pub file_id: FileId,
+    pub parse_depth: ParseDepth,
     pub source: &'a str,
 }
 

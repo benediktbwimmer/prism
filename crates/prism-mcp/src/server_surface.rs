@@ -320,16 +320,84 @@ impl PrismMcpServer {
                 };
                 if meta.publish_task_update {
                     let publish_started = Instant::now();
-                    let _ = self
+                    match self
                         .host
-                        .publish_dashboard_task_update(self.session.as_ref());
-                    run.record_phase(
-                        "mutation.publishTaskUpdate",
-                        &json!({ "action": action }),
-                        publish_started.elapsed(),
-                        true,
-                        None,
-                    );
+                        .dashboard_task_snapshot(Some(self.session.as_ref()))
+                    {
+                        Ok(snapshot) => {
+                            run.record_phase(
+                                "mutation.publishTaskUpdate.buildSnapshot",
+                                &json!({ "action": action }),
+                                publish_started.elapsed(),
+                                true,
+                                None,
+                            );
+                            let encode_started = Instant::now();
+                            match serde_json::to_value(&snapshot) {
+                                Ok(snapshot_json) => {
+                                    run.record_phase(
+                                        "mutation.publishTaskUpdate.encode",
+                                        &json!({ "action": action }),
+                                        encode_started.elapsed(),
+                                        true,
+                                        None,
+                                    );
+                                    let event_started = Instant::now();
+                                    self.host
+                                        .dashboard_state()
+                                        .publish_value("task.updated", snapshot_json);
+                                    run.record_phase(
+                                        "mutation.publishTaskUpdate.publishEvent",
+                                        &json!({ "action": action }),
+                                        event_started.elapsed(),
+                                        true,
+                                        None,
+                                    );
+                                    run.record_phase(
+                                        "mutation.publishTaskUpdate",
+                                        &json!({ "action": action }),
+                                        publish_started.elapsed(),
+                                        true,
+                                        None,
+                                    );
+                                }
+                                Err(error) => {
+                                    let message = error.to_string();
+                                    run.record_phase(
+                                        "mutation.publishTaskUpdate.encode",
+                                        &json!({ "action": action }),
+                                        encode_started.elapsed(),
+                                        false,
+                                        Some(message.clone()),
+                                    );
+                                    run.record_phase(
+                                        "mutation.publishTaskUpdate",
+                                        &json!({ "action": action }),
+                                        publish_started.elapsed(),
+                                        false,
+                                        Some(message),
+                                    );
+                                }
+                            }
+                        }
+                        Err(error) => {
+                            let message = error.to_string();
+                            run.record_phase(
+                                "mutation.publishTaskUpdate.buildSnapshot",
+                                &json!({ "action": action }),
+                                publish_started.elapsed(),
+                                false,
+                                Some(message.clone()),
+                            );
+                            run.record_phase(
+                                "mutation.publishTaskUpdate",
+                                &json!({ "action": action }),
+                                publish_started.elapsed(),
+                                false,
+                                Some(message),
+                            );
+                        }
+                    }
                 }
                 if meta.publish_coordination_update {
                     let publish_started = Instant::now();
@@ -1579,6 +1647,9 @@ impl ServerHandler for PrismMcpServer {
         let started = Instant::now();
         let result = ListResourcesResult {
             resources: vec![
+                instructions_resource_link()
+                    .with_title("PRISM Instructions")
+                    .no_annotation(),
                 RawResource::new(API_REFERENCE_URI, "PRISM API Reference")
                     .with_description(
                         "TypeScript query surface, d.ts-style contract, and usage recipes",
@@ -1693,7 +1764,10 @@ impl ServerHandler for PrismMcpServer {
         let (contents_result, resource_trace) =
             crate::resource_trace::ResourceTraceState::scope(async {
                 (|| -> Result<ResourceContents, McpError> {
-                    Ok(if base_uri == API_REFERENCE_URI {
+                    Ok(if base_uri == INSTRUCTIONS_URI {
+                        ResourceContents::text(self.server_instructions(), request.uri.clone())
+                            .with_mime_type("text/markdown")
+                    } else if base_uri == API_REFERENCE_URI {
                         ResourceContents::text(
                             self.host.api_reference_markdown(),
                             request.uri.clone(),
@@ -2172,12 +2246,12 @@ impl ServerHandler for PrismMcpServer {
 
 impl PrismMcpServer {
     fn server_instructions(&self) -> String {
-        let mut instructions = String::from(
-            "Start with prism://capabilities for the canonical map of tools, query methods, resources, feature gates, and build info, then inspect prism://vocab for canonical enums and mutation/action vocabularies before using prism://api-reference and prism://schemas for the typed query contract and JSON Schema catalog. Use prism://tool-schemas and prism://schema/tool/{toolName} when you need exact MCP tool input shapes, and prefer prism.tool(\"...\") or the tool schema resources for action-specific examples. Prefer the compact staged path for default agent work: prism_locate to pick a target, prism_open to inspect a bounded slice, prism_workset for compact surrounding context, prism_expand for explicit depth, and prism_query only when the compact path cannot express the needed read. Use prism://session to inspect the active workspace, task, runtime limits, and active feature flags, prism://plans for browseable plan discovery, prism_session to change task context or limits, prism://entrypoints for a quick workspace overview, prism://search/{query} for browseable search results, prism://symbol/{crateName}/{kind}/{path} for exact symbol snapshots, prism://lineage/{lineageId} for symbol history, prism://task/{taskId} for recorded task outcomes, and prism://event/{eventId}, prism://memory/{memoryId}, and prism://edge/{edgeId} for mutation outputs. Follow each resource payload's schemaUri and relatedResources fields instead of reconstructing URIs by convention. Use prism_mutate for outcomes, anchored memory, validation feedback, inferred edges, coordination state, claims, artifacts, and curator proposal decisions.",
-        );
+        let mut instructions = crate::AGENT_INSTRUCTIONS_MARKDOWN.trim_end().to_string();
 
         if self.host.features.mode_label() != "full" {
-            instructions.push_str(" Coordination features are gated on this server; check prism://session before using plan, claim, or artifact workflows.");
+            instructions.push_str(
+                "\n\nCoordination features are gated on this server; check `prism://session` before using plan, claim, or artifact workflows.",
+            );
         }
 
         instructions

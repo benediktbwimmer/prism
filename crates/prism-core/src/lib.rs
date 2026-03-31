@@ -4,6 +4,7 @@ mod contract_events;
 mod coordination_persistence;
 mod curator;
 mod curator_support;
+mod history_backend;
 mod indexer;
 mod indexer_support;
 mod invalidation;

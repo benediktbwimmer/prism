@@ -38,7 +38,7 @@ use prism_ir::{
     PlanExecutionOverlay, PlanGraph,
 };
 use prism_memory::OutcomeMemory;
-use prism_parser::{LanguageAdapter, ParseResult};
+use prism_parser::{LanguageAdapter, ParseDepth, ParseResult};
 use prism_projections::{
     co_change_deltas_for_events, CoChangeDelta, ProjectionIndex, ValidationDelta,
     MAX_CO_CHANGE_LINEAGES_PER_CHANGESET,
@@ -48,6 +48,7 @@ use prism_store::{Graph, IndexPersistBatch, SqliteStore, Store, WorkspaceTreeSna
 use tracing::{info, warn};
 
 const SLOW_FILE_PHASE_THRESHOLD_MS: u128 = 200;
+const SMALL_REPO_DEEP_PARSE_FILE_LIMIT: usize = 64;
 
 fn distinct_lineage_count(events: &[LineageEvent]) -> usize {
     let mut lineages = events
@@ -415,7 +416,7 @@ impl<S: Store> WorkspaceIndexer<S> {
     }
 
     pub fn index_with_changes(&mut self) -> Result<Vec<prism_ir::GraphChange>> {
-        let (_, changes) = self.index_impl(ChangeTrigger::ManualReindex, None, None)?;
+        let (_, changes) = self.index_impl(ChangeTrigger::ManualReindex, None, None, None)?;
         Ok(changes)
     }
 
@@ -424,7 +425,7 @@ impl<S: Store> WorkspaceIndexer<S> {
     }
 
     pub fn index_with_trigger(&mut self, trigger: ChangeTrigger) -> Result<Vec<ObservedChangeSet>> {
-        let (observed, _) = self.index_impl(trigger, None, None)?;
+        let (observed, _) = self.index_impl(trigger, None, None, None)?;
         Ok(observed)
     }
 
@@ -440,7 +441,13 @@ impl<S: Store> WorkspaceIndexer<S> {
         let cached_snapshot = self.workspace_tree_snapshot.clone().unwrap_or_default();
         let mut plan = plan_incremental_refresh(&self.root, &cached_snapshot, &dirty_paths)?;
         populate_package_regions(&mut plan.delta, &self.layout);
-        let (observed, _) = self.index_impl(trigger, Some(&plan), Some(&plan.next_snapshot))?;
+        let deep_paths = dirty_paths.into_iter().collect::<HashSet<_>>();
+        let (observed, _) = self.index_impl(
+            trigger,
+            Some(&plan),
+            Some(&plan.next_snapshot),
+            Some(&deep_paths),
+        )?;
         Ok(observed)
     }
 
@@ -449,7 +456,22 @@ impl<S: Store> WorkspaceIndexer<S> {
         trigger: ChangeTrigger,
         plan: &WorkspaceRefreshPlan,
     ) -> Result<Vec<ObservedChangeSet>> {
-        let (observed, _) = self.index_impl(trigger, Some(plan), Some(&plan.next_snapshot))?;
+        let (observed, _) = self.index_impl(trigger, Some(plan), Some(&plan.next_snapshot), None)?;
+        Ok(observed)
+    }
+
+    pub(crate) fn index_with_refresh_plan_and_deep_paths(
+        &mut self,
+        trigger: ChangeTrigger,
+        plan: &WorkspaceRefreshPlan,
+        deep_paths: &HashSet<PathBuf>,
+    ) -> Result<Vec<ObservedChangeSet>> {
+        let (observed, _) = self.index_impl(
+            trigger,
+            Some(plan),
+            Some(&plan.next_snapshot),
+            Some(deep_paths),
+        )?;
         Ok(observed)
     }
 
@@ -458,6 +480,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         trigger: ChangeTrigger,
         refresh_plan: Option<&WorkspaceRefreshPlan>,
         next_tree_snapshot: Option<&WorkspaceTreeSnapshot>,
+        forced_deep_paths: Option<&HashSet<PathBuf>>,
     ) -> Result<(Vec<ObservedChangeSet>, Vec<prism_ir::GraphChange>)> {
         let started = Instant::now();
         info!(
@@ -486,6 +509,10 @@ impl<S: Store> WorkspaceIndexer<S> {
             collect_pending_file_parses(&walk_root, &self.adapters, refresh_scope.as_ref())?;
         let collect_pending_ms = collect_pending_started.elapsed().as_millis();
         let targeted_refresh = refresh_scope.is_some();
+        let workspace_file_count = next_tree_snapshot
+            .map(|snapshot| snapshot.files.len())
+            .or_else(|| self.workspace_tree_snapshot.as_ref().map(|snapshot| snapshot.files.len()))
+            .unwrap_or(seen_files.len());
         let refresh_scope_path_count = invalidation_scope
             .as_ref()
             .map_or(0, |scope| scope.direct_paths.len());
@@ -523,11 +550,20 @@ impl<S: Store> WorkspaceIndexer<S> {
         let mut unsupported_pending = Vec::new();
 
         for pending_file in pending {
+            let desired_parse_depth = desired_parse_depth(
+                &pending_file.path,
+                targeted_refresh,
+                workspace_file_count,
+                forced_deep_paths,
+            );
             if pending_file.previous_path.is_none()
                 && self
                     .graph
                     .file_record(&pending_file.path)
-                    .map(|record| record.hash == pending_file.hash)
+                    .map(|record| {
+                        record.hash == pending_file.hash
+                            && record.parse_depth == desired_parse_depth
+                    })
                     .unwrap_or(false)
             {
                 skipped_unchanged_count += 1;
@@ -551,6 +587,7 @@ impl<S: Store> WorkspaceIndexer<S> {
                     package,
                     adapter_index,
                     language: adapter.language(),
+                    parse_depth: desired_parse_depth,
                 });
             } else {
                 unsupported_pending.push(pending_file);
@@ -572,6 +609,7 @@ impl<S: Store> WorkspaceIndexer<S> {
                 previous_path,
                 &parsed_job.pending.path,
                 parsed_job.pending.hash,
+                parsed_job.parse_depth,
                 &parsed_job.package,
                 parsed_job.parsed,
                 trigger.clone(),
@@ -644,6 +682,12 @@ impl<S: Store> WorkspaceIndexer<S> {
                 previous_path,
                 &pending_file.path,
                 pending_file.hash,
+                desired_parse_depth(
+                    &pending_file.path,
+                    targeted_refresh,
+                    workspace_file_count,
+                    forced_deep_paths,
+                ),
                 trigger.clone(),
             );
             self.apply_file_update(
@@ -918,6 +962,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         previous_path: Option<&Path>,
         path: &Path,
         hash: u64,
+        parse_depth: ParseDepth,
         package: &PackageInfo,
         parsed: ParseResult,
         trigger: ChangeTrigger,
@@ -955,6 +1000,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             previous_path,
             path,
             hash,
+            parse_depth,
             parsed.nodes,
             edges,
             parsed.fingerprints,
@@ -973,12 +1019,14 @@ impl<S: Store> WorkspaceIndexer<S> {
         previous_path: Option<&Path>,
         path: &Path,
         hash: u64,
+        parse_depth: ParseDepth,
         trigger: ChangeTrigger,
     ) -> prism_store::FileUpdate {
         self.graph.upsert_file_from_with_observed_without_rebuild(
             previous_path,
             path,
             hash,
+            parse_depth,
             Vec::new(),
             Vec::new(),
             HashMap::new(),
@@ -1026,5 +1074,20 @@ impl<S: Store> WorkspaceIndexer<S> {
         changes.extend(update.changes);
         upserted_paths.push(path.to_path_buf());
         Ok(())
+    }
+}
+
+fn desired_parse_depth(
+    path: &Path,
+    targeted_refresh: bool,
+    workspace_file_count: usize,
+    forced_deep_paths: Option<&HashSet<PathBuf>>,
+) -> ParseDepth {
+    if forced_deep_paths.is_some_and(|paths| paths.contains(path)) {
+        ParseDepth::Deep
+    } else if targeted_refresh || workspace_file_count <= SMALL_REPO_DEEP_PARSE_FILE_LIMIT {
+        ParseDepth::Deep
+    } else {
+        ParseDepth::Shallow
     }
 }

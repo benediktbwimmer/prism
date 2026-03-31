@@ -24,6 +24,10 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         initialize["result"]["protocolVersion"],
         ProtocolVersion::LATEST.as_str()
     );
+    assert!(initialize["result"]["instructions"]
+        .as_str()
+        .expect("initialize should include instructions")
+        .contains("PRISM MCP Agent Instructions"));
     assert!(initialize["result"]["capabilities"]["tools"].is_object());
     assert!(initialize["result"]["capabilities"]["resources"].is_object());
 
@@ -97,14 +101,16 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
 
     client.send(list_resources_request(3)).await.unwrap();
     let resources = response_json(client.receive().await.unwrap());
-    assert_eq!(
-        resources["result"]["resources"][0]["uri"],
-        API_REFERENCE_URI
-    );
+    assert_eq!(resources["result"]["resources"][0]["uri"], INSTRUCTIONS_URI);
     assert_eq!(
         resources["result"]["resources"][0]["name"],
-        "PRISM API Reference"
+        "PRISM Instructions"
     );
+    assert!(resources["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == API_REFERENCE_URI));
     assert!(resources["result"]["resources"]
         .as_array()
         .unwrap()
@@ -112,7 +118,23 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .any(|resource| resource["uri"] == CAPABILITIES_URI));
 
     client
-        .send(read_resource_request(4, API_REFERENCE_URI))
+        .send(read_resource_request(4, INSTRUCTIONS_URI))
+        .await
+        .unwrap();
+    let instructions = response_json(client.receive().await.unwrap());
+    let instructions_text = instructions["result"]["contents"][0]["text"]
+        .as_str()
+        .expect("instructions resource should be text");
+    assert_eq!(
+        instructions_text,
+        initialize["result"]["instructions"]
+            .as_str()
+            .expect("initialize instructions should be text")
+    );
+    assert!(instructions_text.contains("`prism://session`"));
+
+    client
+        .send(read_resource_request(5, API_REFERENCE_URI))
         .await
         .unwrap();
     let resource = response_json(client.receive().await.unwrap());
@@ -129,7 +151,7 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
     assert!(!api_reference.contains("queryLog(options?: QueryLogOptions): QueryLogEntryView[];"));
 
     client
-        .send(read_resource_request(5, CAPABILITIES_URI))
+        .send(read_resource_request(6, CAPABILITIES_URI))
         .await
         .unwrap();
     let capabilities = response_json(client.receive().await.unwrap());
@@ -156,6 +178,11 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
         .iter()
         .any(|method| method["name"] == "runtimeStatus"));
     assert_eq!(capabilities_payload["features"]["internalDeveloper"], false);
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["uri"] == INSTRUCTIONS_URI));
     assert!(capabilities_payload["resources"]
         .as_array()
         .unwrap()
@@ -260,6 +287,7 @@ async fn mcp_server_lists_and_reads_tool_schema_resources() {
         .iter()
         .filter_map(|resource| resource["uri"].as_str())
         .collect::<Vec<_>>();
+    assert!(resource_uris.contains(&INSTRUCTIONS_URI));
     assert!(resource_uris.contains(&CAPABILITIES_URI));
     assert!(resource_uris.contains(&VOCAB_URI));
     assert!(resource_uris.contains(&TOOL_SCHEMAS_URI));
@@ -681,6 +709,12 @@ async fn schema_catalog_and_capabilities_surface_stable_examples() {
             .expect("capabilities should be text"),
     )
     .unwrap();
+    assert!(capabilities_payload["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|resource| resource["name"] == "PRISM Instructions"
+            && resource["exampleUri"] == "prism://instructions"));
     assert!(capabilities_payload["resources"]
         .as_array()
         .unwrap()

@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::Result;
+use prism_parser::ParseDepth;
 use rusqlite::{params, CachedStatement, Connection, OptionalExtension, Transaction};
 use tracing::info;
 
@@ -13,6 +14,28 @@ use super::codecs::{
     deserialize_fingerprint, encode_edge_kind, encode_edge_origin, encode_language,
     encode_node_kind,
 };
+
+pub(super) fn ensure_file_record_parse_depth_column(conn: &mut Connection) -> Result<()> {
+    let has_parse_depth = {
+        let mut stmt = conn.prepare("PRAGMA table_info(file_records)")?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(1))?;
+        let mut has_parse_depth = false;
+        for row in rows {
+            if row?.as_str() == "parse_depth" {
+                has_parse_depth = true;
+                break;
+            }
+        }
+        has_parse_depth
+    };
+    if !has_parse_depth {
+        conn.execute(
+            "ALTER TABLE file_records ADD COLUMN parse_depth INTEGER NOT NULL DEFAULT 1",
+            [],
+        )?;
+    }
+    Ok(())
+}
 
 pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
     let started = Instant::now();
@@ -64,21 +87,23 @@ pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
     let mut file_records = HashMap::<PathBuf, FileRecord>::new();
     {
         let mut stmt =
-            conn.prepare("SELECT path, file_id, hash FROM file_records ORDER BY path")?;
+            conn.prepare("SELECT path, file_id, hash, parse_depth FROM file_records ORDER BY path")?;
         let rows = stmt.query_map([], |row| {
             Ok((
                 PathBuf::from(row.get::<_, String>(0)?),
                 prism_ir::FileId(row.get::<_, u32>(1)?),
                 row.get::<_, i64>(2)? as u64,
+                decode_parse_depth(row.get(3)?),
             ))
         })?;
         for row in rows {
-            let (path, file_id, hash) = row?;
+            let (path, file_id, hash, parse_depth) = row?;
             file_records.insert(
                 path,
                 FileRecord {
                     file_id,
                     hash,
+                    parse_depth,
                     nodes: Vec::new(),
                     edges: Vec::new(),
                     fingerprints: HashMap::new(),
@@ -263,7 +288,7 @@ impl<'tx> FileStateWriter<'tx> {
             delete_unresolved_intents: tx
                 .prepare_cached("DELETE FROM unresolved_intents WHERE file_path = ?1")?,
             insert_file_record: tx.prepare_cached(
-                "INSERT INTO file_records(path, file_id, hash) VALUES (?1, ?2, ?3)",
+                "INSERT INTO file_records(path, file_id, hash, parse_depth) VALUES (?1, ?2, ?3, ?4)",
             )?,
             insert_node: tx.prepare_cached(
                 "INSERT INTO nodes(crate_name, path, kind, name, file_id, span_start, span_end, language)
@@ -348,7 +373,8 @@ impl<'tx> FileStateWriter<'tx> {
         self.insert_file_record.execute(params![
             file_path.as_ref(),
             state.record.file_id.0,
-            state.record.hash as i64
+            state.record.hash as i64,
+            encode_parse_depth(state.record.parse_depth),
         ])?;
 
         for node in &state.nodes {
@@ -452,6 +478,20 @@ impl<'tx> FileStateWriter<'tx> {
         }
 
         Ok(())
+    }
+}
+
+fn encode_parse_depth(depth: ParseDepth) -> i64 {
+    match depth {
+        ParseDepth::Shallow => 0,
+        ParseDepth::Deep => 1,
+    }
+}
+
+fn decode_parse_depth(value: i64) -> ParseDepth {
+    match value {
+        0 => ParseDepth::Shallow,
+        _ => ParseDepth::Deep,
     }
 }
 

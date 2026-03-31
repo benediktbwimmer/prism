@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use prism_js::AgentSuggestedActionView;
 
 use super::concept::compact_concept_selection;
@@ -155,6 +157,7 @@ fn compact_open_symbol_result(
         .file_path
         .clone()
         .ok_or_else(|| anyhow!("target `{}` has no workspace file path", target.id.path))?;
+    let _ = host.ensure_workspace_paths_deep([PathBuf::from(&file_path)])?;
     let base_next_action = compact_open_next_action(target);
 
     match mode {

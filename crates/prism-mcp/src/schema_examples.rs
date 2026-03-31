@@ -2,9 +2,10 @@ use serde_json::{json, Value};
 
 use crate::{
     capabilities_resource_uri, contracts_resource_uri_with_options, edge_resource_uri,
-    event_resource_uri, file_resource_uri_with_options, memory_resource_uri, plans_resource_uri,
-    schema_resource_uri, session_resource_uri, symbol_resource_uri_from_node_id, task_resource_uri,
-    tool_schema_resource_uri, vocab_resource_uri, API_REFERENCE_URI,
+    event_resource_uri, file_resource_uri_with_options, instructions_resource_uri,
+    memory_resource_uri, plans_resource_uri, schema_resource_uri, session_resource_uri,
+    symbol_resource_uri_from_node_id, task_resource_uri, tool_schema_resource_uri,
+    vocab_resource_uri, API_REFERENCE_URI,
 };
 use prism_ir::{EdgeKind, NodeId};
 
@@ -17,6 +18,7 @@ pub(crate) fn schema_examples(target_resource_kind: &str) -> Option<Vec<Value>> 
 
 pub(crate) fn resource_example_uri(resource_kind: &str) -> Option<String> {
     match resource_kind {
+        "instructions" => Some(instructions_resource_uri()),
         "capabilities" => Some(capabilities_resource_uri()),
         "schemas" => Some("prism://schemas".to_string()),
         "session" => Some(session_resource_uri()),
@@ -1483,6 +1485,11 @@ fn sample_limits() -> Value {
 
 fn sample_related_resources() -> Value {
     json!([
+        {
+            "uri": instructions_resource_uri(),
+            "name": "PRISM Instructions",
+            "description": "Canonical agent workflow guidance for PRISM MCP clients"
+        },
         {
             "uri": capabilities_resource_uri(),
             "name": "PRISM Capabilities",
