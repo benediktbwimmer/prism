@@ -229,12 +229,8 @@ impl QueryHost {
         task_id: &TaskId,
     ) -> crate::ResolvedTaskMetadata {
         let prism = self.current_prism();
-        let replay = crate::load_task_replay(
-            self.workspace_session_ref(),
-            prism.as_ref(),
-            task_id,
-        )
-        .unwrap_or_else(|_| prism.resume_task(task_id));
+        let replay = crate::load_task_replay(self.workspace_session_ref(), prism.as_ref(), task_id)
+            .unwrap_or_else(|_| prism.resume_task(task_id));
         derive_task_metadata(
             session.current_task_state().as_ref(),
             prism.as_ref(),
@@ -434,12 +430,7 @@ impl QueryHost {
                     .curated_contracts()
                     .into_iter()
                     .map(|packet| {
-                        contract_packet_view(
-                            prism.as_ref(),
-                            self.workspace_root(),
-                            packet,
-                            None,
-                        )
+                        contract_packet_view(prism.as_ref(), self.workspace_root(), packet, None)
                     })
                     .collect::<Vec<_>>()
             };
@@ -877,12 +868,9 @@ impl QueryHost {
         self.execute_traced_resource_read("task", uri, || {
             let schema_uri = schema_resource_uri("task");
             let prism = self.current_prism();
-            let replay = crate::load_task_replay(
-                self.workspace_session_ref(),
-                prism.as_ref(),
-                task_id,
-            )
-            .unwrap_or_else(|_| prism.resume_task(task_id));
+            let replay =
+                crate::load_task_replay(self.workspace_session_ref(), prism.as_ref(), task_id)
+                    .unwrap_or_else(|_| prism.resume_task(task_id));
             let journal = crate::task_journal_view_from_replay(
                 session,
                 prism.as_ref(),
@@ -912,11 +900,7 @@ impl QueryHost {
                     .map(|event| event_resource_view_link(event.meta.id.0.as_str())),
             );
             related_resources.extend(paged.items.iter().flat_map(|event| {
-                anchor_resource_view_links(
-                    prism.as_ref(),
-                    self.workspace_root(),
-                    &event.anchors,
-                )
+                anchor_resource_view_links(prism.as_ref(), self.workspace_root(), &event.anchors)
             }));
             Ok(TaskResourcePayload {
                 uri: uri.to_string(),

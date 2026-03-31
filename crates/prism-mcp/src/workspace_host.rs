@@ -4,7 +4,9 @@ use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex, OnceLock, Weak};
 
 use prism_agent::InferenceStore;
-use prism_core::runtime_engine::WorkspaceRuntimeContext;
+use prism_core::runtime_engine::{
+    WorkspacePublishedGeneration, WorkspaceRuntimeContext, WorkspaceRuntimeEngine,
+};
 use prism_core::WorkspaceSession;
 use prism_memory::SessionMemory;
 
@@ -28,6 +30,7 @@ pub(crate) struct WorkspaceRuntimeBinding {
     loaded_episodic_revision: Arc<AtomicU64>,
     loaded_inference_revision: Arc<AtomicU64>,
     loaded_coordination_revision: Arc<AtomicU64>,
+    engine: Arc<Mutex<WorkspaceRuntimeEngine>>,
     runtime: Arc<WorkspaceRuntime>,
 }
 
@@ -40,6 +43,7 @@ impl WorkspaceRuntimeBinding {
     ) -> Self {
         let context = WorkspaceRuntimeContext::from_root(workspace.root());
         let sync_lock = shared_workspace_runtime_sync_lock(context.root());
+        let engine = Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(context.clone())));
         let loaded_workspace_revision = workspace.loaded_workspace_revision_handle();
         let loaded_episodic_revision = Arc::new(AtomicU64::new(0));
         let loaded_inference_revision = Arc::new(AtomicU64::new(0));
@@ -54,6 +58,7 @@ impl WorkspaceRuntimeBinding {
             loaded_episodic_revision: Arc::clone(&loaded_episodic_revision),
             loaded_inference_revision: Arc::clone(&loaded_inference_revision),
             loaded_coordination_revision: Arc::clone(&loaded_coordination_revision),
+            runtime_engine: Arc::clone(&engine),
         };
         let runtime = Arc::new(WorkspaceRuntime::spawn(config.clone()));
         let _ = hydrate_persisted_workspace_state(&config);
@@ -71,6 +76,7 @@ impl WorkspaceRuntimeBinding {
             loaded_episodic_revision,
             loaded_inference_revision,
             loaded_coordination_revision,
+            engine,
             runtime,
         }
     }
@@ -119,7 +125,15 @@ impl WorkspaceRuntimeBinding {
             loaded_episodic_revision: Arc::clone(&self.loaded_episodic_revision),
             loaded_inference_revision: Arc::clone(&self.loaded_inference_revision),
             loaded_coordination_revision: Arc::clone(&self.loaded_coordination_revision),
+            runtime_engine: Arc::clone(&self.engine),
         }
+    }
+
+    pub(crate) fn published_generation_snapshot(&self) -> WorkspacePublishedGeneration {
+        self.engine
+            .lock()
+            .expect("workspace runtime engine lock poisoned")
+            .published_generation_snapshot()
     }
 }
 

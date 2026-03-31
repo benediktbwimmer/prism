@@ -414,12 +414,8 @@ impl QueryHost {
             .filter(|state| state.id == task)
             .map(|state| (state.description.clone(), state.tags.clone()));
         let prism = self.current_prism();
-        let replay = crate::load_task_replay(
-            self.workspace_session_ref(),
-            prism.as_ref(),
-            &task,
-        )
-        .unwrap_or_else(|_| prism.resume_task(&task));
+        let replay = crate::load_task_replay(self.workspace_session_ref(), prism.as_ref(), &task)
+            .unwrap_or_else(|_| prism.resume_task(&task));
         if replay.events.is_empty() && metadata_override.is_none() {
             return Err(anyhow!("unknown task `{}`", task.0));
         }
@@ -927,12 +923,7 @@ impl QueryHost {
             event_id: event.id,
             contract_handle: packet.handle.clone(),
             task_id: task_id.0.to_string(),
-            packet: contract_packet_view(
-                prism.as_ref(),
-                self.workspace_root(),
-                packet,
-                None,
-            ),
+            packet: contract_packet_view(prism.as_ref(), self.workspace_root(), packet, None),
         })
     }
 

@@ -618,6 +618,9 @@ type RuntimeFreshnessView = {
   fsObservedRevision: number;
   fsAppliedRevision: number;
   fsDirty: boolean;
+  generationId?: number;
+  parentGenerationId?: number;
+  committedDeltaSequence?: number;
   lastRefreshPath?: string;
   lastRefreshTimestamp?: string;
   lastRefreshDurationMs?: number;
@@ -628,8 +631,15 @@ type RuntimeFreshnessView = {
   lastWorkspaceBuildMs?: number;
   lastDaemonReadyMs?: number;
   materialization: RuntimeMaterializationView;
+  domains: RuntimeDomainFreshnessView[];
   status: string;
   error?: string;
+};
+
+type RuntimeDomainFreshnessView = {
+  domain: string;
+  freshness: string;
+  materializationDepth: string;
 };
 
 type ConnectionInfoView = {

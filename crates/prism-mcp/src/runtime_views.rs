@@ -8,11 +8,13 @@ use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
 use prism_coordination::{execution_overlays_from_tasks, snapshot_plan_graphs};
+use prism_core::runtime_engine::{RuntimeFreshnessState, RuntimeMaterializationDepth};
 use prism_js::{
-    ConnectionInfoView, RuntimeBoundaryRegionView, RuntimeFreshnessView, RuntimeHealthView,
-    RuntimeLogEventView, RuntimeMaterializationCoverageView, RuntimeMaterializationItemView,
-    RuntimeMaterializationView, RuntimeOverlayScopeView, RuntimeProcessView,
-    RuntimeProjectionScopeView, RuntimeScopesView, RuntimeStatusView,
+    ConnectionInfoView, RuntimeBoundaryRegionView, RuntimeDomainFreshnessView,
+    RuntimeFreshnessView, RuntimeHealthView, RuntimeLogEventView,
+    RuntimeMaterializationCoverageView, RuntimeMaterializationItemView, RuntimeMaterializationView,
+    RuntimeOverlayScopeView, RuntimeProcessView, RuntimeProjectionScopeView, RuntimeScopesView,
+    RuntimeStatusView,
 };
 use serde::Deserialize;
 use serde_json::{Map, Value};
@@ -250,6 +252,9 @@ fn runtime_freshness(
     let fs_dirty = fs_observed_revision != fs_applied_revision;
     let last_refresh = workspace.last_refresh();
     let workspace_summary = workspace.workspace_materialization_summary();
+    let published_generation = host
+        .workspace_runtime_binding_ref()
+        .map(|binding| binding.published_generation_snapshot());
     let materialization = RuntimeMaterializationView {
         workspace: workspace_materialization_item(
             host.loaded_workspace_revision_value(),
@@ -276,6 +281,15 @@ fn runtime_freshness(
         fs_observed_revision,
         fs_applied_revision,
         fs_dirty,
+        generation_id: published_generation
+            .as_ref()
+            .map(|generation| generation.id.0),
+        parent_generation_id: published_generation
+            .as_ref()
+            .and_then(|generation| generation.parent_id.map(|id| id.0)),
+        committed_delta_sequence: published_generation
+            .as_ref()
+            .and_then(|generation| generation.committed_delta.map(|sequence| sequence.0)),
         last_refresh_path: last_refresh.as_ref().map(|refresh| refresh.path.clone()),
         last_refresh_timestamp: last_refresh
             .as_ref()
@@ -292,6 +306,10 @@ fn runtime_freshness(
         last_workspace_build_ms: event_field_u64(last_build, "buildMs"),
         last_daemon_ready_ms: event_field_u64(last_ready, "startupMs"),
         materialization: materialization.clone(),
+        domains: published_generation
+            .as_ref()
+            .map(runtime_domain_views)
+            .unwrap_or_default(),
         status: freshness_status(
             fs_dirty,
             &materialization,
@@ -300,6 +318,51 @@ fn runtime_freshness(
         .to_string(),
         error: None,
     })
+}
+
+fn runtime_domain_views(
+    generation: &prism_core::runtime_engine::WorkspacePublishedGeneration,
+) -> Vec<RuntimeDomainFreshnessView> {
+    generation
+        .domain_states
+        .iter()
+        .map(|(domain, state)| RuntimeDomainFreshnessView {
+            domain: runtime_domain_label(*domain).to_string(),
+            freshness: runtime_freshness_label(state.freshness).to_string(),
+            materialization_depth: runtime_materialization_depth_label(state.materialization)
+                .to_string(),
+        })
+        .collect()
+}
+
+fn runtime_domain_label(domain: prism_core::runtime_engine::RuntimeDomain) -> &'static str {
+    match domain {
+        prism_core::runtime_engine::RuntimeDomain::FileFacts => "file_facts",
+        prism_core::runtime_engine::RuntimeDomain::CrossFileEdges => "cross_file_edges",
+        prism_core::runtime_engine::RuntimeDomain::Projections => "projections",
+        prism_core::runtime_engine::RuntimeDomain::MemoryReanchor => "memory_reanchor",
+        prism_core::runtime_engine::RuntimeDomain::Checkpoint => "checkpoint",
+        prism_core::runtime_engine::RuntimeDomain::Coordination => "coordination",
+    }
+}
+
+fn runtime_freshness_label(state: RuntimeFreshnessState) -> &'static str {
+    match state {
+        RuntimeFreshnessState::Current => "current",
+        RuntimeFreshnessState::Pending => "pending",
+        RuntimeFreshnessState::Stale => "stale",
+        RuntimeFreshnessState::Recovery => "recovery",
+    }
+}
+
+fn runtime_materialization_depth_label(depth: RuntimeMaterializationDepth) -> &'static str {
+    match depth {
+        RuntimeMaterializationDepth::Shallow => "shallow",
+        RuntimeMaterializationDepth::Medium => "medium",
+        RuntimeMaterializationDepth::Deep => "deep",
+        RuntimeMaterializationDepth::KnownUnmaterialized => "known_unmaterialized",
+        RuntimeMaterializationDepth::OutOfScope => "out_of_scope",
+    }
 }
 
 fn runtime_scopes(host: &QueryHost) -> Result<RuntimeScopesView> {

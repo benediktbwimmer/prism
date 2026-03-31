@@ -15358,6 +15358,59 @@ fn runtime_status_reports_workspace_materialization_depth_and_coverage() {
 }
 
 #[test]
+fn runtime_status_surfaces_published_generation_and_domain_freshness() {
+    let root = temp_workspace();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let initial = crate::runtime_views::runtime_status(&host)
+        .expect("runtime status should succeed")
+        .freshness;
+    let initial_generation = initial
+        .generation_id
+        .expect("published generation id should exist");
+    let initial_delta = initial
+        .committed_delta_sequence
+        .expect("committed delta sequence should exist");
+    assert!(initial
+        .domains
+        .iter()
+        .any(|domain| { domain.domain == "file_facts" && domain.freshness == "current" }));
+    assert!(initial
+        .domains
+        .iter()
+        .any(|domain| domain.domain == "coordination"));
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() {}\npub fn beta() {}\n",
+    )
+    .unwrap();
+    host.refresh_workspace()
+        .expect("workspace refresh should succeed");
+
+    let refreshed = crate::runtime_views::runtime_status(&host)
+        .expect("runtime status should succeed after refresh")
+        .freshness;
+    assert!(
+        refreshed
+            .generation_id
+            .expect("generation id should still exist")
+            > initial_generation
+    );
+    assert!(
+        refreshed
+            .committed_delta_sequence
+            .expect("delta sequence should still exist")
+            > initial_delta
+    );
+    assert!(refreshed
+        .domains
+        .iter()
+        .any(|domain| { domain.domain == "cross_file_edges" && domain.freshness == "current" }));
+}
+
+#[test]
 fn runtime_status_reports_projection_and_overlay_scopes() {
     let root = temp_workspace();
     fs::write(

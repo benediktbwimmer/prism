@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::path::PathBuf;
 
 use super::context::WorkspaceRuntimeContext;
@@ -13,15 +13,19 @@ pub struct WorkspaceRuntimeEngine {
     published_generation: WorkspacePublishedGeneration,
     next_generation_id: WorkspaceGenerationId,
     next_delta_sequence: WorkspaceRuntimeDeltaSequence,
+    recent_deltas: VecDeque<WorkspaceRuntimeDeltaBatch>,
 }
 
 impl WorkspaceRuntimeEngine {
+    const RECENT_DELTA_LIMIT: usize = 32;
+
     pub fn new(context: WorkspaceRuntimeContext) -> Self {
         Self {
             published_generation: WorkspacePublishedGeneration::initial(context.clone()),
             context,
             next_generation_id: WorkspaceGenerationId(1),
             next_delta_sequence: WorkspaceRuntimeDeltaSequence(1),
+            recent_deltas: VecDeque::with_capacity(Self::RECENT_DELTA_LIMIT),
         }
     }
 
@@ -31,6 +35,14 @@ impl WorkspaceRuntimeEngine {
 
     pub fn published_generation(&self) -> &WorkspacePublishedGeneration {
         &self.published_generation
+    }
+
+    pub fn published_generation_snapshot(&self) -> WorkspacePublishedGeneration {
+        self.published_generation.clone()
+    }
+
+    pub fn recent_deltas(&self) -> Vec<WorkspaceRuntimeDeltaBatch> {
+        self.recent_deltas.iter().cloned().collect()
     }
 
     pub fn record_commit(
@@ -50,13 +62,18 @@ impl WorkspaceRuntimeEngine {
             committed_delta: Some(delta_sequence),
             domain_states: domain_states.clone(),
         };
-        WorkspaceRuntimeDeltaBatch {
+        let batch = WorkspaceRuntimeDeltaBatch {
             sequence: delta_sequence,
             parent_generation,
             committed_generation,
             changed_paths,
             domain_states,
+        };
+        if self.recent_deltas.len() == Self::RECENT_DELTA_LIMIT {
+            self.recent_deltas.pop_front();
         }
+        self.recent_deltas.push_back(batch.clone());
+        batch
     }
 }
 
@@ -118,5 +135,6 @@ mod tests {
         assert_eq!(engine.published_generation().id.0, 2);
         assert_eq!(engine.published_generation().parent_id.unwrap().0, 1);
         assert_eq!(engine.published_generation().committed_delta.unwrap().0, 2);
+        assert_eq!(engine.recent_deltas().len(), 2);
     }
 }

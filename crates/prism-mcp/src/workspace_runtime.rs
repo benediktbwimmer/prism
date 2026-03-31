@@ -1,3 +1,5 @@
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex, MutexGuard, TryLockError};
@@ -7,7 +9,15 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use prism_agent::InferenceStore;
-use prism_core::{AdmissionBusyError, FsRefreshStatus, WorkspaceRefreshWork, WorkspaceSession};
+use prism_core::runtime_engine::{
+    RuntimeDomain, RuntimeDomainState, RuntimeFreshnessState, RuntimeMaterializationDepth,
+    WorkspaceRuntimeEngine,
+};
+use prism_core::{
+    AdmissionBusyError, FsRefreshStatus, WorkspaceRefreshWork, WorkspaceSession,
+    WorkspaceSnapshotRevisions,
+};
+use prism_ir::ObservedChangeSet;
 use prism_memory::{EpisodicMemorySnapshot, SessionMemory};
 use serde::Serialize;
 use serde_json::json;
@@ -31,6 +41,7 @@ pub(crate) struct WorkspaceRuntimeConfig {
     pub(crate) loaded_episodic_revision: Arc<AtomicU64>,
     pub(crate) loaded_inference_revision: Arc<AtomicU64>,
     pub(crate) loaded_coordination_revision: Arc<AtomicU64>,
+    pub(crate) runtime_engine: Arc<Mutex<WorkspaceRuntimeEngine>>,
 }
 
 pub(crate) struct WorkspaceRuntime {
@@ -333,6 +344,7 @@ fn sync_workspace_runtime_with_guard(
         full_rebuild_count: u64::from(refresh_path == "full"),
         workspace_reloaded: refresh_path == "full",
     };
+    publish_runtime_generation(config, &revisions, refresh_path, Vec::new());
     if deferred {
         config
             .workspace
@@ -478,6 +490,7 @@ fn sync_workspace_runtime_for_read_with_guard(
         full_rebuild_count: 0,
         workspace_reloaded: false,
     };
+    publish_runtime_generation(config, &revisions, refresh_path, Vec::new());
     if deferred {
         config
             .workspace
@@ -571,6 +584,7 @@ pub(crate) fn hydrate_persisted_workspace_state(config: &WorkspaceRuntimeConfig)
     let _ = reload_episodic_snapshot_if_needed(config, revisions.episodic)?;
     let _ = reload_inference_snapshot_if_needed(config, revisions.inference)?;
     let _ = reload_coordination_snapshot_if_needed(config, revisions.coordination)?;
+    publish_runtime_generation(config, &revisions, "hydrate", Vec::new());
     Ok(())
 }
 
@@ -666,6 +680,12 @@ pub(crate) fn sync_persisted_workspace_state(
         full_rebuild_count: u64::from(workspace_reloaded),
         workspace_reloaded,
     };
+    publish_runtime_generation(
+        config,
+        &revisions,
+        refresh_path,
+        changed_paths_from_observed(&refresh_outcome.observed),
+    );
     if deferred {
         config
             .workspace
@@ -871,6 +891,127 @@ fn revision_status(loaded_revision: u64, current_revision: u64) -> &'static str 
     }
 }
 
+fn materialization_depth_for_summary(
+    summary: &prism_core::WorkspaceMaterializationSummary,
+) -> RuntimeMaterializationDepth {
+    if summary.boundaries.iter().any(|boundary| {
+        boundary.materialization_state == "out_of_scope" || boundary.scope_state == "out_of_scope"
+    }) {
+        RuntimeMaterializationDepth::OutOfScope
+    } else if summary
+        .boundaries
+        .iter()
+        .any(|boundary| boundary.materialization_state == "known_unmaterialized")
+    {
+        RuntimeMaterializationDepth::KnownUnmaterialized
+    } else {
+        match summary.depth() {
+            "shallow" => RuntimeMaterializationDepth::Shallow,
+            "medium" => RuntimeMaterializationDepth::Medium,
+            _ => RuntimeMaterializationDepth::Deep,
+        }
+    }
+}
+
+fn domain_state_for_revision(loaded_revision: u64, current_revision: u64) -> RuntimeDomainState {
+    RuntimeDomainState::new(
+        if loaded_revision == current_revision {
+            RuntimeFreshnessState::Current
+        } else {
+            RuntimeFreshnessState::Pending
+        },
+        if loaded_revision == current_revision {
+            RuntimeMaterializationDepth::Deep
+        } else {
+            RuntimeMaterializationDepth::KnownUnmaterialized
+        },
+    )
+}
+
+fn runtime_domain_states(
+    config: &WorkspaceRuntimeConfig,
+    revisions: &WorkspaceSnapshotRevisions,
+    refresh_path: &str,
+) -> BTreeMap<RuntimeDomain, RuntimeDomainState> {
+    let mut states = BTreeMap::new();
+    let workspace_summary = config.workspace.workspace_materialization_summary();
+    let workspace_freshness = if refresh_path == "deferred" || config.workspace.needs_refresh() {
+        RuntimeFreshnessState::Pending
+    } else {
+        RuntimeFreshnessState::Current
+    };
+    let workspace_depth = materialization_depth_for_summary(&workspace_summary);
+    states.insert(
+        RuntimeDomain::FileFacts,
+        RuntimeDomainState::new(workspace_freshness, workspace_depth),
+    );
+    states.insert(
+        RuntimeDomain::CrossFileEdges,
+        RuntimeDomainState::new(
+            workspace_freshness,
+            if workspace_summary.materialized_edges > 0 {
+                RuntimeMaterializationDepth::Deep
+            } else {
+                workspace_depth
+            },
+        ),
+    );
+    states.insert(
+        RuntimeDomain::Projections,
+        RuntimeDomainState::new(workspace_freshness, workspace_depth),
+    );
+    states.insert(
+        RuntimeDomain::MemoryReanchor,
+        RuntimeDomainState::new(
+            workspace_freshness,
+            if config.loaded_episodic_revision.load(Ordering::Relaxed) == revisions.episodic {
+                RuntimeMaterializationDepth::Deep
+            } else {
+                RuntimeMaterializationDepth::KnownUnmaterialized
+            },
+        ),
+    );
+    states.insert(
+        RuntimeDomain::Checkpoint,
+        RuntimeDomainState::new(workspace_freshness, workspace_depth),
+    );
+    states.insert(
+        RuntimeDomain::Coordination,
+        domain_state_for_revision(
+            config.loaded_coordination_revision.load(Ordering::Relaxed),
+            revisions.coordination,
+        ),
+    );
+    states
+}
+
+fn changed_paths_from_observed(observed: &[ObservedChangeSet]) -> Vec<PathBuf> {
+    let mut paths = BTreeSet::new();
+    for change in observed {
+        if let Some(path) = &change.previous_path {
+            paths.insert(PathBuf::from(path.as_str()));
+        }
+        if let Some(path) = &change.current_path {
+            paths.insert(PathBuf::from(path.as_str()));
+        }
+    }
+    paths.into_iter().collect()
+}
+
+fn publish_runtime_generation(
+    config: &WorkspaceRuntimeConfig,
+    revisions: &WorkspaceSnapshotRevisions,
+    refresh_path: &str,
+    changed_paths: Vec<PathBuf>,
+) {
+    let domain_states = runtime_domain_states(config, revisions, refresh_path);
+    let _ = config
+        .runtime_engine
+        .lock()
+        .expect("workspace runtime engine lock poisoned")
+        .record_commit(changed_paths, domain_states);
+}
+
 impl QueryHost {
     pub(crate) fn refresh_workspace(&self) -> Result<()> {
         let Some(binding) = self.workspace_runtime_binding() else {
@@ -962,6 +1103,7 @@ mod tests {
 
     use prism_agent::InferenceStore;
     use prism_core::index_workspace_session;
+    use prism_core::runtime_engine::{WorkspaceRuntimeContext, WorkspaceRuntimeEngine};
     use prism_memory::SessionMemory;
 
     use super::*;
@@ -989,6 +1131,9 @@ mod tests {
             loaded_coordination_revision: Arc::new(AtomicU64::new(
                 workspace.coordination_revision().unwrap_or(0),
             )),
+            runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
+                WorkspaceRuntimeContext::from_root(&root),
+            ))),
         };
 
         let report = dirty_workspace_deferred_report(
@@ -1051,6 +1196,9 @@ mod tests {
             loaded_coordination_revision: Arc::new(AtomicU64::new(
                 workspace.coordination_revision().unwrap_or(0),
             )),
+            runtime_engine: Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
+                WorkspaceRuntimeContext::from_root(&root),
+            ))),
         };
 
         std::fs::create_dir_all(root.join("docs")).unwrap();

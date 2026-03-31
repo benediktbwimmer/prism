@@ -249,11 +249,7 @@ fn current_task_journal(
 ) -> Result<TaskJournalView> {
     let prism = host.current_prism();
     let task_id = TaskId::new(task_id.to_string());
-    let replay = crate::load_task_replay(
-        host.workspace_session_ref(),
-        prism.as_ref(),
-        &task_id,
-    )?;
+    let replay = crate::load_task_replay(host.workspace_session_ref(), prism.as_ref(), &task_id)?;
     crate::task_journal_view_from_replay(
         session,
         prism.as_ref(),
