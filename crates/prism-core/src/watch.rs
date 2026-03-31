@@ -285,13 +285,14 @@ fn refresh_prism_snapshot_with_guard(
     }
     let current_prism = prism.read().expect("workspace prism lock poisoned").clone();
     let coordination_context = current_prism.coordination_context();
-    let mut runtime_state_value = {
+    let runtime_state_value = {
         let mut state = runtime_state
             .lock()
             .expect("workspace runtime state lock poisoned");
         std::mem::take(&mut *state)
     };
-    runtime_state_value.overlay_live_prism_domains(current_prism.as_ref());
+    let mut runtime_state_value = runtime_state_value;
+    runtime_state_value.overlay_live_projection_knowledge(current_prism.as_ref());
     let mut indexer = WorkspaceIndexer::with_runtime_state_and_options(
         root,
         runtime_state_value,

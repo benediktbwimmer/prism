@@ -2497,6 +2497,7 @@ fn sqlite_store_commits_index_batches_atomically() {
         },
         history_delta: None,
         outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+        outcome_events: Vec::new(),
         defer_graph_materialization: false,
         co_change_deltas: vec![CoChangeDelta {
             source_lineage: prism_ir::LineageId::new("lineage:1"),
@@ -2629,6 +2630,7 @@ fn sqlite_store_applies_incremental_history_delta() {
                 history_snapshot: initial_snapshot.clone(),
                 history_delta: None,
                 outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+                outcome_events: Vec::new(),
                 defer_graph_materialization: false,
                 co_change_deltas: vec![CoChangeDelta {
                     source_lineage: lineage.clone(),
@@ -2671,6 +2673,7 @@ fn sqlite_store_applies_incremental_history_delta() {
                     next_event: 3,
                 }),
                 outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+                outcome_events: Vec::new(),
                 defer_graph_materialization: false,
                 co_change_deltas: vec![CoChangeDelta {
                     source_lineage: lineage.clone(),
@@ -2728,6 +2731,7 @@ fn sqlite_store_tolerates_duplicate_node_ids_in_single_file_state() {
         },
         history_delta: None,
         outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+        outcome_events: Vec::new(),
         defer_graph_materialization: false,
         co_change_deltas: Vec::new(),
         validation_deltas: Vec::new(),
@@ -2743,6 +2747,76 @@ fn sqlite_store_tolerates_duplicate_node_ids_in_single_file_state() {
         .query_row("SELECT COUNT(*) FROM nodes", [], |row| row.get(0))
         .unwrap();
     assert_eq!(node_rows, 1);
+
+    drop(store);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn sqlite_store_index_batch_appends_outcome_events_without_snapshot_reload() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-index-outcome-events-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let source_path = PathBuf::from("src/lib.rs");
+    let mut graph = Graph::new();
+    graph.upsert_file(
+        &source_path,
+        1,
+        vec![node("alpha")],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+    let event = prism_memory::OutcomeEvent {
+        meta: EventMeta {
+            id: EventId::new("outcome:index-batch"),
+            ts: 42,
+            actor: EventActor::System,
+            correlation: None,
+            causation: None,
+        },
+        anchors: Vec::new(),
+        kind: prism_memory::OutcomeKind::PatchApplied,
+        result: prism_memory::OutcomeResult::Success,
+        summary: "index batch persisted direct outcome event".to_string(),
+        evidence: Vec::new(),
+        metadata: serde_json::Value::Null,
+    };
+
+    let batch = IndexPersistBatch {
+        upserted_paths: vec![source_path],
+        removed_paths: Vec::new(),
+        history_snapshot: HistorySnapshot {
+            node_to_lineage: Vec::new(),
+            events: Vec::new(),
+            tombstones: Vec::new(),
+            next_lineage: 1,
+            next_event: 2,
+        },
+        history_delta: None,
+        outcome_snapshot: OutcomeMemorySnapshot {
+            events: vec![event.clone()],
+        },
+        outcome_events: vec![event.clone()],
+        defer_graph_materialization: false,
+        co_change_deltas: Vec::new(),
+        validation_deltas: Vec::new(),
+        projection_snapshot: None,
+        workspace_tree_snapshot: None,
+    };
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    store.commit_index_persist_batch(&graph, &batch).unwrap();
+
+    let loaded_outcomes = store.load_outcome_snapshot().unwrap().unwrap();
+    assert_eq!(loaded_outcomes.events, vec![event]);
 
     drop(store);
     let _ = std::fs::remove_file(path);

@@ -64,6 +64,20 @@ pub struct Graph {
     node_name_index: HashMap<String, Vec<NodeId>>,
     #[serde(skip)]
     node_path_index: HashMap<String, Vec<NodeId>>,
+    #[serde(skip)]
+    unresolved_call_name_index: HashMap<String, HashSet<PathBuf>>,
+    #[serde(skip)]
+    unresolved_call_target_path_index: HashMap<String, HashSet<PathBuf>>,
+    #[serde(skip)]
+    unresolved_import_name_index: HashMap<String, HashSet<PathBuf>>,
+    #[serde(skip)]
+    unresolved_import_path_index: HashMap<String, HashSet<PathBuf>>,
+    #[serde(skip)]
+    unresolved_impl_name_index: HashMap<String, HashSet<PathBuf>>,
+    #[serde(skip)]
+    unresolved_impl_target_index: HashMap<String, HashSet<PathBuf>>,
+    #[serde(skip)]
+    unresolved_intent_target_index: HashMap<String, HashSet<PathBuf>>,
     next_file_id: u32,
 }
 
@@ -92,6 +106,13 @@ impl Graph {
             path_to_file: HashMap::new(),
             node_name_index: HashMap::new(),
             node_path_index: HashMap::new(),
+            unresolved_call_name_index: HashMap::new(),
+            unresolved_call_target_path_index: HashMap::new(),
+            unresolved_import_name_index: HashMap::new(),
+            unresolved_import_path_index: HashMap::new(),
+            unresolved_impl_name_index: HashMap::new(),
+            unresolved_impl_target_index: HashMap::new(),
+            unresolved_intent_target_index: HashMap::new(),
             next_file_id: snapshot.next_file_id,
         };
 
@@ -416,6 +437,34 @@ impl Graph {
             .collect()
     }
 
+    pub fn files_with_unresolved_call_name(&self, name: &str) -> HashSet<PathBuf> {
+        indexed_paths(&self.unresolved_call_name_index, name)
+    }
+
+    pub fn files_with_unresolved_call_target_path(&self, target_path: &str) -> HashSet<PathBuf> {
+        indexed_paths(&self.unresolved_call_target_path_index, target_path)
+    }
+
+    pub fn files_with_unresolved_import_name(&self, name: &str) -> HashSet<PathBuf> {
+        indexed_paths(&self.unresolved_import_name_index, name)
+    }
+
+    pub fn files_with_unresolved_import_path(&self, path: &str) -> HashSet<PathBuf> {
+        indexed_paths(&self.unresolved_import_path_index, path)
+    }
+
+    pub fn files_with_unresolved_impl_name(&self, name: &str) -> HashSet<PathBuf> {
+        indexed_paths(&self.unresolved_impl_name_index, name)
+    }
+
+    pub fn files_with_unresolved_impl_target(&self, target: &str) -> HashSet<PathBuf> {
+        indexed_paths(&self.unresolved_impl_target_index, target)
+    }
+
+    pub fn files_with_unresolved_intent_target(&self, target: &str) -> HashSet<PathBuf> {
+        indexed_paths(&self.unresolved_intent_target_index, target)
+    }
+
     pub fn edges_from(&self, id: &NodeId, kind: Option<EdgeKind>) -> Vec<&Edge> {
         self.adjacency
             .get(id)
@@ -736,6 +785,13 @@ impl Graph {
     fn rebuild_node_indexes(&mut self) {
         self.node_name_index.clear();
         self.node_path_index.clear();
+        self.unresolved_call_name_index.clear();
+        self.unresolved_call_target_path_index.clear();
+        self.unresolved_import_name_index.clear();
+        self.unresolved_import_path_index.clear();
+        self.unresolved_impl_name_index.clear();
+        self.unresolved_impl_target_index.clear();
+        self.unresolved_intent_target_index.clear();
 
         for node in self.nodes.values() {
             self.node_name_index
@@ -746,6 +802,62 @@ impl Graph {
                 .entry(node.id.path.to_string())
                 .or_default()
                 .push(node.id.clone());
+        }
+
+        for (path, record) in &self.file_records {
+            for call in &record.unresolved_calls {
+                index_path(
+                    &mut self.unresolved_call_name_index,
+                    call.name.as_str(),
+                    path.clone(),
+                );
+                index_path(
+                    &mut self.unresolved_call_target_path_index,
+                    format!("{}::{}", call.module_path, call.name),
+                    path.clone(),
+                );
+            }
+            for import in &record.unresolved_imports {
+                let import_name = import
+                    .path
+                    .rsplit("::")
+                    .next()
+                    .unwrap_or(import.path.as_str());
+                index_path(
+                    &mut self.unresolved_import_name_index,
+                    import_name,
+                    path.clone(),
+                );
+                index_path(
+                    &mut self.unresolved_import_path_index,
+                    import.path.as_str(),
+                    path.clone(),
+                );
+            }
+            for implementation in &record.unresolved_impls {
+                let target_name = implementation
+                    .target
+                    .rsplit("::")
+                    .next()
+                    .unwrap_or(implementation.target.as_str());
+                index_path(
+                    &mut self.unresolved_impl_name_index,
+                    target_name,
+                    path.clone(),
+                );
+                index_path(
+                    &mut self.unresolved_impl_target_index,
+                    implementation.target.as_str(),
+                    path.clone(),
+                );
+            }
+            for intent in &record.unresolved_intents {
+                index_path(
+                    &mut self.unresolved_intent_target_index,
+                    intent.target.as_str(),
+                    path.clone(),
+                );
+            }
         }
     }
 
@@ -904,6 +1016,18 @@ impl Graph {
             edge_removed,
         }
     }
+}
+
+fn index_path(
+    index: &mut HashMap<String, HashSet<PathBuf>>,
+    key: impl Into<String>,
+    path: PathBuf,
+) {
+    index.entry(key.into()).or_default().insert(path);
+}
+
+fn indexed_paths(index: &HashMap<String, HashSet<PathBuf>>, key: &str) -> HashSet<PathBuf> {
+    index.get(key).cloned().unwrap_or_default()
 }
 
 fn is_derived_kind(kind: EdgeKind) -> bool {

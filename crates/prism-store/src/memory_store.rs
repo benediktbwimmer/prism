@@ -500,7 +500,11 @@ impl Store for MemoryStore {
     ) -> anyhow::Result<()> {
         self.snapshot = Some(graph.snapshot());
         self.history_snapshot = Some(batch.history_snapshot.clone());
-        self.save_outcome_snapshot(&batch.outcome_snapshot)?;
+        if !batch.outcome_events.is_empty() {
+            let _ = self.append_outcome_events(&batch.outcome_events, &[])?;
+        } else {
+            self.save_outcome_snapshot(&batch.outcome_snapshot)?;
+        }
         if let Some(snapshot) = &batch.projection_snapshot {
             self.projection_snapshot = Some(snapshot.clone());
         } else if !batch.co_change_deltas.is_empty() || !batch.validation_deltas.is_empty() {

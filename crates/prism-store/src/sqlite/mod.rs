@@ -843,7 +843,12 @@ impl Store for SqliteStore {
         let started = Instant::now();
         let outcome_cache = self.outcome_snapshot_cache.clone();
         let tx = self.conn.transaction()?;
-        let (_, current_outcome_snapshot) = current_outcome_snapshot_tx(&tx, &outcome_cache)?;
+        let outcome_revision_before = metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?;
+        let mut tracked_outcome_snapshot = if batch.outcome_events.is_empty() {
+            None
+        } else {
+            cached_snapshot_for_revision(&outcome_cache, outcome_revision_before).flatten()
+        };
 
         let mut touched_derived_nodes = HashSet::<prism_ir::NodeId>::new();
         let delete_file_state_ms = {
@@ -945,15 +950,30 @@ impl Store for SqliteStore {
         let save_history_ms = save_history_started.elapsed().as_millis();
 
         let save_outcomes_started = Instant::now();
-        let outcome_changed = outcome_events::save_snapshot_delta_tx(
-            &tx,
-            current_outcome_snapshot.as_ref(),
-            &batch.outcome_snapshot,
-        )?;
+        let inserted_outcome_events =
+            outcome_events::append_events_tx(&tx, &batch.outcome_events)?;
+        if inserted_outcome_events > 0 {
+            if let Some(current) = tracked_outcome_snapshot.take() {
+                tracked_outcome_snapshot =
+                    crate::outcome_projection::apply_events(Some(current), &batch.outcome_events);
+            }
+        }
+        let outcome_changed = if inserted_outcome_events > 0 {
+            true
+        } else {
+            if tracked_outcome_snapshot.is_none() {
+                tracked_outcome_snapshot = current_outcome_snapshot_tx(&tx, &outcome_cache)?.1;
+            }
+            outcome_events::save_snapshot_delta_tx(
+                &tx,
+                tracked_outcome_snapshot.as_ref(),
+                &batch.outcome_snapshot,
+            )?
+        };
         let outcome_revision = if outcome_changed {
             bump_metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?
         } else {
-            metadata_value_tx(&tx, OUTCOME_REVISION_KEY)?
+            outcome_revision_before
         };
         let save_outcomes_ms = save_outcomes_started.elapsed().as_millis();
 
@@ -990,15 +1010,19 @@ impl Store for SqliteStore {
         let commit_started = Instant::now();
         tx.commit()?;
         let commit_tx_ms = commit_started.elapsed().as_millis();
-        let merged_outcome_snapshot = if outcome_changed {
+        let merged_outcome_snapshot = if inserted_outcome_events > 0 {
+            tracked_outcome_snapshot
+        } else if outcome_changed {
             crate::outcome_projection::merge_snapshot(
-                current_outcome_snapshot,
+                tracked_outcome_snapshot,
                 &batch.outcome_snapshot,
             )
         } else {
-            current_outcome_snapshot
+            tracked_outcome_snapshot
         };
-        self.update_outcome_snapshot_cache(outcome_revision, merged_outcome_snapshot);
+        if merged_outcome_snapshot.is_some() || !outcome_changed {
+            self.update_outcome_snapshot_cache(outcome_revision, merged_outcome_snapshot);
+        }
         info!(
             removed_file_count = batch.removed_paths.len(),
             upserted_file_count = batch.upserted_paths.len(),
@@ -1017,6 +1041,7 @@ impl Store for SqliteStore {
             history_lineage_count = batch.history_snapshot.node_to_lineage.len(),
             history_event_count = batch.history_snapshot.events.len(),
             history_tombstone_count = batch.history_snapshot.tombstones.len(),
+            appended_outcome_event_count = batch.outcome_events.len(),
             outcome_event_count = batch.outcome_snapshot.events.len(),
             projection_mode,
             projection_snapshot_lineage_count,

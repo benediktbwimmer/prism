@@ -57,6 +57,7 @@ pub struct IndexPersistBatch {
     pub history_snapshot: HistorySnapshot,
     pub history_delta: Option<HistoryPersistDelta>,
     pub outcome_snapshot: OutcomeMemorySnapshot,
+    pub outcome_events: Vec<OutcomeEvent>,
     pub defer_graph_materialization: bool,
     pub co_change_deltas: Vec<CoChangeDelta>,
     pub validation_deltas: Vec<ValidationDelta>,

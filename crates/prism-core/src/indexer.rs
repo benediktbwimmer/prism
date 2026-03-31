@@ -13,11 +13,13 @@ use crate::indexer_support::{
     build_workspace_session, collect_pending_file_parses, path_matches_refresh_scope,
     resolve_graph_edges,
 };
-use crate::invalidation::RefreshInvalidationScope;
+use crate::invalidation::{
+    observed_changes_require_dependent_edge_resolution, RefreshInvalidationScope,
+};
 use crate::layout::{discover_layout, sync_root_nodes, PackageInfo, WorkspaceLayout};
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 use crate::parse_pipeline::{parse_jobs_in_parallel, PreparedParseJob};
-use crate::patch_outcomes::default_outcome_meta;
+use crate::patch_outcomes::{default_outcome_meta, RecordedPatchOutcome};
 use crate::reanchor::{detect_moved_files, infer_reanchors};
 use crate::session::{
     WorkspaceRefreshSeed, WorkspaceRefreshWork, WorkspaceSession, HOT_OUTCOME_HYDRATION_LIMIT,
@@ -654,6 +656,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         let mut observed_changes = Vec::<ObservedChangeSet>::new();
         let mut changes = Vec::<prism_ir::GraphChange>::new();
         let mut all_lineage_events = Vec::<LineageEvent>::new();
+        let mut outcome_events = Vec::new();
         let mut co_change_deltas = Vec::<CoChangeDelta>::new();
         let mut validation_deltas = Vec::<ValidationDelta>::new();
         let mut upserted_paths = Vec::<PathBuf>::new();
@@ -799,7 +802,14 @@ impl<S: Store> WorkspaceIndexer<S> {
             co_change_deltas.extend(change_set_deltas);
             self.outcomes.apply_lineage(&new_lineage_events)?;
             all_lineage_events.extend(new_lineage_events.iter().cloned());
-            validation_deltas.extend(self.record_patch_outcome(&update.observed));
+            if let Some(RecordedPatchOutcome {
+                event,
+                validation_deltas: patch_validation_deltas,
+            }) = self.record_patch_outcome(&update.observed)
+            {
+                outcome_events.push(event);
+                validation_deltas.extend(patch_validation_deltas);
+            }
             observed_changes.push(update.observed.clone());
             changes.extend(update.changes);
             upserted_paths.push(parsed_job.pending.path.clone());
@@ -858,6 +868,7 @@ impl<S: Store> WorkspaceIndexer<S> {
                 update,
                 &pending_file.path,
                 &mut all_lineage_events,
+                &mut outcome_events,
                 &mut co_change_deltas,
                 &mut validation_deltas,
                 &mut observed_changes,
@@ -923,7 +934,14 @@ impl<S: Store> WorkspaceIndexer<S> {
                 co_change_deltas.extend(change_set_deltas);
                 self.outcomes.apply_lineage(&new_lineage_events)?;
                 all_lineage_events.extend(new_lineage_events.iter().cloned());
-                validation_deltas.extend(self.record_patch_outcome(&update.observed));
+                if let Some(RecordedPatchOutcome {
+                    event,
+                    validation_deltas: patch_validation_deltas,
+                }) = self.record_patch_outcome(&update.observed)
+                {
+                    outcome_events.push(event);
+                    validation_deltas.extend(patch_validation_deltas);
+                }
                 observed_changes.push(update.observed.clone());
                 changes.extend(update.changes);
                 removed_paths.push(tracked.clone());
@@ -1019,9 +1037,15 @@ impl<S: Store> WorkspaceIndexer<S> {
             "finished prism missing-file removal phase"
         );
 
-        let edge_resolution_scope = invalidation_scope
-            .as_ref()
-            .map(|scope| &scope.edge_resolution_paths);
+        let expand_dependency_edge_resolution =
+            observed_changes_require_dependent_edge_resolution(&observed_changes);
+        let edge_resolution_scope = invalidation_scope.as_ref().map(|scope| {
+            if expand_dependency_edge_resolution {
+                &scope.edge_resolution_paths
+            } else {
+                &scope.direct_paths
+            }
+        });
         let resolve_edges_started = Instant::now();
         let resolve_edge_stats = resolve_graph_edges(&mut self.graph, edge_resolution_scope);
         let resolve_edges_ms = resolve_edges_started.elapsed().as_millis();
@@ -1030,6 +1054,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             targeted_refresh,
             refresh_scope_path_count,
             dependency_refresh_scope_path_count,
+            expand_dependency_edge_resolution,
             edge_resolution_scope_path_count = resolve_edge_stats.resolution_scope_path_count,
             edge_resolution_scope_node_count = resolve_edge_stats.resolution_scope_node_count,
             cleared_derived_edge_count = resolve_edge_stats.cleared_derived_edge_count,
@@ -1072,6 +1097,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             history_snapshot: self.history.snapshot(),
             history_delta,
             outcome_snapshot: self.outcomes.snapshot(),
+            outcome_events,
             defer_graph_materialization: deferred_materializer.is_some(),
             co_change_deltas: if deferred_materializer.is_some() {
                 Vec::new()
@@ -1377,6 +1403,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         update: prism_store::FileUpdate,
         path: &Path,
         all_lineage_events: &mut Vec<LineageEvent>,
+        outcome_events: &mut Vec<prism_memory::OutcomeEvent>,
         co_change_deltas: &mut Vec<CoChangeDelta>,
         validation_deltas: &mut Vec<ValidationDelta>,
         observed_changes: &mut Vec<ObservedChangeSet>,
@@ -1401,7 +1428,14 @@ impl<S: Store> WorkspaceIndexer<S> {
         co_change_deltas.extend(change_set_deltas);
         self.outcomes.apply_lineage(&new_lineage_events)?;
         all_lineage_events.extend(new_lineage_events.iter().cloned());
-        validation_deltas.extend(self.record_patch_outcome(&update.observed));
+        if let Some(RecordedPatchOutcome {
+            event,
+            validation_deltas: patch_validation_deltas,
+        }) = self.record_patch_outcome(&update.observed)
+        {
+            outcome_events.push(event);
+            validation_deltas.extend(patch_validation_deltas);
+        }
         observed_changes.push(update.observed.clone());
         changes.extend(update.changes);
         upserted_paths.push(path.to_path_buf());

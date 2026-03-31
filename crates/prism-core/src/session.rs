@@ -697,14 +697,15 @@ impl WorkspaceSession {
             .expect("workspace tree snapshot lock poisoned")
             .clone();
         let coordination_context = current_prism.coordination_context();
-        let mut runtime_state = {
+        let runtime_state = {
             let mut state = self
                 .runtime_state
                 .lock()
                 .expect("workspace runtime state lock poisoned");
             std::mem::take(&mut *state)
         };
-        runtime_state.overlay_live_prism_domains(current_prism.as_ref());
+        let mut runtime_state = runtime_state;
+        runtime_state.overlay_live_projection_knowledge(current_prism.as_ref());
         let mut indexer = WorkspaceIndexer::with_runtime_state_and_options(
             &self.root,
             runtime_state,
@@ -1673,6 +1674,20 @@ impl WorkspaceSession {
                 plan_graphs,
                 execution_overlays,
             );
+        self.runtime_state
+            .lock()
+            .expect("workspace runtime state lock poisoned")
+            .replace_coordination_runtime(
+                state.as_ref()
+                    .map(|state| state.snapshot.clone())
+                    .unwrap_or_default(),
+                state.as_ref()
+                    .map(|state| state.plan_graphs.clone())
+                    .unwrap_or_default(),
+                state.as_ref()
+                    .map(|state| state.execution_overlays.clone())
+                    .unwrap_or_default(),
+            );
         Ok(state)
     }
 
@@ -1709,6 +1724,14 @@ impl WorkspaceSession {
         let snapshot = prism.coordination_snapshot();
         let plan_graphs = prism.authored_plan_graphs();
         let execution_overlays = prism.plan_execution_overlays_by_plan();
+        self.runtime_state
+            .lock()
+            .expect("workspace runtime state lock poisoned")
+            .replace_coordination_runtime(
+                snapshot.clone(),
+                plan_graphs.clone(),
+                execution_overlays.clone(),
+            );
         let target = if let Some(shared_runtime_store) = self.shared_runtime_store() {
             Arc::clone(shared_runtime_store)
         } else {
@@ -1843,6 +1866,14 @@ impl WorkspaceSession {
         );
         let plan_graphs = prism.authored_plan_graphs();
         let execution_overlays = prism.plan_execution_overlays_by_plan();
+        self.runtime_state
+            .lock()
+            .expect("workspace runtime state lock poisoned")
+            .replace_coordination_runtime(
+                snapshot.clone(),
+                plan_graphs.clone(),
+                execution_overlays.clone(),
+            );
         let target = if let Some(shared_runtime_store) = self.shared_runtime_store() {
             Arc::clone(shared_runtime_store)
         } else {
@@ -2167,6 +2198,10 @@ impl WorkspaceSession {
         prism.apply_outcome_event_to_projections(&event);
         let persisted_event = event.clone();
         let id = prism.outcome_memory().store_event(event)?;
+        self.runtime_state
+            .lock()
+            .expect("workspace runtime state lock poisoned")
+            .apply_outcome_event(&persisted_event);
         let mut store = Self::lock_store_for_mutation(
             &self.store,
             "mutation.waitWorkspaceStoreLock",
@@ -2279,6 +2314,10 @@ impl WorkspaceSession {
         prism.apply_outcome_event_to_projections(&event);
         let persisted_event = event.clone();
         let id = prism.outcome_memory().store_event(event)?;
+        self.runtime_state
+            .lock()
+            .expect("workspace runtime state lock poisoned")
+            .apply_outcome_event(&persisted_event);
         let mut store = Self::lock_store_for_mutation(
             &self.store,
             "mutation.waitWorkspaceStoreLock",

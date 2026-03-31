@@ -72,6 +72,11 @@ struct PatchMetadataBuilder {
     total_changed_symbol_count: usize,
 }
 
+pub(crate) struct RecordedPatchOutcome {
+    pub(crate) event: OutcomeEvent,
+    pub(crate) validation_deltas: Vec<ValidationDelta>,
+}
+
 impl PatchMetadataBuilder {
     fn push<S: prism_store::Store>(
         &mut self,
@@ -145,9 +150,9 @@ impl<S: prism_store::Store> WorkspaceIndexer<S> {
     pub(crate) fn record_patch_outcome(
         &mut self,
         observed: &ObservedChangeSet,
-    ) -> Vec<ValidationDelta> {
+    ) -> Option<RecordedPatchOutcome> {
         if !self.had_prior_snapshot || observed_is_empty(observed) {
-            return Vec::new();
+            return None;
         }
 
         let mut anchors = observed
@@ -222,12 +227,15 @@ impl<S: prism_store::Store> WorkspaceIndexer<S> {
                     patch_metadata.total_changed_symbol_count > MAX_PATCH_CHANGED_SYMBOLS,
             }),
         };
-        let deltas = prism_projections::validation_deltas_for_event(&event, |node| {
+        let validation_deltas = prism_projections::validation_deltas_for_event(&event, |node| {
             self.history.lineage_of(node)
         });
         self.projections
-            .apply_outcome_event(&event, |node| self.history.lineage_of(node));
-        let _ = self.outcomes.store_event(event);
-        deltas
+        .apply_outcome_event(&event, |node| self.history.lineage_of(node));
+        let _ = self.outcomes.store_event(event.clone());
+        Some(RecordedPatchOutcome {
+            event,
+            validation_deltas,
+        })
     }
 }

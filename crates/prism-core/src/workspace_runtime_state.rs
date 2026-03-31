@@ -58,17 +58,29 @@ impl WorkspaceRuntimeState {
         prism
     }
 
-    pub(crate) fn overlay_live_prism_domains(&mut self, prism: &Prism) {
-        self.outcomes = OutcomeMemory::from_snapshot(prism.outcome_snapshot());
-        self.coordination_snapshot = prism.coordination_snapshot();
-        self.plan_graphs = prism.authored_plan_graphs();
-        self.plan_execution_overlays = prism.plan_execution_overlays_by_plan();
-        let history = self.history.snapshot();
-        let mut projections =
-            ProjectionIndex::from_snapshot_with_history(prism.projection_snapshot(), Some(&history));
-        projections.replace_curated_concepts(prism.curated_concepts_snapshot());
-        projections.replace_concept_relations(prism.concept_relations_snapshot());
-        projections.replace_curated_contracts(prism.curated_contracts());
-        self.projections = projections;
+    pub(crate) fn replace_coordination_runtime(
+        &mut self,
+        snapshot: CoordinationSnapshot,
+        plan_graphs: Vec<PlanGraph>,
+        plan_execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    ) {
+        self.coordination_snapshot = snapshot;
+        self.plan_graphs = plan_graphs;
+        self.plan_execution_overlays = plan_execution_overlays;
+    }
+
+    pub(crate) fn overlay_live_projection_knowledge(&mut self, prism: &Prism) {
+        self.projections
+            .replace_curated_concepts(prism.curated_concepts_snapshot());
+        self.projections
+            .replace_concept_relations(prism.concept_relations_snapshot());
+        self.projections
+            .replace_curated_contracts(prism.curated_contracts());
+    }
+
+    pub(crate) fn apply_outcome_event(&mut self, event: &prism_memory::OutcomeEvent) {
+        self.projections
+            .apply_outcome_event(event, |node| self.history.lineage_of(node));
+        let _ = self.outcomes.store_event(event.clone());
     }
 }

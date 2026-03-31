@@ -4783,6 +4783,142 @@ fn refresh_invalidation_scope_preserves_monotonic_scope_expansion() {
 }
 
 #[test]
+fn refresh_invalidation_scope_expands_only_real_dependents() {
+    use std::collections::HashMap;
+    use std::path::{Path, PathBuf};
+
+    use prism_ir::{FileId, Language, Node, NodeId, NodeKind, Span};
+    use prism_parser::UnresolvedCall;
+    use prism_store::Graph;
+
+    fn function(file: FileId, name: &str) -> Node {
+        Node {
+            id: NodeId::new("demo", format!("demo::{name}"), NodeKind::Function),
+            name: name.into(),
+            kind: NodeKind::Function,
+            file,
+            span: Span::line(1),
+            language: Language::Rust,
+        }
+    }
+
+    fn unresolved_call(caller: &Node, module_path: &str, name: &str) -> UnresolvedCall {
+        UnresolvedCall {
+            caller: caller.id.clone(),
+            name: name.into(),
+            span: Span::line(1),
+            module_path: module_path.into(),
+        }
+    }
+
+    let changed = PathBuf::from("src/a.rs");
+    let caller_path = PathBuf::from("src/lib.rs");
+    let unrelated = PathBuf::from("src/other.rs");
+    let mut graph = Graph::new();
+
+    let changed_file = graph.ensure_file(Path::new(&changed));
+    let caller_file = graph.ensure_file(Path::new(&caller_path));
+    let unrelated_file = graph.ensure_file(Path::new(&unrelated));
+
+    let alpha = function(changed_file, "alpha");
+    let caller = function(caller_file, "caller");
+    let other = function(unrelated_file, "other");
+
+    graph.upsert_file(
+        Path::new(&changed),
+        1,
+        vec![alpha],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+    graph.upsert_file(
+        Path::new(&caller_path),
+        1,
+        vec![caller.clone()],
+        Vec::new(),
+        HashMap::new(),
+        vec![unresolved_call(&caller, "demo", "alpha")],
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+    graph.upsert_file(
+        Path::new(&unrelated),
+        1,
+        vec![other.clone()],
+        Vec::new(),
+        HashMap::new(),
+        vec![unresolved_call(&other, "demo", "gamma")],
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+
+    let scope =
+        crate::invalidation::RefreshInvalidationScope::from_graph(&graph, &HashSet::from([changed.clone()]));
+
+    assert!(scope.edge_resolution_paths.contains(&changed));
+    assert!(scope.edge_resolution_paths.contains(&caller_path));
+    assert!(!scope.edge_resolution_paths.contains(&unrelated));
+}
+
+#[test]
+fn body_only_updates_do_not_require_dependent_edge_resolution() {
+    use prism_ir::{
+        ChangeTrigger, EventActor, EventId, EventMeta, FileId, Language, Node, NodeId, NodeKind,
+        ObservedChangeSet, ObservedNode, Span, SymbolFingerprint,
+    };
+
+    let node_before = Node {
+        id: NodeId::new("demo", "demo::alpha", NodeKind::Function),
+        name: "alpha".into(),
+        kind: NodeKind::Function,
+        file: FileId(1),
+        span: Span::line(1),
+        language: Language::Rust,
+    };
+    let node_after = Node {
+        span: Span::line(2),
+        ..node_before.clone()
+    };
+    let observed = ObservedChangeSet {
+        meta: EventMeta {
+            id: EventId::new("evt:body-only"),
+            ts: 1,
+            actor: EventActor::System,
+            correlation: None,
+            causation: None,
+        },
+        trigger: ChangeTrigger::FsWatch,
+        files: vec![FileId(1)],
+        previous_path: None,
+        current_path: None,
+        added: Vec::new(),
+        removed: Vec::new(),
+        updated: vec![(
+            ObservedNode {
+                node: node_before,
+                fingerprint: SymbolFingerprint::new(1),
+            },
+            ObservedNode {
+                node: node_after,
+                fingerprint: SymbolFingerprint::new(1),
+            },
+        )],
+        edge_added: Vec::new(),
+        edge_removed: Vec::new(),
+    };
+
+    assert!(!crate::invalidation::observed_changes_require_dependent_edge_resolution(&[
+        observed
+    ]));
+}
+
+#[test]
 fn workspace_materialization_summary_reports_sparse_boundary_regions() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
