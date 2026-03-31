@@ -1,6 +1,7 @@
+use std::collections::HashMap;
 use std::future::Future;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Instant;
 
 use axum::{extract::Request, middleware::Next, response::Response};
@@ -26,6 +27,9 @@ tokio::task_local! {
     static CURRENT_HTTP_REQUEST: HttpRequestTiming;
 }
 
+static DELEGATED_REQUESTS: OnceLock<Mutex<HashMap<String, Instant>>> = OnceLock::new();
+const DELEGATED_REQUEST_TTL_SECS: u64 = 30;
+
 #[derive(Clone)]
 pub(crate) struct InstrumentedServerService {
     inner: PrismMcpServer,
@@ -43,6 +47,8 @@ struct HttpRequestTiming {
 
 struct RequestEnvelopeState {
     name: String,
+    request_key: Option<String>,
+    delegated_surface: bool,
     summary: String,
     request_preview: Value,
     metadata: Value,
@@ -55,6 +61,7 @@ struct RequestEnvelopeState {
     workspace: Option<Arc<prism_core::WorkspaceSession>>,
     session_id: String,
     task_id: Option<String>,
+    awaiting_specialized_log: AtomicBool,
     logged: AtomicBool,
 }
 
@@ -170,6 +177,8 @@ impl RequestEnvelope {
         let request_id = request_id_value(&context.id);
         let request_id_for_meta = request_id.clone();
         let (name, summary, request_preview, mut metadata) = classify_request(request, request_id);
+        let request_key = delegated_request_key(&request_preview);
+        let delegated_surface = request_uses_specialized_logging(&name);
         metadata["requestId"] = request_id_for_meta;
         let (started_at, started, route_started_at, route_duration_ms) =
             if let Some(http_request) = http_request.as_ref() {
@@ -196,6 +205,8 @@ impl RequestEnvelope {
         Self {
             state: Arc::new(RequestEnvelopeState {
                 name,
+                request_key,
+                delegated_surface,
                 summary,
                 request_preview,
                 metadata,
@@ -208,6 +219,7 @@ impl RequestEnvelope {
                 workspace: server.workspace_session().map(Arc::clone),
                 session_id,
                 task_id,
+                awaiting_specialized_log: AtomicBool::new(false),
                 logged: AtomicBool::new(false),
             }),
         }
@@ -217,6 +229,17 @@ impl RequestEnvelope {
     where
         R: serde::Serialize,
     {
+        if delegated_request_is_settled(&self.state.request_key) {
+            self.state.logged.store(true, Ordering::SeqCst);
+            return;
+        }
+        if self.state.delegated_surface {
+            self.state
+                .awaiting_specialized_log
+                .store(true, Ordering::SeqCst);
+            self.state.logged.store(true, Ordering::SeqCst);
+            return;
+        }
         if self.state.logged.swap(true, Ordering::SeqCst) {
             return;
         }
@@ -322,12 +345,21 @@ impl RequestEnvelopeSnapshot {
     }
 
     fn mark_logged(&self) {
+        register_delegated_request(&self.state.request_key);
         self.state.logged.store(true, Ordering::SeqCst);
     }
 }
 
 impl Drop for RequestEnvelope {
     fn drop(&mut self) {
+        if delegated_request_is_settled(&self.state.request_key) {
+            self.state.logged.store(true, Ordering::SeqCst);
+            return;
+        }
+        if self.state.awaiting_specialized_log.load(Ordering::SeqCst) {
+            self.state.logged.store(true, Ordering::SeqCst);
+            return;
+        }
         if self.state.logged.swap(true, Ordering::SeqCst) {
             return;
         }
@@ -636,6 +668,62 @@ fn request_id_value(id: &RequestId) -> Value {
     serde_json::to_value(id).unwrap_or(Value::Null)
 }
 
+fn delegated_request_key(request_preview: &Value) -> Option<String> {
+    let method = request_preview.get("method")?.as_str()?;
+    let request_id = request_preview.get("requestId")?;
+    let mut key = format!("{method}|{}", request_id);
+    if let Some(name) = request_preview.get("name").and_then(Value::as_str) {
+        key.push('|');
+        key.push_str(name);
+    }
+    Some(key)
+}
+
+fn request_uses_specialized_logging(name: &str) -> bool {
+    matches!(
+        name,
+        "tools/call"
+            | "tools/list"
+            | "resources/read"
+            | "resources/list"
+            | "resources/templates/list"
+    )
+}
+
+fn delegated_requests() -> &'static Mutex<HashMap<String, Instant>> {
+    DELEGATED_REQUESTS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn prune_delegated_requests(now: Instant, requests: &mut HashMap<String, Instant>) {
+    requests.retain(|_, recorded_at| {
+        now.duration_since(*recorded_at).as_secs() <= DELEGATED_REQUEST_TTL_SECS
+    });
+}
+
+fn register_delegated_request(request_key: &Option<String>) {
+    let Some(request_key) = request_key else {
+        return;
+    };
+    let now = Instant::now();
+    let mut requests = delegated_requests()
+        .lock()
+        .expect("delegated request registry poisoned");
+    prune_delegated_requests(now, &mut requests);
+    requests.insert(request_key.clone(), now);
+}
+
+fn delegated_request_is_settled(request_key: &Option<String>) -> bool {
+    let Some(request_key) = request_key else {
+        return false;
+    };
+    let now = Instant::now();
+    let mut requests = delegated_requests()
+        .lock()
+        .expect("delegated request registry poisoned");
+    prune_delegated_requests(now, &mut requests);
+    requests.contains_key(request_key)
+}
+
 fn phase(
     operation: &str,
     args: &Value,
@@ -699,14 +787,16 @@ mod tests {
 
         let envelope = RequestEnvelope {
             state: Arc::new(RequestEnvelopeState {
-                name: "tools/list".to_string(),
-                summary: "list tools".to_string(),
+                name: "ping".to_string(),
+                request_key: Some("ping|1".to_string()),
+                delegated_surface: false,
+                summary: "ping".to_string(),
                 request_preview: json!({
-                    "method": "tools/list",
+                    "method": "ping",
                     "requestId": 1,
                 }),
                 metadata: json!({
-                    "method": "tools/list",
+                    "method": "ping",
                     "requestId": 1,
                 }),
                 started_at: current_timestamp(),
@@ -718,6 +808,7 @@ mod tests {
                 workspace: None,
                 session_id: "session:test".to_string(),
                 task_id: Some("task:test".to_string()),
+                awaiting_specialized_log: AtomicBool::new(false),
                 logged: AtomicBool::new(false),
             }),
         };
@@ -727,7 +818,7 @@ mod tests {
         let records = store.records();
         let record = records
             .iter()
-            .find(|record| record.entry.name == "tools/list")
+            .find(|record| record.entry.name == "ping")
             .expect("dropped request record should exist");
         assert!(!record.entry.success);
         assert_eq!(
@@ -743,6 +834,89 @@ mod tests {
         assert!(operations.contains(&"mcp.routeRequest"));
         assert!(operations.contains(&"mcp.executeHandler"));
         assert!(!operations.contains(&"mcp.encodeResponse"));
+    }
+
+    #[test]
+    fn dropped_request_envelope_skips_logging_for_delegated_request() {
+        let store = Arc::new(crate::mcp_call_log::McpCallLogStore::for_root(None));
+        let dashboard = Arc::new(crate::DashboardState::default());
+        let request_key = Some("tools/call|61|prism_query".to_string());
+        register_delegated_request(&request_key);
+
+        let envelope = RequestEnvelope {
+            state: Arc::new(RequestEnvelopeState {
+                name: "tools/call".to_string(),
+                request_key,
+                delegated_surface: true,
+                summary: "call prism_query".to_string(),
+                request_preview: json!({
+                    "method": "tools/call",
+                    "name": "prism_query",
+                    "requestId": 61,
+                }),
+                metadata: json!({
+                    "method": "tools/call",
+                    "name": "prism_query",
+                    "requestId": 61,
+                }),
+                started_at: current_timestamp(),
+                started: Instant::now(),
+                route_started_at: current_timestamp(),
+                route_duration_ms: 0,
+                mcp_call_log_store: Arc::clone(&store),
+                dashboard,
+                workspace: None,
+                session_id: "session:test".to_string(),
+                task_id: Some("task:test".to_string()),
+                awaiting_specialized_log: AtomicBool::new(false),
+                logged: AtomicBool::new(false),
+            }),
+        };
+
+        drop(envelope);
+
+        assert!(store.records().is_empty());
+    }
+
+    #[test]
+    fn successful_delegated_request_envelope_skips_generic_wrapper_log() {
+        let store = Arc::new(crate::mcp_call_log::McpCallLogStore::for_root(None));
+        let dashboard = Arc::new(crate::DashboardState::default());
+
+        let envelope = RequestEnvelope {
+            state: Arc::new(RequestEnvelopeState {
+                name: "tools/call".to_string(),
+                request_key: Some("tools/call|61|prism_query".to_string()),
+                delegated_surface: true,
+                summary: "call prism_query".to_string(),
+                request_preview: json!({
+                    "method": "tools/call",
+                    "name": "prism_query",
+                    "requestId": 61,
+                }),
+                metadata: json!({
+                    "method": "tools/call",
+                    "name": "prism_query",
+                    "requestId": 61,
+                }),
+                started_at: current_timestamp(),
+                started: Instant::now(),
+                route_started_at: current_timestamp(),
+                route_duration_ms: 0,
+                mcp_call_log_store: Arc::clone(&store),
+                dashboard,
+                workspace: None,
+                session_id: "session:test".to_string(),
+                task_id: Some("task:test".to_string()),
+                awaiting_specialized_log: AtomicBool::new(false),
+                logged: AtomicBool::new(false),
+            }),
+        };
+
+        envelope.finish_if_unlogged(Ok(&json!({ "ok": true })));
+        drop(envelope);
+
+        assert!(store.records().is_empty());
     }
 
     #[tokio::test]

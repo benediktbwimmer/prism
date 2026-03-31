@@ -3595,6 +3595,107 @@ return {
 }
 
 #[test]
+fn after_edit_path_set_collapses_duplicate_contract_notes() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn runtime_status() {}
+pub fn inspect_runtime() {}
+"#,
+    )
+    .unwrap();
+    let host = QueryHost::with_session_and_limits_and_features(
+        index_workspace_session(&root).unwrap(),
+        QueryLimits::default(),
+        PrismMcpFeatures::full().with_query_view(QueryViewFeatureFlag::AfterEdit, true),
+    );
+    let session = test_session(&host);
+
+    host.store_contract(
+        session.as_ref(),
+        PrismContractMutationArgs {
+            operation: ContractMutationOperationInput::Promote,
+            handle: Some("contract://runtime_status_surface".to_string()),
+            name: Some("runtime status surface".to_string()),
+            summary: Some(
+                "The runtime status entry point remains available for diagnostics consumers."
+                    .to_string(),
+            ),
+            aliases: Some(vec!["runtime status".to_string()]),
+            kind: Some(ContractKindInput::Interface),
+            subject: Some(ContractTargetInput {
+                anchors: Some(vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::runtime_status".to_string(),
+                    kind: "function".to_string(),
+                }]),
+                concept_handles: None,
+            }),
+            guarantees: Some(vec![ContractGuaranteeInput {
+                id: None,
+                statement: "Diagnostics callers can query runtime status.".to_string(),
+                scope: Some("internal".to_string()),
+                strength: Some(ContractGuaranteeStrengthInput::Hard),
+                evidence_refs: Some(vec!["runtime-status-tests".to_string()]),
+            }]),
+            assumptions: Some(vec!["The daemon is running.".to_string()]),
+            consumers: Some(vec![ContractTargetInput {
+                anchors: Some(vec![AnchorRefInput::Node {
+                    crate_name: "demo".to_string(),
+                    path: "demo::inspect_runtime".to_string(),
+                    kind: "function".to_string(),
+                }]),
+                concept_handles: None,
+            }]),
+            validations: Some(vec![ContractValidationInput {
+                id: "cargo test -p prism-mcp runtime_status".to_string(),
+                summary: Some("Covers the runtime status surface.".to_string()),
+                anchors: None,
+            }]),
+            stability: Some(ContractStabilityInput::Internal),
+            compatibility: Some(ContractCompatibilityInput {
+                compatible: None,
+                additive: None,
+                risky: Some(vec!["Changing the status payload shape.".to_string()]),
+                breaking: Some(vec!["Removing the runtime status surface.".to_string()]),
+                migrating: Some(vec![
+                    "Update diagnostics callers before widening the payload.".to_string(),
+                ]),
+            }),
+            evidence: Some(vec![
+                "Promoted from repeated runtime inspection work.".to_string()
+            ]),
+            status: Some(ContractStatusInput::Active),
+            scope: Some(ConceptScopeInput::Session),
+            supersedes: None,
+            retirement_reason: None,
+            task_id: Some("task:contract-views".to_string()),
+        },
+    )
+    .expect("contract should store");
+
+    let after_edit = host
+        .execute(
+            test_session(&host),
+            r#"return prism.afterEdit({ paths: ["src/lib.rs"] });"#,
+            QueryLanguage::Ts,
+        )
+        .expect("afterEdit path-set should succeed");
+
+    let matching_notes = after_edit.result["notes"]
+        .as_array()
+        .expect("notes should be array")
+        .iter()
+        .filter(|note| {
+            note.as_str()
+                .is_some_and(|value| value.contains("contract://runtime_status_surface"))
+        })
+        .count();
+    assert_eq!(matching_notes, 1);
+}
+
+#[test]
 fn validation_plan_surfaces_contract_validations_and_related_targets() {
     let root = temp_workspace();
     fs::write(

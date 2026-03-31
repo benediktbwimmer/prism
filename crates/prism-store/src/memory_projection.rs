@@ -29,6 +29,38 @@ pub(crate) fn merge_snapshot(
     finalize_snapshot(by_id.into_values().collect())
 }
 
+pub(crate) fn apply_events(
+    current: Option<EpisodicMemorySnapshot>,
+    events: &[MemoryEvent],
+) -> Option<EpisodicMemorySnapshot> {
+    if events.is_empty() {
+        return current;
+    }
+
+    let mut by_id = HashMap::<String, MemoryEntry>::new();
+    if let Some(snapshot) = current {
+        for entry in snapshot.entries {
+            by_id.insert(entry.id.0.clone(), entry);
+        }
+    }
+    for event in events {
+        for superseded in &event.supersedes {
+            by_id.remove(&superseded.0);
+        }
+        match event.action {
+            MemoryEventKind::Stored | MemoryEventKind::Promoted | MemoryEventKind::Superseded => {
+                if let Some(entry) = event.entry.clone() {
+                    by_id.insert(event.memory_id.0.clone(), entry);
+                }
+            }
+            MemoryEventKind::Retired => {
+                by_id.remove(&event.memory_id.0);
+            }
+        }
+    }
+    finalize_snapshot(by_id.into_values().collect())
+}
+
 pub(crate) fn append_only_delta(
     current: Option<&EpisodicMemorySnapshot>,
     incoming: &EpisodicMemorySnapshot,

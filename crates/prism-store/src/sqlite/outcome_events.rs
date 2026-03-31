@@ -32,6 +32,12 @@ pub(super) fn load_snapshot(conn: &Connection) -> Result<Option<OutcomeMemorySna
     snapshots::load_snapshot_row(conn, "outcomes")
 }
 
+pub(super) fn compact_snapshot(snapshot: &mut OutcomeMemorySnapshot) {
+    for event in &mut snapshot.events {
+        compact_hot_patch_metadata(event);
+    }
+}
+
 pub(super) fn load_task_replay(conn: &Connection, task_id: &TaskId) -> Result<TaskReplay> {
     let mut stmt = conn.prepare(
         "SELECT payload FROM outcome_event_log
@@ -153,12 +159,12 @@ pub(super) fn load_event(conn: &Connection, event_id: &EventId) -> Result<Option
     .transpose()
 }
 
-pub(super) fn save_snapshot_tx(
+pub(super) fn save_snapshot_delta_tx(
     tx: &Transaction<'_>,
+    current: Option<&OutcomeMemorySnapshot>,
     snapshot: &OutcomeMemorySnapshot,
 ) -> Result<bool> {
-    let current = load_snapshot_tx(tx)?;
-    let delta = append_only_delta(current.as_ref(), snapshot);
+    let delta = append_only_delta(current, snapshot);
     if delta.is_empty() {
         return Ok(false);
     }
@@ -307,7 +313,7 @@ pub(super) fn compact_hot_patch_payloads_on_open(
     })
 }
 
-fn load_snapshot_tx(tx: &Transaction<'_>) -> Result<Option<OutcomeMemorySnapshot>> {
+pub(super) fn load_snapshot_tx(tx: &Transaction<'_>) -> Result<Option<OutcomeMemorySnapshot>> {
     let events = load_events_tx(tx)?;
     if !events.is_empty() {
         return Ok(snapshot_from_events(events));

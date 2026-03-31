@@ -19,6 +19,21 @@ pub(crate) fn merge_snapshot(
     finalize_snapshot(by_id.into_values().collect())
 }
 
+pub(crate) fn apply_events(
+    current: Option<OutcomeMemorySnapshot>,
+    events: &[OutcomeEvent],
+) -> Option<OutcomeMemorySnapshot> {
+    if events.is_empty() {
+        return current;
+    }
+    merge_snapshot(
+        current,
+        &OutcomeMemorySnapshot {
+            events: events.to_vec(),
+        },
+    )
+}
+
 pub(crate) fn append_only_delta(
     current: Option<&OutcomeMemorySnapshot>,
     incoming: &OutcomeMemorySnapshot,

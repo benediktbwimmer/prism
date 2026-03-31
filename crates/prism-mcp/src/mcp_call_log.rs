@@ -137,12 +137,12 @@ impl McpCallLogStore {
     }
 
     pub(crate) fn recent(&self, filter: McpCallFilter) -> Vec<McpCallLogEntryView> {
-        let mut matches = self
-            .records()
-            .into_iter()
-            .filter(|record| filter.matches(&record.entry))
-            .map(|record| record.entry)
-            .collect::<Vec<_>>();
+        let mut matches =
+            filter_delegated_request_wrappers(self.records().into_iter().collect::<Vec<_>>())
+                .into_iter()
+                .filter(|record| filter.matches(&record.entry))
+                .map(|record| record.entry)
+                .collect::<Vec<_>>();
         matches.sort_by(|left, right| {
             right
                 .started_at
@@ -157,12 +157,12 @@ impl McpCallLogStore {
         if filter.min_duration_ms.is_none() {
             filter.min_duration_ms = Some(DEFAULT_SLOW_MCP_MIN_DURATION_MS);
         }
-        let mut matches = self
-            .records()
-            .into_iter()
-            .filter(|record| filter.matches(&record.entry))
-            .map(|record| record.entry)
-            .collect::<Vec<_>>();
+        let mut matches =
+            filter_delegated_request_wrappers(self.records().into_iter().collect::<Vec<_>>())
+                .into_iter()
+                .filter(|record| filter.matches(&record.entry))
+                .map(|record| record.entry)
+                .collect::<Vec<_>>();
         matches.sort_by(|left, right| {
             right
                 .duration_ms
@@ -188,11 +188,11 @@ impl McpCallLogStore {
     }
 
     pub(crate) fn stats(&self, filter: McpCallFilter) -> McpCallStatsView {
-        let records = self
-            .records()
-            .into_iter()
-            .filter(|record| filter.matches(&record.entry))
-            .collect::<Vec<_>>();
+        let records =
+            filter_delegated_request_wrappers(self.records().into_iter().collect::<Vec<_>>())
+                .into_iter()
+                .filter(|record| filter.matches(&record.entry))
+                .collect::<Vec<_>>();
         let total_calls = records.len();
         let success_count = records.iter().filter(|record| record.entry.success).count();
         let error_count = total_calls.saturating_sub(success_count);
@@ -222,6 +222,47 @@ impl McpCallLogStore {
             by_view_name: aggregate_buckets(&records, |record| record.entry.view_name.clone()),
         }
     }
+}
+
+fn filter_delegated_request_wrappers(
+    records: Vec<PersistedMcpCallRecord>,
+) -> Vec<PersistedMcpCallRecord> {
+    let delegated_keys = records
+        .iter()
+        .filter(|record| record.entry.call_type != "request")
+        .filter_map(delegated_request_key_for_record)
+        .collect::<BTreeSet<_>>();
+    records
+        .into_iter()
+        .filter(|record| {
+            if record.entry.call_type != "request" {
+                return true;
+            }
+            match delegated_request_key_for_record(record) {
+                Some(key) => !delegated_keys.contains(&key),
+                None => true,
+            }
+        })
+        .collect()
+}
+
+fn delegated_request_key_for_record(record: &PersistedMcpCallRecord) -> Option<String> {
+    if record.entry.call_type == "request" {
+        delegated_request_key(record.request_preview.as_ref()?)
+    } else {
+        delegated_request_key(record.metadata.get("mcpRequest")?)
+    }
+}
+
+fn delegated_request_key(value: &Value) -> Option<String> {
+    let method = value.get("method")?.as_str()?;
+    let request_id = serde_json::to_string(value.get("requestId")?).ok()?;
+    let mut key = format!("{method}|{request_id}");
+    if let Some(name) = value.get("name").and_then(Value::as_str) {
+        key.push('|');
+        key.push_str(name);
+    }
+    Some(key)
 }
 
 impl McpCallFilter {
@@ -1011,6 +1052,57 @@ mod tests {
         }
     }
 
+    fn request_wrapper_record(request_id: usize, name: &str) -> PersistedMcpCallRecord {
+        let request_preview = json!({
+            "method": "tools/call",
+            "requestId": request_id,
+            "name": name,
+            "taskInvocation": false,
+        });
+        PersistedMcpCallRecord {
+            entry: new_log_entry(
+                &test_runtime(),
+                "request",
+                "tools/call",
+                None,
+                format!("call {name}"),
+                1_700_001_000 + request_id as u64,
+                250,
+                Some("session:test".to_string()),
+                Some("task:test".to_string()),
+                false,
+                Some("request dropped before completion".to_string()),
+                vec![
+                    "mcp.receiveRequest".to_string(),
+                    "mcp.executeHandler".to_string(),
+                ],
+                vec!["tools/call".to_string()],
+                Vec::new(),
+                payload_summary(Some(&request_preview)),
+                payload_summary(None),
+            ),
+            phases: vec![],
+            request_preview: Some(request_preview.clone()),
+            response_preview: None,
+            metadata: request_preview,
+            query_compat: None,
+        }
+    }
+
+    fn delegated_tool_record(request_id: usize, name: &str) -> PersistedMcpCallRecord {
+        let mut record = test_record(request_id);
+        record.entry.name = name.to_string();
+        record.entry.summary = format!("tool {name}");
+        record.entry.started_at = 1_700_001_000 + request_id as u64;
+        record.metadata["mcpRequest"] = json!({
+            "method": "tools/call",
+            "requestId": request_id,
+            "name": name,
+            "taskInvocation": false,
+        });
+        record
+    }
+
     #[test]
     fn mcp_call_log_store_round_trips_records_and_trace() {
         let store = test_store(1024 * 1024);
@@ -1038,6 +1130,51 @@ mod tests {
         assert_eq!(trace.metadata["index"], 2);
         assert!(trace.request_preview.is_some());
         assert!(trace.response_preview.is_some());
+    }
+
+    #[test]
+    fn recent_and_stats_filter_delegated_request_wrappers() {
+        let store = McpCallLogStore {
+            path: None,
+            max_bytes: DEFAULT_MCP_CALL_LOG_MAX_BYTES,
+            io_lock: Mutex::new(()),
+            fallback_records: Mutex::new(VecDeque::from(vec![
+                request_wrapper_record(61, "prism_query"),
+                delegated_tool_record(61, "prism_query"),
+            ])),
+            runtime: test_runtime(),
+        };
+
+        let recent = store.recent(McpCallFilter::from_args(
+            Some(10),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            DEFAULT_MCP_LOG_LIMIT,
+        ));
+        assert_eq!(recent.len(), 1);
+        assert_eq!(recent[0].call_type, "tool");
+        assert_eq!(recent[0].name, "prism_query");
+
+        let stats = store.stats(McpCallFilter::from_args(
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            DEFAULT_MCP_LOG_LIMIT,
+        ));
+        assert_eq!(stats.total_calls, 1);
+        assert_eq!(stats.error_count, 0);
     }
 
     #[test]

@@ -631,10 +631,13 @@ fn prism_impact_and_after_edit_views_return_explainable_results_and_log_by_name(
 const entries = prism.queryLog({ limit: 10 })
   .filter((entry) => entry.viewName === "impact" || entry.viewName === "afterEdit")
   .map((entry) => entry.viewName);
+const afterEditEntry = prism.queryLog({ limit: 10 })
+  .find((entry) => entry.viewName === "afterEdit");
 return {
   entries,
   stats: prism.mcpStats({ callType: "tool", name: "prism_query" }).byViewName
     .filter((entry) => entry.key === "impact" || entry.key === "afterEdit"),
+  trace: afterEditEntry ? prism.queryTrace(afterEditEntry.id) : null,
 };
 "#,
             QueryLanguage::Ts,
@@ -651,6 +654,21 @@ return {
         .expect("stats should be array");
     assert!(stats.iter().any(|entry| entry["key"] == "impact"));
     assert!(stats.iter().any(|entry| entry["key"] == "afterEdit"));
+    let trace_operations = result.result["trace"]["phases"]
+        .as_array()
+        .expect("afterEdit trace phases")
+        .iter()
+        .filter_map(|phase| phase["operation"].as_str())
+        .collect::<Vec<_>>();
+    assert!(trace_operations.contains(&"afterEdit.resolvePathTargets"));
+    assert!(trace_operations.contains(&"afterEdit.target.nextReads"));
+    assert!(trace_operations.contains(&"afterEdit.target.validationRecipe"));
+    assert!(trace_operations.contains(&"afterEdit.target.specLinks"));
+    assert!(trace_operations.contains(&"afterEdit.target.blastRadius"));
+    assert!(trace_operations.contains(&"afterEdit.target.contractPackets"));
+    assert!(trace_operations.contains(&"afterEdit.appendDocFallbacks"));
+    assert!(trace_operations.contains(&"afterEdit.appendValidationFallbacks"));
+    assert!(trace_operations.contains(&"afterEdit.buildResult"));
 }
 
 #[test]

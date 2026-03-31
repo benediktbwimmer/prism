@@ -161,6 +161,22 @@ async fn mcp_tool_call_logs_inherit_request_envelope_phases() {
         .iter()
         .find(|record| record.entry.call_type == "tool" && record.entry.name == "prism_session")
         .expect("prism_session tool record should exist");
+    let surfaced_entries = server_handle.host.mcp_call_entries(crate::McpLogArgs {
+        limit: Some(20),
+        since: None,
+        call_type: None,
+        name: None,
+        task_id: None,
+        session_id: None,
+        success: None,
+        min_duration_ms: None,
+        contains: None,
+    });
+    let delegated_request_wrappers = surfaced_entries
+        .iter()
+        .filter(|entry| entry.call_type == "request" && entry.name == "tools/call")
+        .count();
+    assert_eq!(delegated_request_wrappers, 0);
 
     for record in [prism_query, prism_session] {
         let operations = record

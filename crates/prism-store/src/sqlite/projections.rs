@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::time::Instant;
 
 use anyhow::Result;
@@ -270,23 +270,58 @@ pub(super) fn apply_projection_co_change_deltas_tx(
     tx: &Transaction<'_>,
     deltas: &[prism_projections::CoChangeDelta],
 ) -> Result<()> {
+    let mut aggregated =
+        HashMap::<(prism_ir::LineageId, prism_ir::LineageId), u64>::with_capacity(deltas.len());
+    let mut touched_sources = BTreeSet::<prism_ir::LineageId>::new();
     for delta in deltas {
-        tx.execute(
-            "INSERT INTO projection_co_change(source_lineage, target_lineage, count)
-             VALUES (?1, ?2, ?3)
-             ON CONFLICT(source_lineage, target_lineage)
-             DO UPDATE SET count = projection_co_change.count + excluded.count",
-            params![
-                delta.source_lineage.0.as_str(),
-                delta.target_lineage.0.as_str(),
-                delta.count_delta
-            ],
-        )?;
+        touched_sources.insert(delta.source_lineage.clone());
+        *aggregated
+            .entry((delta.source_lineage.clone(), delta.target_lineage.clone()))
+            .or_insert(0) += u64::from(delta.count_delta);
     }
-    if !deltas.is_empty() {
-        prune_projection_co_change_tx(tx)?;
+
+    let mut stmt = tx.prepare_cached(
+        "INSERT INTO projection_co_change(source_lineage, target_lineage, count)
+         VALUES (?1, ?2, ?3)
+         ON CONFLICT(source_lineage, target_lineage)
+         DO UPDATE SET count = projection_co_change.count + excluded.count",
+    )?;
+    for ((source_lineage, target_lineage), count_delta) in aggregated {
+        stmt.execute(params![
+            source_lineage.0.as_str(),
+            target_lineage.0.as_str(),
+            i64::try_from(count_delta)?
+        ])?;
+    }
+    if !touched_sources.is_empty() {
+        prune_projection_co_change_sources_tx(tx, touched_sources.iter())?;
     }
     Ok(())
+}
+
+fn prune_projection_co_change_sources_tx<'a, I>(tx: &Transaction<'_>, sources: I) -> Result<usize>
+where
+    I: IntoIterator<Item = &'a prism_ir::LineageId>,
+{
+    let mut deleted_rows = 0;
+    let mut stmt = tx.prepare_cached(
+        "DELETE FROM projection_co_change
+         WHERE source_lineage = ?1
+           AND target_lineage IN (
+               SELECT target_lineage
+               FROM projection_co_change
+               WHERE source_lineage = ?1
+               ORDER BY count DESC, target_lineage
+               LIMIT -1 OFFSET ?2
+           )",
+    )?;
+    for source_lineage in sources {
+        deleted_rows += stmt.execute(params![
+            source_lineage.0.as_str(),
+            MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE as i64
+        ])?;
+    }
+    Ok(deleted_rows)
 }
 
 fn prune_projection_co_change_tx(tx: &Transaction<'_>) -> Result<usize> {

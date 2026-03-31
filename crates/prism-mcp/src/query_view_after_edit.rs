@@ -1,14 +1,15 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
+use std::time::Instant;
 
 use anyhow::Result;
-use prism_ir::{NodeId, TaskId};
+use prism_ir::{Node, NodeId, NodeKind, TaskId};
 use prism_js::{
     AfterEditView, ContractPacketView, QueryEvidenceView, QueryRecommendationView,
     QueryViewSubjectView,
 };
 use serde::Deserialize;
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use crate::compact_followups::same_workspace_file;
 use crate::query_view_materialization::append_boundary_notes_for_paths;
@@ -22,7 +23,8 @@ const NEXT_READ_LIMIT: usize = 5;
 const TEST_LIMIT: usize = 5;
 const DOC_LIMIT: usize = 4;
 const RISK_LIMIT: usize = 4;
-const PATH_TARGET_LIMIT: usize = 16;
+const PATH_TARGET_LIMIT: usize = 8;
+const PATH_TARGETS_PER_FILE_LIMIT: usize = 2;
 
 #[derive(Debug, Deserialize, Default)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -42,6 +44,25 @@ struct RecommendationSeed {
     path: Option<String>,
     score: Option<f32>,
     last_seen: Option<u64>,
+}
+
+#[derive(Debug, Clone)]
+struct PathTargetCandidate {
+    id: NodeId,
+    kind_rank: u8,
+    path_depth: usize,
+    span_len: u32,
+}
+
+impl PathTargetCandidate {
+    fn from_node(node: &Node) -> Self {
+        Self {
+            id: node.id.clone(),
+            kind_rank: path_target_kind_rank(node.kind),
+            path_depth: node.id.path.matches("::").count(),
+            span_len: node.span.len(),
+        }
+    }
 }
 
 pub(crate) fn after_edit_view(execution: &QueryExecution, input: Value) -> Result<Value> {
@@ -67,61 +88,102 @@ pub(crate) fn after_edit_view(execution: &QueryExecution, input: Value) -> Resul
     let mut contracts = Vec::<ContractPacketView>::new();
 
     let subject = if let Some(task_id) = input.task_id {
-        targets = targets_for_task(execution, &task_id, &mut notes)?;
-        QueryViewSubjectView {
-            kind: "task".to_string(),
-            task_id: Some(task_id),
-            target: None,
-            paths: Vec::new(),
-            unresolved_paths: Vec::new(),
-        }
+        let task_id_for_trace = task_id.clone();
+        record_after_edit_step(
+            execution,
+            "afterEdit.resolveTaskTargets",
+            json!({ "taskId": task_id_for_trace }),
+            || {
+                targets = targets_for_task(execution, &task_id, &mut notes)?;
+                Ok(QueryViewSubjectView {
+                    kind: "task".to_string(),
+                    task_id: Some(task_id),
+                    target: None,
+                    paths: Vec::new(),
+                    unresolved_paths: Vec::new(),
+                })
+            },
+        )?
     } else if let Some(target) = input.target {
-        let id = execution.resolve_target_id(target.id, target.lineage_id)?;
-        targets.push(id.clone());
-        QueryViewSubjectView {
-            kind: "target".to_string(),
-            task_id: None,
-            target: Some(node_id_view(id)),
-            paths: Vec::new(),
-            unresolved_paths: Vec::new(),
-        }
+        record_after_edit_step(
+            execution,
+            "afterEdit.resolveTargetSubject",
+            json!({
+                "target": {
+                    "id": target.id.as_ref().map(|id| {
+                        format!("{}::{}::{}", id.crate_name, id.kind, id.path)
+                    }),
+                    "lineageId": target.lineage_id.as_deref(),
+                }
+            }),
+            || {
+                let id = execution.resolve_target_id(target.id, target.lineage_id)?;
+                targets.push(id.clone());
+                Ok(QueryViewSubjectView {
+                    kind: "target".to_string(),
+                    task_id: None,
+                    target: Some(node_id_view(id)),
+                    paths: Vec::new(),
+                    unresolved_paths: Vec::new(),
+                })
+            },
+        )?
     } else if let Some(paths) = input.paths {
-        let (resolved_targets, unresolved_paths) =
-            resolve_targets_for_paths(execution.workspace_root(), execution.prism(), &paths);
-        if resolved_targets.is_empty() {
-            notes.push(
-                "No indexed targets matched the requested paths; follow-up suggestions will fall back to repo guidance where possible."
-                    .to_string(),
-            );
-        }
-        if !unresolved_paths.is_empty() {
-            notes.push(format!(
-                "Some requested paths did not resolve to indexed targets: {}.",
-                unresolved_paths.join(", ")
-            ));
-            append_boundary_notes_for_paths(execution, &unresolved_paths, &mut notes);
-        }
-        targets = resolved_targets;
-        QueryViewSubjectView {
-            kind: "pathSet".to_string(),
-            task_id: None,
-            target: None,
-            paths,
-            unresolved_paths,
-        }
+        let trace_paths = paths.clone();
+        record_after_edit_step(
+            execution,
+            "afterEdit.resolvePathTargets",
+            json!({ "paths": trace_paths }),
+            || {
+                let (resolved_targets, unresolved_paths) = resolve_targets_for_paths(
+                    execution.workspace_root(),
+                    execution.prism(),
+                    &paths,
+                );
+                if resolved_targets.is_empty() {
+                    notes.push(
+                        "No indexed targets matched the requested paths; follow-up suggestions will fall back to repo guidance where possible."
+                            .to_string(),
+                    );
+                }
+                if !unresolved_paths.is_empty() {
+                    notes.push(format!(
+                        "Some requested paths did not resolve to indexed targets: {}.",
+                        unresolved_paths.join(", ")
+                    ));
+                    append_boundary_notes_for_paths(execution, &unresolved_paths, &mut notes);
+                }
+                targets = resolved_targets;
+                Ok(QueryViewSubjectView {
+                    kind: "pathSet".to_string(),
+                    task_id: None,
+                    target: None,
+                    paths,
+                    unresolved_paths,
+                })
+            },
+        )?
     } else if let Some(task) = execution.session().current_task_state() {
-        notes.push(format!(
-            "Defaulted to the current session task `{}`.",
-            task.id.0
-        ));
-        targets = targets_for_task(execution, &task.id.0, &mut notes)?;
-        QueryViewSubjectView {
-            kind: "task".to_string(),
-            task_id: Some(task.id.0.to_string()),
-            target: None,
-            paths: Vec::new(),
-            unresolved_paths: Vec::new(),
-        }
+        let task_id = task.id.0.to_string();
+        record_after_edit_step(
+            execution,
+            "afterEdit.resolveCurrentTaskTargets",
+            json!({ "taskId": task_id }),
+            || {
+                notes.push(format!(
+                    "Defaulted to the current session task `{}`.",
+                    task.id.0
+                ));
+                targets = targets_for_task(execution, &task.id.0, &mut notes)?;
+                Ok(QueryViewSubjectView {
+                    kind: "task".to_string(),
+                    task_id: Some(task.id.0.to_string()),
+                    target: None,
+                    paths: Vec::new(),
+                    unresolved_paths: Vec::new(),
+                })
+            },
+        )?
     } else {
         return Err(invalid_query_argument_error(
             "afterEdit",
@@ -146,18 +208,51 @@ pub(crate) fn after_edit_view(execution: &QueryExecution, input: Value) -> Resul
         )?;
     }
 
-    append_doc_fallbacks(execution.workspace_root(), &mut docs);
-    append_validation_fallbacks(execution.workspace_root(), &mut tests, &mut risk_checks);
+    record_after_edit_step(
+        execution,
+        "afterEdit.appendDocFallbacks",
+        json!({ "workspaceRoot": execution.workspace_root().map(|root| root.display().to_string()) }),
+        || {
+            append_doc_fallbacks(execution.workspace_root(), &mut docs);
+            Ok(())
+        },
+    )?;
+    record_after_edit_step(
+        execution,
+        "afterEdit.appendValidationFallbacks",
+        json!({ "workspaceRoot": execution.workspace_root().map(|root| root.display().to_string()) }),
+        || {
+            append_validation_fallbacks(execution.workspace_root(), &mut tests, &mut risk_checks);
+            Ok(())
+        },
+    )?;
 
-    Ok(serde_json::to_value(AfterEditView {
-        subject,
-        next_reads: collect_recommendations(next_reads_out, NEXT_READ_LIMIT),
-        tests: collect_recommendations(tests, TEST_LIMIT),
-        docs: collect_recommendations(docs, DOC_LIMIT),
-        risk_checks: collect_recommendations(risk_checks, RISK_LIMIT),
-        contracts: collect_contracts(contracts),
-        notes,
-    })?)
+    let notes = collect_notes(notes);
+
+    record_after_edit_step(
+        execution,
+        "afterEdit.buildResult",
+        json!({
+            "targets": targets.len(),
+            "nextReadSeeds": next_reads_out.len(),
+            "testSeeds": tests.len(),
+            "docSeeds": docs.len(),
+            "riskSeeds": risk_checks.len(),
+            "contractSeeds": contracts.len(),
+            "notes": notes.len(),
+        }),
+        || {
+            Ok(serde_json::to_value(AfterEditView {
+                subject,
+                next_reads: collect_recommendations(next_reads_out, NEXT_READ_LIMIT),
+                tests: collect_recommendations(tests, TEST_LIMIT),
+                docs: collect_recommendations(docs, DOC_LIMIT),
+                risk_checks: collect_recommendations(risk_checks, RISK_LIMIT),
+                contracts: collect_contracts(contracts),
+                notes,
+            })?)
+        },
+    )
 }
 
 fn targets_for_task(
@@ -206,7 +301,14 @@ fn collect_target_followups(
     contracts: &mut Vec<ContractPacketView>,
     notes: &mut Vec<String>,
 ) -> Result<()> {
-    for candidate in next_reads(execution.prism(), id, 3)? {
+    let target_args = json!({ "target": node_id_view(id.clone()) });
+
+    for candidate in record_after_edit_step(
+        execution,
+        "afterEdit.target.nextReads",
+        target_args.clone(),
+        || next_reads(execution.prism(), id, 3),
+    )? {
         next_reads_out.push(RecommendationSeed {
             kind: "read".to_string(),
             label: candidate.symbol.id.path.clone(),
@@ -225,7 +327,18 @@ fn collect_target_followups(
         });
     }
 
-    let recipe = validation_recipe_view_with(execution.prism(), execution.session(), id);
+    let recipe = record_after_edit_step(
+        execution,
+        "afterEdit.target.validationRecipe",
+        target_args.clone(),
+        || {
+            Ok(validation_recipe_view_with(
+                execution.prism(),
+                execution.session(),
+                id,
+            ))
+        },
+    )?;
     for check in &recipe.scored_checks {
         tests.push(RecommendationSeed {
             kind: "test".to_string(),
@@ -269,7 +382,12 @@ fn collect_target_followups(
         });
     }
 
-    for spec in execution.prism().spec_for(id) {
+    for spec in record_after_edit_step(
+        execution,
+        "afterEdit.target.specLinks",
+        target_args.clone(),
+        || Ok(execution.prism().spec_for(id)),
+    )? {
         docs.push(RecommendationSeed {
             kind: "doc".to_string(),
             label: spec.path.to_string(),
@@ -288,7 +406,18 @@ fn collect_target_followups(
         });
     }
 
-    let impact = blast_radius_view(execution.prism(), execution.session(), id);
+    let impact = record_after_edit_step(
+        execution,
+        "afterEdit.target.blastRadius",
+        target_args,
+        || {
+            Ok(blast_radius_view(
+                execution.prism(),
+                execution.session(),
+                id,
+            ))
+        },
+    )?;
     for node in impact.direct_nodes.iter().take(2) {
         risk_checks.push(RecommendationSeed {
             kind: "risk_check".to_string(),
@@ -340,7 +469,7 @@ fn collect_target_followups(
         risk_checks,
         contracts,
         notes,
-    );
+    )?;
 
     Ok(())
 }
@@ -414,146 +543,189 @@ fn collect_contract_followups(
     risk_checks: &mut Vec<RecommendationSeed>,
     contracts: &mut Vec<ContractPacketView>,
     notes: &mut Vec<String>,
-) {
-    let packets = execution.prism().contracts_for_target(id);
+) -> Result<()> {
+    let target_args = json!({ "target": node_id_view(id.clone()) });
+    let packets = record_after_edit_step(
+        execution,
+        "afterEdit.target.contractPackets",
+        target_args.clone(),
+        || Ok(execution.prism().contracts_for_target(id)),
+    )?;
     if packets.is_empty() {
-        return;
+        return Ok(());
     }
 
     for packet in packets {
-        let subject_match = execution
-            .prism()
-            .contract_subject_matches_target(id, &packet);
-        let consumer_match = execution
-            .prism()
-            .contract_consumer_matches_target(id, &packet);
-        contracts.push(contract_packet_view(
-            execution.prism(),
-            execution.workspace_root(),
-            packet.clone(),
-            None,
-        ));
+        let packet_handle = packet.handle.clone();
+        let _ = record_after_edit_step(
+            execution,
+            "afterEdit.target.contractPacket",
+            json!({
+                "target": node_id_view(id.clone()),
+                "contract": packet_handle,
+            }),
+            || {
+                let subject_match = execution
+                    .prism()
+                    .contract_subject_matches_target(id, &packet);
+                let consumer_match = execution
+                    .prism()
+                    .contract_consumer_matches_target(id, &packet);
+                contracts.push(contract_packet_view(
+                    execution.prism(),
+                    execution.workspace_root(),
+                    packet.clone(),
+                    None,
+                ));
 
-        if subject_match {
-            for consumer in &packet.consumers {
-                for node in execution.prism().contract_target_nodes(consumer, 3) {
-                    if node == *id {
-                        continue;
+                if subject_match {
+                    for consumer in &packet.consumers {
+                        for node in execution.prism().contract_target_nodes(consumer, 3) {
+                            if node == *id {
+                                continue;
+                            }
+                            next_reads_out.push(RecommendationSeed {
+                                kind: "contract_read".to_string(),
+                                label: node.path.to_string(),
+                                why: format!(
+                                    "Known consumer of contract `{}` after editing `{}`.",
+                                    packet.handle, id.path
+                                ),
+                                provenance: vec![QueryEvidenceView {
+                                    kind: "contract_consumer".to_string(),
+                                    detail: format!(
+                                        "Consumer recorded on contract `{}`.",
+                                        packet.handle
+                                    ),
+                                    path: None,
+                                    line: None,
+                                    target: Some(node_id_view(node.clone())),
+                                }],
+                                target: Some(node_id_view(node)),
+                                path: None,
+                                score: None,
+                                last_seen: None,
+                            });
+                        }
                     }
-                    next_reads_out.push(RecommendationSeed {
-                        kind: "contract_read".to_string(),
-                        label: node.path.to_string(),
+                }
+                if consumer_match {
+                    for node in execution.prism().contract_target_nodes(&packet.subject, 3) {
+                        if node == *id {
+                            continue;
+                        }
+                        next_reads_out.push(RecommendationSeed {
+                            kind: "contract_read".to_string(),
+                            label: node.path.to_string(),
+                            why: format!(
+                                "Provider-side subject for contract `{}` after editing consumer `{}`.",
+                                packet.handle, id.path
+                            ),
+                            provenance: vec![QueryEvidenceView {
+                                kind: "contract_subject".to_string(),
+                                detail: format!("Subject recorded on contract `{}`.", packet.handle),
+                                path: None,
+                                line: None,
+                                target: Some(node_id_view(node.clone())),
+                            }],
+                            target: Some(node_id_view(node)),
+                            path: None,
+                            score: None,
+                            last_seen: None,
+                        });
+                    }
+                }
+
+                for validation in &packet.validations {
+                    tests.push(RecommendationSeed {
+                        kind: "contract_test".to_string(),
+                        label: validation.id.clone(),
                         why: format!(
-                            "Known consumer of contract `{}` after editing `{}`.",
+                            "Validation tied to contract `{}` after editing `{}`.",
                             packet.handle, id.path
                         ),
                         provenance: vec![QueryEvidenceView {
-                            kind: "contract_consumer".to_string(),
-                            detail: format!("Consumer recorded on contract `{}`.", packet.handle),
+                            kind: "contract_validation".to_string(),
+                            detail: format!("Validation recorded on contract `{}`.", packet.handle),
                             path: None,
                             line: None,
-                            target: Some(node_id_view(node.clone())),
+                            target: Some(node_id_view(id.clone())),
                         }],
-                        target: Some(node_id_view(node)),
+                        target: None,
                         path: None,
                         score: None,
                         last_seen: None,
                     });
                 }
-            }
-        }
-        if consumer_match {
-            for node in execution.prism().contract_target_nodes(&packet.subject, 3) {
-                if node == *id {
-                    continue;
-                }
-                next_reads_out.push(RecommendationSeed {
-                    kind: "contract_read".to_string(),
-                    label: node.path.to_string(),
-                    why: format!(
-                        "Provider-side subject for contract `{}` after editing consumer `{}`.",
-                        packet.handle, id.path
-                    ),
-                    provenance: vec![QueryEvidenceView {
-                        kind: "contract_subject".to_string(),
-                        detail: format!("Subject recorded on contract `{}`.", packet.handle),
+
+                for detail in packet
+                    .compatibility
+                    .migrating
+                    .iter()
+                    .chain(packet.compatibility.risky.iter())
+                    .chain(packet.compatibility.breaking.iter())
+                    .take(3)
+                {
+                    risk_checks.push(RecommendationSeed {
+                        kind: "contract_risk".to_string(),
+                        label: detail.clone(),
+                        why: format!(
+                            "Compatibility or migration guidance from contract `{}`.",
+                            packet.handle
+                        ),
+                        provenance: vec![QueryEvidenceView {
+                            kind: "contract_compatibility".to_string(),
+                            detail: format!("Compatibility note on contract `{}`.", packet.handle),
+                            path: None,
+                            line: None,
+                            target: Some(node_id_view(id.clone())),
+                        }],
+                        target: None,
                         path: None,
-                        line: None,
-                        target: Some(node_id_view(node.clone())),
-                    }],
-                    target: Some(node_id_view(node)),
-                    path: None,
-                    score: None,
-                    last_seen: None,
-                });
-            }
-        }
+                        score: None,
+                        last_seen: None,
+                    });
+                }
 
-        for validation in &packet.validations {
-            tests.push(RecommendationSeed {
-                kind: "contract_test".to_string(),
-                label: validation.id.clone(),
-                why: format!(
-                    "Validation tied to contract `{}` after editing `{}`.",
-                    packet.handle, id.path
-                ),
-                provenance: vec![QueryEvidenceView {
-                    kind: "contract_validation".to_string(),
-                    detail: format!("Validation recorded on contract `{}`.", packet.handle),
-                    path: None,
-                    line: None,
-                    target: Some(node_id_view(id.clone())),
-                }],
-                target: None,
-                path: None,
-                score: None,
-                last_seen: None,
-            });
-        }
-
-        for detail in packet
-            .compatibility
-            .migrating
-            .iter()
-            .chain(packet.compatibility.risky.iter())
-            .chain(packet.compatibility.breaking.iter())
-            .take(3)
-        {
-            risk_checks.push(RecommendationSeed {
-                kind: "contract_risk".to_string(),
-                label: detail.clone(),
-                why: format!(
-                    "Compatibility or migration guidance from contract `{}`.",
-                    packet.handle
-                ),
-                provenance: vec![QueryEvidenceView {
-                    kind: "contract_compatibility".to_string(),
-                    detail: format!("Compatibility note on contract `{}`.", packet.handle),
-                    path: None,
-                    line: None,
-                    target: Some(node_id_view(id.clone())),
-                }],
-                target: None,
-                path: None,
-                score: None,
-                last_seen: None,
-            });
-        }
-
-        if !packet.compatibility.migrating.is_empty()
-            || !packet.compatibility.risky.is_empty()
-            || !packet.compatibility.breaking.is_empty()
-        {
-            let mut details = packet.compatibility.migrating.clone();
-            details.extend(packet.compatibility.risky.clone());
-            details.extend(packet.compatibility.breaking.clone());
-            notes.push(format!(
-                "Contract `{}` compatibility notes: {}.",
-                packet.handle,
-                details.into_iter().take(3).collect::<Vec<_>>().join(" ")
-            ));
-        }
+                if !packet.compatibility.migrating.is_empty()
+                    || !packet.compatibility.risky.is_empty()
+                    || !packet.compatibility.breaking.is_empty()
+                {
+                    let mut details = packet.compatibility.migrating.clone();
+                    details.extend(packet.compatibility.risky.clone());
+                    details.extend(packet.compatibility.breaking.clone());
+                    notes.push(format!(
+                        "Contract `{}` compatibility notes: {}.",
+                        packet.handle,
+                        details.into_iter().take(3).collect::<Vec<_>>().join(" ")
+                    ));
+                }
+                Ok(())
+            },
+        );
     }
+    Ok(())
+}
+
+fn record_after_edit_step<T, F>(
+    execution: &QueryExecution,
+    operation: &str,
+    args: Value,
+    run: F,
+) -> Result<T>
+where
+    F: FnOnce() -> Result<T>,
+{
+    let started = Instant::now();
+    let result = run();
+    execution.query_run().record_phase(
+        operation,
+        &args,
+        started.elapsed(),
+        result.is_ok(),
+        result.as_ref().err().map(|error| error.to_string()),
+    );
+    result
 }
 
 fn collect_contracts(contracts: Vec<ContractPacketView>) -> Vec<ContractPacketView> {
@@ -562,6 +734,17 @@ fn collect_contracts(contracts: Vec<ContractPacketView>) -> Vec<ContractPacketVi
         merged.entry(contract.handle.clone()).or_insert(contract);
     }
     merged.into_values().collect()
+}
+
+fn collect_notes(notes: Vec<String>) -> Vec<String> {
+    let mut seen = BTreeSet::<String>::new();
+    let mut collapsed = Vec::<String>::new();
+    for note in notes {
+        if seen.insert(note.clone()) {
+            collapsed.push(note);
+        }
+    }
+    collapsed
 }
 
 fn collect_recommendations(
@@ -634,26 +817,48 @@ fn resolve_targets_for_paths(
     paths: &[String],
 ) -> (Vec<NodeId>, Vec<String>) {
     let mut matched_paths = BTreeSet::<String>::new();
-    let mut ids = prism
-        .graph()
-        .all_nodes()
-        .filter_map(|node| {
-            let file_path = prism.graph().file_path(node.file)?;
-            let actual = file_path.to_string_lossy().into_owned();
-            let matched = paths
-                .iter()
-                .find(|path| same_workspace_file(workspace_root, path.as_str(), &actual))?;
-            matched_paths.insert(matched.clone());
-            Some(node.id.clone())
-        })
-        .collect::<Vec<_>>();
-    ids.sort_by(|left, right| {
-        left.path
-            .cmp(&right.path)
-            .then_with(|| left.crate_name.cmp(&right.crate_name))
-            .then_with(|| format!("{:?}", left.kind).cmp(&format!("{:?}", right.kind)))
-    });
-    ids.dedup();
+    let mut candidates_by_path = BTreeMap::<String, Vec<PathTargetCandidate>>::new();
+    for node in prism.graph().all_nodes() {
+        let Some(file_path) = prism.graph().file_path(node.file) else {
+            continue;
+        };
+        let actual = file_path.to_string_lossy();
+        let Some(matched) = paths
+            .iter()
+            .find(|path| same_workspace_file(workspace_root, path.as_str(), actual.as_ref()))
+        else {
+            continue;
+        };
+        matched_paths.insert(matched.clone());
+        candidates_by_path
+            .entry(matched.clone())
+            .or_default()
+            .push(PathTargetCandidate::from_node(node));
+    }
+
+    let mut ids = Vec::<NodeId>::new();
+    let mut seen = BTreeSet::<String>::new();
+    for path in paths {
+        let Some(candidates) = candidates_by_path.get_mut(path) else {
+            continue;
+        };
+        candidates.sort_by(compare_path_target_candidates);
+        let mut selected_for_path = 0usize;
+        for candidate in candidates.iter() {
+            if ids.len() >= PATH_TARGET_LIMIT || selected_for_path >= PATH_TARGETS_PER_FILE_LIMIT {
+                break;
+            }
+            let key = path_target_key(&candidate.id);
+            if seen.insert(key) {
+                ids.push(candidate.id.clone());
+                selected_for_path += 1;
+            }
+        }
+        if ids.len() >= PATH_TARGET_LIMIT {
+            break;
+        }
+    }
+
     ids.truncate(PATH_TARGET_LIMIT);
     let unresolved = paths
         .iter()
@@ -661,4 +866,37 @@ fn resolve_targets_for_paths(
         .cloned()
         .collect::<Vec<_>>();
     (ids, unresolved)
+}
+
+fn compare_path_target_candidates(
+    left: &PathTargetCandidate,
+    right: &PathTargetCandidate,
+) -> std::cmp::Ordering {
+    left.kind_rank
+        .cmp(&right.kind_rank)
+        .then_with(|| left.path_depth.cmp(&right.path_depth))
+        .then_with(|| right.span_len.cmp(&left.span_len))
+        .then_with(|| left.id.path.cmp(&right.id.path))
+        .then_with(|| left.id.crate_name.cmp(&right.id.crate_name))
+}
+
+fn path_target_kind_rank(kind: NodeKind) -> u8 {
+    match kind {
+        NodeKind::Module => 0,
+        NodeKind::Function
+        | NodeKind::Struct
+        | NodeKind::Enum
+        | NodeKind::Trait
+        | NodeKind::TypeAlias => 1,
+        NodeKind::Impl => 2,
+        NodeKind::Method => 3,
+        NodeKind::Field => 4,
+        NodeKind::Document | NodeKind::MarkdownHeading => 5,
+        NodeKind::JsonKey | NodeKind::TomlKey | NodeKind::YamlKey => 6,
+        NodeKind::Workspace | NodeKind::Package => 7,
+    }
+}
+
+fn path_target_key(id: &NodeId) -> String {
+    format!("{}::{:?}::{}", id.crate_name, id.kind, id.path)
 }

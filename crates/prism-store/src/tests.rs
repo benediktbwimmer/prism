@@ -1107,6 +1107,81 @@ fn sqlite_store_prunes_legacy_co_change_rows_on_open() {
 }
 
 #[test]
+fn sqlite_store_co_change_delta_prunes_only_touched_sources() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-touched-projection-prune-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let touched = prism_ir::LineageId::new("lineage:touched");
+    let untouched = prism_ir::LineageId::new("lineage:untouched");
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    {
+        let tx = store.conn.transaction().unwrap();
+        for source in [&touched, &untouched] {
+            for index in 0..(MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 8) {
+                tx.execute(
+                    "INSERT INTO projection_co_change(source_lineage, target_lineage, count)
+                     VALUES (?1, ?2, ?3)",
+                    rusqlite::params![
+                        source.0.as_str(),
+                        format!("lineage:{index:03}"),
+                        (MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 8 - index) as i64
+                    ],
+                )
+                .unwrap();
+            }
+        }
+        tx.commit().unwrap();
+    }
+
+    store
+        .save_history_snapshot_with_co_change_deltas(
+            &HistorySnapshot {
+                node_to_lineage: Vec::new(),
+                events: Vec::new(),
+                tombstones: Vec::new(),
+                next_lineage: 1,
+                next_event: 1,
+            },
+            &[CoChangeDelta {
+                source_lineage: touched.clone(),
+                target_lineage: prism_ir::LineageId::new("lineage:extra"),
+                count_delta: 1,
+            }],
+        )
+        .unwrap();
+
+    let touched_rows: i64 = store
+        .conn
+        .query_row(
+            "SELECT COUNT(*) FROM projection_co_change WHERE source_lineage = ?1",
+            [touched.0.as_str()],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let untouched_rows: i64 = store
+        .conn
+        .query_row(
+            "SELECT COUNT(*) FROM projection_co_change WHERE source_lineage = ?1",
+            [untouched.0.as_str()],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(touched_rows as usize, MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE);
+    assert_eq!(
+        untouched_rows as usize,
+        MAX_CO_CHANGE_NEIGHBORS_PER_LINEAGE + 8
+    );
+
+    drop(store);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
 fn sqlite_store_retires_legacy_history_co_change_rows_on_open() {
     let path = std::env::temp_dir().join(format!(
         "prism-store-legacy-history-co-change-test-{}.db",
@@ -1408,6 +1483,198 @@ fn sqlite_store_merges_episodic_snapshots_append_only() {
     assert_eq!(logged_rows, 2);
 
     drop(store);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(path.with_extension("db-shm"));
+}
+
+#[test]
+fn sqlite_store_auxiliary_outcome_snapshot_reload_preserves_external_updates() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-aux-outcome-cache-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let alpha = prism_memory::OutcomeEvent {
+        meta: EventMeta {
+            id: EventId::new("outcome:alpha"),
+            ts: 1,
+            actor: EventActor::Agent,
+            correlation: None,
+            causation: None,
+        },
+        anchors: Vec::new(),
+        kind: prism_memory::OutcomeKind::NoteAdded,
+        result: prism_memory::OutcomeResult::Success,
+        summary: "alpha".to_string(),
+        evidence: Vec::new(),
+        metadata: serde_json::Value::Null,
+    };
+    let beta = prism_memory::OutcomeEvent {
+        meta: EventMeta {
+            id: EventId::new("outcome:beta"),
+            ts: 2,
+            actor: EventActor::Agent,
+            correlation: None,
+            causation: None,
+        },
+        anchors: Vec::new(),
+        kind: prism_memory::OutcomeKind::NoteAdded,
+        result: prism_memory::OutcomeResult::Success,
+        summary: "beta".to_string(),
+        evidence: Vec::new(),
+        metadata: serde_json::Value::Null,
+    };
+    let gamma = prism_memory::OutcomeEvent {
+        meta: EventMeta {
+            id: EventId::new("outcome:gamma"),
+            ts: 3,
+            actor: EventActor::Agent,
+            correlation: None,
+            causation: None,
+        },
+        anchors: Vec::new(),
+        kind: prism_memory::OutcomeKind::NoteAdded,
+        result: prism_memory::OutcomeResult::Success,
+        summary: "gamma".to_string(),
+        evidence: Vec::new(),
+        metadata: serde_json::Value::Null,
+    };
+
+    let mut store_a = SqliteStore::open(&path).unwrap();
+    store_a
+        .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+            outcome_snapshot: Some(OutcomeMemorySnapshot {
+                events: vec![alpha.clone()],
+            }),
+            ..AuxiliaryPersistBatch::default()
+        })
+        .unwrap();
+
+    let mut store_b = SqliteStore::open(&path).unwrap();
+    store_b
+        .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+            outcome_snapshot: Some(OutcomeMemorySnapshot {
+                events: vec![beta.clone()],
+            }),
+            ..AuxiliaryPersistBatch::default()
+        })
+        .unwrap();
+
+    store_a
+        .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+            outcome_snapshot: Some(OutcomeMemorySnapshot {
+                events: vec![gamma.clone()],
+            }),
+            ..AuxiliaryPersistBatch::default()
+        })
+        .unwrap();
+
+    let loaded = store_a.load_outcome_snapshot().unwrap().unwrap();
+    let loaded_ids = loaded
+        .events
+        .into_iter()
+        .map(|event| event.meta.id.0)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        loaded_ids,
+        vec![
+            gamma.meta.id.0.to_string(),
+            beta.meta.id.0.to_string(),
+            alpha.meta.id.0.to_string()
+        ]
+    );
+
+    drop(store_b);
+    drop(store_a);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(path.with_extension("db-shm"));
+}
+
+#[test]
+fn sqlite_store_auxiliary_episodic_snapshot_reload_preserves_external_updates() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-aux-episodic-cache-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let alpha = MemoryEntry {
+        id: MemoryId("episodic:alpha".to_string()),
+        anchors: Vec::new(),
+        kind: MemoryKind::Episodic,
+        scope: prism_memory::MemoryScope::Local,
+        content: "remember alpha".to_string(),
+        metadata: serde_json::Value::Null,
+        created_at: 1,
+        source: MemorySource::Agent,
+        trust: 0.7,
+    };
+    let beta = MemoryEntry {
+        id: MemoryId("episodic:beta".to_string()),
+        anchors: Vec::new(),
+        kind: MemoryKind::Episodic,
+        scope: prism_memory::MemoryScope::Local,
+        content: "remember beta".to_string(),
+        metadata: serde_json::Value::Null,
+        created_at: 2,
+        source: MemorySource::Agent,
+        trust: 0.8,
+    };
+    let gamma = MemoryEntry {
+        id: MemoryId("episodic:gamma".to_string()),
+        anchors: Vec::new(),
+        kind: MemoryKind::Episodic,
+        scope: prism_memory::MemoryScope::Local,
+        content: "remember gamma".to_string(),
+        metadata: serde_json::Value::Null,
+        created_at: 3,
+        source: MemorySource::Agent,
+        trust: 0.9,
+    };
+
+    let mut store_a = SqliteStore::open(&path).unwrap();
+    store_a
+        .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+            episodic_snapshot: Some(EpisodicMemorySnapshot {
+                entries: vec![alpha.clone()],
+            }),
+            ..AuxiliaryPersistBatch::default()
+        })
+        .unwrap();
+
+    let mut store_b = SqliteStore::open(&path).unwrap();
+    store_b
+        .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+            episodic_snapshot: Some(EpisodicMemorySnapshot {
+                entries: vec![beta.clone()],
+            }),
+            ..AuxiliaryPersistBatch::default()
+        })
+        .unwrap();
+
+    store_a
+        .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
+            episodic_snapshot: Some(EpisodicMemorySnapshot {
+                entries: vec![gamma.clone()],
+            }),
+            ..AuxiliaryPersistBatch::default()
+        })
+        .unwrap();
+
+    assert_eq!(
+        store_a.load_episodic_snapshot().unwrap(),
+        Some(EpisodicMemorySnapshot {
+            entries: vec![alpha, beta, gamma],
+        })
+    );
+
+    drop(store_b);
+    drop(store_a);
     let _ = std::fs::remove_file(&path);
     let _ = std::fs::remove_file(path.with_extension("db-wal"));
     let _ = std::fs::remove_file(path.with_extension("db-shm"));

@@ -30,12 +30,12 @@ pub(super) fn load_events(conn: &Connection) -> Result<Vec<MemoryEvent>> {
     decode_event_rows(rows)
 }
 
-pub(super) fn save_snapshot_tx(
+pub(super) fn save_snapshot_delta_tx(
     tx: &Transaction<'_>,
+    current: Option<&EpisodicMemorySnapshot>,
     snapshot: &EpisodicMemorySnapshot,
 ) -> Result<bool> {
-    let current = load_snapshot_tx(tx)?;
-    let delta = append_only_delta(current.as_ref(), snapshot);
+    let delta = append_only_delta(current, snapshot);
     if delta.is_empty() {
         return Ok(false);
     }
@@ -131,7 +131,7 @@ pub(super) fn backfill_event_log_if_needed(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn load_snapshot_tx(tx: &Transaction<'_>) -> Result<Option<EpisodicMemorySnapshot>> {
+pub(super) fn load_snapshot_tx(tx: &Transaction<'_>) -> Result<Option<EpisodicMemorySnapshot>> {
     let events = load_events_tx(tx)?;
     if !events.is_empty() {
         return Ok(snapshot_from_events(events));
