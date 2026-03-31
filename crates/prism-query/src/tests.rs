@@ -4147,7 +4147,7 @@ fn replace_coordination_snapshot_and_plan_graphs_preserves_stale_policy() {
 }
 
 #[test]
-fn task_backed_native_plan_node_completion_uses_continuity_review_state() {
+fn task_backed_plan_nodes_must_complete_through_coordination_tasks() {
     let graph = Graph::new();
     let history = HistoryStore::new();
     let outcomes = OutcomeMemory::new();
@@ -4211,7 +4211,7 @@ fn task_backed_native_plan_node_completion_uses_continuity_review_state() {
     assert!(before
         .iter()
         .any(|blocker| blocker.kind == PlanNodeBlockerKind::ReviewRequired));
-    assert!(prism
+    let error = prism
         .update_native_plan_node(
             &node_id,
             None,
@@ -4230,7 +4230,10 @@ fn task_backed_native_plan_node_completion_uses_continuity_review_state() {
             false,
             None,
         )
-        .is_err());
+        .expect_err("task-backed nodes should reject native plan-node mutations");
+    assert!(error
+        .to_string()
+        .contains("is task-backed; update the coordination task instead"));
 
     let (artifact_id, _) = prism
         .propose_native_artifact(
@@ -4291,25 +4294,35 @@ fn task_backed_native_plan_node_completion_uses_continuity_review_state() {
         .iter()
         .any(|blocker| blocker.kind == PlanNodeBlockerKind::ReviewRequired));
     prism
-        .update_native_plan_node(
-            &node_id,
-            None,
-            Some(PlanNodeStatus::Completed),
-            None,
-            None,
-            None,
-            None,
-            false,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            false,
-            None,
+        .update_native_task(
+            EventMeta {
+                id: EventId::new("coord:task:task-backed-native:complete"),
+                ts: 5,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            TaskUpdateInput {
+                task_id: prism_ir::CoordinationTaskId::new(task_id.0.clone()),
+                status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                anchors: None,
+                depends_on: None,
+                acceptance: None,
+                base_revision: None,
+                completion_context: None,
+            },
+            WorkspaceRevision {
+                graph_version: 1,
+                git_commit: None,
+            },
+            5,
         )
-        .expect("approved artifact should satisfy native completion gate");
+        .expect("approved artifact should satisfy task completion gate");
 }
 
 #[test]

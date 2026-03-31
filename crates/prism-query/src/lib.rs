@@ -21,7 +21,7 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use prism_coordination::{
     Artifact, ArtifactProposeInput, ArtifactReview, ArtifactReviewInput, ArtifactSupersedeInput,
     CoordinationConflict, CoordinationRuntimeState, CoordinationSnapshot, CoordinationTask,
@@ -796,6 +796,15 @@ impl Prism {
         clear_priority: bool,
         tags: Option<Vec<String>>,
     ) -> Result<PlanId> {
+        if self
+            .coordination_task(&prism_ir::CoordinationTaskId::new(node_id.0.clone()))
+            .is_some()
+        {
+            return Err(anyhow!(
+                "plan node `{}` is task-backed; update the coordination task instead",
+                node_id.0
+            ));
+        }
         if let Some(bindings) = bindings.as_ref() {
             self.validate_native_plan_binding(bindings)?;
         }

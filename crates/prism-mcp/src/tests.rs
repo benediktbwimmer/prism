@@ -668,7 +668,7 @@ fn coordination_update_routes_plain_ids_to_coordination_tasks() {
 }
 
 #[test]
-fn coordination_update_routes_task_backed_ids_to_plan_nodes_for_node_only_fields() {
+fn coordination_update_rejects_node_only_fields_for_task_backed_ids() {
     let root = temp_workspace();
     let host = host_with_session_internal(index_workspace_session(&root).unwrap());
 
@@ -700,7 +700,7 @@ fn coordination_update_routes_task_backed_ids_to_plan_nodes_for_node_only_fields
         )
         .unwrap();
 
-    let updated = host
+    let error = host
         .store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
@@ -712,11 +712,10 @@ fn coordination_update_routes_task_backed_ids_to_plan_nodes_for_node_only_fields
                 task_id: None,
             },
         )
-        .unwrap();
-    assert_eq!(
-        updated.state["summary"],
-        "This should not be accepted for a task-backed id"
-    );
+        .expect_err("task-backed ids should not accept native-node-only update fields");
+    assert!(error
+        .to_string()
+        .contains("field `summary` is only supported when `id` resolves to a native plan node"));
 }
 
 #[test]

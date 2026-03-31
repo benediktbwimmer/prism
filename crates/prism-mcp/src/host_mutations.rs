@@ -236,25 +236,12 @@ enum WorkflowUpdateTarget {
     },
 }
 
-fn resolve_workflow_update_target_with_preference(
-    prism: &Prism,
-    id: &str,
-    prefer_plan_node: bool,
-) -> Result<WorkflowUpdateTarget> {
+fn resolve_workflow_update_target(prism: &Prism, id: &str) -> Result<WorkflowUpdateTarget> {
     let task_id = CoordinationTaskId::new(id.to_string());
-    let plan_node = resolve_native_plan_node(prism, id);
-    if prefer_plan_node {
-        if let Some((plan_id, node)) = plan_node.clone() {
-            return Ok(WorkflowUpdateTarget::PlanNode {
-                plan_id,
-                node_id: node.id,
-            });
-        }
-    }
     if prism.coordination_task(&task_id).is_some() {
         return Ok(WorkflowUpdateTarget::CoordinationTask(task_id));
     }
-    if let Some((plan_id, node)) = plan_node {
+    if let Some((plan_id, node)) = resolve_native_plan_node(prism, id) {
         return Ok(WorkflowUpdateTarget::PlanNode {
             plan_id,
             node_id: node.id,
@@ -1586,21 +1573,7 @@ impl QueryHost {
                     tags,
                     completion_context,
                 } = payload;
-                let prefer_plan_node = kind.is_some()
-                    || is_abstract.is_some()
-                    || bindings.is_some()
-                    || validation_refs.is_some()
-                    || tags.is_some()
-                    || !matches!(
-                        parse_sparse_patch(summary.clone(), "summary")?,
-                        SparsePatch::Keep
-                    )
-                    || !matches!(
-                        parse_sparse_patch(priority.clone(), "priority")?,
-                        SparsePatch::Keep
-                    );
-                match resolve_workflow_update_target_with_preference(prism, &id, prefer_plan_node)?
-                {
+                match resolve_workflow_update_target(prism, &id)? {
                     WorkflowUpdateTarget::CoordinationTask(task_id) => {
                         let summary_patch = parse_sparse_patch(summary, "summary")?;
                         if !matches!(summary_patch, SparsePatch::Keep) {

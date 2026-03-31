@@ -72,6 +72,120 @@ fn rejection_error(
     )
 }
 
+fn plan_completion_violations(
+    state: &CoordinationState,
+    plan_id: &PlanId,
+    now: Timestamp,
+    allow_abandoned_tasks: bool,
+) -> Vec<PolicyViolation> {
+    let mut violations = state
+        .tasks
+        .values()
+        .filter(|task| task.plan == *plan_id)
+        .filter(|task| {
+            !(task.status == CoordinationTaskStatus::Completed
+                || (allow_abandoned_tasks && task.status == CoordinationTaskStatus::Abandoned))
+        })
+        .map(|task| {
+            policy_violation(
+                PolicyViolationCode::IncompletePlanTasks,
+                format!(
+                    "coordination task `{}` is still {:?}",
+                    task.id.0, task.status
+                ),
+                Some(plan_id.clone()),
+                Some(task.id.clone()),
+                None,
+                None,
+                Value::Null,
+            )
+        })
+        .collect::<Vec<_>>();
+    let active_claim_violations = state
+        .claims
+        .values()
+        .filter(|claim| claim_is_active(claim, now))
+        .filter(|claim| {
+            claim
+                .task
+                .as_ref()
+                .and_then(|task_id| state.tasks.get(task_id))
+                .map(|task| task.plan == *plan_id)
+                .unwrap_or(false)
+        })
+        .map(|claim| {
+            policy_violation(
+                PolicyViolationCode::ActivePlanClaims,
+                format!("claim `{}` is still active for this plan", claim.id.0),
+                Some(plan_id.clone()),
+                claim.task.clone(),
+                Some(claim.id.clone()),
+                None,
+                Value::Null,
+            )
+        })
+        .collect::<Vec<_>>();
+    violations.extend(active_claim_violations);
+    violations
+}
+
+fn should_auto_complete_execution_plan(
+    state: &CoordinationState,
+    plan_id: &PlanId,
+    now: Timestamp,
+) -> bool {
+    let Some(plan) = state.plans.get(plan_id) else {
+        return false;
+    };
+    if plan.kind != PlanKind::TaskExecution {
+        return false;
+    }
+    if !matches!(plan.status, PlanStatus::Active | PlanStatus::Blocked) {
+        return false;
+    }
+    let has_tasks = state.tasks.values().any(|task| task.plan == *plan_id);
+    has_tasks && plan_completion_violations(state, plan_id, now, false).is_empty()
+}
+
+fn auto_complete_execution_plan_if_eligible(
+    state: &mut CoordinationState,
+    meta: &EventMeta,
+    plan_id: &PlanId,
+) -> Option<Plan> {
+    if !should_auto_complete_execution_plan(state, plan_id, meta.ts) {
+        return None;
+    }
+    let plan = state
+        .plans
+        .get_mut(plan_id)
+        .expect("plan eligibility checked above");
+    let previous_status = plan.status;
+    plan.status = PlanStatus::Completed;
+    let plan = plan.clone();
+    state.events.push(CoordinationEvent {
+        meta: derived_event_meta(meta, "plan-auto-completed"),
+        kind: CoordinationEventKind::PlanUpdated,
+        summary: plan.goal.clone(),
+        plan: Some(plan.id.clone()),
+        task: None,
+        claim: None,
+        artifact: None,
+        review: None,
+        metadata: json!({
+            "status": plan.status,
+            "previousStatus": previous_status,
+            "autoTransition": "all_tasks_completed",
+            "patch": {
+                "status": "set",
+            },
+            "patchValues": {
+                "status": plan.status,
+            },
+        }),
+    });
+    Some(plan)
+}
+
 pub(crate) fn acquire_claim_mutation(
     state: &mut CoordinationState,
     meta: EventMeta,
@@ -401,8 +515,9 @@ pub(crate) fn release_claim_mutation(
         .ok_or_else(|| anyhow!("unknown claim `{}`", claim_id.0))?;
     claim.status = prism_ir::ClaimStatus::Released;
     let claim = claim.clone();
+    let event_meta = meta.clone();
     state.events.push(CoordinationEvent {
-        meta,
+        meta: event_meta,
         kind: CoordinationEventKind::ClaimReleased,
         summary: "claim released".to_string(),
         plan: None,
@@ -414,6 +529,9 @@ pub(crate) fn release_claim_mutation(
             "claim": claim.clone(),
         }),
     });
+    if let Some(plan_id) = claim_plan_id.as_ref() {
+        auto_complete_execution_plan_if_eligible(state, &meta, plan_id);
+    }
     Ok(claim)
 }
 
@@ -879,56 +997,7 @@ pub(crate) fn update_plan_mutation(
         }
     }
     if matches!(input.status, Some(PlanStatus::Completed)) {
-        let mut violations = state
-            .tasks
-            .values()
-            .filter(|task| task.plan == input.plan_id)
-            .filter(|task| {
-                !matches!(
-                    task.status,
-                    CoordinationTaskStatus::Completed | CoordinationTaskStatus::Abandoned
-                )
-            })
-            .map(|task| {
-                policy_violation(
-                    PolicyViolationCode::IncompletePlanTasks,
-                    format!(
-                        "coordination task `{}` is still {:?}",
-                        task.id.0, task.status
-                    ),
-                    Some(input.plan_id.clone()),
-                    Some(task.id.clone()),
-                    None,
-                    None,
-                    Value::Null,
-                )
-            })
-            .collect::<Vec<_>>();
-        let active_claim_violations = state
-            .claims
-            .values()
-            .filter(|claim| claim_is_active(claim, meta.ts))
-            .filter(|claim| {
-                claim
-                    .task
-                    .as_ref()
-                    .and_then(|task_id| state.tasks.get(task_id))
-                    .map(|task| task.plan == input.plan_id)
-                    .unwrap_or(false)
-            })
-            .map(|claim| {
-                policy_violation(
-                    PolicyViolationCode::ActivePlanClaims,
-                    format!("claim `{}` is still active for this plan", claim.id.0),
-                    Some(input.plan_id.clone()),
-                    claim.task.clone(),
-                    Some(claim.id.clone()),
-                    None,
-                    Value::Null,
-                )
-            })
-            .collect::<Vec<_>>();
-        violations.extend(active_claim_violations);
+        let violations = plan_completion_violations(state, &input.plan_id, meta.ts, true);
         if !violations.is_empty() {
             return Err(rejection_error(
                 state,
@@ -1571,8 +1640,9 @@ pub(crate) fn update_task_mutation(
     if !patch_values.is_empty() {
         metadata.insert("patchValues".to_string(), Value::Object(patch_values));
     }
+    let event_meta = meta.clone();
     state.events.push(CoordinationEvent {
-        meta,
+        meta: event_meta,
         kind,
         summary: task.title.clone(),
         plan: Some(task.plan.clone()),
@@ -1582,6 +1652,7 @@ pub(crate) fn update_task_mutation(
         review: None,
         metadata: Value::Object(metadata),
     });
+    auto_complete_execution_plan_if_eligible(state, &meta, &task.plan);
     Ok(task)
 }
 

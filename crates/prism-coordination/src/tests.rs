@@ -1309,6 +1309,253 @@ fn plan_completion_requires_terminal_tasks_and_no_active_claims() {
 }
 
 #[test]
+fn completing_last_task_auto_completes_task_execution_plan() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                goal: "Close execution plan automatically".to_string(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, _) = store
+        .create_task(
+            meta("event:2", 2),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Finish the only task".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+
+    store
+        .update_task(
+            meta("event:3", 3),
+            TaskUpdateInput {
+                task_id,
+                status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                anchors: None,
+                depends_on: None,
+                acceptance: None,
+                base_revision: Some(revision()),
+                completion_context: Some(TaskCompletionContext::default()),
+            },
+            revision(),
+            3,
+        )
+        .unwrap();
+
+    let plan = store.plan(&plan_id).expect("plan");
+    assert_eq!(plan.status, prism_ir::PlanStatus::Completed);
+    let events = store.events();
+    let event = events.last().expect("plan auto-close event");
+    assert_eq!(event.kind, prism_ir::CoordinationEventKind::PlanUpdated);
+    assert_eq!(event.plan.as_ref(), Some(&plan_id));
+    assert_eq!(event.metadata["autoTransition"], "all_tasks_completed");
+    assert_eq!(
+        event.meta.causation.as_ref().map(|id| id.0.as_str()),
+        Some("event:3")
+    );
+}
+
+#[test]
+fn completing_one_of_multiple_tasks_keeps_plan_active() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                goal: "Only close after every task is done".to_string(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (first_task_id, _) = store
+        .create_task(
+            meta("event:2", 2),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Complete first task".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+    store
+        .create_task(
+            meta("event:3", 3),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Leave second task ready".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(prism_ir::SessionId::new("session:b")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Method)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+
+    store
+        .update_task(
+            meta("event:4", 4),
+            TaskUpdateInput {
+                task_id: first_task_id,
+                status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                anchors: None,
+                depends_on: None,
+                acceptance: None,
+                base_revision: Some(revision()),
+                completion_context: Some(TaskCompletionContext::default()),
+            },
+            revision(),
+            4,
+        )
+        .unwrap();
+
+    let plan = store.plan(&plan_id).expect("plan");
+    assert_eq!(plan.status, prism_ir::PlanStatus::Active);
+    let events = store.events();
+    let event = events.last().expect("task status event");
+    assert_eq!(
+        event.kind,
+        prism_ir::CoordinationEventKind::TaskStatusChanged
+    );
+}
+
+#[test]
+fn releasing_last_active_claim_auto_completes_plan() {
+    let store = CoordinationStore::new();
+    let (plan_id, _) = store
+        .create_plan(
+            meta("event:1", 1),
+            PlanCreateInput {
+                goal: "Close after claim release".to_string(),
+                status: None,
+                policy: None,
+            },
+        )
+        .unwrap();
+    let (task_id, task) = store
+        .create_task(
+            meta("event:2", 2),
+            TaskCreateInput {
+                plan_id: plan_id.clone(),
+                title: "Finish task before releasing claim".to_string(),
+                status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                assignee: None,
+                session: Some(prism_ir::SessionId::new("session:a")),
+                worktree_id: None,
+                branch_ref: None,
+                anchors: vec![prism_ir::AnchorRef::Kind(prism_ir::NodeKind::Function)],
+                depends_on: Vec::new(),
+                acceptance: Vec::new(),
+                base_revision: revision(),
+            },
+        )
+        .unwrap();
+    let claim_id = store
+        .acquire_claim(
+            meta("event:3", 3),
+            prism_ir::SessionId::new("session:a"),
+            ClaimAcquireInput {
+                task_id: Some(task_id.clone()),
+                anchors: task.anchors.clone(),
+                capability: prism_ir::Capability::Edit,
+                mode: Some(prism_ir::ClaimMode::SoftExclusive),
+                ttl_seconds: Some(60),
+                base_revision: revision(),
+                current_revision: revision(),
+                agent: None,
+                worktree_id: None,
+                branch_ref: None,
+            },
+        )
+        .unwrap()
+        .0
+        .expect("claim id");
+
+    store
+        .update_task(
+            meta("event:4", 4),
+            TaskUpdateInput {
+                task_id,
+                status: Some(prism_ir::CoordinationTaskStatus::Completed),
+                assignee: None,
+                session: None,
+                worktree_id: None,
+                branch_ref: None,
+                title: None,
+                anchors: None,
+                depends_on: None,
+                acceptance: None,
+                base_revision: Some(revision()),
+                completion_context: Some(TaskCompletionContext::default()),
+            },
+            revision(),
+            4,
+        )
+        .unwrap();
+    assert_eq!(
+        store.plan(&plan_id).expect("plan before release").status,
+        prism_ir::PlanStatus::Active
+    );
+
+    store
+        .release_claim(
+            meta("event:5", 5),
+            &prism_ir::SessionId::new("session:a"),
+            &claim_id,
+        )
+        .unwrap();
+
+    let plan = store.plan(&plan_id).expect("plan after release");
+    assert_eq!(plan.status, prism_ir::PlanStatus::Completed);
+    let events = store.events();
+    let event = events.last().expect("plan auto-close event");
+    assert_eq!(event.kind, prism_ir::CoordinationEventKind::PlanUpdated);
+    assert_eq!(event.metadata["autoTransition"], "all_tasks_completed");
+    assert_eq!(
+        event.meta.causation.as_ref().map(|id| id.0.as_str()),
+        Some("event:5")
+    );
+}
+
+#[test]
 fn closed_plan_rejects_new_task_and_records_violation() {
     let store = CoordinationStore::new();
     let (plan_id, _) = store
