@@ -6,11 +6,13 @@ use prism_ir::{LineageEvent, LineageId};
 use prism_query::HistoryReadBackend;
 use prism_store::ColdQueryStore;
 
+#[allow(dead_code)]
 pub(crate) struct StoreHistoryReadBackend<S> {
     store: Arc<Mutex<S>>,
 }
 
 impl<S> StoreHistoryReadBackend<S> {
+    #[allow(dead_code)]
     pub(crate) fn new(store: Arc<Mutex<S>>) -> Self {
         Self { store }
     }

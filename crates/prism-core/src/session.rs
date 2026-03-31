@@ -25,9 +25,10 @@ use prism_parser::ParseDepth;
 use prism_projections::{
     concept_from_event, contract_from_event, validation_deltas_for_event, ConceptEvent,
     ConceptRelationEvent, ConceptRelationEventAction, ConceptScope, ContractEvent,
+    ProjectionIndex,
 };
 use prism_query::Prism;
-use prism_store::{AuxiliaryPersistBatch, SqliteStore, Store, WorkspaceTreeSnapshot};
+use prism_store::{AuxiliaryPersistBatch, Graph, SqliteStore, Store, WorkspaceTreeSnapshot};
 use serde_json::{json, Value};
 use std::time::{Duration, Instant};
 use tracing::info;
@@ -73,6 +74,7 @@ use crate::validation_feedback::{
 };
 use crate::watch::{refresh_prism_snapshot, try_refresh_prism_snapshot, WatchHandle, WatchMessage};
 use crate::workspace_identity::coordination_persist_context_for_root;
+use crate::workspace_runtime_state::WorkspaceRuntimeState;
 use crate::workspace_tree::{
     plan_full_refresh, populate_package_regions, WorkspaceRefreshDelta, WorkspaceRefreshMode,
     WorkspaceRefreshPlan,
@@ -345,6 +347,7 @@ impl WorkspaceRefreshState {
 pub struct WorkspaceSession {
     pub(crate) root: PathBuf,
     pub(crate) prism: Arc<RwLock<Arc<Prism>>>,
+    pub(crate) runtime_state: Arc<Mutex<WorkspaceRuntimeState>>,
     pub(crate) store: Arc<Mutex<SqliteStore>>,
     pub(crate) shared_runtime: SharedRuntimeBackend,
     pub(crate) shared_runtime_store: Option<Arc<Mutex<SqliteStore>>>,
@@ -509,6 +512,29 @@ impl WorkspaceSession {
             .clone()
     }
 
+    fn publish_runtime_state(
+        &self,
+        runtime_state: WorkspaceRuntimeState,
+        local_workspace_revision: u64,
+        workspace_revision: u64,
+        coordination_context: Option<prism_store::CoordinationPersistContext>,
+    ) {
+        let next = Arc::new(runtime_state.publish_prism(
+            prism_ir::WorkspaceRevision {
+                graph_version: local_workspace_revision,
+                git_commit: None,
+            },
+            coordination_context,
+        ));
+        *self
+            .runtime_state
+            .lock()
+            .expect("workspace runtime state lock poisoned") = runtime_state;
+        *self.prism.write().expect("workspace prism lock poisoned") = next;
+        self.loaded_workspace_revision
+            .store(workspace_revision, Ordering::Relaxed);
+    }
+
     pub fn sync_prism_doc(&self) -> Result<PrismDocSyncResult> {
         let prism = self.prism_arc();
         let concepts = prism.curated_concepts_snapshot();
@@ -650,9 +676,17 @@ impl WorkspaceSession {
             .expect("workspace tree snapshot lock poisoned")
             .clone();
         let coordination_context = current_prism.coordination_context();
-        let mut indexer = WorkspaceIndexer::new_from_live_prism_with_options(
+        let mut runtime_state = {
+            let mut state = self
+                .runtime_state
+                .lock()
+                .expect("workspace runtime state lock poisoned");
+            std::mem::take(&mut *state)
+        };
+        runtime_state.overlay_live_prism_domains(current_prism.as_ref());
+        let mut indexer = WorkspaceIndexer::with_runtime_state_and_options(
             &self.root,
-            current_prism.as_ref(),
+            runtime_state,
             Some(cached_snapshot.clone()),
             self.checkpoint_materializer.clone(),
             crate::WorkspaceSessionOptions {
@@ -675,11 +709,27 @@ impl WorkspaceSession {
             next_snapshot: cached_snapshot,
         };
         populate_package_regions(&mut plan.delta, &indexer.layout);
-        indexer.index_with_refresh_plan_and_deep_paths(
+        let index_result = indexer.index_with_refresh_plan_and_deep_paths(
             ChangeTrigger::ManualReindex,
             &plan,
             &deep_paths,
-        )?;
+        );
+        if let Err(error) = index_result {
+            let fallback_state = WorkspaceRuntimeState::new(
+                Graph::from_snapshot(current_prism.graph().snapshot()),
+                HistoryStore::from_snapshot(current_prism.history_snapshot()),
+                OutcomeMemory::from_snapshot(current_prism.outcome_snapshot()),
+                current_prism.coordination_snapshot(),
+                current_prism.authored_plan_graphs(),
+                current_prism.plan_execution_overlays_by_plan(),
+                ProjectionIndex::from_snapshot(current_prism.projection_snapshot()),
+            );
+            *self
+                .runtime_state
+                .lock()
+                .expect("workspace runtime state lock poisoned") = fallback_state;
+            return Err(error);
+        }
 
         let local_workspace_revision = indexer.store.workspace_revision()?;
         let workspace_revision = composite_workspace_revision(
@@ -690,15 +740,13 @@ impl WorkspaceSession {
                 .map(SqliteStore::workspace_revision)
                 .transpose()?,
         );
-        let next = Arc::new(indexer.into_prism());
-        next.set_workspace_revision(prism_ir::WorkspaceRevision {
-            graph_version: local_workspace_revision,
-            git_commit: None,
-        });
-        next.set_coordination_context(coordination_context);
-        *self.prism.write().expect("workspace prism lock poisoned") = next;
-        self.loaded_workspace_revision
-            .store(workspace_revision, Ordering::Relaxed);
+        let next_state = indexer.into_runtime_state();
+        self.publish_runtime_state(
+            next_state,
+            local_workspace_revision,
+            workspace_revision,
+            coordination_context,
+        );
         info!(
             root = %self.root.display(),
             deepened_path_count = deep_paths.len(),
@@ -918,38 +966,27 @@ impl WorkspaceSession {
         )?;
         drop(store);
 
-        let prism = Arc::new(
-            Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
-                graph,
-                history,
-                outcomes,
-                coordination_snapshot,
-                projections,
-                plan_state
-                    .as_ref()
-                    .map(|state| state.plan_graphs.clone())
-                    .unwrap_or_default(),
-                plan_state
-                    .map(|state| state.execution_overlays)
-                    .unwrap_or_default(),
-            ),
+        let runtime_state = WorkspaceRuntimeState::new(
+            graph,
+            history,
+            outcomes,
+            coordination_snapshot,
+            plan_state
+                .as_ref()
+                .map(|state| state.plan_graphs.clone())
+                .unwrap_or_default(),
+            plan_state
+                .as_ref()
+                .map(|state| state.execution_overlays.clone())
+                .unwrap_or_default(),
+            projections,
         );
-        prism.set_workspace_revision(prism_ir::WorkspaceRevision {
-            graph_version: local_workspace_revision,
-            git_commit: None,
-        });
-        prism.set_coordination_context(Some(coordination_persist_context_for_root(
-            &self.root, None,
-        )));
-        prism.set_history_backend(Some(Arc::new(
-            crate::history_backend::StoreHistoryReadBackend::new(Arc::clone(&self.store)),
-        )));
-        prism.set_outcome_backend(Some(Arc::new(
-            crate::outcome_backend::StoreOutcomeReadBackend::new(Arc::clone(&self.store)),
-        )));
-        *self.prism.write().expect("workspace prism lock poisoned") = prism;
-        self.loaded_workspace_revision
-            .store(workspace_revision, Ordering::Relaxed);
+        self.publish_runtime_state(
+            runtime_state,
+            local_workspace_revision,
+            workspace_revision,
+            Some(coordination_persist_context_for_root(&self.root, None)),
+        );
         self.record_runtime_refresh_observation_with_work(
             "recovery",
             u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
@@ -2259,6 +2296,7 @@ impl WorkspaceSession {
         refresh_prism_snapshot(
             &self.root,
             &self.prism,
+            &self.runtime_state,
             &self.store,
             self.shared_runtime.sqlite_path(),
             &self.refresh_lock,
@@ -2281,6 +2319,7 @@ impl WorkspaceSession {
         try_refresh_prism_snapshot(
             &self.root,
             &self.prism,
+            &self.runtime_state,
             &self.store,
             self.shared_runtime.sqlite_path(),
             &self.refresh_lock,

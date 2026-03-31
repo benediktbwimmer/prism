@@ -14,6 +14,12 @@ pub struct OutcomeMemory {
     state: RwLock<OutcomeState>,
 }
 
+impl Clone for OutcomeMemory {
+    fn clone(&self) -> Self {
+        Self::from_snapshot(self.snapshot())
+    }
+}
+
 #[derive(Default)]
 struct OutcomeState {
     events: HashMap<EventId, OutcomeEvent>,

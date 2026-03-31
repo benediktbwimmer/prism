@@ -7,9 +7,12 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use notify::{recommended_watcher, Event, RecursiveMode, Watcher};
+use prism_history::HistoryStore;
 use prism_ir::ChangeTrigger;
+use prism_memory::OutcomeMemory;
+use prism_projections::ProjectionIndex;
 use prism_query::Prism;
-use prism_store::{SqliteStore, WorkspaceTreeSnapshot};
+use prism_store::{Graph, SqliteStore, WorkspaceTreeSnapshot};
 use tracing::{error, warn};
 
 use crate::checkpoint_materializer::CheckpointMaterializerHandle;
@@ -18,6 +21,7 @@ use crate::indexer::WorkspaceIndexer;
 use crate::session::{WorkspaceRefreshResult, WorkspaceRefreshState};
 use crate::shared_runtime::composite_workspace_revision;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
+use crate::workspace_runtime_state::WorkspaceRuntimeState;
 use crate::workspace_tree::{
     diff_workspace_tree_snapshot, plan_full_refresh, plan_incremental_refresh,
     populate_package_regions, WorkspaceRefreshMode,
@@ -36,6 +40,7 @@ pub(crate) enum WatchMessage {
 pub(crate) fn spawn_fs_watch(
     root: PathBuf,
     prism: Arc<RwLock<Arc<Prism>>>,
+    runtime_state: Arc<Mutex<WorkspaceRuntimeState>>,
     store: Arc<Mutex<SqliteStore>>,
     shared_runtime_sqlite: Option<PathBuf>,
     refresh_lock: Arc<Mutex<()>>,
@@ -110,6 +115,7 @@ pub(crate) fn spawn_fs_watch(
             if let Err(error) = refresh_prism_snapshot(
                 &root,
                 &prism,
+                &runtime_state,
                 &store,
                 shared_runtime_sqlite.as_deref(),
                 &refresh_lock,
@@ -143,6 +149,7 @@ pub(crate) fn spawn_fs_watch(
 pub(crate) fn refresh_prism_snapshot(
     root: &Path,
     prism: &Arc<RwLock<Arc<Prism>>>,
+    runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
     store: &Arc<Mutex<SqliteStore>>,
     shared_runtime_sqlite: Option<&Path>,
     refresh_lock: &Arc<Mutex<()>>,
@@ -161,6 +168,7 @@ pub(crate) fn refresh_prism_snapshot(
     refresh_prism_snapshot_with_guard(
         root,
         prism,
+        runtime_state,
         store,
         shared_runtime_sqlite,
         refresh_state,
@@ -178,6 +186,7 @@ pub(crate) fn refresh_prism_snapshot(
 pub(crate) fn try_refresh_prism_snapshot(
     root: &Path,
     prism: &Arc<RwLock<Arc<Prism>>>,
+    runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
     store: &Arc<Mutex<SqliteStore>>,
     shared_runtime_sqlite: Option<&Path>,
     refresh_lock: &Arc<Mutex<()>>,
@@ -196,6 +205,7 @@ pub(crate) fn try_refresh_prism_snapshot(
     let observed = refresh_prism_snapshot_with_guard(
         root,
         prism,
+        runtime_state,
         store,
         shared_runtime_sqlite,
         refresh_state,
@@ -214,6 +224,7 @@ pub(crate) fn try_refresh_prism_snapshot(
 fn refresh_prism_snapshot_with_guard(
     root: &Path,
     prism: &Arc<RwLock<Arc<Prism>>>,
+    runtime_state: &Arc<Mutex<WorkspaceRuntimeState>>,
     store: &Arc<Mutex<SqliteStore>>,
     shared_runtime_sqlite: Option<&Path>,
     refresh_state: &Arc<WorkspaceRefreshState>,
@@ -267,9 +278,16 @@ fn refresh_prism_snapshot_with_guard(
     }
     let current_prism = prism.read().expect("workspace prism lock poisoned").clone();
     let coordination_context = current_prism.coordination_context();
-    let mut indexer = WorkspaceIndexer::new_from_live_prism_with_options(
+    let mut runtime_state_value = {
+        let mut state = runtime_state
+            .lock()
+            .expect("workspace runtime state lock poisoned");
+        std::mem::take(&mut *state)
+    };
+    runtime_state_value.overlay_live_prism_domains(current_prism.as_ref());
+    let mut indexer = WorkspaceIndexer::with_runtime_state_and_options(
         root,
-        current_prism.as_ref(),
+        runtime_state_value,
         Some(cached_snapshot),
         checkpoint_materializer,
         crate::WorkspaceSessionOptions {
@@ -283,7 +301,23 @@ fn refresh_prism_snapshot_with_guard(
         },
     )?;
     populate_package_regions(&mut plan.delta, &indexer.layout);
-    let observed = indexer.index_with_refresh_plan(trigger, &plan)?;
+    let observed = match indexer.index_with_refresh_plan(trigger, &plan) {
+        Ok(observed) => observed,
+        Err(error) => {
+            *runtime_state
+                .lock()
+                .expect("workspace runtime state lock poisoned") = WorkspaceRuntimeState::new(
+                Graph::from_snapshot(current_prism.graph().snapshot()),
+                HistoryStore::from_snapshot(current_prism.history_snapshot()),
+                OutcomeMemory::from_snapshot(current_prism.outcome_snapshot()),
+                current_prism.coordination_snapshot(),
+                current_prism.authored_plan_graphs(),
+                current_prism.plan_execution_overlays_by_plan(),
+                ProjectionIndex::from_snapshot(current_prism.projection_snapshot()),
+            );
+            return Err(error);
+        }
+    };
     let local_workspace_revision = indexer.store.workspace_revision()?;
     let workspace_revision = composite_workspace_revision(
         local_workspace_revision,
@@ -293,12 +327,17 @@ fn refresh_prism_snapshot_with_guard(
             .map(SqliteStore::workspace_revision)
             .transpose()?,
     );
-    let next = Arc::new(indexer.into_prism());
-    next.set_workspace_revision(prism_ir::WorkspaceRevision {
-        graph_version: local_workspace_revision,
-        git_commit: None,
-    });
-    next.set_coordination_context(coordination_context);
+    let next_state = indexer.into_runtime_state();
+    let next = Arc::new(next_state.publish_prism(
+        prism_ir::WorkspaceRevision {
+            graph_version: local_workspace_revision,
+            git_commit: None,
+        },
+        coordination_context,
+    ));
+    *runtime_state
+        .lock()
+        .expect("workspace runtime state lock poisoned") = next_state;
     *prism.write().expect("workspace prism lock poisoned") = Arc::clone(&next);
     loaded_workspace_revision.store(workspace_revision, Ordering::Relaxed);
     *fs_snapshot

@@ -6,11 +6,13 @@ use prism_memory::{OutcomeEvent, OutcomeRecallQuery, TaskReplay};
 use prism_query::OutcomeReadBackend;
 use prism_store::ColdQueryStore;
 
+#[allow(dead_code)]
 pub(crate) struct StoreOutcomeReadBackend<S> {
     store: Arc<Mutex<S>>,
 }
 
 impl<S> StoreOutcomeReadBackend<S> {
+    #[allow(dead_code)]
     pub(crate) fn new(store: Arc<Mutex<S>>) -> Self {
         Self { store }
     }

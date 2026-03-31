@@ -13,15 +13,12 @@ use prism_ir::{EdgeKind, PlanExecutionOverlay, PlanGraph};
 use prism_memory::OutcomeMemory;
 use prism_parser::LanguageAdapter;
 use prism_projections::ProjectionIndex;
-use prism_query::Prism;
 use prism_store::{Graph, SqliteStore, WorkspaceTreeSnapshot};
 use tracing::info;
 
 use crate::checkpoint_materializer::CheckpointMaterializerHandle;
 use crate::curator::{CuratorHandle, CuratorHandleRef};
-use crate::history_backend::StoreHistoryReadBackend;
 use crate::indexer::PendingFileParse;
-use crate::outcome_backend::StoreOutcomeReadBackend;
 use crate::resolution::{resolve_calls, resolve_impls, resolve_imports, resolve_intents};
 use crate::session::{WorkspaceRefreshSeed, WorkspaceRefreshState, WorkspaceSession};
 use crate::shared_runtime::composite_workspace_revision;
@@ -29,6 +26,7 @@ use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::util::{persisted_file_hash, workspace_walk};
 use crate::watch::spawn_fs_watch;
 use crate::workspace_identity::coordination_persist_context_for_root;
+use crate::workspace_runtime_state::WorkspaceRuntimeState;
 
 pub(crate) fn build_workspace_session(
     root: PathBuf,
@@ -61,31 +59,30 @@ pub(crate) fn build_workspace_session(
     let shared_runtime_materializer = shared_runtime_store
         .as_ref()
         .map(|store| CheckpointMaterializerHandle::new(root.clone(), Arc::clone(store)));
+    let runtime_state = Arc::new(Mutex::new(WorkspaceRuntimeState::new(
+        graph,
+        history,
+        outcomes,
+        coordination_snapshot,
+        plan_graphs,
+        plan_execution_overlays,
+        projections,
+    )));
     let prism = Arc::new(
-        Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
-            graph,
-            history,
-            outcomes,
-            coordination_snapshot,
-            projections,
-            plan_graphs,
-            plan_execution_overlays,
-        ),
-    );
-    prism.set_workspace_revision(prism_ir::WorkspaceRevision {
-        graph_version: store
+        runtime_state
             .lock()
-            .expect("workspace store lock poisoned")
-            .workspace_revision()?,
-        git_commit: None,
-    });
-    prism.set_coordination_context(Some(coordination_persist_context_for_root(&root, None)));
-    prism.set_history_backend(Some(Arc::new(StoreHistoryReadBackend::new(Arc::clone(
-        &store,
-    )))));
-    prism.set_outcome_backend(Some(Arc::new(StoreOutcomeReadBackend::new(Arc::clone(
-        &store,
-    )))));
+            .expect("workspace runtime state lock poisoned")
+            .publish_prism(
+                prism_ir::WorkspaceRevision {
+                    graph_version: store
+                        .lock()
+                        .expect("workspace store lock poisoned")
+                        .workspace_revision()?,
+                    git_commit: None,
+                },
+                Some(coordination_persist_context_for_root(&root, None)),
+            ),
+    );
     let prism = Arc::new(RwLock::new(prism));
     let refresh_lock = Arc::new(Mutex::new(()));
     let refresh_state = Arc::new(WorkspaceRefreshState::new());
@@ -106,6 +103,7 @@ pub(crate) fn build_workspace_session(
     let watch = Some(spawn_fs_watch(
         root.clone(),
         Arc::clone(&prism),
+        Arc::clone(&runtime_state),
         Arc::clone(&store),
         shared_runtime.sqlite_path().map(Path::to_path_buf),
         Arc::clone(&refresh_lock),
@@ -136,6 +134,7 @@ pub(crate) fn build_workspace_session(
     Ok(WorkspaceSession {
         root,
         prism,
+        runtime_state,
         store,
         shared_runtime,
         shared_runtime_store,

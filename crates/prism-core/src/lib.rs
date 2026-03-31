@@ -32,6 +32,7 @@ mod util;
 mod validation_feedback;
 mod watch;
 mod workspace_identity;
+mod workspace_runtime_state;
 mod workspace_tree;
 
 use std::sync::Arc;

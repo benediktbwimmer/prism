@@ -32,6 +32,7 @@ use crate::workspace_tree::{
     build_workspace_tree_snapshot, plan_incremental_refresh, populate_package_regions,
     WorkspaceRefreshPlan,
 };
+use crate::workspace_runtime_state::WorkspaceRuntimeState;
 use crate::WorkspaceSessionOptions;
 use anyhow::Result;
 use prism_coordination::CoordinationSnapshot;
@@ -95,6 +96,7 @@ pub(crate) struct PendingFileParse {
 }
 
 impl WorkspaceIndexer<SqliteStore> {
+    #[allow(dead_code)]
     pub fn new(root: impl AsRef<Path>) -> Result<Self> {
         Self::new_with_options(root, WorkspaceSessionOptions::default())
     }
@@ -163,6 +165,7 @@ impl WorkspaceIndexer<SqliteStore> {
         Ok(indexer)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn new_from_live_prism_with_options(
         root: impl AsRef<Path>,
         prism: &Prism,
@@ -177,6 +180,36 @@ impl WorkspaceIndexer<SqliteStore> {
             root.clone(),
             store,
             prism,
+            workspace_tree_snapshot,
+            checkpoint_materializer,
+            options.clone(),
+        )?;
+        let shared_runtime_store = match &options.shared_runtime {
+            SharedRuntimeBackend::Disabled => None,
+            SharedRuntimeBackend::Sqlite { path } => Some(SqliteStore::open(path)?),
+            SharedRuntimeBackend::Remote { uri } => {
+                anyhow::bail!("shared runtime backend `{uri}` is not implemented yet")
+            }
+        };
+        indexer.shared_runtime = options.shared_runtime.clone();
+        indexer.shared_runtime_store = shared_runtime_store;
+        Ok(indexer)
+    }
+
+    pub(crate) fn with_runtime_state_and_options(
+        root: impl AsRef<Path>,
+        runtime_state: WorkspaceRuntimeState,
+        workspace_tree_snapshot: Option<WorkspaceTreeSnapshot>,
+        checkpoint_materializer: Option<CheckpointMaterializerHandle>,
+        options: WorkspaceSessionOptions,
+    ) -> Result<Self> {
+        let root = root.as_ref().canonicalize()?;
+        cleanup_legacy_cache(&root)?;
+        let store = SqliteStore::open(cache_path(&root))?;
+        let mut indexer = Self::with_live_runtime_state_and_options(
+            root.clone(),
+            store,
+            runtime_state,
             workspace_tree_snapshot,
             checkpoint_materializer,
             options.clone(),
@@ -223,6 +256,7 @@ impl<S: Store> WorkspaceIndexer<S> {
         Self::with_store_and_options(root, store, WorkspaceSessionOptions::default())
     }
 
+    #[allow(dead_code)]
     pub(crate) fn with_live_prism_and_options(
         root: impl AsRef<Path>,
         store: S,
@@ -289,6 +323,81 @@ impl<S: Store> WorkspaceIndexer<S> {
             coordination_snapshot,
             plan_graphs,
             plan_execution_overlays,
+            projections,
+            had_prior_snapshot: true,
+            had_projection_snapshot: true,
+            adapters: default_adapters(),
+            store,
+            checkpoint_materializer,
+            workspace_tree_snapshot,
+            shared_runtime,
+            shared_runtime_store: None,
+            coordination_enabled: coordination,
+            startup_refresh: None,
+        })
+    }
+
+    pub(crate) fn with_live_runtime_state_and_options(
+        root: impl AsRef<Path>,
+        store: S,
+        runtime_state: WorkspaceRuntimeState,
+        workspace_tree_snapshot: Option<WorkspaceTreeSnapshot>,
+        checkpoint_materializer: Option<CheckpointMaterializerHandle>,
+        options: WorkspaceSessionOptions,
+    ) -> Result<Self> {
+        let started = Instant::now();
+        let root = root.as_ref().canonicalize()?;
+        let WorkspaceSessionOptions {
+            coordination,
+            shared_runtime,
+            hydrate_persisted_projections: _,
+        } = options;
+        let layout_started = Instant::now();
+        let layout = discover_layout(&root)?;
+        let discover_layout_ms = layout_started.elapsed().as_millis();
+        let restore_runtime_started = Instant::now();
+        let WorkspaceRuntimeState {
+            mut graph,
+            mut history,
+            outcomes,
+            coordination_snapshot,
+            plan_graphs,
+            plan_execution_overlays,
+            projections,
+        } = runtime_state;
+        sync_root_nodes(&mut graph, &layout);
+        history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
+        let restore_runtime_ms = restore_runtime_started.elapsed().as_millis();
+
+        info!(
+            root = %root.display(),
+            coordination_enabled = coordination,
+            node_count = graph.node_count(),
+            edge_count = graph.edge_count(),
+            file_count = graph.file_count(),
+            discover_layout_ms,
+            restore_runtime_ms,
+            total_ms = started.elapsed().as_millis(),
+            "prepared prism workspace indexer from mutable runtime state"
+        );
+
+        Ok(Self {
+            root,
+            layout,
+            graph,
+            history,
+            outcomes,
+            coordination_snapshot: if coordination {
+                coordination_snapshot
+            } else {
+                CoordinationSnapshot::default()
+            },
+            plan_graphs: if coordination { plan_graphs } else { Vec::new() },
+            plan_execution_overlays: if coordination {
+                plan_execution_overlays
+            } else {
+                BTreeMap::new()
+            },
             projections,
             had_prior_snapshot: true,
             had_projection_snapshot: true,
@@ -1059,6 +1168,18 @@ impl<S: Store> WorkspaceIndexer<S> {
             self.projections,
             self.plan_graphs,
             self.plan_execution_overlays,
+        )
+    }
+
+    pub(crate) fn into_runtime_state(self) -> WorkspaceRuntimeState {
+        WorkspaceRuntimeState::new(
+            self.graph,
+            self.history,
+            self.outcomes,
+            self.coordination_snapshot,
+            self.plan_graphs,
+            self.plan_execution_overlays,
+            self.projections,
         )
     }
 

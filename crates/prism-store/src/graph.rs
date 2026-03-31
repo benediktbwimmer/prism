@@ -51,7 +51,7 @@ pub struct FileUpdate {
     pub changes: Vec<GraphChange>,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Graph {
     pub nodes: HashMap<NodeId, Node>,
     pub edges: Vec<Edge>,
