@@ -20,7 +20,7 @@ use crate::{
         touches_for_value, unique_operations, unique_touches, McpCallLogStore,
         PersistedMcpCallRecord,
     },
-    QueryHost, QueryLogArgs, QueryRun, SessionState,
+    QueryHost, QueryRun, SessionState,
 };
 
 const DASHBOARD_EVENT_CAPACITY: usize = 512;
@@ -248,14 +248,7 @@ impl QueryHost {
     ) -> DashboardOperationsView {
         DashboardOperationsView {
             active: self.dashboard_state.active_operations(),
-            recent_queries: self.query_log_entries(QueryLogArgs {
-                limit,
-                since: None,
-                target: None,
-                operation: None,
-                task_id: None,
-                min_duration_ms: None,
-            }),
+            recent_queries: self.diagnostics_state.recent_queries(limit),
             recent_mutations: self.dashboard_state.mutation_entries(limit),
         }
     }

@@ -26,7 +26,26 @@ pub struct WorkspaceMaterializationSummary {
     pub boundaries: Vec<WorkspaceBoundaryRegion>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkspaceMaterializationCoverage {
+    pub known_files: usize,
+    pub known_directories: usize,
+    pub materialized_files: usize,
+    pub materialized_nodes: usize,
+    pub materialized_edges: usize,
+}
+
 impl WorkspaceMaterializationSummary {
+    pub fn depth(&self) -> &'static str {
+        if self.materialized_files == 0 {
+            "shallow"
+        } else {
+            "medium"
+        }
+    }
+}
+
+impl WorkspaceMaterializationCoverage {
     pub fn depth(&self) -> &'static str {
         if self.materialized_files == 0 {
             "shallow"
@@ -42,18 +61,32 @@ pub(crate) fn summarize_workspace_materialization(
     graph: &Graph,
 ) -> WorkspaceMaterializationSummary {
     let boundaries = summarize_boundary_regions(root, snapshot, graph);
+    let coverage = summarize_workspace_materialization_coverage(snapshot, graph);
+    WorkspaceMaterializationSummary {
+        known_files: coverage.known_files,
+        known_directories: coverage.known_directories,
+        materialized_files: coverage.materialized_files,
+        materialized_nodes: coverage.materialized_nodes,
+        materialized_edges: coverage.materialized_edges,
+        boundaries,
+    }
+}
+
+pub(crate) fn summarize_workspace_materialization_coverage(
+    snapshot: &WorkspaceTreeSnapshot,
+    graph: &Graph,
+) -> WorkspaceMaterializationCoverage {
     let materialized_files = snapshot
         .files
         .keys()
         .filter(|path| graph.file_record(path).is_some())
         .count();
-    WorkspaceMaterializationSummary {
+    WorkspaceMaterializationCoverage {
         known_files: snapshot.files.len(),
         known_directories: snapshot.directories.len(),
         materialized_files,
         materialized_nodes: graph.node_count(),
         materialized_edges: graph.edge_count(),
-        boundaries,
     }
 }
 

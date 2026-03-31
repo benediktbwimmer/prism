@@ -14,11 +14,11 @@ use crate::{
     tool_schema_resource_view_link, tool_schemas_resource_view_link, vocab_resource_view_link,
     ArtifactProposePayload, ArtifactReviewPayload, ArtifactSupersedePayload, ClaimAcquirePayload,
     ClaimReleasePayload, ClaimRenewPayload, HandoffAcceptPayload, HandoffPayload,
-    MemoryRetirePayload, MemoryStorePayload, PlanCreatePayload, PlanEdgeCreatePayload,
-    PlanEdgeDeletePayload, PlanNodeCreatePayload, PlanUpdatePayload, PrismConceptArgs,
-    PrismExpandArgs, PrismGatherArgs, PrismLocateArgs, PrismMutationArgs, PrismOpenArgs,
-    PrismQueryArgs, PrismSessionArgs, PrismTaskBriefArgs, PrismWorksetArgs, ResourceLinkView,
-    TaskCreatePayload, WorkflowUpdatePayload, TOOL_SCHEMAS_URI,
+    MemoryRetirePayload, MemoryStorePayload, PlanArchivePayload, PlanCreatePayload,
+    PlanEdgeCreatePayload, PlanEdgeDeletePayload, PlanNodeCreatePayload, PlanUpdatePayload,
+    PrismConceptArgs, PrismExpandArgs, PrismGatherArgs, PrismLocateArgs, PrismMutationArgs,
+    PrismOpenArgs, PrismQueryArgs, PrismSessionArgs, PrismTaskBriefArgs, PrismWorksetArgs,
+    ResourceLinkView, TaskCreatePayload, WorkflowUpdatePayload, TOOL_SCHEMAS_URI,
 };
 use rmcp::{model::ResourceContents, ErrorData as McpError};
 
@@ -598,6 +598,12 @@ fn action_payload_schema(tool_name: &str, action: &str) -> Option<Value> {
                     "plan_update",
                     described_schema::<PlanUpdatePayload>(
                         "Payload when `input.kind` is `plan_update`.",
+                    ),
+                ),
+                (
+                    "plan_archive",
+                    described_schema::<PlanArchivePayload>(
+                        "Payload when `input.kind` is `plan_archive`.",
                     ),
                 ),
                 (

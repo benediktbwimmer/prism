@@ -11,6 +11,9 @@ use prism_core::WorkspaceSession;
 use prism_memory::SessionMemory;
 
 use crate::dashboard_events::DashboardState;
+use crate::diagnostics_state::DiagnosticsState;
+use crate::mcp_call_log::McpCallLogStore;
+use crate::workspace_diagnostics::{WorkspaceDiagnosticsConfig, WorkspaceDiagnosticsRuntime};
 use crate::workspace_runtime::{
     hydrate_persisted_workspace_state, WorkspaceRuntime, WorkspaceRuntimeConfig,
 };
@@ -25,6 +28,8 @@ pub(crate) struct WorkspaceRuntimeBinding {
     notes: Arc<SessionMemory>,
     inferred_edges: Arc<InferenceStore>,
     dashboard_state: Arc<DashboardState>,
+    diagnostics_state: Arc<DiagnosticsState>,
+    mcp_call_log_store: Arc<McpCallLogStore>,
     sync_lock: Arc<Mutex<()>>,
     loaded_workspace_revision: Arc<AtomicU64>,
     loaded_episodic_revision: Arc<AtomicU64>,
@@ -32,6 +37,7 @@ pub(crate) struct WorkspaceRuntimeBinding {
     loaded_coordination_revision: Arc<AtomicU64>,
     engine: Arc<Mutex<WorkspaceRuntimeEngine>>,
     runtime: Arc<WorkspaceRuntime>,
+    diagnostics: Arc<WorkspaceDiagnosticsRuntime>,
 }
 
 impl WorkspaceRuntimeBinding {
@@ -40,6 +46,8 @@ impl WorkspaceRuntimeBinding {
         notes: Arc<SessionMemory>,
         inferred_edges: Arc<InferenceStore>,
         dashboard_state: Arc<DashboardState>,
+        diagnostics_state: Arc<DiagnosticsState>,
+        mcp_call_log_store: Arc<McpCallLogStore>,
     ) -> Self {
         let context = WorkspaceRuntimeContext::from_root(workspace.root());
         let sync_lock = shared_workspace_runtime_sync_lock(context.root());
@@ -53,6 +61,8 @@ impl WorkspaceRuntimeBinding {
             notes: Arc::clone(&notes),
             inferred_edges: Arc::clone(&inferred_edges),
             dashboard_state: Arc::clone(&dashboard_state),
+            diagnostics_state: Arc::clone(&diagnostics_state),
+            mcp_call_log_store: Arc::clone(&mcp_call_log_store),
             sync_lock: Arc::clone(&sync_lock),
             loaded_workspace_revision: Arc::clone(&loaded_workspace_revision),
             loaded_episodic_revision: Arc::clone(&loaded_episodic_revision),
@@ -61,16 +71,31 @@ impl WorkspaceRuntimeBinding {
             runtime_engine: Arc::clone(&engine),
         };
         let runtime = Arc::new(WorkspaceRuntime::spawn(config.clone()));
+        let diagnostics = Arc::new(WorkspaceDiagnosticsRuntime::spawn(
+            WorkspaceDiagnosticsConfig {
+                workspace: Arc::clone(&workspace),
+                loaded_workspace_revision: Arc::clone(&loaded_workspace_revision),
+                loaded_episodic_revision: Arc::clone(&loaded_episodic_revision),
+                loaded_inference_revision: Arc::clone(&loaded_inference_revision),
+                loaded_coordination_revision: Arc::clone(&loaded_coordination_revision),
+                runtime_engine: Arc::clone(&engine),
+                diagnostics_state: Arc::clone(&diagnostics_state),
+                mcp_call_log_store: Arc::clone(&mcp_call_log_store),
+            },
+        ));
         let _ = hydrate_persisted_workspace_state(&config);
         if workspace.needs_refresh() {
             runtime.request_refresh();
         }
+        diagnostics.request_refresh();
         Self {
             context,
             workspace,
             notes,
             inferred_edges,
             dashboard_state,
+            diagnostics_state,
+            mcp_call_log_store,
             sync_lock,
             loaded_workspace_revision,
             loaded_episodic_revision,
@@ -78,6 +103,7 @@ impl WorkspaceRuntimeBinding {
             loaded_coordination_revision,
             engine,
             runtime,
+            diagnostics,
         }
     }
 
@@ -120,6 +146,8 @@ impl WorkspaceRuntimeBinding {
             notes: Arc::clone(&self.notes),
             inferred_edges: Arc::clone(&self.inferred_edges),
             dashboard_state: Arc::clone(&self.dashboard_state),
+            diagnostics_state: Arc::clone(&self.diagnostics_state),
+            mcp_call_log_store: Arc::clone(&self.mcp_call_log_store),
             sync_lock: Arc::clone(&self.sync_lock),
             loaded_workspace_revision: Arc::clone(&self.loaded_workspace_revision),
             loaded_episodic_revision: Arc::clone(&self.loaded_episodic_revision),
@@ -127,6 +155,10 @@ impl WorkspaceRuntimeBinding {
             loaded_coordination_revision: Arc::clone(&self.loaded_coordination_revision),
             runtime_engine: Arc::clone(&self.engine),
         }
+    }
+
+    pub(crate) fn diagnostics(&self) -> &Arc<WorkspaceDiagnosticsRuntime> {
+        &self.diagnostics
     }
 
     pub(crate) fn published_generation_snapshot(&self) -> WorkspacePublishedGeneration {
@@ -153,6 +185,8 @@ impl WorkspaceRuntimeHost {
         notes: Arc<SessionMemory>,
         inferred_edges: Arc<InferenceStore>,
         dashboard_state: Arc<DashboardState>,
+        diagnostics_state: Arc<DiagnosticsState>,
+        mcp_call_log_store: Arc<McpCallLogStore>,
     ) -> Arc<WorkspaceRuntimeBinding> {
         let mut bindings = self
             .bindings
@@ -170,6 +204,8 @@ impl WorkspaceRuntimeHost {
             notes,
             inferred_edges,
             dashboard_state,
+            diagnostics_state,
+            mcp_call_log_store,
         ));
         bindings.insert(binding.context().root().to_path_buf(), Arc::clone(&binding));
         binding

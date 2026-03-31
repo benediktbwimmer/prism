@@ -146,6 +146,11 @@ const COORDINATION_MUTATION_KINDS: &[VocabularyValueSpec] = &[
         description: "Update a coordination plan.",
     },
     VocabularyValueSpec {
+        value: "plan_archive",
+        aliases: &[],
+        description: "Archive a coordination plan.",
+    },
+    VocabularyValueSpec {
         value: "task_create",
         aliases: &[],
         description: "Create a coordination task.",

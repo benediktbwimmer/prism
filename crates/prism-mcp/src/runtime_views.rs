@@ -1,28 +1,33 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::fs;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::sync::atomic::Ordering;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{anyhow, Context, Result};
 use prism_coordination::{execution_overlays_from_tasks, snapshot_plan_graphs};
-use prism_core::runtime_engine::{RuntimeFreshnessState, RuntimeMaterializationDepth};
+use prism_core::runtime_engine::{
+    RuntimeFreshnessState, RuntimeMaterializationDepth, WorkspacePublishedGeneration,
+    WorkspaceRuntimeQueueSnapshot,
+};
+use prism_core::WorkspaceSession;
 use prism_js::{
-    ConnectionInfoView, RuntimeBoundaryRegionView, RuntimeDomainFreshnessView,
-    RuntimeFreshnessView, RuntimeHealthView, RuntimeLogEventView,
-    RuntimeMaterializationCoverageView, RuntimeMaterializationItemView, RuntimeMaterializationView,
-    RuntimeOverlayScopeView, RuntimeProcessView, RuntimeProjectionScopeView, RuntimeQueueDepthView,
-    RuntimeScopesView, RuntimeStatusView,
+    ConnectionInfoView, RuntimeDomainFreshnessView, RuntimeFreshnessView, RuntimeHealthView,
+    RuntimeLogEventView, RuntimeMaterializationCoverageView, RuntimeMaterializationItemView,
+    RuntimeMaterializationView, RuntimeOverlayScopeView, RuntimeProcessView,
+    RuntimeProjectionScopeView, RuntimeQueueDepthView, RuntimeScopesView, RuntimeStatusView,
 };
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use crate::daemon_log;
+use crate::mcp_call_log::McpCallLogStore;
 use crate::runtime_state::{
     read_runtime_state, RuntimeEventRecord, RuntimeProcessRecord, RuntimeState,
 };
+use crate::workspace_diagnostics::WorkspaceDiagnosticsConfig;
 use crate::{QueryHost, RuntimeLogArgs, RuntimeTimelineArgs};
 
 const DEFAULT_HEALTH_PATH: &str = "/healthz";
@@ -53,6 +58,7 @@ struct McpProcess {
     kind: McpProcessKind,
     health_path: Option<String>,
     http_uri: Option<String>,
+    upstream_uri: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -80,59 +86,84 @@ struct DaemonLogRecord {
 }
 
 pub(crate) fn runtime_status(host: &QueryHost) -> Result<RuntimeStatusView> {
-    let root = workspace_root(host)?;
-    let paths = RuntimePaths::for_root(root);
-    let runtime_state = read_runtime_state(root)?;
-    let state_processes = runtime_state
-        .as_ref()
-        .map(|state| state.processes.as_slice())
-        .unwrap_or(&[]);
-    let (processes, process_error) = match list_runtime_processes(root, state_processes) {
-        Ok(processes) => (processes, None),
-        Err(error) => (Vec::new(), Some(error.to_string())),
-    };
-    let daemons = select_kind(&processes, McpProcessKind::Daemon);
-    let bridges = select_kind(&processes, McpProcessKind::Bridge);
-    let uri = read_uri_file(&paths.uri_file)?
-        .or_else(|| daemons.iter().find_map(|process| process.http_uri.clone()));
-    let connected_bridge_pids = if !bridges.is_empty() {
-        uri.as_deref()
-            .and_then(|uri| connected_process_ids_for_uri(uri).ok())
-            .unwrap_or_default()
-    } else {
-        BTreeSet::new()
-    };
-    let bridge_counts = classify_bridges(&bridges, &connected_bridge_pids);
-    let connection = daemon_connection_info(root, &paths, &daemons, process_error.as_deref())?;
+    if let Some(cached) = host.diagnostics_state().runtime_status() {
+        return Ok(cached);
+    }
+    refresh_cached_runtime_status(host)
+}
 
-    Ok(RuntimeStatusView {
-        root: root.display().to_string(),
-        connection: connection.clone(),
-        uri: connection.uri.clone(),
-        uri_file: paths.uri_file.display().to_string(),
-        log_path: paths.log_path.display().to_string(),
-        log_bytes: daemon_log::total_log_bytes(&paths.log_path).ok(),
-        mcp_call_log_path: host
-            .mcp_call_log_store
-            .path()
-            .map(|path| path.display().to_string()),
-        mcp_call_log_bytes: host.mcp_call_log_store.file_len(),
-        cache_path: paths.cache_path.display().to_string(),
-        cache_bytes: file_len(&paths.cache_path),
-        health_path: daemon_health_path(&daemons).to_string(),
-        health: connection.health.clone(),
-        daemon_count: daemons.len(),
-        bridge_count: bridges.len(),
-        connected_bridge_count: bridge_counts.connected,
-        orphan_bridge_count: bridge_counts.orphaned,
-        processes: processes
-            .into_iter()
-            .map(|process| runtime_process_view(process, &connected_bridge_pids))
-            .collect(),
-        process_error,
-        scopes: runtime_scopes(host)?,
-        freshness: runtime_freshness(host, runtime_state.as_ref())?,
-    })
+pub(crate) fn refresh_cached_runtime_status(host: &QueryHost) -> Result<RuntimeStatusView> {
+    let workspace = host.workspace_session().ok_or_else(|| {
+        anyhow!("runtime introspection requires a workspace-backed PRISM session")
+    })?;
+    let binding = host.workspace_runtime_binding_ref().ok_or_else(|| {
+        anyhow!("runtime introspection requires a workspace-backed PRISM session")
+    })?;
+    let inputs = RuntimeStatusInputs {
+        root: workspace.root(),
+        workspace: workspace.as_ref(),
+        prism: host.current_prism(),
+        loaded_workspace_revision: host.loaded_workspace_revision_value(),
+        loaded_episodic_revision: host.loaded_episodic_revision_value(),
+        loaded_inference_revision: host.loaded_inference_revision_value(),
+        loaded_coordination_revision: host.loaded_coordination_revision_value(),
+        published_generation: Some(binding.published_generation_snapshot()),
+        queue_snapshot: Some(binding.runtime().queue_snapshot()),
+        mcp_call_log_store: host.mcp_call_log_store.as_ref(),
+    };
+    let runtime_state = read_runtime_state(inputs.root)?;
+    let last_runtime_event = latest_runtime_state_event_view(runtime_state.as_ref());
+    let status = runtime_status_from_inputs(&inputs, runtime_state.as_ref())?;
+    host.diagnostics_state()
+        .update_runtime_status(status.clone(), last_runtime_event);
+    Ok(status)
+}
+
+pub(crate) fn refresh_cached_runtime_status_for_config(
+    config: &WorkspaceDiagnosticsConfig,
+) -> Result<RuntimeStatusView> {
+    let published_generation = config
+        .runtime_engine
+        .lock()
+        .expect("workspace runtime engine lock poisoned")
+        .published_generation_snapshot();
+    let queue_snapshot = config
+        .runtime_engine
+        .lock()
+        .expect("workspace runtime engine lock poisoned")
+        .queue_snapshot();
+    let inputs = RuntimeStatusInputs {
+        root: config.workspace.root(),
+        workspace: config.workspace.as_ref(),
+        prism: config.workspace.prism_arc(),
+        loaded_workspace_revision: config.loaded_workspace_revision.load(Ordering::Relaxed),
+        loaded_episodic_revision: config.loaded_episodic_revision.load(Ordering::Relaxed),
+        loaded_inference_revision: config.loaded_inference_revision.load(Ordering::Relaxed),
+        loaded_coordination_revision: config.loaded_coordination_revision.load(Ordering::Relaxed),
+        published_generation: Some(published_generation),
+        queue_snapshot: Some(queue_snapshot),
+        mcp_call_log_store: config.mcp_call_log_store.as_ref(),
+    };
+    let runtime_state = read_runtime_state(inputs.root)?;
+    let last_runtime_event = latest_runtime_state_event_view(runtime_state.as_ref());
+    let status = runtime_status_from_inputs(&inputs, runtime_state.as_ref())?;
+    config
+        .diagnostics_state
+        .update_runtime_status(status.clone(), last_runtime_event);
+    Ok(status)
+}
+
+struct RuntimeStatusInputs<'a> {
+    root: &'a Path,
+    workspace: &'a WorkspaceSession,
+    prism: std::sync::Arc<prism_query::Prism>,
+    loaded_workspace_revision: u64,
+    loaded_episodic_revision: u64,
+    loaded_inference_revision: u64,
+    loaded_coordination_revision: u64,
+    published_generation: Option<WorkspacePublishedGeneration>,
+    queue_snapshot: Option<WorkspaceRuntimeQueueSnapshot>,
+    mcp_call_log_store: &'a McpCallLogStore,
 }
 
 pub(crate) fn connection_info(host: &QueryHost) -> Result<ConnectionInfoView> {
@@ -242,41 +273,92 @@ fn workspace_root(host: &QueryHost) -> Result<&Path> {
         .ok_or_else(|| anyhow!("runtime introspection requires a workspace-backed PRISM session"))
 }
 
-fn runtime_freshness(
-    host: &QueryHost,
+fn runtime_status_from_inputs(
+    inputs: &RuntimeStatusInputs<'_>,
+    runtime_state: Option<&RuntimeState>,
+) -> Result<RuntimeStatusView> {
+    let paths = RuntimePaths::for_root(inputs.root);
+    let state_processes = runtime_state
+        .map(|state| state.processes.as_slice())
+        .unwrap_or(&[]);
+    let (processes, process_error) = match list_runtime_processes(inputs.root, state_processes) {
+        Ok(processes) => (processes, None),
+        Err(error) => (Vec::new(), Some(error.to_string())),
+    };
+    let daemons = select_kind(&processes, McpProcessKind::Daemon);
+    let bridges = select_kind(&processes, McpProcessKind::Bridge);
+    let uri = read_uri_file(&paths.uri_file)?
+        .or_else(|| daemons.iter().find_map(|process| process.http_uri.clone()));
+    let connected_bridge_pids = connected_bridge_ids(&bridges, uri.as_deref());
+    let bridge_counts = classify_bridges(&bridges, &connected_bridge_pids);
+    let connection =
+        daemon_connection_info(inputs.root, &paths, &daemons, process_error.as_deref())?;
+
+    Ok(RuntimeStatusView {
+        root: inputs.root.display().to_string(),
+        connection: connection.clone(),
+        uri: connection.uri.clone(),
+        uri_file: paths.uri_file.display().to_string(),
+        log_path: paths.log_path.display().to_string(),
+        log_bytes: daemon_log::total_log_bytes(&paths.log_path).ok(),
+        mcp_call_log_path: inputs
+            .mcp_call_log_store
+            .path()
+            .map(|path| path.display().to_string()),
+        mcp_call_log_bytes: inputs.mcp_call_log_store.file_len(),
+        cache_path: paths.cache_path.display().to_string(),
+        cache_bytes: file_len(&paths.cache_path),
+        health_path: daemon_health_path(&daemons).to_string(),
+        health: connection.health.clone(),
+        daemon_count: daemons.len(),
+        bridge_count: bridges.len(),
+        connected_bridge_count: bridge_counts.connected,
+        orphan_bridge_count: bridge_counts.orphaned,
+        processes: processes
+            .into_iter()
+            .map(|process| runtime_process_view(process, &connected_bridge_pids))
+            .collect(),
+        process_error,
+        scopes: runtime_scopes_from_prism(inputs.prism.as_ref()),
+        freshness: runtime_freshness_from_inputs(inputs, runtime_state)?,
+    })
+}
+
+fn runtime_freshness_from_inputs(
+    inputs: &RuntimeStatusInputs<'_>,
     runtime_state: Option<&RuntimeState>,
 ) -> Result<RuntimeFreshnessView> {
-    let workspace = host.workspace_session().ok_or_else(|| {
-        anyhow!("runtime introspection requires a workspace-backed PRISM session")
-    })?;
-    let snapshot_revisions = workspace.snapshot_revisions_for_runtime()?;
-    let fs_observed_revision = workspace.observed_fs_revision();
-    let fs_applied_revision = workspace.applied_fs_revision();
+    let snapshot_revisions = inputs.workspace.snapshot_revisions_for_runtime()?;
+    let fs_observed_revision = inputs.workspace.observed_fs_revision();
+    let fs_applied_revision = inputs.workspace.applied_fs_revision();
     let fs_dirty = fs_observed_revision != fs_applied_revision;
-    let last_refresh = workspace.last_refresh();
-    let workspace_summary = workspace.workspace_materialization_summary();
-    let published_generation = host
-        .workspace_runtime_binding_ref()
-        .map(|binding| binding.published_generation_snapshot());
-    let queue_snapshot = host
-        .workspace_runtime_binding_ref()
-        .map(|binding| binding.runtime().queue_snapshot());
+    let last_refresh = inputs.workspace.last_refresh();
+    let workspace_coverage = inputs.workspace.workspace_materialization_coverage();
+    let published_generation = inputs.published_generation.as_ref();
+    let queue_snapshot = inputs.queue_snapshot.as_ref();
     let materialization = RuntimeMaterializationView {
         workspace: workspace_materialization_item(
-            host.loaded_workspace_revision_value(),
+            inputs.loaded_workspace_revision,
             Some(snapshot_revisions.workspace),
-            &workspace_summary,
+            &workspace_coverage,
+            published_generation
+                .and_then(|generation| {
+                    generation
+                        .domain_states
+                        .get(&prism_core::runtime_engine::RuntimeDomain::FileFacts)
+                })
+                .map(|state| state.materialization),
         ),
         episodic: materialization_item(
-            host.loaded_episodic_revision_value(),
+            inputs.loaded_episodic_revision,
             Some(snapshot_revisions.episodic),
         ),
         inference: materialization_item(
-            host.loaded_inference_revision_value(),
+            inputs.loaded_inference_revision,
             Some(snapshot_revisions.inference),
         ),
         coordination: materialization_item(
-            host.loaded_coordination_revision_value(),
+            inputs.loaded_coordination_revision,
             Some(snapshot_revisions.coordination),
         ),
     };
@@ -314,7 +396,7 @@ fn runtime_freshness(
         materialization: materialization.clone(),
         domains: published_generation
             .as_ref()
-            .map(runtime_domain_views)
+            .map(|generation| runtime_domain_views(generation))
             .unwrap_or_default(),
         active_command: queue_snapshot.as_ref().and_then(|snapshot| {
             snapshot
@@ -334,7 +416,7 @@ fn runtime_freshness(
             .unwrap_or(0),
         queued_by_class: queue_snapshot
             .as_ref()
-            .map(runtime_queue_depth_views)
+            .map(|snapshot| runtime_queue_depth_views(snapshot))
             .unwrap_or_default(),
         status: freshness_status(
             fs_dirty,
@@ -443,8 +525,7 @@ fn runtime_queue_class_label(
     }
 }
 
-fn runtime_scopes(host: &QueryHost) -> Result<RuntimeScopesView> {
-    let prism = host.current_prism();
+fn runtime_scopes_from_prism(prism: &prism_query::Prism) -> RuntimeScopesView {
     let (co_change_lineage_count, validation_lineage_count) = prism.projection_lineage_counts();
     let concepts = prism.curated_concepts_snapshot();
     let relations = prism.concept_relations_snapshot();
@@ -506,10 +587,10 @@ fn runtime_scopes(host: &QueryHost) -> Result<RuntimeScopesView> {
     let coordination = prism.coordination_snapshot();
     let overlays = overlay_scope_views(&coordination);
 
-    Ok(RuntimeScopesView {
+    RuntimeScopesView {
         projections,
         overlays,
-    })
+    }
 }
 
 fn overlay_scope_views(
@@ -569,33 +650,25 @@ fn materialization_item(
 fn workspace_materialization_item(
     loaded_revision: u64,
     current_revision: Option<u64>,
-    summary: &prism_core::WorkspaceMaterializationSummary,
+    coverage: &prism_core::WorkspaceMaterializationCoverage,
+    materialization_depth: Option<RuntimeMaterializationDepth>,
 ) -> RuntimeMaterializationItemView {
     RuntimeMaterializationItemView {
         status: materialization_status(loaded_revision, current_revision).to_string(),
-        depth: summary.depth().to_string(),
+        depth: materialization_depth
+            .map(runtime_materialization_depth_label)
+            .unwrap_or_else(|| coverage.depth())
+            .to_string(),
         loaded_revision,
         current_revision,
         coverage: Some(RuntimeMaterializationCoverageView {
-            known_files: summary.known_files,
-            known_directories: summary.known_directories,
-            materialized_files: summary.materialized_files,
-            materialized_nodes: summary.materialized_nodes,
-            materialized_edges: summary.materialized_edges,
+            known_files: coverage.known_files,
+            known_directories: coverage.known_directories,
+            materialized_files: coverage.materialized_files,
+            materialized_nodes: coverage.materialized_nodes,
+            materialized_edges: coverage.materialized_edges,
         }),
-        boundaries: summary
-            .boundaries
-            .iter()
-            .map(|boundary| RuntimeBoundaryRegionView {
-                id: boundary.id.clone(),
-                path: boundary.path.display().to_string(),
-                provenance: boundary.provenance.clone(),
-                materialization_state: boundary.materialization_state.clone(),
-                scope_state: boundary.scope_state.clone(),
-                known_file_count: boundary.known_file_count,
-                materialized_file_count: boundary.materialized_file_count,
-            })
-            .collect(),
+        boundaries: Vec::new(),
     }
 }
 
@@ -697,6 +770,14 @@ fn runtime_state_event_view(event: RuntimeEventRecord) -> RuntimeLogEventView {
     }
 }
 
+fn latest_runtime_state_event_view(
+    runtime_state: Option<&RuntimeState>,
+) -> Option<RuntimeLogEventView> {
+    runtime_state
+        .and_then(|state| state.events.last().cloned())
+        .map(runtime_state_event_view)
+}
+
 fn health_status(
     uri: &Option<String>,
     daemons: &[McpProcess],
@@ -756,143 +837,39 @@ fn list_runtime_processes(
     root: &Path,
     state_processes: &[RuntimeProcessRecord],
 ) -> Result<Vec<McpProcess>> {
-    if !state_processes.is_empty() {
-        if let Ok(processes) = runtime_state_processes(root, state_processes) {
-            if !processes.is_empty() {
-                return Ok(processes);
-            }
-        }
+    if state_processes.is_empty() {
+        return Ok(Vec::new());
     }
-    list_processes(root)
+    runtime_state_processes(root, state_processes)
 }
 
 fn runtime_state_processes(
     root: &Path,
     state_processes: &[RuntimeProcessRecord],
 ) -> Result<Vec<McpProcess>> {
-    let pids = state_processes
+    Ok(state_processes
         .iter()
-        .map(|record| record.pid.to_string())
-        .collect::<Vec<_>>();
-    if pids.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let output = Command::new("ps")
-        .args(["-p", &pids.join(","), "-o", "pid=,ppid=,rss=,etime=,command="])
-        .output()
-        .context("failed to inspect runtime-state processes with ps")?;
-    if !output.status.success() {
-        bail!(
-            "ps failed: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        );
-    }
-
-    let mut parsed_by_pid = String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .filter_map(parse_ps_line)
-        .map(|process| (process.pid, process))
-        .collect::<BTreeMap<_, _>>();
-    let mut processes = Vec::new();
-    for record in state_processes {
-        let Some(mut process) = parsed_by_pid.remove(&record.pid).or_else(|| {
-            synthetic_test_runtime_process(root, record)
-        }) else {
-            continue;
-        };
-        if !matches_prism_process_command(process.pid, &process.command, root, &record.kind) {
-            continue;
-        }
-        process.health_path = process
-            .health_path
-            .or_else(|| record.health_path.clone());
-        process.http_uri = record.http_uri.clone();
-        processes.push(process);
-    }
-    Ok(processes)
+        .filter_map(|record| runtime_process_from_record(root, record))
+        .collect())
 }
 
-fn synthetic_test_runtime_process(
-    root: &Path,
-    record: &RuntimeProcessRecord,
-) -> Option<McpProcess> {
-    if !(cfg!(test) && record.pid == std::process::id() && record.kind == "daemon") {
-        return None;
-    }
+fn runtime_process_from_record(root: &Path, record: &RuntimeProcessRecord) -> Option<McpProcess> {
+    let kind = match record.kind.as_str() {
+        "daemon" => McpProcessKind::Daemon,
+        "bridge" => McpProcessKind::Bridge,
+        _ => return None,
+    };
     Some(McpProcess {
         pid: record.pid,
         ppid: 0,
         rss_kb: 0,
         elapsed: elapsed_since(record.started_at),
         command: format!("prism-mcp --mode {} --root {}", record.kind, root.display()),
-        kind: McpProcessKind::Daemon,
+        kind,
         health_path: record.health_path.clone(),
         http_uri: record.http_uri.clone(),
+        upstream_uri: record.upstream_uri.clone(),
     })
-}
-
-fn list_processes(root: &Path) -> Result<Vec<McpProcess>> {
-    let output = Command::new("ps")
-        .args(["-axo", "pid=,ppid=,rss=,etime=,command="])
-        .output()
-        .context("failed to list processes with ps")?;
-    if !output.status.success() {
-        bail!(
-            "ps failed: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        );
-    }
-
-    let root_flag = format!("--root {}", root.display());
-    let lines = String::from_utf8_lossy(&output.stdout);
-    let mut processes = Vec::new();
-    for line in lines.lines() {
-        let Some(process) = parse_ps_line(line) else {
-            continue;
-        };
-        if !process.command.contains("prism-mcp") || !process.command.contains(&root_flag) {
-            continue;
-        }
-        processes.push(process);
-    }
-    Ok(processes)
-}
-
-fn parse_ps_line(line: &str) -> Option<McpProcess> {
-    let mut parts = line.split_whitespace();
-    let pid = parts.next()?.parse().ok()?;
-    let ppid = parts.next()?.parse::<u32>().ok()?;
-    let rss_kb = parts.next()?.parse().ok()?;
-    let elapsed = parts.next()?.to_string();
-    let command = parts.collect::<Vec<_>>().join(" ");
-    let health_path = command_option_value(&command, "--health-path");
-    let kind = match command_option_value(&command, "--mode").as_deref() {
-        Some("daemon") => McpProcessKind::Daemon,
-        Some("bridge") => McpProcessKind::Bridge,
-        _ => return None,
-    };
-    Some(McpProcess {
-        pid,
-        ppid,
-        rss_kb,
-        elapsed,
-        command,
-        kind,
-        health_path,
-        http_uri: None,
-    })
-}
-
-#[cfg(test)]
-fn parse_process_snapshot_line(line: &str) -> Option<(u32, u32, u64, String, String)> {
-    let mut parts = line.split_whitespace();
-    let pid = parts.next()?.parse().ok()?;
-    let ppid = parts.next()?.parse().ok()?;
-    let rss_kb = parts.next()?.parse().ok()?;
-    let elapsed = parts.next()?.to_string();
-    let command = parts.collect::<Vec<_>>().join(" ");
-    Some((pid, ppid, rss_kb, elapsed, command))
 }
 
 fn bridge_state(
@@ -980,29 +957,19 @@ fn classify_bridges(bridges: &[McpProcess], connected_bridge_pids: &BTreeSet<u32
     counts
 }
 
-fn connected_process_ids_for_uri(uri: &str) -> Result<BTreeSet<u32>> {
-    let Some(port) = uri_port(uri) else {
-        return Ok(BTreeSet::new());
-    };
-    let output = Command::new("lsof")
-        .args(["-nP", &format!("-iTCP:{port}"), "-sTCP:ESTABLISHED", "-Fp"])
-        .output()
-        .context("failed to inspect established TCP connections with lsof")?;
-    if !output.status.success() {
-        return Ok(BTreeSet::new());
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .filter_map(|line| line.strip_prefix('p'))
-        .filter_map(|pid| pid.parse::<u32>().ok())
-        .collect())
-}
-
-fn uri_port(uri: &str) -> Option<u16> {
-    uri_authority(uri)?
-        .rsplit_once(':')
-        .and_then(|(_, port)| port.parse::<u16>().ok())
+fn connected_bridge_ids(bridges: &[McpProcess], uri: Option<&str>) -> BTreeSet<u32> {
+    bridges
+        .iter()
+        .filter(|bridge| {
+            bridge
+                .upstream_uri
+                .as_deref()
+                .zip(uri)
+                .map(|(upstream, candidate)| upstream == candidate)
+                .unwrap_or_else(|| bridge.upstream_uri.is_some())
+        })
+        .map(|bridge| bridge.pid)
+        .collect()
 }
 
 fn uri_authority(uri: &str) -> Option<&str> {
@@ -1041,25 +1008,6 @@ fn elapsed_since(started_at: u64) -> String {
     } else {
         format!("{minutes:02}:{seconds:02}")
     }
-}
-
-fn matches_prism_process_command(pid: u32, command: &str, root: &Path, kind: &str) -> bool {
-    if cfg!(test) && pid == std::process::id() && kind == "daemon" {
-        return true;
-    }
-    let Some(command_root) = command_option_value(command, "--root") else {
-        return false;
-    };
-    command.contains("prism-mcp")
-        && Path::new(&command_root) == root
-        && command_option_value(command, "--mode").as_deref() == Some(kind)
-}
-
-fn command_option_value(command: &str, option: &str) -> Option<String> {
-    let tokens = command.split_whitespace().collect::<Vec<_>>();
-    tokens
-        .windows(2)
-        .find_map(|window| (window[0] == option).then(|| window[1].to_string()))
 }
 
 fn read_uri_file(path: &Path) -> Result<Option<String>> {
@@ -1202,39 +1150,6 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn parses_ps_lines_for_runtime_status() {
-        let process = parse_ps_line(
-            "29267 1 4454352 02:12:24 /Users/bene/code/prism/target/release/prism-mcp --mode daemon --root /Users/bene/code/prism --http-uri-file /Users/bene/code/prism/.prism/prism-mcp-http-uri --http-path /mcp --health-path /healthz",
-        )
-        .expect("expected prism-mcp process");
-
-        assert_eq!(process.pid, 29267);
-        assert_eq!(process.ppid, 1);
-        assert_eq!(process.rss_kb, 4454352);
-        assert_eq!(process.elapsed, "02:12:24");
-        assert_eq!(process.kind, McpProcessKind::Daemon);
-        assert_eq!(process.health_path.as_deref(), Some("/healthz"));
-        assert_eq!(process.http_uri, None);
-    }
-
-    #[test]
-    fn parses_scoped_ps_lines_for_runtime_state_processes() {
-        let (pid, ppid, rss_kb, elapsed, command) = parse_process_snapshot_line(
-            "29267 1 4454352 02:12:24 /Users/bene/code/prism/target/release/prism-mcp --mode daemon",
-        )
-        .expect("expected process snapshot");
-
-        assert_eq!(pid, 29267);
-        assert_eq!(ppid, 1);
-        assert_eq!(rss_kb, 4454352);
-        assert_eq!(elapsed, "02:12:24");
-        assert_eq!(
-            command,
-            "/Users/bene/code/prism/target/release/prism-mcp --mode daemon"
-        );
-    }
-
-    #[test]
     fn parses_json_log_lines_into_runtime_events() {
         let event = parse_log_event(
             r#"{"timestamp":"2026-03-26T15:12:35Z","level":"INFO","message":"starting prism-mcp","target":"prism_mcp::logging","filename":"crates/prism-mcp/src/logging.rs","line_number":53,"mode":"daemon"}"#,
@@ -1301,6 +1216,7 @@ mod tests {
             kind: McpProcessKind::Daemon,
             health_path: Some("/healthz".to_string()),
             http_uri: Some("http://127.0.0.1:52695/mcp".to_string()),
+            upstream_uri: None,
         };
 
         let healthy = health_status(
@@ -1339,6 +1255,7 @@ mod tests {
                 kind: McpProcessKind::Bridge,
                 health_path: None,
                 http_uri: None,
+                upstream_uri: Some("http://127.0.0.1:52695/mcp".to_string()),
             },
             McpProcess {
                 pid: 11,
@@ -1349,6 +1266,7 @@ mod tests {
                 kind: McpProcessKind::Bridge,
                 health_path: None,
                 http_uri: None,
+                upstream_uri: None,
             },
             McpProcess {
                 pid: 12,
@@ -1359,6 +1277,7 @@ mod tests {
                 kind: McpProcessKind::Bridge,
                 health_path: None,
                 http_uri: None,
+                upstream_uri: None,
             },
             McpProcess {
                 pid: 13,
@@ -1369,6 +1288,7 @@ mod tests {
                 kind: McpProcessKind::Bridge,
                 health_path: None,
                 http_uri: None,
+                upstream_uri: None,
             },
         ];
         let connected = BTreeSet::from([10_u32]);
@@ -1387,26 +1307,5 @@ mod tests {
             bridge_state(&bridges[3], &connected).map(bridge_state_label),
             Some("orphaned".to_string())
         );
-    }
-
-    #[test]
-    fn runtime_state_process_probe_ignores_pid_reuse_from_non_prism_commands() {
-        let root = std::env::temp_dir();
-        assert!(!matches_prism_process_command(
-            999_999,
-            "/System/Library/Frameworks/Contacts.framework/Support/contactsd",
-            &root,
-            "bridge"
-        ));
-        assert!(matches_prism_process_command(
-            999_999,
-            &format!(
-                "/Users/bene/code/prism/target/release/prism-mcp --mode bridge --root {} --http-uri-file {}/.prism/prism-mcp-http-uri",
-                root.display(),
-                root.display()
-            ),
-            &root,
-            "bridge"
-        ));
     }
 }

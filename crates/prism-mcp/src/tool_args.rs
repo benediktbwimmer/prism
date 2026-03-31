@@ -425,6 +425,12 @@ fn validate_coordination_payload(
             &required_fields,
         )
         .map(|_| ()),
+        CoordinationMutationKindInput::PlanArchive => deserialize_or_issue::<PlanArchivePayload>(
+            args.payload,
+            Some("input.payload"),
+            &required_fields,
+        )
+        .map(|_| ()),
         CoordinationMutationKindInput::TaskCreate => deserialize_or_issue::<TaskCreatePayload>(
             args.payload,
             Some("input.payload"),
@@ -613,6 +619,7 @@ fn coordination_kind_tag(kind: &CoordinationMutationKindInput) -> &'static str {
     match kind {
         CoordinationMutationKindInput::PlanCreate => "plan_create",
         CoordinationMutationKindInput::PlanUpdate => "plan_update",
+        CoordinationMutationKindInput::PlanArchive => "plan_archive",
         CoordinationMutationKindInput::TaskCreate => "task_create",
         CoordinationMutationKindInput::Update => "update",
         CoordinationMutationKindInput::PlanNodeCreate => "plan_node_create",
@@ -1818,6 +1825,7 @@ pub(crate) struct PrismFixValidatedArgs {
 pub(crate) enum CoordinationMutationKindInput {
     PlanCreate,
     PlanUpdate,
+    PlanArchive,
     TaskCreate,
     Update,
     PlanNodeCreate,
@@ -1835,6 +1843,7 @@ impl_vocab_deserialize!(
     {
         "plancreate" => PlanCreate,
         "planupdate" => PlanUpdate,
+        "planarchive" => PlanArchive,
         "taskcreate" => TaskCreate,
         "update" => Update,
         "plannodecreate" => PlanNodeCreate,
@@ -1891,6 +1900,7 @@ impl_vocab_deserialize!(
 enum PrismCoordinationArgsWirePayload {
     PlanCreate(PlanCreatePayload),
     PlanUpdate(PlanUpdatePayload),
+    PlanArchive(PlanArchivePayload),
     TaskCreate(TaskCreatePayload),
     Update(WorkflowUpdatePayload),
     PlanNodeCreate(PlanNodeCreatePayload),
@@ -1940,6 +1950,9 @@ impl<'de> Deserialize<'de> for PrismCoordinationArgs {
             }
             PrismCoordinationArgsWirePayload::PlanUpdate(_) => {
                 CoordinationMutationKindInput::PlanUpdate
+            }
+            PrismCoordinationArgsWirePayload::PlanArchive(_) => {
+                CoordinationMutationKindInput::PlanArchive
             }
             PrismCoordinationArgsWirePayload::TaskCreate(_) => {
                 CoordinationMutationKindInput::TaskCreate
@@ -2450,6 +2463,12 @@ pub(crate) struct PlanUpdatePayload {
     pub(crate) status: Option<PlanStatusInput>,
     pub(crate) goal: Option<String>,
     pub(crate) policy: Option<CoordinationPolicyPayload>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PlanArchivePayload {
+    pub(crate) plan_id: String,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]

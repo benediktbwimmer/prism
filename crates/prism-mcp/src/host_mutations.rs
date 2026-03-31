@@ -54,16 +54,17 @@ use crate::{
     CuratorJobView, CuratorProposalCreatedResources, CuratorProposalDecision,
     CuratorProposalDecisionResult, EdgeMutationResult, EventMutationResult, HandoffAcceptPayload,
     MemoryMutationActionInput, MemoryMutationResult, MemoryRetirePayload, MemoryStorePayload,
-    MutationViolationView, NodeIdInput, PlanEdgeCreatePayload, PlanEdgeDeletePayload,
-    PlanNodeCreatePayload, PlanUpdatePayload, PrismArtifactArgs, PrismClaimArgs,
-    PrismConceptLensInput, PrismConceptMutationArgs, PrismConceptRelationMutationArgs,
-    PrismContractMutationArgs, PrismCoordinationArgs, PrismCuratorApplyProposalArgs,
-    PrismCuratorPromoteConceptArgs, PrismCuratorPromoteEdgeArgs, PrismCuratorPromoteMemoryArgs,
-    PrismCuratorRejectProposalArgs, PrismFinishTaskArgs, PrismInferEdgeArgs, PrismMemoryArgs,
-    PrismOutcomeArgs, PrismValidationFeedbackArgs, QueryHost, SessionState, SparsePatch,
-    SparsePatchInput, TaskCreatePayload, ValidationFeedbackCategoryInput,
-    ValidationFeedbackMutationResult, ValidationFeedbackVerdictInput, WorkflowStatusInput,
-    WorkflowUpdatePayload, DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
+    MutationViolationView, NodeIdInput, PlanArchivePayload, PlanEdgeCreatePayload,
+    PlanEdgeDeletePayload, PlanNodeCreatePayload, PlanUpdatePayload, PrismArtifactArgs,
+    PrismClaimArgs, PrismConceptLensInput, PrismConceptMutationArgs,
+    PrismConceptRelationMutationArgs, PrismContractMutationArgs, PrismCoordinationArgs,
+    PrismCuratorApplyProposalArgs, PrismCuratorPromoteConceptArgs, PrismCuratorPromoteEdgeArgs,
+    PrismCuratorPromoteMemoryArgs, PrismCuratorRejectProposalArgs, PrismFinishTaskArgs,
+    PrismInferEdgeArgs, PrismMemoryArgs, PrismOutcomeArgs, PrismValidationFeedbackArgs, QueryHost,
+    SessionState, SparsePatch, SparsePatchInput, TaskCreatePayload,
+    ValidationFeedbackCategoryInput, ValidationFeedbackMutationResult,
+    ValidationFeedbackVerdictInput, WorkflowStatusInput, WorkflowUpdatePayload,
+    DEFAULT_TASK_JOURNAL_EVENT_LIMIT, DEFAULT_TASK_JOURNAL_MEMORY_LIMIT,
 };
 
 #[derive(Default)]
@@ -1493,6 +1494,30 @@ impl QueryHost {
                     payload.status.map(convert_plan_status),
                     payload.goal,
                     convert_policy(payload.policy)?,
+                )?;
+                let plan = prism
+                    .coordination_plan(&plan_id)
+                    .ok_or_else(|| anyhow!("unknown plan `{}`", plan_id.0))?;
+                let root_node_ids = prism
+                    .plan_graph(&plan_id)
+                    .map(|graph| graph.root_nodes)
+                    .unwrap_or_else(|| {
+                        plan.root_tasks
+                            .iter()
+                            .map(|task_id| prism_ir::PlanNodeId::new(task_id.0.clone()))
+                            .collect()
+                    });
+                Ok(serde_json::to_value(plan_view(plan, root_node_ids))?)
+            }
+            CoordinationMutationKindInput::PlanArchive => {
+                let payload: PlanArchivePayload = serde_json::from_value(args.payload)?;
+                let plan_id = PlanId::new(payload.plan_id);
+                prism.update_native_plan(
+                    meta,
+                    &plan_id,
+                    Some(prism_ir::PlanStatus::Archived),
+                    None,
+                    None,
                 )?;
                 let plan = prism
                     .coordination_plan(&plan_id)

@@ -25,8 +25,9 @@ use serde_json::json;
 use tracing::{debug, error};
 
 use crate::{
-    log_refresh_workspace, DashboardState, QueryHost, WorkspaceRefreshMetrics,
-    WorkspaceRefreshReport,
+    diagnostics_state::DiagnosticsState, log_refresh_workspace, mcp_call_log::McpCallLogStore,
+    runtime_views::refresh_cached_runtime_status_for_config, DashboardState, QueryHost,
+    WorkspaceRefreshMetrics, WorkspaceRefreshReport,
 };
 
 const BACKGROUND_REFRESH_INTERVAL: Duration = Duration::from_millis(250);
@@ -39,6 +40,8 @@ pub(crate) struct WorkspaceRuntimeConfig {
     pub(crate) notes: Arc<SessionMemory>,
     pub(crate) inferred_edges: Arc<InferenceStore>,
     pub(crate) dashboard_state: Arc<DashboardState>,
+    pub(crate) diagnostics_state: Arc<DiagnosticsState>,
+    pub(crate) mcp_call_log_store: Arc<McpCallLogStore>,
     pub(crate) sync_lock: Arc<Mutex<()>>,
     pub(crate) loaded_workspace_revision: Arc<AtomicU64>,
     pub(crate) loaded_episodic_revision: Arc<AtomicU64>,
@@ -253,6 +256,18 @@ impl WorkspaceRuntime {
                 );
                 continue;
             }
+            let _ = refresh_cached_runtime_status_for_config(
+                &crate::workspace_diagnostics::WorkspaceDiagnosticsConfig {
+                    workspace: Arc::clone(&config.workspace),
+                    loaded_workspace_revision: Arc::clone(&config.loaded_workspace_revision),
+                    loaded_episodic_revision: Arc::clone(&config.loaded_episodic_revision),
+                    loaded_inference_revision: Arc::clone(&config.loaded_inference_revision),
+                    loaded_coordination_revision: Arc::clone(&config.loaded_coordination_revision),
+                    runtime_engine: Arc::clone(&config.runtime_engine),
+                    diagnostics_state: Arc::clone(&config.diagnostics_state),
+                    mcp_call_log_store: Arc::clone(&config.mcp_call_log_store),
+                },
+            );
             config
                 .runtime_engine
                 .lock()
@@ -1002,25 +1017,13 @@ fn revision_status(loaded_revision: u64, current_revision: u64) -> &'static str 
     }
 }
 
-fn materialization_depth_for_summary(
-    summary: &prism_core::WorkspaceMaterializationSummary,
+fn materialization_depth_for_coverage(
+    coverage: &prism_core::WorkspaceMaterializationCoverage,
 ) -> RuntimeMaterializationDepth {
-    if summary.boundaries.iter().any(|boundary| {
-        boundary.materialization_state == "out_of_scope" || boundary.scope_state == "out_of_scope"
-    }) {
-        RuntimeMaterializationDepth::OutOfScope
-    } else if summary
-        .boundaries
-        .iter()
-        .any(|boundary| boundary.materialization_state == "known_unmaterialized")
-    {
-        RuntimeMaterializationDepth::KnownUnmaterialized
-    } else {
-        match summary.depth() {
-            "shallow" => RuntimeMaterializationDepth::Shallow,
-            "medium" => RuntimeMaterializationDepth::Medium,
-            _ => RuntimeMaterializationDepth::Deep,
-        }
+    match coverage.depth() {
+        "shallow" => RuntimeMaterializationDepth::Shallow,
+        "medium" => RuntimeMaterializationDepth::Medium,
+        _ => RuntimeMaterializationDepth::Deep,
     }
 }
 
@@ -1045,13 +1048,13 @@ fn runtime_domain_states(
     refresh_path: &str,
 ) -> BTreeMap<RuntimeDomain, RuntimeDomainState> {
     let mut states = BTreeMap::new();
-    let workspace_summary = config.workspace.workspace_materialization_summary();
+    let workspace_coverage = config.workspace.workspace_materialization_coverage();
     let workspace_freshness = if refresh_path == "deferred" || config.workspace.needs_refresh() {
         RuntimeFreshnessState::Pending
     } else {
         RuntimeFreshnessState::Current
     };
-    let workspace_depth = materialization_depth_for_summary(&workspace_summary);
+    let workspace_depth = materialization_depth_for_coverage(&workspace_coverage);
     states.insert(
         RuntimeDomain::FileFacts,
         RuntimeDomainState::new(workspace_freshness, workspace_depth),
@@ -1060,7 +1063,7 @@ fn runtime_domain_states(
         RuntimeDomain::CrossFileEdges,
         RuntimeDomainState::new(
             workspace_freshness,
-            if workspace_summary.materialized_edges > 0 {
+            if workspace_coverage.materialized_edges > 0 {
                 RuntimeMaterializationDepth::Deep
             } else {
                 workspace_depth
@@ -1129,12 +1132,14 @@ impl QueryHost {
             return Ok(());
         };
         let runtime = binding.runtime();
+        let diagnostics = binding.diagnostics();
         let config = binding.runtime_config();
         let report = sync_persisted_workspace_state(&config)?;
         if report.coordination_reloaded {
             let _ = self.publish_dashboard_coordination_update();
         }
         runtime.request_refresh();
+        diagnostics.request_refresh();
         Ok(())
     }
 
@@ -1144,9 +1149,11 @@ impl QueryHost {
         };
         let workspace = binding.workspace();
         let runtime = binding.runtime();
+        let diagnostics = binding.diagnostics();
         let config = binding.runtime_config();
         let Some(report) = try_sync_workspace_runtime_for_read(&config)? else {
             runtime.request_refresh();
+            diagnostics.request_refresh();
             workspace.record_runtime_refresh_observation_with_work(
                 "deferred",
                 0,
@@ -1168,6 +1175,7 @@ impl QueryHost {
         if report.deferred {
             runtime.request_refresh();
         }
+        diagnostics.request_refresh();
         Ok(report)
     }
 
@@ -1177,9 +1185,11 @@ impl QueryHost {
         };
         let workspace = binding.workspace();
         let runtime = binding.runtime();
+        let diagnostics = binding.diagnostics();
         let config = binding.runtime_config();
         let Some(report) = try_sync_workspace_runtime_for_mutation(&config)? else {
             runtime.request_refresh();
+            diagnostics.request_refresh();
             workspace.record_runtime_refresh_observation_with_work(
                 "deferred",
                 0,
@@ -1193,6 +1203,7 @@ impl QueryHost {
         if report.deferred {
             runtime.request_refresh();
         }
+        diagnostics.request_refresh();
         Ok(report)
     }
 }
@@ -1218,6 +1229,8 @@ mod tests {
     use prism_memory::SessionMemory;
 
     use super::*;
+    use crate::diagnostics_state::DiagnosticsState;
+    use crate::mcp_call_log::McpCallLogStore;
     use crate::tests_support::temp_workspace;
 
     #[test]
@@ -1229,6 +1242,8 @@ mod tests {
             notes: Arc::new(SessionMemory::new()),
             inferred_edges: Arc::new(InferenceStore::new()),
             dashboard_state: Arc::new(DashboardState::default()),
+            diagnostics_state: Arc::new(DiagnosticsState::default()),
+            mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
             sync_lock: Arc::new(Mutex::new(())),
             loaded_workspace_revision: Arc::new(AtomicU64::new(
                 workspace.loaded_workspace_revision(),
@@ -1294,6 +1309,8 @@ mod tests {
             notes: Arc::new(SessionMemory::new()),
             inferred_edges: Arc::new(InferenceStore::new()),
             dashboard_state: Arc::new(DashboardState::default()),
+            diagnostics_state: Arc::new(DiagnosticsState::default()),
+            mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
             sync_lock: Arc::new(Mutex::new(())),
             loaded_workspace_revision: Arc::new(AtomicU64::new(
                 workspace.loaded_workspace_revision(),

@@ -2383,6 +2383,55 @@ fn mcp_plan_update_accepts_archived_status_and_archived_plan_rejects_new_claims(
 }
 
 #[test]
+fn mcp_plan_archive_archives_abandoned_plan_via_explicit_mutation_kind() {
+    let root = temp_workspace();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let plan = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Archive explicitly" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let plan_id = plan.state["id"].as_str().unwrap().to_string();
+
+    let abandoned = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanUpdate,
+                payload: json!({
+                    "planId": plan_id.clone(),
+                    "status": "abandoned",
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert!(!abandoned.rejected);
+    assert_eq!(abandoned.state["status"], "Abandoned");
+
+    let archived = host
+        .store_coordination(
+            test_session(&host).as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanArchive,
+                payload: json!({
+                    "planId": plan_id,
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    assert!(!archived.rejected);
+    assert_eq!(archived.state["status"], "Archived");
+}
+
+#[test]
 fn drift_candidates_and_task_intent_flow_through_prism_query_reads() {
     let spec = NodeId::new("demo", "docs::request_spec", NodeKind::Document);
     let implementation = NodeId::new("demo", "demo::handle_request", NodeKind::Function);
@@ -5451,6 +5500,10 @@ fn prism_mutate_schema_surfaces_action_specific_examples() {
     assert!(coordination
         .example_inputs
         .iter()
+        .any(|value| value["input"]["kind"] == "plan_archive"));
+    assert!(coordination
+        .example_inputs
+        .iter()
         .any(|value| value["input"]["kind"] == "plan_node_create"));
 
     let mutate_schema =
@@ -5503,6 +5556,10 @@ fn coordination_schema_surfaces_closed_status_and_kind_enums() {
         .iter()
         .find(|variant| variant["title"] == "kind=task_create")
         .expect("task_create payload should exist");
+    let plan_archive = payload_variants
+        .iter()
+        .find(|variant| variant["title"] == "kind=plan_archive")
+        .expect("plan_archive payload should exist");
     let plan_node_create = payload_variants
         .iter()
         .find(|variant| variant["title"] == "kind=plan_node_create")
@@ -5516,6 +5573,10 @@ fn coordination_schema_surfaces_closed_status_and_kind_enums() {
     assert!(task_create_schema.contains("\"status\""));
     assert!(task_create_schema.contains("\"ready\""));
     assert!(task_create_schema.contains("\"in_progress\""));
+
+    let plan_archive_schema = plan_archive.to_string();
+    assert!(plan_archive_schema.contains("\"planId\""));
+    assert!(!plan_archive_schema.contains("\"status\""));
 
     let plan_node_create_schema = plan_node_create.to_string();
     assert!(plan_node_create_schema.contains("\"kind\""));
@@ -15338,7 +15399,8 @@ fn persisted_only_mutations_wait_for_runtime_sync_and_then_succeed() {
         .host
         .workspace_runtime_binding()
         .expect("workspace runtime binding should exist");
-    let release = hold_runtime_sync_lock_for(Arc::clone(binding.sync_lock()), Duration::from_millis(75));
+    let release =
+        hold_runtime_sync_lock_for(Arc::clone(binding.sync_lock()), Duration::from_millis(75));
 
     let started = Instant::now();
     let result = server
@@ -15401,7 +15463,10 @@ fn persisted_only_mutations_wait_for_runtime_sync_and_then_succeed() {
         .as_ref()
         .and_then(Value::as_object)
         .expect("refresh args should exist");
-    assert_ne!(args.get("refreshPath"), Some(&Value::String("busy".to_string())));
+    assert_ne!(
+        args.get("refreshPath"),
+        Some(&Value::String("busy".to_string()))
+    );
     assert!(
         args.get("metrics")
             .and_then(Value::as_object)
@@ -15423,7 +15488,8 @@ fn coordination_mutations_wait_for_runtime_sync_and_then_succeed() {
         .host
         .workspace_runtime_binding()
         .expect("workspace runtime binding should exist");
-    let release = hold_runtime_sync_lock_for(Arc::clone(binding.sync_lock()), Duration::from_millis(75));
+    let release =
+        hold_runtime_sync_lock_for(Arc::clone(binding.sync_lock()), Duration::from_millis(75));
 
     let started = Instant::now();
     let result = server
@@ -15474,7 +15540,10 @@ fn coordination_mutations_wait_for_runtime_sync_and_then_succeed() {
         .as_ref()
         .and_then(Value::as_object)
         .expect("refresh args should exist");
-    assert_ne!(args.get("refreshPath"), Some(&Value::String("busy".to_string())));
+    assert_ne!(
+        args.get("refreshPath"),
+        Some(&Value::String("busy".to_string()))
+    );
 }
 
 #[test]
@@ -15589,6 +15658,46 @@ fn runtime_status_reports_workspace_materialization_depth_and_coverage() {
 }
 
 #[test]
+fn runtime_status_and_dashboard_summary_prefer_cached_diagnostics_snapshot() {
+    let root = temp_workspace();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+
+    let mut cached =
+        crate::runtime_views::runtime_status(&host).expect("runtime status should succeed");
+    cached.uri = Some("cached://runtime".to_string());
+    cached.connection.uri = Some("cached://runtime".to_string());
+    host.diagnostics_state().update_runtime_status(
+        cached.clone(),
+        Some(prism_js::RuntimeLogEventView {
+            timestamp: Some("2026-03-31T20:00:00Z".to_string()),
+            level: Some("INFO".to_string()),
+            message: "cached runtime event".to_string(),
+            target: Some("prism_mcp::tests".to_string()),
+            file: None,
+            line_number: None,
+            fields: None,
+        }),
+    );
+
+    let status = crate::runtime_views::runtime_status(&host)
+        .expect("runtime status should use cached diagnostics snapshot");
+    assert_eq!(status.uri.as_deref(), Some("cached://runtime"));
+
+    let summary = host
+        .dashboard_summary_view()
+        .expect("dashboard summary should use cached diagnostics snapshot");
+    assert_eq!(summary.runtime.uri.as_deref(), Some("cached://runtime"));
+    assert_eq!(
+        summary
+            .last_runtime_event
+            .expect("cached runtime event should be surfaced")
+            .message,
+        "cached runtime event"
+    );
+}
+
+#[test]
 fn runtime_status_surfaces_published_generation_and_domain_freshness() {
     let root = temp_workspace();
     fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
@@ -15621,7 +15730,7 @@ fn runtime_status_surfaces_published_generation_and_domain_freshness() {
     host.refresh_workspace()
         .expect("workspace refresh should succeed");
 
-    let refreshed = crate::runtime_views::runtime_status(&host)
+    let refreshed = crate::runtime_views::refresh_cached_runtime_status(&host)
         .expect("runtime status should succeed after refresh")
         .freshness;
     assert!(
@@ -15648,6 +15757,30 @@ fn runtime_status_surfaces_published_generation_and_domain_freshness() {
         .domains
         .iter()
         .any(|domain| { domain.domain == "cross_file_edges" && domain.freshness == "current" }));
+}
+
+#[test]
+fn dashboard_operations_view_reads_recent_queries_from_diagnostics_state() {
+    let host = host_with_node(demo_node());
+    let session = test_session(&host);
+    let query_run = host.begin_query_run(
+        session.as_ref(),
+        "prism_query",
+        "typescript",
+        "return { ok: true };",
+    );
+    query_run.finish_success(
+        host.mcp_call_log_store.as_ref(),
+        &json!({ "ok": true }),
+        Vec::new(),
+        16,
+        false,
+    );
+
+    let operations = host.dashboard_operations_view(Some(5));
+    assert_eq!(operations.recent_queries.len(), 1);
+    assert_eq!(operations.recent_queries[0].kind, "typescript");
+    assert!(operations.recent_queries[0].success);
 }
 
 #[test]
@@ -15786,8 +15919,8 @@ pub fn runtime_status() {}
     )
     .unwrap();
 
-    let status =
-        crate::runtime_views::runtime_status(&host).expect("runtime status should succeed");
+    let status = crate::runtime_views::refresh_cached_runtime_status(&host)
+        .expect("runtime status should succeed");
     let repo_projection = status
         .scopes
         .projections

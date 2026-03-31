@@ -50,6 +50,10 @@ Use PRISM MCP as the primary repo-awareness surface when it is available.
 - Prefer carrying forward compact server-side state such as handles instead of rediscovering the same target by text.
 - Treat first-hop ranking quality as core product behavior, not as a secondary polish pass.
 
+## Plans
+
+- When working on a PRISM plan, always claim a task by marking it `in_progress` before you start any research on that task, not just before making edits. Otherwise your research effort might be wasted if another actor claims the task in the meantime.
+
 ## Mutations
 
 - Use explicit PRISM mutation tools when durable state should be recorded instead of leaving it implicit.

@@ -459,6 +459,16 @@ fn extra_prism_mutate_examples() -> Vec<Value> {
         json!({
             "action": "coordination",
             "input": {
+                "kind": "plan_archive",
+                "payload": {
+                    "planId": "plan:demo-main"
+                },
+                "taskId": "task:demo-main"
+            }
+        }),
+        json!({
+            "action": "coordination",
+            "input": {
                 "kind": "plan_node_create",
                 "payload": {
                     "planId": "plan:demo-main",

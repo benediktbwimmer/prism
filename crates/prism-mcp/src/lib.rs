@@ -37,6 +37,7 @@ mod dashboard_read_models;
 mod dashboard_router;
 mod dashboard_types;
 mod diagnostics;
+mod diagnostics_state;
 mod discovery_bundle;
 mod discovery_helpers;
 mod features;
@@ -89,6 +90,7 @@ mod ui_types;
 mod views;
 mod vocab_resource;
 mod vocabulary;
+mod workspace_diagnostics;
 mod workspace_host;
 mod workspace_runtime;
 
@@ -100,6 +102,7 @@ use concept_resolution::*;
 pub use daemon_mode::serve_with_mode;
 use dashboard_events::*;
 use diagnostics::*;
+use diagnostics_state::DiagnosticsState;
 use discovery_bundle::*;
 use discovery_helpers::*;
 pub use features::{CoordinationFeatureFlag, PrismMcpFeatures, QueryViewFeatureFlag};
@@ -552,6 +555,7 @@ struct QueryHost {
     worker_pool: Arc<JsWorkerPool>,
     pub(crate) mcp_call_log_store: Arc<McpCallLogStore>,
     dashboard_state: Arc<DashboardState>,
+    diagnostics_state: Arc<DiagnosticsState>,
     workspace_runtime_binding: Option<Arc<WorkspaceRuntimeBinding>>,
     restored_session_seed: Option<PersistedSessionSeed>,
     features: PrismMcpFeatures,
@@ -649,6 +653,7 @@ impl QueryHost {
             worker_pool: Arc::new(worker_pool),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(None)),
             dashboard_state: Arc::new(DashboardState::default()),
+            diagnostics_state: Arc::new(DiagnosticsState::default()),
             workspace_runtime_binding: None,
             restored_session_seed: None,
             features: features.clone(),
@@ -691,12 +696,15 @@ impl QueryHost {
         let inferred_edges = Arc::new(InferenceStore::new());
         let mcp_call_log_store = Arc::new(McpCallLogStore::for_root(Some(workspace.root())));
         let dashboard_state = Arc::new(DashboardState::default());
+        let diagnostics_state = Arc::new(DiagnosticsState::default());
         let workspace_runtime_host = Arc::new(WorkspaceRuntimeHost::new());
         let workspace_runtime_binding = workspace_runtime_host.bind_workspace(
             Arc::clone(&workspace),
             Arc::clone(&notes),
             Arc::clone(&inferred_edges),
             Arc::clone(&dashboard_state),
+            Arc::clone(&diagnostics_state),
+            Arc::clone(&mcp_call_log_store),
         );
         let restored_session_seed = match load_session_seed(workspace.root()) {
             Ok(seed) => seed,
@@ -714,6 +722,7 @@ impl QueryHost {
             worker_pool: Arc::new(worker_pool),
             mcp_call_log_store,
             dashboard_state,
+            diagnostics_state,
             workspace_runtime_binding: Some(Arc::clone(&workspace_runtime_binding)),
             restored_session_seed,
             features,
@@ -843,6 +852,10 @@ impl QueryHost {
 
     pub(crate) fn workspace_runtime_binding_ref(&self) -> Option<&Arc<WorkspaceRuntimeBinding>> {
         self.workspace_runtime_binding.as_ref()
+    }
+
+    pub(crate) fn diagnostics_state(&self) -> Arc<DiagnosticsState> {
+        Arc::clone(&self.diagnostics_state)
     }
 
     pub(crate) fn workspace_session(&self) -> Option<&Arc<WorkspaceSession>> {

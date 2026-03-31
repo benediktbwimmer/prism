@@ -10,11 +10,11 @@ use crate::dashboard_types::{
     DashboardCoordinationQueuesView, DashboardCoordinationSummaryView, DashboardSummaryView,
     DashboardTaskSnapshotView,
 };
-use crate::runtime_views::{runtime_status, runtime_timeline};
+use crate::runtime_views::runtime_status;
 use crate::{
     artifact_view, claim_view, coordination_task_view, current_timestamp,
     policy_violation_record_view, CoordinationFeaturesView, FeatureFlagsView, QueryHost,
-    RuntimeTimelineArgs, SessionLimitsView, SessionState, SessionTaskView, SessionView,
+    SessionLimitsView, SessionState, SessionTaskView, SessionView,
 };
 
 const DASHBOARD_TASK_EVENT_LIMIT: usize = 12;
@@ -27,27 +27,13 @@ const DASHBOARD_COORDINATION_CLAIM_LIMIT: usize = 6;
 impl QueryHost {
     pub(crate) fn dashboard_summary_view(&self) -> Result<DashboardSummaryView> {
         let session = dashboard_session_view(self, None);
+        let diagnostics = self.diagnostics_state();
         let runtime = runtime_status(self)?;
         let active = self.dashboard_state().active_operations();
         let active_query_count = active.iter().filter(|op| op.kind == "query").count();
         let active_mutation_count = active.iter().filter(|op| op.kind == "mutation").count();
-        let recent_queries = self.query_log_entries(crate::QueryLogArgs {
-            limit: Some(10),
-            since: None,
-            target: None,
-            operation: None,
-            task_id: None,
-            min_duration_ms: None,
-        });
-        let recent_query_error_count = recent_queries.iter().filter(|entry| !entry.success).count();
-        let last_runtime_event = runtime_timeline(
-            self,
-            RuntimeTimelineArgs {
-                limit: Some(1),
-                contains: None,
-            },
-        )?
-        .pop();
+        let recent_query_error_count = diagnostics.recent_query_error_count(Some(10));
+        let last_runtime_event = diagnostics.last_runtime_event();
 
         Ok(DashboardSummaryView {
             session,

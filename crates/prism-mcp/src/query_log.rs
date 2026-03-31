@@ -6,6 +6,7 @@ use prism_js::{QueryDiagnostic, QueryLogEntryView, QueryPhaseView, QueryTraceVie
 use serde_json::{json, Value};
 use tracing::info;
 
+use crate::diagnostics_state::DiagnosticsState;
 use crate::mcp_call_log::{
     new_log_entry, payload_summary, preview_value, query_result_summary, sanitize_query_text,
     summarize_query, unique_operations, unique_touches, McpCallLogStore, PersistedMcpCallRecord,
@@ -39,6 +40,7 @@ pub(crate) struct QueryRun {
     workspace: Option<Arc<prism_core::WorkspaceSession>>,
     view_name: Arc<std::sync::Mutex<Option<String>>>,
     dashboard: Arc<DashboardState>,
+    diagnostics: Arc<DiagnosticsState>,
     phases: Arc<std::sync::Mutex<Vec<QueryPhaseView>>>,
     finalized: Arc<AtomicBool>,
     request_payload: Option<Value>,
@@ -77,6 +79,7 @@ impl QueryHost {
             workspace: self.workspace_session_arc(),
             view_name: Arc::new(std::sync::Mutex::new(None)),
             dashboard: Arc::clone(&self.dashboard_state),
+            diagnostics: Arc::clone(&self.diagnostics_state),
             phases: Arc::new(std::sync::Mutex::new(Vec::new())),
             finalized: Arc::new(AtomicBool::new(false)),
             request_payload: None,
@@ -298,6 +301,7 @@ impl QueryRun {
         let _ = store.push(record);
         emit_compact_query_timing(&query_entry, &phases);
         self.dashboard_finish(self.dashboard.as_ref(), &query_entry);
+        self.diagnostics.push_recent_query(query_entry);
     }
 
     pub(crate) fn finish_error(
@@ -389,6 +393,7 @@ impl QueryRun {
         let _ = store.push(record);
         emit_compact_query_timing(&query_entry, &phases);
         self.dashboard_finish(self.dashboard.as_ref(), &query_entry);
+        self.diagnostics.push_recent_query(query_entry);
     }
 }
 
@@ -485,6 +490,7 @@ impl Drop for QueryRun {
         let _ = self.mcp_call_log_store.push(record);
         emit_compact_query_timing(&query_entry, &phases);
         self.dashboard_finish(self.dashboard.as_ref(), &query_entry);
+        self.diagnostics.push_recent_query(query_entry);
     }
 }
 

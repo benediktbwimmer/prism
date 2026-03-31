@@ -4191,8 +4191,8 @@ fn repo_published_plans_archive_transition_emits_archive_event_and_moves_log() {
         "archiving the plan should emit a first-class archive event"
     );
 
-    let index_contents = fs::read_to_string(root.join(".prism").join("plans").join("index.jsonl"))
-        .unwrap();
+    let index_contents =
+        fs::read_to_string(root.join(".prism").join("plans").join("index.jsonl")).unwrap();
     assert!(index_contents.contains(&format!(
         "\"log_path\":\".prism/plans/archived/{}.jsonl\"",
         plan_id.0

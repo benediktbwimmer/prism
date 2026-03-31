@@ -49,7 +49,8 @@ use crate::indexer::{workspace_recovery_work, WorkspaceIndexer};
 use crate::indexer_support::resolve_graph_edges;
 use crate::layout::{discover_layout, sync_root_nodes};
 use crate::materialization::{
-    summarize_workspace_materialization, WorkspaceMaterializationSummary,
+    summarize_workspace_materialization, summarize_workspace_materialization_coverage,
+    WorkspaceMaterializationCoverage, WorkspaceMaterializationSummary,
 };
 use crate::memory_events::{
     append_repo_memory_event, filter_memory_events, load_repo_memory_events,
@@ -608,6 +609,16 @@ impl WorkspaceSession {
             .clone();
         let prism = self.prism_arc();
         summarize_workspace_materialization(self.root(), &snapshot, prism.graph())
+    }
+
+    pub fn workspace_materialization_coverage(&self) -> WorkspaceMaterializationCoverage {
+        let snapshot = self
+            .fs_snapshot
+            .lock()
+            .expect("workspace fs snapshot lock poisoned")
+            .clone();
+        let prism = self.prism_arc();
+        summarize_workspace_materialization_coverage(&snapshot, prism.graph())
     }
 
     fn ensure_paths_deep_with_guard<I>(

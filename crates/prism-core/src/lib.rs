@@ -44,7 +44,9 @@ use session_bootstrap::hydrate_workspace_session_with_options as bootstrap_works
 pub use admission::AdmissionBusyError;
 pub(crate) use indexer::PendingFileParse;
 pub use indexer::WorkspaceIndexer;
-pub use materialization::{WorkspaceBoundaryRegion, WorkspaceMaterializationSummary};
+pub use materialization::{
+    WorkspaceBoundaryRegion, WorkspaceMaterializationCoverage, WorkspaceMaterializationSummary,
+};
 pub use prism_doc::{PrismDocSyncResult, PrismDocSyncStatus};
 pub use session::{
     CoordinationPlanState, FsRefreshStatus, WorkspaceFsRefreshOutcome, WorkspaceRefreshWork,
