@@ -5,7 +5,10 @@ use std::sync::{Arc, Mutex, MutexGuard, RwLock, TryLockError};
 
 use anyhow::{anyhow, Result};
 use prism_agent::{InferenceSnapshot, InferredEdgeRecord};
-use prism_coordination::{CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot};
+use prism_coordination::{
+    coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
+    CoordinationQueueReadModel, CoordinationReadModel, CoordinationSnapshot,
+};
 use prism_curator::{
     CuratorJobId, CuratorProposalDisposition, CuratorProposalState, CuratorSnapshot,
 };
@@ -1371,7 +1374,7 @@ impl WorkspaceSession {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        if let Some(shared_runtime_store) = self.shared_runtime_store() {
+        let persisted = if let Some(shared_runtime_store) = self.shared_runtime_store() {
             shared_runtime_store
                 .lock()
                 .expect("shared runtime store lock poisoned")
@@ -1381,14 +1384,17 @@ impl WorkspaceSession {
                 .lock()
                 .expect("workspace store lock poisoned")
                 .load_coordination_read_model()
-        }
+        }?;
+        Ok(Some(persisted.unwrap_or_else(|| {
+            coordination_read_model_from_snapshot(&self.prism_arc().coordination_snapshot())
+        })))
     }
 
     pub fn load_coordination_queue_read_model(&self) -> Result<Option<CoordinationQueueReadModel>> {
         if !self.coordination_enabled {
             return Ok(None);
         }
-        if let Some(shared_runtime_store) = self.shared_runtime_store() {
+        let persisted = if let Some(shared_runtime_store) = self.shared_runtime_store() {
             shared_runtime_store
                 .lock()
                 .expect("shared runtime store lock poisoned")
@@ -1398,7 +1404,10 @@ impl WorkspaceSession {
                 .lock()
                 .expect("workspace store lock poisoned")
                 .load_coordination_queue_read_model()
-        }
+        }?;
+        Ok(Some(persisted.unwrap_or_else(|| {
+            coordination_queue_read_model_from_snapshot(&self.prism_arc().coordination_snapshot())
+        })))
     }
 
     pub fn load_coordination_plan_state(&self) -> Result<Option<CoordinationPlanState>> {
@@ -1487,13 +1496,38 @@ impl WorkspaceSession {
         let result = target
             .lock()
             .expect("coordination store lock poisoned")
-            .persist_coordination_state_for_root(
+            .persist_coordination_authoritative_state_for_root(
                 &self.root,
                 &snapshot,
                 Some(&plan_graphs),
                 Some(&execution_overlays),
             );
-        result
+        result?;
+        let materialize_started = Instant::now();
+        let enqueue_result = self
+            .shared_runtime_materializer
+            .as_ref()
+            .or(self.checkpoint_materializer.as_ref())
+            .map(|materializer| materializer.enqueue_coordination_snapshot(snapshot.clone()))
+            .unwrap_or_else(|| {
+                let read_model = coordination_read_model_from_snapshot(&snapshot);
+                let queue_model = coordination_queue_read_model_from_snapshot(&snapshot);
+                let mut store = target.lock().expect("coordination store lock poisoned");
+                store.save_coordination_read_model(&read_model)?;
+                store.save_coordination_queue_read_model(&queue_model)?;
+                if store.load_coordination_event_stream()?.suffix_events.len() >= 128 {
+                    store.save_coordination_compaction(&snapshot)?;
+                }
+                Ok(())
+            });
+        mutation_trace::record_phase(
+            "mutation.coordination.scheduleMaterialization",
+            json!({}),
+            materialize_started.elapsed(),
+            enqueue_result.is_ok(),
+            enqueue_result.as_ref().err().map(ToString::to_string),
+        );
+        enqueue_result
     }
 
     pub fn mutate_coordination<T, F>(&self, mutate: F) -> Result<T>
@@ -1598,7 +1632,7 @@ impl WorkspaceSession {
         if should_persist {
             let persist_started = Instant::now();
             let persist_result = store
-                .persist_coordination_mutation_state_for_root_with_session_observed(
+                .persist_coordination_authoritative_mutation_state_for_root_with_session_observed(
                     &self.root,
                     expected_revision,
                     &snapshot,
@@ -1619,6 +1653,31 @@ impl WorkspaceSession {
                 persist_result.as_ref().err().map(|error| error.to_string()),
             );
             persist_result?;
+            let materialize_started = Instant::now();
+            let enqueue_result = if let Some(materializer) = self
+                .shared_runtime_materializer
+                .as_ref()
+                .or(self.checkpoint_materializer.as_ref())
+            {
+                materializer.enqueue_coordination_snapshot(snapshot.clone())
+            } else {
+                let read_model = coordination_read_model_from_snapshot(&snapshot);
+                let queue_model = coordination_queue_read_model_from_snapshot(&snapshot);
+                store.save_coordination_read_model(&read_model)?;
+                store.save_coordination_queue_read_model(&queue_model)?;
+                if store.load_coordination_event_stream()?.suffix_events.len() >= 128 {
+                    store.save_coordination_compaction(&snapshot)?;
+                }
+                Ok(())
+            };
+            observe_phase(
+                "mutation.coordination.scheduleMaterialization",
+                materialize_started.elapsed(),
+                json!({ "eventCount": snapshot.events.len() }),
+                enqueue_result.is_ok(),
+                enqueue_result.as_ref().err().map(|error| error.to_string()),
+            );
+            enqueue_result?;
         }
         result
     }

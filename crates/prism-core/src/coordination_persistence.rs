@@ -63,6 +63,32 @@ where
 pub(crate) trait CoordinationPersistenceBackend:
     CoordinationJournal + CoordinationCheckpointStore
 {
+    fn persist_coordination_authoritative_state_for_root(
+        &mut self,
+        root: &Path,
+        snapshot: &CoordinationSnapshot,
+        plan_graphs: Option<&[PlanGraph]>,
+        execution_overlays: Option<&BTreeMap<String, Vec<PlanExecutionOverlay>>>,
+    ) -> Result<CoordinationPersistResult> {
+        let existing_events = self.load_coordination_events()?;
+        let appended_events = coordination_event_delta(&existing_events, &snapshot.events);
+        let result = self.commit_coordination_persist_batch(&CoordinationPersistBatch {
+            context: coordination_persist_context_for_root(root, None),
+            expected_revision: None,
+            appended_events,
+        })?;
+        match (plan_graphs, execution_overlays) {
+            (Some(plan_graphs), Some(execution_overlays)) => sync_repo_published_plan_state(
+                root,
+                snapshot,
+                plan_graphs.to_vec(),
+                execution_overlays.clone(),
+            )?,
+            _ => sync_repo_published_plans(root, snapshot)?,
+        }
+        Ok(result)
+    }
+
     fn load_hydrated_coordination_snapshot_for_root(
         &mut self,
         root: &Path,
@@ -102,11 +128,12 @@ pub(crate) trait CoordinationPersistenceBackend:
         let existing_queue_read_model = self.load_coordination_queue_read_model()?;
         let existing_events = self.load_coordination_events()?;
         let appended_events = coordination_event_delta(&existing_events, &snapshot.events);
-        self.commit_coordination_persist_batch(&CoordinationPersistBatch {
-            context: coordination_persist_context_for_root(root, None),
-            expected_revision: None,
-            appended_events: appended_events.clone(),
-        })?;
+        let _ = self.persist_coordination_authoritative_state_for_root(
+            root,
+            snapshot,
+            plan_graphs,
+            execution_overlays,
+        )?;
         let read_model = coordination_read_model_from_seed(
             snapshot,
             existing_read_model.as_ref(),
@@ -120,15 +147,78 @@ pub(crate) trait CoordinationPersistenceBackend:
         self.save_coordination_read_model(&read_model)?;
         self.save_coordination_queue_read_model(&queue_read_model)?;
         self.maybe_compact_coordination_events(snapshot)?;
-        match (plan_graphs, execution_overlays) {
-            (Some(plan_graphs), Some(execution_overlays)) => sync_repo_published_plan_state(
-                root,
-                snapshot,
-                plan_graphs.to_vec(),
-                execution_overlays.clone(),
-            ),
+        Ok(())
+    }
+
+    fn persist_coordination_authoritative_mutation_state_for_root_with_session_observed<O>(
+        &mut self,
+        root: &Path,
+        expected_revision: u64,
+        snapshot: &CoordinationSnapshot,
+        appended_events: &[CoordinationEvent],
+        session_id: Option<&SessionId>,
+        plan_graphs: Option<&[PlanGraph]>,
+        execution_overlays: Option<&BTreeMap<String, Vec<PlanExecutionOverlay>>>,
+        mut observe_phase: O,
+    ) -> Result<CoordinationPersistResult>
+    where
+        O: FnMut(&str, Duration, Value, bool, Option<String>),
+    {
+        let result = observe_coordination_step(
+            &mut observe_phase,
+            "mutation.coordination.commitPersistBatch",
+            |result: &CoordinationPersistResult| {
+                json!({
+                    "applied": result.applied,
+                    "appendedEventCount": appended_events.len(),
+                })
+            },
+            || {
+                self.commit_coordination_persist_batch(&CoordinationPersistBatch {
+                    context: coordination_persist_context_for_root(root, session_id),
+                    expected_revision: Some(expected_revision),
+                    appended_events: appended_events.to_vec(),
+                })
+            },
+        )?;
+        let sync_started = Instant::now();
+        let sync_mode = if plan_graphs.is_some() && execution_overlays.is_some() {
+            "state"
+        } else {
+            "snapshot"
+        };
+        let sync_result = match (plan_graphs, execution_overlays) {
+            (Some(plan_graphs), Some(execution_overlays)) => {
+                sync_repo_published_plan_state_observed(
+                    root,
+                    snapshot,
+                    plan_graphs.to_vec(),
+                    execution_overlays.clone(),
+                    &mut observe_phase,
+                )
+            }
             _ => sync_repo_published_plans(root, snapshot),
+        };
+        match sync_result {
+            Ok(()) => observe_phase(
+                "mutation.coordination.syncPublishedPlans",
+                sync_started.elapsed(),
+                json!({ "mode": sync_mode }),
+                true,
+                None,
+            ),
+            Err(error) => {
+                observe_phase(
+                    "mutation.coordination.syncPublishedPlans",
+                    sync_started.elapsed(),
+                    json!({ "mode": sync_mode }),
+                    false,
+                    Some(error.to_string()),
+                );
+                return Err(error);
+            }
         }
+        Ok(result)
     }
 
     #[cfg_attr(not(test), allow(dead_code))]
@@ -180,23 +270,17 @@ pub(crate) trait CoordinationPersistenceBackend:
             |model: &Option<_>| json!({ "hadQueueReadModel": model.is_some() }),
             || self.load_coordination_queue_read_model(),
         )?;
-        let result = observe_coordination_step(
-            &mut observe_phase,
-            "mutation.coordination.commitPersistBatch",
-            |result: &CoordinationPersistResult| {
-                json!({
-                    "applied": result.applied,
-                    "appendedEventCount": appended_events.len(),
-                })
-            },
-            || {
-                self.commit_coordination_persist_batch(&CoordinationPersistBatch {
-                    context: coordination_persist_context_for_root(root, session_id),
-                    expected_revision: Some(expected_revision),
-                    appended_events: appended_events.to_vec(),
-                })
-            },
-        )?;
+        let result = self
+            .persist_coordination_authoritative_mutation_state_for_root_with_session_observed(
+                root,
+                expected_revision,
+                snapshot,
+                appended_events,
+                session_id,
+                plan_graphs,
+                execution_overlays,
+                &mut observe_phase,
+            )?;
         let read_model_started = Instant::now();
         let read_model = coordination_read_model_from_seed(
             snapshot,
@@ -256,43 +340,6 @@ pub(crate) trait CoordinationPersistenceBackend:
                 true,
                 None,
             );
-        }
-        let sync_started = Instant::now();
-        let sync_mode = if plan_graphs.is_some() && execution_overlays.is_some() {
-            "state"
-        } else {
-            "snapshot"
-        };
-        let sync_result = match (plan_graphs, execution_overlays) {
-            (Some(plan_graphs), Some(execution_overlays)) => {
-                sync_repo_published_plan_state_observed(
-                    root,
-                    snapshot,
-                    plan_graphs.to_vec(),
-                    execution_overlays.clone(),
-                    &mut observe_phase,
-                )
-            }
-            _ => sync_repo_published_plans(root, snapshot),
-        };
-        match sync_result {
-            Ok(()) => observe_phase(
-                "mutation.coordination.syncPublishedPlans",
-                sync_started.elapsed(),
-                json!({ "mode": sync_mode }),
-                true,
-                None,
-            ),
-            Err(error) => {
-                observe_phase(
-                    "mutation.coordination.syncPublishedPlans",
-                    sync_started.elapsed(),
-                    json!({ "mode": sync_mode }),
-                    false,
-                    Some(error.to_string()),
-                );
-                return Err(error);
-            }
         }
         Ok(result)
     }

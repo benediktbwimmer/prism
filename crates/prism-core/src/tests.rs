@@ -3224,6 +3224,101 @@ fn coordination_persistence_incrementally_updates_stored_read_models() {
 }
 
 #[test]
+fn coordination_session_materializes_read_models_off_request_path() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    session
+        .mutate_coordination(|prism| {
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:async-plan"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:async-plan")),
+                    causation: None,
+                },
+                "Exercise async coordination materialization".into(),
+                None,
+                Some(Default::default()),
+            )?;
+            let _ = prism.create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:async-task"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:async-plan")),
+                    causation: None,
+                },
+                TaskCreateInput {
+                    plan_id,
+                    title: "Queue coordination read-model persistence".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: prism_ir::WorkspaceRevision {
+                        graph_version: 1,
+                        git_commit: None,
+                    },
+                },
+            )?;
+            Ok::<_, anyhow::Error>(())
+        })
+        .unwrap();
+
+    {
+        let mut store = session.store.lock().expect("workspace store lock poisoned");
+        assert!(store.load_coordination_read_model().unwrap().is_none());
+        assert!(store
+            .load_coordination_queue_read_model()
+            .unwrap()
+            .is_none());
+    }
+
+    let live_read_model = session
+        .load_coordination_read_model()
+        .unwrap()
+        .expect("session should derive a live coordination read model");
+    assert_eq!(live_read_model.active_plans.len(), 1);
+    assert_eq!(live_read_model.task_count, 1);
+
+    let live_queue_model = session
+        .load_coordination_queue_read_model()
+        .unwrap()
+        .expect("session should derive a live coordination queue model");
+    assert!(live_queue_model.pending_handoff_tasks.is_empty());
+
+    session.flush_materializations().unwrap();
+
+    let mut store = session.store.lock().expect("workspace store lock poisoned");
+    let persisted_read_model = store
+        .load_coordination_read_model()
+        .unwrap()
+        .expect("persisted coordination read model should materialize after flush");
+    assert_eq!(persisted_read_model.active_plans.len(), 1);
+    assert_eq!(persisted_read_model.task_count, 1);
+    let persisted_queue_model = store
+        .load_coordination_queue_read_model()
+        .unwrap()
+        .expect("persisted coordination queue model should materialize after flush");
+    assert!(persisted_queue_model.pending_handoff_tasks.is_empty());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn authoritative_coordination_load_prefers_event_log_over_stale_snapshot_row() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

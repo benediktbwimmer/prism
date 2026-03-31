@@ -6,13 +6,20 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Result};
 use prism_agent::InferenceSnapshot;
+use prism_coordination::{
+    coordination_queue_read_model_from_snapshot, coordination_read_model_from_snapshot,
+    CoordinationSnapshot,
+};
 use prism_memory::{EpisodicMemorySnapshot, OutcomeMemorySnapshot};
 use prism_projections::{CoChangeDelta, ProjectionIndex, ProjectionSnapshot, ValidationDelta};
 use prism_store::WorkspaceTreeSnapshot;
-use prism_store::{MaterializationStore, SqliteStore};
+use prism_store::{
+    CoordinationCheckpointStore, CoordinationJournal, MaterializationStore, SqliteStore,
+};
 use tracing::warn;
 
 const VALIDATION_COALESCE_WINDOW: Duration = Duration::from_millis(25);
+const COORDINATION_COMPACTION_SUFFIX_THRESHOLD: usize = 128;
 
 pub(crate) struct CheckpointMaterializerHandle {
     tx: Option<mpsc::Sender<CheckpointMaterializerMessage>>,
@@ -32,6 +39,7 @@ impl Clone for CheckpointMaterializerHandle {
 struct PendingMaterializations {
     co_change_deltas: Vec<CoChangeDelta>,
     validation_deltas: Vec<ValidationDelta>,
+    coordination_snapshot: Option<CoordinationSnapshot>,
     projection_snapshot: Option<ProjectionSnapshot>,
     outcome_snapshot: Option<OutcomeMemorySnapshot>,
     episodic_snapshot: Option<EpisodicMemorySnapshot>,
@@ -40,6 +48,7 @@ struct PendingMaterializations {
 }
 
 enum CheckpointMaterializerMessage {
+    CoordinationSnapshot(CoordinationSnapshot),
     ProjectionDeltas(Vec<CoChangeDelta>, Vec<ValidationDelta>),
     ProjectionSnapshot(ProjectionSnapshot),
     ValidationDeltas(Vec<ValidationDelta>),
@@ -65,6 +74,9 @@ impl CheckpointMaterializerHandle {
                     }
                 };
                 match message {
+                    CheckpointMaterializerMessage::CoordinationSnapshot(snapshot) => {
+                        pending.coordination_snapshot = Some(snapshot);
+                    }
                     CheckpointMaterializerMessage::ProjectionDeltas(
                         co_change_deltas,
                         validation_deltas,
@@ -102,6 +114,9 @@ impl CheckpointMaterializerHandle {
                 }
                 loop {
                     match rx.recv_timeout(VALIDATION_COALESCE_WINDOW) {
+                        Ok(CheckpointMaterializerMessage::CoordinationSnapshot(snapshot)) => {
+                            pending.coordination_snapshot = Some(snapshot);
+                        }
                         Ok(CheckpointMaterializerMessage::ProjectionDeltas(
                             co_change_deltas,
                             validation_deltas,
@@ -164,6 +179,19 @@ impl CheckpointMaterializerHandle {
         };
         tx.send(CheckpointMaterializerMessage::ValidationDeltas(deltas))
             .map_err(|_| anyhow!("checkpoint materializer dropped validation delta flush"))
+    }
+
+    pub(crate) fn enqueue_coordination_snapshot(
+        &self,
+        snapshot: CoordinationSnapshot,
+    ) -> Result<()> {
+        let Some(tx) = &self.tx else {
+            return Err(anyhow!("checkpoint materializer is unavailable"));
+        };
+        tx.send(CheckpointMaterializerMessage::CoordinationSnapshot(
+            snapshot,
+        ))
+        .map_err(|_| anyhow!("checkpoint materializer dropped coordination snapshot flush"))
     }
 
     pub(crate) fn enqueue_projection_deltas(
@@ -266,6 +294,7 @@ fn flush_pending_materializations_result(
 ) -> Result<()> {
     let co_change_deltas = std::mem::take(&mut pending.co_change_deltas);
     let validation_deltas = take_coalesced_validation_deltas(&mut pending.validation_deltas);
+    let coordination_snapshot = pending.coordination_snapshot.take();
     let projection_snapshot = pending.projection_snapshot.take();
     let outcome_snapshot = pending.outcome_snapshot.take();
     let episodic_snapshot = pending.episodic_snapshot.take();
@@ -273,6 +302,7 @@ fn flush_pending_materializations_result(
     let workspace_tree_snapshot = pending.workspace_tree_snapshot.take();
     if co_change_deltas.is_empty()
         && validation_deltas.is_empty()
+        && coordination_snapshot.is_none()
         && projection_snapshot.is_none()
         && outcome_snapshot.is_none()
         && episodic_snapshot.is_none()
@@ -282,6 +312,17 @@ fn flush_pending_materializations_result(
         return Ok(());
     }
     let mut store = store.lock().expect("workspace store lock poisoned");
+    if let Some(snapshot) = coordination_snapshot {
+        let read_model = coordination_read_model_from_snapshot(&snapshot);
+        let queue_model = coordination_queue_read_model_from_snapshot(&snapshot);
+        store.save_coordination_read_model(&read_model)?;
+        store.save_coordination_queue_read_model(&queue_model)?;
+        if store.load_coordination_event_stream()?.suffix_events.len()
+            >= COORDINATION_COMPACTION_SUFFIX_THRESHOLD
+        {
+            store.save_coordination_compaction(&snapshot)?;
+        }
+    }
     if let Some(snapshot) = projection_snapshot {
         if co_change_deltas.is_empty() && validation_deltas.is_empty() {
             store.save_projection_snapshot(&snapshot)?;
