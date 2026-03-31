@@ -1,10 +1,12 @@
 # Persistence State Classification
 
-This document is the classification artifact for `plan:1` / `coord-task:1`.
+This document is the classification artifact for `plan:01kn13pqvcx3xmnkrs493ff3ra` /
+`coord-task:01kn13pz030s4q1c3qrbbg203f`.
 
 Its job is to distinguish authoritative persisted state from derived, cache, export, and compatibility artifacts so the remaining persistence migration does not recreate dual truth between native plans and legacy snapshot-shaped flows.
 
-This is a target classification for the migration, not an assertion that every current API boundary already matches the target shape.
+This is a target classification and migration contract, not an assertion that every current
+API boundary already matches the target shape.
 
 ## Three State Planes
 
@@ -16,11 +18,22 @@ PRISM should converge on three distinct state planes:
 
 The most important design rule is that a shared database complements `.prism`; it does not replace it.
 
+Within the shared backend plane, PRISM should distinguish two very different roles:
+
+- synchronous authoritative journals for crash-sensitive mutable facts
+- asynchronous checkpoints and materialized views for restart speed and cold query support
+
 PRISM should therefore evolve from "local-first only" into "local-first plus shared-runtime capable":
 
 - local embedded backends such as SQLite remain first-class
 - shared remote backends such as Postgres become first-class deployment targets
 - `.prism` remains repo-owned published truth in both modes
+
+The runtime should therefore be memory-authoritative while it is live:
+
+- hot in-memory state is the source of truth for live request handling
+- synchronous durable writes protect only the authoritative facts that cannot be lost on crash
+- asynchronous persisted views absorb rebuildable snapshots, projections, and compatibility read models
 
 ## Rules
 
@@ -31,6 +44,27 @@ PRISM should therefore evolve from "local-first only" into "local-first plus sha
 - Snapshots and compaction outputs are allowed as accelerators, bootstrap aids, or exports, but not as a second semantic authority.
 - A shared backend should be treated as the mutable runtime state plane for collaboration, not as a replacement for repo-published knowledge.
 - Scope should be modeled explicitly through identity and context, not inferred accidentally from storage location.
+- The live daemon should answer authoritative queries from hot memory unless a surface is explicitly classified as hot-plus-cold or cold-backed.
+- A crash-safe write path should append or persist the minimum authoritative fact, not force every rebuildable projection onto the request path.
+- Restart correctness should come from repo-published truth plus authoritative journals, with checkpoints and materializations treated as accelerators.
+
+## Durability Classes
+
+The migration should classify persisted state into four concrete durability classes:
+
+| Class | Meaning | Request-path requirement | Recovery role |
+| --- | --- | --- | --- |
+| Repo-published authority | Durable truth the repository carries in `.prism` | Synchronous when publishing repo-owned knowledge | Canonical repo truth across clones |
+| Sync runtime authority | Crash-sensitive mutable runtime facts stored in the shared backend | Synchronous and minimal | Replayed after crash or restart |
+| Async checkpoint / materialization | Rebuildable snapshots, projections, and read models | Off the critical path when correctness allows | Speeds hydration and cold queries |
+| Process-local cache | Ephemeral in-memory state and convenience materializations | Hot only; never required for crash durability | Rebuilt from authoritative state |
+
+The request path should prefer the cheapest class that preserves correctness:
+
+- publish repo-owned knowledge to `.prism` only when the fact is durable repo truth
+- synchronously persist only the minimum runtime authority needed for crash safety
+- treat checkpoints and materializations as optional lagging copies
+- keep transient overlays and handles in process-local memory only
 
 ## Classification
 
@@ -44,6 +78,54 @@ PRISM should therefore evolve from "local-first only" into "local-first plus sha
 | Shared workflow continuity | Durable claim, artifact, review, handoff, and policy-relevant continuity state | Blocker summaries, inbox/task context views, conflict summaries, risk hints | Continuity that changes completion or contention semantics is authoritative; summaries are not. |
 | Projections and read models | None by default; these are derived from authoritative state | Projection snapshots, co-change neighbors, validation deltas, query-oriented summaries, recommendation frontiers, compatibility read models | If a projection is rebuildable from authoritative events/state, it is not a write authority. |
 | Snapshots, compaction, and exports | None by default; these remain derived | `GraphSnapshot`, `HistorySnapshot`, `OutcomeMemorySnapshot`, `ProjectionSnapshot`, `CoordinationSnapshot`, episodic/inference/curator snapshots, deterministic per-plan compaction outputs, export artifacts | Snapshots may accelerate reload or export state, but replay/event-backed state remains canonical. |
+
+## Domain Durability Contract
+
+The classification above becomes the following migration contract:
+
+| Domain | Live authority while daemon is running | Sync durable write required | Async persisted state allowed | Query class | Recovery contract |
+| --- | --- | --- | --- | --- | --- |
+| Structural graph and file state | In-memory graph, file state, and workspace tree runtime | No full graph snapshot required on the request path; persist only raw authoritative change facts if needed for replay | Graph snapshots, per-file state tables, derived edges, workspace tree snapshots, compatibility graph views | Hot authoritative | Rebuild from source state plus authoritative journals/checkpoints |
+| Lineage and temporal identity | In-memory lineage store | Yes: lineage/history deltas and tombstones | History snapshots, replay aids, co-change aggregates | Hot authoritative with cold-backed history recall | Recover exact identity continuity from journal plus latest checkpoint |
+| Outcomes and authored memory | In-memory outcome/memory event state | Yes: authored outcome events and authored memory events | Outcome snapshots, episodic snapshots, recall indexes, fuzzy lookup helpers | Hot plus cold | Recover exact event history from journal; rebuild snapshots asynchronously |
+| Curated repo knowledge | Published `.prism` state plus hydrated runtime view | Publish repo-quality events/records synchronously when authored | Hydrated packets, decode lenses, search bundles | Hot authoritative for hydrated repo state; repo-published source of truth | Rehydrate from `.prism` and refresh caches/materializations |
+| Shared workflow continuity | In-memory coordination runtime | Yes: coordination events, claims, artifacts, reviews, handoffs, and comparable workflow continuity facts | Queue read models, inbox summaries, conflict summaries, task/plan convenience views | Hot authoritative | Recover exact continuity from journal plus optional compaction/checkpoint |
+| Projections and read models | Derived in-memory indexes | No | Projection snapshots, recommendation frontiers, validation summaries, compatibility read models | Hot authoritative when hydrated, otherwise cold-backed by persisted materialization | Rebuild from authoritative state; stale projections must not change semantic truth |
+| Snapshots, compaction, and exports | None; these are always derived | No | Any deterministic checkpoint, compaction, or export output | Cold/bootstrap only unless explicitly merged | Safe to lose and regenerate |
+
+## Query Authority Classes
+
+Every query surface should fall into one of three classes:
+
+| Query class | Meaning | Examples | Allowed backing sources |
+| --- | --- | --- | --- |
+| Hot authoritative | Live daemon must answer from current in-memory state | coordination status, plan/task truth, current graph, claim conflicts, current lineage identity | Hot memory, optionally plus repo-published `.prism` state already hydrated |
+| Hot plus cold | Live daemon answers from hot state first and may merge bounded persisted history or cold event data | outcome recall, task replay, lineage history recall, bounded memory recall | Hot memory plus persisted journals/checkpoints as bounded cold reads |
+| Cold/bootstrap only | Only recovery, background hydration, or explicitly cold historical views may rely primarily on persisted state | startup hydration, background reloads, checkpoint inspection, export generation | Persisted journals, checkpoints, projections, `.prism` |
+
+Rules:
+
+- Do not route an authoritative live request to SQLite just because a persisted view exists.
+- Do allow bounded cold reads for large historical domains that are intentionally not fully hydrated in memory.
+- If a query merges hot and cold state, hot state wins on conflicts because it reflects the live daemon truth.
+
+## Restart And Crash Contract
+
+The migration should assume the following restart behavior:
+
+- restart correctness depends on repo-published authority plus sync runtime authority
+- asynchronous checkpoints and materializations may lag behind the latest live state
+- restart is allowed to replay authoritative journals on top of the newest compatible checkpoint
+- after restart, derived projections and snapshots may be temporarily stale or absent until background rebuild catches up
+
+This means the shared backend should optimize for:
+
+- cheap authoritative journal appends
+- bounded journal replay
+- periodic compatible checkpoints
+- explicit revision tracking between hot state and persisted views
+
+It should not assume that every request-path mutation has already flushed every derived table.
 
 ## Shared Runtime Backend
 
@@ -98,6 +180,13 @@ These identities let PRISM answer distinct questions cleanly:
 - is it only for this live session or process?
 
 Without these dimensions, scope bleeds accidentally across checkouts or gets encoded in deployment layout instead of domain semantics.
+
+These identities also define persistence obligations:
+
+- `repo_id` gates repo-published truth and shared runtime scope
+- `worktree_id` gates branch-diverged or checkout-specific runtime authority
+- `branch_ref` explains when live mutable intent is not yet publishable repo truth
+- `session_id` and `instance_id` support leases, heartbeats, replay ownership, and stale-session cleanup
 
 ## Endpoint And Worktree Contexts
 
@@ -174,6 +263,21 @@ State that should remain process-local cache:
 - local memoization
 - UI or session convenience state
 
+State that should move to sync runtime authority in the first migration:
+
+- coordination continuity events and revision-aware workflow mutations
+- lineage and history deltas needed to preserve semantic identity across crash/restart
+- authored outcome events
+- authored memory events
+
+State that should move to async checkpoints/materializations in the first migration:
+
+- graph snapshots and per-file graph materializations
+- replaced derived-edge tables
+- projection tables and recommendation/read-model summaries
+- workspace tree snapshots and refresh accelerators
+- episodic, inference, curator, and compatibility snapshots
+
 State that is often worktree- or branch-scoped even when a shared backend exists:
 
 - active claims tied to uncommitted local edits
@@ -192,15 +296,21 @@ During the migration:
 - do not add new features that depend on snapshots as the only semantic write truth
 - do not treat compatibility task projections as the plan-system authority
 - keep new persistence logic centered on authoritative events or normalized state, then derive snapshots or projections from there
+- do not assume every `SqliteStore` read on the request path is legitimate just because the store already exposes it
+- preserve bounded hot-memory behavior for large history, outcome, and projection domains instead of hydrating everything into RAM
+- keep the first migration in-process and SQLite-backed for cold reads and materializations; a separate persistence worker is a later architectural decision, not a prerequisite
 
-## Immediate Guidance For The Remaining Persistence Plan
+## Immediate Guidance For The Persistence Migration Plan
 
-- `coord-task:7` should introduce backend-neutral interfaces for authoritative state and optional snapshot or compaction loaders, not SQLite-shaped snapshot authority.
-- `coord-task:2` should move native plan and coordination writes onto authoritative event-backed or normalized persistence paths, with revision-aware and idempotent mutation semantics suitable for shared runtime backends.
-- `coord-task:3` should maintain projections, summaries, recommendations, compatibility views, and shared runtime read models incrementally from authoritative state, including read models needed for shared multi-worktree coordination.
-- `coord-task:4` should hydrate runtime state from authoritative state first, then perform rebinding, runtime overlay attachment, explicit repo/branch/worktree identity handling, and worktree-context binding.
-- `coord-task:5` should keep compaction and snapshots explicitly derived from canonical history.
-- `coord-task:6` should validate multi-instance concurrency, leases or heartbeats, stale-session cleanup, reconnect behavior, migration safety, and single-endpoint multi-worktree context isolation in addition to correctness and latency.
+- `coord-task:01kn13pz030s4q1c3qrbbg203f` should make this document concrete enough that later tasks do not re-decide durability or query semantics ad hoc.
+- `coord-task:01kn13q61f8j93je9vws9kdqjy` should introduce backend-neutral interfaces for authoritative journals, optional checkpoint loaders, and materialized-view writers, not SQLite-shaped snapshot authority.
+- `coord-task:01kn13qdfw63hwrr79cqm7rqs3` should move session, watch, and runtime request paths onto hot-memory authority first, with cold-backed reads remaining explicit and bounded.
+- `coord-task:01kn13qj69y75rtwrbw6ewqzw5` and `coord-task:01kn13qsapc9fjk72wvth681yf` should put crash-sensitive workflow continuity, lineage/history deltas, and authored memory/outcome events onto synchronous durable journal paths.
+- `coord-task:01kn13qykg063n2zc3h5rt507q` should maintain graph snapshots, workspace tree state, projections, compatibility views, and other read models as asynchronous coalesced materializations from authoritative state.
+- `coord-task:01kn13r7qf0yf4kqqng4a3nt4w` should preserve bounded hot-memory policy and formalize which query surfaces are hot authoritative, hot plus cold, or cold/bootstrap only.
+- `coord-task:01kn13rgty80e4y885n1vzb170` should hydrate from authoritative state first, replay journals over checkpoints, track lag explicitly, and bound replay time.
+- `coord-task:01kn13rrg3yzbrcgrjh06ppv3h` should validate crash safety, multi-instance behavior, replay correctness, latency, and memory ceilings.
+- `coord-task:01kn13ryrrk04aacsvg1ac96c2` should evaluate with the user whether persistence isolation should become a follow-up worker plan after the semantic migration is complete.
 
 ## Plans-Specific Interpretation
 

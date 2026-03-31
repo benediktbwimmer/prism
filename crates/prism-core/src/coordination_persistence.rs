@@ -8,7 +8,10 @@ use prism_coordination::{
     coordination_snapshot_from_events, CoordinationEvent, CoordinationSnapshot,
 };
 use prism_ir::{PlanExecutionOverlay, PlanGraph, SessionId};
-use prism_store::{CoordinationPersistBatch, CoordinationPersistResult, Store};
+use prism_store::{
+    CoordinationCheckpointStore, CoordinationJournal, CoordinationPersistBatch,
+    CoordinationPersistResult,
+};
 use serde_json::{json, Value};
 
 use crate::published_plans::{
@@ -57,7 +60,9 @@ where
     }
 }
 
-pub(crate) trait CoordinationPersistenceBackend: Store {
+pub(crate) trait CoordinationPersistenceBackend:
+    CoordinationJournal + CoordinationCheckpointStore
+{
     fn load_hydrated_coordination_snapshot_for_root(
         &mut self,
         root: &Path,
@@ -293,9 +298,12 @@ pub(crate) trait CoordinationPersistenceBackend: Store {
     }
 }
 
-impl<T: Store + ?Sized> CoordinationPersistenceBackend for T {}
+impl<T: CoordinationJournal + CoordinationCheckpointStore + ?Sized> CoordinationPersistenceBackend
+    for T
+{
+}
 
-trait CoordinationCompactionBackend: Store {
+trait CoordinationCompactionBackend: CoordinationJournal + CoordinationCheckpointStore {
     fn maybe_compact_coordination_events(&mut self, snapshot: &CoordinationSnapshot) -> Result<()> {
         let stream = self.load_coordination_event_stream()?;
         if stream.suffix_events.len() < COORDINATION_COMPACTION_SUFFIX_THRESHOLD {
@@ -305,7 +313,10 @@ trait CoordinationCompactionBackend: Store {
     }
 }
 
-impl<T: Store + ?Sized> CoordinationCompactionBackend for T {}
+impl<T: CoordinationJournal + CoordinationCheckpointStore + ?Sized> CoordinationCompactionBackend
+    for T
+{
+}
 
 fn coordination_event_delta(
     existing_events: &[CoordinationEvent],

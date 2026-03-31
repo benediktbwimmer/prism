@@ -8,7 +8,7 @@ use prism_coordination::{
 };
 use prism_curator::CuratorSnapshot;
 use prism_history::{HistoryPersistDelta, HistorySnapshot};
-use prism_ir::{EventId, TaskId};
+use prism_ir::{EventId, LineageEvent, LineageId, TaskId};
 use prism_memory::{
     EpisodicMemorySnapshot, MemoryEvent, OutcomeEvent, OutcomeMemory, OutcomeMemorySnapshot,
     OutcomeRecallQuery, TaskReplay,
@@ -103,6 +103,16 @@ pub trait Store {
         _include_events: bool,
     ) -> Result<Option<HistorySnapshot>> {
         self.load_history_snapshot()
+    }
+    fn load_lineage_history(&mut self, lineage: &LineageId) -> Result<Vec<LineageEvent>> {
+        let Some(snapshot) = self.load_history_snapshot_with_options(true)? else {
+            return Ok(Vec::new());
+        };
+        Ok(snapshot
+            .events
+            .into_iter()
+            .filter(|event| &event.lineage == lineage)
+            .collect())
     }
     fn save_history_snapshot(&mut self, snapshot: &HistorySnapshot) -> Result<()>;
     fn save_history_snapshot_with_co_change_deltas(

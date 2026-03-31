@@ -4,19 +4,22 @@ use anyhow::Result;
 use prism_history::HistorySnapshot;
 use prism_ir::{LineageEvent, LineageId};
 use prism_query::HistoryReadBackend;
-use prism_store::{SqliteStore, Store};
+use prism_store::ColdQueryStore;
 
-pub(crate) struct StoreHistoryReadBackend {
-    store: Arc<Mutex<SqliteStore>>,
+pub(crate) struct StoreHistoryReadBackend<S> {
+    store: Arc<Mutex<S>>,
 }
 
-impl StoreHistoryReadBackend {
-    pub(crate) fn new(store: Arc<Mutex<SqliteStore>>) -> Self {
+impl<S> StoreHistoryReadBackend<S> {
+    pub(crate) fn new(store: Arc<Mutex<S>>) -> Self {
         Self { store }
     }
 }
 
-impl HistoryReadBackend for StoreHistoryReadBackend {
+impl<S> HistoryReadBackend for StoreHistoryReadBackend<S>
+where
+    S: ColdQueryStore + Send,
+{
     fn load_lineage_history(&self, lineage: &LineageId) -> Result<Vec<LineageEvent>> {
         self.store
             .lock()
