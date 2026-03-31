@@ -28,11 +28,11 @@ use crate::shared_runtime::{
 };
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::util::{cache_path, cleanup_legacy_cache, default_adapters};
+use crate::workspace_runtime_state::WorkspaceRuntimeState;
 use crate::workspace_tree::{
     build_workspace_tree_snapshot, plan_incremental_refresh, populate_package_regions,
     WorkspaceRefreshPlan,
 };
-use crate::workspace_runtime_state::WorkspaceRuntimeState;
 use crate::WorkspaceSessionOptions;
 use anyhow::Result;
 use prism_coordination::CoordinationSnapshot;
@@ -80,6 +80,7 @@ pub struct WorkspaceIndexer<S: Store> {
     pub(crate) adapters: Vec<Box<dyn LanguageAdapter + Send + Sync>>,
     pub(crate) store: S,
     pub(crate) checkpoint_materializer: Option<CheckpointMaterializerHandle>,
+    pub(crate) shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
     pub(crate) workspace_tree_snapshot: Option<WorkspaceTreeSnapshot>,
     pub(crate) shared_runtime: SharedRuntimeBackend,
     pub(crate) shared_runtime_store: Option<SqliteStore>,
@@ -329,6 +330,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             adapters: default_adapters(),
             store,
             checkpoint_materializer,
+            shared_runtime_materializer: None,
             workspace_tree_snapshot,
             shared_runtime,
             shared_runtime_store: None,
@@ -365,8 +367,12 @@ impl<S: Store> WorkspaceIndexer<S> {
             plan_execution_overlays,
             projections,
         } = runtime_state;
-        sync_root_nodes(&mut graph, &layout);
-        history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
+        let workspace_id = sync_root_nodes(&mut graph, &layout);
+        history.seed_nodes(
+            std::iter::once(workspace_id).chain(layout.packages.iter().map(|package| {
+                package.node_id.clone()
+            })),
+        );
         let restore_runtime_ms = restore_runtime_started.elapsed().as_millis();
 
         info!(
@@ -392,7 +398,11 @@ impl<S: Store> WorkspaceIndexer<S> {
             } else {
                 CoordinationSnapshot::default()
             },
-            plan_graphs: if coordination { plan_graphs } else { Vec::new() },
+            plan_graphs: if coordination {
+                plan_graphs
+            } else {
+                Vec::new()
+            },
             plan_execution_overlays: if coordination {
                 plan_execution_overlays
             } else {
@@ -404,6 +414,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             adapters: default_adapters(),
             store,
             checkpoint_materializer,
+            shared_runtime_materializer: None,
             workspace_tree_snapshot,
             shared_runtime,
             shared_runtime_store: None,
@@ -549,6 +560,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             adapters: default_adapters(),
             store,
             checkpoint_materializer: None,
+            shared_runtime_materializer: None,
             workspace_tree_snapshot,
             shared_runtime: options.shared_runtime,
             shared_runtime_store: None,
@@ -918,6 +930,81 @@ impl<S: Store> WorkspaceIndexer<S> {
             }
         }
         let remove_missing_ms = remove_missing_started.elapsed().as_millis();
+        let workspace_tree_snapshot = match next_tree_snapshot {
+            Some(snapshot) => Some(snapshot.clone()),
+            None => Some(build_workspace_tree_snapshot(
+                &self.root,
+                self.workspace_tree_snapshot.as_ref(),
+            )?),
+        };
+        if observed_changes.is_empty()
+            && changes.is_empty()
+            && upserted_paths.is_empty()
+            && removed_paths.is_empty()
+        {
+            self.had_prior_snapshot = true;
+            self.had_projection_snapshot = true;
+            self.workspace_tree_snapshot = workspace_tree_snapshot;
+            info!(
+                root = %self.root.display(),
+                targeted_refresh,
+                refresh_scope_path_count,
+                dependency_refresh_scope_path_count,
+                pending_file_count,
+                pending_bytes,
+                seen_file_count = seen_files.len(),
+                moved_file_count,
+                skipped_unchanged_count,
+                collect_pending_ms,
+                parse_apply_ms,
+                remove_missing_ms,
+                total_ms = started.elapsed().as_millis(),
+                "skipped downstream prism indexing phases because workspace state is unchanged"
+            );
+            info!(
+                root = %self.root.display(),
+                trigger = ?trigger,
+                targeted_refresh,
+                refresh_scope_path_count,
+                dependency_refresh_scope_path_count,
+                edge_resolution_scope_path_count = 0,
+                edge_resolution_scope_node_count = 0,
+                cleared_derived_edge_count = 0,
+                pending_file_count,
+                pending_bytes,
+                seen_file_count = seen_files.len(),
+                moved_file_count,
+                skipped_unchanged_count,
+                upserted_file_count = 0,
+                removed_file_count = 0,
+                observed_change_sets = 0,
+                graph_changes = 0,
+                lineage_event_count = 0,
+                co_change_delta_count = 0,
+                validation_delta_count = 0,
+                persist_skipped = true,
+                node_count = self.graph.node_count(),
+                edge_count = self.graph.edge_count(),
+                file_count = self.graph.file_count(),
+                unresolved_call_count = 0,
+                unresolved_import_count = 0,
+                unresolved_impl_count = 0,
+                unresolved_intent_count = 0,
+                collect_pending_ms,
+                parse_apply_ms,
+                remove_missing_ms,
+                resolve_calls_ms = 0,
+                resolve_imports_ms = 0,
+                resolve_impls_ms = 0,
+                resolve_intents_ms = 0,
+                resolve_edges_ms = 0,
+                persist_ms = 0,
+                reanchor_memory_ms = 0,
+                total_ms = started.elapsed().as_millis(),
+                "completed prism workspace indexing"
+            );
+            return Ok((observed_changes, changes));
+        }
         let rebuild_graph_indexes_started = Instant::now();
         self.graph.rebuild_indexes();
         let rebuild_graph_indexes_ms = rebuild_graph_indexes_started.elapsed().as_millis();
@@ -978,13 +1065,6 @@ impl<S: Store> WorkspaceIndexer<S> {
         let removed_file_count = removed_paths.len();
         let co_change_delta_count = co_change_deltas.len();
         let validation_delta_count = validation_deltas.len();
-        let workspace_tree_snapshot = match next_tree_snapshot {
-            Some(snapshot) => Some(snapshot.clone()),
-            None => Some(build_workspace_tree_snapshot(
-                &self.root,
-                self.workspace_tree_snapshot.as_ref(),
-            )?),
-        };
         let deferred_materializer = self.checkpoint_materializer.clone();
         let batch = IndexPersistBatch {
             upserted_paths,
@@ -1093,9 +1173,35 @@ impl<S: Store> WorkspaceIndexer<S> {
             }
         }
         let reanchor_started = Instant::now();
-        reanchor_persisted_memory_snapshot(&mut self.store, &all_lineage_events)?;
+        let local_reanchor_result =
+            if let Some(materializer) = self.checkpoint_materializer.as_ref() {
+                materializer.enqueue_episodic_reanchor_events(all_lineage_events.clone())
+            } else {
+                reanchor_persisted_memory_snapshot(&mut self.store, &all_lineage_events)
+            };
+        if let Err(error) = local_reanchor_result {
+            reanchor_persisted_memory_snapshot(&mut self.store, &all_lineage_events)?;
+            warn!(
+                root = %self.root.display(),
+                error = %error,
+                "failed to enqueue episodic reanchor for workspace store; fell back to synchronous persistence"
+            );
+        }
         if let Some(shared_runtime_store) = self.shared_runtime_store.as_mut() {
-            reanchor_persisted_memory_snapshot(shared_runtime_store, &all_lineage_events)?;
+            let shared_reanchor_result =
+                if let Some(materializer) = self.shared_runtime_materializer.as_ref() {
+                    materializer.enqueue_episodic_reanchor_events(all_lineage_events.clone())
+                } else {
+                    reanchor_persisted_memory_snapshot(shared_runtime_store, &all_lineage_events)
+                };
+            if let Err(error) = shared_reanchor_result {
+                reanchor_persisted_memory_snapshot(shared_runtime_store, &all_lineage_events)?;
+                warn!(
+                    root = %self.root.display(),
+                    error = %error,
+                    "failed to enqueue episodic reanchor for shared runtime store; fell back to synchronous persistence"
+                );
+            }
         }
         let reanchor_memory_ms = reanchor_started.elapsed().as_millis();
         info!(

@@ -5148,9 +5148,14 @@ fn refresh_fs_materializes_graph_snapshot_off_request_path() {
         let mut store = session.store.lock().expect("workspace store lock poisoned");
         let persisted = store.load_graph().unwrap().unwrap();
         assert!(
-            !persisted.nodes.contains_key(&gamma),
-            "graph checkpoint should still be deferred before flush"
+            persisted.nodes.contains_key(&gamma),
+            "file-local graph state should stay coherent before flush"
         );
+        assert!(!persisted.edges.iter().any(|edge| {
+            edge.kind == EdgeKind::Calls
+                && edge.source == NodeId::new("demo", "demo::alpha", NodeKind::Function)
+                && edge.target == gamma
+        }));
     }
 
     session.flush_materializations().unwrap();
@@ -5163,6 +5168,102 @@ fn refresh_fs_materializes_graph_snapshot_off_request_path() {
             && edge.source == NodeId::new("demo", "demo::alpha", NodeKind::Function)
             && edge.target == gamma
     }));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn refresh_fs_defers_episodic_memory_reanchor_off_request_path() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "fn alpha() { helper(); }\nfn helper() {}\n",
+    )
+    .unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::alpha")
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    let mut note = MemoryEntry::new(MemoryKind::Episodic, "alpha previously regressed");
+    note.anchors = vec![AnchorRef::Node(alpha.clone())];
+    session
+        .persist_episodic(&EpisodicMemorySnapshot {
+            entries: vec![note],
+        })
+        .unwrap();
+    session.flush_materializations().unwrap();
+
+    fs::write(
+        root.join("src/lib.rs"),
+        "fn renamed_alpha() { helper(); }\nfn helper() {}\n",
+    )
+    .unwrap();
+
+    let observed = session.refresh_fs().unwrap();
+    assert!(!observed.is_empty());
+
+    let snapshot = {
+        let mut store = session.store.lock().expect("workspace store lock poisoned");
+        store
+            .load_episodic_snapshot()
+            .unwrap()
+            .expect("episodic snapshot should still exist")
+    };
+    let entry = snapshot
+        .entries
+        .iter()
+        .find(|entry| entry.content == "alpha previously regressed")
+        .expect("note should remain persisted before flush");
+    assert!(entry.anchors.contains(&AnchorRef::Node(alpha.clone())));
+    assert!(
+        !entry
+            .anchors
+            .iter()
+            .any(|anchor| matches!(anchor, AnchorRef::Lineage(_))),
+        "reanchor should still be deferred before flush"
+    );
+
+    session.flush_materializations().unwrap();
+
+    let renamed_alpha = session
+        .prism()
+        .symbol("renamed_alpha")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::renamed_alpha")
+        .expect("renamed alpha should be indexed after refresh")
+        .id()
+        .clone();
+    let lineage = session
+        .prism()
+        .lineage_of(&renamed_alpha)
+        .expect("renamed alpha should keep a lineage");
+    let snapshot = session
+        .load_episodic_snapshot()
+        .unwrap()
+        .expect("reanchored note should persist after flush");
+    let entry = snapshot
+        .entries
+        .iter()
+        .find(|entry| entry.content == "alpha previously regressed")
+        .expect("reanchored note should be present after flush");
+    assert!(entry
+        .anchors
+        .contains(&AnchorRef::Node(renamed_alpha.clone())));
+    assert!(entry.anchors.contains(&AnchorRef::Lineage(lineage)));
+    assert!(!entry.anchors.contains(&AnchorRef::Node(alpha)));
 
     let _ = fs::remove_dir_all(root);
 }

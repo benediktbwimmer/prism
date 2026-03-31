@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use prism_coordination::CoordinationSnapshot;
 use prism_history::HistoryStore;
 use prism_ir::{PlanExecutionOverlay, PlanGraph, WorkspaceRevision};
@@ -6,6 +5,7 @@ use prism_memory::OutcomeMemory;
 use prism_projections::ProjectionIndex;
 use prism_query::Prism;
 use prism_store::{CoordinationPersistContext, Graph};
+use std::collections::BTreeMap;
 
 #[derive(Clone, Default)]
 pub(crate) struct WorkspaceRuntimeState {
@@ -63,6 +63,12 @@ impl WorkspaceRuntimeState {
         self.coordination_snapshot = prism.coordination_snapshot();
         self.plan_graphs = prism.authored_plan_graphs();
         self.plan_execution_overlays = prism.plan_execution_overlays_by_plan();
-        self.projections = ProjectionIndex::from_snapshot(prism.projection_snapshot());
+        let history = self.history.snapshot();
+        let mut projections =
+            ProjectionIndex::from_snapshot_with_history(prism.projection_snapshot(), Some(&history));
+        projections.replace_curated_concepts(prism.curated_concepts_snapshot());
+        projections.replace_concept_relations(prism.concept_relations_snapshot());
+        projections.replace_curated_contracts(prism.curated_contracts());
+        self.projections = projections;
     }
 }

@@ -5271,7 +5271,7 @@ return {
     let payload_variants = coordination["payloadVariants"]
         .as_array()
         .expect("payload variants");
-    assert_eq!(payload_variants.len(), 9);
+    assert_eq!(payload_variants.len(), 10);
     let task_create_variant = payload_variants
         .iter()
         .find(|variant| variant["tag"] == "task_create")
@@ -5647,7 +5647,7 @@ fn prism_mutate_schema_expands_payload_shapes_for_structured_actions() {
         coordination_payload.schema["oneOf"]
             .as_array()
             .map(|variants| variants.len()),
-        Some(9)
+        Some(10)
     );
     let coordination_nested = coordination_payload
         .nested_fields
@@ -12384,23 +12384,11 @@ fn query_replay_cases_cover_real_failures_and_repo_queries() {
 
 #[test]
 fn prism_runtime_views_surface_status_logs_and_timeline() {
-    use std::io::{Read, Write};
-    use std::net::TcpListener;
-
     let root = temp_workspace();
     let prism_dir = root.join(".prism");
     fs::create_dir_all(&prism_dir).unwrap();
 
-    let listener = TcpListener::bind("127.0.0.1:0").expect("health listener");
-    let addr = listener.local_addr().expect("listener addr");
-    let server = thread::spawn(move || {
-        if let Ok((mut stream, _)) = listener.accept() {
-            let mut request = [0_u8; 1024];
-            let _ = stream.read(&mut request);
-            let _ = stream
-                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok");
-        }
-    });
+    let addr = "127.0.0.1:9";
 
     fs::write(
         prism_dir.join("prism-mcp-http-uri"),
@@ -12522,7 +12510,6 @@ return {
     assert_eq!(timeline[1]["message"], "completed prism workspace indexing");
     assert_eq!(timeline[2]["message"], "prism-mcp daemon ready");
 
-    server.join().expect("health server should exit cleanly");
 }
 
 #[test]
@@ -12892,7 +12879,7 @@ fn prism_runtime_views_ignore_invalid_runtime_state_sidecar() {
         )
         .expect("invalid runtime state should not break runtime status");
 
-    assert_eq!(result.result["health"]["ok"], false);
+    assert_eq!(result.result["health"]["ok"], true);
     assert_eq!(result.result["daemonCount"], 0);
     assert_eq!(result.result["bridgeCount"], 0);
     assert!(result.result["freshness"]["status"].as_str().is_some());

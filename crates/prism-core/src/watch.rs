@@ -18,7 +18,7 @@ use tracing::{error, warn};
 use crate::checkpoint_materializer::CheckpointMaterializerHandle;
 use crate::curator::{enqueue_curator_for_observed_locked, CuratorHandleRef};
 use crate::indexer::WorkspaceIndexer;
-use crate::session::{WorkspaceRefreshResult, WorkspaceRefreshState};
+use crate::session::{WorkspaceRefreshResult, WorkspaceRefreshState, WorkspaceSession};
 use crate::shared_runtime::composite_workspace_revision;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::workspace_runtime_state::WorkspaceRuntimeState;
@@ -48,6 +48,7 @@ pub(crate) fn spawn_fs_watch(
     loaded_workspace_revision: Arc<AtomicU64>,
     fs_snapshot: Arc<Mutex<WorkspaceTreeSnapshot>>,
     checkpoint_materializer: Option<CheckpointMaterializerHandle>,
+    shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
     coordination_enabled: bool,
     curator: Option<CuratorHandleRef>,
 ) -> Result<WatchHandle> {
@@ -123,6 +124,7 @@ pub(crate) fn spawn_fs_watch(
                 &loaded_workspace_revision,
                 &fs_snapshot,
                 checkpoint_materializer.clone(),
+                shared_runtime_materializer.clone(),
                 coordination_enabled,
                 curator.as_ref(),
                 ChangeTrigger::FsWatch,
@@ -157,6 +159,7 @@ pub(crate) fn refresh_prism_snapshot(
     loaded_workspace_revision: &Arc<AtomicU64>,
     fs_snapshot: &Arc<Mutex<WorkspaceTreeSnapshot>>,
     checkpoint_materializer: Option<CheckpointMaterializerHandle>,
+    shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
     coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
     trigger: ChangeTrigger,
@@ -175,6 +178,7 @@ pub(crate) fn refresh_prism_snapshot(
         loaded_workspace_revision,
         fs_snapshot,
         checkpoint_materializer,
+        shared_runtime_materializer,
         coordination_enabled,
         curator,
         trigger,
@@ -194,6 +198,7 @@ pub(crate) fn try_refresh_prism_snapshot(
     loaded_workspace_revision: &Arc<AtomicU64>,
     fs_snapshot: &Arc<Mutex<WorkspaceTreeSnapshot>>,
     checkpoint_materializer: Option<CheckpointMaterializerHandle>,
+    shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
     coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
     trigger: ChangeTrigger,
@@ -212,6 +217,7 @@ pub(crate) fn try_refresh_prism_snapshot(
         loaded_workspace_revision,
         fs_snapshot,
         checkpoint_materializer,
+        shared_runtime_materializer,
         coordination_enabled,
         curator,
         trigger,
@@ -231,6 +237,7 @@ fn refresh_prism_snapshot_with_guard(
     loaded_workspace_revision: &Arc<AtomicU64>,
     fs_snapshot: &Arc<Mutex<WorkspaceTreeSnapshot>>,
     checkpoint_materializer: Option<CheckpointMaterializerHandle>,
+    shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
     coordination_enabled: bool,
     curator: Option<&CuratorHandleRef>,
     trigger: ChangeTrigger,
@@ -300,6 +307,7 @@ fn refresh_prism_snapshot_with_guard(
             hydrate_persisted_projections: false,
         },
     )?;
+    indexer.shared_runtime_materializer = shared_runtime_materializer;
     populate_package_regions(&mut plan.delta, &indexer.layout);
     let observed = match indexer.index_with_refresh_plan(trigger, &plan) {
         Ok(observed) => observed,
@@ -335,11 +343,6 @@ fn refresh_prism_snapshot_with_guard(
         },
         coordination_context,
     ));
-    *runtime_state
-        .lock()
-        .expect("workspace runtime state lock poisoned") = next_state;
-    *prism.write().expect("workspace prism lock poisoned") = Arc::clone(&next);
-    loaded_workspace_revision.store(workspace_revision, Ordering::Relaxed);
     *fs_snapshot
         .lock()
         .expect("workspace tree snapshot lock poisoned") = plan.next_snapshot;
@@ -347,6 +350,12 @@ fn refresh_prism_snapshot_with_guard(
         let mut store = store.lock().expect("workspace store lock poisoned");
         enqueue_curator_for_observed_locked(curator, next.as_ref(), &mut store, &observed)?;
     }
+    WorkspaceSession::attach_cold_query_backends(next.as_ref(), store);
+    *runtime_state
+        .lock()
+        .expect("workspace runtime state lock poisoned") = next_state;
+    *prism.write().expect("workspace prism lock poisoned") = Arc::clone(&next);
+    loaded_workspace_revision.store(workspace_revision, Ordering::Relaxed);
     refresh_state.mark_refreshed_revision(observed_revision, &dirty_paths);
     refresh_state.record_refresh(
         plan.mode.as_str(),

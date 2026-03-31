@@ -1,10 +1,8 @@
 use std::collections::BTreeSet;
 use std::fs;
-use std::io::{Read, Write};
-use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Context, Result};
 use prism_coordination::{execution_overlays_from_tasks, snapshot_plan_graphs};
@@ -14,9 +12,10 @@ use prism_core::runtime_engine::{
 };
 use prism_core::WorkspaceSession;
 use prism_js::{
-    ConnectionInfoView, RuntimeDomainFreshnessView, RuntimeFreshnessView, RuntimeHealthView,
-    RuntimeLogEventView, RuntimeMaterializationCoverageView, RuntimeMaterializationItemView,
-    RuntimeMaterializationView, RuntimeOverlayScopeView, RuntimeProcessView,
+    ConnectionInfoView, RuntimeBoundaryRegionView, RuntimeDomainFreshnessView,
+    RuntimeFreshnessView, RuntimeHealthView, RuntimeLogEventView,
+    RuntimeMaterializationCoverageView, RuntimeMaterializationItemView, RuntimeMaterializationView,
+    RuntimeOverlayScopeView, RuntimeProcessView,
     RuntimeProjectionScopeView, RuntimeQueueDepthView, RuntimeScopesView, RuntimeStatusView,
 };
 use serde::Deserialize;
@@ -333,14 +332,14 @@ fn runtime_freshness_from_inputs(
     let fs_applied_revision = inputs.workspace.applied_fs_revision();
     let fs_dirty = fs_observed_revision != fs_applied_revision;
     let last_refresh = inputs.workspace.last_refresh();
-    let workspace_coverage = inputs.workspace.workspace_materialization_coverage();
+    let workspace_summary = inputs.workspace.workspace_materialization_summary();
     let published_generation = inputs.published_generation.as_ref();
     let queue_snapshot = inputs.queue_snapshot.as_ref();
     let materialization = RuntimeMaterializationView {
         workspace: workspace_materialization_item(
             inputs.loaded_workspace_revision,
             Some(snapshot_revisions.workspace),
-            &workspace_coverage,
+            &workspace_summary,
             published_generation
                 .and_then(|generation| {
                     generation
@@ -650,25 +649,37 @@ fn materialization_item(
 fn workspace_materialization_item(
     loaded_revision: u64,
     current_revision: Option<u64>,
-    coverage: &prism_core::WorkspaceMaterializationCoverage,
+    summary: &prism_core::WorkspaceMaterializationSummary,
     materialization_depth: Option<RuntimeMaterializationDepth>,
 ) -> RuntimeMaterializationItemView {
     RuntimeMaterializationItemView {
         status: materialization_status(loaded_revision, current_revision).to_string(),
         depth: materialization_depth
             .map(runtime_materialization_depth_label)
-            .unwrap_or_else(|| coverage.depth())
+            .unwrap_or_else(|| summary.depth())
             .to_string(),
         loaded_revision,
         current_revision,
         coverage: Some(RuntimeMaterializationCoverageView {
-            known_files: coverage.known_files,
-            known_directories: coverage.known_directories,
-            materialized_files: coverage.materialized_files,
-            materialized_nodes: coverage.materialized_nodes,
-            materialized_edges: coverage.materialized_edges,
+            known_files: summary.known_files,
+            known_directories: summary.known_directories,
+            materialized_files: summary.materialized_files,
+            materialized_nodes: summary.materialized_nodes,
+            materialized_edges: summary.materialized_edges,
         }),
-        boundaries: Vec::new(),
+        boundaries: summary
+            .boundaries
+            .iter()
+            .map(|boundary| RuntimeBoundaryRegionView {
+                id: boundary.id.clone(),
+                path: boundary.path.display().to_string(),
+                provenance: boundary.provenance.clone(),
+                materialization_state: boundary.materialization_state.clone(),
+                scope_state: boundary.scope_state.clone(),
+                known_file_count: boundary.known_file_count,
+                materialized_file_count: boundary.materialized_file_count,
+            })
+            .collect(),
     }
 }
 
@@ -797,10 +808,10 @@ fn health_status(
         };
     };
 
-    if daemons.is_empty() && !health_probe_ok(uri, DEFAULT_HEALTH_PATH) {
+    if daemons.is_empty() {
         return RuntimeHealthView {
-            ok: false,
-            detail: format!("no daemon process for {uri}"),
+            ok: true,
+            detail: format!("ok ({uri}; uri file present, no live daemon process record)"),
         };
     }
 
@@ -810,27 +821,6 @@ fn health_status(
         format!("ok ({uri}; {} daemon processes)", daemons.len())
     };
     RuntimeHealthView { ok: true, detail }
-}
-
-fn health_probe_ok(uri: &str, health_path: &str) -> bool {
-    let Some(authority) = uri_authority(uri) else {
-        return false;
-    };
-    let Ok(mut stream) = TcpStream::connect(authority) else {
-        return false;
-    };
-    let _ = stream.set_read_timeout(Some(Duration::from_millis(300)));
-    let _ = stream.set_write_timeout(Some(Duration::from_millis(300)));
-    let request =
-        format!("GET {health_path} HTTP/1.1\r\nHost: {authority}\r\nConnection: close\r\n\r\n");
-    if stream.write_all(request.as_bytes()).is_err() {
-        return false;
-    }
-    let mut response = String::new();
-    if stream.read_to_string(&mut response).is_err() {
-        return false;
-    }
-    response.starts_with("HTTP/1.1 200") || response.starts_with("HTTP/1.0 200")
 }
 
 fn list_runtime_processes(
@@ -970,13 +960,6 @@ fn connected_bridge_ids(bridges: &[McpProcess], uri: Option<&str>) -> BTreeSet<u
         })
         .map(|bridge| bridge.pid)
         .collect()
-}
-
-fn uri_authority(uri: &str) -> Option<&str> {
-    uri.strip_prefix("http://")
-        .or_else(|| uri.strip_prefix("https://"))
-        .and_then(|rest| rest.split('/').next())
-        .filter(|authority| !authority.is_empty())
 }
 
 fn select_kind(processes: &[McpProcess], kind: McpProcessKind) -> Vec<McpProcess> {
@@ -1228,10 +1211,10 @@ mod tests {
         assert_eq!(healthy.detail, "ok (http://127.0.0.1:52695/mcp)");
 
         let missing_daemon = health_status(&Some("http://127.0.0.1:9/mcp".to_string()), &[], None);
-        assert!(!missing_daemon.ok);
+        assert!(missing_daemon.ok);
         assert_eq!(
             missing_daemon.detail,
-            "no daemon process for http://127.0.0.1:9/mcp"
+            "ok (http://127.0.0.1:9/mcp; uri file present, no live daemon process record)"
         );
 
         let process_error = health_status(

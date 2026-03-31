@@ -1172,7 +1172,8 @@ impl QueryHost {
         if report.coordination_reloaded {
             let _ = self.publish_dashboard_coordination_update();
         }
-        if report.deferred {
+        if report.deferred || (!workspace.needs_refresh() && workspace.is_fallback_check_due_now())
+        {
             runtime.request_refresh();
         }
         diagnostics.request_refresh();

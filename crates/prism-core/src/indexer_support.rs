@@ -20,7 +20,9 @@ use crate::checkpoint_materializer::CheckpointMaterializerHandle;
 use crate::curator::{CuratorHandle, CuratorHandleRef};
 use crate::indexer::PendingFileParse;
 use crate::resolution::{resolve_calls, resolve_impls, resolve_imports, resolve_intents};
-use crate::session::{WorkspaceRefreshSeed, WorkspaceRefreshState, WorkspaceSession};
+use crate::session::{
+    WorkspaceRefreshSeed, WorkspaceRefreshState, WorkspaceSession,
+};
 use crate::shared_runtime::composite_workspace_revision;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::util::{persisted_file_hash, workspace_walk};
@@ -83,6 +85,7 @@ pub(crate) fn build_workspace_session(
                 Some(coordination_persist_context_for_root(&root, None)),
             ),
     );
+    WorkspaceSession::attach_cold_query_backends(prism.as_ref(), &store);
     let prism = Arc::new(RwLock::new(prism));
     let refresh_lock = Arc::new(Mutex::new(()));
     let refresh_state = Arc::new(WorkspaceRefreshState::new());
@@ -111,6 +114,7 @@ pub(crate) fn build_workspace_session(
         Arc::clone(&loaded_workspace_revision),
         Arc::clone(&fs_snapshot),
         Some(checkpoint_materializer.clone()),
+        shared_runtime_materializer.clone(),
         coordination_enabled,
         Some(CuratorHandleRef::from(&curator)),
     )?);

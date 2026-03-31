@@ -24,8 +24,7 @@ use prism_memory::{
 use prism_parser::ParseDepth;
 use prism_projections::{
     concept_from_event, contract_from_event, validation_deltas_for_event, ConceptEvent,
-    ConceptRelationEvent, ConceptRelationEventAction, ConceptScope, ContractEvent,
-    ProjectionIndex,
+    ConceptRelationEvent, ConceptRelationEventAction, ConceptScope, ContractEvent, ProjectionIndex,
 };
 use prism_query::Prism;
 use prism_store::{AuxiliaryPersistBatch, Graph, SqliteStore, Store, WorkspaceTreeSnapshot};
@@ -46,6 +45,7 @@ use crate::concept_relation_events::{
 use crate::contract_events::{append_repo_contract_event, load_repo_curated_contracts};
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorHandleRef};
+use crate::history_backend::StoreHistoryReadBackend;
 use crate::indexer::{workspace_recovery_work, WorkspaceIndexer};
 use crate::indexer_support::resolve_graph_edges;
 use crate::layout::{discover_layout, sync_root_nodes};
@@ -57,6 +57,7 @@ use crate::memory_events::{
     append_repo_memory_event, filter_memory_events, load_repo_memory_events,
 };
 use crate::mutation_trace;
+use crate::outcome_backend::StoreOutcomeReadBackend;
 use crate::prism_doc::{sync_repo_prism_doc, PrismDocSyncResult};
 use crate::published_knowledge::{
     validate_repo_concept_event, validate_repo_concept_relation_event,
@@ -342,6 +343,11 @@ impl WorkspaceRefreshState {
             }
         }
     }
+
+    pub(crate) fn fallback_check_due(&self, now_ms: u64) -> bool {
+        let last = self.last_fallback_check_ms.load(Ordering::Relaxed);
+        now_ms.saturating_sub(last) >= FALLBACK_FINGERPRINT_INTERVAL_MS
+    }
 }
 
 pub struct WorkspaceSession {
@@ -512,6 +518,15 @@ impl WorkspaceSession {
             .clone()
     }
 
+    pub(crate) fn attach_cold_query_backends(prism: &Prism, store: &Arc<Mutex<SqliteStore>>) {
+        prism.set_history_backend(Some(Arc::new(StoreHistoryReadBackend::new(Arc::clone(
+            store,
+        )))));
+        prism.set_outcome_backend(Some(Arc::new(StoreOutcomeReadBackend::new(Arc::clone(
+            store,
+        )))));
+    }
+
     fn publish_runtime_state(
         &self,
         runtime_state: WorkspaceRuntimeState,
@@ -526,6 +541,7 @@ impl WorkspaceSession {
             },
             coordination_context,
         ));
+        Self::attach_cold_query_backends(next.as_ref(), &self.store);
         *self
             .runtime_state
             .lock()
@@ -627,6 +643,11 @@ impl WorkspaceSession {
         self.refresh_state.last_refresh()
     }
 
+    pub fn is_fallback_check_due_now(&self) -> bool {
+        self.refresh_state
+            .fallback_check_due(current_timestamp_millis())
+    }
+
     pub fn workspace_materialization_summary(&self) -> WorkspaceMaterializationSummary {
         let snapshot = self
             .fs_snapshot
@@ -700,6 +721,7 @@ impl WorkspaceSession {
                 hydrate_persisted_projections: false,
             },
         )?;
+        indexer.shared_runtime_materializer = self.shared_runtime_materializer.clone();
         let mut plan = WorkspaceRefreshPlan {
             mode: WorkspaceRefreshMode::Incremental,
             delta: WorkspaceRefreshDelta {
@@ -1363,6 +1385,11 @@ impl WorkspaceSession {
         let previous = prism.concept_by_handle(&event.concept.handle);
         let concept = concept_from_event(previous.as_ref(), &event);
         prism.upsert_curated_concept(concept.clone());
+        self.runtime_state
+            .lock()
+            .expect("workspace runtime state lock poisoned")
+            .projections
+            .upsert_curated_concept(concept.clone());
         self.delete_persisted_projection_concept_everywhere(&event.concept.handle)?;
         if concept.scope != ConceptScope::Repo {
             if let Some(target) = self.projection_target_store(concept.scope) {
@@ -1407,7 +1434,12 @@ impl WorkspaceSession {
         let prism = self.prism_arc();
         let previous = prism.contract_by_handle(&event.contract.handle);
         let contract = contract_from_event(previous.as_ref(), &event);
-        prism.upsert_curated_contract(contract);
+        prism.upsert_curated_contract(contract.clone());
+        self.runtime_state
+            .lock()
+            .expect("workspace runtime state lock poisoned")
+            .projections
+            .upsert_curated_contract(contract);
         if should_sync_prism_doc {
             self.sync_prism_doc()?;
         }
@@ -1443,12 +1475,30 @@ impl WorkspaceSession {
         let prism = self.prism_arc();
         let relation = event.relation.clone();
         match event.action {
-            ConceptRelationEventAction::Upsert => prism.upsert_concept_relation(relation.clone()),
-            ConceptRelationEventAction::Retire => prism.remove_concept_relation(
-                &relation.source_handle,
-                &relation.target_handle,
-                relation.kind,
-            ),
+            ConceptRelationEventAction::Upsert => {
+                prism.upsert_concept_relation(relation.clone());
+                self.runtime_state
+                    .lock()
+                    .expect("workspace runtime state lock poisoned")
+                    .projections
+                    .upsert_concept_relation(relation.clone());
+            }
+            ConceptRelationEventAction::Retire => {
+                prism.remove_concept_relation(
+                    &relation.source_handle,
+                    &relation.target_handle,
+                    relation.kind,
+                );
+                self.runtime_state
+                    .lock()
+                    .expect("workspace runtime state lock poisoned")
+                    .projections
+                    .remove_concept_relation(
+                        &relation.source_handle,
+                        &relation.target_handle,
+                        relation.kind,
+                    );
+            }
         }
         self.delete_persisted_projection_relation_everywhere(
             &relation.source_handle,
@@ -2304,6 +2354,7 @@ impl WorkspaceSession {
             &self.loaded_workspace_revision,
             &self.fs_snapshot,
             self.checkpoint_materializer.clone(),
+            self.shared_runtime_materializer.clone(),
             self.coordination_enabled,
             curator.as_ref(),
             trigger,
@@ -2327,6 +2378,7 @@ impl WorkspaceSession {
             &self.loaded_workspace_revision,
             &self.fs_snapshot,
             self.checkpoint_materializer.clone(),
+            self.shared_runtime_materializer.clone(),
             self.coordination_enabled,
             self.curator.as_ref().map(CuratorHandleRef::from).as_ref(),
             trigger,

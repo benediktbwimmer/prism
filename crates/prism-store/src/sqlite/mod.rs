@@ -846,9 +846,7 @@ impl Store for SqliteStore {
         let (_, current_outcome_snapshot) = current_outcome_snapshot_tx(&tx, &outcome_cache)?;
 
         let mut touched_derived_nodes = HashSet::<prism_ir::NodeId>::new();
-        let delete_file_state_ms = if batch.defer_graph_materialization {
-            0
-        } else {
+        let delete_file_state_ms = {
             let remove_started = Instant::now();
             {
                 let mut file_state_writer = graph_io::FileStateWriter::new(&tx)?;
@@ -861,9 +859,7 @@ impl Store for SqliteStore {
         };
 
         let mut file_state_totals = FileStatePersistTotals::default();
-        let save_file_state_ms = if batch.defer_graph_materialization {
-            0
-        } else {
+        let save_file_state_ms = {
             let upsert_started = Instant::now();
             {
                 let mut file_state_writer = graph_io::FileStateWriter::new(&tx)?;
