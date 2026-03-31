@@ -8,14 +8,14 @@ use prism_store::Graph;
 pub(crate) struct RefreshInvalidationScope {
     pub(crate) direct_paths: HashSet<PathBuf>,
     pub(crate) dependency_paths: HashSet<PathBuf>,
+    #[allow(dead_code)]
     pub(crate) edge_resolution_paths: HashSet<PathBuf>,
 }
 
 impl RefreshInvalidationScope {
     pub(crate) fn from_graph(graph: &Graph, direct_paths: &HashSet<PathBuf>) -> Self {
-        let structural_dependency_paths = expand_dependency_paths(graph, direct_paths);
-        let dependency_paths = expand_edge_resolution_paths(graph, &structural_dependency_paths);
-        let edge_resolution_paths = dependency_paths.clone();
+        let dependency_paths = expand_dependency_paths(graph, direct_paths);
+        let edge_resolution_paths = expand_edge_resolution_paths(graph, &dependency_paths);
         Self {
             direct_paths: direct_paths.clone(),
             dependency_paths,
@@ -36,6 +36,28 @@ pub(crate) fn observed_changes_require_dependent_edge_resolution(
                     || before.node.kind != after.node.kind
             })
     })
+}
+
+pub(crate) fn edge_resolution_paths_for_observed_changes(
+    graph: &Graph,
+    dependency_paths: &HashSet<PathBuf>,
+    observed_changes: &[ObservedChangeSet],
+) -> HashSet<PathBuf> {
+    let mut expanded = dependency_paths.clone();
+    for observed in observed_changes {
+        for node in &observed.added {
+            add_unresolved_dependents_for_node(graph, &node.node, &mut expanded);
+        }
+        for (before, after) in &observed.updated {
+            if before.node.id != after.node.id
+                || before.node.name != after.node.name
+                || before.node.kind != after.node.kind
+            {
+                add_unresolved_dependents_for_node(graph, &after.node, &mut expanded);
+            }
+        }
+    }
+    expanded
 }
 
 fn expand_dependency_paths(graph: &Graph, refresh_scope: &HashSet<PathBuf>) -> HashSet<PathBuf> {
@@ -129,4 +151,21 @@ fn namespace_suffixes(path: &str) -> Vec<String> {
     (0..parts.len())
         .map(|index| parts[index..].join("::"))
         .collect()
+}
+
+fn add_unresolved_dependents_for_node(
+    graph: &Graph,
+    node: &prism_ir::Node,
+    expanded: &mut HashSet<PathBuf>,
+) {
+    expanded.extend(graph.files_with_unresolved_call_name(node.name.as_str()));
+    expanded.extend(graph.files_with_unresolved_import_name(node.name.as_str()));
+    expanded.extend(graph.files_with_unresolved_impl_name(node.name.as_str()));
+    expanded.extend(graph.files_with_unresolved_intent_target(node.name.as_str()));
+    expanded.extend(graph.files_with_unresolved_call_target_path(node.id.path.as_str()));
+    for suffix in namespace_suffixes(node.id.path.as_str()) {
+        expanded.extend(graph.files_with_unresolved_import_path(&suffix));
+        expanded.extend(graph.files_with_unresolved_impl_target(&suffix));
+        expanded.extend(graph.files_with_unresolved_intent_target(&suffix));
+    }
 }

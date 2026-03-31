@@ -87,6 +87,136 @@ fn upsert_file_with_reanchors_emits_reanchored_change() {
 }
 
 #[test]
+fn clear_derived_edges_for_nodes_skips_full_rebuild_when_scope_has_no_derived_edges() {
+    let mut graph = Graph::new();
+    let alpha_path = Path::new("src/alpha.rs");
+    let beta_path = Path::new("src/beta.rs");
+    let caller_path = Path::new("src/caller.rs");
+
+    let alpha_file = graph.ensure_file(alpha_path);
+    let beta_file = graph.ensure_file(beta_path);
+    let caller_file = graph.ensure_file(caller_path);
+
+    let alpha = Node {
+        file: alpha_file,
+        ..node("alpha")
+    };
+    let beta = Node {
+        file: beta_file,
+        ..node("beta")
+    };
+    let caller = Node {
+        file: caller_file,
+        ..node("caller")
+    };
+
+    graph.upsert_file(
+        alpha_path,
+        1,
+        vec![alpha.clone()],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+    graph.upsert_file(
+        beta_path,
+        1,
+        vec![beta.clone()],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+    graph.upsert_file(
+        caller_path,
+        1,
+        vec![caller.clone()],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+    graph.add_edge(Edge {
+        kind: EdgeKind::Calls,
+        source: caller.id.clone(),
+        target: beta.id.clone(),
+        origin: EdgeOrigin::Inferred,
+        confidence: 1.0,
+    });
+
+    let removed = graph.clear_derived_edges_for_nodes(&HashSet::from([alpha.id.clone()]));
+    assert_eq!(removed, 0);
+    assert!(graph
+        .edges_from(&caller.id, Some(EdgeKind::Calls))
+        .iter()
+        .any(|edge| edge.target == beta.id));
+}
+
+#[test]
+fn extend_edges_updates_adjacency_and_derived_incidence_incrementally() {
+    let mut graph = Graph::new();
+    let alpha_path = Path::new("src/alpha.rs");
+    let caller_path = Path::new("src/caller.rs");
+
+    let alpha_file = graph.ensure_file(alpha_path);
+    let caller_file = graph.ensure_file(caller_path);
+
+    let alpha = Node {
+        file: alpha_file,
+        ..node("alpha")
+    };
+    let caller = Node {
+        file: caller_file,
+        ..node("caller")
+    };
+
+    graph.upsert_file(
+        alpha_path,
+        1,
+        vec![alpha.clone()],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+    graph.upsert_file(
+        caller_path,
+        1,
+        vec![caller.clone()],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+
+    graph.extend_edges(std::iter::once(Edge {
+        kind: EdgeKind::Calls,
+        source: caller.id.clone(),
+        target: alpha.id.clone(),
+        origin: EdgeOrigin::Inferred,
+        confidence: 1.0,
+    }));
+
+    assert_eq!(graph.edges_from(&caller.id, Some(EdgeKind::Calls)).len(), 1);
+    assert_eq!(
+        graph.clear_derived_edges_for_nodes(&HashSet::from([alpha.id.clone()])),
+        1
+    );
+    assert!(graph.edges_from(&caller.id, Some(EdgeKind::Calls)).is_empty());
+}
+
+#[test]
 fn remove_file_with_changes_emits_removed_nodes() {
     let path = Path::new("src/lib.rs");
     let mut graph = Graph::new();

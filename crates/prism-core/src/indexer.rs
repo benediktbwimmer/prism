@@ -14,7 +14,9 @@ use crate::indexer_support::{
     resolve_graph_edges,
 };
 use crate::invalidation::{
-    observed_changes_require_dependent_edge_resolution, RefreshInvalidationScope,
+    edge_resolution_paths_for_observed_changes,
+    observed_changes_require_dependent_edge_resolution,
+    RefreshInvalidationScope,
 };
 use crate::layout::{discover_layout, sync_root_nodes, PackageInfo, WorkspaceLayout};
 use crate::memory_refresh::reanchor_persisted_memory_snapshot;
@@ -1039,13 +1041,18 @@ impl<S: Store> WorkspaceIndexer<S> {
 
         let expand_dependency_edge_resolution =
             observed_changes_require_dependent_edge_resolution(&observed_changes);
-        let edge_resolution_scope = invalidation_scope.as_ref().map(|scope| {
+        let resolved_edge_scope = invalidation_scope.as_ref().map(|scope| {
             if expand_dependency_edge_resolution {
-                &scope.edge_resolution_paths
+                edge_resolution_paths_for_observed_changes(
+                    &self.graph,
+                    &scope.dependency_paths,
+                    &observed_changes,
+                )
             } else {
-                &scope.direct_paths
+                scope.direct_paths.clone()
             }
         });
+        let edge_resolution_scope = resolved_edge_scope.as_ref();
         let resolve_edges_started = Instant::now();
         let resolve_edge_stats = resolve_graph_edges(&mut self.graph, edge_resolution_scope);
         let resolve_edges_ms = resolve_edges_started.elapsed().as_millis();
@@ -1064,10 +1071,14 @@ impl<S: Store> WorkspaceIndexer<S> {
             unresolved_import_count = resolve_edge_stats.unresolved_import_count,
             unresolved_impl_count = resolve_edge_stats.unresolved_impl_count,
             unresolved_intent_count = resolve_edge_stats.unresolved_intent_count,
+            collect_scope_nodes_ms = resolve_edge_stats.collect_scope_nodes_ms,
+            clear_derived_edges_ms = resolve_edge_stats.clear_derived_edges_ms,
+            collect_unresolved_ms = resolve_edge_stats.collect_unresolved_ms,
             resolve_calls_ms = resolve_edge_stats.resolve_calls_ms,
             resolve_imports_ms = resolve_edge_stats.resolve_imports_ms,
             resolve_impls_ms = resolve_edge_stats.resolve_impls_ms,
             resolve_intents_ms = resolve_edge_stats.resolve_intents_ms,
+            extend_edges_ms = resolve_edge_stats.extend_edges_ms,
             resolve_edges_ms,
             "finished prism edge resolution phase"
         );

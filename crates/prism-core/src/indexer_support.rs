@@ -247,21 +247,29 @@ pub(crate) struct ResolveGraphEdgesStats {
     pub(crate) unresolved_import_count: usize,
     pub(crate) unresolved_impl_count: usize,
     pub(crate) unresolved_intent_count: usize,
+    pub(crate) collect_scope_nodes_ms: u128,
+    pub(crate) clear_derived_edges_ms: u128,
+    pub(crate) collect_unresolved_ms: u128,
     pub(crate) resolve_calls_ms: u128,
     pub(crate) resolve_imports_ms: u128,
     pub(crate) resolve_impls_ms: u128,
     pub(crate) resolve_intents_ms: u128,
+    pub(crate) extend_edges_ms: u128,
 }
 
 pub(crate) fn resolve_graph_edges(
     graph: &mut Graph,
     refresh_scope: Option<&HashSet<PathBuf>>,
 ) -> ResolveGraphEdgesStats {
+    let scope_nodes_started = Instant::now();
+    let scope_nodes = refresh_scope.map(|scope| graph.node_ids_for_paths(scope));
+    let collect_scope_nodes_ms = scope_nodes_started.elapsed().as_millis();
+    let clear_derived_edges_started = Instant::now();
     let (cleared_derived_edge_count, resolution_scope_path_count, resolution_scope_node_count) =
         if let Some(scope) = refresh_scope {
-            let scope_nodes = graph.node_ids_for_paths(scope);
+            let scope_nodes = scope_nodes.as_ref().expect("scope_nodes available for refresh scope");
             (
-                graph.clear_derived_edges_for_nodes(&scope_nodes),
+                graph.clear_derived_edges_for_nodes(scope_nodes),
                 scope.len(),
                 scope_nodes.len(),
             )
@@ -279,6 +287,8 @@ pub(crate) fn resolve_graph_edges(
                 graph.node_count(),
             )
         };
+    let clear_derived_edges_ms = clear_derived_edges_started.elapsed().as_millis();
+    let collect_unresolved_started = Instant::now();
     let unresolved_calls = if let Some(scope) = refresh_scope {
         graph.unresolved_calls_for_paths(scope)
     } else {
@@ -299,6 +309,7 @@ pub(crate) fn resolve_graph_edges(
     } else {
         graph.unresolved_intents()
     };
+    let collect_unresolved_ms = collect_unresolved_started.elapsed().as_millis();
     let unresolved_call_count = unresolved_calls.len();
     let unresolved_import_count = unresolved_imports.len();
     let unresolved_impl_count = unresolved_impls.len();
@@ -315,10 +326,12 @@ pub(crate) fn resolve_graph_edges(
     let resolve_intents_started = Instant::now();
     let resolved_intents = resolve_intents(graph, unresolved_intents);
     let resolve_intents_ms = resolve_intents_started.elapsed().as_millis();
+    let extend_edges_started = Instant::now();
     graph.extend_edges(resolved_calls);
     graph.extend_edges(resolved_imports);
     graph.extend_edges(resolved_impls);
     graph.extend_edges(resolved_intents);
+    let extend_edges_ms = extend_edges_started.elapsed().as_millis();
     ResolveGraphEdgesStats {
         cleared_derived_edge_count,
         resolution_scope_path_count,
@@ -327,10 +340,14 @@ pub(crate) fn resolve_graph_edges(
         unresolved_import_count,
         unresolved_impl_count,
         unresolved_intent_count,
+        collect_scope_nodes_ms,
+        clear_derived_edges_ms,
+        collect_unresolved_ms,
         resolve_calls_ms,
         resolve_imports_ms,
         resolve_impls_ms,
         resolve_intents_ms,
+        extend_edges_ms,
     }
 }
 

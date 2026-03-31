@@ -78,6 +78,8 @@ pub struct Graph {
     unresolved_impl_target_index: HashMap<String, HashSet<PathBuf>>,
     #[serde(skip)]
     unresolved_intent_target_index: HashMap<String, HashSet<PathBuf>>,
+    #[serde(skip)]
+    derived_edge_incidence: HashMap<NodeId, usize>,
     next_file_id: u32,
 }
 
@@ -113,6 +115,7 @@ impl Graph {
             unresolved_impl_name_index: HashMap::new(),
             unresolved_impl_target_index: HashMap::new(),
             unresolved_intent_target_index: HashMap::new(),
+            derived_edge_incidence: HashMap::new(),
             next_file_id: snapshot.next_file_id,
         };
 
@@ -406,11 +409,27 @@ impl Graph {
     {
         let mut appended = 0usize;
         for edge in edges {
+            let index = self.edges.len();
+            self.adjacency
+                .entry(edge.source.clone())
+                .or_default()
+                .push(index);
+            self.reverse_adjacency
+                .entry(edge.target.clone())
+                .or_default()
+                .push(index);
+            if is_derived_kind(edge.kind) {
+                *self
+                    .derived_edge_incidence
+                    .entry(edge.source.clone())
+                    .or_default() += 1;
+                *self
+                    .derived_edge_incidence
+                    .entry(edge.target.clone())
+                    .or_default() += 1;
+            }
             self.edges.push(edge);
             appended += 1;
-        }
-        if appended > 0 {
-            self.rebuild_adjacency();
         }
         appended
     }
@@ -674,6 +693,15 @@ impl Graph {
         if node_ids.is_empty() {
             return 0;
         }
+        if !node_ids.iter().any(|node_id| {
+            self.derived_edge_incidence
+                .get(node_id)
+                .copied()
+                .unwrap_or(0)
+                > 0
+        }) {
+            return 0;
+        }
         let before = self.edges.len();
         self.edges.retain(|edge| {
             !is_derived_kind(edge.kind)
@@ -768,6 +796,7 @@ impl Graph {
     fn rebuild_adjacency(&mut self) {
         self.adjacency.clear();
         self.reverse_adjacency.clear();
+        self.derived_edge_incidence.clear();
         self.rebuild_node_indexes();
 
         for (index, edge) in self.edges.iter().enumerate() {
@@ -779,6 +808,16 @@ impl Graph {
                 .entry(edge.target.clone())
                 .or_default()
                 .push(index);
+            if is_derived_kind(edge.kind) {
+                *self
+                    .derived_edge_incidence
+                    .entry(edge.source.clone())
+                    .or_default() += 1;
+                *self
+                    .derived_edge_incidence
+                    .entry(edge.target.clone())
+                    .or_default() += 1;
+            }
         }
     }
 
