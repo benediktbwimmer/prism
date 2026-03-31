@@ -708,6 +708,24 @@ Compatibility rules:
 - existing coordination mutations may continue to exist as compatibility shims, but they should write the richer plan model rather than a separate legacy store
 - the implementation should avoid a long-lived dual model where tasks and plan nodes can drift apart semantically
 
+### Concrete ownership contract
+
+For `PlanKind::TaskExecution`, a node id that is also a `CoordinationTaskId` is task-backed.
+
+Task-backed ids follow these rules:
+
+- the coordination task is the authoritative owner of node fields such as `kind`, `title`, `summary`, `status`, `bindings`, `acceptance`, `validation_refs`, `is_abstract`, `priority`, `tags`, `base_revision`, and task assignee or handoff state
+- hydrated plan graphs may project those fields into `PlanNode` views, but that projection is read-only compatibility state, not a second mutable authority
+- compatibility mutations that target a task-backed id must route through coordination-task update semantics instead of mutating a separate native plan-node layer
+- blocker, validation, risk, and task-brief surfaces must resolve task-backed ids from coordination-task authority first and only fall back to native plan-node logic when no coordination task owns the id
+
+Standalone native plan nodes remain first-class authored state when they are not backed by a coordination task.
+
+This is the intended split:
+
+- `TaskExecution` plans use coordination tasks as the source of truth for task-backed nodes and use native plan state for graph structure, non-task authored nodes, and authored edges
+- non-`TaskExecution` plans may continue to use standalone native plan nodes as the authored node authority
+
 The new system is not a replacement of coordination. It is coordination elevated into a first-class graph substrate.
 
 ---

@@ -3,6 +3,7 @@
 set -euo pipefail
 
 ROOT="/Users/bene/code/prism"
+CLI_BIN="$ROOT/target/release/prism-cli"
 BIN="$ROOT/target/release/prism-mcp"
 URI_FILE="$ROOT/.prism/prism-mcp-http-uri"
 LOG="$ROOT/.prism/prism-mcp-daemon.log"
@@ -40,23 +41,7 @@ PY
 
 if ! is_daemon_ready; then
   rm -f "$URI_FILE"
-  /bin/sh -c 'log_path="$1"; shift; exe="$1"; shift; nohup "$exe" "$@" >>"$log_path" 2>&1 </dev/null &' \
-    prism-mcp-daemon-launcher \
-    "$LOG" \
-    "$BIN" \
-    --mode daemon \
-    --root "$ROOT" \
-    --http-uri-file "$URI_FILE" \
-    --http-path "$HTTP_PATH" \
-    --health-path "$HEALTH_PATH" \
-    --no-coordination
-
-  for _ in {1..1200}; do
-    if is_daemon_ready; then
-      break
-    fi
-    sleep 0.05
-  done
+  "$CLI_BIN" --root "$ROOT" mcp restart --no-coordination >/dev/null
 fi
 
 if ! is_daemon_ready; then

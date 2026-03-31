@@ -3834,35 +3834,62 @@ fn validation_plan_accepts_native_plan_node_task_ids() {
     let required_test =
         "test:cargo test -p prism-js api_reference_mentions_primary_tool -- --nocapture";
     let required_build = "build:cargo build --release -p prism-cli -p prism-mcp";
-    let node = host
-        .store_coordination(
-            test_session(&host).as_ref(),
-            PrismCoordinationArgs {
-                kind: CoordinationMutationKindInput::PlanNodeCreate,
-                payload: json!({
-                    "planId": plan.state["id"].as_str().unwrap(),
-                    "kind": "validate",
-                    "title": "Validate native milestone",
-                    "anchors": [{
-                        "type": "node",
-                        "crateName": "demo",
-                        "path": "demo::main",
-                        "kind": "function"
-                    }],
-                    "acceptance": [{
-                        "label": "native milestone is validated",
-                        "requiredChecks": [
-                            { "id": required_test },
-                            { "id": required_build }
-                        ],
-                        "evidencePolicy": "validation-only"
-                    }]
-                }),
-                task_id: None,
+    let node_id = "plan-node:native-validation-plan".to_string();
+    let native_graph = prism_ir::PlanGraph {
+        id: prism_ir::PlanId::new(plan.state["id"].as_str().unwrap().to_string()),
+        scope: prism_ir::PlanScope::Repo,
+        kind: prism_ir::PlanKind::Migration,
+        title: "Standalone native validation graph".into(),
+        goal: "Standalone native validation graph".into(),
+        status: prism_ir::PlanStatus::Active,
+        revision: 1,
+        root_nodes: vec![prism_ir::PlanNodeId::new(node_id.clone())],
+        tags: Vec::new(),
+        created_from: None,
+        metadata: serde_json::Value::Null,
+        nodes: vec![prism_ir::PlanNode {
+            id: prism_ir::PlanNodeId::new(node_id.clone()),
+            plan_id: prism_ir::PlanId::new(plan.state["id"].as_str().unwrap().to_string()),
+            kind: prism_ir::PlanNodeKind::Validate,
+            title: "Validate native milestone".into(),
+            summary: None,
+            status: prism_ir::PlanNodeStatus::Ready,
+            bindings: prism_ir::PlanBinding {
+                anchors: vec![prism_ir::AnchorRef::Node(demo_node().id)],
+                artifact_refs: Vec::new(),
+                concept_handles: Vec::new(),
+                memory_refs: Vec::new(),
+                outcome_refs: Vec::new(),
             },
-        )
-        .unwrap();
-    let node_id = node.state["id"].as_str().unwrap().to_string();
+            acceptance: vec![prism_ir::PlanAcceptanceCriterion {
+                label: "native milestone is validated".into(),
+                anchors: Vec::new(),
+                evidence_policy: prism_ir::AcceptanceEvidencePolicy::ValidationOnly,
+                required_checks: vec![
+                    prism_ir::ValidationRef {
+                        id: required_test.into(),
+                    },
+                    prism_ir::ValidationRef {
+                        id: required_build.into(),
+                    },
+                ],
+            }],
+            validation_refs: Vec::new(),
+            is_abstract: false,
+            assignee: None,
+            base_revision: prism_ir::WorkspaceRevision::default(),
+            priority: None,
+            tags: Vec::new(),
+            metadata: serde_json::Value::Null,
+        }],
+        edges: Vec::new(),
+    };
+    let prism = host.current_prism();
+    prism.replace_coordination_snapshot_and_plan_graphs(
+        prism.coordination_snapshot(),
+        vec![native_graph],
+        std::collections::BTreeMap::new(),
+    );
 
     let envelope = host
         .execute(

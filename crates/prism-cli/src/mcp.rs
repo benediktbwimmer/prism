@@ -1,5 +1,7 @@
 use std::collections::BTreeSet;
 use std::fs;
+use std::fs::OpenOptions;
+use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
@@ -17,6 +19,11 @@ const STOP_TIMEOUT: Duration = Duration::from_secs(10);
 const RESTART_GRACE_TIMEOUT: Duration = Duration::from_secs(3);
 const POLL_INTERVAL: Duration = Duration::from_millis(100);
 const DEFAULT_HEALTH_PATH: &str = "/healthz";
+const DEFAULT_HTTP_BIND_HOST: &str = "127.0.0.1";
+// Keep this in sync with prism-mcp's stable port selection so the CLI can
+// pass an explicit deterministic bind before the daemon starts.
+const STABLE_HTTP_PORT_BASE: u16 = 41_000;
+const STABLE_HTTP_PORT_RANGE: u16 = 20_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum McpProcessKind {
@@ -76,20 +83,44 @@ struct DaemonConnectionInfo {
     health: HealthStatus,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PortOwner {
+    pid: u32,
+    command: String,
+}
+
 struct StartupMarkerGuard {
     path: PathBuf,
 }
 
 impl StartupMarkerGuard {
-    fn create(path: &Path, operation: &str) -> Result<Self> {
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
+    fn try_create(path: &Path, operation: &str) -> Result<Option<Self>> {
+        loop {
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            match OpenOptions::new().write(true).create_new(true).open(path) {
+                Ok(mut file) => {
+                    file.write_all(operation.as_bytes()).with_context(|| {
+                        format!("failed to write startup marker {}", path.display())
+                    })?;
+                    return Ok(Some(Self {
+                        path: path.to_path_buf(),
+                    }));
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                    if read_startup_marker(path)?.is_some() {
+                        return Ok(None);
+                    }
+                    fs::remove_file(path).ok();
+                }
+                Err(error) => {
+                    return Err(error).with_context(|| {
+                        format!("failed to create startup marker {}", path.display())
+                    });
+                }
+            }
         }
-        fs::write(path, operation)
-            .with_context(|| format!("failed to write startup marker {}", path.display()))?;
-        Ok(Self {
-            path: path.to_path_buf(),
-        })
     }
 }
 
@@ -108,12 +139,14 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
         McpCommand::Start {
             no_coordination,
             internal_developer,
+            http_bind,
             shared_runtime_sqlite,
             shared_runtime_uri,
         } => start(
             &root,
             no_coordination,
             internal_developer,
+            http_bind,
             shared_runtime_sqlite,
             shared_runtime_uri,
             "start",
@@ -123,6 +156,7 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             kill_bridges,
             no_coordination,
             internal_developer,
+            http_bind,
             shared_runtime_sqlite,
             shared_runtime_uri,
         } => {
@@ -131,6 +165,7 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
                 &root,
                 no_coordination,
                 internal_developer,
+                http_bind,
                 shared_runtime_sqlite,
                 shared_runtime_uri,
                 "restart",
@@ -238,6 +273,7 @@ fn start(
     root: &Path,
     no_coordination: bool,
     internal_developer: bool,
+    http_bind: Option<String>,
     shared_runtime_sqlite: Option<PathBuf>,
     shared_runtime_uri: Option<String>,
     operation: &str,
@@ -265,13 +301,22 @@ fn start(
         fs::create_dir_all(parent)?;
     }
     fs::remove_file(&paths.uri_file).ok();
-    let _startup_marker = StartupMarkerGuard::create(&paths.startup_marker, operation)?;
+    let http_bind = resolve_http_bind(root, http_bind.as_deref());
+    let Some(_startup_marker) = StartupMarkerGuard::try_create(&paths.startup_marker, operation)?
+    else {
+        let uri = wait_for_healthy_uri(root, &paths, DEFAULT_HEALTH_PATH)?;
+        println!("daemon startup already in progress");
+        println!("uri: {uri}");
+        return status(root);
+    };
+    ensure_expected_bind_available(root, &http_bind, operation)?;
 
     let binary = prism_mcp_binary()?;
     spawn_daemon(
         root,
         &binary,
         &paths,
+        &http_bind,
         no_coordination,
         internal_developer,
         shared_runtime_sqlite.as_deref(),
@@ -522,6 +567,7 @@ fn spawn_daemon(
     root: &Path,
     binary: &Path,
     paths: &McpPaths,
+    http_bind: &str,
     no_coordination: bool,
     internal_developer: bool,
     shared_runtime_sqlite: Option<&Path>,
@@ -536,6 +582,8 @@ fn spawn_daemon(
         "--daemonize".to_string(),
         "--root".to_string(),
         root.display().to_string(),
+        "--http-bind".to_string(),
+        http_bind.to_string(),
         "--http-uri-file".to_string(),
         paths.uri_file.display().to_string(),
         "--daemon-log".to_string(),
@@ -591,6 +639,134 @@ fn chrono_like_timestamp() -> String {
     now.to_string()
 }
 
+fn resolve_http_bind(root: &Path, override_bind: Option<&str>) -> String {
+    override_bind
+        .map(ToString::to_string)
+        .unwrap_or_else(|| preferred_http_bind(root))
+}
+
+fn preferred_http_bind(root: &Path) -> String {
+    format!("{DEFAULT_HTTP_BIND_HOST}:{}", preferred_http_port(root))
+}
+
+fn preferred_http_port(root: &Path) -> u16 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    root.to_string_lossy().hash(&mut hasher);
+    STABLE_HTTP_PORT_BASE + (hasher.finish() % u64::from(STABLE_HTTP_PORT_RANGE)) as u16
+}
+
+fn ensure_expected_bind_available(root: &Path, http_bind: &str, operation: &str) -> Result<()> {
+    let Some(port) = bind_port(http_bind) else {
+        bail!("invalid MCP HTTP bind `{http_bind}`");
+    };
+    let owners = port_owners(port)?;
+    if owners.is_empty() {
+        return Ok(());
+    }
+
+    if operation == "restart"
+        && owners
+            .iter()
+            .all(|owner| is_same_root_prism_mcp(owner, root))
+    {
+        reclaim_port_from_owners(port, &owners)?;
+        let remaining = port_owners(port)?;
+        if remaining.is_empty() {
+            return Ok(());
+        }
+        bail!("{}", format_port_conflict(http_bind, &remaining));
+    }
+
+    bail!("{}", format_port_conflict(http_bind, &owners));
+}
+
+fn bind_port(bind: &str) -> Option<u16> {
+    bind.rsplit_once(':')
+        .and_then(|(_, port)| port.parse::<u16>().ok())
+}
+
+fn port_owners(port: u16) -> Result<Vec<PortOwner>> {
+    let output = Command::new("lsof")
+        .args(["-nP", &format!("-iTCP:{port}"), "-sTCP:LISTEN", "-Fp"])
+        .output()
+        .context("failed to inspect listening TCP ports with lsof")?;
+    if !output.status.success() {
+        return Ok(Vec::new());
+    }
+
+    let mut owners = Vec::new();
+    for pid in String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(|line| line.strip_prefix('p'))
+        .filter_map(|pid| pid.parse::<u32>().ok())
+        .collect::<BTreeSet<_>>()
+    {
+        let Some(command) = process_command(pid)? else {
+            continue;
+        };
+        owners.push(PortOwner { pid, command });
+    }
+    Ok(owners)
+}
+
+fn process_command(pid: u32) -> Result<Option<String>> {
+    let output = Command::new("ps")
+        .args(["-p", &pid.to_string(), "-o", "command="])
+        .output()
+        .context("failed to inspect process command with ps")?;
+    if !output.status.success() {
+        return Ok(None);
+    }
+    let command = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if command.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(command))
+}
+
+fn is_same_root_prism_mcp(owner: &PortOwner, root: &Path) -> bool {
+    let Some(command_root) = command_option_value(&owner.command, "--root") else {
+        return false;
+    };
+    owner.command.contains("prism-mcp") && Path::new(&command_root) == root
+}
+
+fn reclaim_port_from_owners(port: u16, owners: &[PortOwner]) -> Result<()> {
+    let pids = owners.iter().map(|owner| owner.pid).collect::<Vec<_>>();
+    signal_pids(&pids, "-TERM")?;
+    wait_for_port_release(port, STOP_TIMEOUT)?;
+    let remaining = port_owners(port)?;
+    if remaining.is_empty() {
+        return Ok(());
+    }
+    let remaining_pids = remaining.iter().map(|owner| owner.pid).collect::<Vec<_>>();
+    signal_pids(&remaining_pids, "-KILL")?;
+    wait_for_port_release(port, Duration::from_secs(2))
+}
+
+fn wait_for_port_release(port: u16, timeout: Duration) -> Result<()> {
+    let deadline = Instant::now() + timeout;
+    while Instant::now() < deadline {
+        if port_owners(port)?.is_empty() {
+            return Ok(());
+        }
+        thread::sleep(POLL_INTERVAL);
+    }
+    let remaining = port_owners(port)?;
+    bail!(
+        "{}",
+        format_port_conflict(&format!("{DEFAULT_HTTP_BIND_HOST}:{port}"), &remaining)
+    )
+}
+
+fn format_port_conflict(http_bind: &str, owners: &[PortOwner]) -> String {
+    let mut message = format!("PRISM MCP expected HTTP bind {http_bind} is already in use.");
+    for owner in owners {
+        message.push_str(&format!("\n- pid={} command={}", owner.pid, owner.command));
+    }
+    message
+}
+
 fn wait_for_healthy_uri(root: &Path, paths: &McpPaths, health_path: &str) -> Result<String> {
     let deadline = Instant::now() + START_TIMEOUT;
     while Instant::now() < deadline {
@@ -619,13 +795,21 @@ fn wait_for_healthy_uri(root: &Path, paths: &McpPaths, health_path: &str) -> Res
 }
 
 fn signal_processes(processes: &[McpProcess], signal: &str) -> Result<()> {
-    if processes.is_empty() {
+    let pids = processes
+        .iter()
+        .map(|process| process.pid)
+        .collect::<Vec<_>>();
+    signal_pids(&pids, signal)
+}
+
+fn signal_pids(pids: &[u32], signal: &str) -> Result<()> {
+    if pids.is_empty() {
         return Ok(());
     }
     let mut command = Command::new("kill");
     command.arg(signal);
-    for process in processes {
-        command.arg(process.pid.to_string());
+    for pid in pids {
+        command.arg(pid.to_string());
     }
     let output = command.output().context("failed to invoke kill")?;
     if !output.status.success() {
@@ -1239,6 +1423,57 @@ mod tests {
         .unwrap();
 
         assert_eq!(uri.as_deref(), Some("http://127.0.0.1:41000/mcp"));
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn startup_marker_try_create_is_exclusive_for_fresh_markers() {
+        let root = temp_root("startup-marker");
+        let marker_path = root.join(".prism").join("prism-mcp-startup");
+
+        let first = StartupMarkerGuard::try_create(&marker_path, "restart")
+            .unwrap()
+            .expect("first marker acquisition should succeed");
+        assert_eq!(
+            read_startup_marker(&marker_path)
+                .unwrap()
+                .map(|marker| marker.operation),
+            Some("restart")
+        );
+
+        let second = StartupMarkerGuard::try_create(&marker_path, "start").unwrap();
+        assert!(second.is_none());
+
+        drop(first);
+
+        let third = StartupMarkerGuard::try_create(&marker_path, "start")
+            .unwrap()
+            .expect("marker should be acquirable after the first guard drops");
+        drop(third);
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn preferred_http_bind_is_deterministic_for_a_workspace_root() {
+        let root = temp_root("preferred-http-bind");
+        let left = preferred_http_bind(&root);
+        let right = preferred_http_bind(&root);
+        assert_eq!(left, right);
+        assert!(left.starts_with("127.0.0.1:"));
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn same_root_prism_mcp_conflicts_are_reclaimable() {
+        let root = temp_root("same-root-owner");
+        let owner = PortOwner {
+            pid: 42,
+            command: format!(
+                "/tmp/prism-mcp --mode daemon --root {} --http-bind 127.0.0.1:52695",
+                root.display()
+            ),
+        };
+        assert!(is_same_root_prism_mcp(&owner, &root));
         fs::remove_dir_all(root).ok();
     }
 }

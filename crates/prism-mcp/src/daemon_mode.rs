@@ -26,6 +26,8 @@ const DEFAULT_DAEMON_START_TIMEOUT_MS: u64 = 60_000;
 const STABLE_HTTP_PORT_BASE: u16 = 41_000;
 const STABLE_HTTP_PORT_RANGE: u16 = 20_000;
 const STABLE_HTTP_PORT_ATTEMPTS: u16 = 128;
+const PREFERRED_STABLE_HTTP_BIND_WAIT: Duration = Duration::from_secs(3);
+const PREFERRED_STABLE_HTTP_BIND_POLL: Duration = Duration::from_millis(50);
 
 pub(crate) fn default_http_uri_file_path(root: &Path) -> PathBuf {
     root.join(".prism").join("prism-mcp-http-uri")
@@ -123,16 +125,9 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
 
 async fn bind_listener(cli: &PrismMcpCli, root: &Path) -> Result<TcpListener> {
     if let Some(host) = auto_bind_host(&cli.http_bind) {
-        for candidate in stable_http_bind_candidates(host, root) {
-            match TcpListener::bind(&candidate).await {
-                Ok(listener) => return Ok(listener),
-                Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => continue,
-                Err(error) => {
-                    return Err(error).with_context(|| {
-                        format!("failed to bind PRISM MCP HTTP listener at {candidate}")
-                    });
-                }
-            }
+        let candidates = stable_http_bind_candidates(host, root);
+        if let Some(listener) = bind_stable_listener(cli, root, &candidates).await? {
+            return Ok(listener);
         }
         warn!(
             root = %root.display(),
@@ -147,6 +142,62 @@ async fn bind_listener(cli: &PrismMcpCli, root: &Path) -> Result<TcpListener> {
             cli.http_bind
         )
     })
+}
+
+async fn bind_stable_listener(
+    cli: &PrismMcpCli,
+    root: &Path,
+    candidates: &[String],
+) -> Result<Option<TcpListener>> {
+    let Some((preferred, fallbacks)) = candidates.split_first() else {
+        return Ok(None);
+    };
+
+    if let Some(listener) = bind_preferred_stable_listener(preferred).await? {
+        return Ok(Some(listener));
+    }
+
+    warn!(
+        root = %root.display(),
+        configured_bind = %cli.http_bind,
+        preferred_bind = %preferred,
+        wait_ms = PREFERRED_STABLE_HTTP_BIND_WAIT.as_millis(),
+        "preferred PRISM MCP port stayed busy during startup; scanning fallback stable ports"
+    );
+
+    for candidate in fallbacks {
+        match TcpListener::bind(candidate).await {
+            Ok(listener) => return Ok(Some(listener)),
+            Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => continue,
+            Err(error) => {
+                return Err(error).with_context(|| {
+                    format!("failed to bind PRISM MCP HTTP listener at {candidate}")
+                });
+            }
+        }
+    }
+
+    Ok(None)
+}
+
+async fn bind_preferred_stable_listener(preferred: &str) -> Result<Option<TcpListener>> {
+    let deadline = Instant::now() + PREFERRED_STABLE_HTTP_BIND_WAIT;
+    loop {
+        match TcpListener::bind(preferred).await {
+            Ok(listener) => return Ok(Some(listener)),
+            Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
+                if Instant::now() >= deadline {
+                    return Ok(None);
+                }
+                sleep(PREFERRED_STABLE_HTTP_BIND_POLL).await;
+            }
+            Err(error) => {
+                return Err(error).with_context(|| {
+                    format!("failed to bind PRISM MCP HTTP listener at {preferred}")
+                });
+            }
+        }
+    }
 }
 
 async fn run_bridge(cli: &PrismMcpCli, root: &Path) -> Result<()> {
@@ -516,11 +567,16 @@ impl Drop for HttpUriFileGuard {
 
 #[cfg(test)]
 mod tests {
-    use super::{auto_bind_host, bind_listener, stable_http_bind_candidates, HttpUriFileGuard};
+    use super::{
+        auto_bind_host, bind_listener, stable_http_bind_candidates, HttpUriFileGuard,
+        PREFERRED_STABLE_HTTP_BIND_POLL,
+    };
     use crate::{PrismMcpCli, PrismMcpMode};
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
+    use tokio::net::TcpListener as TokioTcpListener;
+    use tokio::time::sleep;
 
     fn test_cli(root: PathBuf, http_bind: &str) -> PrismMcpCli {
         PrismMcpCli {
@@ -611,5 +667,27 @@ mod tests {
         let second_addr = second.local_addr().unwrap();
 
         assert_eq!(first_addr, second_addr);
+    }
+
+    #[tokio::test]
+    async fn bind_listener_waits_for_the_preferred_workspace_port_before_fallback() {
+        let root = temp_root("preferred-port-wait");
+        let cli = test_cli(root.clone(), "127.0.0.1:0");
+        let preferred = stable_http_bind_candidates("127.0.0.1", &root)
+            .into_iter()
+            .next()
+            .unwrap();
+
+        let blocker = TokioTcpListener::bind(&preferred).await.unwrap();
+        let release = tokio::spawn(async move {
+            sleep(PREFERRED_STABLE_HTTP_BIND_POLL * 2).await;
+            drop(blocker);
+        });
+
+        let listener = bind_listener(&cli, &root).await.unwrap();
+        let addr = listener.local_addr().unwrap().to_string();
+
+        release.await.unwrap();
+        assert_eq!(addr, preferred);
     }
 }

@@ -88,6 +88,8 @@ pub enum McpCommand {
         no_coordination: bool,
         #[arg(long, default_value_t = false)]
         internal_developer: bool,
+        #[arg(long = "http-bind")]
+        http_bind: Option<String>,
         #[arg(long = "shared-runtime-sqlite")]
         shared_runtime_sqlite: Option<PathBuf>,
         #[arg(long = "shared-runtime-uri")]
@@ -106,6 +108,8 @@ pub enum McpCommand {
         no_coordination: bool,
         #[arg(long, default_value_t = false)]
         internal_developer: bool,
+        #[arg(long = "http-bind")]
+        http_bind: Option<String>,
         #[arg(long = "shared-runtime-sqlite")]
         shared_runtime_sqlite: Option<PathBuf>,
         #[arg(long = "shared-runtime-uri")]
@@ -215,6 +219,7 @@ mod tests {
                         kill_bridges,
                         no_coordination,
                         internal_developer,
+                        http_bind,
                         shared_runtime_sqlite,
                         shared_runtime_uri,
                     },
@@ -222,6 +227,7 @@ mod tests {
                 assert!(!kill_bridges);
                 assert!(!no_coordination);
                 assert!(!internal_developer);
+                assert!(http_bind.is_none());
                 assert!(shared_runtime_sqlite.is_none());
                 assert!(shared_runtime_uri.is_none());
             }
@@ -261,6 +267,17 @@ mod tests {
                         internal_developer, ..
                     },
             } => assert!(internal_developer),
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn mcp_start_accepts_http_bind_override() {
+        let cli = Cli::parse_from(["prism", "mcp", "start", "--http-bind", "127.0.0.1:43123"]);
+        match cli.command {
+            Command::Mcp {
+                command: McpCommand::Start { http_bind, .. },
+            } => assert_eq!(http_bind.as_deref(), Some("127.0.0.1:43123")),
             _ => panic!("unexpected command"),
         }
     }
