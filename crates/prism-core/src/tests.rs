@@ -896,6 +896,7 @@ fn reload_preserves_lineage_patch_outcomes_memory_and_projections_after_rename()
             entries: vec![note],
         })
         .unwrap();
+    session.flush_materializations().unwrap();
 
     fs::write(
         root.join("src/lib.rs"),
@@ -947,6 +948,7 @@ fn reload_preserves_lineage_patch_outcomes_memory_and_projections_after_rename()
             metadata: serde_json::Value::Null,
         })
         .unwrap();
+    session.flush_materializations().unwrap();
 
     let reloaded = index_workspace_session(&root).unwrap();
     let reloaded_prism = reloaded.prism();
@@ -1088,6 +1090,63 @@ fn reload_bounds_hot_outcomes_but_queries_cold_outcomes_from_store() {
 }
 
 #[test]
+fn persist_outcomes_flushes_checkpoint_materialization() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::alpha")
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+    session
+        .prism()
+        .outcome_memory()
+        .store_event(OutcomeEvent {
+            meta: EventMeta {
+                id: EventId::new("outcome:checkpoint:test"),
+                ts: 33,
+                actor: EventActor::Agent,
+                correlation: None,
+                causation: None,
+            },
+            anchors: vec![AnchorRef::Node(alpha.clone())],
+            kind: OutcomeKind::FailureObserved,
+            result: OutcomeResult::Failure,
+            summary: "checkpointed outcome".into(),
+            evidence: Vec::new(),
+            metadata: serde_json::Value::Null,
+        })
+        .unwrap();
+    session.persist_outcomes().unwrap();
+    session.flush_materializations().unwrap();
+
+    drop(session);
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let events = reloaded.prism().query_outcomes(&OutcomeRecallQuery {
+        anchors: vec![AnchorRef::Node(alpha)],
+        limit: 10,
+        ..OutcomeRecallQuery::default()
+    });
+    assert!(events
+        .iter()
+        .any(|event| event.meta.id == EventId::new("outcome:checkpoint:test")));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn workspace_session_load_methods_prefer_hot_outcomes_over_unpersisted_store_state() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -1124,7 +1183,11 @@ fn workspace_session_load_methods_prefer_hot_outcomes_over_unpersisted_store_sta
         evidence: Vec::new(),
         metadata: serde_json::Value::Null,
     };
-    session.prism().outcome_memory().store_event(event.clone()).unwrap();
+    session
+        .prism()
+        .outcome_memory()
+        .store_event(event.clone())
+        .unwrap();
 
     let replay = session.load_task_replay(&task_id).unwrap();
     assert_eq!(replay.task, task_id);
@@ -4318,7 +4381,7 @@ fn index_workspace_tracks_unsupported_text_files_for_file_anchors() {
 }
 
 #[test]
-fn appended_outcome_persists_projection_snapshot() {
+fn appended_outcome_flushes_projection_materialization_off_request_path() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
     fs::write(
@@ -4357,6 +4420,7 @@ fn appended_outcome_persists_projection_snapshot() {
             metadata: serde_json::Value::Null,
         })
         .unwrap();
+    session.flush_materializations().unwrap();
     drop(session);
 
     let prism = index_workspace(&root).unwrap();

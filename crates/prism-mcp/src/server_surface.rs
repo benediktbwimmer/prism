@@ -153,6 +153,7 @@ impl PrismMcpServer {
         let _ = self.host.mcp_call_log_store.push(PersistedMcpCallRecord {
             entry,
             phases,
+            request_payload: request_preview.clone(),
             request_preview: request_preview
                 .as_ref()
                 .and_then(crate::mcp_call_log::preview_value),

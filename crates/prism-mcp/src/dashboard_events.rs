@@ -363,6 +363,13 @@ impl MutationRun {
             result_ids,
             violation_count,
         };
+        let request_payload = crate::request_envelope::current_specialized_request_payload()
+            .unwrap_or_else(|| {
+                json!({
+                    "tool": self.tool_name,
+                    "action": self.action,
+                })
+            });
         let record = PersistedMcpCallRecord {
             entry: new_log_entry(
                 self.mcp_call_log_store.runtime(),
@@ -379,17 +386,12 @@ impl MutationRun {
                 unique_operations(&phases),
                 unique_touches(&phases),
                 Vec::new(),
-                payload_summary(Some(&json!({
-                    "tool": self.tool_name,
-                    "action": self.action,
-                }))),
+                payload_summary(Some(&request_payload)),
                 payload_summary(Some(&result)),
             ),
             phases: phases.clone(),
-            request_preview: Some(json!({
-                "tool": self.tool_name,
-                "action": self.action,
-            })),
+            request_payload: Some(request_payload.clone()),
+            request_preview: preview_value(&request_payload),
             response_preview: preview_value(&result),
             metadata: {
                 metadata["resultIds"] = json!(entry.result_ids.clone());
@@ -446,6 +448,13 @@ impl MutationRun {
             result_ids: Vec::new(),
             violation_count: 0,
         };
+        let request_payload = crate::request_envelope::current_specialized_request_payload()
+            .unwrap_or_else(|| {
+                json!({
+                    "tool": self.tool_name,
+                    "action": self.action,
+                })
+            });
         let record = PersistedMcpCallRecord {
             entry: new_log_entry(
                 self.mcp_call_log_store.runtime(),
@@ -462,17 +471,12 @@ impl MutationRun {
                 unique_operations(&phases),
                 unique_touches(&phases),
                 Vec::new(),
-                payload_summary(Some(&json!({
-                    "tool": self.tool_name,
-                    "action": self.action,
-                }))),
+                payload_summary(Some(&request_payload)),
                 payload_summary(None),
             ),
             phases: phases.clone(),
-            request_preview: Some(json!({
-                "tool": self.tool_name,
-                "action": self.action,
-            })),
+            request_payload: Some(request_payload.clone()),
+            request_preview: preview_value(&request_payload),
             response_preview: None,
             metadata,
             query_compat: None,
@@ -553,6 +557,13 @@ impl Drop for MutationRun {
             result_ids: Vec::new(),
             violation_count: 0,
         };
+        let request_payload = crate::request_envelope::current_specialized_request_payload()
+            .unwrap_or_else(|| {
+                json!({
+                    "tool": self.tool_name,
+                    "action": self.action,
+                })
+            });
         let record = PersistedMcpCallRecord {
             entry: new_log_entry(
                 self.mcp_call_log_store.runtime(),
@@ -560,7 +571,7 @@ impl Drop for MutationRun {
                 &self.tool_name,
                 None,
                 self.action.clone(),
-                self.started_at,
+                started_at,
                 entry.duration_ms,
                 Some(self.session_id.clone()),
                 entry.task_id.clone(),
@@ -569,17 +580,12 @@ impl Drop for MutationRun {
                 unique_operations(&phases),
                 unique_touches(&phases),
                 Vec::new(),
-                payload_summary(Some(&json!({
-                    "tool": self.tool_name,
-                    "action": self.action,
-                }))),
+                payload_summary(Some(&request_payload)),
                 payload_summary(None),
             ),
             phases: phases.clone(),
-            request_preview: Some(json!({
-                "tool": self.tool_name,
-                "action": self.action,
-            })),
+            request_payload: Some(request_payload.clone()),
+            request_preview: preview_value(&request_payload),
             response_preview: None,
             metadata,
             query_compat: None,

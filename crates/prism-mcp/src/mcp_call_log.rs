@@ -20,7 +20,7 @@ use crate::{McpLogArgs, QueryHost};
 const DEFAULT_MCP_LOG_LIMIT: usize = 20;
 const DEFAULT_SLOW_MCP_LIMIT: usize = 20;
 const DEFAULT_SLOW_MCP_MIN_DURATION_MS: u64 = 100;
-const DEFAULT_MCP_CALL_LOG_MAX_BYTES: u64 = 64 * 1024 * 1024;
+const DEFAULT_MCP_CALL_LOG_MAX_BYTES: u64 = 1024 * 1024 * 1024;
 const DEFAULT_MCP_CALL_LOG_SEGMENT_MAX_BYTES: u64 = 8 * 1024 * 1024;
 const MCP_CALL_LOG_MAX_BYTES_ENV: &str = "PRISM_MCP_CALL_LOG_MAX_BYTES";
 const MAX_SUMMARY_CHARS: usize = 160;
@@ -48,6 +48,7 @@ pub(crate) struct McpCallLogStore {
 pub(crate) struct PersistedMcpCallRecord {
     pub(crate) entry: McpCallLogEntryView,
     pub(crate) phases: Vec<QueryPhaseView>,
+    pub(crate) request_payload: Option<Value>,
     pub(crate) request_preview: Option<Value>,
     pub(crate) response_preview: Option<Value>,
     pub(crate) metadata: Value,
@@ -181,6 +182,7 @@ impl McpCallLogStore {
             .map(|record| McpCallTraceView {
                 entry: record.entry,
                 phases: record.phases,
+                request_payload: record.request_payload,
                 request_preview: record.request_preview,
                 response_preview: record.response_preview,
                 metadata: record.metadata,
@@ -1041,6 +1043,7 @@ mod tests {
                 success: true,
                 error: None,
             }],
+            request_payload: Some(request.clone()),
             request_preview: preview_value(&request),
             response_preview: preview_value(&response),
             metadata: json!({
@@ -1082,6 +1085,7 @@ mod tests {
                 payload_summary(None),
             ),
             phases: vec![],
+            request_payload: Some(request_preview.clone()),
             request_preview: Some(request_preview.clone()),
             response_preview: None,
             metadata: request_preview,
@@ -1128,6 +1132,13 @@ mod tests {
         let trace = store.trace(&entries[0].id).expect("trace should exist");
         assert_eq!(trace.entry.summary, "record 2");
         assert_eq!(trace.metadata["index"], 2);
+        assert_eq!(
+            trace
+                .request_payload
+                .as_ref()
+                .and_then(|value| value["path"].as_str()),
+            Some("src/file-2.rs")
+        );
         assert!(trace.request_preview.is_some());
         assert!(trace.response_preview.is_some());
     }

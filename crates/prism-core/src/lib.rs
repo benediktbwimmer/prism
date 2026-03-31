@@ -1,4 +1,5 @@
 mod admission;
+mod checkpoint_materializer;
 mod concept_events;
 mod concept_relation_events;
 mod contract_events;

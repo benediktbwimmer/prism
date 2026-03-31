@@ -468,6 +468,19 @@ impl Store for SqliteStore {
         Ok(inserted)
     }
 
+    fn apply_validation_deltas(
+        &mut self,
+        deltas: &[prism_projections::ValidationDelta],
+    ) -> Result<()> {
+        if deltas.is_empty() {
+            return Ok(());
+        }
+        let tx = self.conn.transaction()?;
+        projections::apply_projection_validation_deltas_tx(&tx, deltas)?;
+        tx.commit()?;
+        Ok(())
+    }
+
     fn save_outcome_snapshot_with_validation_deltas(
         &mut self,
         snapshot: &prism_memory::OutcomeMemorySnapshot,

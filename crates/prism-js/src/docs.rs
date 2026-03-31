@@ -1372,6 +1372,7 @@ type McpCallLogEntryView = {
 type McpCallTraceView = {
   entry: McpCallLogEntryView;
   phases: QueryPhaseView[];
+  requestPayload?: unknown;
   requestPreview?: unknown;
   responsePreview?: unknown;
   metadata: unknown;

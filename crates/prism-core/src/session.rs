@@ -34,6 +34,7 @@ pub use prism_store::SnapshotRevisions as WorkspaceSnapshotRevisions;
 pub(crate) const HOT_OUTCOME_HYDRATION_LIMIT: usize = 256;
 
 use crate::admission::AdmissionBusyError;
+use crate::checkpoint_materializer::CheckpointMaterializerHandle;
 use crate::concept_events::{append_repo_concept_event, load_repo_curated_concepts};
 use crate::concept_relation_events::{
     append_repo_concept_relation_event, load_repo_concept_relations,
@@ -305,6 +306,8 @@ pub struct WorkspaceSession {
     pub(crate) fs_snapshot: Arc<Mutex<WorkspaceTreeSnapshot>>,
     pub(crate) watch: Option<WatchHandle>,
     pub(crate) curator: Option<CuratorHandle>,
+    pub(crate) checkpoint_materializer: Option<CheckpointMaterializerHandle>,
+    pub(crate) shared_runtime_materializer: Option<CheckpointMaterializerHandle>,
     pub(crate) coordination_enabled: bool,
 }
 
@@ -633,18 +636,22 @@ impl WorkspaceSession {
     pub fn persist_outcomes(&self) -> Result<()> {
         let _guard = self.lock_refresh_for_mutation("persistOutcomes");
         let prism = self.prism_arc();
-        let mut store = Self::lock_store_for_mutation(
-            &self.store,
-            "mutation.waitWorkspaceStoreLock",
-            "persistOutcomes",
-        );
         let persist_started = Instant::now();
-        let result = store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
-            outcome_snapshot: Some(prism.outcome_snapshot()),
-            ..AuxiliaryPersistBatch::default()
-        });
+        let snapshot = prism.outcome_snapshot();
+        let result = self
+            .checkpoint_materializer
+            .as_ref()
+            .map(|materializer| materializer.enqueue_outcome_snapshot(snapshot.clone()))
+            .unwrap_or_else(|| {
+                let mut store = Self::lock_store_for_mutation(
+                    &self.store,
+                    "mutation.waitWorkspaceStoreLock",
+                    "persistOutcomes",
+                );
+                store.save_outcome_snapshot(&snapshot)
+            });
         mutation_trace::record_phase(
-            "mutation.persistOutcomes",
+            "mutation.persistOutcomesSchedule",
             json!({}),
             persist_started.elapsed(),
             result.is_ok(),
@@ -937,37 +944,42 @@ impl WorkspaceSession {
     pub fn persist_episodic(&self, snapshot: &EpisodicMemorySnapshot) -> Result<()> {
         if let Some(shared_runtime_store) = self.shared_runtime_store() {
             let (local_snapshot, shared_snapshot) = split_episodic_snapshot_for_persist(snapshot);
-            let mut store = Self::lock_store_for_mutation(
-                &self.store,
-                "mutation.waitWorkspaceStoreLock",
-                "persistEpisodicLocal",
-            );
             let local_started = Instant::now();
-            let local_result = store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
-                episodic_snapshot: Some(local_snapshot),
-                ..AuxiliaryPersistBatch::default()
-            });
+            let local_result = self
+                .checkpoint_materializer
+                .as_ref()
+                .map(|materializer| materializer.enqueue_episodic_snapshot(local_snapshot.clone()))
+                .unwrap_or_else(|| {
+                    let mut store = Self::lock_store_for_mutation(
+                        &self.store,
+                        "mutation.waitWorkspaceStoreLock",
+                        "persistEpisodicLocal",
+                    );
+                    store.save_episodic_snapshot(&local_snapshot)
+                });
             mutation_trace::record_phase(
-                "mutation.persistEpisodic",
+                "mutation.persistEpisodicSchedule",
                 json!({ "target": "workspace" }),
                 local_started.elapsed(),
                 local_result.is_ok(),
                 local_result.as_ref().err().map(ToString::to_string),
             );
             local_result?;
-            let mut shared_store = Self::lock_store_for_mutation(
-                shared_runtime_store,
-                "mutation.waitSharedRuntimeStoreLock",
-                "persistEpisodicShared",
-            );
             let shared_started = Instant::now();
-            let shared_result =
-                shared_store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
-                    episodic_snapshot: Some(shared_snapshot),
-                    ..AuxiliaryPersistBatch::default()
+            let shared_result = self
+                .shared_runtime_materializer
+                .as_ref()
+                .map(|materializer| materializer.enqueue_episodic_snapshot(shared_snapshot.clone()))
+                .unwrap_or_else(|| {
+                    let mut shared_store = Self::lock_store_for_mutation(
+                        shared_runtime_store,
+                        "mutation.waitSharedRuntimeStoreLock",
+                        "persistEpisodicShared",
+                    );
+                    shared_store.save_episodic_snapshot(&shared_snapshot)
                 });
             mutation_trace::record_phase(
-                "mutation.persistEpisodic",
+                "mutation.persistEpisodicSchedule",
                 json!({ "target": "sharedRuntime" }),
                 shared_started.elapsed(),
                 shared_result.is_ok(),
@@ -975,18 +987,21 @@ impl WorkspaceSession {
             );
             shared_result?;
         } else {
-            let mut store = Self::lock_store_for_mutation(
-                &self.store,
-                "mutation.waitWorkspaceStoreLock",
-                "persistEpisodic",
-            );
             let persist_started = Instant::now();
-            let result = store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
-                episodic_snapshot: Some(snapshot.clone()),
-                ..AuxiliaryPersistBatch::default()
-            });
+            let result = self
+                .checkpoint_materializer
+                .as_ref()
+                .map(|materializer| materializer.enqueue_episodic_snapshot(snapshot.clone()))
+                .unwrap_or_else(|| {
+                    let mut store = Self::lock_store_for_mutation(
+                        &self.store,
+                        "mutation.waitWorkspaceStoreLock",
+                        "persistEpisodic",
+                    );
+                    store.save_episodic_snapshot(snapshot)
+                });
             mutation_trace::record_phase(
-                "mutation.persistEpisodic",
+                "mutation.persistEpisodicSchedule",
                 json!({ "target": "workspace" }),
                 persist_started.elapsed(),
                 result.is_ok(),
@@ -1313,14 +1328,25 @@ impl WorkspaceSession {
     }
 
     pub fn persist_inference(&self, snapshot: &InferenceSnapshot) -> Result<()> {
-        self.store
-            .lock()
-            .expect("workspace store lock poisoned")
-            .commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
-                inference_records: Vec::new(),
-                inference_snapshot: Some(snapshot.clone()),
-                ..AuxiliaryPersistBatch::default()
-            })
+        let persist_started = Instant::now();
+        let result = self
+            .checkpoint_materializer
+            .as_ref()
+            .map(|materializer| materializer.enqueue_inference_snapshot(snapshot.clone()))
+            .unwrap_or_else(|| {
+                self.store
+                    .lock()
+                    .expect("workspace store lock poisoned")
+                    .save_inference_snapshot(snapshot)
+            });
+        mutation_trace::record_phase(
+            "mutation.persistInferenceSchedule",
+            json!({ "target": "workspace" }),
+            persist_started.elapsed(),
+            result.is_ok(),
+            result.as_ref().err().map(ToString::to_string),
+        );
+        result
     }
 
     pub fn load_coordination_snapshot(&self) -> Result<Option<CoordinationSnapshot>> {
@@ -1866,16 +1892,13 @@ impl WorkspaceSession {
             "appendOutcomeWithAuxiliary",
         );
         let persist_started = Instant::now();
-        let persist_result = store.commit_auxiliary_persist_batch(&AuxiliaryPersistBatch {
-            outcome_snapshot: None,
-            outcome_events: vec![persisted_event],
-            validation_deltas: deltas,
-            memory_events,
-            episodic_snapshot,
-            inference_records: Vec::new(),
-            inference_snapshot,
-            curator_snapshot: None,
-        });
+        let event_result = store.append_outcome_events(&[persisted_event], &[]);
+        let memory_result = if event_result.is_ok() && !memory_events.is_empty() {
+            store.append_memory_events(&memory_events).map(|_| ())
+        } else {
+            Ok(())
+        };
+        let persist_result = event_result.and(memory_result);
         mutation_trace::record_phase(
             "mutation.appendOutcomePersist",
             json!({}),
@@ -1884,6 +1907,67 @@ impl WorkspaceSession {
             persist_result.as_ref().err().map(ToString::to_string),
         );
         persist_result?;
+        if !deltas.is_empty() {
+            let materialize_started = Instant::now();
+            let enqueue_result = self
+                .checkpoint_materializer
+                .as_ref()
+                .map(|materializer| materializer.enqueue_validation_deltas(deltas.clone()))
+                .unwrap_or_else(|| store.apply_validation_deltas(&deltas));
+            mutation_trace::record_phase(
+                "mutation.appendOutcomeScheduleMaterialization",
+                json!({ "validationDeltaCount": deltas.len() }),
+                materialize_started.elapsed(),
+                enqueue_result.is_ok(),
+                enqueue_result.as_ref().err().map(ToString::to_string),
+            );
+            if let Err(error) = enqueue_result {
+                let fallback_started = Instant::now();
+                let fallback_result = store.apply_validation_deltas(&deltas);
+                mutation_trace::record_phase(
+                    "mutation.appendOutcomeMaterializationFallback",
+                    json!({ "validationDeltaCount": deltas.len() }),
+                    fallback_started.elapsed(),
+                    fallback_result.is_ok(),
+                    fallback_result.as_ref().err().map(ToString::to_string),
+                );
+                if fallback_result.is_err() {
+                    return Err(error);
+                }
+            }
+        }
+        if let Some(snapshot) = episodic_snapshot {
+            let materialize_started = Instant::now();
+            let enqueue_result = self
+                .checkpoint_materializer
+                .as_ref()
+                .map(|materializer| materializer.enqueue_episodic_snapshot(snapshot.clone()))
+                .unwrap_or_else(|| store.save_episodic_snapshot(&snapshot));
+            mutation_trace::record_phase(
+                "mutation.appendOutcomeScheduleMaterialization",
+                json!({ "kind": "episodicSnapshot" }),
+                materialize_started.elapsed(),
+                enqueue_result.is_ok(),
+                enqueue_result.as_ref().err().map(ToString::to_string),
+            );
+            enqueue_result?;
+        }
+        if let Some(snapshot) = inference_snapshot {
+            let materialize_started = Instant::now();
+            let enqueue_result = self
+                .checkpoint_materializer
+                .as_ref()
+                .map(|materializer| materializer.enqueue_inference_snapshot(snapshot.clone()))
+                .unwrap_or_else(|| store.save_inference_snapshot(&snapshot));
+            mutation_trace::record_phase(
+                "mutation.appendOutcomeScheduleMaterialization",
+                json!({ "kind": "inferenceSnapshot" }),
+                materialize_started.elapsed(),
+                enqueue_result.is_ok(),
+                enqueue_result.as_ref().err().map(ToString::to_string),
+            );
+            enqueue_result?;
+        }
         if let Some(curator) = &self.curator {
             let curator_started = Instant::now();
             enqueue_curator_for_outcome_locked(curator, prism.as_ref(), &mut store, id.clone())?;
@@ -1898,6 +1982,16 @@ impl WorkspaceSession {
         Ok(id)
     }
 
+    pub fn flush_materializations(&self) -> Result<()> {
+        if let Some(materializer) = &self.checkpoint_materializer {
+            materializer.flush()?;
+        }
+        if let Some(materializer) = &self.shared_runtime_materializer {
+            materializer.flush()?;
+        }
+        Ok(())
+    }
+
     fn append_outcome_guarded(&self, event: OutcomeEvent) -> Result<EventId> {
         let prism = self.prism_arc();
         let deltas = validation_deltas_for_event(&event, |node| prism.lineage_of(node));
@@ -1910,7 +2004,7 @@ impl WorkspaceSession {
             "appendOutcome",
         );
         let persist_started = Instant::now();
-        let persist_result = store.append_outcome_events(&[persisted_event], &deltas);
+        let persist_result = store.append_outcome_events(&[persisted_event], &[]);
         mutation_trace::record_phase(
             "mutation.appendOutcomePersist",
             json!({}),
@@ -1919,6 +2013,35 @@ impl WorkspaceSession {
             persist_result.as_ref().err().map(ToString::to_string),
         );
         persist_result?;
+        if !deltas.is_empty() {
+            let materialize_started = Instant::now();
+            let enqueue_result = self
+                .checkpoint_materializer
+                .as_ref()
+                .map(|materializer| materializer.enqueue_validation_deltas(deltas.clone()))
+                .unwrap_or_else(|| store.apply_validation_deltas(&deltas));
+            mutation_trace::record_phase(
+                "mutation.appendOutcomeScheduleMaterialization",
+                json!({ "validationDeltaCount": deltas.len() }),
+                materialize_started.elapsed(),
+                enqueue_result.is_ok(),
+                enqueue_result.as_ref().err().map(ToString::to_string),
+            );
+            if let Err(error) = enqueue_result {
+                let fallback_started = Instant::now();
+                let fallback_result = store.apply_validation_deltas(&deltas);
+                mutation_trace::record_phase(
+                    "mutation.appendOutcomeMaterializationFallback",
+                    json!({ "validationDeltaCount": deltas.len() }),
+                    fallback_started.elapsed(),
+                    fallback_result.is_ok(),
+                    fallback_result.as_ref().err().map(ToString::to_string),
+                );
+                if fallback_result.is_err() {
+                    return Err(error);
+                }
+            }
+        }
         if let Some(curator) = &self.curator {
             let curator_started = Instant::now();
             enqueue_curator_for_outcome_locked(curator, prism.as_ref(), &mut store, id.clone())?;
@@ -1997,6 +2120,12 @@ impl Drop for WorkspaceSession {
         }
         if let Some(mut curator) = self.curator.take() {
             curator.stop();
+        }
+        if let Some(mut materializer) = self.checkpoint_materializer.take() {
+            materializer.stop();
+        }
+        if let Some(mut materializer) = self.shared_runtime_materializer.take() {
+            materializer.stop();
         }
     }
 }

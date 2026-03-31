@@ -17,6 +17,7 @@ use prism_query::Prism;
 use prism_store::{Graph, SqliteStore, WorkspaceTreeSnapshot};
 use tracing::info;
 
+use crate::checkpoint_materializer::CheckpointMaterializerHandle;
 use crate::curator::{CuratorHandle, CuratorHandleRef};
 use crate::history_backend::StoreHistoryReadBackend;
 use crate::indexer::PendingFileParse;
@@ -56,6 +57,9 @@ pub(crate) fn build_workspace_session(
     let loaded_workspace_revision = Arc::new(AtomicU64::new(workspace_revision));
     let store = Arc::new(Mutex::new(store));
     let shared_runtime_store = shared_runtime_store.map(|store| Arc::new(Mutex::new(store)));
+    let shared_runtime_materializer = shared_runtime_store
+        .as_ref()
+        .map(|store| CheckpointMaterializerHandle::new(Arc::clone(store)));
     let prism = Arc::new(
         Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
             graph,
@@ -87,6 +91,7 @@ pub(crate) fn build_workspace_session(
     let fs_snapshot = Arc::new(Mutex::new(workspace_tree_snapshot));
     let load_curator_snapshot_ms = 0_u128;
     let curator = CuratorHandle::new(backend, Arc::clone(&store), Arc::clone(&refresh_lock));
+    let checkpoint_materializer = CheckpointMaterializerHandle::new(Arc::clone(&store));
     let watch_started = Instant::now();
     let watch = Some(spawn_fs_watch(
         root.clone(),
@@ -129,6 +134,8 @@ pub(crate) fn build_workspace_session(
         fs_snapshot,
         watch,
         curator: Some(curator),
+        checkpoint_materializer: Some(checkpoint_materializer),
+        shared_runtime_materializer,
         coordination_enabled,
     })
 }

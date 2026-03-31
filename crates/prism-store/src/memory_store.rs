@@ -63,17 +63,16 @@ impl Store for MemoryStore {
         &mut self,
         delta: &prism_history::HistoryPersistDelta,
     ) -> anyhow::Result<()> {
-        let mut history = prism_history::HistoryStore::from_snapshot(
-            self.history_snapshot
-                .clone()
-                .unwrap_or(prism_history::HistorySnapshot {
+        let mut history =
+            prism_history::HistoryStore::from_snapshot(self.history_snapshot.clone().unwrap_or(
+                prism_history::HistorySnapshot {
                     node_to_lineage: Vec::new(),
                     events: Vec::new(),
                     tombstones: Vec::new(),
                     next_lineage: 0,
                     next_event: 0,
-                }),
-        );
+                },
+            ));
         history.apply_persistence_delta(delta);
         self.history_snapshot = Some(history.snapshot());
         Ok(())
@@ -144,6 +143,21 @@ impl Store for MemoryStore {
             self.projection_snapshot = Some(snapshot);
         }
         Ok(inserted)
+    }
+
+    fn apply_validation_deltas(
+        &mut self,
+        deltas: &[prism_projections::ValidationDelta],
+    ) -> anyhow::Result<()> {
+        if deltas.is_empty() {
+            return Ok(());
+        }
+        let mut snapshot = self.projection_snapshot.clone().unwrap_or_default();
+        let mut index = ProjectionIndex::from_snapshot(snapshot);
+        index.apply_validation_deltas(deltas);
+        snapshot = index.snapshot();
+        self.projection_snapshot = Some(snapshot);
+        Ok(())
     }
 
     fn save_outcome_snapshot_with_validation_deltas(

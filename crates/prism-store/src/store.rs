@@ -166,6 +166,7 @@ pub trait Store {
         events: &[OutcomeEvent],
         validation_deltas: &[ValidationDelta],
     ) -> Result<usize>;
+    fn apply_validation_deltas(&mut self, deltas: &[ValidationDelta]) -> Result<()>;
     fn save_outcome_snapshot_with_validation_deltas(
         &mut self,
         snapshot: &OutcomeMemorySnapshot,

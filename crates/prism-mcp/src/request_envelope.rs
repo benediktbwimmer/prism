@@ -165,6 +165,20 @@ pub(crate) fn current_request_envelope() -> Option<RequestEnvelopeSnapshot> {
         .ok()
 }
 
+pub(crate) fn current_specialized_request_payload() -> Option<Value> {
+    CURRENT_MCP_REQUEST
+        .try_with(|request| {
+            let preview = request.state.request_preview.clone();
+            if preview.get("method").and_then(Value::as_str) == Some("tools/call") {
+                preview.get("arguments").cloned().or_else(|| Some(preview))
+            } else {
+                Some(preview)
+            }
+        })
+        .ok()
+        .flatten()
+}
+
 impl RequestEnvelope {
     fn new(
         server: &PrismMcpServer,
@@ -294,6 +308,7 @@ impl RequestEnvelope {
                 payload_summary(response_value.as_ref()),
             ),
             phases,
+            request_payload: Some(self.state.request_preview.clone()),
             request_preview: preview_value(&self.state.request_preview),
             response_preview: response_value.as_ref().and_then(preview_value),
             metadata,
@@ -352,6 +367,9 @@ impl RequestEnvelopeSnapshot {
 
 impl Drop for RequestEnvelope {
     fn drop(&mut self) {
+        if Arc::strong_count(&self.state) != 1 {
+            return;
+        }
         if delegated_request_is_settled(&self.state.request_key) {
             self.state.logged.store(true, Ordering::SeqCst);
             return;
@@ -406,6 +424,7 @@ impl Drop for RequestEnvelope {
                 payload_summary(None),
             ),
             phases,
+            request_payload: Some(self.state.request_preview.clone()),
             request_preview: preview_value(&self.state.request_preview),
             response_preview: None,
             metadata,
@@ -572,12 +591,16 @@ fn classify_request(request: &ClientRequest, request_id: Value) -> (String, Stri
                 "method": "tools/call",
                 "requestId": request_id,
                 "name": request.params.name,
+                "task": request.params.task,
                 "taskInvocation": request.params.task.is_some(),
+                "arguments": request.params.arguments,
             }),
             json!({
                 "method": "tools/call",
                 "name": request.params.name,
+                "task": request.params.task,
                 "taskInvocation": request.params.task.is_some(),
+                "arguments": request.params.arguments,
             }),
         ),
         ClientRequest::ListToolsRequest(_) => (
@@ -912,6 +935,56 @@ mod tests {
                 logged: AtomicBool::new(false),
             }),
         };
+
+        envelope.finish_if_unlogged(Ok(&json!({ "ok": true })));
+        drop(envelope);
+
+        assert!(store.records().is_empty());
+    }
+
+    #[test]
+    fn delegated_request_envelope_clone_drop_does_not_persist_bogus_wrapper() {
+        let store = Arc::new(crate::mcp_call_log::McpCallLogStore::for_root(None));
+        let dashboard = Arc::new(crate::DashboardState::default());
+
+        let envelope = RequestEnvelope {
+            state: Arc::new(RequestEnvelopeState {
+                name: "tools/call".to_string(),
+                request_key: Some("tools/call|61|prism_query".to_string()),
+                delegated_surface: true,
+                summary: "call prism_query".to_string(),
+                request_preview: json!({
+                    "method": "tools/call",
+                    "name": "prism_query",
+                    "requestId": 61,
+                    "arguments": {
+                        "code": "return { ok: true };",
+                    },
+                    "task": null,
+                    "taskInvocation": false,
+                }),
+                metadata: json!({
+                    "method": "tools/call",
+                    "name": "prism_query",
+                    "requestId": 61,
+                }),
+                started_at: current_timestamp(),
+                started: Instant::now(),
+                route_started_at: current_timestamp(),
+                route_duration_ms: 0,
+                mcp_call_log_store: Arc::clone(&store),
+                dashboard,
+                workspace: None,
+                session_id: "session:test".to_string(),
+                task_id: Some("task:test".to_string()),
+                awaiting_specialized_log: AtomicBool::new(false),
+                logged: AtomicBool::new(false),
+            }),
+        };
+
+        let cloned = envelope.clone();
+        drop(cloned);
+        assert!(store.records().is_empty());
 
         envelope.finish_if_unlogged(Ok(&json!({ "ok": true })));
         drop(envelope);

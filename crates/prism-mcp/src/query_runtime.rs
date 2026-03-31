@@ -502,7 +502,12 @@ impl QueryHost {
     }
 
     fn execute_typescript(&self, session: Arc<SessionState>, code: &str) -> Result<QueryEnvelope> {
-        let query_run = self.begin_query_run(session.as_ref(), "prism_query", "typescript", code);
+        let query_run = self
+            .begin_query_run(session.as_ref(), "prism_query", "typescript", code)
+            .with_request_payload(json!({
+                "code": code,
+                "language": "ts",
+            }));
         let phase_args = json!({ "tool": "prism_query", "queryKind": "typescript" });
         let mut execution = None;
         let execute_started = Instant::now();

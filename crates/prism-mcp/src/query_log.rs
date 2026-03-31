@@ -41,6 +41,7 @@ pub(crate) struct QueryRun {
     dashboard: Arc<DashboardState>,
     phases: Arc<std::sync::Mutex<Vec<QueryPhaseView>>>,
     finalized: Arc<AtomicBool>,
+    request_payload: Option<Value>,
 }
 
 #[derive(Debug, Clone)]
@@ -78,6 +79,7 @@ impl QueryHost {
             dashboard: Arc::clone(&self.dashboard_state),
             phases: Arc::new(std::sync::Mutex::new(Vec::new())),
             finalized: Arc::new(AtomicBool::new(false)),
+            request_payload: None,
         };
         run.dashboard_start(self.dashboard_state.as_ref());
         run
@@ -138,6 +140,11 @@ impl QueryHost {
 }
 
 impl QueryRun {
+    pub(crate) fn with_request_payload(mut self, request_payload: Value) -> Self {
+        self.request_payload = Some(request_payload);
+        self
+    }
+
     pub(crate) fn set_view_name(&self, view_name: impl Into<String>) {
         *self
             .view_name
@@ -174,6 +181,31 @@ impl QueryRun {
             .expect("query log phases lock poisoned")
             .push(phase.clone());
         self.dashboard_phase(self.dashboard.as_ref(), &phase);
+    }
+
+    fn exact_request_payload(&self) -> Value {
+        crate::request_envelope::current_specialized_request_payload()
+            .or_else(|| self.request_payload.clone())
+            .unwrap_or_else(|| {
+                json!({
+                    "tool": self.tool_name,
+                    "queryKind": self.kind,
+                    "queryText": self.query_text,
+                })
+            })
+    }
+
+    fn request_preview_payload(&self, view_name: Option<&str>) -> Value {
+        let mut request_preview = self.exact_request_payload();
+        if let Some(view_name) = view_name {
+            if let Value::Object(object) = &mut request_preview {
+                object.insert(
+                    "queryViewName".to_string(),
+                    Value::String(view_name.to_string()),
+                );
+            }
+        }
+        request_preview
     }
 
     pub(crate) fn finish_success(
@@ -232,14 +264,8 @@ impl QueryRun {
             diagnostics: diagnostics.clone(),
             result: query_result_summary(Some(result), json_bytes, output_cap_hit, &diagnostics),
         };
-        let mut request_value = json!({
-            "tool": self.tool_name,
-            "queryKind": self.kind,
-            "queryText": self.query_text,
-        });
-        if let Some(view_name) = view_name.clone() {
-            request_value["queryViewName"] = Value::String(view_name);
-        }
+        let exact_request_payload = self.exact_request_payload();
+        let request_value = self.request_preview_payload(view_name.as_deref());
         let record = PersistedMcpCallRecord {
             entry: new_log_entry(
                 store.runtime(),
@@ -260,6 +286,7 @@ impl QueryRun {
                 payload_summary(Some(result)),
             ),
             phases: phases.clone(),
+            request_payload: Some(exact_request_payload),
             request_preview: preview_value(&request_value),
             response_preview: preview_value(result),
             metadata,
@@ -328,14 +355,8 @@ impl QueryRun {
             diagnostics: diagnostics.clone(),
             result: query_result_summary(None, 0, false, &diagnostics),
         };
-        let mut request_value = json!({
-            "tool": self.tool_name,
-            "queryKind": self.kind,
-            "queryText": self.query_text,
-        });
-        if let Some(view_name) = view_name.clone() {
-            request_value["queryViewName"] = Value::String(view_name);
-        }
+        let exact_request_payload = self.exact_request_payload();
+        let request_value = self.request_preview_payload(view_name.as_deref());
         let record = PersistedMcpCallRecord {
             entry: new_log_entry(
                 store.runtime(),
@@ -356,6 +377,7 @@ impl QueryRun {
                 payload_summary(None),
             ),
             phases: phases.clone(),
+            request_payload: Some(exact_request_payload),
             request_preview: preview_value(&request_value),
             response_preview: None,
             metadata,
@@ -429,14 +451,8 @@ impl Drop for QueryRun {
             diagnostics: Vec::new(),
             result: query_result_summary(None, 0, false, &[]),
         };
-        let mut request_value = json!({
-            "tool": self.tool_name,
-            "queryKind": self.kind,
-            "queryText": self.query_text,
-        });
-        if let Some(view_name) = view_name {
-            request_value["queryViewName"] = Value::String(view_name);
-        }
+        let exact_request_payload = self.exact_request_payload();
+        let request_value = self.request_preview_payload(view_name.as_deref());
         let record = PersistedMcpCallRecord {
             entry: new_log_entry(
                 self.mcp_call_log_store.runtime(),
@@ -444,7 +460,7 @@ impl Drop for QueryRun {
                 &self.tool_name,
                 query_entry.view_name.clone(),
                 self.query_summary.clone(),
-                self.started_at,
+                started_at,
                 query_entry.duration_ms,
                 Some(self.session_id.clone()),
                 self.task_id.clone(),
@@ -457,6 +473,7 @@ impl Drop for QueryRun {
                 payload_summary(None),
             ),
             phases: phases.clone(),
+            request_payload: Some(exact_request_payload),
             request_preview: preview_value(&request_value),
             response_preview: None,
             metadata,

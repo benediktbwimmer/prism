@@ -196,6 +196,19 @@ async fn mcp_tool_call_logs_inherit_request_envelope_phases() {
             .expect("mcp.receiveRequest phase should exist");
         assert_eq!(record.entry.started_at, receive_started_at);
     }
+    assert_eq!(
+        prism_query.request_payload.as_ref(),
+        Some(&json!({
+            "code": "return { ok: true };"
+        }))
+    );
+    assert_eq!(
+        prism_session.request_payload.as_ref(),
+        Some(&json!({
+            "action": "start_task",
+            "description": "Verify request envelope inheritance"
+        }))
+    );
     let query_operations = prism_query
         .phases
         .iter()

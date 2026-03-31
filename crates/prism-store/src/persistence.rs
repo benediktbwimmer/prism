@@ -83,6 +83,7 @@ pub trait EventJournalStore {
 /// Derived checkpoints and materializations that may lag behind hot runtime state and should move
 /// off the request path when correctness allows.
 pub trait MaterializationStore {
+    fn apply_validation_deltas(&mut self, deltas: &[ValidationDelta]) -> Result<()>;
     fn load_graph(&mut self) -> Result<Option<Graph>>;
     fn save_history_snapshot(&mut self, snapshot: &HistorySnapshot) -> Result<()>;
     fn save_history_snapshot_with_co_change_deltas(
@@ -99,15 +100,13 @@ pub trait MaterializationStore {
     fn load_episodic_snapshot(&mut self) -> Result<Option<EpisodicMemorySnapshot>>;
     fn save_episodic_snapshot(&mut self, snapshot: &EpisodicMemorySnapshot) -> Result<()>;
     fn load_inference_snapshot(&mut self) -> Result<Option<prism_agent::InferenceSnapshot>>;
-    fn save_inference_snapshot(&mut self, snapshot: &prism_agent::InferenceSnapshot)
-        -> Result<()>;
+    fn save_inference_snapshot(&mut self, snapshot: &prism_agent::InferenceSnapshot) -> Result<()>;
     fn load_projection_snapshot(&mut self) -> Result<Option<ProjectionSnapshot>>;
     fn save_projection_snapshot(&mut self, snapshot: &ProjectionSnapshot) -> Result<()>;
     fn load_workspace_tree_snapshot(&mut self) -> Result<Option<WorkspaceTreeSnapshot>>;
     fn save_workspace_tree_snapshot(&mut self, snapshot: &WorkspaceTreeSnapshot) -> Result<()>;
     fn load_curator_snapshot(&mut self) -> Result<Option<prism_curator::CuratorSnapshot>>;
-    fn save_curator_snapshot(&mut self, snapshot: &prism_curator::CuratorSnapshot)
-        -> Result<()>;
+    fn save_curator_snapshot(&mut self, snapshot: &prism_curator::CuratorSnapshot) -> Result<()>;
     fn commit_auxiliary_persist_batch(&mut self, batch: &AuxiliaryPersistBatch) -> Result<()>;
     fn commit_index_persist_batch(
         &mut self,
@@ -235,6 +234,10 @@ impl<T: Store + ?Sized> EventJournalStore for T {
 }
 
 impl<T: Store + ?Sized> MaterializationStore for T {
+    fn apply_validation_deltas(&mut self, deltas: &[ValidationDelta]) -> Result<()> {
+        Store::apply_validation_deltas(self, deltas)
+    }
+
     fn load_graph(&mut self) -> Result<Option<Graph>> {
         Store::load_graph(self)
     }
@@ -275,10 +278,7 @@ impl<T: Store + ?Sized> MaterializationStore for T {
         Store::load_inference_snapshot(self)
     }
 
-    fn save_inference_snapshot(
-        &mut self,
-        snapshot: &prism_agent::InferenceSnapshot,
-    ) -> Result<()> {
+    fn save_inference_snapshot(&mut self, snapshot: &prism_agent::InferenceSnapshot) -> Result<()> {
         Store::save_inference_snapshot(self, snapshot)
     }
 
@@ -302,10 +302,7 @@ impl<T: Store + ?Sized> MaterializationStore for T {
         Store::load_curator_snapshot(self)
     }
 
-    fn save_curator_snapshot(
-        &mut self,
-        snapshot: &prism_curator::CuratorSnapshot,
-    ) -> Result<()> {
+    fn save_curator_snapshot(&mut self, snapshot: &prism_curator::CuratorSnapshot) -> Result<()> {
         Store::save_curator_snapshot(self, snapshot)
     }
 

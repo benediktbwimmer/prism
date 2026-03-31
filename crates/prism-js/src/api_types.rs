@@ -1996,6 +1996,7 @@ pub struct McpCallLogEntryView {
 pub struct McpCallTraceView {
     pub entry: McpCallLogEntryView,
     pub phases: Vec<QueryPhaseView>,
+    pub request_payload: Option<Value>,
     pub request_preview: Option<Value>,
     pub response_preview: Option<Value>,
     pub metadata: Value,
