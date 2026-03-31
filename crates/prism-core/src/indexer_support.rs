@@ -20,9 +20,7 @@ use crate::checkpoint_materializer::CheckpointMaterializerHandle;
 use crate::curator::{CuratorHandle, CuratorHandleRef};
 use crate::indexer::PendingFileParse;
 use crate::resolution::{resolve_calls, resolve_impls, resolve_imports, resolve_intents};
-use crate::session::{
-    WorkspaceRefreshSeed, WorkspaceRefreshState, WorkspaceSession,
-};
+use crate::session::{WorkspaceRefreshSeed, WorkspaceRefreshState, WorkspaceSession};
 use crate::shared_runtime::composite_workspace_revision;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::util::{persisted_file_hash, workspace_walk};
@@ -267,7 +265,9 @@ pub(crate) fn resolve_graph_edges(
     let clear_derived_edges_started = Instant::now();
     let (cleared_derived_edge_count, resolution_scope_path_count, resolution_scope_node_count) =
         if let Some(scope) = refresh_scope {
-            let scope_nodes = scope_nodes.as_ref().expect("scope_nodes available for refresh scope");
+            let scope_nodes = scope_nodes
+                .as_ref()
+                .expect("scope_nodes available for refresh scope");
             (
                 graph.clear_derived_edges_for_nodes(scope_nodes),
                 scope.len(),

@@ -112,6 +112,32 @@ pub enum PlanNodeBlockerKind {
     ArtifactStale,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum BlockerCauseSource {
+    DependencyGraph,
+    RuntimeState,
+    PlanPolicy,
+    NodeAcceptance,
+    ArtifactState,
+    DerivedThreshold,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct BlockerCause {
+    pub source: BlockerCauseSource,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub acceptance_label: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub threshold_metric: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub threshold_value: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observed_value: Option<f32>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct PlanNodeBlocker {
     pub kind: PlanNodeBlockerKind,
@@ -120,6 +146,8 @@ pub struct PlanNodeBlocker {
     pub related_artifact_id: Option<ArtifactId>,
     pub risk_score: Option<f32>,
     pub validation_checks: Vec<String>,
+    #[serde(default)]
+    pub causes: Vec<BlockerCause>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

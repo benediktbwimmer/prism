@@ -3,8 +3,9 @@ use prism_coordination::{
     WorkClaim,
 };
 use prism_ir::{
-    AnchorRef, ArtifactId, Capability, ClaimMode, CoordinationTaskId, PlanExecutionOverlay,
-    PlanGraph, PlanId, PlanNode, SessionId, Timestamp, WorkspaceRevision,
+    AnchorRef, ArtifactId, BlockerCause, BlockerCauseSource, Capability, ClaimMode,
+    CoordinationTaskId, PlanExecutionOverlay, PlanGraph, PlanId, PlanNode, SessionId, Timestamp,
+    WorkspaceRevision,
 };
 use std::collections::BTreeMap;
 
@@ -153,9 +154,21 @@ impl Prism {
                     related_artifact_id: risk.stale_artifact_ids.first().cloned(),
                     risk_score: Some(risk.risk_score),
                     validation_checks: Vec::new(),
+                    causes: vec![BlockerCause {
+                        source: BlockerCauseSource::ArtifactState,
+                        code: Some("approved_artifact_stale".to_string()),
+                        acceptance_label: None,
+                        threshold_metric: None,
+                        threshold_value: None,
+                        observed_value: None,
+                    }],
                 });
             }
             if risk.review_required && !risk.has_approved_artifact {
+                let threshold = self
+                    .coordination_task(task_id)
+                    .and_then(|task| self.coordination_plan(&task.plan))
+                    .and_then(|plan| plan.policy.review_required_above_risk_score);
                 blockers.push(TaskBlocker {
                     kind: prism_coordination::BlockerKind::RiskReviewRequired,
                     summary: format!(
@@ -166,6 +179,24 @@ impl Prism {
                     related_artifact_id: None,
                     risk_score: Some(risk.risk_score),
                     validation_checks: Vec::new(),
+                    causes: vec![
+                        BlockerCause {
+                            source: BlockerCauseSource::DerivedThreshold,
+                            code: Some("review_required_above_risk_score".to_string()),
+                            acceptance_label: None,
+                            threshold_metric: Some("risk_score".to_string()),
+                            threshold_value: threshold,
+                            observed_value: Some(risk.risk_score),
+                        },
+                        BlockerCause {
+                            source: BlockerCauseSource::ArtifactState,
+                            code: Some("missing_approved_artifact".to_string()),
+                            acceptance_label: None,
+                            threshold_metric: None,
+                            threshold_value: None,
+                            observed_value: None,
+                        },
+                    ],
                 });
             }
             if !risk.missing_validations.is_empty() {
@@ -179,6 +210,14 @@ impl Prism {
                     related_artifact_id: risk.approved_artifact_ids.first().cloned(),
                     risk_score: Some(risk.risk_score),
                     validation_checks: risk.missing_validations.clone(),
+                    causes: vec![BlockerCause {
+                        source: BlockerCauseSource::PlanPolicy,
+                        code: Some("require_validation_for_completion".to_string()),
+                        acceptance_label: None,
+                        threshold_metric: None,
+                        threshold_value: None,
+                        observed_value: None,
+                    }],
                 });
             }
         }

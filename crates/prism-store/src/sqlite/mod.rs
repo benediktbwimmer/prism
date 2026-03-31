@@ -950,8 +950,7 @@ impl Store for SqliteStore {
         let save_history_ms = save_history_started.elapsed().as_millis();
 
         let save_outcomes_started = Instant::now();
-        let inserted_outcome_events =
-            outcome_events::append_events_tx(&tx, &batch.outcome_events)?;
+        let inserted_outcome_events = outcome_events::append_events_tx(&tx, &batch.outcome_events)?;
         if inserted_outcome_events > 0 {
             if let Some(current) = tracked_outcome_snapshot.take() {
                 tracked_outcome_snapshot =

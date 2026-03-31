@@ -213,7 +213,10 @@ fn extend_edges_updates_adjacency_and_derived_incidence_incrementally() {
         graph.clear_derived_edges_for_nodes(&HashSet::from([alpha.id.clone()])),
         1
     );
-    assert!(graph.edges_from(&caller.id, Some(EdgeKind::Calls)).is_empty());
+    assert!(graph
+        .edges_from(&caller.id, Some(EdgeKind::Calls))
+        .is_empty());
+    assert_eq!(graph.nodes_by_name("alpha").len(), 1);
 }
 
 #[test]
@@ -262,6 +265,51 @@ fn structurally_unchanged_file_update_does_not_require_index_rebuild() {
 
     assert!(!update.requires_index_rebuild);
     assert!(!update.requires_edge_resolution);
+}
+
+#[test]
+fn structural_file_update_maintains_indexes_incrementally() {
+    let path = Path::new("src/lib.rs");
+    let mut graph = Graph::new();
+
+    graph.upsert_file(
+        path,
+        1,
+        vec![node("alpha")],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+
+    let update = graph.upsert_file_from_with_observed_without_rebuild(
+        None,
+        path,
+        2,
+        ParseDepth::Deep,
+        vec![node("beta")],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        &[],
+        prism_ir::EventMeta {
+            id: EventId::new("event:test"),
+            ts: 0,
+            actor: EventActor::System,
+            correlation: None,
+            causation: None,
+        },
+        prism_ir::ChangeTrigger::ManualReindex,
+    );
+
+    assert!(!update.requires_index_rebuild);
+    assert!(graph.nodes_by_name("alpha").is_empty());
+    assert_eq!(graph.nodes_by_name("beta").len(), 1);
 }
 
 #[test]

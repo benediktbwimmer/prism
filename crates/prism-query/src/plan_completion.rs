@@ -3,9 +3,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::{anyhow, Result};
 use prism_coordination::{Artifact, BlockerKind, CoordinationPolicy, TaskBlocker};
 use prism_ir::{
-    AnchorRef, ArtifactId, ArtifactStatus, ConflictSeverity, CoordinationTaskId,
-    PlanExecutionOverlay, PlanGraph, PlanId, PlanNode, PlanNodeBlocker, PlanNodeBlockerKind,
-    PlanNodeId, PlanNodeStatus, TaskId, Timestamp,
+    AnchorRef, ArtifactId, ArtifactStatus, BlockerCause, BlockerCauseSource, ConflictSeverity,
+    CoordinationTaskId, PlanExecutionOverlay, PlanGraph, PlanId, PlanNode, PlanNodeBlocker,
+    PlanNodeBlockerKind, PlanNodeId, PlanNodeStatus, TaskId, Timestamp,
 };
 use prism_memory::{OutcomeRecallQuery, OutcomeResult};
 use prism_projections::validation_labels;
@@ -158,6 +158,10 @@ impl Prism {
                 related_artifact_id: None,
                 risk_score: None,
                 validation_checks: Vec::new(),
+                causes: vec![
+                    plan_policy_cause("stale_after_graph_change"),
+                    runtime_cause("workspace_revision_mismatch"),
+                ],
             });
         }
         if policy.stale_after_graph_change {
@@ -172,6 +176,10 @@ impl Prism {
                     related_artifact_id: Some(stale_artifact_id.clone()),
                     risk_score: None,
                     validation_checks: Vec::new(),
+                    causes: vec![
+                        plan_policy_cause("stale_after_graph_change"),
+                        artifact_state_cause("approved_artifact_stale"),
+                    ],
                 });
             }
         }
@@ -189,6 +197,7 @@ impl Prism {
                 related_artifact_id: None,
                 risk_score: None,
                 validation_checks: Vec::new(),
+                causes: vec![runtime_cause("claim_conflict")],
             });
         }
 
@@ -206,6 +215,10 @@ impl Prism {
                 related_artifact_id: artifacts.first().map(|artifact| artifact.id.clone()),
                 risk_score: Some(risk_score),
                 validation_checks: Vec::new(),
+                causes: vec![
+                    plan_policy_cause("require_review_for_completion"),
+                    artifact_state_cause("missing_approved_artifact"),
+                ],
             });
         }
 
@@ -221,6 +234,15 @@ impl Prism {
                     related_artifact_id: None,
                     risk_score: Some(risk_score),
                     validation_checks: Vec::new(),
+                    causes: vec![
+                        derived_threshold_cause(
+                            "review_required_above_risk_score",
+                            "risk_score",
+                            threshold,
+                            risk_score,
+                        ),
+                        artifact_state_cause("missing_approved_artifact"),
+                    ],
                 });
             }
         }
@@ -255,6 +277,10 @@ impl Prism {
                         .map(|artifact| artifact.id.clone()),
                     risk_score: Some(risk_score),
                     validation_checks: missing,
+                    causes: validation_required_causes(
+                        policy.require_validation_for_completion,
+                        !required_validation_checks_for_node(graph, node).is_empty(),
+                    ),
                 });
             }
         }
@@ -393,6 +419,7 @@ fn acceptance_blockers(
                             .map(|artifact| artifact.id.clone()),
                         risk_score: Some(risk_score),
                         validation_checks: required_checks,
+                        causes: vec![acceptance_cause(&criterion.label, "review_or_validation")],
                     });
                 }
             }
@@ -410,6 +437,10 @@ fn acceptance_blockers(
                             .map(|artifact| artifact.id.clone()),
                         risk_score: Some(risk_score),
                         validation_checks: Vec::new(),
+                        causes: vec![
+                            acceptance_cause(&criterion.label, "review_only"),
+                            artifact_state_cause("missing_approved_artifact"),
+                        ],
                     });
                 }
             }
@@ -428,6 +459,7 @@ fn acceptance_blockers(
                             .map(|artifact| artifact.id.clone()),
                         risk_score: Some(risk_score),
                         validation_checks: missing_checks,
+                        causes: vec![acceptance_cause(&criterion.label, "validation_only")],
                     });
                 }
             }
@@ -446,6 +478,10 @@ fn acceptance_blockers(
                             .map(|artifact| artifact.id.clone()),
                         risk_score: Some(risk_score),
                         validation_checks: Vec::new(),
+                        causes: vec![
+                            acceptance_cause(&criterion.label, "review_required"),
+                            artifact_state_cause("missing_approved_artifact"),
+                        ],
                     });
                 }
                 if !missing_checks.is_empty() {
@@ -462,6 +498,7 @@ fn acceptance_blockers(
                             .map(|artifact| artifact.id.clone()),
                         risk_score: Some(risk_score),
                         validation_checks: missing_checks,
+                        causes: vec![acceptance_cause(&criterion.label, "validation_required")],
                     });
                 }
             }
@@ -491,6 +528,7 @@ fn plan_node_blocker_from_task_blocker(
         related_artifact_id: blocker.related_artifact_id,
         risk_score: blocker.risk_score,
         validation_checks: blocker.validation_checks,
+        causes: blocker.causes,
     }
 }
 
@@ -518,7 +556,72 @@ fn sort_and_dedupe_plan_node_blockers(blockers: &mut Vec<PlanNodeBlocker>) {
             && left.related_node_id == right.related_node_id
             && left.related_artifact_id == right.related_artifact_id
             && left.validation_checks == right.validation_checks
+            && left.causes == right.causes
     });
+}
+
+fn blocker_cause(source: BlockerCauseSource, code: &str) -> BlockerCause {
+    BlockerCause {
+        source,
+        code: Some(code.to_owned()),
+        acceptance_label: None,
+        threshold_metric: None,
+        threshold_value: None,
+        observed_value: None,
+    }
+}
+
+fn plan_policy_cause(code: &str) -> BlockerCause {
+    blocker_cause(BlockerCauseSource::PlanPolicy, code)
+}
+
+fn runtime_cause(code: &str) -> BlockerCause {
+    blocker_cause(BlockerCauseSource::RuntimeState, code)
+}
+
+fn artifact_state_cause(code: &str) -> BlockerCause {
+    blocker_cause(BlockerCauseSource::ArtifactState, code)
+}
+
+fn acceptance_cause(label: &str, code: &str) -> BlockerCause {
+    BlockerCause {
+        source: BlockerCauseSource::NodeAcceptance,
+        code: Some(code.to_owned()),
+        acceptance_label: Some(label.to_owned()),
+        threshold_metric: None,
+        threshold_value: None,
+        observed_value: None,
+    }
+}
+
+fn derived_threshold_cause(
+    code: &str,
+    threshold_metric: &str,
+    threshold_value: f32,
+    observed_value: f32,
+) -> BlockerCause {
+    BlockerCause {
+        source: BlockerCauseSource::DerivedThreshold,
+        code: Some(code.to_owned()),
+        acceptance_label: None,
+        threshold_metric: Some(threshold_metric.to_owned()),
+        threshold_value: Some(threshold_value),
+        observed_value: Some(observed_value),
+    }
+}
+
+fn validation_required_causes(
+    require_validation_for_completion: bool,
+    has_graph_authored_checks: bool,
+) -> Vec<BlockerCause> {
+    let mut causes = Vec::new();
+    if require_validation_for_completion {
+        causes.push(plan_policy_cause("require_validation_for_completion"));
+    }
+    if has_graph_authored_checks {
+        causes.push(plan_policy_cause("graph_authored_validation_refs"));
+    }
+    causes
 }
 
 fn blocker_kind_rank(kind: PlanNodeBlockerKind) -> u8 {

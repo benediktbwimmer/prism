@@ -6,10 +6,10 @@ use prism_coordination::{
     AcceptanceCriterion, CoordinationPolicy, CoordinationSnapshot, CoordinationTask, Plan,
 };
 use prism_ir::{
-    new_prefixed_id, AgentId, AnchorRef, CoordinationTaskId, PlanAcceptanceCriterion, PlanBinding,
-    PlanEdge, PlanEdgeId, PlanEdgeKind, PlanExecutionOverlay, PlanGraph, PlanId, PlanKind,
-    PlanNode, PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId, PlanNodeKind, PlanNodeStatus,
-    ValidationRef, WorkspaceRevision,
+    new_prefixed_id, AgentId, AnchorRef, BlockerCause, BlockerCauseSource, CoordinationTaskId,
+    PlanAcceptanceCriterion, PlanBinding, PlanEdge, PlanEdgeId, PlanEdgeKind, PlanExecutionOverlay,
+    PlanGraph, PlanId, PlanKind, PlanNode, PlanNodeBlocker, PlanNodeBlockerKind, PlanNodeId,
+    PlanNodeKind, PlanNodeStatus, ValidationRef, WorkspaceRevision,
 };
 use serde_json::Value;
 
@@ -758,6 +758,28 @@ fn is_completed_status(status: PlanNodeStatus) -> bool {
     matches!(status, PlanNodeStatus::Completed)
 }
 
+fn dependency_blocker_cause(code: &str) -> BlockerCause {
+    BlockerCause {
+        source: BlockerCauseSource::DependencyGraph,
+        code: Some(code.to_owned()),
+        acceptance_label: None,
+        threshold_metric: None,
+        threshold_value: None,
+        observed_value: None,
+    }
+}
+
+fn runtime_blocker_cause(code: &str) -> BlockerCause {
+    BlockerCause {
+        source: BlockerCauseSource::RuntimeState,
+        code: Some(code.to_owned()),
+        acceptance_label: None,
+        threshold_metric: None,
+        threshold_value: None,
+        observed_value: None,
+    }
+}
+
 fn overlay_for_node<'a>(
     overlays: &'a [PlanExecutionOverlay],
     node_id: &PlanNodeId,
@@ -787,6 +809,7 @@ fn readiness_blockers_for_node(
                 related_artifact_id: None,
                 risk_score: None,
                 validation_checks: Vec::new(),
+                causes: vec![runtime_blocker_cause("pending_handoff")],
             });
         }
     }
@@ -808,6 +831,7 @@ fn readiness_blockers_for_node(
                 related_artifact_id: None,
                 risk_score: None,
                 validation_checks: Vec::new(),
+                causes: vec![dependency_blocker_cause("depends_on_edge")],
             }),
             PlanEdgeKind::Blocks => blockers.push(PlanNodeBlocker {
                 kind: PlanNodeBlockerKind::BlockingNode,
@@ -816,6 +840,7 @@ fn readiness_blockers_for_node(
                 related_artifact_id: None,
                 risk_score: None,
                 validation_checks: Vec::new(),
+                causes: vec![dependency_blocker_cause("authored_blocking_edge")],
             }),
             _ => {}
         }
@@ -840,6 +865,7 @@ fn readiness_blockers_for_node(
             related_artifact_id: None,
             risk_score: None,
             validation_checks: Vec::new(),
+            causes: vec![dependency_blocker_cause("handoff_edge")],
         });
     }
     sort_and_dedupe_plan_node_blockers(&mut blockers);
@@ -871,6 +897,7 @@ fn completion_blockers_for_node(graph: &PlanGraph, node: &PlanNode) -> Vec<PlanN
             related_artifact_id: None,
             risk_score: None,
             validation_checks: Vec::new(),
+            causes: vec![dependency_blocker_cause("child_incomplete")],
         });
     }
     for edge in graph.edges.iter().filter(|edge| edge.from == node.id) {
@@ -898,6 +925,7 @@ fn completion_blockers_for_node(graph: &PlanGraph, node: &PlanNode) -> Vec<PlanN
             related_artifact_id: None,
             risk_score: None,
             validation_checks: declared_validation_checks(target),
+            causes: vec![dependency_blocker_cause("validation_gate_incomplete")],
         });
     }
     sort_and_dedupe_plan_node_blockers(&mut blockers);

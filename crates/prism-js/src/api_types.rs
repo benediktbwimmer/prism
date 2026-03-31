@@ -1,8 +1,8 @@
 use prism_coordination::BlockerKind;
 use prism_ir::{
-    AnchorRef, ArtifactStatus, Capability, ClaimMode, ClaimStatus, ConflictOverlapKind,
-    ConflictSeverity, CoordinationTaskStatus, EdgeKind, EdgeOrigin, Language, NodeKind,
-    PlanEdgeKind, PlanKind, PlanNodeBlockerKind, PlanNodeKind, PlanNodeStatus, PlanScope,
+    AnchorRef, ArtifactStatus, BlockerCauseSource, Capability, ClaimMode, ClaimStatus,
+    ConflictOverlapKind, ConflictSeverity, CoordinationTaskStatus, EdgeKind, EdgeOrigin, Language,
+    NodeKind, PlanEdgeKind, PlanKind, PlanNodeBlockerKind, PlanNodeKind, PlanNodeStatus, PlanScope,
     PlanStatus, Span,
 };
 use prism_memory::OutcomeEvent;
@@ -1482,6 +1482,17 @@ pub struct PlanExecutionOverlayView {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct BlockerCauseView {
+    pub source: BlockerCauseSource,
+    pub code: Option<String>,
+    pub acceptance_label: Option<String>,
+    pub threshold_metric: Option<String>,
+    pub threshold_value: Option<f32>,
+    pub observed_value: Option<f32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct PlanNodeBlockerView {
     pub kind: PlanNodeBlockerKind,
     pub summary: String,
@@ -1489,6 +1500,7 @@ pub struct PlanNodeBlockerView {
     pub related_artifact_id: Option<String>,
     pub risk_score: Option<f32>,
     pub validation_checks: Vec<String>,
+    pub causes: Vec<BlockerCauseView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -1605,6 +1617,7 @@ pub struct BlockerView {
     pub related_artifact_id: Option<String>,
     pub risk_score: Option<f32>,
     pub validation_checks: Vec<String>,
+    pub causes: Vec<BlockerCauseView>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]

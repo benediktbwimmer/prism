@@ -4858,8 +4858,10 @@ fn refresh_invalidation_scope_expands_only_real_dependents() {
         Vec::new(),
     );
 
-    let scope =
-        crate::invalidation::RefreshInvalidationScope::from_graph(&graph, &HashSet::from([changed.clone()]));
+    let scope = crate::invalidation::RefreshInvalidationScope::from_graph(
+        &graph,
+        &HashSet::from([changed.clone()]),
+    );
 
     assert!(scope.edge_resolution_paths.contains(&changed));
     assert!(scope.edge_resolution_paths.contains(&caller_path));
@@ -4913,9 +4915,38 @@ fn body_only_updates_do_not_require_dependent_edge_resolution() {
         edge_removed: Vec::new(),
     };
 
-    assert!(!crate::invalidation::observed_changes_require_dependent_edge_resolution(&[
-        observed
-    ]));
+    assert!(!crate::invalidation::observed_changes_require_dependent_edge_resolution(&[observed]));
+}
+
+#[test]
+fn published_prism_shares_runtime_graph_backing() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        "fn alpha() { beta(); }\nfn beta() {}\n",
+    )
+    .unwrap();
+
+    let mut indexer = WorkspaceIndexer::with_store(&root, MemoryStore::default()).unwrap();
+    indexer.index().unwrap();
+    let runtime_state = indexer.into_runtime_state();
+    let prism = runtime_state.publish_prism(
+        prism_ir::WorkspaceRevision {
+            graph_version: 1,
+            git_commit: None,
+        },
+        None,
+    );
+    assert!(std::ptr::eq(
+        prism.graph(),
+        std::sync::Arc::as_ptr(&runtime_state.graph)
+    ));
 }
 
 #[test]

@@ -30,6 +30,7 @@ The canonical design is:
 - leases are refreshed only by authenticated mutations
 - durable provenance is recorded in the event log and projected into read models
 - the current `prism_session` tool is removed as a coordination surface
+- principals are machine-local by default, while coordination authority remains repo-scoped
 
 ---
 
@@ -189,6 +190,20 @@ Every principal should have at least:
 The human-readable name should be required at creation time. PRISM should not rely on anonymous or
 purely generated fallback labels for durable principals.
 
+### 5.1.1 Principal scope
+
+Principals should be machine-local by default, not repo-local.
+
+That means:
+
+- the same human can keep one identity across multiple repos on the same machine
+- the same agent can keep one identity across multiple worktrees or repos on the same machine
+- leases, claims, plans, and coordination authority remain repo-scoped
+- provenance events should snapshot enough actor information that history remains legible even when
+  the original local principal registry is unavailable on another machine
+
+This intentionally separates identity portability from repo-scoped authority.
+
 ### 5.2 Kind-specific optional attributes
 
 Different principal kinds should be able to store optional attributes without polluting the common
@@ -255,6 +270,11 @@ That means leases must:
 - become stale after inactivity
 - eventually expire
 
+Lease refresh should be narrow, not broad:
+
+- one mutation should refresh only the specific task or claim lease it touches
+- a mutation on Task A must not silently keep an abandoned lease on Task B alive
+
 ### 6.3 Ambient activity must not refresh leases
 
 Ordinary MCP activity such as queries, resource reads, or other ambient transport traffic must not
@@ -277,9 +297,42 @@ path for takeover or continuation.
 
 ---
 
-## 7. Provenance and audit trail
+## 7. Credential handling and storage
 
-### 7.1 Canonical provenance belongs in the event log
+### 7.1 Server-side handling
+
+PRISM should store only hashed credential material on the server side.
+
+The principal registry should persist:
+
+- `principal_id`
+- token hash or equivalent verifier
+- lifecycle state
+- parent linkage when present
+- timestamps such as creation, rotation, revocation, and last successful use
+
+### 7.2 Client-side handling
+
+Credential storage must be practical for the actor type using it.
+
+Expected default patterns:
+
+- human local development
+  - a local gitignored credential file such as `.prism/credentials.local`
+- CI or automation
+  - environment variable injection such as `PRISM_PRINCIPAL_TOKEN`
+- spawned agents
+  - minted credential returned directly to the parent and passed into the child's initial context
+    without requiring durable disk storage
+
+The exact storage format is still an implementation detail, but practical human and CI flows are part
+of the initial design, not a later afterthought.
+
+---
+
+## 8. Provenance and audit trail
+
+### 8.1 Canonical provenance belongs in the event log
 
 PRISM should not thread principal ids into every domain entity as canonical state.
 
@@ -287,7 +340,7 @@ The authoritative provenance should live in append-only mutation events.
 
 This matches PRISM's existing event-oriented structure and keeps identity history audit-friendly.
 
-### 7.2 Extend event actor metadata from coarse kind to durable identity
+### 8.2 Extend event actor metadata from coarse kind to durable identity
 
 Current event metadata already records an `actor`, but today it is only a coarse category such as
 `Agent`, `User`, or `System`.
@@ -298,7 +351,7 @@ PRISM should evolve this so authoritative mutation events record:
 - principal id
 - optional event-time snapshot fields where needed for audit stability
 
-### 7.3 Use projections for fast lookups
+### 8.3 Use projections for fast lookups
 
 Fast lookup surfaces should be derived from the event log, not treated as the canonical source of
 authorship truth.
@@ -315,7 +368,7 @@ projections, but not as the primary provenance store.
 
 ---
 
-## 8. Practical behavior in the common host-agnostic case
+## 9. Practical behavior in the common host-agnostic case
 
 This model is designed to work even when PRISM has no special cooperation from the MCP host beyond
 the ability to call mutations.
@@ -341,7 +394,28 @@ This is the minimum robust design that does not require trusted client isolation
 
 ---
 
-## 9. Non-goals
+## 10. System and runtime principals
+
+System-authored mutations should use the same principal model for provenance, but not the same
+external credential path as human or agent principals.
+
+The recommended design is:
+
+- runtime/system principals live in a privileged internal namespace
+- system-authored actions do not require bearer-token authentication through the external credential
+  registry
+- provenance should still clearly identify the acting subsystem, for example `daemon`,
+  `settle_worker`, or `checkpoint_writer`
+
+This keeps internal system behavior:
+
+- non-impersonatable by external clients
+- cheap for high-frequency runtime operations
+- clearly distinguishable from human or agent activity in audit trails
+
+---
+
+## 11. Non-goals
 
 This design note does not attempt to specify:
 
@@ -359,95 +433,145 @@ mutation payloads by hand.
 
 ---
 
-## 10. Open questions that should be resolved before implementation
+## 12. Resolved implementation decisions
 
-The following points should be answered explicitly before implementation begins.
+The following points were previously open questions and are now resolved for the target design.
 
-### 10.1 Principal scope
+### 12.1 Credential lifecycle
 
-- Are principals repo-local, workspace-local, machine-local, or globally portable across repos?
-- If a principal exists in multiple repos, is that the same `principal_id` or separate repo-bound
-  identities linked by a higher-level external identity?
+- One principal may have multiple active credentials at once.
+- Credential rotation should be zero-downtime:
+  - mint a new credential through an authenticated mutation
+  - revoke the old credential once the replacement is live
+- Credentials are revoked explicitly through a revocation mutation.
+- Revoking a credential does not immediately kill active leases, because leases belong to the
+  principal, not to one specific credential.
+- A revoked credential simply loses the ability to authenticate future mutations, so any affected
+  lease will naturally become stale and later expire if no other valid credential refreshes it.
 
-### 10.2 Credential lifecycle
+### 12.2 Parent-child principal semantics
 
-- Can one principal have multiple active credentials at once?
-- How are credentials rotated?
-- How are credentials revoked?
-- What happens to active leases when the backing credential is revoked?
+- Subagents are not forced to be separate principals in every case.
+- A parent may choose:
+  - to let a helper operate under the same principal when it is effectively the same logical actor
+  - or to mint a distinct child principal when the helper is a meaningfully separate agent
+- When a parent mints a brand new child principal, parent linkage is required.
+- Parent-child relationships are immutable once minted.
+- Provenance must preserve both:
+  - direct authorship by the child principal
+  - the lineage chain through parent principals
 
-### 10.3 Parent-child principal semantics
+### 12.3 Lease policy
 
-- Are subagents always separate principals, or can a parent choose to delegate using the same
-  principal?
-- Should PRISM require explicit parent linkage for child-minted credentials?
-- Should parent-child relationships be immutable once minted?
+- Default lease timings:
+  - `stale` after 30 minutes with no authenticated mutation touching that specific lease
+  - `expired` after 2 hours
+- Leases attach to both tasks and claims:
+  - task lease = execution ownership of a workflow node
+  - claim lease = active lock/ownership over a claimed coordination object
+- Lease refresh is narrow:
+  - one mutation refreshes only the specific task or claim lease it touches
+  - activity on Task A must not keep a stale lease on Task B alive
+- A lightweight authenticated `heartbeat_lease` mutation is a valid future extension for long silent
+  work, but the first implementation must not depend on agents using it correctly or on agents having
+  a reliable sense of time.
 
-### 10.4 Lease policy
+### 12.4 Resume versus reclaim policy
 
-- What are the exact stale and expired timings?
-- Are leases attached to tasks, claims, or both?
-- Does one mutation refresh all active leases for that principal, or only the specific touched task
-  or claim?
-- How should long periods of local work without authenticated mutation activity be handled
-  conservatively?
+- `resume` is for the same principal returning to its own stale lease.
+- `reclaim` is for a different principal intentionally taking over stale work.
+- Reclaim transfers the lease.
+- If the reclaimer differs from the current assignee, reclaim should also append an assignment change
+  so authored ownership converges with execution ownership by default.
+- Event taxonomy:
+  - `TaskResumed`
+  - `TaskReclaimed`
+  - `TaskHandedOff`
+  - `TaskReopened`
 
-### 10.5 Resume versus reclaim policy
+### 12.5 Event schema shape
 
-- When a stale lease exists, when is resumption allowed versus requiring explicit reclaim?
-- Should reclaim preserve the original assignee and merely transfer execution ownership, or should it
-  also update authored assignment by default?
-- What event taxonomy should distinguish resume, reclaim, handoff, and reopen?
+- `EventActor` should be enriched directly rather than leaving identity outside the actor shape.
+- The authoritative mutation actor should record at least:
+  - `principal_id`
+  - principal kind
+- Mutation events should snapshot:
+  - principal kind
+  - human-readable name
+- Additional actor snapshot fields may be added later where audit stability materially benefits, but
+  `kind` and `name` are the initial minimum.
 
-### 10.6 Event schema shape
+### 12.6 Principal profile mutability
 
-- Should `EventActor` become a richer structured enum carrying `principal_id`, or should
-  `EventMeta` gain separate principal fields while leaving actor kind coarse?
-- Which principal attributes, if any, should be snapshotted into the event for audit stability?
+- Immutable principal state:
+  - `principal_id`
+  - `kind`
+  - creation timestamp
+  - `parent_principal_id` when present
+- Mutable profile state:
+  - `name`
+  - `role`
+  - model, harness, handles, and other profile metadata
+- The human-readable `name` is mutable.
+- Historical audit stability comes from event-time snapshots, not from keeping an alias history in
+  the principal profile for v1.
+- If an agent changes model or harness, the live profile reflects the new state while historical
+  events keep the old snapshot.
 
-### 10.7 Principal profile mutability
+### 12.7 Human principal UX
 
-- Which principal attributes are mutable profile state versus immutable creation-time identity?
-- Is the required human-readable `name` mutable, or should renames be modeled as profile aliases
-  while preserving the original creation-time name?
-- If an agent's model or harness changes, should historical events continue to show the old values
-  via event snapshots, current profile lookups, or both?
+- Human principal support lands together with agent principal support.
+- Humans must be able to obtain credentials on day one because mutation auth is mandatory from the
+  first cutover.
+- The primary human flow should be CLI-driven, for example:
+  - `prism auth init`
+  - `prism auth login`
+- Human credentials should be stored in a practical local mechanism such as:
+  - `~/.prism/credentials.toml`
+  - or a later OS-keychain-backed equivalent
 
-### 10.8 Runtime and system principals
+### 12.8 Imported external identities
 
-- Should runtime/system actors live in the same credential registry as user/agent principals, or in
-  a privileged internal namespace?
-- How should internal system-authored mutations authenticate without exposing user-visible bearer
-  credentials?
+- Observational identities such as git authors remain distinct from authenticated principals.
+- The relationship is a soft link, not an auth claim.
+- Principals may attach linked emails or handles for grouping and UX purposes.
+- A bare external identity must never be treated as proof of authenticated PRISM authorship.
 
-### 10.9 Human principal UX
+### 12.9 Query and projection surfaces
 
-- How do human users obtain and manage credentials in a practical local-dev workflow?
-- Is the first implementation agent-first, with human principals added immediately after, or should
-  both land together?
+- Day-one first-class views should expose at least:
+  - active lease holder by `principal_id` and `name`
+  - assigned principal by `principal_id` and `name`
+- These must appear in the core task and plan read surfaces such as task briefs and plan summaries.
+- Eager projections should include:
+  - active lease holder
+  - assigned principal
+- Full authorship trails may remain event-derived on demand initially.
 
-### 10.10 Imported external identities
+### 12.10 Backward compatibility and migration
 
-- How should observational identities such as git authors be related to authenticated principals?
-- Do we support explicit linking between imported external identities and local principals, and if
-  so, under what trust model?
+- The cutover is intentionally hard.
+- `prism_session` is removed rather than supported through a long compatibility window.
+- All mutations require credentials from day one of the cutover.
+- Existing coarse actor history should be migrated through synthetic fallback principals, for example:
+  - `legacy_agent_fallback`
+  - `legacy_human_fallback`
+- Missing-credential mutations should fail loudly and descriptively.
+- Instructions and surrounding tooling should clearly state how agents obtain and pass mutation
+  credentials.
 
-### 10.11 Query and projection surfaces
+### 12.11 Remaining future policy space
 
-- Which identity/provenance views must be first-class in MCP and query surfaces from day one?
-- Which projections are required eagerly for performance, and which can remain derived on demand?
+The core design questions are now settled. Future work may still refine:
 
-### 10.12 Backward compatibility and migration
-
-- How are existing coordination events and entities migrated when they only distinguish coarse actor
-  kinds?
-- What compatibility behavior should old mutation callers receive before they provide credentials?
-- How is the current `prism_session` tool removed or decomposed without leaving confusing partial
-  semantics behind?
+- additional actor snapshot fields beyond `kind` and `name`
+- optional `heartbeat_lease` ergonomics
+- stronger human credential storage such as OS keychain integration
+- richer query and UI surfaces for lineage and provenance exploration
 
 ---
 
-## 11. Recommended implementation order
+## 13. Recommended implementation order
 
 When implementation starts, the safest sequence is:
 

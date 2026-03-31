@@ -1,6 +1,6 @@
 use prism_ir::{
-    AgentId, AnchorRef, ArtifactId, ArtifactStatus, Capability, ClaimId, ClaimMode, ClaimStatus,
-    ConflictOverlapKind, ConflictSeverity, CoordinationEventKind, CoordinationTaskId,
+    AgentId, AnchorRef, ArtifactId, ArtifactStatus, BlockerCause, Capability, ClaimId, ClaimMode,
+    ClaimStatus, ConflictOverlapKind, ConflictSeverity, CoordinationEventKind, CoordinationTaskId,
     CoordinationTaskStatus, EventId, EventMeta, PlanBinding, PlanId, PlanKind, PlanNodeKind,
     PlanScope, PlanStatus, ReviewId, ReviewVerdict, SessionId, Timestamp, ValidationRef,
     WorkspaceRevision,
@@ -241,6 +241,8 @@ pub struct TaskBlocker {
     pub risk_score: Option<f32>,
     #[serde(default)]
     pub validation_checks: Vec<String>,
+    #[serde(default)]
+    pub causes: Vec<BlockerCause>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

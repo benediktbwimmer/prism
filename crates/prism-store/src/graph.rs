@@ -360,20 +360,12 @@ impl Graph {
             && previous_state
                 .as_ref()
                 .is_some_and(|state| same_file_graph_shape(state, &nodes, &edges))
-            && previous
-                .as_ref()
-                .is_some_and(|record| {
-                    same_unresolved_call_shape(&record.unresolved_calls, &unresolved_calls)
-                        && same_unresolved_import_shape(
-                            &record.unresolved_imports,
-                            &unresolved_imports,
-                        )
-                        && same_unresolved_impl_shape(&record.unresolved_impls, &unresolved_impls)
-                        && same_unresolved_intent_shape(
-                            &record.unresolved_intents,
-                            &unresolved_intents,
-                        )
-                });
+            && previous.as_ref().is_some_and(|record| {
+                same_unresolved_call_shape(&record.unresolved_calls, &unresolved_calls)
+                    && same_unresolved_import_shape(&record.unresolved_imports, &unresolved_imports)
+                    && same_unresolved_impl_shape(&record.unresolved_impls, &unresolved_impls)
+                    && same_unresolved_intent_shape(&record.unresolved_intents, &unresolved_intents)
+            });
         let node_ids: Vec<NodeId> = nodes.iter().map(|node| node.id.clone()).collect();
         let record_edges = edges.clone();
         if can_update_in_place {
@@ -414,24 +406,24 @@ impl Graph {
         }
 
         for node in nodes {
+            self.index_node(&node);
             self.nodes.insert(node.id.clone(), node);
         }
-        self.edges.extend(edges);
-        self.file_records.insert(
-            path.to_path_buf(),
-            FileRecord {
-                file_id,
-                hash,
-                parse_depth,
-                nodes: node_ids,
-                edges: record_edges,
-                fingerprints,
-                unresolved_calls,
-                unresolved_imports,
-                unresolved_impls,
-                unresolved_intents,
-            },
-        );
+        self.extend_edges(edges);
+        let record = FileRecord {
+            file_id,
+            hash,
+            parse_depth,
+            nodes: node_ids,
+            edges: record_edges,
+            fingerprints,
+            unresolved_calls,
+            unresolved_imports,
+            unresolved_impls,
+            unresolved_intents,
+        };
+        self.index_file_record(path, &record);
+        self.file_records.insert(path.to_path_buf(), record);
         if rebuild_indexes {
             self.rebuild_adjacency();
         }
@@ -439,7 +431,7 @@ impl Graph {
             file_id,
             observed,
             changes,
-            requires_index_rebuild: true,
+            requires_index_rebuild: false,
             requires_edge_resolution: true,
         }
     }
@@ -634,7 +626,7 @@ impl Graph {
                 && edge.source.kind == NodeKind::Workspace
                 && edge.target.kind == NodeKind::Package)
         });
-        self.rebuild_adjacency();
+        self.rebuild_edge_indexes();
     }
 
     pub fn derived_edges(&self) -> Vec<Edge> {
@@ -721,7 +713,7 @@ impl Graph {
             file_id,
             observed,
             changes,
-            requires_index_rebuild: true,
+            requires_index_rebuild: false,
             requires_edge_resolution: true,
         }
     }
@@ -735,7 +727,7 @@ impl Graph {
         self.edges.retain(|edge| !kinds.contains(&edge.kind));
         let removed = before.saturating_sub(self.edges.len());
         if removed > 0 {
-            self.rebuild_adjacency();
+            self.rebuild_edge_indexes();
         }
         removed
     }
@@ -760,7 +752,7 @@ impl Graph {
         });
         let removed = before.saturating_sub(self.edges.len());
         if removed > 0 {
-            self.rebuild_adjacency();
+            self.rebuild_edge_indexes();
         }
         removed
     }
@@ -837,18 +829,31 @@ impl Graph {
         let Some(record) = self.file_records.remove(path) else {
             return;
         };
+        self.unindex_file_record(path, &record);
 
         let removed: HashSet<NodeId> = record.nodes.into_iter().collect();
+        let removed_nodes = removed
+            .iter()
+            .filter_map(|node_id| self.nodes.get(node_id).cloned())
+            .collect::<Vec<_>>();
+        for node in &removed_nodes {
+            self.unindex_node(node);
+        }
         self.nodes.retain(|id, _| !removed.contains(id));
         self.edges
             .retain(|edge| !removed.contains(&edge.source) && !removed.contains(&edge.target));
+        self.rebuild_edge_indexes();
     }
 
     fn rebuild_adjacency(&mut self) {
+        self.rebuild_node_indexes();
+        self.rebuild_edge_indexes();
+    }
+
+    fn rebuild_edge_indexes(&mut self) {
         self.adjacency.clear();
         self.reverse_adjacency.clear();
         self.derived_edge_incidence.clear();
-        self.rebuild_node_indexes();
 
         for (index, edge) in self.edges.iter().enumerate() {
             self.adjacency
@@ -948,6 +953,127 @@ impl Graph {
                     path.clone(),
                 );
             }
+        }
+    }
+
+    fn index_node(&mut self, node: &Node) {
+        self.node_name_index
+            .entry(node.name.to_string())
+            .or_default()
+            .push(node.id.clone());
+        self.node_path_index
+            .entry(node.id.path.to_string())
+            .or_default()
+            .push(node.id.clone());
+    }
+
+    fn unindex_node(&mut self, node: &Node) {
+        unindex_vec_value(&mut self.node_name_index, node.name.as_ref(), &node.id);
+        unindex_vec_value(&mut self.node_path_index, node.id.path.as_ref(), &node.id);
+    }
+
+    fn index_file_record(&mut self, path: &Path, record: &FileRecord) {
+        let path = path.to_path_buf();
+        for call in &record.unresolved_calls {
+            index_path(
+                &mut self.unresolved_call_name_index,
+                call.name.as_str(),
+                path.clone(),
+            );
+            index_path(
+                &mut self.unresolved_call_target_path_index,
+                format!("{}::{}", call.module_path, call.name),
+                path.clone(),
+            );
+        }
+        for import in &record.unresolved_imports {
+            let import_name = import
+                .path
+                .rsplit("::")
+                .next()
+                .unwrap_or(import.path.as_str());
+            index_path(
+                &mut self.unresolved_import_name_index,
+                import_name,
+                path.clone(),
+            );
+            index_path(
+                &mut self.unresolved_import_path_index,
+                import.path.as_str(),
+                path.clone(),
+            );
+        }
+        for implementation in &record.unresolved_impls {
+            let target_name = implementation
+                .target
+                .rsplit("::")
+                .next()
+                .unwrap_or(implementation.target.as_str());
+            index_path(
+                &mut self.unresolved_impl_name_index,
+                target_name,
+                path.clone(),
+            );
+            index_path(
+                &mut self.unresolved_impl_target_index,
+                implementation.target.as_str(),
+                path.clone(),
+            );
+        }
+        for intent in &record.unresolved_intents {
+            index_path(
+                &mut self.unresolved_intent_target_index,
+                intent.target.as_str(),
+                path.clone(),
+            );
+        }
+    }
+
+    fn unindex_file_record(&mut self, path: &Path, record: &FileRecord) {
+        for call in &record.unresolved_calls {
+            unindex_path(
+                &mut self.unresolved_call_name_index,
+                call.name.as_ref(),
+                path,
+            );
+            unindex_path(
+                &mut self.unresolved_call_target_path_index,
+                &format!("{}::{}", call.module_path, call.name),
+                path,
+            );
+        }
+        for import in &record.unresolved_imports {
+            let import_name = import
+                .path
+                .rsplit("::")
+                .next()
+                .unwrap_or(import.path.as_str());
+            unindex_path(&mut self.unresolved_import_name_index, import_name, path);
+            unindex_path(
+                &mut self.unresolved_import_path_index,
+                import.path.as_ref(),
+                path,
+            );
+        }
+        for implementation in &record.unresolved_impls {
+            let target_name = implementation
+                .target
+                .rsplit("::")
+                .next()
+                .unwrap_or(implementation.target.as_str());
+            unindex_path(&mut self.unresolved_impl_name_index, target_name, path);
+            unindex_path(
+                &mut self.unresolved_impl_target_index,
+                implementation.target.as_ref(),
+                path,
+            );
+        }
+        for intent in &record.unresolved_intents {
+            unindex_path(
+                &mut self.unresolved_intent_target_index,
+                intent.target.as_ref(),
+                path,
+            );
         }
     }
 
@@ -1116,8 +1242,32 @@ fn index_path(
     index.entry(key.into()).or_default().insert(path);
 }
 
+fn unindex_path(index: &mut HashMap<String, HashSet<PathBuf>>, key: &str, path: &Path) {
+    let remove_key = if let Some(paths) = index.get_mut(key) {
+        paths.remove(path);
+        paths.is_empty()
+    } else {
+        false
+    };
+    if remove_key {
+        index.remove(key);
+    }
+}
+
 fn indexed_paths(index: &HashMap<String, HashSet<PathBuf>>, key: &str) -> HashSet<PathBuf> {
     index.get(key).cloned().unwrap_or_default()
+}
+
+fn unindex_vec_value<T: PartialEq>(index: &mut HashMap<String, Vec<T>>, key: &str, value: &T) {
+    let remove_key = if let Some(values) = index.get_mut(key) {
+        values.retain(|candidate| candidate != value);
+        values.is_empty()
+    } else {
+        false
+    };
+    if remove_key {
+        index.remove(key);
+    }
 }
 
 fn same_file_graph_shape(previous: &FileState, nodes: &[Node], edges: &[Edge]) -> bool {
@@ -1138,9 +1288,7 @@ fn same_file_graph_shape(previous: &FileState, nodes: &[Node], edges: &[Edge]) -
 fn same_unresolved_call_shape(before: &[UnresolvedCall], after: &[UnresolvedCall]) -> bool {
     before.len() == after.len()
         && before.iter().zip(after.iter()).all(|(lhs, rhs)| {
-            lhs.caller == rhs.caller
-                && lhs.name == rhs.name
-                && lhs.module_path == rhs.module_path
+            lhs.caller == rhs.caller && lhs.name == rhs.name && lhs.module_path == rhs.module_path
         })
 }
 

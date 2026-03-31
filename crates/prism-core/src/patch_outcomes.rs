@@ -231,7 +231,7 @@ impl<S: prism_store::Store> WorkspaceIndexer<S> {
             self.history.lineage_of(node)
         });
         self.projections
-        .apply_outcome_event(&event, |node| self.history.lineage_of(node));
+            .apply_outcome_event(&event, |node| self.history.lineage_of(node));
         let _ = self.outcomes.store_event(event.clone());
         Some(RecordedPatchOutcome {
             event,

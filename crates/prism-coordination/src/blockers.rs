@@ -1,6 +1,6 @@
 use prism_ir::{
-    ArtifactStatus, Capability, ClaimMode, ConflictSeverity, CoordinationTaskStatus, SessionId,
-    Timestamp, WorkspaceRevision,
+    ArtifactStatus, BlockerCause, BlockerCauseSource, Capability, ClaimMode, ConflictSeverity,
+    CoordinationTaskStatus, SessionId, Timestamp, WorkspaceRevision,
 };
 
 use crate::helpers::{claim_is_active, dedupe_conflicts, dedupe_strings, simulate_conflicts};
@@ -69,6 +69,24 @@ pub(crate) fn completion_policy_blockers(
                 related_artifact_id: Some(artifact_id),
                 risk_score: context.and_then(|ctx| ctx.risk_score),
                 validation_checks: Vec::new(),
+                causes: vec![
+                    BlockerCause {
+                        source: BlockerCauseSource::PlanPolicy,
+                        code: Some("stale_after_graph_change".to_string()),
+                        acceptance_label: None,
+                        threshold_metric: None,
+                        threshold_value: None,
+                        observed_value: None,
+                    },
+                    BlockerCause {
+                        source: BlockerCauseSource::ArtifactState,
+                        code: Some("approved_artifact_stale".to_string()),
+                        acceptance_label: None,
+                        threshold_metric: None,
+                        threshold_value: None,
+                        observed_value: None,
+                    },
+                ],
             });
         }
     }
@@ -87,6 +105,14 @@ pub(crate) fn completion_policy_blockers(
                     related_artifact_id: None,
                     risk_score: context.risk_score,
                     validation_checks: Vec::new(),
+                    causes: vec![BlockerCause {
+                        source: BlockerCauseSource::DerivedThreshold,
+                        code: Some("review_required_above_risk_score".to_string()),
+                        acceptance_label: None,
+                        threshold_metric: Some("risk_score".to_string()),
+                        threshold_value: Some(threshold),
+                        observed_value: context.risk_score,
+                    }],
                 });
             }
         }
@@ -117,6 +143,14 @@ pub(crate) fn completion_policy_blockers(
                         .map(|artifact| artifact.id.clone()),
                     risk_score: context.risk_score,
                     validation_checks: missing,
+                    causes: vec![BlockerCause {
+                        source: BlockerCauseSource::PlanPolicy,
+                        code: Some("require_validation_for_completion".to_string()),
+                        acceptance_label: None,
+                        threshold_metric: None,
+                        threshold_value: None,
+                        observed_value: None,
+                    }],
                 });
             }
         }
@@ -144,6 +178,14 @@ pub(crate) fn dependency_and_revision_blockers(
                 related_artifact_id: None,
                 risk_score: None,
                 validation_checks: Vec::new(),
+                causes: vec![BlockerCause {
+                    source: BlockerCauseSource::DependencyGraph,
+                    code: Some("task_dependency_incomplete".to_string()),
+                    acceptance_label: None,
+                    threshold_metric: None,
+                    threshold_value: None,
+                    observed_value: None,
+                }],
             }),
             None => blockers.push(TaskBlocker {
                 kind: BlockerKind::Dependency,
@@ -152,6 +194,14 @@ pub(crate) fn dependency_and_revision_blockers(
                 related_artifact_id: None,
                 risk_score: None,
                 validation_checks: Vec::new(),
+                causes: vec![BlockerCause {
+                    source: BlockerCauseSource::DependencyGraph,
+                    code: Some("task_dependency_missing".to_string()),
+                    acceptance_label: None,
+                    threshold_metric: None,
+                    threshold_value: None,
+                    observed_value: None,
+                }],
             }),
         }
     }
@@ -171,6 +221,24 @@ pub(crate) fn dependency_and_revision_blockers(
                 related_artifact_id: None,
                 risk_score: None,
                 validation_checks: Vec::new(),
+                causes: vec![
+                    BlockerCause {
+                        source: BlockerCauseSource::PlanPolicy,
+                        code: Some("stale_after_graph_change".to_string()),
+                        acceptance_label: None,
+                        threshold_metric: None,
+                        threshold_value: None,
+                        observed_value: None,
+                    },
+                    BlockerCause {
+                        source: BlockerCauseSource::RuntimeState,
+                        code: Some("workspace_revision_mismatch".to_string()),
+                        acceptance_label: None,
+                        threshold_metric: None,
+                        threshold_value: None,
+                        observed_value: None,
+                    },
+                ],
             });
         }
     }
@@ -217,6 +285,24 @@ pub(crate) fn review_blockers(
         related_artifact_id: pending_artifact,
         risk_score: None,
         validation_checks: Vec::new(),
+        causes: vec![
+            BlockerCause {
+                source: BlockerCauseSource::PlanPolicy,
+                code: Some("require_review_for_completion".to_string()),
+                acceptance_label: None,
+                threshold_metric: None,
+                threshold_value: None,
+                observed_value: None,
+            },
+            BlockerCause {
+                source: BlockerCauseSource::ArtifactState,
+                code: Some("missing_approved_artifact".to_string()),
+                acceptance_label: None,
+                threshold_metric: None,
+                threshold_value: None,
+                observed_value: None,
+            },
+        ],
     }]
 }
 
@@ -256,6 +342,14 @@ pub(crate) fn claim_blockers(
             related_artifact_id: None,
             risk_score: None,
             validation_checks: Vec::new(),
+            causes: vec![BlockerCause {
+                source: BlockerCauseSource::RuntimeState,
+                code: Some("claim_conflict".to_string()),
+                acceptance_label: None,
+                threshold_metric: None,
+                threshold_value: None,
+                observed_value: None,
+            }],
         });
     }
     blockers

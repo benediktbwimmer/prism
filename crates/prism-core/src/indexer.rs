@@ -14,8 +14,7 @@ use crate::indexer_support::{
     resolve_graph_edges, ResolveGraphEdgesStats,
 };
 use crate::invalidation::{
-    edge_resolution_paths_for_observed_changes,
-    observed_changes_require_dependent_edge_resolution,
+    edge_resolution_paths_for_observed_changes, observed_changes_require_dependent_edge_resolution,
     RefreshInvalidationScope,
 };
 use crate::layout::{discover_layout, sync_root_nodes, PackageInfo, WorkspaceLayout};
@@ -371,11 +370,14 @@ impl<S: Store> WorkspaceIndexer<S> {
             plan_execution_overlays,
             projections,
         } = runtime_state;
-        let workspace_id = sync_root_nodes(&mut graph, &layout);
-        history.seed_nodes(
-            std::iter::once(workspace_id).chain(layout.packages.iter().map(|package| {
-                package.node_id.clone()
-            })),
+        let workspace_id = sync_root_nodes(Arc::make_mut(&mut graph), &layout);
+        Arc::make_mut(&mut history).seed_nodes(
+            std::iter::once(workspace_id).chain(
+                layout
+                    .packages
+                    .iter()
+                    .map(|package| package.node_id.clone()),
+            ),
         );
         let restore_runtime_ms = restore_runtime_started.elapsed().as_millis();
 
@@ -394,9 +396,9 @@ impl<S: Store> WorkspaceIndexer<S> {
         Ok(Self {
             root,
             layout,
-            graph,
-            history,
-            outcomes,
+            graph: Arc::unwrap_or_clone(graph),
+            history: Arc::unwrap_or_clone(history),
+            outcomes: Arc::unwrap_or_clone(outcomes),
             coordination_snapshot: if coordination {
                 coordination_snapshot
             } else {
@@ -1051,8 +1053,8 @@ impl<S: Store> WorkspaceIndexer<S> {
             "finished prism missing-file removal phase"
         );
 
-        let expand_dependency_edge_resolution =
-            requires_edge_resolution && observed_changes_require_dependent_edge_resolution(&observed_changes);
+        let expand_dependency_edge_resolution = requires_edge_resolution
+            && observed_changes_require_dependent_edge_resolution(&observed_changes);
         let resolved_edge_scope = if requires_edge_resolution {
             invalidation_scope.as_ref().map(|scope| {
                 if expand_dependency_edge_resolution {

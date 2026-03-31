@@ -568,6 +568,34 @@ fn native_plan_node_completion_rejects_missing_review_and_validation() {
         .collect::<Vec<_>>();
     assert!(kinds.contains(&"ReviewRequired".to_string()));
     assert!(kinds.contains(&"ValidationRequired".to_string()));
+    let review_blocker = blockers
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|blocker| blocker["kind"] == "ReviewRequired")
+        .expect("review blocker should be present");
+    assert_eq!(
+        review_blocker["causes"][0]["source"],
+        serde_json::Value::String("node_acceptance".to_string())
+    );
+    assert_eq!(
+        review_blocker["causes"][0]["acceptanceLabel"],
+        serde_json::Value::String("main is validated".to_string())
+    );
+    let validation_blocker = blockers
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|blocker| blocker["kind"] == "ValidationRequired")
+        .expect("validation blocker should be present");
+    assert_eq!(
+        validation_blocker["causes"][0]["source"],
+        serde_json::Value::String("node_acceptance".to_string())
+    );
+    assert_eq!(
+        validation_blocker["causes"][0]["acceptanceLabel"],
+        serde_json::Value::String("main is validated".to_string())
+    );
 
     let error = host
         .store_coordination(
@@ -7994,6 +8022,9 @@ return prism.conceptByHandle("concept://custom_validation");
         .expect("concept query should succeed");
     assert_eq!(queried.result, Value::Null);
 
+    drop(session);
+    drop(host);
+
     let reloaded = QueryHost::with_session(index_workspace_session(&root).unwrap());
     let persisted = reloaded
         .execute(
@@ -12509,7 +12540,6 @@ return {
     assert_eq!(timeline[0]["message"], "starting prism-mcp");
     assert_eq!(timeline[1]["message"], "completed prism workspace indexing");
     assert_eq!(timeline[2]["message"], "prism-mcp daemon ready");
-
 }
 
 #[test]

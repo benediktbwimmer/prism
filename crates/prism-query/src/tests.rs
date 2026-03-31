@@ -5463,6 +5463,9 @@ fn task_backed_native_graph_blockers_follow_coordination_validation_fields() {
         validation_blocker.validation_checks,
         vec!["validation:task-owned"]
     );
+    assert!(validation_blocker.causes.iter().any(|cause| cause.source
+        == prism_ir::BlockerCauseSource::PlanPolicy
+        && cause.code.as_deref() == Some("require_validation_for_completion")));
     assert!(!validation_blocker
         .validation_checks
         .iter()

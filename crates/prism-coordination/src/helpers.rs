@@ -143,6 +143,7 @@ pub(crate) fn policy_violation_from_blocker(
             "relatedTaskId": blocker.related_task_id.as_ref().map(|value| value.0.to_string()),
             "validationChecks": blocker.validation_checks,
             "riskScore": blocker.risk_score,
+            "causes": blocker.causes,
         }),
     )
 }

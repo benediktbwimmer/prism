@@ -152,10 +152,10 @@ impl Prism {
     ) -> Self {
         let native_plans = NativePlanRuntimeState::from_coordination_snapshot(&coordination);
         let continuity_runtime = CoordinationRuntimeState::from_snapshot(coordination);
-        Self::with_history_outcomes_coordination_projections_and_native_plans(
-            graph,
-            history,
-            outcomes,
+        Self::with_shared_history_outcomes_coordination_projections_and_native_plans(
+            Arc::new(graph),
+            Arc::new(history),
+            Arc::new(outcomes),
             projections,
             native_plans,
             continuity_runtime,
@@ -171,7 +171,27 @@ impl Prism {
         plan_graphs: Vec<PlanGraph>,
         execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     ) -> Self {
-        Self::with_history_outcomes_coordination_projections_and_native_plans(
+        Self::with_shared_history_outcomes_coordination_projections_and_plan_graphs(
+            Arc::new(graph),
+            Arc::new(history),
+            Arc::new(outcomes),
+            coordination,
+            projections,
+            plan_graphs,
+            execution_overlays,
+        )
+    }
+
+    pub fn with_shared_history_outcomes_coordination_projections_and_plan_graphs(
+        graph: Arc<Graph>,
+        history: Arc<HistoryStore>,
+        outcomes: Arc<OutcomeMemory>,
+        coordination: CoordinationSnapshot,
+        projections: ProjectionIndex,
+        plan_graphs: Vec<PlanGraph>,
+        execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
+    ) -> Self {
+        Self::with_shared_history_outcomes_coordination_projections_and_native_plans(
             graph,
             history,
             outcomes,
@@ -185,10 +205,10 @@ impl Prism {
         )
     }
 
-    fn with_history_outcomes_coordination_projections_and_native_plans(
-        graph: Graph,
-        history: HistoryStore,
-        outcomes: OutcomeMemory,
+    fn with_shared_history_outcomes_coordination_projections_and_native_plans(
+        graph: Arc<Graph>,
+        history: Arc<HistoryStore>,
+        outcomes: Arc<OutcomeMemory>,
         mut projections: ProjectionIndex,
         native_plans: NativePlanRuntimeState,
         continuity_runtime: CoordinationRuntimeState,
@@ -217,9 +237,9 @@ impl Prism {
             "built prism query state"
         );
         Self {
-            graph: Arc::new(graph),
-            history: Arc::new(history),
-            outcomes: Arc::new(outcomes),
+            graph,
+            history,
+            outcomes,
             history_backend: RwLock::new(None),
             outcome_backend: RwLock::new(None),
             workspace_revision: RwLock::new(default_workspace_revision),

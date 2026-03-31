@@ -125,6 +125,14 @@ return {{
         Value::String("ReviewRequired".to_string())
     );
     assert_eq!(
+        envelope["result"]["blockers"][0]["causes"][0]["source"],
+        Value::String("plan_policy".to_string())
+    );
+    assert_eq!(
+        envelope["result"]["blockers"][0]["causes"][1]["source"],
+        Value::String("artifact_state".to_string())
+    );
+    assert_eq!(
         envelope["result"]["pendingReviews"]
             .as_array()
             .unwrap()

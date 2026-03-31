@@ -4,10 +4,10 @@ use prism_curator::{
 };
 use prism_ir::{AnchorRef, Edge, NodeId, WorkspaceRevision};
 use prism_js::{
-    AnchorRefView, ArtifactRiskView, ArtifactView, BlockerView, ChangeImpactView, ClaimView,
-    CoChangeView, ConceptBindingMetadataView, ConceptCurationHintsView, ConceptDecodeLensView,
-    ConceptPacketTruncationView, ConceptPacketVerbosityView, ConceptPacketView,
-    ConceptProvenanceView, ConceptPublicationStatusView, ConceptPublicationView,
+    AnchorRefView, ArtifactRiskView, ArtifactView, BlockerCauseView, BlockerView, ChangeImpactView,
+    ClaimView, CoChangeView, ConceptBindingMetadataView, ConceptCurationHintsView,
+    ConceptDecodeLensView, ConceptPacketTruncationView, ConceptPacketVerbosityView,
+    ConceptPacketView, ConceptProvenanceView, ConceptPublicationStatusView, ConceptPublicationView,
     ConceptRelationDirectionView, ConceptRelationKindView, ConceptRelationView,
     ConceptResolutionView, ConceptScopeView, ConflictView, ContractCompatibilityView,
     ContractGuaranteeStrengthView, ContractGuaranteeView, ContractHealthSignalsView,
@@ -1284,6 +1284,7 @@ pub(crate) fn plan_node_blocker_view(value: prism_ir::PlanNodeBlocker) -> PlanNo
             .map(|artifact_id| artifact_id.0.to_string()),
         risk_score: value.risk_score,
         validation_checks: value.validation_checks,
+        causes: value.causes.into_iter().map(blocker_cause_view).collect(),
     }
 }
 
@@ -1461,6 +1462,18 @@ pub(crate) fn blocker_view(value: prism_coordination::TaskBlocker) -> BlockerVie
             .map(|artifact_id| artifact_id.0.to_string()),
         risk_score: value.risk_score,
         validation_checks: value.validation_checks,
+        causes: value.causes.into_iter().map(blocker_cause_view).collect(),
+    }
+}
+
+fn blocker_cause_view(value: prism_ir::BlockerCause) -> BlockerCauseView {
+    BlockerCauseView {
+        source: value.source,
+        code: value.code,
+        acceptance_label: value.acceptance_label,
+        threshold_metric: value.threshold_metric,
+        threshold_value: value.threshold_value,
+        observed_value: value.observed_value,
     }
 }
 

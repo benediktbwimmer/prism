@@ -1678,13 +1678,16 @@ impl WorkspaceSession {
             .lock()
             .expect("workspace runtime state lock poisoned")
             .replace_coordination_runtime(
-                state.as_ref()
+                state
+                    .as_ref()
                     .map(|state| state.snapshot.clone())
                     .unwrap_or_default(),
-                state.as_ref()
+                state
+                    .as_ref()
                     .map(|state| state.plan_graphs.clone())
                     .unwrap_or_default(),
-                state.as_ref()
+                state
+                    .as_ref()
                     .map(|state| state.execution_overlays.clone())
                     .unwrap_or_default(),
             );

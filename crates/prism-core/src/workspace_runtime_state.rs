@@ -6,12 +6,13 @@ use prism_projections::ProjectionIndex;
 use prism_query::Prism;
 use prism_store::{CoordinationPersistContext, Graph};
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 #[derive(Clone, Default)]
 pub(crate) struct WorkspaceRuntimeState {
-    pub(crate) graph: Graph,
-    pub(crate) history: HistoryStore,
-    pub(crate) outcomes: OutcomeMemory,
+    pub(crate) graph: Arc<Graph>,
+    pub(crate) history: Arc<HistoryStore>,
+    pub(crate) outcomes: Arc<OutcomeMemory>,
     pub(crate) coordination_snapshot: CoordinationSnapshot,
     pub(crate) plan_graphs: Vec<PlanGraph>,
     pub(crate) plan_execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
@@ -29,9 +30,9 @@ impl WorkspaceRuntimeState {
         projections: ProjectionIndex,
     ) -> Self {
         Self {
-            graph,
-            history,
-            outcomes,
+            graph: Arc::new(graph),
+            history: Arc::new(history),
+            outcomes: Arc::new(outcomes),
             coordination_snapshot,
             plan_graphs,
             plan_execution_overlays,
@@ -44,10 +45,10 @@ impl WorkspaceRuntimeState {
         workspace_revision: WorkspaceRevision,
         coordination_context: Option<CoordinationPersistContext>,
     ) -> Prism {
-        let prism = Prism::with_history_outcomes_coordination_projections_and_plan_graphs(
-            self.graph.clone(),
-            self.history.clone(),
-            self.outcomes.clone(),
+        let prism = Prism::with_shared_history_outcomes_coordination_projections_and_plan_graphs(
+            Arc::clone(&self.graph),
+            Arc::clone(&self.history),
+            Arc::clone(&self.outcomes),
             self.coordination_snapshot.clone(),
             self.projections.clone(),
             self.plan_graphs.clone(),
@@ -81,6 +82,6 @@ impl WorkspaceRuntimeState {
     pub(crate) fn apply_outcome_event(&mut self, event: &prism_memory::OutcomeEvent) {
         self.projections
             .apply_outcome_event(event, |node| self.history.lineage_of(node));
-        let _ = self.outcomes.store_event(event.clone());
+        let _ = Arc::make_mut(&mut self.outcomes).store_event(event.clone());
     }
 }

@@ -15,8 +15,8 @@ use prism_js::{
     ConnectionInfoView, RuntimeBoundaryRegionView, RuntimeDomainFreshnessView,
     RuntimeFreshnessView, RuntimeHealthView, RuntimeLogEventView,
     RuntimeMaterializationCoverageView, RuntimeMaterializationItemView, RuntimeMaterializationView,
-    RuntimeOverlayScopeView, RuntimeProcessView,
-    RuntimeProjectionScopeView, RuntimeQueueDepthView, RuntimeScopesView, RuntimeStatusView,
+    RuntimeOverlayScopeView, RuntimeProcessView, RuntimeProjectionScopeView, RuntimeQueueDepthView,
+    RuntimeScopesView, RuntimeStatusView,
 };
 use serde::Deserialize;
 use serde_json::{Map, Value};
