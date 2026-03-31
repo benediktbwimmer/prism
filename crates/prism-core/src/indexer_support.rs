@@ -23,7 +23,7 @@ use crate::history_backend::StoreHistoryReadBackend;
 use crate::indexer::PendingFileParse;
 use crate::outcome_backend::StoreOutcomeReadBackend;
 use crate::resolution::{resolve_calls, resolve_impls, resolve_imports, resolve_intents};
-use crate::session::{WorkspaceRefreshState, WorkspaceSession};
+use crate::session::{WorkspaceRefreshSeed, WorkspaceRefreshState, WorkspaceSession};
 use crate::shared_runtime::composite_workspace_revision;
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use crate::util::{persisted_file_hash, workspace_walk};
@@ -43,6 +43,7 @@ pub(crate) fn build_workspace_session(
     plan_graphs: Vec<PlanGraph>,
     plan_execution_overlays: BTreeMap<String, Vec<PlanExecutionOverlay>>,
     projections: ProjectionIndex,
+    initial_refresh: Option<WorkspaceRefreshSeed>,
     coordination_enabled: bool,
     backend: Option<Arc<dyn CuratorBackend>>,
 ) -> Result<WorkspaceSession> {
@@ -88,6 +89,14 @@ pub(crate) fn build_workspace_session(
     let prism = Arc::new(RwLock::new(prism));
     let refresh_lock = Arc::new(Mutex::new(()));
     let refresh_state = Arc::new(WorkspaceRefreshState::new());
+    if let Some(refresh) = initial_refresh {
+        refresh_state.record_runtime_refresh_observation_with_work(
+            refresh.path,
+            refresh.duration_ms,
+            workspace_revision,
+            refresh.work,
+        );
+    }
     let fs_snapshot = Arc::new(Mutex::new(workspace_tree_snapshot));
     let load_curator_snapshot_ms = 0_u128;
     let curator = CuratorHandle::new(backend, Arc::clone(&store), Arc::clone(&refresh_lock));

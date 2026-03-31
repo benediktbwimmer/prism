@@ -211,6 +211,14 @@ fn hydrated_workspace_session_marks_background_refresh_pending() {
     let session =
         hydrate_workspace_session_with_options(&root, WorkspaceSessionOptions::default()).unwrap();
     assert!(session.needs_refresh());
+    let recovery = session
+        .last_refresh()
+        .expect("hydrated session should record startup recovery metadata");
+    assert_eq!(recovery.path, "recovery");
+    assert!(recovery.workspace_reloaded);
+    assert_eq!(recovery.full_rebuild_count, 0);
+    assert!(recovery.loaded_bytes > 0);
+    assert!(recovery.replay_volume > 0);
 }
 
 #[test]
@@ -1175,6 +1183,88 @@ fn reload_bounds_hot_outcomes_but_queries_cold_outcomes_from_store() {
 }
 
 #[test]
+fn reload_bounds_hot_outcomes_from_authoritative_journal_without_checkpoint_flush() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let alpha = session
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .find(|symbol| symbol.id().path == "demo::alpha")
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    for idx in 0..(crate::session::HOT_OUTCOME_HYDRATION_LIMIT + 32) {
+        session
+            .append_outcome(OutcomeEvent {
+                meta: EventMeta {
+                    id: EventId::new(format!("outcome:journal-bound:{idx}")),
+                    ts: u64::try_from(idx + 1).unwrap(),
+                    actor: EventActor::Agent,
+                    correlation: None,
+                    causation: None,
+                },
+                anchors: vec![AnchorRef::Node(alpha.clone())],
+                kind: if idx == 0 {
+                    OutcomeKind::FailureObserved
+                } else {
+                    OutcomeKind::NoteAdded
+                },
+                result: if idx == 0 {
+                    OutcomeResult::Failure
+                } else {
+                    OutcomeResult::Success
+                },
+                summary: format!("journal event {idx}"),
+                evidence: Vec::new(),
+                metadata: serde_json::Value::Null,
+            })
+            .unwrap();
+    }
+
+    drop(session);
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    assert!(
+        reloaded.prism().outcome_snapshot().events.len()
+            <= crate::session::HOT_OUTCOME_HYDRATION_LIMIT
+    );
+
+    let failure_query = OutcomeRecallQuery {
+        anchors: vec![AnchorRef::Node(alpha.clone())],
+        kinds: Some(vec![OutcomeKind::FailureObserved]),
+        result: Some(OutcomeResult::Failure),
+        limit: 10,
+        ..OutcomeRecallQuery::default()
+    };
+    assert!(reloaded
+        .load_hot_outcomes(&failure_query)
+        .unwrap()
+        .is_empty());
+    assert!(reloaded
+        .load_cold_outcomes(&failure_query)
+        .unwrap()
+        .iter()
+        .any(|event| event.meta.id == EventId::new("outcome:journal-bound:0")));
+    assert!(reloaded
+        .load_outcomes(&failure_query)
+        .unwrap()
+        .iter()
+        .any(|event| event.meta.id == EventId::new("outcome:journal-bound:0")));
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn persist_outcomes_flushes_checkpoint_materialization() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -1708,6 +1798,92 @@ fn shared_runtime_sqlite_shares_session_memory_and_concepts_across_workspaces() 
         concept.summary,
         "Session concept persisted through the shared runtime sqlite."
     );
+
+    let _ = fs::remove_dir_all(root_one);
+    let _ = fs::remove_dir_all(root_two);
+    let _ = fs::remove_dir_all(shared_runtime_root);
+}
+
+#[test]
+fn shared_runtime_sqlite_shares_memory_events_without_checkpoint_flush() {
+    let shared_runtime_root = temp_workspace();
+    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+    let root_one = temp_workspace();
+    let root_two = temp_workspace();
+    for root in [&root_one, &root_two] {
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+    }
+
+    let options = WorkspaceSessionOptions {
+        coordination: true,
+        shared_runtime: SharedRuntimeBackend::Sqlite {
+            path: shared_runtime_sqlite.clone(),
+        },
+        hydrate_persisted_projections: false,
+    };
+    let session_one = index_workspace_session_with_options(&root_one, options.clone()).unwrap();
+    let alpha = session_one
+        .prism()
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .expect("alpha should be indexed")
+        .id()
+        .clone();
+
+    let mut entry = MemoryEntry::new(MemoryKind::Structural, "shared event journal memory");
+    entry.id = MemoryId("memory:shared-runtime-journal".to_string());
+    entry.anchors = vec![AnchorRef::Node(alpha)];
+    entry.scope = MemoryScope::Session;
+    entry.source = MemorySource::User;
+    entry.trust = 0.9;
+    session_one
+        .append_memory_event(MemoryEvent::from_entry(
+            MemoryEventKind::Stored,
+            entry.clone(),
+            Some("task:shared-runtime-journal".to_string()),
+            Vec::new(),
+            Vec::new(),
+        ))
+        .unwrap();
+    drop(session_one);
+
+    let session_two = index_workspace_session_with_options(&root_two, options).unwrap();
+    let events = session_two
+        .memory_events(&MemoryEventQuery {
+            memory_id: Some(entry.id.clone()),
+            focus: Vec::new(),
+            text: None,
+            limit: 5,
+            kinds: None,
+            actions: Some(vec![MemoryEventKind::Stored]),
+            scope: Some(MemoryScope::Session),
+            task_id: Some("task:shared-runtime-journal".to_string()),
+            since: None,
+        })
+        .unwrap();
+    assert_eq!(events.len(), 1);
+    assert_eq!(
+        events[0]
+            .entry
+            .as_ref()
+            .map(|candidate| candidate.id.clone()),
+        Some(entry.id)
+    );
+    let snapshot = session_two
+        .load_episodic_snapshot()
+        .unwrap()
+        .expect("shared runtime should rebuild episodic view from authoritative memory events");
+    assert!(snapshot
+        .entries
+        .iter()
+        .any(|candidate| candidate.content == "shared event journal memory"));
 
     let _ = fs::remove_dir_all(root_one);
     let _ = fs::remove_dir_all(root_two);
@@ -3479,6 +3655,84 @@ fn coordination_session_materializes_read_models_off_request_path() {
 }
 
 #[test]
+fn coordination_journal_recovers_after_restart_without_read_model_flush() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    session
+        .mutate_coordination(|prism| {
+            let plan_id = prism.create_native_plan(
+                EventMeta {
+                    id: EventId::new("coordination:restart-plan"),
+                    ts: 1,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:restart-plan")),
+                    causation: None,
+                },
+                "Recover coordination state from authoritative journal".into(),
+                None,
+                Some(Default::default()),
+            )?;
+            let _ = prism.create_native_task(
+                EventMeta {
+                    id: EventId::new("coordination:restart-task"),
+                    ts: 2,
+                    actor: EventActor::Agent,
+                    correlation: Some(TaskId::new("task:restart-plan")),
+                    causation: None,
+                },
+                TaskCreateInput {
+                    plan_id,
+                    title: "Recover coordination task from journal".into(),
+                    status: Some(prism_ir::CoordinationTaskStatus::Ready),
+                    assignee: None,
+                    session: None,
+                    worktree_id: None,
+                    branch_ref: None,
+                    anchors: Vec::new(),
+                    depends_on: Vec::new(),
+                    acceptance: Vec::new(),
+                    base_revision: prism_ir::WorkspaceRevision::default(),
+                },
+            )?;
+            Ok::<_, anyhow::Error>(())
+        })
+        .unwrap();
+
+    {
+        let mut store = session.store.lock().expect("workspace store lock poisoned");
+        assert!(store.load_coordination_read_model().unwrap().is_none());
+        assert!(store
+            .load_coordination_queue_read_model()
+            .unwrap()
+            .is_none());
+    }
+
+    drop(session);
+
+    let reloaded = index_workspace_session(&root).unwrap();
+    let snapshot = reloaded.prism().coordination_snapshot();
+    assert!(snapshot
+        .tasks
+        .iter()
+        .any(|task| task.title == "Recover coordination task from journal"));
+    let live_read_model = reloaded
+        .load_coordination_read_model()
+        .unwrap()
+        .expect("session should derive a live coordination read model after restart");
+    assert_eq!(live_read_model.task_count, 1);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn authoritative_coordination_load_prefers_event_log_over_stale_snapshot_row() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -3983,6 +4237,35 @@ fn recovery_rebuild_from_persisted_state_defers_when_refresh_is_in_progress() {
 
     let reloaded = session.try_recover_runtime_from_persisted_state().unwrap();
     assert!(!reloaded);
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn recovery_rebuild_from_persisted_state_records_replay_bounds() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    session.record_runtime_refresh_observation("deferred", 0);
+
+    let reloaded = session.try_recover_runtime_from_persisted_state().unwrap();
+    assert!(reloaded);
+
+    let recovery = session
+        .last_refresh()
+        .expect("recovery should record runtime refresh metadata");
+    assert_eq!(recovery.path, "recovery");
+    assert!(recovery.workspace_reloaded);
+    assert_eq!(recovery.full_rebuild_count, 0);
+    assert!(recovery.loaded_bytes > 0);
+    assert!(recovery.replay_volume > 0);
 
     let _ = fs::remove_dir_all(root);
 }

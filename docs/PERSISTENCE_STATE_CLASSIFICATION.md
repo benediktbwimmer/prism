@@ -340,6 +340,25 @@ During the migration:
 - `coord-task:01kn13rrg3yzbrcgrjh06ppv3h` should validate crash safety, multi-instance behavior, replay correctness, latency, and memory ceilings.
 - `coord-task:01kn13ryrrk04aacsvg1ac96c2` should evaluate with the user whether persistence isolation should become a follow-up worker plan after the semantic migration is complete.
 
+## Validation Matrix For The Migration
+
+The migration is only acceptable when the following guarantees stay covered:
+
+| Guarantee | Automated coverage | Manual / live validation |
+| --- | --- | --- |
+| Crash-safe authored outcome continuity without checkpoint flush | `reload_bounds_hot_outcomes_from_authoritative_journal_without_checkpoint_flush`, `recovery_rebuild_from_persisted_state_records_replay_bounds` | restart the release daemon and confirm `runtimeStatus().freshness.lastRefreshPath == "recovery"` with non-zero reload-work fields |
+| Crash-safe coordination continuity without read-model flush | `coordination_journal_recovers_after_restart_without_read_model_flush`, `authoritative_coordination_load_prefers_event_log_over_stale_snapshot_row` | verify task/plan queries still resolve immediately after restart before forcing a materialization flush |
+| Async checkpoint behavior stays off the request path | `appended_outcome_flushes_projection_materialization_off_request_path`, `refresh_fs_materializes_graph_snapshot_off_request_path`, `coordination_session_materializes_read_models_off_request_path` | inspect live refresh logs for reload work and confirm request-path refreshes do not require checkpoint writes to complete |
+| Bounded hot memory with cold-backed recall | `reload_bounds_hot_outcomes_but_queries_cold_outcomes_from_store`, `reload_bounds_hot_outcomes_from_authoritative_journal_without_checkpoint_flush` | check `runtimeStatus().freshness` and process RSS after restart against a large outcome history worktree |
+| Shared-runtime correctness across instances | `shared_runtime_sqlite_shares_session_memory_and_concepts_across_workspaces`, `shared_runtime_sqlite_shares_memory_events_without_checkpoint_flush` | run two workspace sessions against the same shared-runtime SQLite and confirm session-scoped events appear in the second session before any checkpoint flush |
+| Restart observability and replay bounds | `hydrated_workspace_session_marks_background_refresh_pending`, `prism_runtime_views_surface_startup_recovery_work`, `prism_runtime_views_prefer_structured_runtime_state` | after rebuild/restart, verify the live daemon reports `lastRefreshLoadedBytes`, `lastRefreshReplayVolume`, and `lastRefreshWorkspaceReloaded` coherently |
+
+Latency reduction is partly a live property rather than a unit-test property. For this migration, treat it as validated when:
+
+- request-path tests confirm checkpoints/read models are deferred
+- release-daemon restart and refresh commands stay healthy
+- live refresh logs show reload work through runtime telemetry instead of synchronous checkpoint writes on the critical path
+
 ## Plans-Specific Interpretation
 
 For first-class plans, the key distinction is:

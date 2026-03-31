@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
@@ -18,7 +19,9 @@ use crate::memory_refresh::reanchor_persisted_memory_snapshot;
 use crate::parse_pipeline::{parse_jobs_in_parallel, PreparedParseJob};
 use crate::patch_outcomes::default_outcome_meta;
 use crate::reanchor::{detect_moved_files, infer_reanchors};
-use crate::session::{WorkspaceSession, HOT_OUTCOME_HYDRATION_LIMIT};
+use crate::session::{
+    WorkspaceRefreshSeed, WorkspaceRefreshWork, WorkspaceSession, HOT_OUTCOME_HYDRATION_LIMIT,
+};
 use crate::shared_runtime::{
     local_projection_snapshot_for_persist, merged_projection_index,
     overlay_persisted_projection_knowledge, projection_snapshot_without_knowledge,
@@ -80,6 +83,7 @@ pub struct WorkspaceIndexer<S: Store> {
     pub(crate) shared_runtime: SharedRuntimeBackend,
     pub(crate) shared_runtime_store: Option<SqliteStore>,
     pub(crate) coordination_enabled: bool,
+    pub(crate) startup_refresh: Option<WorkspaceRefreshSeed>,
 }
 
 #[derive(Debug, Clone)]
@@ -207,6 +211,7 @@ impl WorkspaceIndexer<SqliteStore> {
             self.plan_graphs,
             self.plan_execution_overlays,
             self.projections,
+            self.startup_refresh,
             self.coordination_enabled,
             backend,
         )
@@ -294,6 +299,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             shared_runtime,
             shared_runtime_store: None,
             coordination_enabled: coordination,
+            startup_refresh: None,
         })
     }
 
@@ -370,6 +376,29 @@ impl<S: Store> WorkspaceIndexer<S> {
             );
         }
         let derive_or_restore_projection_ms = derive_projection_started.elapsed().as_millis();
+        let startup_refresh = if had_prior_snapshot {
+            Some(WorkspaceRefreshSeed {
+                path: "recovery",
+                duration_ms: u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+                work: workspace_recovery_work(
+                    &graph,
+                    &history,
+                    &outcomes,
+                    &coordination_snapshot,
+                    &plan_state
+                        .as_ref()
+                        .map(|state| state.plan_graphs.clone())
+                        .unwrap_or_default(),
+                    &plan_state
+                        .as_ref()
+                        .map(|state| state.execution_overlays.clone())
+                        .unwrap_or_default(),
+                )?
+                .with_workspace_reloaded(true),
+            })
+        } else {
+            None
+        };
 
         info!(
             root = %root.display(),
@@ -415,6 +444,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             shared_runtime: options.shared_runtime,
             shared_runtime_store: None,
             coordination_enabled: options.coordination,
+            startup_refresh,
         })
     }
 
@@ -1150,6 +1180,121 @@ impl<S: Store> WorkspaceIndexer<S> {
         upserted_paths.push(path.to_path_buf());
         Ok(())
     }
+}
+
+impl WorkspaceRefreshWork {
+    fn with_workspace_reloaded(self, workspace_reloaded: bool) -> Self {
+        Self {
+            workspace_reloaded,
+            ..self
+        }
+    }
+
+    fn saturating_add(self, other: Self) -> Self {
+        Self {
+            loaded_bytes: self.loaded_bytes.saturating_add(other.loaded_bytes),
+            replay_volume: self.replay_volume.saturating_add(other.replay_volume),
+            full_rebuild_count: self
+                .full_rebuild_count
+                .saturating_add(other.full_rebuild_count),
+            workspace_reloaded: self.workspace_reloaded || other.workspace_reloaded,
+        }
+    }
+}
+
+pub(crate) fn workspace_recovery_work(
+    graph: &Graph,
+    history: &HistoryStore,
+    outcomes: &OutcomeMemory,
+    coordination_snapshot: &CoordinationSnapshot,
+    plan_graphs: &[PlanGraph],
+    plan_execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
+) -> Result<WorkspaceRefreshWork> {
+    Ok(graph_recovery_work(graph)?
+        .saturating_add(history_recovery_work(history)?)
+        .saturating_add(outcomes_recovery_work(outcomes)?)
+        .saturating_add(coordination_recovery_work(
+            coordination_snapshot,
+            plan_graphs,
+            plan_execution_overlays,
+        )?))
+}
+
+fn graph_recovery_work(graph: &Graph) -> Result<WorkspaceRefreshWork> {
+    Ok(WorkspaceRefreshWork {
+        loaded_bytes: serialized_size(&graph.snapshot())?,
+        replay_volume: u64::try_from(
+            graph
+                .node_count()
+                .saturating_add(graph.edge_count())
+                .saturating_add(graph.file_count()),
+        )
+        .unwrap_or(u64::MAX),
+        ..WorkspaceRefreshWork::default()
+    })
+}
+
+fn history_recovery_work(history: &HistoryStore) -> Result<WorkspaceRefreshWork> {
+    let snapshot = history.snapshot();
+    Ok(WorkspaceRefreshWork {
+        loaded_bytes: serialized_size(&snapshot)?,
+        replay_volume: u64::try_from(
+            snapshot
+                .node_to_lineage
+                .len()
+                .saturating_add(snapshot.events.len())
+                .saturating_add(snapshot.tombstones.len()),
+        )
+        .unwrap_or(u64::MAX),
+        ..WorkspaceRefreshWork::default()
+    })
+}
+
+fn outcomes_recovery_work(outcomes: &OutcomeMemory) -> Result<WorkspaceRefreshWork> {
+    let snapshot = outcomes.snapshot();
+    Ok(WorkspaceRefreshWork {
+        loaded_bytes: serialized_size(&snapshot)?,
+        replay_volume: u64::try_from(snapshot.events.len()).unwrap_or(u64::MAX),
+        ..WorkspaceRefreshWork::default()
+    })
+}
+
+fn coordination_recovery_work(
+    coordination_snapshot: &CoordinationSnapshot,
+    plan_graphs: &[PlanGraph],
+    plan_execution_overlays: &BTreeMap<String, Vec<PlanExecutionOverlay>>,
+) -> Result<WorkspaceRefreshWork> {
+    let overlay_count = plan_execution_overlays
+        .values()
+        .map(|overlays| overlays.len())
+        .sum::<usize>();
+    let plan_graph_node_count = plan_graphs
+        .iter()
+        .map(|graph| graph.nodes.len().saturating_add(graph.edges.len()))
+        .sum::<usize>();
+    Ok(WorkspaceRefreshWork {
+        loaded_bytes: serialized_size(coordination_snapshot)?
+            .saturating_add(serialized_size(plan_graphs)?)
+            .saturating_add(serialized_size(plan_execution_overlays)?),
+        replay_volume: u64::try_from(
+            coordination_snapshot
+                .plans
+                .len()
+                .saturating_add(coordination_snapshot.tasks.len())
+                .saturating_add(coordination_snapshot.claims.len())
+                .saturating_add(coordination_snapshot.artifacts.len())
+                .saturating_add(coordination_snapshot.reviews.len())
+                .saturating_add(coordination_snapshot.events.len())
+                .saturating_add(plan_graph_node_count)
+                .saturating_add(overlay_count),
+        )
+        .unwrap_or(u64::MAX),
+        ..WorkspaceRefreshWork::default()
+    })
+}
+
+fn serialized_size<T: Debug + ?Sized>(value: &T) -> Result<u64> {
+    Ok(u64::try_from(format!("{value:?}").len()).unwrap_or(u64::MAX))
 }
 
 fn desired_parse_depth(

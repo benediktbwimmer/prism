@@ -46,8 +46,8 @@ pub use indexer::WorkspaceIndexer;
 pub use materialization::{WorkspaceBoundaryRegion, WorkspaceMaterializationSummary};
 pub use prism_doc::{PrismDocSyncResult, PrismDocSyncStatus};
 pub use session::{
-    CoordinationPlanState, FsRefreshStatus, WorkspaceFsRefreshOutcome, WorkspaceSession,
-    WorkspaceSnapshotRevisions,
+    CoordinationPlanState, FsRefreshStatus, WorkspaceFsRefreshOutcome, WorkspaceRefreshWork,
+    WorkspaceSession, WorkspaceSnapshotRevisions,
 };
 pub use shared_runtime_backend::SharedRuntimeBackend;
 pub use validation_feedback::{

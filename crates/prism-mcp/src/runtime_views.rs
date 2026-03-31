@@ -284,6 +284,14 @@ fn runtime_freshness(
             .as_ref()
             .map(|refresh| refresh.timestamp.clone()),
         last_refresh_duration_ms: last_refresh.as_ref().map(|refresh| refresh.duration_ms),
+        last_refresh_loaded_bytes: last_refresh.as_ref().map(|refresh| refresh.loaded_bytes),
+        last_refresh_replay_volume: last_refresh.as_ref().map(|refresh| refresh.replay_volume),
+        last_refresh_full_rebuild_count: last_refresh
+            .as_ref()
+            .map(|refresh| refresh.full_rebuild_count),
+        last_refresh_workspace_reloaded: last_refresh
+            .as_ref()
+            .map(|refresh| refresh.workspace_reloaded),
         last_workspace_build_ms: event_field_u64(last_build, "buildMs"),
         last_daemon_ready_ms: event_field_u64(last_ready, "startupMs"),
         materialization: materialization.clone(),

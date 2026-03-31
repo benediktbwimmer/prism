@@ -45,7 +45,7 @@ use crate::concept_relation_events::{
 use crate::contract_events::{append_repo_contract_event, load_repo_curated_contracts};
 use crate::coordination_persistence::CoordinationPersistenceBackend;
 use crate::curator::{enqueue_curator_for_outcome_locked, CuratorHandle, CuratorHandleRef};
-use crate::indexer::WorkspaceIndexer;
+use crate::indexer::{workspace_recovery_work, WorkspaceIndexer};
 use crate::indexer_support::resolve_graph_edges;
 use crate::layout::{discover_layout, sync_root_nodes};
 use crate::materialization::{
@@ -92,6 +92,14 @@ pub struct WorkspaceFsRefreshOutcome {
     pub observed: Vec<ObservedChangeSet>,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct WorkspaceRefreshWork {
+    pub loaded_bytes: u64,
+    pub replay_volume: u64,
+    pub full_rebuild_count: u64,
+    pub workspace_reloaded: bool,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct WorkspaceRefreshResult {
     pub(crate) mode: Option<WorkspaceRefreshMode>,
@@ -106,12 +114,23 @@ pub struct WorkspaceLastRefresh {
     pub fs_observed_revision: u64,
     pub fs_applied_revision: u64,
     pub workspace_revision: u64,
+    pub loaded_bytes: u64,
+    pub replay_volume: u64,
+    pub full_rebuild_count: u64,
+    pub workspace_reloaded: bool,
     pub changed_files: Vec<String>,
     pub removed_files: Vec<String>,
     pub changed_directories: Vec<String>,
     pub changed_packages: Vec<String>,
     pub unaffected_directories: Vec<String>,
     pub unaffected_packages: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct WorkspaceRefreshSeed {
+    pub(crate) path: &'static str,
+    pub(crate) duration_ms: u64,
+    pub(crate) work: WorkspaceRefreshWork,
 }
 
 #[derive(Debug, Clone)]
@@ -212,6 +231,10 @@ impl WorkspaceRefreshState {
             fs_observed_revision: self.observed_fs_revision(),
             fs_applied_revision: self.applied_fs_revision(),
             workspace_revision,
+            loaded_bytes: 0,
+            replay_volume: 0,
+            full_rebuild_count: 0,
+            workspace_reloaded: false,
             changed_files: delta
                 .changed_files
                 .iter()
@@ -249,11 +272,12 @@ impl WorkspaceRefreshState {
             .expect("workspace last refresh lock poisoned") = Some(record);
     }
 
-    pub(crate) fn record_runtime_refresh_observation(
+    pub(crate) fn record_runtime_refresh_observation_with_work(
         &self,
         path: &str,
         duration_ms: u64,
         workspace_revision: u64,
+        work: WorkspaceRefreshWork,
     ) {
         let record = WorkspaceLastRefresh {
             path: path.to_string(),
@@ -262,6 +286,10 @@ impl WorkspaceRefreshState {
             fs_observed_revision: self.observed_fs_revision(),
             fs_applied_revision: self.applied_fs_revision(),
             workspace_revision,
+            loaded_bytes: work.loaded_bytes,
+            replay_volume: work.replay_volume,
+            full_rebuild_count: work.full_rebuild_count,
+            workspace_reloaded: work.workspace_reloaded,
             changed_files: Vec::new(),
             removed_files: Vec::new(),
             changed_directories: Vec::new(),
@@ -273,6 +301,20 @@ impl WorkspaceRefreshState {
             .last_refresh
             .lock()
             .expect("workspace last refresh lock poisoned") = Some(record);
+    }
+
+    pub(crate) fn record_runtime_refresh_observation(
+        &self,
+        path: &str,
+        duration_ms: u64,
+        workspace_revision: u64,
+    ) {
+        self.record_runtime_refresh_observation_with_work(
+            path,
+            duration_ms,
+            workspace_revision,
+            WorkspaceRefreshWork::default(),
+        );
     }
 
     pub(crate) fn last_refresh(&self) -> Option<WorkspaceLastRefresh> {
@@ -780,6 +822,7 @@ impl WorkspaceSession {
 
     #[allow(dead_code)]
     fn recover_runtime_from_persisted_state_locked(&self) -> Result<()> {
+        let started = Instant::now();
         let mut store = self.store.lock().expect("workspace store lock poisoned");
         let local_workspace_revision = store.workspace_revision()?;
         let shared_workspace_revision =
@@ -848,6 +891,20 @@ impl WorkspaceSession {
             &history.snapshot(),
             &outcomes.snapshot(),
         );
+        let recovery_work = workspace_recovery_work(
+            &graph,
+            &history,
+            &outcomes,
+            &coordination_snapshot,
+            &plan_state
+                .as_ref()
+                .map(|state| state.plan_graphs.clone())
+                .unwrap_or_default(),
+            &plan_state
+                .as_ref()
+                .map(|state| state.execution_overlays.clone())
+                .unwrap_or_default(),
+        )?;
         drop(store);
 
         let prism = Arc::new(
@@ -882,6 +939,14 @@ impl WorkspaceSession {
         *self.prism.write().expect("workspace prism lock poisoned") = prism;
         self.loaded_workspace_revision
             .store(workspace_revision, Ordering::Relaxed);
+        self.record_runtime_refresh_observation_with_work(
+            "recovery",
+            u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+            WorkspaceRefreshWork {
+                workspace_reloaded: true,
+                ..recovery_work
+            },
+        );
         Ok(())
     }
 
@@ -920,6 +985,21 @@ impl WorkspaceSession {
             duration_ms,
             self.loaded_workspace_revision(),
         );
+    }
+
+    pub fn record_runtime_refresh_observation_with_work(
+        &self,
+        path: &str,
+        duration_ms: u64,
+        work: WorkspaceRefreshWork,
+    ) {
+        self.refresh_state
+            .record_runtime_refresh_observation_with_work(
+                path,
+                duration_ms,
+                self.loaded_workspace_revision(),
+                work,
+            );
     }
 
     pub fn snapshot_revisions(&self) -> Result<WorkspaceSnapshotRevisions> {

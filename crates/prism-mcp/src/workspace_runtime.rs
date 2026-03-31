@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use prism_agent::InferenceStore;
-use prism_core::{AdmissionBusyError, FsRefreshStatus, WorkspaceSession};
+use prism_core::{AdmissionBusyError, FsRefreshStatus, WorkspaceRefreshWork, WorkspaceSession};
 use prism_memory::{EpisodicMemorySnapshot, SessionMemory};
 use serde::Serialize;
 use serde_json::json;
@@ -53,6 +53,15 @@ impl WorkspaceRefreshReport {
     }
 }
 
+fn refresh_work(metrics: WorkspaceRefreshMetrics) -> WorkspaceRefreshWork {
+    WorkspaceRefreshWork {
+        loaded_bytes: metrics.loaded_bytes,
+        replay_volume: metrics.replay_volume,
+        full_rebuild_count: metrics.full_rebuild_count,
+        workspace_reloaded: metrics.workspace_reloaded,
+    }
+}
+
 fn dirty_workspace_deferred_report(
     config: &WorkspaceRuntimeConfig,
     runtime_sync_used: bool,
@@ -64,7 +73,11 @@ fn dirty_workspace_deferred_report(
     let loaded_coordination_revision = config.loaded_coordination_revision.load(Ordering::Relaxed);
     config
         .workspace
-        .record_runtime_refresh_observation("deferred", metrics.lock_hold_ms);
+        .record_runtime_refresh_observation_with_work(
+            "deferred",
+            metrics.lock_hold_ms,
+            refresh_work(metrics),
+        );
     config.dashboard_state.publish_value(
         "runtime.refreshed",
         json!({
@@ -161,7 +174,11 @@ impl WorkspaceRuntime {
                 if is_transient_sqlite_lock(&error) {
                     config
                         .workspace
-                        .record_runtime_refresh_observation("deferred", 0);
+                        .record_runtime_refresh_observation_with_work(
+                            "deferred",
+                            0,
+                            WorkspaceRefreshWork::default(),
+                        );
                     debug!(
                         root = %config.workspace.root().display(),
                         error = %error,
@@ -319,7 +336,11 @@ fn sync_workspace_runtime_with_guard(
     if deferred {
         config
             .workspace
-            .record_runtime_refresh_observation(refresh_path, metrics.lock_hold_ms);
+            .record_runtime_refresh_observation_with_work(
+                refresh_path,
+                metrics.lock_hold_ms,
+                refresh_work(metrics),
+            );
     }
     log_refresh_workspace(
         refresh_path,
@@ -460,7 +481,11 @@ fn sync_workspace_runtime_for_read_with_guard(
     if deferred {
         config
             .workspace
-            .record_runtime_refresh_observation(refresh_path, metrics.lock_hold_ms);
+            .record_runtime_refresh_observation_with_work(
+                refresh_path,
+                metrics.lock_hold_ms,
+                refresh_work(metrics),
+            );
     }
     log_refresh_workspace(
         refresh_path,
@@ -644,7 +669,11 @@ pub(crate) fn sync_persisted_workspace_state(
     if deferred {
         config
             .workspace
-            .record_runtime_refresh_observation(refresh_path, metrics.lock_hold_ms);
+            .record_runtime_refresh_observation_with_work(
+                refresh_path,
+                metrics.lock_hold_ms,
+                refresh_work(metrics),
+            );
     }
     log_refresh_workspace(
         refresh_path,
@@ -886,7 +915,11 @@ impl QueryHost {
                 "none"
             };
             if refresh_path == "deferred" {
-                workspace.record_runtime_refresh_observation(refresh_path, 0);
+                workspace.record_runtime_refresh_observation_with_work(
+                    refresh_path,
+                    0,
+                    WorkspaceRefreshWork::default(),
+                );
             }
             return Ok(WorkspaceRefreshReport {
                 refresh_path,
@@ -912,7 +945,11 @@ impl QueryHost {
         };
         let Some(report) = try_sync_workspace_runtime_for_read(&config)? else {
             runtime.request_refresh();
-            workspace.record_runtime_refresh_observation("deferred", 0);
+            workspace.record_runtime_refresh_observation_with_work(
+                "deferred",
+                0,
+                WorkspaceRefreshWork::default(),
+            );
             return Ok(WorkspaceRefreshReport {
                 refresh_path: "deferred",
                 runtime_sync_used: false,
@@ -943,7 +980,11 @@ impl QueryHost {
                 "none"
             };
             if refresh_path == "deferred" {
-                workspace.record_runtime_refresh_observation(refresh_path, 0);
+                workspace.record_runtime_refresh_observation_with_work(
+                    refresh_path,
+                    0,
+                    WorkspaceRefreshWork::default(),
+                );
             }
             return Ok(WorkspaceRefreshReport {
                 refresh_path,
@@ -969,7 +1010,11 @@ impl QueryHost {
         };
         let Some(report) = try_sync_workspace_runtime_for_read(&config)? else {
             runtime.request_refresh();
-            workspace.record_runtime_refresh_observation("deferred", 0);
+            workspace.record_runtime_refresh_observation_with_work(
+                "deferred",
+                0,
+                WorkspaceRefreshWork::default(),
+            );
             return Err(AdmissionBusyError::runtime_sync("refreshWorkspaceForMutation").into());
         };
         if report.coordination_reloaded {

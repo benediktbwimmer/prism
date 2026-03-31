@@ -13,8 +13,9 @@ use crate::tests_support::*;
 use prism_agent::{InferenceSnapshot, InferredEdgeScope};
 use prism_coordination::{CoordinationPolicy, CoordinationStore, PlanCreateInput, TaskCreateInput};
 use prism_core::{
-    index_workspace_session, index_workspace_session_with_curator, ValidationFeedbackCategory,
-    ValidationFeedbackRecord, ValidationFeedbackVerdict,
+    hydrate_workspace_session_with_options, index_workspace_session,
+    index_workspace_session_with_curator, ValidationFeedbackCategory, ValidationFeedbackRecord,
+    ValidationFeedbackVerdict, WorkspaceSessionOptions,
 };
 use prism_curator::{
     CandidateConcept, CandidateConceptOperation, CandidateEdge, CandidateMemory,
@@ -12068,6 +12069,22 @@ return {
         last_refresh.duration_ms
     );
     assert_eq!(
+        status["freshness"]["lastRefreshLoadedBytes"],
+        last_refresh.loaded_bytes
+    );
+    assert_eq!(
+        status["freshness"]["lastRefreshReplayVolume"],
+        last_refresh.replay_volume
+    );
+    assert_eq!(
+        status["freshness"]["lastRefreshFullRebuildCount"],
+        last_refresh.full_rebuild_count
+    );
+    assert_eq!(
+        status["freshness"]["lastRefreshWorkspaceReloaded"],
+        last_refresh.workspace_reloaded
+    );
+    assert_eq!(
         status["freshness"]["lastRefreshTimestamp"],
         last_refresh.timestamp
     );
@@ -12155,6 +12172,34 @@ fn prism_runtime_views_do_not_source_freshness_from_runtime_state_refresh_events
             .unwrap_or(Value::Null)
     );
     assert_eq!(
+        result.result["lastRefreshLoadedBytes"],
+        last_refresh
+            .as_ref()
+            .map(|refresh| Value::Number(refresh.loaded_bytes.into()))
+            .unwrap_or(Value::Null)
+    );
+    assert_eq!(
+        result.result["lastRefreshReplayVolume"],
+        last_refresh
+            .as_ref()
+            .map(|refresh| Value::Number(refresh.replay_volume.into()))
+            .unwrap_or(Value::Null)
+    );
+    assert_eq!(
+        result.result["lastRefreshFullRebuildCount"],
+        last_refresh
+            .as_ref()
+            .map(|refresh| Value::Number(refresh.full_rebuild_count.into()))
+            .unwrap_or(Value::Null)
+    );
+    assert_eq!(
+        result.result["lastRefreshWorkspaceReloaded"],
+        last_refresh
+            .as_ref()
+            .map(|refresh| Value::Bool(refresh.workspace_reloaded))
+            .unwrap_or(Value::Null)
+    );
+    assert_eq!(
         result.result["lastRefreshTimestamp"],
         last_refresh
             .as_ref()
@@ -12164,6 +12209,54 @@ fn prism_runtime_views_do_not_source_freshness_from_runtime_state_refresh_events
     assert_ne!(
         result.result["lastRefreshPath"],
         Value::String("auxiliary".to_string())
+    );
+}
+
+#[test]
+fn prism_runtime_views_surface_startup_recovery_work() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+    let _ = index_workspace_session(&root).unwrap();
+    let session =
+        hydrate_workspace_session_with_options(&root, WorkspaceSessionOptions::default()).unwrap();
+    let host = host_with_session_internal(session);
+    let last_refresh = host
+        .workspace
+        .as_ref()
+        .and_then(|workspace| workspace.last_refresh())
+        .expect("hydrated runtime should record recovery metadata");
+
+    let result = host
+        .execute(
+            test_session(&host),
+            "return prism.runtimeStatus().freshness;",
+            QueryLanguage::Ts,
+        )
+        .expect("runtime status query should succeed");
+
+    assert_eq!(result.result["lastRefreshPath"], last_refresh.path);
+    assert_eq!(
+        result.result["lastRefreshLoadedBytes"],
+        last_refresh.loaded_bytes
+    );
+    assert_eq!(
+        result.result["lastRefreshReplayVolume"],
+        last_refresh.replay_volume
+    );
+    assert_eq!(
+        result.result["lastRefreshFullRebuildCount"],
+        last_refresh.full_rebuild_count
+    );
+    assert_eq!(
+        result.result["lastRefreshWorkspaceReloaded"],
+        last_refresh.workspace_reloaded
     );
 }
 

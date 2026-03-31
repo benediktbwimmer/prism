@@ -621,6 +621,10 @@ type RuntimeFreshnessView = {
   lastRefreshPath?: string;
   lastRefreshTimestamp?: string;
   lastRefreshDurationMs?: number;
+  lastRefreshLoadedBytes?: number;
+  lastRefreshReplayVolume?: number;
+  lastRefreshFullRebuildCount?: number;
+  lastRefreshWorkspaceReloaded?: boolean;
   lastWorkspaceBuildMs?: number;
   lastDaemonReadyMs?: number;
   materialization: RuntimeMaterializationView;
