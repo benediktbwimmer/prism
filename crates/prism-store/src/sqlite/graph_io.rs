@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -331,23 +331,33 @@ impl<'tx> FileStateWriter<'tx> {
     }
 
     pub(super) fn delete_file_state(&mut self, path: &Path) -> Result<()> {
+        self.delete_file_state_returning_nodes(path).map(|_| ())
+    }
+
+    pub(super) fn delete_file_state_returning_nodes(
+        &mut self,
+        path: &Path,
+    ) -> Result<Vec<prism_ir::NodeId>> {
         let file_path = path.to_string_lossy();
         let stale_nodes = {
             let mut rows = self.select_file_nodes.query(params![file_path.as_ref()])?;
             let mut stale_nodes = Vec::new();
             while let Some(row) = rows.next()? {
-                stale_nodes.push((
+                stale_nodes.push(prism_ir::NodeId::new(
                     row.get::<_, String>(0)?,
                     row.get::<_, String>(1)?,
-                    row.get::<_, i64>(2)?,
+                    decode_node_kind(row.get::<_, i64>(2)?)?,
                 ));
             }
             stale_nodes
         };
         self.delete_edges.execute(params![file_path.as_ref()])?;
-        for (crate_name, path, kind) in stale_nodes {
-            self.delete_node_by_id
-                .execute(params![crate_name, path, kind])?;
+        for node in &stale_nodes {
+            self.delete_node_by_id.execute(params![
+                node.crate_name.as_str(),
+                node.path.as_str(),
+                encode_node_kind(node.kind),
+            ])?;
         }
         self.delete_file_nodes
             .execute(params![file_path.as_ref()])?;
@@ -363,11 +373,11 @@ impl<'tx> FileStateWriter<'tx> {
             .execute(params![file_path.as_ref()])?;
         self.delete_unresolved_intents
             .execute(params![file_path.as_ref()])?;
-        Ok(())
+        Ok(stale_nodes)
     }
 
-    pub(super) fn save_file_state(&mut self, state: &FileState) -> Result<()> {
-        self.delete_file_state(&state.path)?;
+    pub(super) fn save_file_state(&mut self, state: &FileState) -> Result<Vec<prism_ir::NodeId>> {
+        let stale_nodes = self.delete_file_state_returning_nodes(&state.path)?;
 
         let file_path = state.path.to_string_lossy();
         self.insert_file_record.execute(params![
@@ -477,7 +487,7 @@ impl<'tx> FileStateWriter<'tx> {
             ])?;
         }
 
-        Ok(())
+        Ok(stale_nodes)
     }
 }
 
@@ -495,7 +505,7 @@ fn decode_parse_depth(value: i64) -> ParseDepth {
     }
 }
 
-pub(super) fn replace_derived_edges_tx(tx: &Transaction<'_>, graph: &Graph) -> Result<()> {
+pub(super) fn replace_derived_edges_tx(tx: &Transaction<'_>, graph: &Graph) -> Result<usize> {
     tx.execute(
         "DELETE FROM edges WHERE file_path IS NULL AND kind IN (?1, ?2, ?3, ?4, ?5, ?6)",
         params![
@@ -512,6 +522,7 @@ pub(super) fn replace_derived_edges_tx(tx: &Transaction<'_>, graph: &Graph) -> R
         "INSERT INTO edges(file_path, kind, source_crate_name, source_path, source_kind, target_crate_name, target_path, target_kind, origin, confidence)
          VALUES (NULL, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
     )?;
+    let mut rewritten_edge_count = 0;
     for edge in graph.derived_edges() {
         insert_edge.execute(params![
             encode_edge_kind(edge.kind),
@@ -524,9 +535,69 @@ pub(super) fn replace_derived_edges_tx(tx: &Transaction<'_>, graph: &Graph) -> R
             encode_edge_origin(edge.origin),
             edge.confidence,
         ])?;
+        rewritten_edge_count += 1;
     }
 
-    Ok(())
+    Ok(rewritten_edge_count)
+}
+
+pub(super) fn replace_derived_edges_touching_nodes_tx(
+    tx: &Transaction<'_>,
+    graph: &Graph,
+    touched_nodes: &HashSet<prism_ir::NodeId>,
+) -> Result<usize> {
+    if touched_nodes.is_empty() {
+        return Ok(0);
+    }
+
+    let mut delete_edge = tx.prepare_cached(
+        "DELETE FROM edges
+         WHERE file_path IS NULL
+           AND kind IN (?1, ?2, ?3, ?4, ?5, ?6)
+           AND (
+                (source_crate_name = ?7 AND source_path = ?8 AND source_kind = ?9)
+             OR (target_crate_name = ?7 AND target_path = ?8 AND target_kind = ?9)
+           )",
+    )?;
+    for node in touched_nodes {
+        delete_edge.execute(params![
+            encode_edge_kind(prism_ir::EdgeKind::Calls),
+            encode_edge_kind(prism_ir::EdgeKind::Imports),
+            encode_edge_kind(prism_ir::EdgeKind::Implements),
+            encode_edge_kind(prism_ir::EdgeKind::Specifies),
+            encode_edge_kind(prism_ir::EdgeKind::Validates),
+            encode_edge_kind(prism_ir::EdgeKind::RelatedTo),
+            node.crate_name.as_str(),
+            node.path.as_str(),
+            encode_node_kind(node.kind),
+        ])?;
+    }
+
+    let mut insert_edge = tx.prepare_cached(
+        "INSERT INTO edges(file_path, kind, source_crate_name, source_path, source_kind, target_crate_name, target_path, target_kind, origin, confidence)
+         VALUES (NULL, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+    )?;
+    let mut rewritten_edge_count = 0;
+    for edge in graph
+        .derived_edges()
+        .into_iter()
+        .filter(|edge| touched_nodes.contains(&edge.source) || touched_nodes.contains(&edge.target))
+    {
+        insert_edge.execute(params![
+            encode_edge_kind(edge.kind),
+            edge.source.crate_name.as_str(),
+            edge.source.path.as_str(),
+            encode_node_kind(edge.source.kind),
+            edge.target.crate_name.as_str(),
+            edge.target.path.as_str(),
+            encode_node_kind(edge.target.kind),
+            encode_edge_origin(edge.origin),
+            edge.confidence,
+        ])?;
+        rewritten_edge_count += 1;
+    }
+
+    Ok(rewritten_edge_count)
 }
 
 pub(super) fn finalize_tx(tx: &Transaction<'_>, graph: &Graph) -> Result<()> {

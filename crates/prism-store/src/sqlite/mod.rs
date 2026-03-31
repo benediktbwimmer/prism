@@ -11,6 +11,24 @@ mod projections;
 mod schema;
 mod snapshots;
 
+#[cfg(test)]
+pub(crate) fn test_replace_derived_edges_tx(
+    tx: &rusqlite::Transaction<'_>,
+    graph: &crate::graph::Graph,
+) -> anyhow::Result<usize> {
+    graph_io::replace_derived_edges_tx(tx, graph)
+}
+
+#[cfg(test)]
+pub(crate) fn test_replace_derived_edges_touching_nodes_tx(
+    tx: &rusqlite::Transaction<'_>,
+    graph: &crate::graph::Graph,
+    touched_nodes: &std::collections::HashSet<prism_ir::NodeId>,
+) -> anyhow::Result<usize> {
+    graph_io::replace_derived_edges_touching_nodes_tx(tx, graph, touched_nodes)
+}
+
+use std::collections::HashSet;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
@@ -758,10 +776,12 @@ impl Store for SqliteStore {
         let (_, current_outcome_snapshot) = current_outcome_snapshot_tx(&tx, &outcome_cache)?;
 
         let remove_started = Instant::now();
+        let mut touched_derived_nodes = HashSet::<prism_ir::NodeId>::new();
         {
             let mut file_state_writer = graph_io::FileStateWriter::new(&tx)?;
             for path in &batch.removed_paths {
-                file_state_writer.delete_file_state(path)?;
+                touched_derived_nodes
+                    .extend(file_state_writer.delete_file_state_returning_nodes(path)?);
             }
         }
         let delete_file_state_ms = remove_started.elapsed().as_millis();
@@ -783,28 +803,15 @@ impl Store for SqliteStore {
                 file_state_totals.unresolved_import_count += state.record.unresolved_imports.len();
                 file_state_totals.unresolved_impl_count += state.record.unresolved_impls.len();
                 file_state_totals.unresolved_intent_count += state.record.unresolved_intents.len();
-                file_state_writer.save_file_state(&state)?;
+                touched_derived_nodes.extend(file_state_writer.save_file_state(&state)?);
+                touched_derived_nodes.extend(state.record.nodes.iter().cloned());
             }
         }
         let save_file_state_ms = upsert_started.elapsed().as_millis();
 
-        let rewritten_derived_edge_count = graph
-            .edges
-            .iter()
-            .filter(|edge| {
-                matches!(
-                    edge.kind,
-                    prism_ir::EdgeKind::Calls
-                        | prism_ir::EdgeKind::Imports
-                        | prism_ir::EdgeKind::Implements
-                        | prism_ir::EdgeKind::Specifies
-                        | prism_ir::EdgeKind::Validates
-                        | prism_ir::EdgeKind::RelatedTo
-                )
-            })
-            .count();
         let replace_derived_started = Instant::now();
-        graph_io::replace_derived_edges_tx(&tx, graph)?;
+        let rewritten_derived_edge_count =
+            graph_io::replace_derived_edges_touching_nodes_tx(&tx, graph, &touched_derived_nodes)?;
         let replace_derived_edges_ms = replace_derived_started.elapsed().as_millis();
 
         let rewritten_root_node_count = graph
@@ -958,7 +965,7 @@ impl Store for SqliteStore {
 
     fn replace_derived_edges(&mut self, graph: &Graph) -> Result<()> {
         let tx = self.conn.transaction()?;
-        graph_io::replace_derived_edges_tx(&tx, graph)?;
+        let _ = graph_io::replace_derived_edges_tx(&tx, graph)?;
         bump_metadata_value_tx(&tx, WORKSPACE_REVISION_KEY)?;
         tx.commit()?;
         Ok(())

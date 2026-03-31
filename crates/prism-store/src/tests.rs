@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -1179,6 +1179,102 @@ fn sqlite_store_co_change_delta_prunes_only_touched_sources() {
 
     drop(store);
     let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn sqlite_store_rewrites_only_touched_derived_edges() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-derived-edge-scope-test-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let touched_source = NodeId::new("demo", "demo::touched_source", NodeKind::Function);
+    let touched_target = NodeId::new("demo", "demo::touched_target", NodeKind::Function);
+    let untouched_source = NodeId::new("demo", "demo::untouched_source", NodeKind::Function);
+    let untouched_target = NodeId::new("demo", "demo::untouched_target", NodeKind::Function);
+
+    let mut initial_graph = Graph::new();
+    initial_graph.edges = vec![
+        Edge {
+            kind: EdgeKind::Calls,
+            source: touched_source.clone(),
+            target: touched_target.clone(),
+            origin: EdgeOrigin::Inferred,
+            confidence: 0.2,
+        },
+        Edge {
+            kind: EdgeKind::Calls,
+            source: untouched_source.clone(),
+            target: untouched_target.clone(),
+            origin: EdgeOrigin::Inferred,
+            confidence: 0.9,
+        },
+    ];
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    {
+        let tx = store.conn.transaction().unwrap();
+        crate::sqlite::test_replace_derived_edges_tx(&tx, &initial_graph).unwrap();
+        tx.commit().unwrap();
+    }
+
+    let mut updated_graph = Graph::new();
+    updated_graph.edges = vec![Edge {
+        kind: EdgeKind::Calls,
+        source: touched_source.clone(),
+        target: touched_target.clone(),
+        origin: EdgeOrigin::Inferred,
+        confidence: 0.8,
+    }];
+
+    {
+        let tx = store.conn.transaction().unwrap();
+        let touched_nodes = HashSet::from([touched_source.clone(), touched_target.clone()]);
+        crate::sqlite::test_replace_derived_edges_touching_nodes_tx(
+            &tx,
+            &updated_graph,
+            &touched_nodes,
+        )
+        .unwrap();
+        tx.commit().unwrap();
+    }
+
+    let edges = {
+        let mut stmt = store
+            .conn
+            .prepare(
+                "SELECT source_path, target_path, confidence
+                 FROM edges
+                 WHERE file_path IS NULL AND kind = ?1
+                 ORDER BY source_path, target_path",
+            )
+            .unwrap();
+        let rows = stmt
+            .query_map([1_i64], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, f64>(2)?,
+                ))
+            })
+            .unwrap();
+        rows.map(|row| row.unwrap()).collect::<Vec<_>>()
+    };
+
+    assert_eq!(edges.len(), 2);
+    assert_eq!(edges[0].0, touched_source.path.to_string());
+    assert_eq!(edges[0].1, touched_target.path.to_string());
+    assert!((edges[0].2 - 0.8).abs() < 1e-6);
+    assert_eq!(edges[1].0, untouched_source.path.to_string());
+    assert_eq!(edges[1].1, untouched_target.path.to_string());
+    assert!((edges[1].2 - 0.9).abs() < 1e-6);
+
+    drop(store);
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(path.with_extension("db-wal"));
+    let _ = std::fs::remove_file(path.with_extension("db-shm"));
 }
 
 #[test]
