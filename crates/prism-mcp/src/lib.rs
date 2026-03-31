@@ -725,7 +725,9 @@ impl QueryHost {
         };
         let workspace_runtime = Arc::new(WorkspaceRuntime::spawn(runtime_config.clone()));
         let _ = crate::workspace_runtime::hydrate_persisted_workspace_state(&runtime_config);
-        workspace_runtime.request_refresh();
+        if workspace.needs_refresh() {
+            workspace_runtime.request_refresh();
+        }
         let restored_session_seed = match load_session_seed(workspace.root()) {
             Ok(seed) => seed,
             Err(error) => {
