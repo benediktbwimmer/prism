@@ -112,7 +112,7 @@ pub(super) fn semantic_symbols_for_text_target(
         matched_text,
     };
     let prism = host.current_prism();
-    let workspace_root = host.workspace.as_ref().map(|workspace| workspace.root());
+    let workspace_root = host.workspace_root();
     let mut promoted = semantic_symbols_from_text_candidates(
         prism.as_ref(),
         &[pseudo_candidate.clone()],
@@ -759,7 +759,7 @@ pub(super) fn compact_text_fragment_related_handles(
     let Some(file_path) = target.file_path.as_deref() else {
         return Ok(None);
     };
-    let workspace_root = host.workspace.as_ref().map(|workspace| workspace.root());
+    let workspace_root = host.workspace_root();
     let mut related = Vec::new();
     let mut seen = HashSet::<String>::new();
     for symbol in semantic_symbols_for_text_target(host, target, OPEN_RELATED_HANDLE_LIMIT)? {
@@ -827,7 +827,7 @@ pub(super) fn compact_text_fragment_neighbors(
     let Some(file_path) = target.file_path.as_deref() else {
         return Ok((Vec::new(), None));
     };
-    let workspace_root = host.workspace.as_ref().map(|workspace| workspace.root());
+    let workspace_root = host.workspace_root();
     let mut neighbors = Vec::new();
     let mut top_preview = None;
     for query in text_fragment_query_variants(target) {

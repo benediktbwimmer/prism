@@ -310,10 +310,7 @@ fn compact_open_exact_path(
             "path-based prism_open currently supports raw mode, or edit mode when `line` is set"
         ));
     }
-    let scoped_path = workspace_scoped_path(
-        host.workspace.as_ref().map(|workspace| workspace.root()),
-        path,
-    );
+    let scoped_path = workspace_scoped_path(host.workspace_root(), path);
     let max_chars = Some(args.max_chars.unwrap_or(match mode {
         AgentOpenMode::Focus => RAW_OPEN_MAX_CHARS,
         AgentOpenMode::Edit => EDIT_OPEN_OPTIONS.max_chars,

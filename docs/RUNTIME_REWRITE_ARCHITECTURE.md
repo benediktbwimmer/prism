@@ -2,30 +2,107 @@
 
 This document is the execution artifact for:
 
-- `plan:01kn09gyzw4e8wzwvgvbbj9mkk`
-- `coord-task:01kn09je3c546kafd2z7bcgnyq`
+- `plan:01kn2edq9k2cr10t7p9pwscpjz`
+- `coord-task:01kn2edqappsmarg40z5ta9x02`
 
-Its purpose is to define the hard contracts and migration invariants for the PRISM runtime rewrite.
+It supersedes narrower refresh-only thinking and defines the hard target architecture for the
+incremental semantic database rewrite.
 
-This is the architectural target for the remaining rewrite-plan nodes. It is broader than
-`docs/REFRESH_RUNTIME_REDESIGN.md`, which focused on removing request-path persisted reloads from
-steady-state serving.
+This is the contract the remaining plan nodes should implement against. It is intentionally more
+strict than the current codebase.
 
-## Goals
+## Goal
 
-The rewrite must make PRISM:
+PRISM should become a worktree-scoped incremental semantic runtime in which:
 
-- efficient by default on small repos
-- scalable to large monorepos without broad eager hydration
-- explicit about freshness, scope, and materialization depth
-- incrementally maintainable under repeated edits and watch-driven refreshes
+- one MCP daemon can manage many repos and many worktrees on one machine
+- one `WorkspaceRuntimeEngine` owns authoritative mutable semantic state per bound worktree context
+- heavy preparation and settle work run in parallel
+- the authoritative commit is tiny, serialized, and explicit
+- every committed change produces a monotonic delta batch suitable for replay and downstream consumers
+- published generations are immutable read views with explicit per-domain freshness
+- snapshots exist only for read acceleration and checkpoint recovery
+- the three-plane persistence split remains intact
 
-## Existing substrate
+## Architectural Destination
 
-Some of the rewrite foundation already exists and should be treated as the starting point rather
-than reimplemented from scratch.
+The rewrite must not optimize around the current reconstructive substrate. It must replace it.
 
-Implemented today:
+The destination is:
+
+- incremental core:
+  - long-lived mutable semantic state inside a worktree-scoped runtime engine
+- published read views:
+  - structurally shared immutable generations for queries and tools
+- checkpointed recovery:
+  - checkpoint plus committed-delta replay, not snapshot-as-authority
+
+PRISM should stop behaving like "an index that gets rebuilt and swapped in" and start behaving like
+"a long-lived semantic runtime that publishes generations."
+
+## Three-Plane Persistence Split
+
+The rewrite must preserve the existing three-plane split from
+[PERSISTENCE_STATE_CLASSIFICATION.md](/Users/bene/code/prism/docs/PERSISTENCE_STATE_CLASSIFICATION.md).
+
+The three planes are:
+
+- repo-published truth:
+  - `.prism` event logs, published concepts, published memories, published plans
+- shared runtime state:
+  - shared mutable coordination and runtime continuity state in one backend database
+- in-process runtime memory:
+  - hot mutable semantic state, ephemeral caches, and published immutable read generations
+
+The rewrite must not collapse these planes together.
+
+In particular:
+
+- repo truth stays repo-owned and clone-portable
+- shared runtime state complements `.prism`; it does not replace it
+- live request serving remains memory-authoritative while the daemon is alive
+
+## Deployment Topology
+
+The default deployment model is:
+
+- one MCP daemon per machine
+- one machine-local shared runtime store per machine
+- one authoritative `WorkspaceRuntimeEngine` per active worktree context inside that daemon
+
+This means:
+
+- the daemon is machine-scoped
+- the engine is worktree-scoped
+- shared runtime persistence is machine-scoped by default
+
+This is the default operating shape, not a hidden correctness assumption.
+
+The architecture must also remain correct if multiple MCP daemons on one machine share the same
+runtime store for the same repo and worktree set.
+
+That requires:
+
+- explicit `repo_id`, `worktree_id`, `session_id`, and `instance_id`
+- revision-aware writes
+- lease or heartbeat semantics where continuity ownership matters
+- no singleton assumptions baked into correctness
+
+SQLite remains the first local shared-runtime backend.
+
+The shared-runtime backend boundary must remain backend-neutral so that Postgres can later replace
+SQLite without another architecture rewrite.
+
+That future backend swap should extend the same semantics across machines:
+
+- same three-plane split
+- same worktree-scoped engine authority
+- same committed-delta replay model
+- same domain freshness contract
+
+## Existing Substrate
+
+Some useful groundwork already exists and should be reused rather than thrown away:
 
 - file and directory fingerprints in the workspace tree
 - dirty-path tracking in the live workspace session
@@ -33,310 +110,443 @@ Implemented today:
 - scoped parsing and graph updates
 - basic dependency expansion for edge resolution
 - incremental projection updates from lineage and outcome deltas
+- memory-authoritative request serving on large parts of the runtime path
+- checkpoint and materialization workers for rebuildable persisted state
 
-Not fully implemented yet:
+The rewrite should reuse these pieces where they fit the new model, but it must not preserve the
+reconstructive refresh core.
 
-- a first-class dependency-aware invalidation graph
-- localized concept and plan-health reprojection
-- explicit hot/warm/cold runtime-state boundaries
-- partial materialization and depth-aware serving
-- explicit boundary semantics for non-materialized regions
-- repo/worktree/session-scoped runtime overlays as a first-class model
+## Hard Contracts
 
-## Hard invariants
+### 1. One authoritative engine per worktree context
 
-### 1. Live runtime is the serving authority
+Each bound worktree context gets exactly one authoritative `WorkspaceRuntimeEngine`.
 
-Normal reads and normal mutations serve from live runtime state.
+That engine owns:
 
-Optional persisted state may accelerate startup or recovery, but it is not the normal serving
-authority.
+- authoritative mutable semantic state
+- authoritative commit ordering
+- generation publication
+- dirty-domain tracking
+- queue admission policy
 
-### 2. Runtime state must be tiered
+### 2. The actor is the commit kernel, not the compute sink
 
-PRISM may not treat all historical, analytical, and serving data as equally hot.
+The engine actor owns:
 
-The runtime must be split into:
+- admission
+- coalescing decisions
+- authoritative state transitions
+- generation publication
+- commit ordering
 
-- hot state: always-ready serving state
-- warm state: cheap lazy-read state for recent or task-local context
-- cold state: durable evidence and historical records that do not belong in the daemon hot path
+It must not become the place where all parsing and recomputation execute.
 
-### 3. Incremental updates are the default
+Heavy work should run off-actor against immutable inputs and return deterministic deltas.
 
-A meaningful edit should update only the affected region, plus the minimal dependent surfaces
-required for correctness.
+### 3. Parallelize everything except the commit
+
+The target model is:
+
+- parallel prepare
+- serialized commit
+- parallel settle
+
+Preparation may include:
+
+- file reads
+- parsing
+- file-local fact extraction
+- invalidation planning
+- delta construction
+
+Settle work may include:
+
+- cross-file edge resolution
+- dependent recomputation
+- projections
+- memory reanchor
+- checkpoint and materialization work
+
+### 4. Incremental updates are the default
 
 Broad rebuilds are recovery behavior, not normal behavior.
 
-### 4. Materialization depth is explicit
+A small edit should:
 
-The runtime must know what depth a repo region currently has and expose that state to queries,
-status, and logs.
+- update only the changed file's local facts
+- invalidate only the dependent regions that actually need recomputation
+- publish a new generation quickly
+- leave heavier downstream work to the settle path
 
-### 5. Scope must stay explicit
+### 5. The committed delta journal is first-class
 
-Repo, worktree, branch, and session state must not silently bleed together.
+Every authoritative commit must emit a monotonic committed delta batch.
 
-The rewrite must preserve the distinction between:
+That committed delta journal is part of the core design, not only a recovery detail.
 
-- repo-published truth
-- worktree-local reality
-- session-local intent and overlays
+It is the backbone for:
 
-### 6. Missing is not the same as unmaterialized
+- replay
+- checkpoints
+- deterministic testing
+- stale-work cancellation
+- downstream side-effect consumers
+- metrics and debugging
+- future shared-runtime backends
 
-Queries and reasoning must be able to distinguish:
+### 6. Published generations are explicit read views
 
-- absent
-- not yet indexed
-- intentionally shallow
-- known but not materialized
-- out of worktree scope
+Published generations are immutable read surfaces, not mutable working state.
 
-### 7. Ranking is downstream of the runtime substrate
+They should be:
 
-Architectural ranking may improve broad-query precision, but it must sit on top of explicit scope,
-materialization, and invalidation semantics.
+- structurally shared where possible
+- bounded in retention count
+- cheap to publish
+- explicit about freshness and materialization state
 
-## Runtime state model
+### 7. Freshness is domain-scoped
 
-### Hot state
+A generation must not only say "current generation is N."
 
-Hot state is what the daemon hydrates eagerly and keeps ready for normal serving.
+It must say which domains are current at that generation.
 
-It should contain:
+Representative domains:
 
-- current graph for materialized regions
-- bounded serving projections
-- active coordination and plan execution overlays
-- current worktree refresh state
-- current materialization and freshness metadata
+- file-local facts
+- cross-file edges
+- projections
+- memory reanchor
+- checkpoint state
+- coordination overlays
 
-Hot state must stay bounded and cheap to rebuild incrementally.
+Queries, tools, resources, and logs must be able to see these domain-scoped states.
 
-### Warm state
+### 8. Fast path may be conservative, never silently misleading
 
-Warm state is lazily available and may be cached opportunistically.
+The fast path is allowed to publish incomplete downstream state.
 
-It should contain:
+It is not allowed to publish misleading certainty.
 
-- recent outcomes and task-local outcome slices
-- recent lineage/history windows
-- current-task or current-region curator state
-- medium-depth region details not required everywhere
+If some domains are unsettled, the runtime must expose that explicitly.
 
-Warm state may be loaded on demand, retained briefly, or evicted.
+Acceptable:
 
-### Cold state
+- file-local facts are current
+- dependent edges are pending
+- projection is stale by one generation
 
-Cold state is durable or analytical evidence that should not be eagerly hydrated into the process.
+Not acceptable:
 
-It should contain:
+- silently presenting stale derived state as fully current
 
-- full lineage event history
-- full outcome event log
-- analytical evidence that derives serving projections
-- old curator records and historical snapshots
+### 9. Snapshots are demoted
 
-Cold state must be queryable and rebuildable, but not treated as daemon-hot by default.
+Snapshots remain useful for:
 
-## Invalidation model
+- immutable read views
+- query acceleration
+- checkpoint recovery
+- debugging and export
 
-The invalidation substrate should extend the existing dirty-path refresh machinery into a formal
-dependency-aware model.
+Snapshots must not remain:
 
-### Required inputs
+- the authoritative mutation substrate
+- the ordinary refresh substrate
+- the thing that gets rebuilt and swapped in on small edits
 
-- file fingerprints
-- symbol fingerprints
-- module/package region fingerprints
-- explicit dirty-region markers
-- dependency edges required for invalidation propagation
+### 10. Scope must stay explicit
 
-### Required behavior
+The rewrite must preserve explicit boundaries between:
 
-- filesystem changes produce dirty regions
-- dirty regions expand through dependency-aware propagation
-- only impacted files and dependent regions are reparsed
-- only impacted projections and overlays are recomputed
-- unaffected regions keep their current hot state
+- repo scope
+- worktree scope
+- branch reality
+- session scope
+- process or instance scope
 
-### Important boundary
+Running one daemon per machine must not blur these contexts together.
 
-The current file-scoped incremental refresh path is real and valuable, but it is not yet the full
-target model. The missing piece is formal dependency propagation and localized reprojection beyond
-file-level parsing.
+### 11. Multi-instance cleanliness is required even in local-first mode
 
-## Materialization-depth model
+One daemon per machine is the default deployment shape.
 
-The runtime should support three default depth tiers.
+It is not the correctness model.
 
-### Shallow
+The runtime and shared backend must stay valid under:
 
-Used for broad repo navigation and low-cost repo-wide awareness.
+- crash and restart handoff
+- daemon upgrades
+- accidental double-launches
+- tests that simulate local contention
+- future Postgres-backed multi-instance or cross-machine serving
 
-Should include:
+If a design shortcut only works because exactly one daemon happens to be alive, it is not an
+acceptable contract for this rewrite.
 
-- file presence
-- package/module boundaries
-- file fingerprints
-- basic exports or top-level names where available
+## Runtime Objects
 
-### Medium
+The runtime should standardize on these core objects.
 
-Used for normal semantic navigation in active regions.
+### WorkspaceRuntimeEngine
 
-Should include:
+Owns authoritative mutable state for one worktree context.
 
-- symbol inventory
-- call/import/reference edges
-- concept/member attachment surfaces
-- lineage bindings needed for normal reasoning
+### Working generation
 
-### Deep
+The current mutable semantic state inside the engine before and during incoming commits.
 
-Used only where task pressure justifies higher cost.
+### Published generation
 
-Should include:
+The immutable read generation currently exposed to queries and tools.
 
-- expensive structural enrichment
-- richer semantic extraction
-- heavyweight region-specific analysis
+### Settle frontier
 
-Queries, status surfaces, and logs must be able to state which tier a region currently has.
+The newest generation up to which background settle work has completed for each domain.
 
-## Boundary semantics
+### Checkpoint generation
 
-PRISM must represent non-materialized regions explicitly instead of silently dropping them.
+The newest generation durably checkpointed for recovery acceleration.
 
-Boundary records or nodes must be able to express:
+### Committed delta batch
 
-- stable identity
-- source path or package marker
-- provenance
-- known exports or attachment hints when available
+A monotonic journal entry representing one authoritative committed state transition.
+
+### Dirty domains
+
+The domains that are known to need prepare or settle work.
+
+## Query And Freshness Contract
+
+Every published generation should carry:
+
+- generation id
+- parent generation or predecessor marker
+- commit timestamp or sequence
+- domain freshness state
 - materialization state
-- scope state
+- worktree context identity
 
-Minimum materialization/scope states:
+Minimum freshness states should preserve these semantics:
 
-- `absent`
-- `shallow`
-- `medium`
-- `deep`
-- `known_unmaterialized`
-- `out_of_scope`
+- current
+- pending
+- stale
+- recovery
+- shallow
+- medium
+- deep
+- known_unmaterialized
+- out_of_scope
 
-The exact enum names can change, but these semantics must survive.
+The exact enum names may differ, but the semantics must survive.
 
-## Scope model
+## Queue Model
 
-The runtime rewrite must treat scope as a core correctness boundary.
+The engine queue model must support explicit priority classes from the beginning.
 
-### Repo scope
+Minimum conceptual classes:
 
-Repo-published truth and repo-scoped concepts, memories, contracts, and plans remain durable and
-exportable.
+- interactive edit / immediate mutation
+- follow-up mutation
+- fast semantic preparation
+- settle work
+- checkpoint and materialization work
 
-### Worktree scope
+The queue model must also support:
 
-Graph state, freshness, dirtiness, and draft overlays tied to a checkout must be scoped to the
-actual worktree.
+- coalescing repeated writes to the same file
+- cancellation of stale prepare work
+- cancellation of stale settle work
+- bounded waiting for interactive mutations
 
-### Session scope
+## Shared Runtime Backend Contract
 
-Active intent, temporary claims, task-local overlays, and ephemeral caches belong at session scope.
+The shared-runtime backend interface must be semantic, not SQLite-shaped.
 
-The rewrite must make it hard to accidentally answer a question from the wrong worktree or with the
-wrong overlay set.
+Important capabilities:
 
-## Serving contract
+- append committed event or delta batch
+- read ordered event or delta streams
+- perform revision-aware or compare-and-swap mutation
+- acquire, renew, and release lease
+- list scoped worktree or repo runtime state
+- record heartbeat and scan stale instances or sessions
+- poll or subscribe for relevant updates
 
-### Read path
+The local SQLite implementation may realize these capabilities differently than a future Postgres
+implementation, but the runtime contract should be written in terms of these semantics rather than
+in terms of concrete SQLite APIs.
 
-Read paths should:
+## Commit Pipeline
 
-1. read from hot runtime state
-2. load warm state only if the query actually needs it
-3. attach freshness/materialization metadata where relevant
-4. enqueue background work when the runtime is stale or too shallow
-5. return
+The healthy pipeline is:
 
-Read paths should not:
+1. intake commands for one worktree context
+2. coalesce and prioritize them
+3. run file-local and invalidation preparation in parallel
+4. build deterministic candidate deltas
+5. enter a tiny serialized commit
+6. apply authoritative deltas to mutable state
+7. append a committed delta batch
+8. publish a new immutable generation
+9. schedule parallel settle and materialization work
 
-- force broad persisted reloads
-- hydrate cold evidence wholesale
-- rebuild full projections to answer narrow queries
+The commit section should do the minimum necessary to make the runtime current.
 
-### Mutation path
+It must not block on:
 
-Mutation paths should:
+- broad recomputation
+- checkpoint writes
+- memory reanchor
+- projection materialization
+- non-authoritative follow-up work
 
-1. validate input
-2. patch hot runtime state
-3. update or enqueue affected warm/derived surfaces
-4. persist durable events
-5. return from live state
+## Hot, Warm, And Cold Runtime State
 
-Mutation correctness must not depend on “persist then reload everything to see the write.”
+The runtime must stay tiered.
 
-## Parsing and enrichment contract
+### Hot
 
-Lazy deep parsing belongs after hot/warm/cold boundaries and materialization tiers are explicit.
+Always-ready serving state:
 
-When implemented, it must obey these rules:
+- current file-local facts for active regions
+- current published generation
+- bounded serving projections
+- active coordination overlays
+- current worktree freshness state
 
-- shallow repo-wide awareness remains cheap
-- deep parsing is targeted to active regions or explicitly requested work
-- first-touch deep parsing is observable in status and telemetry
-- deep parsing cannot silently become the default cost of ordinary navigation
+### Warm
 
-## Ranking contract
+Cheap lazy-read state:
 
-Architectural ranking belongs after the runtime substrate is explicit.
+- recent outcomes
+- recent lineage windows
+- task-local slices
+- medium-depth active-region details
 
-Ranking may use:
+### Cold
 
-- dependency weight
-- concept quality
-- historical successful use
-- task proximity
-- worktree proximity
-- bounded centrality-like signals
+Durable evidence not kept on the hot path:
 
-Ranking may not become a substitute for correct scope, freshness, or materialization semantics.
+- full lineage history
+- full outcome event history
+- analytical evidence
+- old snapshots and exports
 
-## Explicit non-goals for this migration
+## Invalidation And Granularity
 
-This rewrite plan does not include:
+Per-file semantic facts are the correct starting unit for this rewrite.
 
-- remote shared runtime backend work
-- database-pushed graph traversals
+That does not mean the architecture should hard-code "file" as the smallest unit forever.
 
-Those should remain excluded unless later evidence justifies reopening them.
+The design must leave room for future refinement such as:
 
-## Migration sequence
+- region-level facts
+- symbol-local invalidation
+- large-file subdivision
+
+The immediate rewrite should still implement:
+
+- explicit per-file fact ownership
+- reverse dependency indexes
+- precise dependent invalidation
+
+## Performance Budgets
+
+These are architecture-level target budgets for the PRISM dogfood workflow.
+
+### Tiny edit fast path
+
+- enqueue-to-published-generation p95: `<= 50ms`
+
+### Interactive mutation admission
+
+- queue wait before commit start p95 under nominal interactive load: `<= 25ms`
+
+### Direct dependent settle
+
+- changed file to direct dependent settle p95 for routine small edits: `<= 200ms`
+
+### Checkpoint and materialization lag
+
+- visible but off hot path
+- normal interactive lag target p95: `<= 5s`
+
+### Generation retention
+
+- published generations must remain structurally shared and explicitly bounded
+- retained published generation window target: `<= 3`
+
+### Memory budgeting
+
+Budgets must remain explicit for:
+
+- hot semantic facts
+- published generations
+- queued prepare work
+- queued settle work
+- checkpoint materialization backlog
+
+## Recovery Contract
+
+Recovery must be:
+
+- checkpoint plus replay
+- driven by committed delta batches
+- bounded in replay cost
+- compatible with the three-plane persistence split
+
+The local shared-runtime store is the first backend that must satisfy this contract.
+
+That same contract should later support Postgres without changing the runtime semantics.
+
+## Explicit Non-Goals
+
+This migration does not include:
+
+- multi-writer shared mutable semantic state
+- database-pushed graph traversal as the primary runtime substrate
+- snapshot-centric serving
+- per-worktree daemon sprawl as the required deployment model
+- remote backend implementation work in this phase
+
+However, the migration must leave behind:
+
+- a backend-neutral shared-runtime store seam
+- a replayable committed-delta model
+- clear scope identity
+
+Those are prerequisites for future shared-runtime backends.
+
+## Migration Sequence
 
 The rewrite should proceed in this order:
 
-1. define contracts and invariants
-2. complete the dependency-aware invalidation substrate on top of existing incremental refresh
-3. replace broad reload behavior with region-scoped hot-state mutation
-4. introduce explicit materialization tiers
-5. add boundary semantics for non-materialized regions
-6. move history, outcomes, curator, and analytical evidence onto warm/cold lazy-read paths
-7. make runtime overlays explicitly repo-, worktree-, and session-scoped
-8. add lazy deep parsing on top of the tiered runtime
-9. improve broad-query ranking on top of the explicit substrate
-10. validate the system against startup, latency, memory, and retrieval quality
+1. codify runtime generations, domain freshness, queue classes, three-plane boundaries, and budgets
+2. preserve the machine-scoped host plus shared-runtime-store model explicitly
+3. introduce the worktree-scoped `WorkspaceRuntimeEngine`
+4. separate mutable engine state from published immutable generations
+5. remove reconstructive refresh and live-state indexer rebuilds from ordinary edits
+6. establish per-file semantic facts and committed delta batches as the ordinary substrate
+7. add precise invalidation and reverse dependency indexes
+8. parallelize file-local preparation and batch coalescing
+9. implement the tiny fast-path commit and domain-scoped freshness publication
+10. add parallel settle workers and stale-work cancellation
+11. move non-authoritative side effects fully behind the commit
+12. replace fail-fast lock UX with engine-queued admission
+13. complete checkpoint-plus-replay recovery on top of the new runtime core
+14. validate budgets, freshness visibility, multi-worktree shared-runtime behavior, and backsliding prevention
 
-## Acceptance criteria for this node
+## Acceptance Criteria For This Node
 
 This node is complete when:
 
-- the runtime-state tiers are explicitly defined
-- the invalidation target model is explicit about what already exists and what remains missing
-- materialization-depth and boundary semantics are explicit
-- repo/worktree/session scope rules are explicit
-- later implementation nodes can use this document as their architectural contract
+- the machine-scoped host plus worktree-scoped engine model is explicit
+- the three-plane persistence split is explicit
+- runtime generations, committed delta batches, and domain freshness are explicit
+- the actor's role as commit kernel is explicit
+- priority queues, coalescing, and cancellation are explicit
+- hard interactivity and memory budgets are explicit
+- later plan nodes can implement against this document without re-deciding the architecture ad hoc

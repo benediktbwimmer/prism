@@ -25,6 +25,11 @@ This repository must stay highly modularized. Prefer small, focused modules with
 
 When touching code that violates this policy, move it toward the target architecture instead of extending the violation.
 
+## Validation Expectations
+
+- After making edits, run targeted tests for the area you changed.
+- After targeted tests pass, always run the full workspace test suite to confirm the entire repo is green before finishing the task.
+
 ## PRISM MCP Workflow
 
 - When the PRISM MCP server is available for this repo, use it as the primary repo-awareness surface.

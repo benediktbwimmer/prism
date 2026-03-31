@@ -3,8 +3,9 @@ use serde_json::{json, Value};
 
 use super::*;
 use crate::tests_support::{
-    call_tool_request, demo_node, first_tool_content_json, initialize_client,
-    initialized_notification, server_with_node, temp_workspace, test_session,
+    call_tool_request, demo_node, first_tool_content_json, host_with_session_internal,
+    initialize_client, initialized_notification, retry_on_runtime_sync_busy, server_with_node,
+    temp_workspace, test_session,
 };
 use prism_core::index_workspace_session;
 
@@ -296,8 +297,16 @@ return {{
 #[test]
 fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
     let root = temp_workspace();
-    let host_a = QueryHost::with_session(index_workspace_session(&root).unwrap());
-    let host_b = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let host_a = host_with_session_internal(index_workspace_session(&root).unwrap());
+    let host_b = host_with_session_internal(index_workspace_session(&root).unwrap());
+    if let Some(workspace) = host_a.workspace.as_ref() {
+        workspace.refresh_fs().unwrap();
+        host_a.sync_workspace_revision(workspace).unwrap();
+    }
+    if let Some(workspace) = host_b.workspace.as_ref() {
+        workspace.refresh_fs().unwrap();
+        host_b.sync_workspace_revision(workspace).unwrap();
+    }
 
     host_b
         .configure_session(
@@ -403,7 +412,7 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
     assert!(blocked_neighbor_claim.conflicts.iter().any(|conflict| {
         conflict["overlapKinds"]
             .as_array()
-            .map(|kinds| kinds.iter().any(|kind| kind == "File"))
+            .map(|kinds: &Vec<Value>| kinds.iter().any(|kind| kind == "File"))
             .unwrap_or(false)
     }));
 
@@ -451,6 +460,9 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
         .violations
         .iter()
         .any(|violation| violation.code == "handoff_pending"));
+    if let Some(workspace) = host_b.workspace.as_ref() {
+        host_b.sync_workspace_revision(workspace).unwrap();
+    }
 
     host_b
         .configure_session(
@@ -467,8 +479,8 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
             },
         )
         .unwrap();
-    let missing_agent = host_b
-        .store_coordination(
+    let missing_agent = retry_on_runtime_sync_busy(|| {
+        host_b.store_coordination(
             test_session(&host_b).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::HandoffAccept,
@@ -479,12 +491,16 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     assert!(missing_agent.rejected);
     assert!(missing_agent
         .violations
         .iter()
         .any(|violation| violation.code == "agent_identity_required"));
+    if let Some(workspace) = host_b.workspace.as_ref() {
+        host_b.sync_workspace_revision(workspace).unwrap();
+    }
 
     host_b
         .configure_session(
@@ -502,8 +518,8 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
         )
         .unwrap();
 
-    let accepted = host_b
-        .store_coordination(
+    let accepted = retry_on_runtime_sync_busy(|| {
+        host_b.store_coordination(
             test_session(&host_b).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::HandoffAccept,
@@ -514,13 +530,17 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     assert_eq!(accepted.state["assignee"], "agent-b");
     assert_eq!(accepted.state["pendingHandoffTo"], Value::Null);
     assert_eq!(accepted.state["status"], "Ready");
+    if let Some(workspace) = host_b.workspace.as_ref() {
+        host_b.sync_workspace_revision(workspace).unwrap();
+    }
 
-    let second_claim = host_b
-        .store_claim(
+    let second_claim = retry_on_runtime_sync_busy(|| {
+        host_b.store_claim(
             test_session(&host_b).as_ref(),
             PrismClaimArgs {
                 action: ClaimActionInput::Acquire,
@@ -538,7 +558,8 @@ fn multi_session_hosts_coordinate_handoff_review_and_neighbor_claims() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     assert!(second_claim.claim_id.is_some());
 
     let artifact = host_b

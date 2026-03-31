@@ -220,10 +220,12 @@ These identities also define persistence obligations:
 
 PRISM should not require one MCP server per worktree.
 
-The target model is:
+The target local model is:
 
-- one local Prism daemon or MCP endpoint can manage many repos and many worktrees
+- one local Prism daemon or MCP endpoint per machine can manage many repos and many worktrees
+- one shared runtime database per machine holds shared mutable runtime state
 - each MCP session binds to one worktree context by default
+- each bound worktree context gets its own authoritative in-memory runtime engine
 - handles, runtime overlays, and mutable coordination state are scoped under that bound context
 
 This separates:
@@ -234,7 +236,20 @@ This separates:
 
 Running one server per worktree can remain a useful fallback or debug mode, but it should not be the architectural requirement.
 
+One daemon per machine is the default deployment shape, not a hidden semantic assumption.
+
+The shared-runtime plane should remain correct even when multiple local MCP daemons on one machine
+share the same runtime database.
+
 The persistence plan should therefore include an explicit worktree-context binding model rather than assuming that "one server equals one workspace."
+
+For the local-first deployment target, this means:
+
+- one machine-scoped daemon
+- one machine-scoped shared SQLite runtime store
+- many worktree-scoped runtime engines under that host
+
+That local topology should use the same backend-neutral shared-runtime contract that a future Postgres backend would implement for cross-machine coordination.
 
 ## Distributed Runtime Capabilities
 
@@ -251,6 +266,9 @@ Important examples:
 - scan stale sessions
 - query active claims and handoffs
 - poll or subscribe for changes
+
+These capabilities matter even in the local SQLite phase, because multi-instance cleanliness on one
+machine is the best rehearsal for a later Postgres-backed shared runtime.
 
 This also means the persistence plan must account for:
 

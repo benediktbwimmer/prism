@@ -702,7 +702,7 @@ pub(super) fn structured_symbol_followups(
     let symbol_id = target_symbol_id(target)?;
     let symbol = symbol_for(prism, symbol_id)?;
     let current = symbol_view(prism, &symbol)?;
-    let workspace_root = host.workspace.as_ref().map(|workspace| workspace.root());
+    let workspace_root = host.workspace_root();
     let current_file_path = current.file_path.as_deref().or(target.file_path.as_deref());
     let parent_id = structured_parent_symbol_id(symbol_id);
     let current_path = symbol_id.path.as_str();
@@ -794,7 +794,7 @@ pub(super) fn edit_ready_symbol_followups(
     let symbol = symbol_for(prism, symbol_id)?;
     let current = symbol_view(prism, &symbol)?;
     let relations = symbol.relations();
-    let workspace_root = host.workspace.as_ref().map(|workspace| workspace.root());
+    let workspace_root = host.workspace_root();
     let current_file_path = current.file_path.as_deref().or(target.file_path.as_deref());
     let mut same_file_followups = Vec::<AgentTargetHandleView>::new();
     let mut cross_file_followups = Vec::<AgentTargetHandleView>::new();

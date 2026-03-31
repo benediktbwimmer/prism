@@ -873,29 +873,11 @@ fn revision_status(loaded_revision: u64, current_revision: u64) -> &'static str 
 
 impl QueryHost {
     pub(crate) fn refresh_workspace(&self) -> Result<()> {
-        let Some(workspace) = &self.workspace else {
+        let Some(binding) = self.workspace_runtime_binding() else {
             return Ok(());
         };
-        let Some(runtime) = &self.workspace_runtime else {
-            let _ = workspace.refresh_fs()?;
-            self.sync_workspace_revision(workspace)?;
-            self.sync_episodic_revision(workspace)?;
-            self.sync_inference_revision(workspace)?;
-            self.sync_coordination_revision(workspace)?;
-            return Ok(());
-        };
-
-        let config = WorkspaceRuntimeConfig {
-            workspace: Arc::clone(workspace),
-            notes: Arc::clone(&self.notes),
-            inferred_edges: Arc::clone(&self.inferred_edges),
-            dashboard_state: Arc::clone(&self.dashboard_state),
-            sync_lock: Arc::clone(&self.workspace_runtime_sync_lock),
-            loaded_workspace_revision: Arc::clone(&self.loaded_workspace_revision),
-            loaded_episodic_revision: Arc::clone(&self.loaded_episodic_revision),
-            loaded_inference_revision: Arc::clone(&self.loaded_inference_revision),
-            loaded_coordination_revision: Arc::clone(&self.loaded_coordination_revision),
-        };
+        let runtime = binding.runtime();
+        let config = binding.runtime_config();
         let report = sync_persisted_workspace_state(&config)?;
         if report.coordination_reloaded {
             let _ = self.publish_dashboard_coordination_update();
@@ -905,44 +887,12 @@ impl QueryHost {
     }
 
     pub(crate) fn observe_workspace_for_read(&self) -> Result<WorkspaceRefreshReport> {
-        let Some(workspace) = &self.workspace else {
+        let Some(binding) = self.workspace_runtime_binding() else {
             return Ok(WorkspaceRefreshReport::none());
         };
-        let Some(runtime) = &self.workspace_runtime else {
-            let refresh_path = if workspace.needs_refresh() {
-                "deferred"
-            } else {
-                "none"
-            };
-            if refresh_path == "deferred" {
-                workspace.record_runtime_refresh_observation_with_work(
-                    refresh_path,
-                    0,
-                    WorkspaceRefreshWork::default(),
-                );
-            }
-            return Ok(WorkspaceRefreshReport {
-                refresh_path,
-                runtime_sync_used: false,
-                deferred: refresh_path == "deferred",
-                episodic_reloaded: false,
-                inference_reloaded: false,
-                coordination_reloaded: false,
-                metrics: WorkspaceRefreshMetrics::default(),
-            });
-        };
-
-        let config = WorkspaceRuntimeConfig {
-            workspace: Arc::clone(workspace),
-            notes: Arc::clone(&self.notes),
-            inferred_edges: Arc::clone(&self.inferred_edges),
-            dashboard_state: Arc::clone(&self.dashboard_state),
-            sync_lock: Arc::clone(&self.workspace_runtime_sync_lock),
-            loaded_workspace_revision: Arc::clone(&self.loaded_workspace_revision),
-            loaded_episodic_revision: Arc::clone(&self.loaded_episodic_revision),
-            loaded_inference_revision: Arc::clone(&self.loaded_inference_revision),
-            loaded_coordination_revision: Arc::clone(&self.loaded_coordination_revision),
-        };
+        let workspace = binding.workspace();
+        let runtime = binding.runtime();
+        let config = binding.runtime_config();
         let Some(report) = try_sync_workspace_runtime_for_read(&config)? else {
             runtime.request_refresh();
             workspace.record_runtime_refresh_observation_with_work(
@@ -970,44 +920,12 @@ impl QueryHost {
     }
 
     pub(crate) fn refresh_workspace_for_mutation(&self) -> Result<WorkspaceRefreshReport> {
-        let Some(workspace) = &self.workspace else {
+        let Some(binding) = self.workspace_runtime_binding() else {
             return Ok(WorkspaceRefreshReport::none());
         };
-        let Some(runtime) = &self.workspace_runtime else {
-            let refresh_path = if workspace.needs_refresh() {
-                "deferred"
-            } else {
-                "none"
-            };
-            if refresh_path == "deferred" {
-                workspace.record_runtime_refresh_observation_with_work(
-                    refresh_path,
-                    0,
-                    WorkspaceRefreshWork::default(),
-                );
-            }
-            return Ok(WorkspaceRefreshReport {
-                refresh_path,
-                runtime_sync_used: false,
-                deferred: refresh_path == "deferred",
-                episodic_reloaded: false,
-                inference_reloaded: false,
-                coordination_reloaded: false,
-                metrics: WorkspaceRefreshMetrics::default(),
-            });
-        };
-
-        let config = WorkspaceRuntimeConfig {
-            workspace: Arc::clone(workspace),
-            notes: Arc::clone(&self.notes),
-            inferred_edges: Arc::clone(&self.inferred_edges),
-            dashboard_state: Arc::clone(&self.dashboard_state),
-            sync_lock: Arc::clone(&self.workspace_runtime_sync_lock),
-            loaded_workspace_revision: Arc::clone(&self.loaded_workspace_revision),
-            loaded_episodic_revision: Arc::clone(&self.loaded_episodic_revision),
-            loaded_inference_revision: Arc::clone(&self.loaded_inference_revision),
-            loaded_coordination_revision: Arc::clone(&self.loaded_coordination_revision),
-        };
+        let workspace = binding.workspace();
+        let runtime = binding.runtime();
+        let config = binding.runtime_config();
         let Some(report) = try_sync_workspace_runtime_for_read(&config)? else {
             runtime.request_refresh();
             workspace.record_runtime_refresh_observation_with_work(

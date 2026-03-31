@@ -27,6 +27,7 @@ pub(crate) struct RuntimeProcessRecord {
     pub(crate) health_path: Option<String>,
     pub(crate) http_uri: Option<String>,
     pub(crate) upstream_uri: Option<String>,
+    pub(crate) restart_nonce: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -72,6 +73,7 @@ pub(crate) fn record_process_start(cli: &PrismMcpCli, root: &Path) -> Result<()>
             health_path: (cli.mode == PrismMcpMode::Daemon).then(|| cli.health_path.clone()),
             http_uri: None,
             upstream_uri: cli.upstream_uri.clone(),
+            restart_nonce: None,
         });
         push_event(
             state,
@@ -120,6 +122,7 @@ pub(crate) fn record_workspace_server_built(
 }
 
 pub(crate) fn record_daemon_ready(
+    cli: &PrismMcpCli,
     root: &Path,
     http_uri: &str,
     health_path: &str,
@@ -130,6 +133,7 @@ pub(crate) fn record_daemon_ready(
             if process.pid == std::process::id() && process.kind == "daemon" {
                 process.http_uri = Some(http_uri.to_string());
                 process.health_path = Some(health_path.to_string());
+                process.restart_nonce = cli.restart_nonce.clone();
             }
         }
         push_event(
@@ -143,6 +147,7 @@ pub(crate) fn record_daemon_ready(
                 "httpUri": http_uri,
                 "healthPath": health_path,
                 "startupMs": startup_ms,
+                "restartNonce": cli.restart_nonce.as_deref(),
             }),
         );
     })
@@ -341,7 +346,10 @@ mod tests {
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::{read_runtime_state, runtime_state_temp_path};
+    use super::{
+        read_runtime_state, record_daemon_ready, record_process_start, runtime_state_temp_path,
+    };
+    use crate::{PrismMcpCli, PrismMcpMode};
 
     fn test_dir(name: &str) -> PathBuf {
         let nonce = SystemTime::now()
@@ -378,6 +386,46 @@ mod tests {
 
         assert_ne!(first, second);
         assert_ne!(first.extension(), Some(std::ffi::OsStr::new("json")));
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn daemon_ready_persists_restart_nonce() {
+        let root = test_dir("restart-nonce");
+        let cli = PrismMcpCli {
+            root: root.clone(),
+            mode: PrismMcpMode::Daemon,
+            no_coordination: false,
+            internal_developer: false,
+            enable_coordination: Vec::new(),
+            disable_coordination: Vec::new(),
+            enable_query_view: Vec::new(),
+            disable_query_view: Vec::new(),
+            daemon_log: None,
+            shared_runtime_sqlite: None,
+            shared_runtime_uri: None,
+            restart_nonce: Some("restart-1".to_string()),
+            daemon_start_timeout_ms: None,
+            http_bind: "127.0.0.1:0".to_string(),
+            http_path: "/mcp".to_string(),
+            health_path: "/healthz".to_string(),
+            http_uri_file: None,
+            upstream_uri: None,
+            daemonize: false,
+        };
+
+        record_process_start(&cli, &root).unwrap();
+        record_daemon_ready(&cli, &root, "http://127.0.0.1:41000/mcp", "/healthz", 1).unwrap();
+
+        let state = read_runtime_state(&root)
+            .unwrap()
+            .expect("runtime state should exist");
+        let daemon = state
+            .processes
+            .into_iter()
+            .find(|process| process.pid == std::process::id() && process.kind == "daemon")
+            .expect("daemon process should be recorded");
+        assert_eq!(daemon.restart_nonce.as_deref(), Some("restart-1"));
         fs::remove_dir_all(root).ok();
     }
 }

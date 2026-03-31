@@ -2670,7 +2670,7 @@ impl QueryExecution {
         &self,
         args: ValidationFeedbackArgs,
     ) -> Result<Vec<ValidationFeedbackView>> {
-        let Some(workspace) = &self.host.workspace else {
+        let Some(workspace) = self.host.workspace_session() else {
             return Ok(Vec::new());
         };
 
@@ -2919,7 +2919,7 @@ impl QueryExecution {
                 })),
             );
         }
-        let workspace = self.host.workspace.as_ref().ok_or_else(|| {
+        let workspace = self.host.workspace_session().ok_or_else(|| {
             anyhow!("memory event inspection requires a workspace-backed PRISM session")
         })?;
 

@@ -80,6 +80,7 @@ async fn run_daemon(cli: &PrismMcpCli, root: &Path) -> Result<()> {
         "prism-mcp daemon ready"
     );
     if let Err(error) = runtime_state::record_daemon_ready(
+        cli,
         root,
         &http_uri,
         &health_path,
@@ -586,6 +587,7 @@ mod tests {
             internal_developer: false,
             shared_runtime_sqlite: None,
             shared_runtime_uri: None,
+            restart_nonce: None,
             enable_coordination: Vec::new(),
             disable_coordination: Vec::new(),
             enable_query_view: Vec::new(),

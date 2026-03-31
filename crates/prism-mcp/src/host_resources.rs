@@ -233,7 +233,7 @@ impl QueryHost {
     ) -> crate::ResolvedTaskMetadata {
         let prism = self.current_prism();
         let replay = crate::load_task_replay(
-            self.workspace.as_ref().map(|workspace| workspace.as_ref()),
+            self.workspace_session_ref(),
             prism.as_ref(),
             task_id,
         )

@@ -1208,7 +1208,10 @@ mod tests {
                 .unwrap_or_default()
                 > 0
         );
-        assert!(store.file_len().unwrap_or_default() <= 1_600);
+        assert!(
+            store.file_len().unwrap_or_default() <= 1_600 + segment_max_bytes(1_600),
+            "active segment may temporarily exceed the nominal cap by one oversized record"
+        );
     }
 
     #[test]

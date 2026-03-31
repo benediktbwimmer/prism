@@ -23,6 +23,7 @@ mod published_knowledge;
 mod published_plans;
 mod reanchor;
 mod resolution;
+pub mod runtime_engine;
 mod session;
 mod session_bootstrap;
 mod shared_runtime;

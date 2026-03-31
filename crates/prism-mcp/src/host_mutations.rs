@@ -1,5 +1,3 @@
-use std::sync::atomic::Ordering;
-
 use anyhow::{anyhow, Result};
 use prism_coordination::{
     HandoffAcceptInput, HandoffInput, PolicyViolation, TaskCreateInput, TaskUpdateInput,
@@ -1128,9 +1126,8 @@ impl QueryHost {
                         trace.record_phase(
                             "mutation.coordination.syncLoadedRevisionBefore",
                             &json!({
-                                "loadedRevision": self
-                                    .loaded_coordination_revision
-                                    .load(Ordering::Relaxed),
+                                    "loadedRevision": self
+                                    .loaded_coordination_revision_value(),
                             }),
                             sync_started.elapsed(),
                             true,
@@ -1196,8 +1193,7 @@ impl QueryHost {
                                     "mutation.coordination.syncLoadedRevisionAfter",
                                     &json!({
                                         "loadedRevision": self
-                                            .loaded_coordination_revision
-                                            .load(Ordering::Relaxed),
+                                            .loaded_coordination_revision_value(),
                                     }),
                                     sync_started.elapsed(),
                                     true,
@@ -1240,8 +1236,7 @@ impl QueryHost {
                                         "mutation.coordination.syncLoadedRevisionAfter",
                                         &json!({
                                             "loadedRevision": self
-                                                .loaded_coordination_revision
-                                                .load(Ordering::Relaxed),
+                                                .loaded_coordination_revision_value(),
                                         }),
                                         sync_started.elapsed(),
                                         true,

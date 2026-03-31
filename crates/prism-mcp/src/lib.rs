@@ -15,11 +15,12 @@ use rmcp::{
     transport::{stdio, IntoTransport},
     ServiceExt,
 };
-use std::collections::HashMap;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, OnceLock, Weak};
+use std::sync::Arc;
+#[cfg(test)]
+use std::sync::OnceLock;
 use tracing::{debug, info, Level};
 
 mod ambiguity;
@@ -88,6 +89,7 @@ mod ui_types;
 mod views;
 mod vocab_resource;
 mod vocabulary;
+mod workspace_host;
 mod workspace_runtime;
 
 use ambiguity::*;
@@ -130,7 +132,7 @@ use tool_schemas::*;
 use views::*;
 use vocab_resource::*;
 use vocabulary::*;
-use workspace_runtime::*;
+use workspace_host::{WorkspaceRuntimeBinding, WorkspaceRuntimeHost};
 
 const DEFAULT_SEARCH_LIMIT: usize = 20;
 const DEFAULT_CALL_GRAPH_DEPTH: usize = 3;
@@ -166,8 +168,6 @@ const TOOL_SCHEMA_RESOURCE_TEMPLATE_URI: &str = "prism://schema/tool/{toolName}"
 const TOOL_ACTION_SCHEMA_RESOURCE_TEMPLATE_URI: &str =
     "prism://schema/tool/{toolName}/action/{action}";
 const AGENT_INSTRUCTIONS_MARKDOWN: &str = include_str!("../../../AGENT_INSTRUCTIONS.md");
-static WORKSPACE_RUNTIME_SYNC_LOCKS: OnceLock<Mutex<HashMap<PathBuf, Weak<Mutex<()>>>>> =
-    OnceLock::new();
 
 #[cfg(test)]
 fn default_query_worker_pool() -> JsWorkerPool {
@@ -205,6 +205,8 @@ pub struct PrismMcpCli {
     pub shared_runtime_sqlite: Option<PathBuf>,
     #[arg(long = "shared-runtime-uri")]
     pub shared_runtime_uri: Option<String>,
+    #[arg(long = "restart-nonce", hide = true)]
+    pub restart_nonce: Option<String>,
     #[arg(long = "daemon-start-timeout-ms")]
     pub daemon_start_timeout_ms: Option<u64>,
     #[arg(long = "http-bind", default_value = "127.0.0.1:0")]
@@ -334,6 +336,10 @@ impl PrismMcpCli {
         if let Some(uri) = &self.shared_runtime_uri {
             args.push("--shared-runtime-uri".to_string());
             args.push(uri.clone());
+        }
+        if let Some(restart_nonce) = &self.restart_nonce {
+            args.push("--restart-nonce".to_string());
+            args.push(restart_nonce.clone());
         }
         args
     }
@@ -546,13 +552,9 @@ struct QueryHost {
     worker_pool: Arc<JsWorkerPool>,
     pub(crate) mcp_call_log_store: Arc<McpCallLogStore>,
     dashboard_state: Arc<DashboardState>,
+    workspace_runtime_host: Arc<WorkspaceRuntimeHost>,
+    workspace_runtime_binding: Option<Arc<WorkspaceRuntimeBinding>>,
     workspace: Option<Arc<WorkspaceSession>>,
-    workspace_runtime_sync_lock: Arc<Mutex<()>>,
-    loaded_workspace_revision: Arc<AtomicU64>,
-    loaded_episodic_revision: Arc<AtomicU64>,
-    loaded_inference_revision: Arc<AtomicU64>,
-    loaded_coordination_revision: Arc<AtomicU64>,
-    workspace_runtime: Option<Arc<WorkspaceRuntime>>,
     restored_session_seed: Option<PersistedSessionSeed>,
     features: PrismMcpFeatures,
     #[cfg(test)]
@@ -605,19 +607,6 @@ impl WorkspaceRefreshMetrics {
     }
 }
 
-fn shared_workspace_runtime_sync_lock(root: &Path) -> Arc<Mutex<()>> {
-    let locks = WORKSPACE_RUNTIME_SYNC_LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
-    let mut locks = locks
-        .lock()
-        .expect("workspace runtime sync-lock registry poisoned");
-    if let Some(existing) = locks.get(root).and_then(Weak::upgrade) {
-        return existing;
-    }
-    let lock = Arc::new(Mutex::new(()));
-    locks.insert(root.to_path_buf(), Arc::downgrade(&lock));
-    lock
-}
-
 impl QueryHost {
     #[cfg(test)]
     fn new(prism: Prism) -> Self {
@@ -662,13 +651,9 @@ impl QueryHost {
             worker_pool: Arc::new(worker_pool),
             mcp_call_log_store: Arc::new(McpCallLogStore::for_root(None)),
             dashboard_state: Arc::new(DashboardState::default()),
+            workspace_runtime_host: Arc::new(WorkspaceRuntimeHost::new()),
+            workspace_runtime_binding: None,
             workspace: None,
-            workspace_runtime_sync_lock: Arc::new(Mutex::new(())),
-            loaded_workspace_revision: Arc::new(AtomicU64::new(0)),
-            loaded_episodic_revision: Arc::new(AtomicU64::new(0)),
-            loaded_inference_revision: Arc::new(AtomicU64::new(0)),
-            loaded_coordination_revision: Arc::new(AtomicU64::new(0)),
-            workspace_runtime: None,
             restored_session_seed: None,
             features: features.clone(),
             #[cfg(test)]
@@ -710,27 +695,13 @@ impl QueryHost {
         let inferred_edges = Arc::new(InferenceStore::new());
         let mcp_call_log_store = Arc::new(McpCallLogStore::for_root(Some(workspace.root())));
         let dashboard_state = Arc::new(DashboardState::default());
-        let workspace_runtime_sync_lock = shared_workspace_runtime_sync_lock(workspace.root());
-        let loaded_workspace_revision = workspace.loaded_workspace_revision_handle();
-        let loaded_episodic_revision = Arc::new(AtomicU64::new(0));
-        let loaded_inference_revision = Arc::new(AtomicU64::new(0));
-        let loaded_coordination_revision = Arc::new(AtomicU64::new(0));
-        let runtime_config = WorkspaceRuntimeConfig {
-            workspace: Arc::clone(&workspace),
-            notes: Arc::clone(&notes),
-            inferred_edges: Arc::clone(&inferred_edges),
-            dashboard_state: Arc::clone(&dashboard_state),
-            sync_lock: Arc::clone(&workspace_runtime_sync_lock),
-            loaded_workspace_revision: Arc::clone(&loaded_workspace_revision),
-            loaded_episodic_revision: Arc::clone(&loaded_episodic_revision),
-            loaded_inference_revision: Arc::clone(&loaded_inference_revision),
-            loaded_coordination_revision: Arc::clone(&loaded_coordination_revision),
-        };
-        let workspace_runtime = Arc::new(WorkspaceRuntime::spawn(runtime_config.clone()));
-        let _ = crate::workspace_runtime::hydrate_persisted_workspace_state(&runtime_config);
-        if workspace.needs_refresh() {
-            workspace_runtime.request_refresh();
-        }
+        let workspace_runtime_host = Arc::new(WorkspaceRuntimeHost::new());
+        let workspace_runtime_binding = workspace_runtime_host.bind_workspace(
+            Arc::clone(&workspace),
+            Arc::clone(&notes),
+            Arc::clone(&inferred_edges),
+            Arc::clone(&dashboard_state),
+        );
         let restored_session_seed = match load_session_seed(workspace.root()) {
             Ok(seed) => seed,
             Err(error) => {
@@ -747,13 +718,9 @@ impl QueryHost {
             worker_pool: Arc::new(worker_pool),
             mcp_call_log_store,
             dashboard_state,
-            workspace: Some(Arc::clone(&workspace)),
-            workspace_runtime_sync_lock,
-            loaded_workspace_revision,
-            loaded_episodic_revision,
-            loaded_inference_revision,
-            loaded_coordination_revision,
-            workspace_runtime: Some(workspace_runtime),
+            workspace_runtime_host,
+            workspace_runtime_binding: Some(Arc::clone(&workspace_runtime_binding)),
+            workspace: Some(Arc::clone(workspace_runtime_binding.workspace())),
             restored_session_seed,
             features,
             #[cfg(test)]
@@ -875,9 +842,9 @@ impl QueryHost {
     }
 
     fn current_prism(&self) -> Arc<Prism> {
-        self.workspace
+        self.workspace_runtime_binding()
             .as_ref()
-            .map(|workspace| workspace.prism_arc())
+            .map(|binding| binding.workspace().prism_arc())
             .unwrap_or_else(|| Arc::clone(&self.prism))
     }
 
@@ -885,11 +852,67 @@ impl QueryHost {
         self.workspace.as_ref()
     }
 
+    pub(crate) fn workspace_session_ref(&self) -> Option<&WorkspaceSession> {
+        self.workspace_session().map(Arc::as_ref)
+    }
+
+    pub(crate) fn workspace_root(&self) -> Option<&Path> {
+        self.workspace_session().map(|workspace| workspace.root())
+    }
+
+    pub(crate) fn workspace_runtime_binding(&self) -> Option<Arc<WorkspaceRuntimeBinding>> {
+        self.workspace_runtime_binding.clone().or_else(|| {
+            self.workspace.as_ref().and_then(|workspace| {
+                self.workspace_runtime_host
+                    .binding_for_root(workspace.root())
+            })
+        })
+    }
+
+    pub(crate) fn loaded_workspace_revision_value(&self) -> u64 {
+        self.workspace_runtime_binding()
+            .as_ref()
+            .map(|binding| binding.loaded_workspace_revision().load(Ordering::Relaxed))
+            .unwrap_or(0)
+    }
+
+    pub(crate) fn loaded_episodic_revision_value(&self) -> u64 {
+        self.workspace_runtime_binding()
+            .as_ref()
+            .map(|binding| binding.loaded_episodic_revision().load(Ordering::Relaxed))
+            .unwrap_or(0)
+    }
+
+    pub(crate) fn loaded_inference_revision_value(&self) -> u64 {
+        self.workspace_runtime_binding()
+            .as_ref()
+            .map(|binding| binding.loaded_inference_revision().load(Ordering::Relaxed))
+            .unwrap_or(0)
+    }
+
+    pub(crate) fn loaded_coordination_revision_value(&self) -> u64 {
+        self.workspace_runtime_binding()
+            .as_ref()
+            .map(|binding| {
+                binding
+                    .loaded_coordination_revision()
+                    .load(Ordering::Relaxed)
+            })
+            .unwrap_or(0)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn loaded_coordination_revision_handle(&self) -> Option<Arc<AtomicU64>> {
+        self.workspace_runtime_binding()
+            .as_ref()
+            .map(|binding| Arc::clone(binding.loaded_coordination_revision()))
+    }
+
     pub(crate) fn ensure_workspace_paths_deep<I>(&self, paths: I) -> Result<bool>
     where
         I: IntoIterator<Item = PathBuf>,
     {
-        let Some(workspace) = &self.workspace else {
+        let Some(workspace) = self.workspace_session() else {
             return Ok(false);
         };
         let Some(changed) = workspace.try_ensure_paths_deep(paths)? else {
@@ -938,27 +961,39 @@ impl QueryHost {
     }
 
     fn sync_workspace_revision_value(&self, revision: u64) {
-        self.loaded_workspace_revision
-            .store(revision, Ordering::Relaxed);
+        if let Some(binding) = self.workspace_runtime_binding() {
+            binding
+                .loaded_workspace_revision()
+                .store(revision, Ordering::Relaxed);
+        }
     }
 
     fn sync_episodic_revision_value(&self, revision: u64) {
-        self.loaded_episodic_revision
-            .store(revision, Ordering::Relaxed);
+        if let Some(binding) = self.workspace_runtime_binding() {
+            binding
+                .loaded_episodic_revision()
+                .store(revision, Ordering::Relaxed);
+        }
     }
 
     fn sync_inference_revision_value(&self, revision: u64) {
-        self.loaded_inference_revision
-            .store(revision, Ordering::Relaxed);
+        if let Some(binding) = self.workspace_runtime_binding() {
+            binding
+                .loaded_inference_revision()
+                .store(revision, Ordering::Relaxed);
+        }
     }
 
     fn sync_coordination_revision_value(&self, revision: u64) {
-        self.loaded_coordination_revision
-            .store(revision, Ordering::Relaxed);
+        if let Some(binding) = self.workspace_runtime_binding() {
+            binding
+                .loaded_coordination_revision()
+                .store(revision, Ordering::Relaxed);
+        }
     }
 
     fn persist_outcomes(&self) -> Result<()> {
-        let Some(workspace) = &self.workspace else {
+        let Some(workspace) = self.workspace_session() else {
             return Ok(());
         };
         workspace.persist_outcomes()?;
@@ -966,7 +1001,7 @@ impl QueryHost {
     }
 
     fn persist_notes(&self) -> Result<()> {
-        let Some(workspace) = &self.workspace else {
+        let Some(workspace) = self.workspace_session() else {
             return Ok(());
         };
         workspace.persist_episodic(&self.notes.persisted_snapshot())?;
@@ -974,7 +1009,7 @@ impl QueryHost {
     }
 
     fn persist_inferred_edges(&self) -> Result<()> {
-        let Some(workspace) = &self.workspace else {
+        let Some(workspace) = self.workspace_session() else {
             return Ok(());
         };
         workspace.persist_inference(&self.inferred_edges.snapshot_persisted())?;

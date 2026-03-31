@@ -26,7 +26,7 @@ impl QueryHost {
                 let mut results = execution.search(compact_search_args(&session, &args))?;
                 apply_locate_glob_filter(
                     &mut results,
-                    host.workspace.as_ref().map(|workspace| workspace.root()),
+                    host.workspace_root(),
                     args.glob.as_deref(),
                 )?;
 
@@ -40,7 +40,7 @@ impl QueryHost {
                 results.extend(semantic_symbols_from_text_candidates(
                     prism.as_ref(),
                     &text_candidates,
-                    host.workspace.as_ref().map(|workspace| workspace.root()),
+                    host.workspace_root(),
                     applied.saturating_mul(TEXT_LOCATE_LIMIT_MULTIPLIER),
                 )?);
                 results.extend(exact_identifier_locate_symbols(

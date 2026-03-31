@@ -7,7 +7,7 @@ use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, bail, Context, Result};
 
@@ -68,9 +68,18 @@ struct HealthStatus {
     detail: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct StartupMarker<'a> {
-    operation: &'a str,
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct StartupMarker {
+    operation: String,
+    nonce: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RuntimeDaemonRecord {
+    pid: u32,
+    health_path: Option<String>,
+    http_uri: Option<String>,
+    restart_nonce: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -94,14 +103,19 @@ struct StartupMarkerGuard {
 }
 
 impl StartupMarkerGuard {
-    fn try_create(path: &Path, operation: &str) -> Result<Option<Self>> {
+    fn try_create(path: &Path, operation: &str, nonce: Option<&str>) -> Result<Option<Self>> {
         loop {
             if let Some(parent) = path.parent() {
                 fs::create_dir_all(parent)?;
             }
             match OpenOptions::new().write(true).create_new(true).open(path) {
                 Ok(mut file) => {
-                    file.write_all(operation.as_bytes()).with_context(|| {
+                    let payload = serde_json::to_vec(&serde_json::json!({
+                        "operation": operation,
+                        "nonce": nonce,
+                    }))
+                    .context("failed to serialize startup marker")?;
+                    file.write_all(&payload).with_context(|| {
                         format!("failed to write startup marker {}", path.display())
                     })?;
                     return Ok(Some(Self {
@@ -150,6 +164,8 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             shared_runtime_sqlite,
             shared_runtime_uri,
             "start",
+            None,
+            None,
         ),
         McpCommand::Stop { kill_bridges } => stop(&root, kill_bridges),
         McpCommand::Restart {
@@ -160,7 +176,20 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
             shared_runtime_sqlite,
             shared_runtime_uri,
         } => {
-            stop(&root, kill_bridges)?;
+            let paths = McpPaths::for_root(&root);
+            let restart_nonce = next_restart_nonce();
+            let Some(startup_marker) = StartupMarkerGuard::try_create(
+                &paths.startup_marker,
+                "restart",
+                Some(&restart_nonce),
+            )?
+            else {
+                let uri = wait_for_healthy_uri(&root, &paths, DEFAULT_HEALTH_PATH)?;
+                println!("daemon startup already in progress");
+                println!("uri: {uri}");
+                return status(&root);
+            };
+            stop_impl(&root, kill_bridges, false)?;
             start(
                 &root,
                 no_coordination,
@@ -169,6 +198,8 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
                 shared_runtime_sqlite,
                 shared_runtime_uri,
                 "restart",
+                Some(&restart_nonce),
+                Some(startup_marker),
             )
         }
         McpCommand::Health => health(&root),
@@ -277,6 +308,8 @@ fn start(
     shared_runtime_sqlite: Option<PathBuf>,
     shared_runtime_uri: Option<String>,
     operation: &str,
+    restart_nonce: Option<&str>,
+    startup_marker: Option<StartupMarkerGuard>,
 ) -> Result<()> {
     let paths = McpPaths::for_root(root);
     let mut processes = list_processes(root)?;
@@ -300,15 +333,22 @@ fn start(
     if let Some(parent) = paths.log_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::remove_file(&paths.uri_file).ok();
     let http_bind = resolve_http_bind(root, http_bind.as_deref());
-    let Some(_startup_marker) = StartupMarkerGuard::try_create(&paths.startup_marker, operation)?
-    else {
-        let uri = wait_for_healthy_uri(root, &paths, DEFAULT_HEALTH_PATH)?;
-        println!("daemon startup already in progress");
-        println!("uri: {uri}");
-        return status(root);
+    let _startup_marker = match startup_marker {
+        Some(startup_marker) => startup_marker,
+        None => {
+            let Some(startup_marker) =
+                StartupMarkerGuard::try_create(&paths.startup_marker, operation, restart_nonce)?
+            else {
+                let uri = wait_for_healthy_uri(root, &paths, DEFAULT_HEALTH_PATH)?;
+                println!("daemon startup already in progress");
+                println!("uri: {uri}");
+                return status(root);
+            };
+            startup_marker
+        }
     };
+    fs::remove_file(&paths.uri_file).ok();
     ensure_expected_bind_available(root, &http_bind, operation)?;
 
     let binary = prism_mcp_binary()?;
@@ -321,6 +361,7 @@ fn start(
         internal_developer,
         shared_runtime_sqlite.as_deref(),
         shared_runtime_uri.as_deref(),
+        restart_nonce,
     )?;
     let uri = wait_for_healthy_uri(root, &paths, DEFAULT_HEALTH_PATH)?;
     println!("started daemon");
@@ -329,6 +370,10 @@ fn start(
 }
 
 fn stop(root: &Path, kill_bridges: bool) -> Result<()> {
+    stop_impl(root, kill_bridges, true)
+}
+
+fn stop_impl(root: &Path, kill_bridges: bool, clear_startup_marker: bool) -> Result<()> {
     let paths = McpPaths::for_root(root);
     let processes = list_processes(root)?;
     let mut targets = select_kind(&processes, McpProcessKind::Daemon);
@@ -339,7 +384,9 @@ fn stop(root: &Path, kill_bridges: bool) -> Result<()> {
     if targets.is_empty() {
         println!("no matching prism-mcp processes found");
         fs::remove_file(&paths.uri_file).ok();
-        fs::remove_file(&paths.startup_marker).ok();
+        if clear_startup_marker {
+            fs::remove_file(&paths.startup_marker).ok();
+        }
         return Ok(());
     }
 
@@ -360,7 +407,9 @@ fn stop(root: &Path, kill_bridges: bool) -> Result<()> {
         .all(|process| process.kind != McpProcessKind::Daemon)
     {
         fs::remove_file(&paths.uri_file).ok();
-        fs::remove_file(&paths.startup_marker).ok();
+        if clear_startup_marker {
+            fs::remove_file(&paths.startup_marker).ok();
+        }
     }
 
     println!("stopped {} process(es)", targets.len());
@@ -572,6 +621,7 @@ fn spawn_daemon(
     internal_developer: bool,
     shared_runtime_sqlite: Option<&Path>,
     shared_runtime_uri: Option<&str>,
+    restart_nonce: Option<&str>,
 ) -> Result<()> {
     if shared_runtime_sqlite.is_some() && shared_runtime_uri.is_some() {
         bail!("configure either shared runtime sqlite or shared runtime uri, not both");
@@ -606,6 +656,10 @@ fn spawn_daemon(
     if let Some(shared_runtime_uri) = shared_runtime_uri {
         args.push("--shared-runtime-uri".to_string());
         args.push(shared_runtime_uri.to_string());
+    }
+    if let Some(restart_nonce) = restart_nonce {
+        args.push("--restart-nonce".to_string());
+        args.push(restart_nonce.to_string());
     }
 
     let child = Command::new(binary)
@@ -866,7 +920,7 @@ fn read_uri_file(path: &Path) -> Result<Option<String>> {
     Ok(Some(value.to_string()))
 }
 
-fn read_startup_marker(path: &Path) -> Result<Option<StartupMarker<'static>>> {
+fn read_startup_marker(path: &Path) -> Result<Option<StartupMarker>> {
     if !path.exists() {
         return Ok(None);
     }
@@ -881,19 +935,34 @@ fn read_startup_marker(path: &Path) -> Result<Option<StartupMarker<'static>>> {
         fs::remove_file(path).ok();
         return Ok(None);
     }
-    let operation = fs::read_to_string(path)
+    let contents = fs::read_to_string(path)
         .with_context(|| format!("failed to read startup marker {}", path.display()))?;
-    let operation = operation.trim();
-    match operation {
-        "start" => Ok(Some(StartupMarker { operation: "start" })),
-        "restart" => Ok(Some(StartupMarker {
-            operation: "restart",
-        })),
-        _ => {
-            fs::remove_file(path).ok();
-            Ok(None)
+    if let Ok(marker) = serde_json::from_str::<serde_json::Value>(&contents) {
+        let operation = marker
+            .get("operation")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        if matches!(operation, "start" | "restart") {
+            return Ok(Some(StartupMarker {
+                operation: operation.to_string(),
+                nonce: marker
+                    .get("nonce")
+                    .and_then(serde_json::Value::as_str)
+                    .map(ToString::to_string),
+            }));
         }
+        fs::remove_file(path).ok();
+        return Ok(None);
     }
+    let operation = contents.trim();
+    if matches!(operation, "start" | "restart") {
+        return Ok(Some(StartupMarker {
+            operation: operation.to_string(),
+            nonce: None,
+        }));
+    }
+    fs::remove_file(path).ok();
+    Ok(None)
 }
 
 fn daemon_connection_info(
@@ -915,48 +984,134 @@ fn daemon_connection_info(
     })
 }
 
+fn missing_daemon_connection_info() -> DaemonConnectionInfo {
+    DaemonConnectionInfo {
+        transport: "streamable-http",
+        mode: "direct-daemon",
+        bridge_role: "stdio-compatibility-only",
+        uri: None,
+        health_uri: None,
+        health: HealthStatus {
+            ok: false,
+            detail: "missing uri file".to_string(),
+        },
+    }
+}
+
+fn daemon_connection_snapshot(
+    root: &Path,
+    paths: &McpPaths,
+    observed_daemons: &[McpProcess],
+    startup_marker: Option<&StartupMarker>,
+) -> Result<(Vec<McpProcess>, DaemonConnectionInfo)> {
+    let Some(startup_marker) = startup_marker else {
+        let connection = daemon_connection_info(root, paths, observed_daemons)?;
+        return Ok((observed_daemons.to_vec(), connection));
+    };
+    if startup_marker.operation != "restart" {
+        let connection = daemon_connection_info(root, paths, observed_daemons)?;
+        return Ok((observed_daemons.to_vec(), connection));
+    }
+
+    let Some(restart_nonce) = startup_marker.nonce.as_deref() else {
+        return Ok((Vec::new(), missing_daemon_connection_info()));
+    };
+    let runtime_daemons = live_runtime_daemon_records(root, observed_daemons)?;
+    let matching = runtime_daemons
+        .iter()
+        .filter(|record| {
+            record.restart_nonce.as_deref() == Some(restart_nonce) && record.http_uri.is_some()
+        })
+        .collect::<Vec<_>>();
+    if matching.is_empty() {
+        return Ok((Vec::new(), missing_daemon_connection_info()));
+    }
+
+    let trusted_pids = matching
+        .iter()
+        .map(|record| record.pid)
+        .collect::<BTreeSet<_>>();
+    let trusted_daemons = observed_daemons
+        .iter()
+        .filter(|daemon| trusted_pids.contains(&daemon.pid))
+        .cloned()
+        .collect::<Vec<_>>();
+    let uri = matching.first().and_then(|record| record.http_uri.clone());
+    let health_path = matching
+        .first()
+        .and_then(|record| record.health_path.as_deref())
+        .unwrap_or_else(|| daemon_health_path(&trusted_daemons));
+    let health_uri = uri.as_ref().map(|uri| join_health_uri(uri, health_path));
+    let health = health_status(&uri, health_path)?;
+    Ok((
+        trusted_daemons,
+        DaemonConnectionInfo {
+            transport: "streamable-http",
+            mode: "direct-daemon",
+            bridge_role: "stdio-compatibility-only",
+            uri,
+            health_uri,
+            health,
+        },
+    ))
+}
+
 fn connection_snapshot_with_restart_grace(
     root: &Path,
     paths: &McpPaths,
 ) -> Result<(Vec<McpProcess>, DaemonConnectionInfo)> {
-    let mut processes = list_processes(root)?;
-    let mut daemons = select_kind(&processes, McpProcessKind::Daemon);
-    let mut bridges = select_kind(&processes, McpProcessKind::Bridge);
-    let mut connection = daemon_connection_info(root, paths, &daemons)?;
+    let mut observed_processes = list_processes(root)?;
+    let mut observed_daemons = select_kind(&observed_processes, McpProcessKind::Daemon);
+    let mut bridges = select_kind(&observed_processes, McpProcessKind::Bridge);
     let mut startup_marker = read_startup_marker(&paths.startup_marker)?;
-    if should_wait_for_restart_grace(&connection, &daemons, &bridges, startup_marker) {
+    let (mut daemons, mut connection) =
+        daemon_connection_snapshot(root, paths, &observed_daemons, startup_marker.as_ref())?;
+    if should_wait_for_restart_grace(&connection, &daemons, &bridges, startup_marker.as_ref()) {
         let deadline = Instant::now() + RESTART_GRACE_TIMEOUT;
         while Instant::now() < deadline {
             thread::sleep(POLL_INTERVAL);
-            processes = list_processes(root)?;
-            daemons = select_kind(&processes, McpProcessKind::Daemon);
-            bridges = select_kind(&processes, McpProcessKind::Bridge);
-            connection = daemon_connection_info(root, paths, &daemons)?;
+            observed_processes = list_processes(root)?;
+            observed_daemons = select_kind(&observed_processes, McpProcessKind::Daemon);
+            bridges = select_kind(&observed_processes, McpProcessKind::Bridge);
             startup_marker = read_startup_marker(&paths.startup_marker)?;
-            if connection.health.ok
-                || connection.uri.is_some()
-                || (startup_marker.is_none() && bridges.is_empty())
-            {
+            (daemons, connection) = daemon_connection_snapshot(
+                root,
+                paths,
+                &observed_daemons,
+                startup_marker.as_ref(),
+            )?;
+            if !should_wait_for_restart_grace(
+                &connection,
+                &daemons,
+                &bridges,
+                startup_marker.as_ref(),
+            ) {
                 break;
             }
         }
-        if should_wait_for_restart_grace(&connection, &daemons, &bridges, startup_marker) {
+        if should_wait_for_restart_grace(&connection, &daemons, &bridges, startup_marker.as_ref()) {
             connection.health.detail = startup_marker
+                .as_ref()
                 .map(|marker| format!("daemon {} is in progress; retry shortly", marker.operation))
                 .unwrap_or_else(|| {
                     "daemon restart appears to be in progress; retry shortly".to_string()
                 });
         }
     }
-    Ok((processes, connection))
+    let mut visible_processes = daemons;
+    visible_processes.extend(bridges);
+    Ok((visible_processes, connection))
 }
 
 fn should_wait_for_restart_grace(
     connection: &DaemonConnectionInfo,
     daemons: &[McpProcess],
     bridges: &[McpProcess],
-    startup_marker: Option<StartupMarker<'_>>,
+    startup_marker: Option<&StartupMarker>,
 ) -> bool {
+    if startup_marker.is_some_and(|marker| marker.operation == "restart") {
+        return !connection.health.ok;
+    }
     !connection.health.ok
         && connection.uri.is_none()
         && daemons.is_empty()
@@ -978,22 +1133,37 @@ fn runtime_state_uri(root: &Path, daemons: &[McpProcess]) -> Result<Option<Strin
     if daemons.is_empty() {
         return Ok(None);
     }
-    let live_pids = daemons.iter().map(|daemon| daemon.pid).collect::<Vec<_>>();
+    Ok(live_runtime_daemon_records(root, daemons)?
+        .into_iter()
+        .find_map(|record| record.http_uri))
+}
+
+fn live_runtime_daemon_records(
+    root: &Path,
+    daemons: &[McpProcess],
+) -> Result<Vec<RuntimeDaemonRecord>> {
+    if daemons.is_empty() {
+        return Ok(Vec::new());
+    }
+    let live_pids = daemons
+        .iter()
+        .map(|daemon| daemon.pid)
+        .collect::<BTreeSet<_>>();
     let path = root.join(".prism").join("prism-mcp-runtime.json");
     if !path.exists() {
-        return Ok(None);
+        return Ok(Vec::new());
     }
     let bytes = fs::read(&path)
         .with_context(|| format!("failed to read runtime state {}", path.display()))?;
     let Ok(value) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
-        return Ok(None);
+        return Ok(Vec::new());
     };
     Ok(value
         .get("processes")
         .and_then(serde_json::Value::as_array)
         .into_iter()
         .flatten()
-        .find(|process| {
+        .filter(|process| {
             process
                 .get("kind")
                 .and_then(serde_json::Value::as_str)
@@ -1003,9 +1173,33 @@ fn runtime_state_uri(root: &Path, daemons: &[McpProcess]) -> Result<Option<Strin
                     .and_then(serde_json::Value::as_u64)
                     .is_some_and(|pid| live_pids.contains(&(pid as u32)))
         })
-        .and_then(|process| process.get("http_uri"))
-        .and_then(serde_json::Value::as_str)
-        .map(ToString::to_string))
+        .map(|process| RuntimeDaemonRecord {
+            pid: process
+                .get("pid")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or_default() as u32,
+            health_path: process
+                .get("health_path")
+                .and_then(serde_json::Value::as_str)
+                .map(ToString::to_string),
+            http_uri: process
+                .get("http_uri")
+                .and_then(serde_json::Value::as_str)
+                .map(ToString::to_string),
+            restart_nonce: process
+                .get("restart_nonce")
+                .and_then(serde_json::Value::as_str)
+                .map(ToString::to_string),
+        })
+        .collect())
+}
+
+fn next_restart_nonce() -> String {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    format!("restart-{}-{now}", std::process::id())
 }
 
 fn connected_process_ids_for_uri(uri: &str) -> Result<BTreeSet<u32>> {
@@ -1266,8 +1460,9 @@ mod tests {
             &connection,
             &[],
             &[],
-            Some(StartupMarker {
-                operation: "restart",
+            Some(&StartupMarker {
+                operation: "restart".to_string(),
+                nonce: Some("restart-1".to_string()),
             })
         ));
 
@@ -1282,8 +1477,9 @@ mod tests {
             &healthy,
             &[],
             &bridges,
-            Some(StartupMarker {
-                operation: "restart",
+            Some(&StartupMarker {
+                operation: "restart".to_string(),
+                nonce: Some("restart-1".to_string()),
             })
         ));
 
@@ -1291,12 +1487,13 @@ mod tests {
             uri: Some("http://127.0.0.1:52695/mcp".to_string()),
             ..connection.clone()
         };
-        assert!(!should_wait_for_restart_grace(
+        assert!(should_wait_for_restart_grace(
             &with_uri,
             &[],
             &bridges,
-            Some(StartupMarker {
-                operation: "restart",
+            Some(&StartupMarker {
+                operation: "restart".to_string(),
+                nonce: Some("restart-1".to_string()),
             })
         ));
 
@@ -1309,15 +1506,128 @@ mod tests {
             kind: McpProcessKind::Daemon,
             health_path: Some("/healthz".to_string()),
         }];
-        assert!(!should_wait_for_restart_grace(
+        assert!(should_wait_for_restart_grace(
             &connection,
             &daemons,
             &bridges,
-            Some(StartupMarker {
-                operation: "restart",
+            Some(&StartupMarker {
+                operation: "restart".to_string(),
+                nonce: Some("restart-1".to_string()),
+            })
+        ));
+        let healthy_with_daemon = DaemonConnectionInfo {
+            health: HealthStatus {
+                ok: true,
+                detail: "ok".to_string(),
+            },
+            uri: Some("http://127.0.0.1:52695/mcp".to_string()),
+            ..connection.clone()
+        };
+        assert!(!should_wait_for_restart_grace(
+            &healthy_with_daemon,
+            &daemons,
+            &bridges,
+            Some(&StartupMarker {
+                operation: "restart".to_string(),
+                nonce: Some("restart-1".to_string()),
             })
         ));
         assert!(!should_wait_for_restart_grace(&connection, &[], &[], None));
+    }
+
+    #[test]
+    fn daemon_connection_snapshot_ignores_daemons_without_matching_restart_nonce() {
+        let root = temp_root("restart-snapshot-stale");
+        let paths = McpPaths::for_root(&root);
+        fs::write(
+            root.join(".prism").join("prism-mcp-runtime.json"),
+            r#"{
+  "processes": [
+    {
+      "pid": 12,
+      "kind": "daemon",
+      "health_path": "/healthz",
+      "http_uri": "http://127.0.0.1:41000/mcp",
+      "restart_nonce": "old"
+    }
+  ],
+  "events": []
+}"#,
+        )
+        .unwrap();
+        let daemons = vec![McpProcess {
+            pid: 12,
+            ppid: 1,
+            rss_kb: 0,
+            elapsed: "00:01".to_string(),
+            command: "prism-mcp --mode daemon".to_string(),
+            kind: McpProcessKind::Daemon,
+            health_path: Some("/healthz".to_string()),
+        }];
+
+        let (trusted_daemons, connection) = daemon_connection_snapshot(
+            &root,
+            &paths,
+            &daemons,
+            Some(&StartupMarker {
+                operation: "restart".to_string(),
+                nonce: Some("new".to_string()),
+            }),
+        )
+        .unwrap();
+
+        assert!(trusted_daemons.is_empty());
+        assert!(connection.uri.is_none());
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn daemon_connection_snapshot_uses_matching_restart_nonce() {
+        let root = temp_root("restart-snapshot-current");
+        let paths = McpPaths::for_root(&root);
+        fs::write(
+            root.join(".prism").join("prism-mcp-runtime.json"),
+            r#"{
+  "processes": [
+    {
+      "pid": 12,
+      "kind": "daemon",
+      "health_path": "/healthz",
+      "http_uri": "http://127.0.0.1:41000/mcp",
+      "restart_nonce": "new"
+    }
+  ],
+  "events": []
+}"#,
+        )
+        .unwrap();
+        let daemons = vec![McpProcess {
+            pid: 12,
+            ppid: 1,
+            rss_kb: 0,
+            elapsed: "00:01".to_string(),
+            command: "prism-mcp --mode daemon".to_string(),
+            kind: McpProcessKind::Daemon,
+            health_path: Some("/healthz".to_string()),
+        }];
+
+        let (trusted_daemons, connection) = daemon_connection_snapshot(
+            &root,
+            &paths,
+            &daemons,
+            Some(&StartupMarker {
+                operation: "restart".to_string(),
+                nonce: Some("new".to_string()),
+            }),
+        )
+        .unwrap();
+
+        assert_eq!(trusted_daemons.len(), 1);
+        assert_eq!(
+            connection.uri.as_deref(),
+            Some("http://127.0.0.1:41000/mcp")
+        );
+        fs::remove_dir_all(root).ok();
     }
 
     #[test]
@@ -1431,22 +1741,21 @@ mod tests {
         let root = temp_root("startup-marker");
         let marker_path = root.join(".prism").join("prism-mcp-startup");
 
-        let first = StartupMarkerGuard::try_create(&marker_path, "restart")
+        let first = StartupMarkerGuard::try_create(&marker_path, "restart", Some("restart-1"))
             .unwrap()
             .expect("first marker acquisition should succeed");
-        assert_eq!(
-            read_startup_marker(&marker_path)
-                .unwrap()
-                .map(|marker| marker.operation),
-            Some("restart")
-        );
+        let marker = read_startup_marker(&marker_path)
+            .unwrap()
+            .expect("marker should deserialize");
+        assert_eq!(marker.operation, "restart");
+        assert_eq!(marker.nonce.as_deref(), Some("restart-1"));
 
-        let second = StartupMarkerGuard::try_create(&marker_path, "start").unwrap();
+        let second = StartupMarkerGuard::try_create(&marker_path, "start", None).unwrap();
         assert!(second.is_none());
 
         drop(first);
 
-        let third = StartupMarkerGuard::try_create(&marker_path, "start")
+        let third = StartupMarkerGuard::try_create(&marker_path, "start", None)
             .unwrap()
             .expect("marker should be acquirable after the first guard drops");
         drop(third);

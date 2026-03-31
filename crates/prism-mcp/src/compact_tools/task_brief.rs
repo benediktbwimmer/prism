@@ -43,7 +43,7 @@ impl QueryHost {
                 let conflicts = prism.conflicts(&subject.anchors, now);
                 let task_id = TaskId::new(subject.task_id.clone());
                 let replay = crate::load_task_replay(
-                    host.workspace.as_ref().map(|workspace| workspace.as_ref()),
+                    host.workspace_session_ref(),
                     prism.as_ref(),
                     &task_id,
                 )?;

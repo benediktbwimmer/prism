@@ -4,7 +4,6 @@ use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -234,9 +233,7 @@ pub(crate) fn runtime_timeline(
 }
 
 fn workspace_root(host: &QueryHost) -> Result<&Path> {
-    host.workspace
-        .as_ref()
-        .map(|workspace| workspace.root())
+    host.workspace_root()
         .ok_or_else(|| anyhow!("runtime introspection requires a workspace-backed PRISM session"))
 }
 
@@ -244,7 +241,7 @@ fn runtime_freshness(
     host: &QueryHost,
     runtime_state: Option<&RuntimeState>,
 ) -> Result<RuntimeFreshnessView> {
-    let workspace = host.workspace.as_ref().ok_or_else(|| {
+    let workspace = host.workspace_session().ok_or_else(|| {
         anyhow!("runtime introspection requires a workspace-backed PRISM session")
     })?;
     let snapshot_revisions = workspace.snapshot_revisions_for_runtime()?;
@@ -255,20 +252,20 @@ fn runtime_freshness(
     let workspace_summary = workspace.workspace_materialization_summary();
     let materialization = RuntimeMaterializationView {
         workspace: workspace_materialization_item(
-            host.loaded_workspace_revision.load(Ordering::Relaxed),
+            host.loaded_workspace_revision_value(),
             Some(snapshot_revisions.workspace),
             &workspace_summary,
         ),
         episodic: materialization_item(
-            host.loaded_episodic_revision.load(Ordering::Relaxed),
+            host.loaded_episodic_revision_value(),
             Some(snapshot_revisions.episodic),
         ),
         inference: materialization_item(
-            host.loaded_inference_revision.load(Ordering::Relaxed),
+            host.loaded_inference_revision_value(),
             Some(snapshot_revisions.inference),
         ),
         coordination: materialization_item(
-            host.loaded_coordination_revision.load(Ordering::Relaxed),
+            host.loaded_coordination_revision_value(),
             Some(snapshot_revisions.coordination),
         ),
     };

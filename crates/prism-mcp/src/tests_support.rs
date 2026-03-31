@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
+use anyhow::Result;
 use axum::Router;
 use rmcp::{
     model::{ClientJsonRpcMessage, ServerJsonRpcMessage},
@@ -62,6 +63,28 @@ pub(crate) fn host_with_session_internal_and_limits(
 
 pub(crate) fn test_session(host: &QueryHost) -> Arc<SessionState> {
     host.cached_test_session()
+}
+
+pub(crate) fn retry_on_runtime_sync_busy<T, F>(mut op: F) -> Result<T>
+where
+    F: FnMut() -> Result<T>,
+{
+    let mut last_error = None;
+    for _ in 0..20 {
+        match op() {
+            Ok(value) => return Ok(value),
+            Err(error)
+                if error
+                    .to_string()
+                    .contains("request admission busy for `refreshWorkspaceForMutation`") =>
+            {
+                last_error = Some(error);
+                thread::sleep(Duration::from_millis(20));
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    Err(last_error.expect("runtime sync busy retry should capture the final error"))
 }
 
 pub(crate) fn temp_workspace() -> PathBuf {

@@ -15,10 +15,16 @@ struct GitWorkspaceIdentity {
     head_ref: Option<String>,
 }
 
-pub(crate) fn coordination_persist_context_for_root(
-    root: &Path,
-    session_id: Option<&SessionId>,
-) -> CoordinationPersistContext {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WorkspaceIdentity {
+    pub(crate) canonical_root: PathBuf,
+    pub(crate) repo_id: String,
+    pub(crate) worktree_id: String,
+    pub(crate) branch_ref: Option<String>,
+    pub(crate) instance_id: String,
+}
+
+pub(crate) fn workspace_identity_for_root(root: &Path) -> WorkspaceIdentity {
     let canonical_root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
     let git_identity = discover_git_workspace_identity(&canonical_root);
     let repo_source = git_identity
@@ -27,12 +33,26 @@ pub(crate) fn coordination_persist_context_for_root(
         .unwrap_or(&canonical_root)
         .to_string_lossy()
         .to_string();
-    CoordinationPersistContext {
+    WorkspaceIdentity {
+        canonical_root: canonical_root.clone(),
         repo_id: scoped_id("repo", &repo_source),
         worktree_id: scoped_id("worktree", &canonical_root.to_string_lossy()),
         branch_ref: git_identity.head_ref,
+        instance_id: instance_id().clone(),
+    }
+}
+
+pub(crate) fn coordination_persist_context_for_root(
+    root: &Path,
+    session_id: Option<&SessionId>,
+) -> CoordinationPersistContext {
+    let identity = workspace_identity_for_root(root);
+    CoordinationPersistContext {
+        repo_id: identity.repo_id,
+        worktree_id: identity.worktree_id,
+        branch_ref: identity.branch_ref,
         session_id: session_id.map(|session_id| session_id.0.to_string()),
-        instance_id: Some(instance_id().clone()),
+        instance_id: Some(identity.instance_id),
     }
 }
 
