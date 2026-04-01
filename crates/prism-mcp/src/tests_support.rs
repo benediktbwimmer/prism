@@ -17,10 +17,20 @@ use rmcp::{
 use serde_json::{json, Value};
 
 use super::*;
+use prism_core::{
+    index_workspace_session_with_options, BootstrapOwnerInput, SharedRuntimeBackend,
+    WorkspaceSessionOptions,
+};
 use prism_ir::new_sortable_token;
 use prism_ir::{Language, Node, NodeId, NodeKind, Span};
 use prism_query::{Prism, QueryLimits};
 use prism_store::Graph;
+
+#[derive(Debug, Clone)]
+pub(crate) struct MutationCredentialFixture {
+    pub(crate) credential_id: String,
+    pub(crate) principal_token: String,
+}
 
 pub(crate) fn host_with_node(node: Node) -> QueryHost {
     let mut graph = Graph::default();
@@ -48,6 +58,43 @@ pub(crate) fn host_with_session(workspace: WorkspaceSession) -> QueryHost {
         QueryLimits::default(),
         PrismMcpFeatures::full(),
     )
+}
+
+pub(crate) fn workspace_session_with_owner_credential(
+    root: &Path,
+) -> (WorkspaceSession, MutationCredentialFixture) {
+    let session = index_workspace_session_with_options(
+        root,
+        WorkspaceSessionOptions {
+            coordination: true,
+            shared_runtime: SharedRuntimeBackend::Sqlite {
+                path: root.join("shared-runtime.db"),
+            },
+            hydrate_persisted_projections: false,
+        },
+    )
+    .expect("workspace session should index");
+    let issued = session
+        .bootstrap_owner_principal(BootstrapOwnerInput {
+            authority_id: None,
+            name: "Test Owner".to_string(),
+            role: Some("test_owner".to_string()),
+        })
+        .expect("owner bootstrap should succeed");
+    (
+        session,
+        MutationCredentialFixture {
+            credential_id: issued.credential.credential_id.0.to_string(),
+            principal_token: issued.principal_token,
+        },
+    )
+}
+
+pub(crate) fn mutation_credential_json(credential: &MutationCredentialFixture) -> Value {
+    json!({
+        "credentialId": credential.credential_id,
+        "principalToken": credential.principal_token,
+    })
 }
 
 pub(crate) fn host_with_session_internal_and_limits(

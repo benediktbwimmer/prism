@@ -1,3 +1,5 @@
+#[cfg(test)]
+use std::cell::RefCell;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -14,9 +16,15 @@ const REPO_METADATA_FILE_NAME: &str = "repo.json";
 const SESSION_SEED_FILE_NAME: &str = "prism-mcp-session-seed.json";
 const WORKTREE_METADATA_FILE_NAME: &str = "worktree.json";
 
+#[cfg(test)]
+thread_local! {
+    static TEST_PRISM_HOME_OVERRIDE: RefCell<Option<PathBuf>> = const { RefCell::new(None) };
+}
+
 #[derive(Debug, Clone)]
 pub struct PrismPaths {
     identity: WorkspaceIdentity,
+    home_root: PathBuf,
     repo_prism_dir: PathBuf,
     repo_home_dir: PathBuf,
     shared_runtime_dir: PathBuf,
@@ -46,6 +54,7 @@ impl PrismPaths {
         let worktree_mcp_logs_dir = worktree_dir.join("mcp").join("logs");
         Ok(Self {
             identity,
+            home_root,
             repo_prism_dir: canonical_root.join(".prism"),
             shared_runtime_db_path: shared_runtime_dir.join("state.db"),
             shared_backups_dir: repo_home_dir.join("shared").join("backups"),
@@ -61,6 +70,10 @@ impl PrismPaths {
 
     pub fn repo_prism_dir(&self) -> &Path {
         &self.repo_prism_dir
+    }
+
+    pub fn home_root(&self) -> &Path {
+        &self.home_root
     }
 
     pub fn repo_home_dir(&self) -> &Path {
@@ -106,6 +119,12 @@ impl PrismPaths {
             "state.db",
         )?;
         Ok(self.shared_runtime_db_path.clone())
+    }
+
+    pub fn credentials_path(&self) -> Result<PathBuf> {
+        fs::create_dir_all(&self.home_root)
+            .with_context(|| format!("failed to create {}", self.home_root.display()))?;
+        Ok(self.home_root.join("credentials.toml"))
     }
 
     pub fn validation_feedback_path(&self) -> Result<PathBuf> {
@@ -217,6 +236,10 @@ struct WorktreeMetadata {
 }
 
 fn prism_home_root() -> Result<PathBuf> {
+    #[cfg(test)]
+    if let Some(override_dir) = TEST_PRISM_HOME_OVERRIDE.with(|slot| slot.borrow().clone()) {
+        return Ok(override_dir);
+    }
     if let Some(override_dir) = env::var_os(PRISM_HOME_ENV) {
         return Ok(PathBuf::from(override_dir));
     }
@@ -224,6 +247,31 @@ fn prism_home_root() -> Result<PathBuf> {
         .map(PathBuf::from)
         .ok_or_else(|| anyhow!("could not resolve home directory; set PRISM_HOME"))?;
     Ok(home.join(".prism"))
+}
+
+#[cfg(test)]
+pub(crate) struct TestPrismHomeOverrideGuard {
+    previous: Option<PathBuf>,
+}
+
+#[cfg(test)]
+pub(crate) fn set_test_prism_home_override(path: &Path) -> TestPrismHomeOverrideGuard {
+    let previous = TEST_PRISM_HOME_OVERRIDE.with(|slot| {
+        let mut slot = slot.borrow_mut();
+        let previous = slot.clone();
+        *slot = Some(path.to_path_buf());
+        previous
+    });
+    TestPrismHomeOverrideGuard { previous }
+}
+
+#[cfg(test)]
+impl Drop for TestPrismHomeOverrideGuard {
+    fn drop(&mut self) {
+        TEST_PRISM_HOME_OVERRIDE.with(|slot| {
+            *slot.borrow_mut() = self.previous.take();
+        });
+    }
 }
 
 fn storage_component(id: &str) -> String {

@@ -337,6 +337,7 @@ impl CheckpointMaterializerHandle {
     }
 
     pub(crate) fn stop(&mut self) {
+        let _ = self.flush();
         if let Some(tx) = self.tx.take() {
             let _ = tx.send(CheckpointMaterializerMessage::Stop);
         }

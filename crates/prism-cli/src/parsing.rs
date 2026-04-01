@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 use prism_core::{ValidationFeedbackCategory, ValidationFeedbackVerdict};
-use prism_ir::NodeKind;
+use prism_ir::{CredentialCapability, NodeKind, PrincipalKind};
 use prism_memory::{
     MemoryEventKind, MemoryKind, MemoryScope, OutcomeEvidence, OutcomeKind, OutcomeResult,
 };
@@ -89,6 +89,32 @@ pub fn parse_outcome_result(value: &str) -> Result<OutcomeResult> {
         "partial" => Ok(OutcomeResult::Partial),
         "unknown" => Ok(OutcomeResult::Unknown),
         other => bail!("unknown outcome result `{other}`"),
+    }
+}
+
+pub fn parse_principal_kind(value: &str) -> Result<PrincipalKind> {
+    match value.to_ascii_lowercase().as_str() {
+        "human" => Ok(PrincipalKind::Human),
+        "agent" => Ok(PrincipalKind::Agent),
+        "system" => Ok(PrincipalKind::System),
+        "ci" => Ok(PrincipalKind::Ci),
+        "external" => Ok(PrincipalKind::External),
+        other => bail!("unknown principal kind `{other}`"),
+    }
+}
+
+pub fn parse_credential_capability(value: &str) -> Result<CredentialCapability> {
+    match value.to_ascii_lowercase().as_str() {
+        "mutate_coordination" | "coordination" => Ok(CredentialCapability::MutateCoordination),
+        "mutate_repo_memory" | "repo_memory" | "memory" => {
+            Ok(CredentialCapability::MutateRepoMemory)
+        }
+        "mint_child_principal" | "mint_child" | "child" => {
+            Ok(CredentialCapability::MintChildPrincipal)
+        }
+        "admin_principals" | "admin" => Ok(CredentialCapability::AdminPrincipals),
+        "all" => Ok(CredentialCapability::All),
+        other => bail!("unknown credential capability `{other}`"),
     }
 }
 

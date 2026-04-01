@@ -60,6 +60,7 @@ use tracing::{info, warn};
 
 const SLOW_FILE_PHASE_THRESHOLD_MS: u128 = 200;
 const SMALL_REPO_DEEP_PARSE_FILE_LIMIT: usize = 64;
+const OVERSIZED_TARGETED_DEEP_PARSE_BYTE_LIMIT: usize = 128 * 1024;
 
 fn log_truncated_co_change_fallback(root: &Path, path: &Path, event_count: usize, distinct: usize) {
     warn!(
@@ -750,6 +751,7 @@ impl<S: Store> WorkspaceIndexer<S> {
                 &pending_file.path,
                 targeted_refresh,
                 workspace_file_count,
+                pending_file.source.len(),
                 forced_deep_paths,
             );
             if pending_file.previous_path.is_none()
@@ -825,7 +827,10 @@ impl<S: Store> WorkspaceIndexer<S> {
                     change_set_deltas.distinct_lineage_count,
                 );
             }
-            self.projections.apply_lineage_events(&new_lineage_events);
+            self.projections.apply_lineage_events_with_co_change_deltas(
+                &new_lineage_events,
+                &change_set_deltas.deltas,
+            );
             co_change_deltas.extend(change_set_deltas.deltas);
             self.outcomes.apply_lineage(&new_lineage_events)?;
             all_lineage_events.extend(new_lineage_events.iter().cloned());
@@ -891,6 +896,7 @@ impl<S: Store> WorkspaceIndexer<S> {
                     &pending_file.path,
                     targeted_refresh,
                     workspace_file_count,
+                    pending_file.source.len(),
                     forced_deep_paths,
                 ),
                 trigger.clone(),
@@ -1478,7 +1484,10 @@ impl<S: Store> WorkspaceIndexer<S> {
                 change_set_deltas.distinct_lineage_count,
             );
         }
-        self.projections.apply_lineage_events(&new_lineage_events);
+        self.projections.apply_lineage_events_with_co_change_deltas(
+            &new_lineage_events,
+            &change_set_deltas.deltas,
+        );
         co_change_deltas.extend(change_set_deltas.deltas);
         self.outcomes.apply_lineage(&new_lineage_events)?;
         all_lineage_events.extend(new_lineage_events.iter().cloned());
@@ -1620,11 +1629,14 @@ fn desired_parse_depth(
     path: &Path,
     targeted_refresh: bool,
     workspace_file_count: usize,
+    source_bytes: usize,
     forced_deep_paths: Option<&HashSet<PathBuf>>,
 ) -> ParseDepth {
     if forced_deep_paths.is_some_and(|paths| paths.contains(path)) {
         ParseDepth::Deep
-    } else if targeted_refresh || workspace_file_count <= SMALL_REPO_DEEP_PARSE_FILE_LIMIT {
+    } else if workspace_file_count <= SMALL_REPO_DEEP_PARSE_FILE_LIMIT {
+        ParseDepth::Deep
+    } else if targeted_refresh && source_bytes <= OVERSIZED_TARGETED_DEEP_PARSE_BYTE_LIMIT {
         ParseDepth::Deep
     } else {
         ParseDepth::Shallow

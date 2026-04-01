@@ -8,6 +8,7 @@ use prism_memory::{
     OutcomeResult,
 };
 
+use crate::auth_commands::{handle_auth_command, handle_principal_command};
 use crate::cli::{
     Cli, Command, DocsCommand, FeedbackCommand, MemoryCommand, OutcomeCommand, TaskCommand,
 };
@@ -33,12 +34,19 @@ pub fn run(cli: Cli) -> Result<()> {
     if let Command::Mcp { command } = command {
         return mcp::handle(&root, command);
     }
+    if let Command::Auth { command } = command {
+        return handle_auth_command(&root, command);
+    }
+    if let Command::Principal { command } = command {
+        return handle_principal_command(&root, command);
+    }
 
     let session = index_workspace_session(&root)?;
     let prism = session.prism();
 
     match command {
         Command::Mcp { .. } => unreachable!("handled above"),
+        Command::Auth { .. } => unreachable!("handled above"),
         Command::Docs { command } => handle_docs_command(&session, command)?,
         Command::Entrypoints => {
             for symbol in prism.entrypoints() {
@@ -227,6 +235,7 @@ pub fn run(cli: Cli) -> Result<()> {
         Command::Memory { command } => handle_memory_command(&session, prism.as_ref(), command)?,
         Command::Task { command } => handle_task_command(&root, &session, prism.as_ref(), command)?,
         Command::Outcome { command } => handle_outcome_command(&session, prism.as_ref(), command)?,
+        Command::Principal { .. } => unreachable!("handled above"),
     }
 
     Ok(())

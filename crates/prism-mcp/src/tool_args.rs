@@ -57,7 +57,14 @@ pub(crate) fn is_flat_tagged_tool_input(value: &Value) -> bool {
     })
 }
 
-pub(crate) fn normalize_tagged_tool_input(mut value: Value) -> Value {
+fn preserved_tagged_input_keys(tool_name: &str) -> &'static [&'static str] {
+    match tool_name {
+        "prism_mutate" => &["action", "credential"],
+        _ => &["action"],
+    }
+}
+
+pub(crate) fn normalize_tagged_tool_input(tool_name: &str, mut value: Value) -> Value {
     let Some(object) = value.as_object_mut() else {
         return value;
     };
@@ -65,10 +72,11 @@ pub(crate) fn normalize_tagged_tool_input(mut value: Value) -> Value {
         return value;
     }
 
+    let preserved_keys = preserved_tagged_input_keys(tool_name);
     let mut input = serde_json::Map::new();
     let keys = object
         .keys()
-        .filter(|key| key.as_str() != "action")
+        .filter(|key| !preserved_keys.contains(&key.as_str()))
         .cloned()
         .collect::<Vec<_>>();
     for key in keys {
@@ -107,7 +115,7 @@ pub(crate) fn validate_tool_input_value(tool_name: &str, value: Value) -> ToolIn
     let normalized_input = if tool.actions.is_empty() {
         value
     } else {
-        normalize_tagged_tool_input(value)
+        normalize_tagged_tool_input(tool_name, value)
     };
     let action = normalized_input
         .get("action")
@@ -337,6 +345,10 @@ fn validate_prism_mutate_input(
     value: Value,
     required_fields: &[String],
 ) -> Result<(), ToolValidationIssueView> {
+    let root_required = tool_schema_view("prism_mutate")
+        .map(|tool| root_required_fields(&tool))
+        .unwrap_or_default();
+    deserialize_or_issue::<PrismMutationArgsWire>(value.clone(), None, &root_required)?;
     let action = value.get("action").and_then(Value::as_str);
     let input = value.get("input").cloned().unwrap_or(Value::Null);
     match action {
@@ -1787,10 +1799,48 @@ pub(crate) struct SessionRepairMutationResult {
     pub(crate) session: SessionView,
 }
 
-#[derive(Debug, JsonSchema)]
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrismMutationCredentialArgs {
+    #[serde(alias = "credential_id")]
+    pub(crate) credential_id: String,
+    #[serde(alias = "principal_token")]
+    pub(crate) principal_token: String,
+}
+
+#[derive(Debug)]
+pub(crate) struct PrismMutationArgs {
+    pub(crate) credential: PrismMutationCredentialArgs,
+    pub(crate) mutation: PrismMutationKindArgs,
+}
+
+#[derive(Debug)]
+pub(crate) enum PrismMutationKindArgs {
+    Outcome(PrismOutcomeArgs),
+    Memory(PrismMemoryArgs),
+    Concept(PrismConceptMutationArgs),
+    Contract(PrismContractMutationArgs),
+    ConceptRelation(PrismConceptRelationMutationArgs),
+    ValidationFeedback(PrismValidationFeedbackArgs),
+    SessionRepair(PrismSessionRepairArgs),
+    InferEdge(PrismInferEdgeArgs),
+    Coordination(PrismCoordinationArgs),
+    Claim(PrismClaimArgs),
+    Artifact(PrismArtifactArgs),
+    TestRan(PrismTestRanArgs),
+    FailureObserved(PrismFailureObservedArgs),
+    FixValidated(PrismFixValidatedArgs),
+    CuratorApplyProposal(PrismCuratorApplyProposalArgs),
+    CuratorPromoteEdge(PrismCuratorPromoteEdgeArgs),
+    CuratorPromoteConcept(PrismCuratorPromoteConceptArgs),
+    CuratorPromoteMemory(PrismCuratorPromoteMemoryArgs),
+    CuratorRejectProposal(PrismCuratorRejectProposalArgs),
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 #[schemars(transform = ensure_root_object_input_schema)]
 #[serde(rename_all = "snake_case", tag = "action", content = "input")]
-pub(crate) enum PrismMutationArgs {
+enum PrismMutationKindArgsWire {
     Outcome(PrismOutcomeArgs),
     Memory(PrismMemoryArgs),
     Concept(PrismConceptMutationArgs),
@@ -1813,52 +1863,82 @@ pub(crate) enum PrismMutationArgs {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "snake_case", tag = "action", content = "input")]
-enum PrismMutationArgsWire {
-    Outcome(PrismOutcomeArgs),
-    Memory(PrismMemoryArgs),
-    Concept(PrismConceptMutationArgs),
-    Contract(PrismContractMutationArgs),
-    ConceptRelation(PrismConceptRelationMutationArgs),
-    ValidationFeedback(PrismValidationFeedbackArgs),
-    SessionRepair(PrismSessionRepairArgs),
-    InferEdge(PrismInferEdgeArgs),
-    Coordination(PrismCoordinationArgs),
-    Claim(PrismClaimArgs),
-    Artifact(PrismArtifactArgs),
-    TestRan(PrismTestRanArgs),
-    FailureObserved(PrismFailureObservedArgs),
-    FixValidated(PrismFixValidatedArgs),
-    CuratorApplyProposal(PrismCuratorApplyProposalArgs),
-    CuratorPromoteEdge(PrismCuratorPromoteEdgeArgs),
-    CuratorPromoteConcept(PrismCuratorPromoteConceptArgs),
-    CuratorPromoteMemory(PrismCuratorPromoteMemoryArgs),
-    CuratorRejectProposal(PrismCuratorRejectProposalArgs),
+#[serde(rename_all = "camelCase")]
+struct PrismMutationArgsWire {
+    pub(crate) credential: PrismMutationCredentialArgs,
+    #[serde(flatten)]
+    pub(crate) mutation: PrismMutationKindArgsWire,
 }
 
-impl From<PrismMutationArgsWire> for PrismMutationArgs {
-    fn from(value: PrismMutationArgsWire) -> Self {
+impl From<PrismMutationKindArgsWire> for PrismMutationKindArgs {
+    fn from(value: PrismMutationKindArgsWire) -> Self {
         match value {
-            PrismMutationArgsWire::Outcome(args) => Self::Outcome(args),
-            PrismMutationArgsWire::Memory(args) => Self::Memory(args),
-            PrismMutationArgsWire::Concept(args) => Self::Concept(args),
-            PrismMutationArgsWire::Contract(args) => Self::Contract(args),
-            PrismMutationArgsWire::ConceptRelation(args) => Self::ConceptRelation(args),
-            PrismMutationArgsWire::ValidationFeedback(args) => Self::ValidationFeedback(args),
-            PrismMutationArgsWire::SessionRepair(args) => Self::SessionRepair(args),
-            PrismMutationArgsWire::InferEdge(args) => Self::InferEdge(args),
-            PrismMutationArgsWire::Coordination(args) => Self::Coordination(args),
-            PrismMutationArgsWire::Claim(args) => Self::Claim(args),
-            PrismMutationArgsWire::Artifact(args) => Self::Artifact(args),
-            PrismMutationArgsWire::TestRan(args) => Self::TestRan(args),
-            PrismMutationArgsWire::FailureObserved(args) => Self::FailureObserved(args),
-            PrismMutationArgsWire::FixValidated(args) => Self::FixValidated(args),
-            PrismMutationArgsWire::CuratorApplyProposal(args) => Self::CuratorApplyProposal(args),
-            PrismMutationArgsWire::CuratorPromoteEdge(args) => Self::CuratorPromoteEdge(args),
-            PrismMutationArgsWire::CuratorPromoteConcept(args) => Self::CuratorPromoteConcept(args),
-            PrismMutationArgsWire::CuratorPromoteMemory(args) => Self::CuratorPromoteMemory(args),
-            PrismMutationArgsWire::CuratorRejectProposal(args) => Self::CuratorRejectProposal(args),
+            PrismMutationKindArgsWire::Outcome(args) => Self::Outcome(args),
+            PrismMutationKindArgsWire::Memory(args) => Self::Memory(args),
+            PrismMutationKindArgsWire::Concept(args) => Self::Concept(args),
+            PrismMutationKindArgsWire::Contract(args) => Self::Contract(args),
+            PrismMutationKindArgsWire::ConceptRelation(args) => Self::ConceptRelation(args),
+            PrismMutationKindArgsWire::ValidationFeedback(args) => Self::ValidationFeedback(args),
+            PrismMutationKindArgsWire::SessionRepair(args) => Self::SessionRepair(args),
+            PrismMutationKindArgsWire::InferEdge(args) => Self::InferEdge(args),
+            PrismMutationKindArgsWire::Coordination(args) => Self::Coordination(args),
+            PrismMutationKindArgsWire::Claim(args) => Self::Claim(args),
+            PrismMutationKindArgsWire::Artifact(args) => Self::Artifact(args),
+            PrismMutationKindArgsWire::TestRan(args) => Self::TestRan(args),
+            PrismMutationKindArgsWire::FailureObserved(args) => Self::FailureObserved(args),
+            PrismMutationKindArgsWire::FixValidated(args) => Self::FixValidated(args),
+            PrismMutationKindArgsWire::CuratorApplyProposal(args) => {
+                Self::CuratorApplyProposal(args)
+            }
+            PrismMutationKindArgsWire::CuratorPromoteEdge(args) => Self::CuratorPromoteEdge(args),
+            PrismMutationKindArgsWire::CuratorPromoteConcept(args) => {
+                Self::CuratorPromoteConcept(args)
+            }
+            PrismMutationKindArgsWire::CuratorPromoteMemory(args) => {
+                Self::CuratorPromoteMemory(args)
+            }
+            PrismMutationKindArgsWire::CuratorRejectProposal(args) => {
+                Self::CuratorRejectProposal(args)
+            }
         }
+    }
+}
+
+impl JsonSchema for PrismMutationArgs {
+    fn inline_schema() -> bool {
+        false
+    }
+
+    fn schema_name() -> Cow<'static, str> {
+        Cow::Borrowed("PrismMutationArgs")
+    }
+
+    fn json_schema(generator: &mut SchemaGenerator) -> Schema {
+        let mut schema = PrismMutationKindArgsWire::json_schema(generator);
+        ensure_root_object_input_schema(&mut schema);
+        let credential_schema =
+            serde_json::to_value(generator.subschema_for::<PrismMutationCredentialArgs>())
+                .expect("credential schema should serialize");
+        if let Some(variants) = schema.get_mut("oneOf").and_then(Value::as_array_mut) {
+            for variant in variants {
+                let Some(properties) = variant.get_mut("properties").and_then(Value::as_object_mut)
+                else {
+                    continue;
+                };
+                properties.insert("credential".to_string(), credential_schema.clone());
+                let required = variant
+                    .get_mut("required")
+                    .and_then(Value::as_array_mut)
+                    .expect("prism_mutate variants should declare required fields");
+                if !required
+                    .iter()
+                    .any(|value| value.as_str() == Some("credential"))
+                {
+                    required.push(Value::String("credential".to_string()));
+                }
+            }
+        }
+        schema
     }
 }
 
@@ -1869,7 +1949,10 @@ impl<'de> Deserialize<'de> for PrismMutationArgs {
     {
         let value = Value::deserialize(deserializer)?;
         parse_tagged_tool_input::<PrismMutationArgsWire>("prism_mutate", value)
-            .map(Into::into)
+            .map(|wire| Self {
+                credential: wire.credential,
+                mutation: wire.mutation.into(),
+            })
             .map_err(serde::de::Error::custom)
     }
 }

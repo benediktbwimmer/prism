@@ -1,4 +1,5 @@
-use prism_core::AdmissionBusyError;
+use prism_core::{AdmissionBusyError, AuthenticatedPrincipal};
+use prism_ir::{CredentialCapability, CredentialId};
 use prism_js::{
     AgentConceptResultView, AgentExpandResultView, AgentGatherResultView, AgentLocateResultView,
     AgentOpenResultView, AgentWorksetResultView, QueryPhaseView,
@@ -30,6 +31,36 @@ pub(crate) enum MutationRefreshPolicy {
     None,
     #[allow(dead_code)]
     PersistedOnly,
+}
+
+#[derive(Clone, Copy)]
+enum MutationCapabilityRequirement {
+    AnyAuthenticated,
+    MutateCoordination,
+    MutateRepoMemory,
+}
+
+impl MutationCapabilityRequirement {
+    fn label(self) -> &'static str {
+        match self {
+            Self::AnyAuthenticated => "authenticated_principal",
+            Self::MutateCoordination => "mutate_coordination",
+            Self::MutateRepoMemory => "mutate_repo_memory",
+        }
+    }
+
+    fn allows(self, authenticated: &AuthenticatedPrincipal) -> bool {
+        matches!(self, Self::AnyAuthenticated)
+            || authenticated
+                .credential
+                .capabilities
+                .contains(&CredentialCapability::All)
+            || authenticated.credential.capabilities.contains(&match self {
+                Self::AnyAuthenticated => return true,
+                Self::MutateCoordination => CredentialCapability::MutateCoordination,
+                Self::MutateRepoMemory => CredentialCapability::MutateRepoMemory,
+            })
+    }
 }
 
 impl MutationDashboardMeta {
@@ -178,6 +209,51 @@ impl PrismMcpServer {
             tool.input_schema = Arc::new(schema);
         }
         tool
+    }
+
+    fn authenticate_mutation(
+        &self,
+        credential: &PrismMutationCredentialArgs,
+        requirement: MutationCapabilityRequirement,
+    ) -> Result<AuthenticatedPrincipal, McpError> {
+        let workspace = self.host.workspace_session().ok_or_else(|| {
+            McpError::internal_error(
+                "prism_mutate requires a workspace-backed session",
+                Some(json!({
+                    "code": "mutation_auth_workspace_required",
+                    "nextAction": "Run the mutation against a workspace-backed PRISM MCP session so the server can verify principal credentials.",
+                })),
+            )
+        })?;
+        let authenticated = workspace
+            .authenticate_principal_credential(
+                &CredentialId::new(credential.credential_id.clone()),
+                &credential.principal_token,
+            )
+            .map_err(|error| {
+                McpError::invalid_params(
+                    "prism_mutate credential rejected",
+                    Some(json!({
+                        "code": "mutation_auth_failed",
+                        "credentialId": credential.credential_id,
+                        "error": error.to_string(),
+                        "nextAction": "Use `prism auth login` or mint a fresh credential, then retry the mutation.",
+                    })),
+                )
+            })?;
+        if !requirement.allows(&authenticated) {
+            return Err(McpError::invalid_params(
+                "prism_mutate credential lacks the required capability",
+                Some(json!({
+                    "code": "mutation_capability_denied",
+                    "requiredCapability": requirement.label(),
+                    "credentialId": authenticated.credential.credential_id.0,
+                    "principalId": authenticated.principal.principal_id.0,
+                    "nextAction": "Use a credential with the required capability or mint a new child principal with narrower capabilities for this mutation lane.",
+                })),
+            ));
+        }
+        Ok(authenticated)
     }
 
     pub(crate) fn execute_logged_mutation<T, F, G>(
@@ -1001,8 +1077,13 @@ impl PrismMcpServer {
         &self,
         Parameters(args): Parameters<PrismMutationArgs>,
     ) -> Result<CallToolResult, McpError> {
-        match args {
-            PrismMutationArgs::Outcome(args) => {
+        let credential = args.credential;
+        match args.mutation {
+            PrismMutationKindArgs::Outcome(args) => {
+                self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::MutateRepoMemory,
+                )?;
                 let result = self.execute_logged_mutation(
                     "mutate.outcome",
                     MutationRefreshPolicy::None,
@@ -1030,7 +1111,11 @@ impl PrismMcpServer {
                     ],
                 )
             }
-            PrismMutationArgs::Memory(args) => {
+            PrismMutationKindArgs::Memory(args) => {
+                self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::MutateRepoMemory,
+                )?;
                 let result = self.execute_logged_mutation(
                     "mutate.memory",
                     MutationRefreshPolicy::None,
@@ -1058,7 +1143,11 @@ impl PrismMcpServer {
                     ],
                 )
             }
-            PrismMutationArgs::Concept(args) => {
+            PrismMutationKindArgs::Concept(args) => {
+                self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::MutateRepoMemory,
+                )?;
                 let result = self.execute_logged_mutation(
                     "mutate.concept",
                     MutationRefreshPolicy::None,
@@ -1087,7 +1176,11 @@ impl PrismMcpServer {
                     vec![task_resource_link(&result.task_id)],
                 )
             }
-            PrismMutationArgs::Contract(args) => {
+            PrismMutationKindArgs::Contract(args) => {
+                self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::MutateRepoMemory,
+                )?;
                 let result = self.execute_logged_mutation(
                     "mutate.contract",
                     MutationRefreshPolicy::None,
@@ -1116,7 +1209,11 @@ impl PrismMcpServer {
                     vec![task_resource_link(&result.task_id)],
                 )
             }
-            PrismMutationArgs::ConceptRelation(args) => {
+            PrismMutationKindArgs::ConceptRelation(args) => {
+                self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::MutateRepoMemory,
+                )?;
                 let result = self.execute_logged_mutation(
                     "mutate.concept_relation",
                     MutationRefreshPolicy::None,
@@ -1145,7 +1242,11 @@ impl PrismMcpServer {
                     vec![task_resource_link(&result.task_id)],
                 )
             }
-            PrismMutationArgs::ValidationFeedback(args) => {
+            PrismMutationKindArgs::ValidationFeedback(args) => {
+                self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::MutateRepoMemory,
+                )?;
                 let result = self.execute_logged_mutation(
                     "mutate.validation_feedback",
                     MutationRefreshPolicy::None,
@@ -1170,7 +1271,11 @@ impl PrismMcpServer {
                     vec![task_resource_link(&result.task_id)],
                 )
             }
-            PrismMutationArgs::SessionRepair(args) => {
+            PrismMutationKindArgs::SessionRepair(args) => {
+                self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::AnyAuthenticated,
+                )?;
                 let result = self.execute_logged_mutation(
                     "mutate.session_repair",
                     MutationRefreshPolicy::None,
@@ -1199,7 +1304,11 @@ impl PrismMcpServer {
                     links,
                 )
             }
-            PrismMutationArgs::InferEdge(args) => {
+            PrismMutationKindArgs::InferEdge(args) => {
+                self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::MutateRepoMemory,
+                )?;
                 let result = self.execute_logged_mutation(
                     "mutate.infer_edge",
                     MutationRefreshPolicy::None,
@@ -1224,7 +1333,14 @@ impl PrismMcpServer {
                     ],
                 )
             }
-            PrismMutationArgs::Coordination(args) => {
+            PrismMutationKindArgs::Coordination(args) => {
+                self.host
+                    .ensure_tool_enabled("prism_coordination", "coordination workflow mutations")
+                    .map_err(map_query_error)?;
+                self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::MutateCoordination,
+                )?;
                 let result = self.execute_logged_mutation_with_run(
                     "mutate.coordination",
                     MutationRefreshPolicy::None,
@@ -1245,7 +1361,14 @@ impl PrismMcpServer {
                         .map_err(|err| map_query_error(err.into()))?,
                 })
             }
-            PrismMutationArgs::Claim(args) => {
+            PrismMutationKindArgs::Claim(args) => {
+                self.host
+                    .ensure_tool_enabled("prism_claim", "coordination claim mutations")
+                    .map_err(map_query_error)?;
+                self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::MutateCoordination,
+                )?;
                 let result = self.execute_logged_mutation(
                     "mutate.claim",
                     MutationRefreshPolicy::None,
@@ -1264,7 +1387,14 @@ impl PrismMcpServer {
                         .map_err(|err| map_query_error(err.into()))?,
                 })
             }
-            PrismMutationArgs::Artifact(args) => {
+            PrismMutationKindArgs::Artifact(args) => {
+                self.host
+                    .ensure_tool_enabled("prism_artifact", "coordination artifact mutations")
+                    .map_err(map_query_error)?;
+                self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::MutateCoordination,
+                )?;
                 let result = self.execute_logged_mutation(
                     "mutate.artifact",
                     MutationRefreshPolicy::None,
@@ -1286,7 +1416,11 @@ impl PrismMcpServer {
                         .map_err(|err| map_query_error(err.into()))?,
                 })
             }
-            PrismMutationArgs::TestRan(args) => {
+            PrismMutationKindArgs::TestRan(args) => {
+                self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::MutateRepoMemory,
+                )?;
                 let summary = format!(
                     "test `{}` {}",
                     args.test,
@@ -1342,7 +1476,11 @@ impl PrismMcpServer {
                     ],
                 )
             }
-            PrismMutationArgs::FailureObserved(args) => {
+            PrismMutationKindArgs::FailureObserved(args) => {
+                self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::MutateRepoMemory,
+                )?;
                 let evidence = args
                     .trace
                     .map(|trace| vec![OutcomeEvidenceInput::StackTrace { hash: trace }]);
@@ -1382,7 +1520,11 @@ impl PrismMcpServer {
                     ],
                 )
             }
-            PrismMutationArgs::FixValidated(args) => {
+            PrismMutationKindArgs::FixValidated(args) => {
+                self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::MutateRepoMemory,
+                )?;
                 let evidence = args.command.clone().map(|command| {
                     vec![OutcomeEvidenceInput::Command {
                         argv: command,
@@ -1425,7 +1567,11 @@ impl PrismMcpServer {
                     ],
                 )
             }
-            PrismMutationArgs::CuratorPromoteEdge(args) => {
+            PrismMutationKindArgs::CuratorPromoteEdge(args) => {
+                self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::MutateRepoMemory,
+                )?;
                 let result = self.execute_logged_mutation(
                     "mutate.curator_promote_edge",
                     MutationRefreshPolicy::None,
@@ -1457,7 +1603,11 @@ impl PrismMcpServer {
                     links,
                 )
             }
-            PrismMutationArgs::CuratorApplyProposal(args) => {
+            PrismMutationKindArgs::CuratorApplyProposal(args) => {
+                self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::MutateRepoMemory,
+                )?;
                 let result = self.execute_logged_mutation(
                     "mutate.curator_apply_proposal",
                     MutationRefreshPolicy::None,
@@ -1495,7 +1645,11 @@ impl PrismMcpServer {
                     links,
                 )
             }
-            PrismMutationArgs::CuratorPromoteConcept(args) => {
+            PrismMutationKindArgs::CuratorPromoteConcept(args) => {
+                self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::MutateRepoMemory,
+                )?;
                 let result = self.execute_logged_mutation(
                     "mutate.curator_promote_concept",
                     MutationRefreshPolicy::None,
@@ -1520,7 +1674,11 @@ impl PrismMcpServer {
                     vec![session_resource_link()],
                 )
             }
-            PrismMutationArgs::CuratorPromoteMemory(args) => {
+            PrismMutationKindArgs::CuratorPromoteMemory(args) => {
+                self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::MutateRepoMemory,
+                )?;
                 let result = self.execute_logged_mutation(
                     "mutate.curator_promote_memory",
                     MutationRefreshPolicy::None,
@@ -1555,7 +1713,11 @@ impl PrismMcpServer {
                     links,
                 )
             }
-            PrismMutationArgs::CuratorRejectProposal(args) => {
+            PrismMutationKindArgs::CuratorRejectProposal(args) => {
+                self.authenticate_mutation(
+                    &credential,
+                    MutationCapabilityRequirement::MutateRepoMemory,
+                )?;
                 let result = self.execute_logged_mutation(
                     "mutate.curator_reject_proposal",
                     MutationRefreshPolicy::None,

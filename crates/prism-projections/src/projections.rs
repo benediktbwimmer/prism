@@ -308,7 +308,16 @@ impl ProjectionIndex {
     }
 
     pub fn apply_lineage_events(&mut self, events: &[LineageEvent]) {
-        self.apply_co_change_deltas(&co_change_deltas_for_events(events));
+        let deltas = co_change_deltas_for_events(events);
+        self.apply_lineage_events_with_co_change_deltas(events, &deltas);
+    }
+
+    pub fn apply_lineage_events_with_co_change_deltas(
+        &mut self,
+        events: &[LineageEvent],
+        deltas: &[CoChangeDelta],
+    ) {
+        self.apply_co_change_deltas(deltas);
         let dirty_lineages = events
             .iter()
             .map(|event| event.lineage.clone())

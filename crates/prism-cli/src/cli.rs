@@ -18,6 +18,10 @@ pub enum Command {
         #[command(subcommand)]
         command: McpCommand,
     },
+    Auth {
+        #[command(subcommand)]
+        command: AuthCommand,
+    },
     Docs {
         #[command(subcommand)]
         command: DocsCommand,
@@ -75,6 +79,30 @@ pub enum Command {
     Outcome {
         #[command(subcommand)]
         command: OutcomeCommand,
+    },
+    Principal {
+        #[command(subcommand)]
+        command: PrincipalCommand,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum AuthCommand {
+    Init {
+        #[arg(long)]
+        name: String,
+        #[arg(long, default_value = "local-daemon")]
+        authority: String,
+        #[arg(long)]
+        role: Option<String>,
+    },
+    Login {
+        #[arg(long)]
+        profile: Option<String>,
+        #[arg(long)]
+        principal: Option<String>,
+        #[arg(long)]
+        credential: Option<String>,
     },
 }
 
@@ -155,6 +183,26 @@ pub enum TaskCommand {
 }
 
 #[derive(Subcommand)]
+pub enum PrincipalCommand {
+    Mint {
+        #[arg(long)]
+        kind: String,
+        #[arg(long)]
+        name: String,
+        #[arg(long)]
+        role: Option<String>,
+        #[arg(long)]
+        parent: Option<String>,
+        #[arg(long)]
+        authority: Option<String>,
+        #[arg(long = "metadata-json")]
+        metadata_json: Option<String>,
+        #[arg(long = "capability")]
+        capabilities: Vec<String>,
+    },
+}
+
+#[derive(Subcommand)]
 pub enum DocsCommand {
     Generate,
 }
@@ -207,7 +255,7 @@ pub enum MemoryCommand {
 mod tests {
     use clap::Parser;
 
-    use super::{Cli, Command, DocsCommand, McpCommand};
+    use super::{AuthCommand, Cli, Command, DocsCommand, McpCommand, PrincipalCommand};
 
     #[test]
     fn mcp_restart_preserves_bridges_by_default() {
@@ -311,6 +359,83 @@ mod tests {
             Command::Docs {
                 command: DocsCommand::Generate,
             } => {}
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn auth_init_parses() {
+        let cli = Cli::parse_from(["prism", "auth", "init", "--name", "Bene"]);
+        match cli.command {
+            Command::Auth {
+                command:
+                    AuthCommand::Init {
+                        name,
+                        authority,
+                        role,
+                    },
+            } => {
+                assert_eq!(name, "Bene");
+                assert_eq!(authority, "local-daemon");
+                assert!(role.is_none());
+            }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn auth_login_parses_principal_selector() {
+        let cli = Cli::parse_from(["prism", "auth", "login", "--principal", "principal:owner"]);
+        match cli.command {
+            Command::Auth {
+                command:
+                    AuthCommand::Login {
+                        profile,
+                        principal,
+                        credential,
+                    },
+            } => {
+                assert_eq!(principal.as_deref(), Some("principal:owner"));
+                assert!(profile.is_none());
+                assert!(credential.is_none());
+            }
+            _ => panic!("unexpected command"),
+        }
+    }
+
+    #[test]
+    fn principal_mint_parses_capabilities_and_parent() {
+        let cli = Cli::parse_from([
+            "prism",
+            "principal",
+            "mint",
+            "--kind",
+            "agent",
+            "--name",
+            "Worker",
+            "--parent",
+            "principal:owner",
+            "--capability",
+            "mutate_coordination",
+            "--capability",
+            "mutate_repo_memory",
+        ]);
+        match cli.command {
+            Command::Principal {
+                command:
+                    PrincipalCommand::Mint {
+                        kind,
+                        name,
+                        parent,
+                        capabilities,
+                        ..
+                    },
+            } => {
+                assert_eq!(kind, "agent");
+                assert_eq!(name, "Worker");
+                assert_eq!(parent.as_deref(), Some("principal:owner"));
+                assert_eq!(capabilities.len(), 2);
+            }
             _ => panic!("unexpected command"),
         }
     }

@@ -362,6 +362,10 @@ async fn mcp_server_simple_mode_keeps_minimal_surface_and_reports_features() {
             "prism_mutate",
             json!({
                 "action": "coordination",
+                "credential": {
+                    "credentialId": "credential:test",
+                    "principalToken": "prism_ptok_test"
+                },
                 "input": {
                     "kind": "plan_create",
                     "payload": { "goal": "Coordinate the main edit" }

@@ -368,6 +368,42 @@ fn co_change_deltas_sample_bulk_changesets_above_guardrail() {
 }
 
 #[test]
+fn apply_lineage_events_with_precomputed_co_change_deltas_matches_default_path() {
+    let alpha = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    let beta = NodeId::new("demo", "demo::beta", NodeKind::Function);
+    let gamma = NodeId::new("demo", "demo::gamma", NodeKind::Function);
+    let alpha_lineage = LineageId::new("lineage:alpha");
+    let beta_lineage = LineageId::new("lineage:beta");
+    let gamma_lineage = LineageId::new("lineage:gamma");
+    let events = vec![
+        updated_event(
+            "change-set:1",
+            "lineage:event:1",
+            10,
+            &alpha_lineage,
+            &alpha,
+        ),
+        updated_event("change-set:1", "lineage:event:2", 10, &beta_lineage, &beta),
+        updated_event(
+            "change-set:1",
+            "lineage:event:3",
+            10,
+            &gamma_lineage,
+            &gamma,
+        ),
+    ];
+    let deltas = co_change_deltas_for_events(&events);
+
+    let mut default_index = ProjectionIndex::new();
+    default_index.apply_lineage_events(&events);
+
+    let mut precomputed_index = ProjectionIndex::new();
+    precomputed_index.apply_lineage_events_with_co_change_deltas(&events, &deltas);
+
+    assert_eq!(default_index.snapshot(), precomputed_index.snapshot());
+}
+
+#[test]
 fn projection_has_no_concepts_without_curated_packets() {
     let validation = NodeId::new(
         "demo",

@@ -18,6 +18,7 @@ pub mod mutation_trace;
 mod outcome_backend;
 mod parse_pipeline;
 mod patch_outcomes;
+mod principal_registry;
 mod prism_doc;
 mod prism_paths;
 mod published_knowledge;
@@ -49,6 +50,9 @@ pub(crate) use indexer::PendingFileParse;
 pub use indexer::WorkspaceIndexer;
 pub use materialization::{
     WorkspaceBoundaryRegion, WorkspaceMaterializationCoverage, WorkspaceMaterializationSummary,
+};
+pub use principal_registry::{
+    AuthenticatedPrincipal, BootstrapOwnerInput, MintPrincipalRequest, MintedPrincipalCredential,
 };
 pub use prism_doc::{PrismDocSyncResult, PrismDocSyncStatus};
 pub use prism_paths::PrismPaths;

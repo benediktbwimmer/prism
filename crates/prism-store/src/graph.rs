@@ -1407,11 +1407,7 @@ fn canonical_node_shape<'a>(nodes: impl IntoIterator<Item = &'a Node>) -> Vec<St
         .map(|node| {
             format!(
                 "{}\u{1f}{}\u{1f}{:?}\u{1f}{}\u{1f}{}",
-                node.id.crate_name,
-                node.id.path,
-                node.kind,
-                node.name,
-                node.file.0
+                node.id.crate_name, node.id.path, node.kind, node.name, node.file.0
             )
         })
         .collect();
@@ -1502,7 +1498,10 @@ fn canonical_unresolved_intent_shape(intents: &[UnresolvedIntent]) -> Vec<String
 }
 
 fn canonical_node_id_key(node_id: &NodeId) -> String {
-    format!("{}\u{1f}{}\u{1f}{:?}", node_id.crate_name, node_id.path, node_id.kind)
+    format!(
+        "{}\u{1f}{}\u{1f}{:?}",
+        node_id.crate_name, node_id.path, node_id.kind
+    )
 }
 
 fn is_derived_kind(kind: EdgeKind) -> bool {

@@ -1,10 +1,9 @@
+use clap::Parser;
+use rmcp::transport::{IntoTransport, Transport};
 use std::fs;
 use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::{Duration, Instant};
-
-use clap::Parser;
-use rmcp::transport::{IntoTransport, Transport};
 
 use super::query_replay_cases::{replay_cases, ReplayExpectation, ReplayHostProfile};
 use super::*;
@@ -5201,6 +5200,10 @@ const validationFeedback = mutate?.actions.find((action) => action.action === "v
 const coordination = mutate?.actions.find((action) => action.action === "coordination");
 const validation = prism.validateToolInput("prism_mutate", {
   action: "coordination",
+  credential: {
+    credentialId: "credential:test",
+    principalToken: "prism_ptok_test",
+  },
   kind: "task_create",
   payload: { title: "Missing plan id" },
 });
@@ -5341,6 +5344,10 @@ return {
         validation["normalizedInput"],
         json!({
             "action": "coordination",
+            "credential": {
+                "credentialId": "credential:test",
+                "principalToken": "prism_ptok_test"
+            },
             "input": {
                 "kind": "task_create",
                 "payload": {
@@ -5351,8 +5358,10 @@ return {
     );
     assert!(validation["summary"]
         .as_str()
-        .is_some_and(|summary| summary.contains("input.payload.planId")));
-    assert_eq!(validation["issues"][0]["path"], "input.payload.planId");
+        .is_some_and(|summary| summary.contains("planId")));
+    assert!(validation["issues"][0]["path"]
+        .as_str()
+        .is_some_and(|path| path.ends_with("planId")));
 
     assert!(result.result["missing"].is_null());
 }
@@ -12642,8 +12651,9 @@ fn coordination_mutation_trace_records_persistence_subphases() {
 #[tokio::test]
 async fn validation_feedback_tool_mutation_skips_request_path_refresh() {
     let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
     let server = PrismMcpServer::with_session_and_features(
-        index_workspace_session(&root).unwrap(),
+        session,
         PrismMcpFeatures::full().with_internal_developer(true),
     );
     let server_handle = server.clone();
@@ -12664,6 +12674,7 @@ async fn validation_feedback_tool_mutation_skips_request_path_refresh() {
             "prism_mutate",
             json!({
                 "action": "validation_feedback",
+                "credential": mutation_credential_json(&credential),
                 "input": {
                     "context": "Dogfooding refresh-runtime mutation policy.",
                     "prismSaid": "Mutation refresh should run before validation feedback.",

@@ -1,3 +1,5 @@
+mod auth_commands;
+mod auth_storage;
 mod cli;
 mod commands;
 mod daemon_log;

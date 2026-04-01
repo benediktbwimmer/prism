@@ -389,36 +389,61 @@ fn bind_transport_root_schema(tool_name: &str, schema: Value) -> Value {
     output.insert("type".to_string(), Value::String("object".to_string()));
     output.insert(
         "required".to_string(),
-        Value::Array(vec![
-            Value::String("action".to_string()),
-            Value::String("input".to_string()),
-        ]),
+        Value::Array(if tool_name == "prism_mutate" {
+            vec![
+                Value::String("action".to_string()),
+                Value::String("input".to_string()),
+                Value::String("credential".to_string()),
+            ]
+        } else {
+            vec![
+                Value::String("action".to_string()),
+                Value::String("input".to_string()),
+            ]
+        }),
     );
     output.insert("additionalProperties".to_string(), Value::Bool(false));
-    output.insert(
-        "properties".to_string(),
-        Value::Object(Map::from_iter([
-            (
-                "action".to_string(),
-                json!({
-                    "type": "string",
-                    "enum": actions,
-                    "description": format!(
-                        "Tagged action for `{tool_name}`. Inspect `prism://schema/tool/{tool_name}/action/{{action}}` or `prism.tool(\"{tool_name}\")` for the exact action-specific payload."
-                    ),
-                }),
-            ),
-            (
-                "input".to_string(),
-                json!({
-                    "type": "object",
-                    "description": format!(
-                        "Action payload nested under `input`. The exact shape depends on `action`; use `prism://schema/tool/{tool_name}/action/{{action}}` for the exact schema."
-                    ),
-                }),
-            ),
-        ])),
-    );
+    let mut properties = Map::from_iter([
+        (
+            "action".to_string(),
+            json!({
+                "type": "string",
+                "enum": actions,
+                "description": format!(
+                    "Tagged action for `{tool_name}`. Inspect `prism://schema/tool/{tool_name}/action/{{action}}` or `prism.tool(\"{tool_name}\")` for the exact action-specific payload."
+                ),
+            }),
+        ),
+        (
+            "input".to_string(),
+            json!({
+                "type": "object",
+                "description": format!(
+                    "Action payload nested under `input`. The exact shape depends on `action`; use `prism://schema/tool/{tool_name}/action/{{action}}` for the exact schema."
+                ),
+            }),
+        ),
+    ]);
+    if tool_name == "prism_mutate" {
+        properties.insert(
+            "credential".to_string(),
+            json!({
+                "type": "object",
+                "description": "Acting principal credential for this mutation envelope. Pass it once at the outer prism_mutate envelope, not inside nested payloads.",
+                "required": ["credentialId", "principalToken"],
+                "properties": {
+                    "credentialId": {
+                        "type": "string",
+                    },
+                    "principalToken": {
+                        "type": "string",
+                    }
+                },
+                "additionalProperties": false
+            }),
+        );
+    }
+    output.insert("properties".to_string(), Value::Object(properties));
     output.insert("x-prismTaggedUnion".to_string(), Value::Bool(true));
 
     Value::Object(output)

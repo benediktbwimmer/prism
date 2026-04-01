@@ -68,7 +68,7 @@ async fn mcp_server_advertises_tools_and_api_reference_resource() {
     let mutate_schema = mutate_tool["inputSchema"].to_string();
     assert_eq!(
         mutate_tool["inputSchema"]["required"],
-        json!(["action", "input"])
+        json!(["action", "input", "credential"])
     );
     assert!(mutate_tool["inputSchema"]["oneOf"].is_null());
     assert!(mutate_tool["inputSchema"]["properties"]["action"]["enum"]

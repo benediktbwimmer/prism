@@ -3,15 +3,17 @@ use serde_json::{json, Value};
 
 use super::*;
 use crate::tests_support::{
-    call_tool_request, demo_node, first_tool_content_json, host_with_session_internal,
-    initialize_client, initialized_notification, retry_on_runtime_sync_busy, server_with_node,
-    temp_workspace, test_session,
+    call_tool_request, first_tool_content_json, host_with_session_internal, initialize_client,
+    initialized_notification, mutation_credential_json, retry_on_runtime_sync_busy, temp_workspace,
+    test_session, workspace_session_with_owner_credential,
 };
 use prism_core::index_workspace_session;
 
 #[tokio::test]
 async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
-    let server = server_with_node(demo_node());
+    let root = temp_workspace();
+    let (session, credential) = workspace_session_with_owner_credential(&root);
+    let server = PrismMcpServer::with_session(session);
     let (server_transport, client_transport) = tokio::io::duplex(4096);
     let server_task = tokio::spawn(async move { server.serve(server_transport).await });
     let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
@@ -29,6 +31,7 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
             "prism_mutate",
             json!({
                 "action": "coordination",
+                "credential": mutation_credential_json(&credential),
                 "input": {
                     "kind": "plan_create",
                     "payload": {
@@ -52,6 +55,7 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
             "prism_mutate",
             json!({
                 "action": "coordination",
+                "credential": mutation_credential_json(&credential),
                 "input": {
                     "kind": "task_create",
                     "payload": {
@@ -81,6 +85,7 @@ async fn mcp_server_reports_review_queues_and_blockers_via_prism_query() {
             "prism_mutate",
             json!({
                 "action": "artifact",
+                "credential": mutation_credential_json(&credential),
                 "input": {
                     "action": "propose",
                     "payload": {

@@ -279,7 +279,7 @@ fn convert_workflow_status_for_plan_node(value: WorkflowStatusInput) -> prism_ir
 }
 
 impl QueryHost {
-    fn ensure_tool_enabled(&self, tool_name: &str, label: &str) -> Result<()> {
+    pub(crate) fn ensure_tool_enabled(&self, tool_name: &str, label: &str) -> Result<()> {
         if !self.features.is_tool_enabled(tool_name) {
             return Err(anyhow!(
                 "{label} are disabled by the PRISM MCP server feature flags"

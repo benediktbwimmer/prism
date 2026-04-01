@@ -8,6 +8,7 @@ license.workspace = true
 anyhow.workspace = true
 ignore.workspace = true
 notify.workspace = true
+rand.workspace = true
 prism-agent = { path = "../prism-agent" }
 prism-coordination = { path = "../prism-coordination" }
 prism-curator = { path = "../prism-curator" }
@@ -26,6 +27,7 @@ prism-query = { path = "../prism-query" }
 prism-store = { path = "../prism-store" }
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 smol_str.workspace = true
 toml.workspace = true
 tracing.workspace = true

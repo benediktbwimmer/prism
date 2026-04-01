@@ -41,8 +41,9 @@ use serde_json::json;
 
 use super::{
     hydrate_workspace_session_with_options, index_workspace, index_workspace_session,
-    index_workspace_session_with_curator, index_workspace_session_with_options, PrismDocSyncStatus,
-    PrismPaths, SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
+    index_workspace_session_with_curator, index_workspace_session_with_options,
+    BootstrapOwnerInput, MintPrincipalRequest, PrismDocSyncStatus, PrismPaths,
+    SharedRuntimeBackend, ValidationFeedbackCategory, ValidationFeedbackRecord,
     ValidationFeedbackVerdict, WorkspaceIndexer, WorkspaceSessionOptions,
 };
 use crate::coordination_persistence::CoordinationPersistenceBackend;
@@ -55,23 +56,13 @@ static NEXT_TEMP_WORKSPACE: AtomicU64 = AtomicU64::new(0);
 static PRISM_HOME_ENV_LOCK: Mutex<()> = Mutex::new(());
 
 struct PrismHomeEnvGuard {
-    original: Option<std::ffi::OsString>,
+    _guard: crate::prism_paths::TestPrismHomeOverrideGuard,
 }
 
 impl PrismHomeEnvGuard {
     fn set(path: &PathBuf) -> Self {
-        let original = std::env::var_os("PRISM_HOME");
-        std::env::set_var("PRISM_HOME", path);
-        Self { original }
-    }
-}
-
-impl Drop for PrismHomeEnvGuard {
-    fn drop(&mut self) {
-        if let Some(value) = self.original.take() {
-            std::env::set_var("PRISM_HOME", value);
-        } else {
-            std::env::remove_var("PRISM_HOME");
+        Self {
+            _guard: crate::prism_paths::set_test_prism_home_override(path),
         }
     }
 }
@@ -371,10 +362,12 @@ fn prism_paths_respect_prism_home_override_and_write_metadata_manifests() {
 
     let paths = PrismPaths::for_workspace_root(&root).unwrap();
     let state_db = paths.shared_runtime_db_path().unwrap();
+    let credentials_path = paths.credentials_path().unwrap();
     let repo_metadata_path = paths.repo_home_dir().join("repo.json");
     let worktree_metadata_path = paths.worktree_dir().join("worktree.json");
 
     assert!(state_db.starts_with(&prism_home));
+    assert_eq!(credentials_path, prism_home.join("credentials.toml"));
     assert!(repo_metadata_path.exists());
     assert!(worktree_metadata_path.exists());
 
@@ -2130,6 +2123,95 @@ fn shared_runtime_sqlite_shares_principal_registry_across_workspaces() {
 
     let _ = fs::remove_dir_all(root_one);
     let _ = fs::remove_dir_all(root_two);
+    let _ = fs::remove_dir_all(shared_runtime_root);
+}
+
+#[test]
+fn bootstrap_owner_and_mint_child_principal_round_trip_through_shared_runtime_registry() {
+    let shared_runtime_root = temp_workspace();
+    let shared_runtime_sqlite = shared_runtime_root.join("shared-runtime.db");
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    fs::write(root.join("src/lib.rs"), "fn alpha() {}\n").unwrap();
+
+    let session = index_workspace_session_with_options(
+        &root,
+        WorkspaceSessionOptions {
+            coordination: false,
+            shared_runtime: SharedRuntimeBackend::Sqlite {
+                path: shared_runtime_sqlite.clone(),
+            },
+            hydrate_persisted_projections: false,
+        },
+    )
+    .unwrap();
+
+    let owner = session
+        .bootstrap_owner_principal(BootstrapOwnerInput {
+            authority_id: Some(PrincipalAuthorityId::new("local-daemon")),
+            name: "Owner".to_string(),
+            role: Some("repo_owner".to_string()),
+        })
+        .unwrap();
+    assert_eq!(owner.principal.kind, PrincipalKind::Human);
+    assert_eq!(
+        owner.credential.capabilities,
+        vec![CredentialCapability::All]
+    );
+
+    let snapshot = session.load_principal_registry().unwrap().unwrap();
+    assert_eq!(snapshot.principals.len(), 1);
+    assert_eq!(snapshot.credentials.len(), 1);
+
+    let authenticated = session
+        .authenticate_principal_credential(&owner.credential.credential_id, &owner.principal_token)
+        .unwrap();
+    assert_eq!(
+        authenticated.principal.principal_id,
+        owner.principal.principal_id
+    );
+
+    let child = session
+        .mint_principal_credential(
+            &authenticated,
+            MintPrincipalRequest {
+                authority_id: Some(PrincipalAuthorityId::new("local-daemon")),
+                kind: PrincipalKind::Agent,
+                name: "Worker".to_string(),
+                role: Some("coordination_worker".to_string()),
+                parent_principal_id: Some(owner.principal.principal_id.clone()),
+                capabilities: vec![CredentialCapability::MutateCoordination],
+                profile: json!({ "lane": "coordination" }),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        child.principal.parent_principal_id,
+        Some(owner.principal.principal_id.clone())
+    );
+    assert_eq!(
+        child.credential.capabilities,
+        vec![CredentialCapability::MutateCoordination]
+    );
+
+    let updated_snapshot = session.load_principal_registry().unwrap().unwrap();
+    assert_eq!(updated_snapshot.principals.len(), 2);
+    assert_eq!(updated_snapshot.credentials.len(), 2);
+    assert!(updated_snapshot.credentials.iter().any(|credential| {
+        credential.credential_id == owner.credential.credential_id
+            && credential.last_used_at.is_some()
+    }));
+    assert!(updated_snapshot.principals.iter().any(|principal| {
+        principal.principal_id == child.principal.principal_id
+            && principal.parent_principal_id == Some(owner.principal.principal_id.clone())
+    }));
+
+    let _ = fs::remove_dir_all(root);
     let _ = fs::remove_dir_all(shared_runtime_root);
 }
 
@@ -5279,6 +5361,74 @@ fn workspace_session_can_deepen_unchanged_shallow_file_on_demand() {
 }
 
 #[test]
+fn oversized_targeted_refresh_in_large_repo_stays_shallow_until_explicitly_deepened() {
+    let root = temp_workspace();
+    fs::create_dir_all(root.join("src")).unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+    )
+    .unwrap();
+    for index in 0..64 {
+        fs::write(
+            root.join(format!("src/helper_{index}.rs")),
+            format!("pub fn helper_{index}() -> usize {{ {index} }}\n"),
+        )
+        .unwrap();
+    }
+    let target_path = root.join("src/lib.rs");
+    let oversized_comment = "x".repeat(140 * 1024);
+    fs::write(
+        &target_path,
+        format!("// {oversized_comment}\n\npub fn alpha() {{\n    beta();\n}}\n\nfn beta() {{}}\n"),
+    )
+    .unwrap();
+    let target_path = fs::canonicalize(target_path).unwrap();
+
+    let session = index_workspace_session(&root).unwrap();
+    let initial_prism = session.prism();
+    let initial_record = initial_prism
+        .graph()
+        .file_record(&target_path)
+        .expect("oversized file should be indexed");
+    assert_eq!(initial_record.parse_depth, ParseDepth::Shallow);
+    assert!(initial_record.unresolved_calls.is_empty());
+
+    fs::write(
+        &target_path,
+        format!(
+            "// edited\n// {oversized_comment}\n\npub fn alpha() {{\n    beta();\n}}\n\nfn beta() {{}}\n"
+        ),
+    )
+    .unwrap();
+    session.refresh_fs_with_status().unwrap();
+
+    let refreshed_prism = session.prism();
+    let refreshed_record = refreshed_prism
+        .graph()
+        .file_record(&target_path)
+        .expect("oversized file should remain indexed");
+    assert_eq!(refreshed_record.parse_depth, ParseDepth::Shallow);
+    assert!(refreshed_record.unresolved_calls.is_empty());
+
+    assert!(session
+        .ensure_paths_deep([target_path.clone()])
+        .expect("deepening oversized file should succeed"));
+
+    let deepened_prism = session.prism();
+    let deepened_record = deepened_prism
+        .graph()
+        .file_record(&target_path)
+        .expect("deepened oversized file should remain indexed");
+    assert_eq!(deepened_record.parse_depth, ParseDepth::Deep);
+    assert!(deepened_record.unresolved_calls.iter().any(|call| call
+        .caller
+        .path
+        .ends_with("::alpha")
+        && call.name == "beta"));
+}
+
+#[test]
 fn refresh_invalidation_scope_preserves_monotonic_scope_expansion() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();
@@ -5910,7 +6060,14 @@ fn appended_outcome_flushes_projection_materialization_off_request_path() {
     drop(session);
 
     let prism = index_workspace(&root).unwrap();
-    let recipe = prism.validation_recipe(&alpha);
+    let reloaded_alpha = prism
+        .symbol("alpha")
+        .into_iter()
+        .next()
+        .unwrap()
+        .id()
+        .clone();
+    let recipe = prism.validation_recipe(&reloaded_alpha);
     assert!(recipe
         .scored_checks
         .iter()

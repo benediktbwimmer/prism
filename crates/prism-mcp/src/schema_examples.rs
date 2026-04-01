@@ -191,7 +191,7 @@ fn prism_mutate_examples() -> Vec<Value> {
     .filter_map(prism_mutate_action_example)
     .collect::<Vec<_>>();
     examples.extend(extra_prism_mutate_examples());
-    examples
+    examples.into_iter().map(with_mutation_credential).collect()
 }
 
 fn prism_mutate_action_example(action: &str) -> Option<Value> {
@@ -555,6 +555,20 @@ fn extra_prism_mutate_examples() -> Vec<Value> {
             }
         }),
     ]
+}
+
+fn with_mutation_credential(mut example: Value) -> Value {
+    let Some(object) = example.as_object_mut() else {
+        return example;
+    };
+    object.insert(
+        "credential".to_string(),
+        json!({
+            "credentialId": "credential:demo-main",
+            "principalToken": "prism_ptok_demo_main_example"
+        }),
+    );
+    example
 }
 
 fn sample_node_anchor(crate_name: &str, path: &str, kind: &str) -> Value {
