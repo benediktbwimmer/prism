@@ -3,6 +3,7 @@ use super::text_fragments::{
     locate_text_candidates, locate_text_diagnostics, semantic_symbols_from_text_candidates,
 };
 use super::*;
+use crate::{build_task_scope, candidate_task_match, TaskMatch};
 
 impl QueryHost {
     pub(crate) fn compact_locate(
@@ -49,7 +50,8 @@ impl QueryHost {
                     applied.saturating_mul(TEXT_LOCATE_LIMIT_MULTIPLIER),
                 )?);
                 dedupe_locate_symbols(&mut results);
-                let ranked = rerank_locate_results(results, text_candidates, &args, applied);
+                let ranked =
+                    rerank_locate_results(prism.as_ref(), results, text_candidates, &args, applied);
                 let mut diagnostics = execution.diagnostics();
                 diagnostics.extend(locate_text_diagnostics(&ranked, applied));
                 let resolved_confidently = locate_resolved_confidently(&ranked, &diagnostics);
@@ -120,7 +122,7 @@ fn compact_search_args(session: &SessionState, args: &PrismLocateArgs) -> Search
         kind: None,
         path: args.path.clone(),
         module: None,
-        task_id: None,
+        task_id: args.task_id.clone(),
         path_mode: None,
         strategy: Some(strategy.to_string()),
         structured_path: None,
@@ -304,6 +306,7 @@ fn locate_glob_matches(
 }
 
 fn rerank_locate_results(
+    prism: &prism_query::Prism,
     results: Vec<SymbolView>,
     text_candidates: Vec<TextSearchCandidate>,
     args: &PrismLocateArgs,
@@ -314,6 +317,11 @@ fn rerank_locate_results(
     let identifier_terms = locate_identifier_terms(&args.query);
     let path_scope = args.path.as_deref().map(str::to_ascii_lowercase);
     let profile = locate_intent_profile(args);
+    let task_scope = args
+        .task_id
+        .as_deref()
+        .filter(|task_id| !task_id.trim().is_empty())
+        .and_then(|task_id| build_task_scope(prism, task_id));
     let semantic_results = results.clone();
     let mut ranked = results
         .into_iter()
@@ -327,6 +335,7 @@ fn rerank_locate_results(
                 &identifier_terms,
                 path_scope.as_deref(),
                 profile,
+                task_scope.as_ref(),
             )
         })
         .collect::<Vec<_>>();
@@ -364,6 +373,7 @@ fn rank_locate_candidate(
     identifier_terms: &[String],
     path_scope: Option<&str>,
     profile: LocateIntentProfile,
+    task_scope: Option<&crate::TaskScope>,
 ) -> RankedLocateCandidate {
     let query_uses_identifiers = !identifier_terms.is_empty();
     let name_raw = symbol.name.trim().to_ascii_lowercase();
@@ -500,6 +510,18 @@ fn rank_locate_candidate(
     {
         score += 150;
         reasons.push("Matched the requested path scope.".to_string());
+    }
+    if let Some(task_match) = candidate_task_match(&symbol, task_scope) {
+        score += match task_match {
+            TaskMatch::ExactNode => 120,
+            TaskMatch::SameLineage => 90,
+        };
+        reasons.push(match task_match {
+            TaskMatch::ExactNode => "Matched the exact requested task scope.".to_string(),
+            TaskMatch::SameLineage => {
+                "Matched the requested task's current lineage.".to_string()
+            }
+        });
     }
     if profile.test_penalty > 0 && is_test_like_symbol(&symbol) {
         score -= profile.test_penalty;
@@ -688,6 +710,8 @@ fn locate_selection_reason_bucket(reason: &str) -> u8 {
         || reason.starts_with("Exact query matched")
         || reason.starts_with("Exact text hit")
         || reason.starts_with("Ownership-style query favored")
+        || reason.starts_with("Matched the exact requested task scope")
+        || reason.starts_with("Matched the requested task's current lineage")
         || reason.starts_with("Matched the requested path scope")
     {
         0

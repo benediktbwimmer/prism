@@ -1,3 +1,4 @@
+use prism_ir::{CoordinationTaskId, TaskId};
 use prism_query::{ConceptResolution, Prism};
 
 use crate::{session_state::SessionTaskState, SessionState};
@@ -10,6 +11,16 @@ pub(crate) fn resolve_concepts_for_session(
     query: &str,
     limit: usize,
 ) -> Vec<ConceptResolution> {
+    resolve_concepts_for_task_context(prism, session, None, query, limit)
+}
+
+pub(crate) fn resolve_concepts_for_task_context(
+    prism: &Prism,
+    session: &SessionState,
+    task_id: Option<&str>,
+    query: &str,
+    limit: usize,
+) -> Vec<ConceptResolution> {
     if limit == 0 {
         return Vec::new();
     }
@@ -18,7 +29,7 @@ pub(crate) fn resolve_concepts_for_session(
     let mut resolutions = prism.resolve_concepts(query, fetch_limit);
     rerank_for_session(
         resolutions.as_mut_slice(),
-        session.current_task_state().as_ref(),
+        task_context_for_resolution(prism, session, task_id).as_ref(),
     );
     resolutions.truncate(limit);
     resolutions
@@ -63,9 +74,9 @@ fn rerank_for_session(resolutions: &mut [ConceptResolution], task: Option<&Sessi
         let (boost, matched_provenance) = concept_context_boost(resolution, &context_tokens, task);
         if boost > 0 {
             resolution.score += boost;
-            push_reason(&mut resolution.reasons, "linked to current task context");
+            push_reason(&mut resolution.reasons, "linked to task context");
             if matched_provenance {
-                push_reason(&mut resolution.reasons, "matched current task provenance");
+                push_reason(&mut resolution.reasons, "matched task provenance");
             }
         }
     }
@@ -77,6 +88,53 @@ fn rerank_for_session(resolutions: &mut [ConceptResolution], task: Option<&Sessi
             .then_with(|| right.packet.confidence.total_cmp(&left.packet.confidence))
             .then_with(|| left.packet.handle.cmp(&right.packet.handle))
     });
+}
+
+fn task_context_for_resolution(
+    prism: &Prism,
+    session: &SessionState,
+    explicit_task_id: Option<&str>,
+) -> Option<SessionTaskState> {
+    let Some(task_id) = explicit_task_id
+        .map(str::trim)
+        .filter(|task_id| !task_id.is_empty())
+    else {
+        return session.current_task_state();
+    };
+
+    if session
+        .current_task_state()
+        .as_ref()
+        .is_some_and(|task| task.id.0 == task_id)
+    {
+        return session.current_task_state();
+    }
+
+    let coordination_task_id = task_id
+        .starts_with("coord-task:")
+        .then(|| task_id.to_string());
+    let description = coordination_task_id.as_ref().and_then(|coord_task_id| {
+        prism
+            .coordination_task(&CoordinationTaskId::new(coord_task_id.clone()))
+            .map(|task| {
+                let mut description = task.title;
+                if let Some(summary) = task.summary.as_deref().filter(|summary| !summary.is_empty())
+                {
+                    description.push(' ');
+                    description.push_str(summary);
+                }
+                (description, task.tags)
+            })
+    });
+    let (description, tags) = description
+        .map(|(description, tags)| (Some(description), tags))
+        .unwrap_or_else(|| (None, Vec::new()));
+    Some(SessionTaskState {
+        id: TaskId::new(task_id.to_string()),
+        description,
+        tags,
+        coordination_task_id,
+    })
 }
 
 fn concept_context_boost(
@@ -121,7 +179,7 @@ fn concept_context_boost(
     let matched_provenance =
         resolution.packet.provenance.task_id.as_deref() == Some(task.id.0.as_str());
     if matched_provenance {
-        boost += 30;
+        boost += 80;
     }
     (boost.min(120), matched_provenance)
 }

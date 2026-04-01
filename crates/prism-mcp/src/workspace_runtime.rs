@@ -13,7 +13,7 @@ use prism_core::runtime_engine::{
     RuntimeDomain, RuntimeDomainState, RuntimeFreshnessState, RuntimeMaterializationDepth,
     WorkspaceFileDelta, WorkspaceFileSemanticFacts, WorkspaceRuntimeCoalescingKey,
     WorkspaceRuntimeCommand, WorkspaceRuntimeCommandKind, WorkspaceRuntimeEngine,
-    WorkspaceRuntimeQueueClass, WorkspaceRuntimeQueueSnapshot,
+    WorkspaceRuntimePathRequest, WorkspaceRuntimeQueueClass, WorkspaceRuntimeQueueSnapshot,
 };
 use prism_core::{
     AdmissionBusyError, FsRefreshStatus, WorkspaceRefreshWork, WorkspaceSession,
@@ -263,6 +263,21 @@ impl WorkspaceRuntime {
             let Some(command) = command else {
                 continue;
             };
+            if command_is_stale_against_generation(
+                &command,
+                &config
+                    .runtime_engine
+                    .lock()
+                    .expect("workspace runtime engine lock poisoned")
+                    .published_generation_snapshot(),
+            ) {
+                config
+                    .runtime_engine
+                    .lock()
+                    .expect("workspace runtime engine lock poisoned")
+                    .finish_active_command();
+                continue;
+            }
             let sync_result = run_workspace_runtime_command(&config, &command);
             if let Err(error) = sync_result {
                 if is_transient_sqlite_lock(&error) {
@@ -337,16 +352,19 @@ impl WorkspaceRuntime {
         }
     }
 
-    pub(crate) fn request_refresh_with_paths(&self, paths: Vec<PathBuf>) {
+    pub(crate) fn request_refresh_with_revisions(
+        &self,
+        path_requests: Vec<WorkspaceRuntimePathRequest>,
+    ) {
         let _ = self
             .engine
             .lock()
             .expect("workspace runtime engine lock poisoned")
-            .enqueue_command(WorkspaceRuntimeCommand::with_paths(
+            .enqueue_command(WorkspaceRuntimeCommand::with_path_requests(
                 WorkspaceRuntimeCommandKind::PreparePaths,
                 WorkspaceRuntimeQueueClass::FastPrepare,
                 WorkspaceRuntimeCoalescingKey::WorktreeContext,
-                paths,
+                path_requests,
             ));
         match self.wake.try_send(()) {
             Ok(()) | Err(TrySendError::Full(())) => {}
@@ -372,7 +390,7 @@ fn sync_workspace_runtime_materialization(
         .sync_lock
         .lock()
         .expect("workspace runtime sync lock poisoned");
-    sync_workspace_runtime_for_read_with_guard(config, guard, elapsed_ms(lock_wait_started))
+    sync_workspace_runtime_checkpoint_with_guard(config, guard, elapsed_ms(lock_wait_started))
 }
 
 impl Drop for WorkspaceRuntime {
@@ -395,7 +413,7 @@ fn run_workspace_runtime_command(
 ) -> Result<WorkspaceRuntimeCommandOutcome> {
     match command.kind {
         WorkspaceRuntimeCommandKind::PreparePaths => {
-            run_workspace_prepare_paths_command(config, command.paths.as_slice())
+            run_workspace_prepare_paths_command(config, command.path_requests.as_slice())
         }
         WorkspaceRuntimeCommandKind::ApplyPreparedDelta => {
             apply_prepared_workspace_delta_command(config)
@@ -408,6 +426,16 @@ fn run_workspace_runtime_command(
         }
         _ => sync_workspace_runtime(config).map(WorkspaceRuntimeCommandOutcome::new),
     }
+}
+
+fn command_is_stale_against_generation(
+    command: &WorkspaceRuntimeCommand,
+    generation: &prism_core::runtime_engine::WorkspacePublishedGeneration,
+) -> bool {
+    matches!(command.kind, WorkspaceRuntimeCommandKind::SettleDomain(_))
+        && command
+            .target_generation
+            .is_some_and(|target| target < generation.id)
 }
 
 pub(crate) fn sync_workspace_runtime(
@@ -514,7 +542,17 @@ fn sync_workspace_runtime_with_guard(
         full_rebuild_count: u64::from(refresh_path == "full"),
         workspace_reloaded: refresh_path == "full",
     };
-    publish_runtime_generation(config, &revisions, refresh_path, Vec::new());
+    publish_runtime_generation(
+        config,
+        &revisions,
+        refresh_path,
+        Vec::new(),
+        if matches!(refresh_path, "incremental" | "rescan" | "full") {
+            Some(true)
+        } else {
+            None
+        },
+    );
     if deferred {
         config
             .workspace
@@ -660,7 +698,7 @@ fn sync_workspace_runtime_for_read_with_guard(
         full_rebuild_count: 0,
         workspace_reloaded: false,
     };
-    publish_runtime_generation(config, &revisions, refresh_path, Vec::new());
+    publish_runtime_generation(config, &revisions, refresh_path, Vec::new(), None);
     if deferred {
         config
             .workspace
@@ -754,7 +792,7 @@ pub(crate) fn hydrate_persisted_workspace_state(config: &WorkspaceRuntimeConfig)
     let _ = reload_episodic_snapshot_if_needed(config, revisions.episodic)?;
     let _ = reload_inference_snapshot_if_needed(config, revisions.inference)?;
     let _ = reload_coordination_snapshot_if_needed(config, revisions.coordination)?;
-    publish_runtime_generation(config, &revisions, "hydrate", Vec::new());
+    publish_runtime_generation(config, &revisions, "hydrate", Vec::new(), Some(false));
     Ok(())
 }
 
@@ -884,6 +922,11 @@ pub(crate) fn sync_persisted_workspace_state(
         &revisions,
         refresh_path,
         file_deltas_from_observed(config.workspace.as_ref(), &refresh_outcome.observed),
+        if matches!(refresh_path, "incremental" | "rescan" | "full") {
+            Some(true)
+        } else {
+            None
+        },
     );
     if deferred {
         config
@@ -971,7 +1014,7 @@ pub(crate) fn sync_persisted_workspace_state(
 
 fn run_workspace_prepare_paths_command(
     config: &WorkspaceRuntimeConfig,
-    dirty_paths: &[PathBuf],
+    path_requests: &[WorkspaceRuntimePathRequest],
 ) -> Result<WorkspaceRuntimeCommandOutcome> {
     let lock_wait_started = Instant::now();
     let _guard = config
@@ -979,11 +1022,21 @@ fn run_workspace_prepare_paths_command(
         .lock()
         .expect("workspace runtime sync lock poisoned");
     let lock_wait_ms = elapsed_ms(lock_wait_started);
+    let dirty_paths = if path_requests.is_empty() {
+        Vec::new()
+    } else {
+        config
+            .workspace
+            .scoped_refresh_paths_for_requests(path_requests)
+    };
+    if !path_requests.is_empty() && dirty_paths.is_empty() {
+        return Ok(WorkspaceRuntimeCommandOutcome::new(
+            WorkspaceRefreshReport::none(),
+        ));
+    }
     let started = Instant::now();
     let fs_refresh_started = Instant::now();
-    let refresh_outcome = config
-        .workspace
-        .refresh_fs_with_paths(dirty_paths.to_vec())?;
+    let refresh_outcome = config.workspace.refresh_fs_with_paths(dirty_paths)?;
     let fs_refresh_ms = elapsed_ms(fs_refresh_started);
     let refresh_path = match refresh_outcome.status {
         FsRefreshStatus::Clean => "none",
@@ -1074,11 +1127,19 @@ fn apply_prepared_workspace_delta_command(
             WorkspaceRefreshReport::none(),
         ));
     };
-    publish_runtime_generation(
+    let checkpoint_pending = prepared.report.refresh_path != "none";
+    let batch = publish_runtime_generation(
         config,
         &prepared.revisions,
         prepared.report.refresh_path,
         prepared.file_deltas,
+        Some(checkpoint_pending),
+    );
+    let follow_up_commands = follow_up_runtime_commands(
+        config,
+        &prepared.revisions,
+        prepared.report.refresh_path,
+        batch.committed_generation,
     );
     let duration_ms = u128::from(prepared.report.metrics.lock_hold_ms);
     log_refresh_workspace(
@@ -1147,7 +1208,7 @@ fn apply_prepared_workspace_delta_command(
     );
     Ok(WorkspaceRuntimeCommandOutcome::with_follow_up_commands(
         prepared.report,
-        follow_up_runtime_commands(config, &prepared.revisions, prepared.report.refresh_path),
+        follow_up_commands,
     ))
 }
 
@@ -1155,35 +1216,48 @@ fn follow_up_runtime_commands(
     config: &WorkspaceRuntimeConfig,
     revisions: &WorkspaceSnapshotRevisions,
     refresh_path: &str,
+    target_generation: prism_core::runtime_engine::WorkspaceGenerationId,
 ) -> Vec<WorkspaceRuntimeCommand> {
     let mut commands = Vec::new();
     if config.loaded_episodic_revision.load(Ordering::Relaxed) != revisions.episodic {
-        commands.push(WorkspaceRuntimeCommand::new(
-            WorkspaceRuntimeCommandKind::SettleDomain(RuntimeDomain::MemoryReanchor),
-            WorkspaceRuntimeQueueClass::Settle,
-            WorkspaceRuntimeCoalescingKey::Domain(RuntimeDomain::MemoryReanchor),
-        ));
+        commands.push(
+            WorkspaceRuntimeCommand::new(
+                WorkspaceRuntimeCommandKind::SettleDomain(RuntimeDomain::MemoryReanchor),
+                WorkspaceRuntimeQueueClass::Settle,
+                WorkspaceRuntimeCoalescingKey::Domain(RuntimeDomain::MemoryReanchor),
+            )
+            .with_target_generation(target_generation),
+        );
     }
     if config.loaded_inference_revision.load(Ordering::Relaxed) != revisions.inference {
-        commands.push(WorkspaceRuntimeCommand::new(
-            WorkspaceRuntimeCommandKind::SettleDomain(RuntimeDomain::Projections),
-            WorkspaceRuntimeQueueClass::Settle,
-            WorkspaceRuntimeCoalescingKey::Domain(RuntimeDomain::Projections),
-        ));
+        commands.push(
+            WorkspaceRuntimeCommand::new(
+                WorkspaceRuntimeCommandKind::SettleDomain(RuntimeDomain::Projections),
+                WorkspaceRuntimeQueueClass::Settle,
+                WorkspaceRuntimeCoalescingKey::Domain(RuntimeDomain::Projections),
+            )
+            .with_target_generation(target_generation),
+        );
     }
     if config.loaded_coordination_revision.load(Ordering::Relaxed) != revisions.coordination {
-        commands.push(WorkspaceRuntimeCommand::new(
-            WorkspaceRuntimeCommandKind::SettleDomain(RuntimeDomain::Coordination),
-            WorkspaceRuntimeQueueClass::Settle,
-            WorkspaceRuntimeCoalescingKey::Domain(RuntimeDomain::Coordination),
-        ));
+        commands.push(
+            WorkspaceRuntimeCommand::new(
+                WorkspaceRuntimeCommandKind::SettleDomain(RuntimeDomain::Coordination),
+                WorkspaceRuntimeQueueClass::Settle,
+                WorkspaceRuntimeCoalescingKey::Domain(RuntimeDomain::Coordination),
+            )
+            .with_target_generation(target_generation),
+        );
     }
     if refresh_path != "none" {
-        commands.push(WorkspaceRuntimeCommand::new(
-            WorkspaceRuntimeCommandKind::MaterializeCheckpoint,
-            WorkspaceRuntimeQueueClass::CheckpointMaterialization,
-            WorkspaceRuntimeCoalescingKey::WorktreeContext,
-        ));
+        commands.push(
+            WorkspaceRuntimeCommand::new(
+                WorkspaceRuntimeCommandKind::MaterializeCheckpoint,
+                WorkspaceRuntimeQueueClass::CheckpointMaterialization,
+                WorkspaceRuntimeCoalescingKey::WorktreeContext,
+            )
+            .with_target_generation(target_generation),
+        );
     }
     commands
 }
@@ -1267,7 +1341,7 @@ fn sync_workspace_settle_domain(
         "none"
     };
     if refresh_path != "none" {
-        publish_runtime_generation(config, &revisions, refresh_path, Vec::new());
+        publish_runtime_generation(config, &revisions, refresh_path, Vec::new(), None);
     }
     log_refresh_workspace(
         refresh_path,
@@ -1475,7 +1549,11 @@ fn materialization_depth_for_coverage(
     }
 }
 
-fn domain_state_for_revision(loaded_revision: u64, current_revision: u64) -> RuntimeDomainState {
+fn domain_state_for_revision(
+    loaded_revision: u64,
+    current_revision: u64,
+    current_depth: RuntimeMaterializationDepth,
+) -> RuntimeDomainState {
     RuntimeDomainState::new(
         if loaded_revision == current_revision {
             RuntimeFreshnessState::Current
@@ -1483,7 +1561,7 @@ fn domain_state_for_revision(loaded_revision: u64, current_revision: u64) -> Run
             RuntimeFreshnessState::Pending
         },
         if loaded_revision == current_revision {
-            RuntimeMaterializationDepth::Deep
+            current_depth
         } else {
             RuntimeMaterializationDepth::KnownUnmaterialized
         },
@@ -1494,6 +1572,7 @@ fn runtime_domain_states(
     config: &WorkspaceRuntimeConfig,
     revisions: &WorkspaceSnapshotRevisions,
     refresh_path: &str,
+    checkpoint_pending: bool,
 ) -> BTreeMap<RuntimeDomain, RuntimeDomainState> {
     let mut states = BTreeMap::new();
     let workspace_coverage = config.workspace.workspace_materialization_coverage();
@@ -1511,22 +1590,9 @@ fn runtime_domain_states(
         RuntimeDomain::CrossFileEdges,
         RuntimeDomainState::new(
             workspace_freshness,
-            if workspace_coverage.materialized_edges > 0 {
-                RuntimeMaterializationDepth::Deep
-            } else {
-                workspace_depth
-            },
-        ),
-    );
-    states.insert(
-        RuntimeDomain::Projections,
-        RuntimeDomainState::new(workspace_freshness, workspace_depth),
-    );
-    states.insert(
-        RuntimeDomain::MemoryReanchor,
-        RuntimeDomainState::new(
-            workspace_freshness,
-            if config.loaded_episodic_revision.load(Ordering::Relaxed) == revisions.episodic {
+            if workspace_freshness == RuntimeFreshnessState::Current
+                && workspace_coverage.materialized_edges > 0
+            {
                 RuntimeMaterializationDepth::Deep
             } else {
                 RuntimeMaterializationDepth::KnownUnmaterialized
@@ -1534,14 +1600,42 @@ fn runtime_domain_states(
         ),
     );
     states.insert(
+        RuntimeDomain::Projections,
+        domain_state_for_revision(
+            config.loaded_inference_revision.load(Ordering::Relaxed),
+            revisions.inference,
+            workspace_depth,
+        ),
+    );
+    states.insert(
+        RuntimeDomain::MemoryReanchor,
+        domain_state_for_revision(
+            config.loaded_episodic_revision.load(Ordering::Relaxed),
+            revisions.episodic,
+            RuntimeMaterializationDepth::Deep,
+        ),
+    );
+    states.insert(
         RuntimeDomain::Checkpoint,
-        RuntimeDomainState::new(workspace_freshness, workspace_depth),
+        RuntimeDomainState::new(
+            if checkpoint_pending {
+                RuntimeFreshnessState::Pending
+            } else {
+                RuntimeFreshnessState::Current
+            },
+            if checkpoint_pending {
+                RuntimeMaterializationDepth::KnownUnmaterialized
+            } else {
+                workspace_depth
+            },
+        ),
     );
     states.insert(
         RuntimeDomain::Coordination,
         domain_state_for_revision(
             config.loaded_coordination_revision.load(Ordering::Relaxed),
             revisions.coordination,
+            RuntimeMaterializationDepth::Deep,
         ),
     );
     states
@@ -1637,19 +1731,143 @@ fn publish_runtime_generation(
     revisions: &WorkspaceSnapshotRevisions,
     refresh_path: &str,
     file_deltas: Vec<WorkspaceFileDelta>,
-) {
-    let domain_states = runtime_domain_states(config, revisions, refresh_path);
+    checkpoint_pending_override: Option<bool>,
+) -> prism_core::runtime_engine::WorkspaceRuntimeDeltaBatch {
     let changed_paths = changed_paths_from_file_deltas(&file_deltas);
     let mut engine = config
         .runtime_engine
         .lock()
         .expect("workspace runtime engine lock poisoned");
+    if let Some(checkpoint_pending) = checkpoint_pending_override {
+        engine.set_checkpoint_pending(checkpoint_pending);
+    }
+    let domain_states =
+        runtime_domain_states(config, revisions, refresh_path, engine.checkpoint_pending());
     if file_deltas.is_empty()
         && (refresh_path == "hydrate" || engine.current_file_facts().is_empty())
     {
         engine.replace_current_file_facts(file_facts_from_workspace(config.workspace.as_ref()));
     }
-    let _ = engine.record_commit(changed_paths, file_deltas, domain_states);
+    engine.record_commit(changed_paths, file_deltas, domain_states)
+}
+
+fn sync_workspace_runtime_checkpoint_with_guard(
+    config: &WorkspaceRuntimeConfig,
+    _guard: MutexGuard<'_, ()>,
+    lock_wait_ms: u64,
+) -> Result<WorkspaceRefreshReport> {
+    if config.workspace.needs_refresh() {
+        return Ok(dirty_workspace_deferred_report(
+            config,
+            true,
+            WorkspaceRefreshMetrics {
+                lock_wait_ms,
+                ..WorkspaceRefreshMetrics::default()
+            },
+        ));
+    }
+    let checkpoint_pending = config
+        .runtime_engine
+        .lock()
+        .expect("workspace runtime engine lock poisoned")
+        .checkpoint_pending();
+    if !checkpoint_pending {
+        return Ok(WorkspaceRefreshReport::none());
+    }
+
+    let started = Instant::now();
+    config.workspace.flush_materializations()?;
+    let revisions_started = Instant::now();
+    let revisions = config.workspace.snapshot_revisions_for_runtime()?;
+    let snapshot_revisions_ms = elapsed_ms(revisions_started);
+    let duration_ms = started.elapsed().as_millis();
+    let metrics = WorkspaceRefreshMetrics {
+        lock_wait_ms,
+        lock_hold_ms: u64::try_from(duration_ms).unwrap_or(u64::MAX),
+        fs_refresh_ms: 0,
+        snapshot_revisions_ms,
+        load_episodic_ms: 0,
+        load_inference_ms: 0,
+        load_coordination_ms: 0,
+        loaded_bytes: 0,
+        replay_volume: 0,
+        full_rebuild_count: 0,
+        workspace_reloaded: false,
+    };
+    publish_runtime_generation(config, &revisions, "checkpoint", Vec::new(), Some(false));
+    log_refresh_workspace(
+        "checkpoint",
+        config.loaded_workspace_revision.load(Ordering::Relaxed),
+        config.loaded_episodic_revision.load(Ordering::Relaxed),
+        config.loaded_inference_revision.load(Ordering::Relaxed),
+        config.loaded_coordination_revision.load(Ordering::Relaxed),
+        config.workspace.as_ref(),
+        false,
+        false,
+        false,
+        duration_ms,
+        metrics,
+    );
+    config.dashboard_state.publish_value(
+        "runtime.refreshed",
+        json!({
+            "refreshPath": "checkpoint",
+            "durationMs": duration_ms,
+            "coordinationReloaded": false,
+            "deferred": false,
+            "episodicReloaded": false,
+            "fsAppliedRevision": config.workspace.applied_fs_revision(),
+            "fsDirty": config.workspace.observed_fs_revision() != config.workspace.applied_fs_revision(),
+            "fsObservedRevision": config.workspace.observed_fs_revision(),
+            "lockWaitMs": metrics.lock_wait_ms,
+            "lockHoldMs": metrics.lock_hold_ms,
+            "fsRefreshMs": 0,
+            "snapshotRevisionsMs": metrics.snapshot_revisions_ms,
+            "loadEpisodicMs": 0,
+            "loadInferenceMs": 0,
+            "loadCoordinationMs": 0,
+            "loadedBytes": 0,
+            "replayVolume": 0,
+            "fullRebuildCount": 0,
+            "inferenceReloaded": false,
+            "loadedCoordinationRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
+            "loadedEpisodicRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
+            "loadedInferenceRevision": config.loaded_inference_revision.load(Ordering::Relaxed),
+            "loadedWorkspaceRevision": config.loaded_workspace_revision.load(Ordering::Relaxed),
+            "materialization": {
+                "workspace": {
+                    "currentRevision": revisions.workspace,
+                    "loadedRevision": config.loaded_workspace_revision.load(Ordering::Relaxed),
+                    "status": revision_status(config.loaded_workspace_revision.load(Ordering::Relaxed), revisions.workspace),
+                },
+                "episodic": {
+                    "currentRevision": revisions.episodic,
+                    "loadedRevision": config.loaded_episodic_revision.load(Ordering::Relaxed),
+                    "status": revision_status(config.loaded_episodic_revision.load(Ordering::Relaxed), revisions.episodic),
+                },
+                "inference": {
+                    "currentRevision": revisions.inference,
+                    "loadedRevision": config.loaded_inference_revision.load(Ordering::Relaxed),
+                    "status": revision_status(config.loaded_inference_revision.load(Ordering::Relaxed), revisions.inference),
+                },
+                "coordination": {
+                    "currentRevision": revisions.coordination,
+                    "loadedRevision": config.loaded_coordination_revision.load(Ordering::Relaxed),
+                    "status": revision_status(config.loaded_coordination_revision.load(Ordering::Relaxed), revisions.coordination),
+                }
+            },
+            "workspaceReloaded": false,
+        }),
+    );
+    Ok(WorkspaceRefreshReport {
+        refresh_path: "checkpoint",
+        runtime_sync_used: true,
+        deferred: false,
+        episodic_reloaded: false,
+        inference_reloaded: false,
+        coordination_reloaded: false,
+        metrics,
+    })
 }
 
 impl QueryHost {
@@ -1665,7 +1883,7 @@ impl QueryHost {
         if report.coordination_reloaded {
             let _ = self.publish_dashboard_coordination_update();
         }
-        runtime.request_refresh_with_paths(workspace.pending_refresh_paths());
+        runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
         diagnostics.request_refresh();
         Ok(())
     }
@@ -1679,7 +1897,7 @@ impl QueryHost {
         let diagnostics = binding.diagnostics();
         let config = binding.runtime_config();
         let Some(report) = try_sync_workspace_runtime_for_read(&config)? else {
-            runtime.request_refresh_with_paths(workspace.pending_refresh_paths());
+            runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
             diagnostics.request_refresh();
             workspace.record_runtime_refresh_observation_with_work(
                 "deferred",
@@ -1701,7 +1919,7 @@ impl QueryHost {
         }
         if report.deferred || (!workspace.needs_refresh() && workspace.is_fallback_check_due_now())
         {
-            runtime.request_refresh_with_paths(workspace.pending_refresh_paths());
+            runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
         }
         diagnostics.request_refresh();
         Ok(report)
@@ -1716,7 +1934,7 @@ impl QueryHost {
         let diagnostics = binding.diagnostics();
         let config = binding.runtime_config();
         let Some(report) = try_sync_workspace_runtime_for_mutation(&config)? else {
-            runtime.request_refresh_with_paths(workspace.pending_refresh_paths());
+            runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
             diagnostics.request_refresh();
             workspace.record_runtime_refresh_observation_with_work(
                 "deferred",
@@ -1729,7 +1947,7 @@ impl QueryHost {
             let _ = self.publish_dashboard_coordination_update();
         }
         if report.deferred {
-            runtime.request_refresh_with_paths(workspace.pending_refresh_paths());
+            runtime.request_refresh_with_revisions(workspace.pending_refresh_path_requests());
         }
         diagnostics.request_refresh();
         Ok(report)
@@ -1932,7 +2150,14 @@ mod tests {
         let scoped_path = root.join("src/lib.rs");
         thread::sleep(Duration::from_millis(300));
 
-        let outcome = run_workspace_prepare_paths_command(&config, &[scoped_path]).unwrap();
+        let outcome = run_workspace_prepare_paths_command(
+            &config,
+            &[WorkspaceRuntimePathRequest {
+                path: scoped_path,
+                revision: 0,
+            }],
+        )
+        .unwrap();
         let report = outcome.report;
 
         assert!(matches!(
@@ -2003,7 +2228,14 @@ mod tests {
         thread::sleep(Duration::from_millis(300));
 
         let scoped_path = root.join("src/lib.rs");
-        let outcome = run_workspace_prepare_paths_command(&config, &[scoped_path]).unwrap();
+        let outcome = run_workspace_prepare_paths_command(
+            &config,
+            &[WorkspaceRuntimePathRequest {
+                path: scoped_path,
+                revision: 0,
+            }],
+        )
+        .unwrap();
         let report = outcome.report;
 
         assert!(matches!(
@@ -2041,6 +2273,26 @@ mod tests {
                     == WorkspaceRuntimeQueueClass::CheckpointMaterialization),
             "apply should enqueue checkpoint materialization follow-up work"
         );
+        let published_generation = config
+            .runtime_engine
+            .lock()
+            .expect("workspace runtime engine lock poisoned")
+            .published_generation_snapshot();
+        let file_facts = published_generation
+            .domain_states
+            .get(&RuntimeDomain::FileFacts)
+            .expect("file facts domain state should be published");
+        assert_eq!(file_facts.freshness, RuntimeFreshnessState::Current);
+        let memory_reanchor = published_generation
+            .domain_states
+            .get(&RuntimeDomain::MemoryReanchor)
+            .expect("memory reanchor domain state should be published");
+        assert_eq!(memory_reanchor.freshness, RuntimeFreshnessState::Pending);
+        let checkpoint = published_generation
+            .domain_states
+            .get(&RuntimeDomain::Checkpoint)
+            .expect("checkpoint domain state should be published");
+        assert_eq!(checkpoint.freshness, RuntimeFreshnessState::Pending);
 
         let _ = std::fs::remove_dir_all(root);
     }
@@ -2103,8 +2355,123 @@ mod tests {
             config.loaded_episodic_revision.load(Ordering::Relaxed),
             persisted_revision
         );
+        let published_generation = config
+            .runtime_engine
+            .lock()
+            .expect("workspace runtime engine lock poisoned")
+            .published_generation_snapshot();
+        let memory_reanchor = published_generation
+            .domain_states
+            .get(&RuntimeDomain::MemoryReanchor)
+            .expect("memory reanchor domain state should be published");
+        assert_eq!(memory_reanchor.freshness, RuntimeFreshnessState::Current);
 
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn checkpoint_materialization_command_clears_pending_checkpoint_domain() {
+        let root = temp_workspace();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"demo\"\nversion = \"0.1.0\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/lib.rs"), "pub fn alpha() {}\n").unwrap();
+
+        let workspace = Arc::new(index_workspace_session(&root).unwrap());
+        let runtime_engine = Arc::new(Mutex::new(WorkspaceRuntimeEngine::new(
+            WorkspaceRuntimeContext::from_root(&root),
+        )));
+        runtime_engine
+            .lock()
+            .expect("workspace runtime engine lock poisoned")
+            .set_checkpoint_pending(true);
+        let config = WorkspaceRuntimeConfig {
+            workspace: Arc::clone(&workspace),
+            notes: Arc::new(SessionMemory::new()),
+            inferred_edges: Arc::new(InferenceStore::new()),
+            dashboard_state: Arc::new(DashboardState::default()),
+            diagnostics_state: Arc::new(DiagnosticsState::default()),
+            mcp_call_log_store: Arc::new(McpCallLogStore::for_root(Some(&root))),
+            sync_lock: Arc::new(Mutex::new(())),
+            loaded_workspace_revision: Arc::new(AtomicU64::new(
+                workspace.loaded_workspace_revision(),
+            )),
+            loaded_episodic_revision: Arc::new(AtomicU64::new(
+                workspace.episodic_revision().unwrap_or(0),
+            )),
+            loaded_inference_revision: Arc::new(AtomicU64::new(
+                workspace.inference_revision().unwrap_or(0),
+            )),
+            loaded_coordination_revision: Arc::new(AtomicU64::new(
+                workspace.coordination_revision().unwrap_or(0),
+            )),
+            runtime_engine: Arc::clone(&runtime_engine),
+            prepared_delta: Arc::new(Mutex::new(None)),
+        };
+
+        let report = sync_workspace_runtime_materialization(&config).unwrap();
+        assert_eq!(report.refresh_path, "checkpoint");
+
+        let engine = runtime_engine
+            .lock()
+            .expect("workspace runtime engine lock poisoned");
+        assert!(!engine.checkpoint_pending());
+        let checkpoint = engine
+            .published_generation()
+            .domain_states
+            .get(&RuntimeDomain::Checkpoint)
+            .expect("checkpoint domain state should be published");
+        assert_eq!(checkpoint.freshness, RuntimeFreshnessState::Current);
+
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn stale_settle_commands_are_skipped_once_newer_generation_exists() {
+        let root = temp_workspace();
+        let context = WorkspaceRuntimeContext::from_root(&root);
+        let mut engine = WorkspaceRuntimeEngine::new(context.clone());
+        let older_generation = engine
+            .record_commit(Vec::new(), Vec::new(), BTreeMap::new())
+            .committed_generation;
+        let newer_generation = engine
+            .record_commit(Vec::new(), Vec::new(), BTreeMap::new())
+            .committed_generation;
+
+        let stale = WorkspaceRuntimeCommand::new(
+            WorkspaceRuntimeCommandKind::SettleDomain(RuntimeDomain::Projections),
+            WorkspaceRuntimeQueueClass::Settle,
+            WorkspaceRuntimeCoalescingKey::Domain(RuntimeDomain::Projections),
+        )
+        .with_target_generation(older_generation);
+        let current = WorkspaceRuntimeCommand::new(
+            WorkspaceRuntimeCommandKind::SettleDomain(RuntimeDomain::Projections),
+            WorkspaceRuntimeQueueClass::Settle,
+            WorkspaceRuntimeCoalescingKey::Domain(RuntimeDomain::Projections),
+        )
+        .with_target_generation(newer_generation);
+        let checkpoint = WorkspaceRuntimeCommand::new(
+            WorkspaceRuntimeCommandKind::MaterializeCheckpoint,
+            WorkspaceRuntimeQueueClass::CheckpointMaterialization,
+            WorkspaceRuntimeCoalescingKey::WorktreeContext,
+        )
+        .with_target_generation(older_generation);
+
+        assert!(command_is_stale_against_generation(
+            &stale,
+            engine.published_generation()
+        ));
+        assert!(!command_is_stale_against_generation(
+            &current,
+            engine.published_generation()
+        ));
+        assert!(!command_is_stale_against_generation(
+            &checkpoint,
+            engine.published_generation()
+        ));
     }
 
     #[test]
@@ -2154,7 +2521,14 @@ mod tests {
         thread::sleep(Duration::from_millis(300));
 
         let scoped_path = root.join("src/lib.rs");
-        let outcome = run_workspace_prepare_paths_command(&config, &[scoped_path]).unwrap();
+        let outcome = run_workspace_prepare_paths_command(
+            &config,
+            &[WorkspaceRuntimePathRequest {
+                path: scoped_path,
+                revision: 0,
+            }],
+        )
+        .unwrap();
         assert!(matches!(
             outcome.report.refresh_path,
             "incremental" | "rescan" | "full"

@@ -19,7 +19,7 @@ use super::*;
 use crate::{
     concept_decode_lens_view, concept_followthrough_targets, concept_packet_view,
     concept_relation_view, concept_resolution_is_ambiguous, concept_verbosity_view, recent_patches,
-    resolve_concepts_for_session, scored_memory_view, symbol_views_for_ids,
+    resolve_concepts_for_task_context, scored_memory_view, symbol_views_for_ids,
     truncate_concept_relations, truncate_vec_with_omitted, validation_recipe_view_with,
     ConceptPacketTruncationStats, ConceptVerbosity,
 };
@@ -108,7 +108,13 @@ fn resolve_concept_packet(
                 reasons: vec!["handle exact match".to_string()],
             })
             .ok_or_else(|| anyhow!("no concept packet matched `{handle}`")),
-        (None, Some(query)) => resolve_concepts_for_session(prism, session, query, 1)
+        (None, Some(query)) => resolve_concepts_for_task_context(
+            prism,
+            session,
+            args.task_id.as_deref(),
+            query,
+            1,
+        )
             .into_iter()
             .next()
             .ok_or_else(|| anyhow!("no concept packet matched `{query}`")),
@@ -262,7 +268,8 @@ fn resolve_concept_alternates(
     let Some(query) = args.query.as_deref() else {
         return Ok(Vec::new());
     };
-    let resolutions = resolve_concepts_for_session(prism, session, query, 3);
+        let resolutions =
+            resolve_concepts_for_task_context(prism, session, args.task_id.as_deref(), query, 3);
     if !concept_resolution_is_ambiguous(&resolutions) {
         return Ok(Vec::new());
     }

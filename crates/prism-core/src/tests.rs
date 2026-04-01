@@ -4852,6 +4852,31 @@ fn refresh_state_keeps_later_dirty_path_revisions_pending() {
 }
 
 #[test]
+fn refresh_state_filters_stale_path_requests_to_latest_revision_only() {
+    let state = crate::session::WorkspaceRefreshState::new();
+    let path = PathBuf::from("/tmp/demo.rs");
+
+    let first_revision = state.mark_fs_dirty_paths([path.clone()]);
+    let second_revision = state.mark_fs_dirty_paths([path.clone()]);
+
+    let stale = state.scoped_dirty_paths_for_requests(&[
+        crate::runtime_engine::WorkspaceRuntimePathRequest {
+            path: path.clone(),
+            revision: first_revision,
+        },
+    ]);
+    assert!(stale.is_empty());
+
+    let current = state.scoped_dirty_paths_for_requests(&[
+        crate::runtime_engine::WorkspaceRuntimePathRequest {
+            path: path.clone(),
+            revision: second_revision,
+        },
+    ]);
+    assert_eq!(current, vec![path]);
+}
+
+#[test]
 fn refresh_fs_falls_back_to_full_reindex_for_out_of_root_watch_paths() {
     let root = temp_workspace();
     fs::create_dir_all(root.join("src")).unwrap();

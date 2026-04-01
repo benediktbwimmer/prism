@@ -63,6 +63,7 @@ use crate::published_knowledge::{
     validate_repo_concept_event, validate_repo_concept_relation_event,
     validate_repo_contract_event, validate_repo_memory_event,
 };
+use crate::runtime_engine::WorkspaceRuntimePathRequest;
 use crate::shared_runtime::{
     composite_workspace_revision, merge_episodic_snapshots, merge_memory_events,
     merged_projection_index, split_episodic_snapshot_for_persist,
@@ -186,6 +187,43 @@ impl WorkspaceRefreshState {
             .expect("workspace dirty paths lock poisoned")
             .keys()
             .cloned()
+            .collect()
+    }
+
+    pub(crate) fn dirty_path_requests_snapshot(&self) -> Vec<WorkspaceRuntimePathRequest> {
+        let mut requests = self
+            .dirty_paths
+            .lock()
+            .expect("workspace dirty paths lock poisoned")
+            .iter()
+            .map(|(path, revision)| WorkspaceRuntimePathRequest {
+                path: path.clone(),
+                revision: *revision,
+            })
+            .collect::<Vec<_>>();
+        requests.sort_by(|left, right| left.path.cmp(&right.path));
+        requests
+    }
+
+    pub(crate) fn scoped_dirty_paths_for_requests(
+        &self,
+        requests: &[WorkspaceRuntimePathRequest],
+    ) -> Vec<PathBuf> {
+        let dirty_paths = self
+            .dirty_paths
+            .lock()
+            .expect("workspace dirty paths lock poisoned");
+        requests
+            .iter()
+            .filter(|request| {
+                if request.revision == 0 {
+                    return true;
+                }
+                dirty_paths
+                    .get(&request.path)
+                    .is_some_and(|revision| *revision == request.revision)
+            })
+            .map(|request| request.path.clone())
             .collect()
     }
 
@@ -657,6 +695,17 @@ impl WorkspaceSession {
 
     pub fn pending_refresh_paths(&self) -> Vec<PathBuf> {
         self.refresh_state.dirty_paths_snapshot()
+    }
+
+    pub fn pending_refresh_path_requests(&self) -> Vec<WorkspaceRuntimePathRequest> {
+        self.refresh_state.dirty_path_requests_snapshot()
+    }
+
+    pub fn scoped_refresh_paths_for_requests(
+        &self,
+        requests: &[WorkspaceRuntimePathRequest],
+    ) -> Vec<PathBuf> {
+        self.refresh_state.scoped_dirty_paths_for_requests(requests)
     }
 
     pub fn observed_fs_revision(&self) -> u64 {

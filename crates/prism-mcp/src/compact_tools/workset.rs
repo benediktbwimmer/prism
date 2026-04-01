@@ -12,7 +12,8 @@ use super::text_fragments::{
 use super::*;
 use crate::compact_followups::workspace_scoped_path;
 use crate::{
-    concept_resolution_is_ambiguous, resolve_concepts_for_session, weak_concept_match_reason,
+    concept_resolution_is_ambiguous, resolve_concepts_for_task_context,
+    weak_concept_match_reason,
 };
 
 impl QueryHost {
@@ -47,6 +48,7 @@ impl QueryHost {
                     if let Some(handle) = resolve_workset_query_concept_handle(
                         prism.as_ref(),
                         session.as_ref(),
+                        args.task_id.as_deref(),
                         query,
                     ) {
                         let mut result = compact_concept_workset_result(
@@ -1905,7 +1907,7 @@ pub(super) fn resolve_or_select_workset_target(
             kind: None,
             path: None,
             module: None,
-            task_id: None,
+            task_id: args.task_id.clone(),
             path_mode: None,
             strategy: Some("direct".to_string()),
             structured_path: None,
@@ -1932,12 +1934,13 @@ pub(super) fn resolve_or_select_workset_target(
 fn resolve_workset_query_concept_handle(
     prism: &Prism,
     session: &SessionState,
+    task_id: Option<&str>,
     query: &str,
 ) -> Option<String> {
     if !query_prefers_concept_resolution(query) {
         return None;
     }
-    let resolutions = resolve_concepts_for_session(prism, session, query, 2);
+    let resolutions = resolve_concepts_for_task_context(prism, session, task_id, query, 2);
     let top = resolutions.first()?;
     if concept_resolution_is_ambiguous(&resolutions) {
         return None;

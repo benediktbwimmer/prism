@@ -88,7 +88,7 @@ struct SearchIntent {
 }
 
 #[derive(Debug, Clone)]
-struct TaskScope {
+pub(crate) struct TaskScope {
     task_id: String,
     nodes: Vec<String>,
     lineages: Vec<String>,
@@ -1087,7 +1087,7 @@ fn summarize_candidate_buckets(ranked: &[RankedCandidate]) -> String {
         .join(", ")
 }
 
-fn build_task_scope(prism: &Prism, task_id: &str) -> Option<TaskScope> {
+pub(crate) fn build_task_scope(prism: &Prism, task_id: &str) -> Option<TaskScope> {
     let task_id = task_id.trim();
     if task_id.is_empty() {
         return None;
@@ -1139,7 +1139,10 @@ fn candidate_matches_task_scope(symbol: &SymbolView, task_scope: Option<&TaskSco
     candidate_task_match(symbol, task_scope).is_some()
 }
 
-fn candidate_task_match(symbol: &SymbolView, task_scope: Option<&TaskScope>) -> Option<TaskMatch> {
+pub(crate) fn candidate_task_match(
+    symbol: &SymbolView,
+    task_scope: Option<&TaskScope>,
+) -> Option<TaskMatch> {
     let task_scope = task_scope?;
     if task_scope.nodes.iter().any(|path| path == &symbol.id.path) {
         return Some(TaskMatch::ExactNode);
@@ -1481,7 +1484,7 @@ fn identifier_stem(value: &str) -> String {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum TaskMatch {
+pub(crate) enum TaskMatch {
     ExactNode,
     SameLineage,
 }

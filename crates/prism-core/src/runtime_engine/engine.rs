@@ -9,7 +9,7 @@ use super::generation::{
 };
 use super::queue::{
     WorkspaceRuntimeCoalescingKey, WorkspaceRuntimeCommand, WorkspaceRuntimeCommandKind,
-    WorkspaceRuntimeQueueDepth, WorkspaceRuntimeQueueSnapshot,
+    WorkspaceRuntimePathRequest, WorkspaceRuntimeQueueDepth, WorkspaceRuntimeQueueSnapshot,
 };
 
 #[derive(Debug, Clone)]
@@ -17,6 +17,7 @@ pub struct WorkspaceRuntimeEngine {
     context: WorkspaceRuntimeContext,
     published_generation: WorkspacePublishedGeneration,
     current_file_facts: BTreeMap<PathBuf, WorkspaceFileSemanticFacts>,
+    checkpoint_pending: bool,
     next_generation_id: WorkspaceGenerationId,
     next_delta_sequence: WorkspaceRuntimeDeltaSequence,
     recent_deltas: VecDeque<WorkspaceRuntimeDeltaBatch>,
@@ -32,6 +33,7 @@ impl WorkspaceRuntimeEngine {
             published_generation: WorkspacePublishedGeneration::initial(context.clone()),
             context,
             current_file_facts: BTreeMap::new(),
+            checkpoint_pending: false,
             next_generation_id: WorkspaceGenerationId(1),
             next_delta_sequence: WorkspaceRuntimeDeltaSequence(1),
             recent_deltas: VecDeque::with_capacity(Self::RECENT_DELTA_LIMIT),
@@ -54,6 +56,14 @@ impl WorkspaceRuntimeEngine {
 
     pub fn current_file_facts(&self) -> &BTreeMap<PathBuf, WorkspaceFileSemanticFacts> {
         &self.current_file_facts
+    }
+
+    pub fn checkpoint_pending(&self) -> bool {
+        self.checkpoint_pending
+    }
+
+    pub fn set_checkpoint_pending(&mut self, pending: bool) {
+        self.checkpoint_pending = pending;
     }
 
     pub fn file_facts(&self, path: &std::path::Path) -> Option<&WorkspaceFileSemanticFacts> {
@@ -232,15 +242,26 @@ fn merge_command(existing: &mut WorkspaceRuntimeCommand, incoming: WorkspaceRunt
     existing.kind = incoming.kind;
     existing.queue_class = incoming.queue_class;
     existing.coalescing_key = incoming.coalescing_key;
-    if incoming.paths.is_empty() {
+    existing.target_generation = existing.target_generation.max(incoming.target_generation);
+    if incoming.path_requests.is_empty() {
         return;
     }
-    let mut seen = existing.paths.iter().cloned().collect::<BTreeSet<_>>();
-    for path in incoming.paths {
-        if seen.insert(path.clone()) {
-            existing.paths.push(path);
-        }
+    let mut merged = existing
+        .path_requests
+        .iter()
+        .cloned()
+        .map(|request| (request.path, request.revision))
+        .collect::<BTreeMap<_, _>>();
+    for request in incoming.path_requests {
+        merged
+            .entry(request.path)
+            .and_modify(|revision| *revision = (*revision).max(request.revision))
+            .or_insert(request.revision);
     }
+    existing.path_requests = merged
+        .into_iter()
+        .map(|(path, revision)| WorkspaceRuntimePathRequest { path, revision })
+        .collect();
 }
 
 #[cfg(test)]
@@ -252,7 +273,7 @@ mod tests {
     use crate::runtime_engine::{
         RuntimeFreshnessState, RuntimeMaterializationDepth, WorkspaceFileDelta,
         WorkspaceFileSemanticFacts, WorkspaceRuntimeCoalescingKey, WorkspaceRuntimeCommand,
-        WorkspaceRuntimeCommandKind, WorkspaceRuntimeQueueClass,
+        WorkspaceRuntimeCommandKind, WorkspaceRuntimePathRequest, WorkspaceRuntimeQueueClass,
     };
     use prism_ir::FileId;
     use prism_parser::ParseDepth;
@@ -455,18 +476,34 @@ mod tests {
         let root = std::env::current_dir().expect("cwd");
         let context = WorkspaceRuntimeContext::from_root(&root);
         let mut engine = WorkspaceRuntimeEngine::new(context);
-        assert!(engine.enqueue_command(WorkspaceRuntimeCommand::with_paths(
-            WorkspaceRuntimeCommandKind::PreparePaths,
-            WorkspaceRuntimeQueueClass::FastPrepare,
-            WorkspaceRuntimeCoalescingKey::WorktreeContext,
-            vec![PathBuf::from("src/lib.rs")],
-        )));
-        assert!(!engine.enqueue_command(WorkspaceRuntimeCommand::with_paths(
-            WorkspaceRuntimeCommandKind::PreparePaths,
-            WorkspaceRuntimeQueueClass::FastPrepare,
-            WorkspaceRuntimeCoalescingKey::WorktreeContext,
-            vec![PathBuf::from("src/main.rs"), PathBuf::from("src/lib.rs")],
-        )));
+        assert!(
+            engine.enqueue_command(WorkspaceRuntimeCommand::with_path_requests(
+                WorkspaceRuntimeCommandKind::PreparePaths,
+                WorkspaceRuntimeQueueClass::FastPrepare,
+                WorkspaceRuntimeCoalescingKey::WorktreeContext,
+                vec![WorkspaceRuntimePathRequest {
+                    path: PathBuf::from("src/lib.rs"),
+                    revision: 1,
+                }],
+            ))
+        );
+        assert!(
+            !engine.enqueue_command(WorkspaceRuntimeCommand::with_path_requests(
+                WorkspaceRuntimeCommandKind::PreparePaths,
+                WorkspaceRuntimeQueueClass::FastPrepare,
+                WorkspaceRuntimeCoalescingKey::WorktreeContext,
+                vec![
+                    WorkspaceRuntimePathRequest {
+                        path: PathBuf::from("src/main.rs"),
+                        revision: 2,
+                    },
+                    WorkspaceRuntimePathRequest {
+                        path: PathBuf::from("src/lib.rs"),
+                        revision: 3,
+                    },
+                ],
+            ))
+        );
         let snapshot = engine.queue_snapshot();
         assert_eq!(snapshot.total_depth, 1);
         assert_eq!(snapshot.queued[0].depth, 1);
@@ -475,12 +512,49 @@ mod tests {
             .expect("queued command should start");
         assert_eq!(active.kind, WorkspaceRuntimeCommandKind::PreparePaths);
         assert_eq!(
-            active.paths,
-            vec![PathBuf::from("src/lib.rs"), PathBuf::from("src/main.rs")]
+            active.path_requests,
+            vec![
+                WorkspaceRuntimePathRequest {
+                    path: PathBuf::from("src/lib.rs"),
+                    revision: 3,
+                },
+                WorkspaceRuntimePathRequest {
+                    path: PathBuf::from("src/main.rs"),
+                    revision: 2,
+                }
+            ]
         );
+        assert_eq!(active.target_generation, None);
         assert!(engine.has_pending_command_kind(WorkspaceRuntimeCommandKind::PreparePaths));
         engine.finish_active_command();
         assert!(!engine.has_pending_command_kind(WorkspaceRuntimeCommandKind::PreparePaths));
+    }
+
+    #[test]
+    fn runtime_engine_coalesces_domain_commands_to_latest_generation() {
+        let root = std::env::current_dir().expect("cwd");
+        let context = WorkspaceRuntimeContext::from_root(&root);
+        let mut engine = WorkspaceRuntimeEngine::new(context);
+        assert!(engine.enqueue_command(
+            WorkspaceRuntimeCommand::new(
+                WorkspaceRuntimeCommandKind::SettleDomain(RuntimeDomain::Projections),
+                WorkspaceRuntimeQueueClass::Settle,
+                WorkspaceRuntimeCoalescingKey::Domain(RuntimeDomain::Projections),
+            )
+            .with_target_generation(WorkspaceGenerationId(2))
+        ));
+        assert!(!engine.enqueue_command(
+            WorkspaceRuntimeCommand::new(
+                WorkspaceRuntimeCommandKind::SettleDomain(RuntimeDomain::Projections),
+                WorkspaceRuntimeQueueClass::Settle,
+                WorkspaceRuntimeCoalescingKey::Domain(RuntimeDomain::Projections),
+            )
+            .with_target_generation(WorkspaceGenerationId(4))
+        ));
+        let active = engine
+            .start_next_command()
+            .expect("queued command should start");
+        assert_eq!(active.target_generation, Some(WorkspaceGenerationId(4)));
     }
 
     #[test]

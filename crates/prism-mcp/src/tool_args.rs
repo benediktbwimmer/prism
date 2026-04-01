@@ -210,6 +210,25 @@ pub(crate) fn validate_tool_input_value(tool_name: &str, value: Value) -> ToolIn
     }
 }
 
+fn deserialize_optional_nonempty_enum<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    let Some(value) = Option::<Value>::deserialize(deserializer)? else {
+        return Ok(None);
+    };
+    if value
+        .as_str()
+        .is_some_and(|raw| raw.trim().is_empty())
+    {
+        return Ok(None);
+    }
+    T::deserialize(value)
+        .map(Some)
+        .map_err(de::Error::custom)
+}
+
 fn invalid_tool_validation(
     tool: &prism_js::ToolSchemaView,
     normalized_input: Value,
@@ -794,8 +813,17 @@ pub(crate) struct PrismLocateArgs {
     #[schemars(
         description = "Optional task intent that biases ranking toward code, docs, tests, or explanation targets. Accepts aliases such as `code` and `read` for `inspect`, plus docs-oriented aliases such as `docs` and `spec`; when omitted, docs-like `path` or `glob` filters automatically bias toward explanation targets."
     )]
-    #[serde(alias = "task_intent")]
+    #[serde(
+        alias = "task_intent",
+        default,
+        deserialize_with = "deserialize_optional_nonempty_enum"
+    )]
     pub(crate) task_intent: Option<PrismLocateTaskIntentInput>,
+    #[schemars(
+        description = "Optional coordination task id that biases ranking and follow-through toward the task's anchors, intent bindings, and related work context."
+    )]
+    #[serde(alias = "task_id")]
+    pub(crate) task_id: Option<String>,
     #[schemars(description = "Optional compact candidate count from 1 to 3.")]
     pub(crate) limit: Option<usize>,
     #[schemars(
@@ -869,6 +897,11 @@ pub(crate) struct PrismOpenArgs {
 pub(crate) struct PrismWorksetArgs {
     pub(crate) handle: Option<String>,
     pub(crate) query: Option<String>,
+    #[schemars(
+        description = "Optional coordination task id that biases workset selection and broad-query resolution toward the task's active work context."
+    )]
+    #[serde(alias = "task_id")]
+    pub(crate) task_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
@@ -934,8 +967,14 @@ pub(crate) struct PrismConceptArgs {
     #[schemars(description = "Broad repo noun or phrase to resolve into a concept packet.")]
     pub(crate) query: Option<String>,
     #[schemars(
+        description = "Optional coordination task id that biases concept resolution toward task-related provenance and task intent context."
+    )]
+    #[serde(alias = "task_id")]
+    pub(crate) task_id: Option<String>,
+    #[schemars(
         description = "Optional decode lens. When provided, also decode the concept into supporting context."
     )]
+    #[serde(default, deserialize_with = "deserialize_optional_nonempty_enum")]
     pub(crate) lens: Option<PrismConceptLensInput>,
     #[schemars(
         description = "Optional concept-packet density. Use `summary` for the lightest packet, `standard` for compact orientation, or `full` for the complete concept payload."

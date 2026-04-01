@@ -4586,6 +4586,7 @@ pub fn runtime_status_contract_test() {}
             PrismWorksetArgs {
                 handle: None,
                 query: Some("runtime_status".to_string()),
+            task_id: None,
             },
         )
         .expect("workset should succeed");
@@ -5369,6 +5370,7 @@ fn compact_agent_tools_keep_handles_stable_within_one_session() {
                 path: None,
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: None,
             },
@@ -5382,6 +5384,7 @@ fn compact_agent_tools_keep_handles_stable_within_one_session() {
                 path: None,
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: None,
             },
@@ -5835,6 +5838,7 @@ This section explains the event journal flow.
                 path: None,
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: None,
             },
@@ -5852,6 +5856,7 @@ This section explains the event journal flow.
                 path: None,
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: None,
             },
@@ -5898,6 +5903,7 @@ This section explains the event journal flow.
                 path: Some("docs/SPEC.md".to_string()),
                 glob: None,
                 task_intent: None,
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: None,
             },
@@ -5955,6 +5961,84 @@ fn prism_locate_accepts_snake_case_field_aliases_and_extra_task_intent_synonyms(
 }
 
 #[test]
+fn prism_locate_treats_empty_task_intent_as_omitted() {
+    let args: PrismLocateArgs = serde_json::from_value(json!({
+        "query": "event journal",
+        "taskIntent": "",
+    }))
+    .expect("empty task intent should deserialize as omitted");
+
+    assert!(args.task_intent.is_none());
+}
+
+#[test]
+fn compact_locate_optional_task_id_biases_ranking_toward_task_scope() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn task_alpha() {}
+pub fn other_alpha() {}
+"#,
+    )
+    .unwrap();
+
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+    let plan = host
+        .store_coordination(
+            session.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Scope alpha work" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = host
+        .store_coordination(
+            session.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit task alpha",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::task_alpha",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    let locate = host
+        .compact_locate(
+            Arc::clone(&session),
+            PrismLocateArgs {
+                query: "alpha".to_string(),
+                path: None,
+                glob: None,
+                task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                task_id: Some(task_id),
+                limit: Some(3),
+                include_top_preview: None,
+            },
+        )
+        .expect("locate should succeed");
+
+    assert_eq!(locate.candidates[0].path, "demo::task_alpha");
+    assert!(locate
+        .selection_reason
+        .as_deref()
+        .is_some_and(|reason| reason.contains("requested task scope")));
+}
+
+#[test]
 fn prism_open_accepts_snake_case_field_aliases() {
     let args: PrismOpenArgs = serde_json::from_value(json!({
         "path": "docs/SPEC.md",
@@ -5987,6 +6071,101 @@ fn prism_expand_and_concept_accept_snake_case_field_aliases() {
     }))
     .expect("snake_case concept aliases should deserialize");
     assert_eq!(concept.include_binding_metadata, Some(true));
+}
+
+#[test]
+fn prism_concept_treats_empty_lens_as_omitted() {
+    let args: PrismConceptArgs = serde_json::from_value(json!({
+        "query": "runtime",
+        "lens": "",
+    }))
+    .expect("empty concept lens should deserialize as omitted");
+
+    assert!(args.lens.is_none());
+}
+
+#[test]
+fn compact_concept_query_honors_optional_task_id() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn validation_recipe() {}
+pub fn runtime_validation() {}
+"#,
+    )
+    .unwrap();
+
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+    host.store_concept(
+        session.as_ref(),
+        PrismConceptMutationArgs {
+            operation: ConceptMutationOperationInput::Promote,
+            handle: Some("concept://general_validation".to_string()),
+            canonical_name: Some("general validation".to_string()),
+            summary: Some("Validation recipe and checks.".to_string()),
+            aliases: Some(vec!["validation".to_string()]),
+            core_members: Some(vec![NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::validation_recipe".to_string(),
+                kind: "function".to_string(),
+            }]),
+            supporting_members: None,
+            likely_tests: None,
+            evidence: Some(vec!["General validation concept.".to_string()]),
+            risk_hint: None,
+            decode_lenses: None,
+            scope: None,
+            confidence: Some(0.95),
+            task_id: Some("task:general-validation".to_string()),
+            supersedes: None,
+            retirement_reason: None,
+        },
+    )
+    .unwrap();
+    host.store_concept(
+        session.as_ref(),
+        PrismConceptMutationArgs {
+            operation: ConceptMutationOperationInput::Promote,
+            handle: Some("concept://runtime_validation".to_string()),
+            canonical_name: Some("runtime validation".to_string()),
+            summary: Some("Validation work tied to runtime execution.".to_string()),
+            aliases: Some(vec!["validation".to_string()]),
+            core_members: Some(vec![NodeIdInput {
+                crate_name: "demo".to_string(),
+                path: "demo::runtime_validation".to_string(),
+                kind: "function".to_string(),
+            }]),
+            supporting_members: None,
+            likely_tests: None,
+            evidence: Some(vec!["Runtime validation concept.".to_string()]),
+            risk_hint: None,
+            decode_lenses: None,
+            scope: None,
+            confidence: Some(0.80),
+            task_id: Some("task:runtime-validation".to_string()),
+            supersedes: None,
+            retirement_reason: None,
+        },
+    )
+    .unwrap();
+
+    let concept = host
+        .compact_concept(
+            Arc::clone(&session),
+            PrismConceptArgs {
+                handle: None,
+                query: Some("validation".to_string()),
+                task_id: Some("task:runtime-validation".to_string()),
+                lens: None,
+                verbosity: None,
+                include_binding_metadata: None,
+            },
+        )
+        .expect("concept query should succeed");
+
+    assert_eq!(concept.packet.handle, "concept://runtime_validation");
 }
 
 #[test]
@@ -6033,6 +6212,7 @@ pub fn compact_open_returns_compact_related_handles() {}
                 path: None,
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: None,
             },
@@ -6083,6 +6263,7 @@ pub fn locate_query_tokens() {}
                 path: None,
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: None,
             },
@@ -6146,6 +6327,7 @@ pub fn render_operation_detail() {
                 path: None,
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: None,
             },
@@ -6208,6 +6390,7 @@ pub fn workspace_identity_path_resolution() {}
                 path: None,
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Inspect),
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: None,
             },
@@ -6264,6 +6447,7 @@ pub fn compact_open() {
                 path: Some("src/compact_tools.rs".to_string()),
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: Some(true),
             },
@@ -6309,6 +6493,7 @@ def helper():
                 path: Some("benchmarks/scripts/benchmark_codex.py".to_string()),
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: Some(true),
             },
@@ -6365,6 +6550,7 @@ fn compact_open_remaps_stale_text_fragment_handles_after_file_edits() {
                 path: Some("benchmarks/scripts/benchmark_codex.py".to_string()),
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                task_id: None,
                 limit: Some(1),
                 include_top_preview: None,
             },
@@ -6433,6 +6619,7 @@ The event journal snapshot should persist journal entries.
                 path: None,
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: None,
             },
@@ -6490,6 +6677,7 @@ pub fn compact_open() {
                 path: Some("src/lib.rs".to_string()),
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                task_id: None,
                 limit: Some(1),
                 include_top_preview: None,
             },
@@ -6559,6 +6747,7 @@ fn compact_open_deepens_shallow_semantic_files_on_first_touch() {
                 path: Some("src/lib.rs".to_string()),
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                task_id: None,
                 limit: Some(1),
                 include_top_preview: None,
             },
@@ -6628,6 +6817,7 @@ pub fn edit_target() {
                 path: Some("src/lib.rs".to_string()),
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                task_id: None,
                 limit: Some(1),
                 include_top_preview: None,
             },
@@ -6684,6 +6874,7 @@ pub fn giant_target() {
                 path: Some("src/lib.rs".to_string()),
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                task_id: None,
                 limit: Some(1),
                 include_top_preview: None,
             },
@@ -6983,6 +7174,7 @@ def helper():
                 path: Some("benchmarks/scripts/benchmark_codex.py".to_string()),
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: None,
             },
@@ -6995,6 +7187,7 @@ def helper():
             PrismWorksetArgs {
                 handle: Some(locate.candidates[0].handle.clone()),
                 query: None,
+            task_id: None,
             },
         )
         .expect("workset should succeed");
@@ -7053,6 +7246,7 @@ fn edit_target_smoke_test() {
                 path: Some("src/lib.rs".to_string()),
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Edit),
+                task_id: None,
                 limit: Some(1),
                 include_top_preview: None,
             },
@@ -7065,6 +7259,7 @@ fn edit_target_smoke_test() {
             PrismWorksetArgs {
                 handle: Some(locate.candidates[0].handle.clone()),
                 query: None,
+            task_id: None,
             },
         )
         .expect("workset should succeed");
@@ -7166,6 +7361,7 @@ pub fn validation_recipe_test() {}
             PrismConceptArgs {
                 handle: None,
                 query: Some("validation".to_string()),
+                task_id: None,
                 lens: Some(PrismConceptLensInput::Validation),
                 verbosity: None,
                 include_binding_metadata: Some(true),
@@ -7325,6 +7521,7 @@ pub fn task_risk() {}
             PrismConceptArgs {
                 handle: None,
                 query: Some("validation".to_string()),
+                task_id: None,
                 lens: Some(PrismConceptLensInput::Validation),
                 verbosity: Some(PrismConceptVerbosityInput::Summary),
                 include_binding_metadata: Some(false),
@@ -7604,6 +7801,7 @@ pub fn healthcheck_status() {}
             PrismConceptArgs {
                 handle: None,
                 query: Some("validation".to_string()),
+                task_id: None,
                 lens: None,
                 verbosity: None,
                 include_binding_metadata: Some(false),
@@ -7724,6 +7922,7 @@ pub fn validation_recipe_test() {}
             PrismWorksetArgs {
                 handle: Some("concept://custom_validation".to_string()),
                 query: None,
+            task_id: None,
             },
         )
         .expect("workset should accept concept handles");
@@ -7986,6 +8185,7 @@ fn compact_concept_followthrough_falls_back_when_live_members_are_empty() {
             PrismConceptArgs {
                 handle: Some("concept://compact_tools".to_string()),
                 query: None,
+                task_id: None,
                 lens: None,
                 verbosity: None,
                 include_binding_metadata: Some(false),
@@ -8038,6 +8238,7 @@ fn compact_concept_followthrough_falls_back_when_live_members_are_empty() {
             PrismWorksetArgs {
                 handle: Some("concept://compact_tools".to_string()),
                 query: None,
+            task_id: None,
             },
         )
         .expect("compact workset should fall back to follow-through targets");
@@ -8731,6 +8932,7 @@ fn compact_locate_promotes_numbered_markdown_headings_to_semantic_handles() {
                 path: Some("docs/SPEC.md".to_string()),
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: Some(true),
             },
@@ -8838,6 +9040,7 @@ fn compact_fragment_followups_surface_semantic_config_targets() {
             PrismWorksetArgs {
                 handle: Some(handle.clone()),
                 query: None,
+            task_id: None,
             },
         )
         .expect("workset should succeed");
@@ -9038,6 +9241,7 @@ fn compact_structured_config_handles_prefer_same_file_family_over_tests() {
             PrismWorksetArgs {
                 handle: Some(semantic_handle.clone()),
                 query: None,
+            task_id: None,
             },
         )
         .expect("workset should succeed");
@@ -9264,6 +9468,7 @@ pub fn memory_system_test() {}
             PrismWorksetArgs {
                 handle: None,
                 query: Some("memory system".to_string()),
+            task_id: None,
             },
         )
         .expect("workset should succeed");
@@ -9277,6 +9482,65 @@ pub fn memory_system_test() {}
     assert!(workset
         .why
         .contains("Session memory recall and outcome history"));
+}
+
+#[test]
+fn compact_workset_query_honors_optional_task_id() {
+    let root = temp_workspace();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+pub fn task_memory() {}
+pub fn other_memory() {}
+"#,
+    )
+    .unwrap();
+
+    let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
+    let session = test_session(&host);
+    let plan = host
+        .store_coordination(
+            session.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::PlanCreate,
+                payload: json!({ "goal": "Scope memory work" }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task = host
+        .store_coordination(
+            session.as_ref(),
+            PrismCoordinationArgs {
+                kind: CoordinationMutationKindInput::TaskCreate,
+                payload: json!({
+                    "planId": plan.state["id"].as_str().unwrap(),
+                    "title": "Edit task memory",
+                    "anchors": [{
+                        "type": "node",
+                        "crateName": "demo",
+                        "path": "demo::task_memory",
+                        "kind": "function"
+                    }]
+                }),
+                task_id: None,
+            },
+        )
+        .unwrap();
+    let task_id = task.state["id"].as_str().unwrap().to_string();
+
+    let workset = host
+        .compact_workset(
+            Arc::clone(&session),
+            PrismWorksetArgs {
+                handle: None,
+                query: Some("memory".to_string()),
+                task_id: Some(task_id),
+            },
+        )
+        .expect("workset should succeed");
+
+    assert_eq!(workset.primary.path, "demo::task_memory");
 }
 
 #[test]
@@ -9294,6 +9558,7 @@ fn compact_expand_drift_surfaces_spec_gap_summary() {
                 path: Some("docs/SPEC.md".to_string()),
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: None,
             },
@@ -9344,6 +9609,7 @@ fn compact_expand_neighbors_can_include_top_preview() {
                 path: Some("docs/SPEC.md".to_string()),
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: None,
             },
@@ -9390,6 +9656,7 @@ fn compact_tool_query_trace_records_refresh_and_handler_phases() {
             path: Some("docs/SPEC.md".to_string()),
             glob: None,
             task_intent: Some(PrismLocateTaskIntentInput::Explain),
+            task_id: None,
             limit: Some(3),
             include_top_preview: None,
         },
@@ -10354,6 +10621,7 @@ fn compact_workset_for_spec_targets_surfaces_drift_reads_and_gap_summary() {
                 path: Some("docs/SPEC.md".to_string()),
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: None,
             },
@@ -10367,6 +10635,7 @@ fn compact_workset_for_spec_targets_surfaces_drift_reads_and_gap_summary() {
             PrismWorksetArgs {
                 handle: Some(locate.candidates[0].handle.clone()),
                 query: None,
+            task_id: None,
             },
         )
         .expect("workset should succeed");
@@ -10398,6 +10667,7 @@ fn compact_workset_for_spec_targets_prefers_owner_paths_over_text_adjacent_helpe
                 path: Some("docs/DASHBOARD_IMPLEMENTATION_SPEC.md".to_string()),
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: None,
             },
@@ -10411,6 +10681,7 @@ fn compact_workset_for_spec_targets_prefers_owner_paths_over_text_adjacent_helpe
             PrismWorksetArgs {
                 handle: Some(locate.candidates[0].handle.clone()),
                 query: None,
+            task_id: None,
             },
         )
         .expect("workset should succeed");
@@ -10466,6 +10737,7 @@ fn compact_workset_for_product_surface_spec_headings_lifts_body_identifiers() {
                 path: Some("docs/SPEC.md".to_string()),
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: None,
             },
@@ -10479,6 +10751,7 @@ fn compact_workset_for_product_surface_spec_headings_lifts_body_identifiers() {
             PrismWorksetArgs {
                 handle: Some(locate.candidates[0].handle.clone()),
                 query: None,
+            task_id: None,
             },
         )
         .expect("workset should succeed");
@@ -10524,6 +10797,7 @@ fn compact_spec_followups_surface_governing_sections_before_owner_hops() {
                 path: Some("docs/SPEC.md".to_string()),
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: None,
             },
@@ -10536,6 +10810,7 @@ fn compact_spec_followups_surface_governing_sections_before_owner_hops() {
             PrismWorksetArgs {
                 handle: Some(locate.candidates[0].handle.clone()),
                 query: None,
+            task_id: None,
             },
         )
         .expect("workset should succeed");
@@ -10693,6 +10968,7 @@ fn compact_open_for_product_surface_spec_headings_prefers_identifier_owners() {
                 path: Some("docs/SPEC.md".to_string()),
                 glob: None,
                 task_intent: Some(PrismLocateTaskIntentInput::Explain),
+                task_id: None,
                 limit: Some(3),
                 include_top_preview: None,
             },
@@ -13079,6 +13355,8 @@ fn prism_runtime_views_prefer_structured_runtime_state() {
         .to_string(),
     )
     .unwrap();
+    crate::runtime_views::refresh_cached_runtime_status(&host)
+        .expect("structured runtime state should refresh the cached runtime status");
 
     let result = host
         .execute(
@@ -16186,6 +16464,10 @@ fn runtime_status_surfaces_published_generation_and_domain_freshness() {
         .domains
         .iter()
         .any(|domain| { domain.domain == "cross_file_edges" && domain.freshness == "current" }));
+    assert!(refreshed
+        .domains
+        .iter()
+        .any(|domain| { domain.domain == "checkpoint" && domain.freshness == "pending" }));
 }
 
 #[test]
