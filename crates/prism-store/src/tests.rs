@@ -15,7 +15,9 @@ use prism_memory::{
     EpisodicMemorySnapshot, MemoryEntry, MemoryEvent, MemoryEventKind, MemoryId, MemoryKind,
     MemorySource, OutcomeMemorySnapshot, OutcomeRecallQuery,
 };
-use prism_parser::ParseDepth;
+use prism_parser::{
+    ParseDepth, UnresolvedCall, UnresolvedImpl, UnresolvedImport, UnresolvedIntent,
+};
 use prism_projections::{
     CoChangeDelta, CoChangeRecord, ConceptPacket, ConceptProvenance, ConceptRelation,
     ConceptRelationKind, ConceptScope, ProjectionSnapshot, ValidationCheck, ValidationDelta,
@@ -3891,5 +3893,270 @@ fn sqlite_store_index_batch_updates_structurally_unchanged_file_state_in_place()
     assert_eq!(state.nodes.len(), 1);
 
     drop(store);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn sqlite_store_in_place_updates_preserve_unresolved_entry_columns() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-unresolved-in-place-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let source_path = PathBuf::from("src/lib.rs");
+    let mut graph = Graph::new();
+    graph.upsert_file_from(
+        None,
+        &source_path,
+        1,
+        prism_parser::ParseDepth::Deep,
+        vec![node("alpha")],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        &[],
+    );
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    store
+        .commit_index_persist_batch(
+            &graph,
+            &IndexPersistBatch {
+                upserted_paths: vec![source_path.clone()],
+                in_place_upserted_paths: Vec::new(),
+                removed_paths: Vec::new(),
+                history_snapshot: HistorySnapshot {
+                    node_to_lineage: Vec::new(),
+                    events: Vec::new(),
+                    tombstones: Vec::new(),
+                    next_lineage: 1,
+                    next_event: 2,
+                },
+                history_delta: None,
+                outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+                outcome_events: Vec::new(),
+                defer_graph_materialization: false,
+                co_change_deltas: Vec::new(),
+                validation_deltas: Vec::new(),
+                projection_snapshot: None,
+                workspace_tree_snapshot: None,
+            },
+        )
+        .unwrap();
+
+    let owner = NodeId::new("demo", "demo::alpha", NodeKind::Function);
+    let update = graph.upsert_file_from(
+        None,
+        &source_path,
+        2,
+        prism_parser::ParseDepth::Deep,
+        vec![node("alpha")],
+        Vec::new(),
+        HashMap::new(),
+        vec![UnresolvedCall {
+            caller: owner.clone(),
+            name: "helper".into(),
+            span: Span { start: 10, end: 20 },
+            module_path: "demo".into(),
+        }],
+        vec![UnresolvedImport {
+            importer: owner.clone(),
+            path: "std::path::Path".into(),
+            span: Span { start: 30, end: 40 },
+            module_path: "demo".into(),
+        }],
+        vec![UnresolvedImpl {
+            impl_node: owner.clone(),
+            target: "DemoTarget".into(),
+            span: Span { start: 50, end: 60 },
+            module_path: "demo".into(),
+        }],
+        vec![UnresolvedIntent {
+            source: owner,
+            kind: EdgeKind::Calls,
+            target: "helper".into(),
+            span: Span { start: 70, end: 80 },
+        }],
+        &[],
+    );
+    assert!(update.persist_in_place);
+
+    store
+        .commit_index_persist_batch(
+            &graph,
+            &IndexPersistBatch {
+                upserted_paths: Vec::new(),
+                in_place_upserted_paths: vec![source_path.clone()],
+                removed_paths: Vec::new(),
+                history_snapshot: HistorySnapshot {
+                    node_to_lineage: Vec::new(),
+                    events: Vec::new(),
+                    tombstones: Vec::new(),
+                    next_lineage: 1,
+                    next_event: 2,
+                },
+                history_delta: None,
+                outcome_snapshot: OutcomeMemorySnapshot { events: Vec::new() },
+                outcome_events: Vec::new(),
+                defer_graph_materialization: false,
+                co_change_deltas: Vec::new(),
+                validation_deltas: Vec::new(),
+                projection_snapshot: None,
+                workspace_tree_snapshot: None,
+            },
+        )
+        .unwrap();
+
+    let reloaded = store.load_graph().unwrap().unwrap();
+    let state = reloaded.file_state(&source_path).unwrap();
+    assert_eq!(state.record.unresolved_calls.len(), 1);
+    assert_eq!(state.record.unresolved_calls[0].name.as_ref(), "helper");
+    assert_eq!(
+        state.record.unresolved_calls[0].span,
+        Span { start: 10, end: 20 }
+    );
+    assert_eq!(state.record.unresolved_imports.len(), 1);
+    assert_eq!(
+        state.record.unresolved_imports[0].path.as_ref(),
+        "std::path::Path"
+    );
+    assert_eq!(
+        state.record.unresolved_imports[0].span,
+        Span { start: 30, end: 40 }
+    );
+    assert_eq!(state.record.unresolved_impls.len(), 1);
+    assert_eq!(
+        state.record.unresolved_impls[0].target.as_ref(),
+        "DemoTarget"
+    );
+    assert_eq!(
+        state.record.unresolved_impls[0].span,
+        Span { start: 50, end: 60 }
+    );
+    assert_eq!(state.record.unresolved_intents.len(), 1);
+    assert_eq!(state.record.unresolved_intents[0].target.as_ref(), "helper");
+    assert_eq!(
+        state.record.unresolved_intents[0].span,
+        Span { start: 70, end: 80 }
+    );
+
+    drop(store);
+    let _ = std::fs::remove_file(path);
+}
+
+#[test]
+fn sqlite_store_load_graph_scrubs_malformed_unresolved_rows() {
+    let path = std::env::temp_dir().join(format!(
+        "prism-store-scrub-malformed-unresolved-{}.db",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let mut store = SqliteStore::open(&path).unwrap();
+
+    let mut graph = Graph::new();
+    graph.upsert_file(
+        Path::new("src/lib.rs"),
+        1,
+        vec![node("alpha")],
+        Vec::new(),
+        HashMap::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+    );
+    store.save_graph_snapshot(&graph).unwrap();
+    drop(store);
+
+    let conn = Connection::open(&path).unwrap();
+    conn.execute(
+        "INSERT INTO unresolved_imports(file_path, importer_crate_name, importer_path, importer_kind, path, span_start, span_end, module_path, target_path)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        rusqlite::params![
+            "src/lib.rs",
+            "demo",
+            "demo::alpha",
+            4,
+            "std::path::Path",
+            12,
+            "demo::module::Path",
+            "demo",
+            "std::path::Path",
+        ],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO unresolved_impls(file_path, impl_crate_name, impl_path, impl_kind, target, span_start, span_end, module_path)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        rusqlite::params![
+            "src/lib.rs",
+            "demo",
+            "demo::alpha",
+            4,
+            "DemoTarget",
+            13,
+            "demo::module::Target",
+            "demo",
+        ],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO unresolved_intents(file_path, source_crate_name, source_path, source_kind, kind, target, span_start, span_end)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        rusqlite::params![
+            "src/lib.rs",
+            "demo",
+            "demo::alpha",
+            4,
+            1,
+            "helper",
+            14,
+            "IntentTarget",
+        ],
+    )
+    .unwrap();
+    drop(conn);
+
+    let mut store = SqliteStore::open(&path).unwrap();
+    let reloaded = store.load_graph().unwrap().unwrap();
+    let state = reloaded.file_state(Path::new("src/lib.rs")).unwrap();
+    assert!(state.record.unresolved_imports.is_empty());
+    assert!(state.record.unresolved_impls.is_empty());
+    assert!(state.record.unresolved_intents.is_empty());
+    drop(store);
+
+    let conn = Connection::open(&path).unwrap();
+    let malformed_imports: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM unresolved_imports WHERE typeof(span_start) != 'integer' OR typeof(span_end) != 'integer'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let malformed_impls: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM unresolved_impls WHERE typeof(span_start) != 'integer' OR typeof(span_end) != 'integer'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let malformed_intents: i64 = conn
+        .query_row(
+            "SELECT count(*) FROM unresolved_intents WHERE typeof(span_start) != 'integer' OR typeof(span_end) != 'integer'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(malformed_imports, 0);
+    assert_eq!(malformed_impls, 0);
+    assert_eq!(malformed_intents, 0);
+
     let _ = std::fs::remove_file(path);
 }

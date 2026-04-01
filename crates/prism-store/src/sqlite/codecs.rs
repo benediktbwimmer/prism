@@ -3,6 +3,7 @@ use std::io::{Error as IoError, ErrorKind as IoErrorKind};
 
 use prism_ir::{EdgeKind, EdgeOrigin, Language, NodeKind};
 use prism_parser::NodeFingerprint;
+use rusqlite::{types::ValueRef, Row};
 
 pub(super) fn deserialize_fingerprint(raw: &str) -> NodeFingerprint {
     serde_json::from_str(raw).unwrap_or_else(|_| {
@@ -148,4 +149,36 @@ fn from_sql_conversion_error(message: String) -> rusqlite::Error {
         rusqlite::types::Type::Integer,
         Box::new(IoError::new(IoErrorKind::InvalidData, message)),
     )
+}
+
+pub(super) fn decode_u32ish(row: &Row<'_>, index: usize) -> rusqlite::Result<u32> {
+    match row.get_ref(index)? {
+        ValueRef::Integer(value) => u32::try_from(value).map_err(|_| {
+            from_sql_conversion_error(format!("integer out of range for u32: {value}"))
+        }),
+        ValueRef::Text(raw) => {
+            let value = std::str::from_utf8(raw).map_err(|error| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    index,
+                    rusqlite::types::Type::Text,
+                    Box::new(error),
+                )
+            })?;
+            value.parse::<u32>().map_err(|error| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    index,
+                    rusqlite::types::Type::Text,
+                    Box::new(error),
+                )
+            })
+        }
+        other => Err(rusqlite::Error::FromSqlConversionFailure(
+            index,
+            other.data_type(),
+            Box::new(IoError::new(
+                IoErrorKind::InvalidData,
+                format!("expected integer-like value, found {:?}", other.data_type()),
+            )),
+        )),
+    }
 }

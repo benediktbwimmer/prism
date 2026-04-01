@@ -10,7 +10,7 @@ use tracing::info;
 use crate::graph::{FileRecord, FileState, Graph, GraphSnapshot};
 
 use super::codecs::{
-    decode_edge_kind, decode_edge_origin, decode_language, decode_node_kind,
+    decode_edge_kind, decode_edge_origin, decode_language, decode_node_kind, decode_u32ish,
     deserialize_fingerprint, encode_edge_kind, encode_edge_origin, encode_language,
     encode_node_kind,
 };
@@ -182,6 +182,8 @@ pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
     let fingerprints_started = Instant::now();
     load_node_fingerprints(conn, &mut file_records)?;
     let load_fingerprints_ms = fingerprints_started.elapsed().as_millis();
+    let (scrubbed_malformed_unresolved_rows, scrub_malformed_unresolved_ms) =
+        scrub_malformed_unresolved_rows(conn)?;
     let unresolved_started = Instant::now();
     load_unresolved_calls(conn, &mut file_records)?;
     load_unresolved_imports(conn, &mut file_records)?;
@@ -219,11 +221,13 @@ pub(super) fn load_graph(conn: &Connection) -> Result<Option<Graph>> {
         unresolved_import_count,
         unresolved_impl_count,
         unresolved_intent_count,
+        scrubbed_malformed_unresolved_rows,
         load_nodes_ms,
         load_edges_ms,
         load_file_records_ms,
         load_file_nodes_ms,
         load_fingerprints_ms,
+        scrub_malformed_unresolved_ms,
         load_unresolved_ms,
         total_ms = started.elapsed().as_millis(),
         "loaded prism graph snapshot"
@@ -538,9 +542,9 @@ impl<'tx> FileStateWriter<'tx> {
                 call.caller.crate_name.as_str(),
                 call.caller.path.as_str(),
                 encode_node_kind(call.caller.kind),
+                call.name.as_str(),
                 call.span.start,
                 call.span.end,
-                call.name.as_str(),
                 call.module_path.as_str(),
             ])?;
         }
@@ -553,9 +557,9 @@ impl<'tx> FileStateWriter<'tx> {
                 import.importer.crate_name.as_str(),
                 import.importer.path.as_str(),
                 encode_node_kind(import.importer.kind),
+                import.path.as_str(),
                 import.span.start,
                 import.span.end,
-                import.path.as_str(),
                 import.module_path.as_str(),
                 import.path.as_str(),
             ])?;
@@ -569,9 +573,9 @@ impl<'tx> FileStateWriter<'tx> {
                 implementation.impl_node.crate_name.as_str(),
                 implementation.impl_node.path.as_str(),
                 encode_node_kind(implementation.impl_node.kind),
+                implementation.target.as_str(),
                 implementation.span.start,
                 implementation.span.end,
-                implementation.target.as_str(),
                 implementation.module_path.as_str(),
             ])?;
         }
@@ -584,10 +588,10 @@ impl<'tx> FileStateWriter<'tx> {
                 intent.source.crate_name.as_str(),
                 intent.source.path.as_str(),
                 encode_node_kind(intent.source.kind),
-                intent.span.start,
-                intent.span.end,
                 encode_edge_kind(intent.kind),
                 intent.target.as_str(),
+                intent.span.start,
+                intent.span.end,
             ])?;
         }
 
@@ -845,8 +849,8 @@ fn load_unresolved_calls(
                 ),
                 name: row.get::<_, String>(4)?.into(),
                 span: prism_ir::Span {
-                    start: row.get(5)?,
-                    end: row.get(6)?,
+                    start: decode_u32ish(row, 5)?,
+                    end: decode_u32ish(row, 6)?,
                 },
                 module_path: row.get::<_, String>(7)?.into(),
             },
@@ -879,8 +883,8 @@ fn load_unresolved_imports(
                 ),
                 path: row.get::<_, String>(4)?.into(),
                 span: prism_ir::Span {
-                    start: row.get(5)?,
-                    end: row.get(6)?,
+                    start: decode_u32ish(row, 5)?,
+                    end: decode_u32ish(row, 6)?,
                 },
                 module_path: row.get::<_, String>(7)?.into(),
             },
@@ -913,8 +917,8 @@ fn load_unresolved_impls(
                 ),
                 target: row.get::<_, String>(4)?.into(),
                 span: prism_ir::Span {
-                    start: row.get(5)?,
-                    end: row.get(6)?,
+                    start: decode_u32ish(row, 5)?,
+                    end: decode_u32ish(row, 6)?,
                 },
                 module_path: row.get::<_, String>(7)?.into(),
             },
@@ -948,8 +952,8 @@ fn load_unresolved_intents(
                 kind: decode_edge_kind(row.get(4)?)?,
                 target: row.get::<_, String>(5)?.into(),
                 span: prism_ir::Span {
-                    start: row.get(6)?,
-                    end: row.get(7)?,
+                    start: decode_u32ish(row, 6)?,
+                    end: decode_u32ish(row, 7)?,
                 },
             },
         ))
@@ -961,4 +965,23 @@ fn load_unresolved_intents(
         }
     }
     Ok(())
+}
+
+fn scrub_malformed_unresolved_rows(conn: &Connection) -> Result<(usize, u128)> {
+    let started = Instant::now();
+    let mut removed = 0;
+    for table in [
+        "unresolved_calls",
+        "unresolved_imports",
+        "unresolved_impls",
+        "unresolved_intents",
+    ] {
+        removed += conn.execute(
+            &format!(
+                "DELETE FROM {table} WHERE typeof(span_start) != 'integer' OR typeof(span_end) != 'integer'"
+            ),
+            [],
+        )?;
+    }
+    Ok((removed, started.elapsed().as_millis()))
 }
