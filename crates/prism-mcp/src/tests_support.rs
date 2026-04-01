@@ -72,6 +72,7 @@ pub(crate) fn workspace_session_with_owner_credential(
             shared_runtime: default_workspace_shared_runtime(root)
                 .expect("default shared runtime should resolve"),
             hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
         },
     )
     .expect("workspace session should index");

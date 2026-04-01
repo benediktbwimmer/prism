@@ -3000,6 +3000,7 @@ mod tests {
                 path: shared_runtime_sqlite,
             },
             hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
         };
         let session = Arc::new(
             prism_core::index_workspace_session_with_options(&root, options.clone()).unwrap(),

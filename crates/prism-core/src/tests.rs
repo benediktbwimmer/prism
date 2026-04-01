@@ -1908,6 +1908,7 @@ fn shared_runtime_sqlite_shares_session_memory_and_concepts_across_workspaces() 
             path: shared_runtime_sqlite.clone(),
         },
         hydrate_persisted_projections: false,
+        hydrate_persisted_co_change: true,
     };
     let session_one = index_workspace_session_with_options(&root_one, options.clone()).unwrap();
     let alpha = session_one
@@ -2023,6 +2024,7 @@ fn shared_runtime_sqlite_shares_memory_events_without_checkpoint_flush() {
             path: shared_runtime_sqlite.clone(),
         },
         hydrate_persisted_projections: false,
+        hydrate_persisted_co_change: true,
     };
     let session_one = index_workspace_session_with_options(&root_one, options.clone()).unwrap();
     let alpha = session_one
@@ -2109,6 +2111,7 @@ fn shared_runtime_sqlite_shares_principal_registry_across_workspaces() {
             path: shared_runtime_sqlite.clone(),
         },
         hydrate_persisted_projections: false,
+        hydrate_persisted_co_change: true,
     };
     let session_one = index_workspace_session_with_options(&root_one, options.clone()).unwrap();
     let snapshot = PrincipalRegistrySnapshot {
@@ -2176,6 +2179,7 @@ fn bootstrap_owner_and_mint_child_principal_round_trip_through_shared_runtime_re
                 path: shared_runtime_sqlite.clone(),
             },
             hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
         },
     )
     .unwrap();
@@ -5138,6 +5142,7 @@ fn recovery_rebuild_from_shared_runtime_journals_without_checkpoint_flush() {
             path: shared_runtime_sqlite,
         },
         hydrate_persisted_projections: false,
+        hydrate_persisted_co_change: true,
     };
     let session = index_workspace_session_with_options(&root, options.clone()).unwrap();
     let alpha = session
@@ -5335,6 +5340,7 @@ fn startup_hydrates_persisted_curated_concepts_even_when_derived_projections_sta
         hydrated_store,
         WorkspaceSessionOptions {
             hydrate_persisted_projections: true,
+            hydrate_persisted_co_change: true,
             ..WorkspaceSessionOptions::default()
         },
     )
@@ -6528,6 +6534,7 @@ fn workspace_session_can_disable_coordination_entirely() {
             coordination: false,
             shared_runtime: SharedRuntimeBackend::Disabled,
             hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
         },
     )
     .unwrap();

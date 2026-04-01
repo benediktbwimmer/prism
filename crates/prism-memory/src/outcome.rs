@@ -254,16 +254,7 @@ fn index_outcome(state: &mut OutcomeState, event: &OutcomeEvent) {
 }
 
 fn actor_key(actor: &EventActor) -> String {
-    match actor {
-        EventActor::User => "user".to_string(),
-        EventActor::Agent => "agent".to_string(),
-        EventActor::System => "system".to_string(),
-        EventActor::Principal(actor) => actor.scoped_id(),
-        EventActor::CI => "ci".to_string(),
-        EventActor::GitAuthor { name, email } => {
-            format!("git:{}:{}", name, email.as_deref().unwrap_or(""))
-        }
-    }
+    actor.canonical_identity_key()
 }
 
 fn apply_outcome_reanchor_event(

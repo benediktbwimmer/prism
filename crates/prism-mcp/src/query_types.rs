@@ -425,6 +425,10 @@ pub(crate) fn parse_event_actor(value: &str) -> Result<EventActor> {
         "agent" => Ok(EventActor::Agent),
         "system" => Ok(EventActor::System),
         "ci" => Ok(EventActor::CI),
+        "legacyagentfallback" => Ok(EventActor::Agent.canonical_identity_actor()),
+        "legacyhumanfallback" | "legacyuserfallback" => {
+            Ok(EventActor::User.canonical_identity_actor())
+        }
         _ => {
             if let Some(rest) = trimmed.strip_prefix("principal:") {
                 let (authority_id, principal_id) = rest
@@ -483,6 +487,12 @@ mod tests {
         assert!(error
             .to_string()
             .contains("principal actor must include authority and id"));
+    }
+
+    #[test]
+    fn parse_event_actor_accepts_legacy_fallback_shorthand() {
+        let actor = parse_event_actor("legacy_agent_fallback").unwrap();
+        assert_eq!(actor, EventActor::Agent.canonical_identity_actor());
     }
 }
 

@@ -1103,6 +1103,16 @@ fn sqlite_store_load_outcomes_reads_anchored_events_from_sqlite_index() {
         })
         .unwrap();
     assert_eq!(task_loaded, vec![events[1].clone()]);
+
+    let legacy_actor_loaded = store
+        .load_outcomes(&OutcomeRecallQuery {
+            actor: Some(EventActor::Agent.canonical_identity_actor()),
+            kinds: Some(vec![prism_memory::OutcomeKind::FailureObserved]),
+            limit: 10,
+            ..OutcomeRecallQuery::default()
+        })
+        .unwrap();
+    assert_eq!(legacy_actor_loaded, vec![events[0].clone()]);
 }
 
 #[test]

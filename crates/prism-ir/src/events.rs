@@ -2,7 +2,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 
-use crate::{CredentialId, EventId, PrincipalActor, TaskId, Timestamp};
+use crate::{
+    CredentialId, EventId, PrincipalActor, PrincipalAuthorityId, PrincipalId, PrincipalKind,
+    TaskId, Timestamp,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct EventMeta {
@@ -48,10 +51,44 @@ pub enum EventActor {
     CI,
 }
 
+impl EventActor {
+    pub fn canonical_identity_actor(&self) -> Self {
+        match self {
+            Self::Principal(actor) => Self::Principal(actor.clone()),
+            Self::Agent => Self::Principal(PrincipalActor {
+                authority_id: PrincipalAuthorityId::new("legacy"),
+                principal_id: PrincipalId::new("legacy_agent_fallback"),
+                kind: Some(PrincipalKind::Agent),
+                name: Some("legacy_agent_fallback".to_string()),
+            }),
+            Self::User => Self::Principal(PrincipalActor {
+                authority_id: PrincipalAuthorityId::new("legacy"),
+                principal_id: PrincipalId::new("legacy_human_fallback"),
+                kind: Some(PrincipalKind::Human),
+                name: Some("legacy_human_fallback".to_string()),
+            }),
+            _ => self.clone(),
+        }
+    }
+
+    pub fn canonical_identity_key(&self) -> String {
+        match self.canonical_identity_actor() {
+            Self::User => "user".to_string(),
+            Self::Agent => "agent".to_string(),
+            Self::System => "system".to_string(),
+            Self::Principal(actor) => actor.scoped_id(),
+            Self::CI => "ci".to_string(),
+            Self::GitAuthor { name, email } => {
+                format!("git:{}:{}", name, email.as_deref().unwrap_or(""))
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::EventActor;
-    use crate::{PrincipalActor, PrincipalAuthorityId, PrincipalId};
+    use crate::{PrincipalActor, PrincipalAuthorityId, PrincipalId, PrincipalKind};
 
     #[test]
     fn principal_actor_scoped_id_uses_authority_and_principal_id() {
@@ -66,5 +103,35 @@ mod tests {
             panic!("expected principal actor");
         };
         assert_eq!(principal.scoped_id(), "principal:local-daemon:agent-7");
+    }
+
+    #[test]
+    fn legacy_agent_actor_canonicalizes_to_fallback_principal() {
+        let canonical = EventActor::Agent.canonical_identity_actor();
+        let EventActor::Principal(principal) = canonical else {
+            panic!("expected principal actor");
+        };
+        assert_eq!(principal.authority_id, PrincipalAuthorityId::new("legacy"));
+        assert_eq!(
+            principal.principal_id,
+            PrincipalId::new("legacy_agent_fallback")
+        );
+        assert_eq!(principal.kind, Some(PrincipalKind::Agent));
+        assert_eq!(principal.name.as_deref(), Some("legacy_agent_fallback"));
+    }
+
+    #[test]
+    fn legacy_user_actor_canonicalizes_to_fallback_principal() {
+        let canonical = EventActor::User.canonical_identity_actor();
+        let EventActor::Principal(principal) = canonical else {
+            panic!("expected principal actor");
+        };
+        assert_eq!(principal.authority_id, PrincipalAuthorityId::new("legacy"));
+        assert_eq!(
+            principal.principal_id,
+            PrincipalId::new("legacy_human_fallback")
+        );
+        assert_eq!(principal.kind, Some(PrincipalKind::Human));
+        assert_eq!(principal.name.as_deref(), Some("legacy_human_fallback"));
     }
 }

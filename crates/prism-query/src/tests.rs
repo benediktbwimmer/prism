@@ -817,6 +817,23 @@ fn outcome_query_filters_expand_node_focus_with_additional_filters() {
 
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].summary, "agent failure");
+
+    let legacy_events = prism.query_outcomes(&OutcomeRecallQuery {
+        anchors: vec![AnchorRef::Node(NodeId::new(
+            "demo",
+            "demo::alpha",
+            NodeKind::Function,
+        ))],
+        task: Some(TaskId::new("task:alpha")),
+        kinds: Some(vec![OutcomeKind::FailureObserved]),
+        result: Some(OutcomeResult::Failure),
+        actor: Some(EventActor::Agent.canonical_identity_actor()),
+        since: Some(10),
+        limit: 10,
+    });
+
+    assert_eq!(legacy_events.len(), 1);
+    assert_eq!(legacy_events[0].summary, "agent failure");
 }
 
 #[test]

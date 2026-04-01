@@ -138,6 +138,23 @@ pub(super) fn load_projection_snapshot_rows(
     }))
 }
 
+pub(super) fn has_derived_projection_rows(conn: &Connection) -> Result<bool> {
+    let has_co_change = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM projection_co_change LIMIT 1)",
+        [],
+        |row| row.get::<_, i64>(0),
+    )?;
+    if has_co_change != 0 {
+        return Ok(true);
+    }
+    let has_validation = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM projection_validation LIMIT 1)",
+        [],
+        |row| row.get::<_, i64>(0),
+    )?;
+    Ok(has_validation != 0)
+}
+
 pub(super) fn load_projection_knowledge_rows(
     conn: &Connection,
 ) -> Result<Option<prism_projections::ProjectionSnapshot>> {
@@ -191,6 +208,97 @@ pub(super) fn load_projection_knowledge_rows(
     Ok(Some(prism_projections::ProjectionSnapshot {
         co_change_by_lineage: Vec::new(),
         validation_by_lineage: Vec::new(),
+        curated_concepts,
+        concept_relations,
+    }))
+}
+
+pub(super) fn load_projection_snapshot_without_co_change_rows(
+    conn: &Connection,
+) -> Result<Option<prism_projections::ProjectionSnapshot>> {
+    let started = Instant::now();
+
+    let mut validation_by_lineage =
+        HashMap::<prism_ir::LineageId, Vec<prism_projections::ValidationCheck>>::new();
+    {
+        let mut stmt = conn.prepare(
+            "SELECT lineage, label, score, last_seen
+             FROM projection_validation
+             ORDER BY lineage, score DESC, last_seen DESC, label",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                prism_ir::LineageId::new(row.get::<_, String>(0)?),
+                prism_projections::ValidationCheck {
+                    label: row.get(1)?,
+                    score: row.get(2)?,
+                    last_seen: row.get::<_, i64>(3)? as u64,
+                },
+            ))
+        })?;
+        for row in rows {
+            let (lineage, check) = row?;
+            validation_by_lineage
+                .entry(lineage)
+                .or_default()
+                .push(check);
+        }
+    }
+
+    let mut curated_concepts = Vec::<prism_projections::ConceptPacket>::new();
+    {
+        let mut stmt = conn.prepare(
+            "SELECT payload
+             FROM projection_curated_concept
+             ORDER BY handle",
+        )?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        for row in rows {
+            curated_concepts.push(serde_json::from_str(&row?)?);
+        }
+    }
+
+    let mut concept_relations = Vec::<prism_projections::ConceptRelation>::new();
+    {
+        let mut stmt = conn.prepare(
+            "SELECT payload
+             FROM projection_concept_relation
+             ORDER BY source_handle, target_handle, kind",
+        )?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        for row in rows {
+            concept_relations.push(serde_json::from_str(&row?)?);
+        }
+    }
+
+    if validation_by_lineage.is_empty() && curated_concepts.is_empty() && concept_relations.is_empty() {
+        info!(
+            total_ms = started.elapsed().as_millis(),
+            "loaded prism projection snapshot without co-change: none"
+        );
+        return Ok(None);
+    }
+
+    let validation_lineages = validation_by_lineage.len();
+    let validation_records = validation_by_lineage.values().map(Vec::len).sum::<usize>();
+    let curated_count = curated_concepts.len();
+    let relation_count = concept_relations.len();
+    let mut validation_by_lineage = validation_by_lineage.into_iter().collect::<Vec<_>>();
+    validation_by_lineage.sort_by(|left, right| left.0 .0.cmp(&right.0 .0));
+    curated_concepts.sort_by(|left, right| left.handle.cmp(&right.handle));
+
+    info!(
+        validation_lineages,
+        validation_records,
+        curated_count,
+        relation_count,
+        total_ms = started.elapsed().as_millis(),
+        "loaded prism projection snapshot without co-change"
+    );
+
+    Ok(Some(prism_projections::ProjectionSnapshot {
+        co_change_by_lineage: Vec::new(),
+        validation_by_lineage,
         curated_concepts,
         concept_relations,
     }))

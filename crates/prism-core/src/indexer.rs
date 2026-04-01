@@ -94,6 +94,8 @@ pub struct WorkspaceIndexer<S: Store> {
     pub(crate) workspace_tree_snapshot: Option<WorkspaceTreeSnapshot>,
     pub(crate) shared_runtime: SharedRuntimeBackend,
     pub(crate) shared_runtime_store: Option<SharedRuntimeStore>,
+    pub(crate) hydrate_persisted_projections: bool,
+    pub(crate) hydrate_persisted_co_change: bool,
     pub(crate) coordination_enabled: bool,
     pub(crate) startup_refresh: Option<WorkspaceRefreshSeed>,
 }
@@ -141,7 +143,20 @@ impl WorkspaceIndexer<SqliteStore> {
                     .map(|state| state.execution_overlays)
                     .unwrap_or_default();
             }
-            let local_projection_snapshot = indexer.store.load_projection_snapshot()?;
+            let local_projection_snapshot = if options.hydrate_persisted_projections {
+                indexer.store.load_projection_snapshot()?
+            } else if options.hydrate_persisted_co_change {
+                indexer.store.load_projection_snapshot()?
+            } else {
+                indexer.store.load_projection_snapshot_without_co_change()?
+            };
+            let local_has_derived_projection_snapshot = if options.hydrate_persisted_projections
+                || options.hydrate_persisted_co_change
+            {
+                local_projection_snapshot.is_some()
+            } else {
+                indexer.store.has_derived_projection_snapshot()?
+            };
             let shared_projection_snapshot = if shared_runtime_aliases_workspace_store {
                 None
             } else {
@@ -160,8 +175,9 @@ impl WorkspaceIndexer<SqliteStore> {
             } else {
                 None
             };
-            indexer.outcomes =
-                if local_projection_snapshot.is_some() || shared_projection_snapshot.is_some() {
+            indexer.outcomes = if local_has_derived_projection_snapshot
+                || shared_projection_snapshot.is_some()
+            {
                     shared_store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
                 } else {
                     shared_store.load_outcome_snapshot()?
@@ -281,6 +297,8 @@ impl WorkspaceIndexer<SqliteStore> {
             self.store,
             self.workspace_tree_snapshot.unwrap_or_default(),
             self.shared_runtime,
+            self.hydrate_persisted_projections,
+            self.hydrate_persisted_co_change,
             self.shared_runtime_store,
             self.layout,
             self.graph,
@@ -317,6 +335,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             coordination,
             shared_runtime,
             hydrate_persisted_projections: _,
+            hydrate_persisted_co_change: _,
         } = options;
         let layout_started = Instant::now();
         let layout = discover_layout(&root)?;
@@ -379,6 +398,8 @@ impl<S: Store> WorkspaceIndexer<S> {
             workspace_tree_snapshot,
             shared_runtime,
             shared_runtime_store: None,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
             coordination_enabled: coordination,
             startup_refresh: None,
         })
@@ -400,6 +421,7 @@ impl<S: Store> WorkspaceIndexer<S> {
             coordination,
             shared_runtime,
             hydrate_persisted_projections: _,
+            hydrate_persisted_co_change: _,
         } = options;
         let restore_runtime_started = Instant::now();
         let WorkspaceRuntimeState {
@@ -468,6 +490,8 @@ impl<S: Store> WorkspaceIndexer<S> {
             workspace_tree_snapshot,
             shared_runtime,
             shared_runtime_store: None,
+            hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
             coordination_enabled: coordination,
             startup_refresh: None,
         })
@@ -491,7 +515,20 @@ impl<S: Store> WorkspaceIndexer<S> {
         sync_root_nodes(&mut graph, &layout);
         resolve_graph_edges(&mut graph, None);
         let load_projection_started = Instant::now();
-        let persisted_projection_snapshot = store.load_projection_snapshot()?;
+        let persisted_projection_snapshot = if options.hydrate_persisted_projections {
+            store.load_projection_snapshot()?
+        } else if options.hydrate_persisted_co_change {
+            store.load_projection_snapshot()?
+        } else {
+            store.load_projection_snapshot_without_co_change()?
+        };
+        let local_has_derived_projection_snapshot = if options.hydrate_persisted_projections
+            || options.hydrate_persisted_co_change
+        {
+            persisted_projection_snapshot.is_some()
+        } else {
+            store.has_derived_projection_snapshot()?
+        };
         let workspace_tree_snapshot = store.load_workspace_tree_snapshot()?;
         let base_projection_snapshot = persisted_projection_snapshot.clone().map(|snapshot| {
             if options.hydrate_persisted_projections {
@@ -503,13 +540,13 @@ impl<S: Store> WorkspaceIndexer<S> {
         let load_projection_ms = load_projection_started.elapsed().as_millis();
         let load_history_started = Instant::now();
         let mut history = store
-            .load_history_snapshot_with_options(base_projection_snapshot.is_none())?
+            .load_history_snapshot_with_options(!local_has_derived_projection_snapshot)?
             .map(HistoryStore::from_snapshot)
             .unwrap_or_else(HistoryStore::new);
         let load_history_ms = load_history_started.elapsed().as_millis();
         history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
         let load_outcomes_started = Instant::now();
-        let outcomes = if base_projection_snapshot.is_some() {
+        let outcomes = if local_has_derived_projection_snapshot {
             store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
         } else {
             store.load_outcome_snapshot()?
@@ -614,6 +651,8 @@ impl<S: Store> WorkspaceIndexer<S> {
             workspace_tree_snapshot,
             shared_runtime: options.shared_runtime,
             shared_runtime_store: None,
+            hydrate_persisted_projections: options.hydrate_persisted_projections,
+            hydrate_persisted_co_change: options.hydrate_persisted_co_change,
             coordination_enabled: options.coordination,
             startup_refresh,
         })

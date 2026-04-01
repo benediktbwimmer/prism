@@ -77,6 +77,7 @@ pub struct WorkspaceSessionOptions {
     pub coordination: bool,
     pub shared_runtime: SharedRuntimeBackend,
     pub hydrate_persisted_projections: bool,
+    pub hydrate_persisted_co_change: bool,
 }
 
 impl Default for WorkspaceSessionOptions {
@@ -85,6 +86,7 @@ impl Default for WorkspaceSessionOptions {
             coordination: true,
             shared_runtime: SharedRuntimeBackend::Disabled,
             hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
         }
     }
 }

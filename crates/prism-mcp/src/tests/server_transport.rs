@@ -362,6 +362,7 @@ async fn stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap() {
                 path: shared_runtime_sqlite.clone(),
             },
             hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
         },
     )
     .expect("workspace session should index");
@@ -461,6 +462,7 @@ async fn stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap() {
                 path: shared_runtime_sqlite.clone(),
             },
             hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: false,
         },
     )
     .expect("workspace session should hydrate after restart");

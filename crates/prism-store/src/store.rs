@@ -196,6 +196,22 @@ pub trait Store {
                 concept_relations: snapshot.concept_relations,
             }))
     }
+    fn load_projection_snapshot_without_co_change(&mut self) -> Result<Option<ProjectionSnapshot>> {
+        Ok(self
+            .load_projection_snapshot()?
+            .map(|snapshot| ProjectionSnapshot {
+                co_change_by_lineage: Vec::new(),
+                validation_by_lineage: snapshot.validation_by_lineage,
+                curated_concepts: snapshot.curated_concepts,
+                concept_relations: snapshot.concept_relations,
+            }))
+    }
+    fn has_derived_projection_snapshot(&mut self) -> Result<bool> {
+        let Some(snapshot) = self.load_projection_snapshot()? else {
+            return Ok(false);
+        };
+        Ok(!snapshot.co_change_by_lineage.is_empty() || !snapshot.validation_by_lineage.is_empty())
+    }
     fn save_projection_snapshot(&mut self, snapshot: &ProjectionSnapshot) -> Result<()>;
     fn apply_projection_deltas(
         &mut self,
@@ -359,6 +375,14 @@ impl<T: Store + ?Sized> Store for MutexGuard<'_, T> {
 
     fn load_projection_knowledge_snapshot(&mut self) -> Result<Option<ProjectionSnapshot>> {
         Store::load_projection_knowledge_snapshot(&mut **self)
+    }
+
+    fn load_projection_snapshot_without_co_change(&mut self) -> Result<Option<ProjectionSnapshot>> {
+        Store::load_projection_snapshot_without_co_change(&mut **self)
+    }
+
+    fn has_derived_projection_snapshot(&mut self) -> Result<bool> {
+        Store::has_derived_projection_snapshot(&mut **self)
     }
 
     fn save_projection_snapshot(&mut self, snapshot: &ProjectionSnapshot) -> Result<()> {

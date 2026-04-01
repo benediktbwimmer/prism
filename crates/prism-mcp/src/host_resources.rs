@@ -1133,7 +1133,7 @@ pub(crate) fn session_task_view(
         )
     });
     let context = session_task_context_summary(
-        task,
+        coordination_task_id.as_deref(),
         replay_event_count,
         coordination_task.is_some(),
         &blockers,
@@ -1160,7 +1160,7 @@ struct SessionTaskContextSummary {
 }
 
 fn session_task_context_summary(
-    task: &crate::session_state::SessionTaskState,
+    coordination_task_id: Option<&str>,
     replay_event_count: usize,
     has_coordination_task: bool,
     blockers: &[prism_coordination::TaskBlocker],
@@ -1179,14 +1179,11 @@ fn session_task_context_summary(
         .iter()
         .any(|blocker| blocker.kind == prism_coordination::BlockerKind::StaleRevision)
     {
-        let repair_action =
-            task.coordination_task_id
-                .as_ref()
-                .map(|task_id| SessionRepairActionView {
-                    tool: "prism_task_brief".to_string(),
-                    input: json!({ "taskId": task_id }),
-                    label: "Inspect live blockers for this stale coordination task.".to_string(),
-                });
+        let repair_action = coordination_task_id.map(|task_id| SessionRepairActionView {
+            tool: "prism_task_brief".to_string(),
+            input: json!({ "taskId": task_id }),
+            label: "Inspect live blockers for this stale coordination task.".to_string(),
+        });
         return SessionTaskContextSummary {
             status: "stale",
             summary: "Current task is bound to a stale coordination revision and may reflect older workspace state."
@@ -1221,12 +1218,7 @@ fn session_task_context_summary(
             }),
         };
     }
-    if replay_event_count == 0
-        && task
-            .coordination_task_id
-            .as_ref()
-            .is_some_and(|_| !has_coordination_task)
-    {
+    if replay_event_count == 0 && coordination_task_id.is_some() && !has_coordination_task {
         return SessionTaskContextSummary {
             status: "detached",
             summary: "Current task still references a coordination task that is no longer present in the live workspace context."

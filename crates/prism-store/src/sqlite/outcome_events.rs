@@ -669,7 +669,7 @@ fn outcome_result_key(result: OutcomeResult) -> String {
 }
 
 fn actor_key(actor: &EventActor) -> String {
-    match actor {
+    match actor.canonical_identity_actor() {
         EventActor::User => "User".to_string(),
         EventActor::Agent => "Agent".to_string(),
         EventActor::System => "System".to_string(),

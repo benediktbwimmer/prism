@@ -262,6 +262,26 @@ impl Store for MemoryStore {
             }))
     }
 
+    fn load_projection_snapshot_without_co_change(
+        &mut self,
+    ) -> anyhow::Result<Option<prism_projections::ProjectionSnapshot>> {
+        Ok(self
+            .projection_snapshot
+            .clone()
+            .map(|snapshot| prism_projections::ProjectionSnapshot {
+                co_change_by_lineage: Vec::new(),
+                validation_by_lineage: snapshot.validation_by_lineage,
+                curated_concepts: snapshot.curated_concepts,
+                concept_relations: snapshot.concept_relations,
+            }))
+    }
+
+    fn has_derived_projection_snapshot(&mut self) -> anyhow::Result<bool> {
+        Ok(self.projection_snapshot.as_ref().is_some_and(|snapshot| {
+            !snapshot.co_change_by_lineage.is_empty() || !snapshot.validation_by_lineage.is_empty()
+        }))
+    }
+
     fn save_projection_snapshot(
         &mut self,
         snapshot: &prism_projections::ProjectionSnapshot,

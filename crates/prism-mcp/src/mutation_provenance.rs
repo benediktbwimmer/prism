@@ -18,7 +18,7 @@ pub(crate) struct MutationProvenance {
 impl MutationProvenance {
     pub(crate) fn fallback(workspace: Option<&WorkspaceSession>, session: &SessionState) -> Self {
         Self {
-            actor: EventActor::Agent,
+            actor: EventActor::Agent.canonical_identity_actor(),
             execution_context: execution_context(workspace, session, None),
         }
     }

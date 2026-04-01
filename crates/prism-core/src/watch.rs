@@ -473,6 +473,7 @@ fn refresh_prism_snapshot_with_guard(
                 })
                 .unwrap_or(SharedRuntimeBackend::Disabled),
             hydrate_persisted_projections: false,
+            hydrate_persisted_co_change: true,
         },
     )?;
     indexer.shared_runtime_materializer = shared_runtime_materializer;

@@ -512,6 +512,8 @@ pub struct WorkspaceSession {
     pub(crate) store: Arc<Mutex<SqliteStore>>,
     pub(crate) cold_query_store: Arc<Mutex<SqliteStore>>,
     pub(crate) shared_runtime: SharedRuntimeBackend,
+    pub(crate) hydrate_persisted_projections: bool,
+    pub(crate) hydrate_persisted_co_change: bool,
     pub(crate) shared_runtime_store: Option<Arc<Mutex<SharedRuntimeStore>>>,
     pub(crate) refresh_lock: Arc<Mutex<()>>,
     pub(crate) refresh_state: Arc<WorkspaceRefreshState>,
@@ -1041,6 +1043,7 @@ impl WorkspaceSession {
                     },
                 ),
                 hydrate_persisted_projections: false,
+                hydrate_persisted_co_change: true,
             },
         )?;
         indexer.shared_runtime_materializer = self.shared_runtime_materializer.clone();
@@ -1278,7 +1281,20 @@ impl WorkspaceSession {
         let layout = discover_layout(&self.root)?;
         sync_root_nodes(&mut graph, &layout);
         resolve_graph_edges(&mut graph, None);
-        let local_projection_snapshot = store.load_projection_snapshot()?;
+        let local_projection_snapshot = if self.hydrate_persisted_projections {
+            store.load_projection_snapshot()?
+        } else if self.hydrate_persisted_co_change {
+            store.load_projection_snapshot()?
+        } else {
+            store.load_projection_snapshot_without_co_change()?
+        };
+        let local_has_derived_projection_snapshot = if self.hydrate_persisted_projections
+            || self.hydrate_persisted_co_change
+        {
+            local_projection_snapshot.is_some()
+        } else {
+            store.has_derived_projection_snapshot()?
+        };
         let shared_runtime_aliases_workspace_store = self
             .shared_runtime
             .aliases_sqlite_path(&cache_path(&self.root)?);
@@ -1294,13 +1310,13 @@ impl WorkspaceSession {
         };
         let mut history = store
             .load_history_snapshot_with_options(
-                local_projection_snapshot.is_none() && shared_projection_snapshot.is_none(),
+                !local_has_derived_projection_snapshot && shared_projection_snapshot.is_none(),
             )?
             .map(HistoryStore::from_snapshot)
             .unwrap_or_else(HistoryStore::new);
         history.seed_nodes(graph.all_nodes().map(|node| node.id.clone()));
         let outcomes = if shared_runtime_aliases_workspace_store {
-            if local_projection_snapshot.is_some() || shared_projection_snapshot.is_some() {
+            if local_has_derived_projection_snapshot || shared_projection_snapshot.is_some() {
                 store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
             } else {
                 store.load_outcome_snapshot()?
@@ -1309,7 +1325,7 @@ impl WorkspaceSession {
             let mut shared_store = shared_runtime_store
                 .lock()
                 .expect("shared runtime store lock poisoned");
-            if local_projection_snapshot.is_some() || shared_projection_snapshot.is_some() {
+            if local_has_derived_projection_snapshot || shared_projection_snapshot.is_some() {
                 prism_store::ColdQueryStore::load_recent_outcome_snapshot(
                     &mut *shared_store,
                     HOT_OUTCOME_HYDRATION_LIMIT,
@@ -1317,7 +1333,7 @@ impl WorkspaceSession {
             } else {
                 prism_store::ColdQueryStore::load_outcome_snapshot(&mut *shared_store)?
             }
-        } else if local_projection_snapshot.is_some() || shared_projection_snapshot.is_some() {
+        } else if local_has_derived_projection_snapshot || shared_projection_snapshot.is_some() {
             store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
         } else {
             store.load_outcome_snapshot()?
