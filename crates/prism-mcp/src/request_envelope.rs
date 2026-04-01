@@ -165,6 +165,14 @@ pub(crate) fn current_request_envelope() -> Option<RequestEnvelopeSnapshot> {
         .ok()
 }
 
+pub(crate) fn current_request_id() -> Option<String> {
+    let request = current_request_envelope()?;
+    request
+        .metadata()
+        .get("requestId")
+        .and_then(request_id_as_string)
+}
+
 pub(crate) fn current_specialized_request_payload() -> Option<Value> {
     CURRENT_MCP_REQUEST
         .try_with(|request| {
@@ -362,6 +370,16 @@ impl RequestEnvelopeSnapshot {
     fn mark_logged(&self) {
         register_delegated_request(&self.state.request_key);
         self.state.logged.store(true, Ordering::SeqCst);
+    }
+}
+
+fn request_id_as_string(value: &Value) -> Option<String> {
+    match value {
+        Value::Null => None,
+        Value::String(value) => Some(value.clone()),
+        Value::Number(value) => Some(value.to_string()),
+        Value::Bool(value) => Some(value.to_string()),
+        other => serde_json::to_string(other).ok(),
     }
 }
 

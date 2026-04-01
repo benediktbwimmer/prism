@@ -158,4 +158,33 @@ mod tests {
         assert_eq!(selected.profile, "worker");
         assert_eq!(file.active_profile.as_deref(), Some("owner"));
     }
+
+    #[test]
+    fn upsert_profile_without_activation_preserves_active_profile() {
+        let mut file = CredentialsFile {
+            version: 1,
+            active_profile: Some("owner".to_string()),
+            profiles: vec![CredentialProfile {
+                profile: "owner".to_string(),
+                authority_id: "local-daemon".to_string(),
+                principal_id: "principal:owner".to_string(),
+                credential_id: "credential:owner".to_string(),
+                principal_token: "token:owner".to_string(),
+            }],
+        };
+
+        file.upsert_profile(
+            CredentialProfile {
+                profile: "worker".to_string(),
+                authority_id: "local-daemon".to_string(),
+                principal_id: "principal:worker".to_string(),
+                credential_id: "credential:worker".to_string(),
+                principal_token: "token:worker".to_string(),
+            },
+            false,
+        );
+
+        assert_eq!(file.active_profile.as_deref(), Some("owner"));
+        assert_eq!(file.profiles.len(), 2);
+    }
 }

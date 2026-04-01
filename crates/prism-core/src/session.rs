@@ -1754,6 +1754,7 @@ impl WorkspaceSession {
     pub fn event_execution_context(
         &self,
         session_id: Option<&SessionId>,
+        request_id: Option<String>,
         credential_id: Option<&CredentialId>,
     ) -> EventExecutionContext {
         let context = coordination_persist_context_for_root(&self.root, session_id);
@@ -1763,6 +1764,7 @@ impl WorkspaceSession {
             branch_ref: context.branch_ref,
             session_id: context.session_id,
             instance_id: context.instance_id,
+            request_id,
             credential_id: credential_id.cloned(),
         }
     }

@@ -26,7 +26,7 @@ pub(crate) fn handle_auth_command(root: &Path, command: AuthCommand) -> Result<(
                 role,
             })?;
             let mut credentials = CredentialsFile::load(&credentials_path)?;
-            let stored = store_issued_credential(&mut credentials, &issued, None, true);
+            let stored = store_issued_credential(&mut credentials, &issued, None, false);
             credentials.save(&credentials_path)?;
             println!("initialized principal registry");
             print_issued_credential(&stored, &issued);
@@ -74,9 +74,7 @@ pub(crate) fn handle_principal_command(root: &Path, command: PrincipalCommand) -
         } => {
             let (session, credentials_path) = load_auth_session(root)?;
             let mut credentials_file = CredentialsFile::load(&credentials_path)?;
-            let active = credentials_file
-                .set_active_by_selector(None, None, None)?
-                .clone();
+            let active = credentials_file.find_by_selector(None, None, None)?.clone();
             let authenticated = session.authenticate_principal_credential(
                 &CredentialId::new(active.credential_id.clone()),
                 &active.principal_token,
@@ -101,7 +99,7 @@ pub(crate) fn handle_principal_command(root: &Path, command: PrincipalCommand) -
                 },
             )?;
             let stored =
-                store_issued_credential(&mut credentials_file, &issued, profile.as_deref(), true);
+                store_issued_credential(&mut credentials_file, &issued, profile.as_deref(), false);
             credentials_file.save(&credentials_path)?;
             println!("minted principal");
             print_issued_credential(&stored, &issued);

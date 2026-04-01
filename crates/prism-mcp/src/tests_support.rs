@@ -29,6 +29,8 @@ use prism_store::Graph;
 #[derive(Debug, Clone)]
 pub(crate) struct MutationCredentialFixture {
     pub(crate) credential_id: String,
+    #[allow(dead_code)]
+    pub(crate) principal_id: String,
     pub(crate) principal_token: String,
 }
 
@@ -84,6 +86,7 @@ pub(crate) fn workspace_session_with_owner_credential(
         session,
         MutationCredentialFixture {
             credential_id: issued.credential.credential_id.0.to_string(),
+            principal_id: issued.principal.principal_id.0.to_string(),
             principal_token: issued.principal_token,
         },
     )

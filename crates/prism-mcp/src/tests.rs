@@ -4840,8 +4840,8 @@ fn promoted_curator_knowledge_feeds_validation_and_risk_queries() {
         )
         .unwrap();
     let task_id = task.state["id"].as_str().unwrap().to_string();
-    let artifact = host
-        .store_artifact(
+    let artifact = retry_on_transient_sqlite_lock(|| {
+        host.store_artifact(
             test_session(&host).as_ref(),
             PrismArtifactArgs {
                 action: ArtifactActionInput::Propose,
@@ -4852,7 +4852,8 @@ fn promoted_curator_knowledge_feeds_validation_and_risk_queries() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     let artifact_id = artifact.artifact_id.clone().unwrap();
 
     let before = host
@@ -5017,8 +5018,8 @@ pub fn alpha_consumer_two() {}
         )
         .unwrap();
     let task_id = task.state["id"].as_str().unwrap().to_string();
-    let artifact = host
-        .store_artifact(
+    let artifact = retry_on_transient_sqlite_lock(|| {
+        host.store_artifact(
             session.as_ref(),
             PrismArtifactArgs {
                 action: ArtifactActionInput::Propose,
@@ -5029,7 +5030,8 @@ pub fn alpha_consumer_two() {}
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     let artifact_id = artifact.artifact_id.clone().unwrap();
 
     host.store_contract(

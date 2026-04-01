@@ -6,6 +6,7 @@ use prism_ir::{
 use prism_memory::MemoryEvent;
 use prism_query::{ConceptEvent, ConceptRelationEvent, ContractEvent};
 
+use crate::request_envelope::current_request_id;
 use crate::session_state::SessionState;
 
 #[derive(Clone)]
@@ -90,19 +91,26 @@ fn execution_context(
     session: &SessionState,
     credential_id: Option<&CredentialId>,
 ) -> Option<EventExecutionContext> {
+    let request_id = current_request_id();
     workspace
         .map(|workspace| {
-            workspace.event_execution_context(Some(&session.session_id()), credential_id)
+            workspace.event_execution_context(
+                Some(&session.session_id()),
+                request_id.clone(),
+                credential_id,
+            )
         })
         .or_else(|| {
             if credential_id.is_none() {
                 Some(EventExecutionContext {
                     session_id: Some(session.session_id().0.to_string()),
+                    request_id: request_id.clone(),
                     ..EventExecutionContext::default()
                 })
             } else {
                 Some(EventExecutionContext {
                     session_id: Some(session.session_id().0.to_string()),
+                    request_id,
                     credential_id: credential_id.cloned(),
                     ..EventExecutionContext::default()
                 })

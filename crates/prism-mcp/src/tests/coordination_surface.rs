@@ -227,8 +227,8 @@ fn coordination_workflow_helpers_summarize_inbox_context_and_claim_preview() {
     let writer = QueryHost::with_session(index_workspace_session(&root).unwrap());
     let host = QueryHost::with_session(index_workspace_session(&root).unwrap());
 
-    let plan = writer
-        .store_coordination(
+    let plan = retry_on_runtime_sync_busy(|| {
+        writer.store_coordination(
             test_session(&writer).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
@@ -242,11 +242,12 @@ fn coordination_workflow_helpers_summarize_inbox_context_and_claim_preview() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     let plan_id = plan.state["id"].as_str().unwrap().to_string();
 
-    let task = writer
-        .store_coordination(
+    let task = retry_on_runtime_sync_busy(|| {
+        writer.store_coordination(
             test_session(&writer).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::TaskCreate,
@@ -264,11 +265,12 @@ fn coordination_workflow_helpers_summarize_inbox_context_and_claim_preview() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     let task_id = task.state["id"].as_str().unwrap().to_string();
 
-    writer
-        .store_claim(
+    retry_on_runtime_sync_busy(|| {
+        writer.store_claim(
             test_session(&writer).as_ref(),
             PrismClaimArgs {
                 action: ClaimActionInput::Acquire,
@@ -286,10 +288,11 @@ fn coordination_workflow_helpers_summarize_inbox_context_and_claim_preview() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
 
-    writer
-        .store_artifact(
+    retry_on_runtime_sync_busy(|| {
+        writer.store_artifact(
             test_session(&writer).as_ref(),
             PrismArtifactArgs {
                 action: ArtifactActionInput::Propose,
@@ -300,7 +303,8 @@ fn coordination_workflow_helpers_summarize_inbox_context_and_claim_preview() {
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
 
     let result = host
         .execute(

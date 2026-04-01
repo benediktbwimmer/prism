@@ -37,6 +37,7 @@ fn principal_meta(
             branch_ref: None,
             session_id: Some(session_id.to_string()),
             instance_id: None,
+            request_id: None,
             credential_id: None,
         }),
     }

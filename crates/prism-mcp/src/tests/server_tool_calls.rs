@@ -8,7 +8,7 @@ use crate::tests_support::{
     temp_workspace, workspace_session_with_owner_credential,
 };
 use prism_core::{index_workspace_session, MintPrincipalRequest};
-use prism_ir::{CredentialCapability, CredentialId, PrincipalId, PrincipalKind};
+use prism_ir::{CredentialCapability, CredentialId, EventActor, PrincipalId, PrincipalKind};
 
 #[tokio::test]
 async fn mcp_server_reports_actionable_tool_input_errors() {
@@ -498,6 +498,7 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
     let root = temp_workspace();
     let (session, credential) = workspace_session_with_owner_credential(&root);
     let server = PrismMcpServer::with_session(session);
+    let server_handle = server.clone();
     let (server_transport, client_transport) = tokio::io::duplex(4096);
     let server_task = tokio::spawn(async move { server.serve(server_transport).await });
     let mut client = IntoTransport::<rmcp::RoleClient, _, _>::into_transport(client_transport);
@@ -618,6 +619,38 @@ async fn mcp_server_executes_coordination_mutations_and_reads_via_prism_query() 
         .as_str()
         .unwrap()
         .to_string();
+
+    let events = server_handle.host.current_prism().coordination_events();
+    for (response, expected_request_id) in
+        [(&plan, "2"), (&task, "3"), (&claim, "4"), (&artifact, "5")]
+    {
+        let event_ids = response["result"]["eventIds"]
+            .as_array()
+            .expect("mutation should report event ids");
+        let event_id = event_ids
+            .first()
+            .and_then(|value| value.as_str())
+            .expect("mutation should report the primary event id");
+        let event = events
+            .iter()
+            .find(|event| event.meta.id.0 == event_id)
+            .expect("persisted coordination event should exist");
+        let EventActor::Principal(principal) = &event.meta.actor else {
+            panic!("expected principal actor, got {:?}", event.meta.actor);
+        };
+        assert_eq!(principal.principal_id.0, credential.principal_id);
+        assert!(!principal.authority_id.0.is_empty());
+        let context = event
+            .meta
+            .execution_context
+            .as_ref()
+            .expect("authenticated mutation should record execution context");
+        assert_eq!(context.request_id.as_deref(), Some(expected_request_id));
+        assert_eq!(
+            context.credential_id.as_ref().map(|value| value.0.as_str()),
+            Some(credential.credential_id.as_str())
+        );
+    }
 
     client
         .send(call_tool_request(
