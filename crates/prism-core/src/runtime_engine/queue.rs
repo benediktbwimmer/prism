@@ -46,6 +46,7 @@ pub struct WorkspaceRuntimeCommand {
     pub kind: WorkspaceRuntimeCommandKind,
     pub queue_class: WorkspaceRuntimeQueueClass,
     pub coalescing_key: WorkspaceRuntimeCoalescingKey,
+    pub paths: Vec<PathBuf>,
 }
 
 impl WorkspaceRuntimeCommand {
@@ -58,6 +59,21 @@ impl WorkspaceRuntimeCommand {
             kind,
             queue_class,
             coalescing_key,
+            paths: Vec::new(),
+        }
+    }
+
+    pub fn with_paths(
+        kind: WorkspaceRuntimeCommandKind,
+        queue_class: WorkspaceRuntimeQueueClass,
+        coalescing_key: WorkspaceRuntimeCoalescingKey,
+        paths: Vec<PathBuf>,
+    ) -> Self {
+        Self {
+            kind,
+            queue_class,
+            coalescing_key,
+            paths,
         }
     }
 }

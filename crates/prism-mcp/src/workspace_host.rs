@@ -85,7 +85,7 @@ impl WorkspaceRuntimeBinding {
         ));
         let _ = hydrate_persisted_workspace_state(&config);
         if workspace.needs_refresh() {
-            runtime.request_refresh();
+            runtime.request_refresh_with_paths(workspace.pending_refresh_paths());
         }
         diagnostics.request_refresh();
         Self {

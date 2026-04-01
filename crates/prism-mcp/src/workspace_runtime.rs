@@ -283,15 +283,16 @@ impl WorkspaceRuntime {
         }
     }
 
-    pub(crate) fn request_refresh(&self) {
+    pub(crate) fn request_refresh_with_paths(&self, paths: Vec<PathBuf>) {
         let _ = self
             .engine
             .lock()
             .expect("workspace runtime engine lock poisoned")
-            .enqueue_command(WorkspaceRuntimeCommand::new(
+            .enqueue_command(WorkspaceRuntimeCommand::with_paths(
                 WorkspaceRuntimeCommandKind::PreparePaths,
                 WorkspaceRuntimeQueueClass::FastPrepare,
                 WorkspaceRuntimeCoalescingKey::WorktreeContext,
+                paths,
             ));
         match self.wake.try_send(()) {
             Ok(()) | Err(TrySendError::Full(())) => {}
@@ -329,11 +330,7 @@ impl Drop for WorkspaceRuntime {
             .expect("workspace runtime handle lock poisoned")
             .take()
         {
-            let _ = thread::Builder::new()
-                .name("prism-workspace-runtime-join".to_string())
-                .spawn(move || {
-                    let _ = handle.join();
-                });
+            let _ = handle.join();
         }
     }
 }
@@ -1155,6 +1152,7 @@ impl QueryHost {
         let Some(binding) = self.workspace_runtime_binding() else {
             return Ok(());
         };
+        let workspace = binding.workspace();
         let runtime = binding.runtime();
         let diagnostics = binding.diagnostics();
         let config = binding.runtime_config();
@@ -1162,7 +1160,7 @@ impl QueryHost {
         if report.coordination_reloaded {
             let _ = self.publish_dashboard_coordination_update();
         }
-        runtime.request_refresh();
+        runtime.request_refresh_with_paths(workspace.pending_refresh_paths());
         diagnostics.request_refresh();
         Ok(())
     }
@@ -1176,7 +1174,7 @@ impl QueryHost {
         let diagnostics = binding.diagnostics();
         let config = binding.runtime_config();
         let Some(report) = try_sync_workspace_runtime_for_read(&config)? else {
-            runtime.request_refresh();
+            runtime.request_refresh_with_paths(workspace.pending_refresh_paths());
             diagnostics.request_refresh();
             workspace.record_runtime_refresh_observation_with_work(
                 "deferred",
@@ -1198,7 +1196,7 @@ impl QueryHost {
         }
         if report.deferred || (!workspace.needs_refresh() && workspace.is_fallback_check_due_now())
         {
-            runtime.request_refresh();
+            runtime.request_refresh_with_paths(workspace.pending_refresh_paths());
         }
         diagnostics.request_refresh();
         Ok(report)
@@ -1213,7 +1211,7 @@ impl QueryHost {
         let diagnostics = binding.diagnostics();
         let config = binding.runtime_config();
         let Some(report) = try_sync_workspace_runtime_for_mutation(&config)? else {
-            runtime.request_refresh();
+            runtime.request_refresh_with_paths(workspace.pending_refresh_paths());
             diagnostics.request_refresh();
             workspace.record_runtime_refresh_observation_with_work(
                 "deferred",
@@ -1226,7 +1224,7 @@ impl QueryHost {
             let _ = self.publish_dashboard_coordination_update();
         }
         if report.deferred {
-            runtime.request_refresh();
+            runtime.request_refresh_with_paths(workspace.pending_refresh_paths());
         }
         diagnostics.request_refresh();
         Ok(report)

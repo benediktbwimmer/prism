@@ -83,11 +83,7 @@ impl Drop for WorkspaceDiagnosticsRuntime {
             .expect("workspace diagnostics handle lock poisoned")
             .take()
         {
-            let _ = thread::Builder::new()
-                .name("prism-workspace-diagnostics-join".to_string())
-                .spawn(move || {
-                    let _ = handle.join();
-                });
+            let _ = handle.join();
         }
     }
 }

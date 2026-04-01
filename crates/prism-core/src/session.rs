@@ -635,6 +635,10 @@ impl WorkspaceSession {
         self.refresh_state.needs_refresh()
     }
 
+    pub fn pending_refresh_paths(&self) -> Vec<PathBuf> {
+        self.refresh_state.dirty_paths_snapshot()
+    }
+
     pub fn observed_fs_revision(&self) -> u64 {
         self.refresh_state.observed_fs_revision()
     }

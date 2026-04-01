@@ -88,7 +88,7 @@ impl WorkspaceRuntimeEngine {
                 .iter_mut()
                 .find(|existing| existing.coalescing_key == command.coalescing_key)
             {
-                *existing = command;
+                merge_command(existing, command);
                 return false;
             }
         }
@@ -164,6 +164,21 @@ impl WorkspaceRuntimeEngine {
         }
         self.recent_deltas.push_back(batch.clone());
         batch
+    }
+}
+
+fn merge_command(existing: &mut WorkspaceRuntimeCommand, incoming: WorkspaceRuntimeCommand) {
+    existing.kind = incoming.kind;
+    existing.queue_class = incoming.queue_class;
+    existing.coalescing_key = incoming.coalescing_key;
+    if incoming.paths.is_empty() {
+        return;
+    }
+    let mut seen = existing.paths.iter().cloned().collect::<BTreeSet<_>>();
+    for path in incoming.paths {
+        if seen.insert(path.clone()) {
+            existing.paths.push(path);
+        }
     }
 }
 
@@ -262,15 +277,17 @@ mod tests {
         let root = std::env::current_dir().expect("cwd");
         let context = WorkspaceRuntimeContext::from_root(&root);
         let mut engine = WorkspaceRuntimeEngine::new(context);
-        assert!(engine.enqueue_command(WorkspaceRuntimeCommand::new(
+        assert!(engine.enqueue_command(WorkspaceRuntimeCommand::with_paths(
             WorkspaceRuntimeCommandKind::PreparePaths,
             WorkspaceRuntimeQueueClass::FastPrepare,
             WorkspaceRuntimeCoalescingKey::WorktreeContext,
+            vec![PathBuf::from("src/lib.rs")],
         )));
-        assert!(!engine.enqueue_command(WorkspaceRuntimeCommand::new(
+        assert!(!engine.enqueue_command(WorkspaceRuntimeCommand::with_paths(
             WorkspaceRuntimeCommandKind::PreparePaths,
             WorkspaceRuntimeQueueClass::FastPrepare,
             WorkspaceRuntimeCoalescingKey::WorktreeContext,
+            vec![PathBuf::from("src/main.rs"), PathBuf::from("src/lib.rs")],
         )));
         let snapshot = engine.queue_snapshot();
         assert_eq!(snapshot.total_depth, 1);
@@ -279,6 +296,10 @@ mod tests {
             .start_next_command()
             .expect("queued command should start");
         assert_eq!(active.kind, WorkspaceRuntimeCommandKind::PreparePaths);
+        assert_eq!(
+            active.paths,
+            vec![PathBuf::from("src/lib.rs"), PathBuf::from("src/main.rs")]
+        );
         assert!(engine.has_pending_command_kind(WorkspaceRuntimeCommandKind::PreparePaths));
         engine.finish_active_command();
         assert!(!engine.has_pending_command_kind(WorkspaceRuntimeCommandKind::PreparePaths));
