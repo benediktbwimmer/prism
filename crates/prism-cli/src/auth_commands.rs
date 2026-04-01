@@ -100,12 +100,8 @@ pub(crate) fn handle_principal_command(root: &Path, command: PrincipalCommand) -
                     profile: parse_metadata_json(metadata_json.as_deref())?,
                 },
             )?;
-            let stored = store_issued_credential(
-                &mut credentials_file,
-                &issued,
-                profile.as_deref(),
-                true,
-            );
+            let stored =
+                store_issued_credential(&mut credentials_file, &issued, profile.as_deref(), true);
             credentials_file.save(&credentials_path)?;
             println!("minted principal");
             print_issued_credential(&stored, &issued);

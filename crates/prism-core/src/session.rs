@@ -1136,10 +1136,7 @@ impl WorkspaceSession {
                     let mut store = shared_runtime_store
                         .lock()
                         .expect("shared runtime store lock poisoned");
-                    prism_store::MaterializationStore::save_outcome_snapshot(
-                        &mut *store,
-                        &snapshot,
-                    )
+                    prism_store::MaterializationStore::save_outcome_snapshot(&mut *store, &snapshot)
                 })
         } else {
             self.checkpoint_materializer
@@ -1628,10 +1625,8 @@ impl WorkspaceSession {
                     "appendMemoryEventShared",
                 );
                 let persist_started = Instant::now();
-                let result = prism_store::EventJournalStore::append_memory_events(
-                    &mut *store,
-                    &[event],
-                );
+                let result =
+                    prism_store::EventJournalStore::append_memory_events(&mut *store, &[event]);
                 mutation_trace::record_phase(
                     "mutation.appendMemoryEvent",
                     json!({ "target": "sharedRuntime", "scope": scope }),
@@ -2779,7 +2774,8 @@ impl WorkspaceSession {
             "appendOutcomeWithAuxiliary",
         );
         let persist_started = Instant::now();
-        let event_result = self.append_outcome_event_to_persistent_stores(&mut store, &persisted_event);
+        let event_result =
+            self.append_outcome_event_to_persistent_stores(&mut store, &persisted_event);
         let memory_result = if event_result.is_ok() && !memory_events.is_empty() {
             store.append_memory_events(&memory_events).map(|_| ())
         } else {

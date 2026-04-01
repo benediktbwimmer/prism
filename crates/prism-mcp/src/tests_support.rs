@@ -122,10 +122,11 @@ where
             Err(error)
                 if error
                     .to_string()
-                    .contains("request admission busy for `refreshWorkspaceForMutation`") =>
+                    .contains("request admission busy for `refreshWorkspaceForMutation`")
+                    || is_transient_sqlite_lock(&error) =>
             {
                 last_error = Some(error);
-                thread::sleep(Duration::from_millis(20));
+                thread::sleep(Duration::from_millis(100));
             }
             Err(error) => return Err(error),
         }

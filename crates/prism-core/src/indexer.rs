@@ -147,25 +147,27 @@ impl WorkspaceIndexer<SqliteStore> {
             } else {
                 shared_store.load_projection_knowledge_snapshot()?
             };
-            let base_local_projection_snapshot = local_projection_snapshot.clone().map(|snapshot| {
-                if options.hydrate_persisted_projections {
-                    snapshot
-                } else {
-                    projection_snapshot_without_knowledge(snapshot)
-                }
-            });
+            let base_local_projection_snapshot =
+                local_projection_snapshot.clone().map(|snapshot| {
+                    if options.hydrate_persisted_projections {
+                        snapshot
+                    } else {
+                        projection_snapshot_without_knowledge(snapshot)
+                    }
+                });
             let base_shared_projection_snapshot = if options.hydrate_persisted_projections {
                 shared_projection_snapshot.clone()
             } else {
                 None
             };
-            indexer.outcomes = if local_projection_snapshot.is_some() || shared_projection_snapshot.is_some() {
-                shared_store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
-            } else {
-                shared_store.load_outcome_snapshot()?
-            }
-            .map(OutcomeMemory::from_snapshot)
-            .unwrap_or_else(OutcomeMemory::new);
+            indexer.outcomes =
+                if local_projection_snapshot.is_some() || shared_projection_snapshot.is_some() {
+                    shared_store.load_recent_outcome_snapshot(HOT_OUTCOME_HYDRATION_LIMIT)?
+                } else {
+                    shared_store.load_outcome_snapshot()?
+                }
+                .map(OutcomeMemory::from_snapshot)
+                .unwrap_or_else(OutcomeMemory::new);
             indexer.projections = merged_projection_index(
                 base_local_projection_snapshot,
                 base_shared_projection_snapshot,
@@ -1225,7 +1227,8 @@ impl<S: Store> WorkspaceIndexer<S> {
             0
         } else {
             let persist_started = Instant::now();
-            self.store.commit_index_persist_batch(&self.graph, &local_batch)?;
+            self.store
+                .commit_index_persist_batch(&self.graph, &local_batch)?;
             let persist_ms = persist_started.elapsed().as_millis();
             info!(
                 root = %self.root.display(),
@@ -1248,7 +1251,8 @@ impl<S: Store> WorkspaceIndexer<S> {
                     &batch.outcome_events,
                     &[],
                 )?;
-                self.store.append_local_outcome_projection(&batch.outcome_events)?;
+                self.store
+                    .append_local_outcome_projection(&batch.outcome_events)?;
             }
         }
         if let Some(materializer) = deferred_materializer {

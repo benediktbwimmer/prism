@@ -17494,8 +17494,8 @@ pub mod beta;
         Some("demo::beta::helper")
     );
 
-    let plan = host
-        .store_coordination(
+    let plan = retry_on_transient_sqlite_lock(|| {
+        host.store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::PlanCreate,
@@ -17503,9 +17503,10 @@ pub mod beta;
                 task_id: None,
             },
         )
-        .unwrap();
-    let task = host
-        .store_coordination(
+    })
+    .unwrap();
+    let task = retry_on_transient_sqlite_lock(|| {
+        host.store_coordination(
             test_session(&host).as_ref(),
             PrismCoordinationArgs {
                 kind: CoordinationMutationKindInput::TaskCreate,
@@ -17522,7 +17523,8 @@ pub mod beta;
                 task_id: None,
             },
         )
-        .unwrap();
+    })
+    .unwrap();
     let task_id = task.state["id"].as_str().unwrap().to_string();
 
     let task_envelope = host

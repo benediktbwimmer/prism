@@ -73,12 +73,8 @@ impl ProxyMcpServer {
         upstream_uri: String,
         upstream_source: BridgeUpstreamSource,
     ) -> Result<Self> {
-        Self::connect_with_bridge_auth(
-            upstream_uri,
-            upstream_source,
-            BridgeAuthContext::disabled(),
-        )
-        .await
+        Self::connect_with_bridge_auth(upstream_uri, upstream_source, BridgeAuthContext::disabled())
+            .await
     }
 
     #[cfg(test)]
@@ -346,11 +342,14 @@ impl ServerHandler for ProxyMcpServer {
         _: RequestContext<RoleServer>,
     ) -> Result<ListResourcesResult, McpError> {
         let _request = self.activity.begin_request();
-        let mut result = self.call_upstream(request, "resources/list", |peer, request| async move {
-            peer.list_resources(request).await
-        })
-        .await?;
-        result.resources.push(self.bridge_auth.bridge_auth_resource());
+        let mut result = self
+            .call_upstream(request, "resources/list", |peer, request| async move {
+                peer.list_resources(request).await
+            })
+            .await?;
+        result
+            .resources
+            .push(self.bridge_auth.bridge_auth_resource());
         Ok(result)
     }
 
@@ -375,9 +374,9 @@ impl ServerHandler for ProxyMcpServer {
     ) -> Result<ReadResourceResult, McpError> {
         let _request = self.activity.begin_request();
         if request.uri == BRIDGE_AUTH_URI {
-            return Ok(ReadResourceResult::new(vec![
-                self.bridge_auth.bridge_auth_resource_contents()
-            ]));
+            return Ok(ReadResourceResult::new(vec![self
+                .bridge_auth
+                .bridge_auth_resource_contents()]));
         }
         self.call_upstream(request, "resources/read", |peer, request| async move {
             peer.read_resource(request).await
@@ -396,7 +395,9 @@ impl ServerHandler for ProxyMcpServer {
         }
         let request = if request.name.as_ref() == "prism_mutate" {
             let mut request = request;
-            request.arguments = self.bridge_auth.inject_mutation_credential(request.arguments)?;
+            request.arguments = self
+                .bridge_auth
+                .inject_mutation_credential(request.arguments)?;
             request
         } else {
             request

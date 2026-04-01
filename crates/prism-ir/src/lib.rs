@@ -22,9 +22,9 @@ pub use events::{EventActor, EventExecutionContext, EventMeta};
 pub use graph::{Edge, EdgeKind, EdgeOrigin, Node, NodeId, NodeKind, Skeleton, Subgraph};
 pub use history::{LineageEvent, LineageEventKind, LineageEvidence};
 pub use identity::{
-    AgentId, ArtifactId, ClaimId, CoordinationTaskId, CredentialId, EventId, LineageId,
-    PlanEdgeId, PlanId, PlanNodeId, PrincipalAuthorityId, PrincipalId, ReviewId, SessionId,
-    TaskId, WorkspaceRevision,
+    AgentId, ArtifactId, ClaimId, CoordinationTaskId, CredentialId, EventId, LineageId, PlanEdgeId,
+    PlanId, PlanNodeId, PrincipalAuthorityId, PrincipalId, ReviewId, SessionId, TaskId,
+    WorkspaceRevision,
 };
 pub use parse::{
     SymbolFingerprint, UnresolvedCall, UnresolvedImpl, UnresolvedImport, UnresolvedIntent,

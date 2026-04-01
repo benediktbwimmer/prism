@@ -1573,38 +1573,47 @@ fn migrate_worktree_cache_moves_local_state_out_of_shared_runtime_db() {
     assert!(local.load_workspace_tree_snapshot().unwrap().is_some());
     assert!(local.load_curator_snapshot().unwrap().is_some());
     assert!(local.load_inference_snapshot().unwrap().is_some());
-    assert_eq!(
-        local.load_memory_events().unwrap(),
-        vec![local_event]
-    );
+    assert_eq!(local.load_memory_events().unwrap(), vec![local_event]);
     assert_eq!(
         local.load_episodic_snapshot().unwrap().unwrap().entries,
         vec![local_entry]
     );
     let local_projection = local.load_projection_snapshot().unwrap().unwrap();
     assert_eq!(local_projection.curated_concepts.len(), 1);
-    assert_eq!(local_projection.curated_concepts[0].scope, ConceptScope::Local);
+    assert_eq!(
+        local_projection.curated_concepts[0].scope,
+        ConceptScope::Local
+    );
     assert_eq!(local_projection.concept_relations.len(), 1);
-    assert_eq!(local_projection.concept_relations[0].scope, ConceptScope::Local);
+    assert_eq!(
+        local_projection.concept_relations[0].scope,
+        ConceptScope::Local
+    );
 
     assert!(shared.load_graph().unwrap().is_none());
     assert!(shared.load_history_snapshot().unwrap().is_none());
     assert!(shared.load_workspace_tree_snapshot().unwrap().is_none());
     assert!(shared.load_curator_snapshot().unwrap().is_none());
     assert!(shared.load_inference_snapshot().unwrap().is_none());
-    assert_eq!(
-        shared.load_memory_events().unwrap(),
-        vec![session_event]
-    );
+    assert_eq!(shared.load_memory_events().unwrap(), vec![session_event]);
     assert_eq!(
         shared.load_episodic_snapshot().unwrap().unwrap().entries,
         vec![session_entry]
     );
-    let shared_projection = shared.load_projection_knowledge_snapshot().unwrap().unwrap();
+    let shared_projection = shared
+        .load_projection_knowledge_snapshot()
+        .unwrap()
+        .unwrap();
     assert_eq!(shared_projection.curated_concepts.len(), 1);
-    assert_eq!(shared_projection.curated_concepts[0].scope, ConceptScope::Session);
+    assert_eq!(
+        shared_projection.curated_concepts[0].scope,
+        ConceptScope::Session
+    );
     assert_eq!(shared_projection.concept_relations.len(), 1);
-    assert_eq!(shared_projection.concept_relations[0].scope, ConceptScope::Session);
+    assert_eq!(
+        shared_projection.concept_relations[0].scope,
+        ConceptScope::Session
+    );
 
     let _ = std::fs::remove_file(local_path);
     let _ = std::fs::remove_file(shared_path);
@@ -1624,7 +1633,9 @@ fn migrate_worktree_cache_rebuilds_local_outcome_projection_from_shared_runtime(
             causation: None,
             execution_context: None,
         },
-        anchors: vec![prism_ir::AnchorRef::Lineage(LineageId::new("lineage:outcome"))],
+        anchors: vec![prism_ir::AnchorRef::Lineage(LineageId::new(
+            "lineage:outcome",
+        ))],
         kind: prism_memory::OutcomeKind::FailureObserved,
         result: prism_memory::OutcomeResult::Failure,
         summary: "migrated outcome".to_string(),
@@ -1641,14 +1652,19 @@ fn migrate_worktree_cache_rebuilds_local_outcome_projection_from_shared_runtime(
     assert_eq!(
         local
             .load_projection_outcome_event_ids(&OutcomeRecallQuery {
-                anchors: vec![prism_ir::AnchorRef::Lineage(LineageId::new("lineage:outcome"))],
+                anchors: vec![prism_ir::AnchorRef::Lineage(LineageId::new(
+                    "lineage:outcome"
+                ))],
                 ..OutcomeRecallQuery::default()
             })
             .unwrap(),
         vec![event.meta.id.clone()]
     );
     assert_eq!(
-        shared.load_task_replay(&TaskId::new("task:migration")).unwrap().events,
+        shared
+            .load_task_replay(&TaskId::new("task:migration"))
+            .unwrap()
+            .events,
         vec![event]
     );
 
@@ -1663,7 +1679,6 @@ fn temp_sqlite_path(prefix: &str) -> PathBuf {
         .as_nanos();
     std::env::temp_dir().join(format!("{prefix}-{nanos}.db"))
 }
-
 
 #[test]
 fn sqlite_store_round_trips_workspace_tree_snapshot() {

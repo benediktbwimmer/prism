@@ -1,15 +1,14 @@
-use std::path::Path;
 use std::collections::HashSet;
+use std::path::Path;
 
 use crate::shared_runtime_backend::SharedRuntimeBackend;
 use anyhow::{bail, Result};
 use prism_ir::EventId;
 use prism_store::{
-    AuxiliaryPersistBatch, ColdQueryStore, CoordinationCheckpointStore,
-    CoordinationEventStream, CoordinationJournal, CoordinationPersistBatch,
-    CoordinationPersistContext, CoordinationPersistResult, EventJournalStore, Graph,
-    IndexPersistBatch, MaterializationStore, SnapshotRevisions, SqliteStore, Store,
-    WorkspaceTreeSnapshot,
+    AuxiliaryPersistBatch, ColdQueryStore, CoordinationCheckpointStore, CoordinationEventStream,
+    CoordinationJournal, CoordinationPersistBatch, CoordinationPersistContext,
+    CoordinationPersistResult, EventJournalStore, Graph, IndexPersistBatch, MaterializationStore,
+    SnapshotRevisions, SqliteStore, Store, WorkspaceTreeSnapshot,
 };
 
 pub(crate) enum SharedRuntimeStore {
@@ -64,7 +63,9 @@ impl SharedRuntimeStore {
         &mut self,
     ) -> Result<Option<prism_projections::ProjectionSnapshot>> {
         match self {
-            Self::Sqlite(store) => <SqliteStore as Store>::load_projection_knowledge_snapshot(store),
+            Self::Sqlite(store) => {
+                <SqliteStore as Store>::load_projection_knowledge_snapshot(store)
+            }
         }
     }
 
@@ -146,7 +147,9 @@ impl ColdQueryStore for SharedRuntimeStore {
         include_events: bool,
     ) -> Result<Option<prism_history::HistorySnapshot>> {
         match self {
-            Self::Sqlite(store) => <SqliteStore as Store>::load_history_snapshot_with_options(store, include_events),
+            Self::Sqlite(store) => {
+                <SqliteStore as Store>::load_history_snapshot_with_options(store, include_events)
+            }
         }
     }
 
@@ -161,7 +164,9 @@ impl ColdQueryStore for SharedRuntimeStore {
         limit: usize,
     ) -> Result<Option<prism_memory::OutcomeMemorySnapshot>> {
         match self {
-            Self::Sqlite(store) => <SqliteStore as Store>::load_recent_outcome_snapshot(store, limit),
+            Self::Sqlite(store) => {
+                <SqliteStore as Store>::load_recent_outcome_snapshot(store, limit)
+            }
         }
     }
 
@@ -249,7 +254,9 @@ impl MaterializationStore for SharedRuntimeStore {
     ) -> Result<()> {
         match self {
             Self::Sqlite(store) => {
-                <SqliteStore as Store>::save_history_snapshot_with_co_change_deltas(store, snapshot, deltas)
+                <SqliteStore as Store>::save_history_snapshot_with_co_change_deltas(
+                    store, snapshot, deltas,
+                )
             }
         }
     }
@@ -295,10 +302,7 @@ impl MaterializationStore for SharedRuntimeStore {
         }
     }
 
-    fn save_inference_snapshot(
-        &mut self,
-        snapshot: &prism_agent::InferenceSnapshot,
-    ) -> Result<()> {
+    fn save_inference_snapshot(&mut self, snapshot: &prism_agent::InferenceSnapshot) -> Result<()> {
         match self {
             Self::Sqlite(store) => <SqliteStore as Store>::save_inference_snapshot(store, snapshot),
         }
@@ -317,7 +321,9 @@ impl MaterializationStore for SharedRuntimeStore {
         snapshot: &prism_projections::ProjectionSnapshot,
     ) -> Result<()> {
         match self {
-            Self::Sqlite(store) => <SqliteStore as Store>::save_projection_snapshot(store, snapshot),
+            Self::Sqlite(store) => {
+                <SqliteStore as Store>::save_projection_snapshot(store, snapshot)
+            }
         }
     }
 
@@ -327,9 +333,11 @@ impl MaterializationStore for SharedRuntimeStore {
         validation_deltas: &[prism_projections::ValidationDelta],
     ) -> Result<()> {
         match self {
-            Self::Sqlite(store) => {
-                <SqliteStore as Store>::apply_projection_deltas(store, co_change_deltas, validation_deltas)
-            }
+            Self::Sqlite(store) => <SqliteStore as Store>::apply_projection_deltas(
+                store,
+                co_change_deltas,
+                validation_deltas,
+            ),
         }
     }
 
@@ -341,7 +349,9 @@ impl MaterializationStore for SharedRuntimeStore {
 
     fn save_workspace_tree_snapshot(&mut self, snapshot: &WorkspaceTreeSnapshot) -> Result<()> {
         match self {
-            Self::Sqlite(store) => <SqliteStore as Store>::save_workspace_tree_snapshot(store, snapshot),
+            Self::Sqlite(store) => {
+                <SqliteStore as Store>::save_workspace_tree_snapshot(store, snapshot)
+            }
         }
     }
 
@@ -370,19 +380,29 @@ impl MaterializationStore for SharedRuntimeStore {
         snapshot: &prism_ir::PrincipalRegistrySnapshot,
     ) -> Result<()> {
         match self {
-            Self::Sqlite(store) => <SqliteStore as Store>::save_principal_registry_snapshot(store, snapshot),
+            Self::Sqlite(store) => {
+                <SqliteStore as Store>::save_principal_registry_snapshot(store, snapshot)
+            }
         }
     }
 
     fn commit_auxiliary_persist_batch(&mut self, batch: &AuxiliaryPersistBatch) -> Result<()> {
         match self {
-            Self::Sqlite(store) => <SqliteStore as Store>::commit_auxiliary_persist_batch(store, batch),
+            Self::Sqlite(store) => {
+                <SqliteStore as Store>::commit_auxiliary_persist_batch(store, batch)
+            }
         }
     }
 
-    fn commit_index_persist_batch(&mut self, graph: &Graph, batch: &IndexPersistBatch) -> Result<()> {
+    fn commit_index_persist_batch(
+        &mut self,
+        graph: &Graph,
+        batch: &IndexPersistBatch,
+    ) -> Result<()> {
         match self {
-            Self::Sqlite(store) => <SqliteStore as Store>::commit_index_persist_batch(store, graph, batch),
+            Self::Sqlite(store) => {
+                <SqliteStore as Store>::commit_index_persist_batch(store, graph, batch)
+            }
         }
     }
 
@@ -440,7 +460,9 @@ impl CoordinationJournal for SharedRuntimeStore {
         &mut self,
     ) -> Result<Option<CoordinationPersistContext>> {
         match self {
-            Self::Sqlite(store) => <SqliteStore as Store>::load_latest_coordination_persist_context(store),
+            Self::Sqlite(store) => {
+                <SqliteStore as Store>::load_latest_coordination_persist_context(store)
+            }
         }
     }
 
@@ -449,7 +471,9 @@ impl CoordinationJournal for SharedRuntimeStore {
         batch: &CoordinationPersistBatch,
     ) -> Result<CoordinationPersistResult> {
         match self {
-            Self::Sqlite(store) => <SqliteStore as Store>::commit_coordination_persist_batch(store, batch),
+            Self::Sqlite(store) => {
+                <SqliteStore as Store>::commit_coordination_persist_batch(store, batch)
+            }
         }
     }
 }
@@ -460,7 +484,9 @@ impl CoordinationCheckpointStore for SharedRuntimeStore {
         snapshot: &prism_coordination::CoordinationSnapshot,
     ) -> Result<()> {
         match self {
-            Self::Sqlite(store) => <SqliteStore as Store>::save_coordination_compaction(store, snapshot),
+            Self::Sqlite(store) => {
+                <SqliteStore as Store>::save_coordination_compaction(store, snapshot)
+            }
         }
     }
 
@@ -477,7 +503,9 @@ impl CoordinationCheckpointStore for SharedRuntimeStore {
         read_model: &prism_coordination::CoordinationReadModel,
     ) -> Result<()> {
         match self {
-            Self::Sqlite(store) => <SqliteStore as Store>::save_coordination_read_model(store, read_model),
+            Self::Sqlite(store) => {
+                <SqliteStore as Store>::save_coordination_read_model(store, read_model)
+            }
         }
     }
 
@@ -485,7 +513,9 @@ impl CoordinationCheckpointStore for SharedRuntimeStore {
         &mut self,
     ) -> Result<Option<prism_coordination::CoordinationQueueReadModel>> {
         match self {
-            Self::Sqlite(store) => <SqliteStore as Store>::load_coordination_queue_read_model(store),
+            Self::Sqlite(store) => {
+                <SqliteStore as Store>::load_coordination_queue_read_model(store)
+            }
         }
     }
 
@@ -494,7 +524,9 @@ impl CoordinationCheckpointStore for SharedRuntimeStore {
         read_model: &prism_coordination::CoordinationQueueReadModel,
     ) -> Result<()> {
         match self {
-            Self::Sqlite(store) => <SqliteStore as Store>::save_coordination_queue_read_model(store, read_model),
+            Self::Sqlite(store) => {
+                <SqliteStore as Store>::save_coordination_queue_read_model(store, read_model)
+            }
         }
     }
 }

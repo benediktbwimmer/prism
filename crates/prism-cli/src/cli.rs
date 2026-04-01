@@ -111,6 +111,16 @@ pub enum McpCommand {
     Status,
     Endpoint,
     Cleanup,
+    Bridge {
+        #[arg(long, default_value_t = false)]
+        no_coordination: bool,
+        #[arg(long, default_value_t = false)]
+        internal_developer: bool,
+        #[arg(long = "shared-runtime-sqlite")]
+        shared_runtime_sqlite: Option<PathBuf>,
+        #[arg(long = "shared-runtime-uri")]
+        shared_runtime_uri: Option<String>,
+    },
     Start {
         #[arg(long, default_value_t = false)]
         no_coordination: bool,

@@ -1,9 +1,12 @@
 use std::collections::BTreeSet;
+use std::ffi::OsString;
 use std::fs;
 use std::fs::OpenOptions;
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
@@ -152,6 +155,18 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
         McpCommand::Status => status(&root),
         McpCommand::Endpoint => endpoint(&root),
         McpCommand::Cleanup => cleanup(&root),
+        McpCommand::Bridge {
+            no_coordination,
+            internal_developer,
+            shared_runtime_sqlite,
+            shared_runtime_uri,
+        } => bridge(
+            &root,
+            no_coordination,
+            internal_developer,
+            shared_runtime_sqlite,
+            shared_runtime_uri,
+        ),
         McpCommand::Start {
             no_coordination,
             internal_developer,
@@ -207,6 +222,30 @@ pub(crate) fn handle(root: &Path, command: McpCommand) -> Result<()> {
         McpCommand::Health => health(&root),
         McpCommand::Logs { lines } => logs(&root, lines),
     }
+}
+
+fn bridge(
+    root: &Path,
+    no_coordination: bool,
+    internal_developer: bool,
+    shared_runtime_sqlite: Option<PathBuf>,
+    shared_runtime_uri: Option<String>,
+) -> Result<()> {
+    if shared_runtime_sqlite.is_some() && shared_runtime_uri.is_some() {
+        bail!("configure either shared runtime sqlite or shared runtime uri, not both");
+    }
+
+    let paths = McpPaths::for_root(root)?;
+    let binary = prism_mcp_binary()?;
+    let args = bridge_exec_args(
+        root,
+        &paths,
+        no_coordination,
+        internal_developer,
+        shared_runtime_sqlite.as_deref(),
+        shared_runtime_uri.as_deref(),
+    );
+    exec_bridge(binary, &args)
 }
 
 fn status(root: &Path) -> Result<()> {
@@ -590,6 +629,58 @@ fn command_option_value(command: &str, option: &str) -> Option<String> {
     tokens
         .windows(2)
         .find_map(|window| (window[0] == option).then(|| window[1].to_string()))
+}
+
+fn bridge_exec_args(
+    root: &Path,
+    paths: &McpPaths,
+    no_coordination: bool,
+    internal_developer: bool,
+    shared_runtime_sqlite: Option<&Path>,
+    shared_runtime_uri: Option<&str>,
+) -> Vec<OsString> {
+    let mut args = vec![
+        OsString::from("--mode"),
+        OsString::from("bridge"),
+        OsString::from("--root"),
+        root.as_os_str().to_os_string(),
+        OsString::from("--http-uri-file"),
+        paths.uri_file.as_os_str().to_os_string(),
+    ];
+    if no_coordination {
+        args.push(OsString::from("--no-coordination"));
+    }
+    if internal_developer {
+        args.push(OsString::from("--internal-developer"));
+    }
+    if let Some(shared_runtime_sqlite) = shared_runtime_sqlite {
+        args.push(OsString::from("--shared-runtime-sqlite"));
+        args.push(shared_runtime_sqlite.as_os_str().to_os_string());
+    }
+    if let Some(shared_runtime_uri) = shared_runtime_uri {
+        args.push(OsString::from("--shared-runtime-uri"));
+        args.push(OsString::from(shared_runtime_uri));
+    }
+    args
+}
+
+#[cfg(unix)]
+fn exec_bridge(binary: PathBuf, args: &[OsString]) -> Result<()> {
+    let error = Command::new(&binary).args(args).exec();
+    Err(error).with_context(|| format!("failed to exec bridge via {}", binary.display()))
+}
+
+#[cfg(not(unix))]
+fn exec_bridge(binary: PathBuf, args: &[OsString]) -> Result<()> {
+    let status = Command::new(&binary)
+        .args(args)
+        .status()
+        .with_context(|| format!("failed to spawn bridge via {}", binary.display()))?;
+    if status.success() {
+        Ok(())
+    } else {
+        bail!("bridge exited with status {status}");
+    }
 }
 
 fn prism_mcp_binary() -> Result<PathBuf> {
@@ -1707,6 +1798,51 @@ mod tests {
             Some("/tmp/uri")
         );
         assert_eq!(command_option_value(command, "--missing"), None);
+    }
+
+    #[test]
+    fn bridge_exec_args_include_required_bridge_flags() {
+        let root = temp_root("bridge-exec-args");
+        let paths = McpPaths::for_root(&root).unwrap();
+        let args = bridge_exec_args(&root, &paths, false, true, None, None)
+            .into_iter()
+            .map(|arg| arg.to_string_lossy().to_string())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            args,
+            vec![
+                "--mode".to_string(),
+                "bridge".to_string(),
+                "--root".to_string(),
+                root.display().to_string(),
+                "--http-uri-file".to_string(),
+                paths.uri_file.display().to_string(),
+                "--internal-developer".to_string(),
+            ]
+        );
+        fs::remove_dir_all(root).ok();
+    }
+
+    #[test]
+    fn bridge_exec_args_forward_shared_runtime_selection() {
+        let root = temp_root("bridge-exec-shared-runtime");
+        let paths = McpPaths::for_root(&root).unwrap();
+        let sqlite = root.join("shared-runtime.db");
+        let args = bridge_exec_args(&root, &paths, true, false, Some(sqlite.as_path()), None)
+            .into_iter()
+            .map(|arg| arg.to_string_lossy().to_string())
+            .collect::<Vec<_>>();
+
+        assert!(args.windows(2).any(|window| {
+            window
+                == [
+                    "--shared-runtime-sqlite".to_string(),
+                    sqlite.display().to_string(),
+                ]
+        }));
+        assert!(args.contains(&"--no-coordination".to_string()));
+        fs::remove_dir_all(root).ok();
     }
 
     #[test]

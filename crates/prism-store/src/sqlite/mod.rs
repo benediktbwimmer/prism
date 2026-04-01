@@ -37,7 +37,9 @@ use std::time::{Duration, Instant};
 use anyhow::{anyhow, Result};
 use prism_agent::InferredEdgeRecord;
 use prism_ir::EventId;
-use prism_memory::{EpisodicMemorySnapshot, OutcomeEvent, OutcomeMemorySnapshot, OutcomeRecallQuery};
+use prism_memory::{
+    EpisodicMemorySnapshot, OutcomeEvent, OutcomeMemorySnapshot, OutcomeRecallQuery,
+};
 use prism_projections::{ConceptPacket, ConceptRelation, ConceptRelationKind};
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension, Transaction};
 use tracing::info;
@@ -178,10 +180,7 @@ impl SqliteStore {
         Ok(inserted)
     }
 
-    pub fn save_shared_outcome_snapshot(
-        &mut self,
-        snapshot: &OutcomeMemorySnapshot,
-    ) -> Result<()> {
+    pub fn save_shared_outcome_snapshot(&mut self, snapshot: &OutcomeMemorySnapshot) -> Result<()> {
         let outcome_cache = self.outcome_snapshot_cache.clone();
         let tx = self.conn.transaction()?;
         let (_, current) = current_outcome_snapshot_tx(&tx, &outcome_cache)?;

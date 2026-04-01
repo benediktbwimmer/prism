@@ -337,8 +337,8 @@ async fn stdio_proxy_can_adopt_local_profile_and_mutate_without_explicit_credent
         rmcp::model::ResourceContents::TextResourceContents { text, .. } => text.as_str(),
         other => panic!("expected textual bridge auth resource, got {other:?}"),
     };
-    let bridge_auth_payload =
-        serde_json::from_str::<Value>(bridge_auth_text).expect("bridge auth resource should be valid json");
+    let bridge_auth_payload = serde_json::from_str::<Value>(bridge_auth_text)
+        .expect("bridge auth resource should be valid json");
     assert_eq!(bridge_auth_payload["status"], "bound");
     assert_eq!(bridge_auth_payload["profile"], "agent-a");
 
@@ -398,7 +398,8 @@ async fn stdio_proxy_keeps_bound_bridge_auth_across_long_daemon_restart_gap() {
         .expect("bridge credentials should save");
 
     let uri_file = root.join("bridge-uri.txt");
-    let first_upstream = PrismMcpServer::with_session_and_features(workspace, PrismMcpFeatures::full());
+    let first_upstream =
+        PrismMcpServer::with_session_and_features(workspace, PrismMcpFeatures::full());
     let (first_uri, first_upstream_task) = spawn_http_upstream(first_upstream).await;
     fs::write(&uri_file, format!("{first_uri}\n")).expect("uri file should be written");
 

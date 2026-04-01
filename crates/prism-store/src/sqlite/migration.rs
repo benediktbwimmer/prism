@@ -1,10 +1,12 @@
 use std::path::Path;
+use std::thread;
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use prism_memory::{EpisodicMemorySnapshot, MemoryScope, OutcomeEvent};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, ErrorCode, OptionalExtension};
 use serde::{de::DeserializeOwned, Serialize};
-use tracing::info;
+use tracing::{info, warn};
 
 use super::outcome_events::{append_local_projection_tx, LOCAL_OUTCOME_PROJECTION_LIMIT};
 use super::{configure_connection, schema};
@@ -35,6 +37,9 @@ const LOCAL_METADATA_KEYS: &[&str] = &[
     "history:legacy_co_change_retired",
     "revision:inference",
 ];
+const SQLITE_LOCK_RETRY_ATTEMPTS: usize = 50;
+const SQLITE_LOCK_RETRY_DELAY: Duration = Duration::from_millis(100);
+
 #[derive(Default)]
 struct MigrationStats {
     copied_local_rows: usize,
@@ -106,11 +111,34 @@ pub fn migrate_worktree_cache_from_shared_runtime(
     if shared_has_local_state
         && (copied_local_state || database_has_local_semantic_state(&tx, "main")?)
     {
-        scrub_shared_local_state(&tx, &mut stats)?;
+        if let Err(error) = scrub_shared_local_state(&tx, &mut stats) {
+            if is_transient_sqlite_lock_anyhow(&error) {
+                warn!(
+                    worktree_cache_path = %worktree_path.display(),
+                    shared_runtime_path = %shared_path.display(),
+                    error = %error,
+                    "skipping scrub of shared local semantic state because the shared runtime is busy"
+                );
+            } else {
+                return Err(error);
+            }
+        }
     }
     if shared_has_outcomes && database_has_local_outcome_projection(&tx, "main")? {
-        stats.scrubbed_shared_outcome_anchors +=
-            delete_all_rows(&tx, ATTACHED_SHARED_DB, "outcome_event_anchor")?;
+        match delete_all_rows(&tx, ATTACHED_SHARED_DB, "outcome_event_anchor") {
+            Ok(removed) => {
+                stats.scrubbed_shared_outcome_anchors += removed;
+            }
+            Err(error) if is_transient_sqlite_lock_anyhow(&error) => {
+                warn!(
+                    worktree_cache_path = %worktree_path.display(),
+                    shared_runtime_path = %shared_path.display(),
+                    error = %error,
+                    "skipping scrub of shared outcome anchors because the shared runtime is busy"
+                );
+            }
+            Err(error) => return Err(error),
+        }
     }
 
     tx.commit()?;
@@ -171,18 +199,16 @@ fn copy_local_state(conn: &Connection, stats: &mut MigrationStats) -> Result<()>
         "json_extract(payload, '$.scope') = 'local'",
     )?;
     for key in LOCAL_SNAPSHOT_KEYS {
-        stats.copied_local_snapshots += copy_snapshot_if_present(conn, ATTACHED_SHARED_DB, "main", key)?;
+        stats.copied_local_snapshots +=
+            copy_snapshot_if_present(conn, ATTACHED_SHARED_DB, "main", key)?;
     }
     stats.copied_local_snapshots += copy_split_episodic_snapshot(conn)?;
     for key in LOCAL_METADATA_KEYS {
-        stats.copied_local_metadata += copy_metadata_if_present(conn, ATTACHED_SHARED_DB, "main", key)?;
+        stats.copied_local_metadata +=
+            copy_metadata_if_present(conn, ATTACHED_SHARED_DB, "main", key)?;
     }
-    stats.copied_local_metadata += copy_metadata_if_present(
-        conn,
-        ATTACHED_SHARED_DB,
-        "main",
-        "revision:workspace",
-    )?;
+    stats.copied_local_metadata +=
+        copy_metadata_if_present(conn, ATTACHED_SHARED_DB, "main", "revision:workspace")?;
     stats.copied_local_concepts += copy_filtered_rows(
         conn,
         "projection_curated_concept",
@@ -226,7 +252,8 @@ fn scrub_shared_local_state(conn: &Connection, stats: &mut MigrationStats) -> Re
         "json_extract(payload, '$.scope') = 'local'",
     )?;
     for key in LOCAL_SNAPSHOT_KEYS {
-        stats.scrubbed_local_snapshots += delete_snapshot_if_present(conn, ATTACHED_SHARED_DB, key)?;
+        stats.scrubbed_local_snapshots +=
+            delete_snapshot_if_present(conn, ATTACHED_SHARED_DB, key)?;
     }
     stats.scrubbed_local_snapshots += scrub_shared_episodic_snapshot(conn)?;
     for key in LOCAL_METADATA_KEYS {
@@ -281,7 +308,11 @@ fn database_has_local_semantic_state(conn: &Connection, db: &str) -> Result<bool
         }
     }
     if let Some(snapshot) = load_snapshot::<EpisodicMemorySnapshot>(conn, db, "episodic")? {
-        if snapshot.entries.iter().any(|entry| entry.scope == MemoryScope::Local) {
+        if snapshot
+            .entries
+            .iter()
+            .any(|entry| entry.scope == MemoryScope::Local)
+        {
             return Ok(true);
         }
     }
@@ -298,7 +329,8 @@ fn database_has_local_outcome_projection(conn: &Connection, db: &str) -> Result<
 }
 
 fn copy_split_episodic_snapshot(conn: &Connection) -> Result<usize> {
-    let Some(snapshot) = load_snapshot::<EpisodicMemorySnapshot>(conn, ATTACHED_SHARED_DB, "episodic")?
+    let Some(snapshot) =
+        load_snapshot::<EpisodicMemorySnapshot>(conn, ATTACHED_SHARED_DB, "episodic")?
     else {
         return Ok(0);
     };
@@ -314,7 +346,9 @@ fn copy_split_episodic_snapshot(conn: &Connection) -> Result<usize> {
         conn,
         "main",
         "episodic",
-        &EpisodicMemorySnapshot { entries: local_entries },
+        &EpisodicMemorySnapshot {
+            entries: local_entries,
+        },
     )?;
     Ok(1)
 }
@@ -346,7 +380,8 @@ fn load_recent_shared_outcome_events(
 }
 
 fn scrub_shared_episodic_snapshot(conn: &Connection) -> Result<usize> {
-    let Some(snapshot) = load_snapshot::<EpisodicMemorySnapshot>(conn, ATTACHED_SHARED_DB, "episodic")?
+    let Some(snapshot) =
+        load_snapshot::<EpisodicMemorySnapshot>(conn, ATTACHED_SHARED_DB, "episodic")?
     else {
         return Ok(0);
     };
@@ -383,17 +418,58 @@ fn copy_filtered_rows(
     predicate: &str,
 ) -> Result<usize> {
     let sql = format!("INSERT INTO {target} SELECT * FROM {source} WHERE {predicate}");
-    conn.execute(&sql, []).with_context(|| format!("failed to copy filtered rows for {table}"))
+    conn.execute(&sql, [])
+        .with_context(|| format!("failed to copy filtered rows for {table}"))
 }
 
 fn delete_all_rows(conn: &Connection, db: &str, table: &str) -> Result<usize> {
-    conn.execute(&format!("DELETE FROM {db}.{table}"), [])
+    execute_with_sqlite_lock_retry(|| conn.execute(&format!("DELETE FROM {db}.{table}"), []))
         .with_context(|| format!("failed to delete migrated rows from {db}.{table}"))
 }
 
 fn delete_where(conn: &Connection, db: &str, table: &str, predicate: &str) -> Result<usize> {
-    conn.execute(&format!("DELETE FROM {db}.{table} WHERE {predicate}"), [])
-        .with_context(|| format!("failed to delete filtered rows from {db}.{table}"))
+    execute_with_sqlite_lock_retry(|| {
+        conn.execute(&format!("DELETE FROM {db}.{table} WHERE {predicate}"), [])
+    })
+    .with_context(|| format!("failed to delete filtered rows from {db}.{table}"))
+}
+
+fn execute_with_sqlite_lock_retry(
+    mut op: impl FnMut() -> rusqlite::Result<usize>,
+) -> rusqlite::Result<usize> {
+    let mut last_error = None;
+    for _ in 0..SQLITE_LOCK_RETRY_ATTEMPTS {
+        match op() {
+            Ok(value) => return Ok(value),
+            Err(error) if is_transient_sqlite_lock(&error) => {
+                last_error = Some(error);
+                thread::sleep(SQLITE_LOCK_RETRY_DELAY);
+            }
+            Err(error) => return Err(error),
+        }
+    }
+    Err(last_error.expect("sqlite lock retry should capture the final error"))
+}
+
+fn is_transient_sqlite_lock(error: &rusqlite::Error) -> bool {
+    matches!(
+        error,
+        rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error {
+                code: ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked,
+                ..
+            },
+            _
+        )
+    )
+}
+
+fn is_transient_sqlite_lock_anyhow(error: &anyhow::Error) -> bool {
+    error.chain().any(|cause| {
+        cause
+            .downcast_ref::<rusqlite::Error>()
+            .is_some_and(is_transient_sqlite_lock)
+    })
 }
 
 fn table_has_rows(conn: &Connection, db: &str, table: &str) -> Result<bool> {

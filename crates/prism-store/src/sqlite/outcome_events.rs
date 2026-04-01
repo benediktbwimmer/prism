@@ -218,9 +218,7 @@ pub(super) fn load_events_by_ids(
     let placeholders = std::iter::repeat_n("?", event_ids.len())
         .collect::<Vec<_>>()
         .join(", ");
-    let sql = format!(
-        "SELECT payload FROM outcome_event_log WHERE event_id IN ({placeholders})"
-    );
+    let sql = format!("SELECT payload FROM outcome_event_log WHERE event_id IN ({placeholders})");
     let params = event_ids
         .iter()
         .map(|event_id| SqlValue::from(event_id.0.to_string()))
@@ -600,8 +598,10 @@ fn compact_local_projection_tx(tx: &Transaction<'_>, keep_limit: usize) -> Resul
         return Ok(0);
     }
     let mut deleted = 0;
-    let mut anchor_stmt = tx.prepare_cached("DELETE FROM outcome_event_anchor WHERE event_id = ?1")?;
-    let mut local_stmt = tx.prepare_cached("DELETE FROM outcome_event_local WHERE event_id = ?1")?;
+    let mut anchor_stmt =
+        tx.prepare_cached("DELETE FROM outcome_event_anchor WHERE event_id = ?1")?;
+    let mut local_stmt =
+        tx.prepare_cached("DELETE FROM outcome_event_local WHERE event_id = ?1")?;
     for event_id in stale_ids {
         deleted += anchor_stmt.execute(params![event_id.as_str()])?;
         local_stmt.execute(params![event_id.as_str()])?;
@@ -683,10 +683,12 @@ fn actor_key(actor: &EventActor) -> String {
 
 fn matches_outcome_query(event: &OutcomeEvent, query: &OutcomeRecallQuery) -> bool {
     if !query.anchors.is_empty()
-        && !query
-            .anchors
-            .iter()
-            .any(|anchor| event.anchors.iter().any(|candidate| anchor_key(candidate) == anchor_key(anchor)))
+        && !query.anchors.iter().any(|anchor| {
+            event
+                .anchors
+                .iter()
+                .any(|candidate| anchor_key(candidate) == anchor_key(anchor))
+        })
     {
         return false;
     }
@@ -707,10 +709,7 @@ fn matches_outcome_query(event: &OutcomeEvent, query: &OutcomeRecallQuery) -> bo
     if query.result.is_some_and(|result| event.result != result) {
         return false;
     }
-    if query
-        .since
-        .is_some_and(|since| event.meta.ts < since)
-    {
+    if query.since.is_some_and(|since| event.meta.ts < since) {
         return false;
     }
     if query
@@ -724,7 +723,11 @@ fn matches_outcome_query(event: &OutcomeEvent, query: &OutcomeRecallQuery) -> bo
 }
 
 fn event_task_id(event: &OutcomeEvent) -> Option<String> {
-    event.meta.correlation.as_ref().map(|task| task.0.to_string())
+    event
+        .meta
+        .correlation
+        .as_ref()
+        .map(|task| task.0.to_string())
 }
 
 fn changed_file_summary_values(changed_symbols: &[Value]) -> Vec<Value> {

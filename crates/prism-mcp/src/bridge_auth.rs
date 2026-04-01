@@ -6,9 +6,9 @@ use prism_core::{CredentialProfile, CredentialsFile, PrismPaths};
 use rmcp::model::{
     Annotated, CallToolResult, RawResource, Resource, ResourceContents, Tool, ToolAnnotations,
 };
+use rmcp::ErrorData as McpError;
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
-use rmcp::ErrorData as McpError;
 
 pub(crate) const BRIDGE_AUTH_URI: &str = "prism://bridge/auth";
 pub(crate) const BRIDGE_ADOPT_TOOL_NAME: &str = "prism_bridge_adopt";
@@ -72,7 +72,10 @@ impl BridgeAuthState {
     }
 
     pub(crate) fn bind(&self, binding: BridgeBinding) -> Result<BridgeBinding, McpError> {
-        let mut state = self.binding.write().expect("bridge auth state lock poisoned");
+        let mut state = self
+            .binding
+            .write()
+            .expect("bridge auth state lock poisoned");
         if let Some(existing) = state.as_ref() {
             if existing.profile.profile == binding.profile.profile
                 && existing.profile.principal_id == binding.profile.principal_id
@@ -218,7 +221,10 @@ impl BridgeAuthContext {
         tool
     }
 
-    pub(crate) fn handle_adopt(&self, arguments: Option<Map<String, Value>>) -> Result<CallToolResult, McpError> {
+    pub(crate) fn handle_adopt(
+        &self,
+        arguments: Option<Map<String, Value>>,
+    ) -> Result<CallToolResult, McpError> {
         let args = arguments
             .map(Value::Object)
             .unwrap_or_else(|| Value::Object(Map::new()));
